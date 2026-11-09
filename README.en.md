@@ -76,6 +76,10 @@ Extension**, without getting in the way of the official site.
   value range; you can also switch item category or mod group and fine-tune min/max values.
 - **Affix selector**: a quick-search popup next to each stat group finds affixes faster than the
   official dropdown.
+- **Drag stats between groups**: drag a stat row by its checkbox to reorder it within an official
+  stat group, or move it to another group.
+- **Tablets and waystones**: PoE 2 precursor tablet (per mechanic) and waystone (per tier)
+  affixes can be browsed and applied from the pane as well.
 
 ### 💰 Result enhancements
 
