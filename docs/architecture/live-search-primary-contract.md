@@ -380,10 +380,10 @@ Browser native WebSocket
 ### 10.2 政策來源 (Policy Provenance)
 
 - **Reconnect lifecycle 與 Pacing 政策**：
-  - **適配來源**：PoeXD Desktop `TradeSniper` production implementation (`liveSearchSession.ts`)。
+  - **適配來源**：PoeXD 桌面程式 `TradeSniper` 的線上搜尋 session 實作（桌面程式原始碼，不在本 repo）。
   - **非官方伺服器規定**：base delay 5s、max delay 120s、max retries 3 與 1500ms cooldown 為 **PoeXD 既有客戶端防護策略**，非官方網站伺服器協定或規定。
 - **WebSocket Wire Protocol**：
-  - **證據來源**：Phase 2A 官方網站實機 Runtime 稽核報告 (`docs/research/live-search-official-runtime-audit.md`)。
+  - **證據來源**：Phase 2A 官方網站實機 Runtime 稽核報告（內部研究筆記，未收錄於本 repo）。
   - 握手後第一筆訊息為 `{"auth": true}`（PoeXD 忽略，零 fetch 與零 render）。
   - 命中商品推播為 `{"result": "<JWT>", "count": 1}`（相容 legacy `new`）。
 
@@ -518,7 +518,7 @@ Browser native WebSocket
 ### 13.1 Upstream Lineage 與 Ownership 劃分
 
 - **PoeXD Upstream Lineage**：
-  - Rate header semantics derived from existing PoeXD production handling (`src/backend/platform/httpClient.ts` 與 `ui/src/service/trade/poe2/common.ts`), adapted to Extension ownership rather than duplicated wholesale.
+  - Rate header semantics derived from the PoeXD desktop app's production rate-limit handling (desktop source, not in this repo), adapted to Extension ownership rather than duplicated wholesale.
   - 沿用 GGG `limit:window:cooldown` / `used:windowLeft:cooldownLeft` 欄位語意與 `X-Rate-Limit-Rules` 動態 rule 探索機制；**不**搬入舊版 `90% usage 自動 pause`、`missing headers 固定 sleep 1 秒`、預設固定額度常數或 Vue `shallowReactive` `RateLimiter`。
 - **正式 Ownership 三層邊界**：
   - **`LiveSearchPrimaryRuntime`**：single FIFO pipeline owner + token / domain / render owner（唯一負責跨 token / 跨 subscription 的 FIFO pipeline queue 與排序權威、subscription 與 token 生命週期、source-scoped `pendingTokens` / `processedTokens` 去重、`/fetch` URL 組裝、JSON 驗證、Host render 交易與 `cumulativeRenderedTotal`）。

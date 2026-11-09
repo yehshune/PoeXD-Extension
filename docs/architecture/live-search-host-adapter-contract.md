@@ -9,7 +9,7 @@
 > - `entrypoints/main-world/host-types.ts`
 > - `utils/event-protocol-types.ts`
 > - `tests/official-livesearch-adapter.test.ts`  
->   **上游研究依據**：`docs/research/live-search-official-runtime-audit.md` (Phase 2A)
+>   **上游研究依據**：Phase 2A 官方網站實機 Runtime 稽核（內部研究筆記，未收錄於本 repo）
 
 ---
 
