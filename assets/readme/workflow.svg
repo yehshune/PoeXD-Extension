@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="wf-title wf-desc">
+  <title id="wf-title">PoeXD Extension 核心功能架構與工作流程</title>
+  <desc id="wf-desc">展示官方搜尋疊加、樹狀書籤同步與線上即時主控台三大核心架構的無縫運作機制。</desc>
+
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="wf-bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0E17"/>
+      <stop offset="100%" stop-color="#111625"/>
+    </linearGradient>
+
+    <!-- Card Gradients -->
+    <linearGradient id="col-card-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#182035"/>
+      <stop offset="100%" stop-color="#101524"/>
+    </linearGradient>
+
+    <!-- Flow Pipe Gradient -->
+    <linearGradient id="pipe-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+
+    <filter id="wf-card-shadow" x="-6%" y="-6%" width="112%" height="112%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <style>
+    .wf-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans TC", sans-serif; font-weight: 700; fill: #FFFFFF; }
+    .wf-sub { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans TC", sans-serif; font-weight: 600; fill: #E2E8F0; }
+    .wf-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans TC", sans-serif; font-weight: 400; fill: #94A3B8; }
+    .wf-mono { font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace; }
+  </style>
+
+  <!-- Outer Canvas Container -->
+  <rect width="1200" height="380" rx="20" fill="url(#wf-bg-grad)"/>
+  <rect width="1200" height="380" rx="20" fill="none" stroke="#232C44" stroke-width="2"/>
+
+  <!-- Top Connecting Workflow Bus / Pipe -->
+  <path d="M 220 54 L 980 54" stroke="#252F48" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 220 54 L 980 54" stroke="url(#pipe-grad)" stroke-width="2" stroke-linecap="round" stroke-dasharray="8 6"/>
+
+  <!-- COLUMN 1: Search & Criteria Overlay (translate 48 36) -->
+  <g transform="translate(48, 36)" filter="url(#wf-card-shadow)">
+    <!-- Column Card Outer -->
+    <rect width="344" height="308" rx="14" fill="url(#col-card-grad)"/>
+    <rect width="344" height="308" rx="14" fill="none" stroke="#2B3654" stroke-width="1.5"/>
+
+    <!-- Pillar Indicator Pin -->
+    <circle cx="172" cy="18" r="14" fill="#1E1B4B" stroke="#6366F1" stroke-width="2"/>
+    <text x="172" y="23" class="wf-mono" font-size="13" font-weight="700" fill="#A5B4FC" text-anchor="middle">01</text>
+
+    <!-- Header Section -->
+    <text x="172" y="60" class="wf-title" font-size="18" text-anchor="middle">搜尋與詞綴疊加</text>
+    <text x="172" y="80" class="wf-body" font-size="13" fill="#818CF8" text-anchor="middle">Criteria Overlay &amp; Templates</text>
+    <line x1="24" y1="94" x2="320" y2="94" stroke="#252E46" stroke-width="1"/>
+
+    <!-- Feature 1: Stat Group Templates -->
+    <g transform="translate(24, 110)">
+      <rect width="296" height="48" rx="8" fill="#131929" stroke="#212A42"/>
+      <text x="14" y="22" class="wf-sub" font-size="14">常用詞綴群組</text>
+      <text x="14" y="38" class="wf-body" font-size="12">將三抗、高血量等組合一鍵疊加套用</text>
+    </g>
+
+    <!-- Feature 2: Tier Selector -->
+    <g transform="translate(24, 168)">
+      <rect width="296" height="48" rx="8" fill="#131929" stroke="#212A42"/>
+      <text x="14" y="22" class="wf-sub" font-size="14">詞綴階級選擇器 (Tier Dropdown)</text>
+      <text x="14" y="38" class="wf-body" font-size="12">官方表單無縫整合，快速選擇 T1–T3 數值</text>
+    </g>
+
+    <!-- Feature 3: Gzip Query Hash Authority -->
+    <g transform="translate(24, 226)">
+      <rect width="296" height="56" rx="8" fill="#171A2E" stroke="#3730A3"/>
+      <text x="14" y="22" class="wf-sub" font-size="13" fill="#C7D2FE">權威 Search ID 架構</text>
+      <text x="14" y="42" class="wf-mono" font-size="11" fill="#94A3B8">依 Gzip Hash 解碼，絕不破壞原表單條件</text>
+    </g>
+  </g>
+
+  <!-- COLUMN 2: Hierarchical Bookmarks & Transfer (translate 428 36) -->
+  <g transform="translate(428, 36)" filter="url(#wf-card-shadow)">
+    <!-- Column Card Outer -->
+    <rect width="344" height="308" rx="14" fill="url(#col-card-grad)"/>
+    <rect width="344" height="308" rx="14" fill="none" stroke="#2B3654" stroke-width="1.5"/>
+
+    <!-- Pillar Indicator Pin -->
+    <circle cx="172" cy="18" r="14" fill="#451A03" stroke="#F59E0B" stroke-width="2"/>
+    <text x="172" y="23" class="wf-mono" font-size="13" font-weight="700" fill="#FDE68A" text-anchor="middle">02</text>
+
+    <!-- Header Section -->
+    <text x="172" y="60" class="wf-title" font-size="18" text-anchor="middle">階層書籤與跨平台傳輸</text>
+    <text x="172" y="80" class="wf-body" font-size="13" fill="#FBBF24" text-anchor="middle">Bookmarks &amp; TFT Transfer</text>
+    <line x1="24" y1="94" x2="320" y2="94" stroke="#252E46" stroke-width="1"/>
+
+    <!-- Feature 1: Folder Tree -->
+    <g transform="translate(24, 110)">
+      <rect width="296" height="48" rx="8" fill="#131929" stroke="#212A42"/>
+      <text x="14" y="22" class="wf-sub" font-size="14">樹狀資料夾組織</text>
+      <text x="14" y="38" class="wf-body" font-size="12">裝備部位、拓荒配裝自由分類與排序</text>
+    </g>
+
+    <!-- Feature 2: TFT Protocol -->
+    <g transform="translate(24, 168)">
+      <rect width="296" height="48" rx="8" fill="#131929" stroke="#212A42"/>
+      <text x="14" y="22" class="wf-sub" font-size="14">TFT Trade Extension 雙向互通</text>
+      <text x="14" y="38" class="wf-body" font-size="12">Base64 傳輸碼共享，一鍵匯入與差異合併</text>
+    </g>
+
+    <!-- Feature 3: Auto League -->
+    <g transform="translate(24, 226)">
+      <rect width="296" height="56" rx="8" fill="#241E15" stroke="#B45309"/>
+      <text x="14" y="22" class="wf-sub" font-size="13" fill="#FDE68A">Realm-Independent 跨分流</text>
+      <text x="14" y="42" class="wf-mono" font-size="11" fill="#D97706">Auto League 自動跟隨當前網頁所在聯盟</text>
+    </g>
+  </g>
+
+  <!-- COLUMN 3: LiveSearch Primary Console (translate 808 36) -->
+  <g transform="translate(808, 36)" filter="url(#wf-card-shadow)">
+    <!-- Column Card Outer -->
+    <rect width="344" height="308" rx="14" fill="url(#col-card-grad)"/>
+    <rect width="344" height="308" rx="14" fill="none" stroke="#2B3654" stroke-width="1.5"/>
+
+    <!-- Pillar Indicator Pin -->
+    <circle cx="172" cy="18" r="14" fill="#064E3B" stroke="#10B981" stroke-width="2"/>
+    <text x="172" y="23" class="wf-mono" font-size="13" font-weight="700" fill="#A7F3D0" text-anchor="middle">03</text>
+
+    <!-- Header Section -->
+    <text x="172" y="60" class="wf-title" font-size="18" text-anchor="middle">線上搜尋即時主控台</text>
+    <text x="172" y="80" class="wf-body" font-size="13" fill="#34D399" text-anchor="middle">LiveSearch Primary Console</text>
+    <line x1="24" y1="94" x2="320" y2="94" stroke="#252E46" stroke-width="1"/>
+
+    <!-- Feature 1: Multi-Connection & Resume Plan -->
+    <g transform="translate(24, 110)">
+      <rect width="296" height="48" rx="8" fill="#131929" stroke="#212A42"/>
+      <text x="14" y="22" class="wf-sub" font-size="14">多連線監聽 &amp; 恢復計劃</text>
+      <text x="14" y="38" class="wf-body" font-size="12">本次連線集中管理，上次連線一鍵還原</text>
+    </g>
+
+    <!-- Feature 2: Result-Only Presentation -->
+    <g transform="translate(24, 168)">
+      <rect width="296" height="48" rx="8" fill="#131929" stroke="#212A42"/>
+      <text x="14" y="22" class="wf-sub" font-size="14">結果專注呈現 (Result-Only)</text>
+      <text x="14" y="38" class="wf-body" font-size="12">自動過濾官方介面冗餘，突出即時物品</text>
+    </g>
+
+    <!-- Feature 3: Rate Limiting & Diagnostics -->
+    <g transform="translate(24, 226)">
+      <rect width="296" height="56" rx="8" fill="#0C251C" stroke="#059669"/>
+      <text x="14" y="22" class="wf-sub" font-size="13" fill="#A7F3D0">API 頻率調節與健康監控</text>
+      <text x="14" y="42" class="wf-mono" font-size="11" fill="#34D399">/fetch 智慧冷卻，避免觸發官方連線限制</text>
+    </g>
+  </g>
+</svg>
