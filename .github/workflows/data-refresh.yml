@@ -1,0 +1,41 @@
+name: Refresh trade filters
+
+on:
+  schedule:
+    # 每週一 03:00 UTC（台灣時間 11:00）
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: data-refresh
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm filters:update
+      - run: pnpm vitest run tests/trade-filter
+      # 有變動才開 PR，不自動合併
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: chore/refresh-trade-filters
+          delete-branch: true
+          commit-message: 'chore(data): refresh trade filter labels'
+          title: 'chore(data): refresh trade filter labels'
+          body: |
+            每週自動從官方市集 API 更新 `public/json/*/locales/*/trade-filters.json`。
+            Weekly refresh of trade filter labels from the official trade API.
+
+            請確認差異合理後再合併。 / Please review the diff before merging.
+          labels: data
+          add-paths: public/json/**/trade-filters.json

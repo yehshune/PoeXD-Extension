@@ -1,0 +1,14 @@
+name: Setup toolchain
+description: Install pnpm, Node.js and project dependencies
+runs:
+  using: composite
+  steps:
+    # 版本取自 package.json 的 packageManager
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

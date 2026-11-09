@@ -1,0 +1,65 @@
+name: 問題回報 / Bug report
+description: 回報錯誤或非預期行為 / Report a bug or unexpected behavior
+labels: ['needs-triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        安全性問題請勿在此回報，請依 SECURITY.md 私下回報。
+        Please do not report security issues here; see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: 擴充功能版本 / Extension version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: 安裝方式 / Install source
+      options:
+        - Chrome Web Store
+        - Edge Add-ons
+        - Firefox Add-ons
+        - GitHub Release（手動安裝 / manual）
+        - 原始碼建置 / Built from source
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: 瀏覽器與版本 / Browser and version
+      placeholder: Chrome 142 / Firefox 145
+    validations:
+      required: true
+  - type: dropdown
+    id: game
+    attributes:
+      label: 遊戲版本與伺服器 / Game and realm
+      multiple: true
+      options:
+        - PoE 1 國際服 / International
+        - PoE 2 國際服 / International
+        - 台服 / Taiwan
+        - 騰訊 / Tencent
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重現步驟 / Steps to reproduce
+      placeholder: |
+        1. 開啟 ...
+        2. 點選 ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期與實際結果 / Expected vs actual
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 截圖或主控台錯誤 / Screenshots or console errors
+      description: 請遮蔽 POESESSID 等登入資訊 / Redact login cookies such as POESESSID

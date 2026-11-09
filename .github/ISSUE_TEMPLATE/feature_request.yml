@@ -1,0 +1,21 @@
+name: 功能建議 / Feature request
+description: 提出新功能或改進建議 / Suggest a new feature or improvement
+labels: ['needs-triage']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解決的問題 / Problem
+      description: 目前在交易網站上遇到什麼困擾？ / What is hard to do today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建議做法 / Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 其他替代方案 / Alternatives considered
