@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/yehshune/PoeXD-Extension/actions"><img src="https://img.shields.io/badge/Status-Active%20Development-6366F1?style=flat-square" alt="Status"></a>
-  <img src="https://img.shields.io/badge/Manifest-V3%20(Chrome%20%7C%20Edge%20%7C%20Firefox)-10B981?style=flat-square" alt="Manifest">
+  <img src="https://img.shields.io/badge/Manifest-V3%20(Chrome%20%7C%20Edge)-10B981?style=flat-square" alt="Manifest">
   <img src="https://img.shields.io/badge/PoE-1%20%26%202%20Ready-F59E0B?style=flat-square" alt="PoE Version">
   <img src="https://img.shields.io/badge/License-MIT-94A3B8?style=flat-square" alt="License">
 </p>
@@ -92,10 +92,9 @@
 ### 方式一：從擴充功能商店安裝（推薦）
 
 - **Chrome**：Chrome Web Store（上架審核中）
-- **Edge**：Microsoft Edge Add-ons（上架審核中）
-- **Firefox**：Firefox Add-ons（AMO，上架審核中）
+- **Edge／Brave 等 Chromium 瀏覽器**：可直接從 Chrome Web Store 安裝（Edge 需先允許「來自其他商店的擴充功能」）
 
-商店版會自動更新，是最建議的安裝方式。
+商店版會自動更新，是最建議的安裝方式。目前沒有在 Edge Add-ons 與 Firefox Add-ons 上架。
 
 ### 方式二：手動安裝未封裝版本（Chrome / Edge / Brave / Opera）
 
@@ -107,7 +106,7 @@
 > 手動安裝的版本**不會自動更新**，請定期到 Releases 下載新版，解壓縮覆蓋原資料夾後，在擴充功能頁按「重新載入」。
 > 同一個資料夾覆蓋更新，書籤等本機資料會保留。
 >
-> Firefox 不允許安裝未簽署的擴充功能，請從 Firefox Add-ons 安裝。
+> Firefox 目前不提供安裝版本（Firefox 不允許安裝未簽署的擴充功能）。
 
 ---
 

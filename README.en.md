@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/yehshune/PoeXD-Extension/actions"><img src="https://img.shields.io/badge/Status-Active%20Development-6366F1?style=flat-square" alt="Status"></a>
-  <img src="https://img.shields.io/badge/Manifest-V3%20(Chrome%20%7C%20Edge%20%7C%20Firefox)-10B981?style=flat-square" alt="Manifest">
+  <img src="https://img.shields.io/badge/Manifest-V3%20(Chrome%20%7C%20Edge)-10B981?style=flat-square" alt="Manifest">
   <img src="https://img.shields.io/badge/PoE-1%20%26%202%20Ready-F59E0B?style=flat-square" alt="PoE Version">
   <img src="https://img.shields.io/badge/License-MIT-94A3B8?style=flat-square" alt="License">
 </p>
@@ -108,10 +108,10 @@ Extension**, without getting in the way of the official site.
 ### Option 1: Extension stores (recommended)
 
 - **Chrome**: Chrome Web Store (under review)
-- **Edge**: Microsoft Edge Add-ons (under review)
-- **Firefox**: Firefox Add-ons (AMO, under review)
+- **Edge, Brave and other Chromium browsers**: install from the Chrome Web Store (on Edge, allow
+  "extensions from other stores" first)
 
-Store versions update automatically.
+Store versions update automatically. PoeXD is not listed on Edge Add-ons or Firefox Add-ons yet.
 
 ### Option 2: Manual install (Chrome / Edge / Brave / Opera)
 
@@ -126,7 +126,7 @@ Store versions update automatically.
 > the same folder, then click "Reload" on the extensions page. Your local data is kept when you
 > update in place.
 >
-> Firefox does not allow unsigned extensions; please install from Firefox Add-ons.
+> There is no Firefox release yet (Firefox does not allow unsigned extensions).
 
 ### Option 3: Build from source (developers)
 
