@@ -1,0 +1,3 @@
+# Use a minimal Search Record command/query interface
+
+Expose the Search Record module through `execute`, `read`, and `subscribe`, using explicit domain command and read variants while keeping caller-shaped conveniences in messaging adapters. This preserves depth and locality without the speculative batching, field projections, optimistic revisions, and resumable feed of a full revision protocol, and avoids coupling the interface to Bookmark pane models or Bookmark collection ownership; a background coordinator handles atomic operations that cross the Search Record and Bookmark collection modules.

@@ -1,0 +1,65 @@
+# Path of Exile Trade Assistance
+
+This context helps players retain, understand, and reuse searches performed on the Path of Exile Trade site.
+
+## Language
+
+**Search Record**:
+A retained representation of one Trade search, identified by game version, league, and canonical search ID. It contains descriptive metadata shared by history and bookmarks. It does not store Trade query criteria separately: the canonical search ID is a gzip query hash that encodes the criteria, so the search ID is their single source of truth and features decode it on demand. See ADR-0008.
+_Avoid_: Search payload, cached query
+
+**Legacy Search ID**:
+A short, server-issued search ID that is not a gzip query hash. The official Trade site no longer resolves these (they open an empty search), so a Search Record or Bookmark that holds one is **invalid**: it is kept and shown as invalid until the user removes it, and it is skipped on Bookmark Transfer import.
+_Avoid_: Short code, old search ID
+
+**Bookmark**:
+A user-named, durable reference to a Search Record that may be organized into a bookmark group. It is realm-independent: it always opens on the current official Trade host. Its league is **Auto** by default (follows the current page / console league) unless it is pinned to a league (`leaguePinned`). A Bookmark is added in one action with no dialog; the official search form is first written through to the URL, so the stored search ID always encodes what the form showed at that moment, and if that write-through fails the Bookmark is not added.
+_Avoid_: Saved Search Record
+
+**Stat Group Template (User-facing: 常用詞綴群組)**:
+A user-named, durable bundle of one or more stat groups (each with its group type, count/weight value, and stat filters) that the user treats as one reusable category, for example "life + resistances + movement speed". It holds no other criteria (item, listing status, or non-stat filter fields). It is captured from the stat groups on the current official search form, after the user confirms which of them to keep, and is stored as-is (no duplicate detection). It is game-version-specific but independent of realm and league, lives only on the local device, is never part of Bookmark Transfer, and is kept as one flat, user-ordered list managed in its own Sidebar pane. It is used through the official "add stat group" entry, where choosing one overlays its stat groups onto the current search.
+_Avoid_: Filter Preset, 常用篩選, Saved Group, affix package (詞綴套件), filter bookmark
+
+**Criteria Overlay (User-facing: 疊加套用)**:
+Adding criteria to the search currently on the page instead of opening a new one. Stats are only ever overlaid as whole stat groups (one group, or every stat group at once), never as single stats; other fields overwrite only the fields being overlaid and everything else on the page is kept. It never starts a search, and only the most recent overlay can be undone. Sources are a Stat Group Template or the Search Preview of a Bookmark or History Entry.
+_Avoid_: Apply preset, merge search
+
+**Search Preview (User-facing: 搜尋預覽)**:
+The expandable view of the criteria a Bookmark or History Entry's search ID encodes, decoded on demand. It is toggled open explicitly rather than shown on hover, and from it criteria can be overlaid onto the current search when the page has an official search form. Whether a left click on a Bookmark or History Entry opens its search or toggles its Search Preview is a Preference; the other action stays available as a row button.
+_Avoid_: Hover tooltip, item preview
+
+**Bookmark Transfer**:
+A portable bookmark envelope that both PoeXD and TFT Trade Extension can read: an unprefixed `Base64(JSON.stringify({ folders }))` share code, or the same JSON as a backup file. It contains only names, search endpoints, search type, game version, Auto or pinned league, folder structure, and approved `coverImageUrl` values. It never carries query criteria, realm hosts, accounts, runtime state, or timestamps. Legacy `poexd-bm1:` / `poexd-bm2:` codes are rejected. See ADR-0007.
+_Avoid_: Full backup, Search Record export
+
+**History Entry**:
+A recency-ordered reference to a Search Record, refreshed whenever that search is used again.
+_Avoid_: Search Record copy, history item
+
+**Search Observation Session**:
+The period during which Trade Assistance observes one open Trade page, from attachment until page teardown. It may span search and live modes but never retains Trade query criteria beyond what the canonical search ID already encodes.
+_Avoid_: Search page controller, browsing session
+
+**Preference**:
+A durable user choice that changes Trade Assistance behavior or presentation. Preferences are either game-version-specific (`poe1` / `poe2`) or global across the extension (such as `theme` and `displayLocale`). It excludes transient pane state and retained Search Record or Bookmark data.
+_Avoid_: Setting, configuration value
+
+**LiveSearch Primary Page (User-facing: 線上搜尋主控台)**:
+The per-game-version (`poe1` / `poe2`), extension-controlled singleton Trade tab that serves as both the authoritative runtime owner and console view owner for PoeXD LiveSearch of that game version. Its identity is owned authoritatively per game version by the Background coordinator across MV3 service worker lifecycles, allowing PoE 1 and PoE 2 consoles to coexist independently. Closing a console tab terminates the LiveSearch session for that game version. In user-facing UI, it is always presented using the active Display Locale's console terminology (e.g.,「線上搜尋主控台」in `zh-TW`, never exposing internal `Primary` terminology), fixes its browser tab title (`document.title`) to the localized console title, switches the PoeXD Sidebar into a dedicated LiveSearch mode with dedicated「搜尋連線」and「主控台設定」navigation (plus a「＋ 新增連線 / ＋ 暫時搜尋」action, syncing Sidebar header `activeTabName` with the active navigation view), and applies Result-Only Presentation on the official host page (hiding and blocking non-result official header, navigation, search panel, and footer while preserving `.results` and required official overlay/tooltip containers). Its default console presentation prioritizes「搜尋連線」by focusing directly on two operational connection sections — **「本次連線」(`sessionConnections`)** (connections added/enabled during the current console session, where pausing an active connection via its single status-action button keeps it in「本次連線」and in `LiveSearch Resume Plan` for quick re-enabling, and removing it is an explicit action via `⋯ -> 從本次連線移除`, `移除已停止的連線`, or dragging to `DragTrashZone`) and **「上次連線」(`previousConnections`)** (connections from the previous session's `LiveSearch Resume Plan` for the current `selectedLeague` that have not yet been added to「本次連線」, supporting single-item enable, single-item removal, drag-to-trash removal, batch restore, and league-scoped clearing) — rather than projecting the entire un-enabled Bookmark Folder Tree on the main console view. Connections can be added via Normal Page background push-to-console actions (「送入線上搜尋主控台」on Bookmark rows/folders and「送入主控台」in the official search controls, delivered in the background without stealing focus) or via the Console's lightweight two-tab「＋ 新增連線」dialog (Tab 1:「從書籤挑選」multi-select bookmark/folder picker; Tab 2:「輸入搜尋網址」URL input with auto-derived name). It renders locked league, connection health (`監聽` / `異常` counts), and `/fetch` API health (`API ● 正常` / `API ◐ 等待 Xs`) as a compact operational status header, shows no technical diagnostics (the official result header reflects the retained, filter-aware result count instead), exposes the result display cap as a durable versioned Preference (`PreferencesModule` SSOT: `liveSearchMaxDisplayedResults`), and keeps Rate detail expansion and section collapse as transient session UI state.
+_Avoid_: LiveSearch window, background tab, secondary view, live search crawler, user-visible "Primary" label
+
+**Temporary Search (User-facing: 暫時搜尋)**:
+A console page-session-only search source that exists in the LiveSearch Primary Page's in-memory state (entered via the「輸入搜尋網址」tab of the「＋ 新增連線」dialog or pushed from a Normal Page official search form via「送入主控台」). When enabled in the console, its canonical identity and optional display metadata (`name`, `url`, `coverImageUrl`) are recorded in the `LiveSearch Resume Plan` so it can appear in「上次連線」on the next console launch. When a Bookmark connection is active and its source Bookmark is deleted or modified to a different canonical URL in another tab, the active runtime connection seamlessly falls back to a Temporary Search with origin provenance without interrupting or recreating the WebSocket. When a durable Bookmark is added with matching canonical search identity, source ownership is promoted from Temporary Search to Bookmark without reconnecting. Bookmark always takes presentation precedence over Temporary Search for identical canonical search identity, guaranteeing that every active Runtime subscription has exactly one visible presentation owner in the console.
+_Avoid_: Custom URL source, 自訂搜尋, 自訂網址, persistent temporary search
+
+**LiveSearch Resume Plan**:
+A durable, per-game-version (`poe1` / `poe2`) activation intent for search connections enabled in the LiveSearch Primary Page (supporting both Bookmark-backed and non-bookmark/Temporary Search connections). It supports multi-league coexistence per game version, recording which searches the user previously intended to keep in the console across reloads and browser restarts, and projecting any not-yet-enabled items for the current `selectedLeague` into the Console's「上次連線」(`previousConnections`) section. Canonical identity (`gameVersion`, `league`, `searchId`) remains the permanent authority (joined dynamically with authoritative Bookmarks when matching, or using optional stored metadata `name`, `url`, `coverImageUrl` for non-bookmark connections). It is strictly separated from runtime lifecycle: Resume Plan != Runtime state, Resume Plan is independent retained domain data stored in `chrome.storage.local` (isolated by game version), and Resume mode (`off` [清理: clears previous connections for current league on startup] | `prompt` [保留: keeps previous connections in「上次連線」] | `auto` [自動恢復: auto-enables on startup], defaulting to `prompt`) is a durable Preference (`liveSearchResumeMode`). Storage failures (`unloaded` / `error`) never create fake empty plans, never prune, and never block runtime operation. Batch restore outcomes (including mixed-league atomic rejections) are always presented to the user.
+_Avoid_: Runtime snapshot, session restore, subscription persistence, WebSocket persistence
+
+**Trade Page Role**:
+The authoritative, extension-assigned identity of a Trade tab (`normal` | `live-search-primary`). It is independent of official web route state (`TradePageMode`: `search` | `live`) and is determined exclusively by per-version Background ownership rather than URL paths, query parameters, DOM flags, or page state.
+_Avoid_: Tab mode, page state, route mode
+
+**Display Locale (User-facing: 語言 / Language)**:
+The single global Preference (`displayLocale`, migrated from legacy per-version `affixDisplayLocale`) that controls both the extension's UI language and the language in which game data (affix templates, tier descriptions, item names, item categories, affinity labels, non-stat filter labels, Search Preview, and Criteria Overlay labels) are presented. See ADR-0011. It defaults to **Auto** (follows a non-English official Trade page locale when on a Trade page, or falls back to a supported browser locale such as `zh-TW` / `zh-CN` when on an English Trade page or standalone extension page, otherwise `en`) or can be pinned to any of the 11 supported locales (`en`, `zh-TW`, `zh-CN`, `ja`, `ko`, `ru`, `de`, `fr`, `es`, `pt`, `th`). Extension UI copy is localized in `zh-TW`, `zh-CN`, and `en` (falling back to `en` when Display Locale resolves to one of the other 8 affix locales), while already-saved user data (such as Bookmark names and Stat Group Template names) is never mutated. When an affix has no official Trade stat ID and must be typed into the official search box, the query always uses the **Page Locale** (the language of the current Trade page itself) rather than the Display Locale; when the Display Locale is Traditional or Simplified Chinese, English affix text remains searchable alongside Chinese.
+_Avoid_: Affix Display Locale, split UI and affix language settings, realm language, hardcoded zh-TW

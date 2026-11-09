@@ -1,0 +1,59 @@
+# 市集篩選翻譯資料
+
+`public/json/{poe1,poe2}/locales/<locale>/trade-filters.json` 由官方市集 API（`/data/filters` 與 `/data/stats`）產生，內容即玩家在該語言市集頁看到的文字，以官方為準、不做人工校正。
+
+## 更新
+
+```powershell
+pnpm run filters:update
+```
+
+腳本會依序請求各語言官方市集網域的 `/api/trade/data/{filters,stats}`（POE1）與 `/api/trade2/data/{filters,stats}`（POE2）：
+
+| 語系                        | 網域                                |
+| --------------------------- | ----------------------------------- |
+| en                          | www.pathofexile.com                 |
+| zh-TW                       | pathofexile.tw                      |
+| zh-CN                       | poe.game.qq.com（騰訊國服）         |
+| ja / ru / de / fr / es / th | {jp,ru,de,fr,es,th}.pathofexile.com |
+| pt                          | br.pathofexile.com                  |
+| ko                          | poe.game.daum.net（Kakao）          |
+
+只更新部分語系或版本：
+
+```powershell
+pnpm run filters:update -- --locale ja --locale ko --version poe2
+```
+
+- `en` 一定會抓取：它是執行期的最終後備，也用來偵測其他網域是否誤回傳英文；`en` 失敗時整批不寫入。
+- 其他語系失敗（例如所在網路無法連線 Kakao）時保留既有檔案並列在結尾的摘要，執行期會退回 UI 語系或 en。
+- 全部抓取與驗證完成後才一次寫入，寫入失敗會回復已替換的檔案。
+
+## 檔案格式
+
+```json
+{
+  "schemaVersion": 3,
+  "gameVersion": "poe1",
+  "locale": "zh-TW",
+  "source": "pathofexile.tw",
+  "groups": { "req_filters": "物品需求" },
+  "fields": { "ar": "護甲" },
+  "options": { "sale_type": { "priced": "直購價或定價" } },
+  "pseudoStats": { "pseudo.pseudo_total_life": "+# 總最大生命" }
+}
+```
+
+- 所有 key 都是 API 的穩定 id，各語系獨立，不需要索引對齊。
+- API 的欄位提示（`tip`）不會併入標籤。
+- `pseudoStats` 只收 stats API 的 `pseudo` 類別：詞綴字典（`stats.json`）由實際詞綴產生，沒有偽屬性。完整 stats 清單每個語系超過 1MB，所以不整份打包；其他類別缺字時，執行期會先用同一個 `stat_N` 在字典裡的其他類別（例如 `rune.`）補上翻譯。
+- `id: null` 的預設選項一般不會出現在查詢 JSON 中而被略過；唯一例外是 `sale_type` 的預設值對應查詢值 `priced`，且只在 API 沒有明確 `priced` 選項時才套用（騰訊 POE1 的 null 代表「任何」）。
+- 官方各語系都未翻譯的文字（例如 POE1 的 `map_filters`「Map/Chart Filters」）會保留英文。
+
+## 執行期載入
+
+`utils/trade-filters-store.ts` 依目前**顯示語系**選擇篩選翻譯：
+
+1. 顯示語系 → UI 語系 → en，逐一查找。
+2. UI 語系（en、zh-TW、zh-CN）隨程式打包，同步可用；其他語系在第一次需要時才載入，完成後觸發重新渲染。
+3. 檔案不存在的語系（例如尚未產生的 ko）只請求一次，之後直接退回。
