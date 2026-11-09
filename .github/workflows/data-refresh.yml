@@ -21,12 +21,12 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - run: pnpm filters:update
       - run: pnpm vitest run tests/trade-filter
       # 有變動才開 PR，不自動合併
-      - uses: peter-evans/create-pull-request@v7
+      - uses: peter-evans/create-pull-request@v8
         with:
           branch: chore/refresh-trade-filters
           delete-branch: true
