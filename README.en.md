@@ -30,11 +30,14 @@ Extension**, without getting in the way of the official site.
 ### ⚡ LiveSearch console
 
 - **Many connections, one tab**: manage multiple live searches from a single console tab instead
-  of a dozen memory-hungry tabs.
-- **Resume plan**: remembers which live searches were active, so you can restore them after a
-  browser restart or reload.
+  of a dozen memory-hungry tabs, with automatic reconnection.
+- **Groups and batch actions**: connections are grouped by bookmark folder; filter them by
+  keyword and start or stop them in bulk, or start a whole folder at once.
+- **Resume plan**: remembers which live searches were active; on restart you can clear them,
+  restore them manually or restore them automatically.
 - **Result-only presentation**: hides the official header and unrelated panels to give results
-  and live notifications as much room as possible.
+  and live notifications as much room as possible. Click a connection to show only its results,
+  and set a cap on how many results are kept.
 - **Rate-limit protection**: monitors the `/fetch` request rate and connection health
   (`API ● OK` / `API ◐ waiting Xs`) to avoid hitting the official rate limits.
 - **Temporary search**: paste any trade URL, or push an existing search, and start watching it
@@ -46,11 +49,14 @@ Extension**, without getting in the way of the official site.
 
 ### 🎯 Stat group templates & criteria overlay
 
-- **Reusable stat groups**: save common filter sets (for example "life + total elemental
-  resistance") as templates.
+- **Reusable stat groups**: capture common filter sets (for example "life + total elemental
+  resistance") from the current page and save them as templates.
 - **Non-destructive overlay**: apply a stat group on top of the current search form without
-  touching the item type or other filters.
-- **Tier dropdown**: pick T1–T3 directly in the official form to fill the matching value range.
+  touching the item type or other filters, and undo the last overlay with one click.
+- **Drag-and-drop management**: reorder templates by dragging, drop them on the trash to delete,
+  rename them and search them by keyword.
+- **Share codes and backup files**: import and export templates to move them between computers
+  or share them with friends.
 - **Search preview**: decode and inspect the real query behind any history entry or bookmark, and
   overlay selected stat groups with one click.
 
@@ -59,28 +65,66 @@ Extension**, without getting in the way of the official site.
   <img src="./docs/store/images/en/screenshot-2.jpg" width="49%" alt="Search preview and overlay">
 </p>
 
-### 📁 Hierarchical bookmarks & TFT transfer
+### 🔍 Affix filter & tier tools
 
-- **Nested folders**: organize searches by class, league stage or build, with drag-and-drop
-  sorting.
+- **Affix filter pane**: browse every affix that can roll on an item category, split into prefix
+  and suffix columns, with keyword search and quick jumps.
+- **Batch apply**: queue affixes or specific tiers and write them into the official filters at
+  once, or apply top-tier (T1) values to all of them. Affixes without an official ID are typed
+  into the search box instead.
+- **Tier dropdown**: a T-tier button next to each stat in the official form fills the matching
+  value range; you can also switch item category or mod group and fine-tune min/max values.
+- **Affix selector**: a quick-search popup next to each stat group finds affixes faster than the
+  official dropdown.
+
+### 💰 Result enhancements
+
+- **Price comparison**: converts listings priced in divine orbs, chaos orbs and other currencies
+  using live poe.ninja exchange rates (international realm only).
+- **Result mod highlight**: highlights the mods in each result that match your filters.
+- **Rune override calculator (PoE 2)**: pick a target rune to estimate each weapon's or armour
+  piece's DPS and defences after overriding its runes, see socket potential, and re-sort results
+  by overridden value or value for money.
+
+### 📁 Hierarchical bookmarks, history & TFT transfer
+
+- **Nested folders**: organize searches by class, league stage or build. Bookmarks and folders
+  can be reordered and moved between folders by dragging, and dropped on the trash to delete.
+- **Covers and hover previews**: pick an item image from the results as a bookmark cover, and
+  hover a bookmark to preview the item.
+- **Flexible opening**: open a bookmark in the current or a new tab, send it straight to the
+  LiveSearch console, or add the current page to a folder in one click.
+- **Search history**: searches are recorded automatically and can be searched, previewed,
+  bookmarked or sent to the console.
 - **Auto league**: bookmarks are realm-independent and follow the server and league you are
   browsing, or can be pinned to a specific league.
 - **TFT Trade Extension compatible**: import and export TFT bookmark folders via the standard
-  Base64 transfer code, with diffing and safe merging.
+  Base64 transfer code, or use backup files. Preview the changes before importing and choose to
+  add, merge or replace.
 
 <p align="center">
   <img src="./docs/store/images/en/screenshot-1.jpg" width="80%" alt="Hierarchical bookmarks">
 </p>
 
-### 🌐 Native support for PoE 1 & PoE 2
+### ⚙️ Page tweaks & personalization
 
-- **Localized data**: bundled stat dictionaries, item names and category mappings for both games
-  in all official trade site languages.
-- **Separate runtimes**: PoE 1 and PoE 2 consoles each have their own background coordinator.
+- **Trade page tweaks**: fuzzy search in the item name and filter inputs (adds `~`
+  automatically), hotkeys to focus or clear the search box, item names as tab titles, and an
+  option to hide the official background.
+- **Personalization**: several themes, left or right sidebar, adjustable width and UI scale.
+- **Module toggles**: click the extension icon in the toolbar to turn individual trade page
+  features on or off.
 
 <p align="center">
   <img src="./docs/store/images/en/screenshot-5.jpg" width="80%" alt="Settings">
 </p>
+
+### 🌐 Native support for PoE 1 & PoE 2
+
+- **Localized data**: bundled stat dictionaries, item names and category mappings for both games
+  in all 11 official trade site languages. The extension UI is available in English, Traditional
+  Chinese and Simplified Chinese.
+- **Separate runtimes**: PoE 1 and PoE 2 consoles each have their own background coordinator.
 
 ---
 
