@@ -1,0 +1,7 @@
+# 統一以 LF 存放文字檔，避免 Windows / macOS / Linux 貢獻者之間產生整檔換行差異
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
