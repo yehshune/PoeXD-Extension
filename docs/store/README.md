@@ -35,7 +35,7 @@ Chrome Web Store、Microsoft Edge Add-ons 與 Firefox Add-ons (AMO) 上架時要
 
 ### English
 
-**Name**（取自 `_locales/en`）：`PoeXD – Trade Helper`
+**Name**（取自 `_locales/en`）：`PoeXD – PoE Trade Helper (Path of Exile)`
 
 **Summary**（≤132 字元）：
 
@@ -68,7 +68,7 @@ Source code and issue tracker: https://github.com/yehshune/PoeXD-Extension
 
 ### 繁體中文
 
-**名稱**（取自 `_locales/zh_TW`）：`PoeXD – 交易小幫手`
+**名稱**（取自 `_locales/zh_TW`）：`PoeXD – PoE 流亡黯道交易小幫手`
 
 **簡短說明**（≤132 字元）：
 
