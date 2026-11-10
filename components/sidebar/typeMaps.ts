@@ -27,6 +27,7 @@ export const typeMapPoe1: Record<string, TypeInfo> = {
   body_armours_str_dex: { cat: ['胸甲', 'Body Armour'], sub: ['力量／敏捷', 'Str/Dex'] },
   body_armours_str_int: { cat: ['胸甲', 'Body Armour'], sub: ['力量／智慧', 'Str/Int'] },
   body_armours_dex_int: { cat: ['胸甲', 'Body Armour'], sub: ['敏捷／智慧', 'Dex/Int'] },
+  body_armours_ward: { cat: ['胸甲', 'Body Armour'], sub: ['保護', '结界', 'Ward'] },
 
   helmet: { cat: ['頭部', '头盔', 'Helmet'] },
   helmets_str: { cat: ['頭部', '头盔', 'Helmet'], sub: ['力量', 'Strength'] },
@@ -35,6 +36,7 @@ export const typeMapPoe1: Record<string, TypeInfo> = {
   helmets_str_dex: { cat: ['頭部', '头盔', 'Helmet'], sub: ['力量／敏捷', 'Str/Dex'] },
   helmets_str_int: { cat: ['頭部', '头盔', 'Helmet'], sub: ['力量／智慧', 'Str/Int'] },
   helmets_dex_int: { cat: ['頭部', '头盔', 'Helmet'], sub: ['敏捷／智慧', 'Dex/Int'] },
+  helmets_ward: { cat: ['頭部', '头盔', 'Helmet'], sub: ['保護', '结界', 'Ward'] },
 
   gloves: { cat: ['手套', 'Gloves'] },
   gloves_str: { cat: ['手套', 'Gloves'], sub: ['力量', 'Strength'] },
@@ -43,6 +45,7 @@ export const typeMapPoe1: Record<string, TypeInfo> = {
   gloves_str_dex: { cat: ['手套', 'Gloves'], sub: ['力量／敏捷', 'Str/Dex'] },
   gloves_str_int: { cat: ['手套', 'Gloves'], sub: ['力量／智慧', 'Str/Int'] },
   gloves_dex_int: { cat: ['手套', 'Gloves'], sub: ['敏捷／智慧', 'Dex/Int'] },
+  gloves_ward: { cat: ['手套', 'Gloves'], sub: ['保護', '结界', 'Ward'] },
 
   boots: { cat: ['鞋子', '靴子', 'Boots'] },
   boots_str: { cat: ['鞋子', '靴子', 'Boots'], sub: ['力量', 'Strength'] },
@@ -51,6 +54,7 @@ export const typeMapPoe1: Record<string, TypeInfo> = {
   boots_str_dex: { cat: ['鞋子', '靴子', 'Boots'], sub: ['力量／敏捷', 'Str/Dex'] },
   boots_str_int: { cat: ['鞋子', '靴子', 'Boots'], sub: ['力量／智慧', 'Str/Int'] },
   boots_dex_int: { cat: ['鞋子', '靴子', 'Boots'], sub: ['敏捷／智慧', 'Dex/Int'] },
+  boots_ward: { cat: ['鞋子', '靴子', 'Boots'], sub: ['保護', '结界', 'Ward'] },
 
   shield: { cat: ['盾', '盾牌', 'Shield'] },
   shields_str: { cat: ['盾', '盾牌', 'Shield'], sub: ['力量', 'Strength'] },
@@ -133,6 +137,13 @@ export const typeMapPoe1: Record<string, TypeInfo> = {
   'hybrid-flask': { cat: ['複合藥劑', '复合药剂', 'Hybrid Flask'] },
   'utility-flask': { cat: ['功能藥劑', '功能药剂', 'Utility Flask'] },
   tincture: { cat: ['獵魔塗劑', '酊剂', 'Tincture'] },
+
+  // === 地圖、聖物與劫盜 (Maps, Relics & Heist) ===
+  map: { cat: ['地圖', '地图', 'Map'] },
+  contract: { cat: ['契約', '契约', 'Contract'] },
+  heist_equipment: { cat: ['盜賊裝備', '盗贼装备', 'Rogue Equipment'] },
+  trinket: { cat: ['盜賊飾品', '饰品', "Thief's Trinket"] },
+  relic: { cat: ['聖物', '圣物', 'Relic'] },
 };
 
 export const typeMapPoe2: Record<string, TypeInfo> = {
@@ -307,6 +318,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     body_armours_str_dex: '力敏胸甲',
     body_armours_str_int: '力智胸甲',
     body_armours_dex_int: '敏智胸甲',
+    body_armours_ward: '保護胸甲',
     helmet: '頭盔',
     helmets_str: '力量頭盔',
     helmets_dex: '敏捷頭盔',
@@ -314,6 +326,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     helmets_str_dex: '力敏頭盔',
     helmets_str_int: '力智頭盔',
     helmets_dex_int: '敏智頭盔',
+    helmets_ward: '保護頭盔',
     gloves: '手套',
     gloves_str: '力量手套',
     gloves_dex: '敏捷手套',
@@ -321,6 +334,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     gloves_str_dex: '力敏手套',
     gloves_str_int: '力智手套',
     gloves_dex_int: '敏智手套',
+    gloves_ward: '保護手套',
     boots: '鞋子',
     boots_str: '力量鞋子',
     boots_dex: '敏捷鞋子',
@@ -328,6 +342,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     boots_str_dex: '力敏鞋子',
     boots_str_int: '力智鞋子',
     boots_dex_int: '敏智鞋子',
+    boots_ward: '保護鞋子',
     shield: '盾牌',
     shields_str: '力量盾',
     shields_dex: '敏捷盾',
@@ -375,6 +390,11 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     'hybrid-flask': '複合藥劑',
     'utility-flask': '功能藥劑',
     tincture: '獵魔塗劑',
+    map: '地圖',
+    contract: '契約',
+    heist_equipment: '盜賊裝備',
+    trinket: '盜賊飾品',
+    relic: '聖物',
   },
   'zh-CN': {
     'body-armour': '胸甲',
@@ -384,6 +404,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     body_armours_str_dex: '力敏胸甲',
     body_armours_str_int: '力智胸甲',
     body_armours_dex_int: '敏智胸甲',
+    body_armours_ward: '结界胸甲',
     helmet: '头盔',
     helmets_str: '力量头盔',
     helmets_dex: '敏捷头盔',
@@ -391,6 +412,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     helmets_str_dex: '力敏头盔',
     helmets_str_int: '力智头盔',
     helmets_dex_int: '敏智头盔',
+    helmets_ward: '结界头盔',
     gloves: '手套',
     gloves_str: '力量手套',
     gloves_dex: '敏捷手套',
@@ -398,6 +420,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     gloves_str_dex: '力敏手套',
     gloves_str_int: '力智手套',
     gloves_dex_int: '敏智手套',
+    gloves_ward: '结界手套',
     boots: '鞋子',
     boots_str: '力量鞋子',
     boots_dex: '敏捷鞋子',
@@ -405,6 +428,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     boots_str_dex: '力敏鞋子',
     boots_str_int: '力智鞋子',
     boots_dex_int: '敏智鞋子',
+    boots_ward: '结界鞋子',
     shield: '盾牌',
     shields_str: '力量盾',
     shields_dex: '敏捷盾',
@@ -452,6 +476,11 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     'hybrid-flask': '复合药剂',
     'utility-flask': '功能药剂',
     tincture: '酊剂',
+    map: '地图',
+    contract: '契约',
+    heist_equipment: '盗贼装备',
+    trinket: '盗贼饰品',
+    relic: '圣物',
   },
   en: {
     'body-armour': 'Body Armour',
@@ -461,6 +490,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     body_armours_str_dex: 'STR/DEX Body Armour',
     body_armours_str_int: 'STR/INT Body Armour',
     body_armours_dex_int: 'DEX/INT Body Armour',
+    body_armours_ward: 'Ward Body Armour',
     helmet: 'Helmet',
     helmets_str: 'STR Helmet',
     helmets_dex: 'DEX Helmet',
@@ -468,6 +498,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     helmets_str_dex: 'STR/DEX Helmet',
     helmets_str_int: 'STR/INT Helmet',
     helmets_dex_int: 'DEX/INT Helmet',
+    helmets_ward: 'Ward Helmet',
     gloves: 'Gloves',
     gloves_str: 'STR Gloves',
     gloves_dex: 'DEX Gloves',
@@ -475,6 +506,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     gloves_str_dex: 'STR/DEX Gloves',
     gloves_str_int: 'STR/INT Gloves',
     gloves_dex_int: 'DEX/INT Gloves',
+    gloves_ward: 'Ward Gloves',
     boots: 'Boots',
     boots_str: 'STR Boots',
     boots_dex: 'DEX Boots',
@@ -482,6 +514,7 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     boots_str_dex: 'STR/DEX Boots',
     boots_str_int: 'STR/INT Boots',
     boots_dex_int: 'DEX/INT Boots',
+    boots_ward: 'Ward Boots',
     shield: 'Shield',
     shields_str: 'STR Shield',
     shields_dex: 'DEX Shield',
@@ -529,6 +562,11 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     'hybrid-flask': 'Hybrid Flask',
     'utility-flask': 'Utility Flask',
     tincture: 'Tincture',
+    map: 'Map',
+    contract: 'Contract',
+    heist_equipment: 'Rogue Equipment',
+    trinket: "Thief's Trinket",
+    relic: 'Relic',
   },
 };
 
@@ -850,6 +888,7 @@ const POE1_ARMOUR_KEYS = [
   'body_armours_str_dex',
   'body_armours_str_int',
   'body_armours_dex_int',
+  'body_armours_ward',
   'helmet',
   'helmets_str',
   'helmets_dex',
@@ -857,6 +896,7 @@ const POE1_ARMOUR_KEYS = [
   'helmets_str_dex',
   'helmets_str_int',
   'helmets_dex_int',
+  'helmets_ward',
   'gloves',
   'gloves_str',
   'gloves_dex',
@@ -864,6 +904,7 @@ const POE1_ARMOUR_KEYS = [
   'gloves_str_dex',
   'gloves_str_int',
   'gloves_dex_int',
+  'gloves_ward',
   'boots',
   'boots_str',
   'boots_dex',
@@ -871,6 +912,7 @@ const POE1_ARMOUR_KEYS = [
   'boots_str_dex',
   'boots_str_int',
   'boots_dex_int',
+  'boots_ward',
   'shield',
   'shields_str',
   'shields_dex',
@@ -905,24 +947,29 @@ const POE1_JEWEL_FLASK_KEYS = [
   'tincture',
 ];
 
+const POE1_SPECIAL_KEYS = ['map', 'relic', 'contract', 'heist_equipment', 'trinket'];
+
 const POE1_GROUPS_BY_LOCALE: Readonly<Record<SupportedUiLocale, CategoryGroup[]>> = {
   'zh-TW': [
     { groupLabel: '武器', keys: POE1_WEAPON_KEYS },
     { groupLabel: '防具', keys: POE1_ARMOUR_KEYS },
     { groupLabel: '飾品與其他', keys: POE1_ACCESSORY_KEYS },
     { groupLabel: '珠寶與藥劑', keys: POE1_JEWEL_FLASK_KEYS },
+    { groupLabel: '地圖、聖物與劫盜', keys: POE1_SPECIAL_KEYS },
   ],
   'zh-CN': [
     { groupLabel: '武器', keys: POE1_WEAPON_KEYS },
     { groupLabel: '防具', keys: POE1_ARMOUR_KEYS },
     { groupLabel: '饰品与其他', keys: POE1_ACCESSORY_KEYS },
     { groupLabel: '珠宝与药剂', keys: POE1_JEWEL_FLASK_KEYS },
+    { groupLabel: '地图、圣物与劫盗', keys: POE1_SPECIAL_KEYS },
   ],
   en: [
     { groupLabel: 'Weapons', keys: POE1_WEAPON_KEYS },
     { groupLabel: 'Armour', keys: POE1_ARMOUR_KEYS },
     { groupLabel: 'Accessories & Offhand', keys: POE1_ACCESSORY_KEYS },
     { groupLabel: 'Jewels & Flasks', keys: POE1_JEWEL_FLASK_KEYS },
+    { groupLabel: 'Maps, Relics & Heist', keys: POE1_SPECIAL_KEYS },
   ],
 };
 
@@ -1065,6 +1112,7 @@ function buildPoe1RowConfigs(locale: SupportedUiLocale): TypeRowConfig[] {
   const sd = isEn ? 'S/D' : '力敏';
   const si = isEn ? 'S/I' : '力智';
   const di = isEn ? 'D/I' : '敏智';
+  const w = isEn ? 'Ward' : isCn ? '结界' : '保護';
 
   return [
     {
@@ -1076,6 +1124,7 @@ function buildPoe1RowConfigs(locale: SupportedUiLocale): TypeRowConfig[] {
         body_armours_str_dex: sd,
         body_armours_str_int: si,
         body_armours_dex_int: di,
+        body_armours_ward: w,
       },
     },
     {
@@ -1087,6 +1136,7 @@ function buildPoe1RowConfigs(locale: SupportedUiLocale): TypeRowConfig[] {
         helmets_str_dex: sd,
         helmets_str_int: si,
         helmets_dex_int: di,
+        helmets_ward: w,
       },
     },
     {
@@ -1098,6 +1148,7 @@ function buildPoe1RowConfigs(locale: SupportedUiLocale): TypeRowConfig[] {
         gloves_str_dex: sd,
         gloves_str_int: si,
         gloves_dex_int: di,
+        gloves_ward: w,
       },
     },
     {
@@ -1109,6 +1160,7 @@ function buildPoe1RowConfigs(locale: SupportedUiLocale): TypeRowConfig[] {
         boots_str_dex: sd,
         boots_str_int: si,
         boots_dex_int: di,
+        boots_ward: w,
       },
     },
     {
@@ -1342,6 +1394,7 @@ export const officialCategoryMapPoe1: Record<string, string> = {
   'accessory.amulet': 'amulet',
   'accessory.ring': 'ring',
   'accessory.belt': 'belt',
+  'accessory.trinket': 'trinket',
 
   // === 珠寶 ===
   'jewel.base': 'jewel',
@@ -1351,6 +1404,18 @@ export const officialCategoryMapPoe1: Record<string, string> = {
   // === 藥劑 ===
   flask: 'flask',
   tincture: 'tincture',
+
+  // === 地圖、聖物與劫盜 ===
+  map: 'map',
+  sanctum: 'relic',
+  'sanctum.relic': 'relic',
+  'heistmission.contract': 'contract',
+  'heistmission.blueprint': 'contract',
+  heist_equipment: 'heist_equipment',
+  'heistequipment.heistweapon': 'heist_equipment',
+  'heistequipment.heisttool': 'heist_equipment',
+  'heistequipment.heistutility': 'heist_equipment',
+  'heistequipment.heistreward': 'heist_equipment',
 };
 
 export const officialCategoryMapPoe2: Record<string, string> = {
