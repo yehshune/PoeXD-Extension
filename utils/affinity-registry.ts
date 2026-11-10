@@ -38,6 +38,7 @@ const POE1_AFFINITY_NAMES_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<s
     corrupted: '已汙染',
     enchant: '附魔',
     heist: '劫盜',
+    sanctum: '聖域',
   },
   'zh-CN': {
     normal: '一般',
@@ -66,6 +67,7 @@ const POE1_AFFINITY_NAMES_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<s
     corrupted: '已腐化',
     enchant: '附魔',
     heist: '夺宝',
+    sanctum: '圣域',
   },
   en: {
     normal: 'Normal',
@@ -94,6 +96,7 @@ const POE1_AFFINITY_NAMES_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<s
     corrupted: 'Corrupted',
     enchant: 'Enchant',
     heist: 'Heist',
+    sanctum: 'Sanctum',
   },
 };
 
@@ -164,6 +167,9 @@ export const poe1AffinityProfile: AffinityProfile = {
   version: 'poe1',
   resolveTargetAffinities(statId?: string | null): string[] {
     if (!statId) return ['normal'];
+    if (statId.startsWith('sanctum.')) {
+      return ['sanctum'];
+    }
     if (statId.startsWith('enchant.')) {
       return ['corrupted', 'enchant'];
     }
@@ -190,6 +196,7 @@ export const poe1AffinityProfile: AffinityProfile = {
     'delve',
     'essence',
     'sentinel',
+    'sanctum',
   ]),
   categoryNames: createActiveUiLocaleProxy(POE1_AFFINITY_NAMES_BY_LOCALE),
   categoryPriorities: {
@@ -204,6 +211,7 @@ export const poe1AffinityProfile: AffinityProfile = {
     hunter: 14,
     warlord: 15,
     essence: 20,
+    sanctum: 21,
     delve: 22,
     incursion: 23,
     veiled: 24,
