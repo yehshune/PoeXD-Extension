@@ -194,7 +194,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'tools.economy.errorUpdateFailed': '更新价格数据失败',
   'tools.support.title': '支持开发',
   'tools.support.description': 'PoeXD 免费且开源。如果它帮你节省了时间，欢迎赞助支持后续开发。',
-  'tools.support.linkLabel': '前往 {platform} 赞助',
+  'tools.support.linkLabel': '前往赞助页',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '加载词缀数据中...',

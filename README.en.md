@@ -235,8 +235,8 @@ Architecture decisions and contracts live in `docs/` (mostly in Traditional Chin
 
 ## Support
 
-PoeXD is free and open source. If it saves you time, you can support its development on
-[Ko-fi](https://ko-fi.com/shu540886).
+PoeXD is free and open source. If it saves you time, you can support its development on the
+[support page](https://yehshune.github.io/support/).
 
 ---
 
