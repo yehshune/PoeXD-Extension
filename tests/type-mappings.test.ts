@@ -110,7 +110,7 @@ describe('trade mapping registry', () => {
     expect(tradeMappings.poe1.typeMap['rune-dagger']).toBeDefined();
     expect(tradeMappings.poe1.typeMap['warstaff']).toBeDefined();
     expect(tradeMappings.poe1.typeMap['thrusting-one-hand-sword']).toBeDefined();
-    expect(tradeMappings.poe1.typeMap['buckler']).toBeDefined();
+    expect(tradeMappings.poe1.typeMap['shields_dex']).toBeDefined();
     expect(tradeMappings.poe1.typeMap['hybrid-flask']).toBeDefined();
     expect(tradeMappings.poe1.typeMap['utility-flask']).toBeDefined();
 
@@ -183,7 +183,6 @@ describe('trade mapping registry', () => {
       'gloves',
       'boots',
       'shield',
-      'buckler',
       'amulet',
       'ring',
       'belt',

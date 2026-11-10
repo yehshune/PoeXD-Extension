@@ -54,9 +54,11 @@ export const typeMapPoe1: Record<string, TypeInfo> = {
 
   shield: { cat: ['盾', '盾牌', 'Shield'] },
   shields_str: { cat: ['盾', '盾牌', 'Shield'], sub: ['力量', 'Strength'] },
+  shields_dex: { cat: ['盾', '盾牌', 'Shield'], sub: ['敏捷', 'Dexterity'] },
+  shields_int: { cat: ['盾', '盾牌', 'Shield'], sub: ['智慧', 'Intelligence'] },
   shields_str_dex: { cat: ['盾', '盾牌', 'Shield'], sub: ['力量／敏捷', 'Str/Dex'] },
   shields_str_int: { cat: ['盾', '盾牌', 'Shield'], sub: ['力量／智慧', 'Str/Int'] },
-  buckler: { cat: ['輕盾', '轻盾', 'Buckler'] },
+  shields_dex_int: { cat: ['盾', '盾牌', 'Shield'], sub: ['敏捷／智慧', 'Dex/Int'] },
 
   // === 武器 (Weapons) ===
   claw: { cat: ['爪', 'Claw'] },
@@ -328,9 +330,11 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     boots_dex_int: '敏智鞋子',
     shield: '盾牌',
     shields_str: '力量盾',
+    shields_dex: '敏捷盾',
+    shields_int: '智慧盾',
     shields_str_dex: '力敏盾',
     shields_str_int: '力智盾',
-    buckler: '輕盾',
+    shields_dex_int: '敏智盾',
     claw: '爪',
     dagger: '匕首',
     'rune-dagger': '符紋匕首',
@@ -403,9 +407,11 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     boots_dex_int: '敏智鞋子',
     shield: '盾牌',
     shields_str: '力量盾',
+    shields_dex: '敏捷盾',
+    shields_int: '智慧盾',
     shields_str_dex: '力敏盾',
     shields_str_int: '力智盾',
-    buckler: '轻盾',
+    shields_dex_int: '敏智盾',
     claw: '爪',
     dagger: '匕首',
     'rune-dagger': '符文匕首',
@@ -478,9 +484,11 @@ const TYPE_NAMES_POE1_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     boots_dex_int: 'DEX/INT Boots',
     shield: 'Shield',
     shields_str: 'STR Shield',
+    shields_dex: 'DEX Shield',
+    shields_int: 'INT Shield',
     shields_str_dex: 'STR/DEX Shield',
     shields_str_int: 'STR/INT Shield',
-    buckler: 'Buckler',
+    shields_dex_int: 'DEX/INT Shield',
     claw: 'Claw',
     dagger: 'Dagger',
     'rune-dagger': 'Rune Dagger',
@@ -865,9 +873,11 @@ const POE1_ARMOUR_KEYS = [
   'boots_dex_int',
   'shield',
   'shields_str',
+  'shields_dex',
+  'shields_int',
   'shields_str_dex',
   'shields_str_int',
-  'buckler',
+  'shields_dex_int',
 ];
 
 const POE1_ACCESSORY_KEYS = ['amulet', 'ring', 'belt', 'quiver'];
@@ -1105,8 +1115,11 @@ function buildPoe1RowConfigs(locale: SupportedUiLocale): TypeRowConfig[] {
       mainKey: 'shield',
       subKeys: {
         shields_str: s,
+        shields_dex: d,
+        shields_int: i,
         shields_str_dex: sd,
         shields_str_int: si,
+        shields_dex_int: di,
       },
     },
     {
@@ -1323,7 +1336,6 @@ export const officialCategoryMapPoe1: Record<string, string> = {
   'armour.gloves': 'gloves',
   'armour.boots': 'boots',
   'armour.shield': 'shield',
-  'armour.buckler': 'buckler',
   'armour.quiver': 'quiver',
 
   // === 飾品 ===
