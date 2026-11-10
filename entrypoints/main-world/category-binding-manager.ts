@@ -200,7 +200,12 @@ export function extractLeagueAndModeFromUrl(url: string = window.location.href):
 }
 
 export function generateSessionId(): string {
-  const rand = Math.random().toString(36).substring(2, 9);
+  const rand =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+      : typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function'
+        ? crypto.getRandomValues(new Uint32Array(1))[0].toString(36)
+        : Date.now().toString(36);
   return `pobs_${Date.now()}_${rand}`;
 }
 

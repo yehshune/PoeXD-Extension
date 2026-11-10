@@ -1268,7 +1268,7 @@ export default defineComponent({
     // 格式化顯示詞綴文字
     const formatModText = (text: string) => {
       if (!text) return '';
-      return text.replace(/\|\|\|\|\|/g, '\n').replace(/#/g, '#');
+      return text.replace(/\|\|\|\|\|/g, '\n');
     };
 
     // 發送事件新增屬性篩選到官方網頁 (複合詞綴多事件發送處理)

@@ -215,7 +215,7 @@ export default defineComponent({
   setup(props, { emit }) {
     const formatModText = (text: string) => {
       if (!text) return '';
-      return text.replace(/\|\|\|\|\|/g, '\n').replace(/#/g, '#');
+      return text.replace(/\|\|\|\|\|/g, '\n');
     };
 
     interface HighlightSegment {

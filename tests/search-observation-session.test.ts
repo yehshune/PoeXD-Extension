@@ -654,9 +654,7 @@ function emitCurrentQuery(criteria: unknown = {}) {
 
 const cdnPrefix = 'https://web.poecdn.com/image/';
 function toCdnUrl(icon: string) {
-  return icon.startsWith('http://') || icon.startsWith('https://') || icon.startsWith('javascript:')
-    ? icon
-    : `${cdnPrefix}${icon}`;
+  return /^(?:https?|javascript|data|vbscript):/i.test(icon) ? icon : `${cdnPrefix}${icon}`;
 }
 
 function emitFetch(searchId: string, images: string[]) {

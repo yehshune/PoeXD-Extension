@@ -169,7 +169,14 @@ export function createLiveSearchConsoleHostGuard(
     const anchor = node.closest<HTMLAnchorElement>('a[href]');
     if (!anchor) return false;
     const rawHref = (anchor.getAttribute('href') || '').trim();
-    if (!rawHref || rawHref.startsWith('#') || rawHref.toLowerCase().startsWith('javascript:')) {
+    const lowerHref = rawHref.toLowerCase();
+    if (
+      !rawHref ||
+      rawHref.startsWith('#') ||
+      lowerHref.startsWith('javascript:') ||
+      lowerHref.startsWith('data:') ||
+      lowerHref.startsWith('vbscript:')
+    ) {
       return false;
     }
     const target = (anchor.getAttribute('target') || '').trim().toLowerCase();
