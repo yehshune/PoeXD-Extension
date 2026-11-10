@@ -461,7 +461,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(snapshot?.sidebarPosition).toBe('left');
     expect(snapshot?.sidebarSize).toBe('medium');
     expect(snapshot?.densityScale).toBe(1.0);
-    expect(snapshot?.addBookmarkBtnPosition).toBe('bottom');
+    expect(snapshot?.addBookmarkBtnPosition).toBe('top');
     expect(snapshot?.enableHotkeys).toBe(true);
     expect(snapshot?.enableSearchTilde).toBe(true);
     expect(snapshot?.enableFilterTilde).toBe(true);
@@ -953,19 +953,19 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
   it('updates bookmark button position via ToggleGroup and guards against empty value', async () => {
     const { container } = await mountSettingsPane();
-    expect(currentModule?.read().addBookmarkBtnPosition).toBe('bottom');
-
-    // Toggle 'top' (右上)
-    await changeToggleGroupValue(container, 'top');
     expect(currentModule?.read().addBookmarkBtnPosition).toBe('top');
 
     // Toggle 'bottom' (下方)
     await changeToggleGroupValue(container, 'bottom');
     expect(currentModule?.read().addBookmarkBtnPosition).toBe('bottom');
 
-    // Clicking active 'bottom' again should not clear the value
-    await changeToggleGroupValue(container, 'bottom');
-    expect(currentModule?.read().addBookmarkBtnPosition).toBe('bottom');
+    // Toggle 'top' (右上)
+    await changeToggleGroupValue(container, 'top');
+    expect(currentModule?.read().addBookmarkBtnPosition).toBe('top');
+
+    // Clicking active 'top' again should not clear the value
+    await changeToggleGroupValue(container, 'top');
+    expect(currentModule?.read().addBookmarkBtnPosition).toBe('top');
   });
 
   it('toggles checkboxes and persists changes to preferences', async () => {
@@ -1161,10 +1161,10 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().hotkeyClear).toBe('Ctrl+c');
 
     // 4. Another enum preference: addBookmarkBtnPosition
-    await changeToggleGroupValue(container, 'top');
-    expect(currentModule?.read().addBookmarkBtnPosition).toBe('top');
     await changeToggleGroupValue(container, 'bottom');
     expect(currentModule?.read().addBookmarkBtnPosition).toBe('bottom');
+    await changeToggleGroupValue(container, 'top');
+    expect(currentModule?.read().addBookmarkBtnPosition).toBe('top');
   });
 
   it('static guard: uses single reactive preferenceState with toRefs and Object.assign', async () => {

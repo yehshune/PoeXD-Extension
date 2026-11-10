@@ -165,7 +165,7 @@ export interface Preferences {
 }
 
 export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
-  addBookmarkBtnPosition: 'bottom',
+  addBookmarkBtnPosition: 'top',
   customFontSizeScale: null,
   customSidebarWidth: null,
   densityScale: 1,
@@ -188,7 +188,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   liveSearchMaxDisplayedResults: 100,
   liveSearchResumeMode: 'prompt',
   liveSearchSelectedLeague: '',
-  searchEntryClickAction: 'open',
+  searchEntryClickAction: 'preview',
   sidebarPosition: 'left',
   sidebarSize: 'medium',
   sidebarWidth: 380,

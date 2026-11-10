@@ -24,7 +24,7 @@ describe('Preferences Domain Contract', () => {
   it('defines canonical DEFAULT_PREFERENCES as an immutable object', () => {
     expect(Object.isFrozen(DEFAULT_PREFERENCES)).toBe(true);
     expect(DEFAULT_PREFERENCES).toEqual({
-      addBookmarkBtnPosition: 'bottom',
+      addBookmarkBtnPosition: 'top',
       customFontSizeScale: null,
       customSidebarWidth: null,
       densityScale: 1,
@@ -47,7 +47,7 @@ describe('Preferences Domain Contract', () => {
       liveSearchMaxDisplayedResults: 100,
       liveSearchResumeMode: 'prompt',
       liveSearchSelectedLeague: '',
-      searchEntryClickAction: 'open',
+      searchEntryClickAction: 'preview',
       sidebarPosition: 'left',
       sidebarSize: 'medium',
       sidebarWidth: 380,

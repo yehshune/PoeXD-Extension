@@ -353,7 +353,11 @@ import { useBookmarkSearch } from './composables/useBookmarkSearch';
 import { useBookmarkCollapse } from './composables/useBookmarkCollapse';
 import { useBookmarkEditing } from './composables/useBookmarkEditing';
 import { useBookmarkLeagues } from './composables/useBookmarkLeagues';
-import { DEFAULT_PREFERENCES, type SearchEntryClickAction } from '@/utils/preferences-contract';
+import {
+  DEFAULT_PREFERENCES,
+  type BookmarkButtonPosition,
+  type SearchEntryClickAction,
+} from '@/utils/preferences-contract';
 import { getPreferences } from '@/utils/preferences';
 import { createVersionedStorageKeys } from '@/utils/storage-contracts';
 import { getPoeVersion } from '@/utils/trade-context';
@@ -411,7 +415,9 @@ export default defineComponent({
     const bookmarkModel = createBookmarkModel(createChromeBookmarkClient(version));
     const bookmarks = computed(() => bookmarkModel.state.value.bookmarks);
     const groups = computed(() => bookmarkModel.state.value.groups);
-    const addBookmarkBtnPosition = ref<'top' | 'bottom'>('bottom');
+    const addBookmarkBtnPosition = ref<BookmarkButtonPosition>(
+      DEFAULT_PREFERENCES.addBookmarkBtnPosition,
+    );
     const enableBookmarkTooltip = ref<boolean>(DEFAULT_PREFERENCES.enableBookmarkTooltip);
     const searchEntryClickAction = ref<SearchEntryClickAction>(
       DEFAULT_PREFERENCES.searchEntryClickAction,

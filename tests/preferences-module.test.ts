@@ -13,7 +13,7 @@ describe('Preferences module interface', () => {
     });
     if (!outcome.ok) throw new Error(outcome.error.message);
     expect(outcome.value.read()).toEqual({
-      addBookmarkBtnPosition: 'bottom',
+      addBookmarkBtnPosition: 'top',
       customFontSizeScale: null,
       customSidebarWidth: null,
       densityScale: 1,
@@ -36,7 +36,7 @@ describe('Preferences module interface', () => {
       liveSearchMaxDisplayedResults: 100,
       liveSearchResumeMode: 'prompt',
       liveSearchSelectedLeague: '',
-      searchEntryClickAction: 'open',
+      searchEntryClickAction: 'preview',
       sidebarPosition: 'left',
       sidebarSize: 'medium',
       sidebarWidth: 380,

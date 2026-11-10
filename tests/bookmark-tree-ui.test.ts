@@ -571,19 +571,19 @@ describe('Bookmark Tree UI & Hierarchy Semantics', () => {
       // Body is hidden, bottom add container is NOT rendered for header-only parent
       expect(weaponBody.querySelector('.bookmark-bottom-add-container')).toBeNull();
 
-      // Empty leaf folder (g-other): retains default empty state body with helper text and bottom add container
+      // Empty leaf folder (g-other): retains default empty state body with helper text; top mode uses header add button
       expect(otherBody.style.display).not.toBe('none');
-      expect(otherHeader.querySelector('button[title="新增當前網頁到此資料夾"]')).toBeNull();
+      expect(otherHeader.querySelector('button[title="新增當前網頁到此資料夾"]')).not.toBeNull();
       const otherEmptyText = otherBody.querySelector('.empty-group-text');
       expect(otherEmptyText).not.toBeNull();
       expect(otherEmptyText?.textContent).toContain('資料夾內尚無書籤');
-      expect(otherBody.querySelector('.bookmark-bottom-add-container')).not.toBeNull();
+      expect(otherBody.querySelector('.bookmark-bottom-add-container')).toBeNull();
 
-      // Folder with bookmarks (g-equip): normal body with bookmark rows and bottom add container
+      // Folder with bookmarks (g-equip): normal body with bookmark rows; top mode uses header add button
       expect(equipBody.style.display).not.toBe('none');
-      expect(equipHeader.querySelector('button[title="新增當前網頁到此資料夾"]')).toBeNull();
+      expect(equipHeader.querySelector('button[title="新增當前網頁到此資料夾"]')).not.toBeNull();
       expect(equipBody.querySelector('[data-id="bm-equip"]')).not.toBeNull();
-      expect(equipBody.querySelector('.bookmark-bottom-add-container')).not.toBeNull();
+      expect(equipBody.querySelector('.bookmark-bottom-add-container')).toBeNull();
 
       // 2. Start dragging a bookmark
       // Locate Sortable options for bookmark sortable
