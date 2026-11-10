@@ -212,7 +212,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'tools.support.title': 'Support Development',
   'tools.support.description':
     'PoeXD is free and open source. If it saves you time, you can support its development.',
-  'tools.support.linkLabel': 'Support on {platform}',
+  'tools.support.linkLabel': 'Open support page',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': 'Loading affix data...',

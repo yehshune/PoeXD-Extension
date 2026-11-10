@@ -101,15 +101,13 @@
         {{ t('tools.support.description') }}
       </p>
       <a
-        v-for="link in supportLinks"
-        :key="link.id"
-        :href="link.url"
-        :data-support-link="link.id"
+        :href="supportPageUrl"
+        data-support-link="support-page"
         target="_blank"
         rel="noopener noreferrer"
         :class="cn(buttonVariants({ variant: 'outline', size: 'default' }), 'w-full no-underline')"
       >
-        {{ t('tools.support.linkLabel', { platform: link.label }) }}
+        {{ t('tools.support.linkLabel') }}
       </a>
     </section>
   </div>
@@ -120,7 +118,7 @@ import { computed, defineComponent, onMounted, onUnmounted, reactive, ref } from
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { SUPPORT_LINKS } from '@/utils/support-links';
+import { SUPPORT_PAGE_URL } from '@/utils/support-links';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from '@lucide/vue';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
@@ -385,7 +383,7 @@ export default defineComponent({
       t,
       cn,
       buttonVariants,
-      supportLinks: SUPPORT_LINKS,
+      supportPageUrl: SUPPORT_PAGE_URL,
       sectionOpen,
       displayVersion,
       priceConversionSupported,

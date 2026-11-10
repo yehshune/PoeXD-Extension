@@ -228,7 +228,7 @@ POEXD_STORE_BUILD=1 pnpm zip
 
 ## 贊助支持
 
-PoeXD 免費且開源。如果它幫你省下時間，歡迎透過 [Ko-fi](https://ko-fi.com/shu540886) 贊助支持後續開發。
+PoeXD 免費且開源。如果它幫你省下時間，歡迎到[贊助頁](https://yehshune.github.io/support/)支持後續開發。
 
 ---
 

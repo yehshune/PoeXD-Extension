@@ -120,7 +120,7 @@ describe('ToolsPane & time formatters', () => {
       expect(text).toContain('價格換算資料');
     });
 
-    it('links to the support pages in a new tab', async () => {
+    it('links to the shared support page in a new tab', async () => {
       (extensionMessaging.sendMessage as any).mockImplementation(async () => ({}));
 
       app = createApp(ToolsPane);
@@ -128,11 +128,13 @@ describe('ToolsPane & time formatters', () => {
       await nextTick();
 
       expect(container.textContent).toContain('支持開發');
-      const link = container.querySelector<HTMLAnchorElement>('a[data-support-link="ko-fi"]');
-      expect(link?.href).toBe('https://ko-fi.com/shu540886');
-      expect(link?.target).toBe('_blank');
-      expect(link?.rel).toBe('noopener noreferrer');
-      expect(link?.textContent).toContain('Ko-fi');
+      const links = container.querySelectorAll<HTMLAnchorElement>('a[data-support-link]');
+      expect(links).toHaveLength(1);
+      const link = links[0];
+      expect(link.href).toBe('https://yehshune.github.io/support/');
+      expect(link.target).toBe('_blank');
+      expect(link.rel).toBe('noopener noreferrer');
+      expect(link.textContent).toContain('前往贊助頁');
     });
 
     it('shows non-trade state when currentLeague is undefined and disables update button', async () => {

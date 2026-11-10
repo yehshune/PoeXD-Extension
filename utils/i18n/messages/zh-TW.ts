@@ -192,7 +192,7 @@ export const ZH_TW_MESSAGES = {
   'tools.economy.errorUpdateFailed': '更新價格資料失敗',
   'tools.support.title': '支持開發',
   'tools.support.description': 'PoeXD 免費且開源。如果它幫你省下時間，歡迎贊助支持後續開發。',
-  'tools.support.linkLabel': '前往 {platform} 贊助',
+  'tools.support.linkLabel': '前往贊助頁',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '載入詞綴資料中...',
