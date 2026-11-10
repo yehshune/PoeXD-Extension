@@ -26,6 +26,16 @@ describe('PoE 1 item categories', () => {
     expect(poe1.typeNames.boots_ward).toBe('保護鞋子');
   });
 
+  it('gives tri-attribute body armours their own sub-category', () => {
+    setActiveDisplayLocale('zh-TW');
+    expect(poe1.typeNames.body_armours_str_dex_int).toBe('力敏智胸甲');
+    expect(rowOf('body-armour')?.subKeys.body_armours_str_dex_int).toBe('力敏智');
+    expect(poe1.typeMap.helmets_str_dex_int).toBeUndefined();
+    expect(groupOf('body_armours_str_dex_int')).toBe('防具');
+    setActiveDisplayLocale('en');
+    expect(poe1.typeNames.body_armours_str_dex_int).toBe('STR/DEX/INT Body Armour');
+  });
+
   it('adds base-specific minion and unset categories', () => {
     setActiveDisplayLocale('zh-TW');
     expect(poe1.typeNames.wands_minion).toBe('召喚法杖');

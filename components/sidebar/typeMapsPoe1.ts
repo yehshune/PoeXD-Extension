@@ -75,6 +75,19 @@ const ATTRIBUTES = [
   },
 ] as const;
 
+/** 三屬性基底只出現在胸甲 */
+const TRI_ATTRIBUTE = {
+  suffix: 'str_dex_int',
+  sub: ['力量／敏捷／智慧', 'Str/Dex/Int'],
+  name: L('力敏智', '力敏智', 'STR/DEX/INT'),
+  short: L('力敏智', '力敏智', 'S/D/I'),
+} as const;
+
+type ArmourAttribute = (typeof ATTRIBUTES)[number] | typeof TRI_ATTRIBUTE;
+
+const attributesFor = (prefix: string): readonly ArmourAttribute[] =>
+  prefix === 'body_armours' ? [...ATTRIBUTES, TRI_ATTRIBUTE] : ATTRIBUTES;
+
 /** 魔符基底只有頭部、手套、鞋子三種 */
 const WARD_ARMOUR = [
   { key: 'helmets_ward', slot: 'helmet', name: L('保護頭盔', '结界头盔', 'Ward Helmet') },
@@ -303,7 +316,7 @@ function buildArmourDefs(): Record<string, CategoryDef> {
   for (const slot of ARMOUR_SLOTS) {
     const cat = ARMOUR_CAT[slot.main];
     defs[slot.main] = { info: { cat }, name: slot.name };
-    for (const attr of ATTRIBUTES) {
+    for (const attr of attributesFor(slot.prefix)) {
       const name = {
         'zh-TW': armourSubName(slot.prefix, attr.name['zh-TW'], slot.name['zh-TW'], 'zh-TW'),
         'zh-CN': armourSubName(slot.prefix, attr.name['zh-CN'], slot.name['zh-CN'], 'zh-CN'),
@@ -348,7 +361,7 @@ export const typeNamesPoe1: Record<string, string> =
 
 const armourKeys = (prefix: string, main: string) => [
   main,
-  ...ATTRIBUTES.map((a) => `${prefix}_${a.suffix}`),
+  ...attributesFor(prefix).map((a) => `${prefix}_${a.suffix}`),
 ];
 
 const POE1_WEAPON_KEYS = Object.keys(WEAPON_DEFS);
@@ -404,7 +417,9 @@ const ROW_DEFS: ReadonlyArray<{
   ...ARMOUR_SLOTS.map((slot) => ({
     mainKey: slot.main,
     subKeys: {
-      ...Object.fromEntries(ATTRIBUTES.map((a) => [`${slot.prefix}_${a.suffix}`, a.short])),
+      ...Object.fromEntries(
+        attributesFor(slot.prefix).map((a) => [`${slot.prefix}_${a.suffix}`, a.short]),
+      ),
       ...(slot.main === 'shield' ? { shields_minion: L('召喚', '召唤', 'Minion') } : {}),
     },
   })),
