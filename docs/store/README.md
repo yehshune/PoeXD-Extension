@@ -1,20 +1,20 @@
 # 商店上架資料 / Store listing kit
 
-Chrome Web Store 與 Microsoft Edge Add-ons 上架時要填的文字和圖片都放在這裡，照欄位複製貼上即可。
+Chrome Web Store、Microsoft Edge Add-ons 與 Firefox Add-ons (AMO) 上架時要填的文字和圖片都放在這裡，照欄位複製貼上即可。
 
-| 項目                               | 值                                                                                                   |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Chrome 商店 ID                     | `fbbkaeekjalfecgjfcephaiopffeobjg`                                                                   |
-| 自行安裝版 ID（含 manifest `key`） | `pmebgakijignfpnafmepcfaefhbbncjk`                                                                   |
-| 上傳檔案                           | Release workflow artifacts 裡的商店版 zip（`POEXD_STORE_BUILD=1`，不含 `key`）                       |
-| 隱私權政策 URL                     | <https://github.com/yehshune/PoeXD-Extension/blob/main/PRIVACY.md>                                   |
-| 首頁 / 支援 URL                    | <https://github.com/yehshune/PoeXD-Extension> · <https://github.com/yehshune/PoeXD-Extension/issues> |
-| 類別                               | Lifestyle → Games（Edge：Entertainment）                                                             |
-| 商店語言                           | English（預設）、繁體中文                                                                            |
+| 項目                               | 值                                                                                                                                            |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chrome 商店 ID                     | `fbbkaeekjalfecgjfcephaiopffeobjg`                                                                                                            |
+| 自行安裝版 ID（含 manifest `key`） | `pmebgakijignfpnafmepcfaefhbbncjk`                                                                                                            |
+| Firefox (AMO) 附加元件 ID          | `poexd-trade-helper@yehshune`                                                                                                                 |
+| 上傳檔案                           | Chrome / Edge：商店版 zip（`POEXD_STORE_BUILD=1 pnpm zip`，不含 `key`）<br>Firefox：`pnpm zip:firefox` 產出的 `poexd-extension-*-firefox.zip` |
+| 隱私權政策 URL                     | <https://github.com/yehshune/PoeXD-Extension/blob/main/PRIVACY.md>                                                                            |
+| 首頁 / 支援 URL                    | <https://github.com/yehshune/PoeXD-Extension> · <https://github.com/yehshune/PoeXD-Extension/issues>                                          |
+| 類別                               | Lifestyle → Games（Edge：Entertainment，Firefox：Games & Entertainment）                                                                      |
+| 商店語言                           | English（預設）、繁體中文                                                                                                                     |
 
-> **Firefox 暫不上架。** 如果之後要支援，建議走 AMO 的 _unlisted_ 簽署：不用公開審查，簽好的 `.xpi`
-> 可以放在 GitHub Release 讓使用者自行安裝。桌面連接器在 Firefox 上的 Origin 是每次安裝都不同的
-> `moz-extension://<UUID>`，桌面端要另外處理白名單。
+> **Firefox (AMO) 說明：**
+> 擴充套件已設定為純 Desktop 版本（不支援 Android）。若搭配本地桌面連接器使用，注意 Firefox 每次安裝時的 Origin 為動態 `moz-extension://<UUID>`。
 
 ## 圖片
 
@@ -137,21 +137,29 @@ PoeXD enhances the official Path of Exile trade website: it lets players organiz
 
 ## 3. 給審查員的測試說明 / Notes for reviewers
 
-Chrome 的「測試說明」與 Edge 的「Notes for certification」都貼這段：
+Chrome 的「測試說明」、Edge 的「Notes for certification」與 Firefox AMO 的「Notes to reviewers」都貼這段：
 
 ```text
-No account or login is needed to test the core features.
+The official Path of Exile trade website requires users to log in with a Path of Exile account before search interfaces and trading results are loaded. A free registered account is sufficient to test all features.
 
-1. Open https://www.pathofexile.com/trade2/search/poe2/Standard (or /trade/search for PoE 1).
-2. The PoeXD sidebar appears on the left. Run any search, then click "New Folder" and use "+ Add Current Page" in the folder to bookmark it.
-3. Click the "Search Preview" button on a bookmark to see its filters. Open the History tab to see recorded searches.
-4. The live search console requires a logged-in Path of Exile account, because live search is an official-site feature for logged-in users.
+Testing steps:
+1. Log in to the official Path of Exile website (https://www.pathofexile.com/login). Any free registered account works (registration is free at https://www.pathofexile.com/register).
+2. Once logged in, open the official trade search page:
+   - PoE 2: https://www.pathofexile.com/trade2/search/poe2/Standard
+   - PoE 1: https://www.pathofexile.com/trade/search/Standard
+3. The PoeXD sidebar appears on the left side of the page.
+4. Run any search on the trade page, then click "New Folder" in the sidebar and use "+ Add Current Page" in the folder to bookmark the current search.
+5. Click the "Search Preview" button on a bookmark or open the "History" tab to see recorded searches.
+6. The extension operates entirely within the browser via local storage (`chrome.storage.local`); no remote servers or external trackers are contacted.
 
 Third-party code notes:
 - The bundle contains a "new Function" feature check from the zod library (used for input validation). It only tests whether eval is allowed and falls back when blocked by CSP; no remote or dynamic code is executed.
-- innerHTML references come from the Vue runtime. The extension's own code builds DOM nodes with createElement/textContent.
+- innerHTML references come from the Vue runtime (nodeOps.insertStaticContent). The extension's own code does not use innerHTML and builds DOM nodes with createElement/textContent.
 
-Source code: https://github.com/yehshune/PoeXD-Extension (MIT). The submitted zip is built from the tagged commit with `POEXD_STORE_BUILD=1 pnpm wxt zip -b chrome` (or `-b edge`).
+Source code: https://github.com/yehshune/PoeXD-Extension (MIT).
+The submitted zip is built from the tagged commit with:
+- Chrome / Edge: `POEXD_STORE_BUILD=1 pnpm wxt zip -b chrome`
+- Firefox: `pnpm wxt zip -b firefox`
 ```
 
 ---
@@ -163,7 +171,24 @@ Source code: https://github.com/yehshune/PoeXD-Extension (MIT). The submitted zi
 - 「Privacy policy」填同一個 PRIVACY.md 網址；「Notes for certification」貼上面的審查員說明。
 - 類別選 **Entertainment**。
 
-## 5. 重新產生截圖
+---
+
+## 5. Firefox Add-ons (AMO) 差異
+
+- **套件上傳**：上傳 `pnpm zip:firefox` 產出的 `.output/poexd-extension-1.0.0-firefox.zip`。
+- **附加元件 ID**：`poexd-trade-helper@yehshune`（已在 `wxt.config.ts` 指定，不可隨意更改，且 AMO 刪除過的 ID 無法再次使用）。
+- **類別**：**Games & Entertainment**。
+- **支援平台**：純 Desktop 桌面版（manifest 未宣告 `gecko_android`，AMO 會自動排除 Android 版）。
+- **原始碼上傳（Source code）**：若 AMO 審查要求提供原始碼以驗證打包產物，上傳打包時同步產出的 `.output/poexd-extension-1.0.0-sources.zip`，並附上建置指令：
+  ```bash
+  pnpm install
+  pnpm build:firefox
+  ```
+- **給審查員的說明（Notes to reviewers）**：貼上第 3 節的英文說明（包含官方網站需登入帳號、以及 Vue runtime 的 innerHTML 說明）。
+
+---
+
+## 6. 重新產生截圖
 
 截圖是用 dev 模式（`pnpm dev`）的瀏覽器，透過 Playwright `connectOverCDP` 連到 `127.0.0.1:9222` 擷取：
 

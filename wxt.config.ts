@@ -23,7 +23,7 @@ const CHROMIUM_PUBLIC_KEY =
 /** `POEXD_STORE_BUILD=1` 時產生商店上架用建置（不含 key） */
 const IS_STORE_BUILD = process.env.POEXD_STORE_BUILD === '1';
 
-const GECKO_ID = 'poexd-extension@yehshune';
+const GECKO_ID = 'poexd-trade-helper@yehshune';
 
 const TRADE_SITE_MATCHES = [
   '*://*.pathofexile.com/*',
@@ -84,7 +84,7 @@ export default defineConfig({
             browser_specific_settings: {
               gecko: {
                 id: GECKO_ID,
-                strict_min_version: '140.0',
+                strict_min_version: '142.0',
                 data_collection_permissions: { required: ['none'] },
               },
             },
