@@ -78,7 +78,16 @@ const itemClass =
         :side-offset="4"
         class="z-(--pxd-z-floating) max-h-80 w-(--reka-combobox-trigger-width) min-w-[300px] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md"
       >
-        <ComboboxViewport class="max-h-80 overflow-y-auto p-1 pxd-scrollbar">
+        <!--
+          reka 的 ComboboxInput 失焦時用 document.getElementById / document.activeElement 判斷焦點是否還在選單內，
+          在 shadow root 裡兩者都抓不到，按下選項讓輸入框失焦就會被判定為離開而先關閉選單。
+          阻止 mousedown 的預設行為讓焦點留在輸入框，click 仍會正常選取。
+        -->
+        <ComboboxViewport
+          class="max-h-80 overflow-y-auto p-1 pxd-scrollbar"
+          data-test="mercenary-build-options"
+          @mousedown.prevent
+        >
           <ComboboxEmpty
             class="py-2 text-center text-[length:var(--pxd-font-caption)] text-muted-foreground"
           >
