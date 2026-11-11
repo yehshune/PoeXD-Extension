@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateGameDataBatch } from '../scripts/sync-game-data.mjs';
+import { validateGameDataBatch, validateMercenaryBatch } from '../scripts/sync-game-data.mjs';
 
 const batch = (overrides = {}) => ({
   modsTiers: { patch: '1.0', tiers: [{}, {}] },
@@ -40,5 +40,33 @@ describe('validateGameDataBatch', () => {
     expect(validateGameDataBatch(batch({ modsTiers: { tiers: [{}, {}] } }))).toContain(
       'mods-tiers.json 缺少 patch',
     );
+  });
+});
+
+describe('validateMercenaryBatch', () => {
+  const names = (patch, n = 1) => ({
+    patch,
+    builds: Array(n).fill('B'),
+    skills: ['S', 'T'],
+    supports: ['U'],
+  });
+  const mercenary = (overrides = {}) => ({
+    data: { patch: '2.0', builds: [{}], skills: [{}, {}], supports: [{}] },
+    names: { en: names('2.0'), 'zh-TW': names('2.0') },
+    ...overrides,
+  });
+
+  it('accepts names aligned with the structure file regardless of the mods patch', () => {
+    expect(validateMercenaryBatch(mercenary())).toEqual([]);
+  });
+
+  it('rejects names from another patch or with misaligned lengths', () => {
+    expect(
+      validateMercenaryBatch(mercenary({ names: { en: names('2.0'), ja: names('1.9', 2) } })),
+    ).toEqual(['mercenary.json (ja) patch 1.9 ≠ 2.0', 'mercenary.json (ja) builds 2 筆 ≠ 1 筆']);
+  });
+
+  it('requires the English names', () => {
+    expect(validateMercenaryBatch(mercenary({ names: {} }))).toContain('缺少 en/mercenary.json');
   });
 });

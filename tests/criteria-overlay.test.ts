@@ -8,6 +8,7 @@ import {
   sliceOverlayCriteria,
   parseCriteriaOverlayOps,
   planCriteriaOverlayApplication,
+  planStatGroupReplacement,
   type OverlayCriteria,
   type CriteriaOverlayFormSnapshot,
 } from '@/utils/criteria-overlay';
@@ -331,5 +332,66 @@ describe('parseCriteriaOverlayOps', () => {
       parseCriteriaOverlayOps([{ kind: 'pushStatGroup', type: 'and', filters: [{ id: 1 }] }]),
     ).toBeUndefined();
     expect(parseCriteriaOverlayOps('nope')).toBeUndefined();
+  });
+});
+
+describe('planStatGroupReplacement', () => {
+  const merc = {
+    type: 'mercenary',
+    value: { min: 3 },
+    filters: [{ id: 'mercenary.skill_1' }, { id: 'mercenary.support_2' }],
+  };
+  const item = { name: null, type: 'WarrantNoble', disc: 'mercenary_warrant', term: null };
+
+  it('removes the target group, appends the new one and restores both on undo', () => {
+    const plan = planStatGroupReplacement(pageSnapshot(), 1, [merc], item);
+    expect(plan.ops).toEqual([
+      { kind: 'setItem', item },
+      { kind: 'removeStatGroup', group: 1 },
+      { kind: 'pushStatGroup', type: 'mercenary', filters: merc.filters },
+      { kind: 'setStatGroupValue', group: 2, value: { min: 3 } },
+    ]);
+    expect(plan.undoOps).toEqual([
+      { kind: 'removeStatGroup', group: 2 },
+      { kind: 'pushStatGroup', type: 'count', filters: [{ id: 'explicit.stat_4220027924' }] },
+      { kind: 'setStatGroupValue', group: 2, value: { min: 2 } },
+      {
+        kind: 'setItem',
+        item: { name: null, type: 'Vaal Regalia', disc: null, term: null },
+      },
+    ]);
+    expect(parseCriteriaOverlayOps([...plan.ops, ...plan.undoOps])).toBeDefined();
+  });
+
+  it('re-adds an empty target group on undo and appends when the index is out of range', () => {
+    const replaced = planStatGroupReplacement(pageSnapshot(), 2, [merc]);
+    expect(replaced.undoOps).toEqual([
+      { kind: 'removeStatGroup', group: 2 },
+      { kind: 'pushStatGroup', type: 'and', filters: [] },
+    ]);
+    const appended = planStatGroupReplacement(pageSnapshot(), 9, [merc]);
+    expect(appended.ops[0]).toEqual({
+      kind: 'pushStatGroup',
+      type: 'mercenary',
+      filters: merc.filters,
+    });
+    expect(appended.undoOps).toEqual([{ kind: 'removeStatGroup', group: 3 }]);
+  });
+
+  it('appends extra groups after the replacement and removes them back to front on undo', () => {
+    const required = { type: 'and', filters: [{ id: 'mercenary.skill_1' }] };
+    const plan = planStatGroupReplacement(pageSnapshot(), 2, [merc, required]);
+    expect(plan.ops).toEqual([
+      { kind: 'removeStatGroup', group: 2 },
+      { kind: 'pushStatGroup', type: 'mercenary', filters: merc.filters },
+      { kind: 'setStatGroupValue', group: 2, value: { min: 3 } },
+      { kind: 'pushStatGroup', type: 'and', filters: required.filters },
+    ]);
+    expect(plan.undoOps).toEqual([
+      { kind: 'removeStatGroup', group: 3 },
+      { kind: 'removeStatGroup', group: 2 },
+      { kind: 'pushStatGroup', type: 'and', filters: [] },
+    ]);
+    expect(plan.report.addedStatGroups).toBe(2);
   });
 });

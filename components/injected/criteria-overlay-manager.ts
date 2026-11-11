@@ -3,6 +3,9 @@ import { dispatchPoeEvent } from '@/utils/event-contracts';
 import {
   isEmptyOverlayCriteria,
   pickCriteriaOverlayParts,
+  type CriteriaOverlayFormSnapshot,
+  type CriteriaOverlayItem,
+  type CriteriaOverlayStatGroup,
   type OverlayCriteria,
 } from '@/utils/criteria-overlay';
 import {
@@ -55,7 +58,17 @@ export interface CriteriaOverlayManager {
   busy: Ref<boolean>;
   saveDialog: TemplateSaveDialogState;
   start(): Promise<void>;
-  overlay(criteria: OverlayCriteria, sourceName: string): Promise<void>;
+  /** 疊加條件；成功套用時回傳 true（失敗已通知使用者）。 */
+  overlay(criteria: OverlayCriteria, sourceName: string): Promise<boolean>;
+  /** 讀取目前官方表單的原始快照；失敗時通知使用者並回傳 null。 */
+  readFormSnapshot(): Promise<CriteriaOverlayFormSnapshot | null>;
+  /** 以單一群組取代第 index 個詞綴群組（可同時覆寫物品識別），可用「復原上次套用」還原。 */
+  replaceStatGroup(
+    index: number,
+    groups: readonly CriteriaOverlayStatGroup[],
+    sourceName: string,
+    item?: CriteriaOverlayItem,
+  ): Promise<boolean>;
   applyTemplate(template: StatGroupTemplate): Promise<void>;
   undo(): Promise<void>;
   beginSaveTemplate(): Promise<void>;
@@ -146,15 +159,19 @@ export function createCriteriaOverlayManager(
     }
   };
 
-  const overlay = (criteria: OverlayCriteria, sourceName: string) =>
-    run(async () => {
+  const overlay = async (criteria: OverlayCriteria, sourceName: string) => {
+    let applied = false;
+    await run(async () => {
       if (isEmptyOverlayCriteria(criteria)) {
         notify('沒有可疊加的條件', 'error');
         return;
       }
       const report = await session.apply(criteria);
       notify(describeCriteriaOverlayReport(sourceName, report), 'success');
+      applied = true;
     });
+    return applied;
+  };
 
   const start = () => {
     starting ??= (async () => {
@@ -184,7 +201,28 @@ export function createCriteriaOverlayManager(
     start,
     overlay,
 
-    applyTemplate: (template) => overlay(statGroupsOnly(template), template.name),
+    applyTemplate: async (template) => {
+      await overlay(statGroupsOnly(template), template.name);
+    },
+
+    readFormSnapshot: async () => {
+      try {
+        return await session.readSnapshot();
+      } catch (error) {
+        notify(errorMessage(error), 'error');
+        return null;
+      }
+    },
+
+    replaceStatGroup: async (index, groups, sourceName, item) => {
+      let replaced = false;
+      await run(async () => {
+        const report = await session.replaceStatGroup(index, groups, item);
+        notify(describeCriteriaOverlayReport(sourceName, report), 'success');
+        replaced = true;
+      });
+      return replaced;
+    },
 
     undo: () =>
       run(async () => {

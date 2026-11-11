@@ -219,16 +219,17 @@ export interface PoeCrossWorldPayloadMap {
 }
 
 // -------------------------------------------------------------
-// Content World Internal Event Map (11 個事件)
+// Content World Internal Event Map (12 個事件)
 // -------------------------------------------------------------
 
 /**
- * 11 個 Content World 內部解耦事件（Content Script <-> Injected Controls / Vue）
+ * 12 個 Content World 內部解耦事件（Content Script <-> Injected Controls / Vue）
  */
 export interface PoeContentInternalEventMap {
   'poexd-close-affix-modal': void;
   'poexd-modal-active-changed': boolean;
   'poexd-open-affix-modal': { groupIndex: number };
+  'poexd-open-mercenary-picker': { groupIndex: number };
   'poexd-request-result-images': void;
   'poexd-result-images': { url: string; images: string[] };
   'poexd-sidebar-collapsed-changed': boolean;

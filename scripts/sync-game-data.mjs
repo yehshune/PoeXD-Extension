@@ -4,6 +4,9 @@
  * mods-tiers.json、locales/<locale>/stats.json 與 locales/<locale>/items.json 以索引互相對齊，
  * 必須整批來自同一次建置：任一檔的 patch 不同或長度不對齊時整批拒絕，不寫入任何檔案。
  *
+ * mercenary.json 與 locales/<locale>/mercenary.json（僅 poe1）自成一批：彼此以索引對齊、patch 一致即可，
+ * 不需與詞綴分片同一 patch；來源沒有傭兵資料時略過，不影響詞綴同步。
+ *
  * 用法：node scripts/sync-game-data.mjs [--source ../poexd-data/output] [--version poe1|poe2]
  */
 import { existsSync } from 'node:fs';
@@ -52,6 +55,36 @@ export function validateGameDataBatch(batch) {
   return errors;
 }
 
+/**
+ * 檢查傭兵資料批次；回傳錯誤訊息陣列（空陣列表示可同步）。
+ * @param {{ data: any, names: Record<string, any> }} batch
+ */
+export function validateMercenaryBatch(batch) {
+  const errors = [];
+  const patch = batch.data?.patch;
+  if (!patch) errors.push('mercenary.json 缺少 patch');
+  const lengths = {
+    builds: batch.data?.builds?.length,
+    skills: batch.data?.skills?.length,
+    supports: batch.data?.supports?.length,
+  };
+  for (const [key, length] of Object.entries(lengths)) {
+    if (!Number.isInteger(length) || length === 0) errors.push(`mercenary.json 缺少 ${key}`);
+  }
+  if (!batch.names.en) errors.push('缺少 en/mercenary.json');
+  for (const [locale, shard] of Object.entries(batch.names)) {
+    if (shard?.patch !== patch) {
+      errors.push(`mercenary.json (${locale}) patch ${shard?.patch ?? '缺少'} ≠ ${patch}`);
+    }
+    for (const [key, length] of Object.entries(lengths)) {
+      if (shard?.[key]?.length !== length) {
+        errors.push(`mercenary.json (${locale}) ${key} ${shard?.[key]?.length} 筆 ≠ ${length} 筆`);
+      }
+    }
+  }
+  return errors;
+}
+
 async function readJsonIfExists(path) {
   if (!existsSync(path)) return null;
   return JSON.parse(await readFile(path, 'utf8'));
@@ -71,6 +104,27 @@ async function loadBatch(sourceDir, version) {
     if (itemsShard) items[locale] = itemsShard;
   }
   return { modsTiers, stats, items };
+}
+
+async function loadMercenaryBatch(sourceDir, version) {
+  const versionDir = join(sourceDir, version);
+  const data = await readJsonIfExists(join(versionDir, 'mercenary.json'));
+  if (!data) return null;
+  const names = {};
+  for (const locale of await readdir(join(versionDir, 'locales'))) {
+    const shard = await readJsonIfExists(join(versionDir, 'locales', locale, 'mercenary.json'));
+    if (shard) names[locale] = shard;
+  }
+  return { data, names };
+}
+
+function mercenaryWrites(version, batch) {
+  const targetDir = join(ROOT, 'public/json', version);
+  const writes = [{ path: join(targetDir, 'mercenary.json'), data: batch.data }];
+  for (const [locale, shard] of Object.entries(batch.names)) {
+    writes.push({ path: join(targetDir, 'locales', locale, 'mercenary.json'), data: shard });
+  }
+  return writes.map(({ path, data }) => ({ path, content: JSON.stringify(data) }));
 }
 
 function batchWrites(version, batch) {
@@ -111,6 +165,20 @@ async function main() {
     process.stdout.write(
       `${version}: patch ${batch.modsTiers.patch}，${Object.keys(batch.stats).length} 個語系\n`,
     );
+
+    const mercenary = await loadMercenaryBatch(source, version);
+    if (mercenary) {
+      const mercenaryErrors = validateMercenaryBatch(mercenary);
+      if (mercenaryErrors.length > 0) {
+        throw new Error(
+          `${version} 傭兵資料不一致，未寫入任何檔案：\n  - ${mercenaryErrors.join('\n  - ')}`,
+        );
+      }
+      writes.push(...mercenaryWrites(version, mercenary));
+      process.stdout.write(
+        `${version}: 傭兵資料 patch ${mercenary.data.patch}，${Object.keys(mercenary.names).length} 個語系\n`,
+      );
+    }
   }
   await replaceFilesWithRollback(writes);
   process.stdout.write(`已同步 ${writes.length} 個檔案\n`);

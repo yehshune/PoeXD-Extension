@@ -235,6 +235,10 @@ export function tagFilterDomElements(explicitCategory?: string | null) {
       console.warn(`[PoeXD Inject] tagFilterDomElements: stats[${gIdx}] 或其 filters 屬性不存在`);
       return;
     }
+    const groupType = typeof stats[gIdx].type === 'string' ? stats[gIdx].type : '';
+    if (group.getAttribute('data-poexd-group-type') !== groupType) {
+      group.setAttribute('data-poexd-group-type', groupType);
+    }
     const filterElements = group.querySelectorAll('.filter-group-body .filter:not(.filter-padded)');
 
     filterElements.forEach((filterEl, fIdx) => {

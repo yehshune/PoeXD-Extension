@@ -10,7 +10,12 @@ import {
   captureOverlayCriteria,
   criteriaOverlayFormFingerprint,
   planCriteriaOverlayApplication,
+  planStatGroupReplacement,
+  type CriteriaOverlayApplyPlan,
   type CriteriaOverlayApplyReport,
+  type CriteriaOverlayFormSnapshot,
+  type CriteriaOverlayItem,
+  type CriteriaOverlayStatGroup,
   type OverlayCriteria,
   type CriteriaOverlayOp,
 } from '@/utils/criteria-overlay';
@@ -32,8 +37,16 @@ export interface CriteriaOverlayPageChannel {
 export interface CriteriaOverlaySession {
   /** 從目前官方表單擷取完整條件（尚未經使用者勾選）。 */
   capture(): Promise<OverlayCriteria>;
+  /** 讀取目前官方表單的原始快照（詞綴群組位置與頁面一致）。 */
+  readSnapshot(): Promise<CriteriaOverlayFormSnapshot>;
   /** 把條件疊加到目前搜尋，並記住一次復原。 */
   apply(criteria: OverlayCriteria): Promise<CriteriaOverlayApplyReport>;
+  /** 以單一群組取代第 index 個詞綴群組（可同時覆寫物品識別），並記住一次復原。 */
+  replaceStatGroup(
+    index: number,
+    groups: readonly CriteriaOverlayStatGroup[],
+    item?: CriteriaOverlayItem,
+  ): Promise<CriteriaOverlayApplyReport>;
   /** 復原上次套用；沒有可復原的套用時回傳 false。 */
   undo(): Promise<boolean>;
   canUndo(): boolean;
@@ -121,7 +134,22 @@ export function createCriteriaOverlaySession(
     listeners.forEach((listener) => listener(pendingUndo !== null));
   };
 
+  const commitPlan = async (plan: CriteriaOverlayApplyPlan) => {
+    if (plan.ops.length > 0) {
+      setUndo(null);
+      await channel.commit(plan.ops);
+      const after = await channel.read();
+      setUndo({ ops: plan.undoOps, fingerprint: criteriaOverlayFormFingerprint(after.snapshot) });
+    }
+    return plan.report;
+  };
+
   return {
+    async readSnapshot() {
+      const { snapshot } = await channel.read();
+      return snapshot;
+    },
+
     async capture() {
       const { snapshot } = await channel.read();
       return captureOverlayCriteria(snapshot);
@@ -129,14 +157,12 @@ export function createCriteriaOverlaySession(
 
     async apply(criteria) {
       const { snapshot, knownStatIds } = await channel.read();
-      const plan = planCriteriaOverlayApplication(criteria, snapshot, knownStatIds);
-      if (plan.ops.length > 0) {
-        setUndo(null);
-        await channel.commit(plan.ops);
-        const after = await channel.read();
-        setUndo({ ops: plan.undoOps, fingerprint: criteriaOverlayFormFingerprint(after.snapshot) });
-      }
-      return plan.report;
+      return commitPlan(planCriteriaOverlayApplication(criteria, snapshot, knownStatIds));
+    },
+
+    async replaceStatGroup(index, groups, item) {
+      const { snapshot } = await channel.read();
+      return commitPlan(planStatGroupReplacement(snapshot, index, groups, item));
     },
 
     async undo() {

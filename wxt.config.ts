@@ -71,6 +71,8 @@ export default defineConfig({
             'json/poe1/locales/*/stats.json',
             'json/poe1/locales/*/items.json',
             'json/poe1/locales/*/trade-filters.json',
+            'json/poe1/mercenary.json',
+            'json/poe1/locales/*/mercenary.json',
             'json/poe2/mods-tiers.json',
             'json/poe2/locales/*/stats.json',
             'json/poe2/locales/*/items.json',

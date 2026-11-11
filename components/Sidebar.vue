@@ -450,6 +450,9 @@
           v-if="pageRole === 'normal'"
           @manage="openStatGroupTemplateManager"
         />
+
+        <!-- Injected UI: 傭兵技能群組選擇器（PoE 1 一般頁面） -->
+        <MercenaryPickerHost v-if="pageRole === 'normal' && version === 'poe1'" />
       </div>
     </TooltipProvider>
   </ConfigProvider>
@@ -478,6 +481,7 @@ import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPa
 import TemporarySearchDialog from './sidebar/TemporarySearchDialog.vue';
 import TierDropdownHost from './injected/TierDropdownHost.vue';
 import StatGroupTemplateHost from './injected/StatGroupTemplateHost.vue';
+import MercenaryPickerHost from './injected/mercenary/MercenaryPickerHost.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import {
   DEFAULT_PREFERENCES,
@@ -568,6 +572,7 @@ export default defineComponent({
     TemporarySearchDialog,
     TierDropdownHost,
     StatGroupTemplateHost,
+    MercenaryPickerHost,
     Dialog,
     DialogContent,
     DialogDescription,
@@ -1034,6 +1039,7 @@ export default defineComponent({
     });
 
     return {
+      version,
       t,
       portalTarget,
       isCollapsed,

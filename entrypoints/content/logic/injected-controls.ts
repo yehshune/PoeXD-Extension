@@ -234,6 +234,62 @@ export function cleanAllTierSlotArtifacts(): void {
   clearTierSlots();
 }
 
+type FilterGroupButtonMode = 'affix' | 'mercenary';
+
+const MERCENARY_GROUP_TYPE = 'mercenary';
+const FILTER_ICON_PATH =
+  'M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 19 4H5c-.78 0-1.23.89-.75 1.61z';
+const MERCENARY_ICON_PATH =
+  'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z';
+
+/**
+ * 官方「傭兵技能群組」只能加入傭兵技能，一般詞綴選擇器對它沒有用。
+ * 優先使用 Main World 依 Vuex 標記的群組類型；尚未標記時，以群組內只出現傭兵選項判斷。
+ */
+export function isMercenaryFilterGroup(group: Element): boolean {
+  const tagged = group.getAttribute('data-poexd-group-type');
+  if (tagged) return tagged === MERCENARY_GROUP_TYPE;
+  const body = group.querySelector('.filter-group-body');
+  if (!body) return false;
+  const typed = body.querySelectorAll('.mutate-type');
+  return (
+    typed.length > 0 &&
+    Array.from(typed).every((el) => el.classList.contains('mutate-type-mercenary'))
+  );
+}
+
+function filterGroupButtonTitle(mode: FilterGroupButtonMode): string {
+  return mode === 'mercenary'
+    ? t('injectedControls.selectMercenaryGroupTitle')
+    : t('injectedControls.selectAffixGroupTitle');
+}
+
+function createFilterGroupButton(
+  mode: FilterGroupButtonMode,
+  groupIndex: number,
+): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn poexd-inline-btn poexd-filter-select-btn';
+  button.dataset.poexdMode = mode;
+  button.title = filterGroupButtonTitle(mode);
+  button.replaceChildren(
+    createSvgIcon({
+      attrs: { viewBox: '0 0 24 24', style: 'fill: currentColor; pointer-events: none;' },
+      paths: [mode === 'mercenary' ? MERCENARY_ICON_PATH : FILTER_ICON_PATH],
+    }),
+  );
+  button.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (mode === 'mercenary') {
+      dispatchPoeEvent('poexd-open-mercenary-picker', { groupIndex });
+    } else {
+      dispatchPoeEvent('poexd-open-affix-modal', { groupIndex });
+    }
+  });
+  return button;
+}
+
 export function cleanFilterGroupButtons(): void {
   document
     .querySelectorAll<HTMLElement>('.poexd-filter-select-btn, .poexd-category-select-btn')
@@ -634,30 +690,20 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
     const groups = document.querySelectorAll('.search-advanced-pane.brown .filter-group');
     groups.forEach((group, index) => {
       const header = group.querySelector('.filter-group-header .filter');
-      if (!header || header.querySelector('.poexd-filter-select-btn')) return;
+      if (!header) return;
+      const mode: FilterGroupButtonMode =
+        options.version === 'poe1' && isMercenaryFilterGroup(group) ? 'mercenary' : 'affix';
+      const existing = header.querySelector<HTMLElement>('.poexd-filter-select-btn');
+      if (existing) {
+        if (existing.dataset.poexdMode === mode) return;
+        existing.remove();
+      }
 
       const removeBtn = header.querySelector('.remove-btn');
       const container = removeBtn?.closest('.input-group-btn');
       if (!container || !removeBtn) return;
 
-      const selectBtn = document.createElement('button');
-      selectBtn.type = 'button';
-      selectBtn.className = 'btn poexd-inline-btn poexd-filter-select-btn';
-      selectBtn.title = t('injectedControls.selectAffixGroupTitle');
-      selectBtn.replaceChildren(
-        createSvgIcon({
-          attrs: { viewBox: '0 0 24 24', style: 'fill: currentColor; pointer-events: none;' },
-          paths: [
-            'M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 19 4H5c-.78 0-1.23.89-.75 1.61z',
-          ],
-        }),
-      );
-      selectBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dispatchPoeEvent('poexd-open-affix-modal', { groupIndex: index });
-      });
-
-      container.insertBefore(selectBtn, removeBtn);
+      container.insertBefore(createFilterGroupButton(mode, index), removeBtn);
     });
 
     let categoryGroup: Element | null = null;
@@ -842,7 +888,9 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
     });
 
     document.querySelectorAll<HTMLElement>('.poexd-filter-select-btn').forEach((btn) => {
-      btn.title = t('injectedControls.selectAffixGroupTitle');
+      btn.title = filterGroupButtonTitle(
+        btn.dataset.poexdMode === 'mercenary' ? 'mercenary' : 'affix',
+      );
     });
 
     document.querySelectorAll<HTMLElement>('.poexd-category-select-btn').forEach((btn) => {

@@ -66,6 +66,7 @@ type ExpectedInternal =
   | 'poexd-close-affix-modal'
   | 'poexd-modal-active-changed'
   | 'poexd-open-affix-modal'
+  | 'poexd-open-mercenary-picker'
   | 'poexd-request-result-images'
   | 'poexd-result-images'
   | 'poexd-sidebar-collapsed-changed'

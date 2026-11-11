@@ -6,6 +6,7 @@ import {
   translateAffixStat,
 } from './affix-lexicon';
 import { getActiveDisplayLocale, getActiveUiLocale } from './i18n';
+import { translateMercenaryStat } from './mercenary-data';
 import {
   describeShardMismatch,
   isShardCompatible,
@@ -397,7 +398,10 @@ export function translateStatLines(statId: string, version: PoeVersion = 'poe1')
 }
 
 export function translateStat(statId: string, version: PoeVersion = 'poe1'): string {
-  const translated = translateAffixStat(statId, version) ?? translatePseudoStat(statId, version);
+  const translated =
+    translateAffixStat(statId, version) ??
+    translatePseudoStat(statId, version) ??
+    (version === 'poe1' ? translateMercenaryStat(statId) : null);
   if (translated) return translated;
   return statId.replace(/^[a-z_]+\./, '');
 }

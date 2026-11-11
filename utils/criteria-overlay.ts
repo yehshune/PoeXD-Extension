@@ -193,6 +193,24 @@ function readSections(
 // Capture & selection
 // -------------------------------------------------------------
 
+/** 讀取快照中的物品識別（名稱、基底、discriminator、搜尋字串）。 */
+export function readSnapshotItem(snapshot: CriteriaOverlayFormSnapshot): CriteriaOverlayItem {
+  return readItem(snapshot);
+}
+
+/**
+ * 依官方表單上的位置讀取第 index 個詞綴群組（不略過空群組，位置與頁面一致）。
+ * 該位置沒有群組時回傳 undefined；群組沒有詞綴時 filters 為空陣列。
+ */
+export function readSnapshotStatGroup(
+  snapshot: CriteriaOverlayFormSnapshot,
+  index: number,
+): CriteriaOverlayStatGroup | undefined {
+  const raw = Array.isArray(snapshot.stats) ? snapshot.stats[index] : undefined;
+  if (!isRecord(raw) || typeof raw.type !== 'string' || raw.type === '') return undefined;
+  return normalizeStatGroup(raw) ?? { type: raw.type, filters: [] };
+}
+
 /** 將官方表單快照正規化為可儲存的完整條件（尚未經使用者勾選）。 */
 export function captureOverlayCriteria(snapshot: CriteriaOverlayFormSnapshot): OverlayCriteria {
   const item = readItem(snapshot);
@@ -497,6 +515,70 @@ export function planCriteriaOverlayApplication(
       changedFields: criteria.fields.length,
       changedItem: itemOps.length > 0,
       changedStatus: statusOps.length > 0,
+    },
+  };
+}
+
+/**
+ * 規劃以詞綴群組取代目前表單上第 index 個群組（可同時覆寫物品識別）。
+ * groups 的第一個取代原群組，其餘依序附加（例如傭兵技能另需的 `and` 群組）。
+ *
+ * 官方只能在尾端新增群組，因此新群組會移到最後；復原時移除新群組並把原群組加回尾端。
+ * index 超出範圍時視為新增。
+ */
+export function planStatGroupReplacement(
+  snapshot: CriteriaOverlayFormSnapshot,
+  index: number,
+  groups: readonly CriteriaOverlayStatGroup[],
+  item?: CriteriaOverlayItem,
+): CriteriaOverlayApplyPlan {
+  if (groups.length === 0) throw new Error('planStatGroupReplacement requires a group');
+  const stats = Array.isArray(snapshot.stats) ? snapshot.stats : [];
+  const raw = Number.isInteger(index) && index >= 0 ? stats[index] : undefined;
+  const replacing = isRecord(raw) && typeof raw.type === 'string' && raw.type !== '';
+  const baseIndex = stats.length - (replacing ? 1 : 0);
+
+  const pushOps = (target: CriteriaOverlayStatGroup, at: number): CriteriaOverlayOp[] => [
+    { kind: 'pushStatGroup', type: target.type, filters: target.filters },
+    ...(target.value
+      ? [{ kind: 'setStatGroupValue' as const, group: at, value: target.value }]
+      : []),
+    ...(target.disabled
+      ? [{ kind: 'setStatGroupDisabled' as const, group: at, disable: true }]
+      : []),
+  ];
+
+  const itemOps: CriteriaOverlayOp[] = item ? [{ kind: 'setItem', item: { ...item } }] : [];
+  const itemUndo: CriteriaOverlayOp[] = item ? [{ kind: 'setItem', item: readItem(snapshot) }] : [];
+
+  const original: CriteriaOverlayStatGroup | undefined = replacing
+    ? (normalizeStatGroup(raw) ?? {
+        type: raw.type as string,
+        filters: [],
+        ...(cleanValue(raw.value) ? { value: cleanValue(raw.value) } : {}),
+        ...(raw.disabled === true ? { disabled: true } : {}),
+      })
+    : undefined;
+
+  // 由後往前移除，前面的索引才不會位移
+  const removeNew: CriteriaOverlayOp[] = groups
+    .map((_, offset) => ({ kind: 'removeStatGroup' as const, group: baseIndex + offset }))
+    .reverse();
+
+  return {
+    ops: [
+      ...itemOps,
+      ...(replacing ? [{ kind: 'removeStatGroup' as const, group: index }] : []),
+      ...groups.flatMap((group, offset) => pushOps(group, baseIndex + offset)),
+    ],
+    undoOps: [...removeNew, ...(original ? pushOps(original, baseIndex) : []), ...itemUndo],
+    report: {
+      addedStatGroups: groups.length,
+      skippedDuplicateStatGroups: 0,
+      skippedUnknownStatFilters: 0,
+      changedFields: 0,
+      changedItem: itemOps.length > 0,
+      changedStatus: false,
     },
   };
 }

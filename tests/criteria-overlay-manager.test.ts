@@ -27,6 +27,7 @@ function fakeSession(capture: OverlayCriteria = formCriteria) {
   const applied: OverlayCriteria[] = [];
   const session: CriteriaOverlaySession = {
     capture: vi.fn(async () => capture),
+    readSnapshot: vi.fn(async () => ({ stats: [] })),
     apply: vi.fn(async (c: OverlayCriteria) => {
       applied.push(c);
       return {
@@ -38,6 +39,14 @@ function fakeSession(capture: OverlayCriteria = formCriteria) {
         changedStatus: false,
       };
     }),
+    replaceStatGroup: vi.fn(async () => ({
+      addedStatGroups: 1,
+      skippedDuplicateStatGroups: 0,
+      skippedUnknownStatFilters: 0,
+      changedFields: 0,
+      changedItem: false,
+      changedStatus: false,
+    })),
     undo: vi.fn(async () => true),
     canUndo: () => false,
     subscribeUndo: () => () => {},
