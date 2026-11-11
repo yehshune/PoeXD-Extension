@@ -229,7 +229,8 @@ export interface PoeContentInternalEventMap {
   'poexd-close-affix-modal': void;
   'poexd-modal-active-changed': boolean;
   'poexd-open-affix-modal': { groupIndex: number };
-  'poexd-open-mercenary-picker': { groupIndex: number };
+  /** condition 為 true 時把傭兵技能加入一般條件群組（and / not / count / if），而非改寫傭兵技能群組。 */
+  'poexd-open-mercenary-picker': { groupIndex: number; condition?: boolean };
   'poexd-request-result-images': void;
   'poexd-result-images': { url: string; images: string[] };
   'poexd-sidebar-collapsed-changed': boolean;

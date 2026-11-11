@@ -198,6 +198,24 @@ export function isStatFilterGroup(group: Element): boolean {
   );
 }
 
+/**
+ * 是否為傭兵傭兵證的搜尋：物品類型是傭兵證，或表單已有傭兵技能群組／傭兵條件。
+ * 內容腳本據此決定是否在一般條件群組上提供傭兵按鈕。
+ */
+export function isMercenarySearch(
+  disc: unknown,
+  stats: ReadonlyArray<{ type?: unknown; filters?: ReadonlyArray<{ id?: unknown }> }>,
+): boolean {
+  if (disc === 'mercenary_warrant') return true;
+  return stats.some(
+    (group) =>
+      group?.type === 'mercenary' ||
+      (group?.filters ?? []).some(
+        (filter) => typeof filter?.id === 'string' && filter.id.startsWith('mercenary.'),
+      ),
+  );
+}
+
 export function tagFilterDomElements(explicitCategory?: string | null) {
   const store = getVueStore();
   if (!store) {
@@ -229,6 +247,7 @@ export function tagFilterDomElements(explicitCategory?: string | null) {
 
   const allGroups = document.querySelectorAll('.search-advanced-pane.brown .filter-group');
   const groups = Array.from(allGroups).filter(isStatFilterGroup);
+  const mercenarySearch = isMercenarySearch(store.state?.persistent?.disc, stats) ? '1' : '0';
 
   groups.forEach((group, gIdx) => {
     if (!stats[gIdx] || !stats[gIdx].filters) {
@@ -238,6 +257,9 @@ export function tagFilterDomElements(explicitCategory?: string | null) {
     const groupType = typeof stats[gIdx].type === 'string' ? stats[gIdx].type : '';
     if (group.getAttribute('data-poexd-group-type') !== groupType) {
       group.setAttribute('data-poexd-group-type', groupType);
+    }
+    if (group.getAttribute('data-poexd-mercenary-search') !== mercenarySearch) {
+      group.setAttribute('data-poexd-mercenary-search', mercenarySearch);
     }
     const filterElements = group.querySelectorAll('.filter-group-body .filter:not(.filter-padded)');
 

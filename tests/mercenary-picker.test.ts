@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMercenaryCatalog, type MercenaryDataFile } from '@/utils/mercenary-data';
 import { useMercenaryPicker } from '@/components/injected/mercenary/useMercenaryPicker';
 import type { CriteriaOverlayFormSnapshot } from '@/utils/criteria-overlay';
-import { isMercenaryFilterGroup } from '@/entrypoints/content/logic/injected-controls';
+import {
+  isMercenaryConditionGroup,
+  isMercenaryFilterGroup,
+} from '@/entrypoints/content/logic/injected-controls';
+import { isMercenarySearch } from '@/entrypoints/main-world/dom-tagger';
 
 const catalogData: MercenaryDataFile = {
   patch: '3.29.0',
@@ -62,6 +66,7 @@ function setup(form: CriteriaOverlayFormSnapshot | null) {
     readFormSnapshot: vi.fn(async () => form),
     replaceStatGroup: vi.fn(async () => true),
     overlay: vi.fn(async () => true),
+    updateStatGroup: vi.fn(async () => true),
   };
   const picker = useMercenaryPicker({ manager, loadCatalog: async () => catalog });
   return { manager, picker };
@@ -186,6 +191,7 @@ describe('useMercenaryPicker (supports)', () => {
       readFormSnapshot: vi.fn(async () => null),
       replaceStatGroup: vi.fn(),
       overlay: vi.fn(),
+      updateStatGroup: vi.fn(),
     };
     const picker = useMercenaryPicker({
       manager,
@@ -294,6 +300,7 @@ describe('useMercenaryPicker (build search)', () => {
         readFormSnapshot: vi.fn(async () => null),
         replaceStatGroup: vi.fn(),
         overlay: vi.fn(),
+        updateStatGroup: vi.fn(),
       },
       loadCatalog: async () => catalog,
       loadEnglishCatalog: async () => english,
@@ -341,6 +348,89 @@ describe('useMercenaryPicker (group kinds)', () => {
     expect(manager.overlay).toHaveBeenCalledWith(
       expect.objectContaining({ statGroups: [expect.objectContaining({ type: 'count' })] }),
       'Infamous Kineticist',
+    );
+  });
+});
+
+describe('useMercenaryPicker (group)', () => {
+  const countForm = () =>
+    formWith({
+      stats: [
+        { type: 'and', filters: [] },
+        {
+          type: 'count',
+          value: { min: 2 },
+          filters: [
+            { id: 'explicit.stat_1' },
+            { id: 'mercenary.skill_1', disabled: true },
+            { id: 'mercenary.support_11' },
+          ],
+        },
+      ],
+    });
+
+  it('prefills skills already in the group and rewrites it in place', async () => {
+    const { picker, manager } = setup(countForm());
+    await picker.open({ mode: 'group', groupIndex: 1 });
+    expect(picker.targetGroupType.value).toBe('count');
+    expect(picker.selectedSkills.value.map((s) => s.name)).toEqual(['Flame Dash']);
+    expect(picker.countMin.value).toBe(2);
+    expect(picker.isMercenaryKind.value).toBe(false);
+
+    picker.toggleSkill(1, true);
+    picker.countMin.value = 9;
+    expect(await picker.apply()).toBe(true);
+    expect(manager.updateStatGroup).toHaveBeenCalledWith(
+      1,
+      [
+        { id: 'explicit.stat_1' },
+        { id: 'mercenary.skill_1', disabled: true },
+        { id: 'mercenary.support_11' },
+        { id: 'mercenary.skill_2' },
+      ],
+      'Flame Dash',
+      { min: 4 },
+    );
+  });
+
+  it('removes unchecked skills and can apply with none left', async () => {
+    const { picker, manager } = setup(
+      formWith({ stats: [{ type: 'not', filters: [{ id: 'mercenary.skill_1' }] }] }),
+    );
+    await picker.open({ mode: 'group', groupIndex: 0 });
+    picker.toggleSkill(0, false);
+    expect(picker.canApply.value).toBe(true);
+    await picker.apply();
+    expect(manager.updateStatGroup).toHaveBeenCalledWith(0, [], '', undefined);
+  });
+});
+
+describe('isMercenaryConditionGroup', () => {
+  const group = (type: string, mercenarySearch: string) => {
+    const el = document.createElement('div');
+    el.setAttribute('data-poexd-group-type', type);
+    el.setAttribute('data-poexd-mercenary-search', mercenarySearch);
+    return el;
+  };
+
+  it('offers the mercenary button on condition groups of a mercenary search only', () => {
+    expect(isMercenaryConditionGroup(group('count', '1'))).toBe(true);
+    expect(isMercenaryConditionGroup(group('if', '1'))).toBe(true);
+    expect(isMercenaryConditionGroup(group('weight', '1'))).toBe(false);
+    expect(isMercenaryConditionGroup(group('mercenary', '1'))).toBe(false);
+    expect(isMercenaryConditionGroup(group('and', '0'))).toBe(false);
+  });
+});
+
+describe('isMercenarySearch', () => {
+  it('detects warrant searches by item disc, mercenary groups or mercenary entries', () => {
+    expect(isMercenarySearch('mercenary_warrant', [])).toBe(true);
+    expect(isMercenarySearch(null, [{ type: 'mercenary', filters: [] }])).toBe(true);
+    expect(isMercenarySearch(null, [{ type: 'not', filters: [{ id: 'mercenary.skill_1' }] }])).toBe(
+      true,
+    );
+    expect(isMercenarySearch(null, [{ type: 'and', filters: [{ id: 'explicit.stat_1' }] }])).toBe(
+      false,
     );
   });
 });

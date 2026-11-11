@@ -10,11 +10,13 @@ import {
   captureOverlayCriteria,
   criteriaOverlayFormFingerprint,
   planCriteriaOverlayApplication,
+  planStatGroupFiltersUpdate,
   planStatGroupReplacement,
   type CriteriaOverlayApplyPlan,
   type CriteriaOverlayApplyReport,
   type CriteriaOverlayFormSnapshot,
   type CriteriaOverlayItem,
+  type CriteriaOverlayStatFilter,
   type CriteriaOverlayStatGroup,
   type OverlayCriteria,
   type CriteriaOverlayOp,
@@ -46,6 +48,15 @@ export interface CriteriaOverlaySession {
     index: number,
     groups: readonly CriteriaOverlayStatGroup[],
     item?: CriteriaOverlayItem,
+  ): Promise<CriteriaOverlayApplyReport>;
+  /**
+   * 原地改寫第 index 個詞綴群組的條件（可同時改 value），並記住一次復原。
+   * 群組不存在時拋出錯誤。
+   */
+  updateStatGroup(
+    index: number,
+    filters: readonly CriteriaOverlayStatFilter[],
+    value?: Record<string, unknown> | null,
   ): Promise<CriteriaOverlayApplyReport>;
   /** 復原上次套用；沒有可復原的套用時回傳 false。 */
   undo(): Promise<boolean>;
@@ -165,6 +176,13 @@ export function createCriteriaOverlaySession(
       return commitPlan(planStatGroupReplacement(snapshot, index, groups, item));
     },
 
+    async updateStatGroup(index, filters, value) {
+      const { snapshot } = await channel.read();
+      const plan = planStatGroupFiltersUpdate(snapshot, index, filters, value);
+      if (!plan) throw new Error(`stat group ${index} not found`);
+      return commitPlan(plan);
+    },
+
     async undo() {
       if (!pendingUndo) return false;
       const { ops, fingerprint } = pendingUndo;
@@ -211,6 +229,14 @@ export function describeCriteriaOverlayReport(
       t('criteriaOverlay.report.changedFields', {
         count: report.changedFields,
         s: enPlural(report.changedFields),
+      }),
+    );
+  }
+  if ((report.updatedStatGroups ?? 0) > 0) {
+    parts.push(
+      t('criteriaOverlay.report.updatedStatGroups', {
+        count: report.updatedStatGroups ?? 0,
+        s: enPlural(report.updatedStatGroups ?? 0),
       }),
     );
   }

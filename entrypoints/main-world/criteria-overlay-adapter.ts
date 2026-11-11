@@ -69,6 +69,22 @@ function commitOp(store: HostVuexStore, root: HostTradeRoot | null, op: Criteria
         group: op.group,
         disable: op.disable,
       });
+    case 'setStatGroupFilters': {
+      // 以官方 mutation 清空再逐一加入，群組留在原位
+      const stats = (store.state?.persistent as { stats?: Array<{ filters?: unknown[] }> })?.stats;
+      const current = stats?.[op.group]?.filters;
+      if (!Array.isArray(current)) throw new Error(`stat group ${op.group} not found`);
+      for (let index = current.length - 1; index >= 0; index -= 1) {
+        store.commit('removeStatFilter', { group: op.group, index });
+      }
+      op.filters.forEach((filter) =>
+        store.commit('setStatFilter', {
+          group: op.group,
+          value: JSON.parse(JSON.stringify(filter)),
+        }),
+      );
+      return;
+    }
     case 'removeStatGroup':
       return store.commit('removeStatGroup', { group: op.group });
   }

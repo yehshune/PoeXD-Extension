@@ -87,7 +87,12 @@ export function createFilterObserver(options: FilterObserverOptions): FilterObse
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['data-poexd-category', 'data-poexd-stat-id'],
+      attributeFilter: [
+        'data-poexd-category',
+        'data-poexd-stat-id',
+        'data-poexd-group-type',
+        'data-poexd-mercenary-search',
+      ],
     });
   };
 

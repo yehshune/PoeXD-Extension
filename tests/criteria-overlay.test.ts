@@ -8,6 +8,7 @@ import {
   sliceOverlayCriteria,
   parseCriteriaOverlayOps,
   planCriteriaOverlayApplication,
+  planStatGroupFiltersUpdate,
   planStatGroupReplacement,
   type OverlayCriteria,
   type CriteriaOverlayFormSnapshot,
@@ -393,5 +394,35 @@ describe('planStatGroupReplacement', () => {
       { kind: 'pushStatGroup', type: 'and', filters: [] },
     ]);
     expect(plan.report.addedStatGroups).toBe(2);
+  });
+});
+
+describe('planStatGroupFiltersUpdate', () => {
+  it('rewrites the group in place and restores filters and value on undo', () => {
+    const filters = [{ id: 'explicit.stat_4220027924' }, { id: 'mercenary.skill_1' }];
+    const plan = planStatGroupFiltersUpdate(pageSnapshot(), 1, filters, { min: 1 });
+    expect(plan?.ops).toEqual([
+      { kind: 'setStatGroupFilters', group: 1, filters },
+      { kind: 'setStatGroupValue', group: 1, value: { min: 1 } },
+    ]);
+    expect(plan?.undoOps).toEqual([
+      { kind: 'setStatGroupFilters', group: 1, filters: [{ id: 'explicit.stat_4220027924' }] },
+      { kind: 'setStatGroupValue', group: 1, value: { min: 2 } },
+    ]);
+    expect(plan?.report.updatedStatGroups).toBe(1);
+    expect(parseCriteriaOverlayOps([...plan!.ops, ...plan!.undoOps])).toBeDefined();
+  });
+
+  it('leaves value alone when not given and rejects missing groups', () => {
+    const plan = planStatGroupFiltersUpdate(pageSnapshot(), 2, [{ id: 'mercenary.skill_1' }]);
+    expect(plan?.ops).toHaveLength(1);
+    expect(plan?.undoOps).toEqual([{ kind: 'setStatGroupFilters', group: 2, filters: [] }]);
+    expect(planStatGroupFiltersUpdate(pageSnapshot(), 9, [])).toBeUndefined();
+  });
+
+  it('rejects malformed filter ops on the wire', () => {
+    expect(
+      parseCriteriaOverlayOps([{ kind: 'setStatGroupFilters', group: 0, filters: [{ id: '' }] }]),
+    ).toBeUndefined();
   });
 });

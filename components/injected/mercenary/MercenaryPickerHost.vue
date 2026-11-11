@@ -72,6 +72,10 @@ const {
   applyBuildType,
   groupKind,
   isMercenaryKind,
+  multiSelect,
+  targetGroupType,
+  groupFilters,
+  countLimit,
   countMin,
   requireSkill,
   unguaranteedSkills,
@@ -90,11 +94,46 @@ const {
 const open = ref(false);
 const applying = ref(false);
 const isBatch = computed(() => mode.value === 'batch');
+const isGroup = computed(() => mode.value === 'group');
 
 const stop = listenPoeEvent('poexd-open-mercenary-picker', (detail) => {
   open.value = true;
-  void picker.open({ mode: 'edit', groupIndex: detail.groupIndex });
+  void picker.open({
+    mode: detail.condition ? 'group' : 'edit',
+    groupIndex: detail.groupIndex,
+  });
 });
+
+const TARGET_GROUP_HINT_KEYS = {
+  and: 'mercenaryPicker.targetGroupHint.and',
+  not: 'mercenaryPicker.targetGroupHint.not',
+  count: 'mercenaryPicker.targetGroupHint.count',
+  if: 'mercenaryPicker.targetGroupHint.if',
+} as const satisfies Record<string, I18nKey>;
+
+const conditionHint = computed(() => {
+  if (!isGroup.value) return t(GROUP_KIND_HINT_KEYS[groupKind.value]);
+  const type = targetGroupType.value ?? '';
+  const key = TARGET_GROUP_HINT_KEYS[type as keyof typeof TARGET_GROUP_HINT_KEYS];
+  return t('mercenaryPicker.targetGroupPrefix', { type }) + (key ? t(key) : '');
+});
+const showCountMin = computed(() =>
+  isGroup.value ? targetGroupType.value === 'count' : groupKind.value === 'count',
+);
+const dialogTitle = computed(() =>
+  isGroup.value
+    ? t('mercenaryPicker.groupTitle')
+    : isBatch.value
+      ? t('mercenaryPicker.batchTitle')
+      : t('mercenaryPicker.title'),
+);
+const dialogDescription = computed(() =>
+  isGroup.value
+    ? t('mercenaryPicker.groupDescription')
+    : isBatch.value
+      ? t('mercenaryPicker.batchDescription')
+      : t('mercenaryPicker.description'),
+);
 onBeforeUnmount(stop);
 
 function openBatch() {
@@ -107,12 +146,8 @@ function onGroupKindChange(value: unknown) {
   if (kind) picker.setGroupKind(kind);
 }
 
-const countOptions = computed(() =>
-  Array.from({ length: Math.max(1, selectedSkills.value.length) }, (_, i) => i + 1),
-);
-const countValue = computed(() =>
-  Math.max(1, Math.min(countMin.value, selectedSkills.value.length)),
-);
+const countOptions = computed(() => Array.from({ length: countLimit.value }, (_, i) => i + 1));
+const countValue = computed(() => Math.max(1, Math.min(countMin.value, countLimit.value)));
 
 function onCountMinChange(value: unknown) {
   const count = Number(value);
@@ -124,6 +159,12 @@ const sectionTitle = (role: keyof typeof ROLE_TITLE_KEYS, count: number) =>
 
 const summary = computed(() => {
   if (!canApply.value) return '';
+  if (isGroup.value) {
+    return t('mercenaryPicker.summaryGroup', {
+      count: selectedSkills.value.length,
+      total: groupFilters.value.length,
+    });
+  }
   if (isBatch.value) return t('mercenaryPicker.summaryBatch', { count: resultGroups.value.length });
   const min = Number(resultGroups.value[0]?.value?.min ?? 1);
   return t('mercenaryPicker.summaryEdit', { min: Math.max(0, min - 1) });
@@ -176,10 +217,10 @@ async function submit() {
     >
       <DialogHeader class="shrink-0 text-left pr-[var(--pxd-space-2xl)]">
         <DialogTitle class="text-[length:var(--pxd-font-section-title)] font-bold">
-          {{ isBatch ? t('mercenaryPicker.batchTitle') : t('mercenaryPicker.title') }}
+          {{ dialogTitle }}
         </DialogTitle>
         <DialogDescription class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
-          {{ isBatch ? t('mercenaryPicker.batchDescription') : t('mercenaryPicker.description') }}
+          {{ dialogDescription }}
         </DialogDescription>
       </DialogHeader>
 
@@ -273,7 +314,7 @@ async function submit() {
                   "
                 >
                   <Checkbox
-                    v-if="isBatch"
+                    v-if="multiSelect"
                     :model-value="entry.skill.index in drafts"
                     @update:model-value="picker.toggleSkill(entry.skill.index, $event === true)"
                   />
@@ -310,7 +351,7 @@ async function submit() {
             data-test="mercenary-condition"
           >
             <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
-              {{ t(GROUP_KIND_HINT_KEYS[groupKind]) }}
+              {{ conditionHint }}
             </p>
             <p
               v-if="selectedSkills.length === 0"
@@ -318,17 +359,20 @@ async function submit() {
             >
               {{ t('mercenaryPicker.conditionEmpty') }}
             </p>
-            <template v-else>
-              <p class="m-0 text-[length:var(--pxd-font-secondary)] text-foreground">
+            <template v-if="selectedSkills.length > 0 || isGroup">
+              <p
+                v-if="selectedSkills.length > 0"
+                class="m-0 text-[length:var(--pxd-font-secondary)] text-foreground"
+              >
                 {{ t('mercenaryPicker.conditionSelected', { count: selectedSkills.length }) }}
                 {{ selectedNames }}
               </p>
               <div
-                v-if="groupKind === 'count'"
+                v-if="showCountMin"
                 class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]"
               >
                 <span class="text-[length:var(--pxd-font-caption)] text-foreground">
-                  {{ t('mercenaryPicker.countMin') }}
+                  {{ isGroup ? t('mercenaryPicker.groupCountMin') : t('mercenaryPicker.countMin') }}
                 </span>
                 <Select :model-value="String(countValue)" @update:model-value="onCountMinChange">
                   <SelectTrigger size="sm" class="w-[96px]" data-test="mercenary-count-min">
@@ -389,7 +433,13 @@ async function submit() {
           :disabled="!canApply || applying || loading"
           @click="submit"
         >
-          {{ isBatch ? t('mercenaryPicker.applyBatch') : t('mercenaryPicker.apply') }}
+          {{
+            isGroup
+              ? t('mercenaryPicker.applyGroup')
+              : isBatch
+                ? t('mercenaryPicker.applyBatch')
+                : t('mercenaryPicker.apply')
+          }}
         </Button>
       </DialogFooter>
     </DialogContent>

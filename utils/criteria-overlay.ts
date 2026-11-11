@@ -67,6 +67,8 @@ export type CriteriaOverlayOp =
   | { kind: 'pushStatGroup'; type: string; filters: CriteriaOverlayStatFilter[] }
   | { kind: 'setStatGroupValue'; group: number; value: Record<string, unknown> | null }
   | { kind: 'setStatGroupDisabled'; group: number; disable: boolean }
+  /** 改寫既有群組內的全部條件，群組留在原位。 */
+  | { kind: 'setStatGroupFilters'; group: number; filters: CriteriaOverlayStatFilter[] }
   | { kind: 'removeStatGroup'; group: number };
 
 export type CriteriaOverlayOpKind = CriteriaOverlayOp['kind'];
@@ -79,6 +81,7 @@ export const CRITERIA_OVERLAY_OP_KINDS: readonly CriteriaOverlayOpKind[] = [
   'pushStatGroup',
   'setStatGroupValue',
   'setStatGroupDisabled',
+  'setStatGroupFilters',
   'removeStatGroup',
 ];
 
@@ -89,6 +92,8 @@ export interface CriteriaOverlayApplyReport {
   changedFields: number;
   changedItem: boolean;
   changedStatus: boolean;
+  /** 原地改寫內容的群組數。 */
+  updatedStatGroups?: number;
 }
 
 export interface CriteriaOverlayApplyPlan {
@@ -583,6 +588,51 @@ export function planStatGroupReplacement(
   };
 }
 
+/**
+ * 規劃原地改寫第 index 個詞綴群組的條件（可同時改 `value`，例如 count 的 min），群組不移位。
+ * 群組不存在時回傳 undefined；復原時還原原本的條件與 value。
+ */
+export function planStatGroupFiltersUpdate(
+  snapshot: CriteriaOverlayFormSnapshot,
+  index: number,
+  filters: readonly CriteriaOverlayStatFilter[],
+  value?: Record<string, unknown> | null,
+): CriteriaOverlayApplyPlan | undefined {
+  const stats = Array.isArray(snapshot.stats) ? snapshot.stats : [];
+  const raw = Number.isInteger(index) && index >= 0 ? stats[index] : undefined;
+  if (!isRecord(raw) || typeof raw.type !== 'string' || raw.type === '') return undefined;
+
+  const originalFilters = (Array.isArray(raw.filters) ? raw.filters : [])
+    .map(normalizeStatFilter)
+    .filter((f): f is CriteriaOverlayStatFilter => f !== undefined);
+  const valueOps: CriteriaOverlayOp[] =
+    value === undefined ? [] : [{ kind: 'setStatGroupValue', group: index, value }];
+  const valueUndo: CriteriaOverlayOp[] =
+    value === undefined
+      ? []
+      : [{ kind: 'setStatGroupValue', group: index, value: cleanValue(raw.value) ?? null }];
+
+  return {
+    ops: [
+      { kind: 'setStatGroupFilters', group: index, filters: filters.map((f) => ({ ...f })) },
+      ...valueOps,
+    ],
+    undoOps: [
+      { kind: 'setStatGroupFilters', group: index, filters: originalFilters },
+      ...valueUndo,
+    ],
+    report: {
+      addedStatGroups: 0,
+      skippedDuplicateStatGroups: 0,
+      skippedUnknownStatFilters: 0,
+      changedFields: 0,
+      changedItem: false,
+      changedStatus: false,
+      updatedStatGroups: 1,
+    },
+  };
+}
+
 // -------------------------------------------------------------
 // Wire validation (Main World 只執行通過白名單驗證的 ops)
 // -------------------------------------------------------------
@@ -632,6 +682,12 @@ function isValidOp(op: unknown): op is CriteriaOverlayOp {
       return isGroupIndex(op.group) && isNullableRecord(op.value);
     case 'setStatGroupDisabled':
       return isGroupIndex(op.group) && typeof op.disable === 'boolean';
+    case 'setStatGroupFilters':
+      return (
+        isGroupIndex(op.group) &&
+        Array.isArray(op.filters) &&
+        op.filters.every((f) => normalizeStatFilter(f) !== undefined)
+      );
     case 'removeStatGroup':
       return isGroupIndex(op.group);
     default:

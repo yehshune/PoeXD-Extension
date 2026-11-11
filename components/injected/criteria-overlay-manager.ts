@@ -5,6 +5,7 @@ import {
   pickCriteriaOverlayParts,
   type CriteriaOverlayFormSnapshot,
   type CriteriaOverlayItem,
+  type CriteriaOverlayStatFilter,
   type CriteriaOverlayStatGroup,
   type OverlayCriteria,
 } from '@/utils/criteria-overlay';
@@ -68,6 +69,13 @@ export interface CriteriaOverlayManager {
     groups: readonly CriteriaOverlayStatGroup[],
     sourceName: string,
     item?: CriteriaOverlayItem,
+  ): Promise<boolean>;
+  /** 原地改寫第 index 個詞綴群組的條件；成功回傳 true。 */
+  updateStatGroup(
+    index: number,
+    filters: readonly CriteriaOverlayStatFilter[],
+    sourceName: string,
+    value?: Record<string, unknown> | null,
   ): Promise<boolean>;
   applyTemplate(template: StatGroupTemplate): Promise<void>;
   undo(): Promise<void>;
@@ -222,6 +230,16 @@ export function createCriteriaOverlayManager(
         replaced = true;
       });
       return replaced;
+    },
+
+    updateStatGroup: async (index, filters, sourceName, value) => {
+      let updated = false;
+      await run(async () => {
+        const report = await session.updateStatGroup(index, filters, value);
+        notify(describeCriteriaOverlayReport(sourceName, report), 'success');
+        updated = true;
+      });
+      return updated;
     },
 
     undo: () =>

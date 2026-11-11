@@ -7,7 +7,7 @@
  *
  * 本模組不碰 DOM、Vuex 或 chrome.*。
  */
-import type { CriteriaOverlayStatGroup } from './criteria-overlay';
+import type { CriteriaOverlayStatFilter, CriteriaOverlayStatGroup } from './criteria-overlay';
 import type {
   MercenaryBuild,
   MercenaryCatalog,
@@ -158,6 +158,24 @@ export function buildMercenaryCountGroup(
 ): CriteriaOverlayStatGroup {
   const clamped = Math.max(1, Math.min(Math.floor(min), skills.length));
   return { type: 'count', value: { min: clamped }, filters: skillFilters(skills) };
+}
+
+/**
+ * 把勾選的傭兵技能寫進一般條件群組的條件清單：
+ * 保留非傭兵技能的條件與已存在技能的原本設定（例如停用狀態），移除取消勾選的技能，新技能附加在後。
+ */
+export function mergeMercenarySkillFilters(
+  catalog: MercenaryCatalog,
+  filters: readonly CriteriaOverlayStatFilter[],
+  skills: readonly MercenarySkill[],
+): CriteriaOverlayStatFilter[] {
+  const wanted = new Set(skills.map((s) => s.tradeId));
+  const kept = filters.filter((f) => !catalog.skillByTradeId.has(f.id) || wanted.has(f.id));
+  const present = new Set(kept.map((f) => f.id));
+  return [
+    ...kept.map((f) => ({ ...f })),
+    ...skills.filter((s) => !present.has(s.tradeId)).map((s) => ({ id: s.tradeId })),
+  ];
 }
 
 /**

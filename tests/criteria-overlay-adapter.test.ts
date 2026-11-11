@@ -100,6 +100,24 @@ describe('executeCriteriaOverlayOps', () => {
     expect(root.save).toHaveBeenCalledWith(true);
   });
 
+  it('rewrites a group in place by removing its filters back to front and re-adding them', () => {
+    const store = createStore();
+    store.state.persistent.stats[0].filters.push({ id: 'explicit.stat_9', value: { min: 2 } });
+    executeCriteriaOverlayOps(store as any, null, [
+      {
+        kind: 'setStatGroupFilters',
+        group: 0,
+        filters: [{ id: 'explicit.stat_1' }, { id: 'mercenary.skill_1' }],
+      },
+    ]);
+    expect(store.commit.mock.calls.slice(0, 4)).toEqual([
+      ['removeStatFilter', { group: 0, index: 1 }],
+      ['removeStatFilter', { group: 0, index: 0 }],
+      ['setStatFilter', { group: 0, value: { id: 'explicit.stat_1' } }],
+      ['setStatFilter', { group: 0, value: { id: 'mercenary.skill_1' } }],
+    ]);
+  });
+
   it('restores the form and still saves when a mutation throws midway', () => {
     const store = createStore();
     store._withCommit.mockImplementation((fn: () => void) => fn());

@@ -234,9 +234,11 @@ export function cleanAllTierSlotArtifacts(): void {
   clearTierSlots();
 }
 
-type FilterGroupButtonMode = 'affix' | 'mercenary';
+type FilterGroupButtonMode = 'affix' | 'mercenary' | 'mercenary-condition';
 
 const MERCENARY_GROUP_TYPE = 'mercenary';
+/** 可以放傭兵技能的一般條件群組（weight 需逐條填權重，不提供）。 */
+const MERCENARY_CONDITION_GROUP_TYPES: ReadonlySet<string> = new Set(['and', 'not', 'count', 'if']);
 const FILTER_ICON_PATH =
   'M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39A.998.998 0 0 0 19 4H5c-.78 0-1.23.89-.75 1.61z';
 const MERCENARY_ICON_PATH =
@@ -258,10 +260,19 @@ export function isMercenaryFilterGroup(group: Element): boolean {
   );
 }
 
+/**
+ * 傭兵搜尋中的一般條件群組（and / not / count / if）也能放傭兵技能，額外提供傭兵按鈕。
+ * 依 Main World 標記的群組類型與傭兵搜尋旗標判斷。
+ */
+export function isMercenaryConditionGroup(group: Element): boolean {
+  if (group.getAttribute('data-poexd-mercenary-search') !== '1') return false;
+  return MERCENARY_CONDITION_GROUP_TYPES.has(group.getAttribute('data-poexd-group-type') ?? '');
+}
+
 function filterGroupButtonTitle(mode: FilterGroupButtonMode): string {
-  return mode === 'mercenary'
-    ? t('injectedControls.selectMercenaryGroupTitle')
-    : t('injectedControls.selectAffixGroupTitle');
+  if (mode === 'mercenary') return t('injectedControls.selectMercenaryGroupTitle');
+  if (mode === 'mercenary-condition') return t('injectedControls.addMercenaryToGroupTitle');
+  return t('injectedControls.selectAffixGroupTitle');
 }
 
 function createFilterGroupButton(
@@ -270,19 +281,24 @@ function createFilterGroupButton(
 ): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'btn poexd-inline-btn poexd-filter-select-btn';
+  button.className =
+    mode === 'mercenary-condition'
+      ? 'btn poexd-inline-btn poexd-filter-select-btn poexd-mercenary-condition-btn'
+      : 'btn poexd-inline-btn poexd-filter-select-btn';
   button.dataset.poexdMode = mode;
   button.title = filterGroupButtonTitle(mode);
   button.replaceChildren(
     createSvgIcon({
       attrs: { viewBox: '0 0 24 24', style: 'fill: currentColor; pointer-events: none;' },
-      paths: [mode === 'mercenary' ? MERCENARY_ICON_PATH : FILTER_ICON_PATH],
+      paths: [mode === 'affix' ? FILTER_ICON_PATH : MERCENARY_ICON_PATH],
     }),
   );
   button.addEventListener('click', (e) => {
     e.stopPropagation();
     if (mode === 'mercenary') {
       dispatchPoeEvent('poexd-open-mercenary-picker', { groupIndex });
+    } else if (mode === 'mercenary-condition') {
+      dispatchPoeEvent('poexd-open-mercenary-picker', { groupIndex, condition: true });
     } else {
       dispatchPoeEvent('poexd-open-affix-modal', { groupIndex });
     }
@@ -693,17 +709,25 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
       if (!header) return;
       const mode: FilterGroupButtonMode =
         options.version === 'poe1' && isMercenaryFilterGroup(group) ? 'mercenary' : 'affix';
-      const existing = header.querySelector<HTMLElement>('.poexd-filter-select-btn');
-      if (existing) {
-        if (existing.dataset.poexdMode === mode) return;
-        existing.remove();
-      }
-
       const removeBtn = header.querySelector('.remove-btn');
       const container = removeBtn?.closest('.input-group-btn');
-      if (!container || !removeBtn) return;
 
-      container.insertBefore(createFilterGroupButton(mode, index), removeBtn);
+      const wantsCondition =
+        options.version === 'poe1' && mode === 'affix' && isMercenaryConditionGroup(group);
+      const conditionBtn = header.querySelector<HTMLElement>('.poexd-mercenary-condition-btn');
+      if (conditionBtn && !wantsCondition) conditionBtn.remove();
+
+      const existing = header.querySelector<HTMLElement>(
+        '.poexd-filter-select-btn:not(.poexd-mercenary-condition-btn)',
+      );
+      if (existing && existing.dataset.poexdMode !== mode) existing.remove();
+      if (!container || !removeBtn) return;
+      if (!existing || existing.dataset.poexdMode !== mode) {
+        container.insertBefore(createFilterGroupButton(mode, index), removeBtn);
+      }
+      if (wantsCondition && !conditionBtn) {
+        container.insertBefore(createFilterGroupButton('mercenary-condition', index), removeBtn);
+      }
     });
 
     let categoryGroup: Element | null = null;
@@ -888,8 +912,9 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
     });
 
     document.querySelectorAll<HTMLElement>('.poexd-filter-select-btn').forEach((btn) => {
+      const mode = btn.dataset.poexdMode;
       btn.title = filterGroupButtonTitle(
-        btn.dataset.poexdMode === 'mercenary' ? 'mercenary' : 'affix',
+        mode === 'mercenary' || mode === 'mercenary-condition' ? mode : 'affix',
       );
     });
 

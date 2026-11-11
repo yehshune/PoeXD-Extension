@@ -4,6 +4,7 @@ import {
   readSnapshotStatGroup,
   type CriteriaOverlayFormSnapshot,
   type CriteriaOverlayItem,
+  type CriteriaOverlayStatFilter,
 } from '@/utils/criteria-overlay';
 import { getMercenaryCatalog, type MercenaryCatalog } from '@/utils/mercenary-data';
 import {
@@ -13,6 +14,7 @@ import {
   buildMercenaryStatGroup,
   listBuildSkills,
   listSkillSupportFamilies,
+  mergeMercenarySkillFilters,
   MERCENARY_GROUP_TYPE,
   MERCENARY_SUPPORT_RANGE,
   MERCENARY_WARRANT_DISC,
@@ -26,11 +28,22 @@ import {
 } from '@/utils/mercenary-query';
 import type { CriteriaOverlayManager } from '../criteria-overlay-manager';
 
-/** edit：改寫被點擊的那個群組（單一技能）；batch：一次新增多個群組。 */
-export type MercenaryPickerMode = 'edit' | 'batch';
+/**
+ * edit：改寫被點擊的傭兵技能群組（單一技能）；batch：一次新增多個群組；
+ * group：把傭兵技能加入被點擊的一般條件群組（and / not / count / if），群組留在原位。
+ */
+export type MercenaryPickerMode = 'edit' | 'batch' | 'group';
+
+export type MercenaryPickerTarget =
+  | { mode: 'edit'; groupIndex: number }
+  | { mode: 'batch' }
+  | { mode: 'group'; groupIndex: number };
 
 export interface MercenaryPickerDeps {
-  manager: Pick<CriteriaOverlayManager, 'readFormSnapshot' | 'replaceStatGroup' | 'overlay'>;
+  manager: Pick<
+    CriteriaOverlayManager,
+    'readFormSnapshot' | 'replaceStatGroup' | 'overlay' | 'updateStatGroup'
+  >;
   loadCatalog?: () => Promise<MercenaryCatalog>;
   /** 英文名稱目錄，讓 Build 搜尋也能比對英文；未提供且有自訂 loadCatalog 時不載入。 */
   loadEnglishCatalog?: () => Promise<MercenaryCatalog>;
@@ -77,6 +90,10 @@ export function useMercenaryPicker(deps: MercenaryPickerDeps) {
   const requireSkill = ref(true);
   /** 頁面上啟用中的 `and` 群組已要求的 id，避免重複加入。 */
   const pageRequiredIds = shallowRef<ReadonlySet<string>>(new Set());
+  /** group 模式：目標群組的類型、原本條件與 value。 */
+  const targetGroupType = ref<string | null>(null);
+  const targetFilters = shallowRef<readonly CriteriaOverlayStatFilter[]>([]);
+  const targetValue = shallowRef<Record<string, unknown> | null>(null);
   const skillQuery = ref('');
   const drafts = ref<Record<number, MercenarySkillDraft>>({});
   const activeSkillIndex = ref<number | null>(null);
@@ -174,7 +191,11 @@ export function useMercenaryPicker(deps: MercenaryPickerDeps) {
     buildSkills.value.filter((s) => s.weak && !(s.skill.index in drafts.value)).map((s) => s.skill),
   );
 
-  const isMercenaryKind = computed(() => mode.value === 'edit' || groupKind.value === 'mercenary');
+  const isMercenaryKind = computed(
+    () => mode.value === 'edit' || (mode.value === 'batch' && groupKind.value === 'mercenary'),
+  );
+  /** 技能清單是否用勾選框（可多選）。 */
+  const multiSelect = computed(() => mode.value !== 'edit');
 
   const selectedSkills = computed(() =>
     selectedSkillIndices.value
@@ -216,7 +237,25 @@ export function useMercenaryPicker(deps: MercenaryPickerDeps) {
     return groups;
   });
 
-  const canApply = computed(() => selectedSkillIndices.value.length > 0);
+  /** group 模式寫回目標群組的條件。 */
+  const groupFilters = computed(() =>
+    catalog.value
+      ? mergeMercenarySkillFilters(catalog.value, targetFilters.value, selectedSkills.value)
+      : [],
+  );
+  const targetHadSkills = computed(() =>
+    targetFilters.value.some((f) => catalog.value?.skillByTradeId.has(f.id)),
+  );
+  /** count 群組「至少符合」可選的上限：group 模式為整個群組的條件數。 */
+  const countLimit = computed(() =>
+    Math.max(1, mode.value === 'group' ? groupFilters.value.length : selectedSkills.value.length),
+  );
+
+  const canApply = computed(() =>
+    mode.value === 'group'
+      ? selectedSkillIndices.value.length > 0 || targetHadSkills.value
+      : selectedSkillIndices.value.length > 0,
+  );
 
   const itemToApply = computed<CriteriaOverlayItem | undefined>(() => {
     if (!build.value || !applyBuildType.value || build.value.tradeType === pageItemType.value) {
@@ -261,6 +300,10 @@ export function useMercenaryPicker(deps: MercenaryPickerDeps) {
     );
     buildIndex.value = pageBuild?.index ?? null;
 
+    if (mode.value === 'group') {
+      prefillTargetGroup(form, current);
+      return;
+    }
     if (mode.value !== 'edit') return;
     const group = readSnapshotStatGroup(form, groupIndex.value);
     const parsed =
@@ -276,9 +319,28 @@ export function useMercenaryPicker(deps: MercenaryPickerDeps) {
     activeSkillIndex.value = parsed.skill;
   }
 
-  async function open(target: { mode: 'edit'; groupIndex: number } | { mode: 'batch' }) {
+  function prefillTargetGroup(form: CriteriaOverlayFormSnapshot, current: MercenaryCatalog) {
+    const group = readSnapshotStatGroup(form, groupIndex.value);
+    targetGroupType.value = group?.type ?? null;
+    targetFilters.value = group?.filters ?? [];
+    targetValue.value = group?.value ?? null;
+    const min = Number(group?.value?.min);
+    countMin.value = Number.isInteger(min) && min > 0 ? min : 1;
+    const skills = (group?.filters ?? [])
+      .map((f) => current.skillByTradeId.get(f.id))
+      .filter((skill) => skill !== undefined);
+    drafts.value = Object.fromEntries(
+      skills.map((skill) => [skill.index, { picks: {}, minSupports: 0, minTouched: false }]),
+    );
+    activeSkillIndex.value = skills[0]?.index ?? null;
+  }
+
+  async function open(target: MercenaryPickerTarget) {
     mode.value = target.mode;
-    groupIndex.value = target.mode === 'edit' ? target.groupIndex : 0;
+    groupIndex.value = target.mode === 'batch' ? 0 : target.groupIndex;
+    targetGroupType.value = null;
+    targetFilters.value = [];
+    targetValue.value = null;
     resetSelection();
     skillQuery.value = '';
     applyBuildType.value = true;
@@ -424,6 +486,14 @@ export function useMercenaryPicker(deps: MercenaryPickerDeps) {
   async function apply(): Promise<boolean> {
     const current = catalog.value;
     if (!current || !canApply.value) return false;
+    if (mode.value === 'group') {
+      const value =
+        targetGroupType.value === 'count'
+          ? { ...targetValue.value, min: Math.min(countMin.value, countLimit.value) }
+          : undefined;
+      const sourceName = selectedSkills.value[0]?.name ?? build.value?.name ?? '';
+      return deps.manager.updateStatGroup(groupIndex.value, groupFilters.value, sourceName, value);
+    }
     const groups = resultGroups.value;
     if (mode.value === 'edit') {
       const skill = activeSkill.value ?? current.skills[selectedSkillIndices.value[0]];
@@ -455,6 +525,10 @@ export function useMercenaryPicker(deps: MercenaryPickerDeps) {
     applyBuildType,
     groupKind,
     isMercenaryKind,
+    multiSelect,
+    targetGroupType,
+    groupFilters,
+    countLimit,
     countMin,
     requireSkill,
     unguaranteedSkills,

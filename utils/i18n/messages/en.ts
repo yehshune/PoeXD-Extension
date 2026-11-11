@@ -276,12 +276,27 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'injectedControls.selectAffixTitle': 'Open Affix Selector to add affixes to this group',
   'injectedControls.selectAffixGroupTitle':
     'Open Affix Selector to add affixes to this filter group',
+  'injectedControls.addMercenaryToGroupTitle': 'Add mercenary skills to this group',
   'injectedControls.selectMercenaryGroupTitle': 'Open the mercenary skill picker for this group',
   'mercenaryPicker.title': 'Mercenary Skill Group',
   'mercenaryPicker.loading': 'Loading mercenary data…',
   'mercenaryPicker.loadFailed': 'Could not load mercenary data. Reload the page and try again.',
   'mercenaryPicker.build': 'Build',
   'mercenaryPicker.anyBuild': 'Any build (list every skill)',
+  'mercenaryPicker.groupTitle': 'Add mercenary skills to this group',
+  'mercenaryPicker.groupDescription':
+    'Checked mercenary skills are written into this group and its other entries are kept; unchecking removes that skill (undo with "Undo last apply").',
+  'mercenaryPicker.targetGroupPrefix': 'Target group: {type}. ',
+  'mercenaryPicker.targetGroupHint.and': 'Every entry in the group must match.',
+  'mercenaryPicker.targetGroupHint.not': 'None of the entries in the group may be present.',
+  'mercenaryPicker.targetGroupHint.count':
+    'At least the chosen number of entries in the group must match.',
+  'mercenaryPicker.targetGroupHint.if':
+    "An 'if' group only applies its value range when the entry is present.",
+  'mercenaryPicker.groupCountMin': 'Group must match at least',
+  'mercenaryPicker.summaryGroup':
+    'This group will have {count} mercenary skills, {total} entries in total',
+  'mercenaryPicker.applyGroup': 'Write to group',
   'mercenaryPicker.buildSearch': 'Search builds…',
   'mercenaryPicker.buildEmpty': 'No matching build',
   'mercenaryPicker.groupKind': 'Group type',
@@ -568,6 +583,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'criteriaOverlay.fields.unitSingle': 'filter field',
   'criteriaOverlay.fields.unitPlural': 'filter fields',
   'criteriaOverlay.report.addedStatGroups': 'Added {count} stat group{s}',
+  'criteriaOverlay.report.updatedStatGroups': 'Updated {count} stat group{s}',
   'criteriaOverlay.report.changedFields': 'Set {count} filter field{s}',
   'criteriaOverlay.report.changedItem': 'Set item name / base',
   'criteriaOverlay.report.changedStatus': 'Set listing status',
