@@ -230,7 +230,7 @@ describe('Business Layer Migration Phase 2B — BookmarkPane Group / Bookmark Ro
       expect(bookmarkFolderNodeSource).toContain('absolute');
       expect(bookmarkFolderNodeSource).toContain('right-[var(--pxd-space-md)]');
       expect(bookmarkFolderNodeSource).toContain('top-1/2 -translate-y-1/2');
-      expect(bookmarkFolderNodeSource).toContain('z-[1]');
+      expect(bookmarkFolderNodeSource).toContain('z-(--pxd-z-raised)');
       expect(bookmarkFolderNodeSource).toContain(
         'bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))]',
       );

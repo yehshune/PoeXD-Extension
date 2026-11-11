@@ -26,7 +26,7 @@ const delegatedProps = reactiveOmit(props, 'class', 'thumbClass');
     data-slot="scroll-area-scrollbar"
     :class="
       cn(
-        'flex touch-none select-none transition-colors z-10',
+        'flex touch-none select-none transition-colors z-(--pxd-z-sticky)',
         orientation === 'vertical' && 'h-full w-[4px] border-none bg-transparent p-0',
         orientation === 'horizontal' && 'h-[4px] flex-col border-none bg-transparent p-0',
         props.class,

@@ -216,7 +216,7 @@ describe('Bookmark Folder Header & Density Ownership Contracts', () => {
       expect(source).toContain('absolute');
       expect(source).toContain('right-[var(--pxd-space-md)]');
       expect(source).toContain('top-1/2 -translate-y-1/2');
-      expect(source).toContain('z-[1]');
+      expect(source).toContain('z-(--pxd-z-raised)');
       expect(source).toContain('bg-[color-mix(in_srgb,var(--muted)_70%,var(--card))]');
       expect(source).toContain('group-hover:opacity-100');
       expect(source).toContain('group-hover:pointer-events-auto');

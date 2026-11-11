@@ -37,7 +37,7 @@ const forwardedProps = useForwardProps(delegatedProps);
           variant: context?.variant || props.variant,
           size: context?.size || props.size,
         }),
-        'first:rounded-l-md first:rounded-r-none last:rounded-r-md last:rounded-l-none [&:not(:first-child):not(:last-child)]:rounded-none only:rounded-md [&:not(:first-child)]:-ml-px focus:z-10 focus-visible:z-10 data-[state=on]:z-10',
+        'first:rounded-l-md first:rounded-r-none last:rounded-r-md last:rounded-l-none [&:not(:first-child):not(:last-child)]:rounded-none only:rounded-md [&:not(:first-child)]:-ml-px focus:z-(--pxd-z-sticky) focus-visible:z-(--pxd-z-sticky) data-[state=on]:z-(--pxd-z-sticky)',
         props.class,
       )
     "

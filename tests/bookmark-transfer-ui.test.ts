@@ -156,7 +156,7 @@ describe('Bookmark transfer controls (Static Contracts)', () => {
       /poexdConfirm\([\s\S]*?t\('bookmark\.league\.dialogTitle'\),\s*true/,
     );
   });
-  it('retains generic Dropdown primitive base z-50 while consumer specifies high z-index', () => {
+  it('retains generic Dropdown primitive floating z-index token while consumer specifies high z-index', () => {
     const contentSource = readFileSync(
       'components/ui/dropdown-menu/DropdownMenuContent.vue',
       'utf8',
@@ -165,9 +165,9 @@ describe('Bookmark transfer controls (Static Contracts)', () => {
       'components/ui/dropdown-menu/DropdownMenuSubContent.vue',
       'utf8',
     );
-    expect(contentSource).toContain('z-50');
+    expect(contentSource).toContain('z-(--pxd-z-floating)');
     expect(contentSource).not.toContain('z-[10000000]');
-    expect(subContentSource).toContain('z-50');
+    expect(subContentSource).toContain('z-(--pxd-z-floating)');
     expect(subContentSource).not.toContain('z-[10000001]');
   });
 });
@@ -231,7 +231,7 @@ describe('Bookmark transfer controls (Runtime & Shadow Root Portal Isolation)', 
     // Assert content is inside shadow portalRoot
     const menuContent = portalRoot.querySelector('[data-slot="dropdown-menu-content"]');
     expect(menuContent).not.toBeNull();
-    expect(menuContent?.className).toContain('z-50');
+    expect(menuContent?.className).toContain('z-(--pxd-z-floating)');
     expect(menuContent?.className).not.toContain('z-[10000000]');
 
     // Assert document.body outside Shadow host has NO dropdown-menu-content

@@ -83,7 +83,7 @@
               </span>
             </div>
             <div
-              class="history-row-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-[1] bg-inherit pl-[var(--pxd-space-sm)] flex items-center gap-[var(--pxd-space-xs)] opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
+              class="history-row-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) bg-inherit pl-[var(--pxd-space-sm)] flex items-center gap-[var(--pxd-space-xs)] opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
             >
               <Button
                 v-if="searchEntryClickAction === 'preview'"

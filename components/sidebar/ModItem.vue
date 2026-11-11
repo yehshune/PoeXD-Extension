@@ -59,7 +59,7 @@
 
       <!-- 右側浮動加入按鈕區 (形式 A: 行內文字連結 + 長距平滑漸層，無硬切線且極致輕量) -->
       <div
-        class="mod-action-zone absolute right-0 top-0 bottom-0 flex items-center pl-20 pr-[var(--pxd-space-sm)] bg-gradient-to-l from-accent from-45% via-accent/70 to-transparent pointer-events-none opacity-0 group-hover/mod-row:opacity-100 group-hover/mod-row:pointer-events-auto focus-within/mod-row:opacity-100 focus-within/mod-row:pointer-events-auto transition-opacity z-10"
+        class="mod-action-zone absolute right-0 top-0 bottom-0 flex items-center pl-20 pr-[var(--pxd-space-sm)] bg-gradient-to-l from-accent from-45% via-accent/70 to-transparent pointer-events-none opacity-0 group-hover/mod-row:opacity-100 group-hover/mod-row:pointer-events-auto focus-within/mod-row:opacity-100 focus-within/mod-row:pointer-events-auto transition-opacity z-(--pxd-z-sticky)"
       >
         <Button
           type="button"
@@ -135,7 +135,7 @@
           >
         </div>
         <div
-          class="tier-action-zone absolute right-0 top-0 bottom-0 flex items-center pl-20 pr-[var(--pxd-space-sm)] bg-gradient-to-l from-accent from-45% via-accent/70 to-transparent pointer-events-none opacity-0 group-hover/tier-row:opacity-100 group-hover/tier-row:pointer-events-auto focus-within/tier-row:opacity-100 focus-within/tier-row:pointer-events-auto transition-opacity z-10"
+          class="tier-action-zone absolute right-0 top-0 bottom-0 flex items-center pl-20 pr-[var(--pxd-space-sm)] bg-gradient-to-l from-accent from-45% via-accent/70 to-transparent pointer-events-none opacity-0 group-hover/tier-row:opacity-100 group-hover/tier-row:pointer-events-auto focus-within/tier-row:opacity-100 focus-within/tier-row:pointer-events-auto transition-opacity z-(--pxd-z-sticky)"
         >
           <Button
             type="button"

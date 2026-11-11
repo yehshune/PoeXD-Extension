@@ -176,7 +176,7 @@ describe('Group Menu (Static Contracts)', () => {
     expect(source).toContain('更換封面');
   });
 
-  it('retains generic Dropdown primitive z-50 while consumer specifies high z-index', () => {
+  it('retains generic Dropdown primitive floating z-index token while consumer specifies high z-index', () => {
     const contentSource = readFileSync(
       'components/ui/dropdown-menu/DropdownMenuContent.vue',
       'utf8',
@@ -185,9 +185,9 @@ describe('Group Menu (Static Contracts)', () => {
       'components/ui/dropdown-menu/DropdownMenuSubContent.vue',
       'utf8',
     );
-    expect(contentSource).toContain('z-50');
+    expect(contentSource).toContain('z-(--pxd-z-floating)');
     expect(contentSource).not.toContain('z-[10000000]');
-    expect(subContentSource).toContain('z-50');
+    expect(subContentSource).toContain('z-(--pxd-z-floating)');
     expect(subContentSource).not.toContain('z-[10000001]');
   });
 });
@@ -266,7 +266,7 @@ describe('Group Menu (Runtime & Shadow Root Portal Isolation)', () => {
 
     const menuContent = await openGroupMenu(group1);
     expect(menuContent).not.toBeNull();
-    expect(menuContent?.className).toContain('z-50');
+    expect(menuContent?.className).toContain('z-(--pxd-z-floating)');
     expect(menuContent?.className).not.toContain('z-[10000000]');
 
     // Assert it is inside portalRoot and NOT inside group-container
@@ -409,7 +409,7 @@ describe('Group Menu (Runtime & Shadow Root Portal Isolation)', () => {
 
     const subContent = portalRoot.querySelector('[data-slot="dropdown-menu-sub-content"]');
     expect(subContent).not.toBeNull();
-    expect(subContent?.className).toContain('z-50');
+    expect(subContent?.className).toContain('z-(--pxd-z-floating)');
     expect(subContent?.className).not.toContain('z-[10000001]');
     expect(subContent?.textContent).toContain('標準模式');
     expect(subContent?.textContent).toContain('卡爾葛墾荒者');

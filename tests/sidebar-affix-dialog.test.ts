@@ -131,8 +131,8 @@ describe('Sidebar Affix Selector Modal (Static & Stacking Contracts)', () => {
     expect(sidebarSource).not.toContain('z-[1000000002]');
     expect(sidebarSource).not.toContain('z-[1000000003]');
 
-    // Generic DialogContent primitive defaults to z-50
-    expect(dialogContentSource).toContain('z-50');
+    // Generic DialogContent primitive defaults to the dialog token
+    expect(dialogContentSource).toContain('z-(--pxd-z-dialog)');
   });
 
   it('enforces unified center fade and zoom animation without directional slide in DialogContent', () => {

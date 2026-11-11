@@ -52,7 +52,7 @@
     <!-- 操作列採延遲掛載：書籤一多時避免每列都建立選單元件，首次 hover / focus 才建立 -->
     <div
       v-if="showActions"
-      class="bookmark-item-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-[1] bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))] pl-[var(--pxd-space-sm)] flex items-center shrink-0 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+      class="bookmark-item-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))] pl-[var(--pxd-space-sm)] flex items-center shrink-0 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
     >
       <Button
         v-if="ctx.searchEntryClickAction?.value === 'preview'"

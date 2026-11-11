@@ -97,11 +97,11 @@ describe('Sidebar Shared Dialog Migration (Static Contracts)', () => {
     expect(sidebarSource).toContain('@type-dialog-open-changed="handleTypeDialogOpenChange"');
   });
 
-  it('enforces DialogContent primitive semantic stacking contract (base -> z-50, nested -> z-[60], system -> z-[70])', () => {
+  it('enforces DialogContent primitive semantic stacking contract (base -> dialog, nested -> dialog-nested, system -> dialog-system tokens)', () => {
     expect(dialogContentSource).toContain("export type DialogLayer = 'base' | 'nested' | 'system'");
-    expect(dialogContentSource).toContain("base: 'z-50'");
-    expect(dialogContentSource).toContain("nested: 'z-[60]'");
-    expect(dialogContentSource).toContain("system: 'z-[70]'");
+    expect(dialogContentSource).toContain("base: 'z-(--pxd-z-dialog)'");
+    expect(dialogContentSource).toContain("nested: 'z-(--pxd-z-dialog-nested)'");
+    expect(dialogContentSource).toContain("system: 'z-(--pxd-z-dialog-system)'");
     expect(sidebarSource).toContain('layer="system"');
   });
 
@@ -229,10 +229,10 @@ describe('Sidebar Shared Dialog (Runtime Contracts)', () => {
     expect(content).toBeTruthy();
     expect(overlay).toBeTruthy();
 
-    expect(overlay!.className).toContain('z-[70]');
-    expect(content!.className).toContain('z-[70]');
-    expect(overlay!.className).not.toContain('z-50');
-    expect(content!.className).not.toContain('z-50');
+    expect(overlay!.className).toContain('z-(--pxd-z-dialog-system)');
+    expect(content!.className).toContain('z-(--pxd-z-dialog-system)');
+    expect(overlay!.className).not.toContain('z-(--pxd-z-dialog)');
+    expect(content!.className).not.toContain('z-(--pxd-z-dialog)');
 
     expect(content!.textContent).toContain('重要提示');
     expect(content!.textContent).toContain('確定要執行此操作？');

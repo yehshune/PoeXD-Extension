@@ -10,9 +10,9 @@ import { cn } from '@/lib/utils';
 export type DialogLayer = 'base' | 'nested' | 'system';
 
 const LAYER_CLASSES: Record<DialogLayer, string> = {
-  base: 'z-50',
-  nested: 'z-[60]',
-  system: 'z-[70]',
+  base: 'z-(--pxd-z-dialog)',
+  nested: 'z-(--pxd-z-dialog-nested)',
+  system: 'z-(--pxd-z-dialog-system)',
 };
 
 const props = withDefaults(

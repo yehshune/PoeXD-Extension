@@ -55,7 +55,7 @@
 
       <div
         v-if="ctx.editingGroupId.value !== node.folder.id && !ctx.isDragging.value"
-        class="group-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-[1] bg-[color-mix(in_srgb,var(--muted)_70%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto flex items-center gap-[var(--pxd-space-sm)]"
+        class="group-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) bg-[color-mix(in_srgb,var(--muted)_70%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto flex items-center gap-[var(--pxd-space-sm)]"
       >
         <!-- 新增書籤按鈕 -->
         <Button
@@ -511,7 +511,7 @@ export default defineComponent({
   transform: translateY(-50%);
   height: 3px;
   background-color: var(--primary);
-  z-index: 10;
+  z-index: var(--pxd-z-sticky);
   pointer-events: none;
   border-radius: 2px;
   box-shadow: 0 0 6px color-mix(in srgb, var(--primary) 70%, transparent);
@@ -527,7 +527,7 @@ export default defineComponent({
   transform: translateY(50%);
   height: 3px;
   background-color: var(--primary);
-  z-index: 10;
+  z-index: var(--pxd-z-sticky);
   pointer-events: none;
   border-radius: 2px;
   box-shadow: 0 0 6px color-mix(in srgb, var(--primary) 70%, transparent);

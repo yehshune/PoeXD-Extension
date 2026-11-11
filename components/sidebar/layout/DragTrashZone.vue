@@ -15,7 +15,7 @@ defineProps<{
 
 <template>
   <div
-    class="drag-trash-zone fixed top-[10%] h-[80%] w-[90px] z-50 flex flex-col items-center justify-center gap-[var(--pxd-space-lg)] bg-[color-mix(in_srgb,var(--destructive)_15%,transparent)] border border-dashed border-destructive rounded-[var(--radius)] text-destructive text-[length:var(--pxd-font-secondary)] font-bold box-border py-5 px-2.5 pointer-events-none opacity-0 shadow-lg [&_*]:pointer-events-none"
+    class="drag-trash-zone fixed top-[10%] h-[80%] w-[90px] z-(--pxd-z-sidebar-overlay) flex flex-col items-center justify-center gap-[var(--pxd-space-lg)] bg-[color-mix(in_srgb,var(--destructive)_15%,transparent)] border border-dashed border-destructive rounded-[var(--radius)] text-destructive text-[length:var(--pxd-font-secondary)] font-bold box-border py-5 px-2.5 pointer-events-none opacity-0 shadow-lg [&_*]:pointer-events-none"
     :class="{
       visible,
       'sidebar-left': sidebarPosition === 'left',

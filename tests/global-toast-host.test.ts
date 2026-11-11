@@ -65,7 +65,7 @@ describe('Global Toast Host Contract', () => {
       expect(toastEl.className).toContain('left-1/2');
       expect(toastEl.className).toContain('-translate-x-1/2');
       expect(toastEl.className).toContain('max-w-[calc(100vw-32px)]');
-      expect(toastEl.className).toContain('z-[2147483647]');
+      expect(toastEl.className).toContain('z-(--pxd-z-toast)');
 
       // Canonical UI Foundation typography and layout spacing tokens
       expect(toastEl.className).toContain('text-[length:var(--pxd-font-section-title)]');

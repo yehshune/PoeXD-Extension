@@ -322,7 +322,7 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
 
     const menuContent = await openBookmarkMenu(bm1);
     expect(menuContent).not.toBeNull();
-    expect(menuContent?.className).toContain('z-50');
+    expect(menuContent?.className).toContain('z-(--pxd-z-floating)');
     expect(menuContent?.className).not.toContain('z-[10000000]');
 
     // Assert it is inside portalRoot and NOT inside bookmark-row-item
@@ -518,7 +518,7 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
 
     const subContent = portalRoot.querySelector('[data-slot="dropdown-menu-sub-content"]');
     expect(subContent).not.toBeNull();
-    expect(subContent?.className).toContain('z-50');
+    expect(subContent?.className).toContain('z-(--pxd-z-floating)');
     expect(subContent?.className).not.toContain('z-[10000001]');
 
     // Click target folder "裝備" (group-2)

@@ -9,7 +9,7 @@
       <div
         v-if="pageRole === 'live-search-primary' && isArrivalActive"
         data-live-search-arrival="viewport-frame"
-        class="pxd-console-arrival-frame pointer-events-none fixed inset-0 z-50 overflow-hidden"
+        class="pxd-console-arrival-frame pointer-events-none fixed inset-0 z-(--pxd-z-sidebar-overlay) overflow-hidden"
         aria-hidden="true"
       ></div>
 
@@ -297,7 +297,7 @@
         <!-- 自訂寬度時的邊界拖曳把手 -->
         <div
           v-if="isResizable"
-          class="sidebar-resize-handle absolute inset-y-0 w-[6px] cursor-col-resize z-[100] transition-colors duration-150 hover:bg-primary active:bg-primary"
+          class="sidebar-resize-handle absolute inset-y-0 w-[6px] cursor-col-resize z-(--pxd-z-sidebar-handle) transition-colors duration-150 hover:bg-primary active:bg-primary"
           :class="sidebarPosition === 'left' ? 'left -right-[3px]' : 'right -left-[3px]'"
           @mousedown.prevent="handleResizeStart"
           :title="t('sidebar.header.resizeWidth')"

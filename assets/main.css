@@ -162,6 +162,21 @@
   --pxd-pane-padding: 15px;
   --pxd-field-gap: 15px;
   --pxd-pane-scroll-end-space: 72px;
+
+  /*
+   * 疊層（z-index）分層：元件一律用 z-(--pxd-z-*)，不要寫數字。
+   * 浮動選單（Select / Popover / Dropdown / Tooltip）固定高於所有對話框層，
+   * 所以在任何對話框裡開下拉都不會跑到後面。tests/z-index-tokens.test.ts 會擋下數字寫法。
+   */
+  --pxd-z-raised: 1; /* 列表列內浮出的操作列 */
+  --pxd-z-sticky: 10; /* 元件內壓在一般內容上：捲軸、插入線、聚焦項 */
+  --pxd-z-sidebar-overlay: 50; /* 側欄全版覆蓋：拖曳垃圾桶、抵達光框 */
+  --pxd-z-sidebar-handle: 60; /* 側欄寬度把手 */
+  --pxd-z-dialog: 100;
+  --pxd-z-dialog-nested: 110;
+  --pxd-z-dialog-system: 120;
+  --pxd-z-floating: 200; /* 浮動選單，永遠在對話框之上 */
+  --pxd-z-toast: 2147483647;
 }
 
 :host([data-poexd-theme='modern-dark']),

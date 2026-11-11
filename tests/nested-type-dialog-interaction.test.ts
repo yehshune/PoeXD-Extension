@@ -516,17 +516,17 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
     expect(sharedOverlay?.getAttribute('data-slot')).toBe('dialog-overlay');
 
     // Semantic Stacking: Overlay and Content share matching layer classes
-    // Base layer (Affix Dialog): z-50
-    expect(affixContent!.classList.contains('z-50')).toBe(true);
-    expect(affixOverlay!.classList.contains('z-50')).toBe(true);
+    // Base layer (Affix Dialog): dialog token
+    expect(affixContent!.classList.contains('z-(--pxd-z-dialog)')).toBe(true);
+    expect(affixOverlay!.classList.contains('z-(--pxd-z-dialog)')).toBe(true);
 
-    // Nested layer (Type Dialog): z-[60]
-    expect(typeContent!.classList.contains('z-[60]')).toBe(true);
-    expect(typeOverlay!.classList.contains('z-[60]')).toBe(true);
+    // Nested layer (Type Dialog): dialog-nested token
+    expect(typeContent!.classList.contains('z-(--pxd-z-dialog-nested)')).toBe(true);
+    expect(typeOverlay!.classList.contains('z-(--pxd-z-dialog-nested)')).toBe(true);
 
-    // System layer (Shared Dialog): z-[70]
-    expect(sharedContent!.classList.contains('z-[70]')).toBe(true);
-    expect(sharedOverlay!.classList.contains('z-[70]')).toBe(true);
+    // System layer (Shared Dialog): dialog-system token
+    expect(sharedContent!.classList.contains('z-(--pxd-z-dialog-system)')).toBe(true);
+    expect(sharedOverlay!.classList.contains('z-(--pxd-z-dialog-system)')).toBe(true);
 
     // ESC #1 -> 關閉 Shared Dialog
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

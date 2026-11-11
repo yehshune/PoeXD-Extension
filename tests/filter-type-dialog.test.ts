@@ -83,8 +83,8 @@ describe('FilterPane Item Type Selector & Dialog (Static Contracts)', () => {
     expect(source).not.toContain("document.querySelector('.type-btn.selected')");
   });
 
-  it('preserves generic Dialog default z-50 and provides overlayClass override API', () => {
-    expect(dialogContentSource).toContain('z-50');
+  it('preserves generic Dialog default dialog z-index token and provides overlayClass override API', () => {
+    expect(dialogContentSource).toContain('z-(--pxd-z-dialog)');
     expect(dialogContentSource).toContain("overlayClass?: HTMLAttributes['class']");
     expect(dialogContentSource).toContain("reactiveOmit(props, 'class', 'overlayClass')");
     expect(dialogContentSource).toContain('props.overlayClass');
@@ -481,7 +481,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     removeListener();
   });
 
-  it('enforces runtime stacking: Overlay and Content mount into portalRoot with nested layer z-[60]', async () => {
+  it('enforces runtime stacking: Overlay and Content mount into portalRoot with nested dialog layer token', async () => {
     await mountFilterPane();
 
     const triggerBtn = appRoot.querySelector(
@@ -496,10 +496,10 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     expect(overlay).toBeTruthy();
     expect(content).toBeTruthy();
 
-    expect(overlay.className).toContain('z-[60]');
-    expect(content.className).toContain('z-[60]');
-    expect(overlay.className).not.toContain('z-50');
-    expect(content.className).not.toContain('z-50');
+    expect(overlay.className).toContain('z-(--pxd-z-dialog-nested)');
+    expect(content.className).toContain('z-(--pxd-z-dialog-nested)');
+    expect(overlay.className).not.toContain('z-(--pxd-z-dialog)');
+    expect(content.className).not.toContain('z-(--pxd-z-dialog)');
   });
 
   it('J. opens Dialog programmatically when receiving poexd-trigger-select-type-modal event', async () => {
