@@ -59,7 +59,10 @@ function hintText(hint: MercenarySelectionHint): string {
     case 'exceeds-max':
       return t('mercenaryPicker.hint.exceedsMax', { max: hint.max });
     case 'any-of':
-      return t('mercenaryPicker.hint.anyOf', { picked: hint.picked, min: hint.min });
+      return t('mercenaryPicker.hint.anyOf', {
+        picked: hint.picked,
+        min: hint.min,
+      });
     case 'max-links-t3':
       return t('mercenaryPicker.hint.maxLinksT3');
   }
@@ -67,23 +70,25 @@ function hintText(hint: MercenarySelectionHint): string {
 </script>
 
 <template>
-  <section class="flex min-h-0 flex-col gap-[var(--pxd-space-sm)]">
+  <section class="flex min-h-0 flex-col gap-[var(--pxd-space-md)]" data-test="mercenary-supports">
     <p
       v-if="!activeSkill || !draft"
-      class="m-0 text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+      class="m-0 text-[length:var(--pxd-font-body)] text-muted-foreground"
     >
       {{ t('mercenaryPicker.noSkill') }}
     </p>
     <p
       v-else-if="families.length === 0"
-      class="m-0 text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+      class="m-0 text-[length:var(--pxd-font-body)] text-muted-foreground"
     >
       {{ t('mercenaryPicker.noSupports') }}
     </p>
     <template v-else>
-      <div class="flex flex-wrap items-center justify-between gap-[var(--pxd-space-sm)]">
+      <div
+        class="flex shrink-0 flex-wrap items-center justify-between gap-[var(--pxd-space-sm)] border-b border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)]"
+      >
         <label
-          class="flex min-w-0 cursor-pointer items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] font-bold text-muted-foreground"
+          class="flex min-w-0 cursor-pointer items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-semibold tracking-[0.5px] text-muted-foreground"
         >
           <Checkbox
             :model-value="allChecked"
@@ -115,9 +120,9 @@ function hintText(hint: MercenarySelectionHint): string {
 
       <div
         v-if="pickedCount > 0"
-        class="flex flex-wrap items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-foreground"
+        class="flex shrink-0 flex-wrap items-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] text-foreground"
       >
-        <span>{{ t('mercenaryPicker.setAllTiers') }}</span>
+        <span class="font-semibold">{{ t('mercenaryPicker.setAllTiers') }}</span>
         <ToggleGroup
           type="single"
           variant="outline"
@@ -133,20 +138,21 @@ function hintText(hint: MercenarySelectionHint): string {
       </div>
 
       <div
-        class="flex max-h-[40vh] min-h-0 flex-col gap-0.5 overflow-y-auto pxd-scrollbar pr-[var(--pxd-space-xs)]"
+        data-test="mercenary-family-list"
+        class="flex min-h-0 flex-1 flex-col overflow-y-auto pxd-scrollbar pr-[var(--pxd-space-xs)]"
       >
         <div
           v-for="family in families"
           :key="family.key"
           :data-family="family.key"
-          class="flex items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm px-[var(--pxd-space-xs)] py-0.5 hover:bg-accent/50"
+          class="flex items-center justify-between gap-[var(--pxd-space-sm)] border-b border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] transition-colors duration-100 hover:bg-accent hover:text-accent-foreground"
         >
           <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-[var(--pxd-space-sm)]">
             <Checkbox
               :model-value="family.key in draft.picks"
               @update:model-value="picker.toggleFamily(family.key, $event === true)"
             />
-            <span class="min-w-0 truncate text-[length:var(--pxd-font-secondary)] text-foreground">
+            <span class="min-w-0 truncate text-[length:var(--pxd-font-body)] leading-[1.25]">
               {{ family.name }}
             </span>
           </label>
@@ -162,14 +168,17 @@ function hintText(hint: MercenarySelectionHint): string {
               {{ t('mercenaryPicker.tierAtLeast', { tier }) }}
             </ToggleGroupItem>
           </ToggleGroup>
-          <span v-else class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+          <span
+            v-else
+            class="shrink-0 text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+          >
             {{ t('mercenaryPicker.tierExact', { tier: family.maxTier }) }}
           </span>
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]">
-        <span class="text-[length:var(--pxd-font-caption)] text-foreground">
+      <div class="flex shrink-0 flex-wrap items-center gap-[var(--pxd-space-sm)]">
+        <span class="text-[length:var(--pxd-font-secondary)] font-semibold text-foreground">
           {{ t('mercenaryPicker.minSupports') }}
         </span>
         <Select
@@ -177,9 +186,13 @@ function hintText(hint: MercenarySelectionHint): string {
           :disabled="pickedCount === 0"
           @update:model-value="onMinChange"
         >
-          <SelectTrigger size="sm" class="w-[96px]" data-test="mercenary-min-supports">
+          <SelectTrigger size="sm" data-test="mercenary-min-supports">
             <SelectValue>
-              {{ t('mercenaryPicker.minSupportsOption', { count: draft.minSupports }) }}
+              {{
+                t('mercenaryPicker.minSupportsOption', {
+                  count: draft.minSupports,
+                })
+              }}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -190,11 +203,14 @@ function hintText(hint: MercenarySelectionHint): string {
         </Select>
       </div>
 
-      <ul class="m-0 flex list-none flex-col gap-0.5 p-0" data-test="mercenary-hints">
+      <ul
+        class="m-0 flex shrink-0 list-none flex-col gap-[var(--pxd-space-xs)] p-0"
+        data-test="mercenary-hints"
+      >
         <li
           v-for="hint in hints"
           :key="hint.kind"
-          class="text-[length:var(--pxd-font-caption)]"
+          class="text-[length:var(--pxd-font-secondary)]"
           :class="hint.kind === 'exceeds-max' ? 'text-destructive' : 'text-muted-foreground'"
         >
           {{ hintText(hint) }}

@@ -43,7 +43,7 @@ function onSelect(value: unknown) {
 }
 
 const itemClass =
-  'relative flex w-full cursor-default select-none items-center gap-2 rounded-sm py-1.5 pl-2 pr-8 text-[length:var(--pxd-font-secondary)] outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground';
+  'relative flex w-full cursor-default select-none items-center gap-[var(--pxd-space-md)] rounded-sm py-[var(--pxd-space-sm)] pl-[var(--pxd-space-md)] pr-[var(--pxd-space-2xl)] text-[length:var(--pxd-font-body)] outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground';
 </script>
 
 <template>
@@ -56,9 +56,9 @@ const itemClass =
     @update:open="(open: boolean) => !open && (query = '')"
   >
     <ComboboxAnchor
-      class="flex h-9 w-[300px] items-center gap-1 rounded-md border border-input bg-transparent px-3 text-[length:var(--pxd-font-secondary)] shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50"
+      class="flex h-[var(--control-height-default)] w-[var(--pxd-mercenary-build-width)] max-w-full items-center gap-[var(--pxd-space-xs)] rounded-md border border-input bg-transparent px-[var(--input-padding-x-default)] text-[length:var(--pxd-font-control)] shadow-xs focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50"
     >
-      <Search class="size-4 shrink-0 text-muted-foreground" />
+      <Search class="size-[var(--control-icon-sm)] shrink-0 text-muted-foreground" />
       <!-- 輸入框平時是空的、以 placeholder 顯示目前 Build，輸入時直接就是搜尋字 -->
       <ComboboxInput
         v-model="query"
@@ -69,14 +69,14 @@ const itemClass =
         :title="t('mercenaryPicker.buildSearch')"
       />
       <ComboboxTrigger class="flex shrink-0 items-center text-muted-foreground">
-        <ChevronDown class="size-4" />
+        <ChevronDown class="size-[var(--control-icon-sm)]" />
       </ComboboxTrigger>
     </ComboboxAnchor>
     <ComboboxPortal>
       <ComboboxContent
         position="popper"
         :side-offset="4"
-        class="z-(--pxd-z-floating) max-h-80 w-(--reka-combobox-trigger-width) min-w-[300px] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md"
+        class="z-(--pxd-z-floating) max-h-[var(--pxd-menu-max-height)] w-(--reka-combobox-trigger-width) min-w-[var(--pxd-mercenary-build-width)] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md"
       >
         <!--
           reka 的 ComboboxInput 失焦時用 document.getElementById / document.activeElement 判斷焦點是否還在選單內，
@@ -84,18 +84,21 @@ const itemClass =
           阻止 mousedown 的預設行為讓焦點留在輸入框，click 仍會正常選取。
         -->
         <ComboboxViewport
-          class="max-h-80 overflow-y-auto p-1 pxd-scrollbar"
+          class="max-h-[var(--pxd-menu-max-height)] overflow-y-auto p-[var(--pxd-space-xs)] pxd-scrollbar"
           data-test="mercenary-build-options"
           @mousedown.prevent
         >
           <ComboboxEmpty
-            class="py-2 text-center text-[length:var(--pxd-font-caption)] text-muted-foreground"
+            class="py-[var(--pxd-space-md)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
           >
             {{ t('mercenaryPicker.buildEmpty') }}
           </ComboboxEmpty>
           <ComboboxItem v-if="!query.trim()" :value="ANY_BUILD" :class="itemClass">
             {{ t('mercenaryPicker.anyBuild') }}
-            <Check v-if="modelValue === null" class="absolute right-2 size-4" />
+            <Check
+              v-if="modelValue === null"
+              class="absolute right-[var(--pxd-space-md)] size-[var(--control-icon-sm)]"
+            />
           </ComboboxItem>
           <ComboboxItem
             v-for="option in filtered"
@@ -104,7 +107,10 @@ const itemClass =
             :class="itemClass"
           >
             {{ option.name }}
-            <Check v-if="modelValue === option.index" class="absolute right-2 size-4" />
+            <Check
+              v-if="modelValue === option.index"
+              class="absolute right-[var(--pxd-space-md)] size-[var(--control-icon-sm)]"
+            />
           </ComboboxItem>
         </ComboboxViewport>
       </ComboboxContent>

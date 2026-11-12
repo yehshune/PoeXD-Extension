@@ -285,7 +285,8 @@ PoeXD 控制項分為三大元件 Profile，加上 Layout Spacing 組成四大�
   - **Overlay Visual Geometry (Scale-aware / Density-invariant)**：浮層面寬與最大高度由 UI Scale 等比縮放 (`baseline * scale`)，由 TS Runtime 集中輸出具體 px；Density 嚴禁縮放面板幾何：
     - `--pxd-overlay-inspect-width`: 基準 300px (Resume Inspect Popover 面寬)
     - `--pxd-overlay-inspect-max-height`: 基準 220px (Inspect 內部列表最大高度)
-    - `--pxd-search-preview-width`: 基準 340px (Trade Search Preview 浮層面寬)
+    - `--pxd-search-preview-width`: 基準 380px (Trade Search Preview 浮層面寬，等同側欄基準寬)
+    - `--pxd-mercenary-build-width`: 基準 300px (傭兵技能選擇器的 Build 下拉寬)
     - `--pxd-temporary-search-dialog-width`: 基準 420px (Temporary Search 對話框面寬)
     - `--pxd-temporary-search-dialog-max-height`: 520px (Temporary Search 對話框最大高度)
   - **Tooltip & Popover Primitive Padding Ownership**：

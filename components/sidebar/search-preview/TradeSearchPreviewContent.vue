@@ -3,147 +3,152 @@
     v-if="previewData"
     ref="rootRef"
     :style="lockedHeight ? { minHeight: `${lockedHeight}px` } : undefined"
-    class="trade-search-preview-popover bookmark-preview-popover flex min-h-0 flex-1 flex-col text-[length:var(--pxd-font-section-title)]"
+    class="trade-search-preview-popover bookmark-preview-popover flex min-h-0 flex-1 flex-col text-[length:var(--pxd-font-body)]"
   >
-    <!-- 固定於頂部、不隨內容捲動：第一行是來源與標籤，第二行是操作 -->
+    <!-- 固定標題列（比照詞綴選擇器）：來源名稱、標籤與關閉鈕，不隨內容捲動 -->
     <div
-      v-if="hasHeader"
-      class="preview-header flex shrink-0 flex-col gap-[var(--pxd-space-xs)] border-b border-border pb-[var(--pxd-space-sm)] mb-[var(--pxd-space-md)]"
+      class="preview-header preview-title-row flex h-[var(--pxd-sidebar-affix-dialog-header-height)] min-w-0 shrink-0 items-center gap-[var(--pxd-space-sm)] border-b border-border bg-background px-[var(--pxd-pane-padding)]"
     >
-      <div
-        v-if="sourceName || hasTags"
-        class="preview-title-row flex min-w-0 items-center gap-[var(--pxd-space-sm)]"
+      <span
+        class="preview-source-name min-w-0 flex-1 truncate text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px] text-foreground"
+        data-test="preview-source-name"
+        :title="headerTitle"
+        >{{ headerTitle }}</span
       >
+      <div v-if="hasTags" class="preview-tags flex min-w-0 shrink gap-[var(--pxd-space-xs)]">
         <span
-          v-if="sourceName"
-          class="preview-source-name min-w-0 flex-1 truncate font-semibold text-foreground"
-          data-test="preview-source-name"
-          :title="sourceName"
-          >{{ sourceName }}</span
+          v-if="previewData.realmLabel"
+          class="preview-tag realm-tag whitespace-nowrap rounded-sm border border-border bg-secondary px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold text-secondary-foreground"
         >
-        <div class="preview-tags ml-auto flex shrink-0 gap-[var(--pxd-space-xs)]">
-          <span
-            v-if="previewData.realmLabel"
-            class="preview-tag realm-tag whitespace-nowrap text-[length:var(--pxd-font-micro)] py-[1px] px-[5px] rounded-sm font-semibold bg-secondary text-secondary-foreground border border-border"
-          >
-            {{ previewData.realmLabel }}
-          </span>
-          <span
-            v-if="previewData.league"
-            class="preview-tag league-tag max-w-[120px] truncate text-[length:var(--pxd-font-micro)] py-[1px] px-[5px] rounded-sm font-semibold bg-muted text-muted-foreground border border-border"
-            :title="previewData.league"
-          >
-            {{ previewData.league }}
-          </span>
-        </div>
+          {{ previewData.realmLabel }}
+        </span>
+        <span
+          v-if="previewData.league"
+          class="preview-tag league-tag min-w-0 truncate rounded-sm border border-border bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold text-muted-foreground"
+          :title="previewData.league"
+        >
+          {{ previewData.league }}
+        </span>
       </div>
-
-      <div
-        v-if="sectionKeys.length > 0 || canOverlay || overlayHint"
-        class="preview-action-row flex min-w-0 items-center gap-[var(--pxd-space-xs)]"
+      <button
+        v-if="closable"
+        type="button"
+        class="preview-close inline-flex size-[var(--control-height-sm)] shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-70 transition-opacity hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        data-test="preview-close"
+        :aria-label="t('common.close')"
+        :title="t('common.close')"
+        @click="emit('close')"
       >
-        <button
-          v-if="sectionKeys.length > 0"
-          type="button"
-          class="preview-toggle-all inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)] whitespace-nowrap rounded-sm px-[4px] py-[2px] text-[length:var(--pxd-font-secondary)] text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          :aria-label="
-            allExpanded
-              ? t('searchPreview.action.collapseAll')
-              : t('searchPreview.action.expandAll')
-          "
-          @click="toggleAll"
-        >
-          <ChevronsDownUp v-if="allExpanded" class="size-[12px]" aria-hidden="true" />
-          <ChevronsUpDown v-else class="size-[12px]" aria-hidden="true" />
-          {{
-            allExpanded
-              ? t('searchPreview.action.collapseAll')
-              : t('searchPreview.action.expandAll')
-          }}
-        </button>
-        <div
-          v-if="canOverlay"
-          class="preview-overlay-actions ml-auto flex shrink-0 items-center gap-[var(--pxd-space-xs)]"
-        >
-          <button
-            type="button"
-            :class="overlayButtonClass"
-            data-test="preview-overlay-all"
-            :title="t('searchPreview.action.overlayAllTitle')"
-            :disabled="overlayBusy || !hasCriteria"
-            @click="emit('overlay', { kind: 'all' })"
-          >
-            <Plus class="size-[12px]" aria-hidden="true" />{{
-              t('searchPreview.action.overlayAll')
-            }}
-          </button>
-          <button
-            type="button"
-            :class="overlayButtonClass"
-            data-test="preview-overlay-undo"
-            :title="t('searchPreview.action.undoTitle')"
-            :disabled="overlayBusy || !canUndo"
-            @click="emit('undo')"
-          >
-            <Undo2 class="size-[12px]" aria-hidden="true" />{{ t('searchPreview.action.undo') }}
-          </button>
-        </div>
-        <span
-          v-else-if="overlayHint"
-          class="preview-overlay-hint ml-auto min-w-0 truncate text-[length:var(--pxd-font-micro)] text-muted-foreground"
-          data-test="preview-overlay-hint"
-          :title="overlayHint"
-          >{{ overlayHint }}</span
-        >
-      </div>
+        <X class="size-[var(--control-icon-default)]" aria-hidden="true" />
+      </button>
     </div>
 
-    <div class="preview-body min-h-0 flex-1 overflow-y-auto pxd-scrollbar">
+    <!-- 工具列：摺疊與疊加操作，固定於標題列下方 -->
+    <div
+      v-if="sectionKeys.length > 0 || canOverlay || overlayHint"
+      class="preview-action-row flex min-w-0 shrink-0 items-center gap-[var(--pxd-space-xs)] border-b border-border px-[var(--pxd-pane-padding)] py-[var(--pxd-space-sm)]"
+    >
+      <button
+        v-if="sectionKeys.length > 0"
+        type="button"
+        class="preview-toggle-all inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)] whitespace-nowrap rounded-sm p-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        :aria-label="
+          allExpanded ? t('searchPreview.action.collapseAll') : t('searchPreview.action.expandAll')
+        "
+        @click="toggleAll"
+      >
+        <ChevronsDownUp v-if="allExpanded" :class="iconClass" aria-hidden="true" />
+        <ChevronsUpDown v-else :class="iconClass" aria-hidden="true" />
+        {{
+          allExpanded ? t('searchPreview.action.collapseAll') : t('searchPreview.action.expandAll')
+        }}
+      </button>
+      <div
+        v-if="canOverlay"
+        class="preview-overlay-actions ml-auto flex shrink-0 items-center gap-[var(--pxd-space-xs)]"
+      >
+        <button
+          type="button"
+          :class="overlayButtonClass"
+          data-test="preview-overlay-all"
+          :title="t('searchPreview.action.overlayAllTitle')"
+          :disabled="overlayBusy || !hasCriteria"
+          @click="emit('overlay', { kind: 'all' })"
+        >
+          <Plus :class="iconClass" aria-hidden="true" />{{ t('searchPreview.action.overlayAll') }}
+        </button>
+        <button
+          type="button"
+          :class="overlayButtonClass"
+          data-test="preview-overlay-undo"
+          :title="t('searchPreview.action.undoTitle')"
+          :disabled="overlayBusy || !canUndo"
+          @click="emit('undo')"
+        >
+          <Undo2 :class="iconClass" aria-hidden="true" />{{ t('searchPreview.action.undo') }}
+        </button>
+      </div>
+      <span
+        v-else-if="overlayHint"
+        class="preview-overlay-hint ml-auto min-w-0 truncate text-[length:var(--pxd-font-caption)] text-muted-foreground"
+        data-test="preview-overlay-hint"
+        :title="overlayHint"
+        >{{ overlayHint }}</span
+      >
+    </div>
+
+    <div
+      class="preview-body min-h-0 flex-1 overflow-y-auto pxd-scrollbar p-[var(--pxd-pane-padding)]"
+    >
       <div
         v-if="previewData.loading"
-        class="preview-loading text-muted-foreground text-[length:var(--pxd-font-body)] py-[5px]"
+        class="preview-loading py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)] text-muted-foreground"
       >
         {{ t('searchPreview.loading') }}
       </div>
 
       <div
         v-else-if="previewData.isLegacy"
-        class="preview-legacy text-muted-foreground text-[length:var(--pxd-font-body)] py-[5px]"
+        class="preview-legacy py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)] text-muted-foreground"
       >
         {{ t('searchPreview.decodeFailed') }}
       </div>
 
-      <div v-else-if="previewData.meta" class="preview-content">
+      <div
+        v-else-if="previewData.meta"
+        class="preview-content flex flex-col gap-[var(--pxd-space-md)]"
+      >
         <div
           v-if="previewData.meta.name || previewData.meta.type"
-          class="preview-section item-names mb-[var(--pxd-space-md)] last:mb-0"
+          class="preview-section item-names flex items-start gap-[var(--pxd-space-sm)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)]"
         >
+          <div class="flex min-w-0 flex-1 flex-col leading-[1.25]">
+            <div v-if="previewData.meta.name" class="preview-item-name text-foreground">
+              {{ t('searchPreview.label.item')
+              }}<span class="highlight-unique font-semibold text-foreground">{{
+                previewData.meta.name
+              }}</span>
+            </div>
+            <div v-if="previewData.meta.type" class="preview-item-type text-muted-foreground">
+              {{ t('searchPreview.label.base') }}{{ previewData.meta.type }}
+            </div>
+          </div>
           <button
             v-if="canOverlay && criteria?.item"
             type="button"
             :class="overlayIconClass"
-            class="float-right"
             data-test="preview-overlay-item"
             :title="t('searchPreview.action.overlayItemTitle')"
             :disabled="overlayBusy"
             @click="emit('overlay', { kind: 'item' })"
           >
-            <Plus class="size-[12px]" aria-hidden="true" />
+            <Plus :class="iconClass" aria-hidden="true" />
           </button>
-          <div v-if="previewData.meta.name" class="preview-item-name text-foreground">
-            {{ t('searchPreview.label.item')
-            }}<span class="highlight-unique font-semibold text-foreground">{{
-              previewData.meta.name
-            }}</span>
-          </div>
-          <div v-if="previewData.meta.type" class="preview-item-type text-muted-foreground">
-            {{ t('searchPreview.label.base') }}{{ previewData.meta.type }}
-          </div>
         </div>
 
         <div
           v-if="criteria?.status"
-          class="preview-section preview-status flex items-center justify-between gap-[var(--pxd-space-md)] mb-[var(--pxd-space-md)] last:mb-0 text-[length:var(--pxd-font-body)]"
+          class="preview-section preview-status flex items-center justify-between gap-[var(--pxd-space-md)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)]"
         >
           <span class="text-muted-foreground"
             >{{ t('searchPreview.label.status')
@@ -160,12 +165,12 @@
             :disabled="overlayBusy"
             @click="emit('overlay', { kind: 'status' })"
           >
-            <Plus class="size-[12px]" aria-hidden="true" />
+            <Plus :class="iconClass" aria-hidden="true" />
           </button>
         </div>
 
-        <div v-if="statCount > 0" class="preview-section mb-[var(--pxd-space-md)] last:mb-0">
-          <div class="flex items-start gap-[var(--pxd-space-xs)]">
+        <div v-if="statCount > 0" class="preview-section">
+          <div :class="sectionHeaderClass">
             <button
               type="button"
               :class="sectionToggleClass"
@@ -173,10 +178,8 @@
               @click="toggleSection(STATS_SECTION_KEY)"
             >
               <ChevronRight :class="chevronClass(STATS_SECTION_KEY)" aria-hidden="true" />
-              <span
-                class="preview-section-title text-[length:var(--pxd-font-body)] font-semibold text-foreground"
-                >{{ t('searchPreview.section.stats') }} ({{ statCount }})</span
-              >
+              <span :class="sectionTitleClass">{{ t('searchPreview.section.stats') }}</span>
+              <span :class="sectionCountClass">({{ statCount }})</span>
             </button>
             <button
               v-if="canOverlay && statGroups.length > 0"
@@ -187,24 +190,24 @@
               :disabled="overlayBusy"
               @click="emit('overlay', { kind: 'stats' })"
             >
-              <Plus class="size-[12px]" aria-hidden="true" />
+              <Plus :class="iconClass" aria-hidden="true" />
             </button>
           </div>
           <div
             v-if="statGroups.length > 0"
             v-show="!isCollapsed(STATS_SECTION_KEY)"
-            class="preview-stats-list"
+            class="preview-stats-list flex flex-col gap-[var(--pxd-space-sm)]"
           >
             <div
               v-for="(group, groupIndex) in statGroups"
               :key="groupIndex"
-              class="preview-stat-group mb-[var(--pxd-space-sm)] overflow-hidden rounded-md border border-border last:mb-0"
+              class="preview-stat-group overflow-hidden rounded-md border border-border"
               :class="group.disabled ? 'opacity-60' : ''"
               :data-stat-group-index="groupIndex"
               :data-disabled="group.disabled ? 'true' : undefined"
             >
               <div
-                class="preview-stat-group-header flex items-center gap-[var(--pxd-space-xs)] bg-[color-mix(in_srgb,var(--muted)_60%,transparent)] px-[7px] py-[3px] text-[length:var(--pxd-font-secondary)]"
+                class="preview-stat-group-header flex items-center gap-[var(--pxd-space-xs)] bg-muted px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)]"
               >
                 <span
                   class="preview-stat-group-type whitespace-nowrap font-semibold text-foreground"
@@ -217,11 +220,11 @@
                 >
                 <span
                   v-if="group.disabled"
-                  class="preview-stat-group-disabled whitespace-nowrap rounded-sm border border-border px-[4px] text-[length:var(--pxd-font-micro)] text-muted-foreground"
+                  class="preview-stat-group-disabled whitespace-nowrap rounded-sm border border-border px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
                   >{{ t('searchPreview.statGroup.disabled') }}</span
                 >
                 <span
-                  class="ml-auto whitespace-nowrap text-[length:var(--pxd-font-micro)] text-muted-foreground"
+                  class="ml-auto whitespace-nowrap text-[length:var(--pxd-font-caption)] text-muted-foreground"
                   >{{ group.filters.length }}
                   {{
                     group.filters.length === 1
@@ -238,7 +241,7 @@
                   :disabled="overlayBusy"
                   @click="emit('overlay', { kind: 'stat-group', index: groupIndex })"
                 >
-                  <Plus class="size-[12px]" aria-hidden="true" />{{
+                  <Plus :class="iconClass" aria-hidden="true" />{{
                     t('searchPreview.action.overlay')
                   }}
                 </button>
@@ -246,10 +249,10 @@
               <div
                 v-for="(f, idx) in group.filters"
                 :key="idx"
-                class="preview-stat-row flex items-center justify-between gap-[var(--pxd-space-md)] border-t border-border px-[7px] py-[3px] text-[length:var(--pxd-font-body)]"
-                :class="f.disabled ? 'opacity-60' : ''"
+                class="preview-stat-row"
+                :class="[rowClass, f.disabled ? 'opacity-60' : '']"
               >
-                <span class="stat-name flex min-w-0 flex-col text-muted-foreground" :title="f.id">
+                <span class="stat-name flex min-w-0 flex-col text-foreground" :title="f.id">
                   <span
                     v-for="(line, lineIndex) in statLines(f.id)"
                     :key="lineIndex"
@@ -259,20 +262,20 @@
                 </span>
                 <span
                   v-if="rangeText(f.value)"
-                  class="stat-range text-foreground font-mono shrink-0"
+                  class="stat-range shrink-0 font-mono text-foreground"
                 >
                   {{ rangeText(f.value) }}
                 </span>
               </div>
             </div>
           </div>
-          <div v-else v-show="!isCollapsed(STATS_SECTION_KEY)" class="preview-stats-list">
-            <div
-              v-for="(s, idx) in stats"
-              :key="idx"
-              class="preview-stat-row flex items-center justify-between gap-[var(--pxd-space-md)] bg-[color-mix(in_srgb,var(--muted)_40%,transparent)] py-[3px] px-[7px] rounded-sm mb-[3px] text-[length:var(--pxd-font-body)]"
-            >
-              <span class="stat-name flex min-w-0 flex-col text-muted-foreground" :title="s.id">
+          <div
+            v-else
+            v-show="!isCollapsed(STATS_SECTION_KEY)"
+            class="preview-stats-list overflow-hidden rounded-md border border-border"
+          >
+            <div v-for="(s, idx) in stats" :key="idx" class="preview-stat-row" :class="rowClass">
+              <span class="stat-name flex min-w-0 flex-col text-foreground" :title="s.id">
                 <span
                   v-for="(line, lineIndex) in statLines(s.id)"
                   :key="lineIndex"
@@ -282,7 +285,7 @@
               </span>
               <span
                 v-if="s.min !== undefined || s.max !== undefined"
-                class="stat-range text-foreground font-mono shrink-0"
+                class="stat-range shrink-0 font-mono text-foreground"
               >
                 {{ s.min !== undefined ? '≥' + s.min : ''
                 }}{{ s.max !== undefined ? ' ≤' + s.max : '' }}
@@ -294,9 +297,9 @@
         <div
           v-for="group in filterGroups"
           :key="group.key"
-          class="preview-section filter-group-section mb-[var(--pxd-space-md)] last:mb-0"
+          class="preview-section filter-group-section"
         >
-          <div class="flex items-start gap-[var(--pxd-space-xs)]">
+          <div :class="sectionHeaderClass">
             <button
               type="button"
               :class="sectionToggleClass"
@@ -304,10 +307,10 @@
               @click="toggleSection(group.key)"
             >
               <ChevronRight :class="chevronClass(group.key)" aria-hidden="true" />
-              <span
-                class="preview-section-title filter-group-title filter-title text-[length:var(--pxd-font-body)] font-semibold text-foreground"
-                >{{ translateFilterGroup(group.key, previewData?.gameVersion) }}</span
-              >
+              <span :class="sectionTitleClass" class="filter-group-title filter-title">{{
+                translateFilterGroup(group.key, previewData?.gameVersion)
+              }}</span>
+              <span :class="sectionCountClass">({{ group.filters.length }})</span>
             </button>
             <button
               v-if="canOverlay && hasSection(group.key)"
@@ -319,19 +322,23 @@
               :disabled="overlayBusy"
               @click="emit('overlay', { kind: 'section', section: group.key })"
             >
-              <Plus class="size-[12px]" aria-hidden="true" />
+              <Plus :class="iconClass" aria-hidden="true" />
             </button>
           </div>
-          <div v-show="!isCollapsed(group.key)" class="preview-filters-list">
+          <div
+            v-show="!isCollapsed(group.key)"
+            class="preview-filters-list overflow-hidden rounded-md border border-border"
+          >
             <div
               v-for="(item, idx) in group.filters"
               :key="`${group.key}.${item.fieldKey}.${idx}`"
-              class="preview-filter-row flex items-center justify-between gap-[var(--pxd-space-md)] bg-[color-mix(in_srgb,var(--muted)_40%,transparent)] py-[3px] px-[7px] rounded-sm mb-[3px] text-[length:var(--pxd-font-body)]"
+              class="preview-filter-row"
+              :class="rowClass"
             >
-              <span class="filter-key text-muted-foreground truncate">{{
+              <span class="filter-key truncate text-muted-foreground">{{
                 translateFilterKey(item.fieldKey, previewData?.gameVersion)
               }}</span>
-              <span class="filter-val text-foreground font-mono shrink-0">{{
+              <span class="filter-val shrink-0 font-mono text-foreground">{{
                 formatFilterValue(item.value, item.fieldKey, previewData?.gameVersion)
               }}</span>
             </div>
@@ -340,7 +347,7 @@
 
         <div
           v-if="totalDetailsCount === 0 && !criteria?.status"
-          class="preview-empty text-muted-foreground text-[length:var(--pxd-font-body)] py-[5px]"
+          class="preview-empty py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)] text-muted-foreground"
         >
           {{ t('searchPreview.emptyCriteria') }}
         </div>
@@ -351,7 +358,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, type PropType } from 'vue';
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Plus, Undo2 } from '@lucide/vue';
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Plus, Undo2, X } from '@lucide/vue';
 import { t } from '@/utils/i18n';
 import type { OverlayTarget, CriteriaOverlayStatGroup } from '@/utils/criteria-overlay';
 import {
@@ -396,17 +403,35 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  /** 固定顯示的預覽在標題列提供關閉鈕；滑過即顯示的預覽不需要。 */
+  closable: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits<{
   overlay: [target: OverlayTarget];
   undo: [];
+  close: [];
 }>();
 
+/** 版面比照詞綴選擇器（FilterPane／ModItem）：字級、間距、圓角一律用 design tokens。 */
+const iconClass = 'size-[var(--control-icon-sm)] shrink-0';
 const overlayButtonClass =
-  'preview-overlay-btn inline-flex shrink-0 items-center gap-[2px] whitespace-nowrap rounded-sm border border-border bg-transparent px-[5px] py-[1px] text-[length:var(--pxd-font-secondary)] text-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50';
+  'preview-overlay-btn inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)] whitespace-nowrap rounded-sm border border-border bg-transparent px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] leading-none text-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50';
 const overlayIconClass =
-  'preview-overlay-icon inline-flex size-[18px] shrink-0 items-center justify-center rounded-sm border-0 bg-transparent p-0 text-muted-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50';
+  'preview-overlay-icon inline-flex shrink-0 items-center justify-center rounded-sm border-0 bg-transparent p-[var(--pxd-space-xs)] text-muted-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50';
+/** 分區標頭比照 FilterPane 的群組標頭。 */
+const sectionHeaderClass =
+  'preview-section-header mb-[var(--pxd-space-xs)] flex items-center gap-[var(--pxd-space-xs)]';
+const sectionTitleClass =
+  'preview-section-title min-w-0 truncate text-[length:var(--pxd-font-section-title)] font-semibold text-current';
+const sectionCountClass =
+  'preview-section-count shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground';
+/** 條件列比照 ModItem 的詞綴列：本文字級、分隔線。 */
+const rowClass =
+  'flex items-center justify-between gap-[var(--pxd-space-md)] border-t border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)] leading-[1.25] first:border-t-0';
 
 const criteria = computed(() => props.previewData?.criteria);
 const statGroups = computed(() => criteria.value?.statGroups ?? []);
@@ -436,7 +461,7 @@ interface DisplayedFilterGroup {
 const STATS_SECTION_KEY = '__stats__';
 
 const sectionToggleClass =
-  'preview-section-toggle flex w-full items-center gap-[var(--pxd-space-xs)] rounded-sm text-left mb-[var(--pxd-space-xs)] hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+  'preview-section-toggle flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)] rounded-md px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-left text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
 
 const stats = computed(() => {
   return props.previewData?.meta?.stats ?? [];
@@ -481,14 +506,7 @@ const sectionKeys = computed<string[]>(() => {
 
 const hasTags = computed(() => Boolean(props.previewData?.realmLabel || props.previewData?.league));
 
-const hasHeader = computed(
-  () =>
-    Boolean(props.sourceName) ||
-    props.canOverlay ||
-    Boolean(props.overlayHint) ||
-    Boolean(props.previewData?.realmLabel || props.previewData?.league) ||
-    sectionKeys.value.length > 0,
-);
+const headerTitle = computed(() => props.sourceName || t('searchPreview.defaultSourceName'));
 
 const collapsedKeys = ref<ReadonlySet<string>>(new Set());
 const rootRef = ref<HTMLElement | null>(null);
@@ -533,7 +551,7 @@ function toggleAll(): void {
 }
 
 function chevronClass(key: string): string {
-  return `size-[12px] shrink-0 text-muted-foreground transition-transform ${
+  return `size-[var(--control-icon-sm)] shrink-0 text-muted-foreground transition-transform ${
     isCollapsed(key) ? '' : 'rotate-90'
   }`;
 }

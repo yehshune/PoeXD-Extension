@@ -62,6 +62,45 @@ describe('TradeSearchPreviewContent 標題列', () => {
     for (const button of buttons) expect(button.className).toContain('whitespace-nowrap');
   });
 
+  it('標題列比照詞綴選擇器：固定高度、本文字級，內容區可捲動', () => {
+    const container = render({ sourceName: '二元性 庇護細杖' });
+    const header = container.querySelector('.preview-title-row')!;
+    expect(header.className).toContain('h-[var(--pxd-sidebar-affix-dialog-header-height)]');
+    expect(header.className).toContain('shrink-0');
+    expect(container.querySelector('[data-test="preview-source-name"]')?.className).toContain(
+      'text-[length:var(--pxd-font-body)]',
+    );
+    const body = container.querySelector('.preview-body')!;
+    expect(body.className).toContain('overflow-y-auto');
+    expect(body.className).toContain('p-[var(--pxd-pane-padding)]');
+  });
+
+  it('沒有來源名稱時標題列顯示預設名稱', () => {
+    const container = render({});
+    expect(container.querySelector('[data-test="preview-source-name"]')?.textContent).toBe(
+      '搜尋預覽',
+    );
+  });
+
+  it('只有固定顯示的預覽有關閉鈕，按下送出 close', () => {
+    expect(render({}).querySelector('[data-test="preview-close"]')).toBeNull();
+    app?.unmount();
+
+    let closed = 0;
+    const container = render({ closable: true, onClose: () => closed++ });
+    (container.querySelector('[data-test="preview-close"]') as HTMLButtonElement).click();
+    expect(closed).toBe(1);
+  });
+
+  it('不寫死像素尺寸', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(
+      'components/sidebar/search-preview/TradeSearchPreviewContent.vue',
+      'utf8',
+    );
+    expect(source).not.toMatch(/-\[\d+px\]/);
+  });
+
   it('無法疊加時在操作列顯示原因', () => {
     const container = render({ overlayHint: '在官方搜尋頁才能疊加條件' });
     expect(

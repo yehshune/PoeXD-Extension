@@ -24,7 +24,7 @@
       :side-offset="10"
       :collision-padding="10"
       :avoid-collisions="true"
-      class="flex flex-col w-[var(--pxd-search-preview-width)] max-h-[var(--reka-tooltip-content-available-height,calc(100vh-32px))] overflow-hidden p-[var(--pxd-space-lg)]"
+      class="flex flex-col w-[var(--pxd-search-preview-width)] max-h-[var(--reka-tooltip-content-available-height,calc(100vh-32px))] overflow-hidden bg-background p-0"
       @mouseenter="$emit('mouseenter', $event)"
       @mouseleave="$emit('mouseleave', $event)"
     >

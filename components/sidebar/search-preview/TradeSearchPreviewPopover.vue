@@ -9,7 +9,7 @@
       :side-offset="10"
       :collision-padding="10"
       :avoid-collisions="true"
-      class="flex flex-col w-[var(--pxd-search-preview-width)] max-h-[var(--reka-popover-content-available-height,calc(100vh-32px))] overflow-hidden p-[var(--pxd-space-lg)]"
+      class="flex flex-col w-[var(--pxd-search-preview-width)] max-h-[var(--reka-popover-content-available-height,calc(100vh-32px))] overflow-hidden bg-background p-0"
       @open-auto-focus.prevent
       @interact-outside="handleInteractOutside"
     >
@@ -20,6 +20,8 @@
         :overlay-busy="manager.busy.value"
         :overlay-hint="overlayHint"
         :source-name="sourceName"
+        closable
+        @close="$emit('update:open', false)"
         @overlay="handleOverlay"
         @undo="manager.undo()"
       />
