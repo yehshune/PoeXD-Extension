@@ -115,6 +115,10 @@ export const ZH_TW_MESSAGES = {
   'settings.marketTranslation.infoAria': '市集漢化說明',
   'settings.marketTranslation.tooltip':
     '把國際服英文市集的介面、篩選器與搜尋結果顯示成中文，依「語言」設定採用台服（繁體）或國服（簡體）的官方用語。只改變顯示、不影響搜尋內容；切換後重新整理頁面生效',
+  'settings.marketTranslationBilingual.label': '中英並列',
+  'settings.marketTranslationBilingual.infoAria': '中英並列說明',
+  'settings.marketTranslationBilingual.tooltip':
+    '詞綴、通貨與物品的下拉選單同時顯示中文與英文原文（例如「增加#%能力值需求 (#% increased Attribute Requirements)」），中英文都搜得到。篩選器名稱只顯示中文；切換後重新整理頁面生效',
 
   'settings.itemNormalizer.label': '符文覆寫試算',
   'settings.itemNormalizer.infoAria': '符文覆寫試算說明',

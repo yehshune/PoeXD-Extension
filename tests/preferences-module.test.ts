@@ -37,6 +37,7 @@ describe('Preferences module interface', () => {
       liveSearchResumeMode: 'prompt',
       liveSearchSelectedLeague: '',
       marketTranslation: false,
+      marketTranslationBilingual: true,
       searchEntryClickAction: 'preview',
       sidebarPosition: 'left',
       sidebarSize: 'medium',

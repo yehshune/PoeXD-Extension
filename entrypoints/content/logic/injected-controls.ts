@@ -23,6 +23,12 @@ import { syncFormToUrl } from './form-url-sync';
 import { type TierDomainService } from './tier-domain-service';
 import { t } from '@/utils/i18n';
 
+/**
+ * 「類別過濾」群組標題：國際服英文、台服，以及市集漢化（ADR-0012）改寫後的繁中／簡中
+ * （與 public/json/<ver>/locales/<locale>/trade-filters.json 的 type_filters 相同）
+ */
+const TYPE_FILTERS_TITLES = ['Type Filters', '類別過濾', '类型过滤器'] as const;
+
 export interface InjectedControlsOptions {
   version: PoeVersion;
   tierDomainService: TierDomainService;
@@ -735,7 +741,7 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
       const headerTitleEl = group.querySelector('.filter-group-header .filter-title');
       if (headerTitleEl) {
         const text = headerTitleEl.textContent?.trim() || '';
-        if (text.includes('類別過濾') || text.includes('Type Filters')) {
+        if (TYPE_FILTERS_TITLES.some((title) => text.includes(title))) {
           categoryGroup = group;
           break;
         }

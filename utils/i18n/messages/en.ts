@@ -124,6 +124,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslation.infoAria': 'Chinese Trade Site info',
   'settings.marketTranslation.tooltip':
     'Show the international English Trade site (interface, filters and results) in Chinese, using the official wording of the Taiwan (Traditional) or China (Simplified) realm according to Language. Display only: searches are unchanged. Reload the page to apply',
+  'settings.marketTranslationBilingual.label': 'Show English alongside',
+  'settings.marketTranslationBilingual.infoAria': 'Show English alongside info',
+  'settings.marketTranslationBilingual.tooltip':
+    'Stat, currency and item dropdowns show the Chinese text followed by the English original, so either language finds the same entry. Filter names show Chinese only. Reload the page after changing this.',
 
   'settings.itemNormalizer.label': 'Rune Override Calculator',
   'settings.itemNormalizer.infoAria': 'Rune Override Calculator info',

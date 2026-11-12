@@ -17,7 +17,36 @@ import {
 const payload: MarketTranslationPayload = {
   locale: 'zh-TW',
   ui: { 'Search Listed Items': '搜尋道具', 'Bulk Item Exchange': '以物易物' },
+  bilingual: true,
 };
+
+const STATS_BODY = {
+  result: [
+    {
+      id: 'explicit',
+      label: 'Explicit',
+      entries: [{ id: 'explicit.stat_1', text: '#% increased Spirit', type: 'explicit' }],
+    },
+  ],
+};
+
+const dataPayload: MarketTranslationPayload = {
+  ...payload,
+  data: {
+    stats: {
+      labels: { explicit: '隨機屬性' },
+      stats: { 'explicit.stat_1': '#% 增加精魂' },
+      options: {},
+    },
+  },
+};
+
+function windowWithResponse(response: () => Response) {
+  return {
+    location: { href: 'https://www.pathofexile.com/trade2/search/poe2/Standard' },
+    fetch: vi.fn(async () => response()),
+  } as unknown as Window;
+}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -53,7 +82,14 @@ describe('isMarketTranslationMessage', () => {
       isMarketTranslationMessage({
         source: MARKET_MESSAGE_SOURCE,
         type: 'payload',
-        payload: { locale: 'zh-TW', ui: { a: 1 } },
+        payload: { locale: 'zh-TW', ui: { a: 1 }, bilingual: true },
+      }),
+    ).toBe(false);
+    expect(
+      isMarketTranslationMessage({
+        source: MARKET_MESSAGE_SOURCE,
+        type: 'payload',
+        payload: { locale: 'zh-TW', ui: {} },
       }),
     ).toBe(false);
     expect(isMarketTranslationMessage(null)).toBe(false);
@@ -146,6 +182,52 @@ describe('wrapFetchWithGate', () => {
     const init = { cache: 'reload' as RequestCache };
     await fakeWindow.fetch('/api/trade/search/x', init);
     expect(original).toHaveBeenCalledWith('/api/trade/search/x', init);
+  });
+});
+
+describe('wrapFetchWithGate：data API 改寫', () => {
+  it('payload 帶字典時把回應改寫成中文，保留狀態碼與網址', async () => {
+    const win = windowWithResponse(
+      () => new Response(JSON.stringify(STATS_BODY), { status: 200, statusText: 'OK' }),
+    );
+    const gate = createPayloadGate(1500);
+    wrapFetchWithGate(win, gate);
+    gate.settle(dataPayload);
+    const response = await win.fetch('/api/trade2/data/stats');
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.result[0].label).toBe('隨機屬性');
+    expect(body.result[0].entries[0]).toEqual({
+      id: 'explicit.stat_1',
+      text: '#% 增加精魂 (#% increased Spirit)',
+      type: 'explicit',
+    });
+  });
+
+  it('停用、沒有字典、錯誤狀態或不是 JSON 時回傳原本的回應', async () => {
+    const cases: Array<[MarketTranslationPayload | null, () => Response]> = [
+      [null, () => new Response(JSON.stringify(STATS_BODY))],
+      [payload, () => new Response(JSON.stringify(STATS_BODY))],
+      [dataPayload, () => new Response(JSON.stringify(STATS_BODY), { status: 500 })],
+      [dataPayload, () => new Response('<html>challenge</html>')],
+    ];
+    for (const [settled, make] of cases) {
+      const original = make();
+      const win = windowWithResponse(() => original);
+      const gate = createPayloadGate(1500);
+      wrapFetchWithGate(win, gate);
+      gate.settle(settled);
+      await expect(win.fetch('/api/trade2/data/stats')).resolves.toBe(original);
+    }
+  });
+
+  it('其他請求不改寫', async () => {
+    const original = new Response(JSON.stringify(STATS_BODY));
+    const win = windowWithResponse(() => original);
+    const gate = createPayloadGate(1500);
+    wrapFetchWithGate(win, gate);
+    gate.settle(dataPayload);
+    await expect(win.fetch('/api/trade2/search/poe2/Standard')).resolves.toBe(original);
   });
 });
 

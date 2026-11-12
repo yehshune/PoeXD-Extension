@@ -6,25 +6,68 @@
  * - 收到 payload 後把官方介面字典寫進全域 `__`（官網 `translate()` 每次顯示文字都讀它）。
  *   若 Vue app 已經掛載，對所有元件 `$forceUpdate()` 讓已顯示的文字重新取字。
  *
+ * - payload 帶 data API 字典時，把四份 data API 的回應換成中文版（只換顯示文字，id 不變）。
+ *
  * 只改頁面記憶體，不寫入官網的 localStorage / cookie，也不改送往 API 的請求內容。
  * 這支在頁面環境執行，只能 import 不依賴擴充 API 的模組。
  */
+import { getTradeDataKind, localizeTradeData, type TradeDataKind } from './market-translation-data';
 import {
   createRequestMessage,
   isMarketTranslationMessage,
   type MarketTranslationPayload,
 } from './market-translation-protocol';
 
-const DATA_API_PATH = /^\/api\/trade2?\/data\/(?:items|stats|static|filters)$/;
-
-export function isTradeDataRequest(input: RequestInfo | URL, baseHref: string): boolean {
+/** 同源的四份 data API 回傳其種類，其他請求回傳 null */
+export function getTradeDataRequestKind(
+  input: RequestInfo | URL,
+  baseHref: string,
+): TradeDataKind | null {
   try {
     const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input?.url;
-    if (!raw) return false;
+    if (!raw) return null;
     const url = new URL(raw, baseHref);
-    return url.origin === new URL(baseHref).origin && DATA_API_PATH.test(url.pathname);
+    return url.origin === new URL(baseHref).origin ? getTradeDataKind(url.pathname) : null;
   } catch {
-    return false;
+    return null;
+  }
+}
+
+export function isTradeDataRequest(input: RequestInfo | URL, baseHref: string): boolean {
+  return getTradeDataRequestKind(input, baseHref) !== null;
+}
+
+/**
+ * 把 data API 回應換成中文版；任何不符（停用、沒字典、錯誤狀態、不是 JSON）都回傳原回應。
+ * 只換顯示文字，搜尋用的 id 不變（見 market-translation-data.ts）。
+ */
+async function localizeResponse(
+  response: Response,
+  kind: TradeDataKind,
+  payload: MarketTranslationPayload | null,
+): Promise<Response> {
+  if (!payload?.data || !response.ok) return response;
+  try {
+    const original: unknown = await response.clone().json();
+    const localized = localizeTradeData(
+      kind,
+      original,
+      { ...payload.data, ui: payload.ui },
+      { bilingual: payload.bilingual },
+    );
+    if (localized === original) return response;
+    const headers = new Headers(response.headers);
+    headers.delete('content-length');
+    headers.delete('content-encoding');
+    const rewritten = new Response(JSON.stringify(localized), {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+    Object.defineProperty(rewritten, 'url', { value: response.url });
+    return rewritten;
+  } catch {
+    return response;
   }
 }
 
@@ -67,8 +110,11 @@ export function wrapFetchWithGate(win: Window, gate: PayloadGate): () => void {
   if (typeof originalFetch !== 'function') return () => {};
 
   const gatedFetch = async function (this: unknown, ...args: Parameters<typeof fetch>) {
-    if (isTradeDataRequest(args[0], win.location.href)) await gate.wait();
-    return originalFetch.apply(this, args);
+    const kind = getTradeDataRequestKind(args[0], win.location.href);
+    if (!kind) return originalFetch.apply(this, args);
+    const payload = await gate.wait();
+    const response = await originalFetch.apply(this, args);
+    return localizeResponse(response, kind, payload);
   };
   win.fetch = gatedFetch as typeof fetch;
   return () => {

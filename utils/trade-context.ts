@@ -50,6 +50,12 @@ export function getLocaleTradeStatsAssetPath(version: PoeVersion, locale: string
   return `json/${profile.dataDirectory}/locales/${locale}/trade-stats.json`;
 }
 
+/** 市集漢化（ADR-0012）的官方 /data/static 譯名，只有 zh-TW、zh-CN */
+export function getLocaleTradeStaticAssetPath(version: PoeVersion, locale: string): string {
+  const profile = tradeVersionProfiles[version];
+  return `json/${profile.dataDirectory}/locales/${locale}/trade-static.json`;
+}
+
 export function getLocaleTradeFiltersAssetPath(version: PoeVersion, locale: string): string {
   const profile = tradeVersionProfiles[version];
   return `json/${profile.dataDirectory}/locales/${locale}/trade-filters.json`;

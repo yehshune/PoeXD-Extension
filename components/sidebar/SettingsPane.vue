@@ -506,6 +506,38 @@
             </Tooltip>
           </div>
         </div>
+        <div
+          v-if="marketTranslation"
+          class="flex items-center gap-[var(--pxd-space-md)] pl-[var(--pxd-space-lg)]"
+        >
+          <Checkbox
+            id="enable-market-translation-bilingual"
+            v-model="marketTranslationBilingual"
+            @update:model-value="savePreference('marketTranslationBilingual')"
+          />
+          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+            <label
+              for="enable-market-translation-bilingual"
+              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+            >
+              {{ t('settings.marketTranslationBilingual.label') }}
+            </label>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <span
+                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                  tabindex="-1"
+                  :aria-label="t('settings.marketTranslationBilingual.infoAria')"
+                >
+                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {{ t('settings.marketTranslationBilingual.tooltip') }}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
         <div v-if="isPoe2" class="flex items-center gap-[var(--pxd-space-md)]">
           <Checkbox
             id="enable-item-normalizer"
@@ -724,6 +756,7 @@ export default defineComponent({
       enableResultModHighlight,
       enablePureBackground,
       marketTranslation,
+      marketTranslationBilingual,
       addBookmarkBtnPosition,
       enableBookmarkTooltip,
       searchEntryClickAction,
@@ -989,6 +1022,7 @@ export default defineComponent({
       enableResultModHighlight,
       enablePureBackground,
       marketTranslation,
+      marketTranslationBilingual,
       isPoe2: version === 'poe2',
       addBookmarkBtnPosition,
       enableBookmarkTooltip,

@@ -6,6 +6,8 @@
  * 頁面本身也能送出同形訊息，但最多只影響它自己的顯示，不涉及擴充權限或使用者資料。
  */
 
+import type { MarketTradeDictionary } from './market-translation-data';
+
 export const MARKET_MESSAGE_SOURCE = 'poexd-market-translation';
 
 /** 兩支市集漢化 content script 的比對範圍：只有國際服英文市集（`*.pathofexile.com` 的在地化子網域不含在內） */
@@ -23,6 +25,10 @@ export interface MarketTranslationPayload {
   locale: MarketTranslationPayloadLocale;
   /** 官方介面字典（英文鍵 → 譯文），寫進全域 `__` */
   ui: Record<string, string>;
+  /** 詞綴、通貨、物品顯示成「中文 (English)」 */
+  bilingual: boolean;
+  /** 四份 data API 的字典；缺少時 data API 維持英文（字典的 `ui` 由頁面端以上面的 ui 補上） */
+  data?: Omit<MarketTradeDictionary, 'ui'>;
 }
 
 export type MarketTranslationMessage =
@@ -40,7 +46,9 @@ export function isMarketTranslationPayload(value: unknown): value is MarketTrans
   return (
     isRecord(value) &&
     (value.locale === 'zh-TW' || value.locale === 'zh-CN') &&
-    isStringMap(value.ui)
+    isStringMap(value.ui) &&
+    typeof value.bilingual === 'boolean' &&
+    (value.data === undefined || isRecord(value.data))
   );
 }
 

@@ -1016,6 +1016,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
 
     expect(currentModule?.read().marketTranslation).toBe(true);
+
+    // 中英並列：只在市集漢化開啟時出現，預設開啟
+    const bilingualCheckbox = container.querySelector(
+      '#enable-market-translation-bilingual',
+    ) as HTMLElement;
+    expect(bilingualCheckbox).not.toBeNull();
+    expect(currentModule?.read().marketTranslationBilingual).toBe(true);
+
+    bilingualCheckbox.click();
+    await flushAsync();
+
+    expect(currentModule?.read().marketTranslationBilingual).toBe(false);
   });
 
   it('records hotkey inputs on keydown and persists to preferences', async () => {

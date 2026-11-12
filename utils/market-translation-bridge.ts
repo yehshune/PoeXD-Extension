@@ -10,6 +10,8 @@ import {
   resolveMarketTranslationLocale,
   type MarketTranslationLocale,
 } from './market-translation';
+import { loadMarketTradeDictionary } from './market-translation-assets';
+import { getPoeVersion } from './trade-context';
 import {
   MARKET_MESSAGE_SOURCE,
   createDisabledMessage,
@@ -21,12 +23,15 @@ const MARKET_UI_SCHEMA_VERSION = 1;
 
 export const MARKET_TRANSLATION_STORAGE_KEYS = [
   'marketTranslation',
+  'marketTranslationBilingual',
   'displayLocale',
   ...LEGACY_DISPLAY_LOCALE_KEYS,
 ] as const;
 
 export interface MarketTranslationBridgeDeps {
   hostname: string;
+  /** 決定載入 PoE1 或 PoE2 的 data 字典 */
+  pathname: string;
   browserLocale: string;
   readStorage(keys: readonly string[]): Promise<Record<string, unknown>>;
   /** 讀取擴充內建檔案（相對於擴充根目錄的路徑） */
@@ -67,8 +72,15 @@ async function buildMessage(deps: MarketTranslationBridgeDeps): Promise<MarketTr
     browserLocale: deps.browserLocale,
   });
   if (!locale) return createDisabledMessage();
-  const ui = parseMarketUiAsset(await deps.loadJson(getMarketUiAssetPath(locale)), locale);
-  return createPayloadMessage({ locale, ui });
+  // 介面字典失敗就整個停用；data 字典各類分片失敗只讓該類維持英文
+  const [uiAsset, data] = await Promise.all([
+    deps.loadJson(getMarketUiAssetPath(locale)),
+    loadMarketTradeDictionary(deps.loadJson, { version: getPoeVersion(deps.pathname), locale }),
+  ]);
+  const ui = parseMarketUiAsset(uiAsset, locale);
+  // 偏好沒存過時預設中英並列（與 DEFAULT_PREFERENCES 一致）
+  const bilingual = stored.marketTranslationBilingual !== false;
+  return createPayloadMessage({ locale, ui, bilingual, data });
 }
 
 const isRequest = (data: unknown): boolean =>

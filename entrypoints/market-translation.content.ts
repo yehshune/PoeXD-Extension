@@ -12,6 +12,7 @@ export default defineContentScript({
   main() {
     void startMarketTranslationBridge({
       hostname: window.location.hostname,
+      pathname: window.location.pathname,
       browserLocale: detectBrowserLocale(),
       readStorage: (keys) => chrome.storage.local.get([...keys]),
       loadJson: async (path) => {

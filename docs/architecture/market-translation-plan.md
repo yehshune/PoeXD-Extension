@@ -106,16 +106,22 @@
 
 ### 第 3 階段：下拉選單與篩選器（data API 改寫）
 
-- [ ] Preference：`marketTranslationBilingual`（全域、預設 `true`），加入 `GLOBAL_PREFERENCE_NAMES` 與設定 UI；payload 帶上這個值與 stats／static 分片（WAR 一併加入 `trade-stats.json`、`trade-static.json`）。
-- [ ] 讓 `network-observer.ts` 等內部功能拿到原始英文資料：改寫只作用於官網拿到的 `Response`，不能影響 interceptor 轉送的副本，也不能讓內部功能讀到翻譯後的 Vuex store。
-- [ ] 純函式 `localizeTradeData(kind, englishResult, shards, { bilingual })`，依 kind 處理：
-  - `stats`：依 `id` 換掉 `text`，類別 `label` 也一併翻譯。
-  - `static`：依 `id` 換掉 `text`。
-  - `filters`：依 `id` 換掉群組 `title`、欄位 `text`、選項 `text`（沿用 `trade-filters.json`）。
-  - `items`：依英文 `type`／`name` 查 `items.json` 索引，寫入 `text`（基底原本沒有 `text`，要新增）；`type`、`name` 絕不改動。
-  - 雙語模式時 `text` 為 `中文 English`；查不到的條目保留英文原值。
-- [ ] 單元測試以實際 API 片段為 fixture，斷言 `type`、`name`、`id` 位元組不變。
+- [x] Preference：`marketTranslationBilingual`（全域、預設 `true`），加入 `GLOBAL_PREFERENCE_NAMES` 與設定 UI（只在開啟市集漢化時顯示）。payload 帶上 `bilingual` 與 `data` 字典；WAR 加入 `trade-static.json`（`trade-stats.json` 第 2 階段後已加入）。
+- [x] isolated world：`utils/market-translation-assets.ts` 依頁面路徑（PoE1／PoE2）載入 `trade-stats`、`trade-static`、`trade-filters` 與中英 `items.json`。各類分片獨立：失敗或格式不符只讓那一類維持英文；介面字典 `trade-ui.json` 失敗才整個停用。
+- [x] 純函式 `localizeTradeData(kind, data, dictionary, { bilingual })`（`utils/market-translation-data.ts`），只換 `text`／`label`／`title`，`id`、`type`、`name` 不動，也不改動輸入物件：
+  - `stats`：依 `id` 換 `text`；同一 id 出現多次時依分片陣列順序對應。類別 `label` 與選項只換中文。
+  - `static`：依群組與 `id` 換 `text`，類別 `label` 只換中文。
+  - `filters`：群組 `title`、欄位 `text`、選項 `text` 只換中文；`id` 為 `null` 的選項（「Any」）查介面字典。
+  - `items`：依英文 `type`／`name`（小寫）查 `items.json` 索引寫入 `text`；傳奇寫成「傳奇名 基底名」，兩者都查得到才寫。
+  - 雙語只套用在可搜尋的清單（詞綴、通貨、物品），格式 `中文 (English)`；查不到或與英文相同時保留英文。
+- [x] MAIN world：`wrapFetchWithGate` 放行後讀回應副本、改寫並以新 `Response` 交給官網（保留狀態碼、標頭與 `url`）。停用、沒有字典、非 2xx 或不是 JSON 都回傳原回應。
+- [x] 內部功能：
+  - `network-observer.ts` 包在市集漢化外層，讀到的是改寫後的回應；它只用 data API 觸發 `sendKnownStats`，而 `poexdKnownStats` 的 `text` 只用在側欄 log（FilterPane 的 `displayText`），新增篩選一律用 id，所以不另外轉送英文副本。官網 static 裡的 `knownStatsFlat` 同理。
+  - 「類別過濾」群組的辨識（`injected-controls.ts`）改成同時認英文、繁中與簡中標題。
+  - `search-observation-session.ts` 略過「Any」時已含「任何」（繁中、簡中譯文相同）。
+- [x] 單元測試以實際 API 片段為 fixture，斷言 `type`、`name`、`id` 不變。
 - [ ] e2e：在詞綴下拉輸入中文與英文都找得到同一詞綴；選取後送出的搜尋 ID 與未翻譯頁相同。
+- 單語模式（關閉中英並列）下，側欄依英文文字退回查詢官網下拉的路徑可能找不到條目，列入第 5 階段稽核。
 
 ### 第 4 階段：結果列
 

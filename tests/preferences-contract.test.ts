@@ -48,6 +48,7 @@ describe('Preferences Domain Contract', () => {
       liveSearchResumeMode: 'prompt',
       liveSearchSelectedLeague: '',
       marketTranslation: false,
+      marketTranslationBilingual: true,
       searchEntryClickAction: 'preview',
       sidebarPosition: 'left',
       sidebarSize: 'medium',
@@ -80,7 +81,12 @@ describe('Preferences Domain Contract', () => {
     expect(SUPPORTED_UI_LOCALES).toEqual(['zh-TW', 'zh-CN', 'en']);
     expect(DISPLAY_LOCALE_VALUES).toEqual(['auto', ...SUPPORTED_LOCALES]);
     expect(AFFIX_DISPLAY_LOCALE_VALUES).toEqual(DISPLAY_LOCALE_VALUES);
-    expect(GLOBAL_PREFERENCE_NAMES).toEqual(['theme', 'displayLocale', 'marketTranslation']);
+    expect(GLOBAL_PREFERENCE_NAMES).toEqual([
+      'theme',
+      'displayLocale',
+      'marketTranslation',
+      'marketTranslationBilingual',
+    ]);
   });
 
   it('defines frozen numeric bounds', () => {

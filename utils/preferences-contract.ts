@@ -54,7 +54,12 @@ export const FONT_SIZE_PRESETS: Readonly<Record<FontSizePresetMode, number>> = O
   large: 1.2,
 });
 
-export const GLOBAL_PREFERENCE_NAMES = ['theme', 'displayLocale', 'marketTranslation'] as const;
+export const GLOBAL_PREFERENCE_NAMES = [
+  'theme',
+  'displayLocale',
+  'marketTranslation',
+  'marketTranslationBilingual',
+] as const;
 export type GlobalPreferenceName = (typeof GLOBAL_PREFERENCE_NAMES)[number];
 
 export function isGlobalPreference(name: string): name is GlobalPreferenceName {
@@ -159,6 +164,8 @@ export interface Preferences {
   liveSearchSelectedLeague: string;
   /** 市集漢化（ADR-0012）：國際服英文市集頁以 Display Locale 的繁中或簡中顯示 */
   marketTranslation: boolean;
+  /** 市集漢化的下拉選單（詞綴、通貨、物品）顯示成「中文 (English)」，中英文都搜得到 */
+  marketTranslationBilingual: boolean;
   searchEntryClickAction: SearchEntryClickAction;
   sidebarPosition: SidebarPosition;
   sidebarSize: SidebarSize;
@@ -191,6 +198,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   liveSearchResumeMode: 'prompt',
   liveSearchSelectedLeague: '',
   marketTranslation: false,
+  marketTranslationBilingual: true,
   searchEntryClickAction: 'preview',
   sidebarPosition: 'left',
   sidebarSize: 'medium',

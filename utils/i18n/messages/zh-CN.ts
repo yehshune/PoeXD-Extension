@@ -117,6 +117,10 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslation.infoAria': '市集汉化说明',
   'settings.marketTranslation.tooltip':
     '把国际服英文市集的界面、筛选器与搜索结果显示为中文，依「语言」设置采用台服（繁体）或国服（简体）的官方用语。只改变显示、不影响搜索内容；切换后刷新页面生效',
+  'settings.marketTranslationBilingual.label': '中英并列',
+  'settings.marketTranslationBilingual.infoAria': '中英并列说明',
+  'settings.marketTranslationBilingual.tooltip':
+    '词缀、通货与物品的下拉菜单同时显示中文与英文原文（例如「属性需求提高 #% (#% increased Attribute Requirements)」），中英文都搜得到。筛选器名称只显示中文；切换后刷新页面生效',
 
   'settings.itemNormalizer.label': '符文覆写试算',
   'settings.itemNormalizer.infoAria': '符文覆写试算说明',

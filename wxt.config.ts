@@ -72,6 +72,7 @@ export default defineConfig({
             'json/poe1/locales/*/items.json',
             'json/poe1/locales/*/trade-filters.json',
             'json/poe1/locales/*/trade-stats.json',
+            'json/poe1/locales/*/trade-static.json',
             'json/poe1/mercenary.json',
             'json/poe1/locales/*/mercenary.json',
             'json/poe2/mods-tiers.json',
@@ -79,6 +80,7 @@ export default defineConfig({
             'json/poe2/locales/*/items.json',
             'json/poe2/locales/*/trade-filters.json',
             'json/poe2/locales/*/trade-stats.json',
+            'json/poe2/locales/*/trade-static.json',
             // 市集漢化（ADR-0012）：只有 zh-TW、zh-CN
             'json/locales/*/trade-ui.json',
           ],
