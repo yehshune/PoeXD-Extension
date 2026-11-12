@@ -6,6 +6,7 @@ import { createApp, defineComponent, h, nextTick } from 'vue';
 import { ConfigProvider } from 'reka-ui';
 import FilterPane from '@/components/sidebar/FilterPane.vue';
 import { listenPoeEvent } from '@/utils/event-contracts';
+import { setKnownStats } from '@/utils/known-stats-store';
 
 const source = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
 
@@ -16,12 +17,7 @@ const source = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
   },
   storage: {
     local: {
-      get: vi.fn(async (key?: string) => {
-        if (key === 'poexdKnownStats') {
-          return { poexdKnownStats: sampleKnownStats };
-        }
-        return {};
-      }),
+      get: vi.fn(async () => ({})),
       set: vi.fn(async () => {}),
     },
     onChanged: {
@@ -63,6 +59,7 @@ const sampleKnownStats = {
     type: 'explicit',
   },
 };
+setKnownStats(sampleKnownStats);
 
 const sampleModsData = {
   '+# 最大生命': [

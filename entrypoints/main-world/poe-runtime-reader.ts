@@ -64,11 +64,16 @@ export function readKnownStatIds(): string[] | null {
   return known ? Object.keys(known) : null;
 }
 
+/** 已送出的 known stats 物件與當時的筆數；同一份資料不重送（序列化數千筆很貴） */
+const sentKnownStats = new WeakMap<object, number>();
+
 export function sendKnownStats(bridge: MainWorldBridge) {
   const knownStatsFlat = findKnownStatsFlat();
-  if (knownStatsFlat) {
-    bridge.dispatchEvent('poexd-known-stats', serializePoeKnownStats(knownStatsFlat));
-  }
+  if (!knownStatsFlat) return;
+  const size = Object.keys(knownStatsFlat).length;
+  if (sentKnownStats.get(knownStatsFlat) === size) return;
+  sentKnownStats.set(knownStatsFlat, size);
+  bridge.dispatchEvent('poexd-known-stats', serializePoeKnownStats(knownStatsFlat));
 }
 
 function findKnownStatsFlat() {

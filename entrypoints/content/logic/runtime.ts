@@ -50,6 +50,7 @@ import {
   createLiveSearchResumeController,
   type LiveSearchResumeController,
 } from './live-search-resume-controller';
+import { setKnownStats } from '@/utils/known-stats-store';
 
 let activePrimaryRuntime: LiveSearchPrimaryRuntime | null = null;
 let activePrimaryController: LiveSearchPrimaryController | null = null;
@@ -322,11 +323,13 @@ function registerPageContextEvents(
       }
     }),
   );
+  // 舊版把 known stats 存在 chrome.storage（數 MB），改存記憶體後清掉
+  void chrome.storage.local.remove('poexdKnownStats').catch(() => undefined);
   cleanups.push(
     listenPoeEvent('poexd-known-stats', (detail) => {
       const stats = parsePoeKnownStats(detail);
       if (stats) {
-        chrome.storage.local.set({ poexdKnownStats: stats });
+        setKnownStats(stats);
       } else {
         console.error('[PoeXD] 解析 known-stats 失敗: 格式不符');
       }

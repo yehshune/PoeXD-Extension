@@ -1,4 +1,4 @@
-import { computed, getCurrentInstance, onMounted, onUnmounted, ref, watch, type Ref } from 'vue';
+import { computed, getCurrentInstance, onMounted, ref, watch, type Ref } from 'vue';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { getTradeMapping } from '../mapping-registry';
 import { type PoeVersion } from '@/utils/trade-context';
@@ -10,11 +10,12 @@ import {
 } from '@/utils/affix-lexicon';
 import { getActiveDisplayLocale, getActiveDisplayLocaleRef } from '@/utils/i18n';
 import { getOfficialStatLabel } from '@/utils/official-stat-text';
+import { getKnownStatsRef } from '@/utils/known-stats-store';
 import type { ModGroup, ModTier } from '../types';
 
 export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
   const rawModsData = ref<Record<string, ModTier[]>>({});
-  const knownStats = ref<Record<string, { id: string; text: string; type: string }>>({});
+  const knownStats = getKnownStatsRef();
   const loading = ref(true);
   const typeNames = getTradeMapping(version).typeNames;
 
@@ -218,8 +219,6 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
   const loadData = async () => {
     loading.value = true;
     try {
-      const storage = (await chrome?.storage?.local?.get?.('poexdKnownStats')) || {};
-      if (storage.poexdKnownStats) knownStats.value = storage.poexdKnownStats;
       // Display Locale 由偏好模組統一寫入全域狀態，這裡只依目前語系載入分片
       await ensureAffixLexiconLoaded(version);
       rawModsData.value = getHydratedModsByGroup(version);
@@ -233,10 +232,6 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
     }
   };
 
-  const handleStorageChange = (changes: any) => {
-    if (changes.poexdKnownStats) knownStats.value = changes.poexdKnownStats.newValue;
-  };
-
   // 語系切換時載入新語系分片，並以新語系重新組裝詞綴（分片已快取時不會觸發 revision）
   watch(getActiveDisplayLocaleRef(), async () => {
     await ensureAffixLexiconLoaded(version);
@@ -244,11 +239,7 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
     if (Object.keys(hydrated).length > 0) rawModsData.value = hydrated;
   });
   if (getCurrentInstance()) {
-    onMounted(() => {
-      void loadData();
-      chrome?.storage?.onChanged?.addListener?.(handleStorageChange);
-    });
-    onUnmounted(() => chrome?.storage?.onChanged?.removeListener?.(handleStorageChange));
+    onMounted(() => void loadData());
   }
 
   return {

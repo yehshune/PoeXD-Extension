@@ -103,6 +103,28 @@ describe('installFetchInterceptor runtime regression', () => {
     expect(triggerEvent).toBeDefined();
   });
 
+  it('官網 4 支 data API 都回應時，同一份 known stats 只送一次；內容變了才再送', async () => {
+    const fakeDataResponse = { clone: () => ({ json: async () => ({ result: [] }) }) };
+    const win = { fetch: vi.fn().mockResolvedValue(fakeDataResponse) } as unknown as Window;
+    installFetchInterceptor(bridge, win);
+
+    for (const kind of ['stats', 'static', 'filters', 'items']) {
+      await win.fetch(`https://www.pathofexile.com/api/trade/data/${kind}`);
+    }
+    vi.advanceTimersByTime(500);
+    const count = () => dispatchedEvents.filter((e) => e.type === 'poexd-known-stats').length;
+    expect(count()).toBe(1);
+
+    (tradeEl as any).__vue__.static_.knownStatsFlat['stat.new'] = {
+      id: 'stat.new',
+      text: 'New Stat',
+      type: 'explicit',
+    };
+    await win.fetch('https://www.pathofexile.com/api/trade/data/stats');
+    vi.advanceTimersByTime(500);
+    expect(count()).toBe(2);
+  });
+
   it('triggers knownStats and currentQuery dispatch after 500ms when /api/trade/data completes', async () => {
     const fakeDataResponse = {
       clone: () => ({
