@@ -108,7 +108,7 @@ PoeXD 是玩家自製工具，與 Grinding Gear Games 無關，也未獲其背�
 ### 單一用途 / Single purpose
 
 ```text
-PoeXD enhances the official Path of Exile trade website: it lets players organize, revisit and monitor their trade searches (bookmarks, history, live search console) and adds display helpers to the trade results page.
+PoeXD enhances the official Path of Exile trade website: it lets players organize, revisit and monitor their trade searches (bookmarks, history, live search console) and adds display helpers to the trade page, including an optional Chinese display of the international trade site using the official Taiwan or China realm wording.
 ```
 
 ### 權限用途說明 / Permission justifications
@@ -153,6 +153,16 @@ Testing steps:
 4. Run any search on the trade page, then click "New Folder" in the sidebar and use "+ Add Current Page" in the folder to bookmark the current search.
 5. Click the "Search Preview" button on a bookmark or open the "History" tab to see recorded searches.
 6. The extension operates entirely within the browser via local storage (`chrome.storage.local`); no remote servers or external trackers are contacted.
+7. Optional "Chinese Trade Site": open the PoeXD settings (or the toolbar popup), set Language to Traditional or Simplified Chinese, turn on "Chinese Trade Site", then reload the international trade page. The interface, filters, dropdowns and results are shown in Chinese.
+
+How the "Chinese Trade Site" feature works:
+- A content script runs in the page context (MAIN world) on www.pathofexile.com/trade* only. It wraps window.fetch and, for the four official trade data endpoints (/api/trade[2]/data/items, stats, static, filters), rewrites the display text of the JSON response in memory using translation dictionaries bundled in the extension package.
+- Only display text is changed. Request URLs, request bodies, search ids and every value sent to the official API stay identical to the English page. No data leaves the browser, and no translation data is downloaded from any server at runtime.
+- Result rows are translated by replacing the text of existing DOM text nodes and title attributes; no HTML is injected.
+- When the feature is off, the wrapper passes every request and response through unchanged.
+
+Trade page fix:
+- On the trade search form, pressing Enter in a filter input dispatches that input's own "change" event just before the official site's search handler runs, so the search includes the value the user just typed (the official site otherwise needs Enter twice). No request is created or modified by the extension.
 
 Third-party code notes:
 - The bundle contains a "new Function" feature check from the zod library (used for input validation). It only tests whether eval is allowed and falls back when blocked by CSP; no remote or dynamic code is executed.
