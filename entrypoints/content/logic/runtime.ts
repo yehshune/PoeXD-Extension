@@ -12,6 +12,7 @@ import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
 import { watchTradePageMode } from '@/utils/trade-page-mode';
 import { DomFilter } from './dom-filter';
 import { initHotkeysAndTildeListeners } from './hotkeys';
+import { installSearchEnterCommit } from './search-enter-commit';
 import { connectSearchObservationSession } from './search-observation-session';
 import { mountSidebarLayout } from './sidebar-layout';
 import { ResultPricePresenter } from './result-price-presenter';
@@ -74,6 +75,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   const filterEnhancements = createFilterDomEnhancements(version);
   let cleanupPageEvents: (() => void) | null = null;
   let cleanupHotkeys: (() => void) | null = null;
+  let cleanupSearchEnterCommit: (() => void) | null = null;
   let cleanupPageMode: (() => void) | null = null;
   let cleanupPreferences: (() => void) | null = null;
   let cleanupSearchSession: (() => void) | null = null;
@@ -92,6 +94,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     itemNormalizer.cleanup();
     modHighlighter.cleanup();
     cleanupHotkeys?.();
+    cleanupSearchEnterCommit?.();
     cleanupPageMode?.();
     cleanupPreferences?.();
     stopSidebarPreferences?.();
@@ -181,6 +184,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       filterEnhancements,
     );
     cleanupHotkeys = initHotkeysAndTildeListeners(preferences);
+    cleanupSearchEnterCommit = installSearchEnterCommit();
 
     const initialize = async () => {
       if (disposed) return;
