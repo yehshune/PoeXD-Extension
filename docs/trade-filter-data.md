@@ -69,7 +69,7 @@ pnpm run market:update
 | 檔案                                                       | 來源                                                                                              |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `public/json/locales/<locale>/trade-ui.json`               | 官方介面字典 `webtw.poecdn.com/js/translate.zh_TW.js`、`poecdn.game.qq.com/js/translate.zh_CN.js` |
-| `public/json/<version>/locales/<locale>/trade-stats.json`  | 該服的 `/data/stats`                                                                              |
+| `public/json/<version>/locales/<locale>/trade-stats.json`  | 該服的 `/data/stats`；國際服另寫一份 `en`                                                         |
 | `public/json/<version>/locales/<locale>/trade-static.json` | 該服的 `/data/static`                                                                             |
 
 只更新部分語系或版本：
@@ -79,7 +79,8 @@ pnpm run market:update -- --locale zh-CN --version poe2
 pnpm run market:update -- --skip-ui
 ```
 
-- 國際服（en）的回應只用來篩選與驗證，不寫檔；中文分片只保留國際服存在的條目。
+- 國際服（en）的 stats 也寫出 `en/trade-stats.json`，static 只用來篩選與驗證；中文分片只保留國際服存在的條目。
+- `trade-stats.json` 也是擴充端「市集寫法」的來源（`utils/official-stat-text.ts`）：詞綴選擇器的單一詞綴標籤與市集篩選列的詞綴，優先用該語系市集的文字，正負向因此跟市集一致；中文市集回傳的仍是英文時視為沒有翻譯，改用 poexd-data 的 `statTemplates`。
 - 介面字典只當資料解析（`__['鍵'] = '值';`），不執行；出現無法辨識的行就整份拒絕。官方未翻譯（值等於鍵）的條目略過。
 - stats 的同一個 id 可能出現多次且文字不同，這時依 API 出現順序存成陣列，出現次數與國際服不同就略過該 id；static 的 id 跨群組會重複，所以依群組分層。
 - 國服網域從海外連線時好時壞：介面字典會改試 `poe.game.qq.com`，stats / static 失敗時保留既有檔案，稍後重跑即可。

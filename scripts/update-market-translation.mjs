@@ -5,7 +5,8 @@
  * - public/json/<version>/locales/<locale>/trade-stats.json    該服 /data/stats，只留國際服存在的 id
  * - public/json/<version>/locales/<locale>/trade-static.json   該服 /data/static，只留國際服存在的條目
  *
- * <locale> 為市集漢化目標語系（zh-TW、zh-CN）。國際服（en）的回應只用來篩選與驗證，不寫檔。
+ * <locale> 為市集漢化目標語系（zh-TW、zh-CN）。國際服（en）另外寫出 trade-stats.json：
+ * 詞綴標籤以官方市集寫法為準（utils/official-stat-text.ts），英文介面與「中文市集仍回傳英文」的判斷都要用到。
  *
  * 用法：node scripts/update-market-translation.mjs [--locale zh-TW|zh-CN]... [--version poe1|poe2] [--skip-ui]
  *
@@ -126,7 +127,12 @@ async function fetchEnglish(version) {
 
 async function buildVersionWrites(version, locales) {
   const english = await fetchEnglish(version);
-  const writes = [];
+  const writes = [
+    {
+      path: resolve(ROOT, `public/json/${version}/locales/en/trade-stats.json`),
+      content: compactJson(validateStatsArtifact(english.statsArtifact)),
+    },
+  ];
   const failures = [];
   for (const locale of locales) {
     try {

@@ -7,6 +7,7 @@ import {
 } from './affix-lexicon';
 import { getActiveDisplayLocale, getActiveUiLocale } from './i18n';
 import { translateMercenaryStat } from './mercenary-data';
+import { getOfficialStatLabel } from './official-stat-text';
 import {
   describeShardMismatch,
   isShardCompatible,
@@ -397,8 +398,10 @@ export function translateStatLines(statId: string, version: PoeVersion = 'poe1')
   return lines.length > 0 ? lines : [statId];
 }
 
+/** 市集上的詞綴：優先用官方市集的寫法（正負向跟市集一致），查不到才用詞綴字典 */
 export function translateStat(statId: string, version: PoeVersion = 'poe1'): string {
   const translated =
+    getOfficialStatLabel(statId, version, getActiveDisplayLocale()) ??
     translateAffixStat(statId, version) ??
     translatePseudoStat(statId, version) ??
     (version === 'poe1' ? translateMercenaryStat(statId) : null);

@@ -6,8 +6,10 @@ import {
   ensureAffixLexiconLoaded,
   getAffixLexiconRevision,
   getHydratedModsByGroup,
+  translateAffixStat,
 } from '@/utils/affix-lexicon';
-import { getActiveDisplayLocaleRef } from '@/utils/i18n';
+import { getActiveDisplayLocale, getActiveDisplayLocaleRef } from '@/utils/i18n';
+import { getOfficialStatLabel } from '@/utils/official-stat-text';
 import type { ModGroup, ModTier } from '../types';
 
 export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
@@ -134,6 +136,27 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
     ],
   };
 
+  /** 詞綴字典的 statTemplates 是市集標準寫法（poexd-data 以國際服市集為準產生）；多行的不採用 */
+  const lexiconStatLabel = (statId: string): string | null => {
+    const label = translateAffixStat(statId, version);
+    return label && !label.includes('|||||') ? label : null;
+  };
+
+  /**
+   * 單一詞綴的標籤用市集寫法（正負向跟市集一致）：官方市集 → 詞綴字典的標準寫法 → 最低階級的遊戲文字。
+   * 複合詞綴維持完整的遊戲寫法，讓使用者看到整條詞綴的內容。
+   */
+  const resolveGroupLabel = (firstTier: ModTier): string => {
+    const template = firstTier.displayTemplate || '';
+    const ids = firstTier.ids ?? (firstTier.id ? [firstTier.id] : []);
+    if (ids.length !== 1 || template.includes('|||||')) return template;
+    return (
+      getOfficialStatLabel(ids[0], version, getActiveDisplayLocale()) ??
+      lexiconStatLabel(ids[0]) ??
+      template
+    );
+  };
+
   const getModGroups = (type: string): ModGroup[] => {
     const groups: ModGroup[] = [];
     const targetTypes = typeAliases[type] || [type];
@@ -168,7 +191,7 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
           ids: firstTier.ids,
           key: modKey,
           displayKey: firstTier.displayKey || '',
-          displayTemplate: firstTier.displayTemplate || '',
+          displayTemplate: resolveGroupLabel(firstTier),
           details: sortedTiers
             .map((tier) => `Lv.${tier.level}: ${tier.displayKey ? `${tier.displayKey} ` : ''}`)
             .join('\n'),

@@ -44,6 +44,12 @@ export function getLocaleItemsAssetPath(version: PoeVersion, locale: string): st
   return `json/${profile.dataDirectory}/locales/${locale}/items.json`;
 }
 
+/** 官方市集 /data/stats 的詞綴文字（scripts/update-market-translation.mjs 產生） */
+export function getLocaleTradeStatsAssetPath(version: PoeVersion, locale: string): string {
+  const profile = tradeVersionProfiles[version];
+  return `json/${profile.dataDirectory}/locales/${locale}/trade-stats.json`;
+}
+
 export function getLocaleTradeFiltersAssetPath(version: PoeVersion, locale: string): string {
   const profile = tradeVersionProfiles[version];
   return `json/${profile.dataDirectory}/locales/${locale}/trade-filters.json`;

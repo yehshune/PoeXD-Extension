@@ -11,6 +11,10 @@ import {
   translateStatLines,
 } from '../utils/trade-stat-dictionary';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '../utils/i18n';
+import {
+  resetOfficialStatTextForTests,
+  setMockOfficialStatText,
+} from '../utils/official-stat-text';
 
 describe('trade-stat-dictionary (extension)', () => {
   afterEach(() => {
@@ -19,6 +23,7 @@ describe('trade-stat-dictionary (extension)', () => {
     setMockDictionaries('poe2', null, null, null);
     setMockItemShards('poe1', null);
     setMockItemShards('poe2', null);
+    resetOfficialStatTextForTests();
   });
 
   describe('translateFilterGroup', () => {
@@ -276,6 +281,19 @@ describe('trade-stat-dictionary (extension)', () => {
   });
 
   describe('translateStat', () => {
+    it('優先採用官方市集的寫法（正負向跟市集一致），查不到才用詞綴字典', () => {
+      setMockDictionaries('poe2', {
+        'explicit.stat_3639275092': [{ displayTemplate: '減少 #% 能力值需求' }],
+        'explicit.stat_only_game': [{ displayTemplate: '遊戲詞綴' }],
+      });
+      setMockOfficialStatText('poe2', 'en', {});
+      setMockOfficialStatText('poe2', 'zh-TW', { 'explicit.stat_3639275092': '增加#%能力值需求' });
+
+      expect(translateStat('explicit.stat_3639275092', 'poe2')).toBe('增加#%能力值需求');
+      expect(translateStat('fractured.stat_3639275092', 'poe2')).toBe('增加#%能力值需求');
+      expect(translateStat('explicit.stat_only_game', 'poe2')).toBe('遊戲詞綴');
+    });
+
     it('支援直接查詢與 fractured / desecrated / enchant / rune fallback 至 explicit', () => {
       setMockDictionaries('poe2', {
         'explicit.stat_1234': [{ displayTemplate: '智慧提高 #%' }],
