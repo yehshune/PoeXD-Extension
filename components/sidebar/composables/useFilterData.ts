@@ -1,4 +1,4 @@
-import { computed, getCurrentInstance, onMounted, ref, watch, type Ref } from 'vue';
+import { computed, getCurrentInstance, onMounted, ref, shallowRef, watch, type Ref } from 'vue';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { getTradeMapping } from '../mapping-registry';
 import { type PoeVersion } from '@/utils/trade-context';
@@ -14,7 +14,11 @@ import { getKnownStatsRef } from '@/utils/known-stats-store';
 import type { ModGroup, ModTier } from '../types';
 
 export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
-  const rawModsData = ref<Record<string, ModTier[]>>({});
+  /**
+   * 數千筆 tier 的唯讀資料，每次都整份替換；用 shallowRef 避免每個 tier 與陣列都被轉成 Proxy + Dep
+   * （深層 reactive 時切換物品類型約慢 10 倍、多佔數 MB）。
+   */
+  const rawModsData = shallowRef<Record<string, ModTier[]>>({});
   const knownStats = getKnownStatsRef();
   const loading = ref(true);
   const typeNames = getTradeMapping(version).typeNames;
@@ -179,12 +183,10 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
         });
       });
       Object.values(grouped).forEach((group) => {
-        const sortedTiers = [...group.tiers].sort((a, b) => parseInt(a.level) - parseInt(b.level));
-        sortedTiers.forEach((tier) => {
-          if (tier.id && !tier.officialId) {
-            tier.officialId = tier.id;
-          }
-        });
+        // 補上 officialId 時產生副本，不改動詞綴字典共用的 tier 物件（computed 內不應有寫入）
+        const sortedTiers = group.tiers
+          .map((tier) => (tier.id && !tier.officialId ? { ...tier, officialId: tier.id } : tier))
+          .sort((a, b) => parseInt(a.level) - parseInt(b.level));
         const firstTier = sortedTiers[0];
         groups.push({
           id: `${modKey}_${group.generationType}_${group.affinity}`,
