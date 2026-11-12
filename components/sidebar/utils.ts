@@ -1,6 +1,32 @@
+import type { ModTier } from './types';
+import { negateBounds } from '@/utils/trade-value-sign';
+
 // 靜態數據與輔助計算函數
 
+/**
+ * 依詞綴模板拆出各行的上下限。tradeNegated 時回傳市集的帶號數值（取負並交換上下限），
+ * 「至少此階」因此落在最大值。
+ */
 export const getTierMinMaxList = (
+  key: string,
+  values: string[][],
+  tradeNegated = false,
+): { mins: string[]; maxs: string[] } => {
+  const bounds = getUnsignedTierMinMaxList(key, values);
+  if (!tradeNegated) return bounds;
+  const signed = bounds.mins.map((min, i) => negateBounds(min, bounds.maxs[i] ?? ''));
+  return { mins: signed.map((b) => b.min), maxs: signed.map((b) => b.max) };
+};
+
+/** 選取階級時「至少此階」與「上限」各自要填的欄位 */
+export const getTierFilterBounds = (key: string, tier: ModTier) => {
+  const { mins, maxs } = getTierMinMaxList(key, tier.values, tier.tradeNegated);
+  return tier.tradeNegated
+    ? { atLeast: { mins: undefined, maxs }, capField: 'mins' as const, cap: mins }
+    : { atLeast: { mins, maxs: undefined }, capField: 'maxs' as const, cap: maxs };
+};
+
+const getUnsignedTierMinMaxList = (
   key: string,
   values: string[][],
 ): { mins: string[]; maxs: string[] } => {

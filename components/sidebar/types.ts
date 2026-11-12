@@ -12,6 +12,8 @@ export interface ModTier {
   id?: string;
   ids?: string[];
   officialId?: string;
+  /** 市集數值與遊戲顯示正負相反（遊戲「減少 18%」、市集「增加 #%」填 -18） */
+  tradeNegated?: boolean;
 }
 
 export interface ModGroup {

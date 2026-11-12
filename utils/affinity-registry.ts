@@ -197,6 +197,7 @@ export const poe1AffinityProfile: AffinityProfile = {
     'essence',
     'sentinel',
     'sanctum',
+    'cluster',
   ]),
   categoryNames: createActiveUiLocaleProxy(POE1_AFFINITY_NAMES_BY_LOCALE),
   categoryPriorities: {

@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { getTierMinMaxList } from '../utils';
+import { getTierFilterBounds } from '../utils';
 import type { ModGroup, ModTier, SelectedModInfo } from '../types';
 
 export function useModSelection() {
@@ -48,7 +48,7 @@ export function useModSelection() {
     if (newMap.has(key) && newMap.get(key)?.selectedTierIndex === tierIndex) {
       newMap.delete(key);
     } else {
-      const { mins } = getTierMinMaxList(mod.key, tier.values);
+      const { atLeast } = getTierFilterBounds(mod.key, tier);
       newMap.set(key, {
         id: mod.id,
         officialId: tier.id || tier.officialId || mod.officialId,
@@ -57,8 +57,7 @@ export function useModSelection() {
         displayKey: mod.displayKey,
         displayTemplate: mod.displayTemplate,
         affinities: [currentAffinity],
-        mins,
-        maxs: undefined,
+        ...atLeast,
         selectedTierIndex: tierIndex,
       });
     }
@@ -78,7 +77,7 @@ export function useModSelection() {
       if (modObj && modObj.tiers && modObj.tiers.length > 0) {
         const tIdx = modObj.tiers.length - 1; // T1 最強 (在我們的 sorted list 中最後一個是 T1 最強)
         const tier = modObj.tiers[tIdx];
-        const { mins } = getTierMinMaxList(modObj.key, tier.values);
+        const { atLeast } = getTierFilterBounds(modObj.key, tier);
 
         updatedMap.set(mapKey, {
           id: info.id,
@@ -88,8 +87,7 @@ export function useModSelection() {
           displayKey: info.displayKey,
           displayTemplate: info.displayTemplate,
           affinities: info.affinities,
-          mins,
-          maxs: undefined,
+          ...atLeast,
           selectedTierIndex: tIdx,
         });
       } else {

@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue';
 import type { ModTier } from '@/components/sidebar/types';
+import { isTradeValueNegated } from '@/utils/trade-value-sign';
 import {
   SUPPORTED_AFFIX_LOCALES,
   type AffixDisplayLocalePreference,
@@ -398,6 +399,10 @@ function hydrateCompactTier(
   const renderedEnKey = enRawTemplate ? renderTierKey(enRawTemplate, cTier.params, 'en') : groupKey;
 
   const ids = cTier.ids ?? (cTier.id ? [cTier.id] : undefined);
+  const enStatTemplateIdx = enShard && cTier.id ? enShard.statTemplates[cTier.id] : undefined;
+  const tradeNegated =
+    enStatTemplateIdx !== undefined &&
+    isTradeValueNegated(enRawTemplate, enShard?.templates[enStatTemplateIdx]);
 
   return {
     affinities: cTier.affinities,
@@ -410,6 +415,7 @@ function hydrateCompactTier(
     types,
     id: cTier.id,
     ids,
+    ...(tradeNegated ? { tradeNegated } : {}),
   };
 }
 

@@ -1056,5 +1056,52 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       const result = resolveTierModEligibility(qualitativeTiers);
       expect(result.isEligible).toBe(false);
     });
+    it('PoE1 星團珠寶詞綴（只有 cluster 階級）具備 T 階資格', () => {
+      const clusterTiers = [
+        {
+          affinities: ['cluster'],
+          types: ['cluster_jewel', 'small_cluster_jewel'],
+          values: [['2', '3']],
+          level: '1',
+        },
+        {
+          affinities: ['cluster'],
+          types: ['cluster_jewel', 'small_cluster_jewel'],
+          values: [['4', '5']],
+          level: '50',
+        },
+      ];
+      const explicit = resolveTierModEligibility(clusterTiers, 'explicit.stat_2250780084', 'poe1');
+      expect(explicit.isEligible).toBe(true);
+      expect(explicit.normalTiers).toHaveLength(2);
+      // 市集以附魔篩選星團詞綴（enchant.）時沿用同一組階級
+      const enchant = resolveTierModEligibility(clusterTiers, 'enchant.stat_2250780084', 'poe1');
+      expect(enchant.isEligible).toBe(true);
+    });
+
+    it('附魔代碼有專屬附魔階級時不混入 cluster 階級', () => {
+      const tiers = [
+        {
+          affinities: ['cluster'],
+          types: ['cluster_jewel', 'large_cluster_jewel'],
+          values: [['4']],
+          level: '1',
+        },
+        {
+          affinities: ['enchant'],
+          types: ['cluster_jewel', 'large_cluster_jewel'],
+          values: [['8', '12']],
+          level: '1',
+        },
+        {
+          affinities: ['enchant'],
+          types: ['cluster_jewel', 'small_cluster_jewel'],
+          values: [['2', '3']],
+          level: '1',
+        },
+      ];
+      const result = resolveTierModEligibility(tiers, 'enchant.stat_3086156145', 'poe1');
+      expect(result.normalTiers.every((t) => t.affinities.includes('enchant'))).toBe(true);
+    });
   });
 });

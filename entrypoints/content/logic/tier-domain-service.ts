@@ -7,6 +7,7 @@ import {
   isModsTiersArtifact,
   setAffixLexiconMockData,
 } from '@/utils/affix-lexicon';
+import { negateBounds } from '@/utils/trade-value-sign';
 
 export interface TierParsedValues {
   rangeText: string;
@@ -186,6 +187,13 @@ export function parseTierValues(tier: any, statId?: string | null): TierParsedVa
     }
   }
 
+  if (tier?.tradeNegated && (valMin || valMax)) {
+    const signed = negateBounds(valMin, valMax);
+    valMin = signed.min;
+    valMax = signed.max;
+    rangeText = ` (${valMin} ~ ${valMax})`;
+  }
+
   return { rangeText, valMin, valMax, isRange };
 }
 
@@ -263,7 +271,12 @@ export function resolveTierModEligibility(
       Array.isArray(t.affinities) &&
       t.affinities.some((a: string) => targetAffinities.includes(a)),
   );
-  if (candidateTiers.length === 0 && targetAffinities.includes('desecrated')) {
+  if (candidateTiers.length === 0 && targetAffinities.includes('enchant')) {
+    // 市集以附魔篩選星團珠寶詞綴，沒有專屬附魔階級時沿用星團階級
+    candidateTiers = tiers.filter(
+      (t) => t && Array.isArray(t.affinities) && t.affinities.includes('cluster'),
+    );
+  } else if (candidateTiers.length === 0 && targetAffinities.includes('desecrated')) {
     candidateTiers = tiers.filter(
       (t) => t && Array.isArray(t.affinities) && t.affinities.includes('normal'),
     );

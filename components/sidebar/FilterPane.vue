@@ -617,7 +617,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { getTierMinMaxList, isTradeStatId } from './utils';
+import { getTierFilterBounds, isTradeStatId } from './utils';
 import type {
   ModTier,
   ModGroup,
@@ -716,15 +716,18 @@ export default defineComponent({
     };
 
     const getDisplayValues = (info: SelectedModInfo) => {
-      if (info.mins) {
+      const count = Math.max(info.mins?.length ?? 0, info.maxs?.length ?? 0);
+      if (count > 0) {
         const parts: string[] = [];
-        for (let i = 0; i < info.mins.length; i++) {
-          const minVal = info.mins[i];
-          const maxVal = info.maxs ? info.maxs[i] : undefined;
+        for (let i = 0; i < count; i++) {
+          const minVal = info.mins?.[i];
+          const maxVal = info.maxs?.[i];
           if (minVal && maxVal) {
             parts.push(`${minVal}~${maxVal}`);
           } else if (minVal) {
             parts.push(`≥${minVal}`);
+          } else if (maxVal) {
+            parts.push(`≤${maxVal}`);
           }
         }
         return parts.join(', ');
@@ -1402,7 +1405,7 @@ export default defineComponent({
         );
         return;
       }
-      const { mins } = getTierMinMaxList(mod.key, tier.values);
+      const { atLeast } = getTierFilterBounds(mod.key, tier);
       addStatFilter(
         {
           ...tier,
@@ -1410,8 +1413,8 @@ export default defineComponent({
           ids: tier.ids || (tierOfficialId ? [tierOfficialId] : mod.ids),
           affinities: [currentAffinity],
         },
-        mins,
-        undefined,
+        atLeast.mins,
+        atLeast.maxs,
         mod.key,
       );
     };
@@ -1493,17 +1496,21 @@ export default defineComponent({
       const newMap = new Map(selectedModsMap.value);
       const info = newMap.get(key);
       if (info) {
-        if (info.maxs) {
-          info.maxs = undefined;
-        } else if (info.selectedTierIndex !== undefined) {
-          const modObj = currentTypeGroups.value.find((m) => m.id === info.id);
-          if (modObj && modObj.tiers) {
-            const tier = modObj.tiers[info.selectedTierIndex];
-            const { maxs } = getTierMinMaxList(modObj.key, tier.values);
-            info.maxs = maxs;
-          }
+        const modObj = currentTypeGroups.value.find((m) => m.id === info.id);
+        const tier =
+          info.selectedTierIndex !== undefined
+            ? modObj?.tiers?.[info.selectedTierIndex]
+            : undefined;
+        // 負值階級（市集填 -18）的「至少此階」在最大值，上限改在最小值
+        const capField = tier?.tradeNegated ? 'mins' : 'maxs';
+        if (info[capField]) {
+          newMap.set(key, { ...info, [capField]: undefined });
+        } else if (modObj && tier) {
+          const { cap } = getTierFilterBounds(modObj.key, tier);
+          newMap.set(key, { ...info, [capField]: cap });
+        } else {
+          newMap.set(key, { ...info });
         }
-        newMap.set(key, { ...info });
         selectedModsMap.value = newMap;
       }
     };
