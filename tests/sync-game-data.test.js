@@ -36,6 +36,17 @@ describe('validateGameDataBatch', () => {
     ]);
   });
 
+  it('validates optional mod-lines shards (same patch, matching locale, lines object)', () => {
+    const modLines = {
+      'zh-TW': { schemaVersion: 1, patch: '1.0', locale: 'zh-TW', lines: {} },
+      'zh-CN': { schemaVersion: 1, patch: '0.9', locale: 'zh-TW', lines: [] },
+    };
+    expect(validateGameDataBatch(batch({ modLines }))).toEqual([
+      'mod-lines.json (zh-CN) patch 0.9 ≠ 1.0',
+      'mod-lines.json (zh-CN) 語系或格式不符',
+    ]);
+  });
+
   it('rejects mods-tiers without a patch', () => {
     expect(validateGameDataBatch(batch({ modsTiers: { tiers: [{}, {}] } }))).toContain(
       'mods-tiers.json 缺少 patch',

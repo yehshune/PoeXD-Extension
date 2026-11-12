@@ -11,12 +11,13 @@ import {
   type MarketTranslationLocale,
 } from './market-translation';
 import { loadMarketTradeDictionary } from './market-translation-assets';
-import { getPoeVersion } from './trade-context';
+import { getPoeVersion, type PoeVersion } from './trade-context';
 import {
   MARKET_MESSAGE_SOURCE,
   createDisabledMessage,
   createPayloadMessage,
   type MarketTranslationMessage,
+  type MarketTranslationPayload,
 } from './market-translation-protocol';
 
 const MARKET_UI_SCHEMA_VERSION = 1;
@@ -39,6 +40,8 @@ export interface MarketTranslationBridgeDeps {
   post(message: MarketTranslationMessage): void;
   /** 訂閱來自本視窗的 postMessage 資料；回傳取消訂閱 */
   subscribe(handler: (data: unknown) => void): () => void;
+  /** payload 送出後呼叫（例如啟動結果列翻譯）；停用時不呼叫 */
+  onPayload?(payload: MarketTranslationPayload, version: PoeVersion): void;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -103,5 +106,6 @@ export async function startMarketTranslationBridge(
     latest = createDisabledMessage();
   }
   deps.post(latest);
+  if (latest.type === 'payload') deps.onPayload?.(latest.payload, getPoeVersion(deps.pathname));
   return unsubscribe;
 }

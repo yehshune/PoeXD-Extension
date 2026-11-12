@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { loadMarketTradeDictionary } from '@/utils/market-translation-assets';
+import {
+  loadMarketTradeDictionary,
+  loadResultTranslatorData,
+} from '@/utils/market-translation-assets';
 
 const ASSETS: Record<string, unknown> = {
   'json/poe2/locales/zh-TW/trade-stats.json': {
@@ -61,5 +64,66 @@ describe('loadMarketTradeDictionary', () => {
     // 物品分片長度與英文不同：索引對不齊，不採用
     expect(dictionary.items).toBeUndefined();
     expect(dictionary.filters?.fields.category).toBe('道具分類');
+  });
+});
+
+describe('loadResultTranslatorData', () => {
+  const RESULT_ASSETS: Record<string, unknown> = {
+    'json/poe2/locales/zh-TW/mod-lines.json': {
+      schemaVersion: 1,
+      patch: '0.5.5.8',
+      locale: 'zh-TW',
+      lines: { '1': [['{0:d}% increased Spirit', '增加 {0:d}% 精魂']] },
+    },
+    'json/poe2/locales/en/trade-stats.json': {
+      schemaVersion: 1,
+      locale: 'en',
+      labels: {},
+      stats: { 'explicit.stat_1': '#% increased Spirit' },
+      options: {},
+    },
+    'json/poe2/locales/en/trade-filters.json': {
+      groups: {},
+      fields: { ilvl: 'Item Level', quality: 'Item Quality' },
+    },
+  };
+  const dictionary = {
+    stats: { labels: {}, stats: { 'explicit.stat_1': '增加 #% 精魂' }, options: {} },
+    filters: { groups: {}, fields: { ilvl: '物品等級', quality: '物品品質' }, options: {} },
+    items: { 'gold ring': '金光戒指' },
+  };
+
+  it('組合遊戲寫法變體、市集寫法備援、物品名與屬性標籤（介面字典優先）', async () => {
+    const data = await loadResultTranslatorData(loader(RESULT_ASSETS), {
+      version: 'poe2',
+      locale: 'zh-TW',
+      dictionary,
+      ui: { 'Item Level': '道具等級', Requires: '需求' },
+    });
+    expect(data.modLines['1']).toEqual([['{0:d}% increased Spirit', '增加 {0:d}% 精魂']]);
+    expect(data.tradeStats?.en['explicit.stat_1']).toBe('#% increased Spirit');
+    expect(data.tradeStats?.localized['explicit.stat_1']).toBe('增加 #% 精魂');
+    expect(data.items).toEqual({ 'gold ring': '金光戒指' });
+    expect(data.labels).toEqual({
+      'Item Level': '道具等級',
+      'Item Quality': '物品品質',
+      Requires: '需求',
+    });
+  });
+
+  it('分片缺少或語系不符時該部分為空', async () => {
+    const assets = {
+      ...RESULT_ASSETS,
+      'json/poe2/locales/zh-TW/mod-lines.json': { schemaVersion: 1, locale: 'zh-CN', lines: {} },
+    };
+    const data = await loadResultTranslatorData(loader(assets), {
+      version: 'poe2',
+      locale: 'zh-TW',
+      dictionary: {},
+      ui: {},
+    });
+    expect(data.modLines).toEqual({});
+    expect(data.tradeStats).toBeUndefined();
+    expect(data.items).toEqual({});
   });
 });

@@ -5,9 +5,12 @@
  * 各類分片獨立載入：任一類失敗或格式不符時只略過那一類，該類下拉選單維持英文。
  */
 import type { MarketTradeDictionary } from './market-translation-data';
+import type { ModLinePairs } from './market-mod-lines';
+import type { ResultTranslatorData } from './market-result-translator';
 import type { MarketTranslationLocale } from './market-translation';
 import {
   getLocaleItemsAssetPath,
+  getLocaleModLinesAssetPath,
   getLocaleTradeFiltersAssetPath,
   getLocaleTradeStaticAssetPath,
   getLocaleTradeStatsAssetPath,
@@ -99,5 +102,60 @@ export async function loadMarketTradeDictionary(
     static: settledValue(statics),
     filters: settledValue(filters),
     items: settledValue(items),
+  };
+}
+
+function parseModLines(data: unknown, locale: string): Record<string, ModLinePairs> {
+  const shard = requireMarketShard(data, locale, 'mod-lines.json');
+  if (!isRecord(shard.lines)) throw new Error('mod-lines.json 格式錯誤');
+  return shard.lines as Record<string, ModLinePairs>;
+}
+
+function parseEnglishStats(data: unknown): Record<string, string | string[]> {
+  const shard = requireMarketShard(data, 'en', 'trade-stats.json (en)');
+  if (!isRecord(shard.stats)) throw new Error('trade-stats.json (en) 格式錯誤');
+  return shard.stats as Record<string, string | string[]>;
+}
+
+/** 篩選器欄位名稱（英文 → 譯文），以 id 對接 */
+function fieldLabels(english: unknown, localized: Record<string, string> | undefined) {
+  const fields = isRecord(english) && isRecord(english.fields) ? english.fields : {};
+  const labels: Record<string, string> = {};
+  if (!localized) return labels;
+  for (const [id, text] of Object.entries(fields)) {
+    if (typeof text === 'string' && localized[id]) labels[text] = localized[id];
+  }
+  return labels;
+}
+
+/**
+ * 第 4 階段結果列翻譯的資料：遊戲寫法變體、市集寫法備援（中英 trade-stats）、物品名與屬性標籤。
+ * 已載入的 data 字典直接沿用；各部分獨立，失敗的部分為空。
+ */
+export async function loadResultTranslatorData(
+  loadJson: (path: string) => Promise<unknown>,
+  options: {
+    version: PoeVersion;
+    locale: MarketTranslationLocale;
+    dictionary: Omit<MarketTradeDictionary, 'ui'>;
+    ui: Record<string, string>;
+  },
+): Promise<ResultTranslatorData> {
+  const { version, locale, dictionary, ui } = options;
+  const [modLines, englishStats, englishFilters] = await Promise.allSettled([
+    loadJson(getLocaleModLinesAssetPath(version, locale)).then((data) =>
+      parseModLines(data, locale),
+    ),
+    loadJson(getLocaleTradeStatsAssetPath(version, 'en')).then(parseEnglishStats),
+    loadJson(getLocaleTradeFiltersAssetPath(version, 'en')),
+  ]);
+  const en = settledValue(englishStats);
+  const localized = dictionary.stats?.stats;
+  return {
+    modLines: settledValue(modLines) ?? {},
+    tradeStats: en && localized ? { en, localized } : undefined,
+    items: dictionary.items ?? {},
+    // 官方介面字典是官網實際顯示的寫法，優先於篩選器欄位名稱
+    labels: { ...fieldLabels(settledValue(englishFilters), dictionary.filters?.fields), ...ui },
   };
 }

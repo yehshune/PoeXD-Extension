@@ -1,6 +1,6 @@
 # 市集漢化（Market Translation）實作計畫
 
-> **文件狀態**：IN PROGRESS — 第 0、1、2 階段完成 (2026-11-12)
+> **文件狀態**：IN PROGRESS — 第 0–4 階段完成 (2026-11-12)
 > **決策依據**：[ADR-0012](../adr/0012-market-translation-from-official-realm-data.md)
 > **範圍**：只處理國際服英文市集（`www.pathofexile.com/trade`、`/trade2`），PoE 1 與 PoE 2；目標語系為 `zh-TW`（台服用語）與 `zh-CN`（國服用語）。台服、國服與其他在地化市集一律不處理。
 
@@ -125,11 +125,16 @@
 
 ### 第 4 階段：結果列
 
-- [ ] poexd-data：輸出每個 stat 的全部 CSD 變體（含正負號條件），並在擴充端 `sync-game-data.mjs` 同步。
-- [ ] 純函式 `translateModLine(statId, englishLine, shards)`：用英文模板建立數值擷取式 → 依條件挑選譯文模板 → 填入數值；任一步失敗回傳 `null`（保留英文）。
-- [ ] 結果列 DOM 層：只改既有文字節點、不增刪節點；監聽 `characterData`，Vue 重繪改回英文時再翻一次；保留原文以便關閉功能時還原。
-- [ ] 物品名與基底名用 `items.json`；屬性行（`pdamage`、`crit` 等）的標籤用 `trade-ui.json`／`trade-filters.json`。
-- [ ] 沒有 `data-field` 的行才退回英文整句比對。
+- [x] poexd-data：`locales/<zh-TW|zh-CN>/mod-lines.json`（`{ schemaVersion, patch, locale, lines: { [statHash]: [英文模板, 譯文模板][] } }`），每個市集代碼輸出描述檔的全部變體（含負向）。除了主描述檔，再依序查 PoE1 的 atlas、PoE2 的 map／atlas／sanctum_relic／endgame_map／tablet 描述檔。變體數量與英文不同的規則略過。`sync-game-data.mjs` 把它視為同一批（patch 必須相同）一起同步。
+  - 涵蓋（0.5.5.8／3.29.3.6）：PoE2 1884／2295 個市集 hash，PoE1 7688／8224。
+- [x] 純函式 `translateModLine(englishLine, pairs)`（`utils/market-mod-lines.ts`）：英文模板轉成擷取式，相符的變體就把數值填進同一變體的譯文模板。英文句子本身已決定變體（單複數、正負向），不需要在執行期判斷條件；任一步失敗回傳 `null`。
+- [x] 描述檔查不到的代碼（範圍珠寶、移植物、部分符文與褻瀆詞綴等）以市集寫法備援：中英 trade-stats 的 `#` 轉成同格式模板再比對，英文必須整句相符，所以正負向不會錯。
+- [x] 結果列 DOM 層（`utils/market-result-translator.ts`，在市集漢化的 isolated world 腳本執行）：只改既有文字節點、不增刪節點；MutationObserver 監看新增與 `characterData`，官網重繪換回英文時再翻一次。
+  - 詞綴行：`[data-field="stat.<category>.stat_<hash>"]`。
+  - 物品名：標題列查 `items.json`（隨機稀有名稱查不到，保留英文）。
+  - 屬性行標籤：官方介面字典優先，再查篩選器欄位名稱；查不到的（例如 Physical Damage、Critical Hit Chance、物品類別）保留英文，列入涵蓋率檢查。
+- [x] e2e（簡中）：PoE2 結果 46 行詞綴、PoE1 30 行全部翻譯，物品基底與傳奇名改為中文。
+- 關閉功能後需重新整理才會還原英文（偏好在開頁時讀取）。
 
 ### 第 5 階段：既有功能稽核與收尾
 

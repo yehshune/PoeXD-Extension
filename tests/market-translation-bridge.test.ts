@@ -88,6 +88,19 @@ describe('startMarketTranslationBridge', () => {
     });
   });
 
+  it('送出 payload 後以 payload 與版本通知 onPayload；停用時不通知', async () => {
+    const onPayload = vi.fn();
+    const { deps } = createDeps({ onPayload });
+    await startMarketTranslationBridge(deps);
+    expect(onPayload).toHaveBeenCalledWith(expect.objectContaining({ locale: 'zh-TW' }), 'poe2');
+
+    const disabled = vi.fn();
+    await startMarketTranslationBridge(
+      createDeps({ onPayload: disabled, readStorage: vi.fn(async () => ({})) }).deps,
+    );
+    expect(disabled).not.toHaveBeenCalled();
+  });
+
   it('依偏好關閉中英並列；PoE1 頁面載入 poe1 分片', async () => {
     const { deps, posted } = createDeps({
       pathname: '/trade/search/Standard',
