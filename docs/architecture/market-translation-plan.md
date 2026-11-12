@@ -1,6 +1,6 @@
 # 市集漢化（Market Translation）實作計畫
 
-> **文件狀態**：IN PROGRESS — 第 0–4 階段完成 (2026-11-12)
+> **文件狀態**：DONE — 第 0–5 階段完成 (2026-11-12)
 > **決策依據**：[ADR-0012](../adr/0012-market-translation-from-official-realm-data.md)
 > **範圍**：只處理國際服英文市集（`www.pathofexile.com/trade`、`/trade2`），PoE 1 與 PoE 2；目標語系為 `zh-TW`（台服用語）與 `zh-CN`（國服用語）。台服、國服與其他在地化市集一律不處理。
 
@@ -132,18 +132,47 @@
 - [x] 結果列 DOM 層（`utils/market-result-translator.ts`，在市集漢化的 isolated world 腳本執行）：只改既有文字節點、不增刪節點；MutationObserver 監看新增與 `characterData`，官網重繪換回英文時再翻一次。
   - 詞綴行：`[data-field="stat.<category>.stat_<hash>"]`。
   - 物品名：標題列查 `items.json`（隨機稀有名稱查不到，保留英文）。
-  - 屬性行標籤：官方介面字典優先，再查篩選器欄位名稱；查不到的（例如 Physical Damage、Critical Hit Chance、物品類別）保留英文，列入涵蓋率檢查。
+  - 屬性行標籤：官方介面字典優先，再查篩選器欄位名稱，最後查遊戲資料表標籤（見下方「結果列標籤」）。
 - [x] e2e（簡中）：PoE2 結果 46 行詞綴、PoE1 30 行全部翻譯，物品基底與傳奇名改為中文。
 - 關閉功能後需重新整理才會還原英文（偏好在開頁時讀取）。
 
+#### 結果列標籤（2026-11-12 追加）
+
+- [x] poexd-data：`locales/zh-TW/result-labels.json`（`{ schemaVersion, patch, locale, labels: { 英文: 譯文 }, templates: [英文, 譯文][] }`），由用戶端資料表以同列 `_index` 對接英文與繁中：ClientStrings（物品顯示、市集、技能彈窗等前綴優先）、ItemClasses、GemTags、ActiveSkills（名稱與說明）、GemEffects，PoE1 另加劫盜職務、委託人與 NPCs（劫盜成員全名在 HeistNPCs 沒翻譯）。帶佔位符的字串成為 `{n}` 模板，佔位符與譯文不一致、含換行或樣式標記的略過。產量：PoE1 8231 標籤／935 模板，PoE2 8866／944。
+  - 簡中沒有：國際服 CDN 的用戶端只有繁中 dat，簡中仍只靠國服介面字典與篩選器欄位名稱。
+- [x] 擴充（`utils/market-result-labels.ts`）：
+  - 屬性行先整行比對模板（`Consumes {0} of {1} Charges on use`）。每個數值都要對得到自己的節點才採用；佔位順序相同時只換文字段、保留數值節點的顏色，順序不同時整行寫入第一個節點。
+  - 逐節點：完整鍵（含冒號，例如 `Asking Price:`）→ 去冒號 → 單節點模板 → 數值加標籤（`5 Mana`）→ 逗號清單（寶石標籤）→ 物品名備援（輔助寶石、符文名稱）。英文字母少於 4 個的模板（如 `{0}s`）只接受數值。
+  - 新增範圍：寶石說明、`Corrupted` 等旗標、DPS 區塊、價格與手續費標籤、賣家狀態與按鈕；沒有 stat 代碼的詞綴行（藥劑、寶石效果）以英文句型骨架在全部遊戲寫法中比對；「listed 4 years ago」改用 `Intl.RelativeTimeFormat` 顯示目標語系的相對時間。
+- [x] e2e（繁中、只顯示中文，29 個分類的第一頁結果）：非帳號名稱的英文文字 300 行 → 34 行。
+
 ### 第 5 階段：既有功能稽核與收尾
 
-- [ ] 在翻譯後的頁面逐一檢查會讀官網 DOM 文字的模組，必要時改讀 `data-field` 或 Vuex store：
-      `entrypoints/content/logic/result-item-normalizer.ts`、`result-price-presenter.ts`、`result-mod-highlighter.ts`、`hotkeys.ts`、`entrypoints/main-world/poe-runtime-mutation.ts`。
-- [ ] 確認 Page Locale 在國際服仍判定為英文（ADR-0011 的輸入框退回查詢不受影響）。
-- [ ] 線上搜尋主控台與 Criteria Overlay 在翻譯開啟時的回歸測試。
-- [ ] 更新 `README.md`、`README.en.md`、商店說明與 `NOTICE.md`（官方遊戲文本來源標示）。
-- [ ] ADR-0012 狀態改為 `accepted`。
+- [x] 稽核會讀官網 DOM 文字的模組（2026-11-12）：`result-item-normalizer.ts`、`result-price-presenter.ts`、`result-mod-highlighter.ts`、`hotkeys.ts`、`poe-runtime-mutation.ts` 都讀 id、`data-field`、Vuex store 或 API JSON，不讀翻譯後的文字。唯一的文字比對是「類別過濾」群組標題（第 3 階段已改成同時認兩服標題）；`search-observation-session.ts` 略過「Any」時已含「任何」。
+- [x] Page Locale：官網 `<html lang>` 不變（實測 `en-US`），國際服仍判定為英文。
+- [x] 只顯示中文（關閉中英並列）時，英文在官網下拉搜不到：isolated world 在 `<html data-poexd-market-dropdown-locale>` 標記翻譯語系，側欄找不到官方 ID 而退回文字查詢時改用該語系（`readMarketDropdownLocale`）。中英並列時不標記，維持英文查詢。
+- [x] e2e 回歸：翻譯頁上詞綴高亮、篩選群組按鈕正常，頁面沒有錯誤；只顯示中文時下拉只能以中文搜尋。
+- [x] 資料補洞：該服少收的條目（台服 PoE2 的破裂、工藝與「Allocates 天賦」等），以其他類別同代碼、英文完全相同的譯名補上（`buildStatsArtifact`）。PoE2 繁中詞綴下拉 72% → 99%。
+- [x] 更新 `README.md`、`README.en.md`、商店說明與 `NOTICE.md`（官方遊戲文本來源標示）。
+- [x] ADR-0012 狀態改為 `accepted`。
+- 既有問題（與市集漢化無關）：`injected-controls.ts` 只在棕色（詞綴）面板找「類別過濾」群組，但它位在藍色面板，所以分類選取按鈕在英文頁也不會出現。
+
+### 涵蓋率（2026-11-12，以條目數計）
+
+| 版本／語系 | 詞綴下拉 | 通貨等 static | 物品  | 篩選器 | 結果列：遊戲寫法／市集寫法備援／保留英文 |
+| ---------- | -------- | ------------- | ----- | ------ | ---------------------------------------- |
+| PoE1 繁中  | 99.4%    | 99.0%         | 91.2% | 100%   | 95.6% / 4.3% / 0.0%                      |
+| PoE1 簡中  | 98.5%    | 99.0%         | 91.2% | 98.5%  | 95.6% / 4.4% / 0%                        |
+| PoE2 繁中  | 99.0%    | 98.6%         | 98.6% | 100%   | 82.5% / 16.7% / 0.8%                     |
+| PoE2 簡中  | 98.9%    | 98.6%         | 98.6% | 97.8%  | 81.4% / 18.3% / 0.3%                     |
+
+已知缺口：
+
+- 介面字串：國際服 bundle 的 149 個 `translate()` 鍵中，新聞、群組說明長句、語言名稱與大宗交易範例句兩服都沒有譯文；「History」這類不經 `translate()` 的字串也維持英文。
+- 結果列（繁中）：劫盜目標物品名（HeistObjectives 參照的基底不在物品分片）、PoE2 符文「適用於」的物品類別片段、`Acc:`、輔助寶石的效果句（不在詞綴描述檔），以及賣家自填的 `~price` 備註維持英文。
+- 結果列（簡中）：沒有用戶端資料，屬性標籤只有國服介面字典與篩選器欄位名稱涵蓋的部分。
+- 物品：PoE1 約 9% 物品名不在 poexd-data 的物品分片（例如聖域、劫盜與王者之港的特殊物品），PoE2 主要是內部測試物品（`[DNT]`）與新傳奇。
+- 國服沒有「面交」相關的交易狀態選項，這幾個選項在簡中維持英文。
 
 ---
 

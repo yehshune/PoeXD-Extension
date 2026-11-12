@@ -4,7 +4,8 @@
  * mods-tiers.json、locales/<locale>/stats.json 與 locales/<locale>/items.json 以索引互相對齊，
  * 必須整批來自同一次建置：任一檔的 patch 不同或長度不對齊時整批拒絕，不寫入任何檔案。
  *
- * locales/<locale>/mod-lines.json（市集漢化結果列，只有 zh-TW、zh-CN）也屬於同一批：patch 必須相同。
+ * locales/<locale>/mod-lines.json（市集漢化結果列，只有 zh-TW、zh-CN）與 result-labels.json
+ * （結果列標籤，只有用戶端有資料的 zh-TW）也屬於同一批：patch 必須相同。
  *
  * mercenary.json 與 locales/<locale>/mercenary.json（僅 poe1）自成一批：彼此以索引對齊、patch 一致即可，
  * 不需與詞綴分片同一 patch；來源沒有傭兵資料時略過，不影響詞綴同步。
@@ -22,7 +23,7 @@ const GAME_VERSIONS = ['poe1', 'poe2'];
 
 /**
  * 檢查一個版本的整批分片是否一致；回傳錯誤訊息陣列（空陣列表示可同步）。
- * @param {{ modsTiers: any, stats: Record<string, any>, items: Record<string, any>, modLines?: Record<string, any> }} batch
+ * @param {{ modsTiers: any, stats: Record<string, any>, items: Record<string, any>, modLines?: Record<string, any>, resultLabels?: Record<string, any> }} batch
  */
 export function validateGameDataBatch(batch) {
   const errors = [];
@@ -54,19 +55,23 @@ export function validateGameDataBatch(batch) {
       errors.push(`items.json (${locale}) ${shard?.items?.length} 筆 ≠ en ${enItems} 筆`);
     }
   }
-  for (const [locale, shard] of Object.entries(batch.modLines ?? {})) {
-    if (shard?.patch !== patch) {
-      errors.push(`mod-lines.json (${locale}) patch ${shard?.patch ?? '缺少'} ≠ ${patch}`);
-    }
-    const lines = shard?.lines;
-    if (
-      shard?.schemaVersion !== 1 ||
-      shard?.locale !== locale ||
-      typeof lines !== 'object' ||
-      lines === null ||
-      Array.isArray(lines)
-    ) {
-      errors.push(`mod-lines.json (${locale}) 語系或格式不符`);
+  const isObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
+  const localeShards = [
+    ['mod-lines.json', batch.modLines, (shard) => isObject(shard.lines)],
+    [
+      'result-labels.json',
+      batch.resultLabels,
+      (shard) => isObject(shard.labels) && Array.isArray(shard.templates),
+    ],
+  ];
+  for (const [file, shards, hasValidBody] of localeShards) {
+    for (const [locale, shard] of Object.entries(shards ?? {})) {
+      if (shard?.patch !== patch) {
+        errors.push(`${file} (${locale}) patch ${shard?.patch ?? '缺少'} ≠ ${patch}`);
+      }
+      if (shard?.schemaVersion !== 1 || shard?.locale !== locale || !hasValidBody(shard)) {
+        errors.push(`${file} (${locale}) 語系或格式不符`);
+      }
     }
   }
   return errors;
@@ -114,6 +119,7 @@ async function loadBatch(sourceDir, version) {
   const stats = {};
   const items = {};
   const modLines = {};
+  const resultLabels = {};
   const locales = await readdir(join(versionDir, 'locales'));
   for (const locale of locales) {
     const statsShard = await readJsonIfExists(join(versionDir, 'locales', locale, 'stats.json'));
@@ -124,8 +130,12 @@ async function loadBatch(sourceDir, version) {
       join(versionDir, 'locales', locale, 'mod-lines.json'),
     );
     if (modLinesShard) modLines[locale] = modLinesShard;
+    const resultLabelsShard = await readJsonIfExists(
+      join(versionDir, 'locales', locale, 'result-labels.json'),
+    );
+    if (resultLabelsShard) resultLabels[locale] = resultLabelsShard;
   }
-  return { modsTiers, stats, items, modLines };
+  return { modsTiers, stats, items, modLines, resultLabels };
 }
 
 async function loadMercenaryBatch(sourceDir, version) {
@@ -144,28 +154,55 @@ function mercenaryWrites(version, batch) {
   const targetDir = join(ROOT, 'public/json', version);
   const writes = [{ path: join(targetDir, 'mercenary.json'), data: batch.data }];
   for (const [locale, shard] of Object.entries(batch.names)) {
-    writes.push({ path: join(targetDir, 'locales', locale, 'mercenary.json'), data: shard });
+    writes.push({
+      path: join(targetDir, 'locales', locale, 'mercenary.json'),
+      data: shard,
+    });
   }
-  return writes.map(({ path, data }) => ({ path, content: JSON.stringify(data) }));
+  return writes.map(({ path, data }) => ({
+    path,
+    content: JSON.stringify(data),
+  }));
 }
 
 function batchWrites(version, batch) {
   const targetDir = join(ROOT, 'public/json', version);
   const writes = [{ path: join(targetDir, 'mods-tiers.json'), data: batch.modsTiers }];
   for (const [locale, shard] of Object.entries(batch.stats)) {
-    writes.push({ path: join(targetDir, 'locales', locale, 'stats.json'), data: shard });
+    writes.push({
+      path: join(targetDir, 'locales', locale, 'stats.json'),
+      data: shard,
+    });
   }
   for (const [locale, shard] of Object.entries(batch.items)) {
-    writes.push({ path: join(targetDir, 'locales', locale, 'items.json'), data: shard });
+    writes.push({
+      path: join(targetDir, 'locales', locale, 'items.json'),
+      data: shard,
+    });
   }
   for (const [locale, shard] of Object.entries(batch.modLines ?? {})) {
-    writes.push({ path: join(targetDir, 'locales', locale, 'mod-lines.json'), data: shard });
+    writes.push({
+      path: join(targetDir, 'locales', locale, 'mod-lines.json'),
+      data: shard,
+    });
   }
-  return writes.map(({ path, data }) => ({ path, content: JSON.stringify(data) }));
+  for (const [locale, shard] of Object.entries(batch.resultLabels ?? {})) {
+    writes.push({
+      path: join(targetDir, 'locales', locale, 'result-labels.json'),
+      data: shard,
+    });
+  }
+  return writes.map(({ path, data }) => ({
+    path,
+    content: JSON.stringify(data),
+  }));
 }
 
 function parseArgs(argv) {
-  const args = { source: resolve(ROOT, '../poexd-data/output'), versions: GAME_VERSIONS };
+  const args = {
+    source: resolve(ROOT, '../poexd-data/output'),
+    versions: GAME_VERSIONS,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--source') args.source = resolve(argv[++i]);
     else if (argv[i] === '--version') args.versions = [argv[++i]];

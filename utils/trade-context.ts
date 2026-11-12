@@ -62,6 +62,12 @@ export function getLocaleModLinesAssetPath(version: PoeVersion, locale: string):
   return `json/${profile.dataDirectory}/locales/${locale}/mod-lines.json`;
 }
 
+/** 市集漢化結果列標籤（poexd-data 產生），只有用戶端有資料的 zh-TW */
+export function getLocaleResultLabelsAssetPath(version: PoeVersion, locale: string): string {
+  const profile = tradeVersionProfiles[version];
+  return `json/${profile.dataDirectory}/locales/${locale}/result-labels.json`;
+}
+
 export function getLocaleTradeFiltersAssetPath(version: PoeVersion, locale: string): string {
   const profile = tradeVersionProfiles[version];
   return `json/${profile.dataDirectory}/locales/${locale}/trade-filters.json`;
@@ -137,7 +143,10 @@ export function detectTradeContextFromUrl(rawUrl?: string): TradeUrlContext {
 export async function queryActiveTabTradeContext(): Promise<TradeUrlContext> {
   try {
     if (typeof chrome !== 'undefined' && chrome?.tabs?.query) {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       return detectTradeContextFromUrl(tab?.url);
     }
   } catch {

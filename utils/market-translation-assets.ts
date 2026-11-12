@@ -11,6 +11,7 @@ import type { MarketTranslationLocale } from './market-translation';
 import {
   getLocaleItemsAssetPath,
   getLocaleModLinesAssetPath,
+  getLocaleResultLabelsAssetPath,
   getLocaleTradeFiltersAssetPath,
   getLocaleTradeStaticAssetPath,
   getLocaleTradeStatsAssetPath,
@@ -111,6 +112,17 @@ function parseModLines(data: unknown, locale: string): Record<string, ModLinePai
   return shard.lines as Record<string, ModLinePairs>;
 }
 
+function parseResultLabels(data: unknown, locale: string) {
+  const shard = requireMarketShard(data, locale, 'result-labels.json');
+  if (!isRecord(shard.labels) || !Array.isArray(shard.templates)) {
+    throw new Error('result-labels.json 格式錯誤');
+  }
+  return {
+    labels: shard.labels as Record<string, string>,
+    templates: shard.templates as Array<[string, string]>,
+  };
+}
+
 function parseEnglishStats(data: unknown): Record<string, string | string[]> {
   const shard = requireMarketShard(data, 'en', 'trade-stats.json (en)');
   if (!isRecord(shard.stats)) throw new Error('trade-stats.json (en) 格式錯誤');
@@ -129,7 +141,7 @@ function fieldLabels(english: unknown, localized: Record<string, string> | undef
 }
 
 /**
- * 第 4 階段結果列翻譯的資料：遊戲寫法變體、市集寫法備援（中英 trade-stats）、物品名與屬性標籤。
+ * 結果列翻譯的資料：遊戲寫法變體、市集寫法備援（中英 trade-stats）、物品名、標籤與句型模板。
  * 已載入的 data 字典直接沿用；各部分獨立，失敗的部分為空。
  */
 export async function loadResultTranslatorData(
@@ -142,20 +154,30 @@ export async function loadResultTranslatorData(
   },
 ): Promise<ResultTranslatorData> {
   const { version, locale, dictionary, ui } = options;
-  const [modLines, englishStats, englishFilters] = await Promise.allSettled([
+  const [modLines, englishStats, englishFilters, resultLabels] = await Promise.allSettled([
     loadJson(getLocaleModLinesAssetPath(version, locale)).then((data) =>
       parseModLines(data, locale),
     ),
     loadJson(getLocaleTradeStatsAssetPath(version, 'en')).then(parseEnglishStats),
     loadJson(getLocaleTradeFiltersAssetPath(version, 'en')),
+    loadJson(getLocaleResultLabelsAssetPath(version, locale)).then((data) =>
+      parseResultLabels(data, locale),
+    ),
   ]);
   const en = settledValue(englishStats);
+  const gameLabels = settledValue(resultLabels);
   const localized = dictionary.stats?.stats;
   return {
     modLines: settledValue(modLines) ?? {},
     tradeStats: en && localized ? { en, localized } : undefined,
     items: dictionary.items ?? {},
-    // 官方介面字典是官網實際顯示的寫法，優先於篩選器欄位名稱
-    labels: { ...fieldLabels(settledValue(englishFilters), dictionary.filters?.fields), ...ui },
+    // 官方介面字典是官網實際顯示的寫法，優先於篩選器欄位名稱，遊戲資料表的標籤最後
+    labels: {
+      ...gameLabels?.labels,
+      ...fieldLabels(settledValue(englishFilters), dictionary.filters?.fields),
+      ...ui,
+    },
+    templates: gameLabels?.templates ?? [],
+    locale,
   };
 }

@@ -47,6 +47,28 @@ describe('validateGameDataBatch', () => {
     ]);
   });
 
+  it('validates optional result-labels shards (labels object, templates array)', () => {
+    const resultLabels = {
+      'zh-TW': {
+        schemaVersion: 1,
+        patch: '1.0',
+        locale: 'zh-TW',
+        labels: {},
+        templates: [],
+      },
+      'zh-CN': {
+        schemaVersion: 1,
+        patch: '1.0',
+        locale: 'zh-CN',
+        labels: {},
+        templates: {},
+      },
+    };
+    expect(validateGameDataBatch(batch({ resultLabels }))).toEqual([
+      'result-labels.json (zh-CN) 語系或格式不符',
+    ]);
+  });
+
   it('rejects mods-tiers without a patch', () => {
     expect(validateGameDataBatch(batch({ modsTiers: { tiers: [{}, {}] } }))).toContain(
       'mods-tiers.json 缺少 patch',
