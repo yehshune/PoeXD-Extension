@@ -72,6 +72,7 @@ const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
   'enableResultModHighlight',
   'enableSearchTilde',
   'enableTierHelper',
+  'marketTranslation',
 ]);
 
 function isValidPreference(name: keyof Preferences, value: unknown) {

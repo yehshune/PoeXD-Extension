@@ -437,7 +437,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     // Verify Checkbox slots exist (11 settings: 10 booleans + 1 density-compact).
     const checkboxes = container.querySelectorAll('[data-slot="checkbox"]');
-    expect(checkboxes.length).toBe(11);
+    expect(checkboxes.length).toBe(12);
     checkboxes.forEach((cb) => {
       expect(cb.className).toContain(FORM_INDICATOR_SPECS.checkbox.sizeClass);
     });
@@ -469,6 +469,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(snapshot?.enablePriceComparison).toBe(true);
     expect(snapshot?.enableResultModHighlight).toBe(true);
     expect(snapshot?.enablePureBackground).toBe(true);
+    expect(snapshot?.marketTranslation).toBe(false);
   });
 
   it('places Language selector in Appearance section alongside Theme and reactively localizes SettingsPane across zh-TW, zh-CN, en, and fallback locales', async () => {
@@ -1005,6 +1006,16 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
 
     expect(currentModule?.read().enableBookmarkTooltip).toBe(false);
+
+    // 市集漢化：預設關閉，勾選後寫入全域偏好
+    const marketCheckbox = container.querySelector('#enable-market-translation') as HTMLElement;
+    expect(marketCheckbox).not.toBeNull();
+    expect(currentModule?.read().marketTranslation).toBe(false);
+
+    marketCheckbox.click();
+    await flushAsync();
+
+    expect(currentModule?.read().marketTranslation).toBe(true);
   });
 
   it('records hotkey inputs on keydown and persists to preferences', async () => {

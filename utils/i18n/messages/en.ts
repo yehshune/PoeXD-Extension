@@ -120,6 +120,11 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.pureBackground.tooltip':
     'Remove the official Trade site background artwork for a clean solid background',
 
+  'settings.marketTranslation.label': 'Chinese Trade Site',
+  'settings.marketTranslation.infoAria': 'Chinese Trade Site info',
+  'settings.marketTranslation.tooltip':
+    'Show the international English Trade site (interface, filters and results) in Chinese, using the official wording of the Taiwan (Traditional) or China (Simplified) realm according to Language. Display only: searches are unchanged. Reload the page to apply',
+
   'settings.itemNormalizer.label': 'Rune Override Calculator',
   'settings.itemNormalizer.infoAria': 'Rune Override Calculator info',
   'settings.itemNormalizer.tooltip':
@@ -174,6 +179,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'popup.module.enableAutoTitle.title': 'Replace Page Title',
   'popup.module.enableAutoTitle.description':
     'Dynamically replace tab title with the searched item name',
+  'popup.module.marketTranslation.title': 'Chinese Trade Site',
+  'popup.module.marketTranslation.description':
+    'Show the international Trade site in official Taiwan or China realm Chinese',
 
   // Tools Pane - Relative Time
   'tools.time.justNow': 'Just now',

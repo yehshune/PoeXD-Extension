@@ -77,6 +77,8 @@ export default defineConfig({
             'json/poe2/locales/*/stats.json',
             'json/poe2/locales/*/items.json',
             'json/poe2/locales/*/trade-filters.json',
+            // 市集漢化（ADR-0012）：只有 zh-TW、zh-CN
+            'json/locales/*/trade-ui.json',
           ],
           matches: TRADE_SITE_MATCHES,
         },

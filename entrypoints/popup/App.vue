@@ -70,6 +70,11 @@ const MODULE_ITEMS: readonly ModuleConfigItem[] = [
     titleKey: 'popup.module.enableAutoTitle.title',
     descriptionKey: 'popup.module.enableAutoTitle.description',
   },
+  {
+    key: 'marketTranslation',
+    titleKey: 'popup.module.marketTranslation.title',
+    descriptionKey: 'popup.module.marketTranslation.description',
+  },
 ];
 
 const containerRef = ref<HTMLElement | null>(null);

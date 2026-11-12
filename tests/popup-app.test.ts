@@ -57,13 +57,13 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
     expect(container.textContent).toContain('PoeXD');
     expect(container.textContent).toContain('模組啟用控制');
 
-    // All 6 modules exist
+    // All 7 modules exist
     const rows = container.querySelectorAll('[data-popup-module-row]');
-    expect(rows.length).toBe(6);
+    expect(rows.length).toBe(7);
 
-    // Checkbox elements exist for all 6 items
+    // Checkbox elements exist for all 7 items
     const checkboxes = container.querySelectorAll('[data-slot="checkbox"]');
-    expect(checkboxes.length).toBe(6);
+    expect(checkboxes.length).toBe(7);
 
     const text = container.textContent || '';
     expect(text).not.toContain('側邊欄主體');
@@ -73,6 +73,7 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
     expect(text).toContain('結果詞綴高亮');
     expect(text).toContain('隱藏官方背景');
     expect(text).toContain('替換網頁標題');
+    expect(text).toContain('市集漢化');
   });
 
   it('applies data-poexd-theme attribute matching preferences theme to root and documentElement', async () => {
@@ -150,7 +151,7 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
     expect(requestedVersion).toBe('poe2');
     expect(container.textContent).toContain('PoE 2');
     expect(container.querySelector('[data-trade-badge]')).not.toBeNull();
-    expect(container.querySelectorAll('[data-popup-module-row]').length).toBe(7);
+    expect(container.querySelectorAll('[data-popup-module-row]').length).toBe(8);
     expect(container.querySelector('[data-module-key="enableItemNormalizer"]')).not.toBeNull();
   });
 

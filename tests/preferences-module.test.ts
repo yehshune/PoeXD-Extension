@@ -36,6 +36,7 @@ describe('Preferences module interface', () => {
       liveSearchMaxDisplayedResults: 100,
       liveSearchResumeMode: 'prompt',
       liveSearchSelectedLeague: '',
+      marketTranslation: false,
       searchEntryClickAction: 'preview',
       sidebarPosition: 'left',
       sidebarSize: 'medium',

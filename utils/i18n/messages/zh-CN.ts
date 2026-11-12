@@ -113,6 +113,11 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.pureBackground.infoAria': '隐藏官方网页背景说明',
   'settings.pureBackground.tooltip': '移除官方交易网站背景底图与特效，呈现简洁纯色背景以提高可读性',
 
+  'settings.marketTranslation.label': '市集汉化',
+  'settings.marketTranslation.infoAria': '市集汉化说明',
+  'settings.marketTranslation.tooltip':
+    '把国际服英文市集的界面、筛选器与搜索结果显示为中文，依「语言」设置采用台服（繁体）或国服（简体）的官方用语。只改变显示、不影响搜索内容；切换后刷新页面生效',
+
   'settings.itemNormalizer.label': '符文覆写试算',
   'settings.itemNormalizer.infoAria': '符文覆写试算说明',
   'settings.itemNormalizer.tooltip': '在搜索结果顶部提供自定义符文覆写试算、打孔潜力标签与实时排序',
@@ -158,6 +163,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'popup.module.enablePureBackground.description': '移除官方网页背景图片转为纯黑以提升对比',
   'popup.module.enableAutoTitle.title': '替换网页标题',
   'popup.module.enableAutoTitle.description': '以当前搜索物品名称动态替换标签页标题',
+  'popup.module.marketTranslation.title': '市集汉化',
+  'popup.module.marketTranslation.description': '国际服英文市集以台服或国服官方用语显示中文',
 
   // Tools Pane - Relative Time
   'tools.time.justNow': '刚刚',

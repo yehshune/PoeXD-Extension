@@ -111,6 +111,11 @@ export const ZH_TW_MESSAGES = {
   'settings.pureBackground.infoAria': '隱藏官方網頁背景說明',
   'settings.pureBackground.tooltip': '移除官方交易網站背景底圖與特效，呈現簡潔純色背景以提高可讀性',
 
+  'settings.marketTranslation.label': '市集漢化',
+  'settings.marketTranslation.infoAria': '市集漢化說明',
+  'settings.marketTranslation.tooltip':
+    '把國際服英文市集的介面、篩選器與搜尋結果顯示成中文，依「語言」設定採用台服（繁體）或國服（簡體）的官方用語。只改變顯示、不影響搜尋內容；切換後重新整理頁面生效',
+
   'settings.itemNormalizer.label': '符文覆寫試算',
   'settings.itemNormalizer.infoAria': '符文覆寫試算說明',
   'settings.itemNormalizer.tooltip': '在搜尋結果頂端提供自訂符文石覆寫試算、打孔潛力標籤與即時排序',
@@ -156,6 +161,8 @@ export const ZH_TW_MESSAGES = {
   'popup.module.enablePureBackground.description': '去除官方網頁背景圖片轉為純黑以提升對比',
   'popup.module.enableAutoTitle.title': '替換網頁標題',
   'popup.module.enableAutoTitle.description': '以目前搜尋道具名稱動態替換分頁標題',
+  'popup.module.marketTranslation.title': '市集漢化',
+  'popup.module.marketTranslation.description': '國際服英文市集以台服或國服官方用語顯示中文',
 
   // Tools Pane - Relative Time
   'tools.time.justNow': '剛剛',

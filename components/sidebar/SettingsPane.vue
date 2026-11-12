@@ -477,6 +477,35 @@
             </Tooltip>
           </div>
         </div>
+        <div class="flex items-center gap-[var(--pxd-space-md)]">
+          <Checkbox
+            id="enable-market-translation"
+            v-model="marketTranslation"
+            @update:model-value="savePreference('marketTranslation')"
+          />
+          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+            <label
+              for="enable-market-translation"
+              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+            >
+              {{ t('settings.marketTranslation.label') }}
+            </label>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <span
+                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                  tabindex="-1"
+                  :aria-label="t('settings.marketTranslation.infoAria')"
+                >
+                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {{ t('settings.marketTranslation.tooltip') }}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
         <div v-if="isPoe2" class="flex items-center gap-[var(--pxd-space-md)]">
           <Checkbox
             id="enable-item-normalizer"
@@ -694,6 +723,7 @@ export default defineComponent({
       enablePriceComparison,
       enableResultModHighlight,
       enablePureBackground,
+      marketTranslation,
       addBookmarkBtnPosition,
       enableBookmarkTooltip,
       searchEntryClickAction,
@@ -958,6 +988,7 @@ export default defineComponent({
       enablePriceComparison,
       enableResultModHighlight,
       enablePureBackground,
+      marketTranslation,
       isPoe2: version === 'poe2',
       addBookmarkBtnPosition,
       enableBookmarkTooltip,
