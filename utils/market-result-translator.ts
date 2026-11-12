@@ -17,6 +17,7 @@ import {
   normalizeSpace,
   translateListedTime,
   type LabelTemplates,
+  type NameParts,
   type TemplateMatch,
   type TextMap,
 } from './market-result-labels';
@@ -36,11 +37,14 @@ export interface ResultTranslatorData {
   templates?: LabelTemplates;
   /** 相對時間的輸出語系 */
   locale?: string;
+  /** 傭兵名字的名與稱號 */
+  names?: NameParts;
 }
 
 const STAT_SELECTOR = '[data-field^="stat."]';
 const HEADER_SELECTOR = '.item-popup__header-line';
-const PROPERTY_SELECTOR = '.item-property';
+/** 整行先比對句型、再逐節點查標籤的行：屬性行與傭兵技能、輔助的每一段 */
+const PROPERTY_SELECTOR = '.item-property, .item-mod--mercenary > div > span';
 const MOD_SELECTOR = '.item-mod > span.lc:not([data-field]):not(.l):not(.r)';
 const TIME_SELECTOR = '[data-field="indexed"] small';
 const LABEL_SELECTOR = [
@@ -62,7 +66,11 @@ const TARGET_SELECTOR = [
 ].join(', ');
 /** 我們自己插入的節點（價格比較等）不翻譯 */
 const SKIP_SELECTOR = `${STAT_SELECTOR}, [class*="poexd"]`;
-const STAT_FIELD = /^stat\.([a-z_]+\.stat_(\d+))$/;
+/** `stat.<category>.<id>`；id 可能是 `stat_<hash>`、`stat_<hash>|<option>` 或技能代碼 */
+const STAT_FIELD = /^stat\.([a-z_]+\.(\S+))$/;
+const STAT_HASH = /^stat_(\d+)$/;
+/** 只有標點與空白的節點（如「: 」），多節點詞綴以它切段 */
+const SEPARATOR_NODE = /^[^\p{L}\p{N}]+$/u;
 const MOD_PLACEHOLDER = /\{\d+:\+?[dn]\}/g;
 const MOD_NUMBER = /[+-]?\d+(?:\.\d+)?/g;
 
@@ -105,12 +113,12 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
   // 我們寫進去的譯文：節點內容仍等於它時代表已翻譯，不同時代表官網換回了英文
   const written = new WeakMap<Text, string>();
   const fallbackPairs = new Map<string, ModLinePairs>();
-  const lookup = createLabelLookup(data.labels, data.templates, data.items);
+  const lookup = createLabelLookup(data.labels, data.templates, data.items, data.names);
   let skeletonIndex: Map<string, ModLinePairs> | null = null;
 
-  const pairsFor = (statId: string, hash: string): ModLinePairs[] => {
+  const pairsFor = (statId: string, hash: string | undefined): ModLinePairs[] => {
     const result: ModLinePairs[] = [];
-    const lines = data.modLines[hash];
+    const lines = hash ? data.modLines[hash] : undefined;
     if (lines) result.push(lines);
     if (!data.tradeStats) return result;
     let fallback = fallbackPairs.get(statId);
@@ -166,20 +174,60 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
     }
   };
 
+  /**
+   * 把整句譯文分回多個文字節點：以 <br> 分行的逐行寫回；以「: 」這類分隔節點相連的，
+   * 在譯文中找同一個分隔符切段；都對不上時整句寫進第一個節點、其餘清空。
+   */
+  const distribute = (nodes: Text[], translated: string, byLine: boolean): string[] => {
+    if (nodes.length === 1) return [translated];
+    if (byLine) {
+      const lines = translated.split('\n');
+      if (lines.length === nodes.length) return lines;
+    } else {
+      const pieces: string[] = [];
+      let rest = translated;
+      let pending = -1;
+      let ok = true;
+      nodes.forEach((node, i) => {
+        if (!ok) return;
+        const separator = node.data.trim();
+        if (!SEPARATOR_NODE.test(separator)) {
+          pending = i;
+          return;
+        }
+        const at = rest.indexOf(separator);
+        if (pending < 0 || at < 0) {
+          ok = false;
+          return;
+        }
+        pieces[pending] = rest.slice(0, at).trim();
+        pieces[i] = node.data;
+        rest = rest.slice(at + separator.length);
+        pending = -1;
+      });
+      if (ok && pending >= 0) {
+        pieces[pending] = rest.trim();
+        if (nodes.every((_, i) => pieces[i] !== undefined)) return pieces;
+      }
+    }
+    return nodes.map((_, i) => (i === 0 ? translated : ''));
+  };
+
   const translateStat = (element: Element) => {
     const field = element.getAttribute('data-field')?.match(STAT_FIELD);
     if (!field) return;
-    const candidates = pairsFor(field[1], field[2]);
+    const candidates = pairsFor(field[1], field[2].match(STAT_HASH)?.[1]);
     if (!candidates.length) return;
     const nodes = textNodesOf(element);
-    if (nodes.length !== 1) return;
-    replace(nodes[0], (english) => {
-      for (const pairs of candidates) {
-        const translated = translateModLine(english, pairs);
-        if (translated !== null) return translated;
-      }
-      return null;
-    });
+    if (!nodes.length || nodes.every(isCurrent)) return;
+    const byLine = element.querySelector('br') !== null;
+    const english = nodes.map((node) => node.data).join(byLine ? '\n' : '');
+    for (const pairs of candidates) {
+      const translated = translateModLine(english, pairs);
+      if (translated === null) continue;
+      distribute(nodes, translated, byLine).forEach((text, i) => setText(nodes[i], text));
+      return;
+    }
   };
 
   const translateMod = (element: Element) => {

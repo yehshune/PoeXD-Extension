@@ -6,6 +6,7 @@
  */
 import type { MarketTradeDictionary } from './market-translation-data';
 import type { ModLinePairs } from './market-mod-lines';
+import type { NameParts } from './market-result-labels';
 import type { ResultTranslatorData } from './market-result-translator';
 import type { MarketTranslationLocale } from './market-translation';
 import {
@@ -120,6 +121,16 @@ function parseResultLabels(data: unknown, locale: string) {
   return {
     labels: shard.labels as Record<string, string>,
     templates: shard.templates as Array<[string, string]>,
+    names: parseNameParts(shard.names),
+  };
+}
+
+/** 傭兵名字的名與稱號（只有 PoE1）；格式不符時略過 */
+function parseNameParts(value: unknown): NameParts | undefined {
+  if (!isRecord(value) || !isRecord(value.first) || !isRecord(value.suffix)) return undefined;
+  return {
+    first: value.first as Record<string, string>,
+    suffix: value.suffix as Record<string, string>,
   };
 }
 
@@ -178,6 +189,7 @@ export async function loadResultTranslatorData(
       ...ui,
     },
     templates: gameLabels?.templates ?? [],
+    names: gameLabels?.names,
     locale,
   };
 }

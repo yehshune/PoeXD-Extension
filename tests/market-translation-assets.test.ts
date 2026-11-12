@@ -105,6 +105,10 @@ describe('loadResultTranslatorData', () => {
       locale: 'zh-TW',
       labels: { 'Item Level': '物品等級（遊戲）', Quarterstaff: '細杖' },
       templates: [['Lasts {0} Seconds', '持續 {0} 秒']],
+      names: {
+        first: { Velessa: '維勒莎' },
+        suffix: { ', the Bardiyan-Born': '．巴迪亞家族子嗣' },
+      },
     },
   };
   const dictionary = {
@@ -140,6 +144,7 @@ describe('loadResultTranslatorData', () => {
       Requires: '需求',
     });
     expect(data.templates).toEqual([['Lasts {0} Seconds', '持續 {0} 秒']]);
+    expect(data.names?.first.Velessa).toBe('維勒莎');
     expect(data.locale).toBe('zh-TW');
   });
 

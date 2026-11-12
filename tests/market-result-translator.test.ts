@@ -156,6 +156,110 @@ const LABEL_DATA: ResultTranslatorData = {
 
 const byId = (id: string) => document.getElementById(id)!;
 
+// 取自 2026-11-12 國際服：PoE1 星團珠寶附魔（選項代碼）、PoE2 賦予技能（非數字代碼）、多行詞綴
+const OPTION_ROW = `
+<div class="item-mod item-mod--enchant poexd-filter-mod-highlight"><span data-field="stat.enchant.stat_3948993189|17" class="s lc"><!----><span>Added Small Passive Skills grant: Minions deal 10% increased Damage</span></span></div>
+<div class="item-property poexd-filter-mod-highlight"><span data-field="stat.skill.summon_skeleton_warrior" class="s lc"><img class="lci"><span>Grants Skill</span>: <span class="keyword">Level 17 Skeletal Warrior Minion</span></span></div>
+<div class="item-mod"><span data-field="stat.explicit.stat_77" class="s lc"><span>17% increased Damage while area is not in Lockdown</span><br><span>Players have 17% increased Damage while area is not in Lockdown</span></span></div>`;
+
+const OPTION_DATA: ResultTranslatorData = {
+  modLines: {},
+  items: {},
+  labels: {},
+  tradeStats: {
+    en: {
+      'enchant.stat_3948993189|17':
+        'Added Small Passive Skills grant: Minions deal 10% increased Damage',
+      'skill.summon_skeleton_warrior': 'Grants Skill: Level # Skeletal Warrior Minion',
+      'explicit.stat_77':
+        '#% increased Damage while area is not in Lockdown\nPlayers have #% increased Damage while area is not in Lockdown',
+    },
+    localized: {
+      'enchant.stat_3948993189|17': '附加的小型天賦給予：增加 10% 召喚物所造成的傷害',
+      'skill.summon_skeleton_warrior': '賦予技能: 等級 # 骷髏戰士召喚物',
+      'explicit.stat_77': '區域未封鎖時增加 #% 傷害\n玩家在區域未封鎖時增加 #% 傷害',
+    },
+  },
+};
+
+describe('createResultTranslator：代碼格式與多節點詞綴', () => {
+  it('選項代碼（stat_<hash>|<option>）以市集寫法翻譯', () => {
+    document.body.innerHTML = OPTION_ROW;
+    createResultTranslator(OPTION_DATA).translate(document.body);
+    expect(document.querySelector('.item-mod--enchant')?.textContent).toBe(
+      '附加的小型天賦給予：增加 10% 召喚物所造成的傷害',
+    );
+  });
+
+  it('非數字代碼的賦予技能：整句比對後依分隔節點分段寫回', () => {
+    document.body.innerHTML = OPTION_ROW;
+    createResultTranslator(OPTION_DATA).translate(document.body);
+    const field = document.querySelector('[data-field="stat.skill.summon_skeleton_warrior"]')!;
+    expect(field.textContent).toBe('賦予技能: 等級 17 骷髏戰士召喚物');
+    expect(field.querySelector('.keyword')?.textContent).toBe('等級 17 骷髏戰士召喚物');
+  });
+
+  it('以 <br> 分行的多行詞綴逐行寫回', () => {
+    document.body.innerHTML = OPTION_ROW;
+    createResultTranslator(OPTION_DATA).translate(document.body);
+    expect(
+      Array.from(document.querySelectorAll('[data-field="stat.explicit.stat_77"] > span')).map(
+        (el) => el.textContent,
+      ),
+    ).toEqual(['區域未封鎖時增加 17% 傷害', '玩家在區域未封鎖時增加 17% 傷害']);
+  });
+});
+
+// 取自 2026-11-12 國際服 PoE1 傭兵契約書結果列
+const MERCENARY_ROW = `
+<div class="item-popup__content">
+  <div class="item-property" id="merc-name"><span class="lc"><span>Velessa, the Bardiyan-Born</span></span></div>
+  <div class="item-property" id="merc-build"><span class="lc"><span>Build</span>: <span>Infamous Kineticist</span></span></div>
+  <div class="item-property" id="merc-level"><span data-field="ilvl" class="s lc"><span>Mercenary Level</span>: <span>83</span></span></div>
+  <div class="item-mod item-mod--mercenary"><div><span>Flame Wall</span></div><div id="merc-support"><span>Greater Curse Effect</span> (<span>Tier: 3</span>) </div></div>
+</div>`;
+
+describe('createResultTranslator：傭兵契約書', () => {
+  it('傭兵名（名＋稱號）、建造、等級標籤、技能與輔助名、階級', () => {
+    document.body.innerHTML = MERCENARY_ROW;
+    createResultTranslator({
+      modLines: {},
+      items: {},
+      labels: {
+        Build: '建造',
+        'Infamous Kineticist': '萬惡動能師',
+        'Mercenary Level': '傭兵等級',
+        'Flame Wall': '烈焰之牆',
+        'Greater Curse Effect': '高階詛咒效果',
+      },
+      templates: [['Tier: {0}', '階級：{0}']],
+      names: {
+        first: { Velessa: '維勒莎' },
+        suffix: { ', the Bardiyan-Born': '．巴迪亞家族子嗣' },
+      },
+    }).translate(document.body);
+    expect(byId('merc-name').textContent).toBe('維勒莎．巴迪亞家族子嗣');
+    expect(byId('merc-build').textContent).toBe('建造: 萬惡動能師');
+    expect(byId('merc-level').textContent).toBe('傭兵等級: 83');
+    expect(document.querySelector('.item-mod--mercenary > div')?.textContent).toBe('烈焰之牆');
+    expect(byId('merc-support').textContent).toBe('高階詛咒效果 (階級：3) ');
+  });
+
+  it('官網把「Tier: 3」拆成兩個文字節點時仍整段比對', () => {
+    document.body.innerHTML = MERCENARY_ROW;
+    const tier = document.querySelector('#merc-support span:last-child')!;
+    tier.textContent = 'Tier: ';
+    tier.appendChild(document.createTextNode('3'));
+    createResultTranslator({
+      modLines: {},
+      items: {},
+      labels: {},
+      templates: [['Tier: {0}', '階級：{0}']],
+    }).translate(document.body);
+    expect(tier.textContent).toBe('階級：3');
+  });
+});
+
 describe('createResultTranslator：結果列標籤', () => {
   it('整行模板：佔位順序相同時只換文字段、保留數值節點；順序不同時整行寫入', () => {
     document.body.innerHTML = LABEL_ROW;

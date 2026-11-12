@@ -7,6 +7,12 @@
 export type TextMap = Readonly<Record<string, string>>;
 export type LabelTemplates = ReadonlyArray<readonly [string, string]>;
 
+/** 傭兵名字的兩段：名（Velessa）與稱號（, the Bardiyan-Born），譯文直接相接 */
+export interface NameParts {
+  first: TextMap;
+  suffix: TextMap;
+}
+
 export interface TemplateMatch {
   /** 依佔位符編號的數值 */
   values: string[];
@@ -74,15 +80,29 @@ export interface LabelLookup {
   matchTemplate(text: string): TemplateMatch | null;
 }
 
+/** 「名, the 稱號」→ 名的譯文接稱號的譯文；任一段查不到回傳 undefined */
+function composeName(key: string, names: NameParts | undefined): string | undefined {
+  if (!names) return undefined;
+  for (let at = key.indexOf(', '); at > 0; at = key.indexOf(', ', at + 1)) {
+    const first = names.first[key.slice(0, at)];
+    const suffix = names.suffix[key.slice(at)];
+    if (first && suffix) return `${first}${suffix}`;
+  }
+  return undefined;
+}
+
 /**
  * @param items 英文物品名（小寫）→ 譯名；標籤查不到時的備援（寶石、符文等名稱）
+ * @param names 傭兵名字的名與稱號
  */
 export function createLabelLookup(
   labels: TextMap,
   templates: LabelTemplates = [],
   items: TextMap = {},
+  names?: NameParts,
 ): LabelLookup {
-  const label = (key: string): string | undefined => labels[key] ?? items[key.toLowerCase()];
+  const label = (key: string): string | undefined =>
+    labels[key] ?? items[key.toLowerCase()] ?? composeName(key, names);
   // 依英文第一個字分桶；開頭是佔位符的放在 '' 桶。同桶內文字較多（較具體）的先比
   const buckets = new Map<string, CompiledTemplate[]>();
   for (const pair of templates) {
