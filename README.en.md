@@ -1,260 +1,125 @@
 <p align="center">
-  <img src="./docs/store/images/en/promo-marquee-1400x560.png" width="100%" alt="PoeXD Extension - an all-in-one helper for the official Path of Exile trade site">
+  <img src="./docs/store/images/en/promo-marquee-1400x560.png" width="100%" alt="PoeXD Extension - a helper for the official Path of Exile trade site">
 </p>
 
 <p align="center">
-  <a href="https://github.com/yehshune/PoeXD-Extension/actions"><img src="https://img.shields.io/badge/Status-Active%20Development-6366F1?style=flat-square" alt="Status"></a>
-  <img src="https://img.shields.io/badge/Manifest-V3%20(Chrome%20%7C%20Edge)-10B981?style=flat-square" alt="Manifest">
-  <img src="https://img.shields.io/badge/PoE-1%20%26%202%20Ready-F59E0B?style=flat-square" alt="PoE Version">
+  <a href="https://chromewebstore.google.com/detail/fbbkaeekjalfecgjfcephaiopffeobjg"><img src="https://img.shields.io/badge/Chrome-Web%20Store-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome Web Store"></a>
+  <a href="https://microsoftedge.microsoft.com/addons/detail/hnnpgpcnmgjbmmhgogcljbnfoklblgmb"><img src="https://img.shields.io/badge/Edge-Add--ons-0078D7?style=flat-square&logo=microsoftedge&logoColor=white" alt="Edge Add-ons"></a>
+  <img src="https://img.shields.io/badge/PoE-1%20%26%202-F59E0B?style=flat-square" alt="PoE 1 & 2">
   <img src="https://img.shields.io/badge/License-MIT-94A3B8?style=flat-square" alt="License">
 </p>
 
 <p align="center"><a href="./README.md">繁體中文</a> · <b>English</b></p>
 
----
+**PoeXD Extension** is a helper for the official Path of Exile (PoE 1 / PoE 2) trade site: manage
+live searches in one place, apply affixes quickly, organize bookmarks, and show the international
+trade site in Chinese.
 
-## About
+## Install
 
-**PoeXD Extension** is a browser extension for the official trade site of Path of Exile 1 and
-Path of Exile 2.
+| Browser                          | How                                                                                                                                                                         |
+| :------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Chrome, Brave and other Chromium | [Chrome Web Store](https://chromewebstore.google.com/detail/fbbkaeekjalfecgjfcephaiopffeobjg)                                                                               |
+| Microsoft Edge                   | [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/hnnpgpcnmgjbmmhgogcljbnfoklblgmb)                                                                          |
+| Manual install (no auto-update)  | Download `chromium.zip` from [Releases](https://github.com/yehshune/PoeXD-Extension/releases), unzip, enable Developer mode in `chrome://extensions/`, then "Load unpacked" |
 
-It targets the pain points of heavy trade users: watching many live searches at once, tweaking
-stat filters repeatedly, and organizing searches across leagues. It adds a **LiveSearch console**,
-**stat group templates**, **hierarchical bookmarks** and **two-way compatibility with TFT Trade
-Extension**, without getting in the way of the official site.
+Then open the [official trade site](https://www.pathofexile.com/trade); the PoeXD toolbar appears
+on the right. Store versions update automatically. Firefox is not available yet.
 
----
+## What's new
+
+- **Trade site translation**: show the international (English) trade site with the official
+  Traditional or Simplified Chinese wording — UI, filters, dropdowns and results (affixes, item
+  names, property labels). Only display text changes; searches are identical to the English page.
+  With bilingual mode on, English input still matches.
+- **More result rows translated**: the "at max Quality" tooltip, Ultimatum required item and reward
+  unique dropdowns, cluster jewel enchants, skills, multi-line mods and mercenary details.
+- **Enter search fix**: after typing a value in a filter, the first Enter now searches with that
+  value (the official site needed two presses).
+- **Affix tools**: PoE 2 radius jewel mods are separated from ordinary jewel tiers; tier ranges are
+  fixed for negated stats and cluster jewels; search preview and the mercenary picker use the same
+  layout as the affix selector.
+
+See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
 
 ## Features
 
-### ⚡ LiveSearch console
+### ⚡ Live search console
 
-- **Many connections, one tab**: manage multiple live searches from a single console tab instead
-  of a dozen memory-hungry tabs, with automatic reconnection.
-- **Groups and batch actions**: connections are grouped by bookmark folder; filter them by
-  keyword and start or stop them in bulk, or start a whole folder at once.
-- **Resume plan**: remembers which live searches were active; on restart you can clear them,
-  restore them manually or restore them automatically.
-- **Result-only presentation**: hides the official header and unrelated panels to give results
-  and live notifications as much room as possible. Click a connection to show only its results,
-  and set a cap on how many results are kept.
-- **Rate-limit protection**: monitors the `/fetch` request rate and connection health
-  (`API ● OK` / `API ◐ waiting Xs`) to avoid hitting the official rate limits.
-- **Temporary search**: paste any trade URL, or push an existing search, and start watching it
-  without creating a bookmark first.
+Watch many live searches from a single tab with automatic reconnects; group them by bookmark
+folder, start or stop in batches, and resume last session's connections. A results-only view,
+per-connection filtering and a live API rate indicator help you stay under the official limits.
 
-<p align="center">
-  <img src="./docs/store/images/en/screenshot-4.jpg" width="80%" alt="LiveSearch console">
-</p>
+<p align="center"><img src="./docs/store/images/en/screenshot-4.jpg" width="80%" alt="Live search console"></p>
 
-### 🎯 Stat group templates & criteria overlay
+### 🎯 Stat group templates and search preview
 
-- **Reusable stat groups**: capture common filter sets (for example "life + total elemental
-  resistance") from the current page and save them as templates.
-- **Non-destructive overlay**: apply a stat group on top of the current search form without
-  touching the item type or other filters, and undo the last overlay with one click.
-- **Drag-and-drop management**: reorder templates by dragging, drop them on the trash to delete,
-  rename them and search them by keyword.
-- **Share codes and backup files**: import and export templates to move them between computers
-  or share them with friends.
-- **Search preview**: decode and inspect the real query behind any history entry or bookmark, and
-  overlay selected stat groups with one click.
+Save common conditions (e.g. "Life + total elemental resistance") as groups and overlay them on the
+current search without touching other filters, with one-click undo; share via codes or backup
+files. Search preview shows the real criteria behind history entries and bookmarks, and lets you
+overlay individual affixes from them.
 
 <p align="center">
   <img src="./docs/store/images/en/screenshot-3.jpg" width="49%" alt="Stat group templates">
   <img src="./docs/store/images/en/screenshot-2.jpg" width="49%" alt="Search preview and overlay">
 </p>
 
-### 🔍 Affix filter & tier tools
+### 🔍 Affix filter and tier tools
 
-- **Affix filter pane**: browse every affix that can roll on an item category, split into prefix
-  and suffix columns, with keyword search and quick jumps.
-- **Batch apply**: queue affixes or specific tiers and write them into the official filters at
-  once, or apply top-tier (T1) values to all of them. Affixes without an official ID are typed
-  into the search box instead.
-- **Tier dropdown**: a T-tier button next to each stat in the official form fills the matching
-  value range; you can also switch item category or mod group and fine-tune min/max values.
-- **Affix selector**: a quick-search popup next to each stat group finds affixes faster than the
-  official dropdown.
-- **Drag stats between groups**: drag a stat row by its checkbox to reorder it within an official
-  stat group, or move it to another group.
-- **Tablets and waystones**: PoE 2 precursor tablet (per mechanic) and waystone (per tier)
-  affixes can be browsed and applied from the pane as well.
+Browse prefixes and suffixes by item class and write them to the official filters in one go; tier
+buttons next to each filter fill in value ranges; drag affixes to reorder or move them between
+groups. PoE 2 tablets, waystones and radius jewels are supported.
 
 ### 💰 Result enhancements
 
-- **Price comparison**: converts listings priced in divine orbs, chaos orbs and other currencies
-  using live poe.ninja exchange rates (international realm only).
-- **Result mod highlight**: highlights the mods in each result that match your filters.
-- **Rune override calculator (PoE 2)**: pick a target rune to estimate each weapon's or armour
-  piece's DPS and defences after overriding its runes, see socket potential, and re-sort results
-  by overridden value or value for money.
+Price conversion between currencies using poe.ninja rates (international realm), highlighting of
+matching affixes, and PoE 2 rune-override DPS / defence estimates with sorting.
 
-### 📁 Hierarchical bookmarks, history & TFT transfer
+### 📁 Bookmarks, history and TFT interop
 
-- **Nested folders**: organize searches by class, league stage or build. Bookmarks and folders
-  can be reordered and moved between folders by dragging, and dropped on the trash to delete.
-- **Covers and hover previews**: pick an item image from the results as a bookmark cover, and
-  hover a bookmark to preview the item.
-- **Flexible opening**: open a bookmark in the current or a new tab, send it straight to the
-  LiveSearch console, or add the current page to a folder in one click.
-- **Search history**: searches are recorded automatically and can be searched, previewed,
-  bookmarked or sent to the console.
-- **Auto league**: bookmarks are realm-independent and follow the server and league you are
-  browsing, or can be pinned to a specific league.
-- **TFT Trade Extension compatible**: import and export TFT bookmark folders via the standard
-  Base64 transfer code, or use backup files. Preview the changes before importing and choose to
-  add, merge or replace.
+Tree folders with drag and drop, cover images and hover previews; bookmarks follow your current
+realm and league. Search history is recorded automatically. Import and export bookmarks with TFT
+Trade Extension, with a diff preview before importing.
 
-<p align="center">
-  <img src="./docs/store/images/en/screenshot-1.jpg" width="80%" alt="Hierarchical bookmarks">
-</p>
+<p align="center"><img src="./docs/store/images/en/screenshot-1.jpg" width="80%" alt="Bookmark tree"></p>
 
-### ⚙️ Page tweaks & personalization
+### ⚙️ More
 
-- **Trade page tweaks**: fuzzy search in the item name and filter inputs (adds `~`
-  automatically), hotkeys to focus or clear the search box, item names as tab titles, and an
-  option to hide the official background.
-- **Personalization**: several themes, left or right sidebar, adjustable width and UI scale.
-- **Module toggles**: click the extension icon in the toolbar to turn individual trade page
-  features on or off.
-- **Market Translation**: shows the international English Trade site (PoE 1 and PoE 2) in
-  Traditional or Simplified Chinese using each official realm's wording: interface, filters,
-  dropdowns and result rows (mods, item names). Only display text changes, so searches are
-  identical to the English site; an optional bilingual mode keeps English searchable.
+- Fuzzy search for item names and filters (auto `~`), focus / clear search hotkeys, item name in
+  the tab title.
+- Themes, panel side, width and zoom are adjustable; toggle features from the toolbar popup.
+- Extension UI in Traditional Chinese, Simplified Chinese and English; affix data covers all 11
+  languages of the official trade site.
 
-<p align="center">
-  <img src="./docs/store/images/en/screenshot-5.jpg" width="80%" alt="Settings">
-</p>
+<p align="center"><img src="./docs/store/images/en/screenshot-5.jpg" width="80%" alt="Settings"></p>
 
-### 🌐 Native support for PoE 1 & PoE 2
+## Privacy
 
-- **Localized data**: bundled stat dictionaries, item names and category mappings for both games
-  in all 11 official trade site languages. The extension UI is available in English, Traditional
-  Chinese and Simplified Chinese.
-- **Separate runtimes**: PoE 1 and PoE 2 consoles each have their own background coordinator.
+All data stays in your browser. This project runs no servers and has no analytics or tracking.
+See the [privacy policy](./PRIVACY.md); report security issues privately as described in
+[SECURITY.md](./SECURITY.md).
 
----
+## Development
 
-## Architecture
-
-<p align="center">
-  <img src="./assets/readme/workflow.svg" width="100%" alt="PoeXD Extension architecture and workflow">
-</p>
-
-1. **The search ID is the source of truth (ADR-0008)**
-   The short code in an official trade URL identifies the stored query. PoeXD treats it as the
-   canonical search ID and never keeps stale copies of query criteria, so previews and overlays
-   always match the official search.
-2. **Main-world adapters, non-intrusive integration**
-   Lightweight adapters in `entrypoints/main-world/` observe the official Vue runtime and only
-   mount extension controls when the official state changes.
-3. **Background-owned coordination**
-   Live search connections are coordinated by the background service worker, so they recover
-   reliably across tab switches, network drops and browser sleep.
-
----
-
-## Installation
-
-### Option 1: Extension stores (recommended)
-
-- **Chrome**: Chrome Web Store (under review)
-- **Edge, Brave and other Chromium browsers**: install from the Chrome Web Store (on Edge, allow
-  "extensions from other stores" first)
-
-Store versions update automatically. PoeXD is not listed on Edge Add-ons or Firefox Add-ons yet.
-
-### Option 2: Manual install (Chrome / Edge / Brave / Opera)
-
-1. Download `poexd-extension-<version>-chromium.zip` from
-   [Releases](https://github.com/yehshune/PoeXD-Extension/releases) and unzip it.
-2. Open `chrome://extensions/` (`edge://extensions/` on Edge) and enable **Developer mode**.
-3. Click **Load unpacked** and select the unzipped folder.
-4. Open the [official trade site](https://www.pathofexile.com/trade); the PoeXD toolbar appears
-   on the right.
-
-> Manually installed builds **do not update automatically**. Download new releases, unzip over
-> the same folder, then click "Reload" on the extensions page. Your local data is kept when you
-> update in place.
->
-> There is no Firefox release yet (Firefox does not allow unsigned extensions).
-
-### Option 3: Build from source (developers)
-
-Requirements: **Node.js** `>= 22`, **pnpm** (see `packageManager` in `package.json`).
+Requires Node.js `>= 22` and pnpm.
 
 ```bash
-git clone https://github.com/yehshune/PoeXD-Extension.git
-cd PoeXD-Extension
 pnpm install
-
-pnpm dev               # Chrome with hot reload
-pnpm dev:firefox       # Firefox
-pnpm test              # unit tests
-pnpm compile           # type check
-pnpm format            # format code
-
-pnpm build             # .output/chrome-mv3
-pnpm build:firefox     # .output/firefox-mv3
-pnpm zip               # release zips
-POEXD_STORE_BUILD=1 pnpm zip   # store build without the fixed-ID manifest key
+pnpm dev        # Chrome dev mode with hot reload
+pnpm test       # unit tests
+pnpm compile    # type check
+pnpm build      # production build
 ```
 
----
+See the [contributing guide](./CONTRIBUTING.md) for the full workflow; architecture and decision
+records live in [CONTEXT.md](./CONTEXT.md) and [`docs/`](./docs/). Stack: WXT, Vue 3, TypeScript,
+Tailwind CSS 4, Vitest, Playwright.
 
-## Tech stack
+## Support and license
 
-| Area                | Choice                                                                      |
-| :------------------ | :-------------------------------------------------------------------------- |
-| Extension framework | [WXT](https://wxt.dev/)                                                     |
-| UI                  | [Vue 3](https://vuejs.org/) + [TypeScript](https://www.typescriptlang.org/) |
-| Components          | [Reka UI](https://reka-ui.com/) + [Lucide](https://lucide.dev/)             |
-| Styling             | [Tailwind CSS 4](https://tailwindcss.com/)                                  |
-| Messaging           | `@webext-core/messaging`                                                    |
-| Testing             | [Vitest](https://vitest.dev/) + [Playwright](https://playwright.dev/)       |
-
----
-
-## Documentation
-
-Architecture decisions and contracts live in `docs/` (mostly in Traditional Chinese):
-
-- [Domain context](./CONTEXT.md)
-- [ADR-0007: TFT transfer](./docs/adr/0007-realm-independent-bookmarks-and-tft-transfer.md)
-- [ADR-0008: Search ID as source of truth](./docs/adr/0008-search-id-is-the-source-of-query-criteria.md)
-- [ADR-0010: Stat group templates and preview overlay](./docs/adr/0010-stat-group-templates-and-preview-overlay-replace-filter-presets.md)
-- [LiveSearch console contract](./docs/architecture/live-search-primary-contract.md)
-
----
-
-## Privacy & permissions
-
-- All data stays in your browser. The project runs no server and contains no analytics or
-  tracking.
-- See the [privacy policy](./PRIVACY.md). Report security issues privately as described in
-  [SECURITY.md](./SECURITY.md).
-
----
-
-## Support
-
-PoeXD is free and open source. If it saves you time, you can support its development on the
-[support page](https://yehshune.github.io/support/).
-
----
-
-## Contributing
-
-Issues and pull requests are welcome. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) first.
-
----
-
-## Disclaimer & license
-
-- **Disclaimer**: this is an unofficial, community-made tool. It is not affiliated with, endorsed
-  by, or sponsored by Grinding Gear Games or Tencent. "Path of Exile" is a trademark of Grinding
-  Gear Games.
-- **License**: source code is released under the [MIT License](./LICENSE). Game data in
-  `public/json/` is © Grinding Gear Games and is not covered by the MIT License; see
-  [NOTICE](./NOTICE.md).
+- PoeXD is free and open source. If it saves you time, consider
+  [supporting development](https://yehshune.github.io/support/).
+- This is an unofficial community tool, not affiliated with or endorsed by Grinding Gear Games or
+  Tencent. "Path of Exile" is a trademark of Grinding Gear Games.
+- Source code is under the [MIT License](./LICENSE). Game data in `public/json/` is copyrighted by
+  Grinding Gear Games and is not covered by the MIT license; see [NOTICE](./NOTICE.md).
