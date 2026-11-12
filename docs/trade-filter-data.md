@@ -57,3 +57,30 @@ pnpm run filters:update -- --locale ja --locale ko --version poe2
 1. 顯示語系 → UI 語系 → en，逐一查找。
 2. UI 語系（en、zh-TW、zh-CN）隨程式打包，同步可用；其他語系在第一次需要時才載入，完成後觸發重新渲染。
 3. 檔案不存在的語系（例如尚未產生的 ko）只請求一次，之後直接退回。
+
+## 市集漢化資料
+
+市集漢化（ADR-0012）把國際服英文市集頁顯示成繁中或簡中，另有一組只給 `zh-TW`、`zh-CN` 的分片，由獨立腳本產生：
+
+```powershell
+pnpm run market:update
+```
+
+| 檔案                                                       | 來源                                                                                              |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `public/json/locales/<locale>/trade-ui.json`               | 官方介面字典 `webtw.poecdn.com/js/translate.zh_TW.js`、`poecdn.game.qq.com/js/translate.zh_CN.js` |
+| `public/json/<version>/locales/<locale>/trade-stats.json`  | 該服的 `/data/stats`                                                                              |
+| `public/json/<version>/locales/<locale>/trade-static.json` | 該服的 `/data/static`                                                                             |
+
+只更新部分語系或版本：
+
+```powershell
+pnpm run market:update -- --locale zh-CN --version poe2
+pnpm run market:update -- --skip-ui
+```
+
+- 國際服（en）的回應只用來篩選與驗證，不寫檔；中文分片只保留國際服存在的條目。
+- 介面字典只當資料解析（`__['鍵'] = '值';`），不執行；出現無法辨識的行就整份拒絕。官方未翻譯（值等於鍵）的條目略過。
+- stats 的同一個 id 可能出現多次且文字不同，這時依 API 出現順序存成陣列，出現次數與國際服不同就略過該 id；static 的 id 跨群組會重複，所以依群組分層。
+- 國服網域從海外連線時好時壞：介面字典會改試 `poe.game.qq.com`，stats / static 失敗時保留既有檔案，稍後重跑即可。
+- 欄位格式與涵蓋率見 `docs/architecture/market-translation-plan.md`。

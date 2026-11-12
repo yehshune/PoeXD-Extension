@@ -48,6 +48,8 @@ export const buildFiltersUrl = (locale, gameVersion) =>
 
 export const buildStatsUrl = (locale, gameVersion) => buildDataUrl(locale, gameVersion, 'stats');
 
+export const buildStaticUrl = (locale, gameVersion) => buildDataUrl(locale, gameVersion, 'static');
+
 const cleanText = (text) =>
   typeof text === 'string' ? text.split('​')[0].replace(/\s+/g, ' ').trim() : '';
 
