@@ -1,6 +1,6 @@
 import { chromium, test as base, type Browser, type Page } from '@playwright/test';
+import { resolveDevBrowserCdpUrl } from './cdp-endpoint';
 
-const CDP_URL = `http://127.0.0.1:${process.env.POEXD_CDP_PORT ?? 9222}`;
 const TRADE_SEARCH_URL = /pathofexile\.(com|tw)\/trade2?\/search\//;
 
 /** Cloudflare 驗證頁的特徵；遇到時請使用者在 dev 瀏覽器手動通過，不自動處理。 */
@@ -11,11 +11,12 @@ async function isCloudflareChallenge(page: Page): Promise<boolean> {
 }
 
 async function connect(): Promise<Browser> {
+  const cdpUrl = await resolveDevBrowserCdpUrl();
   try {
-    return await chromium.connectOverCDP(CDP_URL);
+    return await chromium.connectOverCDP(cdpUrl);
   } catch (error) {
     throw new Error(
-      `無法連上 ${CDP_URL}。請先執行 \`pnpm dev\` 並保持瀏覽器開啟。\n${String(error)}`,
+      `無法連上 ${cdpUrl}。請先執行 \`pnpm dev\` 並保持瀏覽器開啟。\n${String(error)}`,
     );
   }
 }
