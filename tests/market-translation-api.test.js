@@ -181,6 +181,53 @@ describe('buildStatsArtifact', () => {
     expect(artifact.stats['explicit.stat_2']).toEqual(['區域增加 #% 經驗值', '地圖增加 #% 經驗值']);
   });
 
+  it('該服缺少的 id 以其他類別同代碼、英文完全相同的譯名補上；英文不同則不補', () => {
+    const englishWithCategories = {
+      result: [
+        {
+          id: 'explicit',
+          label: 'Explicit',
+          entries: [
+            { id: 'explicit.stat_5|101', text: 'Allocates Paragon', type: 'explicit' },
+            { id: 'explicit.stat_6', text: '#% increased Spell Damage', type: 'explicit' },
+          ],
+        },
+        {
+          id: 'fractured',
+          label: 'Fractured',
+          entries: [
+            { id: 'fractured.stat_5|101', text: 'Allocates Paragon', type: 'fractured' },
+            {
+              id: 'fractured.stat_6',
+              text: '#% increased Spell Damage (Local)',
+              type: 'fractured',
+            },
+          ],
+        },
+      ],
+    };
+    const chinese = {
+      result: [
+        {
+          id: 'explicit',
+          label: '隨機屬性',
+          entries: [
+            { id: 'explicit.stat_5|101', text: '配置典範', type: 'explicit' },
+            { id: 'explicit.stat_6', text: '增加 #% 法術傷害', type: 'explicit' },
+          ],
+        },
+        { id: 'fractured', label: '破裂', entries: [] },
+      ],
+    };
+    const artifact = buildStatsArtifact(chinese, {
+      gameVersion: 'poe2',
+      locale: 'zh-TW',
+      englishResponse: englishWithCategories,
+    });
+    expect(artifact.stats['fractured.stat_5|101']).toBe('配置典範');
+    expect(artifact.stats['fractured.stat_6']).toBeUndefined();
+  });
+
   it('回應缺少 result 陣列時拒絕', () => {
     expect(() => buildStatsArtifact({}, { gameVersion: 'poe1', locale: 'en' })).toThrow(/result/);
   });

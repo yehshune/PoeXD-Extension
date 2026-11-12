@@ -147,6 +147,32 @@ const collectStatOccurrences = (response, label) => {
 
 const packOccurrences = (texts) => (texts.length === 1 ? texts[0] : texts);
 
+/** 去掉類別前綴的代碼（`fractured.stat_5|101` → `stat_5|101`） */
+const categorylessKey = (id) => id.slice(id.indexOf('.') + 1);
+
+/**
+ * 該服少收某些類別的條目（例如台服 PoE2 的破裂、工藝與「Allocates 天賦」），但同一代碼在其他類別有譯名。
+ * 只在英文文字（含出現次數）完全相同時沿用，英文不同（例如帶 (Local)）就不補，避免譯名錯位。
+ */
+const fillFromSiblingCategories = (stats, englishOccurrences) => {
+  const idsByKey = new Map();
+  for (const id of englishOccurrences.keys()) {
+    const key = categorylessKey(id);
+    idsByKey.set(key, [...(idsByKey.get(key) ?? []), id]);
+  }
+  for (const [id, englishTexts] of englishOccurrences) {
+    if (id in stats) continue;
+    const englishKey = JSON.stringify(englishTexts);
+    const sibling = (idsByKey.get(categorylessKey(id)) ?? []).find(
+      (candidate) =>
+        candidate !== id &&
+        candidate in stats &&
+        JSON.stringify(englishOccurrences.get(candidate)) === englishKey,
+    );
+    if (sibling) stats[id] = stats[sibling];
+  }
+};
+
 /**
  * stats API → `{ labels, stats, options }`。
  * 中文產物需要 en 回應：只保留國際服存在的 id，且同 id 出現次數必須與 en 一致才收（否則無法確定對應）。
@@ -163,6 +189,8 @@ export const buildStatsArtifact = (response, { gameVersion, locale, englishRespo
     }
     stats[id] = packOccurrences(texts);
   }
+
+  if (english) fillFromSiblingCategories(stats, english.occurrences);
 
   const options = {};
   for (const [id, entryOptions] of Object.entries(own.options)) {

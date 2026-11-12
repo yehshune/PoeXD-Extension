@@ -4,6 +4,7 @@ import { startMarketTranslationBridge } from '@/utils/market-translation-bridge'
 import { loadResultTranslatorData } from '@/utils/market-translation-assets';
 import { createResultTranslator } from '@/utils/market-result-translator';
 import { MARKET_TRANSLATION_MATCH_PATTERNS } from '@/utils/market-translation-protocol';
+import { markMarketTranslationActive } from '@/utils/market-translation';
 
 /**
  * 市集漢化 isolated world 腳本（ADR-0012）：讀偏好與擴充內建的翻譯分片，交給 MAIN world；
@@ -34,6 +35,7 @@ export default defineContentScript({
       },
       // 第 4 階段：結果列（詞綴、物品名、屬性標籤）在 isolated world 直接改 DOM 文字
       onPayload: (payload, version) => {
+        markMarketTranslationActive(document, payload);
         void loadResultTranslatorData(loadJson, {
           version,
           locale: payload.locale,

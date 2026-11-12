@@ -118,6 +118,10 @@ Extension**, without getting in the way of the official site.
 - **Personalization**: several themes, left or right sidebar, adjustable width and UI scale.
 - **Module toggles**: click the extension icon in the toolbar to turn individual trade page
   features on or off.
+- **Market Translation**: shows the international English Trade site (PoE 1 and PoE 2) in
+  Traditional or Simplified Chinese using each official realm's wording: interface, filters,
+  dropdowns and result rows (mods, item names). Only display text changes, so searches are
+  identical to the English site; an optional bilingual mode keeps English searchable.
 
 <p align="center">
   <img src="./docs/store/images/en/screenshot-5.jpg" width="80%" alt="Settings">

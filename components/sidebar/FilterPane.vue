@@ -647,6 +647,7 @@ import {
   resolveFallbackQuerySync,
 } from '@/utils/affix-lexicon';
 import { resolvePageLocale } from '@/utils/locale-resolution';
+import { readMarketDropdownLocale } from '@/utils/market-translation';
 import { getTradeMapping } from './mapping-registry';
 import { getAffinityProfile } from '@/utils/affinity-registry';
 import { useFilterData } from './composables/useFilterData';
@@ -1350,7 +1351,11 @@ export default defineComponent({
         });
         if (!silent) showToast(t('filterPane.toast.singleAdded', { text: displayText }));
       } else {
-        // 無官方 ID 則依網站語系 (pageLocale) 帶入 input
+        // 無官方 ID 則依網站語系 (pageLocale) 帶入 input；市集漢化只顯示中文時改用翻譯語系
+        const dropdownLocale = readMarketDropdownLocale(document);
+        const localeInput = dropdownLocale
+          ? { hostname: window.location.hostname, htmlLang: dropdownLocale }
+          : undefined;
         const emitFallback = (fallbackQuery: string) => {
           dispatchPoeEvent('poexd-add-stat-filter', {
             statId: null,
@@ -1360,18 +1365,20 @@ export default defineComponent({
           });
           if (!silent) {
             const toastTemplate =
-              resolvePageLocale() === 'en'
+              resolvePageLocale(localeInput) === 'en'
                 ? t('filterPane.toast.unmatchedEn', { query: fallbackQuery })
                 : t('filterPane.toast.unmatchedSite', { query: fallbackQuery });
             showToast(toastTemplate);
           }
         };
 
-        const syncFallback = resolveFallbackQuerySync(version, mod, matchKey);
+        const syncFallback = resolveFallbackQuerySync(version, mod, matchKey, localeInput);
         if (syncFallback !== null) {
           emitFallback(syncFallback);
         } else {
-          void resolveFallbackQueryForUnmatchedMod(version, mod, matchKey).then(emitFallback);
+          void resolveFallbackQueryForUnmatchedMod(version, mod, matchKey, localeInput).then(
+            emitFallback,
+          );
         }
       }
     };

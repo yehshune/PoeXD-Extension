@@ -40,3 +40,21 @@ export function resolveMarketTranslationLocale(
 export function getMarketUiAssetPath(locale: MarketTranslationLocale): string {
   return `json/locales/${locale}/trade-ui.json`;
 }
+
+/**
+ * 官網下拉選單實際可搜尋的語系，由 isolated world 在 payload 生效時標記在 `<html>` 上，
+ * 讓側欄的退回查詢（找不到官方 ID 時把文字填進下拉）用頁面上真正顯示的文字。
+ * 中英並列時英文仍搜得到，不標記；標記反映本頁開啟時的狀態，偏好之後改變要重新整理才更新。
+ */
+export function markMarketTranslationActive(
+  doc: Document,
+  state: { locale: MarketTranslationLocale; bilingual: boolean },
+): void {
+  if (state.bilingual) return;
+  doc.documentElement.dataset.poexdMarketDropdownLocale = state.locale;
+}
+
+export function readMarketDropdownLocale(doc: Document): MarketTranslationLocale | null {
+  const value = doc.documentElement?.dataset.poexdMarketDropdownLocale;
+  return value && isMarketTranslationLocale(value) ? value : null;
+}
