@@ -5,6 +5,7 @@ import { applyThemeToHost } from '@/lib/theme/theme-runtime';
 import { DEFAULT_THEME_ID, THEME_ATTRIBUTE } from '@/lib/theme/theme-contract';
 import { findThemeHost } from '@/lib/theme/page-theme-bridge';
 import { syncUiRuntimeTokens } from '@/lib/tokens';
+import { appendShadowHostStyle } from './shadow-host-style';
 
 const DEFAULT_TOAST_DURATION = 3000;
 
@@ -186,9 +187,10 @@ export function initToastHost(
         name: 'poexd-toast-container',
         position: 'inline',
         anchor: 'body',
-        css: hostCss,
         onMount: (container: HTMLElement, shadow: ShadowRoot, host: HTMLElement) => {
           if (disposed) return;
+          // 宿主樣式另外注入，讓 WXT 主樣式與側欄完全相同而共用解析結果（見 shadow-host-style.ts）
+          appendShadowHostStyle(shadow, hostCss);
           return onMount(container, shadow, host);
         },
         onRemove: () => {

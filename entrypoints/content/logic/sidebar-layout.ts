@@ -13,6 +13,7 @@ import type { LiveSearchBookmarkController } from './live-search-bookmark-contro
 import type { LiveSearchResumeController } from './live-search-resume-controller';
 import { syncUiRuntimeTokens } from '@/lib/tokens';
 import { applyThemeToHost } from '@/lib/theme/theme-runtime';
+import { appendShadowHostStyle } from './shadow-host-style';
 
 const POEXD_HOST_Z_INDEX = '2147483647';
 
@@ -42,11 +43,8 @@ export async function mountSidebarLayout(
     (document.head || document.documentElement).appendChild(layoutStyle);
   }
 
-  const ui = await createShadowRootUi(ctx, {
-    name: 'poexd-sidebar-container',
-    position: 'inline',
-    anchor: 'body',
-    css: `
+  // 宿主樣式另外注入，讓 WXT 主樣式與 toast 完全相同而共用解析結果（見 shadow-host-style.ts）
+  const hostCss = `
       :host {
         display: block !important;
         position: fixed !important;
@@ -58,8 +56,14 @@ export async function mountSidebarLayout(
         width: var(--poexd-host-width, 380px) !important;
         height: var(--poexd-host-height, 100vh) !important;
       }
-    `,
-    onMount: (container: HTMLElement) => {
+    `;
+
+  const ui = await createShadowRootUi(ctx, {
+    name: 'poexd-sidebar-container',
+    position: 'inline',
+    anchor: 'body',
+    onMount: (container: HTMLElement, shadow: ShadowRoot) => {
+      appendShadowHostStyle(shadow, hostCss);
       container.style.width = '100%';
       container.style.height = '100%';
       container.style.fontFamily = "'Microsoft JhengHei', '微軟正黑體', sans-serif";
