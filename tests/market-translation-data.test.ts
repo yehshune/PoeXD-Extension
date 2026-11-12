@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  expandKnownItemFilters,
   getTradeDataKind,
   localizeTradeData,
   type MarketTradeDictionary,
@@ -230,6 +231,106 @@ describe('localizeTradeData（data API 改寫）', () => {
     expect(localizeTradeData('stats', weird, DICTIONARY, { bilingual: false })).toBe(weird);
     expect(localizeTradeData('stats', STATS_RESPONSE, {}, { bilingual: false })).toBe(
       STATS_RESPONSE,
+    );
+  });
+});
+
+// 取自 2026-11-12 台服 filters API（最後通牒）與國際服 items API 的形狀
+describe('expandKnownItemFilters', () => {
+  const FILTERS = {
+    result: [
+      {
+        id: 'ultimatum_filters',
+        title: '最後通牒',
+        filters: [
+          {
+            id: 'ultimatum_reward',
+            text: '獎勵類型',
+            option: {
+              options: [
+                { id: null, text: '任何' },
+                { id: 'ExchangeUnique', text: '傳奇物品' },
+              ],
+            },
+          },
+          {
+            id: 'ultimatum_input',
+            text: '需求物品',
+            fullSpan: true,
+            option: { knownItem: { uniques: true, cards: true, currency: true } },
+          },
+          {
+            id: 'ultimatum_output',
+            text: '傳奇獎勵',
+            fullSpan: true,
+            option: { knownItem: { uniques: true } },
+          },
+        ],
+      },
+    ],
+  };
+  const ITEMS = {
+    result: [
+      {
+        id: 'accessory',
+        entries: [
+          {
+            name: "Abberath's Horn",
+            type: 'Goat Horn',
+            text: "Abberath's Horn Goat Horn",
+            flags: { unique: true },
+          },
+          { name: "Abberath's Horn", type: 'Goat Horn', flags: { unique: true } },
+          { type: 'Goat Horn' },
+          { name: 'Actum', type: 'Butcher Axe', flags: { unique: true } },
+        ],
+      },
+      { id: 'card', entries: [{ type: 'The Doctor' }] },
+      { id: 'currency', entries: [{ type: 'Chaos Orb', text: 'Chaos Orb' }] },
+    ],
+  };
+  const DICT: MarketTradeDictionary = {
+    items: { "abberath's horn": '艾貝拉斯之角', 'the doctor': '醫生', 'chaos orb': '混沌石' },
+    ui: { Any: '任何' },
+  };
+
+  it('傳奇以英文 name 為 id、顯示譯名；命運卡與通貨以 type 為 id；開頭補「任何」', () => {
+    const result = expandKnownItemFilters(FILTERS, ITEMS, DICT, { bilingual: false }) as any;
+    const [reward, input, output] = result.result[0].filters;
+    expect(reward).toBe(FILTERS.result[0].filters[0]);
+    expect(output.option).toEqual({
+      options: [
+        { id: null, text: '任何' },
+        { id: "Abberath's Horn", text: '艾貝拉斯之角' },
+        { id: 'Actum', text: 'Actum' },
+      ],
+    });
+    expect(output.fullSpan).toBe(true);
+    expect(input.option.options.map((option: any) => option.id)).toEqual([
+      null,
+      "Abberath's Horn",
+      'Actum',
+      'The Doctor',
+      'Chaos Orb',
+    ]);
+    expect(input.option.options.slice(3).map((option: any) => option.text)).toEqual([
+      '醫生',
+      '混沌石',
+    ]);
+    expect(FILTERS.result[0].filters[2].option).toEqual({ knownItem: { uniques: true } });
+  });
+
+  it('雙語時顯示「中文 (English)」', () => {
+    const result = expandKnownItemFilters(FILTERS, ITEMS, DICT, { bilingual: true }) as any;
+    expect(result.result[0].filters[2].option.options[1].text).toBe(
+      "艾貝拉斯之角 (Abberath's Horn)",
+    );
+  });
+
+  it('items 形狀不符時原樣回傳', () => {
+    expect(expandKnownItemFilters(FILTERS, null, DICT, { bilingual: false })).toBe(FILTERS);
+    expect(expandKnownItemFilters(FILTERS, { result: [] }, DICT, { bilingual: false })).toBe(
+      FILTERS,
     );
   });
 });

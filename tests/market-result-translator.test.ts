@@ -119,7 +119,7 @@ const LABEL_ROW = `
   <div class="item-popup__sec-desc-text"><span class="lc">Launches a series of fireballs.</span></div>
   <div class="item-mod item-mod--utility"><span class="lc"><span>+40% to Cold Resistance</span></span><span class="lc l"><span class="d">[40]</span></span></div>
   <div><span class="lc">Corrupted</span></div>
-</div><div class="itemPopupAdditional"><span data-field="dps" class="s lc">DPS<span class="colourAugmented">91.88</span></span></div>
+</div><div class="itemPopupAdditional"><span data-field="dps" class="s lc">DPS<span class="colourAugmented" title="at max Quality">91.88</span></span></div>
 </div></div>
 <div class="right"><div class="details">
   <div class="price"><span data-field="price"><span class="price-label fixed-price">Exact Price:</span>&nbsp;<span>1</span></span>
@@ -141,6 +141,7 @@ const LABEL_DATA: ResultTranslatorData = {
     'Launches a series of fireballs.': '發射一連串火球。',
     Corrupted: '已汙染',
     DPS: '每秒傷害',
+    'at max Quality': '最高品質',
     'Exact Price:': '不二價:',
     Fee: '費用',
     Offline: '不在線上',
@@ -287,6 +288,9 @@ describe('createResultTranslator：結果列標籤', () => {
       '已汙染',
     );
     expect(document.querySelector('[data-field="dps"]')?.textContent).toBe('每秒傷害91.88');
+    expect(
+      document.querySelector('[data-field="dps"] .colourAugmented')?.getAttribute('title'),
+    ).toBe('最高品質');
     expect(texts('.price-label')).toEqual(['不二價:', '費用:']);
     expect(document.querySelector('.status')?.textContent).toBe('不在線上');
     expect(document.querySelector('.ignore-btn')?.textContent).toBe('黑名單流亡者');
@@ -333,6 +337,18 @@ describe('createResultTranslator：結果列標籤', () => {
     createResultTranslator(LABEL_DATA).translate(document.body);
     expect(byId('cast').textContent).toBe('施放時間: 0.80 秒');
     expect(byId('has').textContent).toBe('目前有 0 充能次數');
+    expect(document.querySelector('.colourAugmented')?.getAttribute('title')).toBe('最高品質');
+  });
+
+  it('observe：官網把數值提示換回英文時再翻一次', async () => {
+    document.body.innerHTML = LABEL_ROW;
+    const stop = createResultTranslator(LABEL_DATA).observe(document.body);
+    const value = document.querySelector('.colourAugmented')!;
+    expect(value.getAttribute('title')).toBe('最高品質');
+    value.setAttribute('title', 'at max Quality');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(value.getAttribute('title')).toBe('最高品質');
+    stop();
   });
 
   it('重繪換回英文時整行模板重新套用', () => {

@@ -178,6 +178,88 @@ function localizeItems(data: { result: Json[] }, items: TextMap, bilingual: bool
   };
 }
 
+/** 官網 knownItem.uniques 收集傳奇名的類別（與官網篩選器元件相同） */
+const UNIQUE_CATEGORIES = ['weapon', 'armour', 'accessory', 'gem', 'jewel', 'flask', 'map'];
+
+/**
+ * 官網把 `option.knownItem` 欄位（最後通牒的需求物品、傳奇獎勵）的選項在執行期由 items API 組出：
+ * 傳奇以 `name` 同時當 id 與顯示文字，所以改寫 items 的 `text` 翻不到。這裡依同樣規則預先展開成
+ * `option.options`，id 不變（傳奇為英文 name，命運卡與通貨為 type），只換顯示文字。
+ * items 形狀不符時原樣回傳。
+ */
+export function expandKnownItemFilters(
+  filtersData: unknown,
+  itemsData: unknown,
+  dictionary: MarketTradeDictionary,
+  options: LocalizeOptions,
+): unknown {
+  if (!hasResultArray(filtersData) || !hasResultArray(itemsData)) return filtersData;
+  const items = dictionary.items ?? {};
+  const category = (id: string): Json[] => {
+    const entries = itemsData.result.find((group) => group.id === id)?.entries;
+    return Array.isArray(entries) ? entries.filter(isRecord) : [];
+  };
+  const uniques = () => {
+    const seen = new Set<string>();
+    const result: Json[] = [];
+    for (const id of UNIQUE_CATEGORIES) {
+      for (const entry of category(id)) {
+        const name = entry.name;
+        if (!entry.flags?.unique || typeof name !== 'string' || !name || seen.has(name)) continue;
+        seen.add(name);
+        result.push({
+          id: name,
+          text: combine(items[name.toLowerCase()], name, options.bilingual),
+        });
+      }
+    }
+    return result;
+  };
+  const byType = (id: string) =>
+    category(id)
+      .filter((entry) => typeof entry.type === 'string')
+      .map((entry) => {
+        const english = typeof entry.text === 'string' ? entry.text : entry.type;
+        return {
+          id: entry.type,
+          text: combine(itemText(entry, items), english, options.bilingual),
+        };
+      });
+  const anyText = dictionary.ui?.Any ?? 'Any';
+
+  let changed = false;
+  const result = filtersData.result.map((group) => {
+    if (!Array.isArray(group.filters)) return group;
+    return {
+      ...group,
+      filters: group.filters.map((filter: Json) => {
+        const known = isRecord(filter) ? filter.option?.knownItem : undefined;
+        if (!isRecord(known)) return filter;
+        const list: Json[] = [];
+        const ids = new Set<unknown>();
+        const add = (entries: Json[]) => {
+          for (const entry of entries) {
+            if (ids.has(entry.id)) continue;
+            ids.add(entry.id);
+            list.push(entry);
+          }
+        };
+        if (known.uniques) add(uniques());
+        if (known.cards) add(byType('card'));
+        if (known.currency) add(byType('currency'));
+        if (!list.length) return filter;
+        changed = true;
+        const { knownItem: _knownItem, ...option } = filter.option;
+        return {
+          ...filter,
+          option: { ...option, options: [{ id: null, text: anyText }, ...list] },
+        };
+      }),
+    };
+  });
+  return changed ? { ...filtersData, result } : filtersData;
+}
+
 export function localizeTradeData(
   kind: TradeDataKind,
   data: unknown,

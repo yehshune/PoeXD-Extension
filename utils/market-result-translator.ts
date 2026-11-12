@@ -64,8 +64,9 @@ const TARGET_SELECTOR = [
   TIME_SELECTOR,
   LABEL_SELECTOR,
 ].join(', ');
+const OWN_NODE_SELECTOR = '[class*="poexd"]';
 /** 我們自己插入的節點（價格比較等）不翻譯 */
-const SKIP_SELECTOR = `${STAT_SELECTOR}, [class*="poexd"]`;
+const SKIP_SELECTOR = `${STAT_SELECTOR}, ${OWN_NODE_SELECTOR}`;
 /** `stat.<category>.<id>`；id 可能是 `stat_<hash>`、`stat_<hash>|<option>` 或技能代碼 */
 const STAT_FIELD = /^stat\.([a-z_]+\.(\S+))$/;
 const STAT_HASH = /^stat_(\d+)$/;
@@ -75,6 +76,14 @@ const MOD_PLACEHOLDER = /\{\d+:\+?[dn]\}/g;
 const MOD_NUMBER = /[+-]?\d+(?:\.\d+)?/g;
 
 /** 節點在 root 內部是否屬於要略過的區塊（root 外層的祖先不算） */
+/** target（含）到 root（含）之間有我們自己插入的節點；root 外層不看 */
+function isInsideOwnNode(target: Element, root: Element): boolean {
+  for (let el: Element | null = target; el && el !== root.parentElement; el = el.parentElement) {
+    if (el.matches(OWN_NODE_SELECTOR)) return true;
+  }
+  return false;
+}
+
 function isSkipped(node: Text, root: Element): boolean {
   for (let el = node.parentElement; el && el !== root.parentElement; el = el.parentElement) {
     if (el.matches(SKIP_SELECTOR)) return true;
@@ -171,6 +180,17 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
     for (const node of textNodesOf(element)) {
       if (isSkipped(node, element)) continue;
       replace(node, (text) => keepPadding(text, lookup.translateText));
+    }
+  };
+
+  /** 數值的滑鼠提示（例如 DPS 數值的「at max Quality」）；譯文不含英文字母，重跑不會再寫 */
+  const translateTitles = (element: Element) => {
+    const targets = [element, ...Array.from(element.querySelectorAll('[title]'))];
+    for (const target of targets) {
+      const title = target.getAttribute('title');
+      if (!title || isInsideOwnNode(target, element)) continue;
+      const translated = keepPadding(title, lookup.translateText);
+      if (translated && translated !== title) target.setAttribute('title', translated);
     }
   };
 
@@ -310,6 +330,7 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
       translateTime(element);
     } else if (element.matches(LABEL_SELECTOR)) {
       translateNodes(element);
+      translateTitles(element);
     }
   };
 
@@ -332,6 +353,10 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
         if (record.type === 'characterData') {
           const target = record.target.parentElement?.closest(TARGET_SELECTOR);
           if (target) pending.add(target);
+        } else if (record.type === 'attributes') {
+          // 官網重繪把 title 換回英文
+          const target = (record.target as Element).closest?.(TARGET_SELECTOR);
+          if (target) pending.add(target);
         } else {
           record.addedNodes.forEach((node) => {
             if (node instanceof Element) pending.add(node);
@@ -351,6 +376,8 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
       childList: true,
       subtree: true,
       characterData: true,
+      attributes: true,
+      attributeFilter: ['title'],
     });
     if (root instanceof Element || root instanceof Document) translate(root);
     return () => observer.disconnect();

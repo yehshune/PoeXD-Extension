@@ -221,6 +221,47 @@ describe('wrapFetchWithGate：data API 改寫', () => {
     }
   });
 
+  it('filters 的 knownItem 欄位以 items 展開；items 只送一次請求並與官網共用', async () => {
+    const filters = {
+      result: [
+        {
+          id: 'ultimatum_filters',
+          filters: [{ id: 'ultimatum_output', option: { knownItem: { uniques: true } } }],
+        },
+      ],
+    };
+    const items = {
+      result: [
+        {
+          id: 'weapon',
+          entries: [{ name: 'Actum', type: 'Butcher Axe', flags: { unique: true } }],
+        },
+      ],
+    };
+    const calls: string[] = [];
+    const win = {
+      location: { href: 'https://www.pathofexile.com/trade/search/Standard' },
+      fetch: vi.fn(async (input: RequestInfo | URL) => {
+        calls.push(String(input));
+        return new Response(JSON.stringify(String(input).endsWith('/items') ? items : filters));
+      }),
+    } as unknown as Window;
+    const gate = createPayloadGate(1500);
+    wrapFetchWithGate(win, gate);
+    gate.settle({ ...payload, bilingual: false, data: { items: { actum: '阿克頓' } } });
+
+    const [filtersBody, itemsBody] = await Promise.all([
+      win.fetch('/api/trade/data/filters').then((response) => response.json()),
+      win.fetch('/api/trade/data/items').then((response) => response.json()),
+    ]);
+    expect(filtersBody.result[0].filters[0].option.options).toEqual([
+      { id: null, text: 'Any' },
+      { id: 'Actum', text: '阿克頓' },
+    ]);
+    expect(itemsBody.result[0].entries[0].name).toBe('Actum');
+    expect(calls.filter((call) => call.endsWith('/items'))).toHaveLength(1);
+  });
+
   it('其他請求不改寫', async () => {
     const original = new Response(JSON.stringify(STATS_BODY));
     const win = windowWithResponse(() => original);

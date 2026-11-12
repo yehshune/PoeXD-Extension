@@ -11,7 +11,12 @@
  * 只改頁面記憶體，不寫入官網的 localStorage / cookie，也不改送往 API 的請求內容。
  * 這支在頁面環境執行，只能 import 不依賴擴充 API 的模組。
  */
-import { getTradeDataKind, localizeTradeData, type TradeDataKind } from './market-translation-data';
+import {
+  expandKnownItemFilters,
+  getTradeDataKind,
+  localizeTradeData,
+  type TradeDataKind,
+} from './market-translation-data';
 import {
   createRequestMessage,
   isMarketTranslationMessage,
@@ -33,6 +38,18 @@ export function getTradeDataRequestKind(
   }
 }
 
+/** 請求的 origin + pathname（共用 items 回應的鍵）；無法解析時回傳 null */
+function requestUrl(input: RequestInfo | URL, baseHref: string): string | null {
+  try {
+    const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input?.url;
+    if (!raw) return null;
+    const url = new URL(raw, baseHref);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return null;
+  }
+}
+
 export function isTradeDataRequest(input: RequestInfo | URL, baseHref: string): boolean {
   return getTradeDataRequestKind(input, baseHref) !== null;
 }
@@ -45,16 +62,19 @@ async function localizeResponse(
   response: Response,
   kind: TradeDataKind,
   payload: MarketTranslationPayload | null,
+  loadItems?: () => Promise<unknown>,
 ): Promise<Response> {
   if (!payload?.data || !response.ok) return response;
   try {
     const original: unknown = await response.clone().json();
-    const localized = localizeTradeData(
-      kind,
-      original,
-      { ...payload.data, ui: payload.ui },
-      { bilingual: payload.bilingual },
-    );
+    const dictionary = { ...payload.data, ui: payload.ui };
+    const options = { bilingual: payload.bilingual };
+    let localized = localizeTradeData(kind, original, dictionary, options);
+    if (kind === 'filters' && loadItems) {
+      // items 讀不到時 knownItem 欄位維持官網原本的英文選項
+      const items = await loadItems().catch(() => null);
+      localized = expandKnownItemFilters(localized, items, dictionary, options);
+    }
     if (localized === original) return response;
     const headers = new Headers(response.headers);
     headers.delete('content-length');
@@ -109,12 +129,37 @@ export function wrapFetchWithGate(win: Window, gate: PayloadGate): () => void {
   const originalFetch = win.fetch;
   if (typeof originalFetch !== 'function') return () => {};
 
+  // items 回應由官網與 filters 改寫共用（knownItem 選項要用 items 展開），只送一次請求；
+  // 每個使用者各取一份 clone，原回應本體不讀。
+  const sharedItems = new Map<string, Promise<Response>>();
+  const fetchItems = (url: string, send: () => Promise<Response>) => {
+    let pending = sharedItems.get(url);
+    if (!pending) {
+      pending = send();
+      sharedItems.set(url, pending);
+      pending.catch(() => sharedItems.delete(url));
+    }
+    return pending.then((response) => response.clone());
+  };
+
   const gatedFetch = async function (this: unknown, ...args: Parameters<typeof fetch>) {
     const kind = getTradeDataRequestKind(args[0], win.location.href);
     if (!kind) return originalFetch.apply(this, args);
     const payload = await gate.wait();
+    const url = requestUrl(args[0], win.location.href);
+    if (kind === 'items' && url) {
+      const response = await fetchItems(url, () => originalFetch.apply(this, args));
+      return localizeResponse(response, kind, payload);
+    }
     const response = await originalFetch.apply(this, args);
-    return localizeResponse(response, kind, payload);
+    const itemsUrl = kind === 'filters' && url ? url.replace(/\/filters$/, '/items') : null;
+    const loadItems = itemsUrl
+      ? () =>
+          fetchItems(itemsUrl, () => originalFetch.call(win, itemsUrl)).then((items) =>
+            items.ok ? items.json() : null,
+          )
+      : undefined;
+    return localizeResponse(response, kind, payload, loadItems);
   };
   win.fetch = gatedFetch as typeof fetch;
   return () => {
