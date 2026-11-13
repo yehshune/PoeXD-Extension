@@ -42,7 +42,7 @@ const emit = defineEmits<{
           <div
             v-if="getTierParts(item).tag"
             data-tier-action="tune"
-            class="text-[length:var(--pxd-font-caption)] font-mono font-medium transition-colors select-none px-[var(--pxd-space-xs)] py-0.5 rounded text-left"
+            class="text-[length:var(--pxd-font-secondary)] font-mono font-medium transition-colors select-none px-[var(--pxd-space-xs)] py-0.5 rounded text-left"
             :class="[
               getTierParts(item).tag.includes('Lv') ? 'min-w-[76px]' : 'min-w-[32px]',
               isTierSelected(item)
@@ -63,7 +63,7 @@ const emit = defineEmits<{
           <div
             v-else
             data-tier-action="tune"
-            class="text-[length:var(--pxd-font-caption)] font-mono font-medium text-foreground select-none px-[var(--pxd-space-xs)] py-0.5"
+            class="text-[length:var(--pxd-font-secondary)] font-mono font-medium text-foreground select-none px-[var(--pxd-space-xs)] py-0.5"
           >
             {{ item.label }}
           </div>
@@ -72,7 +72,7 @@ const emit = defineEmits<{
         <!-- 2. 三段式數值按鈕組: [ 最小 ] [ ~ ] [ 最大 ] (原生按鈕，阻止冒泡以獨立快捷套用) -->
         <div
           v-if="getTierValues(item).min || getTierValues(item).max"
-          class="inline-flex items-center ml-auto shrink-0 select-none font-mono text-[length:var(--pxd-font-caption)]"
+          class="inline-flex items-center ml-auto shrink-0 select-none font-mono text-[length:var(--pxd-font-secondary)]"
           @click.stop
         >
           <div

@@ -16,7 +16,7 @@ const emit = defineEmits<{
 <template>
   <div
     data-slot="tier-tuning-bar"
-    class="flex items-center justify-between gap-[var(--pxd-space-xs)] px-[var(--pxd-space-xs)] py-[var(--pxd-space-xs)] bg-muted/40 border-b border-border/50 text-[length:var(--pxd-font-micro)] select-none shrink-0"
+    class="flex items-center justify-between gap-[var(--pxd-space-xs)] px-[var(--pxd-space-xs)] py-[var(--pxd-space-xs)] bg-muted/40 border-b border-border/50 text-[length:var(--pxd-font-secondary)] select-none shrink-0"
     @click.stop
   >
     <span class="text-muted-foreground shrink-0 font-medium">{{ t('tierDropdown.tuning') }}</span>
@@ -25,7 +25,7 @@ const emit = defineEmits<{
         :value="min"
         type="text"
         :placeholder="t('tierDropdown.minPlaceholder')"
-        class="w-[52px] h-[22px] px-[var(--pxd-space-xs)] text-center font-mono text-[length:var(--pxd-font-caption)] bg-background text-foreground border border-border rounded focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
+        class="w-[52px] h-[24px] px-[var(--pxd-space-xs)] text-center font-mono text-[length:var(--pxd-font-secondary)] bg-background text-foreground border border-border rounded focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
         @input="emit('update:min', ($event.target as HTMLInputElement).value)"
         @keydown.stop
         @keyup.enter="emit('apply')"
@@ -35,7 +35,7 @@ const emit = defineEmits<{
         :value="max"
         type="text"
         :placeholder="t('tierDropdown.maxPlaceholder')"
-        class="w-[52px] h-[22px] px-[var(--pxd-space-xs)] text-center font-mono text-[length:var(--pxd-font-caption)] bg-background text-foreground border border-border rounded focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
+        class="w-[52px] h-[24px] px-[var(--pxd-space-xs)] text-center font-mono text-[length:var(--pxd-font-secondary)] bg-background text-foreground border border-border rounded focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
         @input="emit('update:max', ($event.target as HTMLInputElement).value)"
         @keydown.stop
         @keyup.enter="emit('apply')"
@@ -44,7 +44,7 @@ const emit = defineEmits<{
     <button
       type="button"
       data-slot="tuning-apply-btn"
-      class="h-[22px] px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] bg-primary text-primary-foreground font-medium rounded hover:bg-primary/90 focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden cursor-pointer shrink-0 transition-colors"
+      class="h-[24px] px-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] bg-primary text-primary-foreground font-medium rounded hover:bg-primary/90 focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden cursor-pointer shrink-0 transition-colors"
       :title="t('tierDropdown.applyTitle')"
       @click="emit('apply')"
     >

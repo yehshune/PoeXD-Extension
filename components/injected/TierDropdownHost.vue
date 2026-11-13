@@ -257,7 +257,7 @@ function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpe
             class="w-[var(--pxd-menu-sub-width,192px)] max-w-[45vw] shrink-0 min-h-0 flex flex-col gap-[var(--pxd-space-xs)] border-r border-border/50 pr-[var(--pxd-space-xs)]"
           >
             <div
-              class="px-[var(--pxd-space-xs)] py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-muted-foreground shrink-0 select-none"
+              class="px-[var(--pxd-space-xs)] py-0.5 text-[length:var(--pxd-font-secondary)] font-medium text-muted-foreground shrink-0 select-none"
             >
               {{ t('tierDropdown.switchModGroup') }}
             </div>
