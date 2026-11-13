@@ -4,6 +4,8 @@ status: accepted
 
 # Market Translation renders the international Trade site in Chinese from official realm data
 
+> Data generation for this decision now lives entirely in poexd-data; see ADR-0013.
+
 We add **Market Translation (市集漢化)**: on the international English Trade site (`www.pathofexile.com/trade` and `/trade2`, PoE 1 and PoE 2) the official page's own interface, dropdowns, filters and result rows are shown in Traditional or Simplified Chinese, each using the wording of its own official realm (Taiwan `pathofexile.tw`, China `poe.game.qq.com`). It is a global on/off Preference (`marketTranslation`, default off) whose target language is the resolved Display Locale (ADR-0011); it is active only when that resolves to `zh-TW` or `zh-CN`, and it never runs on the Taiwan, China or other localized realms, whose pages are already localized. Every translation is **display-only**: values the official site sends back to the Trade API (`type`, `name`, stat `id`, option `id`) are never changed, so searches, search IDs, Bookmarks and LiveSearch stay byte-identical to an untranslated page.
 
 The official front end (verified on 2026-11-12, Vue 3 bundle `trade.*.js`) gives us four injection points, and each layer uses the most authoritative official source:

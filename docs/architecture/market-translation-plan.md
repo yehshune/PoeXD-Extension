@@ -27,14 +27,14 @@
 
 全部由更新腳本從官方來源產生，不手寫譯名。只有 `zh-TW`、`zh-CN` 會產出 Market Translation 專用檔。
 
-| 檔案                                                       | 內容                                                                                                                                       | 來源                                 | 產生方式                                                                                                                                                               |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `public/json/locales/<locale>/trade-ui.json`               | `{ schemaVersion, locale, source, strings: { [englishKey]: text } }`                                                                       | 兩服的 `translate.*.js`              | `pnpm market:update`；以嚴格正規式解析 `__['k'] = 'v';`，不 eval，遇到無法辨識的行就整份拒絕；官方未翻譯（值等於鍵）的條目略過                                         |
-| `public/json/<version>/locales/<locale>/trade-stats.json`  | `{ schemaVersion, gameVersion, locale, source, labels, stats: { [statId]: text 或 text[] }, options: { [statId]: { [optionId]: text } } }` | 該服的 `/data/stats`                 | `pnpm market:update`；只留國際服存在的 id。同一 id 在 API 裡可能出現多次且文字不同（例如 Area / Map 兩種說法），此時依出現順序存成陣列；出現次數與國際服不同就整筆略過 |
-| `public/json/<version>/locales/<locale>/trade-static.json` | `{ schemaVersion, gameVersion, locale, source, labels, entries: { [groupId]: { [entryId]: text } } }`                                      | 該服的 `/data/static`                | `pnpm market:update`；static 的 id 跨群組會重複，所以依群組分層                                                                                                        |
-| `trade-filters.json`（既有）                               | filters 群組、欄位、選項                                                                                                                   | 該服的 `/data/filters`               | 不變（`pnpm filters:update`）                                                                                                                                          |
-| `items.json`（既有）                                       | 以索引對齊的物品名                                                                                                                         | poexd-data（zh-CN 取自國服交易資料） | 不變；執行期以英文名查索引                                                                                                                                             |
-| poexd-data：詞綴變體                                       | 每個 stat 的所有 CSD 變體（英文模板與譯文模板成對、含條件）                                                                                | `stat_descriptions.csd`              | poexd-data 新增輸出；第 4 階段使用                                                                                                                                     |
+| 檔案                                                       | 內容                                                                                                                                       | 來源                                 | 產生方式                                                                                                                                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `public/json/locales/<locale>/trade-ui.json`               | `{ schemaVersion, locale, source, strings: { [englishKey]: text } }`                                                                       | 兩服的 `translate.*.js`              | poexd-data `market` 批次；以嚴格正規式解析 `__['k'] = 'v';`，不 eval，遇到無法辨識的行就整份拒絕；官方未翻譯（值等於鍵）的條目略過                                         |
+| `public/json/<version>/locales/<locale>/trade-stats.json`  | `{ schemaVersion, gameVersion, locale, source, labels, stats: { [statId]: text 或 text[] }, options: { [statId]: { [optionId]: text } } }` | 該服的 `/data/stats`                 | poexd-data `market` 批次；只留國際服存在的 id。同一 id 在 API 裡可能出現多次且文字不同（例如 Area / Map 兩種說法），此時依出現順序存成陣列；出現次數與國際服不同就整筆略過 |
+| `public/json/<version>/locales/<locale>/trade-static.json` | `{ schemaVersion, gameVersion, locale, source, labels, entries: { [groupId]: { [entryId]: text } } }`                                      | 該服的 `/data/static`                | poexd-data `market` 批次；static 的 id 跨群組會重複，所以依群組分層                                                                                                        |
+| `trade-filters.json`（既有）                               | filters 群組、欄位、選項                                                                                                                   | 該服的 `/data/filters`               | poexd-data `trade-filters` 批次                                                                                                                                            |
+| `items.json`（既有）                                       | 以索引對齊的物品名                                                                                                                         | poexd-data（zh-CN 取自國服交易資料） | 不變；執行期以英文名查索引                                                                                                                                                 |
+| poexd-data：詞綴變體                                       | 每個 stat 的所有 CSD 變體（英文模板與譯文模板成對、含條件）                                                                                | `stat_descriptions.csd`              | poexd-data 新增輸出；第 4 階段使用                                                                                                                                         |
 
 `<locale>` 只有 `zh-TW`、`zh-CN`。國際服（en）的 stats / static 回應只用來篩選與驗證，不寫檔：第 3 階段改寫的是執行期拿到的國際服回應本身，不需要另存英文。第 4 階段若需要英文模板反解數值，再決定由 poexd-data 的詞綴變體提供，或另外產出 en 分片。
 
@@ -66,6 +66,8 @@
 - 冷啟動情境（先停用 service worker 再開頁）尚未量測，留到第 2 階段的 e2e 補上。
 
 ### 第 1 階段：資料管線
+
+> 2026-11-13 起這些腳本已移到 poexd-data（`src/trade/`），擴充端以 `pnpm data:sync` 同步，見 ADR-0013。以下保留當時的紀錄。
 
 - [x] `scripts/market-translation-api.mjs`：介面字典解析、stats / static 產物與驗證（條目下限；與 en 相同的比例超過 50% 時視為網域回傳英文而拒絕）。單元測試在 `tests/market-translation-api.test.js`。
 - [x] `scripts/update-market-translation.mjs` 與 `pnpm market:update`：獨立於 `filters:update`。en 失敗時整批不寫入，其他語系失敗時保留既有檔案，最後以 `replaceFilesWithRollback` 一次寫入。國服字典先試 `poecdn.game.qq.com`，失敗改用內容相同的 `poe.game.qq.com`（騰訊 CDN 從海外連線時好時壞，實測曾連續逾時）。
@@ -184,7 +186,7 @@
 | 擱置 data 回應拖慢開頁                      | payload 走擴充內建檔、記憶體快取；逾時放行英文；量測首屏延遲並列入 e2e            |
 | 官網改版（`__` 掛勾、`data-field`、選擇器） | 各層獨立偵測，失效時靜默退回英文並只警告一次；e2e 涵蓋第 1 節所有耦合點           |
 | 國服與國際服 patch 不同步，新詞綴缺譯名     | 依 id 對接，缺的保留英文；更新腳本輸出缺漏統計                                    |
-| 國服網域在部分網路無法連線                  | 沿用 `update-trade-filters.mjs` 的策略：非 `en` 失敗時保留既有檔案並列出警告      |
+| 國服網域在部分網路無法連線                  | 非 `en` 失敗時沿用上一版檔案並列在 `staleLocales`                                 |
 | 譯名錯位                                    | 一律以 id 或英文名作鍵，不做位置對位；無把握時保留英文                            |
 
 ## 5. 驗收條件

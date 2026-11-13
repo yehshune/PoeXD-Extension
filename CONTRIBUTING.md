@@ -40,8 +40,8 @@ Release notes 會依這些前綴自動分類。
 
 ## 遊戲資料 / Game data
 
-`public/json/` 的物品與詞綴資料由 [poexd-data](https://github.com/yehshune/poexd-data) 產生，
-一般貢獻不需要動到它。交易篩選標籤可用 `pnpm filters:update` 從官方 API 更新。
+`public/json/` 的資料（物品、詞綴、傭兵、市集篩選與市集漢化）全部由 [poexd-data](https://github.com/yehshune/poexd-data) 產生，
+一般貢獻不需要動到它。要手動同步最新發布可執行 `pnpm data:sync`；排程會每天自動開 PR。
 
 ## E2E 測試
 

@@ -4,11 +4,16 @@
 
 ## 更新
 
+產生器在 [poexd-data](https://github.com/yehshune/poexd-data)（`src/trade/`）：每週一排程重抓、驗證後發布到 gh-pages。擴充端只同步發布結果，不直接連官方 API（ADR-0013）：
+
 ```powershell
-pnpm run filters:update
+pnpm data:sync                                   # 同步全部批次
+pnpm data:sync -- --batch poe2/trade-filters     # 只同步一個批次
 ```
 
-腳本會依序請求各語言官方市集網域的 `/api/trade/data/{filters,stats}`（POE1）與 `/api/trade2/data/{filters,stats}`（POE2）：
+`.github/workflows/data-refresh.yml` 每天執行同步，有變動時開 PR。
+
+poexd-data 依序請求各語言官方市集網域的 `/api/trade/data/{filters,stats}`（POE1）與 `/api/trade2/data/{filters,stats}`（POE2）：
 
 | 語系                        | 網域                                |
 | --------------------------- | ----------------------------------- |
@@ -19,15 +24,9 @@ pnpm run filters:update
 | pt                          | br.pathofexile.com                  |
 | ko                          | poe.game.daum.net（Kakao）          |
 
-只更新部分語系或版本：
-
-```powershell
-pnpm run filters:update -- --locale ja --locale ko --version poe2
-```
-
-- `en` 一定會抓取：它是執行期的最終後備，也用來偵測其他網域是否誤回傳英文；`en` 失敗時整批不寫入。
-- 其他語系失敗（例如所在網路無法連線 Kakao）時保留既有檔案並列在結尾的摘要，執行期會退回 UI 語系或 en。
-- 全部抓取與驗證完成後才一次寫入，寫入失敗會回復已替換的檔案。
+- `en` 一定會抓取：它是執行期的最終後備，也用來偵測其他網域是否誤回傳英文；`en` 失敗時整批不發布。
+- 其他語系失敗（例如 Kakao 連不上）時沿用上一版檔案，並記在 `batches.json` 的 `staleLocales`；同步 PR 會列出這些語系，執行期退回 UI 語系或 en。
+- 同步時逐檔比對 manifest 的 sha256 並檢查批次一致性，任一檔不符就跳過整個批次；寫入失敗會回復已替換的檔案。
 
 ## 檔案格式
 
@@ -60,11 +59,7 @@ pnpm run filters:update -- --locale ja --locale ko --version poe2
 
 ## 市集漢化資料
 
-市集漢化（ADR-0012）把國際服英文市集頁顯示成繁中或簡中，另有一組只給 `zh-TW`、`zh-CN` 的分片，由獨立腳本產生：
-
-```powershell
-pnpm run market:update
-```
+市集漢化（ADR-0012）把國際服英文市集頁顯示成繁中或簡中，另有一組只給 `zh-TW`、`zh-CN` 的分片，同樣由 poexd-data 產生（`market` 批次），以 `pnpm data:sync -- --batch market` 同步：
 
 | 檔案                                                       | 來源                                                                                              |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -72,16 +67,9 @@ pnpm run market:update
 | `public/json/<version>/locales/<locale>/trade-stats.json`  | 該服的 `/data/stats`；國際服另寫一份 `en`                                                         |
 | `public/json/<version>/locales/<locale>/trade-static.json` | 該服的 `/data/static`                                                                             |
 
-只更新部分語系或版本：
-
-```powershell
-pnpm run market:update -- --locale zh-CN --version poe2
-pnpm run market:update -- --skip-ui
-```
-
 - 國際服（en）的 stats 也寫出 `en/trade-stats.json`，static 只用來篩選與驗證；中文分片只保留國際服存在的條目。
 - `trade-stats.json` 也是擴充端「市集寫法」的來源（`utils/official-stat-text.ts`）：詞綴選擇器的單一詞綴標籤與市集篩選列的詞綴，優先用該語系市集的文字，正負向因此跟市集一致；中文市集回傳的仍是英文時視為沒有翻譯，改用 poexd-data 的 `statTemplates`。
 - 介面字典只當資料解析（`__['鍵'] = '值';`），不執行；出現無法辨識的行就整份拒絕。官方未翻譯（值等於鍵）的條目略過。
 - stats 的同一個 id 可能出現多次且文字不同，這時依 API 出現順序存成陣列，出現次數與國際服不同就略過該 id；static 的 id 跨群組會重複，所以依群組分層。
-- 國服網域從海外連線時好時壞：介面字典會改試 `poe.game.qq.com`，stats / static 失敗時保留既有檔案，稍後重跑即可。
+- 國服網域從海外連線時好時壞：介面字典會改試 `poe.game.qq.com`，stats / static 失敗時沿用上一版檔案。
 - 欄位格式與涵蓋率見 `docs/architecture/market-translation-plan.md`。

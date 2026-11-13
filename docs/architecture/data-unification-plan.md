@@ -1,6 +1,6 @@
 # 資料端統一到 poexd-data（第一階段）規格
 
-> **文件狀態**：IN PROGRESS — 第 1–3 步完成（2026-11-13）
+> **文件狀態**：DONE — 第 1–4 步完成（2026-11-13）；手動觸發 workflow 待推送後驗證
 > **範圍**：讓 `public/json/` 下所有資料都由 [poexd-data](https://github.com/yehshune/poexd-data) 產生與發布，擴充只負責同步。使用者端行為完全不變。
 > **後續**：第二階段（執行期從遠端更新資料）以本階段的發布單位與 manifest 為前提，另立文件。
 
@@ -144,12 +144,12 @@ pnpm data:sync -- --version poe1     # 只同步指定遊戲版本（保留現�
 
 只同步白名單內的檔案（第 1 節表中那些），manifest 裡其他的檔案一律忽略。
 
-### 5.2 每週 workflow
+### 5.2 同步 workflow
 
-`data-refresh.yml` 改為：
+`data-refresh.yml` 改為每天 06:00 UTC（在 poexd-data 的每日 patch 檢查與每週市集更新之後）執行：
 
 1. `pnpm data:sync`
-2. 跑資料相關測試：`tests/trade-filter*`、市集漢化、`game-data-shard-compat`。
+2. 跑完整的 `pnpm test`（資料測試分散在多個檔案，全跑只多一分鐘左右）。
 3. 有變動才開 PR，標題為 `chore(data): sync from poexd-data <short-sha>`。PR 說明列出變動的批次、patch 版本與 `staleLocales`。
 
 ### 5.3 移除
@@ -189,6 +189,13 @@ pnpm data:sync -- --version poe1     # 只同步指定遊戲版本（保留現�
 - `scripts/sync-game-data.mjs` 改寫為 `scripts/sync-data.mjs`（`pnpm data:sync`）。它依 manifest 同步全部 6 個批次，支援 `--ref`、`--source`、`--batch`、`--version`。路徑白名單與 poexd-data 的 `catalog.ts` 一致：manifest 中的批次和白名單對不上，或 sha256、大小無效時，整份 manifest 都拒絕。批次一致性檢查保留在擴充端，作為第二道防線。
 - 只在完整同步遠端內容且沒有任何批次失敗時，才寫入 `public/json/data-source.json`。
 - 實際同步 gh-pages@e57e873：89 個檔案未變動；6 個 `trade-stats` 只有鍵的順序不同（官方 API 改了回傳順序，內容完全相同）；另外新增 `data-source.json`。符合驗收條件。
+
+**第 4 步結果（2026-11-13，DONE，尚未推送）**：
+
+- `data-refresh.yml` 改為每天執行 `pnpm data:sync` → `pnpm test`，有變動才開 PR（分支 `chore/sync-poexd-data`）。PR 說明附上同步紀錄，裡面列出每個批次的 patch 與 `staleLocales`。
+- poexd-data 每次發布都會產生新的 commit。為了不讓「只有 `data-source.json` 變動」的 PR 每天出現，資料沒有變動時不改寫 `data-source.json`。
+- 刪除 4 支舊腳本、2 個測試與 `filters:update`、`market:update`。`docs/trade-filter-data.md`、`market-translation-plan.md`、`CONTRIBUTING.md` 與兩處程式註解改為指向 poexd-data。新增 ADR-0013，ADR-0011、0012 補上指向它的一行。
+- 驗收中的「手動觸發 workflow 成功」要等推送後才能做。
 
 ## 7. 風險
 
