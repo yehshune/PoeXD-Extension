@@ -610,9 +610,13 @@ describe('TierDropdownHost (Native Reka + Vue Teleport & Foundation Compliance)'
     const content = portalRoot.querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]');
     expect(content).not.toBeNull();
 
-    // Top header spans full width above split layout
+    // Top header spans full width above split layout and uses unified hover/focus classes
     const topSection = content?.children[0] as HTMLElement;
+    const categoryItem = topSection.querySelector<HTMLElement>('[data-slot="dropdown-menu-item"]');
     expect(topSection.querySelectorAll('[data-slot="dropdown-menu-item"]')).toHaveLength(1);
+    expect(categoryItem?.className).toContain('hover:bg-accent/50');
+    expect(categoryItem?.className).toContain('focus:bg-transparent');
+    expect(categoryItem?.className).toContain('focus-visible:bg-accent/50');
     expect(topSection.querySelector('[data-slot="tier-tuning-bar"]')).toBeNull();
 
     const splitLayout = content?.querySelector<HTMLElement>('[data-slot="tier-split-layout"]');
@@ -634,12 +638,15 @@ describe('TierDropdownHost (Native Reka + Vue Teleport & Foundation Compliance)'
     expect(opt0.className).toContain('border-b');
     expect(opt0.className).toContain('bg-primary/15');
     expect(opt0.textContent).toContain('✓');
+    expect(opt0.innerHTML).toContain('var(--pxd-font-caption)');
+    expect(opt0.innerHTML).not.toContain('var(--pxd-font-small)');
 
-    // Option 1 (inactive, odd -> zebra bg-muted/30, wrappable)
+    // Option 1 (inactive, odd -> zebra bg-muted/30, unified hover, wrappable)
     const opt1 = groupButtons![1];
     expect(opt1.className).toContain('shrink-0');
     expect(opt1.className).toContain('border-b');
     expect(opt1.className).toContain('bg-muted/30');
+    expect(opt1.className).toContain('hover:bg-accent/50');
     expect(opt1.textContent).toContain('增加#%能量護盾\n#最大生命');
     expect(opt1.innerHTML).toContain('break-words');
 
@@ -655,6 +662,118 @@ describe('TierDropdownHost (Native Reka + Vue Teleport & Foundation Compliance)'
     await new Promise((r) => setTimeout(r, 50));
     expect(onSelect).toHaveBeenCalledWith(items[2]);
     expect(portalRoot.querySelector('[data-slot="dropdown-menu-content"]')).not.toBeNull();
+  });
+
+  it('preserves tuning values when switching mod groups without cross-group tier selection bleed', async () => {
+    const onSelect = vi.fn();
+    const groupAItems: TierDropdownItemSpec[] = [
+      { id: 'cat', type: 'switch_category', label: '胸甲 (點選切換)' },
+      {
+        id: 'g0',
+        type: 'mod_group_option',
+        label: 'Group A',
+        groupId: 'g0',
+        groupIndex: 0,
+        isActive: true,
+      },
+      {
+        id: 'g1',
+        type: 'mod_group_option',
+        label: 'Group B',
+        groupId: 'g1',
+        groupIndex: 1,
+        isActive: false,
+      },
+      {
+        id: 'tier-g0-T1',
+        type: 'tier',
+        label: 'T1 (Lv.75) (101 ~ 110)',
+        valMin: '101',
+        valMax: '110',
+        isRange: true,
+      },
+      {
+        id: 'tier-g0-T2',
+        type: 'tier',
+        label: 'T2 (Lv.50) (80 ~ 100)',
+        valMin: '80',
+        valMax: '100',
+        isRange: true,
+      },
+    ];
+    const groupBItems: TierDropdownItemSpec[] = [
+      { id: 'cat', type: 'switch_category', label: '胸甲 (點選切換)' },
+      {
+        id: 'g0',
+        type: 'mod_group_option',
+        label: 'Group A',
+        groupId: 'g0',
+        groupIndex: 0,
+        isActive: false,
+      },
+      {
+        id: 'g1',
+        type: 'mod_group_option',
+        label: 'Group B',
+        groupId: 'g1',
+        groupIndex: 1,
+        isActive: true,
+      },
+      {
+        id: 'tier-g1-T1',
+        type: 'tier',
+        label: 'T1 (Lv.78) (39 ~ 42)',
+        valMin: '39',
+        valMax: '42',
+        isRange: true,
+      },
+      {
+        id: 'tier-g1-T2',
+        type: 'tier',
+        label: 'T2 (Lv.8) (6 ~ 13)',
+        valMin: '6',
+        valMax: '13',
+        isRange: true,
+      },
+    ];
+
+    syncTierSlots([{ key: 'slot-1', targetEl: slotEl1, items: groupAItems, onSelect }]);
+    await nextTick();
+
+    slotEl1.querySelector<HTMLButtonElement>('button.poexd-tier-trigger')?.click();
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Select T1 in Group A
+    let content = portalRoot.querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]')!;
+    let tierRows = content.querySelectorAll<HTMLElement>('[data-slot="tier-row"]');
+    tierRows[0].click();
+    await nextTick();
+    expect(tierRows[0].className).toContain('bg-primary/15');
+
+    let inputs = content.querySelectorAll<HTMLInputElement>('[data-slot="tier-tuning-bar"] input');
+    expect(inputs[0].value).toBe('101');
+    expect(inputs[1].value).toBe('110');
+
+    // Switch to Group B: tuning inputs stay 101 ~ 110, and Group B rows are NOT pre-highlighted
+    syncTierSlots([{ key: 'slot-1', targetEl: slotEl1, items: groupBItems, onSelect }]);
+    await nextTick();
+
+    content = portalRoot.querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]')!;
+    inputs = content.querySelectorAll<HTMLInputElement>('[data-slot="tier-tuning-bar"] input');
+    expect(inputs[0].value).toBe('101');
+    expect(inputs[1].value).toBe('110');
+
+    tierRows = content.querySelectorAll<HTMLElement>('[data-slot="tier-row"]');
+    expect(tierRows[0].className).not.toContain('bg-primary/15');
+    expect(tierRows[1].className).not.toContain('bg-primary/15');
+
+    // Clicking Group B T2 cleanly selects only Group B T2 (6 ~ 13), not clearing or bleeding from Group A
+    tierRows[1].click();
+    await nextTick();
+    expect(tierRows[1].className).toContain('bg-primary/15');
+    expect(inputs[0].value).toBe('6');
+    expect(inputs[1].value).toBe('13');
   });
 
   it('isolates scroll container for tier items while keeping top category controls pinned and applies 420px max height', async () => {

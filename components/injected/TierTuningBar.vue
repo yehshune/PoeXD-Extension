@@ -25,7 +25,7 @@ const emit = defineEmits<{
         :value="min"
         type="text"
         :placeholder="t('tierDropdown.minPlaceholder')"
-        class="w-[52px] h-[22px] px-[var(--pxd-space-xs)] text-center font-mono text-[length:var(--pxd-font-small)] bg-background text-foreground border border-border rounded focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
+        class="w-[52px] h-[22px] px-[var(--pxd-space-xs)] text-center font-mono text-[length:var(--pxd-font-caption)] bg-background text-foreground border border-border rounded focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
         @input="emit('update:min', ($event.target as HTMLInputElement).value)"
         @keydown.stop
         @keyup.enter="emit('apply')"
@@ -35,7 +35,7 @@ const emit = defineEmits<{
         :value="max"
         type="text"
         :placeholder="t('tierDropdown.maxPlaceholder')"
-        class="w-[52px] h-[22px] px-[var(--pxd-space-xs)] text-center font-mono text-[length:var(--pxd-font-small)] bg-background text-foreground border border-border rounded focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
+        class="w-[52px] h-[22px] px-[var(--pxd-space-xs)] text-center font-mono text-[length:var(--pxd-font-caption)] bg-background text-foreground border border-border rounded focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
         @input="emit('update:max', ($event.target as HTMLInputElement).value)"
         @keydown.stop
         @keyup.enter="emit('apply')"

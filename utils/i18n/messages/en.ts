@@ -387,8 +387,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'tierDropdown.selectCategory': 'Select Item Category',
   'tierDropdown.noCategoryTiers': 'No affixes for this category',
   'tierDropdown.switchModGroup': 'Affix Group',
-  'tierDropdown.clickToSwitch': '(Click to switch)',
-  'tierDropdown.backToTiers': '← Back to tiers',
   'tierDropdown.tuning': 'Tuning:',
   'tierDropdown.minPlaceholder': 'Min',
   'tierDropdown.maxPlaceholder': 'Max',

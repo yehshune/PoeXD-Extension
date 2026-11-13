@@ -356,8 +356,6 @@ export const ZH_TW_MESSAGES = {
   'tierDropdown.selectCategory': '選擇物品類別',
   'tierDropdown.noCategoryTiers': '此類別無此詞綴',
   'tierDropdown.switchModGroup': '詞綴分組',
-  'tierDropdown.clickToSwitch': '(點選切換)',
-  'tierDropdown.backToTiers': '← 返回階級清單',
   'tierDropdown.tuning': '微調:',
   'tierDropdown.minPlaceholder': '最小',
   'tierDropdown.maxPlaceholder': '最大',

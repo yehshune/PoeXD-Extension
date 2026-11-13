@@ -438,32 +438,10 @@ export function createTierSlotDomainData(
       });
     } else {
       const modGroups = options.tierDomainService.groupTiersByMod(filtered);
-      if (modGroups.length <= 1) {
-        const mapped = filtered
-          .map((tier, idx) => {
-            const tierName = `T${filtered.length - idx}`;
-            return { tier, tierName };
-          })
-          .reverse();
+      let tierSource = filtered;
+      let activeGroupId: string | null = null;
 
-        mapped.forEach(({ tier, tierName }) => {
-          const { rangeText, valMin, valMax, isRange } = options.tierDomainService.parseTierValues(
-            tier,
-            effectiveStatId,
-          );
-          items.push({
-            id: `tier-${tierName}`,
-            type: 'tier',
-            label: `${tierName}${tier.level != null ? ` (Lv.${tier.level})` : ''}${rangeText}`,
-            tierName,
-            tierLevel: tier.level,
-            rangeText: rangeText.trim(),
-            valMin,
-            valMax,
-            isRange,
-          });
-        });
-      } else {
+      if (modGroups.length > 1) {
         const detectedGroupId = filterEl.getAttribute('data-poexd-mod-group');
         let activeGroup = modGroups.find((g) => g.id === detectedGroupId);
         if (!activeGroup) {
@@ -482,31 +460,34 @@ export function createTierSlotDomainData(
           });
         });
 
-        const mapped = activeGroup.tiers
-          .map((tier, idx) => {
-            const tierName = `T${activeGroup!.tiers.length - idx}`;
-            return { tier, tierName };
-          })
-          .reverse();
-
-        mapped.forEach(({ tier, tierName }) => {
-          const { rangeText, valMin, valMax, isRange } = options.tierDomainService.parseTierValues(
-            tier,
-            effectiveStatId,
-          );
-          items.push({
-            id: `tier-${tierName}`,
-            type: 'tier',
-            label: `${tierName}${tier.level != null ? ` (Lv.${tier.level})` : ''}${rangeText}`,
-            tierName,
-            tierLevel: tier.level,
-            rangeText: rangeText.trim(),
-            valMin,
-            valMax,
-            isRange,
-          });
-        });
+        tierSource = activeGroup.tiers;
+        activeGroupId = activeGroup.id;
       }
+
+      const mapped = tierSource
+        .map((tier, idx) => {
+          const tierName = `T${tierSource.length - idx}`;
+          return { tier, tierName };
+        })
+        .reverse();
+
+      mapped.forEach(({ tier, tierName }) => {
+        const { rangeText, valMin, valMax, isRange } = options.tierDomainService.parseTierValues(
+          tier,
+          effectiveStatId,
+        );
+        items.push({
+          id: activeGroupId ? `tier-${activeGroupId}-${tierName}` : `tier-${tierName}`,
+          type: 'tier',
+          label: `${tierName}${tier.level != null ? ` (Lv.${tier.level})` : ''}${rangeText}`,
+          tierName,
+          tierLevel: tier.level,
+          rangeText: rangeText.trim(),
+          valMin,
+          valMax,
+          isRange,
+        });
+      });
     }
   } else {
     items.push({

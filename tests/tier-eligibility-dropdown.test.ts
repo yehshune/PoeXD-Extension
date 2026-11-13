@@ -909,6 +909,7 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       // 階級獨立編號為 T1 (Lv.78) 與 T2 (Lv.8)，數值精確為 ES% 區間 (39 ~ 42 與 6 ~ 13)
       const hybridTiers = hybridSlot.items.filter((i) => i.type === 'tier');
       expect(hybridTiers).toHaveLength(2);
+      expect(hybridTiers[0].id).not.toBe(tierItems[0].id);
       expect(hybridTiers[0].label).toContain('T1 (Lv.78) (39 ~ 42)');
       expect(hybridTiers[0].valMin).toBe('39');
       expect(hybridTiers[0].valMax).toBe('42');

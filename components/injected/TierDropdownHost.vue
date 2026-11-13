@@ -134,15 +134,18 @@ function isTierSelected(slot: TierSlotDescriptor, item: TierDropdownItemSpec): b
 function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpec) {
   const tuning = getTuning(slot);
   const tierItems = slot.items.filter((i) => i.type === 'tier');
+  const activeSelectedIds = tuning.selectedTierIds.filter((id) =>
+    tierItems.some((tier) => tier.id === id),
+  );
   const vals = getTierValues(item);
 
-  if (tuning.selectedTierIds.length === 0) {
+  if (activeSelectedIds.length === 0) {
     tuning.selectedTierIds = [item.id];
     tuning.min = vals.min;
     tuning.max = vals.max;
     slot.onSelect(item, 'both');
-  } else if (tuning.selectedTierIds.length === 1) {
-    if (tuning.selectedTierIds[0] === item.id) {
+  } else if (activeSelectedIds.length === 1) {
+    if (activeSelectedIds[0] === item.id) {
       tuning.selectedTierIds = [];
       tuning.min = '';
       tuning.max = '';
@@ -157,7 +160,7 @@ function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpe
         'both',
       );
     } else {
-      tuning.selectedTierIds = [tuning.selectedTierIds[0], item.id];
+      tuning.selectedTierIds = [activeSelectedIds[0], item.id];
       const bounds = getTierSelectionBounds(tierItems, tuning.selectedTierIds);
       tuning.min = bounds.min;
       tuning.max = bounds.max;
@@ -285,7 +288,7 @@ function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpe
                   >
                   <span
                     v-if="item.isActive"
-                    class="text-primary text-[length:var(--pxd-font-small)] shrink-0 font-bold mt-0.5"
+                    class="text-primary text-[length:var(--pxd-font-caption)] shrink-0 font-bold mt-0.5"
                     >✓</span
                   >
                 </span>

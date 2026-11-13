@@ -358,8 +358,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'tierDropdown.selectCategory': '选择物品类别',
   'tierDropdown.noCategoryTiers': '此类别无此词缀',
   'tierDropdown.switchModGroup': '词缀分组',
-  'tierDropdown.clickToSwitch': '(点击切换)',
-  'tierDropdown.backToTiers': '← 返回阶级清单',
   'tierDropdown.tuning': '微调:',
   'tierDropdown.minPlaceholder': '最小',
   'tierDropdown.maxPlaceholder': '最大',
