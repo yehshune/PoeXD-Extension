@@ -1,9 +1,10 @@
-name: Refresh trade filters
+name: Sync data from poexd-data
 
 on:
   schedule:
-    # 每週一 03:00 UTC（台灣時間 11:00）
-    - cron: '0 3 * * 1'
+    # 每天 06:00 UTC（台灣時間 14:00）：poexd-data 每週一 03:00 更新市集資料、
+    # 每天 02:00 遇到遊戲改版時重建詞綴資料，這裡在之後同步
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -14,7 +15,7 @@ permissions:
   contents: read
 
 jobs:
-  refresh:
+  sync:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -23,19 +24,41 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - run: pnpm filters:update
-      - run: pnpm vitest run tests/trade-filter
+
+      # 依 poexd-data 的 manifest 下載、驗證 sha256 與批次一致性後寫入 public/json/
+      - name: Sync data
+        env:
+          # 只用來查詢 poexd-data gh-pages 的 commit，避免未驗證請求的速率限制
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pnpm data:sync | tee "$RUNNER_TEMP/sync.log"
+
+      - run: pnpm test
+
+      - name: Prepare pull request
+        id: pr
+        run: |
+          ref=$(node -p "require('./public/json/data-source.json').ref")
+          echo "short=${ref:0:7}" >> "$GITHUB_OUTPUT"
+          {
+            echo "從 [poexd-data@${ref:0:7}](https://github.com/yehshune/poexd-data/tree/$ref) 同步 \`public/json/\`。"
+            echo "Sync of \`public/json/\` from poexd-data."
+            echo
+            echo '```text'
+            cat "$RUNNER_TEMP/sync.log"
+            echo '```'
+            echo
+            echo "「沿用上一版」的語系表示本次官方來源抓取失敗，檔案維持上一版。"
+            echo
+            echo "請確認差異合理後再合併。 / Please review the diff before merging."
+          } > "$RUNNER_TEMP/pr-body.md"
+
       # 有變動才開 PR，不自動合併
       - uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
         with:
-          branch: chore/refresh-trade-filters
+          branch: chore/sync-poexd-data
           delete-branch: true
-          commit-message: 'chore(data): refresh trade filter labels'
-          title: 'chore(data): refresh trade filter labels'
-          body: |
-            每週自動從官方市集 API 更新 `public/json/*/locales/*/trade-filters.json`。
-            Weekly refresh of trade filter labels from the official trade API.
-
-            請確認差異合理後再合併。 / Please review the diff before merging.
+          commit-message: 'chore(data): sync from poexd-data ${{ steps.pr.outputs.short }}'
+          title: 'chore(data): sync from poexd-data ${{ steps.pr.outputs.short }}'
+          body-path: ${{ runner.temp }}/pr-body.md
           labels: data
-          add-paths: public/json/**/trade-filters.json
+          add-paths: public/json/**

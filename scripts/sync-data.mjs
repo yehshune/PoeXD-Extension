@@ -17,7 +17,7 @@
  *   node scripts/sync-data.mjs --batch poe2/game     只同步指定批次（可重複）
  *   node scripts/sync-data.mjs --version poe1        只同步指定遊戲版本的批次
  *
- * 完整同步遠端內容時會寫入 public/json/data-source.json，記錄資料來自哪一次發布。
+ * 完整同步遠端內容且資料有變動（或尚無紀錄）時，寫入 public/json/data-source.json，記錄資料來自哪一次發布。
  */
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -403,16 +403,18 @@ async function main() {
     path: join(TARGET_DIR, path),
     content,
   }));
-  if (ref && fullSync && plan.failures.length === 0) {
+  // 資料沒有變動時保留原本的來源紀錄：每次發布都會產生新 commit，只改這個檔案的 PR 沒有意義
+  const existingDataSource = await readLocal(DATA_SOURCE_FILE);
+  if (ref && fullSync && plan.failures.length === 0 && (writes.length > 0 || !existingDataSource)) {
     const dataSource = {
       ref,
       ...(manifest.sourceCommit ? { sourceCommit: manifest.sourceCommit } : {}),
       ...(manifest.generatedAt ? { generatedAt: manifest.generatedAt } : {}),
     };
     const content = Buffer.from(`${JSON.stringify(dataSource, null, 2)}\n`);
-    const existing = await readLocal(DATA_SOURCE_FILE);
-    if (!existing?.equals(content))
+    if (!existingDataSource?.equals(content)) {
       writes.push({ path: join(TARGET_DIR, DATA_SOURCE_FILE), content });
+    }
   }
   await replaceFilesWithRollback(writes);
 

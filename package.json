@@ -27,8 +27,6 @@
     "test:coverage": "vitest run --coverage",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "filters:update": "node scripts/update-trade-filters.mjs",
-    "market:update": "node scripts/update-market-translation.mjs",
     "data:sync": "node scripts/sync-data.mjs",
     "postinstall": "wxt prepare"
   },

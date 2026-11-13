@@ -10,7 +10,7 @@ import poe2ZhTw from '../public/json/poe2/locales/zh-TW/trade-filters.json';
 import poe2ZhCn from '../public/json/poe2/locales/zh-CN/trade-filters.json';
 
 /**
- * 市集篩選翻譯（官方 /api/{trade,trade2}/data/filters 產生，見 scripts/update-trade-filters.mjs）。
+ * 市集篩選翻譯（官方 /api/{trade,trade2}/data/filters 產生，由 poexd-data 產生，見 docs/trade-filter-data.md）。
  * 欄位以 API 的穩定 id 為 key，各語系獨立，不需索引對齊。
  */
 export interface TradeFiltersData {
