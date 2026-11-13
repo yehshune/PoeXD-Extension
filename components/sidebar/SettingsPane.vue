@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <!-- 1. 外觀與面板 -->
+    <!-- 1. 外觀與介面 -->
     <Collapsible v-model:open="sectionOpen.appearance" class="flex flex-col">
       <CollapsibleTrigger
         class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
@@ -318,7 +318,7 @@
 
     <Separator class="my-[var(--pxd-section-gap)]" />
 
-    <!-- 2. 搜尋與快捷鍵 -->
+    <!-- 3. 搜尋欄與快捷鍵 -->
     <Collapsible v-model:open="sectionOpen.searchHotkeys" class="flex flex-col">
       <CollapsibleTrigger
         class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
@@ -623,7 +623,7 @@
 
     <Separator class="my-[var(--pxd-section-gap)]" />
 
-    <!-- 4. 書籤 -->
+    <!-- 5. 書籤與歷史 -->
     <Collapsible v-model:open="sectionOpen.bookmarks" class="flex flex-col">
       <CollapsibleTrigger
         class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"

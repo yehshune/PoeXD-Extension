@@ -1,8 +1,5 @@
-import {
-  planAddStatToGroupKind,
-  type CriteriaOverlayFormSnapshot,
-  type QuickStatFilterGroupKind,
-} from '@/utils/criteria-overlay';
+import { type CriteriaOverlayFormSnapshot } from '@/utils/criteria-overlay';
+import { planAddStatToGroupKind, type QuickStatFilterGroupKind } from '@/utils/stat-quick-filter';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import { getKnownStatsRef } from '@/utils/known-stats-store';
@@ -196,48 +193,35 @@ export class ResultModQuickFilter {
     this.styleEl = null;
   }
 
-  setEnabled(enabled: boolean): void {
-    if (this.enabled === enabled) return;
-    this.enabled = enabled;
+  private syncActiveState(): void {
     if (!this.isActive()) {
       this.clearAllInjected();
       return;
     }
     this.applyAll();
+  }
+
+  setEnabled(enabled: boolean): void {
+    if (this.enabled === enabled) return;
+    this.enabled = enabled;
+    this.syncActiveState();
   }
 
   setPageMode(mode: TradePageMode): void {
     if (this.pageMode === mode) return;
     this.pageMode = mode;
-    if (!this.isActive()) {
-      this.clearAllInjected();
-      return;
-    }
-    this.applyAll();
+    this.syncActiveState();
   }
 
   setPageRole(role: TradePageRole): void {
     if (this.pageRole === role) return;
     this.pageRole = role;
-    if (!this.isActive()) {
-      this.clearAllInjected();
-      return;
-    }
-    this.applyAll();
+    this.syncActiveState();
   }
 
   refreshLocale(): void {
     if (typeof document === 'undefined') return;
-    document
-      .querySelectorAll<HTMLButtonElement>(
-        `.${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}[${GROUP_KIND_ATTR}]`,
-      )
-      .forEach((button) => {
-        const kind = button.getAttribute(GROUP_KIND_ATTR) as QuickStatFilterGroupKind | null;
-        if (kind === 'and' || kind === 'not') {
-          this.updateButtonLocale(button, kind);
-        }
-      });
+    this.syncButtonsLocale(document);
   }
 
   apply(root?: Element): void {
@@ -303,7 +287,7 @@ export class ResultModQuickFilter {
       );
       if (existing) {
         existing.setAttribute(STAT_ID_ATTR, statId);
-        this.syncActionsLocale(existing);
+        this.syncButtonsLocale(existing);
         return;
       }
       host.appendChild(this.createActionsElement(host, statId));
@@ -332,7 +316,6 @@ export class ResultModQuickFilter {
     button.type = 'button';
     button.className = RESULT_MOD_QUICK_FILTER_BUTTON_CLASS;
     button.setAttribute(GROUP_KIND_ATTR, kind);
-    button.textContent = kind === 'and' ? '+AND' : '+NOT';
     this.updateButtonLocale(button, kind);
 
     button.addEventListener('pointerdown', stopEvent);
@@ -347,6 +330,9 @@ export class ResultModQuickFilter {
   }
 
   private updateButtonLocale(button: HTMLButtonElement, kind: QuickStatFilterGroupKind): void {
+    button.textContent = t(
+      kind === 'and' ? 'resultModQuickFilter.andButton' : 'resultModQuickFilter.notButton',
+    );
     const title = t(
       kind === 'and' ? 'resultModQuickFilter.andTitle' : 'resultModQuickFilter.notTitle',
     );
@@ -354,8 +340,8 @@ export class ResultModQuickFilter {
     button.setAttribute('aria-label', title);
   }
 
-  private syncActionsLocale(container: HTMLElement): void {
-    container
+  private syncButtonsLocale(root: ParentNode): void {
+    root
       .querySelectorAll<HTMLButtonElement>(
         `.${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}[${GROUP_KIND_ATTR}]`,
       )
@@ -397,7 +383,9 @@ export class ResultModQuickFilter {
     this.setContainerBusy(container, true);
 
     const displayText = this.resolveDisplayText(host, statId);
-    const groupLabel = targetGroup.toUpperCase();
+    const groupLabel = t(
+      targetGroup === 'and' ? 'resultModQuickFilter.group.and' : 'resultModQuickFilter.group.not',
+    );
 
     try {
       const { snapshot, knownStatIds } = await this.channel.read();

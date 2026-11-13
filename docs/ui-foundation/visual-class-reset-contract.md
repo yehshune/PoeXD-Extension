@@ -114,6 +114,15 @@ PoeXD 介面由三個互不越權的維度正交驅動：
   - Scale = UI Foundation
   - Density = Layout Spacing
 
+#### 搜尋結果原生融合控制項例外 (Result-Native PoE Controls Exception)
+
+直接嵌入官方搜尋結果列（`.results`）及工具列、刻意模擬 PoE 官方商品卡視覺語言以達成「原生融入」之宿主控件，亦屬於 Host-Native 視覺例外：
+
+1. **Result Mod Quick Filter** (`.poexd-result-mod-host`, `.poexd-result-mod-actions`, `.poexd-result-mod-btn`)
+2. **Rune Item Normalizer / Tryout** (`.poexd-total-controls`, `.poexd-icon-btn`, `.poexd-popover`, `.poexd-stat-badges`)
+
+上述控件不進入 `Page Theme Bridge`（不隨 PoeXD 側邊欄主題變色），統一採用固定方角 (`0px`)、`FontinSmallcaps` / `Verdana` 與對齊官方暗黑／深海藍／暗紅／暖金／增強藍語意的 PoE 原生色階，使商品卡片維持官網原生視覺一致性。
+
 #### 宿主整合按鈕幾何規格與 Slot 契約 (Host Buttons Spec SSOT)
 
 1. **Tier Trigger (`HOST_TIER_TRIGGER_SPEC`)**：
@@ -249,7 +258,7 @@ PoeXD 有少數 UI 直接注入 PoE 官方 document DOM，無法透過 Shadow DO
 - **host-page placement / geometry / stacking 屬 integration concern**：注入宿主頁面的定位（`position: fixed`、`getBoundingClientRect()` 錨定等）與 host-page stacking（如 `zIndex = '999999'`）屬於官方網頁 DOM 整合邊界，不等同 Shadow DOM 內部 `portalRoot` 的 Dialog semantic stacking contract。
 - **絕非第二個 Theme system**：Page Theme Bridge 僅是向官方宿主 DOM 投影 ShadowHost 主題變數的唯讀橋樑，宿主注入 UI 本身也是純粹的 Theme 消費者。
 - **嚴禁輸出 Scale / Density tokens**：Page Theme Bridge 僅向 Light DOM 投影色彩、陰影與邊框可見度等 Theme 語意變數，絕不得輸出 `--control-height-*`、`--control-font-*` 或 `--pxd-space-*`（維持 Host-integrated buttons 之 Scale/Density Invariant 契約）。
-- **純 DOM Enhancement 與獨立例外**：純標記或背景裝飾（如 `body.poexd-pure-bg` 獨立色值 `#060607`、`.content` 佈局讓位）維持純 DOM Enhancement，不透過 Theme Bridge 處理。
+- **純 DOM Enhancement 與獨立例外**：純標記或背景裝飾（如 `body.poexd-pure-bg` 獨立色值 `#060607`、`.content` 佈局讓位）以及 §2.2 所列 **Result-Native PoE Controls**（`.poexd-result-mod-btn`、符文覆寫試算 `.poexd-total-controls` / `.poexd-stat-badges`）為原生融入例外，不透過 Theme Bridge 處理。
 
 **目前 Page Theme Bridge Consumers 清單 (Light DOM)**：
 

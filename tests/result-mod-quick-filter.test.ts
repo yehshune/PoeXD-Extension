@@ -8,6 +8,7 @@ import {
 } from '@/entrypoints/content/logic/result-mod-quick-filter';
 import type { CriteriaOverlayPageChannel } from '@/entrypoints/content/logic/criteria-overlay-session';
 import { initPoeEventNonce, listenPoeEvent, type PoeToastDetail } from '@/utils/event-contracts';
+import { setActiveDisplayLocalePreference } from '@/utils/i18n';
 
 function flushMicrotasks(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -70,6 +71,7 @@ describe('ResultModQuickFilter', () => {
   });
 
   afterEach(() => {
+    setActiveDisplayLocalePreference('zh-TW');
     quickFilter.cleanup();
     stopListeningToast?.();
     document.body.innerHTML = '';
@@ -128,7 +130,7 @@ describe('ResultModQuickFilter', () => {
       },
     ]);
     expect(toasts[0]?.tone).toBe('success');
-    expect(toasts[0]?.message).toContain('AND');
+    expect(toasts[0]?.message).toContain('「和」');
 
     const notBtn = host.querySelector<HTMLButtonElement>(
       `.${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}[data-poexd-quick-group="not"]`,
@@ -144,7 +146,40 @@ describe('ResultModQuickFilter', () => {
       },
     ]);
     expect(toasts[1]?.tone).toBe('success');
-    expect(toasts[1]?.message).toContain('NOT');
+    expect(toasts[1]?.message).toContain('「不」');
+  });
+
+  it('localizes button labels across zh-TW, zh-CN, and en on refreshLocale()', () => {
+    const results = mountSampleResults();
+    quickFilter.apply(results);
+
+    const getFirstLabels = () =>
+      Array.from(
+        document
+          .querySelector('[data-field="stat.explicit.stat_3299347043"]')!
+          .parentElement!.querySelectorAll<HTMLButtonElement>(
+            `.${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}`,
+          ),
+      ).map((btn) => ({ text: btn.textContent, title: btn.title }));
+
+    expect(getFirstLabels()).toEqual([
+      { text: '+和', title: '加入「和」篩選條件' },
+      { text: '+不', title: '加入「不」排除條件' },
+    ]);
+
+    setActiveDisplayLocalePreference('zh-CN');
+    quickFilter.refreshLocale();
+    expect(getFirstLabels()).toEqual([
+      { text: '+和', title: '加入「和」筛选条件' },
+      { text: '+不', title: '加入「不」排除条件' },
+    ]);
+
+    setActiveDisplayLocalePreference('en');
+    quickFilter.refreshLocale();
+    expect(getFirstLabels()).toEqual([
+      { text: '+AND', title: 'Add to AND filter' },
+      { text: '+NOT', title: 'Add to NOT filter' },
+    ]);
   });
 
   it('skips commit and emits info/error toast for existing or unknown stats', async () => {
