@@ -12,9 +12,9 @@ function textOf(node: any): string {
 }
 
 describe('Result item normalizer', () => {
-  it('在 PoE 2 模式下成功攔截 fetch，將數值注入 PoeXD 標籤列，並在官方 row-total 左側注入控制按鈕組', async () => {
+  it('在 PoE 2 模式下成功攔截 fetch，將行內覆寫數值注入 .itemPopupAdditional，並在官方 row-total 左側注入控制按鈕組', async () => {
     let injectedControls: any = null;
-    const additionalChildren: any[] = [];
+    const inlineChildren: any[] = [];
 
     const rowTotal = {
       className: 'row row-total',
@@ -25,12 +25,19 @@ describe('Result item normalizer', () => {
       }),
     };
 
-    const badgeStrip = {
-      className: 'poexd-stat-badges',
-      querySelectorAll: vi.fn(() => []),
+    const dpsFieldSpan = {
+      classList: { contains: vi.fn(() => false) },
       querySelector: vi.fn(() => null),
+      querySelectorAll: vi.fn(() => []),
       appendChild: vi.fn((el: any) => {
-        additionalChildren.push(el);
+        inlineChildren.push(el);
+      }),
+    };
+
+    const popupAdditional = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-field="dps"]') return dpsFieldSpan;
+        return null;
       }),
     };
 
@@ -38,7 +45,7 @@ describe('Result item normalizer', () => {
       getAttribute: vi.fn((name: string) => (name === 'data-id' ? 'res-1' : null)),
       querySelectorAll: vi.fn(() => []),
       querySelector: vi.fn((selector: string) => {
-        if (selector === '.poexd-stat-badges') return badgeStrip;
+        if (selector === '.itemPopupAdditional') return popupAdditional;
         return null;
       }),
       style: { order: '' },
@@ -158,18 +165,16 @@ describe('Result item normalizer', () => {
     // 驗證 2：預設排序下絕對不添加 flex 樣式，守護官方原生滾動
     expect(root.style.display).toBe('');
 
-    // 驗證 3：數值追加進 PoeXD 標籤列
-    expect(badgeStrip.appendChild).toHaveBeenCalled();
-    const cleanEntry = additionalChildren.find((el) => textOf(el).includes('淨底DPS'));
-    const overrideEntry = additionalChildren.find((el) => textOf(el).includes('覆寫DPS'));
-    // 依使用者需求：不要顯示淨底子
-    expect(cleanEntry).toBeUndefined();
-    // 覆寫 DPS 呈現且帶有專屬區隔樣式類別
+    // 驗證 3：行內覆寫數值追加進官方 .itemPopupAdditional 對應欄位（不建立舊的 .poexd-stat-badges）
+    expect(dpsFieldSpan.appendChild).toHaveBeenCalled();
+    const overrideEntry = inlineChildren.find((el) =>
+      el.className?.includes('poexd-inline-override'),
+    );
     expect(overrideEntry).toBeDefined();
-    expect(overrideEntry.className).toContain('poexd-override-stat');
+    expect(textOf(overrideEntry)).toContain('➔');
 
     // 驗證 4：滿孔且未超限時，不顯示任何超限瓦孔或打孔標籤
-    const overcapEntry = additionalChildren.find(
+    const overcapEntry = inlineChildren.find(
       (el) => textOf(el).includes('超限') || textOf(el).includes('瓦孔'),
     );
     expect(overcapEntry).toBeUndefined();
@@ -469,6 +474,132 @@ describe('Result item normalizer', () => {
     // 3. 依物理 DPS 排序：res-phys (1000) 排在前
     presenter.setSortMode('potential_pdps');
     expect(root.children).toEqual([rowPhys, rowEle]);
+  });
+
+  it('防具各類型防禦排序：支援總防禦、護甲、閃避、能量護盾獨立降序排列', async () => {
+    const mkRow = (id: string) => ({
+      getAttribute: vi.fn((attr: string) => (attr === 'data-id' ? id : null)),
+      querySelectorAll: vi.fn(() => []),
+      querySelector: vi.fn(() => null),
+      matches: vi.fn((sel: string) => sel.includes('.row') && !sel.includes('.controls')),
+      prepend: vi.fn(),
+      appendChild: vi.fn(),
+      style: { order: '' },
+    });
+    const rowAr = mkRow('res-ar');
+    const rowEv = mkRow('res-ev');
+    const rowEs = mkRow('res-es');
+
+    const root: any = {
+      querySelectorAll: vi.fn((sel: string) => (sel.includes('.row') ? [rowAr, rowEv, rowEs] : [])),
+      querySelector: vi.fn((sel: string) => (sel.includes('.row') ? rowAr : null)),
+      insertAdjacentElement: vi.fn(),
+      insertBefore: vi.fn(),
+      appendChild: vi.fn((node: any) => {
+        const idx = root.children.indexOf(node);
+        if (idx !== -1) root.children.splice(idx, 1);
+        root.children.push(node);
+      }),
+      matches: vi.fn(() => false),
+      contains: vi.fn(() => false),
+      children: [rowAr, rowEv, rowEs],
+      style: { display: '', flexDirection: '' },
+    };
+
+    vi.stubGlobal('window', { location: { origin: 'https://www.pathofexile.com' } });
+    vi.stubGlobal('document', {
+      createTextNode: vi.fn((text: string) => ({ nodeType: 3, textContent: text })),
+      createElementNS: vi.fn((_ns: string, tag: string) =>
+        (globalThis as any).document.createElement(tag),
+      ),
+      querySelector: vi.fn((sel: string) => (sel === '.results' ? root : null)),
+      querySelectorAll: vi.fn(() => []),
+      getElementById: vi.fn(() => null),
+      addEventListener: vi.fn(),
+      createElement: vi.fn(() => ({
+        className: '',
+        setAttribute: vi.fn(),
+        getAttribute: vi.fn(() => null),
+        addEventListener: vi.fn(),
+        replaceChildren: vi.fn(),
+        append: vi.fn(),
+        appendChild: vi.fn(),
+        prepend: vi.fn(),
+        querySelector: vi.fn(() => null),
+        querySelectorAll: vi.fn(() => []),
+        dataset: {},
+        style: {},
+      })),
+      head: { appendChild: vi.fn() },
+    });
+
+    const presenter = new ResultItemNormalizer('poe2');
+    await presenter.handleFetchResponse(
+      JSON.stringify({
+        url: '/api/trade2/fetch/res-ar?query=search-def',
+        data: {
+          result: [
+            {
+              id: 'res-ar',
+              item: {
+                realm: 'poe2',
+                baseType: 'Exquisite Plate',
+                sockets: [],
+                properties: [
+                  { name: 'Quality', values: [['+20%', 1]], type: 6 },
+                  { name: 'Armour', values: [['900', 1]], type: 16 },
+                ],
+                extended: { ar: 900 },
+              },
+            },
+            {
+              id: 'res-ev',
+              item: {
+                realm: 'poe2',
+                baseType: 'Smuggler Coat',
+                sockets: [],
+                properties: [
+                  { name: 'Quality', values: [['+20%', 1]], type: 6 },
+                  { name: 'Evasion Rating', values: [['700', 1]], type: 17 },
+                  { name: 'Energy Shield', values: [['150', 1]], type: 18 },
+                ],
+                extended: { ev: 700, es: 150 },
+              },
+            },
+            {
+              id: 'res-es',
+              item: {
+                realm: 'poe2',
+                baseType: 'Vile Robe',
+                sockets: [],
+                properties: [
+                  { name: 'Quality', values: [['+20%', 1]], type: 6 },
+                  { name: 'Armour', values: [['200', 1]], type: 16 },
+                  { name: 'Energy Shield', values: [['500', 1]], type: 18 },
+                ],
+                extended: { ar: 200, es: 500 },
+              },
+            },
+          ],
+        },
+      }),
+    );
+
+    // 總防禦：res-ar (1260) > res-ev (1190) > res-es (980)
+    presenter.setSortMode('potential_def');
+    expect(root.children).toEqual([rowAr, rowEv, rowEs]);
+
+    // 護甲：res-ar (1260) > res-es (280) > res-ev (0)
+    presenter.setSortMode('potential_armour');
+    expect(root.children).toEqual([rowAr, rowEs, rowEv]);
+
+    // 閃避：res-ev (980) 最大，其餘 (0) 維持相對順序或排後
+    presenter.setSortMode('potential_evasion');
+    expect(root.children[0]).toBe(rowEv);
+
+    // 能量護盾：res-es (700) > res-ev (210) > res-ar (0)
+    presenter.setSortMode('potential_es');
+    expect(root.children).toEqual([rowEs, rowEv, rowAr]);
   });
 
   it('性價比排序：匯率未開啟時不排序；開啟時依 getPrimaryPrice 換算後單位計算性價比並排序', async () => {

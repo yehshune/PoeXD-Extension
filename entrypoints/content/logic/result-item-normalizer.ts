@@ -24,6 +24,9 @@ export type SortMode =
   | 'potential_pdps'
   | 'potential_edps'
   | 'potential_def'
+  | 'potential_armour'
+  | 'potential_evasion'
+  | 'potential_es'
   | 'cp_ratio';
 
 const ICON_SVG_ATTRS = {
@@ -114,6 +117,9 @@ function getSortModeOptions(): Array<{
     { key: 'potential_pdps', label: t('normalizer.sort.potential_pdps') },
     { key: 'potential_edps', label: t('normalizer.sort.potential_edps') },
     { key: 'potential_def', label: t('normalizer.sort.potential_def') },
+    { key: 'potential_armour', label: t('normalizer.sort.potential_armour') },
+    { key: 'potential_evasion', label: t('normalizer.sort.potential_evasion') },
+    { key: 'potential_es', label: t('normalizer.sort.potential_es') },
     { key: 'cp_ratio', label: t('normalizer.sort.cp_ratio') },
   ];
 }
@@ -303,7 +309,7 @@ export class ResultItemNormalizer {
     // 1. 確保官方 row-total 左側注入 3 顆 30px 圖標按鈕
     this.ensureRowTotalControls();
 
-    // 2. 在每張卡片的 PoeXD 標籤列渲染數值 (已渲染過的卡片不重複建立 DOM，防止卡頓)
+    // 2. 在每張卡片的官方 .itemPopupAdditional 行內附註個別覆寫數值，並在圖片下方渲染打孔潛力
     const rows = resultRows(container);
     for (const row of rows) {
       const resultId = resolveResultId(row, this.normalizedMap);
@@ -311,7 +317,8 @@ export class ResultItemNormalizer {
       const stats = this.normalizedMap[resultId];
       if (!stats) continue;
 
-      renderAdditionalStats(findOrCreateBadgeStrip(row), stats, (mode) => this.setSortMode(mode));
+      renderInlinePopupOverrides(row, stats);
+      renderSocketBadge(row, stats);
     }
 
     // 3. 套用真實 DOM 物理排序 (零 flex 破壞，相容官方所有版型)
@@ -735,60 +742,30 @@ function removeInjectedElements() {
   if (typeof document === 'undefined') return;
   document
     .querySelectorAll(
-      '.poexd-additional, .poexd-stat-badges, .poexd-results-toolbar, .poexd-total-controls, .poexd-custom-additional',
+      '.poexd-inline-override, .poexd-additional, .poexd-left-badges, .poexd-stat-badges, .poexd-results-toolbar, .poexd-total-controls, .poexd-custom-additional',
     )
     .forEach((el) => el.remove());
 }
 
 /**
- * 取得（或建立）PoeXD 專用的標籤列。
- *
- * 官方 itemPopupAdditional 在 modern 版型是 position:absolute 疊在物品文字上方，
- * 標籤塞進去會蓋住屬性列；因此一律放在 .middle 底部的獨立正常排版列。
+ * 取得（或建立）圖片欄（`.left`）底部的打孔潛力容器。
  */
-function findOrCreateBadgeStrip(row: Element): Element {
-  const existing = row.querySelector('.poexd-stat-badges');
+function findOrCreateLeftBadgeStrip(row: Element): Element {
+  const existing = row.querySelector('.poexd-left-badges');
   if (existing) return existing;
 
-  const target = row.querySelector('.middle') || row;
+  const target = row.querySelector('.left') || row;
   const created = document.createElement('div');
-  created.className = 'poexd-stat-badges';
+  created.className = 'poexd-left-badges';
   target.appendChild(created);
   return created;
 }
 
 /**
- * 渲染覆寫數值與打孔標籤至 PoeXD 標籤列
+ * 組合懸停詳細試算提示（供圖片下方打孔潛力標籤使用）
  */
-function renderAdditionalStats(
-  container: Element,
-  stats: NormalizedItemStats,
-  onSort?: (mode: SortMode) => void,
-) {
-  const isWeapon = stats.type === 'weapon';
-  const potVal = isWeapon
-    ? stats.potential.dps
-    : (stats as ArmourNormalizedStats).potential.totalDefense;
-  const existingPotential = container.querySelector(
-    '[data-field="poexd-potential"], [data-field="poexd-potential-def"]',
-  ) as HTMLElement | null;
-
-  const activeLocale = getActiveUiLocale();
-
-  // 數值若已渲染且語言完全相同，直接跳過 DOM 增刪，徹底消除卡頓
-  if (
-    existingPotential &&
-    existingPotential.dataset?.poexdVal === String(potVal) &&
-    existingPotential.dataset?.poexdLocale === activeLocale
-  ) {
-    return;
-  }
-
-  // 移除既有的 poexd 插入項目，避免重複累積
-  container.querySelectorAll('.poexd-additional').forEach((el) => el.remove());
-
+function buildItemTooltipLines(stats: NormalizedItemStats): string[] {
   const analysis = stats.socketAnalysis;
-
   const tooltipLines: string[] = [
     t('normalizer.tooltip.title'),
     t('normalizer.tooltip.slot', {
@@ -813,7 +790,7 @@ function renderAdditionalStats(
     );
   }
 
-  if (isWeapon) {
+  if (stats.type === 'weapon') {
     const w = stats as WeaponNormalizedStats;
     tooltipLines.push(
       t('normalizer.tooltip.cleanWeapon', {
@@ -830,30 +807,6 @@ function renderAdditionalStats(
         diff: w.potential.diffDps >= 0 ? `+${w.potential.diffDps}` : `${w.potential.diffDps}`,
       }),
     );
-
-    // 覆寫 DPS (點擊排序，淨底子不再單獨佔位顯示)
-    const overrideSpan = document.createElement('span');
-    overrideSpan.className = 's lc s aug poexd-additional poexd-override-stat poexd-highlight';
-    overrideSpan.setAttribute('data-field', 'poexd-potential');
-    overrideSpan.dataset.poexdVal = String(potVal);
-    overrideSpan.dataset.poexdLocale = activeLocale;
-    overrideSpan.setAttribute(
-      'title',
-      `${tooltipLines.join('\n')}\n${t('normalizer.tooltip.clickToSortDps')}`,
-    );
-    setLabeledValue(
-      overrideSpan,
-      t('normalizer.stat.overrideDps'),
-      `${w.potential.dps}${w.potential.diffDps > 0 ? ` (+${w.potential.diffDps})` : ''}`,
-      'colourAugmented',
-    );
-    if (onSort) {
-      overrideSpan.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onSort('potential_dps');
-      });
-    }
-    container.appendChild(overrideSpan);
   } else {
     const a = stats as ArmourNormalizedStats;
     tooltipLines.push(
@@ -873,47 +826,135 @@ function renderAdditionalStats(
             : `${a.potential.diffTotalDefense}`,
       }),
     );
+  }
+  return tooltipLines;
+}
 
-    // 覆寫防禦 (點擊排序，淨底子不再單獨佔位顯示)
-    const overrideSpan = document.createElement('span');
-    overrideSpan.className = 's lc s aug poexd-additional poexd-override-stat poexd-highlight';
-    overrideSpan.setAttribute('data-field', 'poexd-potential-def');
-    overrideSpan.dataset.poexdVal = String(potVal);
-    overrideSpan.dataset.poexdLocale = activeLocale;
-    overrideSpan.setAttribute(
-      'title',
-      `${tooltipLines.join('\n')}\n${t('normalizer.tooltip.clickToSortDef')}`,
-    );
-    setLabeledValue(
-      overrideSpan,
-      t('normalizer.stat.overrideDef'),
-      `${a.potential.totalDefense}${
-        a.potential.diffTotalDefense > 0 ? ` (+${a.potential.diffTotalDefense})` : ''
-      }`,
-      'colourAugmented',
-    );
-    if (onSort) {
-      overrideSpan.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onSort('potential_def');
-      });
-    }
-    container.appendChild(overrideSpan);
+/**
+ * 渲染打孔潛力標籤至圖片下方（`.left > .poexd-left-badges`）；已打滿或不可打孔時移除
+ */
+function renderSocketBadge(row: Element, stats: NormalizedItemStats) {
+  const analysis = stats.socketAnalysis;
+  row.querySelector('.poexd-stat-badges')?.remove();
+
+  if (!analysis.canAddSockets) {
+    row.querySelector('.poexd-left-badges')?.remove();
+    return;
   }
 
-  // 孔數打孔提示標籤 (僅在未打滿且可打孔時顯示打孔潛力；卓越底天然多孔或已打滿/已污染裝備不顯示超限標籤)
-  if (analysis.canAddSockets) {
-    const socketSpan = document.createElement('span');
-    socketSpan.className = 's lc s poexd-additional poexd-socket-warn';
-    socketSpan.setAttribute('data-field', 'poexd-sockets');
-    socketSpan.setAttribute('title', tooltipLines.join('\n'));
-    setLabeledValue(
-      socketSpan,
-      t('normalizer.stat.socketPotential'),
-      `${stats.socketsCount}➔${analysis.targetSockets}${t('normalizer.stat.socketsUnit')}`,
-      'colourDefault',
-    );
-    container.appendChild(socketSpan);
+  const container = findOrCreateLeftBadgeStrip(row);
+  const existing = container.querySelector('[data-field="poexd-sockets"]') as HTMLElement | null;
+  const activeLocale = getActiveUiLocale();
+  const potVal =
+    stats.type === 'weapon'
+      ? stats.potential.dps
+      : (stats as ArmourNormalizedStats).potential.totalDefense;
+  const stateKey = `${stats.socketsCount}-${analysis.targetSockets}-${potVal}`;
+
+  if (
+    existing &&
+    existing.dataset?.poexdVal === stateKey &&
+    existing.dataset?.poexdLocale === activeLocale
+  ) {
+    return;
+  }
+
+  container.querySelectorAll('.poexd-additional').forEach((el) => el.remove());
+
+  const socketSpan = document.createElement('span');
+  socketSpan.className = 's lc s poexd-additional poexd-socket-warn';
+  socketSpan.setAttribute('data-field', 'poexd-sockets');
+  socketSpan.dataset.poexdVal = stateKey;
+  socketSpan.dataset.poexdLocale = activeLocale;
+  socketSpan.setAttribute('title', buildItemTooltipLines(stats).join('\n'));
+  setLabeledValue(
+    socketSpan,
+    t('normalizer.stat.socketPotential'),
+    `${stats.socketsCount}➔${analysis.targetSockets}${t('normalizer.stat.socketsUnit')}`,
+    'colourDefault',
+  );
+  container.appendChild(socketSpan);
+}
+
+interface InlineOverrideSpec {
+  field: string;
+  current: number;
+  potential: number;
+}
+
+/**
+ * 將個別屬性（護甲 / 閃避 / ES / DPS）的符文覆寫預估值直接行內附註於官方 `.itemPopupAdditional` 對應欄位右側，
+ * 不新增垂直列數以免遮蓋詞綴；總和與點擊排序按鈕仍集中於底部 `.poexd-stat-badges`。
+ */
+function renderInlinePopupOverrides(row: Element, stats: NormalizedItemStats) {
+  const popupAdditional = row.querySelector('.itemPopupAdditional');
+  if (!popupAdditional) return;
+
+  const isWeapon = stats.type === 'weapon';
+  const specs: InlineOverrideSpec[] = isWeapon
+    ? [
+        { field: 'dps', current: stats.current.dps, potential: stats.potential.dps },
+        { field: 'pdps', current: stats.current.pdps, potential: stats.potential.pdps },
+        { field: 'edps', current: stats.current.edps, potential: stats.potential.edps },
+      ]
+    : [
+        { field: 'ar', current: stats.current.armour, potential: stats.potential.armour },
+        { field: 'ev', current: stats.current.evasion, potential: stats.potential.evasion },
+        {
+          field: 'es',
+          current: stats.current.energyShield,
+          potential: stats.potential.energyShield,
+        },
+      ];
+
+  const activeLocale = getActiveUiLocale();
+  const titlePrefix = t('normalizer.tooltip.title');
+  const labelText = isWeapon ? t('normalizer.stat.overrideDps') : t('normalizer.stat.overrideDef');
+
+  for (const spec of specs) {
+    const fieldSpan = popupAdditional.querySelector(`[data-field="${spec.field}"]`);
+    if (!fieldSpan) continue;
+
+    const existing = fieldSpan.querySelector('.poexd-inline-override') as HTMLElement | null;
+    const isHidden = fieldSpan.classList?.contains('invisible');
+    const diff = isWeapon
+      ? Math.round((spec.potential - spec.current) * 100) / 100
+      : spec.potential - spec.current;
+
+    if (isHidden || spec.potential <= 0 || Math.abs(diff) < 0.01) {
+      if (existing) existing.remove();
+      continue;
+    }
+
+    const targetText = String(spec.potential);
+    if (
+      existing &&
+      existing.dataset?.poexdVal === targetText &&
+      existing.dataset?.poexdLocale === activeLocale
+    ) {
+      continue;
+    }
+
+    fieldSpan.querySelectorAll('.poexd-inline-override').forEach((el) => el.remove());
+
+    const diffText = diff >= 0 ? `+${diff}` : `${diff}`;
+    const inline = document.createElement('span');
+    inline.className = 'poexd-inline-override';
+    inline.setAttribute('data-poexd-field', spec.field);
+    inline.dataset.poexdVal = targetText;
+    inline.dataset.poexdLocale = activeLocale;
+    inline.setAttribute('title', `${titlePrefix}\n${labelText}: ${targetText} (${diffText})`);
+
+    const arrow = document.createElement('span');
+    arrow.className = 'poexd-inline-arrow';
+    arrow.textContent = '➔';
+
+    const value = document.createElement('span');
+    value.className = 'poexd-inline-val';
+    value.textContent = targetText;
+
+    inline.append(arrow, value);
+    fieldSpan.appendChild(inline);
   }
 }
 
@@ -928,6 +969,7 @@ function getSortMetric(
   if (stats.type === 'weapon') {
     switch (mode) {
       case 'potential_dps':
+      case 'cp_ratio':
         val = stats.potential.dps;
         break;
       case 'potential_pdps':
@@ -937,16 +979,26 @@ function getSortMetric(
         val = stats.potential.edps;
         break;
       default:
-        val = stats.potential.dps;
+        val = 0;
         break;
     }
   } else {
     switch (mode) {
       case 'potential_def':
+      case 'cp_ratio':
         val = stats.potential.totalDefense;
         break;
+      case 'potential_armour':
+        val = stats.potential.armour;
+        break;
+      case 'potential_evasion':
+        val = stats.potential.evasion;
+        break;
+      case 'potential_es':
+        val = stats.potential.energyShield;
+        break;
       default:
-        val = stats.potential.totalDefense;
+        val = 0;
         break;
     }
   }
@@ -1011,7 +1063,7 @@ function ensureInjectedStyle() {
      * #0f304d/#4c4c7d 搜尋按鈕藍與 #8888ff colourAugmented 強化數值色），以 oklch() 撰寫。
      */
     .poexd-total-controls,
-    .poexd-stat-badges .poexd-additional {
+    .poexd-left-badges .poexd-additional {
       --poexd-fx-bg: oklch(0.19 0.005 250 / 0.92);
       --poexd-fx-surface: oklch(0.235 0.005 250 / 0.96);
       --poexd-fx-surface-hover: oklch(0.295 0.006 250);
@@ -1164,21 +1216,22 @@ function ensureInjectedStyle() {
       margin-left: 12px;
     }
 
-    /* 卡片底部的 PoeXD 標籤列：正常排版、可換行，不疊在官方文字上 */
-    .poexd-stat-badges {
+    /* 圖片下方（.left）的打孔潛力標籤列：置中排版於物品圖示下方 */
+    .poexd-left-badges {
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
       align-items: center;
-      gap: 4px 5px;
-      clear: both;
-      padding: 4px 0 2px;
+      gap: 4px;
+      margin-top: 4px;
+      width: 100%;
     }
-    .poexd-stat-badges:empty {
+    .poexd-left-badges:empty {
       display: none;
     }
 
-    /* PoeXD 標籤 (覆寫 DPS / 覆寫防禦 / 打孔)：比照官方 .btn-xs / 詞綴面板風格 */
-    .poexd-stat-badges .poexd-additional {
+    /* PoeXD 打孔標籤：比照官方 .btn-xs / 詞綴面板風格 */
+    .poexd-left-badges .poexd-additional {
       display: inline-flex;
       align-items: center;
       gap: 4px;
@@ -1207,31 +1260,66 @@ function ensureInjectedStyle() {
         border-color 0.12s ease,
         color 0.12s ease;
     }
-    .poexd-stat-badges .poexd-additional.poexd-override-stat {
-      cursor: pointer;
-      border-color: oklch(0.42 0.065 268);
-    }
-    .poexd-stat-badges .poexd-additional.poexd-override-stat:hover {
-      background: var(--poexd-fx-primary-bg);
-      border-color: oklch(0.55 0.085 268);
-      color: var(--poexd-fx-fg);
-    }
-    .poexd-stat-badges .poexd-additional.poexd-override-stat .colourAugmented {
-      color: var(--poexd-fx-primary-fg) !important;
-      font-weight: 700;
-    }
-    .poexd-stat-badges .poexd-additional.poexd-socket-warn {
+    .poexd-left-badges .poexd-additional.poexd-socket-warn {
       border-color: oklch(0.47 0.068 72);
     }
-    .poexd-stat-badges .poexd-additional.poexd-socket-warn:hover {
+    .poexd-left-badges .poexd-additional.poexd-socket-warn:hover {
       background: var(--poexd-fx-warn-bg);
       border-color: var(--poexd-fx-warn);
       color: var(--poexd-fx-fg);
     }
-    .poexd-stat-badges .poexd-additional.poexd-socket-warn .colourDefault {
+    .poexd-left-badges .poexd-additional.poexd-socket-warn .colourDefault {
       color: var(--poexd-fx-warn-fg) !important;
       font-weight: 700;
       margin-left: 2px;
+    }
+
+    /* 官方 .itemPopupAdditional 行內符文覆寫附註：移除官方 span::before 冒號，並依版型區分浮層與橫列排版 */
+    .results .row .middle .itemPopupAdditional .s .poexd-inline-override::before,
+    .results .row .middle .itemPopupAdditional .s .poexd-inline-override *::before {
+      content: none !important;
+    }
+    .results .row .middle .itemPopupAdditional .poexd-inline-override {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 2px;
+      margin-left: 4px;
+      font-size: 0.92em;
+      font-weight: 700;
+      color: oklch(0.71 0.145 274);
+      white-space: nowrap;
+    }
+    .results .row .middle .itemPopupAdditional .poexd-inline-arrow {
+      font-size: 0.85em;
+      opacity: 0.85;
+    }
+
+    /* Compact / Compact Two 版型（右上角浮層）：維持原有垂直行數，依內容向右對齊展開 */
+    .results.compact .row .middle .itemPopupAdditional:has(.poexd-inline-override) {
+      width: max-content;
+      max-width: min(260px, 68%);
+      align-items: flex-end;
+    }
+    .results.compact .row .middle .itemPopupAdditional > .s:has(.poexd-inline-override) {
+      display: inline-flex;
+      align-items: baseline;
+      justify-content: flex-end;
+      flex-wrap: nowrap;
+      width: auto;
+      white-space: nowrap;
+    }
+
+    /* Default 版型（下方橫列）：保留全寬橫列，讓含覆寫的欄位依內容擴展寬度避免相鄰重疊 */
+    .results:not(.compact) .row .middle .itemPopupAdditional:has(.poexd-inline-override) {
+      flex-wrap: wrap;
+      gap: 4px 6px;
+    }
+    .results:not(.compact) .row .middle .itemPopupAdditional > .s:has(.poexd-inline-override) {
+      flex: 0 1 auto;
+      min-width: 20%;
+      width: auto;
+      padding: 0 6px;
+      white-space: nowrap;
     }
   `;
   document.head.appendChild(style);

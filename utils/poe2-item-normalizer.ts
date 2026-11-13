@@ -123,11 +123,13 @@ interface RawItemProperty {
   type?: number;
 }
 
-interface RawItemMod {
-  description: string;
+export interface RawItemMod {
+  description?: string;
   domain?: string;
   hash?: string;
 }
+
+export type RawModEntry = RawItemMod | string;
 
 /** 鑲嵌在裝備上的物品：增幅 (符文/靈魂核心/插槽綁定增幅) 或技能寶石 */
 export interface RawSocketedItem {
@@ -135,7 +137,8 @@ export interface RawSocketedItem {
   frameType?: number;
   frameTypeId?: string;
   support?: boolean;
-  runeMods?: unknown[];
+  runeMods?: RawModEntry[];
+  explicitMods?: RawModEntry[];
 }
 
 export interface RawPoeItem {
@@ -148,16 +151,27 @@ export interface RawPoeItem {
   category?: Record<string, unknown>;
   sockets?: Array<{ group?: number; type?: string }>;
   properties?: RawItemProperty[];
-  runeMods?: RawItemMod[];
-  explicitMods?: RawItemMod[];
-  implicitMods?: RawItemMod[];
-  craftedMods?: RawItemMod[];
+  runeMods?: RawModEntry[];
+  explicitMods?: RawModEntry[];
+  implicitMods?: RawModEntry[];
+  craftedMods?: RawModEntry[];
+  fracturedMods?: RawModEntry[];
+  desecratedMods?: RawModEntry[];
+  enchantMods?: RawModEntry[];
   desecrated?: boolean;
   socketedItems?: RawSocketedItem[];
   extended?: {
     dps?: number;
     pdps?: number;
     edps?: number;
+    dps_aug?: boolean;
+    pdps_aug?: boolean;
+    ar?: number;
+    ev?: number;
+    es?: number;
+    ar_aug?: boolean;
+    ev_aug?: boolean;
+    es_aug?: boolean;
   };
 }
 
@@ -302,7 +316,8 @@ export function resolveEquipmentSlot(raw: RawPoeItem): EquipmentSlot {
     name.includes('greatsword') ||
     name.includes('greataxe') ||
     name.includes('warhammer') ||
-    name.includes('maul')
+    name.includes('maul') ||
+    name.includes('talisman')
   ) {
     return 'two_hand_weapon';
   }
@@ -482,6 +497,17 @@ export function analyzeSockets(raw: RawPoeItem, slot: EquipmentSlot): SocketAnal
  * 法杖與長杖在遊戲中吃法術傷害與施法速度，不適用攻擊 DPS 與物理/元素攻擊點傷符文覆寫試算。
  */
 export function isCasterWeapon(raw: RawPoeItem): boolean {
+  const iconPath = decodePoeIconArtPath(raw.icon);
+  if (iconPath) {
+    const normalizedPath = `/${iconPath}/`;
+    if (/\/(Wands|Staves|Sceptres)\//i.test(normalizedPath)) {
+      return true;
+    }
+    if (/\/Warstaves\//i.test(normalizedPath)) {
+      return false;
+    }
+  }
+
   if (raw.category && typeof raw.category === 'object') {
     const weapons = Array.isArray(raw.category.weapons) ? (raw.category.weapons as string[]) : [];
     if (weapons.some((w) => w === 'wand' || w === 'staff' || w === 'sceptre')) {
@@ -570,73 +596,84 @@ function normalizeWeapon(
   const currentPdps = raw.extended?.pdps ?? 0;
   const currentEdps = raw.extended?.edps ?? 0;
   const currentDps = raw.extended?.dps ?? currentPdps + currentEdps;
-  const aps = extractAps(raw.properties);
+  const currentAps = extractAps(raw.properties);
+  const equipmentMods = collectEquipmentMods(raw);
 
-  // 1. 現有符文物傷 % 與元素點傷
+  // 1. 裝備自身詞綴：局部物傷 %、局部攻速 %、增幅效果放大係數
+  const explicitIncPhys = extractIncPhysPercent(equipmentMods);
+  const explicitIncAps = extractLocalIncAttackSpeedPercent(equipmentMods);
+  const augmentEffect = extractAugmentEffectPercent(equipmentMods);
+  const augmentMultiplier = 1 + augmentEffect / 100;
+
+  // 2. 現有符文詞綴：物傷 %、元素點傷、局部攻速 %
   const runeIncPhys = extractIncPhysPercent(raw.runeMods);
   const runeFlatElemAvg = extractRuneFlatElemAvg(raw.runeMods);
-  const runeFlatElemDps = roundToTwo(runeFlatElemAvg * aps);
+  const runeFlatElemDps = roundToTwo(runeFlatElemAvg * currentAps);
+  const runeIncAps = extractLocalIncAttackSpeedPercent(raw.runeMods);
 
-  // 2. 裝備自身詞綴物傷 %
-  const explicitIncPhys = extractIncPhysPercent([
-    ...(raw.explicitMods || []),
-    ...(raw.implicitMods || []),
-    ...(raw.craftedMods || []),
-  ]);
+  // 3. 插槽綁定增幅 (不可移除/覆寫) 的固有貢獻，上限受現有 runeMods 總值約束
+  const lockedAugments = getSocketedAugments(raw).filter(isSocketBoundAugment);
+  const lockedAugmentMods = collectSocketedWeaponMods(lockedAugments);
+  const lockedIncPhys = Math.min(
+    runeIncPhys,
+    Math.round(extractIncPhysPercent(lockedAugmentMods) * augmentMultiplier),
+  );
+  const lockedFlatElemAvg = Math.min(
+    runeFlatElemAvg,
+    extractRuneFlatElemAvg(lockedAugmentMods) * augmentMultiplier,
+  );
+  const lockedIncAps = Math.min(
+    runeIncAps,
+    Math.round(extractLocalIncAttackSpeedPercent(lockedAugmentMods) * augmentMultiplier),
+  );
 
-  // 3. 物理淨底子 (扣除現存符文石)
+  // 4. 攻速倍率換算 (當現有符文含攻速時，覆寫為目標符文會失去可替換孔的攻速加成)
+  const totalApsScale = 1 + (explicitIncAps + runeIncAps) / 100;
+  const cleanApsScale = 1 + explicitIncAps / 100;
+  const potentialApsScale = 1 + (explicitIncAps + lockedIncAps) / 100;
+  const cleanApsRatio = totalApsScale > 0 ? cleanApsScale / totalApsScale : 1;
+  const potentialApsRatio = totalApsScale > 0 ? potentialApsScale / totalApsScale : 1;
+  const potentialAps = currentAps * potentialApsRatio;
+
+  // 5. 物理與元素淨底子 (扣除全部現存符文石)
+  const totalPhysScale = 1 + (explicitIncPhys + runeIncPhys) / 100;
+  const cleanPhysScale = 1 + explicitIncPhys / 100;
   let cleanPdps = currentPdps;
-  if (currentPdps > 0) {
-    const totalPhysScale = 1 + (explicitIncPhys + runeIncPhys) / 100;
-    const cleanPhysScale = 1 + explicitIncPhys / 100;
-    cleanPdps =
-      totalPhysScale > 0
-        ? roundToTwo((currentPdps * cleanPhysScale) / totalPhysScale)
-        : currentPdps;
+  if (currentPdps > 0 && totalPhysScale > 0) {
+    cleanPdps = roundToTwo(((currentPdps * cleanPhysScale) / totalPhysScale) * cleanApsRatio);
   }
 
-  // 4. 元素淨底子 (扣除符文附加之點傷)
-  const cleanEdps = Math.max(0, roundToTwo(currentEdps - runeFlatElemDps));
+  const baseEdpsWithoutRuneFlat = Math.max(0, currentEdps - runeFlatElemDps);
+  const cleanEdps = Math.max(0, roundToTwo(baseEdpsWithoutRuneFlat * cleanApsRatio));
   const otherDps = Math.max(0, roundToTwo(currentDps - currentPdps - currentEdps));
   const cleanDps = roundToTwo(cleanPdps + cleanEdps + otherDps);
 
-  // 5. 符文效果放大係數
-  const augmentEffect = extractAugmentEffectPercent([
-    ...(raw.explicitMods || []),
-    ...(raw.implicitMods || []),
-    ...(raw.craftedMods || []),
-  ]);
-  const augmentMultiplier = 1 + augmentEffect / 100;
-
-  // 6. 滿孔潛力試算：將可覆寫的孔全部替換為使用者自選的目標符文 (插槽綁定增幅佔用的孔不可覆寫)
-  let potentialPdps = cleanPdps;
-  let potentialEdps = cleanEdps;
-
+  // 6. 滿孔潛力試算：保留插槽綁定增幅，將可覆寫孔全部替換為使用者自選目標符文
   const targetSockets = socketAnalysis.overridableSockets;
   const weaponRune = config.weaponRune;
 
-  if (targetSockets > 0 && weaponRune.type !== 'none') {
-    if (weaponRune.type === 'phys_percent') {
-      const targetRuneIncPhys = Math.round(targetSockets * weaponRune.value * augmentMultiplier);
-      if (currentPdps > 0) {
-        const totalPhysScale = 1 + (explicitIncPhys + runeIncPhys) / 100;
-        const potentialPhysScale = 1 + (explicitIncPhys + targetRuneIncPhys) / 100;
-        potentialPdps =
-          totalPhysScale > 0
-            ? roundToTwo((currentPdps * potentialPhysScale) / totalPhysScale)
-            : currentPdps;
-      }
-    } else if (
-      weaponRune.type === 'flat_fire' ||
+  const targetRuneIncPhys =
+    targetSockets > 0 && weaponRune.type === 'phys_percent'
+      ? Math.round(targetSockets * weaponRune.value * augmentMultiplier)
+      : 0;
+  const potentialPhysScale = 1 + (explicitIncPhys + lockedIncPhys + targetRuneIncPhys) / 100;
+  const potentialPdps =
+    currentPdps > 0 && totalPhysScale > 0
+      ? roundToTwo(((currentPdps * potentialPhysScale) / totalPhysScale) * potentialApsRatio)
+      : cleanPdps;
+
+  const addedFlatElemDps =
+    targetSockets > 0 &&
+    (weaponRune.type === 'flat_fire' ||
       weaponRune.type === 'flat_cold' ||
-      weaponRune.type === 'flat_lightning'
-    ) {
-      const addedFlatElemDps = roundToTwo(
-        targetSockets * weaponRune.value * augmentMultiplier * aps,
-      );
-      potentialEdps = roundToTwo(cleanEdps + addedFlatElemDps);
-    }
-  }
+      weaponRune.type === 'flat_lightning')
+      ? targetSockets * weaponRune.value * augmentMultiplier * potentialAps
+      : 0;
+  const lockedFlatElemDps = lockedFlatElemAvg * potentialAps;
+  const potentialEdps = Math.max(
+    0,
+    roundToTwo(baseEdpsWithoutRuneFlat * potentialApsRatio + lockedFlatElemDps + addedFlatElemDps),
+  );
 
   const potentialDps = roundToTwo(potentialPdps + potentialEdps + otherDps);
   const diffDps = roundToTwo(potentialDps - currentDps);
@@ -670,74 +707,137 @@ function normalizeWeapon(
   };
 }
 
+interface DefencePercentBreakdown {
+  armour: number;
+  evasion: number;
+  energyShield: number;
+}
+
+function scaleDefenceValue(
+  currentVal: number,
+  explicitInc: number,
+  currentRuneInc: number,
+  targetRuneInc: number,
+): number {
+  if (currentVal <= 0) return 0;
+  const totalScale = 1 + (explicitInc + currentRuneInc) / 100;
+  const targetScale = 1 + (explicitInc + targetRuneInc) / 100;
+  return totalScale > 0 ? Math.round((currentVal * targetScale) / totalScale) : currentVal;
+}
+
+function resolveTargetQuality(currentQuality: number, isCorrupted: boolean): number {
+  // PoE 2 滿品質基準為 20%；已超過 20% 依實際品質計算，已污染則無法再打磨品質
+  if (isCorrupted) return currentQuality;
+  return currentQuality < 20 ? 20 : currentQuality;
+}
+
+function resolveBaselineDefence(
+  rawPropVal: number,
+  extendedVal: number | undefined,
+  currentQuality: number,
+  targetQuality: number,
+): number {
+  if (rawPropVal <= 0) return 0;
+  // 官方 Trade API 的 extended.ar/ev/es 在未污染且品質 < 20% 時已自動換算為 20% 品質（>=20% 或已污染則為實際品質），
+  // 由伺服器端直接用未進位底值計算最精準；缺少 extended 時則以品質倍率公式換算。
+  if (typeof extendedVal === 'number' && extendedVal > 0) {
+    return extendedVal;
+  }
+  if (targetQuality === currentQuality) return rawPropVal;
+  const currentQualScale = 1 + currentQuality / 100;
+  const targetQualScale = 1 + targetQuality / 100;
+  return Math.round((rawPropVal * targetQualScale) / currentQualScale);
+}
+
 function normalizeArmour(
   raw: RawPoeItem,
   socketAnalysis: SocketAnalysis,
   config: RuneSubstitutionConfig,
 ): ArmourNormalizedStats {
-  const currentArmour = extractPropertyValue(raw.properties, 16, 'Armour');
-  const currentEvasion = extractPropertyValue(raw.properties, 17, 'Evasion');
-  const currentEnergyShield = extractPropertyValue(raw.properties, 18, 'Energy Shield');
+  const currentQuality = extractQualityPercent(raw.properties);
+  const targetQuality = resolveTargetQuality(currentQuality, Boolean(raw.corrupted));
+
+  const currentArmour = resolveBaselineDefence(
+    extractPropertyValue(raw.properties, 16, 'Armour'),
+    raw.extended?.ar,
+    currentQuality,
+    targetQuality,
+  );
+  const currentEvasion = resolveBaselineDefence(
+    extractPropertyValue(raw.properties, 17, 'Evasion'),
+    raw.extended?.ev,
+    currentQuality,
+    targetQuality,
+  );
+  const currentEnergyShield = resolveBaselineDefence(
+    extractPropertyValue(raw.properties, 18, 'Energy Shield'),
+    raw.extended?.es,
+    currentQuality,
+    targetQuality,
+  );
   const currentTotal = currentArmour + currentEvasion + currentEnergyShield;
+  const equipmentMods = collectEquipmentMods(raw);
 
-  // 1. 現有符文防禦 %
-  const runeIncDef = extractIncDefPercent(raw.runeMods);
+  // 1. 護甲 / 閃避 / 能量護盾各自獨立解析現有符文 % 與裝備詞綴 %
+  const runeIncDef = extractIncDefPercentMap(raw.runeMods);
+  const explicitIncDef = extractIncDefPercentMap(equipmentMods);
 
-  // 2. 裝備自身詞綴防禦 %
-  const explicitIncDef = extractIncDefPercent([
-    ...(raw.explicitMods || []),
-    ...(raw.implicitMods || []),
-    ...(raw.craftedMods || []),
-  ]);
-
-  const totalDefScale = 1 + (explicitIncDef + runeIncDef) / 100;
-  const cleanDefScale = 1 + explicitIncDef / 100;
-
-  const cleanArmour =
-    totalDefScale > 0 ? Math.round((currentArmour * cleanDefScale) / totalDefScale) : currentArmour;
-  const cleanEvasion =
-    totalDefScale > 0
-      ? Math.round((currentEvasion * cleanDefScale) / totalDefScale)
-      : currentEvasion;
-  const cleanEnergyShield =
-    totalDefScale > 0
-      ? Math.round((currentEnergyShield * cleanDefScale) / totalDefScale)
-      : currentEnergyShield;
+  const cleanArmour = scaleDefenceValue(currentArmour, explicitIncDef.armour, runeIncDef.armour, 0);
+  const cleanEvasion = scaleDefenceValue(
+    currentEvasion,
+    explicitIncDef.evasion,
+    runeIncDef.evasion,
+    0,
+  );
+  const cleanEnergyShield = scaleDefenceValue(
+    currentEnergyShield,
+    explicitIncDef.energyShield,
+    runeIncDef.energyShield,
+    0,
+  );
   const cleanTotal = cleanArmour + cleanEvasion + cleanEnergyShield;
 
-  // 3. 符文效果放大係數
-  const augmentEffect = extractAugmentEffectPercent([
-    ...(raw.explicitMods || []),
-    ...(raw.implicitMods || []),
-    ...(raw.craftedMods || []),
-  ]);
+  // 2. 符文效果放大係數與插槽綁定增幅固有貢獻
+  const augmentEffect = extractAugmentEffectPercent(equipmentMods);
   const augmentMultiplier = 1 + augmentEffect / 100;
+  const lockedAugments = getSocketedAugments(raw).filter(isSocketBoundAugment);
+  const lockedAugmentMods = collectSocketedArmourMods(lockedAugments);
+  const lockedIncRaw = extractIncDefPercentMap(lockedAugmentMods);
+  const lockedIncDef: DefencePercentBreakdown = {
+    armour: Math.min(runeIncDef.armour, Math.round(lockedIncRaw.armour * augmentMultiplier)),
+    evasion: Math.min(runeIncDef.evasion, Math.round(lockedIncRaw.evasion * augmentMultiplier)),
+    energyShield: Math.min(
+      runeIncDef.energyShield,
+      Math.round(lockedIncRaw.energyShield * augmentMultiplier),
+    ),
+  };
 
-  // 4. 滿孔潛力試算：將可覆寫的孔全部替換為使用者自選的目標防具符文 (插槽綁定增幅佔用的孔不可覆寫)
-  let potentialArmour = cleanArmour;
-  let potentialEvasion = cleanEvasion;
-  let potentialEnergyShield = cleanEnergyShield;
-
+  // 3. 滿孔潛力試算：保留插槽綁定增幅，直接從 current 數值換算避免二次四捨五入誤差
   const targetSockets = socketAnalysis.overridableSockets;
   const armourRune = config.armourRune;
+  const targetRuneIncDef =
+    targetSockets > 0 && armourRune.type === 'def_percent'
+      ? Math.round(targetSockets * armourRune.value * augmentMultiplier)
+      : 0;
 
-  if (targetSockets > 0 && armourRune.type === 'def_percent') {
-    const targetRuneIncDef = Math.round(targetSockets * armourRune.value * augmentMultiplier);
-    const potentialDefScale = 1 + (explicitIncDef + targetRuneIncDef) / 100;
-
-    potentialArmour =
-      cleanDefScale > 0
-        ? Math.round((cleanArmour * potentialDefScale) / cleanDefScale)
-        : cleanArmour;
-    potentialEvasion =
-      cleanDefScale > 0
-        ? Math.round((cleanEvasion * potentialDefScale) / cleanDefScale)
-        : cleanEvasion;
-    potentialEnergyShield =
-      cleanDefScale > 0
-        ? Math.round((cleanEnergyShield * potentialDefScale) / cleanDefScale)
-        : cleanEnergyShield;
-  }
+  const potentialArmour = scaleDefenceValue(
+    currentArmour,
+    explicitIncDef.armour,
+    runeIncDef.armour,
+    lockedIncDef.armour + targetRuneIncDef,
+  );
+  const potentialEvasion = scaleDefenceValue(
+    currentEvasion,
+    explicitIncDef.evasion,
+    runeIncDef.evasion,
+    lockedIncDef.evasion + targetRuneIncDef,
+  );
+  const potentialEnergyShield = scaleDefenceValue(
+    currentEnergyShield,
+    explicitIncDef.energyShield,
+    runeIncDef.energyShield,
+    lockedIncDef.energyShield + targetRuneIncDef,
+  );
 
   const potentialTotal = potentialArmour + potentialEvasion + potentialEnergyShield;
   const diffTotalDefense = potentialTotal - currentTotal;
@@ -768,9 +868,98 @@ function normalizeArmour(
       diffTotalDefense,
     },
     runeModifiers: {
-      incDefPercent: runeIncDef,
+      incDefPercent: Math.max(runeIncDef.armour, runeIncDef.evasion, runeIncDef.energyShield),
     },
   };
+}
+
+function collectEquipmentMods(raw: RawPoeItem): RawModEntry[] {
+  return [
+    ...(raw.explicitMods || []),
+    ...(raw.implicitMods || []),
+    ...(raw.craftedMods || []),
+    ...(raw.fracturedMods || []),
+    ...(raw.desecratedMods || []),
+    ...(raw.enchantMods || []),
+  ];
+}
+
+function collectSocketedWeaponMods(augments: RawSocketedItem[]): RawModEntry[] {
+  const collected: RawModEntry[] = [];
+  for (const aug of augments) {
+    for (const mod of [...(aug.explicitMods || []), ...(aug.runeMods || [])]) {
+      const text = unwrapPoeBrackets(extractRawModText(mod));
+      if (!text) continue;
+      for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || isBondedModLine(line)) continue;
+        const prefixMatch = line.match(
+          /^(?:Martial\s+Weapon|Weapon|武器|近戰武器)\s*[:：]\s*(.+)$/i,
+        );
+        if (prefixMatch) {
+          collected.push(prefixMatch[1].trim());
+        } else if (!/^(?:Wand|Staff|Armour|Shield|Focus|法杖|長杖|防具|護甲|盾牌)/i.test(line)) {
+          collected.push(line);
+        }
+      }
+    }
+  }
+  return collected;
+}
+
+function collectSocketedArmourMods(augments: RawSocketedItem[]): RawModEntry[] {
+  const collected: RawModEntry[] = [];
+  for (const aug of augments) {
+    for (const mod of [...(aug.explicitMods || []), ...(aug.runeMods || [])]) {
+      const text = unwrapPoeBrackets(extractRawModText(mod));
+      if (!text) continue;
+      for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || isBondedModLine(line)) continue;
+        const prefixMatch = line.match(/^(?:Armour|防具|護甲)\s*[:：]\s*(.+)$/i);
+        if (prefixMatch) {
+          collected.push(prefixMatch[1].trim());
+        } else if (!/^(?:Martial\s+Weapon|Weapon|Wand|Staff|武器|法杖|長杖)/i.test(line)) {
+          collected.push(line);
+        }
+      }
+    }
+  }
+  return collected;
+}
+
+function extractRawModText(mod: RawModEntry | unknown): string {
+  if (typeof mod === 'string') return mod;
+  if (mod && typeof mod === 'object' && typeof (mod as RawItemMod).description === 'string') {
+    return (mod as RawItemMod).description as string;
+  }
+  return '';
+}
+
+function extractStatKey(mod: RawModEntry | unknown): string | undefined {
+  if (!mod || typeof mod !== 'object') return undefined;
+  const hash = (mod as RawItemMod).hash;
+  if (typeof hash !== 'string') return undefined;
+  const match = hash.match(/(stat_\d+)/);
+  return match ? match[1] : undefined;
+}
+
+/** 將官方 `[Key|Display]` 與 `[Key]` 詞彙標記還原為純文字 */
+function unwrapPoeBrackets(text: string): string {
+  return text.replace(/\[(?:[^|\]]+\|)?([^\]]+)\]/g, '$1');
+}
+
+function isBondedModLine(line: string): boolean {
+  return /^(?:Bonded|命定)\s*[:：]/i.test(line);
+}
+
+function parseFirstSignedPercent(text: string): number | null {
+  const match = text.match(/(\d+)%/);
+  if (!match) return null;
+  const value = parseInt(match[1], 10);
+  if (Number.isNaN(value)) return null;
+  const isReduced = /\breduced\b|減少|降低/i.test(text);
+  return isReduced ? -value : value;
 }
 
 function extractAps(properties?: RawItemProperty[]): number {
@@ -783,6 +972,23 @@ function extractAps(properties?: RawItemProperty[]): number {
     }
   }
   return 1.0;
+}
+
+function extractQualityPercent(properties?: RawItemProperty[]): number {
+  if (!properties) return 0;
+  for (const prop of properties) {
+    if (
+      prop.type === 6 ||
+      prop.name.includes('Quality') ||
+      prop.name.includes('品質') ||
+      prop.name.includes('品质')
+    ) {
+      const valStr = prop.values?.[0]?.[0];
+      const parsed = parseInt(valStr || '', 10);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+    }
+  }
+  return 0;
 }
 
 function extractPropertyValue(
@@ -801,80 +1007,292 @@ function extractPropertyValue(
   return 0;
 }
 
-function extractIncPhysPercent(mods?: RawItemMod[]): number {
+function extractIncPhysPercent(mods?: RawModEntry[]): number {
   if (!mods) return 0;
   let total = 0;
   for (const mod of mods) {
-    if (!mod?.description) continue;
-    const match =
-      mod.description.match(/(\d+)%\s+increased\s+(?:\[Physical\]|Physical)\s+Damage/i) ||
-      mod.description.match(/(?:增加\s*|)(\d+)%\s*(?:\[物理\]|物理)\s*傷害/i);
-    if (match) {
-      total += parseInt(match[1], 10);
+    const rawText = extractRawModText(mod);
+    if (!rawText) continue;
+    const cleanText = unwrapPoeBrackets(rawText);
+    const statKey = extractStatKey(mod);
+
+    if (statKey) {
+      if (statKey === 'stat_1509134228') {
+        const val = parseFirstSignedPercent(cleanText);
+        if (val !== null) total += val;
+      }
+      continue;
+    }
+
+    for (const rawLine of cleanText.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || isBondedModLine(line)) continue;
+      const enMatch = line.match(
+        /^(\d+)%\s+(increased|reduced)\s+Physical\s+Damage(?:\s*\(Local\))?$/i,
+      );
+      if (enMatch) {
+        const val = parseInt(enMatch[1], 10);
+        total += enMatch[2].toLowerCase() === 'reduced' ? -val : val;
+        continue;
+      }
+      const twMatch = line.match(/^(增加|減少)?\s*(\d+)%\s*物理\s*傷害(?:\s*\((?:部分|局部)\))?$/i);
+      if (twMatch) {
+        const val = parseInt(twMatch[2], 10);
+        total += twMatch[1] === '減少' ? -val : val;
+        continue;
+      }
+      const cnMatch = line.match(/^物理伤害(提高|降低)\s*(\d+)%$/i);
+      if (cnMatch) {
+        const val = parseInt(cnMatch[2], 10);
+        total += cnMatch[1] === '降低' ? -val : val;
+      }
     }
   }
   return total;
 }
 
-function extractRuneFlatElemAvg(runeMods?: RawItemMod[]): number {
+function extractLocalIncAttackSpeedPercent(mods?: RawModEntry[]): number {
+  if (!mods) return 0;
+  let total = 0;
+  for (const mod of mods) {
+    const rawText = extractRawModText(mod);
+    if (!rawText) continue;
+    const cleanText = unwrapPoeBrackets(rawText);
+    const statKey = extractStatKey(mod);
+
+    if (statKey) {
+      if (statKey === 'stat_210067635') {
+        const val = parseFirstSignedPercent(cleanText);
+        if (val !== null) total += val;
+      }
+      continue;
+    }
+
+    for (const rawLine of cleanText.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || isBondedModLine(line)) continue;
+      const enMatch = line.match(
+        /^(\d+)%\s+(increased|reduced)\s+Attack\s+Speed(?:\s*\(Local\))?$/i,
+      );
+      if (enMatch) {
+        const val = parseInt(enMatch[1], 10);
+        total += enMatch[2].toLowerCase() === 'reduced' ? -val : val;
+        continue;
+      }
+      const twMatch = line.match(/^(增加|減少)?\s*(\d+)%\s*攻擊速度(?:\s*\((?:部分|局部)\))?$/i);
+      if (twMatch) {
+        const val = parseInt(twMatch[2], 10);
+        total += twMatch[1] === '減少' ? -val : val;
+        continue;
+      }
+      const cnMatch = line.match(/^攻击速度(提高|降低)\s*(\d+)%$/i);
+      if (cnMatch) {
+        const val = parseInt(cnMatch[2], 10);
+        total += cnMatch[1] === '降低' ? -val : val;
+      }
+    }
+  }
+  return total;
+}
+
+const RUNE_FLAT_ELEM_STAT_KEYS = new Set(['stat_709508406', 'stat_1037193709', 'stat_3336890334']);
+
+function parseFlatDamageRangeAvg(line: string): number | null {
+  const enMatch = line.match(/^Adds\s+(\d+)\s+to\s+(\d+)\s+(?:Fire|Cold|Lightning)\s+Damage$/i);
+  if (enMatch) {
+    return (parseInt(enMatch[1], 10) + parseInt(enMatch[2], 10)) / 2;
+  }
+  const twMatch = line.match(/^附加\s*(\d+)\s*至\s*(\d+)\s*(?:火焰|冰冷|閃電)\s*傷害$/i);
+  if (twMatch) {
+    return (parseInt(twMatch[1], 10) + parseInt(twMatch[2], 10)) / 2;
+  }
+  const cnMatch = line.match(/^附加\s*(\d+)\s*[-至]\s*(\d+)\s*(?:火焰|冰霜|闪电)\s*伤害$/i);
+  if (cnMatch) {
+    return (parseInt(cnMatch[1], 10) + parseInt(cnMatch[2], 10)) / 2;
+  }
+  return null;
+}
+
+function extractRuneFlatElemAvg(runeMods?: RawModEntry[]): number {
   if (!runeMods) return 0;
   let totalAvg = 0;
   for (const mod of runeMods) {
-    if (!mod?.description) continue;
-    const matchEn = mod.description.match(
-      /Adds\s+(\d+)\s+to\s+(\d+)\s+(?:\[(?:Fire|Cold|Lightning)\]|Fire|Cold|Lightning)\s+Damage/i,
-    );
-    if (matchEn) {
-      const min = parseInt(matchEn[1], 10);
-      const max = parseInt(matchEn[2], 10);
-      totalAvg += (min + max) / 2;
+    const rawText = extractRawModText(mod);
+    if (!rawText) continue;
+    const cleanText = unwrapPoeBrackets(rawText);
+    const statKey = extractStatKey(mod);
+
+    if (statKey) {
+      if (RUNE_FLAT_ELEM_STAT_KEYS.has(statKey)) {
+        const range = cleanText.match(/(\d+)\s*(?:to|至|-)\s*(\d+)/i);
+        if (range) {
+          totalAvg += (parseInt(range[1], 10) + parseInt(range[2], 10)) / 2;
+        }
+      }
       continue;
     }
-    const matchZh = mod.description.match(
-      /附加\s*(\d+)\s*至\s*(\d+)\s*(?:\[(?:火焰|冰冷|閃電)\]|火焰|冰冷|閃電)\s*傷害/i,
-    );
-    if (matchZh) {
-      const min = parseInt(matchZh[1], 10);
-      const max = parseInt(matchZh[2], 10);
-      totalAvg += (min + max) / 2;
+
+    for (const rawLine of cleanText.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || isBondedModLine(line)) continue;
+      const avg = parseFlatDamageRangeAvg(line);
+      if (avg !== null) totalAvg += avg;
     }
   }
   return totalAvg;
 }
 
-function extractIncDefPercent(mods?: RawItemMod[]): number {
-  if (!mods) return 0;
-  let total = 0;
-  for (const mod of mods) {
-    if (!mod?.description) continue;
-    const match =
-      mod.description.match(
-        /(\d+)%\s+increased\s+(?:Armour|Evasion|Energy\s+Shield|\[Armour\]|\[Evasion\]|\[EnergyShield\])/i,
-      ) ||
-      mod.description.match(
-        /(?:增加\s*|)(\d+)%\s*(?:護甲|閃避|能量護盾|\[護甲\]|\[閃避\]|\[能量護盾\])/i,
-      );
-    if (match) {
-      total += parseInt(match[1], 10);
-    }
+const DEF_STAT_KEY_TARGETS: Record<string, ReadonlyArray<keyof DefencePercentBreakdown>> = {
+  stat_1062208444: ['armour'],
+  stat_124859000: ['evasion'],
+  stat_4015621042: ['energyShield'],
+  stat_2451402625: ['armour', 'evasion'],
+  stat_3321629045: ['armour', 'energyShield'],
+  stat_1999113824: ['evasion', 'energyShield'],
+  stat_3523867985: ['armour', 'evasion', 'energyShield'],
+};
+
+function applyDefenceTargetValue(
+  acc: DefencePercentBreakdown,
+  targetText: string,
+  signedVal: number,
+): boolean {
+  const norm = targetText.replace(/\s*\((?:Local|部分|局部)\)\s*$/i, '').trim();
+  if (
+    /^(?:Armour,\s*Evasion(?:\s+Rating)?\s+and\s+Energy\s+Shield|護甲值?、閃避值?和能量護盾|护甲、闪避(?:值)?和能量护盾)$/i.test(
+      norm,
+    )
+  ) {
+    acc.armour += signedVal;
+    acc.evasion += signedVal;
+    acc.energyShield += signedVal;
+    return true;
   }
-  return total;
+  if (/^(?:Armour\s+and\s+Evasion(?:\s+Rating)?|護甲值?和閃避值?|护甲与闪避(?:值)?)$/i.test(norm)) {
+    acc.armour += signedVal;
+    acc.evasion += signedVal;
+    return true;
+  }
+  if (/^(?:Armour\s+and\s+Energy\s+Shield|護甲值?和能量護盾|护甲与能量护盾)$/i.test(norm)) {
+    acc.armour += signedVal;
+    acc.energyShield += signedVal;
+    return true;
+  }
+  if (
+    /^(?:Evasion(?:\s+Rating)?\s+and\s+Energy\s+Shield|閃避值?和能量護盾|闪避(?:值)?与能量护盾)$/i.test(
+      norm,
+    )
+  ) {
+    acc.evasion += signedVal;
+    acc.energyShield += signedVal;
+    return true;
+  }
+  if (/^(?:Armour|護甲值?|护甲)$/i.test(norm)) {
+    acc.armour += signedVal;
+    return true;
+  }
+  if (/^(?:Evasion(?:\s+Rating)?|閃避值?|闪避值?)$/i.test(norm)) {
+    acc.evasion += signedVal;
+    return true;
+  }
+  if (/^(?:Energy\s+Shield|能量護盾|能量护盾)$/i.test(norm)) {
+    acc.energyShield += signedVal;
+    return true;
+  }
+  return false;
 }
 
-function extractAugmentEffectPercent(mods?: RawItemMod[]): number {
+function extractIncDefPercentMap(mods?: RawModEntry[]): DefencePercentBreakdown {
+  const acc: DefencePercentBreakdown = { armour: 0, evasion: 0, energyShield: 0 };
+  if (!mods) return acc;
+
+  for (const mod of mods) {
+    const rawText = extractRawModText(mod);
+    if (!rawText) continue;
+    const cleanText = unwrapPoeBrackets(rawText);
+    const statKey = extractStatKey(mod);
+
+    if (statKey) {
+      const targets = DEF_STAT_KEY_TARGETS[statKey];
+      if (targets) {
+        const val = parseFirstSignedPercent(cleanText);
+        if (val !== null) {
+          for (const key of targets) acc[key] += val;
+        }
+      }
+      continue;
+    }
+
+    for (const rawLine of cleanText.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || isBondedModLine(line)) continue;
+
+      const enMatch = line.match(/^(\d+)%\s+(increased|reduced)\s+(.+)$/i);
+      if (enMatch) {
+        const val = parseInt(enMatch[1], 10);
+        const signedVal = enMatch[2].toLowerCase() === 'reduced' ? -val : val;
+        if (applyDefenceTargetValue(acc, enMatch[3], signedVal)) continue;
+      }
+
+      const twMatch = line.match(/^(增加|減少)\s*(\d+)%\s*(.+)$/);
+      if (twMatch) {
+        const val = parseInt(twMatch[2], 10);
+        const signedVal = twMatch[1] === '減少' ? -val : val;
+        if (applyDefenceTargetValue(acc, twMatch[3], signedVal)) continue;
+      }
+
+      const cnMatch = line.match(/^(.+?)(提高|降低)\s*(\d+)%$/);
+      if (cnMatch) {
+        const val = parseInt(cnMatch[3], 10);
+        const signedVal = cnMatch[2] === '降低' ? -val : val;
+        applyDefenceTargetValue(acc, cnMatch[1], signedVal);
+      }
+    }
+  }
+  return acc;
+}
+
+function extractAugmentEffectPercent(mods?: RawModEntry[]): number {
   if (!mods) return 0;
   let total = 0;
   for (const mod of mods) {
-    if (!mod?.description) continue;
-    const match =
-      mod.description.match(
-        /(\d+)%\s+increased\s+effect\s+of\s+Socketed\s+(?:\[Augment\]|Augment)\s+Items/i,
-      ) ||
-      mod.description.match(
-        /(?:增加\s*|)(\d+)%\s*(?:插槽中|插槽內的?)\s*(?:\[輔助\]|輔助)\s*物品效果/i,
+    const rawText = extractRawModText(mod);
+    if (!rawText) continue;
+    const cleanText = unwrapPoeBrackets(rawText);
+    const statKey = extractStatKey(mod);
+
+    if (statKey) {
+      if (statKey === 'stat_2081918629') {
+        const val = parseFirstSignedPercent(cleanText);
+        if (val !== null) total += val;
+      }
+      continue;
+    }
+
+    for (const rawLine of cleanText.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || isBondedModLine(line)) continue;
+      const enMatch = line.match(
+        /^(\d+)%\s+(increased|reduced)\s+effect\s+of\s+Socketed\s+Augment\s+Items$/i,
       );
-    if (match) {
-      total += parseInt(match[1], 10);
+      if (enMatch) {
+        const val = parseInt(enMatch[1], 10);
+        total += enMatch[2].toLowerCase() === 'reduced' ? -val : val;
+        continue;
+      }
+      const twMatch = line.match(
+        /^(增加|減少)\s*(\d+)%\s*(?:鑲嵌的|插槽中|插槽內的?)\s*(?:增幅|輔助)?\s*物品效果$/i,
+      );
+      if (twMatch) {
+        const val = parseInt(twMatch[2], 10);
+        total += twMatch[1] === '減少' ? -val : val;
+        continue;
+      }
+      const cnMatch = line.match(/^镶嵌的增幅器物品效果(提高|降低)\s*(\d+)%$/i);
+      if (cnMatch) {
+        const val = parseInt(cnMatch[2], 10);
+        total += cnMatch[1] === '降低' ? -val : val;
+      }
     }
   }
   return total;

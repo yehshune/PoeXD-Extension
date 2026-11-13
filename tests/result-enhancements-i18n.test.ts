@@ -69,17 +69,29 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
       const weaponRow = document.createElement('div');
       weaponRow.className = 'row';
       weaponRow.setAttribute('data-id', 'weapon-res-1');
+      const weaponLeft = document.createElement('div');
+      weaponLeft.className = 'left';
+      const weaponAdditional = document.createElement('div');
+      weaponAdditional.className = 'itemPopupAdditional';
+      weaponAdditional.innerHTML =
+        '<span data-field="dps" class="s lc">DPS<span class="colourAugmented">500</span></span>';
       const weaponDetails = document.createElement('div');
       weaponDetails.className = 'details';
-      weaponRow.appendChild(weaponDetails);
+      weaponRow.append(weaponLeft, weaponAdditional, weaponDetails);
       resultsContainer.appendChild(weaponRow);
 
       const armourRow = document.createElement('div');
       armourRow.className = 'row';
       armourRow.setAttribute('data-id', 'armour-res-1');
+      const armourLeft = document.createElement('div');
+      armourLeft.className = 'left';
+      const armourAdditional = document.createElement('div');
+      armourAdditional.className = 'itemPopupAdditional';
+      armourAdditional.innerHTML =
+        '<span data-field="ar" class="s lc">Armour<span class="colourAugmented">500</span></span>';
       const armourDetails = document.createElement('div');
       armourDetails.className = 'details';
-      armourRow.appendChild(armourDetails);
+      armourRow.append(armourLeft, armourAdditional, armourDetails);
       resultsContainer.appendChild(armourRow);
 
       const normalizer = new ResultItemNormalizer('poe2');
@@ -112,20 +124,23 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
       );
       const sortPopTexts = Array.from(sortPopItems || []).map((el) => el.textContent);
       expect(sortPopTexts).toContain('覆寫 DPS (高 ➔ 低)');
+      expect(sortPopTexts).toContain('覆寫總防禦 (高 ➔ 低)');
+      expect(sortPopTexts).toContain('覆寫護甲 (高 ➔ 低)');
+      expect(sortPopTexts).toContain('覆寫閃避 (高 ➔ 低)');
+      expect(sortPopTexts).toContain('覆寫能量護盾 (高 ➔ 低)');
       expect(sortPopTexts).toContain('性價比 (覆寫/價格 高 ➔ 低)');
 
-      const weaponOverride = weaponRow.querySelector('[data-field="poexd-potential"]');
+      const weaponOverride = weaponRow.querySelector('[data-field="dps"] .poexd-inline-override');
       expect(weaponOverride).toBeTruthy();
-      expect(weaponOverride?.innerHTML).toContain('覆寫DPS');
       expect(weaponOverride?.getAttribute('title')).toContain('【PoeXD 符文覆寫試算】');
-      expect(weaponOverride?.getAttribute('title')).toContain('[點擊依覆寫DPS由高到低排序]');
+      expect(weaponOverride?.getAttribute('title')).toContain('覆寫DPS');
 
-      const armourOverride = armourRow.querySelector('[data-field="poexd-potential-def"]');
+      const armourOverride = armourRow.querySelector('[data-field="ar"] .poexd-inline-override');
       expect(armourOverride).toBeTruthy();
-      expect(armourOverride?.innerHTML).toContain('覆寫防禦');
       expect(armourOverride?.getAttribute('title')).toContain('【PoeXD 符文覆寫試算】');
+      expect(armourOverride?.getAttribute('title')).toContain('覆寫防禦');
 
-      const socketWarn = armourRow.querySelector('[data-field="poexd-sockets"]');
+      const socketWarn = armourRow.querySelector('.left [data-field="poexd-sockets"]');
       expect(socketWarn).toBeTruthy();
       expect(socketWarn?.innerHTML).toContain('打孔潛力');
 
@@ -145,20 +160,20 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
         controls?.querySelectorAll('.poexd-sort-popover .poexd-popover-item span') || [],
       ).map((el) => el.textContent);
       expect(sortPopTextsEn).toContain('Override DPS (High ➔ Low)');
+      expect(sortPopTextsEn).toContain('Override Armour (High ➔ Low)');
+      expect(sortPopTextsEn).toContain('Override Evasion (High ➔ Low)');
+      expect(sortPopTextsEn).toContain('Override Energy Shield (High ➔ Low)');
       expect(sortPopTextsEn).toContain('Cost-Performance (Override/Price High ➔ Low)');
 
-      const weaponOverrideEn = weaponRow.querySelector('[data-field="poexd-potential"]');
-      expect(weaponOverrideEn?.innerHTML).toContain('Override DPS');
+      const weaponOverrideEn = weaponRow.querySelector('[data-field="dps"] .poexd-inline-override');
       expect(weaponOverrideEn?.getAttribute('title')).toContain('[PoeXD Rune Override Simulation]');
-      expect(weaponOverrideEn?.getAttribute('title')).toContain(
-        '[Click to sort by Override DPS descending]',
-      );
+      expect(weaponOverrideEn?.getAttribute('title')).toContain('Override DPS');
 
-      const armourOverrideEn = armourRow.querySelector('[data-field="poexd-potential-def"]');
-      expect(armourOverrideEn?.innerHTML).toContain('Override Def');
+      const armourOverrideEn = armourRow.querySelector('[data-field="ar"] .poexd-inline-override');
       expect(armourOverrideEn?.getAttribute('title')).toContain('[PoeXD Rune Override Simulation]');
+      expect(armourOverrideEn?.getAttribute('title')).toContain('Override Def');
 
-      const socketWarnEn = armourRow.querySelector('[data-field="poexd-sockets"]');
+      const socketWarnEn = armourRow.querySelector('.left [data-field="poexd-sockets"]');
       expect(socketWarnEn?.innerHTML).toContain('Socket Potential');
 
       // --- 3. Switch to zh-CN ---
@@ -166,11 +181,11 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
       normalizer.refreshLocale?.();
 
       expect(weaponBtn?.title).toContain('完美锻铁符文 (增加 20% 物理伤害)');
-      const weaponOverrideCn = weaponRow.querySelector('[data-field="poexd-potential"]');
-      const armourOverrideCn = armourRow.querySelector('[data-field="poexd-potential-def"]');
-      const socketWarnCn = armourRow.querySelector('[data-field="poexd-sockets"]');
-      expect(weaponOverrideCn?.innerHTML).toContain('覆写DPS');
-      expect(armourOverrideCn?.innerHTML).toContain('覆写防御');
+      const weaponOverrideCn = weaponRow.querySelector('[data-field="dps"] .poexd-inline-override');
+      const armourOverrideCn = armourRow.querySelector('[data-field="ar"] .poexd-inline-override');
+      const socketWarnCn = armourRow.querySelector('.left [data-field="poexd-sockets"]');
+      expect(weaponOverrideCn?.getAttribute('title')).toContain('覆写DPS');
+      expect(armourOverrideCn?.getAttribute('title')).toContain('覆写防御');
       expect(socketWarnCn?.innerHTML).toContain('打孔潜力');
 
       normalizer.cleanup();
