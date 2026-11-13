@@ -1,6 +1,6 @@
 # 資料端統一到 poexd-data（第一階段）規格
 
-> **文件狀態**：DONE — 第 1–4 步完成（2026-11-13）；手動觸發 workflow 待推送後驗證
+> **文件狀態**：DONE — 第 1–4 步完成（2026-11-13）
 > **範圍**：讓 `public/json/` 下所有資料都由 [poexd-data](https://github.com/yehshune/poexd-data) 產生與發布，擴充只負責同步。使用者端行為完全不變。
 > **後續**：第二階段（執行期從遠端更新資料）以本階段的發布單位與 manifest 為前提，另立文件。
 
@@ -190,12 +190,12 @@ pnpm data:sync -- --version poe1     # 只同步指定遊戲版本（保留現�
 - 只在完整同步遠端內容且沒有任何批次失敗時，才寫入 `public/json/data-source.json`。
 - 實際同步 gh-pages@e57e873：89 個檔案未變動；6 個 `trade-stats` 只有鍵的順序不同（官方 API 改了回傳順序，內容完全相同）；另外新增 `data-source.json`。符合驗收條件。
 
-**第 4 步結果（2026-11-13，DONE，尚未推送）**：
+**第 4 步結果（2026-11-13，DONE）**：
 
 - `data-refresh.yml` 改為每天執行 `pnpm data:sync` → `pnpm test`，有變動才開 PR（分支 `chore/sync-poexd-data`）。PR 說明附上同步紀錄，裡面列出每個批次的 patch 與 `staleLocales`。
 - poexd-data 每次發布都會產生新的 commit。為了不讓「只有 `data-source.json` 變動」的 PR 每天出現，資料沒有變動時不改寫 `data-source.json`。
 - 刪除 4 支舊腳本、2 個測試與 `filters:update`、`market:update`。`docs/trade-filter-data.md`、`market-translation-plan.md`、`CONTRIBUTING.md` 與兩處程式註解改為指向 poexd-data。新增 ADR-0013，ADR-0011、0012 補上指向它的一行。
-- 驗收中的「手動觸發 workflow 成功」要等推送後才能做。
+- 已推送並手動觸發（run 43441046367，成功）：6 個批次共 95 個檔案都與 main 相同，兩個 trade-filters 批次沿用上一版的 ko，所以沒有開 PR；同步、測試與開 PR 步驟都正常執行。
 
 ## 7. 風險
 
