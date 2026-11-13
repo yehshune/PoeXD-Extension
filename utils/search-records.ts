@@ -1,3 +1,4 @@
+import { planRejectedStorageBackups } from './rejected-storage-backup';
 import { decodeRepeatedly, type PoeVersion } from './trade-context';
 import { parseTradeSearchUrl, withTradeLeague } from './trade-search-identity';
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
@@ -173,10 +174,29 @@ interface ChromeStorageArea {
   set(items: Record<string, unknown>): Promise<void>;
 }
 
-export function createChromeSearchRecordStorage(area: ChromeStorageArea): SearchRecordStorage {
+/**
+ * 已存在但未通過驗證的搜尋紀錄狀態會在初始化時被遷移結果覆寫；
+ * 覆寫前先規劃備份，避免使用者資料無聲消失。
+ */
+function planSearchRecordRejectedBackups(values: Record<string, unknown>, now: number) {
+  if (values[SEARCH_RECORD_STATE_KEY] === undefined) return {};
+  if (isSearchRecordState(values[SEARCH_RECORD_STATE_KEY])) return {};
+  return planRejectedStorageBackups(values, [SEARCH_RECORD_STATE_KEY], now);
+}
+
+export function createChromeSearchRecordStorage(
+  area: ChromeStorageArea,
+  now: () => number = Date.now,
+): SearchRecordStorage {
   return {
     async load() {
       const values = await area.get(null);
+      const backups = planSearchRecordRejectedBackups(values, now());
+      if (Object.keys(backups).length > 0) {
+        // 備份寫入失敗時直接拋出，讓初始化失敗而不是覆寫原資料
+        await area.set(backups);
+        console.warn('[PoeXD] 搜尋紀錄狀態未通過驗證，已備份原始資料後重建');
+      }
       return {
         state: isSearchRecordState(values[SEARCH_RECORD_STATE_KEY])
           ? clone(values[SEARCH_RECORD_STATE_KEY])
@@ -190,10 +210,14 @@ export function createChromeSearchRecordStorage(area: ChromeStorageArea): Search
   };
 }
 
-export function createInMemorySearchRecordStorage(initial: Record<string, unknown> = {}) {
+export function createInMemorySearchRecordStorage(
+  initial: Record<string, unknown> = {},
+  now: () => number = Date.now,
+) {
   const values = clone(initial);
   const storage: SearchRecordStorage & { inspect(): Record<string, unknown> } = {
     async load() {
+      Object.assign(values, planSearchRecordRejectedBackups(values, now()));
       return {
         state: isSearchRecordState(values[SEARCH_RECORD_STATE_KEY])
           ? clone(values[SEARCH_RECORD_STATE_KEY])

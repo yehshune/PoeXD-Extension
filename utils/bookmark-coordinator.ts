@@ -1,3 +1,4 @@
+import { planRejectedStorageBackups } from './rejected-storage-backup';
 import {
   BOOKMARK_COLLECTION_STATE_KEY,
   BOOKMARK_COLLECTION_STATE_KEY_V2,
@@ -157,15 +158,42 @@ export interface BookmarkCoordinator {
   subscribe(listener: (change: BookmarkChange) => void): () => void;
 }
 
-export function createChromeBookmarkCoordinatorStorage(area: {
-  get(keys?: null | string | string[]): Promise<Record<string, unknown>>;
-  set(items: Record<string, unknown>): Promise<void>;
-  remove?(keys: string | string[]): Promise<void>;
-}): BookmarkCoordinatorStorage {
+/**
+ * 載入結果沒有可用狀態，但儲存中確實有 V3 或 V2 資料時（驗證失敗），
+ * 初始化會以預設狀態覆寫 V3 並刪除 V2；覆寫前先規劃備份。
+ */
+function planBookmarkRejectedBackups(
+  values: Record<string, unknown>,
+  loaded: { state?: BookmarkCollectionState },
+  now: number,
+) {
+  if (loaded.state) return {};
+  return planRejectedStorageBackups(
+    values,
+    [BOOKMARK_COLLECTION_STATE_KEY, BOOKMARK_COLLECTION_STATE_KEY_V2],
+    now,
+  );
+}
+
+export function createChromeBookmarkCoordinatorStorage(
+  area: {
+    get(keys?: null | string | string[]): Promise<Record<string, unknown>>;
+    set(items: Record<string, unknown>): Promise<void>;
+    remove?(keys: string | string[]): Promise<void>;
+  },
+  now: () => number = Date.now,
+): BookmarkCoordinatorStorage {
   return {
     async load() {
       const values = await area.get(null);
-      return loadBookmarkCollectionFromStorage(values);
+      const loaded = loadBookmarkCollectionFromStorage(values);
+      const backups = planBookmarkRejectedBackups(values, loaded, now());
+      if (Object.keys(backups).length > 0) {
+        // 備份寫入失敗時直接拋出，讓初始化失敗而不是以預設狀態覆寫原資料
+        await area.set(backups);
+        console.warn('[PoeXD] 書籤狀態未通過驗證，已備份原始資料後重建');
+      }
+      return loaded;
     },
     async commitBookmarks(state) {
       await area.set({ [BOOKMARK_COLLECTION_STATE_KEY]: clone(state) });
@@ -185,11 +213,16 @@ export function createChromeBookmarkCoordinatorStorage(area: {
   };
 }
 
-export function createInMemoryBookmarkCoordinatorStorage(initial: Record<string, unknown> = {}) {
+export function createInMemoryBookmarkCoordinatorStorage(
+  initial: Record<string, unknown> = {},
+  now: () => number = Date.now,
+) {
   const values = clone(initial);
   const storage: BookmarkCoordinatorStorage & { inspect(): Record<string, unknown> } = {
     async load() {
-      return loadBookmarkCollectionFromStorage(values);
+      const loaded = loadBookmarkCollectionFromStorage(values);
+      Object.assign(values, planBookmarkRejectedBackups(values, loaded, now()));
+      return loaded;
     },
     async commitBookmarks(state) {
       delete values[BOOKMARK_COLLECTION_STATE_KEY_V2];
