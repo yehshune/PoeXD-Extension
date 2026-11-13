@@ -18,14 +18,6 @@ import {
 } from './game-data-shard-compat';
 import { getLocaleStatsAssetPath, getModsTiersAssetPath, type PoeVersion } from './trade-context';
 
-export type {
-  AffixDisplayLocalePreference,
-  DisplayLocalePreference,
-  SupportedAffixLocale,
-  SupportedLocale,
-  SupportedUiLocale,
-};
-
 export interface CompactModTier {
   modId: string;
   level: number;
