@@ -505,6 +505,45 @@ describe('Tier Stat Category Ownership & Lifecycle Contracts', () => {
     expect(conflictStats[0].filters![0].poexdBindingId).not.toBe(
       conflictStats[0].filters![1].poexdBindingId,
     );
+
+    // 情況 C：同 statId 在 Case B 下若具有一致之 modGroup，重新對帳應保留 poexdModGroup
+    sessionStorage.setItem(
+      ACTIVE_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        sessionId: 'search-modgroup-agree',
+        league: 'Standard',
+        mode: 'search',
+        bindings: [
+          {
+            bindingId: 'mg-1',
+            statId: 'explicit.stat_es',
+            category: 'body-armour',
+            modGroup: '增加#%能量護盾|||||#最大生命',
+          },
+          {
+            bindingId: 'mg-2',
+            statId: 'explicit.stat_es',
+            category: 'body-armour',
+            modGroup: '增加#%能量護盾|||||#最大生命',
+          },
+        ],
+      }),
+    );
+    resetActiveBindingSessionForTest(true);
+    const freshModGroupStats: HostFilterGroup[] = [
+      {
+        filters: [
+          { id: 'explicit.stat_es', disabled: false },
+          { id: 'explicit.stat_es', disabled: false },
+        ],
+      },
+    ];
+    reconcileFilterBindings(freshModGroupStats);
+    expect(freshModGroupStats[0].filters![0].poexdCategory).toBe('body-armour');
+    expect(freshModGroupStats[0].filters![1].poexdCategory).toBe('body-armour');
+    expect(freshModGroupStats[0].filters![0].poexdModGroup).toBe('增加#%能量護盾|||||#最大生命');
+    expect(freshModGroupStats[0].filters![1].poexdModGroup).toBe('增加#%能量護盾|||||#最大生命');
   });
 
   it('13. PoE official adds filter: snapshot initializes new filter with official category without batch resetting existing filters', () => {

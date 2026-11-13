@@ -137,9 +137,12 @@ export function initPoeRuntimeMutation(bridge: MainWorldBridge) {
       store._withCommit(() => {
         if (category !== undefined) {
           updateSingleFilterCategory(stats, { bindingId, groupIndex, filterIndex }, category);
+          if (modGroup === undefined) {
+            updateSingleFilterModGroup(stats, { bindingId }, null);
+          }
         }
         if (modGroup !== undefined) {
-          updateSingleFilterModGroup(stats, { bindingId, groupIndex, filterIndex }, modGroup);
+          updateSingleFilterModGroup(stats, { bindingId }, modGroup);
         }
       });
       tagFilterDomElements();

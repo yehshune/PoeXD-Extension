@@ -807,15 +807,7 @@ export default defineComponent({
       // 同步派發事件，瞬間完成新增
       validItems.forEach((info) => {
         const modObj = info.id ? currentTypeGroups.value.find((m) => m.id === info.id) : undefined;
-        const firstTier = modObj?.tiers?.[0];
-        const resolvedModGroup =
-          firstTier?.displayTemplate ||
-          firstTier?.displayKey ||
-          firstTier?.key ||
-          info.displayTemplate ||
-          info.displayKey ||
-          info.key ||
-          undefined;
+        const resolvedModGroup = resolveModGroupKey(modObj?.tiers?.[0]) ?? resolveModGroupKey(info);
         addStatFilter(
           {
             key: info.key,
@@ -1286,6 +1278,13 @@ export default defineComponent({
       return text.replace(/\|\|\|\|\|/g, '\n');
     };
 
+    const resolveModGroupKey = (
+      source?: Pick<StatFilterModPayload, 'displayTemplate' | 'displayKey' | 'key'> | null,
+    ): string | undefined => {
+      if (!source) return undefined;
+      return source.displayTemplate || source.displayKey || source.key || undefined;
+    };
+
     // 發送事件新增屬性篩選到官方網頁 (複合詞綴多事件發送處理)
     const addStatFilter = (
       mod: StatFilterModPayload,
@@ -1296,13 +1295,7 @@ export default defineComponent({
     ) => {
       const keyToMatch = matchKey || mod.key;
       const affinities = mod.affinities || ['normal'];
-      const modGroupSource = mod.tiers?.[0] || mod;
-      const modGroup =
-        mod.modGroup ||
-        modGroupSource.displayTemplate ||
-        modGroupSource.displayKey ||
-        modGroupSource.key ||
-        undefined;
+      const modGroup = mod.modGroup || resolveModGroupKey(mod.tiers?.[0] || mod);
 
       const getSingleVal = (val?: string | string[]) => (Array.isArray(val) ? val[0] : val);
 

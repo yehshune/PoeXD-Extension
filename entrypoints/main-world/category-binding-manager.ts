@@ -245,46 +245,40 @@ export function ensureFilterBindingId(filter: HostFilterItem): string {
   return id;
 }
 
-export function setFilterCategory(
+function setFilterHiddenProp(
   filter: HostFilterItem,
-  category: string | null | undefined,
+  prop: 'poexdCategory' | 'poexdModGroup',
+  value: string | null | undefined,
 ): void {
   ensureFilterBindingId(filter);
-  if (category) {
-    Object.defineProperty(filter, 'poexdCategory', {
-      value: category,
+  if (value) {
+    Object.defineProperty(filter, prop, {
+      value,
       writable: true,
       enumerable: false, // 確保 JSON.stringify 完全忽略
       configurable: true,
     });
   } else {
     try {
-      delete filter.poexdCategory;
+      delete filter[prop];
     } catch {
-      filter.poexdCategory = undefined;
+      filter[prop] = undefined;
     }
   }
+}
+
+export function setFilterCategory(
+  filter: HostFilterItem,
+  category: string | null | undefined,
+): void {
+  setFilterHiddenProp(filter, 'poexdCategory', category);
 }
 
 export function setFilterModGroup(
   filter: HostFilterItem,
   modGroup: string | null | undefined,
 ): void {
-  ensureFilterBindingId(filter);
-  if (modGroup) {
-    Object.defineProperty(filter, 'poexdModGroup', {
-      value: modGroup,
-      writable: true,
-      enumerable: false, // 確保 JSON.stringify 完全忽略
-      configurable: true,
-    });
-  } else {
-    try {
-      delete filter.poexdModGroup;
-    } catch {
-      filter.poexdModGroup = undefined;
-    }
-  }
+  setFilterHiddenProp(filter, 'poexdModGroup', modGroup);
 }
 
 export function stampSessionIdToHistoryState(sessionId: string): void {
@@ -454,6 +448,7 @@ export function ensureActiveBindingSession(context?: {
                   bindingId: b.bindingId,
                   statId: b.statId,
                   category: typeof b.category === 'string' && b.category ? b.category : null,
+                  ...(typeof b.modGroup === 'string' && b.modGroup ? { modGroup: b.modGroup } : {}),
                 })),
             };
             stampSessionIdToHistoryState(activeBindingSession.sessionId);
@@ -657,6 +652,15 @@ export function reconcileFilterBindings(
           .filter((c): c is string => typeof c === 'string' && c.length > 0);
         const uniqueCategories = new Set(nonNullCategories);
 
+        const nonNullModGroups = sBindings
+          .map((b) => b.modGroup)
+          .filter((mg): mg is string => typeof mg === 'string' && mg.length > 0);
+        const uniqueModGroups = new Set(nonNullModGroups);
+        const uniformModGroup =
+          uniqueModGroups.size === 1 && nonNullModGroups.length === sBindings.length
+            ? Array.from(uniqueModGroups)[0]
+            : null;
+
         if (uniqueCategories.size === 0) {
           // 全部為 unbound (category === null)，安全恢復 bindingId，category 維持 null
           cFilters.forEach((f, idx) => {
@@ -669,6 +673,7 @@ export function reconcileFilterBindings(
               configurable: true,
             });
             setFilterCategory(f, null);
+            if (uniformModGroup) setFilterModGroup(f, uniformModGroup);
             if (b) boundBindingIds.add(b.bindingId);
             resolvedFilters.add(f);
           });
@@ -685,6 +690,7 @@ export function reconcileFilterBindings(
               configurable: true,
             });
             setFilterCategory(f, uniformCategory);
+            if (uniformModGroup) setFilterModGroup(f, uniformModGroup);
             if (b) boundBindingIds.add(b.bindingId);
             resolvedFilters.add(f);
           });
@@ -695,6 +701,7 @@ export function reconcileFilterBindings(
             if (officialCategory) {
               setFilterCategory(f, officialCategory);
             }
+            if (uniformModGroup) setFilterModGroup(f, uniformModGroup);
             resolvedFilters.add(f);
           });
         }
@@ -756,42 +763,38 @@ function findFilterByBindingId(
   return null;
 }
 
-export function updateSingleFilterCategory(
+function updateSingleFilterProp(
   groups: HostFilterGroup[],
-  target: { bindingId: string; groupIndex?: number; filterIndex?: number },
-  category: string,
+  target: { bindingId: string },
+  updater: (filter: HostFilterItem) => void,
 ): boolean {
   if (!target || typeof target.bindingId !== 'string' || !target.bindingId) {
     return false;
   }
 
   const targetFilter = findFilterByBindingId(groups, target.bindingId);
-
   // 若找不到對應 bindingId 的 filter（stale 或已刪除），絕不 fallback 到 groupIndex/filterIndex
   if (!targetFilter) {
     return false;
   }
 
-  setFilterCategory(targetFilter, category);
+  updater(targetFilter);
   persistBindings(groups);
   return true;
 }
 
-export function updateSingleFilterModGroup(
+export function updateSingleFilterCategory(
   groups: HostFilterGroup[],
   target: { bindingId: string; groupIndex?: number; filterIndex?: number },
+  category: string,
+): boolean {
+  return updateSingleFilterProp(groups, target, (filter) => setFilterCategory(filter, category));
+}
+
+export function updateSingleFilterModGroup(
+  groups: HostFilterGroup[],
+  target: { bindingId: string },
   modGroup: string | null,
 ): boolean {
-  if (!target || typeof target.bindingId !== 'string' || !target.bindingId) {
-    return false;
-  }
-
-  const targetFilter = findFilterByBindingId(groups, target.bindingId);
-  if (!targetFilter) {
-    return false;
-  }
-
-  setFilterModGroup(targetFilter, modGroup);
-  persistBindings(groups);
-  return true;
+  return updateSingleFilterProp(groups, target, (filter) => setFilterModGroup(filter, modGroup));
 }

@@ -151,7 +151,16 @@ describe('initPoeRuntimeMutation runtime regression', () => {
     expect(Object.keys(existingFilter)).not.toContain('poexdModGroup');
     expect(JSON.stringify(existingFilter)).not.toContain('poexdModGroup');
 
-    // 3. Remove category
+    // 3. Updating category without explicit modGroup clears stale modGroup, and removing category cleans up
+    updateHandler!({
+      bindingId: 'binding-life',
+      groupIndex: 0,
+      filterIndex: 0,
+      category: 'helmet',
+    });
+    expect(existingFilter.poexdCategory).toBe('helmet');
+    expect(existingFilter.poexdModGroup).toBeUndefined();
+
     updateHandler!({ bindingId: 'binding-life', groupIndex: 0, filterIndex: 0, category: '' });
     expect(existingFilter.poexdCategory).toBeUndefined();
     expect(JSON.stringify(existingFilter)).not.toContain('poexdCategory');
