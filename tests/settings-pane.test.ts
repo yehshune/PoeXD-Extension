@@ -395,9 +395,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const { container } = await mountSettingsPane();
     expect(currentModule).toBeDefined();
 
-    // Verify 3 Separators exist between 4 collapsible sections
+    // Verify 4 Separators exist between 5 collapsible sections
     const separators = container.querySelectorAll('[data-slot="separator"]');
-    expect(separators.length).toBe(3);
+    expect(separators.length).toBe(4);
     separators.forEach((sep) => {
       expect(sep.className).toContain('--pxd-section-gap');
       expect(sep.className).not.toContain('--poexd-density-scale');
@@ -442,13 +442,19 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       expect(cb.className).toContain(FORM_INDICATOR_SPECS.checkbox.sizeClass);
     });
 
-    // Verify 4 Collapsible sections exist with titles
+    // Verify 5 Collapsible sections exist with titles
     const collapsibles = container.querySelectorAll('[data-slot="collapsible"]');
-    expect(collapsibles.length).toBe(4);
+    expect(collapsibles.length).toBe(5);
     const triggers = container.querySelectorAll('[data-slot="collapsible-trigger"]');
-    expect(triggers.length).toBe(4);
+    expect(triggers.length).toBe(5);
     const sectionTitles = Array.from(triggers).map((t) => t.textContent?.trim());
-    expect(sectionTitles).toEqual(['外觀與面板', '搜尋與快捷鍵', '交易頁功能', '書籤']);
+    expect(sectionTitles).toEqual([
+      '外觀與介面',
+      '側邊欄版面',
+      '搜尋欄與快捷鍵',
+      '搜尋結果顯示',
+      '書籤與歷史',
+    ]);
     expect(sectionTitles).not.toContain('桌面連接器');
     expect(container.textContent).not.toContain('桌面連接器');
 
@@ -476,21 +482,22 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
   it('places Language selector in Appearance section alongside Theme and reactively localizes SettingsPane across zh-TW, zh-CN, en, and fallback locales', async () => {
     const { container } = await mountSettingsPane();
 
-    // Language selector must be located inside the first Collapsible section (Appearance & Panel)
+    // Language and translation selectors must be located inside the first Collapsible section (Appearance & Language)
     const collapsibles = container.querySelectorAll('[data-slot="collapsible"]');
     const appearanceSection = collapsibles[0];
-    const tradeFeaturesSection = collapsibles[2];
     expect(appearanceSection?.textContent).toContain('主題');
     expect(appearanceSection?.textContent).toContain('語言');
-    expect(tradeFeaturesSection?.textContent).not.toContain('詞綴顯示語系');
+    expect(appearanceSection?.textContent).toContain('市集漢化');
+    expect(container.textContent).not.toContain('詞綴顯示語系');
 
     // Default zh-TW rendering
     const sectionTriggers = container.querySelectorAll('[data-slot="collapsible-trigger"]');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
-      '外觀與面板',
-      '搜尋與快捷鍵',
-      '交易頁功能',
-      '書籤',
+      '外觀與介面',
+      '側邊欄版面',
+      '搜尋欄與快捷鍵',
+      '搜尋結果顯示',
+      '書籤與歷史',
     ]);
 
     // Switch displayLocale to zh-CN via Language Select
@@ -498,10 +505,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().displayLocale).toBe('zh-CN');
     expect(storage.inspect()['displayLocale']).toBe('zh-CN');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
-      '外观与面板',
-      '搜索与快捷键',
-      '交易页功能',
-      '书签',
+      '外观与界面',
+      '侧边栏版面',
+      '搜索栏与快捷键',
+      '搜索结果显示',
+      '书签与历史',
     ]);
     expect(container.textContent).toContain('主题');
     expect(container.textContent).toContain('语言');
@@ -511,10 +519,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await currentModule!.update({ displayLocale: 'en' });
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
-      'Appearance & Panel',
-      'Search & Hotkeys',
-      'Trade Page Features',
-      'Bookmarks',
+      'Appearance & Language',
+      'Sidebar Layout',
+      'Search & Filters',
+      'Search Results',
+      'Bookmarks & History',
     ]);
     expect(container.textContent).toContain('Theme');
     expect(container.textContent).toContain('Language');
@@ -527,10 +536,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await currentModule!.update({ displayLocale: 'ja' });
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
-      'Appearance & Panel',
-      'Search & Hotkeys',
-      'Trade Page Features',
-      'Bookmarks',
+      'Appearance & Language',
+      'Sidebar Layout',
+      'Search & Filters',
+      'Search Results',
+      'Bookmarks & History',
     ]);
     expect(triggersEn[1].textContent).toContain('日本語');
   });
@@ -934,9 +944,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const initialPrefs = { ...currentModule?.read() };
 
     const triggers = container.querySelectorAll<HTMLElement>('[data-slot="collapsible-trigger"]');
-    expect(triggers.length).toBe(4);
+    expect(triggers.length).toBe(5);
 
-    // Toggle all 4 sections closed
+    // Toggle all 5 sections closed
     for (const trigger of Array.from(triggers)) {
       trigger.click();
       await flushAsync();

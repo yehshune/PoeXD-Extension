@@ -67,6 +67,147 @@
           </Select>
         </div>
 
+        <!-- 市集漢化 -->
+        <div class="flex items-center gap-[var(--pxd-space-md)]">
+          <Checkbox
+            id="enable-market-translation"
+            v-model="marketTranslation"
+            @update:model-value="savePreference('marketTranslation')"
+          />
+          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+            <label
+              for="enable-market-translation"
+              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+            >
+              {{ t('settings.marketTranslation.label') }}
+            </label>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <span
+                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                  tabindex="-1"
+                  :aria-label="t('settings.marketTranslation.infoAria')"
+                >
+                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {{ t('settings.marketTranslation.tooltip') }}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+        <div
+          v-if="marketTranslation"
+          class="flex items-center gap-[var(--pxd-space-md)] pl-[var(--pxd-space-lg)]"
+        >
+          <Checkbox
+            id="enable-market-translation-bilingual"
+            v-model="marketTranslationBilingual"
+            @update:model-value="savePreference('marketTranslationBilingual')"
+          />
+          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+            <label
+              for="enable-market-translation-bilingual"
+              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+            >
+              {{ t('settings.marketTranslationBilingual.label') }}
+            </label>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <span
+                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                  tabindex="-1"
+                  :aria-label="t('settings.marketTranslationBilingual.infoAria')"
+                >
+                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {{ t('settings.marketTranslationBilingual.tooltip') }}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        <!-- 隱藏官方網頁背景 -->
+        <div class="flex items-center gap-[var(--pxd-space-md)]">
+          <Checkbox
+            id="enable-pure-background"
+            v-model="enablePureBackground"
+            @update:model-value="savePreference('enablePureBackground')"
+          />
+          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+            <label
+              for="enable-pure-background"
+              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+            >
+              {{ t('settings.pureBackground.label') }}
+            </label>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <span
+                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                  tabindex="-1"
+                  :aria-label="t('settings.pureBackground.infoAria')"
+                >
+                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {{ t('settings.pureBackground.tooltip') }}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        <!-- 使用道具名稱替換網頁標題 -->
+        <div class="flex items-center gap-[var(--pxd-space-md)]">
+          <Checkbox
+            id="enable-auto-title"
+            v-model="enableAutoTitle"
+            @update:model-value="savePreference('enableAutoTitle')"
+          />
+          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+            <label
+              for="enable-auto-title"
+              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+            >
+              {{ t('settings.autoTitle.label') }}
+            </label>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <span
+                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                  tabindex="-1"
+                  :aria-label="t('settings.autoTitle.infoAria')"
+                >
+                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {{ t('settings.autoTitle.tooltip') }}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+
+    <Separator class="my-[var(--pxd-section-gap)]" />
+
+    <!-- 2. 側邊欄版面 -->
+    <Collapsible v-model:open="sectionOpen.panel" class="flex flex-col">
+      <CollapsibleTrigger
+        class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
+      >
+        <span>{{ t('settings.section.panel') }}</span>
+        <ChevronDown
+          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-200"
+          :class="{ '-rotate-90': !sectionOpen.panel }"
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent class="flex flex-col gap-[var(--pxd-field-gap)] pt-[var(--pxd-space-sm)]">
         <!-- 面板位置 -->
         <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
           <span class="min-w-0 truncate text-[length:var(--pxd-font-secondary)] text-foreground">{{
@@ -286,23 +427,6 @@
             </Tooltip>
           </div>
         </div>
-      </CollapsibleContent>
-    </Collapsible>
-
-    <Separator class="my-[var(--pxd-section-gap)]" />
-
-    <!-- 3. 交易頁功能 -->
-    <Collapsible v-model:open="sectionOpen.tradeFeatures" class="flex flex-col">
-      <CollapsibleTrigger
-        class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
-      >
-        <span>{{ t('settings.section.tradeFeatures') }}</span>
-        <ChevronDown
-          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-200"
-          :class="{ '-rotate-90': !sectionOpen.tradeFeatures }"
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent class="flex flex-col gap-[var(--pxd-field-gap)] pt-[var(--pxd-space-sm)]">
         <div class="flex items-center gap-[var(--pxd-space-md)]">
           <Checkbox
             id="enable-tier-helper"
@@ -361,35 +485,23 @@
             </Tooltip>
           </div>
         </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-auto-title"
-            v-model="enableAutoTitle"
-            @update:model-value="savePreference('enableAutoTitle')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-auto-title"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.autoTitle.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.autoTitle.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.autoTitle.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
+      </CollapsibleContent>
+    </Collapsible>
+
+    <Separator class="my-[var(--pxd-section-gap)]" />
+
+    <!-- 4. 搜尋結果顯示 -->
+    <Collapsible v-model:open="sectionOpen.resultDisplay" class="flex flex-col">
+      <CollapsibleTrigger
+        class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
+      >
+        <span>{{ t('settings.section.resultDisplay') }}</span>
+        <ChevronDown
+          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-200"
+          :class="{ '-rotate-90': !sectionOpen.resultDisplay }"
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent class="flex flex-col gap-[var(--pxd-field-gap)] pt-[var(--pxd-space-sm)]">
         <div class="flex items-center gap-[var(--pxd-space-md)]">
           <Checkbox
             id="enable-price-comparison"
@@ -473,96 +585,6 @@
               </TooltipTrigger>
               <TooltipContent side="top">
                 {{ t('settings.resultModQuickFilter.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-pure-background"
-            v-model="enablePureBackground"
-            @update:model-value="savePreference('enablePureBackground')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-pure-background"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.pureBackground.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.pureBackground.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.pureBackground.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-market-translation"
-            v-model="marketTranslation"
-            @update:model-value="savePreference('marketTranslation')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-market-translation"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.marketTranslation.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.marketTranslation.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.marketTranslation.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div
-          v-if="marketTranslation"
-          class="flex items-center gap-[var(--pxd-space-md)] pl-[var(--pxd-space-lg)]"
-        >
-          <Checkbox
-            id="enable-market-translation-bilingual"
-            v-model="marketTranslationBilingual"
-            @update:model-value="savePreference('marketTranslationBilingual')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-market-translation-bilingual"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.marketTranslationBilingual.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.marketTranslationBilingual.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.marketTranslationBilingual.tooltip') }}
               </TooltipContent>
             </Tooltip>
           </div>
@@ -925,8 +947,9 @@ export default defineComponent({
 
     const sectionOpen = reactive({
       appearance: true,
+      panel: true,
       searchHotkeys: true,
-      tradeFeatures: true,
+      resultDisplay: true,
       bookmarks: true,
     });
 

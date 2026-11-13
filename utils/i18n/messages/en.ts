@@ -20,10 +20,11 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
-  'settings.section.appearance': 'Appearance & Panel',
-  'settings.section.searchHotkeys': 'Search & Hotkeys',
-  'settings.section.tradeFeatures': 'Trade Page Features',
-  'settings.section.bookmarks': 'Bookmarks',
+  'settings.section.appearance': 'Appearance & Language',
+  'settings.section.panel': 'Sidebar Layout',
+  'settings.section.searchHotkeys': 'Search & Filters',
+  'settings.section.resultDisplay': 'Search Results',
+  'settings.section.bookmarks': 'Bookmarks & History',
 
   // Settings Pane - Appearance & Panel
   'settings.theme.label': 'Theme',

@@ -20,10 +20,11 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
-  'settings.section.appearance': '外观与面板',
-  'settings.section.searchHotkeys': '搜索与快捷键',
-  'settings.section.tradeFeatures': '交易页功能',
-  'settings.section.bookmarks': '书签',
+  'settings.section.appearance': '外观与界面',
+  'settings.section.panel': '侧边栏版面',
+  'settings.section.searchHotkeys': '搜索栏与快捷键',
+  'settings.section.resultDisplay': '搜索结果显示',
+  'settings.section.bookmarks': '书签与历史',
 
   // Settings Pane - Appearance & Panel
   'settings.theme.label': '主题',

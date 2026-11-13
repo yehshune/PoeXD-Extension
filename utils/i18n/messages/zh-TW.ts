@@ -18,10 +18,11 @@ export const ZH_TW_MESSAGES = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
-  'settings.section.appearance': '外觀與面板',
-  'settings.section.searchHotkeys': '搜尋與快捷鍵',
-  'settings.section.tradeFeatures': '交易頁功能',
-  'settings.section.bookmarks': '書籤',
+  'settings.section.appearance': '外觀與介面',
+  'settings.section.panel': '側邊欄版面',
+  'settings.section.searchHotkeys': '搜尋欄與快捷鍵',
+  'settings.section.resultDisplay': '搜尋結果顯示',
+  'settings.section.bookmarks': '書籤與歷史',
 
   // Settings Pane - Appearance & Panel
   'settings.theme.label': '主題',
