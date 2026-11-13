@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateGameDataBatch, validateMercenaryBatch } from '../scripts/sync-game-data.mjs';
+import { validateGameDataBatch, validateMercenaryBatch } from '../scripts/sync-data.mjs';
 
 const batch = (overrides = {}) => ({
   modsTiers: { patch: '1.0', tiers: [{}, {}] },

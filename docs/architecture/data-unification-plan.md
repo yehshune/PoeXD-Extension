@@ -1,6 +1,6 @@
 # 資料端統一到 poexd-data（第一階段）規格
 
-> **文件狀態**：IN PROGRESS — 第 1、2 步完成（2026-11-13）
+> **文件狀態**：IN PROGRESS — 第 1–3 步完成（2026-11-13）
 > **範圍**：讓 `public/json/` 下所有資料都由 [poexd-data](https://github.com/yehshune/poexd-data) 產生與發布，擴充只負責同步。使用者端行為完全不變。
 > **後續**：第二階段（執行期從遠端更新資料）以本階段的發布單位與 manifest 為前提，另立文件。
 
@@ -182,6 +182,13 @@ pnpm data:sync -- --version poe1     # 只同步指定遊戲版本（保留現�
 - 本機演練（以目前 gh-pages 的內容當作上一版）：`build:trade` → `verify` → `manifest` → `check-patch` 全部通過；ko 被記為 `staleLocales`；patch 未變動時判定不需重建。
 - manifest 列出 95 個檔案，與擴充 `public/json/` 的檔案集合完全相同（雙方都沒有多出或缺少的檔案）。其中 89 個 sha256 相同，其餘 6 個是 `trade-stats`，原因是官方資料在擴充上次更新後有變動。所以第 3 步可以直接依 manifest 同步。
 - 目前的 gh-pages 還沒有市集資料，`verify` 會回報缺少必要檔案。推送後 push 觸發的是 `all`，會先產生這些檔案，所以第一次部署不受影響。遊戲資料批次的紀錄要等第一次 `all` 部署後才會出現在 manifest。
+- 已推送。第一次 CI 建置與部署約 2 分 17 秒；gh-pages（e57e873）的 manifest 列出 95 個檔案與 6 個批次紀錄。直接從 GitHub 下載檔案核對，sha256 與 manifest 一致。在 `core.autocrlf=true` 的 Windows 上用 `git archive` 取出的檔案，換行會被轉成 CRLF，hash 就對不上，所以用戶端一律要透過 HTTP 取得檔案。
+
+**第 3 步結果（2026-11-13，DONE）**：
+
+- `scripts/sync-game-data.mjs` 改寫為 `scripts/sync-data.mjs`（`pnpm data:sync`）。它依 manifest 同步全部 6 個批次，支援 `--ref`、`--source`、`--batch`、`--version`。路徑白名單與 poexd-data 的 `catalog.ts` 一致：manifest 中的批次和白名單對不上，或 sha256、大小無效時，整份 manifest 都拒絕。批次一致性檢查保留在擴充端，作為第二道防線。
+- 只在完整同步遠端內容且沒有任何批次失敗時，才寫入 `public/json/data-source.json`。
+- 實際同步 gh-pages@e57e873：89 個檔案未變動；6 個 `trade-stats` 只有鍵的順序不同（官方 API 改了回傳順序，內容完全相同）；另外新增 `data-source.json`。符合驗收條件。
 
 ## 7. 風險
 

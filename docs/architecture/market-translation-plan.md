@@ -125,7 +125,7 @@
 
 ### 第 4 階段：結果列
 
-- [x] poexd-data：`locales/<zh-TW|zh-CN>/mod-lines.json`（`{ schemaVersion, patch, locale, lines: { [statHash]: [英文模板, 譯文模板][] } }`），每個市集代碼輸出描述檔的全部變體（含負向）。除了主描述檔，再依序查 PoE1 的 atlas、PoE2 的 map／atlas／sanctum_relic／endgame_map／tablet 描述檔。變體數量與英文不同的規則略過。`sync-game-data.mjs` 把它視為同一批（patch 必須相同）一起同步。
+- [x] poexd-data：`locales/<zh-TW|zh-CN>/mod-lines.json`（`{ schemaVersion, patch, locale, lines: { [statHash]: [英文模板, 譯文模板][] } }`），每個市集代碼輸出描述檔的全部變體（含負向）。除了主描述檔，再依序查 PoE1 的 atlas、PoE2 的 map／atlas／sanctum_relic／endgame_map／tablet 描述檔。變體數量與英文不同的規則略過。`sync-data.mjs` 把它視為同一批（patch 必須相同）一起同步。
   - 涵蓋（0.5.5.8／3.29.3.6）：PoE2 1884／2295 個市集 hash，PoE1 7688／8224。
 - [x] 純函式 `translateModLine(englishLine, pairs)`（`utils/market-mod-lines.ts`）：英文模板轉成擷取式，相符的變體就把數值填進同一變體的譯文模板。英文句子本身已決定變體（單複數、正負向），不需要在執行期判斷條件；任一步失敗回傳 `null`。
 - [x] 描述檔查不到的代碼（範圍珠寶、移植物、部分符文與褻瀆詞綴等）以市集寫法備援：中英 trade-stats 的 `#` 轉成同格式模板再比對，英文必須整句相符，所以正負向不會錯。
