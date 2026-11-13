@@ -1,6 +1,6 @@
 # 資料端統一到 poexd-data（第一階段）規格
 
-> **文件狀態**：IN PROGRESS — 第 1 步完成（2026-11-13）
+> **文件狀態**：IN PROGRESS — 第 1、2 步完成（2026-11-13）
 > **範圍**：讓 `public/json/` 下所有資料都由 [poexd-data](https://github.com/yehshune/poexd-data) 產生與發布，擴充只負責同步。使用者端行為完全不變。
 > **後續**：第二階段（執行期從遠端更新資料）以本階段的發布單位與 manifest 為前提，另立文件。
 
@@ -173,6 +173,15 @@ pnpm data:sync -- --version poe1     # 只同步指定遊戲版本（保留現�
 | 4    | 擴充       | 切換 `data-refresh.yml`、刪除舊腳本、更新文件與 ADR | 手動觸發 workflow 成功；`pnpm test` 通過                    |
 
 **第 1 步結果（2026-11-13，DONE）**：兩邊先後各跑一次，32 個 `trade-*` 檔案中 31 個逐位元組相同。唯一不同的 `poe1/locales/zh-CN/trade-stats.json` 內容完全相同，只是鍵的順序不同。原因是騰訊的 PoE 1 stats 回應在兩次執行之間更新了：把同一份已存下的 API 回應分別交給新舊函式，輸出完全相同，而且新版的輸出與當下的 API 一致。之後的比對都改用「同一份已存回應」，不再依賴兩次即時抓取。兩邊的 ko 都抓取失敗（本機也連不上 Kakao），沿用既有檔案；擴充目前本來就沒有 ko 的檔案。
+
+**第 2 步結果（2026-11-13，DONE，尚未推送）**：
+
+- 新增 `src/publish/`：批次目錄（`catalog.ts`）、批次建置紀錄（`batches.json`）、`manifest.json`、驗證閘門（`verify`）、patch 比對（`check-patch`）。`validateGameDataBatch` 與 `validateMercenaryBatch` 連同測試從擴充搬入。
+- `deploy.yml` 改為第 4.3 節的流程與排程，actions 全部鎖 commit SHA 並改用跑在 Node 24 上的版本。
+- `all` 建置時，市集資料失敗只會發出警告並沿用上一版，不會擋住遊戲資料的更新。
+- 本機演練（以目前 gh-pages 的內容當作上一版）：`build:trade` → `verify` → `manifest` → `check-patch` 全部通過；ko 被記為 `staleLocales`；patch 未變動時判定不需重建。
+- manifest 列出 95 個檔案，與擴充 `public/json/` 的檔案集合完全相同（雙方都沒有多出或缺少的檔案）。其中 89 個 sha256 相同，其餘 6 個是 `trade-stats`，原因是官方資料在擴充上次更新後有變動。所以第 3 步可以直接依 manifest 同步。
+- 目前的 gh-pages 還沒有市集資料，`verify` 會回報缺少必要檔案。推送後 push 觸發的是 `all`，會先產生這些檔案，所以第一次部署不受影響。遊戲資料批次的紀錄要等第一次 `all` 部署後才會出現在 manifest。
 
 ## 7. 風險
 
