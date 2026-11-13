@@ -158,8 +158,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'popup.notTrade.realm.international': '国际服',
   'popup.notTrade.realm.garena-tw': '台服',
   'popup.notTrade.realm.tencent': '国服（腾讯）',
-  'popup.notTrade.poe1Title': 'PoE 1 官方交易市集',
-  'popup.notTrade.poe2Title': 'PoE 2 官方交易市集',
   'popup.notTrade.poe1ShortTitle': 'PoE 1',
   'popup.notTrade.poe2ShortTitle': 'PoE 2',
   'popup.notTrade.openAction': '前往 →',

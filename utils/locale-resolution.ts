@@ -31,7 +31,7 @@ const SUBDOMAIN_TO_LOCALE: Readonly<Record<string, SupportedLocale>> = Object.fr
   th: 'th',
 });
 
-export function normalizeLocaleTag(tag?: string | null): SupportedLocale | null {
+function normalizeLocaleTag(tag?: string | null): SupportedLocale | null {
   if (!tag) return null;
   const trimmed = tag.trim();
   if (!trimmed) return null;

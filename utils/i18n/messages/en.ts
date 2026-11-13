@@ -167,8 +167,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'popup.notTrade.realm.international': 'International',
   'popup.notTrade.realm.garena-tw': 'Taiwan',
   'popup.notTrade.realm.tencent': 'China (Tencent)',
-  'popup.notTrade.poe1Title': 'PoE 1 Official Trade',
-  'popup.notTrade.poe2Title': 'PoE 2 Official Trade',
   'popup.notTrade.poe1ShortTitle': 'PoE 1',
   'popup.notTrade.poe2ShortTitle': 'PoE 2',
   'popup.notTrade.openAction': 'Open →',

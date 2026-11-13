@@ -7,8 +7,8 @@
  */
 
 import type { I18nKey } from './i18n/messages/zh-TW';
-import { detectBrowserLocale, normalizeLocaleTag, resolveDisplayLocale } from './locale-resolution';
-import type { DisplayLocalePreference } from './preferences-contract';
+import { detectBrowserLocale, resolveDisplayLocale } from './locale-resolution';
+import type { DisplayLocalePreference, SupportedLocale } from './preferences-contract';
 import type { PoeVersion } from './trade-context';
 
 export type TradeRealmId = 'international' | 'garena-tw' | 'tencent';
@@ -120,17 +120,57 @@ const REALM_BY_ID: Readonly<Record<TradeRealmId, TradeRealm>> = Object.freeze(
   >,
 );
 
+const POPUP_REALM_LABEL_KEYS: Readonly<Record<TradeRealmId, I18nKey>> = Object.freeze({
+  international: 'popup.notTrade.realm.international',
+  'garena-tw': 'popup.notTrade.realm.garena-tw',
+  tencent: 'popup.notTrade.realm.tencent',
+});
+
+const INTERNATIONAL_LOCALE_SUBDOMAINS: Readonly<
+  Record<Exclude<SupportedLocale, 'zh-TW' | 'zh-CN'>, string>
+> = Object.freeze({
+  en: 'www',
+  ja: 'jp',
+  ko: 'kr',
+  ru: 'ru',
+  de: 'de',
+  fr: 'fr',
+  es: 'es',
+  pt: 'br',
+  th: 'th',
+});
+
+export interface QuickTradeRealmEntry {
+  readonly id: TradeRealmId;
+  readonly origin: string;
+  readonly hostLabel: string;
+  readonly labelKey: I18nKey;
+}
+
 export function getTradeRealm(id: TradeRealmId): TradeRealm {
   return REALM_BY_ID[id];
 }
 
-export function buildTradeRootUrl(
-  realmOrId: TradeRealm | TradeRealmId,
-  version: PoeVersion,
-): string {
-  const realm = typeof realmOrId === 'string' ? getTradeRealm(realmOrId) : realmOrId;
+export function formatTradeHostLabel(origin: string): string {
+  return new URL(origin).hostname.replace(/^www\./, '');
+}
+
+export function buildTradeRootUrl(origin: string, version: PoeVersion): string {
+  // 直接對應 /trade 與 /trade2，避免與 trade-context 形成執行期循環相依
   const routeRoot = version === 'poe2' ? 'trade2' : 'trade';
-  return `${realm.defaultOrigin}/${routeRoot}`;
+  return `${origin}/${routeRoot}`;
+}
+
+function createQuickTradeRealmEntry(
+  id: TradeRealmId,
+  origin: string = getTradeRealm(id).defaultOrigin,
+): QuickTradeRealmEntry {
+  return {
+    id,
+    origin,
+    hostLabel: formatTradeHostLabel(origin),
+    labelKey: POPUP_REALM_LABEL_KEYS[id],
+  };
 }
 
 export interface QuickTradeRealmsInput {
@@ -139,35 +179,27 @@ export interface QuickTradeRealmsInput {
 }
 
 /**
- * 依使用者語言設定與瀏覽器語系決定非官網 Popover 顯示的市集網域組合：
- * - 繁中 (`zh-TW`)：國際服 + 台服
- * - 簡中 (`zh-CN`)：國際服 + 國服（騰訊）
- * - 其他語系：僅國際服
- * 當 `displayLocale` 明確設為非中文語系（例如 `en`）時，仍會參考瀏覽器語系補上對應華語服，
- * 同時始終保留國際服連結。
+ * 依擴充語言設定與瀏覽器語系決定非官網 Popover 顯示的市集連結組合：
+ * - `displayLocale` 為 `auto` 時依瀏覽器語系解析；否則直接使用設定的目標語系
+ * - 繁中 (`zh-TW`)：國際服英文 (`www.pathofexile.com`) + 台服 (`pathofexile.tw`)
+ * - 簡中 (`zh-CN`)：國際服英文 (`www.pathofexile.com`) + 國服（騰訊 `poe.game.qq.com`）
+ * - 其他語系：僅顯示該語系對應的國際服子網域（例如 `en` → `www`、`ja` → `jp`、`pt` → `br`）
  */
-export function resolveQuickTradeRealms(input: QuickTradeRealmsInput = {}): readonly TradeRealm[] {
-  const preference = input.displayLocale ?? 'auto';
-  const browserLocale = input.browserLocale ?? detectBrowserLocale();
-  const resolvedDisplayLocale = resolveDisplayLocale(preference, {
+export function resolveQuickTradeRealms(
+  input: QuickTradeRealmsInput = {},
+): readonly QuickTradeRealmEntry[] {
+  const resolved = resolveDisplayLocale(input.displayLocale ?? 'auto', {
     hostname: '',
-    browserLocale,
+    browserLocale: input.browserLocale ?? detectBrowserLocale(),
   });
 
-  if (resolvedDisplayLocale === 'zh-TW') {
-    return [REALM_BY_ID.international, REALM_BY_ID['garena-tw']];
+  if (resolved === 'zh-TW') {
+    return [createQuickTradeRealmEntry('international'), createQuickTradeRealmEntry('garena-tw')];
   }
-  if (resolvedDisplayLocale === 'zh-CN') {
-    return [REALM_BY_ID.international, REALM_BY_ID.tencent];
-  }
-
-  const normalizedBrowserLocale = normalizeLocaleTag(browserLocale);
-  if (normalizedBrowserLocale === 'zh-TW') {
-    return [REALM_BY_ID.international, REALM_BY_ID['garena-tw']];
-  }
-  if (normalizedBrowserLocale === 'zh-CN') {
-    return [REALM_BY_ID.international, REALM_BY_ID.tencent];
+  if (resolved === 'zh-CN') {
+    return [createQuickTradeRealmEntry('international'), createQuickTradeRealmEntry('tencent')];
   }
 
-  return [REALM_BY_ID.international];
+  const subdomain = INTERNATIONAL_LOCALE_SUBDOMAINS[resolved] ?? 'www';
+  return [createQuickTradeRealmEntry('international', `https://${subdomain}.pathofexile.com`)];
 }

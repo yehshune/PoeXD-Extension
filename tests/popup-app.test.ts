@@ -4,7 +4,11 @@ import { createApp } from 'vue';
 import PopupApp from '@/entrypoints/popup/App.vue';
 import { createInMemoryPreferencesStorage, type PreferencesModule } from '@/utils/preferences';
 import { resetI18nStateForTests } from '@/utils/i18n';
-import { buildTradeRootUrl, resolveQuickTradeRealms } from '@/utils/trade-realms';
+import {
+  buildTradeRootUrl,
+  formatTradeHostLabel,
+  resolveQuickTradeRealms,
+} from '@/utils/trade-realms';
 
 let storage = createInMemoryPreferencesStorage();
 let currentModule: PreferencesModule | undefined;
@@ -291,26 +295,66 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
         el.getAttribute('data-trade-realm-group'),
       ),
     ).toEqual(['international']);
+
+    // Explicit non-Chinese displayLocale (ja) on zh-TW browser shows localized International subdomain only
+    (globalThis as any).chrome.i18n.getUILanguage = () => 'zh-TW';
+    await currentModule?.update({ displayLocale: 'ja' });
+    await new Promise((r) => setTimeout(r, 25));
+    expect(
+      Array.from(container.querySelectorAll('[data-trade-realm-group]')).map((el) =>
+        el.getAttribute('data-trade-realm-group'),
+      ),
+    ).toEqual(['international']);
+    expect(container.textContent).toContain('jp.pathofexile.com');
+    const openJpPoe2Btn = container.querySelector(
+      '[data-open-realm="international"][data-open-trade="poe2"]',
+    ) as HTMLButtonElement;
+    openJpPoe2Btn.click();
+    expect(createTabMock).toHaveBeenCalledWith({
+      url: 'https://jp.pathofexile.com/trade2',
+    });
   });
 
-  it('resolves quick trade realm pairs and root URLs across browser and displayLocale combinations', () => {
+  it('resolves quick trade realms, subdomains, host labels, and root URLs across auto and explicit displayLocales', () => {
+    // auto follows browser locale
     expect(
-      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-TW' }).map((r) => r.id),
-    ).toEqual(['international', 'garena-tw']);
+      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-TW' }).map((r) => [
+        r.id,
+        r.origin,
+      ]),
+    ).toEqual([
+      ['international', 'https://www.pathofexile.com'],
+      ['garena-tw', 'https://pathofexile.tw'],
+    ]);
     expect(
       resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-HK' }).map((r) => r.id),
     ).toEqual(['international', 'garena-tw']);
     expect(
-      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-CN' }).map((r) => r.id),
-    ).toEqual(['international', 'tencent']);
+      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-CN' }).map((r) => [
+        r.id,
+        r.origin,
+      ]),
+    ).toEqual([
+      ['international', 'https://www.pathofexile.com'],
+      ['tencent', 'https://poe.game.qq.com'],
+    ]);
     expect(
       resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-SG' }).map((r) => r.id),
     ).toEqual(['international', 'tencent']);
     expect(
-      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'en-US' }).map((r) => r.id),
-    ).toEqual(['international']);
+      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'en-US' }).map((r) => [
+        r.id,
+        r.origin,
+      ]),
+    ).toEqual([['international', 'https://www.pathofexile.com']]);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'ja-JP' }).map((r) => [
+        r.id,
+        r.origin,
+      ]),
+    ).toEqual([['international', 'https://jp.pathofexile.com']]);
 
-    // Explicit Chinese displayLocale takes precedence over browserLocale
+    // Explicit Chinese displayLocale overrides browserLocale
     expect(
       resolveQuickTradeRealms({ displayLocale: 'zh-CN', browserLocale: 'zh-TW' }).map((r) => r.id),
     ).toEqual(['international', 'tencent']);
@@ -318,23 +362,52 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
       resolveQuickTradeRealms({ displayLocale: 'zh-TW', browserLocale: 'en-US' }).map((r) => r.id),
     ).toEqual(['international', 'garena-tw']);
 
-    // Non-Chinese displayLocale keeps regional realm from browserLocale while always including international
+    // Explicit non-Chinese displayLocale uses that language's international subdomain only
     expect(
-      resolveQuickTradeRealms({ displayLocale: 'en', browserLocale: 'zh-TW' }).map((r) => r.id),
-    ).toEqual(['international', 'garena-tw']);
+      resolveQuickTradeRealms({ displayLocale: 'en', browserLocale: 'zh-TW' }).map((r) => [
+        r.id,
+        r.origin,
+      ]),
+    ).toEqual([['international', 'https://www.pathofexile.com']]);
     expect(
-      resolveQuickTradeRealms({ displayLocale: 'en', browserLocale: 'zh-CN' }).map((r) => r.id),
-    ).toEqual(['international', 'tencent']);
+      resolveQuickTradeRealms({ displayLocale: 'en', browserLocale: 'zh-CN' }).map((r) => [
+        r.id,
+        r.origin,
+      ]),
+    ).toEqual([['international', 'https://www.pathofexile.com']]);
     expect(
-      resolveQuickTradeRealms({ displayLocale: 'en', browserLocale: 'en-US' }).map((r) => r.id),
-    ).toEqual(['international']);
+      resolveQuickTradeRealms({ displayLocale: 'ja', browserLocale: 'zh-TW' }).map((r) => r.origin),
+    ).toEqual(['https://jp.pathofexile.com']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'ko', browserLocale: 'zh-TW' }).map((r) => r.origin),
+    ).toEqual(['https://kr.pathofexile.com']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'pt', browserLocale: 'zh-TW' }).map((r) => r.origin),
+    ).toEqual(['https://br.pathofexile.com']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'ru', browserLocale: 'zh-TW' }).map((r) => r.origin),
+    ).toEqual(['https://ru.pathofexile.com']);
 
-    expect(buildTradeRootUrl('international', 'poe1')).toBe('https://www.pathofexile.com/trade');
-    expect(buildTradeRootUrl('international', 'poe2')).toBe('https://www.pathofexile.com/trade2');
-    expect(buildTradeRootUrl('garena-tw', 'poe1')).toBe('https://pathofexile.tw/trade');
-    expect(buildTradeRootUrl('garena-tw', 'poe2')).toBe('https://pathofexile.tw/trade2');
-    expect(buildTradeRootUrl('tencent', 'poe1')).toBe('https://poe.game.qq.com/trade');
-    expect(buildTradeRootUrl('tencent', 'poe2')).toBe('https://poe.game.qq.com/trade2');
+    expect(formatTradeHostLabel('https://www.pathofexile.com')).toBe('pathofexile.com');
+    expect(formatTradeHostLabel('https://jp.pathofexile.com')).toBe('jp.pathofexile.com');
+    expect(formatTradeHostLabel('https://pathofexile.tw')).toBe('pathofexile.tw');
+    expect(formatTradeHostLabel('https://poe.game.qq.com')).toBe('poe.game.qq.com');
+
+    expect(buildTradeRootUrl('https://www.pathofexile.com', 'poe1')).toBe(
+      'https://www.pathofexile.com/trade',
+    );
+    expect(buildTradeRootUrl('https://www.pathofexile.com', 'poe2')).toBe(
+      'https://www.pathofexile.com/trade2',
+    );
+    expect(buildTradeRootUrl('https://jp.pathofexile.com', 'poe2')).toBe(
+      'https://jp.pathofexile.com/trade2',
+    );
+    expect(buildTradeRootUrl('https://pathofexile.tw', 'poe1')).toBe(
+      'https://pathofexile.tw/trade',
+    );
+    expect(buildTradeRootUrl('https://poe.game.qq.com', 'poe2')).toBe(
+      'https://poe.game.qq.com/trade2',
+    );
   });
 
   it('reactively updates Popup UI text, html[lang], and document.title when displayLocale changes across zh-TW, zh-CN, en, and fallback locales', async () => {
