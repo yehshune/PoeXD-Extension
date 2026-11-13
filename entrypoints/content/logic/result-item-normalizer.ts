@@ -1007,29 +1007,31 @@ function ensureInjectedStyle() {
   style.id = INJECTED_STYLE_ID;
   style.textContent = `
     /*
-     * PoeXD 注入官方頁面的固定外觀 (不隨擴充主題設定變動)。
-     * 色票取自 PoeXD 預設主題：neutral 底 + blue 主色，並以高權重選擇器隔離官方樣式。
+     * 參照 PoE 官方交易網介面語彙（直角邊框、#141414/#222 暗底、#a38d6d/#e9cf9f 青銅金、
+     * #0f304d/#4c4c7d 搜尋按鈕藍與 #8888ff colourAugmented 強化數值色），以 oklch() 撰寫。
      */
     .poexd-total-controls,
     .poexd-stat-badges .poexd-additional {
-      --poexd-fx-bg: #171717;
-      --poexd-fx-surface: #262626;
-      --poexd-fx-surface-hover: #303030;
-      --poexd-fx-border: #404040;
-      --poexd-fx-border-strong: #525252;
-      --poexd-fx-fg: #e5e5e5;
-      --poexd-fx-muted: #a3a3a3;
-      --poexd-fx-primary: #3b82f6;
-      --poexd-fx-primary-soft: rgba(59, 130, 246, 0.16);
-      --poexd-fx-primary-fg: #93c5fd;
-      --poexd-fx-accent: #1e3a8a;
-      --poexd-fx-accent-fg: #bfdbfe;
-      --poexd-fx-warn: #f59e0b;
-      --poexd-fx-warn-soft: rgba(245, 158, 11, 0.14);
-      --poexd-fx-warn-fg: #fcd34d;
-      --poexd-fx-radius: 6px;
-      --poexd-fx-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft JhengHei",
-        "PingFang TC", sans-serif;
+      --poexd-fx-bg: oklch(0.19 0.005 250 / 0.92);
+      --poexd-fx-surface: oklch(0.235 0.005 250 / 0.96);
+      --poexd-fx-surface-hover: oklch(0.295 0.006 250);
+      --poexd-fx-border: oklch(0.387 0 0);
+      --poexd-fx-border-strong: oklch(0.52 0.04 76);
+      --poexd-fx-fg: oklch(0.913 0 0);
+      --poexd-fx-gold: oklch(0.858 0.068 82.8);
+      --poexd-fx-muted: oklch(0.67 0.048 76);
+      --poexd-fx-label: oklch(0.76 0.028 78);
+      --poexd-fx-primary: oklch(0.45 0.075 268);
+      --poexd-fx-primary-bg: oklch(0.295 0.062 246 / 0.96);
+      --poexd-fx-primary-bg-hover: oklch(0.345 0.075 246);
+      --poexd-fx-primary-fg: oklch(0.71 0.145 274);
+      --poexd-fx-accent-fg: oklch(0.95 0.025 82);
+      --poexd-fx-warn: oklch(0.52 0.075 72);
+      --poexd-fx-warn-bg: oklch(0.28 0.045 72 / 0.65);
+      --poexd-fx-warn-fg: oklch(0.858 0.068 82.8);
+      --poexd-fx-radius: 0px;
+      --poexd-fx-font: Verdana, Arial, Helvetica, sans-serif;
+      --poexd-fx-font-display: FontinSmallcaps, Verdana, Arial, Helvetica, sans-serif;
     }
 
     /* PoeXD 官方 row-total 左側控制組：鏡像原生 .layout-btn 的尺寸、8px 間距與頂端定位 */
@@ -1038,7 +1040,7 @@ function ensureInjectedStyle() {
       --poexd-native-btn-top: 0px;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       z-index: 50;
       margin: 0 12px 0 0;
       flex-shrink: 0;
@@ -1067,32 +1069,33 @@ function ensureInjectedStyle() {
       align-items: center;
       justify-content: center;
       background: var(--poexd-fx-bg);
-      border: 1px solid var(--poexd-fx-border);
+      border: 1px solid oklch(0.35 0.018 76 / 0.85);
       border-radius: var(--poexd-fx-radius);
       color: var(--poexd-fx-muted);
       cursor: pointer;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.05);
       transition:
-        background-color 0.15s ease,
-        border-color 0.15s ease,
-        color 0.15s ease;
+        background-color 0.12s ease,
+        border-color 0.12s ease,
+        color 0.12s ease;
     }
     .poexd-total-controls .poexd-icon-btn:hover {
       background: var(--poexd-fx-surface-hover);
       border-color: var(--poexd-fx-border-strong);
-      color: var(--poexd-fx-fg);
+      color: var(--poexd-fx-gold);
     }
     .poexd-total-controls .poexd-icon-btn:focus-visible {
-      outline: 2px solid var(--poexd-fx-primary);
+      outline: 1px solid var(--poexd-fx-gold);
       outline-offset: 1px;
     }
     .poexd-total-controls .poexd-icon-btn.poexd-active {
-      background: var(--poexd-fx-primary-soft);
+      background: var(--poexd-fx-primary-bg);
       border-color: var(--poexd-fx-primary);
-      color: var(--poexd-fx-primary-fg);
+      color: var(--poexd-fx-gold);
     }
     .poexd-total-controls .poexd-icon-btn.poexd-active:hover {
-      background: rgba(59, 130, 246, 0.26);
+      background: var(--poexd-fx-primary-bg-hover);
+      border-color: oklch(0.58 0.085 268);
       color: var(--poexd-fx-accent-fg);
     }
     .poexd-total-controls .poexd-icon-btn svg {
@@ -1103,15 +1106,15 @@ function ensureInjectedStyle() {
     .poexd-total-controls .poexd-popover {
       display: none;
       position: absolute;
-      top: calc(100% + 6px);
+      top: calc(100% + 4px);
       left: 0;
       min-width: 220px;
       box-sizing: border-box;
-      background: var(--poexd-fx-surface);
+      background: oklch(0.175 0.005 250 / 0.98);
       border: 1px solid var(--poexd-fx-border);
       border-radius: var(--poexd-fx-radius);
-      padding: 4px;
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+      padding: 3px;
+      box-shadow: 0 8px 22px oklch(0 0 0 / 0.72);
       z-index: 99999;
       font-family: var(--poexd-fx-font);
       text-align: left;
@@ -1120,18 +1123,19 @@ function ensureInjectedStyle() {
       display: block;
     }
     .poexd-total-controls .poexd-popover-header {
-      margin: 0 -4px 4px;
-      padding: 6px 12px;
+      margin: 0 -3px 3px;
+      padding: 5px 10px;
+      font-family: var(--poexd-fx-font-display);
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 400;
       line-height: 1.3;
       color: var(--poexd-fx-muted);
-      border-bottom: 1px solid var(--poexd-fx-border);
-      letter-spacing: 0.3px;
+      border-bottom: 1px solid oklch(0.32 0.012 76 / 0.7);
+      letter-spacing: 0.04em;
     }
     .poexd-total-controls .poexd-popover-item {
-      padding: 6px 8px;
-      border-radius: 4px;
+      padding: 5px 8px;
+      border-radius: var(--poexd-fx-radius);
       font-size: 12px;
       line-height: 1.4;
       color: var(--poexd-fx-fg);
@@ -1146,16 +1150,16 @@ function ensureInjectedStyle() {
       white-space: nowrap;
     }
     .poexd-total-controls .poexd-popover-item:hover {
-      background: var(--poexd-fx-accent);
+      background: var(--poexd-fx-primary-bg);
       color: var(--poexd-fx-accent-fg);
     }
     .poexd-total-controls .poexd-popover-item.poexd-selected {
-      color: var(--poexd-fx-primary-fg);
+      color: var(--poexd-fx-gold);
       font-weight: 600;
     }
     .poexd-total-controls .poexd-check-mark {
       font-size: 12px;
-      color: var(--poexd-fx-primary);
+      color: var(--poexd-fx-gold);
       font-weight: 700;
       margin-left: 12px;
     }
@@ -1165,7 +1169,7 @@ function ensureInjectedStyle() {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 4px 6px;
+      gap: 4px 5px;
       clear: both;
       padding: 4px 0 2px;
     }
@@ -1173,7 +1177,7 @@ function ensureInjectedStyle() {
       display: none;
     }
 
-    /* PoeXD 標籤 (覆寫 DPS / 覆寫防禦 / 打孔) */
+    /* PoeXD 標籤 (覆寫 DPS / 覆寫防禦 / 打孔)：比照官方 .btn-xs / 詞綴面板風格 */
     .poexd-stat-badges .poexd-additional {
       display: inline-flex;
       align-items: center;
@@ -1181,15 +1185,15 @@ function ensureInjectedStyle() {
       box-sizing: border-box;
       height: 20px;
       margin: 0;
-      padding: 0 8px;
+      padding: 0 7px;
       background: var(--poexd-fx-surface);
       border: 1px solid var(--poexd-fx-border);
       border-radius: var(--poexd-fx-radius);
-      color: var(--poexd-fx-muted);
+      color: var(--poexd-fx-label);
       font-family: var(--poexd-fx-font);
-      font-size: 12px;
+      font-size: 11.5px;
       font-style: normal;
-      font-weight: 500;
+      font-weight: 400;
       line-height: 18px;
       letter-spacing: 0;
       text-transform: none;
@@ -1197,29 +1201,32 @@ function ensureInjectedStyle() {
       vertical-align: middle;
       white-space: nowrap;
       cursor: default;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.05);
       transition:
-        background-color 0.15s ease,
-        border-color 0.15s ease;
+        background-color 0.12s ease,
+        border-color 0.12s ease,
+        color 0.12s ease;
     }
     .poexd-stat-badges .poexd-additional.poexd-override-stat {
       cursor: pointer;
-      border-color: rgba(59, 130, 246, 0.55);
+      border-color: oklch(0.42 0.065 268);
     }
     .poexd-stat-badges .poexd-additional.poexd-override-stat:hover {
-      background: var(--poexd-fx-primary-soft);
-      border-color: var(--poexd-fx-primary);
+      background: var(--poexd-fx-primary-bg);
+      border-color: oklch(0.55 0.085 268);
+      color: var(--poexd-fx-fg);
     }
     .poexd-stat-badges .poexd-additional.poexd-override-stat .colourAugmented {
       color: var(--poexd-fx-primary-fg) !important;
       font-weight: 700;
     }
     .poexd-stat-badges .poexd-additional.poexd-socket-warn {
-      border-color: rgba(245, 158, 11, 0.5);
+      border-color: oklch(0.47 0.068 72);
     }
     .poexd-stat-badges .poexd-additional.poexd-socket-warn:hover {
-      background: var(--poexd-fx-warn-soft);
+      background: var(--poexd-fx-warn-bg);
       border-color: var(--poexd-fx-warn);
+      color: var(--poexd-fx-fg);
     }
     .poexd-stat-badges .poexd-additional.poexd-socket-warn .colourDefault {
       color: var(--poexd-fx-warn-fg) !important;
