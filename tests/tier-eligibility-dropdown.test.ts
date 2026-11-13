@@ -818,7 +818,7 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       expect(groups[2].label).toBe('增加#%能量護盾\n#最大魔力');
     });
 
-    it('多詞綴分組時呈現頂部 switch_mod_group，點擊可切換至分組列表並各自具備獨立 T 階', async () => {
+    it('多詞綴分組時同時提供 mod_group_option 與對應之獨立 T 階，點擊分組可直接切換', async () => {
       filterEl.setAttribute('data-poexd-stat-id', 'explicit.stat_4015621042');
       filterEl.setAttribute('data-poexd-category', 'body-armour');
 
@@ -882,23 +882,8 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       await injectedControls.injectTierSelectorButtons(1);
       const slot = activeTierSlots.value[0];
 
-      // 1. 預設顯示純粹詞綴之階級 (T1 Lv.75, T2 Lv.2) 與頂部 switch_mod_group
-      const switchModGroup = slot.items.find((i) => i.type === 'switch_mod_group');
-      expect(switchModGroup).toBeDefined();
-      expect(switchModGroup?.label).toBe('增加#%能量護盾');
-
-      const tierItems = slot.items.filter((i) => i.type === 'tier');
-      expect(tierItems).toHaveLength(2);
-      expect(tierItems[0].label).toContain('T1 (Lv.75) (101 ~ 110)');
-      expect(tierItems[1].label).toContain('T2 (Lv.2) (15 ~ 26)');
-
-      // 2. 點擊 switch_mod_group 切換至 groups 檢視
-      slot.onSelect(switchModGroup!);
-      const groupsSlot = activeTierSlots.value[0];
-      const backItem = groupsSlot.items.find((i) => i.type === 'back_to_tiers');
-      expect(backItem).toBeDefined();
-
-      const groupOptions = groupsSlot.items.filter((i) => i.type === 'mod_group_option');
+      // 1. 同時存在 mod_group_option（純粹詞綴預設啟用）與純粹詞綴之階級 (T1 Lv.75, T2 Lv.2)
+      const groupOptions = slot.items.filter((i) => i.type === 'mod_group_option');
       expect(groupOptions).toHaveLength(2);
       expect(groupOptions[0].label).toBe('增加#%能量護盾');
       expect(groupOptions[0].isActive).toBe(true);
@@ -907,13 +892,19 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       expect(groupOptions[1].isActive).toBe(false);
       expect(groupOptions[1].groupIndex).toBe(1);
 
-      // 3. 點選第二個分組 (複合生命)
-      groupsSlot.onSelect(groupOptions[1]);
+      const tierItems = slot.items.filter((i) => i.type === 'tier');
+      expect(tierItems).toHaveLength(2);
+      expect(tierItems[0].label).toContain('T1 (Lv.75) (101 ~ 110)');
+      expect(tierItems[1].label).toContain('T2 (Lv.2) (15 ~ 26)');
+
+      // 2. 直接點選第二個分組 (複合生命)
+      slot.onSelect(groupOptions[1]);
       const hybridSlot = activeTierSlots.value[0];
 
-      // 切換後回到 tiers 檢視，頂部標籤更新為複合詞綴 (換行)
-      const updatedSwitch = hybridSlot.items.find((i) => i.type === 'switch_mod_group');
-      expect(updatedSwitch?.label).toBe('增加#%能量護盾\n#最大生命');
+      // 更新為第二分組啟用
+      const updatedGroups = hybridSlot.items.filter((i) => i.type === 'mod_group_option');
+      expect(updatedGroups[0].isActive).toBe(false);
+      expect(updatedGroups[1].isActive).toBe(true);
 
       // 階級獨立編號為 T1 (Lv.78) 與 T2 (Lv.8)，數值精確為 ES% 區間 (39 ~ 42 與 6 ~ 13)
       const hybridTiers = hybridSlot.items.filter((i) => i.type === 'tier');

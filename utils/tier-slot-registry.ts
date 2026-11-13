@@ -2,14 +2,7 @@ import { shallowRef, nextTick } from 'vue';
 
 export interface TierDropdownItemSpec {
   id: string;
-  type:
-    | 'switch_category'
-    | 'trigger_modal'
-    | 'header'
-    | 'tier'
-    | 'switch_mod_group'
-    | 'mod_group_option'
-    | 'back_to_tiers';
+  type: 'switch_category' | 'trigger_modal' | 'header' | 'tier' | 'mod_group_option';
   label: string;
   tierName?: string;
   tierLevel?: number;

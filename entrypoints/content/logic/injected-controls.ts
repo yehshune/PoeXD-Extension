@@ -464,7 +464,6 @@ export function createTierSlotDomainData(
           });
         });
       } else {
-        const currentViewMode = slotEl.getAttribute('data-poexd-view-mode') || 'tiers';
         const detectedGroupId = filterEl.getAttribute('data-poexd-mod-group');
         let activeGroup = modGroups.find((g) => g.id === detectedGroupId);
         if (!activeGroup) {
@@ -472,53 +471,41 @@ export function createTierSlotDomainData(
           filterEl.setAttribute('data-poexd-mod-group', activeGroup.id);
         }
 
-        if (currentViewMode === 'groups') {
+        modGroups.forEach((g, gIdx) => {
           items.push({
-            id: 'back_to_tiers',
-            type: 'back_to_tiers',
-            label: t('tierDropdown.backToTiers'),
+            id: `group-${g.id}`,
+            type: 'mod_group_option',
+            label: g.label,
+            groupId: g.id,
+            groupIndex: gIdx,
+            isActive: g.id === activeGroup!.id,
           });
-          modGroups.forEach((g, gIdx) => {
-            items.push({
-              id: `group-${g.id}`,
-              type: 'mod_group_option',
-              label: g.label,
-              groupId: g.id,
-              groupIndex: gIdx,
-              isActive: g.id === activeGroup!.id,
-            });
-          });
-        } else {
+        });
+
+        const mapped = activeGroup.tiers
+          .map((tier, idx) => {
+            const tierName = `T${activeGroup!.tiers.length - idx}`;
+            return { tier, tierName };
+          })
+          .reverse();
+
+        mapped.forEach(({ tier, tierName }) => {
+          const { rangeText, valMin, valMax, isRange } = options.tierDomainService.parseTierValues(
+            tier,
+            effectiveStatId,
+          );
           items.push({
-            id: 'switch_mod_group',
-            type: 'switch_mod_group',
-            label: activeGroup.label,
-            groupId: activeGroup.id,
+            id: `tier-${tierName}`,
+            type: 'tier',
+            label: `${tierName}${tier.level != null ? ` (Lv.${tier.level})` : ''}${rangeText}`,
+            tierName,
+            tierLevel: tier.level,
+            rangeText: rangeText.trim(),
+            valMin,
+            valMax,
+            isRange,
           });
-
-          const mapped = activeGroup.tiers
-            .map((tier, idx) => {
-              const tierName = `T${activeGroup!.tiers.length - idx}`;
-              return { tier, tierName };
-            })
-            .reverse();
-
-          mapped.forEach(({ tier, tierName }) => {
-            const { rangeText, valMin, valMax, isRange } =
-              options.tierDomainService.parseTierValues(tier, effectiveStatId);
-            items.push({
-              id: `tier-${tierName}`,
-              type: 'tier',
-              label: `${tierName}${tier.level != null ? ` (Lv.${tier.level})` : ''}${rangeText}`,
-              tierName,
-              tierLevel: tier.level,
-              rangeText: rangeText.trim(),
-              valMin,
-              valMax,
-              isRange,
-            });
-          });
-        }
+        });
       }
     }
   } else {
@@ -543,29 +530,10 @@ export function createTierSlotDomainData(
         };
         dispatchPoeEvent('poexd-trigger-select-type-modal');
       }
-    } else if (item.type === 'switch_mod_group') {
-      slotEl.setAttribute('data-poexd-view-mode', 'groups');
-      const nextData = createTierSlotDomainData(tiers, filterEl, slotEl, options, statId);
-      upsertTierSlot({
-        key: slotKey,
-        targetEl: slotEl,
-        items: nextData.items,
-        onSelect: nextData.onSelect,
-      });
-    } else if (item.type === 'back_to_tiers') {
-      slotEl.setAttribute('data-poexd-view-mode', 'tiers');
-      const nextData = createTierSlotDomainData(tiers, filterEl, slotEl, options, statId);
-      upsertTierSlot({
-        key: slotKey,
-        targetEl: slotEl,
-        items: nextData.items,
-        onSelect: nextData.onSelect,
-      });
     } else if (item.type === 'mod_group_option') {
       if (item.groupId) {
         filterEl.setAttribute('data-poexd-mod-group', item.groupId);
       }
-      slotEl.setAttribute('data-poexd-view-mode', 'tiers');
       const nextData = createTierSlotDomainData(tiers, filterEl, slotEl, options, statId);
       upsertTierSlot({
         key: slotKey,

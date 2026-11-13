@@ -569,9 +569,9 @@ describe('TierDropdownHost (Native Reka + Vue Teleport & Foundation Compliance)'
     expect(document.querySelectorAll('#poexd-portal-root')).toHaveLength(0);
   });
 
-  it('correctly renders multi-line mod group options with shrink-0, h-auto, border separators, and alternating zebra backgrounds', async () => {
+  it('renders mod group options in a fixed-width wrappable left column without closing on click', async () => {
     const items: TierDropdownItemSpec[] = [
-      { id: 'back', type: 'back_to_tiers', label: '← 返回階級清單' },
+      { id: 'cat', type: 'switch_category', label: '胸甲 (點選切換)' },
       {
         id: 'g0',
         type: 'mod_group_option',
@@ -588,9 +588,18 @@ describe('TierDropdownHost (Native Reka + Vue Teleport & Foundation Compliance)'
         groupIndex: 1,
         isActive: false,
       },
+      {
+        id: 't1',
+        type: 'tier',
+        label: 'T1 (Lv.75) (101 ~ 110)',
+        valMin: '101',
+        valMax: '110',
+        isRange: true,
+      },
     ];
+    const onSelect = vi.fn();
 
-    syncTierSlots([{ key: 'slot-1', targetEl: slotEl1, items, onSelect: vi.fn() }]);
+    syncTierSlots([{ key: 'slot-1', targetEl: slotEl1, items, onSelect }]);
     await nextTick();
 
     const trigger = slotEl1.querySelector<HTMLButtonElement>('button.poexd-tier-trigger');
@@ -601,29 +610,56 @@ describe('TierDropdownHost (Native Reka + Vue Teleport & Foundation Compliance)'
     const content = portalRoot.querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]');
     expect(content).not.toBeNull();
 
-    const menuItems = portalRoot.querySelectorAll<HTMLElement>('[data-slot="dropdown-menu-item"]');
-    expect(menuItems).toHaveLength(3);
+    // Top header spans full width above split layout
+    const topSection = content?.children[0] as HTMLElement;
+    expect(topSection.querySelectorAll('[data-slot="dropdown-menu-item"]')).toHaveLength(1);
+    expect(topSection.querySelector('[data-slot="tier-tuning-bar"]')).toBeNull();
+
+    const splitLayout = content?.querySelector<HTMLElement>('[data-slot="tier-split-layout"]');
+    expect(splitLayout).not.toBeNull();
+
+    const leftCol = splitLayout?.querySelector<HTMLElement>('[data-slot="mod-group-column"]');
+    expect(leftCol).not.toBeNull();
+    expect(leftCol?.className).toContain('w-[var(--pxd-menu-sub-width,192px)]');
+    expect(leftCol?.className).toContain('shrink-0');
+
+    const groupButtons = leftCol?.querySelectorAll<HTMLButtonElement>(
+      '[data-slot="mod-group-option"]',
+    );
+    expect(groupButtons).toHaveLength(2);
 
     // Option 0 (active, even)
-    const opt0 = menuItems[1];
+    const opt0 = groupButtons![0];
     expect(opt0.className).toContain('shrink-0');
-    expect(opt0.className).toContain('h-auto');
     expect(opt0.className).toContain('border-b');
     expect(opt0.className).toContain('bg-primary/15');
+    expect(opt0.textContent).toContain('✓');
 
-    // Option 1 (inactive, odd -> zebra bg-muted/30)
-    const opt1 = menuItems[2];
+    // Option 1 (inactive, odd -> zebra bg-muted/30, wrappable)
+    const opt1 = groupButtons![1];
     expect(opt1.className).toContain('shrink-0');
-    expect(opt1.className).toContain('h-auto');
     expect(opt1.className).toContain('border-b');
     expect(opt1.className).toContain('bg-muted/30');
     expect(opt1.textContent).toContain('增加#%能量護盾\n#最大生命');
+    expect(opt1.innerHTML).toContain('break-words');
+
+    // Right column holds tuning bar + tier rows
+    const rightCol = splitLayout?.querySelector<HTMLElement>('[data-slot="tier-list-column"]');
+    expect(rightCol).not.toBeNull();
+    expect(rightCol?.querySelector('[data-slot="tier-tuning-bar"]')).not.toBeNull();
+    expect(rightCol?.querySelectorAll('[data-slot="tier-row"]')).toHaveLength(1);
+
+    // Clicking a mod group option invokes onSelect and keeps menu open
+    opt1.click();
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onSelect).toHaveBeenCalledWith(items[2]);
+    expect(portalRoot.querySelector('[data-slot="dropdown-menu-content"]')).not.toBeNull();
   });
 
-  it('isolates scroll container for tier items while keeping top category/mod group controls pinned and applies 420px max height', async () => {
+  it('isolates scroll container for tier items while keeping top category controls pinned and applies 420px max height', async () => {
     const items: TierDropdownItemSpec[] = [
       { id: 'cat', type: 'switch_category', label: '胸甲' },
-      { id: 'mod', type: 'switch_mod_group', label: '增加#%能量護盾' },
       { id: 't1', type: 'tier', label: 'T1 (100 ~ 120)' },
       { id: 't2', type: 'tier', label: 'T2 (80 ~ 99)' },
     ];
@@ -648,7 +684,7 @@ describe('TierDropdownHost (Native Reka + Vue Teleport & Foundation Compliance)'
     const fixedTopSection = content?.children[0] as HTMLElement;
     expect(fixedTopSection).toBeDefined();
     expect(fixedTopSection.className).toContain('shrink-0');
-    expect(fixedTopSection.querySelectorAll('[data-slot="dropdown-menu-item"]')).toHaveLength(2);
+    expect(fixedTopSection.querySelectorAll('[data-slot="dropdown-menu-item"]')).toHaveLength(1);
 
     // 驗證第二層 div 為獨立滾動區 (flex-1 min-h-0 overflow-y-auto pxd-scrollbar)
     const scrollSection = content?.children[1] as HTMLElement;
