@@ -36,6 +36,8 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
       );
       expect(sidebarSource).toContain('pxd-header-title');
       expect(sidebarSource).toContain('pxd-header-version');
+      expect(sidebarSource).toContain('{{ appVersion }}');
+      expect(sidebarSource).not.toMatch(/>\s*v1\.0\.0\s*</);
     });
 
     it('defines container queries in main.css to hide version and title on small container widths', () => {

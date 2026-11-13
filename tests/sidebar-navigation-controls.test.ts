@@ -736,4 +736,21 @@ describe('Sidebar Navigation Controls Migration', () => {
       cleanupRightPreview();
     });
   });
+
+  describe('Header version rendering', () => {
+    it('renders the version from chrome.runtime.getManifest and omits it when unavailable', async () => {
+      const { container: withoutManifest } = await mountSidebar();
+      expect(withoutManifest.querySelector('.app-version')).toBeNull();
+      app.unmount();
+      app = null;
+
+      (globalThis as any).chrome.runtime.getManifest = vi.fn(() => ({ version: '1.4.0' }));
+      try {
+        const { container: withManifest } = await mountSidebar();
+        expect(withManifest.querySelector('.app-version')?.textContent?.trim()).toBe('v1.4.0');
+      } finally {
+        delete (globalThis as any).chrome.runtime.getManifest;
+      }
+    });
+  });
 });

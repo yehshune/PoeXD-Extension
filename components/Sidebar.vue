@@ -227,8 +227,9 @@
                   >PoeXD</span
                 >
                 <span
+                  v-if="appVersion"
                   class="app-version pxd-header-version text-[length:var(--pxd-font-caption)] text-muted-foreground shrink-0"
-                  >v1.0.0</span
+                  >{{ appVersion }}</span
                 >
               </div>
               <span
@@ -530,6 +531,18 @@ import type { LiveSearchResumeController } from '@/entrypoints/content/logic/liv
 
 installDialogGlobals();
 
+/** 從瀏覽器擴充資訊清單讀取目前版本號，避免在元件中寫死版本字串 */
+function resolveExtensionVersion(): string {
+  const manifestVersion =
+    (typeof chrome !== 'undefined' ? chrome?.runtime?.getManifest?.()?.version : undefined) ??
+    (
+      globalThis as {
+        browser?: { runtime?: { getManifest?: () => { version?: string } } };
+      }
+    ).browser?.runtime?.getManifest?.()?.version;
+  return manifestVersion ? `v${manifestVersion}` : '';
+}
+
 export default defineComponent({
   name: 'Sidebar',
   props: {
@@ -594,6 +607,7 @@ export default defineComponent({
   },
   setup(props) {
     const portalTarget = computed(() => props.portalTarget);
+    const appVersion = resolveExtensionVersion();
     const version = getPoeVersion();
     const keys = createVersionedStorageKeys(version);
     const activeTabKey = keys.activeTab;
@@ -1039,6 +1053,7 @@ export default defineComponent({
     });
 
     return {
+      appVersion,
       version,
       t,
       portalTarget,
