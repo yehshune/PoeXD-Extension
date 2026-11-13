@@ -18,7 +18,11 @@ updates:
       include: scope
 
   - package-ecosystem: github-actions
-    directory: /
+    # Actions 以 commit SHA 鎖定；Dependabot 會同步更新 SHA 與版本註解。
+    # 本地 composite action 不在預設掃描範圍，需明確列出。
+    directories:
+      - /
+      - /.github/actions/setup
     schedule:
       interval: weekly
       day: monday
