@@ -435,9 +435,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Verify no RadioGroups remain in SettingsPane
     expect(container.querySelectorAll('[data-slot="radio-group"]').length).toBe(0);
 
-    // Verify Checkbox slots exist (11 settings: 10 booleans + 1 density-compact).
+    // Verify Checkbox slots exist (13 settings).
     const checkboxes = container.querySelectorAll('[data-slot="checkbox"]');
-    expect(checkboxes.length).toBe(12);
+    expect(checkboxes.length).toBe(13);
     checkboxes.forEach((cb) => {
       expect(cb.className).toContain(FORM_INDICATOR_SPECS.checkbox.sizeClass);
     });
@@ -468,6 +468,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(snapshot?.enableAutoTitle).toBe(true);
     expect(snapshot?.enablePriceComparison).toBe(true);
     expect(snapshot?.enableResultModHighlight).toBe(true);
+    expect(snapshot?.enableResultModQuickFilter).toBe(true);
     expect(snapshot?.enablePureBackground).toBe(true);
     expect(snapshot?.marketTranslation).toBe(false);
   });
@@ -994,6 +995,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
 
     expect(currentModule?.read().enableResultModHighlight).toBe(false);
+
+    // Result mod quick filter checkbox
+    const quickFilterCheckbox = container.querySelector(
+      '#enable-result-mod-quick-filter',
+    ) as HTMLElement;
+    expect(quickFilterCheckbox).not.toBeNull();
+    expect(currentModule?.read().enableResultModQuickFilter).toBe(true);
+
+    quickFilterCheckbox.click();
+    await flushAsync();
+
+    expect(currentModule?.read().enableResultModQuickFilter).toBe(false);
 
     // Bookmark tooltip checkbox
     const bookmarkTooltipCheckbox = container.querySelector(

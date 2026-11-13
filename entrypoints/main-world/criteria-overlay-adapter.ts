@@ -85,6 +85,14 @@ function commitOp(store: HostVuexStore, root: HostTradeRoot | null, op: Criteria
       );
       return;
     }
+    case 'setStatFilter': {
+      const payload: Record<string, unknown> = {
+        group: op.group,
+        value: JSON.parse(JSON.stringify(op.filter)),
+      };
+      if (op.index !== undefined) payload.index = op.index;
+      return store.commit('setStatFilter', payload);
+    }
     case 'removeStatGroup':
       return store.commit('removeStatGroup', { group: op.group });
   }

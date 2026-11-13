@@ -18,6 +18,7 @@ import { mountSidebarLayout } from './sidebar-layout';
 import { ResultPricePresenter } from './result-price-presenter';
 import { ResultModHighlighter } from './result-mod-highlighter';
 import { ResultItemNormalizer } from './result-item-normalizer';
+import { ResultModQuickFilter } from './result-mod-quick-filter';
 import { isCloudflareChallenge } from '@/utils/trade-interstitial-classifier';
 import { whenTradePageReady } from './trade-page-readiness';
 import { createFilterDomEnhancements, type FilterDomEnhancements } from './common';
@@ -71,7 +72,14 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   const pricePresenter = new ResultPricePresenter(version);
   const modHighlighter = new ResultModHighlighter();
   const itemNormalizer = new ResultItemNormalizer(version, pricePresenter);
-  const domFilter = new DomFilter(version, pricePresenter, modHighlighter, itemNormalizer);
+  const modQuickFilter = new ResultModQuickFilter();
+  const domFilter = new DomFilter(
+    version,
+    pricePresenter,
+    modHighlighter,
+    itemNormalizer,
+    modQuickFilter,
+  );
   const filterEnhancements = createFilterDomEnhancements(version);
   let cleanupPageEvents: (() => void) | null = null;
   let cleanupHotkeys: (() => void) | null = null;
@@ -92,6 +100,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     domFilter.cleanup();
     pricePresenter.cleanup();
     itemNormalizer.cleanup();
+    modQuickFilter.cleanup();
     modHighlighter.cleanup();
     cleanupHotkeys?.();
     cleanupSearchEnterCommit?.();
@@ -150,6 +159,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       modHighlighter.setEnabled(snapshot.enableResultModHighlight);
       itemNormalizer.setEnabled(snapshot.enableItemNormalizer);
       itemNormalizer.refreshLocale?.();
+      modQuickFilter.setEnabled(snapshot.enableResultModQuickFilter);
+      modQuickFilter.refreshLocale();
     };
     let appliedPreferences = preferences.read();
     await applyPreferences(appliedPreferences);
@@ -174,6 +185,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     cleanupPageMode = watchTradePageMode((mode) => {
       pricePresenter.setPageMode(mode);
       itemNormalizer.setPageMode(mode);
+      modQuickFilter.setPageMode(mode);
       domFilter.setPageMode(mode);
       filterEnhancements.setEditorEnabled(mode === 'search');
     });
@@ -212,6 +224,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       }
       domFilter.setPageRole(pageRole);
       itemNormalizer.setPageRole(pageRole);
+      modQuickFilter.setPageRole(pageRole);
       if (pageRole === 'live-search-primary') {
         document.body?.setAttribute('data-poexd-page-role', 'live-search-primary');
         activeConsoleTitleGuard = createLiveSearchConsoleTitleGuard(document, version);

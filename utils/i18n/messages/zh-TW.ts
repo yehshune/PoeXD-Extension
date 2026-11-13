@@ -106,6 +106,10 @@ export const ZH_TW_MESSAGES = {
   'settings.resultModHighlight.label': '結果詞綴高亮',
   'settings.resultModHighlight.infoAria': '結果詞綴高亮說明',
   'settings.resultModHighlight.tooltip': '在搜尋結果中醒目標示符合篩選條件的關鍵詞綴',
+  'settings.resultModQuickFilter.label': '結果詞綴快篩',
+  'settings.resultModQuickFilter.infoAria': '結果詞綴快篩說明',
+  'settings.resultModQuickFilter.tooltip':
+    '滑鼠懸浮於搜尋結果詞綴時，於右側顯示 +AND / +NOT 按鈕快速加入篩選（僅帶入詞綴、不自動搜尋）',
 
   'settings.pureBackground.label': '隱藏官方網頁背景',
   'settings.pureBackground.infoAria': '隱藏官方網頁背景說明',
@@ -159,6 +163,8 @@ export const ZH_TW_MESSAGES = {
   'popup.module.enablePriceComparison.description': '搜尋結果列表的通貨價格即時匯率換算',
   'popup.module.enableResultModHighlight.title': '結果詞綴高亮',
   'popup.module.enableResultModHighlight.description': '搜尋結果中符合過濾條件的詞綴樣式高亮',
+  'popup.module.enableResultModQuickFilter.title': '結果詞綴快篩',
+  'popup.module.enableResultModQuickFilter.description': '懸浮結果詞綴右側快速加入 AND / NOT 篩選',
   'popup.module.enableItemNormalizer.title': '符文覆寫試算',
   'popup.module.enableItemNormalizer.description': '搜尋結果頂欄提供自訂符文覆寫與數值標準化',
   'popup.module.enablePureBackground.title': '隱藏官方背景',
@@ -934,6 +940,13 @@ export const ZH_TW_MESSAGES = {
   'searchPreview.label.item': '物品：',
   'searchPreview.label.base': '基底：',
   'searchPreview.label.status': '上架狀態：',
+  'resultModQuickFilter.andTitle': '加入 AND 篩選條件',
+  'resultModQuickFilter.notTitle': '加入 NOT 排除條件',
+  'resultModQuickFilter.toast.added': '已將「{text}」加入 {group} 篩選器',
+  'resultModQuickFilter.toast.enabled': '已在 {group} 篩選器重新啟用「{text}」',
+  'resultModQuickFilter.toast.alreadyExists': '「{text}」已在 {group} 篩選器中',
+  'resultModQuickFilter.toast.unknownStat': '此詞綴無法對應官方搜尋代碼：「{text}」',
+  'resultModQuickFilter.toast.failed': '加入篩選器失敗：{message}',
 } as const;
 
 export type I18nKey = keyof typeof ZH_TW_MESSAGES;

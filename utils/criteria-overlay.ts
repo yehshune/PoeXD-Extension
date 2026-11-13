@@ -69,6 +69,8 @@ export type CriteriaOverlayOp =
   | { kind: 'setStatGroupDisabled'; group: number; disable: boolean }
   /** 改寫既有群組內的全部條件，群組留在原位。 */
   | { kind: 'setStatGroupFilters'; group: number; filters: CriteriaOverlayStatFilter[] }
+  /** 新增或更新單一條件（省略 index 時由官方附加在群組尾端）。 */
+  | { kind: 'setStatFilter'; group: number; index?: number; filter: CriteriaOverlayStatFilter }
   | { kind: 'removeStatGroup'; group: number };
 
 export type CriteriaOverlayOpKind = CriteriaOverlayOp['kind'];
@@ -82,6 +84,7 @@ export const CRITERIA_OVERLAY_OP_KINDS: readonly CriteriaOverlayOpKind[] = [
   'setStatGroupValue',
   'setStatGroupDisabled',
   'setStatGroupFilters',
+  'setStatFilter',
   'removeStatGroup',
 ];
 
@@ -633,6 +636,88 @@ export function planStatGroupFiltersUpdate(
   };
 }
 
+export type QuickStatFilterGroupKind = 'and' | 'not';
+
+export interface QuickStatFilterPlan {
+  status: 'added' | 'enabled' | 'already-exists' | 'unknown';
+  ops: CriteriaOverlayOp[];
+  groupIndex?: number;
+}
+
+/**
+ * 規劃將單一詞綴 ID（不含數值）加入目前搜尋表單的指定類型群組（`and` / `not`）。
+ * 會尋找第一個未停用的目標群組；若不存在則新建群組；若群組內已有停用同 ID 則原地啟用。
+ */
+export function planAddStatToGroupKind(
+  snapshot: CriteriaOverlayFormSnapshot,
+  targetType: QuickStatFilterGroupKind,
+  statId: string,
+  knownStatIds?: ReadonlySet<string> | null,
+): QuickStatFilterPlan {
+  const normalizedId = statId.trim();
+  if (!normalizedId || (knownStatIds && !knownStatIds.has(normalizedId))) {
+    return { status: 'unknown', ops: [] };
+  }
+
+  const stats = Array.isArray(snapshot.stats) ? snapshot.stats : [];
+  const groupIndex = stats.findIndex(
+    (raw) => isRecord(raw) && raw.type === targetType && raw.disabled !== true,
+  );
+
+  if (groupIndex === -1) {
+    return {
+      status: 'added',
+      groupIndex: stats.length,
+      ops: [
+        {
+          kind: 'pushStatGroup',
+          type: targetType,
+          filters: [{ id: normalizedId, disabled: false }],
+        },
+      ],
+    };
+  }
+
+  const rawGroup = stats[groupIndex] as Record<string, unknown>;
+  const filters = Array.isArray(rawGroup.filters) ? rawGroup.filters : [];
+  const filterIndex = filters.findIndex((raw) => isRecord(raw) && raw.id === normalizedId);
+
+  if (filterIndex !== -1) {
+    const existing = normalizeStatFilter(filters[filterIndex]);
+    if (!existing || existing.disabled !== true) {
+      return { status: 'already-exists', groupIndex, ops: [] };
+    }
+    return {
+      status: 'enabled',
+      groupIndex,
+      ops: [
+        {
+          kind: 'setStatFilter',
+          group: groupIndex,
+          index: filterIndex,
+          filter: {
+            id: normalizedId,
+            ...(existing.value ? { value: existing.value } : {}),
+            disabled: false,
+          },
+        },
+      ],
+    };
+  }
+
+  return {
+    status: 'added',
+    groupIndex,
+    ops: [
+      {
+        kind: 'setStatFilter',
+        group: groupIndex,
+        filter: { id: normalizedId, disabled: false },
+      },
+    ],
+  };
+}
+
 // -------------------------------------------------------------
 // Wire validation (Main World 只執行通過白名單驗證的 ops)
 // -------------------------------------------------------------
@@ -687,6 +772,12 @@ function isValidOp(op: unknown): op is CriteriaOverlayOp {
         isGroupIndex(op.group) &&
         Array.isArray(op.filters) &&
         op.filters.every((f) => normalizeStatFilter(f) !== undefined)
+      );
+    case 'setStatFilter':
+      return (
+        isGroupIndex(op.group) &&
+        (op.index === undefined || isGroupIndex(op.index)) &&
+        normalizeStatFilter(op.filter) !== undefined
       );
     case 'removeStatGroup':
       return isGroupIndex(op.group);

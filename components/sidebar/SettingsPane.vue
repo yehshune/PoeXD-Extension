@@ -450,6 +450,35 @@
         </div>
         <div class="flex items-center gap-[var(--pxd-space-md)]">
           <Checkbox
+            id="enable-result-mod-quick-filter"
+            v-model="enableResultModQuickFilter"
+            @update:model-value="savePreference('enableResultModQuickFilter')"
+          />
+          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+            <label
+              for="enable-result-mod-quick-filter"
+              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+            >
+              {{ t('settings.resultModQuickFilter.label') }}
+            </label>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <span
+                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                  tabindex="-1"
+                  :aria-label="t('settings.resultModQuickFilter.infoAria')"
+                >
+                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {{ t('settings.resultModQuickFilter.tooltip') }}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+        <div class="flex items-center gap-[var(--pxd-space-md)]">
+          <Checkbox
             id="enable-pure-background"
             v-model="enablePureBackground"
             @update:model-value="savePreference('enablePureBackground')"
@@ -754,6 +783,7 @@ export default defineComponent({
       enableAutoTitle,
       enablePriceComparison,
       enableResultModHighlight,
+      enableResultModQuickFilter,
       enablePureBackground,
       marketTranslation,
       marketTranslationBilingual,
@@ -1020,6 +1050,7 @@ export default defineComponent({
       enableAutoTitle,
       enablePriceComparison,
       enableResultModHighlight,
+      enableResultModQuickFilter,
       enablePureBackground,
       marketTranslation,
       marketTranslationBilingual,

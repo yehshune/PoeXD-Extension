@@ -114,6 +114,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.resultModHighlight.infoAria': 'Highlight Matched Affixes info',
   'settings.resultModHighlight.tooltip':
     'Highlight affixes on search results that match your active stat filters',
+  'settings.resultModQuickFilter.label': 'Result Affix Quick Filter',
+  'settings.resultModQuickFilter.infoAria': 'Result Affix Quick Filter info',
+  'settings.resultModQuickFilter.tooltip':
+    'Show +AND / +NOT buttons when hovering result affixes to quickly add the mod to filters without auto-searching',
 
   'settings.pureBackground.label': 'Hide Official Page Background',
   'settings.pureBackground.infoAria': 'Hide Official Page Background info',
@@ -174,6 +178,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'popup.module.enableResultModHighlight.title': 'Highlight Matched Affixes',
   'popup.module.enableResultModHighlight.description':
     'Highlight affixes on search results matching your filters',
+  'popup.module.enableResultModQuickFilter.title': 'Result Affix Quick Filter',
+  'popup.module.enableResultModQuickFilter.description':
+    'Hover result affixes to quickly add to AND / NOT filters',
   'popup.module.enableItemNormalizer.title': 'Rune Override Calculator',
   'popup.module.enableItemNormalizer.description':
     'Custom rune override calculation and normalization bar above results',
@@ -993,4 +1000,12 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'searchPreview.label.item': 'Item: ',
   'searchPreview.label.base': 'Base: ',
   'searchPreview.label.status': 'Status: ',
+  'resultModQuickFilter.andTitle': 'Add to AND filter',
+  'resultModQuickFilter.notTitle': 'Add to NOT filter',
+  'resultModQuickFilter.toast.added': 'Added "{text}" to {group} filter',
+  'resultModQuickFilter.toast.enabled': 'Re-enabled "{text}" in {group} filter',
+  'resultModQuickFilter.toast.alreadyExists': '"{text}" is already in {group} filter',
+  'resultModQuickFilter.toast.unknownStat':
+    'This affix cannot be mapped to a Trade stat ID: "{text}"',
+  'resultModQuickFilter.toast.failed': 'Failed to add filter: {message}',
 };

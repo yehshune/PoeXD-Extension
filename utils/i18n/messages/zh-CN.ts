@@ -108,6 +108,10 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.resultModHighlight.label': '结果词缀高亮',
   'settings.resultModHighlight.infoAria': '结果词缀高亮说明',
   'settings.resultModHighlight.tooltip': '在搜索结果中醒目标示符合筛选条件的关键词缀',
+  'settings.resultModQuickFilter.label': '结果词缀快筛',
+  'settings.resultModQuickFilter.infoAria': '结果词缀快筛说明',
+  'settings.resultModQuickFilter.tooltip':
+    '鼠标悬停于搜索结果词缀时，在右侧显示 +AND / +NOT 按钮快速加入筛选（仅带入词缀、不自动搜索）',
 
   'settings.pureBackground.label': '隐藏官方网页背景',
   'settings.pureBackground.infoAria': '隐藏官方网页背景说明',
@@ -161,6 +165,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'popup.module.enablePriceComparison.description': '搜索结果列表的通货价格实时汇率换算',
   'popup.module.enableResultModHighlight.title': '结果词缀高亮',
   'popup.module.enableResultModHighlight.description': '搜索结果中符合筛选条件的词缀样式高亮',
+  'popup.module.enableResultModQuickFilter.title': '结果词缀快筛',
+  'popup.module.enableResultModQuickFilter.description': '悬停结果词缀右侧快速加入 AND / NOT 筛选',
   'popup.module.enableItemNormalizer.title': '符文覆写试算',
   'popup.module.enableItemNormalizer.description': '搜索结果顶栏提供自定义符文覆写与数值标准化',
   'popup.module.enablePureBackground.title': '隐藏官方背景',
@@ -936,4 +942,11 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'searchPreview.label.item': '物品：',
   'searchPreview.label.base': '基底：',
   'searchPreview.label.status': '在线状态：',
+  'resultModQuickFilter.andTitle': '加入 AND 筛选条件',
+  'resultModQuickFilter.notTitle': '加入 NOT 排除条件',
+  'resultModQuickFilter.toast.added': '已将「{text}」加入 {group} 筛选器',
+  'resultModQuickFilter.toast.enabled': '已在 {group} 筛选器重新启用「{text}」',
+  'resultModQuickFilter.toast.alreadyExists': '「{text}」已在 {group} 筛选器中',
+  'resultModQuickFilter.toast.unknownStat': '此词缀无法对应官方搜索代码：「{text}」',
+  'resultModQuickFilter.toast.failed': '加入筛选器失败：{message}',
 };

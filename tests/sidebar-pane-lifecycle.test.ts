@@ -72,6 +72,7 @@ describe('Sidebar pane lifecycle', () => {
 
   it('exposes the result modifier highlighting setting', () => {
     expect(settingsSource).toContain('v-model="enableResultModHighlight"');
+    expect(settingsSource).toContain('v-model="enableResultModQuickFilter"');
   });
 
   it('exposes left and right sidebar controls', () => {

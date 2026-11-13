@@ -4,6 +4,7 @@ import type { TradePageRole } from '@/utils/live-search-contract';
 import type { ResultPricePresenter } from './result-price-presenter';
 import type { ResultModHighlighter } from './result-mod-highlighter';
 import type { ResultItemNormalizer } from './result-item-normalizer';
+import type { ResultModQuickFilter } from './result-mod-quick-filter';
 
 export class DomFilter {
   private observed = false;
@@ -19,6 +20,7 @@ export class DomFilter {
     private readonly pricePresenter?: ResultPricePresenter,
     private readonly modHighlighter?: ResultModHighlighter,
     private readonly itemNormalizer?: ResultItemNormalizer,
+    private readonly modQuickFilter?: ResultModQuickFilter,
   ) {}
 
   init() {
@@ -52,7 +54,8 @@ export class DomFilter {
       mutations.forEach((mutation) => {
         if (
           mutation.target instanceof Element &&
-          mutation.target.closest('.poexd-price-comparison')
+          (mutation.target.closest('.poexd-price-comparison') ||
+            mutation.target.closest('.poexd-result-mod-actions'))
         )
           return;
         mutation.addedNodes.forEach((node) => this.collectAddedNode(node));
@@ -85,7 +88,8 @@ export class DomFilter {
 
   private collectAddedNode(node: Node) {
     if (!(node instanceof Element)) return;
-    if (node.closest('.poexd-price-comparison')) return;
+    if (node.closest('.poexd-price-comparison') || node.closest('.poexd-result-mod-actions'))
+      return;
     const root = node.matches('.results') ? node : node.querySelector('.results');
     if (root) {
       this.queueRoot(root);
@@ -135,6 +139,7 @@ export class DomFilter {
     if (this.pageMode === 'search' && this.pageRole !== 'live-search-primary') {
       this.pricePresenter?.apply(root);
       this.itemNormalizer?.apply(root);
+      this.modQuickFilter?.apply(root);
     }
     this.modHighlighter?.apply(root);
   }

@@ -153,6 +153,7 @@ export interface Preferences {
   enablePriceComparison: boolean;
   enablePureBackground: boolean;
   enableResultModHighlight: boolean;
+  enableResultModQuickFilter: boolean;
   enableSearchTilde: boolean;
   enableTierHelper: boolean;
   fontSizeMode: FontSizeMode;
@@ -188,6 +189,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   enablePriceComparison: true,
   enablePureBackground: true,
   enableResultModHighlight: true,
+  enableResultModQuickFilter: true,
   enableSearchTilde: true,
   enableTierHelper: true,
   fontSizeMode: 'medium',

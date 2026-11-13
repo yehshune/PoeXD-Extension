@@ -55,6 +55,11 @@ const MODULE_ITEMS: readonly ModuleConfigItem[] = [
     descriptionKey: 'popup.module.enableResultModHighlight.description',
   },
   {
+    key: 'enableResultModQuickFilter',
+    titleKey: 'popup.module.enableResultModQuickFilter.title',
+    descriptionKey: 'popup.module.enableResultModQuickFilter.description',
+  },
+  {
     key: 'enableItemNormalizer',
     titleKey: 'popup.module.enableItemNormalizer.title',
     descriptionKey: 'popup.module.enableItemNormalizer.description',
