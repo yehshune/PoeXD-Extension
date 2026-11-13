@@ -278,7 +278,8 @@ export function resolveEquipmentSlot(raw: RawPoeItem): EquipmentSlot {
         w.includes('bow') ||
         w.includes('crossbow') ||
         w.includes('quarterstaff') ||
-        w.includes('staff')
+        w.includes('staff') ||
+        w.includes('talisman')
       ) {
         return 'two_hand_weapon';
       }
@@ -884,7 +885,11 @@ function collectEquipmentMods(raw: RawPoeItem): RawModEntry[] {
   ];
 }
 
-function collectSocketedWeaponMods(augments: RawSocketedItem[]): RawModEntry[] {
+function collectSocketedMods(
+  augments: RawSocketedItem[],
+  includePrefixRe: RegExp,
+  excludePrefixRe: RegExp,
+): RawModEntry[] {
   const collected: RawModEntry[] = [];
   for (const aug of augments) {
     for (const mod of [...(aug.explicitMods || []), ...(aug.runeMods || [])]) {
@@ -893,12 +898,10 @@ function collectSocketedWeaponMods(augments: RawSocketedItem[]): RawModEntry[] {
       for (const rawLine of text.split(/\r?\n/)) {
         const line = rawLine.trim();
         if (!line || isBondedModLine(line)) continue;
-        const prefixMatch = line.match(
-          /^(?:Martial\s+Weapon|Weapon|武器|近戰武器)\s*[:：]\s*(.+)$/i,
-        );
+        const prefixMatch = line.match(includePrefixRe);
         if (prefixMatch) {
           collected.push(prefixMatch[1].trim());
-        } else if (!/^(?:Wand|Staff|Armour|Shield|Focus|法杖|長杖|防具|護甲|盾牌)/i.test(line)) {
+        } else if (!excludePrefixRe.test(line)) {
           collected.push(line);
         }
       }
@@ -907,25 +910,20 @@ function collectSocketedWeaponMods(augments: RawSocketedItem[]): RawModEntry[] {
   return collected;
 }
 
+function collectSocketedWeaponMods(augments: RawSocketedItem[]): RawModEntry[] {
+  return collectSocketedMods(
+    augments,
+    /^(?:Martial\s+Weapon|Weapon|武器|近戰武器)\s*[:：]\s*(.+)$/i,
+    /^(?:Wand|Staff|Armour|Shield|Focus|法杖|長杖|防具|護甲|盾牌)/i,
+  );
+}
+
 function collectSocketedArmourMods(augments: RawSocketedItem[]): RawModEntry[] {
-  const collected: RawModEntry[] = [];
-  for (const aug of augments) {
-    for (const mod of [...(aug.explicitMods || []), ...(aug.runeMods || [])]) {
-      const text = unwrapPoeBrackets(extractRawModText(mod));
-      if (!text) continue;
-      for (const rawLine of text.split(/\r?\n/)) {
-        const line = rawLine.trim();
-        if (!line || isBondedModLine(line)) continue;
-        const prefixMatch = line.match(/^(?:Armour|防具|護甲)\s*[:：]\s*(.+)$/i);
-        if (prefixMatch) {
-          collected.push(prefixMatch[1].trim());
-        } else if (!/^(?:Martial\s+Weapon|Weapon|Wand|Staff|武器|法杖|長杖)/i.test(line)) {
-          collected.push(line);
-        }
-      }
-    }
-  }
-  return collected;
+  return collectSocketedMods(
+    augments,
+    /^(?:Armour|防具|護甲)\s*[:：]\s*(.+)$/i,
+    /^(?:Martial\s+Weapon|Weapon|Wand|Staff|武器|法杖|長杖)/i,
+  );
 }
 
 function extractRawModText(mod: RawModEntry | unknown): string {
@@ -1007,41 +1005,76 @@ function extractPropertyValue(
   return 0;
 }
 
-function extractIncPhysPercent(mods?: RawModEntry[]): number {
+interface SignedPercentRule {
+  statKey: string;
+  enRe: RegExp;
+  twRe: RegExp;
+  cnRe: RegExp;
+}
+
+const INC_PHYS_RULE: SignedPercentRule = {
+  statKey: 'stat_1509134228',
+  enRe: /^(\d+)%\s+(increased|reduced)\s+Physical\s+Damage(?:\s*\(Local\))?$/i,
+  twRe: /^(增加|減少)?\s*(\d+)%\s*物理\s*傷害(?:\s*\((?:部分|局部)\))?$/i,
+  cnRe: /^物理伤害(提高|降低)\s*(\d+)%$/i,
+};
+
+const INC_APS_RULE: SignedPercentRule = {
+  statKey: 'stat_210067635',
+  enRe: /^(\d+)%\s+(increased|reduced)\s+Attack\s+Speed(?:\s*\(Local\))?$/i,
+  twRe: /^(增加|減少)?\s*(\d+)%\s*攻擊速度(?:\s*\((?:部分|局部)\))?$/i,
+  cnRe: /^攻击速度(提高|降低)\s*(\d+)%$/i,
+};
+
+const AUGMENT_EFFECT_RULE: SignedPercentRule = {
+  statKey: 'stat_2081918629',
+  enRe: /^(\d+)%\s+(increased|reduced)\s+effect\s+of\s+Socketed\s+Augment\s+Items$/i,
+  twRe: /^(增加|減少)\s*(\d+)%\s*(?:鑲嵌的|插槽中|插槽內的?)\s*(?:增幅|輔助)?\s*物品效果$/i,
+  cnRe: /^镶嵌的增幅器物品效果(提高|降低)\s*(\d+)%$/i,
+};
+
+function getNonBondedLines(cleanText: string): string[] {
+  return cleanText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !isBondedModLine(line));
+}
+
+function extractSignedPercentByRule(
+  mods: RawModEntry[] | undefined,
+  rule: SignedPercentRule,
+): number {
   if (!mods) return 0;
   let total = 0;
   for (const mod of mods) {
     const rawText = extractRawModText(mod);
     if (!rawText) continue;
-    const cleanText = unwrapPoeBrackets(rawText);
-    const statKey = extractStatKey(mod);
+    const lines = getNonBondedLines(unwrapPoeBrackets(rawText));
+    if (lines.length === 0) continue;
 
+    const statKey = extractStatKey(mod);
     if (statKey) {
-      if (statKey === 'stat_1509134228') {
-        const val = parseFirstSignedPercent(cleanText);
+      if (statKey === rule.statKey) {
+        const val = parseFirstSignedPercent(lines.join('\n'));
         if (val !== null) total += val;
       }
       continue;
     }
 
-    for (const rawLine of cleanText.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line || isBondedModLine(line)) continue;
-      const enMatch = line.match(
-        /^(\d+)%\s+(increased|reduced)\s+Physical\s+Damage(?:\s*\(Local\))?$/i,
-      );
+    for (const line of lines) {
+      const enMatch = line.match(rule.enRe);
       if (enMatch) {
         const val = parseInt(enMatch[1], 10);
         total += enMatch[2].toLowerCase() === 'reduced' ? -val : val;
         continue;
       }
-      const twMatch = line.match(/^(增加|減少)?\s*(\d+)%\s*物理\s*傷害(?:\s*\((?:部分|局部)\))?$/i);
+      const twMatch = line.match(rule.twRe);
       if (twMatch) {
         const val = parseInt(twMatch[2], 10);
         total += twMatch[1] === '減少' ? -val : val;
         continue;
       }
-      const cnMatch = line.match(/^物理伤害(提高|降低)\s*(\d+)%$/i);
+      const cnMatch = line.match(rule.cnRe);
       if (cnMatch) {
         const val = parseInt(cnMatch[2], 10);
         total += cnMatch[1] === '降低' ? -val : val;
@@ -1051,48 +1084,12 @@ function extractIncPhysPercent(mods?: RawModEntry[]): number {
   return total;
 }
 
+function extractIncPhysPercent(mods?: RawModEntry[]): number {
+  return extractSignedPercentByRule(mods, INC_PHYS_RULE);
+}
+
 function extractLocalIncAttackSpeedPercent(mods?: RawModEntry[]): number {
-  if (!mods) return 0;
-  let total = 0;
-  for (const mod of mods) {
-    const rawText = extractRawModText(mod);
-    if (!rawText) continue;
-    const cleanText = unwrapPoeBrackets(rawText);
-    const statKey = extractStatKey(mod);
-
-    if (statKey) {
-      if (statKey === 'stat_210067635') {
-        const val = parseFirstSignedPercent(cleanText);
-        if (val !== null) total += val;
-      }
-      continue;
-    }
-
-    for (const rawLine of cleanText.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line || isBondedModLine(line)) continue;
-      const enMatch = line.match(
-        /^(\d+)%\s+(increased|reduced)\s+Attack\s+Speed(?:\s*\(Local\))?$/i,
-      );
-      if (enMatch) {
-        const val = parseInt(enMatch[1], 10);
-        total += enMatch[2].toLowerCase() === 'reduced' ? -val : val;
-        continue;
-      }
-      const twMatch = line.match(/^(增加|減少)?\s*(\d+)%\s*攻擊速度(?:\s*\((?:部分|局部)\))?$/i);
-      if (twMatch) {
-        const val = parseInt(twMatch[2], 10);
-        total += twMatch[1] === '減少' ? -val : val;
-        continue;
-      }
-      const cnMatch = line.match(/^攻击速度(提高|降低)\s*(\d+)%$/i);
-      if (cnMatch) {
-        const val = parseInt(cnMatch[2], 10);
-        total += cnMatch[1] === '降低' ? -val : val;
-      }
-    }
-  }
-  return total;
+  return extractSignedPercentByRule(mods, INC_APS_RULE);
 }
 
 const RUNE_FLAT_ELEM_STAT_KEYS = new Set(['stat_709508406', 'stat_1037193709', 'stat_3336890334']);
@@ -1119,12 +1116,13 @@ function extractRuneFlatElemAvg(runeMods?: RawModEntry[]): number {
   for (const mod of runeMods) {
     const rawText = extractRawModText(mod);
     if (!rawText) continue;
-    const cleanText = unwrapPoeBrackets(rawText);
-    const statKey = extractStatKey(mod);
+    const lines = getNonBondedLines(unwrapPoeBrackets(rawText));
+    if (lines.length === 0) continue;
 
+    const statKey = extractStatKey(mod);
     if (statKey) {
       if (RUNE_FLAT_ELEM_STAT_KEYS.has(statKey)) {
-        const range = cleanText.match(/(\d+)\s*(?:to|至|-)\s*(\d+)/i);
+        const range = lines.join('\n').match(/(\d+)\s*(?:to|至|-)\s*(\d+)/i);
         if (range) {
           totalAvg += (parseInt(range[1], 10) + parseInt(range[2], 10)) / 2;
         }
@@ -1132,9 +1130,7 @@ function extractRuneFlatElemAvg(runeMods?: RawModEntry[]): number {
       continue;
     }
 
-    for (const rawLine of cleanText.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line || isBondedModLine(line)) continue;
+    for (const line of lines) {
       const avg = parseFlatDamageRangeAvg(line);
       if (avg !== null) totalAvg += avg;
     }
@@ -1209,13 +1205,14 @@ function extractIncDefPercentMap(mods?: RawModEntry[]): DefencePercentBreakdown 
   for (const mod of mods) {
     const rawText = extractRawModText(mod);
     if (!rawText) continue;
-    const cleanText = unwrapPoeBrackets(rawText);
-    const statKey = extractStatKey(mod);
+    const lines = getNonBondedLines(unwrapPoeBrackets(rawText));
+    if (lines.length === 0) continue;
 
+    const statKey = extractStatKey(mod);
     if (statKey) {
       const targets = DEF_STAT_KEY_TARGETS[statKey];
       if (targets) {
-        const val = parseFirstSignedPercent(cleanText);
+        const val = parseFirstSignedPercent(lines.join('\n'));
         if (val !== null) {
           for (const key of targets) acc[key] += val;
         }
@@ -1223,10 +1220,7 @@ function extractIncDefPercentMap(mods?: RawModEntry[]): DefencePercentBreakdown 
       continue;
     }
 
-    for (const rawLine of cleanText.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line || isBondedModLine(line)) continue;
-
+    for (const line of lines) {
       const enMatch = line.match(/^(\d+)%\s+(increased|reduced)\s+(.+)$/i);
       if (enMatch) {
         const val = parseInt(enMatch[1], 10);
@@ -1253,49 +1247,7 @@ function extractIncDefPercentMap(mods?: RawModEntry[]): DefencePercentBreakdown 
 }
 
 function extractAugmentEffectPercent(mods?: RawModEntry[]): number {
-  if (!mods) return 0;
-  let total = 0;
-  for (const mod of mods) {
-    const rawText = extractRawModText(mod);
-    if (!rawText) continue;
-    const cleanText = unwrapPoeBrackets(rawText);
-    const statKey = extractStatKey(mod);
-
-    if (statKey) {
-      if (statKey === 'stat_2081918629') {
-        const val = parseFirstSignedPercent(cleanText);
-        if (val !== null) total += val;
-      }
-      continue;
-    }
-
-    for (const rawLine of cleanText.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line || isBondedModLine(line)) continue;
-      const enMatch = line.match(
-        /^(\d+)%\s+(increased|reduced)\s+effect\s+of\s+Socketed\s+Augment\s+Items$/i,
-      );
-      if (enMatch) {
-        const val = parseInt(enMatch[1], 10);
-        total += enMatch[2].toLowerCase() === 'reduced' ? -val : val;
-        continue;
-      }
-      const twMatch = line.match(
-        /^(增加|減少)\s*(\d+)%\s*(?:鑲嵌的|插槽中|插槽內的?)\s*(?:增幅|輔助)?\s*物品效果$/i,
-      );
-      if (twMatch) {
-        const val = parseInt(twMatch[2], 10);
-        total += twMatch[1] === '減少' ? -val : val;
-        continue;
-      }
-      const cnMatch = line.match(/^镶嵌的增幅器物品效果(提高|降低)\s*(\d+)%$/i);
-      if (cnMatch) {
-        const val = parseInt(cnMatch[2], 10);
-        total += cnMatch[1] === '降低' ? -val : val;
-      }
-    }
-  }
-  return total;
+  return extractSignedPercentByRule(mods, AUGMENT_EFFECT_RULE);
 }
 
 function roundToTwo(num: number): number {

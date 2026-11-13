@@ -830,6 +830,29 @@ function buildItemTooltipLines(stats: NormalizedItemStats): string[] {
   return tooltipLines;
 }
 
+function isCachedBadgeState(
+  existing: HTMLElement | null,
+  expectedVal: string,
+  locale: string,
+): boolean {
+  return Boolean(
+    existing &&
+    existing.dataset?.poexdVal === expectedVal &&
+    existing.dataset?.poexdLocale === locale,
+  );
+}
+
+/**
+ * 讀取官方 `.itemPopupAdditional [data-field]` 目前顯示的數值（排除 PoeXD 插入節點）
+ */
+function readDisplayedPopupNumber(fieldSpan: Element): number | null {
+  const valueNode = fieldSpan.querySelector('.colourAugmented, .colourDefault');
+  const rawText = valueNode?.textContent?.trim();
+  if (!rawText) return null;
+  const parsed = Number.parseFloat(rawText);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 /**
  * 渲染打孔潛力標籤至圖片下方（`.left > .poexd-left-badges`）；已打滿或不可打孔時移除
  */
@@ -851,11 +874,7 @@ function renderSocketBadge(row: Element, stats: NormalizedItemStats) {
       : (stats as ArmourNormalizedStats).potential.totalDefense;
   const stateKey = `${stats.socketsCount}-${analysis.targetSockets}-${potVal}`;
 
-  if (
-    existing &&
-    existing.dataset?.poexdVal === stateKey &&
-    existing.dataset?.poexdLocale === activeLocale
-  ) {
+  if (isCachedBadgeState(existing, stateKey, activeLocale)) {
     return;
   }
 
@@ -884,7 +903,7 @@ interface InlineOverrideSpec {
 
 /**
  * 將個別屬性（護甲 / 閃避 / ES / DPS）的符文覆寫預估值直接行內附註於官方 `.itemPopupAdditional` 對應欄位右側，
- * 不新增垂直列數以免遮蓋詞綴；總和與點擊排序按鈕仍集中於底部 `.poexd-stat-badges`。
+ * 不新增垂直列數以免遮蓋詞綴；排序由 `.poexd-total-controls` 控制，打孔潛力則獨立顯示於圖片下方。
  */
 function renderInlinePopupOverrides(row: Element, stats: NormalizedItemStats) {
   const popupAdditional = row.querySelector('.itemPopupAdditional');
@@ -917,9 +936,11 @@ function renderInlinePopupOverrides(row: Element, stats: NormalizedItemStats) {
 
     const existing = fieldSpan.querySelector('.poexd-inline-override') as HTMLElement | null;
     const isHidden = fieldSpan.classList?.contains('invisible');
+    const displayedVal = readDisplayedPopupNumber(fieldSpan);
+    const baseline = displayedVal ?? spec.current;
     const diff = isWeapon
-      ? Math.round((spec.potential - spec.current) * 100) / 100
-      : spec.potential - spec.current;
+      ? Math.round((spec.potential - baseline) * 100) / 100
+      : spec.potential - baseline;
 
     if (isHidden || spec.potential <= 0 || Math.abs(diff) < 0.01) {
       if (existing) existing.remove();
@@ -927,11 +948,7 @@ function renderInlinePopupOverrides(row: Element, stats: NormalizedItemStats) {
     }
 
     const targetText = String(spec.potential);
-    if (
-      existing &&
-      existing.dataset?.poexdVal === targetText &&
-      existing.dataset?.poexdLocale === activeLocale
-    ) {
+    if (isCachedBadgeState(existing, targetText, activeLocale)) {
       continue;
     }
 

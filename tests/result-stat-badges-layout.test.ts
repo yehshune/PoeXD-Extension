@@ -244,4 +244,50 @@ describe('result stat badges layout', () => {
       '.results:not(.compact) .row .middle .itemPopupAdditional',
     );
   });
+
+  it('compares potential against DOM-displayed popup number so quality-only overrides render when DOM is unprojected', () => {
+    const row1 = buildRow('row-unprojected', true);
+    const add1 = row1.querySelector('.itemPopupAdditional')!;
+    add1.innerHTML =
+      '<span class="s" data-field="ev"><span class="lc">Evasion</span><span class="colourDefault">265</span></span>';
+
+    const row2 = buildRow('row-projected', true);
+    const add2 = row2.querySelector('.itemPopupAdditional')!;
+    add2.innerHTML =
+      '<span class="s" data-field="ev"><span class="lc">Evasion</span><span class="colourDefault">318</span></span>';
+
+    document.querySelector('.results')!.append(row1, row2);
+
+    const makeArmourItem = (id: string) => ({
+      id,
+      item: {
+        realm: 'poe2',
+        name: '',
+        typeLine: 'Leather Vest',
+        baseType: 'Leather Vest',
+        category: { armour: ['chest'] },
+        ilvl: 75,
+        corrupted: false,
+        sockets: [],
+        properties: [{ name: '[Evasion|Evasion Rating]', values: [['265', 0]], type: 17 }],
+      },
+    });
+
+    const normalizer = new ResultItemNormalizer('poe2');
+    normalizer.setRuneConfig({ armourRune: { type: 'none', value: 0 } });
+    normalizer.handleFetchResponse(
+      JSON.stringify({
+        url: 'https://www.pathofexile.com/api/trade2/fetch/row-unprojected,row-projected?query=q4',
+        data: {
+          result: [makeArmourItem('row-unprojected'), makeArmourItem('row-projected')],
+        },
+      }),
+    );
+
+    const override1 = row1.querySelector('[data-field="ev"] .poexd-inline-override');
+    expect(override1?.textContent).toContain('318');
+
+    const override2 = row2.querySelector('[data-field="ev"] .poexd-inline-override');
+    expect(override2).toBeNull();
+  });
 });

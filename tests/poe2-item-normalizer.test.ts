@@ -891,4 +891,56 @@ describe('poe2-item-normalizer', () => {
       expect(res.potential.evasion).toBe(237);
     });
   });
+
+  describe('Bonded prefix filtering & Talisman slot detection', () => {
+    it('resolveEquipmentSlot 將 category.weapons 包含 talisman 識別為 two_hand_weapon', () => {
+      expect(
+        resolveEquipmentSlot({
+          realm: 'poe2',
+          category: { weapons: ['talisman'] },
+        }),
+      ).toBe('two_hand_weapon');
+    });
+
+    it('extractIncPhysPercent 在比對 hash 前應排除 Bonded: / 命定: 行，避免誤認命定物理增傷為符文增傷', () => {
+      const talismanWithBonded: RawPoeItem = {
+        realm: 'poe2',
+        category: { weapons: ['talisman'] },
+        baseType: 'Primal Talisman',
+        sockets: [
+          { group: 0, type: 'rune' },
+          { group: 1, type: 'rune' },
+        ],
+        socketedItems: [{}, {}],
+        properties: [
+          { name: 'Quality', values: [['+20%', 1]], type: 6 },
+          { name: 'Attacks per Second', values: [['1.50', 0]], type: 13 },
+          { name: '[Physical|Physical Damage]', values: [['100-200', 1]], type: 9 },
+        ],
+        explicitMods: [{ description: '100% increased [Physical|Physical] Damage' }],
+        // 模擬實際 API 回傳：同一條 mod 的 raw string 帶有 Bonded 前綴與符文物理 hash
+        runeMods: [
+          {
+            description: '[ShamanOnlyMods|Bonded]: 30% increased [Physical|Physical] Damage',
+            hash: 'stat.rune.stat_1509134228',
+          },
+        ],
+        extended: {
+          dps: 450,
+          pdps: 450,
+          edps: 0,
+        },
+      };
+
+      const res = normalizePoe2Item(talismanWithBonded, {
+        weaponRune: { type: 'phys_percent', value: 20 },
+        armourRune: { type: 'def_percent', value: 20 },
+      });
+      if (res?.type !== 'weapon') throw new Error('Expected weapon');
+      // Bonded 行不可被當成 +30% 符文物傷扣除，否則淨物傷會被低估
+      expect(res.runeModifiers.incPhysPercent).toBe(0);
+      // 武器品質在 PoE2 為獨立乘區且已為 +20%；雙手 2 孔各插 20% 符文 -> 潛力物傷倍率 = (1 + 1.0 + 0.4) / (1 + 1.0) = 2.4 / 2.0
+      expect(res.potential.pdps).toBe(Math.round((450 * 2.4) / 2.0));
+    });
+  });
 });
