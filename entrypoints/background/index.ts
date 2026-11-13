@@ -24,6 +24,7 @@ import { registerEconomyBackgroundHandlers, type EconomyBroadcastTransport } fro
 import { LiveSearchCoordinator } from '@/utils/live-search-coordinator';
 import { TRADE_PAGE_MATCH_PATTERNS } from '@/utils/trade-realms';
 import { registerLiveSearchBackgroundHandlers } from '@/utils/live-search-messaging';
+import { createInstallOnboardingState, ONBOARDING_STORAGE_KEY } from '@/utils/onboarding';
 
 let searchRecordModule: SearchRecordRuntime | undefined;
 let searchRecordReady: Promise<SearchRecordOutcome> | undefined;
@@ -32,6 +33,14 @@ let bookmarkReady: Promise<SearchRecordOutcome> | undefined;
 
 export default defineBackground(() => {
   console.log('PoeXD-Extention background service worker initialized.', { id: browser.runtime.id });
+  // 只在全新安裝時建立初次引導狀態；需在 Service Worker 啟動時同步註冊才收得到事件
+  browser.runtime.onInstalled.addListener(({ reason }) => {
+    const initial = createInstallOnboardingState(reason, browser.runtime.getManifest().version);
+    if (!initial) return;
+    void browser.storage.local
+      .set({ [ONBOARDING_STORAGE_KEY]: { ...initial } })
+      .catch((error: unknown) => console.error('[Onboarding] 無法寫入初次安裝狀態:', error));
+  });
   searchRecordModule = createSearchRecordModule(
     createChromeSearchRecordStorage(chrome.storage.local),
   );

@@ -34,7 +34,7 @@
           type="button"
           variant="secondary"
           size="default"
-          class="w-[var(--pxd-sidebar-collapsed-width)] border-x-0 rounded-none px-[var(--pxd-sidebar-collapsed-padding-x)] flex items-center justify-between"
+          class="relative w-[var(--pxd-sidebar-collapsed-width)] border-x-0 rounded-none px-[var(--pxd-sidebar-collapsed-padding-x)] flex items-center justify-between"
           :style="{
             borderRight: sidebarPosition === 'right' ? 'none' : '1px solid var(--border)',
             borderLeft: sidebarPosition === 'left' ? 'none' : '1px solid var(--border)',
@@ -50,6 +50,14 @@
             class="text-primary"
           />
           <ChevronLeft :class="sidebarPosition === 'left' ? 'rotate-180' : ''" />
+          <!-- 初次安裝：尚未展開過側邊欄時的提示圓點（展開一次即消失） -->
+          <span
+            v-if="showExpandHint"
+            data-onboarding-hint
+            class="pointer-events-none absolute top-[3px] size-2 rounded-full bg-primary"
+            :class="sidebarPosition === 'left' ? 'right-[3px]' : 'left-[3px]'"
+            aria-hidden="true"
+          ></span>
         </Button>
 
         <!-- 展開狀態下的側邊欄本體 -->
@@ -250,6 +258,20 @@
             >
               <!-- Normal 模式：按分頁渲染對應的子元件 -->
               <template v-if="pageRole === 'normal'">
+                <!-- 初次安裝歡迎卡片：只在書籤頁頂端顯示，關閉後永久不再出現 -->
+                <div
+                  v-if="showWelcomeCard && activeTab === 'bookmark'"
+                  class="shrink-0 px-[var(--pxd-pane-padding)] pt-[var(--pxd-pane-padding)]"
+                >
+                  <WelcomeCard
+                    :show-market-translation="showMarketTranslationOffer"
+                    :market-translation="marketTranslation"
+                    :reload-required="marketTranslationReloadRequired"
+                    @dismiss="dismissWelcomeCard"
+                    @update:market-translation="setMarketTranslation"
+                    @reload="reloadPage"
+                  />
+                </div>
                 <BookmarkPane v-show="activeTab === 'bookmark'" />
                 <HistoryPane v-show="activeTab === 'history'" />
                 <StatGroupTemplatePane
@@ -480,6 +502,7 @@ import SettingsPane from './sidebar/SettingsPane.vue';
 import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
 import TemporarySearchDialog from './sidebar/TemporarySearchDialog.vue';
+import WelcomeCard from './sidebar/WelcomeCard.vue';
 import TierDropdownHost from './injected/TierDropdownHost.vue';
 import StatGroupTemplateHost from './injected/StatGroupTemplateHost.vue';
 import MercenaryPickerHost from './injected/mercenary/MercenaryPickerHost.vue';
@@ -492,6 +515,15 @@ import {
 } from '@/utils/preferences';
 import { createVersionedStorageKeys, readStorageValue } from '@/utils/storage-contracts';
 import { getPoeVersion } from '@/utils/trade-context';
+import { detectBrowserLocale } from '@/utils/locale-resolution';
+import {
+  NO_ONBOARDING,
+  createChromeOnboardingStore,
+  dismissWelcome,
+  markExpandHintSeen,
+  shouldOfferMarketTranslation,
+  type OnboardingState,
+} from '@/utils/onboarding';
 import { createUiRuntimeTokenValues } from '@/lib/tokens';
 import { installDialogGlobals, useSidebarDialog } from './sidebar/composables/useSidebarDialog';
 import {
@@ -583,6 +615,7 @@ export default defineComponent({
     LiveSearchPrimaryPane,
     LiveSearchConsoleSettingsPane,
     TemporarySearchDialog,
+    WelcomeCard,
     TierDropdownHost,
     StatGroupTemplateHost,
     MercenaryPickerHost,
@@ -626,6 +659,44 @@ export default defineComponent({
     const settingsPaneReady = ref(props.pageRole === 'live-search-primary');
     const pageRole = computed(() => props.pageRole);
     const areSettingsReady = computed(() => sidebarStateReady.value && settingsPaneReady.value);
+
+    // 初次安裝引導（只有全新安裝才有狀態，舊使用者維持 NO_ONBOARDING）
+    const onboardingStore = createChromeOnboardingStore();
+    const onboarding = ref<OnboardingState>(NO_ONBOARDING);
+    let stopOnboarding: (() => void) | undefined;
+    const marketTranslation = ref(false);
+    const displayLocale = ref<Preferences['displayLocale']>('auto');
+    /** 本頁載入時的漢化狀態；之後變動需重新整理才會套用到官網頁面 */
+    let pageLoadMarketTranslation: boolean | null = null;
+    const marketTranslationReloadRequired = ref(false);
+    const showExpandHint = computed(
+      () => pageRole.value === 'normal' && isCollapsed.value && onboarding.value.expandHintPending,
+    );
+    const showWelcomeCard = computed(
+      () => pageRole.value === 'normal' && onboarding.value.welcomePending,
+    );
+    const showMarketTranslationOffer = computed(() =>
+      shouldOfferMarketTranslation({
+        hostname: typeof window !== 'undefined' ? window.location.hostname : '',
+        displayLocale: displayLocale.value,
+        browserLocale: detectBrowserLocale(),
+      }),
+    );
+    const updateOnboarding = (mutate: (state: OnboardingState) => OnboardingState) => {
+      onboarding.value = mutate(onboarding.value);
+      void onboardingStore.update(mutate).catch((error) => {
+        console.error('[PoeXD Sidebar] 無法更新初次引導狀態:', error);
+      });
+    };
+    const dismissWelcomeCard = () => updateOnboarding(dismissWelcome);
+    const setMarketTranslation = async (value: boolean) => {
+      if (!preferencesModule) return;
+      const outcome = await preferencesModule.update({ marketTranslation: value });
+      if (!outcome.ok) {
+        console.error('[PoeXD Sidebar] 無法更新市集漢化設定:', outcome.error);
+      }
+    };
+    const reloadPage = () => window.location.reload();
 
     const isArrivalActive = ref(false);
     let arrivalTimer: ReturnType<typeof setTimeout> | null = null;
@@ -852,7 +923,24 @@ export default defineComponent({
         sidebarWidth.value = snapshot.sidebarWidth;
         fontSizeScale.value = snapshot.fontSizeScale;
         densityScale.value = snapshot.densityScale;
+        marketTranslation.value = snapshot.marketTranslation === true;
+        displayLocale.value = snapshot.displayLocale ?? 'auto';
+        if (pageLoadMarketTranslation === null) {
+          pageLoadMarketTranslation = marketTranslation.value;
+        }
+        marketTranslationReloadRequired.value =
+          marketTranslation.value !== pageLoadMarketTranslation;
       });
+
+      stopOnboarding = onboardingStore.subscribe((state) => {
+        onboarding.value = state;
+      });
+      void onboardingStore
+        .read()
+        .then((state) => {
+          onboarding.value = state;
+        })
+        .catch((error) => console.error('[PoeXD Sidebar] 無法讀取初次引導狀態:', error));
 
       isCollapsed.value = readStorageValue(data, collapsedKey, 'isCollapsed', true);
 
@@ -877,6 +965,9 @@ export default defineComponent({
 
     const toggleCollapse = () => {
       isCollapsed.value = !isCollapsed.value;
+      if (!isCollapsed.value && onboarding.value.expandHintPending) {
+        updateOnboarding(markExpandHintSeen);
+      }
       const collapsedKey = keys.isCollapsed;
       chrome.storage.local.set({ [collapsedKey]: isCollapsed.value });
       dispatchPoeEvent('poexd-sidebar-collapsed-changed', isCollapsed.value);
@@ -1033,6 +1124,7 @@ export default defineComponent({
       }
       unregArrivalMessage?.();
       stopPreferences?.();
+      stopOnboarding?.();
       if (handleStorageChange) {
         chrome.storage.onChanged.removeListener(handleStorageChange);
       }
@@ -1055,6 +1147,14 @@ export default defineComponent({
     return {
       appVersion,
       version,
+      showExpandHint,
+      showWelcomeCard,
+      showMarketTranslationOffer,
+      marketTranslation,
+      marketTranslationReloadRequired,
+      dismissWelcomeCard,
+      setMarketTranslation,
+      reloadPage,
       t,
       portalTarget,
       isCollapsed,

@@ -956,6 +956,14 @@ export const ZH_TW_MESSAGES = {
   'resultModQuickFilter.toast.alreadyExists': '「{text}」已在「{group}」篩選器中',
   'resultModQuickFilter.toast.unknownStat': '此詞綴無法對應官方搜尋代碼：「{text}」',
   'resultModQuickFilter.toast.failed': '加入篩選器失敗：{message}',
+  'onboarding.welcome.title': '歡迎使用 PoeXD',
+  'onboarding.welcome.statGroups': '常用詞綴群組：存起來，一鍵疊加到目前搜尋',
+  'onboarding.welcome.tiers': '點官網的詞綴欄位，可用階級直接帶入範圍',
+  'onboarding.welcome.liveSearch': '點導覽列的這個圖示，開啟線上搜尋主控台',
+  'onboarding.welcome.marketTranslation': '用中文顯示這個市集',
+  'onboarding.welcome.reloadHint': '重新整理頁面後生效',
+  'onboarding.welcome.reload': '重新整理',
+  'onboarding.welcome.dismiss': '關閉歡迎訊息',
 } as const;
 
 export type I18nKey = keyof typeof ZH_TW_MESSAGES;

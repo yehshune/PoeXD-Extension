@@ -958,4 +958,12 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'resultModQuickFilter.toast.alreadyExists': '「{text}」已在「{group}」筛选器中',
   'resultModQuickFilter.toast.unknownStat': '此词缀无法对应官方搜索代码：「{text}」',
   'resultModQuickFilter.toast.failed': '加入筛选器失败：{message}',
+  'onboarding.welcome.title': '欢迎使用 PoeXD',
+  'onboarding.welcome.statGroups': '常用词缀群组：存起来，一键叠加到当前搜索',
+  'onboarding.welcome.tiers': '点官网的词缀栏位，可用阶级直接带入范围',
+  'onboarding.welcome.liveSearch': '点导航栏的这个图标，开启在线搜索主控台',
+  'onboarding.welcome.marketTranslation': '用中文显示这个市集',
+  'onboarding.welcome.reloadHint': '刷新页面后生效',
+  'onboarding.welcome.reload': '刷新',
+  'onboarding.welcome.dismiss': '关闭欢迎信息',
 };

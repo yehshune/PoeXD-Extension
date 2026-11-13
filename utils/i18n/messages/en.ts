@@ -1017,4 +1017,13 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'resultModQuickFilter.toast.unknownStat':
     'This affix cannot be mapped to a Trade stat ID: "{text}"',
   'resultModQuickFilter.toast.failed': 'Failed to add filter: {message}',
+  'onboarding.welcome.title': 'Welcome to PoeXD',
+  'onboarding.welcome.statGroups':
+    'Stat group templates: save common filters and add them to any search in one click',
+  'onboarding.welcome.tiers': 'Click a stat filter on the trade site to fill its range from a tier',
+  'onboarding.welcome.liveSearch': 'Use this icon in the side bar to open the Live Search Console',
+  'onboarding.welcome.marketTranslation': 'Show this trade site in Chinese',
+  'onboarding.welcome.reloadHint': 'Takes effect after a page reload',
+  'onboarding.welcome.reload': 'Reload',
+  'onboarding.welcome.dismiss': 'Dismiss welcome message',
 };
