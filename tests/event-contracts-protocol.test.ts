@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  POE_CONTENT_INTERNAL_EVENT_TYPES,
   dispatchPoeEvent,
   initPoeEventNonce,
+  isPoeContentInternalEventType,
   listenPoeEvent,
   parsePoeFetchResponse,
   parsePoeKnownStats,
@@ -419,6 +421,50 @@ describe('Event Protocol Hardening (Phase 2)', () => {
       expect(listener).toHaveBeenCalledTimes(1);
 
       unsubscribe();
+    });
+  });
+  describe('4. Content-internal events stay inside the isolated world', () => {
+    it('never exposes internal events on window, so page scripts cannot observe them', () => {
+      const pageObserver = vi.fn();
+      window.addEventListener('poexd-toast', pageObserver);
+      const listener = vi.fn();
+      const unsubscribe = listenPoeEvent('poexd-toast', listener);
+
+      dispatchPoeEvent('poexd-toast', { message: 'hello', tone: 'success' });
+
+      expect(listener).toHaveBeenCalledWith({ message: 'hello', tone: 'success' });
+      expect(pageObserver).not.toHaveBeenCalled();
+      unsubscribe();
+      window.removeEventListener('poexd-toast', pageObserver);
+    });
+
+    it.each(POE_CONTENT_INTERNAL_EVENT_TYPES)(
+      'ignores %s forged on window even with the active nonce',
+      (type) => {
+        const listener = vi.fn();
+        const unsubscribe = listenPoeEvent(type, listener);
+        window.dispatchEvent(
+          new CustomEvent(type, {
+            detail: { source: 'poexd', nonce: 'test-nonce-123', payload: { url: 'x', images: [] } },
+          }),
+        );
+        expect(listener).not.toHaveBeenCalled();
+        unsubscribe();
+      },
+    );
+
+    it('keeps cross-world events on window for the main-world bridge', () => {
+      const pageObserver = vi.fn();
+      window.addEventListener('poexd-livesearch-command-result', pageObserver);
+      dispatchPoeEvent('poexd-livesearch-command-result', '{}');
+      expect(pageObserver).toHaveBeenCalledTimes(1);
+      window.removeEventListener('poexd-livesearch-command-result', pageObserver);
+    });
+
+    it('classifies only content-internal event names as internal', () => {
+      expect(isPoeContentInternalEventType('poexd-trigger-dialog')).toBe(true);
+      expect(isPoeContentInternalEventType('poexd-fetch-response')).toBe(false);
+      expect(isPoeContentInternalEventType('poexd-livesearch-command-result')).toBe(false);
     });
   });
 });

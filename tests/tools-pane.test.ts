@@ -9,6 +9,7 @@ import ToolsPane, {
   shouldApplyEconomyMetadata,
 } from '@/components/sidebar/ToolsPane.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
+import { listenPoeEvent } from '@/utils/event-contracts';
 import { resetI18nStateForTests, setActiveDisplayLocalePreference } from '@/utils/i18n';
 
 // Mock dependencies
@@ -243,7 +244,7 @@ describe('ToolsPane & time formatters', () => {
       );
 
       const toastListener = vi.fn();
-      window.addEventListener('poexd-toast', toastListener);
+      const stopToastListener = listenPoeEvent('poexd-toast', toastListener);
 
       app = createApp(ToolsPane);
       app.mount(container);
@@ -280,12 +281,9 @@ describe('ToolsPane & time formatters', () => {
       });
 
       expect(toastListener).toHaveBeenCalled();
-      const eventDetail = (toastListener.mock.calls[0][0] as CustomEvent).detail;
-      expect(eventDetail?.payload?.message || eventDetail?.message).toContain(
-        '價格換算資料已成功更新',
-      );
+      expect(toastListener.mock.calls[0][0].message).toContain('價格換算資料已成功更新');
 
-      window.removeEventListener('poexd-toast', toastListener);
+      stopToastListener();
     });
 
     it('shows expired status and guidance when cache has expired', async () => {

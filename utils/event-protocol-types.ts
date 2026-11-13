@@ -244,6 +244,41 @@ export interface PoeContentInternalEventMap {
 }
 
 /**
+ * Content World 內部事件名稱清單。
+ * 這些事件只在擴充的隔離世界（Isolated World）內流動，走私有 EventTarget 而非 `window`，
+ * 網頁腳本既看不到也無法偽造（例如假 toast、假對話框或注入書籤封面網址）。
+ */
+export const POE_CONTENT_INTERNAL_EVENT_TYPES = [
+  'poexd-close-affix-modal',
+  'poexd-modal-active-changed',
+  'poexd-open-affix-modal',
+  'poexd-open-mercenary-picker',
+  'poexd-request-result-images',
+  'poexd-result-images',
+  'poexd-sidebar-collapsed-changed',
+  'poexd-sidebar-resizing-changed',
+  'poexd-sidebar-width-preview',
+  'poexd-toast',
+  'poexd-trigger-dialog',
+  'poexd-trigger-select-type-modal',
+] as const satisfies readonly (keyof PoeContentInternalEventMap)[];
+
+type MissingInternalEventType = Exclude<
+  keyof PoeContentInternalEventMap,
+  (typeof POE_CONTENT_INTERNAL_EVENT_TYPES)[number]
+>;
+// 編譯期保證清單涵蓋所有內部事件
+const _internalEventTypesExhaustive: [MissingInternalEventType] extends [never] ? true : never =
+  true;
+void _internalEventTypesExhaustive;
+
+export function isPoeContentInternalEventType(
+  type: string,
+): type is keyof PoeContentInternalEventMap {
+  return (POE_CONTENT_INTERNAL_EVENT_TYPES as readonly string[]).includes(type);
+}
+
+/**
  * 聚合事件表（供唯一 CustomEvent 基礎設施 dispatchPoeEvent / listenPoeEvent 使用）
  */
 export type PoeEventMap = PoeCrossWorldEventMap & PoeContentInternalEventMap;
