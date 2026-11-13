@@ -1,6 +1,11 @@
 import { parsePoeMoveStatFilter } from '@/utils/event-protocol-types';
 import type { MainWorldBridge } from './bridge-bootstrap';
-import { setFilterCategory, updateSingleFilterCategory } from './category-binding-manager';
+import {
+  setFilterCategory,
+  setFilterModGroup,
+  updateSingleFilterCategory,
+  updateSingleFilterModGroup,
+} from './category-binding-manager';
 import {
   isStatFilterGroup,
   saveAllCategoriesToSessionStorage,
@@ -19,7 +24,7 @@ export function initPoeRuntimeMutation(bridge: MainWorldBridge) {
 
     if (!item) return;
 
-    const { statId, groupIndex, min, max, category } = item;
+    const { statId, groupIndex, min, max, category, modGroup } = item;
     const gIdx = groupIndex !== undefined ? groupIndex : 0;
 
     if (statId) {
@@ -41,6 +46,9 @@ export function initPoeRuntimeMutation(bridge: MainWorldBridge) {
 
         if (category) {
           setFilterCategory(valueObj, category);
+        }
+        if (modGroup) {
+          setFilterModGroup(valueObj, modGroup);
         }
 
         if (min !== undefined || max !== undefined) {
@@ -68,6 +76,9 @@ export function initPoeRuntimeMutation(bridge: MainWorldBridge) {
           }
           if (valueObj.poexdCategory && !storedFilter.poexdCategory) {
             setFilterCategory(storedFilter, valueObj.poexdCategory);
+          }
+          if (valueObj.poexdModGroup && !storedFilter.poexdModGroup) {
+            setFilterModGroup(storedFilter, valueObj.poexdModGroup);
           }
         }
       });
@@ -113,9 +124,9 @@ export function initPoeRuntimeMutation(bridge: MainWorldBridge) {
     }
   });
 
-  // 監聽手動更新詞綴物品分類的事件，在 Vuex 物件中儲存不可列舉的分類屬性
+  // 監聽手動更新詞綴物品分類與詞綴分組的事件，在 Vuex 物件中儲存不可列舉的 metadata
   const unsubUpdate = bridge.addListener('poexd-update-stat-category', (payload) => {
-    const { groupIndex, filterIndex, bindingId, category } = payload;
+    const { groupIndex, filterIndex, bindingId, category, modGroup } = payload;
     const store = getVueStore();
     if (!store) {
       console.warn('[PoeXD] 找不到 Vuex store');
@@ -124,7 +135,12 @@ export function initPoeRuntimeMutation(bridge: MainWorldBridge) {
     const stats = store.state?.persistent?.stats || store.state?.query?.stats;
     if (stats) {
       store._withCommit(() => {
-        updateSingleFilterCategory(stats, { bindingId, groupIndex, filterIndex }, category);
+        if (category !== undefined) {
+          updateSingleFilterCategory(stats, { bindingId, groupIndex, filterIndex }, category);
+        }
+        if (modGroup !== undefined) {
+          updateSingleFilterModGroup(stats, { bindingId, groupIndex, filterIndex }, modGroup);
+        }
       });
       tagFilterDomElements();
     }

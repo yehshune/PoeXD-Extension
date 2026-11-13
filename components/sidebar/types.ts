@@ -61,8 +61,10 @@ export interface StatFilterModPayload {
   key: string;
   displayKey?: string;
   displayTemplate?: string;
+  modGroup?: string;
   affinities?: string[];
   officialId?: string;
   id?: string;
   ids?: string[];
+  tiers?: ModTier[];
 }

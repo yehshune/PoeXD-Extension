@@ -514,6 +514,14 @@ export function createTierSlotDomainData(
     } else if (item.type === 'mod_group_option') {
       if (item.groupId) {
         filterEl.setAttribute('data-poexd-mod-group', item.groupId);
+        if (bindingId) {
+          dispatchPoeEvent('poexd-update-stat-category', {
+            bindingId,
+            groupIndex: gIdx ?? undefined,
+            filterIndex: fIdx ?? undefined,
+            modGroup: item.groupId,
+          });
+        }
       }
       const nextData = createTierSlotDomainData(tiers, filterEl, slotEl, options, statId);
       upsertTierSlot({

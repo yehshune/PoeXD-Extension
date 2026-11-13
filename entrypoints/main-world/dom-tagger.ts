@@ -285,6 +285,14 @@ export function tagFilterDomElements(explicitCategory?: string | null) {
         } else if (filterEl.hasAttribute('data-poexd-category')) {
           filterEl.removeAttribute('data-poexd-category');
         }
+
+        if (filter.poexdModGroup) {
+          if (filterEl.getAttribute('data-poexd-mod-group') !== filter.poexdModGroup) {
+            filterEl.setAttribute('data-poexd-mod-group', filter.poexdModGroup);
+          }
+        } else if (filterEl.hasAttribute('data-poexd-mod-group')) {
+          filterEl.removeAttribute('data-poexd-mod-group');
+        }
       } else {
         console.warn(`[PoeXD Inject] 群組 ${gIdx} 的第 ${fIdx} 個詞綴在 Vuex 中沒有對應資料或 id`);
       }

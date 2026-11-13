@@ -9,6 +9,7 @@ export interface HostFilterItem {
   disabled?: boolean;
   value?: HostFilterValue;
   poexdCategory?: string;
+  poexdModGroup?: string;
   poexdBindingId?: string;
   [key: string]: unknown;
 }

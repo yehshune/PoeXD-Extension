@@ -697,6 +697,51 @@ describe('FilterPane Selected Mods Panel (Runtime Contracts)', () => {
     expect(addedFilters.length).toBe(1);
     expect(addedFilters[0].statId).toBe('implicit.stat_1760576992');
     expect(addedFilters[0].min).toBe('1');
+    expect(addedFilters[0].modGroup).toBe('+# 狂怒球上限');
+
+    addCleanup();
+  });
+
+  it('P. preserves parent compound modGroup on each dispatched filter when adding a multi-ID compound mod', async () => {
+    const compoundModsData = {
+      '#% increased Energy Shield ||||| +# to maximum Life': [
+        {
+          key: '#% increased Energy Shield|||||+# to maximum Life',
+          displayKey: '增加 (39-42)% 能量護盾|||||+(18-24) 最大生命',
+          displayTemplate: '增加#%能量護盾|||||#最大生命',
+          values: [
+            ['39', '42'],
+            ['18', '24'],
+          ],
+          level: '78',
+          generation_type: '1',
+          affinities: ['normal'],
+          types: ['body-armour'],
+          ids: ['explicit.stat_4015621042', 'explicit.stat_3299347043'],
+        },
+      ],
+    };
+    mockModsData(compoundModsData);
+
+    await mountFilterPane();
+
+    const addedFilters: any[] = [];
+    const addCleanup = listenPoeEvent('poexd-add-stat-filter', (detail) => {
+      addedFilters.push(detail);
+    });
+
+    const mainAddBtn = appRoot.querySelector(
+      '.mod-row .mod-action-zone button',
+    ) as HTMLButtonElement;
+    expect(mainAddBtn).toBeTruthy();
+    mainAddBtn.click();
+    await nextTick();
+
+    expect(addedFilters).toHaveLength(2);
+    expect(addedFilters[0].statId).toBe('explicit.stat_4015621042');
+    expect(addedFilters[0].modGroup).toBe('增加#%能量護盾|||||#最大生命');
+    expect(addedFilters[1].statId).toBe('explicit.stat_3299347043');
+    expect(addedFilters[1].modGroup).toBe('增加#%能量護盾|||||#最大生命');
 
     addCleanup();
   });

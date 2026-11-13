@@ -5,6 +5,7 @@ export interface StoredFilterBinding {
   bindingId: string;
   statId: string;
   category: string | null;
+  modGroup?: string | null;
 }
 
 export interface ActiveCategoryBindingSession {
@@ -261,6 +262,27 @@ export function setFilterCategory(
       delete filter.poexdCategory;
     } catch {
       filter.poexdCategory = undefined;
+    }
+  }
+}
+
+export function setFilterModGroup(
+  filter: HostFilterItem,
+  modGroup: string | null | undefined,
+): void {
+  ensureFilterBindingId(filter);
+  if (modGroup) {
+    Object.defineProperty(filter, 'poexdModGroup', {
+      value: modGroup,
+      writable: true,
+      enumerable: false, // 確保 JSON.stringify 完全忽略
+      configurable: true,
+    });
+  } else {
+    try {
+      delete filter.poexdModGroup;
+    } catch {
+      filter.poexdModGroup = undefined;
     }
   }
 }
@@ -524,11 +546,14 @@ export function persistBindings(groups: HostFilterGroup[]): void {
         const bindingId = typeof f.poexdBindingId === 'string' ? f.poexdBindingId : '';
         const category =
           typeof f.poexdCategory === 'string' && f.poexdCategory ? f.poexdCategory : null;
+        const modGroup =
+          typeof f.poexdModGroup === 'string' && f.poexdModGroup ? f.poexdModGroup : null;
         if (bindingId) {
           bindings.push({
             bindingId,
             statId: f.id,
             category,
+            ...(modGroup ? { modGroup } : {}),
           });
         }
       });
@@ -570,9 +595,12 @@ export function reconcileFilterBindings(
         if (!f.poexdCategory && match.category) {
           setFilterCategory(f, match.category);
         }
+        if (!f.poexdModGroup && match.modGroup) {
+          setFilterModGroup(f, match.modGroup);
+        }
         boundBindingIds.add(f.poexdBindingId);
         resolvedFilters.add(f);
-      } else if (f.poexdCategory) {
+      } else if (f.poexdCategory || f.poexdModGroup) {
         resolvedFilters.add(f);
       }
     }
@@ -616,6 +644,9 @@ export function reconcileFilterBindings(
           setFilterCategory(cFilters[0], matched.category);
         } else {
           setFilterCategory(cFilters[0], null);
+        }
+        if (matched.modGroup) {
+          setFilterModGroup(cFilters[0], matched.modGroup);
         }
         boundBindingIds.add(matched.bindingId);
         resolvedFilters.add(cFilters[0]);
@@ -710,6 +741,21 @@ export function batchUpdateAllCategories(groups: HostFilterGroup[], newCategory:
   persistBindings(groups);
 }
 
+function findFilterByBindingId(
+  groups: HostFilterGroup[],
+  bindingId: string,
+): HostFilterItem | null {
+  for (const group of groups) {
+    if (!Array.isArray(group.filters)) continue;
+    for (const f of group.filters) {
+      if (f && f.poexdBindingId === bindingId) {
+        return f;
+      }
+    }
+  }
+  return null;
+}
+
 export function updateSingleFilterCategory(
   groups: HostFilterGroup[],
   target: { bindingId: string; groupIndex?: number; filterIndex?: number },
@@ -719,17 +765,7 @@ export function updateSingleFilterCategory(
     return false;
   }
 
-  let targetFilter: HostFilterItem | null = null;
-  for (const group of groups) {
-    if (!Array.isArray(group.filters)) continue;
-    for (const f of group.filters) {
-      if (f && f.poexdBindingId === target.bindingId) {
-        targetFilter = f;
-        break;
-      }
-    }
-    if (targetFilter) break;
-  }
+  const targetFilter = findFilterByBindingId(groups, target.bindingId);
 
   // 若找不到對應 bindingId 的 filter（stale 或已刪除），絕不 fallback 到 groupIndex/filterIndex
   if (!targetFilter) {
@@ -737,6 +773,25 @@ export function updateSingleFilterCategory(
   }
 
   setFilterCategory(targetFilter, category);
+  persistBindings(groups);
+  return true;
+}
+
+export function updateSingleFilterModGroup(
+  groups: HostFilterGroup[],
+  target: { bindingId: string; groupIndex?: number; filterIndex?: number },
+  modGroup: string | null,
+): boolean {
+  if (!target || typeof target.bindingId !== 'string' || !target.bindingId) {
+    return false;
+  }
+
+  const targetFilter = findFilterByBindingId(groups, target.bindingId);
+  if (!targetFilter) {
+    return false;
+  }
+
+  setFilterModGroup(targetFilter, modGroup);
   persistBindings(groups);
   return true;
 }

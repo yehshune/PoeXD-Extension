@@ -14,7 +14,10 @@ function isAuthoritativeAttributeMutation(record: MutationRecord): boolean {
     const el = record.target as Element;
     return typeof el.getAttribute === 'function' && Boolean(el.getAttribute('data-poexd-stat-id'));
   }
-  if (record.attributeName === 'data-poexd-category') {
+  if (
+    record.attributeName === 'data-poexd-category' ||
+    record.attributeName === 'data-poexd-mod-group'
+  ) {
     return true;
   }
   return false;
@@ -89,6 +92,7 @@ export function createFilterObserver(options: FilterObserverOptions): FilterObse
       attributes: true,
       attributeFilter: [
         'data-poexd-category',
+        'data-poexd-mod-group',
         'data-poexd-stat-id',
         'data-poexd-group-type',
         'data-poexd-mercenary-search',

@@ -921,6 +921,16 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       hybridSlot.onSelect(hybridTiers[0], 'min');
       expect(minInput.value).toBe('39');
       expect(filterEl.getAttribute('data-poexd-mod-group')).toBe('增加#%能量護盾|||||#最大生命');
+
+      // 3. 若 DOM 預先帶有 data-poexd-mod-group（由詞綴選擇器加入複合詞綴時寫入），初始開啟直接對應複合分組而非最上方純粹分組
+      minInput.value = '';
+      await injectedControls.injectTierSelectorButtons(2);
+      const restoredSlot = activeTierSlots.value[0];
+      const restoredGroups = restoredSlot.items.filter((i) => i.type === 'mod_group_option');
+      expect(restoredGroups[0].isActive).toBe(false);
+      expect(restoredGroups[1].isActive).toBe(true);
+      const restoredTiers = restoredSlot.items.filter((i) => i.type === 'tier');
+      expect(restoredTiers[0].label).toContain('T1 (Lv.78) (39 ~ 42)');
     });
   });
 

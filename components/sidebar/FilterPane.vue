@@ -806,11 +806,22 @@ export default defineComponent({
 
       // 同步派發事件，瞬間完成新增
       validItems.forEach((info) => {
+        const modObj = info.id ? currentTypeGroups.value.find((m) => m.id === info.id) : undefined;
+        const firstTier = modObj?.tiers?.[0];
+        const resolvedModGroup =
+          firstTier?.displayTemplate ||
+          firstTier?.displayKey ||
+          firstTier?.key ||
+          info.displayTemplate ||
+          info.displayKey ||
+          info.key ||
+          undefined;
         addStatFilter(
           {
             key: info.key,
             displayKey: info.displayKey,
             displayTemplate: info.displayTemplate,
+            modGroup: resolvedModGroup,
             affinities: info.affinities,
             officialId: info.officialId,
             ids: info.ids,
@@ -1285,6 +1296,13 @@ export default defineComponent({
     ) => {
       const keyToMatch = matchKey || mod.key;
       const affinities = mod.affinities || ['normal'];
+      const modGroupSource = mod.tiers?.[0] || mod;
+      const modGroup =
+        mod.modGroup ||
+        modGroupSource.displayTemplate ||
+        modGroupSource.displayKey ||
+        modGroupSource.key ||
+        undefined;
 
       const getSingleVal = (val?: string | string[]) => (Array.isArray(val) ? val[0] : val);
 
@@ -1296,10 +1314,11 @@ export default defineComponent({
 
         mod.ids.forEach((statId, index) => {
           const subKey = (subKeys[index] || subKeys[0] || '').trim();
-          const subMod = {
+          const subMod: StatFilterModPayload = {
             key: subKey,
             displayKey: subKeysZh[index] ? subKeysZh[index].trim() : undefined,
             displayTemplate: subTemplatesZh[index] ? subTemplatesZh[index].trim() : undefined,
+            modGroup,
             affinities: affinities,
             officialId: statId, // ⚡ 直接帶入資料端精準解析的官方子 ID
           };
@@ -1314,7 +1333,13 @@ export default defineComponent({
         return;
       }
 
-      addSingleStatFilter(mod, getSingleVal(min), getSingleVal(max), matchKey, isBatch);
+      addSingleStatFilter(
+        modGroup && mod.modGroup !== modGroup ? { ...mod, modGroup } : mod,
+        getSingleVal(min),
+        getSingleVal(max),
+        matchKey,
+        isBatch,
+      );
 
       // 帶入詞綴後，若非批次則關閉 modal
       if (!isBatch) {
@@ -1351,6 +1376,7 @@ export default defineComponent({
           min,
           max,
           category: selectedType.value,
+          ...(mod.modGroup ? { modGroup: mod.modGroup } : {}),
         });
         if (!silent) showToast(t('filterPane.toast.singleAdded', { text: displayText }));
       } else {

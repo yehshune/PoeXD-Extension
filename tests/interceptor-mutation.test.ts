@@ -107,14 +107,17 @@ describe('initPoeRuntimeMutation runtime regression', () => {
       statId: 'explicit.stat_resist_cold',
       groupIndex: 0,
       category: 'boots',
+      modGroup: '增加 #% 冰冷抗性|||||增加 #% 能量護盾',
     });
 
-    // 驗證存放在 Vuex store 的實際 storedFilter 物件仍保有 poexdBindingId 與 poexdCategory
+    // 驗證存放在 Vuex store 的實際 storedFilter 物件仍保有 poexdBindingId、poexdCategory 與 poexdModGroup
     const storedFilter = mockStore.state.persistent.stats[0].filters[0];
     expect(storedFilter).toBeDefined();
     expect(storedFilter.poexdCategory).toBe('boots');
+    expect(storedFilter.poexdModGroup).toBe('增加 #% 冰冷抗性|||||增加 #% 能量護盾');
     expect(storedFilter.poexdBindingId).toBeDefined();
     expect(Object.keys(storedFilter)).not.toContain('poexdCategory');
+    expect(Object.keys(storedFilter)).not.toContain('poexdModGroup');
     expect(Object.keys(storedFilter)).not.toContain('poexdBindingId');
   });
 
@@ -136,7 +139,19 @@ describe('initPoeRuntimeMutation runtime regression', () => {
     expect(Object.keys(existingFilter)).not.toContain('poexdCategory');
     expect(JSON.stringify(existingFilter)).not.toContain('poexdCategory');
 
-    // 2. Remove category
+    // 2. Assign and update modGroup independently without clearing category
+    updateHandler!({
+      bindingId: 'binding-life',
+      groupIndex: 0,
+      filterIndex: 0,
+      modGroup: '增加 #% 最大生命|||||+# 護甲',
+    });
+    expect(existingFilter.poexdCategory).toBe('boots');
+    expect(existingFilter.poexdModGroup).toBe('增加 #% 最大生命|||||+# 護甲');
+    expect(Object.keys(existingFilter)).not.toContain('poexdModGroup');
+    expect(JSON.stringify(existingFilter)).not.toContain('poexdModGroup');
+
+    // 3. Remove category
     updateHandler!({ bindingId: 'binding-life', groupIndex: 0, filterIndex: 0, category: '' });
     expect(existingFilter.poexdCategory).toBeUndefined();
     expect(JSON.stringify(existingFilter)).not.toContain('poexdCategory');

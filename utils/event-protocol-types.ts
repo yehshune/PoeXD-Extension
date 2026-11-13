@@ -72,11 +72,13 @@ export interface PoeAddStatFilterPayload {
   max?: string;
   fallbackQuery?: string;
   category: string;
+  modGroup?: string;
 }
 
 export interface PoeUpdateStatCategoryPayload {
   bindingId: string;
-  category: string;
+  category?: string;
+  modGroup?: string | null;
   groupIndex?: number;
   filterIndex?: number;
 }
