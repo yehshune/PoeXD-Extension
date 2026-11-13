@@ -28,17 +28,18 @@ on the right. Store versions update automatically. Firefox is not available yet.
 
 ## What's new
 
-- **Trade site translation**: show the international (English) trade site with the official
-  Traditional or Simplified Chinese wording — UI, filters, dropdowns and results (affixes, item
-  names, property labels). Only display text changes; searches are identical to the English page.
-  With bilingual mode on, English input still matches.
-- **More result rows translated**: the "at max Quality" tooltip, Ultimatum required item and reward
-  unique dropdowns, cluster jewel enchants, skills, multi-line mods and mercenary details.
-- **Enter search fix**: after typing a value in a filter, the first Enter now searches with that
-  value (the official site needed two presses).
-- **Affix tools**: PoE 2 radius jewel mods are separated from ordinary jewel tiers; tier ranges are
-  fixed for negated stats and cluster jewels; search preview and the mercenary picker use the same
-  layout as the affix selector.
+- **Quick filters on result mods**: hover a mod in the search results to get "+AND" and "+NOT"
+  buttons that add it to the current search's AND or NOT group. Existing filters are not
+  duplicated and disabled ones are re-enabled. Can be turned off in settings.
+- **Mod group picker**: when a stat comes from several mod groups, the tier dropdown splits into
+  two columns — mod groups on the left, tiers on the right. The group chosen in the affix selector
+  carries over and survives a page reload.
+- **More accurate PoE 2 rune override estimates**: armour, evasion and energy shield are calculated
+  separately, accounting for quality, local attack speed, socket-bound augments and bonded mods.
+  Overridden values appear inline next to the official values, socket potential moves under the
+  item image, and new sort options cover armour, evasion and energy shield.
+- **UI cleanup**: sidebar settings are regrouped into 5 sections; the extension popup shows trade
+  site links that match your language (Taiwan, China or the international site's locale subdomain).
 
 See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
 
