@@ -164,8 +164,13 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'popup.subtitle.notTrade': 'Path of Exile Trade Assistant',
   'popup.notTrade.notice':
     'This tab is not an official Trade site. Open the official Trade site to use all features:',
+  'popup.notTrade.realm.international': 'International',
+  'popup.notTrade.realm.garena-tw': 'Taiwan',
+  'popup.notTrade.realm.tencent': 'China (Tencent)',
   'popup.notTrade.poe1Title': 'PoE 1 Official Trade',
   'popup.notTrade.poe2Title': 'PoE 2 Official Trade',
+  'popup.notTrade.poe1ShortTitle': 'PoE 1',
+  'popup.notTrade.poe2ShortTitle': 'PoE 2',
   'popup.notTrade.openAction': 'Open →',
   'popup.module.enableTierHelper.title': 'Tier Quick Button',
   'popup.module.enableTierHelper.description':

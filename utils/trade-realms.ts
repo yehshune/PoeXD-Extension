@@ -7,6 +7,9 @@
  */
 
 import type { I18nKey } from './i18n/messages/zh-TW';
+import { detectBrowserLocale, normalizeLocaleTag, resolveDisplayLocale } from './locale-resolution';
+import type { DisplayLocalePreference } from './preferences-contract';
+import type { PoeVersion } from './trade-context';
 
 export type TradeRealmId = 'international' | 'garena-tw' | 'tencent';
 
@@ -108,4 +111,63 @@ export function isPriceConversionSupported(
     : undefined,
 ): boolean {
   return hostname ? findTradeRealm(hostname)?.priceConversion === true : false;
+}
+
+const REALM_BY_ID: Readonly<Record<TradeRealmId, TradeRealm>> = Object.freeze(
+  Object.fromEntries(TRADE_REALMS.map((realm) => [realm.id, realm])) as Record<
+    TradeRealmId,
+    TradeRealm
+  >,
+);
+
+export function getTradeRealm(id: TradeRealmId): TradeRealm {
+  return REALM_BY_ID[id];
+}
+
+export function buildTradeRootUrl(
+  realmOrId: TradeRealm | TradeRealmId,
+  version: PoeVersion,
+): string {
+  const realm = typeof realmOrId === 'string' ? getTradeRealm(realmOrId) : realmOrId;
+  const routeRoot = version === 'poe2' ? 'trade2' : 'trade';
+  return `${realm.defaultOrigin}/${routeRoot}`;
+}
+
+export interface QuickTradeRealmsInput {
+  displayLocale?: DisplayLocalePreference;
+  browserLocale?: string;
+}
+
+/**
+ * 依使用者語言設定與瀏覽器語系決定非官網 Popover 顯示的市集網域組合：
+ * - 繁中 (`zh-TW`)：國際服 + 台服
+ * - 簡中 (`zh-CN`)：國際服 + 國服（騰訊）
+ * - 其他語系：僅國際服
+ * 當 `displayLocale` 明確設為非中文語系（例如 `en`）時，仍會參考瀏覽器語系補上對應華語服，
+ * 同時始終保留國際服連結。
+ */
+export function resolveQuickTradeRealms(input: QuickTradeRealmsInput = {}): readonly TradeRealm[] {
+  const preference = input.displayLocale ?? 'auto';
+  const browserLocale = input.browserLocale ?? detectBrowserLocale();
+  const resolvedDisplayLocale = resolveDisplayLocale(preference, {
+    hostname: '',
+    browserLocale,
+  });
+
+  if (resolvedDisplayLocale === 'zh-TW') {
+    return [REALM_BY_ID.international, REALM_BY_ID['garena-tw']];
+  }
+  if (resolvedDisplayLocale === 'zh-CN') {
+    return [REALM_BY_ID.international, REALM_BY_ID.tencent];
+  }
+
+  const normalizedBrowserLocale = normalizeLocaleTag(browserLocale);
+  if (normalizedBrowserLocale === 'zh-TW') {
+    return [REALM_BY_ID.international, REALM_BY_ID['garena-tw']];
+  }
+  if (normalizedBrowserLocale === 'zh-CN') {
+    return [REALM_BY_ID.international, REALM_BY_ID.tencent];
+  }
+
+  return [REALM_BY_ID.international];
 }

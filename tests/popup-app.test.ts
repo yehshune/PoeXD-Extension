@@ -4,6 +4,7 @@ import { createApp } from 'vue';
 import PopupApp from '@/entrypoints/popup/App.vue';
 import { createInMemoryPreferencesStorage, type PreferencesModule } from '@/utils/preferences';
 import { resetI18nStateForTests } from '@/utils/i18n';
+import { buildTradeRootUrl, resolveQuickTradeRealms } from '@/utils/trade-realms';
 
 let storage = createInMemoryPreferencesStorage();
 let currentModule: PreferencesModule | undefined;
@@ -26,16 +27,29 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
   let container: HTMLElement;
   let app: ReturnType<typeof createApp>;
 
+  const originalNavigatorLanguage = navigator.language;
+
   beforeEach(() => {
     resetI18nStateForTests('zh-TW');
     storage = createInMemoryPreferencesStorage();
     container = document.createElement('div');
     document.body.appendChild(container);
     requestedVersion = undefined;
+    Object.defineProperty(navigator, 'language', {
+      value: 'zh-TW',
+      configurable: true,
+      writable: true,
+    });
   });
 
   afterEach(() => {
     resetI18nStateForTests('zh-TW');
+    Object.defineProperty(navigator, 'language', {
+      value: originalNavigatorLanguage,
+      configurable: true,
+      writable: true,
+    });
+    (globalThis as any).chrome = undefined;
     app?.unmount();
     container.remove();
     while (document.body.firstChild) {
@@ -178,11 +192,24 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
     expect(container.querySelectorAll('[data-slot="checkbox"]').length).toBe(0);
     expect(container.querySelector('[data-version-tabs]')).toBeNull();
 
-    // Quick trade links exist
+    // Quick trade links exist (default zh-TW browser -> International + Taiwan)
+    const realmGroups = Array.from(container.querySelectorAll('[data-trade-realm-group]')).map(
+      (el) => el.getAttribute('data-trade-realm-group'),
+    );
+    expect(realmGroups).toEqual(['international', 'garena-tw']);
+
     const openPoe1Btn = container.querySelector('[data-open-trade="poe1"]') as HTMLButtonElement;
     const openPoe2Btn = container.querySelector('[data-open-trade="poe2"]') as HTMLButtonElement;
+    const openTwPoe1Btn = container.querySelector(
+      '[data-open-realm="garena-tw"][data-open-trade="poe1"]',
+    ) as HTMLButtonElement;
+    const openTwPoe2Btn = container.querySelector(
+      '[data-open-realm="garena-tw"][data-open-trade="poe2"]',
+    ) as HTMLButtonElement;
     expect(openPoe1Btn).not.toBeNull();
     expect(openPoe2Btn).not.toBeNull();
+    expect(openTwPoe1Btn).not.toBeNull();
+    expect(openTwPoe2Btn).not.toBeNull();
 
     openPoe1Btn.click();
     expect(createTabMock).toHaveBeenCalledWith({
@@ -193,6 +220,121 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
     expect(createTabMock).toHaveBeenCalledWith({
       url: 'https://www.pathofexile.com/trade2',
     });
+
+    openTwPoe1Btn.click();
+    expect(createTabMock).toHaveBeenCalledWith({
+      url: 'https://pathofexile.tw/trade',
+    });
+
+    openTwPoe2Btn.click();
+    expect(createTabMock).toHaveBeenCalledWith({
+      url: 'https://pathofexile.tw/trade2',
+    });
+  });
+
+  it('shows international + tencent quick links when browser or displayLocale is zh-CN, and international only for non-Chinese', async () => {
+    const createTabMock = vi.fn();
+    (globalThis as any).chrome = {
+      i18n: {
+        getUILanguage: () => 'zh-CN',
+      },
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ url: 'https://example.com' }]),
+        create: createTabMock,
+      },
+    };
+
+    app = createApp(PopupApp);
+    app.mount(container);
+    await new Promise((r) => setTimeout(r, 25));
+
+    expect(
+      Array.from(container.querySelectorAll('[data-trade-realm-group]')).map((el) =>
+        el.getAttribute('data-trade-realm-group'),
+      ),
+    ).toEqual(['international', 'tencent']);
+    expect(container.textContent).toContain('国际服');
+    expect(container.textContent).toContain('国服（腾讯）');
+
+    const openQqPoe1Btn = container.querySelector(
+      '[data-open-realm="tencent"][data-open-trade="poe1"]',
+    ) as HTMLButtonElement;
+    const openQqPoe2Btn = container.querySelector(
+      '[data-open-realm="tencent"][data-open-trade="poe2"]',
+    ) as HTMLButtonElement;
+    openQqPoe1Btn.click();
+    expect(createTabMock).toHaveBeenCalledWith({
+      url: 'https://poe.game.qq.com/trade',
+    });
+    openQqPoe2Btn.click();
+    expect(createTabMock).toHaveBeenCalledWith({
+      url: 'https://poe.game.qq.com/trade2',
+    });
+
+    // Explicitly switching displayLocale to zh-TW overrides zh-CN browser
+    await currentModule?.update({ displayLocale: 'zh-TW' });
+    await new Promise((r) => setTimeout(r, 25));
+    expect(
+      Array.from(container.querySelectorAll('[data-trade-realm-group]')).map((el) =>
+        el.getAttribute('data-trade-realm-group'),
+      ),
+    ).toEqual(['international', 'garena-tw']);
+    expect(container.textContent).toContain('國際服');
+    expect(container.textContent).toContain('台服');
+
+    // Non-Chinese browser + auto displayLocale shows International only
+    (globalThis as any).chrome.i18n.getUILanguage = () => 'en-US';
+    await currentModule?.update({ displayLocale: 'auto' });
+    await new Promise((r) => setTimeout(r, 25));
+    expect(
+      Array.from(container.querySelectorAll('[data-trade-realm-group]')).map((el) =>
+        el.getAttribute('data-trade-realm-group'),
+      ),
+    ).toEqual(['international']);
+  });
+
+  it('resolves quick trade realm pairs and root URLs across browser and displayLocale combinations', () => {
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-TW' }).map((r) => r.id),
+    ).toEqual(['international', 'garena-tw']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-HK' }).map((r) => r.id),
+    ).toEqual(['international', 'garena-tw']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-CN' }).map((r) => r.id),
+    ).toEqual(['international', 'tencent']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'zh-SG' }).map((r) => r.id),
+    ).toEqual(['international', 'tencent']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'auto', browserLocale: 'en-US' }).map((r) => r.id),
+    ).toEqual(['international']);
+
+    // Explicit Chinese displayLocale takes precedence over browserLocale
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'zh-CN', browserLocale: 'zh-TW' }).map((r) => r.id),
+    ).toEqual(['international', 'tencent']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'zh-TW', browserLocale: 'en-US' }).map((r) => r.id),
+    ).toEqual(['international', 'garena-tw']);
+
+    // Non-Chinese displayLocale keeps regional realm from browserLocale while always including international
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'en', browserLocale: 'zh-TW' }).map((r) => r.id),
+    ).toEqual(['international', 'garena-tw']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'en', browserLocale: 'zh-CN' }).map((r) => r.id),
+    ).toEqual(['international', 'tencent']);
+    expect(
+      resolveQuickTradeRealms({ displayLocale: 'en', browserLocale: 'en-US' }).map((r) => r.id),
+    ).toEqual(['international']);
+
+    expect(buildTradeRootUrl('international', 'poe1')).toBe('https://www.pathofexile.com/trade');
+    expect(buildTradeRootUrl('international', 'poe2')).toBe('https://www.pathofexile.com/trade2');
+    expect(buildTradeRootUrl('garena-tw', 'poe1')).toBe('https://pathofexile.tw/trade');
+    expect(buildTradeRootUrl('garena-tw', 'poe2')).toBe('https://pathofexile.tw/trade2');
+    expect(buildTradeRootUrl('tencent', 'poe1')).toBe('https://poe.game.qq.com/trade');
+    expect(buildTradeRootUrl('tencent', 'poe2')).toBe('https://poe.game.qq.com/trade2');
   });
 
   it('reactively updates Popup UI text, html[lang], and document.title when displayLocale changes across zh-TW, zh-CN, en, and fallback locales', async () => {

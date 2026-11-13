@@ -7,6 +7,12 @@ import { getPreferences, type Preferences, type PreferencesModule } from '@/util
 import { DEFAULT_PREFERENCES } from '@/utils/preferences-contract';
 import { queryActiveTabTradeContext, type PoeVersion } from '@/utils/trade-context';
 import {
+  buildTradeRootUrl,
+  resolveQuickTradeRealms,
+  type TradeRealm,
+  type TradeRealmId,
+} from '@/utils/trade-realms';
+import {
   bindDocumentLocaleMeta,
   setActiveDisplayLocalePreference,
   t,
@@ -92,6 +98,22 @@ const visibleModules = computed(() =>
   MODULE_ITEMS.filter((item) => !item.version || item.version === activeVersion.value),
 );
 
+const POE_VERSIONS: readonly PoeVersion[] = ['poe1', 'poe2'];
+
+const POPUP_REALM_LABEL_KEYS: Readonly<Record<TradeRealmId, I18nKey>> = {
+  international: 'popup.notTrade.realm.international',
+  'garena-tw': 'popup.notTrade.realm.garena-tw',
+  tencent: 'popup.notTrade.realm.tencent',
+};
+
+const visibleRealms = computed(() =>
+  resolveQuickTradeRealms({ displayLocale: preferencesState.value.displayLocale }),
+);
+
+function getRealmHostLabel(realm: TradeRealm): string {
+  return new URL(realm.defaultOrigin).hostname.replace(/^www\./, '');
+}
+
 let currentModule: PreferencesModule | null = null;
 let stopSubscription: (() => void) | null = null;
 let stopDocumentMeta: (() => void) | null = null;
@@ -159,9 +181,8 @@ async function updateToggle(key: keyof Preferences, value: boolean | unknown) {
   }
 }
 
-function openTradePage(version: PoeVersion) {
-  const url =
-    version === 'poe2' ? 'https://www.pathofexile.com/trade2' : 'https://www.pathofexile.com/trade';
+function openTradePage(realmId: TradeRealmId, version: PoeVersion) {
+  const url = buildTradeRootUrl(realmId, version);
   if (typeof chrome !== 'undefined' && chrome?.tabs?.create) {
     chrome.tabs.create({ url });
   } else if (typeof window !== 'undefined') {
@@ -233,45 +254,48 @@ onUnmounted(() => {
       >
         {{ t('popup.notTrade.notice') }}
       </p>
-      <div class="flex flex-col gap-1.5 pt-0.5">
-        <button
-          type="button"
-          data-open-trade="poe1"
-          class="flex items-center justify-between p-2 rounded-md border border-border/80 bg-muted/30 hover:bg-muted/70 hover:border-primary/50 text-foreground transition-all cursor-pointer text-left select-none"
-          @click="openTradePage('poe1')"
+      <div class="flex flex-col gap-2.5 pt-0.5">
+        <div
+          v-for="realm in visibleRealms"
+          :key="realm.id"
+          :data-trade-realm-group="realm.id"
+          class="flex flex-col gap-1.5"
         >
-          <div class="flex flex-col min-w-0">
-            <span class="text-[length:var(--pxd-font-body,13px)] font-medium leading-tight">{{
-              t('popup.notTrade.poe1Title')
-            }}</span>
-            <span class="text-[length:var(--pxd-font-micro,10px)] text-muted-foreground mt-0.5"
-              >pathofexile.com/trade</span
-            >
+          <div class="flex items-center justify-between gap-2 px-0.5">
+            <span class="text-[length:var(--pxd-font-caption,11px)] font-semibold text-foreground">
+              {{ t(POPUP_REALM_LABEL_KEYS[realm.id]) }}
+            </span>
+            <span class="text-[length:var(--pxd-font-micro,10px)] text-muted-foreground font-mono">
+              {{ getRealmHostLabel(realm) }}
+            </span>
           </div>
-          <span
-            class="text-[length:var(--pxd-font-caption,11px)] text-primary font-medium shrink-0"
-            >{{ t('popup.notTrade.openAction') }}</span
-          >
-        </button>
-        <button
-          type="button"
-          data-open-trade="poe2"
-          class="flex items-center justify-between p-2 rounded-md border border-border/80 bg-muted/30 hover:bg-muted/70 hover:border-primary/50 text-foreground transition-all cursor-pointer text-left select-none"
-          @click="openTradePage('poe2')"
-        >
-          <div class="flex flex-col min-w-0">
-            <span class="text-[length:var(--pxd-font-body,13px)] font-medium leading-tight">{{
-              t('popup.notTrade.poe2Title')
-            }}</span>
-            <span class="text-[length:var(--pxd-font-micro,10px)] text-muted-foreground mt-0.5"
-              >pathofexile.com/trade2</span
+          <div class="grid grid-cols-2 gap-1.5">
+            <button
+              v-for="version in POE_VERSIONS"
+              :key="version"
+              type="button"
+              :data-open-realm="realm.id"
+              :data-open-trade="version"
+              :title="buildTradeRootUrl(realm, version)"
+              class="flex items-center justify-between gap-1 px-2.5 py-2 rounded-md border border-border/80 bg-muted/30 hover:bg-muted/70 hover:border-primary/50 text-foreground transition-all cursor-pointer text-left select-none"
+              @click="openTradePage(realm.id, version)"
             >
+              <span class="text-[length:var(--pxd-font-body,13px)] font-medium leading-tight">
+                {{
+                  t(
+                    version === 'poe2'
+                      ? 'popup.notTrade.poe2ShortTitle'
+                      : 'popup.notTrade.poe1ShortTitle',
+                  )
+                }}
+              </span>
+              <span
+                class="text-[length:var(--pxd-font-caption,11px)] text-primary font-medium shrink-0"
+                >{{ t('popup.notTrade.openAction') }}</span
+              >
+            </button>
           </div>
-          <span
-            class="text-[length:var(--pxd-font-caption,11px)] text-primary font-medium shrink-0"
-            >{{ t('popup.notTrade.openAction') }}</span
-          >
-        </button>
+        </div>
       </div>
     </div>
 
