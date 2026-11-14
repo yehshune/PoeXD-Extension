@@ -9,7 +9,7 @@
     "armour_filters": "Armour Filters",
     "socket_filters": "Socket Filters",
     "req_filters": "Requirements",
-    "map_filters": "Map/Chart Filters",
+    "map_filters": "Map Filters",
     "heist_filters": "Heist Filters",
     "sanctum_filters": "Sanctum Filters",
     "ultimatum_filters": "Ultimatum Filters",
@@ -42,14 +42,12 @@
     "map_packsize": "Increased Packsize",
     "map_iiq": "Increased Item Quantity",
     "map_iir": "Increased Item Rarity",
-    "map_gold": "Chart Gold",
-    "chart_sulphur": "Chart Sulphur",
-    "chart_shape": "Chart Shape",
+    "map_bonus": "Atlas Drops",
     "area_level": "Area Level",
-    "map_series": "Map Series",
     "map_blighted": "Blighted Map",
     "map_uberblighted": "Blight-ravaged Map",
     "map_completion_reward": "Map Completion Reward",
+    "map_series": "Map Series",
     "heist_wings": "Wings Revealed",
     "heist_max_wings": "Total Wings",
     "heist_escape_routes": "Escape Routes Revealed",
@@ -80,13 +78,16 @@
     "gem_level_progress": "Gem Experience %",
     "gem_transfigured": "Transfigured Gem",
     "gem_vaal": "Vaal Gem",
-    "fractured_item": "Fractured Item",
     "gem_imbued": "Imbued Gem",
+    "fractured_item": "Fractured Item",
     "synthesised_item": "Synthesised Item",
     "searing_item": "Searing Exarch Item",
     "tangled_item": "Eater of Worlds Item",
     "identified": "Identified",
+    "unidentified_tier": "Unidentified Tier",
+    "fated": "Fated",
     "corrupted": "Corrupted",
+    "twice_corrupted": "Twice Corrupted",
     "mirrored": "Mirrored",
     "split": "Split",
     "crafted": "Crafted",
@@ -193,6 +194,11 @@
       "wombgift": "Any Wombgift",
       "enshrouded": "Any Enshrouded Item",
       "chart": "Any Chart",
+      "viscera": "Any Viscera",
+      "viscera.head": "Head Viscera",
+      "viscera.arm": "Arm Viscera",
+      "viscera.body": "Body Viscera",
+      "viscera.leg": "Leg Viscera",
       "currency": "Any Currency",
       "currency.piece": "Unique Fragment",
       "currency.resonator": "Resonator",
@@ -219,12 +225,13 @@
       "templar": "Templar",
       "shadow": "Shadow"
     },
-    "chart_shape": {
-      "1": "End",
-      "2": "Corner",
-      "3": "Straight",
-      "4": "Junction",
-      "5": "Crossing"
+    "map_blighted": {
+      "true": "Yes",
+      "false": "No"
+    },
+    "map_uberblighted": {
+      "true": "Yes",
+      "false": "No"
     },
     "map_series": {
       "current": "Current",
@@ -255,14 +262,6 @@
       "theawakening": "The Awakening",
       "original": "Legacy"
     },
-    "map_blighted": {
-      "true": "Yes",
-      "false": "No"
-    },
-    "map_uberblighted": {
-      "true": "Yes",
-      "false": "No"
-    },
     "heist_objective_value": {
       "moderate": "Moderate Value",
       "high": "High Value",
@@ -289,11 +288,11 @@
       "true": "Yes",
       "false": "No"
     },
-    "fractured_item": {
+    "gem_imbued": {
       "true": "Yes",
       "false": "No"
     },
-    "gem_imbued": {
+    "fractured_item": {
       "true": "Yes",
       "false": "No"
     },
@@ -313,7 +312,15 @@
       "true": "Yes",
       "false": "No"
     },
+    "fated": {
+      "true": "Yes",
+      "false": "No"
+    },
     "corrupted": {
+      "true": "Yes",
+      "false": "No"
+    },
+    "twice_corrupted": {
       "true": "Yes",
       "false": "No"
     },

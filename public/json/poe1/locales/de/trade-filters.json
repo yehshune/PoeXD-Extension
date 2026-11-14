@@ -9,10 +9,10 @@
     "armour_filters": "Filter: Rüstung",
     "socket_filters": "Filter: Fassungen",
     "req_filters": "Filter: Anforderungen",
-    "map_filters": "Map/Chart Filters",
+    "map_filters": "Filter: Karten",
     "heist_filters": "Filter: Heist",
-    "sanctum_filters": "Sanktum-Filter",
-    "ultimatum_filters": "Ultimatum-Filter",
+    "sanctum_filters": "Filter: Sanktum",
+    "ultimatum_filters": "Filter: Ultimatum",
     "misc_filters": "Filter: Sonstiges",
     "trade_filters": "Filter: Handel"
   },
@@ -42,14 +42,12 @@
     "map_packsize": "Erhöhte Gruppengröße",
     "map_iiq": "Erhöhte Gegenstandsmenge",
     "map_iir": "Erhöhte Gegenstandsseltenheit",
-    "map_gold": "Chart Gold",
-    "chart_sulphur": "Chart Sulphur",
-    "chart_shape": "Chart Shape",
+    "map_bonus": "Atlasbeute",
     "area_level": "Gebietsstufe",
-    "map_series": "Kartenserie",
     "map_blighted": "Befallene Karte",
     "map_uberblighted": "Extrem befallene Karte",
     "map_completion_reward": "Kartenabschluss-Belohnung",
+    "map_series": "Kartenserie",
     "heist_wings": "Aufgedeckte Trakte",
     "heist_max_wings": "Trakte insgesamt",
     "heist_escape_routes": "Aufgedeckte Fluchtwege",
@@ -80,13 +78,16 @@
     "gem_level_progress": "Gemmenerfahrung %",
     "gem_transfigured": "Verwandelte Gemme",
     "gem_vaal": "Vaal-Gemme",
-    "fractured_item": "Brüchiger Gegenstand",
     "gem_imbued": "Verstärkte Gemme",
+    "fractured_item": "Brüchiger Gegenstand",
     "synthesised_item": "Synthetisierter Gegenstand",
     "searing_item": "Exarch-Gegenstand",
     "tangled_item": "Weltenfresser-Gegenstand",
     "identified": "Identifiziert",
+    "unidentified_tier": "Nicht identifiziertes Level",
+    "fated": "Schicksal",
     "corrupted": "Verderbt",
+    "twice_corrupted": "Doppelt verderbt",
     "mirrored": "Gespiegelt",
     "split": "Teilen",
     "crafted": "Angefertigt",
@@ -193,6 +194,11 @@
       "wombgift": "Beliebiger Fruchtkeim",
       "enshrouded": "Beliebiger ummantelter Gegenstand",
       "chart": "Beliebige Seekarte",
+      "viscera": "Beliebiges Körperteil",
+      "viscera.head": "Körperteil: Kopf",
+      "viscera.arm": "Körperteil: Arm",
+      "viscera.body": "Körperteil: Körper",
+      "viscera.leg": "Körperteil: Bein",
       "currency": "Beliebiger Währungsgegenstand",
       "currency.piece": "Einzigartiges Fragment",
       "currency.resonator": "Resonator",
@@ -219,12 +225,13 @@
       "templar": "Templer",
       "shadow": "Schatten"
     },
-    "chart_shape": {
-      "1": "Ende",
-      "2": "Corner",
-      "3": "Straight",
-      "4": "Junction",
-      "5": "Crossing"
+    "map_blighted": {
+      "true": "Ja",
+      "false": "Nein"
+    },
+    "map_uberblighted": {
+      "true": "Ja",
+      "false": "Nein"
     },
     "map_series": {
       "current": "Aktuell",
@@ -255,14 +262,6 @@
       "theawakening": "Das Erwachen",
       "original": "Legacy"
     },
-    "map_blighted": {
-      "true": "Ja",
-      "false": "Nein"
-    },
-    "map_uberblighted": {
-      "true": "Ja",
-      "false": "Nein"
-    },
     "heist_objective_value": {
       "moderate": "Mäßiger Wert",
       "high": "Hoher Wert",
@@ -289,11 +288,11 @@
       "true": "Ja",
       "false": "Nein"
     },
-    "fractured_item": {
+    "gem_imbued": {
       "true": "Ja",
       "false": "Nein"
     },
-    "gem_imbued": {
+    "fractured_item": {
       "true": "Ja",
       "false": "Nein"
     },
@@ -313,7 +312,15 @@
       "true": "Ja",
       "false": "Nein"
     },
+    "fated": {
+      "true": "Ja",
+      "false": "Nein"
+    },
     "corrupted": {
+      "true": "Ja",
+      "false": "Nein"
+    },
+    "twice_corrupted": {
       "true": "Ja",
       "false": "Nein"
     },

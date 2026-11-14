@@ -47,7 +47,7 @@ poexd-data 依序請求各語言官方市集網域的 `/api/trade/data/{filters,
 - API 的欄位提示（`tip`）不會併入標籤。
 - `pseudoStats` 只收 stats API 的 `pseudo` 類別：詞綴字典（`stats.json`）由實際詞綴產生，沒有偽屬性。完整 stats 清單每個語系超過 1MB，所以不整份打包；其他類別缺字時，執行期會先用同一個 `stat_N` 在字典裡的其他類別（例如 `rune.`）補上翻譯。
 - `id: null` 的預設選項一般不會出現在查詢 JSON 中而被略過；唯一例外是 `sale_type` 的預設值對應查詢值 `priced`，且只在 API 沒有明確 `priced` 選項時才套用（騰訊 POE1 的 null 代表「任何」）。
-- 官方各語系都未翻譯的文字（例如 POE1 的 `map_filters`「Map/Chart Filters」）會保留英文。
+- 官方未翻譯的文字會保留英文（例如騰訊 POE1 的 `map_filters` 仍是「Map/Chart Filters」；其他語系自 3.30 起已翻譯）。
 
 ## 執行期載入
 

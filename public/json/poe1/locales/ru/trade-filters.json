@@ -9,7 +9,7 @@
     "armour_filters": "Фильтры защиты",
     "socket_filters": "Фильтр по гнёздам",
     "req_filters": "Требования",
-    "map_filters": "Map/Chart Filters",
+    "map_filters": "Фильтры карт",
     "heist_filters": "Фильтры Кражи",
     "sanctum_filters": "Фильтры Святилища",
     "ultimatum_filters": "Фильтры Ультиматума",
@@ -42,14 +42,12 @@
     "map_packsize": "увеличенный размер груп",
     "map_iiq": "Увеличение количества предметов",
     "map_iir": "Повышение редкости предметов",
-    "map_gold": "Chart Gold",
-    "chart_sulphur": "Chart Sulphur",
-    "chart_shape": "Chart Shape",
+    "map_bonus": "Награды Атласа",
     "area_level": "Уровень области",
-    "map_series": "Поколения карт",
     "map_blighted": "Заражённая карта",
     "map_uberblighted": "Разоренная Скверной карта",
     "map_completion_reward": "Награда за завершение карт",
+    "map_series": "Поколения карт",
     "heist_wings": "Раскрытые пристойки",
     "heist_max_wings": "Всего пристроек",
     "heist_escape_routes": "Раскрытые отходные пути",
@@ -80,13 +78,16 @@
     "gem_level_progress": "Опыт камня %",
     "gem_transfigured": "Преображенный камень",
     "gem_vaal": "Камень ваал",
-    "fractured_item": "Расколотый предмет",
     "gem_imbued": "Встроенный камень",
+    "fractured_item": "Расколотый предмет",
     "synthesised_item": "Синтезированный предмет",
     "searing_item": "Предмет Пламенного экзарха",
     "tangled_item": "Предмет Пожирателя миров",
     "identified": "Опознанный",
+    "unidentified_tier": "Неопознанный уровень",
+    "fated": "Судьбоносный",
     "corrupted": "Осквернённый",
+    "twice_corrupted": "Дважды осквернённый",
     "mirrored": "Отзеркаленный",
     "split": "Разделить",
     "crafted": "Свойства мастера",
@@ -193,6 +194,11 @@
       "wombgift": "Любой дар утробы",
       "enshrouded": "Любой затуманенный предмет",
       "chart": "Любая карта",
+      "viscera": "Любая часть тела",
+      "viscera.head": "Часть тела - Голова",
+      "viscera.arm": "Часть тела - Рука",
+      "viscera.body": "Часть тела - Тело",
+      "viscera.leg": "Часть тела - Нога",
       "currency": "Любая валюта",
       "currency.piece": "Уникальный фрагмент",
       "currency.resonator": "Резонатор",
@@ -219,12 +225,13 @@
       "templar": "Жрец",
       "shadow": "Бандит"
     },
-    "chart_shape": {
-      "1": "Конец",
-      "2": "Corner",
-      "3": "Straight",
-      "4": "Junction",
-      "5": "Crossing"
+    "map_blighted": {
+      "true": "Да",
+      "false": "Нет"
+    },
+    "map_uberblighted": {
+      "true": "Да",
+      "false": "Нет"
     },
     "map_series": {
       "current": "Текущая",
@@ -255,14 +262,6 @@
       "theawakening": "Пробуждение",
       "original": "Наследие"
     },
-    "map_blighted": {
-      "true": "Да",
-      "false": "Нет"
-    },
-    "map_uberblighted": {
-      "true": "Да",
-      "false": "Нет"
-    },
     "heist_objective_value": {
       "moderate": "Средней цены",
       "high": "Ценный",
@@ -289,11 +288,11 @@
       "true": "Да",
       "false": "Нет"
     },
-    "fractured_item": {
+    "gem_imbued": {
       "true": "Да",
       "false": "Нет"
     },
-    "gem_imbued": {
+    "fractured_item": {
       "true": "Да",
       "false": "Нет"
     },
@@ -313,7 +312,15 @@
       "true": "Да",
       "false": "Нет"
     },
+    "fated": {
+      "true": "Да",
+      "false": "Нет"
+    },
     "corrupted": {
+      "true": "Да",
+      "false": "Нет"
+    },
+    "twice_corrupted": {
       "true": "Да",
       "false": "Нет"
     },

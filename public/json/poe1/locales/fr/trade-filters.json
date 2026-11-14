@@ -9,7 +9,7 @@
     "armour_filters": "Filtres d'armure",
     "socket_filters": "Filtres de châsse",
     "req_filters": "Prérequis",
-    "map_filters": "Map/Chart Filters",
+    "map_filters": "Filtres de Cartes",
     "heist_filters": "Filtres de Heist",
     "sanctum_filters": "Filtres de Sanctum",
     "ultimatum_filters": "Filtres d'Ultimatum",
@@ -42,14 +42,12 @@
     "map_packsize": "Augmentation de Taille des Groupes",
     "map_iiq": "Augmentation de Quantité des objets",
     "map_iir": "Augmentation de Rareté des objets",
-    "map_gold": "Chart Gold",
-    "chart_sulphur": "Chart Sulphur",
-    "chart_shape": "Chart Shape",
+    "map_bonus": "Butin de l'Atlas",
     "area_level": "Niveau de la zone",
-    "map_series": "Séries de Cartes",
     "map_blighted": "Carte infestée",
     "map_uberblighted": "Carte ravagée par l'Infestation",
     "map_completion_reward": "Récompense de Carte terminée",
+    "map_series": "Séries de Cartes",
     "heist_wings": "Ailes révélées",
     "heist_max_wings": "Total d'Ailes",
     "heist_escape_routes": "Échappatoires révélées",
@@ -80,13 +78,16 @@
     "gem_level_progress": "% d'exp. de la Gemme",
     "gem_transfigured": "Gemmes transfigurées",
     "gem_vaal": "Gemme vaal",
-    "fractured_item": "Objet fissuré",
     "gem_imbued": "Gemme imprégnée",
+    "fractured_item": "Objet fissuré",
     "synthesised_item": "Objet synthétisé",
     "searing_item": "Objet de l'Exarque ardent",
     "tangled_item": "Objet du Mangeur de mondes",
     "identified": "Identifié",
+    "unidentified_tier": "Palier non identifié",
+    "fated": "Prédestiné",
     "corrupted": "Corrompu",
+    "twice_corrupted": "Double corruption",
     "mirrored": "Reflété",
     "split": "Diviser",
     "crafted": "Fabriqué",
@@ -193,6 +194,11 @@
       "wombgift": "Don de la matrice (tous)",
       "enshrouded": "Objets Enveloppés (tous)",
       "chart": "Cartes maritimes (toutes)",
+      "viscera": "Viscère (tous)",
+      "viscera.head": "Viscère (tête)",
+      "viscera.arm": "Viscère (bras)",
+      "viscera.body": "Viscère (tronc)",
+      "viscera.leg": "Viscère (jambe)",
       "currency": "Tous les Objets monétaires",
       "currency.piece": "Fragment unique",
       "currency.resonator": "Résonateur",
@@ -219,12 +225,13 @@
       "templar": "Templier",
       "shadow": "Ombre"
     },
-    "chart_shape": {
-      "1": "Fin",
-      "2": "Corner",
-      "3": "Straight",
-      "4": "Junction",
-      "5": "Crossing"
+    "map_blighted": {
+      "true": "Oui",
+      "false": "Non"
+    },
+    "map_uberblighted": {
+      "true": "Oui",
+      "false": "Non"
     },
     "map_series": {
       "current": "Version actuelle",
@@ -255,14 +262,6 @@
       "theawakening": "L'Éveil",
       "original": "Héritage"
     },
-    "map_blighted": {
-      "true": "Oui",
-      "false": "Non"
-    },
-    "map_uberblighted": {
-      "true": "Oui",
-      "false": "Non"
-    },
     "heist_objective_value": {
       "moderate": "Valeur modérée",
       "high": "Valeur élevée",
@@ -289,11 +288,11 @@
       "true": "Oui",
       "false": "Non"
     },
-    "fractured_item": {
+    "gem_imbued": {
       "true": "Oui",
       "false": "Non"
     },
-    "gem_imbued": {
+    "fractured_item": {
       "true": "Oui",
       "false": "Non"
     },
@@ -313,7 +312,15 @@
       "true": "Oui",
       "false": "Non"
     },
+    "fated": {
+      "true": "Oui",
+      "false": "Non"
+    },
     "corrupted": {
+      "true": "Oui",
+      "false": "Non"
+    },
+    "twice_corrupted": {
       "true": "Oui",
       "false": "Non"
     },

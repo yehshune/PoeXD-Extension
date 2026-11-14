@@ -9,7 +9,7 @@
     "armour_filters": "護甲篩選",
     "socket_filters": "插槽篩選",
     "req_filters": "物品需求",
-    "map_filters": "Map/Chart Filters",
+    "map_filters": "地圖篩選",
     "heist_filters": "劫盜篩選",
     "sanctum_filters": "聖域篩選器",
     "ultimatum_filters": "最後通牒篩選",
@@ -42,14 +42,12 @@
     "map_packsize": "增加怪物群大小",
     "map_iiq": "物品數量增加",
     "map_iir": "物品稀有度增加",
-    "map_gold": "Chart Gold",
-    "chart_sulphur": "Chart Sulphur",
-    "chart_shape": "Chart Shape",
+    "map_bonus": "輿圖掉落",
     "area_level": "區域等級",
-    "map_series": "地圖系列",
     "map_blighted": "凋落的地圖",
     "map_uberblighted": "凋落蔓延地圖",
     "map_completion_reward": "完成地圖獎勵",
+    "map_series": "地圖系列",
     "heist_wings": "已揭露側廂",
     "heist_max_wings": "總側廂",
     "heist_escape_routes": "已揭露逃脫路線",
@@ -80,13 +78,16 @@
     "gem_level_progress": "寶石經驗 %",
     "gem_transfigured": "變異寶石",
     "gem_vaal": "瓦寶寶石",
-    "fractured_item": "破裂之物",
     "gem_imbued": "注能寶石",
+    "fractured_item": "破裂之物",
     "synthesised_item": "追憶之物",
     "searing_item": "灼烙總督物品",
     "tangled_item": "吞噬天地物品",
     "identified": "已鑑定",
+    "unidentified_tier": "未鑑定階級",
+    "fated": "命定",
     "corrupted": "已汙染",
+    "twice_corrupted": "雙重腐化",
     "mirrored": "已複製",
     "split": "分化",
     "crafted": "已工藝",
@@ -193,6 +194,11 @@
       "wombgift": "任何胎贈",
       "enshrouded": "任何壟罩物品",
       "chart": "任何海圖",
+      "viscera": "任何臟器",
+      "viscera.head": "頭部臟器",
+      "viscera.arm": "手部臟器",
+      "viscera.body": "身體臟器",
+      "viscera.leg": "腿部臟器",
       "currency": "任何通貨",
       "currency.piece": "傳奇碎片",
       "currency.resonator": "鑄新儀",
@@ -219,12 +225,13 @@
       "templar": "聖騎士",
       "shadow": "暗影刺客"
     },
-    "chart_shape": {
-      "1": "終點",
-      "2": "Corner",
-      "3": "Straight",
-      "4": "Junction",
-      "5": "Crossing"
+    "map_blighted": {
+      "true": "是",
+      "false": "否"
+    },
+    "map_uberblighted": {
+      "true": "是",
+      "false": "否"
     },
     "map_series": {
       "current": "當前",
@@ -255,14 +262,6 @@
       "theawakening": "大覺醒",
       "original": "不朽聯盟"
     },
-    "map_blighted": {
-      "true": "是",
-      "false": "否"
-    },
-    "map_uberblighted": {
-      "true": "是",
-      "false": "否"
-    },
     "heist_objective_value": {
       "moderate": "中等價值",
       "high": "高等價值",
@@ -289,11 +288,11 @@
       "true": "是",
       "false": "否"
     },
-    "fractured_item": {
+    "gem_imbued": {
       "true": "是",
       "false": "否"
     },
-    "gem_imbued": {
+    "fractured_item": {
       "true": "是",
       "false": "否"
     },
@@ -313,7 +312,15 @@
       "true": "是",
       "false": "否"
     },
+    "fated": {
+      "true": "是",
+      "false": "否"
+    },
     "corrupted": {
+      "true": "是",
+      "false": "否"
+    },
+    "twice_corrupted": {
       "true": "是",
       "false": "否"
     },

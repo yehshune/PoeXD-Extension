@@ -9,7 +9,7 @@
     "armour_filters": "防具フィルター",
     "socket_filters": "ソケットフィルター",
     "req_filters": "装備要求",
-    "map_filters": "Map/Chart Filters",
+    "map_filters": "マップフィルター",
     "heist_filters": "ハイストフィルター",
     "sanctum_filters": "サンクタムフィルター",
     "ultimatum_filters": "アルティメイタムフィルター",
@@ -42,14 +42,12 @@
     "map_packsize": "パックサイズ増加",
     "map_iiq": "アイテム数量増加(IIQ)",
     "map_iir": "アイテムレアリティ増加(IIR)",
-    "map_gold": "Chart Gold",
-    "chart_sulphur": "Chart Sulphur",
-    "chart_shape": "Chart Shape",
+    "map_bonus": "アトラスドロップ",
     "area_level": "エリアレベル",
-    "map_series": "マップシリーズ",
     "map_blighted": "ブライトマップ",
     "map_uberblighted": "ブライトに破壊されたマップ",
     "map_completion_reward": "マップ完了報酬",
+    "map_series": "マップシリーズ",
     "heist_wings": "情報を聞いた区画数",
     "heist_max_wings": "合計区画数",
     "heist_escape_routes": "情報を聞いた逃走経路数",
@@ -80,13 +78,16 @@
     "gem_level_progress": "ジェム経験値 %",
     "gem_transfigured": "変容ジェム",
     "gem_vaal": "ヴァールジェム",
-    "fractured_item": "フラクチャーアイテム",
     "gem_imbued": "注入ジェム",
+    "fractured_item": "フラクチャーアイテム",
     "synthesised_item": "シンセシスアイテム",
     "searing_item": "シアリング・エグザークアイテム",
     "tangled_item": "イーター・オブ・ワールズアイテム",
     "identified": "鑑定済み",
+    "unidentified_tier": "未鑑定ティア",
+    "fated": "運命",
     "corrupted": "コラプト状態",
+    "twice_corrupted": "二重コラプト",
     "mirrored": "ミラー化",
     "split": "スプリット",
     "crafted": "クラフト済み",
@@ -193,6 +194,11 @@
       "wombgift": "いずれかの母胎ギフト",
       "enshrouded": "いずれかのエンシュラウドアイテム",
       "chart": "いずれかの海図",
+      "viscera": "いずれかの臓器",
+      "viscera.head": "頭部臓器",
+      "viscera.arm": "腕臓器",
+      "viscera.body": "胴体臓器",
+      "viscera.leg": "足臓器",
       "currency": "いずれかのカレンシー",
       "currency.piece": "ユニークフラグメント",
       "currency.resonator": "レゾネーター",
@@ -219,12 +225,13 @@
       "templar": "テンプラー",
       "shadow": "シャドウ"
     },
-    "chart_shape": {
-      "1": "終了",
-      "2": "Corner",
-      "3": "Straight",
-      "4": "Junction",
-      "5": "Crossing"
+    "map_blighted": {
+      "true": "はい",
+      "false": "いいえ"
+    },
+    "map_uberblighted": {
+      "true": "はい",
+      "false": "いいえ"
     },
     "map_series": {
       "current": "現在",
@@ -255,14 +262,6 @@
       "theawakening": "アウェークニング",
       "original": "レガシー"
     },
-    "map_blighted": {
-      "true": "はい",
-      "false": "いいえ"
-    },
-    "map_uberblighted": {
-      "true": "はい",
-      "false": "いいえ"
-    },
     "heist_objective_value": {
       "moderate": "中程度の価値",
       "high": "高価値",
@@ -289,11 +288,11 @@
       "true": "はい",
       "false": "いいえ"
     },
-    "fractured_item": {
+    "gem_imbued": {
       "true": "はい",
       "false": "いいえ"
     },
-    "gem_imbued": {
+    "fractured_item": {
       "true": "はい",
       "false": "いいえ"
     },
@@ -313,7 +312,15 @@
       "true": "はい",
       "false": "いいえ"
     },
+    "fated": {
+      "true": "はい",
+      "false": "いいえ"
+    },
     "corrupted": {
+      "true": "はい",
+      "false": "いいえ"
+    },
+    "twice_corrupted": {
       "true": "はい",
       "false": "いいえ"
     },

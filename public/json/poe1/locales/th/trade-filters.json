@@ -9,7 +9,7 @@
     "armour_filters": "ตัวกรองเกราะ",
     "socket_filters": "ตัวกรองรู",
     "req_filters": "เงื่อนไขการใช้ไอเทม",
-    "map_filters": "Map/Chart Filters",
+    "map_filters": "ตัวกรองแผนที่",
     "heist_filters": "ตัวกรองการโจรกรรม",
     "sanctum_filters": "ฟิลเตอร์เทวสถาน",
     "ultimatum_filters": "ตัวกรองคำขาด",
@@ -42,14 +42,12 @@
     "map_packsize": "เพิ่มขนาดกองมอนสเตอร์",
     "map_iiq": "เพิ่มจำนวนของไอเทม",
     "map_iir": "เพิ่มระดับความหายากของไอเทม",
-    "map_gold": "Chart Gold",
-    "chart_sulphur": "Chart Sulphur",
-    "chart_shape": "Chart Shape",
+    "map_bonus": "แอตลาสดรอป",
     "area_level": "เลเวลของด่าน",
-    "map_series": "ภาคเสริมของแผนที่",
     "map_blighted": "แผนที่ไบล์ท",
     "map_uberblighted": "แผนที่ไบล์ทล้างผลาญ",
     "map_completion_reward": "ของรางวัลจากการผ่านแผนที่",
+    "map_series": "ภาคเสริมของแผนที่",
     "heist_wings": "ปีกที่เปิดเผย",
     "heist_max_wings": "ปีกทั้งหมด",
     "heist_escape_routes": "เส้นทางหลบหนีที่เปิดเผย",
@@ -80,13 +78,16 @@
     "gem_level_progress": "% ค่าประสบการณ์ของหิน",
     "gem_transfigured": "หินเปลี่ยนโฉม",
     "gem_vaal": "หินวาล์",
-    "fractured_item": "ไอเทมแตกร้าว",
     "gem_imbued": "หินเสริมพลัง",
+    "fractured_item": "ไอเทมแตกร้าว",
     "synthesised_item": "ไอเทมสังเคราะห์",
     "searing_item": "ไอเทมอุปราชอาบเพลิง",
     "tangled_item": "ไอเทมผู้กลืนกินโลกา",
     "identified": "ตรวจสอบแล้ว",
+    "unidentified_tier": "ระดับที่ยังไม่ได้ตรวจสอบ",
+    "fated": "ต้องชะตา",
     "corrupted": "มีมลทิน",
+    "twice_corrupted": "มีมลทินคู่",
     "mirrored": "ภาพสะท้อน",
     "split": "แยกส่วน",
     "crafted": "ถูกคราฟท์",
@@ -193,6 +194,11 @@
       "wombgift": "ผลฝากครรภ์ใดก็ได้",
       "enshrouded": "ไอเทมอำพรางทุกชนิด",
       "chart": "ผังประดาน้ำทุกชนิด",
+      "viscera": "อวัยวะใดก็ได้",
+      "viscera.head": "หัว",
+      "viscera.arm": "แขน",
+      "viscera.body": "ลำตัว",
+      "viscera.leg": "ขา",
       "currency": "เงินตราทุกชนิด",
       "currency.piece": "ชิ้นส่วนของยูนิค",
       "currency.resonator": "ตัวสั่นพ้อง",
@@ -219,12 +225,13 @@
       "templar": "Templar",
       "shadow": "Shadow"
     },
-    "chart_shape": {
-      "1": "จบ",
-      "2": "Corner",
-      "3": "Straight",
-      "4": "Junction",
-      "5": "Crossing"
+    "map_blighted": {
+      "true": "ใช่",
+      "false": "ไม่ใช่"
+    },
+    "map_uberblighted": {
+      "true": "ใช่",
+      "false": "ไม่ใช่"
     },
     "map_series": {
       "current": "ปัจจุบัน",
@@ -255,14 +262,6 @@
       "theawakening": "The Awakening",
       "original": "Legacy"
     },
-    "map_blighted": {
-      "true": "ใช่",
-      "false": "ไม่ใช่"
-    },
-    "map_uberblighted": {
-      "true": "ใช่",
-      "false": "ไม่ใช่"
-    },
     "heist_objective_value": {
       "moderate": "มีมูลค่าพอประมาณ",
       "high": "มีมูลค่าสูง",
@@ -289,11 +288,11 @@
       "true": "ใช่",
       "false": "ไม่ใช่"
     },
-    "fractured_item": {
+    "gem_imbued": {
       "true": "ใช่",
       "false": "ไม่ใช่"
     },
-    "gem_imbued": {
+    "fractured_item": {
       "true": "ใช่",
       "false": "ไม่ใช่"
     },
@@ -313,7 +312,15 @@
       "true": "ใช่",
       "false": "ไม่ใช่"
     },
+    "fated": {
+      "true": "ใช่",
+      "false": "ไม่ใช่"
+    },
     "corrupted": {
+      "true": "ใช่",
+      "false": "ไม่ใช่"
+    },
+    "twice_corrupted": {
       "true": "ใช่",
       "false": "ไม่ใช่"
     },

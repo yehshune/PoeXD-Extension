@@ -33,8 +33,8 @@ describe('trade-stat-dictionary (extension)', () => {
       expect(translateFilterGroup('weapon_filters', 'poe1')).toBe('武器篩選');
       expect(translateFilterGroup('armour_filters', 'poe1')).toBe('護甲篩選');
       expect(translateFilterGroup('req_filters', 'poe1')).toBe('物品需求');
-      // 官方各語系市集皆未翻譯此群組，以官方為準
-      expect(translateFilterGroup('map_filters', 'poe1')).toBe('Map/Chart Filters');
+      // 3.30 起台服市集才翻譯此群組（之前為英文 Map/Chart Filters），以官方為準
+      expect(translateFilterGroup('map_filters', 'poe1')).toBe('地圖篩選');
       expect(translateFilterGroup('trade_filters', 'poe1')).toBe('交易過濾');
       expect(translateFilterGroup('misc_filters', 'poe1')).toBe('其它');
 

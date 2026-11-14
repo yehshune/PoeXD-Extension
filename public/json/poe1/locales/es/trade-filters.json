@@ -9,7 +9,7 @@
     "armour_filters": "Filtros de armadura",
     "socket_filters": "Filtros de engarces",
     "req_filters": "Requisitos",
-    "map_filters": "Map/Chart Filters",
+    "map_filters": "Filtros de mapas",
     "heist_filters": "Filtros de Heist",
     "sanctum_filters": "Filtros de Sanctum",
     "ultimatum_filters": "Filtros de Ultimatum",
@@ -42,14 +42,12 @@
     "map_packsize": "Tamaño de los grupos de monstruos aumentado",
     "map_iiq": "Cantidad de objetos aumentada",
     "map_iir": "Rareza de objetos aumentada",
-    "map_gold": "Chart Gold",
-    "chart_sulphur": "Chart Sulphur",
-    "chart_shape": "Chart Shape",
+    "map_bonus": "Botín del Atlas",
     "area_level": "Nivel del área",
-    "map_series": "Series de mapas",
     "map_blighted": "Mapa infestado",
     "map_uberblighted": "Mapa devastado por la plaga",
     "map_completion_reward": "Recompensa por completar el mapa",
+    "map_series": "Series de mapas",
     "heist_wings": "Alas reveladas",
     "heist_max_wings": "Alas totales",
     "heist_escape_routes": "Rutas de escape reveladas",
@@ -80,13 +78,16 @@
     "gem_level_progress": "% de experiencia de la gema",
     "gem_transfigured": "Gema transfigurada",
     "gem_vaal": "Gema vaal",
-    "fractured_item": "Objeto Fracturado",
     "gem_imbued": "Gema imbuida",
+    "fractured_item": "Objeto Fracturado",
     "synthesised_item": "Objeto Sintetizado",
     "searing_item": "Objeto del Exarca abrasador",
     "tangled_item": "Objeto del Devorador de mundos",
     "identified": "Identificado",
+    "unidentified_tier": "Grado no identificado",
+    "fated": "Destinado",
     "corrupted": "Corrupto",
+    "twice_corrupted": "Doblemente corrupto",
     "mirrored": "Reflejado",
     "split": "Dividir",
     "crafted": "Fabricado",
@@ -193,6 +194,11 @@
       "wombgift": "Cualquier regalo del vientre",
       "enshrouded": "Cualquier objeto envuelto",
       "chart": "Cualquier carta de navegación",
+      "viscera": "Víscera: cualquiera",
+      "viscera.head": "Víscera: cabeza",
+      "viscera.arm": "Víscera: brazo",
+      "viscera.body": "Víscera: cuerpo",
+      "viscera.leg": "Víscera: pierna",
       "currency": "Cualquier Objeto Monetario",
       "currency.piece": "Fragmento único",
       "currency.resonator": "Resonador",
@@ -219,12 +225,13 @@
       "templar": "Templario",
       "shadow": "Sombra"
     },
-    "chart_shape": {
-      "1": "Terminar",
-      "2": "Corner",
-      "3": "Straight",
-      "4": "Junction",
-      "5": "Crossing"
+    "map_blighted": {
+      "true": "Sí",
+      "false": "No"
+    },
+    "map_uberblighted": {
+      "true": "Sí",
+      "false": "No"
     },
     "map_series": {
       "current": "Actual",
@@ -255,14 +262,6 @@
       "theawakening": "El Despertar",
       "original": "Legacy"
     },
-    "map_blighted": {
-      "true": "Sí",
-      "false": "No"
-    },
-    "map_uberblighted": {
-      "true": "Sí",
-      "false": "No"
-    },
     "heist_objective_value": {
       "moderate": "Valor moderado",
       "high": "Valor alto",
@@ -289,11 +288,11 @@
       "true": "Sí",
       "false": "No"
     },
-    "fractured_item": {
+    "gem_imbued": {
       "true": "Sí",
       "false": "No"
     },
-    "gem_imbued": {
+    "fractured_item": {
       "true": "Sí",
       "false": "No"
     },
@@ -313,7 +312,15 @@
       "true": "Sí",
       "false": "No"
     },
+    "fated": {
+      "true": "Sí",
+      "false": "No"
+    },
     "corrupted": {
+      "true": "Sí",
+      "false": "No"
+    },
+    "twice_corrupted": {
       "true": "Sí",
       "false": "No"
     },
