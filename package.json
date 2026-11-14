@@ -1,6 +1,6 @@
 {
   "name": "poexd-extension",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "Path of Exile 官方交易市集全方位輔助擴充套件，提供線上搜尋主控台、常用詞綴群組、階層書籤管理與 TFT 雙向互通。",
   "homepage": "https://github.com/yehshune/PoeXD-Extension#readme",
