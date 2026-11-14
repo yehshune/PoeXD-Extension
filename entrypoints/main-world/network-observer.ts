@@ -3,7 +3,12 @@ import {
   serializePoeSearchQueryObserved,
 } from '@/utils/event-protocol-types';
 import type { MainWorldBridge } from './bridge-bootstrap';
-import { getVueStore, sendCurrentQuery, sendKnownStats } from './poe-runtime-reader';
+import {
+  getVueStore,
+  sendCurrentQuery,
+  sendKnownStats,
+  sendLiveTradeData,
+} from './poe-runtime-reader';
 import {
   cancelPendingSearchSubmission,
   completePendingSearchSubmission,
@@ -126,6 +131,7 @@ export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = w
       if (url.includes('/api/trade/data') || url.includes('/api/trade2/data')) {
         setTimeout(() => {
           sendKnownStats(bridge);
+          sendLiveTradeData(bridge);
           sendCurrentQuery(bridge);
         }, 500);
       }

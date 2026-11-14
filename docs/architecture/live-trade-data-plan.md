@@ -1,6 +1,6 @@
 # 即時市集資料（Live Trade Data）實作計畫
 
-> **文件狀態**：IN PROGRESS — 第 0、1 階段完成（國服待登入後補測）(2026-11-14)
+> **文件狀態**：IN PROGRESS — 第 0–2 階段完成（國服待登入後補測）(2026-11-14)
 > **決策依據**：[ADR-0014](../adr/0014-live-trade-data-from-the-current-page.md)（proposed，第 0 階段實測通過後改為 accepted）
 > **範圍**：市集篩選標籤（`/data/filters` 的群組、欄位、選項）與市集寫法（`/data/stats`，含 pseudo）。詞綴階級、遊戲寫法、結果列標籤、物品名稱、傭兵資料與市集漢化分片不在範圍內，維持打包。
 
@@ -71,6 +71,13 @@
 - `event-protocol-types.ts` 新增 `poexd-live-trade-data`（MAIN → content，內含 `propertyFilters` 與 `knownStats`）與 `poexd-request-live-trade-data`（content → MAIN），附 serialize / parse，parse 走第 1 階段的驗證。
 - `poe-runtime-reader.ts` 從 `getTradeRootComponent()` 的 `static_` 讀取，與 `sendKnownStats` 相同做法：同一份物件不重送。順手修正 `initPoeRuntimeReader()` 的輪詢在 Vue 3 上落空的問題（見第 0 階段結果第 2 點）。
 - 事件內容只含資料本身。**遊戲版本與 Page Locale 由 isolated world 自行從網址判斷**，不採用頁面送來的值。
+
+### 第 2 階段結果（2026-11-14）
+
+- 新增 `poexd-live-trade-data`（MAIN → content，wire 為 `{ propertyFilters, knownStats }` 原樣）與 `poexd-request-live-trade-data`（content → MAIN）；`parsePoeLiveTradeData` 對兩部分各自做第 1 階段的完整驗證，不符的部分為 null。
+- `poe-runtime-reader.ts` 的 `findTradeStaticData()` 統一 Vue 2 / Vue 3 的 `static_` 查找；`initPoeRuntimeReader()` 的輪詢改用它，Vue 3 頁面上輪詢即可送出 known stats 與即時資料。
+- content 端在攔截器就緒後送出請求，收到後以 `resolvePageLocale()` 記錄頁面語系，存入 `utils/live-trade-data-store.ts`（記憶體、依遊戲版本、不可變快照）。消費端尚未接入（第 3 階段）。
+- dev 瀏覽器實測（台服、國際服 PoE 1）：每頁只送出一次（台服約 1.4 MB、國際服約 2.1 MB，開頁後約 2.9 秒），沒有格式不符警告；擷取的 wire 經 `parsePoeLiveTradeData` 解析後，台服 `map_filters`「地圖篩選」、`map_bonus`「輿圖掉落」，國際服「Map Filters」／「Atlas Drops」。
 
 ## 第 3 階段：store 接入
 

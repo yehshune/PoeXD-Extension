@@ -77,6 +77,10 @@ export interface HostVuexStore {
 
 export interface HostStaticData {
   knownStatsFlat?: Record<string, { id: string; text: string; type: string }>;
+  /** 等同 `/data/filters` 的 `result`（ADR-0014 即時市集資料，於 isolated world 驗證） */
+  propertyFilters?: unknown;
+  /** 等同 `/data/stats` 的 `result`，保留重複 id（ADR-0014） */
+  knownStats?: unknown;
   [key: string]: unknown;
 }
 

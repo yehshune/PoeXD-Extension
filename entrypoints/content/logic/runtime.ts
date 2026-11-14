@@ -3,6 +3,7 @@ import {
   listenPoeEvent,
   initPoeEventNonce,
   parsePoeKnownStats,
+  parsePoeLiveTradeData,
 } from '@/utils/event-contracts';
 import { injectScript } from 'wxt/utils/inject-script';
 import { getPreferences, type Preferences } from '@/utils/preferences';
@@ -53,6 +54,8 @@ import {
   type LiveSearchResumeController,
 } from './live-search-resume-controller';
 import { setKnownStats } from '@/utils/known-stats-store';
+import { setLiveTradeData } from '@/utils/live-trade-data-store';
+import { resolvePageLocale } from '@/utils/locale-resolution';
 
 let activePrimaryRuntime: LiveSearchPrimaryRuntime | null = null;
 let activePrimaryController: LiveSearchPrimaryController | null = null;
@@ -191,6 +194,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     });
     const interceptorReady = injectApiInterceptor();
     cleanupPageEvents = registerPageContextEvents(
+      version,
       pricePresenter,
       itemNormalizer,
       filterEnhancements,
@@ -205,6 +209,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
         domFilter.cleanup();
         return;
       }
+      // 頁面資料若在攔截器就緒前已載入，輪詢之外再主動要一次（MAIN world 不重送同一份）
+      dispatchPoeEvent('poexd-request-live-trade-data');
       let pageRole: TradePageRole = 'normal';
       let initialArrivalSignal = false;
       try {
@@ -322,6 +328,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
 }
 
 function registerPageContextEvents(
+  version: PoeVersion,
   pricePresenter: ResultPricePresenter,
   itemNormalizer: ResultItemNormalizer,
   filterEnhancements: FilterDomEnhancements,
@@ -350,6 +357,18 @@ function registerPageContextEvents(
       } else {
         console.error('[PoeXD] 解析 known-stats 失敗: 格式不符');
       }
+    }),
+  );
+  // 即時市集資料（ADR-0014）：頁面送來的內容不可信，parse 內完整驗證；
+  // 遊戲版本與頁面語系由這裡自行判斷，不採用頁面送來的值
+  cleanups.push(
+    listenPoeEvent('poexd-live-trade-data', (detail) => {
+      const payload = parsePoeLiveTradeData(detail);
+      if (!payload) {
+        console.warn('[PoeXD] 即時市集資料格式不符，改用打包資料');
+        return;
+      }
+      setLiveTradeData(version, { pageLocale: resolvePageLocale(), ...payload });
     }),
   );
 

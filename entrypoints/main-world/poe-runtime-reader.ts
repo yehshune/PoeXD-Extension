@@ -1,9 +1,10 @@
 import {
   serializePoeKnownStats,
+  serializePoeLiveTradeData,
   serializePoeSearchQueryObserved,
 } from '@/utils/event-protocol-types';
 import type { MainWorldBridge } from './bridge-bootstrap';
-import type { HostVueInstance, HostVuexStore } from './host-types';
+import type { HostStaticData, HostVueInstance, HostVuexStore } from './host-types';
 
 export function getVueStore(): HostVuexStore | null {
   if (typeof document === 'undefined') return null;
@@ -76,7 +77,42 @@ export function sendKnownStats(bridge: MainWorldBridge) {
   bridge.dispatchEvent('poexd-known-stats', serializePoeKnownStats(knownStatsFlat));
 }
 
+/** 已送出的即時市集資料（ADR-0014）：同一組物件不重送（knownStats 序列化約 1.6 MB） */
+let sentLiveTradeData: { propertyFilters: unknown; knownStats: unknown } | null = null;
+
+/**
+ * 送出官方頁面自己載入的 filters 與 stats（`static_.propertyFilters`、`static_.knownStats`），
+ * 由 isolated world 驗證後作為即時市集資料。兩者都還沒載入時不送。
+ */
+export function sendLiveTradeData(bridge: MainWorldBridge) {
+  const staticData = findTradeStaticData();
+  const propertyFilters = staticData?.propertyFilters;
+  const knownStats = staticData?.knownStats;
+  if (!propertyFilters && !knownStats) return;
+  if (
+    sentLiveTradeData?.propertyFilters === propertyFilters &&
+    sentLiveTradeData?.knownStats === knownStats
+  ) {
+    return;
+  }
+  sentLiveTradeData = { propertyFilters, knownStats };
+  bridge.dispatchEvent(
+    'poexd-live-trade-data',
+    serializePoeLiveTradeData({ propertyFilters, knownStats }),
+  );
+}
+
+/** 測試用：清除已送出紀錄 */
+export function resetLiveTradeDataSentForTests() {
+  sentLiveTradeData = null;
+}
+
 function findKnownStatsFlat() {
+  return findTradeStaticData()?.knownStatsFlat;
+}
+
+/** 官方 Trade 的靜態資料（`static_`）：Vue 2 在元件 `_data` / 子元件，Vue 3 在根元件 proxy。 */
+function findTradeStaticData(): HostStaticData | undefined {
   if (typeof document === 'undefined') return undefined;
   const tradeEl = document.querySelector('#trade') as
     | (Element & { __vue__?: HostVueInstance; __vue_app__?: HostVueInstance })
@@ -103,7 +139,7 @@ function findKnownStatsFlat() {
     const root = getTradeRootComponent() as HostVueInstance | null;
     staticData = root?.static_ || root?.static;
   }
-  return staticData?.knownStatsFlat;
+  return staticData;
 }
 
 export function sendCurrentQuery(bridge: MainWorldBridge) {
@@ -137,20 +173,17 @@ export function sendCurrentQuery(bridge: MainWorldBridge) {
 }
 
 export function initPoeRuntimeReader(bridge: MainWorldBridge) {
-  // 輪詢嘗試抓取，防範 SPA 延遲初始化
+  // 輪詢嘗試抓取，防範 SPA 延遲初始化。Vue 3 的靜態資料在根元件 proxy 上，
+  // 必須用 findTradeStaticData（直接讀 `__vue_app__._data` 在 Vue 3 一定落空）
   let attempts = 0;
   const pollInterval = setInterval(() => {
     attempts++;
-    const tradeEl = document.querySelector('#trade') as
-      | (Element & { __vue__?: HostVueInstance; __vue_app__?: HostVueInstance })
-      | null;
-    const app =
-      tradeEl?.__vue__ || (tradeEl?.parentElement as any)?.__vue__ || tradeEl?.__vue_app__;
-    const staticData = app?._data?.static_ || app?.static;
-    if ((staticData && staticData.knownStatsFlat) || attempts >= 30) {
+    const ready = Boolean(findTradeStaticData()?.knownStatsFlat);
+    if (ready || attempts >= 30) {
       clearInterval(pollInterval);
-      if (staticData && staticData.knownStatsFlat) {
+      if (ready) {
         sendKnownStats(bridge);
+        sendLiveTradeData(bridge);
         sendCurrentQuery(bridge);
       }
     }
@@ -159,5 +192,9 @@ export function initPoeRuntimeReader(bridge: MainWorldBridge) {
   // 監聽側邊欄主動請求 known stats
   bridge.addListener('poexd-request-known-stats', () => {
     sendKnownStats(bridge);
+  });
+  // content script 就緒後請求即時市集資料；已送過同一份時不重送
+  bridge.addListener('poexd-request-live-trade-data', () => {
+    sendLiveTradeData(bridge);
   });
 }

@@ -43,6 +43,7 @@ type ExpectedMainToContent =
   | 'poexd-search-query-observed'
   | 'poexd-search-triggered'
   | 'poexd-known-stats'
+  | 'poexd-live-trade-data'
   | 'poexd-equipment-type-changed'
   | 'poexd-livesearch-command-result'
   | 'poexd-criteria-overlay-read-result'
@@ -51,6 +52,7 @@ type _MainToContentExact = Assert<Equal<MainToContentKeys, ExpectedMainToContent
 
 type ExpectedContentToMain =
   | 'poexd-request-known-stats'
+  | 'poexd-request-live-trade-data'
   | 'poexd-request-official-category'
   | 'poexd-add-stat-filter'
   | 'poexd-update-stat-category'

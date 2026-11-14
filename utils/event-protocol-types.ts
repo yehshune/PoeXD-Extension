@@ -1,4 +1,10 @@
 import { parseCriteriaOverlayOps, type CriteriaOverlayOp } from './criteria-overlay';
+import {
+  parseLiveStatLabels,
+  parseLiveTradeFilters,
+  type LiveStatLabels,
+  type LiveTradeFilters,
+} from './live-trade-data';
 
 export type DialogButtonVariant =
   | 'default'
@@ -64,6 +70,21 @@ export interface PoeKnownStat {
 }
 
 export type PoeKnownStatsPayload = Record<string, PoeKnownStat>;
+
+/**
+ * 即時市集資料的 wire 內容（ADR-0014）：官方頁面 `static_.propertyFilters` 與 `static_.knownStats` 原樣送出，
+ * 驗證與轉換在 isolated world 以 `parsePoeLiveTradeData` 進行。
+ */
+export interface PoeLiveTradeDataWire {
+  propertyFilters: unknown;
+  knownStats: unknown;
+}
+
+/** 解碼後的即時市集資料；任一部分驗證失敗為 null（呼叫端退回打包資料） */
+export interface PoeLiveTradeDataPayload {
+  filters: LiveTradeFilters | null;
+  statLabels: LiveStatLabels | null;
+}
 
 export interface PoeAddStatFilterPayload {
   statId: string | null;
@@ -155,7 +176,7 @@ export interface PoeLiveSearchCommandResultPayload {
 // -------------------------------------------------------------
 
 /**
- * Main World -> Content World (9 個事件)
+ * Main World -> Content World (10 個事件)
  * 帶有 JSON 結構之事件在 CustomEvent 傳輸時採用 serialized JSON string 以維持 wire 相容。
  */
 export interface PoeMainToContentEventMap {
@@ -164,6 +185,7 @@ export interface PoeMainToContentEventMap {
   'poexd-search-query-observed': string; // Wire format: serialized JSON of PoeSearchQueryObservedPayload
   'poexd-search-triggered': void;
   'poexd-known-stats': string; // Wire format: serialized JSON of PoeKnownStatsPayload
+  'poexd-live-trade-data': string; // Wire format: serialized JSON of PoeLiveTradeDataWire
   'poexd-equipment-type-changed': { type: string | null };
   'poexd-livesearch-command-result': string; // Wire format: serialized JSON of PoeLiveSearchCommandResultPayload
   'poexd-criteria-overlay-read-result': string; // Wire format: serialized JSON of PoeCriteriaOverlayReadResultPayload
@@ -171,10 +193,11 @@ export interface PoeMainToContentEventMap {
 }
 
 /**
- * Content World -> Main World (12 個事件)
+ * Content World -> Main World (13 個事件)
  */
 export interface PoeContentToMainEventMap {
   'poexd-request-known-stats': void;
+  'poexd-request-live-trade-data': void;
   'poexd-request-official-category': void;
   'poexd-add-stat-filter': PoeAddStatFilterPayload;
   'poexd-update-stat-category': PoeUpdateStatCategoryPayload;
@@ -189,7 +212,7 @@ export interface PoeContentToMainEventMap {
 }
 
 /**
- * 21 個跨世界通訊事件合約（Main World <-> Content World）
+ * 23 個跨世界通訊事件合約（Main World <-> Content World）
  */
 export type PoeCrossWorldEventMap = PoeMainToContentEventMap & PoeContentToMainEventMap;
 
@@ -202,9 +225,11 @@ export interface PoeCrossWorldPayloadMap {
   'poexd-search-query-observed': PoeSearchQueryObservedPayload;
   'poexd-search-triggered': void;
   'poexd-known-stats': PoeKnownStatsPayload;
+  'poexd-live-trade-data': PoeLiveTradeDataPayload;
   'poexd-equipment-type-changed': { type: string | null };
   'poexd-livesearch-command-result': PoeLiveSearchCommandResultPayload;
   'poexd-request-known-stats': void;
+  'poexd-request-live-trade-data': void;
   'poexd-request-official-category': void;
   'poexd-add-stat-filter': PoeAddStatFilterPayload;
   'poexd-update-stat-category': PoeUpdateStatCategoryPayload;
@@ -371,6 +396,32 @@ export function parsePoeMoveStatFilter(detail: unknown): PoeMoveStatFilterPayloa
   } catch {
     return null;
   }
+}
+
+export function serializePoeLiveTradeData(payload: PoeLiveTradeDataWire): string {
+  return JSON.stringify({
+    propertyFilters: payload.propertyFilters,
+    knownStats: payload.knownStats,
+  });
+}
+
+/**
+ * 解碼即時市集資料。資料來自 MAIN world、視為不可信：兩部分各自走 `live-trade-data` 的完整驗證，
+ * 不符的部分為 null；不是 JSON 物件或兩部分都不可用時回傳 undefined。
+ */
+export function parsePoeLiveTradeData(detail: unknown): PoeLiveTradeDataPayload | undefined {
+  if (typeof detail !== 'string') return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(detail);
+  } catch {
+    return undefined;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+  const wire = parsed as Partial<PoeLiveTradeDataWire>;
+  const filters = parseLiveTradeFilters(wire.propertyFilters);
+  const statLabels = parseLiveStatLabels(wire.knownStats);
+  return filters || statLabels ? { filters, statLabels } : undefined;
 }
 
 export function serializePoeKnownStats(payload: PoeKnownStatsPayload): string {
