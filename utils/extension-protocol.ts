@@ -31,6 +31,10 @@ import type {
   LiveSearchOpenPrimaryRequest,
   LiveSearchOpenPrimaryResponse,
 } from './live-search-contract';
+import type {
+  MarketTranslationRefreshOutcome,
+  MarketTranslationRefreshRequest,
+} from './market-translation-live';
 
 export interface ExtensionProtocolMap {
   'searchRecord:execute': (command: SearchRecordCommand) => SearchRecordOutcome;
@@ -57,6 +61,9 @@ export interface ExtensionProtocolMap {
   'liveSearch:consumePendingEnqueue': (
     request?: LiveSearchConsumePendingEnqueueRequest,
   ) => LiveSearchConsumePendingEnqueueResponse;
+  'marketTranslation:refresh': (
+    request: MarketTranslationRefreshRequest,
+  ) => MarketTranslationRefreshOutcome;
 }
 
 export const extensionMessaging = defineExtensionMessaging<ExtensionProtocolMap>();

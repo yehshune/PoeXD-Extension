@@ -5,6 +5,11 @@ import {
   type MarketTranslationBridgeDeps,
 } from '@/utils/market-translation-bridge';
 import {
+  MARKET_LIVE_SCHEMA_VERSION,
+  getMarketLiveDataCacheKey,
+  getMarketLiveUiCacheKey,
+} from '@/utils/market-translation-live';
+import {
   MARKET_MESSAGE_SOURCE,
   createRequestMessage,
   type MarketTranslationMessage,
@@ -199,5 +204,67 @@ describe('startMarketTranslationBridge', () => {
     await startMarketTranslationBridge(deps);
     expect(deps.loadJson).not.toHaveBeenCalled();
     expect(posted).toEqual([{ source: MARKET_MESSAGE_SOURCE, type: 'disabled' }]);
+  });
+
+  it('快取命中且未過期時合併即時官方譯文並省略背景刷新；過期或缺快取時非同步觸發刷新', async () => {
+    const nowMs = 10_000_000;
+    const requestLiveRefresh = vi.fn(async () => undefined);
+    const onPayload = vi.fn();
+    const freshCache = {
+      marketTranslation: true,
+      displayLocale: 'zh-TW',
+      [getMarketLiveUiCacheKey('zh-TW')]: {
+        schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
+        locale: 'zh-TW',
+        updatedAt: nowMs - 1000,
+        strings: { 'New UI Key': '新介面譯文' },
+      },
+      [getMarketLiveDataCacheKey('poe2', 'zh-TW')]: {
+        schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
+        version: 'poe2',
+        locale: 'zh-TW',
+        updatedAt: nowMs - 1000,
+        stats: {
+          labels: {},
+          stats: { 'explicit.stat_new': '新 3.30 詞綴' },
+          options: {},
+        },
+        enStats: { 'explicit.stat_new': 'New 3.30 stat' },
+      },
+    };
+    const fresh = createDeps({
+      readStorage: vi.fn(async () => freshCache),
+      requestLiveRefresh,
+      onPayload,
+      now: () => nowMs,
+    });
+    await startMarketTranslationBridge(fresh.deps);
+    expect(requestLiveRefresh).not.toHaveBeenCalled();
+    expect(fresh.posted[0]).toMatchObject({
+      type: 'payload',
+      payload: {
+        ui: { 'Search Listed Items': '搜尋道具', 'New UI Key': '新介面譯文' },
+        data: {
+          stats: {
+            stats: {
+              'explicit.stat_1': '增加#%能力值需求',
+              'explicit.stat_new': '新 3.30 詞綴',
+            },
+          },
+        },
+      },
+    });
+    expect(onPayload).toHaveBeenCalledWith(expect.objectContaining({ locale: 'zh-TW' }), 'poe2', {
+      stats: { 'explicit.stat_new': 'New 3.30 stat' },
+      fields: undefined,
+    });
+
+    const stale = createDeps({
+      requestLiveRefresh,
+      now: () => nowMs,
+    });
+    await startMarketTranslationBridge(stale.deps);
+    expect(requestLiveRefresh).toHaveBeenCalledWith({ version: 'poe2', locale: 'zh-TW' });
+    expect(stale.posted[0]).toMatchObject({ type: 'payload', payload: { locale: 'zh-TW' } });
   });
 });

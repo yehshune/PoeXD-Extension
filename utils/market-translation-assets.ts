@@ -162,9 +162,13 @@ export async function loadResultTranslatorData(
     locale: MarketTranslationLocale;
     dictionary: Omit<MarketTradeDictionary, 'ui'>;
     ui: Record<string, string>;
+    liveEn?: {
+      stats?: Record<string, string | string[]>;
+      fields?: Record<string, string>;
+    };
   },
 ): Promise<ResultTranslatorData> {
-  const { version, locale, dictionary, ui } = options;
+  const { version, locale, dictionary, ui, liveEn } = options;
   const [modLines, englishStats, englishFilters, resultLabels] = await Promise.allSettled([
     loadJson(getLocaleModLinesAssetPath(version, locale)).then((data) =>
       parseModLines(data, locale),
@@ -175,7 +179,19 @@ export async function loadResultTranslatorData(
       parseResultLabels(data, locale),
     ),
   ]);
-  const en = settledValue(englishStats);
+  const bundledEn = settledValue(englishStats);
+  const en = liveEn?.stats ? { ...bundledEn, ...liveEn.stats } : bundledEn;
+  const bundledFiltersRaw = settledValue(englishFilters);
+  const mergedEnglishFilters = liveEn?.fields
+    ? {
+        fields: {
+          ...(isRecord(bundledFiltersRaw) && isRecord(bundledFiltersRaw.fields)
+            ? bundledFiltersRaw.fields
+            : {}),
+          ...liveEn.fields,
+        },
+      }
+    : bundledFiltersRaw;
   const gameLabels = settledValue(resultLabels);
   const localized = dictionary.stats?.stats;
   return {
@@ -185,7 +201,7 @@ export async function loadResultTranslatorData(
     // 官方介面字典是官網實際顯示的寫法，優先於篩選器欄位名稱，遊戲資料表的標籤最後
     labels: {
       ...gameLabels?.labels,
-      ...fieldLabels(settledValue(englishFilters), dictionary.filters?.fields),
+      ...fieldLabels(mergedEnglishFilters, dictionary.filters?.fields),
       ...ui,
     },
     templates: gameLabels?.templates ?? [],

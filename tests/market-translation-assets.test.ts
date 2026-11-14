@@ -148,6 +148,36 @@ describe('loadResultTranslatorData', () => {
     expect(data.locale).toBe('zh-TW');
   });
 
+  it('以 liveEn 覆蓋或補齊即時官方英文詞綴與篩選欄位', async () => {
+    const data = await loadResultTranslatorData(loader(RESULT_ASSETS), {
+      version: 'poe2',
+      locale: 'zh-TW',
+      dictionary: {
+        ...dictionary,
+        stats: {
+          labels: {},
+          stats: {
+            'explicit.stat_1': '增加 #% 精魂',
+            'explicit.stat_330': '新 3.30 詞綴',
+          },
+          options: {},
+        },
+        filters: {
+          groups: {},
+          fields: { ilvl: '物品等級', map_bonus: '輿圖掉落' },
+          options: {},
+        },
+      },
+      ui: {},
+      liveEn: {
+        stats: { 'explicit.stat_330': 'New 3.30 stat' },
+        fields: { map_bonus: 'Atlas Drops' },
+      },
+    });
+    expect(data.tradeStats?.en['explicit.stat_330']).toBe('New 3.30 stat');
+    expect(data.labels['Atlas Drops']).toBe('輿圖掉落');
+  });
+
   it('分片缺少或語系不符時該部分為空', async () => {
     const assets = {
       ...RESULT_ASSETS,

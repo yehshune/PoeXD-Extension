@@ -24,6 +24,7 @@ import { registerEconomyBackgroundHandlers, type EconomyBroadcastTransport } fro
 import { LiveSearchCoordinator } from '@/utils/live-search-coordinator';
 import { TRADE_PAGE_MATCH_PATTERNS } from '@/utils/trade-realms';
 import { registerLiveSearchBackgroundHandlers } from '@/utils/live-search-messaging';
+import { registerMarketTranslationBackgroundHandlers } from '@/utils/market-translation-live';
 import { createInstallOnboardingState, ONBOARDING_STORAGE_KEY } from '@/utils/onboarding';
 
 let searchRecordModule: SearchRecordRuntime | undefined;
@@ -104,6 +105,7 @@ export default defineBackground(() => {
 
   const liveSearchCoordinator = new LiveSearchCoordinator();
   registerLiveSearchBackgroundHandlers({ coordinator: liveSearchCoordinator });
+  registerMarketTranslationBackgroundHandlers();
 
   chrome.tabs.onRemoved.addListener((tabId: number) => {
     void liveSearchCoordinator.handleTabRemoved(tabId);

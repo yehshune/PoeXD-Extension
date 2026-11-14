@@ -29,7 +29,7 @@ Uninstalling the extension deletes all of this data.
 
 | Destination                                                                                        | When                                                        | What is sent                                                                              |
 | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Official trade sites (`pathofexile.com`, `pathofexile.tw`, `poe.game.qq.com`) and their image CDNs | While you use the trade site                                | The same trade queries and live search connections the official site makes on your behalf |
+| Official trade sites (`pathofexile.com`, `pathofexile.tw`, `poe.game.qq.com`) and their CDNs (`web.poecdn.com`, `webtw.poecdn.com`, `poecdn.game.qq.com`) | While you use the trade site (and in the background when Market Translation is enabled) | The same trade queries and live search connections the official site makes on your behalf; when Market Translation is enabled, public official trade data and UI dictionary files (`translate.zh_TW.js` / `translate.zh_CN.js`) are fetched and cached locally |
 | `poe.ninja`                                                                                        | When price conversion is enabled on the International realm | The league name, to fetch public currency exchange rates                                  |
 
 ### Data sharing
@@ -65,7 +65,7 @@ PoeXD Extension（以下稱「本擴充功能」）是《流亡黯道》官方�
 
 | 對象                                                                               | 時機                   | 傳送內容                                       |
 | ---------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------- |
-| 官方交易網站（`pathofexile.com`、`pathofexile.tw`、`poe.game.qq.com`）與其圖片 CDN | 你使用交易網站時       | 與官方網站代你送出的相同交易查詢與即時搜尋連線 |
+| 官方交易網站（`pathofexile.com`、`pathofexile.tw`、`poe.game.qq.com`）與其 CDN（`web.poecdn.com`、`webtw.poecdn.com`、`poecdn.game.qq.com`） | 你使用交易網站時（以及啟用市集漢化時於背景更新） | 與官方網站代你送出的相同交易查詢與即時搜尋連線；啟用市集漢化時會抓取官方公開交易資料與介面字典檔（`translate.zh_TW.js` / `translate.zh_CN.js`）並快取於本機 |
 | `poe.ninja`                                                                        | 在國際服啟用價格換算時 | 聯盟名稱，用於取得公開的通貨匯率               |
 
 ### 資料分享

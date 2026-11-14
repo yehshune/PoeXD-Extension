@@ -57,10 +57,11 @@ export default defineConfig({
       description: '__MSG_extDescription__',
       permissions: ['storage', 'unlimitedStorage'],
       host_permissions: [
-        'https://*.pathofexile.com/trade*',
-        'https://*.pathofexile.tw/trade*',
-        'https://poe.game.qq.com/trade*',
-        'https://poe.game.qq.com/api/trade*',
+        'https://*.pathofexile.com/*',
+        'https://*.pathofexile.tw/*',
+        'https://poe.game.qq.com/*',
+        'https://webtw.poecdn.com/*',
+        'https://poecdn.game.qq.com/*',
         'https://poe.ninja/*',
       ],
       web_accessible_resources: [
