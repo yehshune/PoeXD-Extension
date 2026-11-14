@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import type { SupportedLocale, SupportedUiLocale } from './preferences-contract';
 import { getLocaleTradeFiltersAssetPath, type PoeVersion } from './trade-context';
 import { getActiveDisplayLocale, getActiveUiLocale } from './i18n';
+import { getUsableLiveTradeData, type LiveTradeDataSnapshot } from './live-trade-data-store';
 import poe1En from '../public/json/poe1/locales/en/trade-filters.json';
 import poe1ZhTw from '../public/json/poe1/locales/zh-TW/trade-filters.json';
 import poe1ZhCn from '../public/json/poe1/locales/zh-CN/trade-filters.json';
@@ -101,16 +102,42 @@ export async function ensureTradeFiltersLoaded(
   return promise;
 }
 
+/** 同一份即時快照只轉一次，讓讀取者拿到穩定的物件 */
+const liveSources = new WeakMap<LiveTradeDataSnapshot, TradeFiltersData | null>();
+
+function toLiveSource(snapshot: LiveTradeDataSnapshot): TradeFiltersData | null {
+  const cached = liveSources.get(snapshot);
+  if (cached !== undefined) return cached;
+  const { filters, statLabels } = snapshot;
+  const source: TradeFiltersData | null =
+    filters || statLabels
+      ? Object.freeze({
+          locale: snapshot.pageLocale,
+          groups: filters?.groups ?? {},
+          fields: filters?.fields ?? {},
+          options: filters?.options ?? {},
+          pseudoStats: statLabels?.pseudoStats ?? {},
+        })
+      : null;
+  liveSources.set(snapshot, source);
+  return source;
+}
+
 /**
- * 依優先順序回傳可用的篩選翻譯：測試 mock → 顯示語系 → UI 語系 → en。
- * 顯示語系尚未載入時會在背景載入，完成後透過 revision 觸發重新渲染。
+ * 依優先順序回傳可用的篩選翻譯：測試 mock → 即時市集資料（ADR-0014，僅顯示語系等於頁面語系時）
+ * → 顯示語系 → UI 語系 → en。即時資料沒有的 id 由後面的打包分片補上。
+ * 顯示語系尚未載入時會在背景載入，完成後透過 revision 觸發重新渲染；即時資料到達時同樣會重新計算。
  */
 export function getTradeFiltersSources(version: PoeVersion): TradeFiltersData[] {
   void filtersRevision.value;
   const state = getState(version);
   const sources: TradeFiltersData[] = [];
   if (state.mock) sources.push(state.mock);
-  for (const locale of new Set<SupportedLocale>([getActiveDisplayLocale(), getActiveUiLocale()])) {
+  const displayLocale = getActiveDisplayLocale();
+  const live = getUsableLiveTradeData(version, displayLocale);
+  const liveSource = live ? toLiveSource(live) : null;
+  if (liveSource) sources.push(liveSource);
+  for (const locale of new Set<SupportedLocale>([displayLocale, getActiveUiLocale()])) {
     const shard = getBundled(version, locale) ?? state.shards.get(locale);
     if (shard) sources.push(shard);
     else void ensureTradeFiltersLoaded(version, locale);

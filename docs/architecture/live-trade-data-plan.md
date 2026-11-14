@@ -1,6 +1,6 @@
 # 即時市集資料（Live Trade Data）實作計畫
 
-> **文件狀態**：IN PROGRESS — 第 0–2 階段完成（國服待登入後補測）(2026-11-14)
+> **文件狀態**：IN PROGRESS — 第 0–3 階段完成（國服待登入後補測）(2026-11-14)
 > **決策依據**：[ADR-0014](../adr/0014-live-trade-data-from-the-current-page.md)（proposed，第 0 階段實測通過後改為 accepted）
 > **範圍**：市集篩選標籤（`/data/filters` 的群組、欄位、選項）與市集寫法（`/data/stats`，含 pseudo）。詞綴階級、遊戲寫法、結果列標籤、物品名稱、傭兵資料與市集漢化分片不在範圍內，維持打包。
 
@@ -86,6 +86,15 @@
 - `trade-filters-store.ts` 的 `getTradeFiltersSources()`：閘門通過時把即時資料放在顯示語系分片之前（測試 mock 仍最優先）。
 - `official-stat-text.ts` 的 `getOfficialStatLabel()`：閘門通過時先查即時 stat 標籤；`OFFICIAL_STAT_TEXT_LOCALES` 以外的語系（ja、ru、de、fr、es、pt、th）也因此有市集寫法。既有「中文市集回傳英文視為沒翻譯」的判斷沿用。
 - 側欄在頁面資料到達前先用打包資料渲染，到達後由 revision 觸發重新渲染。
+
+### 第 3 階段結果（2026-11-14）
+
+- revision 改用 Vue `shallowRef`：`live-trade-data-store.ts` 每次寫入換一個新物件，讀取端在 computed / render 中呼叫即會在資料到達時重新計算，不另設計數器。
+- 閘門實作為 `getUsableLiveTradeData(version, displayLocale, hostname?)`：快照的頁面語系 == 顯示語系才回傳；國際服（`isMarketTranslationHost`）只在顯示 en 時採用，因為顯示中文時頁面資料可能已被市集漢化改寫。
+- `getTradeFiltersSources()` 順序：測試 mock → 即時資料 → 顯示語系分片 → UI 語系分片 → 打包 en。即時來源的 `locale` 為頁面語系，en 偽屬性照舊轉小寫。
+- `getOfficialStatLabel()` 先查即時市集寫法（經 `renderGenericTemplate`，開頭 `+` 照舊去掉）；非英文語系的即時文字等於打包 en 時回傳 null，交給詞綴字典後備。即時資料沒有的 id 走原本的打包路徑。
+- 測試：`tests/live-trade-data-consumers.test.ts`（閘門、id 覆蓋與後備、語系不同不採用、computed 重新計算、未翻譯判斷、pseudo）。
+- dev 瀏覽器實測（台服 PoE 1）：以 Playwright 攔截 `/api/trade/data/filters` 把標題加上「★」，側欄搜尋預覽顯示「★其它」「★已汙染」，確認標籤來自頁面即時資料；移除攔截重新載入後恢復正常。
 
 ## 第 4 階段：驗證與文件
 

@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import type { SupportedAffixLocale } from './preferences-contract';
 import { getLocaleTradeStatsAssetPath, type PoeVersion } from './trade-context';
 import { getCandidateStatIds, renderGenericTemplate } from './affix-lexicon';
+import { getUsableLiveTradeData } from './live-trade-data-store';
 
 /**
  * 官方市集的詞綴文字（各語系市集 /data/stats，以詞綴代碼為 key）。
@@ -88,7 +89,10 @@ export async function ensureOfficialStatTextLoaded(
   return promise;
 }
 
-function lookupRaw(stats: StatTexts | undefined, statId: string): string | null {
+function lookupRaw(
+  stats: StatTexts | Readonly<Record<string, string>> | undefined,
+  statId: string,
+): string | null {
   if (!stats) return null;
   for (const candidate of getCandidateStatIds(statId)) {
     const value = stats[candidate];
@@ -99,8 +103,39 @@ function lookupRaw(stats: StatTexts | undefined, statId: string): string | null 
 }
 
 /**
+ * 中文等非英文市集回傳的仍是英文原文時視為沒有翻譯（回傳 null，讓呼叫端改用詞綴字典）。
+ * 英文分片尚未載入時先採用，載入後 revision 遞增，讀取者會重新判斷。
+ */
+function rejectUntranslated(
+  text: string,
+  statId: string,
+  version: PoeVersion,
+  locale: string,
+): string | null {
+  if (locale === 'en') return text;
+  const state = getState(version);
+  if (!state.shards.has('en')) void ensureOfficialStatTextLoaded(version, 'en');
+  return text === lookupRaw(state.shards.get('en'), statId) ? null : text;
+}
+
+/**
+ * 即時市集資料（ADR-0014）的市集寫法；沒有可用的即時資料或查不到該 id 時回傳 undefined，
+ * 由打包分片接手。
+ */
+function lookupLiveStatText(
+  statId: string,
+  version: PoeVersion,
+  locale: string,
+): string | null | undefined {
+  const stats = getUsableLiveTradeData(version, locale)?.statLabels?.stats;
+  const text = lookupRaw(stats, statId);
+  return text ? rejectUntranslated(text, statId, version, locale) : undefined;
+}
+
+/**
  * 詞綴代碼在該語系市集的寫法，格式與詞綴字典的標籤相同（`#` 佔位、英文小寫）。
- * 尚未載入時在背景載入並回傳 null；中文市集回傳的仍是英文原文時也視為沒有翻譯。
+ * 優先用即時市集資料（顯示語系等於頁面語系時，任何語系都可用），再用打包的官方分片（en、zh-TW、zh-CN）。
+ * 打包分片尚未載入時在背景載入並回傳 null；中文市集回傳的仍是英文原文時也視為沒有翻譯。
  */
 export function getOfficialStatLabel(
   statId: string,
@@ -108,7 +143,10 @@ export function getOfficialStatLabel(
   locale: SupportedAffixLocale | string,
 ): string | null {
   void revision.value;
-  if (!statId || !isOfficialLocale(locale)) return null;
+  if (!statId) return null;
+  const live = lookupLiveStatText(statId, version, locale);
+  if (live !== undefined) return live === null ? null : renderGenericTemplate(live, locale);
+  if (!isOfficialLocale(locale)) return null;
   const state = getState(version);
   const stats = state.shards.get(locale);
   if (!stats) {
@@ -117,12 +155,8 @@ export function getOfficialStatLabel(
   }
   const text = lookupRaw(stats, statId);
   if (!text) return null;
-  if (locale !== 'en') {
-    // 英文載入前先採用；載入後 revision 遞增，讀取者會重新判斷
-    if (!state.shards.has('en')) void ensureOfficialStatTextLoaded(version, 'en');
-    if (text === lookupRaw(state.shards.get('en'), statId)) return null;
-  }
-  return renderGenericTemplate(text, locale);
+  const translated = rejectUntranslated(text, statId, version, locale);
+  return translated === null ? null : renderGenericTemplate(translated, locale);
 }
 
 /** 測試用：直接指定某語系的官方詞綴文字；傳入 null 清除 */
