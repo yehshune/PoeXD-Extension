@@ -1,6 +1,6 @@
 # 即時市集資料（Live Trade Data）實作計畫
 
-> **文件狀態**：IN PROGRESS — 第 0 階段完成（國際服、日服；台服、國服待登入後補測）(2026-11-14)
+> **文件狀態**：IN PROGRESS — 第 0、1 階段完成（國服待登入後補測）(2026-11-14)
 > **決策依據**：[ADR-0014](../adr/0014-live-trade-data-from-the-current-page.md)（proposed，第 0 階段實測通過後改為 accepted）
 > **範圍**：市集篩選標籤（`/data/filters` 的群組、欄位、選項）與市集寫法（`/data/stats`，含 pseudo）。詞綴階級、遊戲寫法、結果列標籤、物品名稱、傭兵資料與市集漢化分片不在範圍內，維持打包。
 
@@ -36,11 +36,11 @@
 
 ### 第 0 階段結果（2026-11-14，`pnpm dev` 的 Chrome 以 CDP 實測）
 
-測過：國際服 PoE 1（`/trade`，市集漢化 zh-TW 雙語作用中）、國際服 PoE 2（`/trade2`）、日服 PoE 1（`jp.pathofexile.com`，未經改寫的原始資料）。台服、國服的市集要求登入，dev profile 未登入，待補測。
+測過：國際服 PoE 1（`/trade`，先在市集漢化 zh-TW 雙語作用中測一次，再關閉漢化測一次）、國際服 PoE 2（`/trade2`）、台服 PoE 1 與 PoE 2（登入後）、日服 PoE 1（`jp.pathofexile.com`）。國服市集要求 QQ / 微信登入，待補測。測試 fixture 取自國際服 PoE 1（漢化關閉）、台服 PoE 1 與 PoE 2：轉出的篩選標籤、市集寫法與 pseudo 文字都和同一天的打包檔一致。
 
 | 項目              | 結果                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. filters 位置   | 根元件 proxy 的 `static_.propertyFilters`，與 `/data/filters` 的 `result` **逐字相同**（國際服、日服都比對過）。PoE 1 12 個群組，PoE 2 7 個，3.30 的 `map_bonus` 已在其中。**以讀狀態為主**，不需要攔截請求                                                                                                                                                                                                                                                                      |
+| 1. filters 位置   | 根元件 proxy 的 `static_.propertyFilters`，與 `/data/filters` 的 `result` **逐字相同**（國際服、台服、日服都比對過）。PoE 1 12 個群組，PoE 2 7 個，3.30 的 `map_bonus` 已在其中。**以讀狀態為主**，不需要攔截請求                                                                                                                                                                                                                                                                |
 | 2. 攔截時機       | 因第 1 點可行而不再需要。附帶發現：`initPoeRuntimeReader()` 的輪詢讀 `#trade.__vue_app__._data.static_`，在 Vue 3 上一定落空，known stats 目前只靠 `/data/*` 回應後 500ms 的 `sendKnownStats` 與側欄的 `poexd-request-known-stats` 送出，取決於攔截器是否趕上請求。第 2 階段一併改用 `getTradeRootComponent()`                                                                                                                                                                   |
 | 3. 市集寫法來源   | `static_.knownStats`（群組陣列 `{ id, label, entries: [{ id, text, type }] }`）與 `/data/stats` 的 `result` **順序、文字完全相同**，保留重複 id。`knownStatsFlat` 在重複 id（日服 215 個）**取最後一筆**，打包 `trade-stats.json` 的 `lookupRaw` 取第一筆，所以**市集寫法改以 `knownStats` 取第一次出現**，不用 `knownStatsFlat`。pseudo 在 `knownStats` 的 `pseudo` 群組（PoE 1 298 筆）。注意：`knownStats` 的 entry 只有 `id`、`text`、`type`，沒有 `/data/stats` 的 `option` |
 | 4. 市集漢化作用中 | 國際服 `propertyFilters` 與 `knownStats` 已是中文雙語（例如「+#% 冰冷抗性 (+#% total to Cold Resistance)」），頁面語系仍是 `en-US`。證實語系不同時頁面資料不可用，閘門必須同時檢查市集漢化                                                                                                                                                                                                                                                                                       |
@@ -90,7 +90,7 @@
 
 ## 待確認
 
-- 台服（`pathofexile.tw`）、國服（`poe.game.qq.com`）的市集要求登入，第 0 階段未實測；需在 dev profile 登入後確認 `static_` 結構相同，再進行第 4 階段 e2e。
+- 國服（`poe.game.qq.com`）的市集要求 QQ / 微信登入，第 0 階段未實測；需在 dev profile 登入後確認 `static_` 結構相同，再進行第 4 階段 e2e。
 - 擴充不在韓服（Kakao `poe.game.daum.net`）執行，`ko` 仍只能靠打包分片。
 - 舊 Search Record 解出已被官方移除的篩選 id（例如 3.30 前的 `chart_shape`）時，即時資料沒有該 id，會退回打包資料；打包資料也移除後顯示原始 id。維持現行行為，不在此計畫處理。
 - 第二層（執行期下載 poexd-data，含詞綴階級）另立 ADR，前提是確認 `optional_host_permissions` 不會在更新時停用擴充。

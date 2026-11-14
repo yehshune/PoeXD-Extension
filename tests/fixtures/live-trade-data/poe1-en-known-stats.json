@@ -1,0 +1,134 @@
+[
+  {
+    "id": "pseudo",
+    "label": "Pseudo",
+    "entries": [
+      {
+        "id": "pseudo.pseudo_total_cold_resistance",
+        "text": "+#% total to Cold Resistance",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_fire_resistance",
+        "text": "+#% total to Fire Resistance",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_lightning_resistance",
+        "text": "+#% total to Lightning Resistance",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_elemental_resistance",
+        "text": "+#% total Elemental Resistance",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_chaos_resistance",
+        "text": "+#% total to Chaos Resistance",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_resistance",
+        "text": "+#% total Resistance",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_count_resistances",
+        "text": "# total Resistances",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_count_elemental_resistances",
+        "text": "# total Elemental Resistances",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_all_elemental_resistances",
+        "text": "+#% total to all Elemental Resistances",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_strength",
+        "text": "+# total to Strength",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_dexterity",
+        "text": "+# total to Dexterity",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_intelligence",
+        "text": "+# total to Intelligence",
+        "type": "pseudo"
+      }
+    ]
+  },
+  {
+    "id": "explicit",
+    "label": "Explicit",
+    "entries": [
+      {
+        "id": "explicit.stat_3299347043",
+        "text": "+# to maximum Life",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_4220027924",
+        "text": "+#% to Cold Resistance",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_3372524247",
+        "text": "+#% to Fire Resistance",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_1050105434",
+        "text": "+# to maximum Mana",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_1671376347",
+        "text": "+#% to Lightning Resistance",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_3261801346",
+        "text": "+# to Dexterity",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_1365687125",
+        "text": "Area has +#% chance to contain an Ultimatum Encounter",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_1365687125",
+        "text": "Your Maps have +#% chance to contain an Ultimatum Encounter",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_1145451936",
+        "text": "Area contains The Sacred Grove",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_1145451936",
+        "text": "Your Maps have +#% chance to contain The Sacred Grove",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_4154778375",
+        "text": "Contains an Expedition Encounter",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_4154778375",
+        "text": "Your Maps have +#% chance to contain an Expedition Encounter",
+        "type": "explicit"
+      }
+    ]
+  }
+]

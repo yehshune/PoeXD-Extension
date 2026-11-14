@@ -1,0 +1,134 @@
+[
+  {
+    "id": "pseudo",
+    "label": "偽屬性",
+    "entries": [
+      {
+        "id": "pseudo.pseudo_total_cold_resistance",
+        "text": "+#% 冰冷抗性",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_fire_resistance",
+        "text": "+#% 火焰抗性",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_lightning_resistance",
+        "text": "+#% 閃電抗性",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_elemental_resistance",
+        "text": "+#% 元素抗性",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_chaos_resistance",
+        "text": "+#% 總混沌抗性",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_resistance",
+        "text": "+#% 總抗性",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_count_resistances",
+        "text": "# 總抗性",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_count_elemental_resistances",
+        "text": "# 元素抗性",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_all_elemental_resistances",
+        "text": "+#% 元素抗性",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_strength",
+        "text": "+# 力量",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_dexterity",
+        "text": "+# 敏捷",
+        "type": "pseudo"
+      },
+      {
+        "id": "pseudo.pseudo_total_intelligence",
+        "text": "+# 智慧",
+        "type": "pseudo"
+      }
+    ]
+  },
+  {
+    "id": "explicit",
+    "label": "隨機屬性",
+    "entries": [
+      {
+        "id": "explicit.stat_1050105434",
+        "text": "#最大魔力",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_3299347043",
+        "text": "#最大生命",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_4220027924",
+        "text": "#%冰冷抗性",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_3372524247",
+        "text": "#%火焰抗性",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_1671376347",
+        "text": "#%閃電抗性",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_3917489142",
+        "text": "增加#%找到的物品稀有度",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_1276056105",
+        "text": "增加#%本區域中金幣的掉落量（金幣堆）",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_1276056105",
+        "text": "增加#%地圖內所獲取的金幣數量（金幣堆）",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_57434274",
+        "text": "增加#%經驗獲得",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_57434274",
+        "text": "增加#%地圖內所獲取的經驗量",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_689816330",
+        "text": "增加#%區域中含有神殿的機率",
+        "type": "explicit"
+      },
+      {
+        "id": "explicit.stat_689816330",
+        "text": "增加#%地圖內含有神殿的機率",
+        "type": "explicit"
+      }
+    ]
+  }
+]
