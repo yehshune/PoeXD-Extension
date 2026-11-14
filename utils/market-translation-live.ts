@@ -20,6 +20,9 @@ const MIN_STATIC_ENTRIES = 20;
 
 const CJK_RE = /[\u4e00-\u9fff]/;
 
+export type MarketLiveDataSourceKey = 'stats' | 'static' | 'filters' | 'enStats' | 'enFilters';
+export type MarketLiveSourceKey = 'ui' | MarketLiveDataSourceKey;
+
 export interface MarketLiveUiCache {
   schemaVersion: number;
   locale: MarketTranslationLocale;
@@ -32,6 +35,7 @@ export interface MarketLiveDataCache {
   version: PoeVersion;
   locale: MarketTranslationLocale;
   updatedAt: number;
+  endpointUpdatedAt?: Partial<Record<MarketLiveDataSourceKey, number>>;
   stats?: NonNullable<MarketTradeDictionary['stats']>;
   static?: NonNullable<MarketTradeDictionary['static']>;
   filters?: NonNullable<MarketTradeDictionary['filters']>;
@@ -244,13 +248,21 @@ function collectTradeStatsEntries(raw: unknown) {
   return { labels, stats, options };
 }
 
+function hasCjkStatValues(stats: Record<string, string | string[]>): boolean {
+  for (const val of Object.values(stats)) {
+    if (typeof val === 'string' ? CJK_RE.test(val) : val.some((item) => CJK_RE.test(item))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function parseOfficialTradeStats(
   raw: unknown,
-  _locale: MarketTranslationLocale,
 ): NonNullable<MarketTradeDictionary['stats']> | null {
   const parsed = collectTradeStatsEntries(raw);
   if (!parsed) return null;
-  if (!hasAnyCjk(Object.values(parsed.labels))) return null;
+  if (!hasCjkStatValues(parsed.stats)) return null;
   return parsed;
 }
 
@@ -291,7 +303,8 @@ export function parseOfficialTradeStatic(
   if (Object.keys(entries).length < MIN_STATIC_GROUPS || entryCount < MIN_STATIC_ENTRIES) {
     return null;
   }
-  if (!hasAnyCjk(Object.values(labels))) return null;
+  const hasCjkEntries = Object.values(entries).some((group) => hasAnyCjk(Object.values(group)));
+  if (!hasCjkEntries) return null;
   return { labels, entries };
 }
 
@@ -330,6 +343,82 @@ export function readValidMarketLiveUiCache(
   return value as unknown as MarketLiveUiCache;
 }
 
+const DATA_SOURCE_KEYS: readonly MarketLiveDataSourceKey[] = [
+  'stats',
+  'static',
+  'filters',
+  'enStats',
+  'enFilters',
+];
+const MIN_ENGLISH_RATIO_SAMPLE = 10;
+const MAX_IDENTICAL_TO_ENGLISH_RATIO = 0.5;
+
+function isMostlyIdenticalToEnglish(compared: number, identical: number): boolean {
+  return (
+    compared >= MIN_ENGLISH_RATIO_SAMPLE && identical / compared > MAX_IDENTICAL_TO_ENGLISH_RATIO
+  );
+}
+
+/**
+ * 依國際服英文 stats 過濾與驗證在地化 stats：
+ * 1. 只保留國際服存在的 id，且重複出現次數需完全一致（避免 `localizeStats` 依索引對位錯亂）。
+ * 2. 若重疊條目與英文完全相同的比例超過 50%，視為目標網域退回英文而拒絕整份。
+ */
+export function alignLiveStatsWithEnglish(
+  localized: NonNullable<MarketTradeDictionary['stats']>,
+  enStats: Readonly<Record<string, string | string[]>>,
+): NonNullable<MarketTradeDictionary['stats']> | null {
+  const alignedStats: Record<string, string | string[]> = {};
+  let compared = 0;
+  let identical = 0;
+
+  for (const [id, locVal] of Object.entries(localized.stats)) {
+    const enVal = enStats[id];
+    if (enVal === undefined) continue;
+    if (typeof locVal === 'string' && typeof enVal === 'string') {
+      compared += 1;
+      if (locVal === enVal) identical += 1;
+      alignedStats[id] = locVal;
+      continue;
+    }
+    if (Array.isArray(locVal) && Array.isArray(enVal) && locVal.length === enVal.length) {
+      for (let i = 0; i < locVal.length; i += 1) {
+        compared += 1;
+        if (locVal[i] === enVal[i]) identical += 1;
+      }
+      alignedStats[id] = locVal;
+    }
+  }
+
+  if (
+    Object.keys(alignedStats).length < MIN_STATS_COUNT ||
+    isMostlyIdenticalToEnglish(compared, identical)
+  ) {
+    return null;
+  }
+
+  const alignedOptions: Record<string, Record<string, string>> = {};
+  for (const [id, opts] of Object.entries(localized.options)) {
+    if (id in alignedStats) alignedOptions[id] = opts;
+  }
+  return { labels: localized.labels, stats: alignedStats, options: alignedOptions };
+}
+
+function isFiltersMostlyEnglish(
+  localized: NonNullable<MarketTradeDictionary['filters']>,
+  enFields: Readonly<Record<string, string>>,
+): boolean {
+  let compared = 0;
+  let identical = 0;
+  for (const [id, locText] of Object.entries(localized.fields)) {
+    const enText = enFields[id];
+    if (typeof enText !== 'string') continue;
+    compared += 1;
+    if (locText === enText) identical += 1;
+  }
+  return isMostlyIdenticalToEnglish(compared, identical);
+}
+
 /** 驗證並讀出儲存於 chrome.storage.local 的 data API 快取 */
 export function readValidMarketLiveDataCache(
   value: unknown,
@@ -351,6 +440,14 @@ export function readValidMarketLiveDataCache(
     locale,
     updatedAt: value.updatedAt,
   };
+  if (isRecord(value.endpointUpdatedAt)) {
+    const endpointUpdatedAt: Partial<Record<MarketLiveDataSourceKey, number>> = {};
+    for (const key of DATA_SOURCE_KEYS) {
+      const ts = value.endpointUpdatedAt[key];
+      if (typeof ts === 'number' && Number.isFinite(ts)) endpointUpdatedAt[key] = ts;
+    }
+    if (Object.keys(endpointUpdatedAt).length > 0) out.endpointUpdatedAt = endpointUpdatedAt;
+  }
   if (
     isRecord(value.stats) &&
     isStringMap(value.stats.labels) &&
@@ -397,6 +494,15 @@ function mergeNestedMaps(
   return merged;
 }
 
+function mergeSection<T>(
+  bundled: T | undefined,
+  live: T | undefined,
+  combine: (base: T, overlay: T) => T,
+): T | undefined {
+  if (!live) return bundled;
+  return bundled ? combine(bundled, live) : live;
+}
+
 export function mergeMarketUiStrings(
   bundled: Readonly<Record<string, string>>,
   live: Readonly<Record<string, string>> | undefined,
@@ -410,32 +516,20 @@ export function mergeMarketTradeDictionary(
 ): Omit<MarketTradeDictionary, 'ui'> {
   if (!live) return bundled;
   return {
-    stats: live.stats
-      ? bundled.stats
-        ? {
-            labels: { ...bundled.stats.labels, ...live.stats.labels },
-            stats: { ...bundled.stats.stats, ...live.stats.stats },
-            options: mergeNestedMaps(bundled.stats.options, live.stats.options),
-          }
-        : live.stats
-      : bundled.stats,
-    static: live.static
-      ? bundled.static
-        ? {
-            labels: { ...bundled.static.labels, ...live.static.labels },
-            entries: mergeNestedMaps(bundled.static.entries, live.static.entries),
-          }
-        : live.static
-      : bundled.static,
-    filters: live.filters
-      ? bundled.filters
-        ? {
-            groups: { ...bundled.filters.groups, ...live.filters.groups },
-            fields: { ...bundled.filters.fields, ...live.filters.fields },
-            options: mergeNestedMaps(bundled.filters.options, live.filters.options),
-          }
-        : live.filters
-      : bundled.filters,
+    stats: mergeSection(bundled.stats, live.stats, (base, overlay) => ({
+      labels: { ...base.labels, ...overlay.labels },
+      stats: { ...base.stats, ...overlay.stats },
+      options: mergeNestedMaps(base.options, overlay.options),
+    })),
+    static: mergeSection(bundled.static, live.static, (base, overlay) => ({
+      labels: { ...base.labels, ...overlay.labels },
+      entries: mergeNestedMaps(base.entries, overlay.entries),
+    })),
+    filters: mergeSection(bundled.filters, live.filters, (base, overlay) => ({
+      groups: { ...base.groups, ...overlay.groups },
+      fields: { ...base.fields, ...overlay.fields },
+      options: mergeNestedMaps(base.options, overlay.options),
+    })),
     items: bundled.items,
   };
 }
@@ -508,6 +602,39 @@ export interface MarketTranslationLiveService {
   refresh(request: MarketTranslationRefreshRequest): Promise<MarketTranslationRefreshOutcome>;
 }
 
+function readEndpointUpdatedAt(
+  cache: MarketLiveDataCache | null,
+  source: MarketLiveDataSourceKey,
+): number | undefined {
+  if (!cache) return undefined;
+  const explicit = cache.endpointUpdatedAt?.[source];
+  if (typeof explicit === 'number') return explicit;
+  const fieldPresent =
+    source === 'enFilters' ? cache.enFields !== undefined : cache[source] !== undefined;
+  return fieldPresent && cache.updatedAt > 0 ? cache.updatedAt : undefined;
+}
+
+function readCooldownSet(
+  rawError: unknown,
+  now: number,
+  force: boolean | undefined,
+): Set<MarketLiveSourceKey> | null {
+  if (force || !isRecord(rawError) || typeof rawError.failedAt !== 'number') return null;
+  if (rawError.failedAt <= 0 || now - rawError.failedAt >= MARKET_LIVE_ERROR_COOLDOWN_MS) {
+    return null;
+  }
+  if (!Array.isArray(rawError.failedSources)) {
+    return new Set(['ui', ...DATA_SOURCE_KEYS]);
+  }
+  const valid = new Set<MarketLiveSourceKey>(['ui', ...DATA_SOURCE_KEYS]);
+  return new Set(
+    rawError.failedSources.filter(
+      (item): item is MarketLiveSourceKey =>
+        typeof item === 'string' && valid.has(item as MarketLiveSourceKey),
+    ),
+  );
+}
+
 export function createMarketTranslationLiveService(
   options: {
     storage?: MarketLiveStorage;
@@ -532,42 +659,75 @@ export function createMarketTranslationLiveService(
     const stored = await storage.get([uiKey, dataKey, errorKey]);
     const prevUi = readValidMarketLiveUiCache(stored[uiKey], locale);
     const prevData = readValidMarketLiveDataCache(stored[dataKey], version, locale);
-    const uiFresh = isMarketLiveCacheFresh(prevUi?.updatedAt, currentNow);
-    const dataFresh = isMarketLiveCacheFresh(prevData?.updatedAt, currentNow);
+    const cooledDown = readCooldownSet(stored[errorKey], currentNow, force);
 
-    if (!force && uiFresh && dataFresh) {
-      return { ok: true, updated: false, sources: [] };
+    const prevEndpointUpdatedAt: Partial<Record<MarketLiveDataSourceKey, number>> = {};
+    for (const ep of DATA_SOURCE_KEYS) {
+      const ts = readEndpointUpdatedAt(prevData, ep);
+      if (ts !== undefined) prevEndpointUpdatedAt[ep] = ts;
     }
-    if (!force && isRecord(stored[errorKey]) && typeof stored[errorKey].failedAt === 'number') {
-      if (currentNow - stored[errorKey].failedAt < MARKET_LIVE_ERROR_COOLDOWN_MS) {
-        return { ok: true, updated: false, sources: [] };
-      }
+
+    const shouldFetch = (source: MarketLiveSourceKey, fresh: boolean): boolean =>
+      Boolean(force) || (!fresh && !(cooledDown?.has(source) ?? false));
+
+    const fetchUi = shouldFetch('ui', isMarketLiveCacheFresh(prevUi?.updatedAt, currentNow));
+    const fetchStats = shouldFetch(
+      'stats',
+      isMarketLiveCacheFresh(prevEndpointUpdatedAt.stats, currentNow),
+    );
+    const fetchStatic = shouldFetch(
+      'static',
+      isMarketLiveCacheFresh(prevEndpointUpdatedAt.static, currentNow),
+    );
+    const fetchFilters = shouldFetch(
+      'filters',
+      isMarketLiveCacheFresh(prevEndpointUpdatedAt.filters, currentNow),
+    );
+    const fetchEnStats = shouldFetch(
+      'enStats',
+      isMarketLiveCacheFresh(prevEndpointUpdatedAt.enStats, currentNow),
+    );
+    const fetchEnFilters = shouldFetch(
+      'enFilters',
+      isMarketLiveCacheFresh(prevEndpointUpdatedAt.enFilters, currentNow),
+    );
+
+    const attemptedSources: MarketLiveSourceKey[] = [];
+    if (fetchUi) attemptedSources.push('ui');
+    if (fetchStats) attemptedSources.push('stats');
+    if (fetchStatic) attemptedSources.push('static');
+    if (fetchFilters) attemptedSources.push('filters');
+    if (fetchEnStats) attemptedSources.push('enStats');
+    if (fetchEnFilters) attemptedSources.push('enFilters');
+
+    if (attemptedSources.length === 0) {
+      return { ok: true, updated: false, sources: [] };
     }
 
     const endpoints = getRealmEndpoints(version, locale);
     const [uiRes, statsRes, staticRes, filtersRes, enStatsRes, enFiltersRes] =
       await Promise.allSettled([
-        !force && uiFresh
-          ? Promise.resolve(null)
-          : fetchFirstText(http, endpoints.uiUrls).then(parseOfficialTranslateJs),
-        !force && dataFresh
-          ? Promise.resolve(null)
-          : fetchJson(http, endpoints.statsUrl).then((raw) => parseOfficialTradeStats(raw, locale)),
-        !force && dataFresh
-          ? Promise.resolve(null)
-          : fetchJson(http, endpoints.staticUrl).then(parseOfficialTradeStatic),
-        !force && dataFresh
-          ? Promise.resolve(null)
-          : fetchJson(http, endpoints.filtersUrl).then(parseOfficialTradeFilters),
-        !force && dataFresh
-          ? Promise.resolve(null)
-          : fetchJson(http, endpoints.enStatsUrl).then(parseOfficialEnglishTradeStats),
-        !force && dataFresh
-          ? Promise.resolve(null)
-          : fetchJson(http, endpoints.enFiltersUrl).then(parseOfficialEnglishTradeFilters),
+        fetchUi
+          ? fetchFirstText(http, endpoints.uiUrls).then(parseOfficialTranslateJs)
+          : Promise.resolve(null),
+        fetchStats
+          ? fetchJson(http, endpoints.statsUrl).then(parseOfficialTradeStats)
+          : Promise.resolve(null),
+        fetchStatic
+          ? fetchJson(http, endpoints.staticUrl).then(parseOfficialTradeStatic)
+          : Promise.resolve(null),
+        fetchFilters
+          ? fetchJson(http, endpoints.filtersUrl).then(parseOfficialTradeFilters)
+          : Promise.resolve(null),
+        fetchEnStats
+          ? fetchJson(http, endpoints.enStatsUrl).then(parseOfficialEnglishTradeStats)
+          : Promise.resolve(null),
+        fetchEnFilters
+          ? fetchJson(http, endpoints.enFiltersUrl).then(parseOfficialEnglishTradeFilters)
+          : Promise.resolve(null),
       ]);
 
-    const updatedSources: string[] = [];
+    const updatedSources: MarketLiveSourceKey[] = [];
     const nextWrites: Record<string, unknown> = {};
     const fetchedAt = now();
 
@@ -582,11 +742,27 @@ export function createMarketTranslationLiveService(
       updatedSources.push('ui');
     }
 
-    const nextStats = statsRes.status === 'fulfilled' ? statsRes.value : null;
+    const rawNextStats = statsRes.status === 'fulfilled' ? statsRes.value : null;
     const nextStatic = staticRes.status === 'fulfilled' ? staticRes.value : null;
-    const nextFilters = filtersRes.status === 'fulfilled' ? filtersRes.value : null;
+    const rawNextFilters = filtersRes.status === 'fulfilled' ? filtersRes.value : null;
     const nextEnStats = enStatsRes.status === 'fulfilled' ? enStatsRes.value : null;
     const nextEnFields = enFiltersRes.status === 'fulfilled' ? enFiltersRes.value : null;
+
+    const effectiveEnStats = nextEnStats ?? prevData?.enStats;
+    const effectiveEnFields = nextEnFields ?? prevData?.enFields;
+
+    let nextStats = rawNextStats;
+    if (nextStats && effectiveEnStats) {
+      nextStats = alignLiveStatsWithEnglish(nextStats, effectiveEnStats);
+    }
+    let nextFilters = rawNextFilters;
+    if (
+      nextFilters &&
+      effectiveEnFields &&
+      isFiltersMostlyEnglish(nextFilters, effectiveEnFields)
+    ) {
+      nextFilters = null;
+    }
 
     if (nextStats) updatedSources.push('stats');
     if (nextStatic) updatedSources.push('static');
@@ -594,28 +770,59 @@ export function createMarketTranslationLiveService(
     if (nextEnStats) updatedSources.push('enStats');
     if (nextEnFields) updatedSources.push('enFilters');
 
-    if (nextStats || nextStatic || nextFilters || nextEnStats || nextEnFields) {
-      const hasLocalizedUpdate = Boolean(nextStats || nextStatic || nextFilters);
-      // 保留既有有效分片，避免單一端點暫時失敗而清掉上次成功的譯文；只有取得任一在地化端點時才推進 updatedAt
+    // 若本次補抓到 enStats 而既有的 stats 尚未依英文對齊，一併修剪既有 stats 以免重複 id 錯位
+    let retainedStats = prevData?.stats;
+    if (!nextStats && retainedStats && nextEnStats) {
+      retainedStats = alignLiveStatsWithEnglish(retainedStats, nextEnStats) ?? undefined;
+    }
+
+    const hasDataUpdate = Boolean(
+      nextStats || nextStatic || nextFilters || nextEnStats || nextEnFields,
+    );
+    if (hasDataUpdate) {
+      const nextEndpointUpdatedAt: Partial<Record<MarketLiveDataSourceKey, number>> = {
+        ...prevEndpointUpdatedAt,
+      };
+      if (nextStats) nextEndpointUpdatedAt.stats = fetchedAt;
+      if (nextStatic) nextEndpointUpdatedAt.static = fetchedAt;
+      if (nextFilters) nextEndpointUpdatedAt.filters = fetchedAt;
+      if (nextEnStats) nextEndpointUpdatedAt.enStats = fetchedAt;
+      if (nextEnFields) nextEndpointUpdatedAt.enFilters = fetchedAt;
+
+      const timestamps = DATA_SOURCE_KEYS.map((key) => nextEndpointUpdatedAt[key]).filter(
+        (ts): ts is number => typeof ts === 'number',
+      );
+      const allDataPresent = timestamps.length === DATA_SOURCE_KEYS.length;
+
       nextWrites[dataKey] = {
         schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
         version,
         locale,
-        updatedAt: hasLocalizedUpdate ? fetchedAt : (prevData?.updatedAt ?? 0),
-        stats: nextStats ?? prevData?.stats,
+        updatedAt: allDataPresent ? Math.min(...timestamps) : 0,
+        endpointUpdatedAt: nextEndpointUpdatedAt,
+        stats: nextStats ?? retainedStats,
         static: nextStatic ?? prevData?.static,
         filters: nextFilters ?? prevData?.filters,
-        enStats: nextEnStats ?? prevData?.enStats,
-        enFields: nextEnFields ?? prevData?.enFields,
+        enStats: effectiveEnStats,
+        enFields: effectiveEnFields,
       } satisfies MarketLiveDataCache;
     }
 
-    if (updatedSources.length > 0) {
-      await storage.set(nextWrites);
-      return { ok: true, updated: true, sources: updatedSources };
+    const updatedSet = new Set(updatedSources);
+    const failedSources = attemptedSources.filter((s) => !updatedSet.has(s));
+    if (failedSources.length > 0) {
+      nextWrites[errorKey] = { failedAt: fetchedAt, failedSources };
+    } else if (isRecord(stored[errorKey])) {
+      nextWrites[errorKey] = { failedAt: 0, failedSources: [] };
     }
 
-    await storage.set({ [errorKey]: { failedAt: fetchedAt } });
+    if (Object.keys(nextWrites).length > 0) {
+      await storage.set(nextWrites);
+    }
+
+    if (updatedSources.length > 0) {
+      return { ok: true, updated: true, sources: updatedSources };
+    }
     return { ok: false, error: '所有官方翻譯來源皆取得失敗或格式不符' };
   }
 

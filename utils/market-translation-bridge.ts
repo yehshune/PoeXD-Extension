@@ -10,7 +10,7 @@ import {
   resolveMarketTranslationLocale,
   type MarketTranslationLocale,
 } from './market-translation';
-import { loadMarketTradeDictionary } from './market-translation-assets';
+import { loadMarketTradeDictionary, type MarketLiveEnglishData } from './market-translation-assets';
 import {
   getMarketLiveDataCacheKey,
   getMarketLiveUiCacheKey,
@@ -38,11 +38,6 @@ export const MARKET_TRANSLATION_STORAGE_KEYS = [
   'displayLocale',
   ...LEGACY_DISPLAY_LOCALE_KEYS,
 ] as const;
-
-export interface MarketLiveEnglishData {
-  stats?: Record<string, string | string[]>;
-  fields?: Record<string, string>;
-}
 
 export interface MarketTranslationBridgeDeps {
   hostname: string;

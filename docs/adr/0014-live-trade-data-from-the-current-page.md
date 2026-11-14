@@ -16,7 +16,7 @@ We add **Live Trade Data (即時市集資料)**: the Trade filter labels (groups
 - **No requests, no storage.** It adds no network request, no `host_permissions` entry and no privacy-policy change. It lives in memory for one Search Observation Session and is never written to `chrome.storage`, so a stale copy can never outlive the page that produced it.
 - **Untrusted input.** The data crosses from the page's MAIN world, where any page script can forge events, so the isolated world validates shape, types and size, drops anything unexpected, and renders it only as text.
 
-Game-data artifacts (tier tables, Game Wording, result-row labels, item names, mercenary data) have no official API source and stay bundled-only. Market Translation shards stay bundled-only because their source is another realm's API (ADR-0012).
+Game-data artifacts (tier tables, Game Wording, result-row labels, item names, mercenary data) have no official API source and stay bundled-only. For Market Translation (ADR-0012), bundled shards remain the instant baseline and offline fallback, while Trade API and UI dictionary overlays are refreshed in the background from the target realm with a 6-hour cache TTL.
 
 ## Considered Options
 

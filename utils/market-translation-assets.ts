@@ -151,6 +151,11 @@ function fieldLabels(english: unknown, localized: Record<string, string> | undef
   return labels;
 }
 
+export interface MarketLiveEnglishData {
+  stats?: Record<string, string | string[]>;
+  fields?: Record<string, string>;
+}
+
 /**
  * 結果列翻譯的資料：遊戲寫法變體、市集寫法備援（中英 trade-stats）、物品名、標籤與句型模板。
  * 已載入的 data 字典直接沿用；各部分獨立，失敗的部分為空。
@@ -162,10 +167,7 @@ export async function loadResultTranslatorData(
     locale: MarketTranslationLocale;
     dictionary: Omit<MarketTradeDictionary, 'ui'>;
     ui: Record<string, string>;
-    liveEn?: {
-      stats?: Record<string, string | string[]>;
-      fields?: Record<string, string>;
-    };
+    liveEn?: MarketLiveEnglishData;
   },
 ): Promise<ResultTranslatorData> {
   const { version, locale, dictionary, ui, liveEn } = options;

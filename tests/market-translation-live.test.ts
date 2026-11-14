@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   MARKET_LIVE_ERROR_COOLDOWN_MS,
   MARKET_LIVE_TTL_MS,
+  alignLiveStatsWithEnglish,
   createMarketTranslationLiveService,
   getMarketLiveDataCacheKey,
   getMarketLiveErrorCacheKey,
@@ -33,7 +34,13 @@ function buildTranslateJs(count = 110, extraLines: string[] = []): string {
   return `\uFEFF${lines.join('\n')}`;
 }
 
-function buildStatsResponse(count = 510, label = '偽屬性') {
+function buildStatsResponse(
+  count = 510,
+  label = '偽屬性',
+  options: { prefix?: string; dupCount?: number } = {},
+) {
+  const prefix = options.prefix ?? '詞綴';
+  const dupCount = options.dupCount ?? 2;
   const entries = [
     { id: 'pseudo.pseudo_total_life', text: '+# 最大生命', type: 'pseudo' },
     {
@@ -43,17 +50,63 @@ function buildStatsResponse(count = 510, label = '偽屬性') {
       option: { options: [{ id: 1, text: '低階' }] },
     },
   ];
-  const explicitEntries = [
-    { id: 'explicit.stat_dup', text: '魔法怪物增加 #%', type: 'explicit' },
-    { id: 'explicit.stat_dup', text: '增加 #% 地圖中魔法怪物數量', type: 'explicit' },
-  ];
+  const explicitEntries = Array.from({ length: dupCount }, (_, i) => ({
+    id: 'explicit.stat_dup',
+    text: i === 0 ? '魔法怪物增加 #%' : `增加 #% 地圖中魔法怪物數量 (${i})`,
+    type: 'explicit',
+  }));
   for (let i = 0; i < count; i += 1) {
-    explicitEntries.push({ id: `explicit.stat_${i}`, text: `詞綴 ${i}`, type: 'explicit' });
+    explicitEntries.push({ id: `explicit.stat_${i}`, text: `${prefix} ${i}`, type: 'explicit' });
   }
   return {
     result: [
       { id: 'pseudo', label, entries },
       { id: 'explicit', label: '隨機屬性', entries: explicitEntries },
+    ],
+  };
+}
+
+function buildEnglishStatsResponse(count = 510) {
+  const entries = [
+    { id: 'pseudo.pseudo_total_life', text: '+# to maximum Life', type: 'pseudo' },
+    {
+      id: 'pseudo.pseudo_searing_implicit_tier',
+      text: 'Searing Exarch Implicit Modifier Tier',
+      type: 'pseudo',
+      option: { options: [{ id: 1, text: 'Lesser' }] },
+    },
+  ];
+  const explicitEntries = [
+    { id: 'explicit.stat_dup', text: '#% increased Magic Monsters', type: 'explicit' },
+    { id: 'explicit.stat_dup', text: '#% increased Magic Monsters in Area', type: 'explicit' },
+  ];
+  for (let i = 0; i < count; i += 1) {
+    explicitEntries.push({ id: `explicit.stat_${i}`, text: `Mod ${i}`, type: 'explicit' });
+  }
+  return {
+    result: [
+      { id: 'pseudo', label: 'Pseudo', entries },
+      { id: 'explicit', label: 'Explicit', entries: explicitEntries },
+    ],
+  };
+}
+
+function buildEnglishFiltersResponse() {
+  const filters = Array.from({ length: 10 }, (_, i) => ({ id: `field_${i}`, text: `Field ${i}` }));
+  return {
+    result: [
+      {
+        id: 'type_filters',
+        title: 'Type Filters',
+        filters: [
+          {
+            id: 'sale_type',
+            text: 'Sale Type',
+            option: { options: [{ id: null, text: 'Buyout' }] },
+          },
+          ...filters,
+        ],
+      },
     ],
   };
 }
@@ -136,29 +189,66 @@ describe('parseOfficialTranslateJs', () => {
 
 describe('parseOfficialTrade{Stats,Static,Filters}', () => {
   it('stats 保留重複 id 順序為陣列，並解析選項文字', () => {
-    const parsed = parseOfficialTradeStats(buildStatsResponse(), 'zh-TW');
+    const parsed = parseOfficialTradeStats(buildStatsResponse());
     expect(parsed?.labels.pseudo).toBe('偽屬性');
     expect(parsed?.stats['pseudo.pseudo_total_life']).toBe('+# 最大生命');
     expect(parsed?.stats['explicit.stat_dup']).toEqual([
       '魔法怪物增加 #%',
-      '增加 #% 地圖中魔法怪物數量',
+      '增加 #% 地圖中魔法怪物數量 (1)',
     ]);
     expect(parsed?.options['pseudo.pseudo_searing_implicit_tier']).toEqual({ '1': '低階' });
-    expect(parseOfficialTradeStats(buildStatsResponse(510, 'Pseudo'), 'zh-TW')).not.toBeNull();
+    expect(parseOfficialTradeStats(buildStatsResponse(510, 'Pseudo'))).not.toBeNull();
     expect(
-      parseOfficialTradeStats(
-        {
-          result: [
-            {
-              id: 'pseudo',
-              label: 'Pseudo',
-              entries: Array.from({ length: 500 }, (_, i) => ({ id: `p${i}`, text: `Stat ${i}` })),
-            },
-          ],
-        },
-        'zh-TW',
-      ),
+      parseOfficialTradeStats({
+        result: [
+          {
+            id: 'pseudo',
+            label: 'Pseudo',
+            entries: Array.from({ length: 500 }, (_, i) => ({ id: `p${i}`, text: `Stat ${i}` })),
+          },
+        ],
+      }),
     ).toBeNull();
+  });
+
+  it('alignLiveStatsWithEnglish 僅保留國際服同出現次數 id 並拒絕超過 50% 為英文的回應', () => {
+    const enStats = buildEnglishStatsResponse()
+      .result.flatMap((g) => g.entries)
+      .reduce<Record<string, string | string[]>>((acc, entry) => {
+        const prev = acc[entry.id];
+        acc[entry.id] = prev
+          ? Array.isArray(prev)
+            ? [...prev, entry.text]
+            : [prev, entry.text]
+          : entry.text;
+        return acc;
+      }, {});
+
+    // 1) 重複 id 出現次數不同 (1 vs 2) 與不存在於國際服的 id 皆應略過
+    const mismatched = parseOfficialTradeStats({
+      result: [
+        ...buildStatsResponse(510, '偽屬性', { dupCount: 1 }).result,
+        { id: 'extra', label: '額外', entries: [{ id: 'realm.only', text: '僅此服存在' }] },
+      ],
+    })!;
+    const aligned = alignLiveStatsWithEnglish(mismatched, enStats);
+    expect(aligned).not.toBeNull();
+    expect(aligned?.stats['explicit.stat_dup']).toBeUndefined();
+    expect(aligned?.stats['realm.only']).toBeUndefined();
+    expect(aligned?.stats['pseudo.pseudo_total_life']).toBe('+# 最大生命');
+
+    // 2) 重複 id 次數相同 (2 vs 2) 則保留
+    const matched = parseOfficialTradeStats(buildStatsResponse())!;
+    expect(alignLiveStatsWithEnglish(matched, enStats)?.stats['explicit.stat_dup']).toEqual([
+      '魔法怪物增加 #%',
+      '增加 #% 地圖中魔法怪物數量 (1)',
+    ]);
+
+    // 3) 與英文完全相同超過 50% 時整份拒絕（即使含有少量中文詞綴）
+    const mostlyEnglish = parseOfficialTradeStats(
+      buildStatsResponse(510, 'Pseudo', { prefix: 'Mod' }),
+    )!;
+    expect(alignLiveStatsWithEnglish(mostlyEnglish, enStats)).toBeNull();
   });
 
   it('static 依群組收錄條目並略過 sep 分隔列', () => {
@@ -200,9 +290,9 @@ describe('createMarketTranslationLiveService', () => {
       if (url === 'https://pathofexile.tw/api/trade/data/filters')
         return okResponse(buildFiltersResponse());
       if (url === 'https://www.pathofexile.com/api/trade/data/stats')
-        return okResponse(buildStatsResponse());
+        return okResponse(buildEnglishStatsResponse());
       if (url === 'https://www.pathofexile.com/api/trade/data/filters')
-        return okResponse(buildFiltersResponse());
+        return okResponse(buildEnglishFiltersResponse());
       throw new Error(`unexpected ${url}`);
     });
     const service = createMarketTranslationLiveService({ storage, http, now: () => nowMs });
@@ -251,9 +341,9 @@ describe('createMarketTranslationLiveService', () => {
       if (url === 'https://poe.game.qq.com/api/trade2/data/filters')
         return okResponse(buildFiltersResponse());
       if (url === 'https://www.pathofexile.com/api/trade2/data/stats')
-        return okResponse(buildStatsResponse());
+        return okResponse(buildEnglishStatsResponse());
       if (url === 'https://www.pathofexile.com/api/trade2/data/filters')
-        return okResponse(buildFiltersResponse());
+        return okResponse(buildEnglishFiltersResponse());
       throw new Error(`unexpected ${url}`);
     });
     const service = createMarketTranslationLiveService({ storage, http, now: () => 5_000_000 });
@@ -287,6 +377,61 @@ describe('createMarketTranslationLiveService', () => {
     nowMs += MARKET_LIVE_ERROR_COOLDOWN_MS - 1000;
     const cooled = await service.refresh({ version: 'poe1', locale: 'zh-TW' });
     expect(cooled).toEqual({ ok: true, updated: false, sources: [] });
+    expect(http).not.toHaveBeenCalled();
+  });
+
+  it('部分端點失敗時只冷卻失敗端點並在冷卻後單獨重試，不凍結 6 小時也不重抓已成功端點', async () => {
+    let nowMs = 20_000_000;
+    let failStatic = true;
+    const storage = createMemoryStorage();
+    const http = vi.fn<MarketLiveHttpClient>(async (url) => {
+      if (url === 'https://webtw.poecdn.com/js/translate.zh_TW.js')
+        return okResponse(buildTranslateJs());
+      if (url === 'https://pathofexile.tw/api/trade/data/stats')
+        return okResponse(buildStatsResponse());
+      if (url === 'https://pathofexile.tw/api/trade/data/static') {
+        if (failStatic)
+          return { ok: false, status: 503, text: async () => '', json: async () => ({}) };
+        return okResponse(buildStaticResponse());
+      }
+      if (url === 'https://pathofexile.tw/api/trade/data/filters')
+        return okResponse(buildFiltersResponse());
+      if (url === 'https://www.pathofexile.com/api/trade/data/stats')
+        return okResponse(buildEnglishStatsResponse());
+      if (url === 'https://www.pathofexile.com/api/trade/data/filters')
+        return okResponse(buildEnglishFiltersResponse());
+      throw new Error(`unexpected ${url}`);
+    });
+    const service = createMarketTranslationLiveService({ storage, http, now: () => nowMs });
+
+    const first = await service.refresh({ version: 'poe1', locale: 'zh-TW' });
+    expect(first).toEqual({
+      ok: true,
+      updated: true,
+      sources: ['ui', 'stats', 'filters', 'enStats', 'enFilters'],
+    });
+
+    // 冷卻期內不應重複發請求
+    http.mockClear();
+    nowMs += MARKET_LIVE_ERROR_COOLDOWN_MS - 1000;
+    const withinCooldown = await service.refresh({ version: 'poe1', locale: 'zh-TW' });
+    expect(withinCooldown).toEqual({ ok: true, updated: false, sources: [] });
+    expect(http).not.toHaveBeenCalled();
+
+    // 冷卻過後只單獨補抓之前失敗的 static，不再重抓其他 5 個新鮮端點
+    failStatic = false;
+    nowMs += 2000;
+    const retry = await service.refresh({ version: 'poe1', locale: 'zh-TW' });
+    expect(retry).toEqual({ ok: true, updated: true, sources: ['static'] });
+    expect(http.mock.calls.map(([u]) => u)).toEqual([
+      'https://pathofexile.tw/api/trade/data/static',
+    ]);
+
+    // 之後 6 小時內不再重抓任何端點
+    http.mockClear();
+    nowMs += MARKET_LIVE_TTL_MS - MARKET_LIVE_ERROR_COOLDOWN_MS - 5000;
+    const settled = await service.refresh({ version: 'poe1', locale: 'zh-TW' });
+    expect(settled).toEqual({ ok: true, updated: false, sources: [] });
     expect(http).not.toHaveBeenCalled();
   });
 
