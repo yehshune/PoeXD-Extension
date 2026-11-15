@@ -109,32 +109,38 @@ function restoreSnapshot(store: HostVuexStore, backup: Record<string, unknown>) 
   });
 }
 
-function saveForm(store: HostVuexStore, root: HostTradeRoot | null) {
+/**
+ * 官方 `save(true)` 是 async：先 gzip `query`（CompressionStream）再 `history.pushState`，
+ * 回傳的 promise 完成時網址才是最新的。
+ */
+function saveForm(store: HostVuexStore, root: HostTradeRoot | null): Promise<void> | void {
   if (typeof root?.save === 'function') {
-    root.save(true);
-  } else {
-    store.commit('setSearchDirty', undefined);
+    return root.save(true);
   }
+  store.commit('setSearchDirty', undefined);
 }
 
 /**
  * 依序以官方 mutation 執行 ops，最後呼叫根元件 `save(true)` 同步網址、dirty 狀態與官方本機狀態。
  * 根元件不可用時退回只標記 dirty。任何一筆失敗時整批還原為執行前的表單，避免停在半套用狀態。
+ * 回傳官方 save 的 promise（若有），呼叫端應等它完成後再回報，網址才會反映這次修改。
  */
 export function executeCriteriaOverlayOps(
   store: HostVuexStore,
   root: HostTradeRoot | null,
   ops: readonly CriteriaOverlayOp[],
-) {
+): Promise<void> | void {
   const backup = readCriteriaOverlaySnapshot(store);
+  let saved: Promise<void> | void = undefined;
   try {
     ops.forEach((op) => commitOp(store, root, op));
   } catch (error) {
     if (backup) restoreSnapshot(store, backup);
     throw error;
   } finally {
-    saveForm(store, root);
+    saved = saveForm(store, root);
   }
+  return saved;
 }
 
 export function initCriteriaOverlayAdapter(bridge: MainWorldBridge) {
@@ -160,14 +166,14 @@ export function initCriteriaOverlayAdapter(bridge: MainWorldBridge) {
     );
   });
 
-  const unsubCommit = bridge.addListener('poexd-criteria-overlay-commit', (detail) => {
+  const unsubCommit = bridge.addListener('poexd-criteria-overlay-commit', async (detail) => {
     const request = parsePoeCriteriaOverlayCommit(detail);
     if (!request) return;
     let error: string | undefined;
     try {
       const store = getVueStore();
       if (!store) throw new Error('找不到官方搜尋表單狀態');
-      executeCriteriaOverlayOps(store, getTradeRootComponent(), request.ops);
+      await executeCriteriaOverlayOps(store, getTradeRootComponent(), request.ops);
       saveAllCategoriesToSessionStorage();
       // 等官方重新渲染後，重新標記詞綴並計算類別綁定
       setTimeout(() => tagFilterDomElements(), 20);

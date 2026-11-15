@@ -202,13 +202,40 @@ describe('initCriteriaOverlayAdapter', () => {
     expect((result?.snapshot as any).type).toBe('Gold Ring');
   });
 
-  it('executes a valid commit and reports success', () => {
+  it('replies only after the official async save() has written the URL', async () => {
+    let finishSave!: () => void;
+    root.save.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    listeners.get('poexd-criteria-overlay-commit')!(
+      serializePoeCriteriaOverlayCommit({
+        requestId: 'c3',
+        ops: [{ kind: 'setStatus', status: 'online' }],
+      }),
+    );
+    await Promise.resolve();
+    expect(root.save).toHaveBeenCalledWith(true);
+    expect(dispatched).toEqual([]);
+
+    finishSave();
+    await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+    expect(parsePoeCriteriaOverlayCommitResult(dispatched[0][1])).toEqual({
+      requestId: 'c3',
+      success: true,
+    });
+  });
+
+  it('executes a valid commit and reports success', async () => {
     listeners.get('poexd-criteria-overlay-commit')!(
       serializePoeCriteriaOverlayCommit({
         requestId: 'c1',
         ops: [{ kind: 'setStatus', status: 'online' }],
       }),
     );
+    await vi.waitFor(() => expect(dispatched).toHaveLength(1));
     expect(store.commit).toHaveBeenCalledWith('setStatus', 'online');
     expect(root.save).toHaveBeenCalledWith(true);
     expect(parsePoeCriteriaOverlayCommitResult(dispatched[0][1])).toEqual({

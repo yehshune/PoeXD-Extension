@@ -44,7 +44,8 @@ export async function syncFormToUrl(deps: FormUrlSyncDeps = {}): Promise<string>
     throw new Error('無法同步目前搜尋表單，書籤未儲存，請稍後再試');
   }
 
-  // 官方 save(true) 可能非同步更新網址：等到網址變化，或表單本來就已同步而在時限內維持不變
+  // Main World 會等官方 async save(true) 寫完網址才回覆 commit；此輪詢只是保險：
+  // 等到網址變化，或表單本來就已同步而在時限內維持不變
   for (let elapsed = 0; elapsed < settleMs; elapsed += pollMs) {
     if (readUrl() !== before) return readUrl();
     await wait(pollMs);

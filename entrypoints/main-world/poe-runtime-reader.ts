@@ -39,7 +39,8 @@ export function getVueStore(): HostVuexStore | null {
 
 /** 官方 Trade 根元件（提供 `save`、`setPropertyFilterGroupDisabled` 等方法）。 */
 export interface HostTradeRoot {
-  save?: (dirty?: boolean) => void;
+  /** 官方實作為 async：完成時才 `history.pushState` 寫入新網址。 */
+  save?: (dirty?: boolean) => Promise<void> | void;
   setPropertyFilterGroupDisabled?: (payload: { group: string; disable: boolean }) => void;
 }
 
