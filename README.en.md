@@ -28,15 +28,15 @@ on the right. Store versions update automatically. Firefox is not available yet.
 
 ## What's new
 
-- **Market Translation synced to sidebar & clearer locale prompts**: while Market Translation is
-  active, sidebar filter labels and stat wording overlay the cached official Taiwan/China realm
-  data; also fixed browser locale detection so Chinese language lists don't silently fall back to
-  English, and added locale/reload prompts in settings and the extension popup.
-- **PoE 1 Viscera category & mod tiers**: added the Viscera group and its four body-part
-  subcategories (head, arm, body, leg) to the PoE 1 affix selector along with synced viscera mod
-  tiers.
-- **PoE 1 3.30.0.2 data sync**: updated bundled stats, items, mercenary entries and translation
-  shards for Path of Exile 1 patch 3.30.0.2.
+- **Fixed "Send to console" freezes**: a bookmark change during console startup could freeze the
+  whole console tab on the next enqueue; sending and league loading now also time out with a
+  fallback queue, so the button no longer gets stuck and batches are never added twice.
+- **Fixed edited criteria missing from console and bookmarks**: sending or bookmarking right after
+  changing criteria such as the item category could use the stale URL; it now waits for the
+  official site to write the form into the URL first.
+- **Fixed search bar glitches with Chinese IME**: with the search tilde option on, typing Chinese
+  continuously could insert ~ mid-composition and leave stray characters (e.g. Bopomofo); the
+  prefix is now applied only after composition ends.
 
 See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
 
