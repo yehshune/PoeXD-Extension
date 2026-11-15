@@ -1715,6 +1715,9 @@ export function createLiveSearchSourceController(
         }
 
         notify();
+        // A bookmark change may arrive while resolveInitialLeague() is awaited; honour it
+        // instead of exiting with hasPendingReload stranded.
+        if (hasPendingReload) continue;
         break;
       }
     } finally {
@@ -1735,11 +1738,18 @@ export function createLiveSearchSourceController(
 
   async function waitForReconciliationDrain(): Promise<void> {
     while (!disposed && (isReloading || hasPendingReload)) {
-      if (reloadDrainPromise) {
-        await reloadDrainPromise;
-      } else {
-        await Promise.resolve();
+      if (!reloadDrainPromise) {
+        // Never spin on resolved microtasks here: that starves the event loop and freezes
+        // the console tab. Restart the reload loop so the pending reload actually drains.
+        if (!source) {
+          isReloading = false;
+          hasPendingReload = false;
+          return;
+        }
+        isReloading = true;
+        reloadDrainPromise = runReloadLoop();
       }
+      await reloadDrainPromise;
     }
   }
 
