@@ -123,7 +123,7 @@ PoeXD enhances the official Path of Exile trade website: it lets players organiz
 
 ### 遠端程式碼 / Remote code
 
-選 **No, I am not using remote code**。所有 JavaScript 都打包在擴充功能裡；從 poe.ninja 和官方網站取得的只有 JSON 資料，不會被當成程式碼執行。
+選 **No, I am not using remote code**。所有 JavaScript 都打包在擴充功能裡；從 poe.ninja 和官方網站取得的只有公開 JSON 資料與純文字介面字典（`translate.*.js` 以嚴格正規式純當資料解析，不會被 `eval` 或當成程式碼執行）。
 
 ### 資料使用 / Data usage
 
@@ -156,7 +156,7 @@ Testing steps:
 7. Optional "Chinese Trade Site": open the PoeXD settings (or the toolbar popup), set Language to Traditional or Simplified Chinese, turn on "Chinese Trade Site", then reload the international trade page. The interface, filters, dropdowns and results are shown in Chinese.
 
 How the "Chinese Trade Site" feature works:
-- A content script runs in the page context (MAIN world) on www.pathofexile.com/trade* only. It wraps window.fetch and, for the four official trade data endpoints (/api/trade[2]/data/items, stats, static, filters), rewrites the display text of the JSON response in memory using translation dictionaries bundled in the extension package and optionally refreshed in the background from the official Taiwan/China realm public data endpoints.
+- A content script runs in the page context (MAIN world) on www.pathofexile.com/trade* only. It wraps window.fetch and, for the four official trade data endpoints (/api/trade[2]/data/items, stats, static, filters), rewrites the display text of the JSON response in memory using translation dictionaries bundled in the extension package and refreshed in the background (6-hour local cache) from the official Taiwan/China realm public data endpoints when Market Translation is enabled.
 - Only display text is changed. Request URLs, request bodies, search ids and every value sent to the official API stay identical to the English page. No user data leaves the browser, and downloaded official dictionaries are parsed purely as data (no eval) and cached locally.
 - Result rows are translated by replacing the text of existing DOM text nodes and title attributes; no HTML is injected.
 - When the feature is off, the wrapper passes every request and response through unchanged.
