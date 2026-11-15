@@ -28,17 +28,15 @@ on the right. Store versions update automatically. Firefox is not available yet.
 
 ## What's new
 
-- **Live official refresh for Market Translation**: when Market Translation is enabled, the
-  extension fetches and caches official Taiwan/China UI dictionaries, stats, static entries and
-  filters in the background (6-hour TTL) so new patch mods and filters appear without waiting for
-  an extension release, using bundled shards as the instant baseline and offline fallback.
-- **Live trade labels from the current page**: when Display Locale matches the active official
-  trade site, the affix selector and sidebar filters read filter labels and stat text (including
-  pseudo stats) directly from the page ahead of bundled shards.
-- **PoE 1 3.30 data sync**: updated bundled stats, items, trade filters and translation shards for
-  Path of Exile 1 3.30.
-- **Onboarding & reliability**: added a welcome card and sidebar expand hint for new installs,
-  pre-overwrite backup guards for local bookmark/search storage, and tighter event isolation.
+- **Market Translation synced to sidebar & clearer locale prompts**: while Market Translation is
+  active, sidebar filter labels and stat wording overlay the cached official Taiwan/China realm
+  data; also fixed browser locale detection so Chinese language lists don't silently fall back to
+  English, and added locale/reload prompts in settings and the extension popup.
+- **PoE 1 Viscera category & mod tiers**: added the Viscera group and its four body-part
+  subcategories (head, arm, body, leg) to the PoE 1 affix selector along with synced viscera mod
+  tiers.
+- **PoE 1 3.30.0.2 data sync**: updated bundled stats, items, mercenary entries and translation
+  shards for Path of Exile 1 patch 3.30.0.2.
 
 See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
 
