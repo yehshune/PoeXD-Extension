@@ -104,4 +104,36 @@ describe('PoE 1 item categories', () => {
     expect(poe1.typeNames.trinket).toBe('Trinket');
     expect(poe1.typeNames.relic).toBe('Sanctum Relic');
   });
+
+  it('adds viscera with one sub-category per body part', () => {
+    setActiveDisplayLocale('zh-TW');
+    expect(groupOf('viscera')).toBe('臟器');
+    expect(groupOf('viscera_leg')).toBe('臟器');
+    expect(poe1.typeNames.viscera).toBe('臟器');
+    expect(poe1.typeNames.viscera_head).toBe('頭部臟器');
+    expect(rowOf('viscera')?.subKeys).toEqual({
+      viscera_head: '頭部',
+      viscera_arm: '手部',
+      viscera_body: '身體',
+      viscera_leg: '腿部',
+    });
+    expect(poe1.typeMap.viscera_arm).toEqual({ cat: ['臟器', 'Viscera'], sub: ['手部', 'Arm'] });
+
+    setActiveDisplayLocale('en');
+    expect(poe1.typeNames.viscera_body).toBe('Body Viscera');
+  });
+
+  it('maps the official viscera categories to the viscera keys', () => {
+    expect(poe1.machineOptionLookup.viscera).toBe('viscera');
+    expect(poe1.machineOptionLookup['viscera.head']).toBe('viscera_head');
+    expect(poe1.machineOptionLookup['viscera.arm']).toBe('viscera_arm');
+    expect(poe1.machineOptionLookup['viscera.body']).toBe('viscera_body');
+    expect(poe1.machineOptionLookup['viscera.leg']).toBe('viscera_leg');
+  });
+
+  it('shows English viscera names in zh-CN until the China realm has official wording', () => {
+    setActiveDisplayLocale('zh-CN');
+    expect(poe1.typeNames.viscera).toBe('Viscera');
+    expect(rowOf('viscera')?.subKeys.viscera_head).toBe('Head');
+  });
 });

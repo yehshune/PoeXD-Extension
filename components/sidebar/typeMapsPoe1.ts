@@ -301,12 +301,52 @@ const ENDGAME_DEFS: Readonly<Record<string, CategoryDef>> = {
   trinket: D(['飾品', '饰品', 'Trinket'], L('飾品', '饰品', 'Trinket')),
 };
 
+/**
+ * 臟器（3.30 新增）：依部位分成頭、手、身體、腿，與官方市集的 viscera.* 子分類一致。
+ * 國服尚未上線這個版本，沒有官方簡中用語，先顯示英文（不從繁中轉換，見 ADR-0012）。
+ */
+const VISCERA_CAT = ['臟器', 'Viscera'];
+
+const VISCERA_PARTS = [
+  {
+    key: 'viscera_head',
+    name: L('頭部臟器', 'Head Viscera', 'Head Viscera'),
+    short: L('頭部', 'Head', 'Head'),
+  },
+  {
+    key: 'viscera_arm',
+    name: L('手部臟器', 'Arm Viscera', 'Arm Viscera'),
+    short: L('手部', 'Arm', 'Arm'),
+  },
+  {
+    key: 'viscera_body',
+    name: L('身體臟器', 'Body Viscera', 'Body Viscera'),
+    short: L('身體', 'Body', 'Body'),
+  },
+  {
+    key: 'viscera_leg',
+    name: L('腿部臟器', 'Leg Viscera', 'Leg Viscera'),
+    short: L('腿部', 'Leg', 'Leg'),
+  },
+] as const;
+
+const VISCERA_DEFS: Readonly<Record<string, CategoryDef>> = {
+  viscera: D(VISCERA_CAT, L('臟器', 'Viscera', 'Viscera')),
+  ...Object.fromEntries(
+    VISCERA_PARTS.map((part) => [
+      part.key,
+      D(VISCERA_CAT, part.name, [part.short['zh-TW'], part.short.en]),
+    ]),
+  ),
+};
+
 const SIMPLE_DEFS: Readonly<Record<string, CategoryDef>> = {
   ...WEAPON_DEFS,
   ...ACCESSORY_DEFS,
   ...JEWEL_DEFS,
   ...FLASK_DEFS,
   ...ENDGAME_DEFS,
+  ...VISCERA_DEFS,
 };
 
 // === 組裝 typeMap 與名稱表 ===
@@ -384,6 +424,7 @@ const POE1_HEIST_KEYS = [
   'heist_brooch',
   'trinket',
 ];
+const POE1_VISCERA_KEYS = Object.keys(VISCERA_DEFS);
 
 const GROUP_DEFS: ReadonlyArray<{ readonly label: Localized; readonly keys: string[] }> = [
   { label: L('武器', '武器', 'Weapons'), keys: POE1_WEAPON_KEYS },
@@ -394,6 +435,7 @@ const GROUP_DEFS: ReadonlyArray<{ readonly label: Localized; readonly keys: stri
   { label: L('地圖', '地图', 'Maps'), keys: POE1_MAP_KEYS },
   { label: L('聖域', '禁域', 'Sanctum'), keys: POE1_SANCTUM_KEYS },
   { label: L('劫盜', '赏金', 'Heist'), keys: POE1_HEIST_KEYS },
+  { label: L('臟器', 'Viscera', 'Viscera'), keys: POE1_VISCERA_KEYS },
 ];
 
 function groupsFor(locale: SupportedUiLocale): CategoryGroup[] {
@@ -468,6 +510,10 @@ const ROW_DEFS: ReadonlyArray<{
       heist_brooch: L('胸針', '胸针', 'Brooch'),
     },
   },
+  {
+    mainKey: 'viscera',
+    subKeys: Object.fromEntries(VISCERA_PARTS.map((part) => [part.key, part.short])),
+  },
 ];
 
 function rowsFor(locale: SupportedUiLocale): TypeRowConfig[] {
@@ -534,4 +580,10 @@ export const officialCategoryMapPoe1: Record<string, string> = {
   'heistequipment.heisttool': 'heist_tool',
   'heistequipment.heistutility': 'heist_cloak',
   'heistequipment.heistreward': 'heist_brooch',
+
+  viscera: 'viscera',
+  'viscera.head': 'viscera_head',
+  'viscera.arm': 'viscera_arm',
+  'viscera.body': 'viscera_body',
+  'viscera.leg': 'viscera_leg',
 };
