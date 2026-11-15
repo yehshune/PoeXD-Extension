@@ -124,6 +124,8 @@ export const ZH_TW_MESSAGES = {
   'settings.marketTranslationBilingual.infoAria': '中英並列說明',
   'settings.marketTranslationBilingual.tooltip':
     '詞綴、通貨與物品的下拉選單同時顯示中文與英文原文（例如「增加#%能力值需求 (#% increased Attribute Requirements)」），中英文都搜得到。篩選器名稱只顯示中文；切換後重新整理頁面生效',
+  'settings.marketTranslation.localeHint':
+    '需將「語言」設為繁體中文或簡體中文，市集漢化才會生效',
 
   'settings.itemNormalizer.label': '符文覆寫試算',
   'settings.itemNormalizer.infoAria': '符文覆寫試算說明',

@@ -17,7 +17,7 @@ export const MARKET_TRANSLATION_MATCH_PATTERNS = [
 ];
 
 /** data API 最多等待 isolated world 回覆的時間（毫秒）；逾時就放行英文 */
-export const MARKET_TRANSLATION_TIMEOUT_MS = 1500;
+export const MARKET_TRANSLATION_TIMEOUT_MS = 5000;
 
 export type MarketTranslationPayloadLocale = 'zh-TW' | 'zh-CN';
 

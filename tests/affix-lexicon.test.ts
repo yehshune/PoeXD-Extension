@@ -64,6 +64,22 @@ describe('Seam 2A: Page Locale & Affix Display Locale resolution', () => {
     expect(
       resolveDisplayLocale('auto', { hostname: 'www.pathofexile.com', browserLocale: 'ja' }),
     ).toBe('en');
+
+    // English primary browser UI with Chinese in navigator.languages / browserLanguages resolves to Chinese
+    expect(
+      resolveDisplayLocale('auto', {
+        hostname: 'www.pathofexile.com',
+        browserLocale: 'en-US',
+        browserLanguages: ['en-US', 'en', 'zh-TW'],
+      }),
+    ).toBe('zh-TW');
+    expect(
+      resolveDisplayLocale('auto', {
+        hostname: 'www.pathofexile.com',
+        browserLocale: 'en-US',
+        browserLanguages: ['en-US', 'zh-CN'],
+      }),
+    ).toBe('zh-CN');
   });
 
   it('auto-resolves displayLocale to localized pageLocale on non-English Trade subdomains and regional hosts', () => {
@@ -105,20 +121,26 @@ describe('Seam 2A: Page Locale & Affix Display Locale resolution', () => {
     ).toBe('zh-CN');
     expect(resolveUiLocale('zh-CN')).toBe('zh-CN');
 
-    // Non-Chinese / non-English Trade subdomains -> affix locale ja/ko, UI fallback en
-    const jaResolved = resolveDisplayLocale('auto', {
+    // Non-Chinese / non-English Trade subdomains -> affix locale ja/ko, pinned UI fallback en, auto UI keeps Chinese browser locale
+    const jaInput = {
       hostname: 'jp.pathofexile.com',
       browserLocale: 'zh-TW',
-    });
+    };
+    const jaResolved = resolveDisplayLocale('auto', jaInput);
     expect(jaResolved).toBe('ja');
     expect(resolveUiLocale(jaResolved)).toBe('en');
+    expect(resolveUiLocale('auto', jaInput)).toBe('zh-TW');
+    expect(setActiveDisplayLocalePreference('auto', jaInput)).toBe('zh-TW');
 
-    const koResolved = resolveDisplayLocale('auto', {
+    const koInput = {
       hostname: 'kr.pathofexile.com',
       browserLocale: 'zh-CN',
-    });
+    };
+    const koResolved = resolveDisplayLocale('auto', koInput);
     expect(koResolved).toBe('ko');
     expect(resolveUiLocale(koResolved)).toBe('en');
+    expect(resolveUiLocale('auto', koInput)).toBe('zh-CN');
+    expect(setActiveDisplayLocalePreference('auto', koInput)).toBe('zh-CN');
 
     // Standalone extension pages (no Trade host) -> normalizes browserLocale to SupportedLocale, ignoring documentElement.lang
     expect(resolveDisplayLocale('auto', { hostname: '', browserLocale: 'zh-TW' })).toBe('zh-TW');

@@ -133,6 +133,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslationBilingual.infoAria': 'Show English alongside info',
   'settings.marketTranslationBilingual.tooltip':
     'Stat, currency and item dropdowns show the Chinese text followed by the English original, so either language finds the same entry. Filter names show Chinese only. Reload the page after changing this.',
+  'settings.marketTranslation.localeHint':
+    'Set Language to 繁體中文 or 简体中文 for Chinese Trade Site to take effect',
 
   'settings.itemNormalizer.label': 'Rune Override Calculator',
   'settings.itemNormalizer.infoAria': 'Rune Override Calculator info',

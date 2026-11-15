@@ -53,6 +53,22 @@ describe('resolveMarketTranslationLocale', () => {
     expect(
       resolveMarketTranslationLocale({ ...base, displayLocale: 'auto', browserLocale: 'en-US' }),
     ).toBeNull();
+    expect(
+      resolveMarketTranslationLocale({
+        ...base,
+        displayLocale: 'auto',
+        browserLocale: 'en-US',
+        browserLanguages: ['en-US', 'zh-TW'],
+      }),
+    ).toBe('zh-TW');
+    expect(
+      resolveMarketTranslationLocale({
+        ...base,
+        displayLocale: 'auto',
+        browserLocale: 'en-US',
+        browserLanguages: ['en-US', 'zh-CN'],
+      }),
+    ).toBe('zh-CN');
   });
 
   it('語言解析成其他語系時不翻譯', () => {

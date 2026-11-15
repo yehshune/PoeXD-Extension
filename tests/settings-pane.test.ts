@@ -1053,6 +1053,60 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().marketTranslationBilingual).toBe(false);
   });
 
+  it('auto-switches non-Chinese displayLocale when enabling marketTranslation, shows locale hint on manual mismatch, and shows reload action on international Trade host', async () => {
+    const originalLocation = window.location;
+    const reloadSpy = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        hostname: 'www.pathofexile.com',
+        pathname: '/trade2/search/poe2/Standard',
+        reload: reloadSpy,
+      },
+    });
+
+    try {
+      const { container } = await mountSettingsPane();
+
+      // Switch displayLocale to 'en' while marketTranslation is off
+      await currentModule!.update({ displayLocale: 'en', marketTranslation: false });
+      await flushAsync();
+      expect(currentModule?.read().displayLocale).toBe('en');
+      expect(container.querySelector('[data-test="market-translation-reload"]')).toBeNull();
+
+      // Enabling marketTranslation under 'en' auto-switches displayLocale to preferred Chinese ('zh-TW')
+      const marketCheckbox = container.querySelector('#enable-market-translation') as HTMLElement;
+      marketCheckbox.click();
+      await flushAsync();
+
+      expect(currentModule?.read().marketTranslation).toBe(true);
+      expect(currentModule?.read().displayLocale).toBe('zh-TW');
+      expect(container.querySelector('[data-test="market-translation-locale-hint"]')).toBeNull();
+
+      // Reload prompt appears on www.pathofexile.com because effective state changed
+      const reloadRow = container.querySelector('[data-test="market-translation-reload"]');
+      expect(reloadRow).not.toBeNull();
+      const reloadBtn = container.querySelector(
+        '[data-test="market-translation-reload-btn"]',
+      ) as HTMLButtonElement;
+      expect(reloadBtn).not.toBeNull();
+      reloadBtn.click();
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+
+      // Manually switching displayLocale to 'en' while marketTranslation stays on shows locale mismatch hint
+      await changeSelectValue(container, 'displayLocale', 'en');
+      expect(currentModule?.read().displayLocale).toBe('en');
+      const localeHint = container.querySelector('[data-test="market-translation-locale-hint"]');
+      expect(localeHint).not.toBeNull();
+    } finally {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
+  });
+
   it('records hotkey inputs on keydown and persists to preferences', async () => {
     const { container } = await mountSettingsPane();
 

@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { getPreferences, type Preferences, type PreferencesModule } from '@/utils/preferences';
 import { DEFAULT_PREFERENCES } from '@/utils/preferences-contract';
+import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
+import {
+  isMarketTranslationDisplayLocale,
+  isMarketTranslationHost,
+} from '@/utils/market-translation';
 import { queryActiveTabTradeContext, type PoeVersion } from '@/utils/trade-context';
 import { buildTradeRootUrl, resolveQuickTradeRealms } from '@/utils/trade-realms';
 import {
@@ -102,6 +108,31 @@ const visibleRealms = computed(() =>
 let currentModule: PreferencesModule | null = null;
 let stopSubscription: (() => void) | null = null;
 let stopDocumentMeta: (() => void) | null = null;
+let pageLoadMarketTranslation: boolean | null = null;
+const isMarketTranslationTab = ref(true);
+const marketTranslationReloadRequired = ref(false);
+
+function syncReloadRequired(enabled: boolean) {
+  if (!isMarketTranslationTab.value || pageLoadMarketTranslation === null) {
+    marketTranslationReloadRequired.value = false;
+    return;
+  }
+  marketTranslationReloadRequired.value = enabled !== pageLoadMarketTranslation;
+}
+
+async function detectActiveTabMarketHost(): Promise<boolean> {
+  try {
+    if (typeof chrome !== 'undefined' && chrome?.tabs?.query) {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.url) {
+        return isMarketTranslationHost(new URL(tab.url).hostname);
+      }
+    }
+  } catch {
+    // 略過錯誤並維持預設值
+  }
+  return true;
+}
 
 function applyThemeAndTokens(snapshot: Readonly<Preferences>) {
   setActiveDisplayLocalePreference(snapshot.displayLocale, { hostname: '' });
@@ -132,11 +163,17 @@ async function loadPreferencesForVersion(version: PoeVersion) {
       currentModule = outcome.value;
       const snapshot = currentModule.read();
       preferencesState.value = { ...snapshot };
+      pageLoadMarketTranslation = Boolean(snapshot.marketTranslation);
+      syncReloadRequired(pageLoadMarketTranslation);
       await nextTick();
       applyThemeAndTokens(snapshot);
 
       stopSubscription = currentModule.subscribe((newSnapshot) => {
         preferencesState.value = { ...newSnapshot };
+        if (pageLoadMarketTranslation === null) {
+          pageLoadMarketTranslation = Boolean(newSnapshot.marketTranslation);
+        }
+        syncReloadRequired(Boolean(newSnapshot.marketTranslation));
         applyThemeAndTokens(newSnapshot);
       });
     }
@@ -150,19 +187,63 @@ async function loadPreferencesForVersion(version: PoeVersion) {
 async function updateToggle(key: keyof Preferences, value: boolean | unknown) {
   if (!currentModule) return;
   const previousVal = Boolean(preferencesState.value[key]);
+  const previousDisplayLocale = preferencesState.value.displayLocale;
   const boolVal = Boolean(value);
   if (previousVal === boolVal) return;
 
+  const patch: Partial<Preferences> = { [key]: boolVal } as Partial<Preferences>;
+  if (
+    key === 'marketTranslation' &&
+    boolVal &&
+    !isMarketTranslationDisplayLocale(preferencesState.value.displayLocale)
+  ) {
+    const fallbackLocale = resolvePreferredChineseLocale();
+    patch.displayLocale = fallbackLocale;
+    preferencesState.value.displayLocale = fallbackLocale;
+  }
+
+  const rollback = () => {
+    preferencesState.value[key] = previousVal as never;
+    preferencesState.value.displayLocale = previousDisplayLocale;
+    if (key === 'marketTranslation') {
+      syncReloadRequired(previousVal);
+    }
+  };
+
   preferencesState.value[key] = boolVal as never;
+  if (key === 'marketTranslation') {
+    syncReloadRequired(boolVal);
+  }
   try {
-    const outcome = await currentModule.update({ [key]: boolVal });
+    const outcome = await currentModule.update(patch);
     if (!outcome.ok) {
-      preferencesState.value[key] = previousVal as never;
+      rollback();
       console.error(`[PoeXD Popup] 更新 ${key} 失敗:`, outcome.error);
     }
   } catch (err) {
-    preferencesState.value[key] = previousVal as never;
+    rollback();
     console.error(`[PoeXD Popup] 更新 ${key} 異常:`, err);
+  }
+}
+
+async function reloadActiveTab() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome?.tabs) {
+      if (chrome.tabs.query && chrome.tabs.reload) {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id !== undefined) {
+          await chrome.tabs.reload(tab.id);
+        } else {
+          await chrome.tabs.reload();
+        }
+      } else if (chrome.tabs.reload) {
+        await chrome.tabs.reload();
+      }
+    }
+    pageLoadMarketTranslation = Boolean(preferencesState.value.marketTranslation);
+    marketTranslationReloadRequired.value = false;
+  } catch (err) {
+    console.error('[PoeXD Popup] 重新整理分頁失敗:', err);
   }
 }
 
@@ -185,6 +266,7 @@ onMounted(async () => {
     activeVersion.value = props.initialVersion;
     isTradePage.value = props.initialIsTradePage;
   }
+  isMarketTranslationTab.value = await detectActiveTabMarketHost();
   await loadPreferencesForVersion(activeVersion.value);
 });
 
@@ -290,35 +372,51 @@ onUnmounted(() => {
 
       <!-- 模組清單 -->
       <div class="flex flex-col gap-[var(--pxd-space-xs,4px)]">
-        <div
-          v-for="item in visibleModules"
-          :key="item.key"
-          data-popup-module-row
-          :data-module-key="item.key"
-          class="flex items-start justify-between gap-[var(--pxd-space-sm,6px)] p-[var(--pxd-space-sm,6px)] rounded-md hover:bg-muted/40 transition-colors cursor-pointer select-none"
-          @click="updateToggle(item.key, !preferencesState[item.key])"
-        >
-          <div class="flex flex-col min-w-0 pr-1">
-            <span
-              class="text-[length:var(--pxd-font-body,13px)] font-medium text-foreground truncate leading-snug"
-            >
-              {{ t(item.titleKey) }}
-            </span>
-            <span
-              class="text-[length:var(--pxd-font-caption,11px)] text-muted-foreground leading-tight mt-0.5"
-            >
-              {{ t(item.descriptionKey) }}
-            </span>
+        <template v-for="item in visibleModules" :key="item.key">
+          <div
+            data-popup-module-row
+            :data-module-key="item.key"
+            class="flex items-start justify-between gap-[var(--pxd-space-sm,6px)] p-[var(--pxd-space-sm,6px)] rounded-md hover:bg-muted/40 transition-colors cursor-pointer select-none"
+            @click="updateToggle(item.key, !preferencesState[item.key])"
+          >
+            <div class="flex flex-col min-w-0 pr-1">
+              <span
+                class="text-[length:var(--pxd-font-body,13px)] font-medium text-foreground truncate leading-snug"
+              >
+                {{ t(item.titleKey) }}
+              </span>
+              <span
+                class="text-[length:var(--pxd-font-caption,11px)] text-muted-foreground leading-tight mt-0.5"
+              >
+                {{ t(item.descriptionKey) }}
+              </span>
+            </div>
+            <div class="shrink-0 pt-0.5" @click.stop>
+              <Checkbox
+                :id="item.key"
+                :model-value="Boolean(preferencesState[item.key])"
+                :disabled="loading"
+                @update:model-value="updateToggle(item.key, $event)"
+              />
+            </div>
           </div>
-          <div class="shrink-0 pt-0.5" @click.stop>
-            <Checkbox
-              :id="item.key"
-              :model-value="Boolean(preferencesState[item.key])"
-              :disabled="loading"
-              @update:model-value="updateToggle(item.key, $event)"
-            />
+          <div
+            v-if="item.key === 'marketTranslation' && marketTranslationReloadRequired"
+            data-test="popup-market-translation-reload"
+            class="flex items-center justify-between gap-[var(--pxd-space-sm,6px)] px-[var(--pxd-space-sm,6px)] pb-[var(--pxd-space-xs,4px)] text-[length:var(--pxd-font-caption,11px)] text-muted-foreground"
+          >
+            <span>{{ t('onboarding.welcome.reloadHint') }}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-test="popup-market-translation-reload-btn"
+              @click="reloadActiveTab"
+            >
+              {{ t('onboarding.welcome.reload') }}
+            </Button>
           </div>
-        </div>
+        </template>
       </div>
     </template>
   </div>

@@ -16,6 +16,7 @@ export interface LocaleResolutionInput {
   hostname?: string;
   htmlLang?: string;
   browserLocale?: string;
+  browserLanguages?: readonly string[];
 }
 
 const SUBDOMAIN_TO_LOCALE: Readonly<Record<string, SupportedLocale>> = Object.freeze({
@@ -71,21 +72,64 @@ function normalizeLocaleTag(tag?: string | null): SupportedLocale | null {
   }
 }
 
+function findChineseLocaleInList(languages?: readonly string[] | null): 'zh-TW' | 'zh-CN' | null {
+  if (!Array.isArray(languages)) return null;
+  for (const entry of languages) {
+    const normalized = normalizeLocaleTag(entry);
+    if (normalized === 'zh-TW' || normalized === 'zh-CN') {
+      return normalized;
+    }
+  }
+  return null;
+}
+
+function resolveChineseOrPrimaryTag(
+  primaryTag?: string | null,
+  languages?: readonly string[] | null,
+): SupportedLocale | null {
+  const primary = normalizeLocaleTag(primaryTag);
+  if (primary === 'zh-TW' || primary === 'zh-CN') {
+    return primary;
+  }
+  return findChineseLocaleInList(languages) ?? primary;
+}
+
 export function detectBrowserLocale(): string {
+  let primary = '';
   try {
     const uiLang = (globalThis as any).chrome?.i18n?.getUILanguage?.();
     if (typeof uiLang === 'string' && uiLang.trim()) {
-      return uiLang.trim();
+      primary = uiLang.trim();
     }
   } catch {
     // ignore
   }
-  if (typeof navigator !== 'undefined') {
+  if (!primary && typeof navigator !== 'undefined') {
     if (typeof navigator.language === 'string' && navigator.language.trim()) {
-      return navigator.language.trim();
+      primary = navigator.language.trim();
     }
   }
-  return 'en';
+  const fromLanguages =
+    typeof navigator !== 'undefined'
+      ? resolveChineseOrPrimaryTag(primary, navigator.languages)
+      : null;
+  if (fromLanguages === 'zh-TW' || fromLanguages === 'zh-CN') {
+    return fromLanguages;
+  }
+  return primary || 'en';
+}
+
+function resolveBrowserLocaleTag(input: LocaleResolutionInput = {}): SupportedLocale | null {
+  return resolveChineseOrPrimaryTag(
+    input.browserLocale ?? detectBrowserLocale(),
+    input.browserLanguages,
+  );
+}
+
+export function resolvePreferredChineseLocale(
+  input: LocaleResolutionInput = {},
+): 'zh-TW' | 'zh-CN' {
+  return resolveBrowserLocaleTag(input) === 'zh-CN' ? 'zh-CN' : 'zh-TW';
 }
 
 export function resolvePageLocale(input: LocaleResolutionInput = {}): SupportedLocale {
@@ -155,7 +199,7 @@ export function resolveDisplayLocale(
       return pageLocale;
     }
 
-    const browserTag = normalizeLocaleTag(input.browserLocale ?? detectBrowserLocale());
+    const browserTag = resolveBrowserLocaleTag(input);
     if (browserTag === 'zh-TW' || browserTag === 'zh-CN') {
       return browserTag;
     }
@@ -163,7 +207,7 @@ export function resolveDisplayLocale(
     return pageLocale;
   }
 
-  const browserTag = normalizeLocaleTag(input.browserLocale ?? detectBrowserLocale());
+  const browserTag = resolveBrowserLocaleTag(input);
   return browserTag ?? 'en';
 }
 
@@ -174,5 +218,12 @@ export function resolveUiLocale(
   const resolved = displayLocale === 'auto' ? resolveDisplayLocale('auto', input) : displayLocale;
   if (resolved === 'zh-TW') return 'zh-TW';
   if (resolved === 'zh-CN') return 'zh-CN';
+  if (resolved === 'en') return 'en';
+  if (displayLocale === 'auto') {
+    const browserTag = resolveBrowserLocaleTag(input);
+    if (browserTag === 'zh-TW' || browserTag === 'zh-CN') {
+      return browserTag;
+    }
+  }
   return 'en';
 }

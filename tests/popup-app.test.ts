@@ -447,4 +447,65 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
     expect(document.title).toBe('PoeXD Module Controls');
     expect(container.textContent).toContain('Rune Override Calculator');
   });
+
+  it('auto-switches non-Chinese displayLocale and offers tab reload when toggling marketTranslation in Popup', async () => {
+    const reloadTabMock = vi.fn().mockResolvedValue(undefined);
+    (globalThis as any).chrome = {
+      i18n: {
+        getUILanguage: () => 'zh-TW',
+      },
+      tabs: {
+        query: vi.fn().mockResolvedValue([{ id: 42, url: 'https://www.pathofexile.com/trade2' }]),
+        reload: reloadTabMock,
+      },
+    };
+
+    app = createApp(PopupApp, { initialIsTradePage: true, initialVersion: 'poe2' });
+    app.mount(container);
+    await new Promise((r) => setTimeout(r, 25));
+
+    await currentModule?.update({ displayLocale: 'en', marketTranslation: false });
+    await new Promise((r) => setTimeout(r, 25));
+    expect(container.querySelector('[data-test="popup-market-translation-reload"]')).toBeNull();
+
+    const marketRow = container.querySelector(
+      '[data-popup-module-row][data-module-key="marketTranslation"]',
+    ) as HTMLElement;
+    expect(marketRow).not.toBeNull();
+    marketRow.click();
+    await new Promise((r) => setTimeout(r, 25));
+
+    expect(currentModule?.read().marketTranslation).toBe(true);
+    expect(currentModule?.read().displayLocale).toBe('zh-TW');
+
+    const reloadPrompt = container.querySelector('[data-test="popup-market-translation-reload"]');
+    expect(reloadPrompt).not.toBeNull();
+    const reloadBtn = container.querySelector(
+      '[data-test="popup-market-translation-reload-btn"]',
+    ) as HTMLButtonElement;
+    expect(reloadBtn).not.toBeNull();
+    reloadBtn.click();
+    await new Promise((r) => setTimeout(r, 25));
+
+    expect(reloadTabMock).toHaveBeenCalledWith(42);
+    expect(container.querySelector('[data-test="popup-market-translation-reload"]')).toBeNull();
+
+    // When active tab is a non-international Trade realm (e.g. pathofexile.tw), reload prompt is not shown
+    app.unmount();
+    container.innerHTML = '';
+    (globalThis as any).chrome.tabs.query = vi
+      .fn()
+      .mockResolvedValue([{ id: 43, url: 'https://pathofexile.tw/trade2' }]);
+    app = createApp(PopupApp, { initialIsTradePage: true, initialVersion: 'poe2' });
+    app.mount(container);
+    await new Promise((r) => setTimeout(r, 25));
+
+    const twMarketRow = container.querySelector(
+      '[data-popup-module-row][data-module-key="marketTranslation"]',
+    ) as HTMLElement;
+    twMarketRow.click();
+    await new Promise((r) => setTimeout(r, 25));
+    expect(currentModule?.read().marketTranslation).toBe(false);
+    expect(container.querySelector('[data-test="popup-market-translation-reload"]')).toBeNull();
+  });
 });

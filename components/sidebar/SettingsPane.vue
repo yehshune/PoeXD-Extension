@@ -129,6 +129,29 @@
             </Tooltip>
           </div>
         </div>
+        <p
+          v-if="marketTranslationLocaleMismatch"
+          data-test="market-translation-locale-hint"
+          class="m-0 pl-[var(--pxd-space-lg)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+        >
+          {{ t('settings.marketTranslation.localeHint') }}
+        </p>
+        <div
+          v-if="marketTranslationReloadRequired"
+          data-test="market-translation-reload"
+          class="flex items-center justify-between gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+        >
+          <span>{{ t('onboarding.welcome.reloadHint') }}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-test="market-translation-reload-btn"
+            @click="reloadPage"
+          >
+            {{ t('onboarding.welcome.reload') }}
+          </Button>
+        </div>
 
         <!-- 隱藏官方網頁背景 -->
         <div class="flex items-center gap-[var(--pxd-space-md)]">
@@ -750,6 +773,11 @@ import {
   THEME_OPTIONS,
 } from './settings/settings-ui-metadata';
 import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
+import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
+import {
+  isMarketTranslationDisplayLocale,
+  resolveMarketTranslationLocale,
+} from '@/utils/market-translation';
 import { getPreferences, type PreferencesModule } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
 
@@ -822,11 +850,42 @@ export default defineComponent({
     const customFontSizePercent = ref<number>(
       Math.round((preferenceState.customFontSizeScale ?? preferenceState.fontSizeScale) * 100),
     );
+    const marketTranslationLocaleMismatch = computed(
+      () => marketTranslation.value && !isMarketTranslationDisplayLocale(displayLocale.value),
+    );
+
+    let pageLoadMarketState: { locale: string | null; bilingual: boolean } | null = null;
+    const marketTranslationReloadRequired = ref(false);
+
+    const computeEffectiveMarketState = (snapshot: Readonly<Preferences>) => {
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+      const locale = resolveMarketTranslationLocale({
+        enabled: snapshot.marketTranslation === true,
+        displayLocale: snapshot.displayLocale,
+        hostname,
+      });
+      return {
+        locale,
+        bilingual: locale !== null && snapshot.marketTranslationBilingual === true,
+      };
+    };
+
+    const reloadPage = () => {
+      window.location.reload();
+    };
+
     let preferences: PreferencesModule | undefined;
     let stopPreferences: (() => void) | undefined;
     const applyPreferences = (snapshot: Readonly<Preferences>) => {
       Object.assign(preferenceState, snapshot);
       setActiveDisplayLocalePreference(snapshot.displayLocale);
+      const currentMarketState = computeEffectiveMarketState(snapshot);
+      if (pageLoadMarketState === null) {
+        pageLoadMarketState = currentMarketState;
+      }
+      marketTranslationReloadRequired.value =
+        currentMarketState.locale !== pageLoadMarketState.locale ||
+        currentMarketState.bilingual !== pageLoadMarketState.bilingual;
       if (snapshot.customFontSizeScale !== null) {
         customFontSizePercent.value = Math.round(snapshot.customFontSizeScale * 100);
       } else if (snapshot.fontSizeMode === 'custom') {
@@ -1024,6 +1083,19 @@ export default defineComponent({
     };
 
     const savePreference = (key: keyof Preferences) => {
+      if (
+        key === 'marketTranslation' &&
+        preferenceState.marketTranslation &&
+        !isMarketTranslationDisplayLocale(preferenceState.displayLocale)
+      ) {
+        const fallbackLocale = resolvePreferredChineseLocale();
+        preferenceState.displayLocale = fallbackLocale;
+        void updatePreferences({
+          marketTranslation: true,
+          displayLocale: fallbackLocale,
+        });
+        return;
+      }
       void updatePreferences({
         [key]: preferenceState[key],
       } as Partial<Preferences>);
@@ -1077,6 +1149,9 @@ export default defineComponent({
       enablePureBackground,
       marketTranslation,
       marketTranslationBilingual,
+      marketTranslationLocaleMismatch,
+      marketTranslationReloadRequired,
+      reloadPage,
       isPoe2: version === 'poe2',
       addBookmarkBtnPosition,
       enableBookmarkTooltip,

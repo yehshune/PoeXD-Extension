@@ -3,7 +3,7 @@
  * 純函式、不持有狀態，isolated world 與測試共用；MAIN world 腳本不 import 這支（避免打包 i18n 相依）。
  */
 import type { DisplayLocalePreference } from './preferences-contract';
-import { resolveDisplayLocale } from './locale-resolution';
+import { resolveDisplayLocale, type LocaleResolutionInput } from './locale-resolution';
 
 export const MARKET_TRANSLATION_LOCALES = ['zh-TW', 'zh-CN'] as const;
 export type MarketTranslationLocale = (typeof MARKET_TRANSLATION_LOCALES)[number];
@@ -15,14 +15,28 @@ export function isMarketTranslationHost(hostname: string): boolean {
   return MARKET_TRANSLATION_HOSTS.has(hostname.trim().toLowerCase());
 }
 
-const isMarketTranslationLocale = (value: string): value is MarketTranslationLocale =>
+export const isMarketTranslationLocale = (value: string): value is MarketTranslationLocale =>
   (MARKET_TRANSLATION_LOCALES as readonly string[]).includes(value);
+
+/** 檢查給定的 Display Locale 偏好在國際服英文市集上是否會解析為市集漢化支援的中文語系 */
+export function isMarketTranslationDisplayLocale(
+  displayLocale: DisplayLocalePreference,
+  input: Omit<LocaleResolutionInput, 'hostname'> = {},
+): boolean {
+  return isMarketTranslationLocale(
+    resolveDisplayLocale(displayLocale, {
+      ...input,
+      hostname: 'www.pathofexile.com',
+    }),
+  );
+}
 
 export interface MarketTranslationLocaleInput {
   enabled: boolean;
   displayLocale: DisplayLocalePreference;
   hostname: string;
   browserLocale?: string;
+  browserLanguages?: readonly string[];
 }
 
 /** 回傳本頁要翻成的語系；不需翻譯時回傳 null。 */
@@ -33,6 +47,7 @@ export function resolveMarketTranslationLocale(
   const resolved = resolveDisplayLocale(input.displayLocale, {
     hostname: input.hostname,
     browserLocale: input.browserLocale,
+    browserLanguages: input.browserLanguages,
   });
   return isMarketTranslationLocale(resolved) ? resolved : null;
 }

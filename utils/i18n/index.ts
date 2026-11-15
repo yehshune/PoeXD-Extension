@@ -75,7 +75,7 @@ export function setActiveDisplayLocalePreference(
   activeDisplayLocalePreferenceRef.value = normalizedPref;
   const resolvedDisplay = resolveDisplayLocale(normalizedPref, input);
   activeDisplayLocaleRef.value = resolvedDisplay;
-  const resolvedUi = resolveUiLocale(resolvedDisplay, input);
+  const resolvedUi = resolveUiLocale(normalizedPref, input);
   activeUiLocaleRef.value = resolvedUi;
   return resolvedUi;
 }
