@@ -44,7 +44,12 @@ export function initHotkeysAndTildeListeners(preferences: PreferencesModule) {
     isComposing = false;
     const target = event.target as HTMLInputElement;
     if (!target?.classList.contains('multiselect__input')) return;
-    setTimeout(() => applyTildePrefix(target, preferences), 50);
+    setTimeout(() => {
+      // 使用者可能已接著輸入下一個字：組字中改寫 value 會打斷輸入法，留下殘字（如注音）。
+      // 交給下一次 compositionend 再補前綴。
+      if (isComposing) return;
+      applyTildePrefix(target, preferences);
+    }, 50);
   };
   const handleInput = (event: Event) => {
     if (isComposing || (event as InputEvent).isComposing) return;
