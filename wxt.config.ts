@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
@@ -25,6 +26,19 @@ const IS_STORE_BUILD = process.env.POEXD_STORE_BUILD === '1';
 
 const GECKO_ID = 'poexd-trade-helper@yehshune';
 
+/**
+ * 清掉 dev 設定檔裡的 service worker 儲存區（註冊資料與腳本快取）。
+ *
+ * 固定設定檔加固定擴充 ID 時，Chrome 重啟後會直接沿用設定檔裡快取的 background service worker，
+ * 不重讀磁碟；改 manifest 版本號也不會讓它重新註冊（已實測）。快取的舊版若記錄著上一次的
+ * dev server 埠，就連不上這次的 dev server，content script 永遠不會被註冊（市集頁沒有任何介面）。
+ * 開瀏覽器前先清掉儲存區，Chrome 只能從磁碟上的建置重新註冊。
+ * Cookie（含 Cloudflare 驗證）存在別處，不受影響。
+ */
+async function clearCachedServiceWorkers(profileDir: string): Promise<void> {
+  await rm(resolve(profileDir, 'Default', 'Service Worker'), { recursive: true, force: true });
+}
+
 const TRADE_SITE_MATCHES = [
   '*://*.pathofexile.com/*',
   '*://*.pathofexile.tw/*',
@@ -47,6 +61,23 @@ export default defineConfig({
   vite: () => ({
     plugins: [tailwindcss()],
   }),
+  hooks: {
+    // dev server 啟動後、瀏覽器開啟前觸發。Firefox 每次以暫時附加元件載入，沒有快取問題
+    'server:started': async (wxt) => {
+      const profileDir = wxt.config.webExt.config?.chromiumProfile;
+      if (wxt.config.browser === 'firefox' || !profileDir) return;
+      try {
+        await clearCachedServiceWorkers(profileDir);
+      } catch (error) {
+        // 多半是上一個 dev 瀏覽器還沒關閉、檔案被鎖住
+        wxt.logger.warn(
+          '無法清除 dev 設定檔的 service worker 快取，Chrome 可能執行舊版 background；' +
+            '請關閉先前的 dev 瀏覽器後重啟，或在瀏覽器按 Alt+R 重新載入擴充。',
+          error,
+        );
+      }
+    },
+  },
   // version 由 package.json 提供，不在此重複定義
   manifest: ({ browser }) => {
     const isFirefox = browser === 'firefox';
