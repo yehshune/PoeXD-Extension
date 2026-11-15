@@ -1004,6 +1004,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'bookmark.league.autoOption': 'Auto (Follow current league)',
   'bookmark.league.noAvailableLeagues': 'No available leagues found',
   'bookmark.league.loadFailed': 'Failed to load leagues',
+  'bookmark.league.timeout': 'Timed out while loading leagues',
   'searchPreview.label.item': 'Item: ',
   'searchPreview.label.base': 'Base: ',
   'searchPreview.label.status': 'Status: ',

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fetchTradeLeagues } from '@/utils/trade-leagues';
+import { setActiveDisplayLocale, resetI18nStateForTests } from '@/utils/i18n';
 
 describe('Trade league discovery', () => {
   it('loads only PC leagues from the current PoE1 market endpoint', async () => {
@@ -44,5 +45,30 @@ describe('Trade league discovery', () => {
     const hangingHttp = vi.fn(() => new Promise<Response>(() => {}));
 
     await expect(fetchTradeLeagues('poe1', hangingHttp, 25)).rejects.toThrow('市集聯盟讀取逾時');
+  });
+
+  it('aborts native fetch signal and localizes timeout error when response.json() hangs', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const stalledJsonFetch = vi.fn(async (_url: string, init?: RequestInit) => {
+      capturedSignal = init?.signal as AbortSignal | undefined;
+      return {
+        ok: true,
+        status: 200,
+        json: () => new Promise<unknown>(() => {}),
+      } as unknown as Response;
+    });
+
+    vi.stubGlobal('fetch', stalledJsonFetch);
+    setActiveDisplayLocale('en');
+    try {
+      await expect(fetchTradeLeagues('poe1', undefined, 25)).rejects.toThrow(
+        'Timed out while loading leagues',
+      );
+      expect(capturedSignal).toBeDefined();
+      expect(capturedSignal?.aborted).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+      resetI18nStateForTests();
+    }
   });
 });

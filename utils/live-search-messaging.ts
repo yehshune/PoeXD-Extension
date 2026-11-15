@@ -54,8 +54,12 @@ export function registerLiveSearchBackgroundHandlers(
     }
   });
 
-  coordinator.setEnqueueForwarder(async (tabId, items) => {
-    return messenger.sendMessage('liveSearch:receiveEnqueuedConnections', { items }, tabId);
+  coordinator.setEnqueueForwarder(async (tabId, items, batchId) => {
+    return messenger.sendMessage(
+      'liveSearch:receiveEnqueuedConnections',
+      batchId ? { batchId, items } : { items },
+      tabId,
+    );
   });
 
   return () => {

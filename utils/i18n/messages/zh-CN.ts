@@ -945,6 +945,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'bookmark.league.autoOption': '自动（跟随当前联赛）',
   'bookmark.league.noAvailableLeagues': '找不到可用联赛',
   'bookmark.league.loadFailed': '联赛读取失败',
+  'bookmark.league.timeout': '集市联赛读取超时',
   'searchPreview.label.item': '物品：',
   'searchPreview.label.base': '基底：',
   'searchPreview.label.status': '在线状态：',

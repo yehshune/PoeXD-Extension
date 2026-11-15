@@ -73,8 +73,14 @@ export interface LiveSearchConsumePendingEnqueueRequest {
   gameVersion?: PoeVersion;
 }
 
+export interface LiveSearchPendingEnqueueBatch {
+  batchId: string;
+  items: LiveSearchEnqueueItem[];
+}
+
 export interface LiveSearchConsumePendingEnqueueResponse {
   items: LiveSearchEnqueueItem[];
+  batches?: LiveSearchPendingEnqueueBatch[];
 }
 
 /**

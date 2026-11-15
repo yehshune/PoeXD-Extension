@@ -1,5 +1,6 @@
 import { getTradeVersionProfile, type PoeVersion } from './trade-context';
 import { withTimeout } from './promise-timeout';
+import { t } from './i18n';
 
 export const DEFAULT_TRADE_LEAGUES_TIMEOUT_MS = 5000;
 
@@ -25,19 +26,21 @@ export async function fetchTradeLeagues(
     ? { credentials: 'same-origin', signal: controller.signal }
     : { credentials: 'same-origin' };
 
-  let response: Pick<Response, 'ok' | 'status' | 'json'>;
+  let payload: unknown;
   try {
-    response = await withTimeout(
-      http(`/api/${routeRoot}/data/leagues`, init),
+    payload = await withTimeout(
+      (async () => {
+        const response = await http(`/api/${routeRoot}/data/leagues`, init);
+        if (!response.ok) throw new Error(`市集聯盟讀取失敗 (${response.status})`);
+        return (await response.json()) as unknown;
+      })(),
       timeoutMs,
-      '市集聯盟讀取逾時',
+      t('bookmark.league.timeout'),
     );
   } catch (err) {
     controller?.abort();
     throw err;
   }
-  if (!response.ok) throw new Error(`市集聯盟讀取失敗 (${response.status})`);
-  const payload = (await response.json()) as unknown;
   if (!isObject(payload) || !Array.isArray(payload.result)) {
     throw new Error('市集聯盟資料格式錯誤');
   }

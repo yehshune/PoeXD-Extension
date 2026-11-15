@@ -943,6 +943,7 @@ export const ZH_TW_MESSAGES = {
   'bookmark.league.autoOption': '自動（跟隨目前聯盟）',
   'bookmark.league.noAvailableLeagues': '找不到可用聯盟',
   'bookmark.league.loadFailed': '聯盟讀取失敗',
+  'bookmark.league.timeout': '市集聯盟讀取逾時',
   'searchPreview.label.item': '物品：',
   'searchPreview.label.base': '基底：',
   'searchPreview.label.status': '上架狀態：',

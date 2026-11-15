@@ -57,6 +57,7 @@ export interface ExtensionProtocolMap {
   'liveSearch:notifyArrival': (signal: LiveSearchArrivalSignal) => void;
   'liveSearch:enqueueConnections': (request: LiveSearchEnqueueRequest) => LiveSearchEnqueueResponse;
   'liveSearch:receiveEnqueuedConnections': (request: {
+    batchId?: string;
     gameVersion?: PoeVersion;
     items: LiveSearchEnqueueItem[];
   }) => LiveSearchEnqueueResponse;

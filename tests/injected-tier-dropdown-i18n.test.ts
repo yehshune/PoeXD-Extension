@@ -266,4 +266,48 @@ describe('Seam 2: In-Page Tier Dropdown (`TierDropdownHost.vue`) & Search Form I
     expect(applyBtn?.textContent?.trim()).toBe('Apply');
     expect(applyBtn?.getAttribute('title')).toBe('Apply custom values');
   });
+
+  it('unlocks .poexd-send-to-console-btn and dispatches error toast when enqueue IPC times out', async () => {
+    vi.useFakeTimers();
+    const { extensionMessaging, DEFAULT_ENQUEUE_IPC_TIMEOUT_MS } =
+      await import('@/utils/extension-protocol');
+    const { listenPoeEvent } = await import('@/utils/event-contracts');
+    const spy = vi
+      .spyOn(extensionMessaging, 'sendMessage')
+      .mockImplementation(() => new Promise(() => {}));
+
+    const searchPanel = document.createElement('div');
+    searchPanel.className = 'search-panel';
+    const controlsRight = document.createElement('div');
+    controlsRight.className = 'controls';
+    searchPanel.appendChild(controlsRight);
+    document.body.appendChild(searchPanel);
+
+    const tierDomainService = createTierDomainService('poe2');
+    const injected = createInjectedControls({
+      version: 'poe2',
+      tierDomainService,
+      isCurrentGeneration: () => true,
+    });
+    injected.injectSendToConsoleButton();
+
+    const btn = searchPanel.querySelector<HTMLButtonElement>('.poexd-send-to-console-btn')!;
+    const toasts: unknown[] = [];
+    const stopListen = listenPoeEvent('poexd-toast', (detail) => toasts.push(detail));
+
+    try {
+      btn.click();
+      await Promise.resolve();
+      expect(btn.disabled).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(DEFAULT_ENQUEUE_IPC_TIMEOUT_MS);
+
+      expect(btn.disabled).toBe(false);
+      expect(toasts.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      stopListen();
+      spy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });

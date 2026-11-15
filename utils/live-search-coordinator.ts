@@ -10,6 +10,7 @@ import {
   type LiveSearchGetPageRoleResponse,
   type LiveSearchOpenPrimaryRequest,
   type LiveSearchOpenPrimaryResponse,
+  type LiveSearchPendingEnqueueBatch,
   type LiveSearchPrimaryStorageRecord,
 } from './live-search-contract';
 import { getPoeVersion, type PoeVersion } from './trade-context';
@@ -61,6 +62,7 @@ export type LiveSearchArrivalNotifier = (
 export type LiveSearchEnqueueForwarder = (
   tabId: number,
   items: LiveSearchEnqueueItem[],
+  batchId?: string,
 ) => Promise<LiveSearchEnqueueResponse>;
 
 export interface LiveSearchCoordinatorOptions {
@@ -182,9 +184,10 @@ export class LiveSearchCoordinator {
   private forwardEnqueueCallback?: LiveSearchEnqueueForwarder;
   private readonly forwardTimeoutMs: number;
   private pendingArrivalTabIds = new Set<number>();
-  private pendingEnqueueByVersion = new Map<PoeVersion, LiveSearchEnqueueItem[]>();
+  private pendingEnqueueByVersion = new Map<PoeVersion, LiveSearchPendingEnqueueBatch[]>();
   private openMutexByVersion = new Map<PoeVersion, Promise<LiveSearchOpenPrimaryResponse>>();
   private ownershipMutationChain: Promise<any> = Promise.resolve();
+  private enqueueBatchSequence = 0;
 
   private runOwnershipMutation<T>(mutation: () => Promise<T>): Promise<T> {
     const next = this.ownershipMutationChain.then(mutation, mutation);
@@ -475,11 +478,20 @@ export class LiveSearchCoordinator {
     }
   }
 
-  private bufferPendingEnqueue(version: PoeVersion, items: readonly LiveSearchEnqueueItem[]): void {
-    const current = this.pendingEnqueueByVersion.get(version) ?? [];
+  private createEnqueueBatchId(): string {
+    this.enqueueBatchSequence += 1;
+    return `enq_${Date.now()}_${this.enqueueBatchSequence}`;
+  }
+
+  private bufferPendingEnqueue(
+    version: PoeVersion,
+    items: readonly LiveSearchEnqueueItem[],
+    batchId: string = this.createEnqueueBatchId(),
+  ): void {
+    const normalizedItems: LiveSearchEnqueueItem[] = [];
     for (const item of items) {
       if (item && typeof item.url === 'string' && item.url.trim()) {
-        current.push({
+        normalizedItems.push({
           url: item.url.trim(),
           ...(item.name ? { name: item.name.trim() } : {}),
           ...(item.coverImageUrl ? { coverImageUrl: item.coverImageUrl.trim() } : {}),
@@ -487,6 +499,9 @@ export class LiveSearchCoordinator {
         });
       }
     }
+    if (normalizedItems.length === 0) return;
+    const current = this.pendingEnqueueByVersion.get(version) ?? [];
+    current.push({ batchId, items: normalizedItems });
     this.pendingEnqueueByVersion.set(version, current);
   }
 
@@ -511,13 +526,14 @@ export class LiveSearchCoordinator {
     }
 
     const effectiveVersion = this.resolveEffectiveVersion(request?.gameVersion, sender);
+    const batchId = this.createEnqueueBatchId();
     const existingTab = await this.resolveValidPrimaryTabForVersion(effectiveVersion);
 
     if (existingTab && existingTab.id !== undefined) {
       if (this.forwardEnqueueCallback) {
         try {
           const forwarded = await withTimeout(
-            this.forwardEnqueueCallback(existingTab.id, validItems),
+            this.forwardEnqueueCallback(existingTab.id, validItems, batchId),
             this.forwardTimeoutMs,
             '轉送連線至線上搜尋主控台逾時',
           );
@@ -530,7 +546,7 @@ export class LiveSearchCoordinator {
           // Content script may still be loading, frozen in background, or blocked during startup; fall back to pending buffer
         }
       }
-      this.bufferPendingEnqueue(effectiveVersion, validItems);
+      this.bufferPendingEnqueue(effectiveVersion, validItems, batchId);
       return {
         success: true,
         tabId: existingTab.id,
@@ -540,7 +556,7 @@ export class LiveSearchCoordinator {
       };
     }
 
-    this.bufferPendingEnqueue(effectiveVersion, validItems);
+    this.bufferPendingEnqueue(effectiveVersion, validItems, batchId);
     const openOutcome = await this.openPrimary(
       {
         gameVersion: effectiveVersion,
@@ -582,9 +598,20 @@ export class LiveSearchCoordinator {
         return { items: [] };
       }
     }
-    const items = this.pendingEnqueueByVersion.get(effectiveVersion) ?? [];
+    const batches = this.pendingEnqueueByVersion.get(effectiveVersion) ?? [];
     this.pendingEnqueueByVersion.delete(effectiveVersion);
-    return { items: [...items] };
+    const items = batches.flatMap((batch) => batch.items);
+    return {
+      items,
+      ...(batches.length > 0
+        ? {
+            batches: batches.map((batch) => ({
+              batchId: batch.batchId,
+              items: [...batch.items],
+            })),
+          }
+        : {}),
+    };
   }
 
   /**
