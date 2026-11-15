@@ -329,13 +329,18 @@ import {
   showDragTrash,
   useDragTrash,
 } from './composables/useDragTrash';
-import { dispatchPoeEvent } from '@/utils/event-contracts';
+import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import type { Bookmark, BookmarkGroup } from './bookmark-types';
 import { createBookmarkModel, type BookmarkMutationIntent } from './bookmark-model';
 import { readBookmarkTargetContext, resolveBookmarkUrl } from '@/utils/bookmark-target';
 import { useBookmarkSortables } from './composables/useBookmarkSortables';
 import { rowAnchorFromEvent } from './composables/usePinnedPreview';
-import { stripLiveSuffix, toLiveUrl } from '@/utils/trade-search-identity';
+import {
+  isSameTradeSearchPageUrl,
+  parseTradeSearchUrl,
+  stripLiveSuffix,
+  toLiveUrl,
+} from '@/utils/trade-search-identity';
 import { syncFormToUrl } from '@/entrypoints/content/logic/form-url-sync';
 import {
   BOOKMARK_NAME_MAX_LENGTH,
@@ -667,7 +672,17 @@ export default defineComponent({
       await executeBookmarkIntent({ type: 'clear-collection' });
     };
 
+    const currentPageUrl = ref(typeof window !== 'undefined' ? window.location.href : '');
+    let stopHistoryListener: (() => void) | undefined;
+
     const refreshBookmarkTargets = () => bookmarkModel.refreshTargetContext();
+
+    const syncCurrentPageRoute = () => {
+      if (typeof window !== 'undefined') {
+        currentPageUrl.value = window.location.href || '';
+      }
+      refreshBookmarkTargets();
+    };
 
     const loadData = async () => {
       const [preferencesOutcome, bookmarkOutcome] = await Promise.all([
@@ -694,11 +709,15 @@ export default defineComponent({
         isLoading.value = false;
       }
       await fetchCurrentTab();
-      window.addEventListener('popstate', refreshBookmarkTargets);
+      syncCurrentPageRoute();
+      window.addEventListener('popstate', syncCurrentPageRoute);
+      stopHistoryListener = listenPoeEvent('poexd-history-changed', syncCurrentPageRoute);
     });
 
     onUnmounted(() => {
-      window.removeEventListener('popstate', refreshBookmarkTargets);
+      window.removeEventListener('popstate', syncCurrentPageRoute);
+      stopHistoryListener?.();
+      stopHistoryListener = undefined;
       bookmarkModel.dispose();
       stopPreferences?.();
       stopPreferences = undefined;
@@ -955,8 +974,10 @@ export default defineComponent({
     const getFolderPath = (folderId: string) =>
       formatFolderPath(groups.value as BookmarkGroup[], folderId);
 
-    // 新增目前網頁為書籤到指定資料夾
-    const addBookmarkToGroup = async (groupId: string) => {
+    const captureCurrentSearchSnapshot = async (): Promise<{
+      url: string;
+      title: string;
+    } | null> => {
       let syncedUrl: string;
       try {
         // 官方網址不一定反映剛修改的表單，先寫入再取網址（ADR-0010）
@@ -966,9 +987,10 @@ export default defineComponent({
           message: error instanceof Error ? error.message : String(error),
           tone: 'error',
         });
-        return;
+        return null;
       }
       await fetchCurrentTab();
+      syncCurrentPageRoute();
       const url = stripLiveSuffix(syncedUrl);
       const title = sanitizeBookmarkName(
         currentTabInfo.value.title,
@@ -979,16 +1001,27 @@ export default defineComponent({
           t('bookmark.dialog.cannotGetUrl'),
           t('bookmark.dialog.importFailureTitle'),
         );
-        return;
+        return null;
       }
+      return { url, title };
+    };
+
+    const resolveDefaultCoverImage = (url: string): string | undefined => {
       dispatchPoeEvent('poexd-request-result-images');
-      const coverImageUrl = getResultImagesForUrl(url)[0];
+      return getResultImagesForUrl(url)[0];
+    };
+
+    // 新增目前網頁為書籤到指定資料夾
+    const addBookmarkToGroup = async (groupId: string) => {
+      const snapshot = await captureCurrentSearchSnapshot();
+      if (!snapshot) return;
+      const coverImageUrl = resolveDefaultCoverImage(snapshot.url);
 
       const newBm: Bookmark = {
         id: 'bm_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now(),
         searchRecordId: '',
-        name: title,
-        url,
+        name: snapshot.title,
+        url: snapshot.url,
         groupId,
         order: bookmarks.value.length,
         createdAt: Date.now(),
@@ -1002,6 +1035,43 @@ export default defineComponent({
       collapsedGroupIds.value.delete(groupId);
       await saveCollapsedGroups();
       await initSortable();
+    };
+
+    // 以目前頁面的搜尋覆蓋現有書籤（保留書籤名稱、既有封面、位置與自訂設定，無確認框）
+    const overwriteBookmark = async (bookmark: Bookmark) => {
+      activeBookmarkMenuId.value = null;
+      const snapshot = await captureCurrentSearchSnapshot();
+      if (!snapshot) return;
+
+      if (!parseTradeSearchUrl(snapshot.url)) {
+        dispatchPoeEvent('poexd-toast', {
+          message: t('bookmark.toast.overwriteInvalidUrl'),
+          tone: 'error',
+        });
+        return;
+      }
+
+      if (isSameTradeSearchPageUrl(snapshot.url, bookmark.url)) {
+        showToast(t('bookmark.toast.overwriteUnchanged', { name: bookmark.name }));
+        return;
+      }
+
+      const fallbackCover = bookmark.coverImageUrl
+        ? undefined
+        : resolveDefaultCoverImage(snapshot.url);
+
+      const saved = await executeBookmarkIntent({
+        type: 'overwrite-bookmark',
+        bookmarkId: bookmark.id,
+        url: snapshot.url,
+        ...(fallbackCover ? { coverImageUrl: fallbackCover } : {}),
+      });
+      if (!saved) return;
+
+      if (previewBookmark.value?.id === bookmark.id) {
+        closePreview();
+      }
+      showToast(t('bookmark.toast.overwritten', { name: bookmark.name }));
     };
 
     // 移動書籤資料夾
@@ -1133,6 +1203,7 @@ export default defineComponent({
       openBookmark,
       openBookmarkNewTab,
       openBookmarkLiveSearch,
+      overwriteBookmark,
       sendBookmarkToLiveSearchConsole,
       sendFolderToLiveSearchConsole,
       moveBookmark,
@@ -1155,6 +1226,7 @@ export default defineComponent({
       searchEntryClickAction,
       toggleBookmarkPreview: toggleBookmarkPreviewFromEvent,
       handleBookmarkPrimaryClick,
+      currentPageUrl,
     });
 
     return {
@@ -1179,6 +1251,7 @@ export default defineComponent({
       openBookmark,
       openBookmarkNewTab,
       openBookmarkLiveSearch,
+      overwriteBookmark,
       sendBookmarkToLiveSearchConsole,
       sendFolderToLiveSearchConsole,
       addGroup,

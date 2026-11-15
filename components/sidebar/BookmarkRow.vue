@@ -1,7 +1,13 @@
 <template>
   <div
-    class="bookmark-row-item group relative flex items-center justify-between py-[var(--pxd-bookmark-row-padding-y)] px-[var(--pxd-space-md)] gap-[var(--pxd-space-lg)] border-0 border-b border-dashed border-border bg-transparent cursor-grab active:cursor-grabbing hover:bg-muted/40 last:border-b-0"
+    class="bookmark-row-item group relative flex items-center justify-between py-[var(--pxd-bookmark-row-padding-y)] px-[var(--pxd-space-md)] gap-[var(--pxd-space-lg)] border-0 border-b border-dashed border-border cursor-grab active:cursor-grabbing last:border-b-0 transition-colors"
+    :class="
+      isCurrentBookmark
+        ? 'is-current-bookmark bg-primary/12 hover:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
+        : 'bg-transparent hover:bg-muted/40'
+    "
     :data-id="bm.id"
+    :data-current="isCurrentBookmark ? 'true' : undefined"
     @pointerenter.once="activateActions"
     @focusin.once="activateActions"
   >
@@ -35,8 +41,10 @@
       <a
         v-else
         :href="bm.url"
+        :aria-current="isCurrentBookmark ? 'page' : undefined"
         @click.prevent="handlePrimaryClick"
-        class="bookmark-link block w-full min-w-0 truncate text-[length:var(--pxd-font-caption)] text-foreground no-underline hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        class="bookmark-link block w-full min-w-0 truncate text-[length:var(--pxd-font-caption)] no-underline hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        :class="isCurrentBookmark ? 'text-primary font-semibold' : 'text-foreground'"
         draggable="false"
       >
         {{ bm.name }}
@@ -52,7 +60,12 @@
     <!-- 操作列採延遲掛載：書籤一多時避免每列都建立選單元件，首次 hover / focus 才建立 -->
     <div
       v-if="showActions"
-      class="bookmark-item-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))] pl-[var(--pxd-space-sm)] flex items-center shrink-0 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+      class="bookmark-item-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) pl-[var(--pxd-space-sm)] flex items-center shrink-0 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+      :class="
+        isCurrentBookmark
+          ? 'bg-[color-mix(in_srgb,var(--primary)_15%,var(--background))]'
+          : 'bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))]'
+      "
     >
       <Button
         v-if="ctx.searchEntryClickAction?.value === 'preview'"
@@ -106,6 +119,7 @@
           <DropdownMenuContent
             v-if="isMenuOpen"
             align="end"
+            class="max-h-[min(calc(var(--pxd-menu-max-height,240px)_*_1.5),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))]"
             @close-auto-focus="
               (e) => {
                 if (ctx.editingBookmarkId.value) e.preventDefault();
@@ -131,6 +145,16 @@
               <Radio class="text-muted-foreground" />
               <!-- 使用線上搜尋開啟 -->
               {{ t('bookmark.row.openLiveSearch') }}
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem
+              data-test="bookmark-overwrite-current"
+              @click="ctx.overwriteBookmark(bm)"
+            >
+              <RefreshCw class="text-muted-foreground" />
+              {{ t('bookmark.row.overwriteWithCurrent') }}
             </DropdownMenuItem>
 
             <DropdownMenuItem @click="ctx.startRenameBookmark(bm)">
@@ -265,12 +289,13 @@ import {
   Image,
   ImageOff,
   Radio,
+  RefreshCw,
   Pencil,
   FolderInput,
   Trash2,
 } from '@lucide/vue';
 import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection';
-import { isLegacyTradeSearchUrl } from '@/utils/trade-search-identity';
+import { isLegacyTradeSearchUrl, isSameTradeSearchPageUrl } from '@/utils/trade-search-identity';
 import { t } from '@/utils/i18n';
 import type { Bookmark } from './bookmark-types';
 import {
@@ -307,6 +332,7 @@ export default defineComponent({
     Image,
     ImageOff,
     Radio,
+    RefreshCw,
     Pencil,
     FolderInput,
     Trash2,
@@ -338,6 +364,10 @@ export default defineComponent({
     const isEditing = computed(() => ctx.editingBookmarkId.value === props.bookmark.id);
     const isMenuOpen = computed(() => ctx.activeBookmarkMenuId.value === props.bookmark.id);
     const isLegacyUrl = computed(() => isLegacyTradeSearchUrl(props.bookmark.url));
+    const isCurrentBookmark = computed(() => {
+      const currentUrl = ctx.currentPageUrl?.value;
+      return currentUrl ? isSameTradeSearchPageUrl(currentUrl, props.bookmark.url) : false;
+    });
     const actionsActivated = ref(false);
 
     // 短路順序刻意讓尚未互動的列不追蹤 isDragging，拖曳開始時不會連帶重繪全部書籤列。
@@ -367,6 +397,7 @@ export default defineComponent({
       isEditing,
       isMenuOpen,
       isLegacyUrl,
+      isCurrentBookmark,
       showActions,
       moveTargetFolders,
       activateActions,

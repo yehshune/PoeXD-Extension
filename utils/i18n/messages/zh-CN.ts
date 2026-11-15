@@ -673,6 +673,9 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'bookmark.dialog.clearCollectionConfirm':
     '确定要清空所有书签吗？\n此操作将删除 {folders} 个资料夹与 {bookmarks} 个书签。\n此操作无法复原。',
   'bookmark.toast.imported': '书签已成功导入。',
+  'bookmark.toast.overwritten': '已将「{name}」覆盖为当前搜索',
+  'bookmark.toast.overwriteUnchanged': '书签「{name}」已是当前搜索',
+  'bookmark.toast.overwriteInvalidUrl': '当前页面并非有效的市集搜索结果，无法覆盖书签',
   'bookmark.dialog.importFailureTitle': '错误',
   'bookmark.dialog.importFailureMessage': '导入失败：{error}',
   'bookmark.toast.cannotResolveUrl': '无法解析书签网址',
@@ -714,6 +717,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'bookmark.row.previewSearch': '预览搜索条件',
   'bookmark.row.openNewTab': '在新标签页打开',
   'bookmark.row.openLiveSearch': '使用在线搜索开启',
+  'bookmark.row.overwriteWithCurrent': '以当前搜索覆盖',
   'bookmark.row.changeCover': '更换封面',
   'bookmark.row.setCover': '设为封面',
   'bookmark.row.noImages': '无数据',

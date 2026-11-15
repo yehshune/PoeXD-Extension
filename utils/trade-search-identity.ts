@@ -116,6 +116,33 @@ export function isSameTradeSearchIdentity(
   );
 }
 
+function getTradeRouteKind(urlValue: string): 'search' | 'exchange' | undefined {
+  try {
+    const path = parseTradePath(new URL(urlValue).pathname);
+    const kind = path?.parts[1];
+    return kind === 'search' || kind === 'exchange' ? kind : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 判斷兩個市集網址是否指向同一個搜尋頁面（忽略 `/live` 後綴、query string、hash 與尾端斜線，
+ * 且區分 `/search/` 與 `/exchange/` 路由，不比對無效或非搜尋頁面網址）。
+ */
+export function isSameTradeSearchPageUrl(leftUrl: string, rightUrl: string): boolean {
+  if (!leftUrl || !rightUrl) return false;
+  const cleanLeft = stripLiveSuffix(leftUrl).split('?')[0].split('#')[0].replace(/\/+$/, '');
+  const cleanRight = stripLiveSuffix(rightUrl).split('?')[0].split('#')[0].replace(/\/+$/, '');
+  const left = parseTradeSearchUrl(cleanLeft);
+  const right = parseTradeSearchUrl(cleanRight);
+  if (!left || !right) return false;
+  return (
+    getTradeRouteKind(cleanLeft) === getTradeRouteKind(cleanRight) &&
+    isSameTradeSearchIdentity(left, right)
+  );
+}
+
 export function getTradeSearchCanonicalKey(identity: ParsedTradeSearchIdentity): string {
   return `${identity.gameVersion}:${identity.league.trim().toLowerCase()}:${identity.searchId.trim()}`;
 }

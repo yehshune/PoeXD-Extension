@@ -716,6 +716,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'bookmark.dialog.clearCollectionConfirm':
     'Are you sure you want to clear all bookmarks?\nThis will delete {folders} folders and {bookmarks} bookmarks.\nThis cannot be undone.',
   'bookmark.toast.imported': 'Bookmarks imported successfully.',
+  'bookmark.toast.overwritten': 'Overwrote "{name}" with current search',
+  'bookmark.toast.overwriteUnchanged': 'Bookmark "{name}" already matches the current search',
+  'bookmark.toast.overwriteInvalidUrl':
+    'Current page is not a valid Trade search to overwrite with',
   'bookmark.dialog.importFailureTitle': 'Error',
   'bookmark.dialog.importFailureMessage': 'Import failed: {error}',
   'bookmark.toast.cannotResolveUrl': 'Cannot resolve bookmark URL',
@@ -757,6 +761,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'bookmark.row.previewSearch': 'Preview search criteria',
   'bookmark.row.openNewTab': 'Open in new tab',
   'bookmark.row.openLiveSearch': 'Open in Live Search',
+  'bookmark.row.overwriteWithCurrent': 'Overwrite with current search',
   'bookmark.row.changeCover': 'Change Cover',
   'bookmark.row.setCover': 'Set as Cover',
   'bookmark.row.noImages': 'No images',

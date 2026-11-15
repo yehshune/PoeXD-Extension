@@ -37,6 +37,7 @@ export type BookmarkMutationIntent =
     }
   | { type: 'reorder-groups'; groupIds: string[] }
   | { type: 'add-bookmark'; bookmark: Bookmark }
+  | { type: 'overwrite-bookmark'; bookmarkId: string; url: string; coverImageUrl?: string }
   | { type: 'rename-bookmark'; bookmarkId: string; name: string }
   | { type: 'move-bookmark'; bookmarkId: string; groupId: string }
   | { type: 'set-bookmark-cover'; bookmarkId: string; coverImageUrl?: string }
@@ -275,6 +276,16 @@ async function commitIntent(
       return client.reorderGroups(intent.groupIds);
     case 'add-bookmark':
       return client.putBookmark(toBookmarkInput(intent.bookmark));
+    case 'overwrite-bookmark': {
+      const bookmark = canonical.bookmarks.find((item) => item.id === intent.bookmarkId);
+      if (!bookmark) return invalid(`Bookmark ${intent.bookmarkId} does not exist`);
+      if (intent.coverImageUrl !== undefined && !isValidPoeCdnImageUrl(intent.coverImageUrl)) {
+        return invalid(`Invalid bookmark cover URL`);
+      }
+      return client.putBookmark(
+        toBookmarkInput(mergeOverwrittenBookmark(bookmark, intent.url, intent.coverImageUrl)),
+      );
+    }
     case 'rename-bookmark':
     case 'move-bookmark':
     case 'set-bookmark-cover': {
@@ -370,6 +381,17 @@ function applyIntent(state: Projection, intent: BookmarkMutationIntent): Project
     case 'add-bookmark':
       next.bookmarks.push({ ...intent.bookmark });
       break;
+    case 'overwrite-bookmark': {
+      if (intent.coverImageUrl !== undefined && !isValidPoeCdnImageUrl(intent.coverImageUrl)) {
+        break;
+      }
+      next.bookmarks = next.bookmarks.map((bookmark) =>
+        bookmark.id === intent.bookmarkId
+          ? mergeOverwrittenBookmark(bookmark, intent.url, intent.coverImageUrl)
+          : bookmark,
+      );
+      break;
+    }
     case 'rename-bookmark':
       next.bookmarks = next.bookmarks.map((bookmark) =>
         bookmark.id === intent.bookmarkId ? { ...bookmark, name: intent.name } : bookmark,
@@ -444,6 +466,20 @@ function cloneProjection(state: Projection): Projection {
   return {
     groups: state.groups.map((group) => ({ ...group })),
     bookmarks: state.bookmarks.map((bookmark) => ({ ...bookmark })),
+  };
+}
+
+function mergeOverwrittenBookmark(
+  bookmark: Bookmark,
+  url: string,
+  fallbackCoverImageUrl?: string,
+): Bookmark {
+  const nextCover = bookmark.coverImageUrl ?? fallbackCoverImageUrl;
+  return {
+    ...bookmark,
+    canonicalUrl: url,
+    url,
+    ...(nextCover !== undefined ? { coverImageUrl: nextCover } : {}),
   };
 }
 

@@ -2,7 +2,7 @@ import { ref, onMounted, onUnmounted, getCurrentInstance, type Ref } from 'vue';
 import type { Bookmark } from '../bookmark-types';
 import type { BookmarkMutationIntent } from '../bookmark-model';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
-import { parseTradeSearchUrl, stripLiveSuffix } from '@/utils/trade-search-identity';
+import { isSameTradeSearchPageUrl, parseTradeSearchUrl } from '@/utils/trade-search-identity';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 
 export interface UseBookmarkCoversOptions {
@@ -59,21 +59,8 @@ export function useBookmarkCovers(options: UseBookmarkCoversOptions) {
     }
   };
 
-  const sameSearchPage = (leftUrl: string, rightUrl: string): boolean => {
-    if (!leftUrl || !rightUrl) return false;
-    const cleanLeft = stripLiveSuffix(leftUrl).split('?')[0].split('#')[0];
-    const cleanRight = stripLiveSuffix(rightUrl).split('?')[0].split('#')[0];
-    if (cleanLeft === cleanRight) return true;
-    const left = parseTradeSearchUrl(cleanLeft);
-    const right = parseTradeSearchUrl(cleanRight);
-    return (
-      !!left &&
-      !!right &&
-      left.gameVersion === right.gameVersion &&
-      left.league === right.league &&
-      left.searchId === right.searchId
-    );
-  };
+  const sameSearchPage = (leftUrl: string, rightUrl: string): boolean =>
+    isSameTradeSearchPageUrl(leftUrl, rightUrl);
 
   const isValidCoverUrl = isValidPoeCdnImageUrl;
 

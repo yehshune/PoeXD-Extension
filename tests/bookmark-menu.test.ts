@@ -41,6 +41,11 @@ vi.mock('@/utils/trade-leagues', () => ({
   fetchTradeLeagues: vi.fn(async () => mockTradeLeagues),
 }));
 
+const syncFormToUrlSpy = vi.fn(async () => window.location.href);
+vi.mock('@/entrypoints/content/logic/form-url-sync', () => ({
+  syncFormToUrl: () => syncFormToUrlSpy(),
+}));
+
 let mockBookmarkCollection = {
   bookmarks: [
     {
@@ -163,9 +168,12 @@ describe('Bookmark Menu (Static Contracts & Legacy Cleanup)', () => {
     expect(nodeSource).not.toContain('z-[10000001]');
   });
 
-  it('Generic Dropdown primitives enforce available-width safety, scale-aware minimum, and shrink capability', () => {
+  it('Generic Dropdown primitives enforce available-width safety, vertical scroll fallback, scale-aware minimum, and shrink capability', () => {
     expect(contentSource).toContain('--reka-dropdown-menu-content-available-width');
     expect(contentSource).toContain('var(--pxd-menu-min-width');
+    expect(contentSource).toContain('overflow-y-auto');
+    expect(contentSource).not.toContain('overflow-hidden');
+    expect(nodeSource).toContain('var(--pxd-menu-max-height,240px)_*_1.5');
     expect(subContentSource).toContain('--reka-dropdown-menu-content-available-width');
     expect(subContentSource).toContain('var(--pxd-menu-min-width');
     expect(itemSource).toContain('min-w-0');
@@ -239,6 +247,9 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
     deleteBookmarkSpy.mockClear();
     reorderBookmarksSpy.mockClear();
     exportTransferSpy.mockClear();
+    syncFormToUrlSpy.mockReset();
+    syncFormToUrlSpy.mockImplementation(async () => window.location.href);
+    (globalThis as any).happyDOM?.setURL?.('https://www.pathofexile.com/trade/search/Standard');
 
     mockBookmarkCollection = {
       bookmarks: [
@@ -821,5 +832,111 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
     await new Promise((r) => setTimeout(r, 50));
 
     expect(deleteBookmarkSpy).toHaveBeenCalledWith('bm-1');
+  });
+
+  it('J. overwrites bookmark with current search without confirmation dialog while preserving name and group', async () => {
+    const newSearchUrl = 'https://www.pathofexile.com/trade/search/Standard/H4sIAAAAAAAAA_updated';
+    (globalThis as any).happyDOM?.setURL?.(`${newSearchUrl}/live`);
+    syncFormToUrlSpy.mockResolvedValue(`${newSearchUrl}/live`);
+    putBookmarkSpy.mockImplementationOnce(async (input: any) => {
+      mockBookmarkCollection = {
+        ...mockBookmarkCollection,
+        bookmarks: mockBookmarkCollection.bookmarks.map((b) =>
+          b.id === input.id ? { ...b, ...input } : b,
+        ),
+      };
+      return { ok: true };
+    });
+
+    const rows = getBookmarkRows();
+    const bm1 = rows[0]; // 崇高石 in group-1 with existing coverImageUrl
+    expect(bm1.getAttribute('data-current')).toBeNull();
+
+    await openBookmarkMenu(bm1);
+
+    const overwriteItem = portalRoot.querySelector<HTMLElement>(
+      '[data-test="bookmark-overwrite-current"]',
+    );
+    expect(overwriteItem).not.toBeNull();
+
+    overwriteItem?.click();
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(poexdConfirmSpy).not.toHaveBeenCalled();
+    expect(syncFormToUrlSpy).toHaveBeenCalledOnce();
+    expect(putBookmarkSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'bm-1',
+        name: '崇高石',
+        groupId: 'group-1',
+        url: newSearchUrl,
+        coverImageUrl: 'https://web.poecdn.com/exalt.png',
+      }),
+    );
+
+    // After optimistic overwrite to current page URL, bm1 becomes highlighted
+    expect(bm1.getAttribute('data-current')).toBe('true');
+    expect(bm1.classList.contains('is-current-bookmark')).toBe(true);
+    expect(bm1.querySelector('a.bookmark-link')?.getAttribute('aria-current')).toBe('page');
+  });
+
+  it('K. skips overwrite when current search is invalid or identical to bookmark', async () => {
+    const clickOverwriteItem = async (row: HTMLElement) => {
+      await openBookmarkMenu(row);
+      const item = portalRoot.querySelector<HTMLElement>(
+        '[data-test="bookmark-overwrite-current"]',
+      );
+      expect(item).not.toBeNull();
+      item?.click();
+      await nextTick();
+      await new Promise((r) => setTimeout(r, 40));
+    };
+
+    // 1. Identical URL (including /live suffix) -> does not call putBookmark
+    (globalThis as any).happyDOM?.setURL?.(
+      'https://www.pathofexile.com/trade/search/Standard/exalt/live',
+    );
+    const rows = getBookmarkRows();
+    await clickOverwriteItem(rows[0]);
+    expect(putBookmarkSpy).not.toHaveBeenCalled();
+
+    // 2. Non-search page URL -> does not call putBookmark
+    (globalThis as any).happyDOM?.setURL?.('https://www.pathofexile.com/trade/search/Standard');
+    await clickOverwriteItem(rows[0]);
+    expect(putBookmarkSpy).not.toHaveBeenCalled();
+  });
+
+  it('L. highlights matching bookmark for current URL and updates reactively on route changes', async () => {
+    const rows = getBookmarkRows();
+    const bm1 = rows[0];
+    const bm2 = rows[1];
+
+    expect(bm1.getAttribute('data-current')).toBeNull();
+    expect(bm2.getAttribute('data-current')).toBeNull();
+
+    // Navigate to bm1 (/live) via poexd-history-changed
+    (globalThis as any).happyDOM?.setURL?.(
+      'https://www.pathofexile.com/trade/search/Standard/exalt/live',
+    );
+    dispatchPoeEvent('poexd-history-changed');
+    await nextTick();
+
+    expect(bm1.getAttribute('data-current')).toBe('true');
+    expect(bm1.classList.contains('is-current-bookmark')).toBe(true);
+    expect(bm1.querySelector('a.bookmark-link')?.getAttribute('aria-current')).toBe('page');
+    expect(bm2.getAttribute('data-current')).toBeNull();
+
+    // Navigate to bm2 via popstate
+    (globalThis as any).happyDOM?.setURL?.(
+      'https://www.pathofexile.com/trade/search/Standard/divine',
+    );
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await nextTick();
+
+    expect(bm1.getAttribute('data-current')).toBeNull();
+    expect(bm1.classList.contains('is-current-bookmark')).toBe(false);
+    expect(bm2.getAttribute('data-current')).toBe('true');
+    expect(bm2.classList.contains('is-current-bookmark')).toBe(true);
   });
 });

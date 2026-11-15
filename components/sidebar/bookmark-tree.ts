@@ -66,6 +66,7 @@ export interface BookmarkPaneContext {
   openBookmark: (bookmark: Bookmark) => void;
   openBookmarkNewTab: (bookmark: Bookmark) => void;
   openBookmarkLiveSearch: (bookmark: Bookmark) => void;
+  overwriteBookmark: (bookmark: Bookmark) => Promise<void>;
   sendBookmarkToLiveSearchConsole?: (bookmark: Bookmark) => Promise<void> | void;
   sendFolderToLiveSearchConsole?: (group: BookmarkGroup) => Promise<void> | void;
   moveBookmark: (bookmarkId: string, targetGroupId: string) => Promise<void>;
@@ -89,6 +90,8 @@ export interface BookmarkPaneContext {
   searchEntryClickAction?: Ref<'open' | 'preview'>;
   toggleBookmarkPreview?: (bookmark: Bookmark, event: Event) => void;
   handleBookmarkPrimaryClick?: (bookmark: Bookmark, event: Event) => void;
+  /** 目前瀏覽器分頁的網址，用於高亮對應的書籤列。 */
+  currentPageUrl?: Ref<string>;
 }
 
 export const BOOKMARK_PANE_CONTEXT_KEY = Symbol('BookmarkPaneContext');

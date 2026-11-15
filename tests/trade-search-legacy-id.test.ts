@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isLegacySearchId, isLegacyTradeSearchUrl } from '../utils/trade-search-identity';
+import {
+  isLegacySearchId,
+  isLegacyTradeSearchUrl,
+  isSameTradeSearchPageUrl,
+} from '../utils/trade-search-identity';
 
 const GZIP_ID = 'H4sIAAAAAAAACoVQ0WrDMAz8l3s2JXWcZfWvjFI0Ww0Gx8lsp10J';
 
@@ -69,5 +73,52 @@ describe('evaluateLiveSearchSourceCompatibility legacy check', () => {
     expect(evaluateLiveSearchSourceCompatibility(identity, context, url).compatibility).toBe(
       'compatible',
     );
+  });
+});
+
+describe('isSameTradeSearchPageUrl', () => {
+  it('matches identical search URLs regardless of /live suffix, query, hash, trailing slash, or realm host', () => {
+    expect(
+      isSameTradeSearchPageUrl(
+        `https://www.pathofexile.com/trade/search/Standard/${GZIP_ID}/live?foo=1#top`,
+        `https://pathofexile.tw/trade/search/Standard/${GZIP_ID}/`,
+      ),
+    ).toBe(true);
+    expect(
+      isSameTradeSearchPageUrl(
+        `https://www.pathofexile.com/trade2/search/poe2/Dawn%20of%20the%20Hunt/${GZIP_ID}/live`,
+        `https://www.pathofexile.com/trade2/search/poe2/dawn%20of%20the%20hunt/${GZIP_ID}`,
+      ),
+    ).toBe(true);
+  });
+
+  it('distinguishes /search/ from /exchange/ and different leagues or IDs', () => {
+    expect(
+      isSameTradeSearchPageUrl(
+        `https://www.pathofexile.com/trade/search/Standard/${GZIP_ID}`,
+        `https://www.pathofexile.com/trade/exchange/Standard/${GZIP_ID}`,
+      ),
+    ).toBe(false);
+    expect(
+      isSameTradeSearchPageUrl(
+        `https://www.pathofexile.com/trade/search/Standard/${GZIP_ID}`,
+        `https://www.pathofexile.com/trade/search/Settlers/${GZIP_ID}`,
+      ),
+    ).toBe(false);
+  });
+
+  it('never matches non-search URLs even when strings are equal', () => {
+    expect(
+      isSameTradeSearchPageUrl(
+        'https://www.pathofexile.com/trade/search/Standard',
+        'https://www.pathofexile.com/trade/search/Standard',
+      ),
+    ).toBe(false);
+    expect(
+      isSameTradeSearchPageUrl(
+        'https://www.pathofexile.com/trade',
+        'https://www.pathofexile.com/trade',
+      ),
+    ).toBe(false);
   });
 });

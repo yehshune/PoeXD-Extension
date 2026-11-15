@@ -500,4 +500,82 @@ describe('Bookmark pane model interface', () => {
     expect(model.state.value.groups.length).toBe(1);
     expect(model.state.value.bookmarks.length).toBe(1);
   });
+
+  it('overwrites bookmark URL while preserving name, folder, order, and existing cover', async () => {
+    const adapter = setupClient({
+      ...initialView,
+      bookmarks: [
+        {
+          ...initialView.bookmarks[0],
+          coverImageUrl: 'https://web.poecdn.com/existing-cover.png',
+          leaguePinned: true,
+        },
+      ],
+    });
+    const model = createBookmarkModel(adapter.client);
+    await model.connect();
+
+    const newUrl = 'https://www.pathofexile.com/trade/search/Standard/updated-id';
+    const outcome = model.execute({
+      type: 'overwrite-bookmark',
+      bookmarkId: 'bookmark-1',
+      url: newUrl,
+      coverImageUrl: 'https://web.poecdn.com/new-cover.png',
+    });
+
+    expect(model.state.value.bookmarks[0]).toMatchObject({
+      id: 'bookmark-1',
+      name: 'Bow',
+      groupId: 'group-1',
+      order: 0,
+      url: newUrl,
+      canonicalUrl: newUrl,
+      coverImageUrl: 'https://web.poecdn.com/existing-cover.png',
+      leaguePinned: true,
+    });
+
+    await expect(outcome).resolves.toEqual({ ok: true, value: undefined });
+    expect(adapter.client.putBookmark).toHaveBeenCalledWith({
+      id: 'bookmark-1',
+      name: 'Bow',
+      url: newUrl,
+      groupId: 'group-1',
+      order: 0,
+      coverImageUrl: 'https://web.poecdn.com/existing-cover.png',
+      leaguePinned: true,
+    });
+  });
+
+  it('fills missing cover on overwrite-bookmark and rejects invalid cover URL', async () => {
+    const adapter = setupClient();
+    const model = createBookmarkModel(adapter.client);
+    await model.connect();
+
+    const invalidOutcome = await model.execute({
+      type: 'overwrite-bookmark',
+      bookmarkId: 'bookmark-1',
+      url: 'https://www.pathofexile.com/trade/search/Standard/id-2',
+      coverImageUrl: 'https://evil.example/bad.png',
+    });
+    expect(invalidOutcome).toEqual({
+      ok: false,
+      error: { code: 'invalid-identity', message: 'Invalid bookmark cover URL' },
+    });
+    expect(adapter.client.putBookmark).not.toHaveBeenCalled();
+
+    const okOutcome = await model.execute({
+      type: 'overwrite-bookmark',
+      bookmarkId: 'bookmark-1',
+      url: 'https://www.pathofexile.com/trade/search/Standard/id-2',
+      coverImageUrl: 'https://web.poecdn.com/fallback-cover.png',
+    });
+    expect(okOutcome).toEqual({ ok: true, value: undefined });
+    expect(adapter.client.putBookmark).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'bookmark-1',
+        url: 'https://www.pathofexile.com/trade/search/Standard/id-2',
+        coverImageUrl: 'https://web.poecdn.com/fallback-cover.png',
+      }),
+    );
+  });
 });

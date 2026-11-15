@@ -671,6 +671,9 @@ export const ZH_TW_MESSAGES = {
   'bookmark.dialog.clearCollectionConfirm':
     '確定要清空所有書籤嗎？\n此操作將刪除 {folders} 個資料夾與 {bookmarks} 個書籤。\n此操作無法復原。',
   'bookmark.toast.imported': '書籤已成功匯入。',
+  'bookmark.toast.overwritten': '已將「{name}」覆蓋為目前搜尋',
+  'bookmark.toast.overwriteUnchanged': '書籤「{name}」已是目前搜尋',
+  'bookmark.toast.overwriteInvalidUrl': '目前頁面並非有效的市集搜尋結果，無法覆蓋書籤',
   'bookmark.dialog.importFailureTitle': '錯誤',
   'bookmark.dialog.importFailureMessage': '匯入失敗：{error}',
   'bookmark.toast.cannotResolveUrl': '無法解析書籤網址',
@@ -712,6 +715,7 @@ export const ZH_TW_MESSAGES = {
   'bookmark.row.previewSearch': '預覽搜尋條件',
   'bookmark.row.openNewTab': '在新分頁開啟',
   'bookmark.row.openLiveSearch': '使用線上搜尋開啟',
+  'bookmark.row.overwriteWithCurrent': '以目前搜尋覆蓋',
   'bookmark.row.changeCover': '更換封面',
   'bookmark.row.setCover': '設為封面',
   'bookmark.row.noImages': '無資料',
