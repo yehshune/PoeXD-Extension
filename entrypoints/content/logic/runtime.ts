@@ -54,8 +54,9 @@ import {
   type LiveSearchResumeController,
 } from './live-search-resume-controller';
 import { setKnownStats } from '@/utils/known-stats-store';
-import { setLiveTradeData } from '@/utils/live-trade-data-store';
-import { resolvePageLocale } from '@/utils/locale-resolution';
+import { setLiveTradeData, setMarketLiveTradeData } from '@/utils/live-trade-data-store';
+import { startMarketLiveLabelsSync } from '@/utils/market-live-labels';
+import { detectBrowserLocale, resolvePageLocale } from '@/utils/locale-resolution';
 
 let activePrimaryRuntime: LiveSearchPrimaryRuntime | null = null;
 let activePrimaryController: LiveSearchPrimaryController | null = null;
@@ -369,6 +370,23 @@ function registerPageContextEvents(
         return;
       }
       setLiveTradeData(version, { pageLocale: resolvePageLocale(), ...payload });
+    }),
+  );
+  // 市集漢化啟用時，背景從目標服官方 API 更新的快取也供側邊欄標籤使用（ADR-0012）
+  cleanups.push(
+    startMarketLiveLabelsSync({
+      version,
+      hostname: window.location.hostname,
+      browserLocale: detectBrowserLocale(),
+      readStorage: (keys) => chrome.storage.local.get([...keys]),
+      subscribeStorage: (handler) => {
+        const listener = (changes: Record<string, unknown>, area: string) => {
+          if (area === 'local') handler(Object.keys(changes));
+        };
+        chrome.storage.onChanged.addListener(listener);
+        return () => chrome.storage.onChanged.removeListener(listener);
+      },
+      apply: (snapshot) => setMarketLiveTradeData(version, snapshot),
     }),
   );
 
