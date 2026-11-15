@@ -1,4 +1,6 @@
 import { defineExtensionMessaging } from '@webext-core/messaging';
+import type { PoeVersion } from './trade-context';
+import { withTimeout } from './promise-timeout';
 import type {
   BookmarkChange,
   BookmarkCommand,
@@ -67,3 +69,28 @@ export interface ExtensionProtocolMap {
 }
 
 export const extensionMessaging = defineExtensionMessaging<ExtensionProtocolMap>();
+
+export const DEFAULT_ENQUEUE_IPC_TIMEOUT_MS = 10000;
+
+export interface EnqueueLiveSearchConnectionsOptions {
+  timeoutMs?: number;
+  timeoutMessage?: string;
+}
+
+/**
+ * Send a live-search enqueue request with a hard client-side timeout so UI buttons
+ * cannot remain permanently disabled if the background worker or IPC stalls.
+ */
+export function enqueueLiveSearchConnections(
+  request: LiveSearchEnqueueRequest,
+  options: EnqueueLiveSearchConnectionsOptions = {},
+): Promise<LiveSearchEnqueueResponse> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_ENQUEUE_IPC_TIMEOUT_MS;
+  const timeoutMessage =
+    options.timeoutMessage ?? `Live search enqueue request timed out after ${timeoutMs}ms`;
+  return withTimeout(
+    extensionMessaging.sendMessage('liveSearch:enqueueConnections', request),
+    timeoutMs,
+    timeoutMessage,
+  );
+}

@@ -259,7 +259,28 @@ export async function runLogic(ctx: any, version: PoeVersion) {
           shouldWarn: () => (activePrimaryController?.read().subscriptions.length ?? 0) > 0,
         });
 
-        cleanupEnqueueListener = extensionMessaging.onMessage(
+        const drainPendingEnqueue = () => {
+          if (disposed || !activeBookmarkController?.enqueueIncomingConnections) return;
+          void extensionMessaging
+            .sendMessage('liveSearch:consumePendingEnqueue', {
+              gameVersion: version,
+            })
+            .then(async (res) => {
+              if (
+                !disposed &&
+                res?.items &&
+                res.items.length > 0 &&
+                activeBookmarkController?.enqueueIncomingConnections
+              ) {
+                await activeBookmarkController.enqueueIncomingConnections(res.items);
+              }
+            })
+            .catch((err) => {
+              console.warn('[PoeXD] 消費待處理連線佇列失敗:', err);
+            });
+        };
+
+        const cleanupReceiveEnqueue = extensionMessaging.onMessage(
           'liveSearch:receiveEnqueuedConnections',
           async ({ data }) => {
             if (
@@ -279,23 +300,18 @@ export async function runLogic(ctx: any, version: PoeVersion) {
           },
         );
 
-        void extensionMessaging
-          .sendMessage('liveSearch:consumePendingEnqueue', {
-            gameVersion: version,
-          })
-          .then(async (res) => {
-            if (
-              !disposed &&
-              res?.items &&
-              res.items.length > 0 &&
-              activeBookmarkController?.enqueueIncomingConnections
-            ) {
-              await activeBookmarkController.enqueueIncomingConnections(res.items);
-            }
-          })
-          .catch((err) => {
-            console.warn('[PoeXD] 消費待處理連線佇列失敗:', err);
-          });
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible') {
+            drainPendingEnqueue();
+          }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        cleanupEnqueueListener = () => {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          cleanupReceiveEnqueue();
+        };
+
+        drainPendingEnqueue();
       }
       stopSidebarPreferences =
         (await mountSidebarLayout(

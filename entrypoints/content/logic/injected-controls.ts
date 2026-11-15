@@ -14,7 +14,7 @@ import {
 import { type PoeVersion } from '@/utils/trade-context';
 import { getTradeMapping } from '@/components/sidebar/mapping-registry';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
-import { extensionMessaging } from '@/utils/extension-protocol';
+import { enqueueLiveSearchConnections } from '@/utils/extension-protocol';
 import { stripLiveSuffix } from '@/utils/trade-search-identity';
 import { decodeTradeSearchUrl, extractQueryMetadata } from '@/utils/trade-url-codec';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
@@ -619,15 +619,18 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
 
           const displayLabel = derivedName || t('injectedControls.unnamedSearch');
 
-          const res = await extensionMessaging.sendMessage('liveSearch:enqueueConnections', {
-            gameVersion: options.version,
-            items: [
-              {
-                url: cleanUrl,
-                ...(derivedName ? { name: derivedName } : {}),
-              },
-            ],
-          });
+          const res = await enqueueLiveSearchConnections(
+            {
+              gameVersion: options.version,
+              items: [
+                {
+                  url: cleanUrl,
+                  ...(derivedName ? { name: derivedName } : {}),
+                },
+              ],
+            },
+            { timeoutMessage: t('injectedControls.sendToConsoleFailed') },
+          );
 
           const toast = resolveSingleEnqueueToast(res, displayLabel);
           dispatchPoeEvent('poexd-toast', {

@@ -4812,6 +4812,29 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       sourceController.dispose();
     });
 
+    it('serializes concurrent enqueueIncomingConnections calls so duplicate pushes never race or double-subscribe', async () => {
+      const controller = createLiveSearchPrimaryController(runtime);
+      const sourceController = createLiveSearchSourceController(null, controller);
+      const item = {
+        url: 'https://www.pathofexile.com/trade/search/Standard/H4sIconcurrent_1',
+        name: '併發送入測試',
+      };
+
+      const [first, second] = await Promise.all([
+        sourceController.enqueueIncomingConnections!([item]),
+        sourceController.enqueueIncomingConnections!([item]),
+      ]);
+
+      expect(first.success).toBe(true);
+      expect(first.addedCount).toBe(1);
+      expect(second.success).toBe(true);
+      expect(second.addedCount).toBe(0);
+      expect(second.skippedCount).toBe(1);
+      expect(controller.read().subscriptions).toHaveLength(1);
+
+      sourceController.dispose();
+    });
+
     it('retains all unremoved 上次連線 and 本次連線 (including paused and custom URLs) across console reopen, and supports drag-to-trash single removal', async () => {
       let storedIdentities: any[] = [
         {

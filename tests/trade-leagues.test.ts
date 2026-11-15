@@ -39,4 +39,10 @@ describe('Trade league discovery', () => {
     ]);
     expect(http).toHaveBeenCalledWith('/api/trade2/data/leagues', { credentials: 'same-origin' });
   });
+
+  it('rejects cleanly when the league endpoint hangs past timeoutMs', async () => {
+    const hangingHttp = vi.fn(() => new Promise<Response>(() => {}));
+
+    await expect(fetchTradeLeagues('poe1', hangingHttp, 25)).rejects.toThrow('市集聯盟讀取逾時');
+  });
 });

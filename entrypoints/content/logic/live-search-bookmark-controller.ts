@@ -620,6 +620,13 @@ export function createLiveSearchSourceController(
   let currentSwitchId = 0;
   let switchChain: Promise<boolean> = Promise.resolve(true);
   let pendingTargetLeague: string | null = null;
+  let enqueueIncomingChain: Promise<unknown> = Promise.resolve();
+
+  function runEnqueueIncoming<T>(task: () => Promise<T>): Promise<T> {
+    const next = enqueueIncomingChain.then(task, task);
+    enqueueIncomingChain = next.catch(() => {});
+    return next;
+  }
 
   function registerSessionEntry(meta: SessionConnectionMeta): void {
     const existing = sessionEntriesByKey.get(meta.canonicalKey);
@@ -2802,238 +2809,240 @@ export function createLiveSearchSourceController(
       return await enableSourceInternal(customRecord.id, false);
     },
 
-    async enqueueIncomingConnections(
+    enqueueIncomingConnections(
       items: readonly LiveSearchEnqueueItem[],
     ): Promise<LiveSearchEnqueueResponse> {
-      if (disposed) {
-        return { success: false, error: '主控台已關閉', rejectReason: 'failed' };
-      }
-
-      if (!isLeagueResolved) {
-        await ensureStartupResolved();
-      }
-
-      if (source && (isReloading || hasPendingReload)) {
-        await waitForReconciliationDrain();
-      }
-
-      if (disposed) {
-        return { success: false, error: '主控台已關閉', rejectReason: 'failed' };
-      }
-
-      const rawItems = Array.isArray(items) ? items : [];
-      const parsedCandidates: Array<{
-        item: LiveSearchEnqueueItem;
-        cleanUrl: string;
-        parsed: ParsedTradeSearchIdentity;
-        canonicalKey: string;
-      }> = [];
-      const seenIncomingKeys = new Set<string>();
-      let duplicateIncomingSkipped = 0;
-
-      for (const item of rawItems) {
-        if (!item || typeof item.url !== 'string' || !item.url.trim()) continue;
-        const cleanUrl = stripLiveSuffix(item.url.trim());
-        const parsed = parseTradeSearchUrl(cleanUrl);
-        if (!parsed || isLegacyTradeSearchUrl(cleanUrl)) {
-          continue;
+      return runEnqueueIncoming(async () => {
+        if (disposed) {
+          return { success: false, error: '主控台已關閉', rejectReason: 'failed' };
         }
-        const canonicalKey = getTradeSearchCanonicalKey(parsed);
-        if (seenIncomingKeys.has(canonicalKey)) {
-          duplicateIncomingSkipped++;
-          continue;
+
+        if (!isLeagueResolved) {
+          await ensureStartupResolved();
         }
-        seenIncomingKeys.add(canonicalKey);
-        parsedCandidates.push({
-          item,
-          cleanUrl,
-          parsed,
-          canonicalKey,
-        });
-      }
 
-      if (parsedCandidates.length === 0) {
-        return {
-          success: false,
-          error: '無效的 Trade 搜尋網址',
-          rejectReason: 'invalid-url',
-        };
-      }
-
-      const wrongVersionItem = parsedCandidates.find(
-        (c) => c.parsed.gameVersion !== currentGameVersion,
-      );
-      if (wrongVersionItem) {
-        return {
-          success: false,
-          error: `此搜尋屬於 ${formatLiveSearchDisplayVersion(wrongVersionItem.parsed.gameVersion)}，目前主控台為 ${formatLiveSearchDisplayVersion(currentGameVersion)}`,
-          rejectReason: 'wrong-version',
-        };
-      }
-
-      const distinctLeagues: string[] = [];
-      for (const c of parsedCandidates) {
-        const normLeague = c.parsed.league.trim().toLowerCase();
-        if (!distinctLeagues.includes(normLeague)) {
-          distinctLeagues.push(normLeague);
+        if (source && (isReloading || hasPendingReload)) {
+          await waitForReconciliationDrain();
         }
-      }
 
-      if (distinctLeagues.length > 1) {
-        const formatted = distinctLeagues.map(formatLiveSearchDisplayLeague).join(' 與 ');
-        return {
-          success: false,
-          error: `選取項目包含多個聯盟（${formatted}），請分開送入主控台`,
-          rejectReason: 'mixed-league',
-        };
-      }
+        if (disposed) {
+          return { success: false, error: '主控台已關閉', rejectReason: 'failed' };
+        }
 
-      const incomingLeague = parsedCandidates[0].parsed.league.trim();
-      const primaryContext = getPrimaryContext();
+        const rawItems = Array.isArray(items) ? items : [];
+        const parsedCandidates: Array<{
+          item: LiveSearchEnqueueItem;
+          cleanUrl: string;
+          parsed: ParsedTradeSearchIdentity;
+          canonicalKey: string;
+        }> = [];
+        const seenIncomingKeys = new Set<string>();
+        let duplicateIncomingSkipped = 0;
 
-      if (
-        primaryContext.runtimeLeague &&
-        primaryContext.runtimeLeague.trim().toLowerCase() !== incomingLeague.toLowerCase()
-      ) {
-        return {
-          success: false,
-          error: `主控台目前正在監聽 ${formatLiveSearchDisplayLeague(primaryContext.runtimeLeague)}，無法直接加入 ${formatLiveSearchDisplayLeague(incomingLeague)} 連線`,
-          rejectReason: 'wrong-league',
-        };
-      }
+        for (const item of rawItems) {
+          if (!item || typeof item.url !== 'string' || !item.url.trim()) continue;
+          const cleanUrl = stripLiveSuffix(item.url.trim());
+          const parsed = parseTradeSearchUrl(cleanUrl);
+          if (!parsed || isLegacyTradeSearchUrl(cleanUrl)) {
+            continue;
+          }
+          const canonicalKey = getTradeSearchCanonicalKey(parsed);
+          if (seenIncomingKeys.has(canonicalKey)) {
+            duplicateIncomingSkipped++;
+            continue;
+          }
+          seenIncomingKeys.add(canonicalKey);
+          parsedCandidates.push({
+            item,
+            cleanUrl,
+            parsed,
+            canonicalKey,
+          });
+        }
 
-      if (
-        !primaryContext.runtimeLeague &&
-        selectedLeague.trim().toLowerCase() !== incomingLeague.toLowerCase()
-      ) {
-        const switched = await switchLeague(incomingLeague);
-        if (!switched) {
+        if (parsedCandidates.length === 0) {
           return {
             success: false,
-            error: `切換主控台聯盟至 ${formatLiveSearchDisplayLeague(incomingLeague)} 失敗`,
-            rejectReason: 'failed',
+            error: '無效的 Trade 搜尋網址',
+            rejectReason: 'invalid-url',
           };
         }
-      }
 
-      const sourceIdsToEnable: string[] = [];
-      const resumeEntriesToPersist: LiveSearchResumeIdentity[] = [];
-
-      for (const candidate of parsedCandidates) {
-        const existingBookmark =
-          (candidate.item.sourceBookmarkId
-            ? currentCollection?.bookmarks.find((b) => {
-                if (b.id !== candidate.item.sourceBookmarkId) return false;
-                const bCleanUrl = stripLiveSuffix(b.url);
-                const bParsed = parseTradeSearchUrl(bCleanUrl);
-                return bParsed && getTradeSearchCanonicalKey(bParsed) === candidate.canonicalKey;
-              })
-            : undefined) ??
-          currentCollection?.bookmarks.find((b) => {
-            const bCleanUrl = stripLiveSuffix(b.url);
-            const bParsed = parseTradeSearchUrl(bCleanUrl);
-            return bParsed && getTradeSearchCanonicalKey(bParsed) === candidate.canonicalKey;
-          });
-
-        let validCover =
-          candidate.item.coverImageUrl && isValidPoeCdnImageUrl(candidate.item.coverImageUrl)
-            ? candidate.item.coverImageUrl
-            : existingBookmark?.coverImageUrl &&
-                isValidPoeCdnImageUrl(existingBookmark.coverImageUrl)
-              ? existingBookmark.coverImageUrl
-              : undefined;
-        let resolvedName =
-          candidate.item.name?.trim() ||
-          existingBookmark?.name ||
-          `搜尋 (${candidate.parsed.searchId})`;
-
-        // 相同搜尋條件只能有一筆：已在本次連線者沿用既有項目；與上次連線相同者有圖片優先
-        const redirect = await resolveCriteriaRedirect(
-          candidate.parsed,
-          candidate.canonicalKey,
-          validCover,
+        const wrongVersionItem = parsedCandidates.find(
+          (c) => c.parsed.gameVersion !== currentGameVersion,
         );
-        if (redirect?.kind === 'error') {
-          duplicateIncomingSkipped++;
-          continue;
-        }
-        if (redirect?.kind === 'source') {
-          if (sourceIdsToEnable.includes(redirect.sourceId)) {
-            duplicateIncomingSkipped++;
-          } else {
-            sourceIdsToEnable.push(redirect.sourceId);
-          }
-          continue;
-        }
-        if (redirect?.kind === 'adopt-meta') {
-          validCover = redirect.entry.coverImageUrl;
-          if (!existingBookmark && redirect.entry.name) resolvedName = redirect.entry.name;
+        if (wrongVersionItem) {
+          return {
+            success: false,
+            error: `此搜尋屬於 ${formatLiveSearchDisplayVersion(wrongVersionItem.parsed.gameVersion)}，目前主控台為 ${formatLiveSearchDisplayVersion(currentGameVersion)}`,
+            rejectReason: 'wrong-version',
+          };
         }
 
-        if (existingBookmark) {
-          registerSessionEntry({
-            canonicalKey: candidate.canonicalKey,
-            canonicalIdentity: candidate.parsed,
-            name: existingBookmark.name,
-            url: existingBookmark.url,
-            coverImageUrl: validCover,
-            sourceBookmarkId: existingBookmark.id,
-          });
-          sourceIdsToEnable.push(existingBookmark.id);
-          resumeEntriesToPersist.push({
-            gameVersion: candidate.parsed.gameVersion,
-            league: candidate.parsed.league,
-            searchId: candidate.parsed.searchId,
-          });
-        } else {
-          let customRecord = customSources.find((c) => c.canonicalKey === candidate.canonicalKey);
-          if (!customRecord) {
-            customRecord = {
-              id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        const distinctLeagues: string[] = [];
+        for (const c of parsedCandidates) {
+          const normLeague = c.parsed.league.trim().toLowerCase();
+          if (!distinctLeagues.includes(normLeague)) {
+            distinctLeagues.push(normLeague);
+          }
+        }
+
+        if (distinctLeagues.length > 1) {
+          const formatted = distinctLeagues.map(formatLiveSearchDisplayLeague).join(' 與 ');
+          return {
+            success: false,
+            error: `選取項目包含多個聯盟（${formatted}），請分開送入主控台`,
+            rejectReason: 'mixed-league',
+          };
+        }
+
+        const incomingLeague = parsedCandidates[0].parsed.league.trim();
+        const primaryContext = getPrimaryContext();
+
+        if (
+          primaryContext.runtimeLeague &&
+          primaryContext.runtimeLeague.trim().toLowerCase() !== incomingLeague.toLowerCase()
+        ) {
+          return {
+            success: false,
+            error: `主控台目前正在監聽 ${formatLiveSearchDisplayLeague(primaryContext.runtimeLeague)}，無法直接加入 ${formatLiveSearchDisplayLeague(incomingLeague)} 連線`,
+            rejectReason: 'wrong-league',
+          };
+        }
+
+        if (
+          !primaryContext.runtimeLeague &&
+          selectedLeague.trim().toLowerCase() !== incomingLeague.toLowerCase()
+        ) {
+          const switched = await switchLeague(incomingLeague);
+          if (!switched) {
+            return {
+              success: false,
+              error: `切換主控台聯盟至 ${formatLiveSearchDisplayLeague(incomingLeague)} 失敗`,
+              rejectReason: 'failed',
+            };
+          }
+        }
+
+        const sourceIdsToEnable: string[] = [];
+        const resumeEntriesToPersist: LiveSearchResumeIdentity[] = [];
+
+        for (const candidate of parsedCandidates) {
+          const existingBookmark =
+            (candidate.item.sourceBookmarkId
+              ? currentCollection?.bookmarks.find((b) => {
+                  if (b.id !== candidate.item.sourceBookmarkId) return false;
+                  const bCleanUrl = stripLiveSuffix(b.url);
+                  const bParsed = parseTradeSearchUrl(bCleanUrl);
+                  return bParsed && getTradeSearchCanonicalKey(bParsed) === candidate.canonicalKey;
+                })
+              : undefined) ??
+            currentCollection?.bookmarks.find((b) => {
+              const bCleanUrl = stripLiveSuffix(b.url);
+              const bParsed = parseTradeSearchUrl(bCleanUrl);
+              return bParsed && getTradeSearchCanonicalKey(bParsed) === candidate.canonicalKey;
+            });
+
+          let validCover =
+            candidate.item.coverImageUrl && isValidPoeCdnImageUrl(candidate.item.coverImageUrl)
+              ? candidate.item.coverImageUrl
+              : existingBookmark?.coverImageUrl &&
+                  isValidPoeCdnImageUrl(existingBookmark.coverImageUrl)
+                ? existingBookmark.coverImageUrl
+                : undefined;
+          let resolvedName =
+            candidate.item.name?.trim() ||
+            existingBookmark?.name ||
+            `搜尋 (${candidate.parsed.searchId})`;
+
+          // 相同搜尋條件只能有一筆：已在本次連線者沿用既有項目；與上次連線相同者有圖片優先
+          const redirect = await resolveCriteriaRedirect(
+            candidate.parsed,
+            candidate.canonicalKey,
+            validCover,
+          );
+          if (redirect?.kind === 'error') {
+            duplicateIncomingSkipped++;
+            continue;
+          }
+          if (redirect?.kind === 'source') {
+            if (sourceIdsToEnable.includes(redirect.sourceId)) {
+              duplicateIncomingSkipped++;
+            } else {
+              sourceIdsToEnable.push(redirect.sourceId);
+            }
+            continue;
+          }
+          if (redirect?.kind === 'adopt-meta') {
+            validCover = redirect.entry.coverImageUrl;
+            if (!existingBookmark && redirect.entry.name) resolvedName = redirect.entry.name;
+          }
+
+          if (existingBookmark) {
+            registerSessionEntry({
+              canonicalKey: candidate.canonicalKey,
+              canonicalIdentity: candidate.parsed,
+              name: existingBookmark.name,
+              url: existingBookmark.url,
+              coverImageUrl: validCover,
+              sourceBookmarkId: existingBookmark.id,
+            });
+            sourceIdsToEnable.push(existingBookmark.id);
+            resumeEntriesToPersist.push({
+              gameVersion: candidate.parsed.gameVersion,
+              league: candidate.parsed.league,
+              searchId: candidate.parsed.searchId,
+            });
+          } else {
+            let customRecord = customSources.find((c) => c.canonicalKey === candidate.canonicalKey);
+            if (!customRecord) {
+              customRecord = {
+                id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+                name: resolvedName,
+                url: candidate.cleanUrl,
+                canonicalIdentity: { ...candidate.parsed },
+                canonicalKey: candidate.canonicalKey,
+                createdAt: Date.now(),
+                coverImageUrl: validCover,
+              };
+              customSources.push(customRecord);
+            } else {
+              customRecord.url = candidate.cleanUrl;
+              if (resolvedName) customRecord.name = resolvedName;
+              if (validCover) customRecord.coverImageUrl = validCover;
+            }
+            registerSessionEntry({
+              canonicalKey: candidate.canonicalKey,
+              canonicalIdentity: candidate.parsed,
               name: resolvedName,
               url: candidate.cleanUrl,
-              canonicalIdentity: { ...candidate.parsed },
-              canonicalKey: candidate.canonicalKey,
-              createdAt: Date.now(),
               coverImageUrl: validCover,
-            };
-            customSources.push(customRecord);
-          } else {
-            customRecord.url = candidate.cleanUrl;
-            if (resolvedName) customRecord.name = resolvedName;
-            if (validCover) customRecord.coverImageUrl = validCover;
+            });
+            sourceIdsToEnable.push(customRecord.id);
+            resumeEntriesToPersist.push({
+              gameVersion: candidate.parsed.gameVersion,
+              league: candidate.parsed.league,
+              searchId: candidate.parsed.searchId,
+              name: resolvedName,
+              url: candidate.cleanUrl,
+              ...(validCover ? { coverImageUrl: validCover } : {}),
+            });
           }
-          registerSessionEntry({
-            canonicalKey: candidate.canonicalKey,
-            canonicalIdentity: candidate.parsed,
-            name: resolvedName,
-            url: candidate.cleanUrl,
-            coverImageUrl: validCover,
-          });
-          sourceIdsToEnable.push(customRecord.id);
-          resumeEntriesToPersist.push({
-            gameVersion: candidate.parsed.gameVersion,
-            league: candidate.parsed.league,
-            searchId: candidate.parsed.searchId,
-            name: resolvedName,
-            url: candidate.cleanUrl,
-            ...(validCover ? { coverImageUrl: validCover } : {}),
-          });
         }
-      }
 
-      notify();
-      const batchOutcome = await enableManySources(sourceIdsToEnable);
-      if (resumeStore && batchOutcome.succeeded > 0 && resumeEntriesToPersist.length > 0) {
-        await resumeStore.addIdentities(resumeEntriesToPersist);
-      }
+        notify();
+        const batchOutcome = await enableManySources(sourceIdsToEnable);
+        if (resumeStore && batchOutcome.succeeded > 0 && resumeEntriesToPersist.length > 0) {
+          await resumeStore.addIdentities(resumeEntriesToPersist);
+        }
 
-      return {
-        success: batchOutcome.failed === 0 && !batchOutcome.rejectReason,
-        addedCount: batchOutcome.succeeded,
-        skippedCount: batchOutcome.skipped + duplicateIncomingSkipped,
-        ...(batchOutcome.error ? { error: batchOutcome.error } : {}),
-      };
+        return {
+          success: batchOutcome.failed === 0 && !batchOutcome.rejectReason,
+          addedCount: batchOutcome.succeeded,
+          skippedCount: batchOutcome.skipped + duplicateIncomingSkipped,
+          ...(batchOutcome.error ? { error: batchOutcome.error } : {}),
+        };
+      });
     },
 
     stop(sourceOrSubscriptionId: string): void {

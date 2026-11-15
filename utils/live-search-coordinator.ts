@@ -13,6 +13,7 @@ import {
   type LiveSearchPrimaryStorageRecord,
 } from './live-search-contract';
 import { getPoeVersion, type PoeVersion } from './trade-context';
+import { withTimeout } from './promise-timeout';
 import {
   DEFAULT_TRADE_ORIGIN,
   getSupportedTradeOrigin,
@@ -20,6 +21,7 @@ import {
 } from './trade-realms';
 
 export const LIVE_SEARCH_PRIMARY_STORAGE_KEY = LIVE_SEARCH_PRIMARY_STORAGE_KEY_POE2;
+export const DEFAULT_FORWARD_ENQUEUE_TIMEOUT_MS = 2500;
 
 const ALL_POE_VERSIONS: readonly PoeVersion[] = ['poe2', 'poe1'];
 
@@ -67,6 +69,7 @@ export interface LiveSearchCoordinatorOptions {
   windows?: LiveSearchWindowsApi;
   notifyArrival?: LiveSearchArrivalNotifier;
   forwardEnqueue?: LiveSearchEnqueueForwarder;
+  forwardTimeoutMs?: number;
 }
 
 export function isEligibleTradeUrl(url?: string, expectedVersion?: PoeVersion): boolean {
@@ -177,6 +180,7 @@ export class LiveSearchCoordinator {
   private readonly windows: LiveSearchWindowsApi;
   private notifyArrivalCallback?: LiveSearchArrivalNotifier;
   private forwardEnqueueCallback?: LiveSearchEnqueueForwarder;
+  private readonly forwardTimeoutMs: number;
   private pendingArrivalTabIds = new Set<number>();
   private pendingEnqueueByVersion = new Map<PoeVersion, LiveSearchEnqueueItem[]>();
   private openMutexByVersion = new Map<PoeVersion, Promise<LiveSearchOpenPrimaryResponse>>();
@@ -194,6 +198,7 @@ export class LiveSearchCoordinator {
     this.windows = options.windows ?? getDefaultWindowsApi();
     this.notifyArrivalCallback = options.notifyArrival;
     this.forwardEnqueueCallback = options.forwardEnqueue;
+    this.forwardTimeoutMs = options.forwardTimeoutMs ?? DEFAULT_FORWARD_ENQUEUE_TIMEOUT_MS;
   }
 
   public setArrivalNotifier(notifier?: LiveSearchArrivalNotifier): void {
@@ -511,14 +516,18 @@ export class LiveSearchCoordinator {
     if (existingTab && existingTab.id !== undefined) {
       if (this.forwardEnqueueCallback) {
         try {
-          const forwarded = await this.forwardEnqueueCallback(existingTab.id, validItems);
+          const forwarded = await withTimeout(
+            this.forwardEnqueueCallback(existingTab.id, validItems),
+            this.forwardTimeoutMs,
+            '轉送連線至線上搜尋主控台逾時',
+          );
           return {
             ...forwarded,
             tabId: existingTab.id,
             created: false,
           };
         } catch {
-          // Content script may still be loading; fall back to pending buffer
+          // Content script may still be loading, frozen in background, or blocked during startup; fall back to pending buffer
         }
       }
       this.bufferPendingEnqueue(effectiveVersion, validItems);

@@ -345,7 +345,7 @@ import {
   isDirectlyDeletableEmptyFolder,
   formatFolderPath,
 } from '@/utils/bookmark-collection';
-import { extensionMessaging } from '@/utils/extension-protocol';
+import { enqueueLiveSearchConnections } from '@/utils/extension-protocol';
 import { useBookmarkPreview } from './composables/useBookmarkPreview';
 import { useBookmarkMenuState } from './composables/useBookmarkMenuState';
 import { useBookmarkCovers } from './composables/useBookmarkCovers';
@@ -786,17 +786,20 @@ export default defineComponent({
         return;
       }
       try {
-        const res = await extensionMessaging.sendMessage('liveSearch:enqueueConnections', {
-          gameVersion: version,
-          items: [
-            {
-              url,
-              name: bookmark.name,
-              coverImageUrl: bookmark.coverImageUrl,
-              sourceBookmarkId: bookmark.id,
-            },
-          ],
-        });
+        const res = await enqueueLiveSearchConnections(
+          {
+            gameVersion: version,
+            items: [
+              {
+                url,
+                name: bookmark.name,
+                coverImageUrl: bookmark.coverImageUrl,
+                sourceBookmarkId: bookmark.id,
+              },
+            ],
+          },
+          { timeoutMessage: t('bookmark.toast.sendToConsoleFailed') },
+        );
         showToast(resolveSingleEnqueueToast(res, bookmark.name).message);
       } catch (err) {
         showToast(err instanceof Error ? err.message : t('bookmark.toast.sendToConsoleFailed'));
@@ -834,10 +837,13 @@ export default defineComponent({
       }
 
       try {
-        const res = await extensionMessaging.sendMessage('liveSearch:enqueueConnections', {
-          gameVersion: version,
-          items,
-        });
+        const res = await enqueueLiveSearchConnections(
+          {
+            gameVersion: version,
+            items,
+          },
+          { timeoutMessage: t('bookmark.toast.sendToConsoleFailed') },
+        );
         if (!res.success) {
           showToast(res.error || t('bookmark.toast.sendToConsoleFailed'));
         } else if (res.created) {

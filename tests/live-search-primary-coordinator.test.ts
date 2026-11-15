@@ -607,5 +607,41 @@ describe('LiveSearch Primary Coordinator (Phase 1 Ownership & Lifecycle)', () =>
       // Must NOT focus or activate the Primary tab when pushing in background
       expect(mockTabsApi.update).not.toHaveBeenCalled();
     });
+
+    it('when existing Primary tab forwarder hangs past forwardTimeoutMs, falls back to pending buffer without blocking caller', async () => {
+      const slowCoordinator = new LiveSearchCoordinator({
+        storage,
+        tabs: mockTabsApi,
+        windows: mockWindowsApi,
+        forwardTimeoutMs: 25,
+        forwardEnqueue: () => new Promise(() => {}),
+      });
+
+      const openRes = await slowCoordinator.openPrimary({ gameVersion: 'poe1' });
+      expect(openRes.tabId).toBeDefined();
+
+      const enqueueRes = await slowCoordinator.enqueueConnections({
+        gameVersion: 'poe1',
+        items: [
+          {
+            url: 'https://www.pathofexile.com/trade/search/Standard/H4sIfrozen_tab_1',
+            name: '凍結背景分頁測試',
+          },
+        ],
+      });
+
+      expect(enqueueRes.success).toBe(true);
+      expect(enqueueRes.created).toBe(false);
+      expect(enqueueRes.tabId).toBe(openRes.tabId);
+      expect(enqueueRes.addedCount).toBe(1);
+
+      const consumed = await slowCoordinator.consumePendingEnqueue(openRes.tabId, 'poe1');
+      expect(consumed.items).toEqual([
+        {
+          url: 'https://www.pathofexile.com/trade/search/Standard/H4sIfrozen_tab_1',
+          name: '凍結背景分頁測試',
+        },
+      ]);
+    });
   });
 });

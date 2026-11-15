@@ -788,4 +788,26 @@ describe('Extension messaging transport wiring', () => {
     );
     expect(bgContent).not.toContain('chrome.runtime.onMessage.addListener');
   });
+
+  it('enqueueLiveSearchConnections rejects cleanly after timeoutMs when IPC hangs', async () => {
+    const { enqueueLiveSearchConnections, extensionMessaging } =
+      await import('@/utils/extension-protocol');
+    const spy = vi
+      .spyOn(extensionMessaging, 'sendMessage')
+      .mockImplementation(() => new Promise(() => {}));
+
+    try {
+      await expect(
+        enqueueLiveSearchConnections(
+          {
+            gameVersion: 'poe1',
+            items: [{ url: 'https://www.pathofexile.com/trade/search/Standard/H4sIipc_timeout' }],
+          },
+          { timeoutMs: 25, timeoutMessage: 'Custom enqueue timeout' },
+        ),
+      ).rejects.toThrow('Custom enqueue timeout');
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
