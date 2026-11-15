@@ -126,8 +126,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslationBilingual.infoAria': '中英并列说明',
   'settings.marketTranslationBilingual.tooltip':
     '词缀、通货与物品的下拉菜单同时显示中文与英文原文（例如「属性需求提高 #% (#% increased Attribute Requirements)」），中英文都搜得到。筛选器名称只显示中文；切换后刷新页面生效',
-  'settings.marketTranslation.localeHint':
-    '需将「语言」设为繁体中文或简体中文，市集汉化才会生效',
+  'settings.marketTranslation.localeHint': '需将「语言」设为繁体中文或简体中文，市集汉化才会生效',
 
   'settings.itemNormalizer.label': '符文覆写试算',
   'settings.itemNormalizer.infoAria': '符文覆写试算说明',
