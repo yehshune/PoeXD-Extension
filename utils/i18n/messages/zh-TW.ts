@@ -228,6 +228,30 @@ export const ZH_TW_MESSAGES = {
   'tools.support.description': 'PoeXD 免費且開源。如果它幫你省下時間，歡迎贊助支持後續開發。',
   'tools.support.linkLabel': '前往贊助頁',
 
+  'tools.pobBuild.title': 'PoB 購物清單',
+  'tools.pobBuild.description':
+    '貼上 Path of Building 的匯出代碼，列出 build 的裝備與寶石並一鍵開啟市集搜尋。代碼只存在本機，不會上傳',
+  'tools.pobBuild.placeholder': '在此貼上 PoB 匯出代碼',
+  'tools.pobBuild.importBtn': '匯入',
+  'tools.pobBuild.importingBtn': '匯入中…',
+  'tools.pobBuild.clearBtn': '清除',
+  'tools.pobBuild.summary': '{name} · Lv.{level}',
+  'tools.pobBuild.group.unique': '傳奇',
+  'tools.pobBuild.group.equipment': '其他裝備（僅以基底搜尋）',
+  'tools.pobBuild.group.gem': '寶石',
+  'tools.pobBuild.gemDetail': 'Lv.{level} / {quality}%',
+  'tools.pobBuild.searchTitle': '在新分頁開啟市集搜尋',
+  'tools.pobBuild.noSearchTitle': '找不到對應的市集物品，無法搜尋',
+  'tools.pobBuild.listHint': '點選項目會在新分頁以目前頁面的聯盟搜尋',
+  'tools.pobBuild.error.empty': '請先貼上 PoB 匯出代碼',
+  'tools.pobBuild.error.invalid':
+    '無法解析這組代碼，請確認是 Path of Building 的匯出代碼（不是連結）',
+  'tools.pobBuild.error.tooLarge': '代碼內容過大，無法匯入',
+  'tools.pobBuild.error.versionMismatch':
+    '這組代碼的遊戲版本與目前頁面不同，請到對應版本的市集頁面匯入',
+  'tools.pobBuild.error.catalog': '物品名稱資料載入失敗，請稍後再試',
+  'tools.pobBuild.error.noLeague': '目前頁面沒有聯盟資訊，請先在市集選擇聯盟',
+
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '載入詞綴資料中...',
   'filterPane.nav.jumpTo': '快速跳轉到: {category}',

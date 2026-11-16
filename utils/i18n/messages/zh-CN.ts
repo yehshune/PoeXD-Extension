@@ -230,6 +230,30 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'tools.support.description': 'PoeXD 免费且开源。如果它帮你节省了时间，欢迎赞助支持后续开发。',
   'tools.support.linkLabel': '前往赞助页',
 
+  'tools.pobBuild.title': 'PoB 购物清单',
+  'tools.pobBuild.description':
+    '粘贴 Path of Building 的导出代码，列出 build 的装备与宝石并一键打开市集搜索。代码只保存在本机，不会上传',
+  'tools.pobBuild.placeholder': '在此粘贴 PoB 导出代码',
+  'tools.pobBuild.importBtn': '导入',
+  'tools.pobBuild.importingBtn': '导入中…',
+  'tools.pobBuild.clearBtn': '清除',
+  'tools.pobBuild.summary': '{name} · Lv.{level}',
+  'tools.pobBuild.group.unique': '传奇',
+  'tools.pobBuild.group.equipment': '其他装备（仅以基底搜索）',
+  'tools.pobBuild.group.gem': '宝石',
+  'tools.pobBuild.gemDetail': 'Lv.{level} / {quality}%',
+  'tools.pobBuild.searchTitle': '在新标签页打开市集搜索',
+  'tools.pobBuild.noSearchTitle': '找不到对应的市集物品，无法搜索',
+  'tools.pobBuild.listHint': '点击项目会在新标签页以当前页面的赛季搜索',
+  'tools.pobBuild.error.empty': '请先粘贴 PoB 导出代码',
+  'tools.pobBuild.error.invalid':
+    '无法解析这组代码，请确认是 Path of Building 的导出代码（不是链接）',
+  'tools.pobBuild.error.tooLarge': '代码内容过大，无法导入',
+  'tools.pobBuild.error.versionMismatch':
+    '这组代码的游戏版本与当前页面不同，请到对应版本的市集页面导入',
+  'tools.pobBuild.error.catalog': '物品名称数据加载失败，请稍后再试',
+  'tools.pobBuild.error.noLeague': '当前页面没有赛季信息，请先在市集选择赛季',
+
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '加载词缀数据中...',
   'filterPane.nav.jumpTo': '快速跳转到: {category}',

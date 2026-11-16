@@ -252,6 +252,32 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'PoeXD is free and open source. If it saves you time, you can support its development.',
   'tools.support.linkLabel': 'Open support page',
 
+  'tools.pobBuild.title': 'PoB Shopping List',
+  'tools.pobBuild.description':
+    'Paste a Path of Building export code to list the build gear and gems and open a trade search for each. The code stays on this device and is never uploaded',
+  'tools.pobBuild.placeholder': 'Paste a PoB export code here',
+  'tools.pobBuild.importBtn': 'Import',
+  'tools.pobBuild.importingBtn': 'Importing…',
+  'tools.pobBuild.clearBtn': 'Clear',
+  'tools.pobBuild.summary': '{name} · Lv.{level}',
+  'tools.pobBuild.group.unique': 'Uniques',
+  'tools.pobBuild.group.equipment': 'Other gear (base type search only)',
+  'tools.pobBuild.group.gem': 'Gems',
+  'tools.pobBuild.gemDetail': 'Lv.{level} / {quality}%',
+  'tools.pobBuild.searchTitle': 'Open trade search in a new tab',
+  'tools.pobBuild.noSearchTitle': 'No matching trade item found, cannot search',
+  'tools.pobBuild.listHint':
+    'Clicking an entry searches the league of the current page in a new tab',
+  'tools.pobBuild.error.empty': 'Paste a PoB export code first',
+  'tools.pobBuild.error.invalid':
+    'This code could not be parsed. Make sure it is a Path of Building export code (not a link)',
+  'tools.pobBuild.error.tooLarge': 'The code is too large to import',
+  'tools.pobBuild.error.versionMismatch':
+    'This code is for the other game version. Import it on the matching trade page',
+  'tools.pobBuild.error.catalog': 'Failed to load item name data, please try again later',
+  'tools.pobBuild.error.noLeague':
+    'The current page has no league. Select a league on the trade site first',
+
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': 'Loading affix data...',
   'filterPane.nav.jumpTo': 'Jump to: {category}',
