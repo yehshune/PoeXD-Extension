@@ -577,4 +577,90 @@ describe('LiveSearch Temporary Search + Bookmark Reconciliation Phase Tests', ()
 
     sourceCtrl.dispose();
   });
+
+  // 10. Overwritten Active Bookmark in sessionConnections
+  it('10. Active Bookmark URL Overwrite: sessionConnections keeps old fallback item and stop/remove target old subscription', async () => {
+    const enableRes = await sourceCtrl.enable('bmk_hh');
+    expect(enableRes.success).toBe(true);
+    createdSockets[0].triggerOpen();
+
+    const originSubId = runtime.getSubscriptions()[0].id;
+
+    // 覆蓋 bmk_hh 為不同 searchId，但保留同一個 bookmark.id
+    const bmkHh = bookmarkSource.collection.bookmarks.find((b) => b.id === 'bmk_hh')!;
+    bmkHh.url = 'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_mageblood';
+    bookmarkSource.triggerChange();
+    await new Promise((r) => setTimeout(r, 30));
+
+    let snap = sourceCtrl.read();
+    const sessionItems = snap.sessionConnections ?? [];
+    expect(sessionItems).toHaveLength(1);
+    const sessionItem = sessionItems[0];
+    expect(sessionItem.kind).toBe('custom');
+    expect(sessionItem.id).not.toBe('bmk_hh');
+    expect(sessionItem.canonicalIdentity?.searchId).toBe('H4sIsearch_hh');
+    expect(sessionItem.status).toBe('active');
+    expect(sessionItem.subscriptionId).toBe(originSubId);
+    expect(sessionItem.provenance).toBe('origin-bookmark-removed');
+
+    // 停止「本次連線」項目應正確停止舊訂閱
+    sourceCtrl.stop(sessionItem.id);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(runtime.getSubscriptions()).toHaveLength(0);
+
+    snap = sourceCtrl.read();
+    expect(snap.sessionConnections).toHaveLength(1);
+    expect(snap.sessionConnections![0].status).toBe('idle');
+    expect(snap.sessionConnections![0].canonicalIdentity?.searchId).toBe('H4sIsearch_hh');
+
+    // 從「本次連線」移除應正確移除該項目，且不影響已覆蓋為新搜尋的書籤
+    expect(sourceCtrl.removeSessionConnection?.(snap.sessionConnections![0].id)).toBe(true);
+    snap = sourceCtrl.read();
+    expect(snap.sessionConnections).toHaveLength(0);
+
+    const bmkGroup = snap.groups.find((g) => g.id === 'group_1')!;
+    expect(bmkGroup.items.find((i) => i.id === 'bmk_hh')?.canonicalIdentity?.searchId).toBe(
+      'H4sIsearch_mageblood',
+    );
+
+    sourceCtrl.dispose();
+  });
+
+  // 11. Overwritten Stopped Bookmark in sessionConnections
+  it('11. Stopped Bookmark URL Overwrite: sessionConnections detaches stale bookmark id and preserves old search', async () => {
+    await sourceCtrl.enable('bmk_hh');
+    createdSockets[0].triggerOpen();
+    sourceCtrl.stop('bmk_hh');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(runtime.getSubscriptions()).toHaveLength(0);
+
+    // 覆蓋已停止但仍留在「本次連線」的書籤
+    const bmkHh = bookmarkSource.collection.bookmarks.find((b) => b.id === 'bmk_hh')!;
+    bmkHh.url = 'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_mageblood';
+    bookmarkSource.triggerChange();
+    await new Promise((r) => setTimeout(r, 30));
+
+    let snap = sourceCtrl.read();
+    const sessionItems = snap.sessionConnections ?? [];
+    expect(sessionItems).toHaveLength(1);
+    const sessionItem = sessionItems[0];
+    expect(sessionItem.kind).toBe('custom');
+    expect(sessionItem.id).toBe('session_poe1:standard:H4sIsearch_hh');
+    expect(sessionItem.canonicalIdentity?.searchId).toBe('H4sIsearch_hh');
+    expect(sessionItem.status).toBe('idle');
+
+    // 重新啟用應重啟舊搜尋，而非新書籤
+    const reEnableRes = await sourceCtrl.enable(sessionItem.id);
+    expect(reEnableRes.success).toBe(true);
+    expect(runtime.getSubscriptions()).toHaveLength(1);
+    expect(runtime.getSubscriptions()[0].searchId).toBe('H4sIsearch_hh');
+
+    // 從「本次連線」移除應停止舊搜尋並清除該項目
+    expect(sourceCtrl.removeSessionConnection?.(sessionItem.id)).toBe(true);
+    expect(runtime.getSubscriptions()).toHaveLength(0);
+    snap = sourceCtrl.read();
+    expect(snap.sessionConnections).toHaveLength(0);
+
+    sourceCtrl.dispose();
+  });
 });

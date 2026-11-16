@@ -663,7 +663,8 @@ export function createLiveSearchSourceController(
         name: matchingBookmark?.name || sub.name || '搜尋',
         url: matchingBookmark?.url || sub.url,
         coverImageUrl: validCover,
-        sourceBookmarkId: matchingBookmark?.id ?? sub.sourceBookmarkId,
+        // 書籤集合已載入卻找不到同 canonicalKey 的書籤時，不得沿用過期的 sub.sourceBookmarkId
+        sourceBookmarkId: currentCollection ? matchingBookmark?.id : sub.sourceBookmarkId,
       });
     }
   }
@@ -994,11 +995,13 @@ export function createLiveSearchSourceController(
     return combined;
   }
 
+  function getBookmarkCanonicalKey(bookmark: { url: string }): string | null {
+    const parsed = parseTradeSearchUrl(stripLiveSuffix(bookmark.url));
+    return parsed ? getTradeSearchCanonicalKey(parsed) : null;
+  }
+
   function findBookmarkByCanonicalKey(canonicalKey: string) {
-    return currentCollection?.bookmarks.find((b) => {
-      const parsed = parseTradeSearchUrl(stripLiveSuffix(b.url));
-      return parsed && getTradeSearchCanonicalKey(parsed) === canonicalKey;
-    });
+    return currentCollection?.bookmarks.find((b) => getBookmarkCanonicalKey(b) === canonicalKey);
   }
 
   function listSessionDedupEntries(): DedupEntry[] {
@@ -1069,7 +1072,9 @@ export function createLiveSearchSourceController(
   function sourceIdForDedupEntry(entry: DedupEntry, section: 'session' | 'previous'): string {
     if (
       entry.sourceBookmarkId &&
-      currentCollection?.bookmarks.some((b) => b.id === entry.sourceBookmarkId)
+      currentCollection?.bookmarks.some(
+        (b) => b.id === entry.sourceBookmarkId && getBookmarkCanonicalKey(b) === entry.key,
+      )
     ) {
       return entry.sourceBookmarkId;
     }
@@ -1378,8 +1383,11 @@ export function createLiveSearchSourceController(
       }
       sessionKeysInSelectedLeague.add(canonicalKey);
 
+      const candidateById = meta.sourceBookmarkId
+        ? bookmarkItemById.get(meta.sourceBookmarkId)
+        : undefined;
       const bmkItem =
-        (meta.sourceBookmarkId ? bookmarkItemById.get(meta.sourceBookmarkId) : undefined) ??
+        (candidateById?.canonicalKey === canonicalKey ? candidateById : undefined) ??
         bookmarkItemByCanonicalKey.get(canonicalKey);
       const customItem = customItemByCanonicalKey.get(canonicalKey);
       const activeSub = activeIdentityMap.get(canonicalKey);
@@ -1581,20 +1589,23 @@ export function createLiveSearchSourceController(
         }
       }
 
-      for (const [key, candidates] of bookmarksByKey.entries()) {
-        const sessionMeta = sessionEntriesByKey.get(key);
-        if (sessionMeta) {
-          const preferred =
-            (sessionMeta.sourceBookmarkId
-              ? candidates.find((c) => c.id === sessionMeta.sourceBookmarkId)
-              : undefined) ?? candidates[0];
-          if (preferred) {
-            sessionMeta.name = preferred.name;
-            sessionMeta.url = preferred.url;
-            sessionMeta.sourceBookmarkId = preferred.id;
-            if (preferred.coverImageUrl && isValidPoeCdnImageUrl(preferred.coverImageUrl)) {
-              sessionMeta.coverImageUrl = preferred.coverImageUrl;
-            }
+      for (const [key, sessionMeta] of sessionEntriesByKey.entries()) {
+        const candidates = bookmarksByKey.get(key);
+        if (!candidates || candidates.length === 0) {
+          // 來源書籤已被刪除或覆蓋為其他搜尋時，清除過期 sourceBookmarkId，改以暫時搜尋／session 身分運作
+          sessionMeta.sourceBookmarkId = undefined;
+          continue;
+        }
+        const preferred =
+          (sessionMeta.sourceBookmarkId
+            ? candidates.find((c) => c.id === sessionMeta.sourceBookmarkId)
+            : undefined) ?? candidates[0];
+        if (preferred) {
+          sessionMeta.name = preferred.name;
+          sessionMeta.url = preferred.url;
+          sessionMeta.sourceBookmarkId = preferred.id;
+          if (preferred.coverImageUrl && isValidPoeCdnImageUrl(preferred.coverImageUrl)) {
+            sessionMeta.coverImageUrl = preferred.coverImageUrl;
           }
         }
       }
