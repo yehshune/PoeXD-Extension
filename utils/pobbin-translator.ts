@@ -521,7 +521,7 @@ export async function loadPobbinTranslatorData(
   const catalog = createTradeNameCatalog({ englishItems, localizedItems });
   const resultLabels = resultLabelsRaw
     ? parseResultLabels(resultLabelsRaw, locale)
-    : { labels: {}, templates: [] };
+    : { labels: {}, templates: [], names: undefined };
   const uiStrings = uiRaw ? parseMarketUiAsset(uiRaw, locale) : {};
   const zhFilterFields =
     isRecord(zhFiltersRaw) && isRecord(zhFiltersRaw.fields)
