@@ -10,10 +10,15 @@ import { resolveEnglishItemName, type PobTextLexicon } from '@/utils/pob-item-te
 import { buildPoedbUrl } from '@/utils/result-external-links';
 import type { PoeVersion } from '@/utils/trade-context';
 
+import {
+  RESULT_LEFT_ACTION_BUTTON_CLASS,
+  mountLeftAction,
+  removeLeftActions,
+} from './result-left-actions';
+
 const STYLE_ID = 'poexd-result-external-links-style';
 const RESULTS_SELECTOR = '.results';
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
-const BUTTON_HOST_SELECTOR = '.left';
 const BUTTON_CLASS = 'poexd-result-link-btn';
 
 export const RESULT_EXTERNAL_LINKS_CLASS = 'poexd-result-links';
@@ -41,33 +46,15 @@ const defaultDeps: ResultExternalLinksDeps = {
 // 顏色一律用 oklch()（主題契約不允許原始 hex 色碼）
 const STYLE_CONTENT = `
   .${RESULT_EXTERNAL_LINKS_CLASS} {
+    order: 2 !important;
     display: flex !important;
-    justify-content: center !important;
+    align-items: center !important;
     gap: 4px !important;
-    margin: 4px 0 0 !important;
+    margin: 0 !important;
   }
 
   .${BUTTON_CLASS} {
-    appearance: none !important;
-    height: 19px !important;
-    padding: 0 6px !important;
-    border-radius: 0 !important;
-    border: 1px solid oklch(0.387 0 0) !important;
-    background: oklch(0.252 0 0 / 0.96) !important;
     color: oklch(0.82 0.03 240) !important;
-    font-family: FontinSmallcaps, Verdana, Arial, Helvetica, sans-serif !important;
-    font-size: 11px !important;
-    line-height: 1 !important;
-    letter-spacing: 0.03em !important;
-    cursor: pointer !important;
-    white-space: nowrap !important;
-    opacity: 0.55;
-    transition: opacity 0.12s ease, border-color 0.12s ease !important;
-  }
-
-  .row:hover .${BUTTON_CLASS},
-  .${BUTTON_CLASS}:focus-visible {
-    opacity: 1;
   }
 
   .${BUTTON_CLASS}:hover {
@@ -114,7 +101,7 @@ export class ResultExternalLinks {
       const id = resolveRowId(row);
       if (!id || !this.source.getItem(id)) continue;
       if (row.querySelector(`.${RESULT_EXTERNAL_LINKS_CLASS}`)) continue;
-      (row.querySelector(BUTTON_HOST_SELECTOR) ?? row).appendChild(this.createStrip(id));
+      mountLeftAction(row, this.createStrip(id));
       injected = true;
     }
     if (injected) this.ensureStyle();
@@ -157,7 +144,7 @@ export class ResultExternalLinks {
     strip.className = RESULT_EXTERNAL_LINKS_CLASS;
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = BUTTON_CLASS;
+    button.className = `${RESULT_LEFT_ACTION_BUTTON_CLASS} ${BUTTON_CLASS}`;
     button.textContent = t('resultLinks.poedb.button');
     button.setAttribute('title', t('resultLinks.poedb.title'));
     button.addEventListener('click', (event) => {
@@ -180,8 +167,7 @@ export class ResultExternalLinks {
   }
 
   private removeInjected(): void {
-    if (typeof document === 'undefined') return;
-    document.querySelectorAll(`.${RESULT_EXTERNAL_LINKS_CLASS}`).forEach((el) => el.remove());
+    removeLeftActions(`.${RESULT_EXTERNAL_LINKS_CLASS}`);
     document.getElementById(STYLE_ID)?.remove();
   }
 }

@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RESULT_LEFT_ACTIONS_CLASS } from '@/entrypoints/content/logic/result-left-actions';
 import {
   RESULT_POB_COPY_BUTTON_CLASS,
   ResultPobCopy,
@@ -78,7 +79,8 @@ describe('ResultPobCopy', () => {
     pobCopy.apply(root);
 
     expect(buttons()).toHaveLength(1);
-    expect(buttons()[0].parentElement?.className).toBe('left');
+    expect(buttons()[0].parentElement?.className).toBe(RESULT_LEFT_ACTIONS_CLASS);
+    expect(buttons()[0].parentElement?.parentElement?.className).toBe('left');
     expect(buttons()[0].closest('.row')?.getAttribute('data-id')).toBe('rare');
   });
 
@@ -90,8 +92,15 @@ describe('ResultPobCopy', () => {
 
     pobCopy.setEnabled(true);
     expect(buttons()).toHaveLength(1);
+    const sharedStyle = document.getElementById('poexd-result-left-actions-style');
+    expect(sharedStyle?.textContent).toContain('top: 8px !important');
+    expect(sharedStyle?.textContent).toContain('left: 44px !important');
+    expect(sharedStyle?.textContent).toContain(`.row:hover .${RESULT_LEFT_ACTIONS_CLASS}`);
+
     pobCopy.setEnabled(false);
     expect(buttons()).toHaveLength(0);
+    expect(document.querySelectorAll(`.${RESULT_LEFT_ACTIONS_CLASS}`)).toHaveLength(0);
+    expect(document.getElementById('poexd-result-left-actions-style')).toBeNull();
   });
 
   it('英文頁面點擊後直接複製，不載入字典', async () => {

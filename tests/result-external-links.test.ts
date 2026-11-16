@@ -6,6 +6,11 @@ import {
   type ResultExternalLinksDeps,
   type ResultItemSource,
 } from '@/entrypoints/content/logic/result-external-links';
+import {
+  RESULT_LEFT_ACTIONS_CLASS,
+  mountLeftAction,
+  removeLeftActions,
+} from '@/entrypoints/content/logic/result-left-actions';
 import { setActiveDisplayLocalePreference } from '@/utils/i18n';
 import { resolveEnglishItemName } from '@/utils/pob-item-text';
 import { createPobTextLexicon } from '@/utils/pob-text-lexicon';
@@ -113,11 +118,13 @@ describe('ResultExternalLinks', () => {
     links.setEnabled(true);
     links.apply(root);
     expect(strips()).toHaveLength(1);
-    expect(strips()[0].parentElement?.className).toBe('left');
+    expect(strips()[0].parentElement?.className).toBe(RESULT_LEFT_ACTIONS_CLASS);
+    expect(strips()[0].parentElement?.parentElement?.className).toBe('left');
     expect(strips()[0].querySelectorAll('button')).toHaveLength(1);
 
     links.setEnabled(false);
     expect(strips()).toHaveLength(0);
+    expect(document.querySelectorAll(`.${RESULT_LEFT_ACTIONS_CLASS}`)).toHaveLength(0);
   });
 
   it('英文頁面開啟 PoEDB，不載入字典', async () => {
@@ -149,5 +156,27 @@ describe('ResultExternalLinks', () => {
     (strips()[0].querySelector('button') as HTMLButtonElement).click();
     await vi.waitFor(() => expect(deps.openUrl).toHaveBeenCalled());
     expect(deps.openUrl).toHaveBeenCalledWith('https://poedb.tw/tw/Crimson_Raiment');
+  });
+
+  it('與其他左上角按鈕共用容器時，停用其中一個不影響另一個', () => {
+    const root = mountRows(['en']);
+    const row = root.querySelector('.row') as HTMLElement;
+    const sibling = document.createElement('button');
+    sibling.className = 'poexd-dummy-action';
+    mountLeftAction(row, sibling);
+
+    links.setEnabled(true);
+    const leftActions = row.querySelectorAll(`.${RESULT_LEFT_ACTIONS_CLASS}`);
+    expect(leftActions).toHaveLength(1);
+    expect(leftActions[0].children).toHaveLength(2);
+
+    links.setEnabled(false);
+    expect(strips()).toHaveLength(0);
+    expect(row.querySelector(`.${RESULT_LEFT_ACTIONS_CLASS}`)).not.toBeNull();
+    expect(document.getElementById('poexd-result-left-actions-style')).not.toBeNull();
+
+    removeLeftActions('.poexd-dummy-action');
+    expect(row.querySelector(`.${RESULT_LEFT_ACTIONS_CLASS}`)).toBeNull();
+    expect(document.getElementById('poexd-result-left-actions-style')).toBeNull();
   });
 });
