@@ -211,7 +211,8 @@ describe('usePobBuild', () => {
         'Juggernaut Lv.97',
         'Chieftain Lv.97',
       ]);
-      expect(loadCatalog).toHaveBeenCalledTimes(1);
+      // 名稱資料只載入一次（頁面區服與顯示語言各一份），第二次匯入不重複載入
+      expect(loadCatalog).toHaveBeenCalledTimes(2);
 
       pob.toggleDone('build-1', rowByLabel(pob.builds.value[1], 'Punishment').key);
       expect(pob.builds.value[1].progress.done).toBe(1);
@@ -361,6 +362,45 @@ describe('usePobBuild', () => {
       expect(plate.query).toMatchObject({
         stats: [{ filters: [{ id: 'explicit.stat_3299347043', value: { min: 80 } }] }],
       });
+    });
+
+    it('名稱以顯示語言呈現，搜尋仍用頁面區服的名稱', async () => {
+      loadCatalog.mockImplementation(async (_version: string, locale: string) =>
+        createTradeNameCatalog({
+          englishItems: ['Plate Vest', "Xoph's Heart", 'Amber Amulet', 'Punishment'],
+          ...(locale === 'zh-TW'
+            ? { localizedItems: ['鍍金鎧甲', '索伏之心', '琥珀護身符', '懲戒'] }
+            : {}),
+        }),
+      );
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      pob.selectItemSet('build-1', '2');
+
+      expect(loadCatalog.mock.calls.map((call) => call[1])).toEqual(['en', 'zh-TW']);
+      expect(labels(first(pob))).toEqual(['索伏之心', '鍍金鎧甲', '懲戒']);
+      expect(rowByLabel(first(pob), '索伏之心').query).toMatchObject({
+        name: "Xoph's Heart",
+        type: 'Amber Amulet',
+      });
+      expect(rowByLabel(first(pob), '鍍金鎧甲').query).toMatchObject({ type: 'Plate Vest' });
+    });
+
+    it('顯示語言的名稱資料載不到、或該名稱沒有譯名時，維持頁面區服的名稱', async () => {
+      loadCatalog.mockImplementation(async (_version: string, locale: string) => {
+        if (locale !== 'en') throw new Error('HTTP 404');
+        return createTradeNameCatalog({ englishItems: ['Plate Vest', 'Punishment'] });
+      });
+      const pob = usePobBuild('poe1', deps);
+      expect(await pob.importCode(toCode(buildXml()))).toBe(true);
+      pob.selectItemSet('build-1', '2');
+      expect(labels(first(pob))).toContain('Plate Vest');
+    });
+
+    it('顯示語言與頁面區服相同時不重複載入名稱資料', async () => {
+      const sameLocale = usePobBuild('poe1', { ...deps, getDisplayLocale: () => 'en' });
+      await sameLocale.importCode(toCode(buildXml()));
+      expect(loadCatalog).toHaveBeenCalledTimes(1);
     });
 
     it('翻譯資料載不到時詞綴維持英文', async () => {

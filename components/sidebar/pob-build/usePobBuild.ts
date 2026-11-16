@@ -198,6 +198,7 @@ export function usePobBuild(
   const catalog = shallowRef<TradeNameCatalog | null>(null);
   const matcher = shallowRef<StatMatcher | undefined>(undefined);
   const modTranslator = shallowRef<ModLineTranslator | undefined>(undefined);
+  const displayNames = shallowRef<TradeNameCatalog | undefined>(undefined);
   const errorKey = ref<I18nKey | null>(null);
   const isBusy = ref(false);
   let stopWaitingForIcon: (() => void) | undefined;
@@ -208,11 +209,18 @@ export function usePobBuild(
    */
   const ensureData = async (): Promise<void> => {
     if (catalog.value) return;
-    const [loadedCatalog, loadedMatcher, loadedTranslator] = await Promise.all([
-      deps.loadCatalog(version, deps.getPageLocale()),
+    const pageLocale = deps.getPageLocale();
+    const displayLocale = deps.getDisplayLocale();
+    const [loadedCatalog, loadedMatcher, loadedTranslator, loadedDisplayNames] = await Promise.all([
+      deps.loadCatalog(version, pageLocale),
       deps.loadMatcher(version).catch(() => undefined),
-      deps.loadModTranslator(version, deps.getDisplayLocale()).catch(() => undefined),
+      deps.loadModTranslator(version, displayLocale).catch(() => undefined),
+      // 顯示語言和頁面區服不同時（例如國際服頁面配中文介面），名稱另外用顯示語言呈現
+      displayLocale === pageLocale
+        ? undefined
+        : deps.loadCatalog(version, displayLocale).catch(() => undefined),
     ]);
+    displayNames.value = loadedDisplayNames;
     catalog.value = loadedCatalog;
     matcher.value = loadedMatcher;
     modTranslator.value = loadedTranslator;
@@ -251,6 +259,7 @@ export function usePobBuild(
           .filter((entry) => entry.kind === kind)
           .map((entry) => ({
             ...entry,
+            label: displayNames.value?.toTradeName(entry.englishName) ?? entry.label,
             ...(entry.mods ? { mods: entry.mods.map(localizeMod) } : {}),
             done: session.done.has(entry.key),
             ...(session.icons[entry.key] ? { icon: session.icons[entry.key] } : {}),

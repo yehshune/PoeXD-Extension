@@ -45,8 +45,10 @@ export interface ShoppingEntry {
    */
   key: string;
   kind: ShoppingEntryKind;
-  /** 顯示名稱（頁面區服的名稱；對不到時為 PoB 的英文名稱） */
+  /** 頁面區服的市集名稱（搜尋用的就是這個）；對不到時為 PoB 的英文名稱 */
   label: string;
+  /** 英文名稱，介面用它換成顯示語言的名稱（顯示語言可以和頁面區服不同） */
+  englishName: string;
   /** 部位（裝備）或等級／品質（寶石），依 kind 由介面決定怎麼顯示 */
   slot?: string;
   level?: number;
@@ -161,6 +163,7 @@ function itemEntry(
       key,
       kind: 'equipment',
       label: tradeBase ?? englishBase ?? item.name,
+      englishName: englishBase ?? item.name,
       slot: item.slot,
       rarity: item.rarity,
       mods: itemMods(item, searched),
@@ -179,6 +182,7 @@ function itemEntry(
     key,
     kind: 'unique',
     label: tradeName ?? item.name,
+    englishName,
     slot: item.slot,
     rarity: item.rarity,
     mods: itemMods(item, []),
@@ -190,9 +194,9 @@ function itemEntry(
 
 function gemEntry(gem: PobBuildGem, catalog: TradeNameCatalog): ShoppingEntry {
   // PoB 的輔助寶石名稱不含「Support」，市集上有
-  const tradeName =
-    (gem.support ? catalog.toTradeName(`${gem.name}${SUPPORT_SUFFIX}`) : undefined) ??
-    catalog.toTradeName(gem.name);
+  const supportName = `${gem.name}${SUPPORT_SUFFIX}`;
+  const englishName = gem.support && catalog.toTradeName(supportName) ? supportName : gem.name;
+  const tradeName = catalog.toTradeName(englishName);
   const gemFilters = {
     ...(gem.level > 1 ? { gem_level: { min: gem.level } } : {}),
     ...(gem.quality > 0 ? { quality: { min: gem.quality } } : {}),
@@ -201,6 +205,7 @@ function gemEntry(gem: PobBuildGem, catalog: TradeNameCatalog): ShoppingEntry {
     key: ['gem', gem.name, gem.level, gem.quality].join(KEY_SEPARATOR),
     kind: 'gem',
     label: tradeName ?? gem.name,
+    englishName,
     level: gem.level,
     quality: gem.quality,
     query: tradeName

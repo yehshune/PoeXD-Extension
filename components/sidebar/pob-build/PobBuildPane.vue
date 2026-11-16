@@ -574,6 +574,8 @@ export default defineComponent({
               rows: group.rows.filter(
                 (entry) =>
                   entry.label.toLowerCase().includes(needle) ||
+                  // 名稱以顯示語言呈現，英文原名也要找得到
+                  entry.englishName.toLowerCase().includes(needle) ||
                   rowDetail(entry).toLowerCase().includes(needle),
               ),
             }))

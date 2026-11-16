@@ -274,7 +274,11 @@ describe('buildShoppingList', () => {
 
   it('英文頁面：傳奇用名稱加基底、其餘用基底、寶石帶等級與品質下限', () => {
     const list = buildShoppingList(build, createTradeNameCatalog({ englishItems: ENGLISH_ITEMS }));
-    expect(list.map(({ key: _key, mods: _mods, rarity: _rarity, ...rest }) => rest)).toEqual([
+    expect(
+      list.map(
+        ({ key: _key, mods: _mods, rarity: _rarity, englishName: _englishName, ...rest }) => rest,
+      ),
+    ).toEqual([
       {
         kind: 'unique',
         label: 'Rise of the Phoenix',
