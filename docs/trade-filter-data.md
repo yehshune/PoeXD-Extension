@@ -72,4 +72,4 @@ poexd-data 依序請求各語言官方市集網域的 `/api/trade/data/{filters,
 - 介面字典只當資料解析（`__['鍵'] = '值';`），不執行；出現無法辨識的行就整份拒絕。官方未翻譯（值等於鍵）的條目略過。
 - stats 的同一個 id 可能出現多次且文字不同，這時依 API 出現順序存成陣列，出現次數與國際服不同就略過該 id；static 的 id 跨群組會重複，所以依群組分層。
 - 國服網域從海外連線時好時壞：介面字典會改試 `poe.game.qq.com`，stats / static 失敗時沿用上一版檔案。
-- 欄位格式與涵蓋率見 `docs/architecture/market-translation-plan.md`。
+- 格式：`trade-ui.json` 為 `{ schemaVersion, locale, source, strings }`；`trade-stats.json` 為 `{ schemaVersion, gameVersion, locale, source, labels, stats, options }`；`trade-static.json` 為 `{ schemaVersion, gameVersion, locale, source, labels, entries }`。
