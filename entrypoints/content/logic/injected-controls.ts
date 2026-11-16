@@ -212,6 +212,7 @@ export function injectCustomStyles(): void {
       min-height: 34px !important;
       margin: 0 !important;
       padding: 6px 12px !important;
+      font-family: FontinSmallcaps, Verdana, Arial, Helvetica, sans-serif !important;
       font-size: 13px !important;
       line-height: 16px !important;
       font-weight: 400 !important;

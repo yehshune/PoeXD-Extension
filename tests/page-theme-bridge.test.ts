@@ -131,6 +131,7 @@ describe('Page UI Theme Bridge Contract Tests', () => {
       expect(PAGE_INJECTED_SELECTORS).not.toContain('.poexd-tier-dropdown');
       expect(PAGE_INJECTED_SELECTORS).not.toContain('#poexd-sync-overlay');
       expect(PAGE_INJECTED_SELECTORS).toContain('.poexd-tier-trigger');
+      expect(PAGE_INJECTED_SELECTORS).toContain('.poexd-send-to-console-btn');
       expect(PAGE_INJECTED_SELECTORS).toContain('.poexd-sortable-ghost');
       expect(PAGE_INJECTED_SELECTORS).toContain('.poexd-sortable-drag');
       expect(PAGE_INJECTED_SELECTORS).toContain('.poexd-filter-mod-highlight');

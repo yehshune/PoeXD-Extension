@@ -9,7 +9,7 @@ import {
 import {
   RESULT_LEFT_ACTIONS_CLASS,
   mountLeftAction,
-  removeLeftActions,
+  removeLeftActionsByClass,
 } from '@/entrypoints/content/logic/result-left-actions';
 import { setActiveDisplayLocalePreference } from '@/utils/i18n';
 import { resolveEnglishItemName } from '@/utils/pob-item-text';
@@ -175,7 +175,7 @@ describe('ResultExternalLinks', () => {
     expect(row.querySelector(`.${RESULT_LEFT_ACTIONS_CLASS}`)).not.toBeNull();
     expect(document.getElementById('poexd-result-left-actions-style')).not.toBeNull();
 
-    removeLeftActions('.poexd-dummy-action');
+    removeLeftActionsByClass('poexd-dummy-action');
     expect(row.querySelector(`.${RESULT_LEFT_ACTIONS_CLASS}`)).toBeNull();
     expect(document.getElementById('poexd-result-left-actions-style')).toBeNull();
   });

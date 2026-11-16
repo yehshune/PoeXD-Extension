@@ -13,7 +13,7 @@ import type { PoeVersion } from '@/utils/trade-context';
 import {
   RESULT_LEFT_ACTION_BUTTON_CLASS,
   mountLeftAction,
-  removeLeftActions,
+  removeLeftActionsByClass,
 } from './result-left-actions';
 
 const STYLE_ID = 'poexd-result-external-links-style';
@@ -167,7 +167,7 @@ export class ResultExternalLinks {
   }
 
   private removeInjected(): void {
-    removeLeftActions(`.${RESULT_EXTERNAL_LINKS_CLASS}`);
+    removeLeftActionsByClass(RESULT_EXTERNAL_LINKS_CLASS);
     document.getElementById(STYLE_ID)?.remove();
   }
 }

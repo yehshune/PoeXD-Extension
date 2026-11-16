@@ -74,10 +74,14 @@ export function mountLeftAction(row: Element, action: HTMLElement): void {
   ensureLeftActionsStyle();
 }
 
-/** 移除符合選擇器的功能節點，並在工具列清空時一併清理容器與樣式 */
-export function removeLeftActions(selector: string): void {
-  if (typeof document === 'undefined') return;
-  document.querySelectorAll(selector).forEach((el) => el.remove());
+/** 依 class 名稱移除功能節點，並在工具列清空時一併清理容器與樣式 */
+export function removeLeftActionsByClass(className: string): void {
+  if (typeof document === 'undefined' || !className) return;
+  const escaped =
+    typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(className)
+      : className;
+  document.querySelectorAll(`.${escaped}`).forEach((el) => el.remove());
   document.querySelectorAll(`.${RESULT_LEFT_ACTIONS_CLASS}`).forEach((strip) => {
     if (strip.children.length === 0) strip.remove();
   });

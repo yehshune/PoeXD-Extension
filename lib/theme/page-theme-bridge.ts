@@ -42,6 +42,7 @@ export const PAGE_INJECTED_SELECTORS = [
   '.poexd-inline-btn',
   '.poexd-filter-select-btn',
   '.poexd-category-select-btn',
+  '.poexd-send-to-console-btn',
   '.poexd-sortable-ghost',
   '.poexd-sortable-drag',
   '.poexd-filter-mod-highlight',
