@@ -16,6 +16,8 @@ export interface OnboardingState {
   readonly welcomePending: boolean;
   /** 尚未展開過側邊欄（收合把手顯示提示圓點） */
   readonly expandHintPending: boolean;
+  /** 尚未關閉側邊欄的改版更新提示 */
+  readonly updatePending?: boolean;
   /** 最後一次看過的擴充版本，供日後的新功能提示比對 */
   readonly lastSeenVersion?: string;
 }
@@ -38,6 +40,7 @@ export function parseOnboardingState(raw: unknown): OnboardingState {
   return Object.freeze({
     welcomePending: raw.welcomePending,
     expandHintPending: raw.expandHintPending,
+    ...(raw.updatePending === true ? { updatePending: true } : {}),
     ...(typeof raw.lastSeenVersion === 'string' && raw.lastSeenVersion
       ? { lastSeenVersion: raw.lastSeenVersion }
       : {}),
@@ -60,8 +63,44 @@ export function createInstallOnboardingState(
   });
 }
 
+export interface UpdateOnboardingInput {
+  reason: string;
+  version: string | undefined;
+  previousVersion?: string;
+  current?: OnboardingState;
+}
+
+/**
+ * 依 `runtime.onInstalled` 的 `reason === 'update'` 決定要寫入的改版提示狀態；
+ * 同版本重載（dev reload）或未提供版本號時回傳 null（不寫入）。
+ * 若使用者尚未關閉初次安裝歡迎卡片，則僅更新版本號、不疊加改版提示。
+ */
+export function createUpdateOnboardingState(input: UpdateOnboardingInput): OnboardingState | null {
+  const { reason, version, previousVersion, current = NO_ONBOARDING } = input;
+  if (reason !== 'update' || !version) return null;
+  if (previousVersion === version || current.lastSeenVersion === version) return null;
+  if (current.welcomePending) {
+    return Object.freeze({
+      welcomePending: true,
+      expandHintPending: current.expandHintPending,
+      lastSeenVersion: version,
+    });
+  }
+  return Object.freeze({
+    welcomePending: false,
+    expandHintPending: false,
+    updatePending: true,
+    lastSeenVersion: version,
+  });
+}
+
 export function dismissWelcome(state: OnboardingState): OnboardingState {
   return Object.freeze({ ...state, welcomePending: false });
+}
+
+export function dismissUpdate(state: OnboardingState): OnboardingState {
+  const { updatePending: _, ...rest } = state;
+  return Object.freeze(rest);
 }
 
 export function markExpandHintSeen(state: OnboardingState): OnboardingState {
@@ -111,6 +150,7 @@ export function createOnboardingStore(area: OnboardingStorageArea): OnboardingSt
       if (
         next.welcomePending === current.welcomePending &&
         next.expandHintPending === current.expandHintPending &&
+        Boolean(next.updatePending) === Boolean(current.updatePending) &&
         next.lastSeenVersion === current.lastSeenVersion
       ) {
         return current;

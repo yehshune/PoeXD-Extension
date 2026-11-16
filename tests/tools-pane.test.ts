@@ -121,12 +121,21 @@ describe('ToolsPane & time formatters', () => {
       expect(text).toContain('價格換算資料');
     });
 
-    it('links to the shared support page in a new tab', async () => {
+    it('links to the GitHub releases page and shared support page in a new tab', async () => {
       (extensionMessaging.sendMessage as any).mockImplementation(async () => ({}));
 
       app = createApp(ToolsPane);
       app.mount(container);
       await nextTick();
+
+      expect(container.textContent).toContain('改版資訊');
+      const releaseLinks = container.querySelectorAll<HTMLAnchorElement>('a[data-releases-link]');
+      expect(releaseLinks).toHaveLength(1);
+      const releaseLink = releaseLinks[0];
+      expect(releaseLink.href).toBe('https://github.com/yehshune/PoeXD-Extension/releases');
+      expect(releaseLink.target).toBe('_blank');
+      expect(releaseLink.rel).toBe('noopener noreferrer');
+      expect(releaseLink.textContent).toContain('前往 GitHub Releases');
 
       expect(container.textContent).toContain('支持開發');
       const links = container.querySelectorAll<HTMLAnchorElement>('a[data-support-link]');

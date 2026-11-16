@@ -149,7 +149,7 @@ describe('Sidebar first-install onboarding', () => {
     expect(query('[data-onboarding-hint]')).toBeNull();
   });
 
-  it('shows the welcome card on the bookmark tab and dismisses it permanently', async () => {
+  it('shows the welcome card at the top across all tabs and dismisses it permanently', async () => {
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
     const card = query('[data-onboarding-welcome]');
     expect(card).not.toBeNull();
@@ -157,10 +157,59 @@ describe('Sidebar first-install onboarding', () => {
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
 
+    // Switching tabs keeps the welcome card visible at the top
+    for (const tabId of ['history', 'stat-group-template', 'tools', 'settings']) {
+      query(`[data-sidebar-tab="${tabId}"]`)!.click();
+      await settle();
+      expect(query('[data-onboarding-welcome]')).not.toBeNull();
+    }
+
     query('[data-onboarding-action="dismiss"]')!.click();
     await settle();
     expect(query('[data-onboarding-welcome]')).toBeNull();
     expect(mockStorage[ONBOARDING_STORAGE_KEY]).toMatchObject({ welcomePending: false });
+  });
+
+  it('shows the update notice across all tabs without collapsed hint dot and dismisses it once closed', async () => {
+    const versionUpdate = {
+      welcomePending: false,
+      expandHintPending: false,
+      updatePending: true,
+      lastSeenVersion: '1.6.1',
+    };
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: versionUpdate, isCollapsed_poe2: true });
+    // Does not show collapsed hint dot for updates
+    expect(query('[data-onboarding-hint]')).toBeNull();
+
+    query('[data-sidebar-action="expand"]')!.click();
+    await settle();
+
+    const notice = query('[data-onboarding-update]');
+    expect(notice).not.toBeNull();
+    expect(notice!.textContent).toContain('v1.6.1');
+    const releaseLink = query(
+      '[data-onboarding-action="release-notes"]',
+    ) as HTMLAnchorElement | null;
+    expect(releaseLink).not.toBeNull();
+    expect(releaseLink!.href).toBe('https://github.com/yehshune/PoeXD-Extension/releases');
+    expect(releaseLink!.target).toBe('_blank');
+
+    // Visible across all tabs
+    for (const tabId of ['history', 'stat-group-template', 'tools', 'settings']) {
+      query(`[data-sidebar-tab="${tabId}"]`)!.click();
+      await settle();
+      expect(query('[data-onboarding-update]')).not.toBeNull();
+    }
+
+    // Dismissing once hides it permanently
+    query('[data-onboarding-action="dismiss-update"]')!.click();
+    await settle();
+    expect(query('[data-onboarding-update]')).toBeNull();
+    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toEqual({
+      welcomePending: false,
+      expandHintPending: false,
+      lastSeenVersion: '1.6.1',
+    });
   });
 
   it('reacts when the install state arrives after the sidebar mounted', async () => {

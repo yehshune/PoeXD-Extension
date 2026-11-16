@@ -227,6 +227,9 @@ export const ZH_TW_MESSAGES = {
   'tools.support.title': '支持開發',
   'tools.support.description': 'PoeXD 免費且開源。如果它幫你省下時間，歡迎贊助支持後續開發。',
   'tools.support.linkLabel': '前往贊助頁',
+  'tools.releases.title': '改版資訊',
+  'tools.releases.description': '查看歷次版本的更新內容與改版說明。',
+  'tools.releases.linkLabel': '前往 GitHub Releases',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '載入詞綴資料中...',
@@ -995,6 +998,9 @@ export const ZH_TW_MESSAGES = {
   'onboarding.welcome.reloadHint': '重新整理頁面後生效',
   'onboarding.welcome.reload': '重新整理',
   'onboarding.welcome.dismiss': '關閉歡迎訊息',
+  'onboarding.update.title': '已更新至 {version}',
+  'onboarding.update.releaseNotes': '查看改版資訊',
+  'onboarding.update.dismiss': '關閉更新提示',
 } as const;
 
 export type I18nKey = keyof typeof ZH_TW_MESSAGES;

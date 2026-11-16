@@ -3,3 +3,6 @@
  * 新增管道時只需更新贊助頁與 yehshune/.github 的 FUNDING.yml，擴充功能不必改版。
  */
 export const SUPPORT_PAGE_URL = 'https://yehshune.github.io/support/';
+
+/** GitHub Releases 改版資訊頁 */
+export const RELEASES_PAGE_URL = 'https://github.com/yehshune/PoeXD-Extension/releases';

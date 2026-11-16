@@ -251,6 +251,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'tools.support.description':
     'PoeXD is free and open source. If it saves you time, you can support its development.',
   'tools.support.linkLabel': 'Open support page',
+  'tools.releases.title': 'Release Notes',
+  'tools.releases.description': 'View version history and release notes on GitHub.',
+  'tools.releases.linkLabel': 'View GitHub Releases',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': 'Loading affix data...',
@@ -1061,4 +1064,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'onboarding.welcome.reloadHint': 'Takes effect after a page reload',
   'onboarding.welcome.reload': 'Reload',
   'onboarding.welcome.dismiss': 'Dismiss welcome message',
+  'onboarding.update.title': 'Updated to {version}',
+  'onboarding.update.releaseNotes': 'Release notes',
+  'onboarding.update.dismiss': 'Dismiss update notice',
 };

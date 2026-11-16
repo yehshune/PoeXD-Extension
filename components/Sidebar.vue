@@ -258,18 +258,24 @@
             >
               <!-- Normal 模式：按分頁渲染對應的子元件 -->
               <template v-if="pageRole === 'normal'">
-                <!-- 初次安裝歡迎卡片：只在書籤頁頂端顯示，關閉後永久不再出現 -->
+                <!-- 初次安裝歡迎卡片 / 改版更新提示：顯示於側邊欄頂端（全分頁可見），關閉後永久不再出現 -->
                 <div
-                  v-if="showWelcomeCard && activeTab === 'bookmark'"
+                  v-if="showWelcomeCard || showUpdateNotice"
                   class="shrink-0 px-[var(--pxd-pane-padding)] pt-[var(--pxd-pane-padding)]"
                 >
                   <WelcomeCard
+                    v-if="showWelcomeCard"
                     :show-market-translation="showMarketTranslationOffer"
                     :market-translation="marketTranslation"
                     :reload-required="marketTranslationReloadRequired"
                     @dismiss="dismissWelcomeCard"
                     @update:market-translation="setMarketTranslation"
                     @reload="reloadPage"
+                  />
+                  <UpdateNotice
+                    v-else-if="showUpdateNotice"
+                    :version="updateNoticeVersion"
+                    @dismiss="dismissUpdateNotice"
                   />
                 </div>
                 <BookmarkPane v-show="activeTab === 'bookmark'" />
@@ -502,6 +508,7 @@ import SettingsPane from './sidebar/SettingsPane.vue';
 import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
 import TemporarySearchDialog from './sidebar/TemporarySearchDialog.vue';
+import UpdateNotice from './sidebar/UpdateNotice.vue';
 import WelcomeCard from './sidebar/WelcomeCard.vue';
 import TierDropdownHost from './injected/TierDropdownHost.vue';
 import StatGroupTemplateHost from './injected/StatGroupTemplateHost.vue';
@@ -519,6 +526,7 @@ import { detectBrowserLocale } from '@/utils/locale-resolution';
 import {
   NO_ONBOARDING,
   createChromeOnboardingStore,
+  dismissUpdate,
   dismissWelcome,
   markExpandHintSeen,
   shouldOfferMarketTranslation,
@@ -563,6 +571,11 @@ import type { LiveSearchResumeController } from '@/entrypoints/content/logic/liv
 
 installDialogGlobals();
 
+function formatVersionTag(version: string | undefined): string {
+  if (!version) return '';
+  return version.startsWith('v') ? version : `v${version}`;
+}
+
 /** 從瀏覽器擴充資訊清單讀取目前版本號，避免在元件中寫死版本字串 */
 function resolveExtensionVersion(): string {
   const manifestVersion =
@@ -572,7 +585,7 @@ function resolveExtensionVersion(): string {
         browser?: { runtime?: { getManifest?: () => { version?: string } } };
       }
     ).browser?.runtime?.getManifest?.()?.version;
-  return manifestVersion ? `v${manifestVersion}` : '';
+  return formatVersionTag(manifestVersion);
 }
 
 export default defineComponent({
@@ -615,6 +628,7 @@ export default defineComponent({
     LiveSearchPrimaryPane,
     LiveSearchConsoleSettingsPane,
     TemporarySearchDialog,
+    UpdateNotice,
     WelcomeCard,
     TierDropdownHost,
     StatGroupTemplateHost,
@@ -675,6 +689,15 @@ export default defineComponent({
     const showWelcomeCard = computed(
       () => pageRole.value === 'normal' && onboarding.value.welcomePending,
     );
+    const showUpdateNotice = computed(
+      () =>
+        pageRole.value === 'normal' &&
+        !onboarding.value.welcomePending &&
+        onboarding.value.updatePending === true,
+    );
+    const updateNoticeVersion = computed(
+      () => formatVersionTag(onboarding.value.lastSeenVersion) || appVersion,
+    );
     const showMarketTranslationOffer = computed(() =>
       shouldOfferMarketTranslation({
         hostname: typeof window !== 'undefined' ? window.location.hostname : '',
@@ -689,6 +712,7 @@ export default defineComponent({
       });
     };
     const dismissWelcomeCard = () => updateOnboarding(dismissWelcome);
+    const dismissUpdateNotice = () => updateOnboarding(dismissUpdate);
     const setMarketTranslation = async (value: boolean) => {
       if (!preferencesModule) return;
       const outcome = await preferencesModule.update({ marketTranslation: value });
@@ -1149,10 +1173,13 @@ export default defineComponent({
       version,
       showExpandHint,
       showWelcomeCard,
+      showUpdateNotice,
+      updateNoticeVersion,
       showMarketTranslationOffer,
       marketTranslation,
       marketTranslationReloadRequired,
       dismissWelcomeCard,
+      dismissUpdateNotice,
       setMarketTranslation,
       reloadPage,
       t,

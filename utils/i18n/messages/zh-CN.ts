@@ -229,6 +229,9 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'tools.support.title': '支持开发',
   'tools.support.description': 'PoeXD 免费且开源。如果它帮你节省了时间，欢迎赞助支持后续开发。',
   'tools.support.linkLabel': '前往赞助页',
+  'tools.releases.title': '改版信息',
+  'tools.releases.description': '查看历次版本的更新内容与改版说明。',
+  'tools.releases.linkLabel': '前往 GitHub Releases',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '加载词缀数据中...',
@@ -997,4 +1000,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'onboarding.welcome.reloadHint': '刷新页面后生效',
   'onboarding.welcome.reload': '刷新',
   'onboarding.welcome.dismiss': '关闭欢迎信息',
+  'onboarding.update.title': '已更新至 {version}',
+  'onboarding.update.releaseNotes': '查看改版信息',
+  'onboarding.update.dismiss': '关闭更新提示',
 };

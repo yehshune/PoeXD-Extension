@@ -5,6 +5,8 @@ import {
   ONBOARDING_STORAGE_KEY,
   createInstallOnboardingState,
   createOnboardingStore,
+  createUpdateOnboardingState,
+  dismissUpdate,
   dismissWelcome,
   markExpandHintSeen,
   parseOnboardingState,
@@ -49,6 +51,58 @@ describe('createInstallOnboardingState', () => {
   );
 });
 
+describe('createUpdateOnboardingState', () => {
+  it('creates pending update notice without expand hint dot when version changes', () => {
+    expect(
+      createUpdateOnboardingState({
+        reason: 'update',
+        version: '1.6.1',
+        previousVersion: '1.6.0',
+      }),
+    ).toEqual({
+      welcomePending: false,
+      expandHintPending: false,
+      updatePending: true,
+      lastSeenVersion: '1.6.1',
+    });
+  });
+
+  it('returns null for non-update reasons or same-version dev reloads', () => {
+    expect(
+      createUpdateOnboardingState({
+        reason: 'install',
+        version: '1.6.1',
+        previousVersion: '1.6.0',
+      }),
+    ).toBeNull();
+    expect(
+      createUpdateOnboardingState({ reason: 'update', version: '1.6.1', previousVersion: '1.6.1' }),
+    ).toBeNull();
+    expect(
+      createUpdateOnboardingState({
+        reason: 'update',
+        version: '1.6.1',
+        current: { welcomePending: false, expandHintPending: false, lastSeenVersion: '1.6.1' },
+      }),
+    ).toBeNull();
+  });
+
+  it('keeps welcomePending without stacking updatePending if user has not dismissed first-install welcome', () => {
+    expect(
+      createUpdateOnboardingState({
+        reason: 'update',
+        version: '1.6.1',
+        previousVersion: '1.6.0',
+        current: { welcomePending: true, expandHintPending: true, lastSeenVersion: '1.6.0' },
+      }),
+    ).toEqual({
+      welcomePending: true,
+      expandHintPending: true,
+      lastSeenVersion: '1.6.1',
+    });
+  });
+});
+
 describe('parseOnboardingState', () => {
   it('treats a missing or malformed record as no onboarding', () => {
     expect(parseOnboardingState(undefined)).toBe(NO_ONBOARDING);
@@ -64,6 +118,19 @@ describe('parseOnboardingState', () => {
         lastSeenVersion: '1',
       }),
     ).toEqual({ welcomePending: false, expandHintPending: true, lastSeenVersion: '1' });
+    expect(
+      parseOnboardingState({
+        welcomePending: false,
+        expandHintPending: false,
+        updatePending: true,
+        lastSeenVersion: '1.6.1',
+      }),
+    ).toEqual({
+      welcomePending: false,
+      expandHintPending: false,
+      updatePending: true,
+      lastSeenVersion: '1.6.1',
+    });
   });
 });
 
@@ -76,6 +143,18 @@ describe('state transitions', () => {
     expect(initial.expandHintPending).toBe(true);
     expect(dismissed).toMatchObject({ welcomePending: false, expandHintPending: true });
     expect(seen).toMatchObject({ welcomePending: true, expandHintPending: false });
+
+    const updated = createUpdateOnboardingState({
+      reason: 'update',
+      version: '1.6.1',
+      previousVersion: '1.6.0',
+    })!;
+    expect(updated.updatePending).toBe(true);
+    expect(dismissUpdate(updated)).toEqual({
+      welcomePending: false,
+      expandHintPending: false,
+      lastSeenVersion: '1.6.1',
+    });
   });
 });
 

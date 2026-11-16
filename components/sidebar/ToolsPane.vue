@@ -90,6 +90,29 @@
 
     <Separator class="my-[var(--pxd-section-gap)]" />
 
+    <!-- 改版資訊 -->
+    <section class="flex flex-col gap-[var(--pxd-field-gap)]">
+      <h3
+        class="m-0 py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground"
+      >
+        {{ t('tools.releases.title') }}
+      </h3>
+      <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+        {{ t('tools.releases.description') }}
+      </p>
+      <a
+        :href="releasesPageUrl"
+        data-releases-link="github-releases"
+        target="_blank"
+        rel="noopener noreferrer"
+        :class="cn(buttonVariants({ variant: 'outline', size: 'default' }), 'w-full no-underline')"
+      >
+        {{ t('tools.releases.linkLabel') }}
+      </a>
+    </section>
+
+    <Separator class="my-[var(--pxd-section-gap)]" />
+
     <!-- 支持開發 -->
     <section class="flex flex-col gap-[var(--pxd-field-gap)]">
       <h3
@@ -118,7 +141,7 @@ import { computed, defineComponent, onMounted, onUnmounted, reactive, ref } from
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { SUPPORT_PAGE_URL } from '@/utils/support-links';
+import { RELEASES_PAGE_URL, SUPPORT_PAGE_URL } from '@/utils/support-links';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from '@lucide/vue';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
@@ -383,6 +406,7 @@ export default defineComponent({
       t,
       cn,
       buttonVariants,
+      releasesPageUrl: RELEASES_PAGE_URL,
       supportPageUrl: SUPPORT_PAGE_URL,
       sectionOpen,
       displayVersion,

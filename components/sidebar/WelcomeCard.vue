@@ -35,13 +35,13 @@ const features = [
       type="button"
       variant="ghost"
       size="icon-sm"
-      class="absolute top-[var(--pxd-space-xs)] right-[var(--pxd-space-xs)] text-muted-foreground"
+      class="absolute top-[var(--pxd-space-xs)] right-[var(--pxd-space-xs)]"
       :title="t('onboarding.welcome.dismiss')"
       :aria-label="t('onboarding.welcome.dismiss')"
       data-onboarding-action="dismiss"
       @click="emit('dismiss')"
     >
-      <X class="size-4" />
+      <X />
     </Button>
 
     <p

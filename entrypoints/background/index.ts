@@ -25,7 +25,12 @@ import { LiveSearchCoordinator } from '@/utils/live-search-coordinator';
 import { TRADE_PAGE_MATCH_PATTERNS } from '@/utils/trade-realms';
 import { registerLiveSearchBackgroundHandlers } from '@/utils/live-search-messaging';
 import { registerMarketTranslationBackgroundHandlers } from '@/utils/market-translation-live';
-import { createInstallOnboardingState, ONBOARDING_STORAGE_KEY } from '@/utils/onboarding';
+import {
+  createInstallOnboardingState,
+  createUpdateOnboardingState,
+  ONBOARDING_STORAGE_KEY,
+  parseOnboardingState,
+} from '@/utils/onboarding';
 
 let searchRecordModule: SearchRecordRuntime | undefined;
 let searchRecordReady: Promise<SearchRecordOutcome> | undefined;
@@ -34,13 +39,32 @@ let bookmarkReady: Promise<SearchRecordOutcome> | undefined;
 
 export default defineBackground(() => {
   console.log('PoeXD-Extention background service worker initialized.', { id: browser.runtime.id });
-  // 只在全新安裝時建立初次引導狀態；需在 Service Worker 啟動時同步註冊才收得到事件
-  browser.runtime.onInstalled.addListener(({ reason }) => {
-    const initial = createInstallOnboardingState(reason, browser.runtime.getManifest().version);
-    if (!initial) return;
-    void browser.storage.local
-      .set({ [ONBOARDING_STORAGE_KEY]: { ...initial } })
-      .catch((error: unknown) => console.error('[Onboarding] 無法寫入初次安裝狀態:', error));
+  // 在全新安裝或版本更新時寫入引導／改版提示狀態；需在 Service Worker 啟動時同步註冊才收得到事件
+  browser.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
+    const version = browser.runtime.getManifest().version;
+    const initial = createInstallOnboardingState(reason, version);
+    if (initial) {
+      void browser.storage.local
+        .set({ [ONBOARDING_STORAGE_KEY]: { ...initial } })
+        .catch((error: unknown) => console.error('[Onboarding] 無法寫入初次安裝狀態:', error));
+      return;
+    }
+    if (reason === 'update') {
+      void browser.storage.local
+        .get([ONBOARDING_STORAGE_KEY])
+        .then((stored) => {
+          const current = parseOnboardingState(stored[ONBOARDING_STORAGE_KEY]);
+          const updated = createUpdateOnboardingState({
+            reason,
+            version,
+            previousVersion,
+            current,
+          });
+          if (!updated) return;
+          return browser.storage.local.set({ [ONBOARDING_STORAGE_KEY]: { ...updated } });
+        })
+        .catch((error: unknown) => console.error('[Onboarding] 無法寫入改版更新狀態:', error));
+    }
   });
   searchRecordModule = createSearchRecordModule(
     createChromeSearchRecordStorage(chrome.storage.local),
