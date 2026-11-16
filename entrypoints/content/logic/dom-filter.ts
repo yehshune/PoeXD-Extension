@@ -8,6 +8,19 @@ import type { ResultModQuickFilter } from './result-mod-quick-filter';
 import type { ResultPobCopy } from './result-pob-copy';
 import type { ResultExternalLinks } from './result-external-links';
 
+const IGNORED_EXTENSION_SELECTORS = [
+  '.poexd-price-comparison',
+  '.poexd-result-mod-actions',
+  '.poexd-total-controls',
+  '.poexd-left-badges',
+  '.poexd-inline-override',
+  '.poexd-left-actions',
+] as const;
+
+function isIgnoredExtensionElement(element: Element): boolean {
+  return IGNORED_EXTENSION_SELECTORS.some((selector) => element.closest(selector));
+}
+
 export class DomFilter {
   private observed = false;
   private frame?: number;
@@ -54,21 +67,17 @@ export class DomFilter {
       return;
     }
     const observer = new MutationObserver((mutations) => {
-      if (this.itemNormalizer?.isReordering || this.itemNormalizer?.isMutatingResultOrder?.()) {
+      if (this.itemNormalizer?.isReordering) {
         return;
       }
       mutations.forEach((mutation) => {
-        if (
-          mutation.target instanceof Element &&
-          (mutation.target.closest('.poexd-price-comparison') ||
-            mutation.target.closest('.poexd-result-mod-actions') ||
-            mutation.target.closest('.poexd-total-controls') ||
-            mutation.target.closest('.poexd-left-badges') ||
-            mutation.target.closest('.poexd-inline-override') ||
-            mutation.target.closest('.poexd-left-actions'))
-        )
+        if (mutation.target instanceof Element && isIgnoredExtensionElement(mutation.target)) {
           return;
-        mutation.addedNodes.forEach((node) => this.collectAddedNode(node));
+        }
+        mutation.addedNodes.forEach((node) => {
+          if (this.itemNormalizer?.isRecentlyMovedRow?.(node)) return;
+          this.collectAddedNode(node);
+        });
       });
     });
 
@@ -98,15 +107,7 @@ export class DomFilter {
 
   private collectAddedNode(node: Node) {
     if (!(node instanceof Element)) return;
-    if (
-      node.closest('.poexd-price-comparison') ||
-      node.closest('.poexd-result-mod-actions') ||
-      node.closest('.poexd-total-controls') ||
-      node.closest('.poexd-left-badges') ||
-      node.closest('.poexd-inline-override') ||
-      node.closest('.poexd-left-actions')
-    )
-      return;
+    if (isIgnoredExtensionElement(node)) return;
     const root = node.matches('.results') ? node : node.querySelector('.results');
     if (root) {
       this.queueRoot(root);
@@ -146,37 +147,35 @@ export class DomFilter {
     const rows = [...this.pendingRows];
     this.pendingRoots.clear();
     this.pendingRows.clear();
-    roots.forEach((root) => this.applyResultEnhancements(root));
+    const isSearchNormal = this.pageMode === 'search' && this.pageRole !== 'live-search-primary';
+    roots.forEach((root) => this.applyTargetEnhancements(root, isSearchNormal, true));
     const unrootedRows = rows.filter((row) => !roots.some((root) => root.contains(row)));
     if (unrootedRows.length === 0) return;
 
-    const isSearchNormal = this.pageMode === 'search' && this.pageRole !== 'live-search-primary';
-    unrootedRows.forEach((row) => {
-      if (isSearchNormal) {
-        this.pricePresenter?.apply(row);
-        if (typeof this.itemNormalizer?.applyBatch !== 'function') {
-          this.itemNormalizer?.apply(row);
-        }
-        this.modQuickFilter?.apply(row);
-        this.pobCopy?.apply(row);
-        this.externalLinks?.apply(row);
-      }
-      this.modHighlighter?.apply(row);
-    });
-
-    if (isSearchNormal && typeof this.itemNormalizer?.applyBatch === 'function') {
-      this.itemNormalizer.applyBatch(unrootedRows);
-    }
+    const batchNormalizer =
+      isSearchNormal && typeof this.itemNormalizer?.applyBatch === 'function'
+        ? this.itemNormalizer
+        : undefined;
+    unrootedRows.forEach((row) =>
+      this.applyTargetEnhancements(row, isSearchNormal, !batchNormalizer),
+    );
+    batchNormalizer?.applyBatch(unrootedRows);
   }
 
-  private applyResultEnhancements(root: Element) {
-    if (this.pageMode === 'search' && this.pageRole !== 'live-search-primary') {
-      this.pricePresenter?.apply(root);
-      this.itemNormalizer?.apply(root);
-      this.modQuickFilter?.apply(root);
-      this.pobCopy?.apply(root);
-      this.externalLinks?.apply(root);
+  private applyTargetEnhancements(
+    target: Element,
+    isSearchNormal: boolean,
+    includeItemNormalizer: boolean,
+  ) {
+    if (isSearchNormal) {
+      this.pricePresenter?.apply(target);
+      if (includeItemNormalizer) {
+        this.itemNormalizer?.apply(target);
+      }
+      this.modQuickFilter?.apply(target);
+      this.pobCopy?.apply(target);
+      this.externalLinks?.apply(target);
     }
-    this.modHighlighter?.apply(root);
+    this.modHighlighter?.apply(target);
   }
 }

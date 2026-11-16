@@ -1347,8 +1347,9 @@ describe('Result item normalizer', () => {
     expect(childNodes.indexOf(placeholderComment as any)).toBeLessThan(
       childNodes.indexOf(controls as any),
     );
-    expect(normalizer.isMutatingResultOrder()).toBe(true);
+    expect(normalizer.isRecentlyMovedRow(rD as any)).toBe(true);
+    expect(normalizer.isRecentlyMovedRow(rA as any)).toBe(false);
     await Promise.resolve();
-    expect(normalizer.isMutatingResultOrder()).toBe(false);
+    expect(normalizer.isRecentlyMovedRow(rD as any)).toBe(false);
   });
 });

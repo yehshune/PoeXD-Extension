@@ -188,29 +188,12 @@ export class ResultPricePresenter {
     return this.enabled && this.supported;
   }
 
-  /** O(1) 熱路徑檢查，避免排序迴圈逐列呼叫 document.querySelector */
-  private isFastLiveOrConsole(): boolean {
-    if (this.pageMode === 'live' || this.pageRole === 'live-search-primary') {
-      return true;
-    }
-    if (typeof document !== 'undefined') {
-      if (
-        document.documentElement?.getAttribute?.('data-poexd-console-result-only') === 'true' ||
-        document.body?.getAttribute?.('data-poexd-page-role') === 'live-search-primary' ||
-        document.body?.classList?.contains?.('live-search-primary')
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /**
    * 取得換算為統一主基準幣（Primary Currency）的金額數值，供價格／性價比排序使用。
    * 若價格換算未開啟、處於即時搜尋/主控台、尚未取得匯率或該物品無標價則回傳 undefined。
    */
   getPrimaryPrice(resultId: string): number | undefined {
-    if (!this.isEnabled() || this.isFastLiveOrConsole() || !this.latestRates) return undefined;
+    if (!this.isEnabled() || this.isLiveOrConsole() || !this.latestRates) return undefined;
     const item = this.rawItemsMap[resultId];
     const price = item?.listing?.price;
     if (

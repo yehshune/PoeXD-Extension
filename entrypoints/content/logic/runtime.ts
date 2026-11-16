@@ -223,9 +223,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
 
     const initialize = async () => {
       if (disposed) return;
-      await Promise.all([domFilter.init(), interceptorReady]);
+      await interceptorReady;
       if (disposed) {
-        domFilter.cleanup();
         return;
       }
       // 頁面資料若在攔截器就緒前已載入，輪詢之外再主動要一次（MAIN world 不重送同一份）
@@ -244,13 +243,13 @@ export async function runLogic(ctx: any, version: PoeVersion) {
         console.warn('[PoeXD] 取得頁面角色失敗，預設為 normal:', error);
       }
       if (disposed) {
-        domFilter.cleanup();
         return;
       }
       domFilter.setPageRole(pageRole);
       pricePresenter.setPageRole(pageRole);
       itemNormalizer.setPageRole(pageRole);
       modQuickFilter.setPageRole(pageRole);
+      domFilter.init();
       if (pageRole === 'live-search-primary') {
         document.body?.setAttribute('data-poexd-page-role', 'live-search-primary');
         activeConsoleTitleGuard = createLiveSearchConsoleTitleGuard(document, version);

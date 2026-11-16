@@ -152,4 +152,45 @@ describe('DomFilter result lifecycle', () => {
     expect(highlighter.apply).not.toHaveBeenCalled();
     filter.cleanup();
   });
+
+  it('skips recently reordered rows while still enhancing newly added rows in the same batch', () => {
+    const results = new FakeElement('results');
+    const dom = setupDom(() => results);
+    const highlighter = { apply: vi.fn() };
+    const pricePresenter = { apply: vi.fn() };
+    const movedRow = new FakeElement('row');
+    movedRow.ownerResults = results;
+    const newRow = new FakeElement('row');
+    newRow.ownerResults = results;
+
+    const itemNormalizer = {
+      isReordering: false,
+      isRecentlyMovedRow: vi.fn((node: unknown) => node === movedRow),
+      apply: vi.fn(),
+      applyBatch: vi.fn(),
+    };
+    const filter = new DomFilter(
+      'poe1',
+      pricePresenter as any,
+      highlighter as any,
+      itemNormalizer as any,
+    );
+    filter.init();
+    dom.flushFrame();
+    highlighter.apply.mockClear();
+    pricePresenter.apply.mockClear();
+    itemNormalizer.applyBatch.mockClear();
+
+    const bodyObserver = dom.observers.find((observer) => observer.target === dom.body);
+    bodyObserver.callback([{ target: results, addedNodes: [movedRow, newRow] }]);
+    dom.flushFrame();
+
+    expect(pricePresenter.apply).toHaveBeenCalledTimes(1);
+    expect(pricePresenter.apply).toHaveBeenCalledWith(newRow);
+    expect(highlighter.apply).toHaveBeenCalledTimes(1);
+    expect(highlighter.apply).toHaveBeenCalledWith(newRow);
+    expect(itemNormalizer.applyBatch).toHaveBeenCalledTimes(1);
+    expect(itemNormalizer.applyBatch).toHaveBeenCalledWith([newRow]);
+    filter.cleanup();
+  });
 });

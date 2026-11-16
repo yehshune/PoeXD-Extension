@@ -23,22 +23,6 @@ export function isLiveOrConsoleTradePage(
   if (typeof window !== 'undefined' && getTradePageMode(window.location?.pathname) === 'live') {
     return true;
   }
-  if (typeof document !== 'undefined') {
-    const consoleEl = document.querySelector?.('.live-search-primary, [data-console-host]');
-    const hasConsoleElement =
-      consoleEl !== null &&
-      consoleEl !== undefined &&
-      (typeof consoleEl.matches !== 'function' ||
-        consoleEl.matches('.live-search-primary, [data-console-host]'));
-    if (
-      document.documentElement?.getAttribute?.('data-poexd-console-result-only') === 'true' ||
-      document.body?.getAttribute?.('data-poexd-page-role') === 'live-search-primary' ||
-      document.body?.classList?.contains?.('live-search-primary') ||
-      hasConsoleElement
-    ) {
-      return true;
-    }
-  }
   return false;
 }
 

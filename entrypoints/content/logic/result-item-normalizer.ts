@@ -35,12 +35,18 @@ export type SortMode =
   | 'potential_es'
   | 'cp_ratio';
 
+const PRICE_DEPENDENT_SORT_MODES: ReadonlySet<SortMode> = new Set<SortMode>([
+  'price_asc',
+  'price_desc',
+  'cp_ratio',
+]);
+
 function isPurePriceSortMode(mode: SortMode): mode is 'price_asc' | 'price_desc' {
   return mode === 'price_asc' || mode === 'price_desc';
 }
 
 function isPriceDependentSortMode(mode: SortMode): boolean {
-  return isPurePriceSortMode(mode) || mode === 'cp_ratio';
+  return PRICE_DEPENDENT_SORT_MODES.has(mode);
 }
 
 const ICON_SVG_ATTRS = {
@@ -173,7 +179,7 @@ export class ResultItemNormalizer {
   private runeConfig: RuneSubstitutionConfig = { ...DEFAULT_RUNE_CONFIG };
   private sortMode: SortMode = 'default';
   private unsubRates?: () => void;
-  private suppressDomObserver = false;
+  private recentlyMovedRows = new Set<Element>();
   public isReordering = false;
 
   constructor(
@@ -185,8 +191,8 @@ export class ResultItemNormalizer {
     }
   }
 
-  public isMutatingResultOrder(): boolean {
-    return this.isReordering || this.suppressDomObserver;
+  public isRecentlyMovedRow(node: Node): boolean {
+    return this.recentlyMovedRows.has(node as Element);
   }
 
   public isLiveOrConsole(): boolean {
@@ -253,12 +259,16 @@ export class ResultItemNormalizer {
     }
   }
 
+  private deactivateAndRestore() {
+    const root = typeof document !== 'undefined' ? document.querySelector('.results') : null;
+    if (root) this.restoreOriginalDomOrder(root);
+    removeInjectedElements();
+  }
+
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
     if (!this.isFeatureActive()) {
-      const root = document.querySelector('.results');
-      if (root) this.restoreOriginalDomOrder(root);
-      removeInjectedElements();
+      this.deactivateAndRestore();
       return;
     }
     const root = document.querySelector('.results');
@@ -267,9 +277,7 @@ export class ResultItemNormalizer {
 
   syncPriceSupport() {
     if (!this.isFeatureActive()) {
-      const root = typeof document !== 'undefined' ? document.querySelector('.results') : null;
-      if (root) this.restoreOriginalDomOrder(root);
-      removeInjectedElements();
+      this.deactivateAndRestore();
       return;
     }
 
@@ -676,7 +684,7 @@ export class ResultItemNormalizer {
     const currentSortOpt = sortOptions.find((o) => o.key === this.sortMode);
     const hiddenSortKeys =
       this.pricePresenter && !this.pricePresenter.isEnabled()
-        ? new Set<string>(['price_asc', 'price_desc', 'cp_ratio'])
+        ? PRICE_DEPENDENT_SORT_MODES
         : undefined;
     this.updateControlState(
       controls,
@@ -796,8 +804,8 @@ export class ResultItemNormalizer {
       ? computeLongestIncreasingPositions(targetIndices)
       : new Set<number>();
 
+    const movedRows: Element[] = [];
     this.isReordering = true;
-    this.suppressDomObserver = true;
     try {
       let nextAnchor: Node | null = endAnchor;
       for (let i = sortedRows.length - 1; i >= 0; i--) {
@@ -808,20 +816,27 @@ export class ResultItemNormalizer {
           } else {
             rowsContainer.appendChild(row);
           }
+          movedRows.push(row);
+          this.recentlyMovedRows.add(row);
         }
         nextAnchor = row;
       }
     } finally {
       this.isReordering = false;
-      queueMicrotask(() => {
-        this.suppressDomObserver = false;
-      });
+      if (movedRows.length > 0) {
+        queueMicrotask(() => {
+          for (const row of movedRows) {
+            this.recentlyMovedRows.delete(row);
+          }
+        });
+      }
     }
   }
 
   cleanup() {
     this.unsubRates?.();
     this.unsubRates = undefined;
+    this.recentlyMovedRows.clear();
     this.restoreOriginalDomOrder();
     this.enabled = false;
     this.isReordering = false;
