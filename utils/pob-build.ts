@@ -21,14 +21,16 @@ export interface PobBuildItem {
   name: string;
   /** 稀有與傳奇才有；魔法與普通物品的基底要從名稱比對 */
   baseType?: string;
-  /** 固定詞綴（含附魔），英文、數值已依 PoB 的範圍設定算好 */
-  implicitMods: string[];
+  /** 固定詞綴（含附魔），英文、數值已依 PoB 的範圍設定算好；附魔在 PoB 標為 crafted */
+  implicitMods: PobItemMod[];
   explicitMods: PobItemMod[];
+  /** 最大的連結插槽數（PoE 1 的 `Sockets:` 行）；沒有插槽時省略 */
+  maxLinks?: number;
 }
 
 export interface PobItemMod {
   text: string;
-  /** 工藝台詞綴：可以自己做，搜尋時不當成條件 */
+  /** PoB 的 `{crafted}` 標記：一般詞綴是工藝台詞綴（可以自己做），固定詞綴是附魔 */
   crafted: boolean;
 }
 
@@ -93,6 +95,8 @@ const MAX_TEXT_LENGTH = 120;
 const MAX_MODS_PER_ITEM = 40;
 const MAX_MOD_LENGTH = 240;
 const IMPLICITS_LINE = /^Implicits:\s*(\d+)/;
+/** `Sockets: R-R-G B`：`-` 是連結，空白分開不同組 */
+const SOCKETS_LINE = /^Sockets:\s*([A-Za-z\- ]+)$/;
 const SELECTED_VARIANT_LINE = /^Selected Variant:\s*(\d+)/;
 /** 行首的 PoB 標記，例如 `{crafted}`、`{range:0.5}`、`{variant:1,2}` */
 const MOD_TAG = /^\{([^}]*)\}/;
@@ -183,16 +187,30 @@ function parseMods(lines: readonly string[]): Pick<PobBuildItem, 'implicitMods' 
     .map((line) => SELECTED_VARIANT_LINE.exec(line)?.[1])
     .find(Boolean);
 
-  const implicitMods: string[] = [];
+  const implicitMods: PobItemMod[] = [];
   const explicitMods: PobItemMod[] = [];
   lines.slice(implicitsIndex + 1, implicitsIndex + 1 + MAX_MODS_PER_ITEM).forEach((raw, index) => {
     if (STATUS_LINES.has(raw)) return;
     const mod = parseModLine(raw, selectedVariant);
     if (!mod.text || mod.inactiveVariant) return;
-    if (index < implicitCount) implicitMods.push(mod.text);
-    else explicitMods.push({ text: mod.text, crafted: mod.crafted });
+    const entry = { text: mod.text, crafted: mod.crafted };
+    if (index < implicitCount) implicitMods.push(entry);
+    else explicitMods.push(entry);
   });
   return { implicitMods, explicitMods };
+}
+
+/** 物品屬性區的 `Sockets:` 行算出最大連結數 */
+function parseMaxLinks(lines: readonly string[]): number | undefined {
+  const sockets = lines.map((line) => SOCKETS_LINE.exec(line)?.[1]).find(Boolean);
+  if (!sockets) return undefined;
+  const largest = Math.max(
+    ...sockets
+      .trim()
+      .split(/\s+/)
+      .map((group) => group.split('-').filter(Boolean).length),
+  );
+  return largest > 0 ? largest : undefined;
 }
 
 function parseItem(item: Element, slot: string): PobBuildItem | undefined {
@@ -205,12 +223,15 @@ function parseItem(item: Element, slot: string): PobBuildItem | undefined {
 
   const next = lines[rarityIndex + 2] ?? '';
   const hasBaseLine = (rarity === 'RARE' || rarity === 'UNIQUE' || rarity === 'RELIC') && next;
+  const implicitsIndex = lines.findIndex((line) => IMPLICITS_LINE.test(line));
+  const maxLinks = parseMaxLinks(lines.slice(0, implicitsIndex < 0 ? undefined : implicitsIndex));
   return {
     slot,
     rarity,
     name,
     ...(hasBaseLine && !SPEC_LINE.test(next) ? { baseType: clip(next) } : {}),
     ...parseMods(lines),
+    ...(maxLinks !== undefined ? { maxLinks } : {}),
   };
 }
 
@@ -261,8 +282,9 @@ function parseTreeSpecs(tree: Element | null, itemById: ItemLookup): PobTreeSpec
     }));
 }
 
+/** 每一顆啟用的寶石都列出（不同連結各用一顆相同的寶石時要買兩顆），由購物清單合併計數 */
 function parseGems(skillSet: Element): PobBuildGem[] {
-  const gems = new Map<string, PobBuildGem>();
+  const gems: PobBuildGem[] = [];
   for (const skill of children(skillSet, 'Skill')) {
     if (skill.getAttribute('enabled') === 'false') continue;
     for (const gem of children(skill, 'Gem')) {
@@ -270,17 +292,16 @@ function parseGems(skillSet: Element): PobBuildGem[] {
       const name = clip(gem.getAttribute('nameSpec'));
       // 沒有 gemId 的是裝備或天賦給的技能，不是可以買的寶石
       if (!gemId || !name || gem.getAttribute('enabled') === 'false') continue;
-      const entry: PobBuildGem = {
+      gems.push({
         name,
         level: toCount(gem.getAttribute('level'), 1),
         quality: toCount(gem.getAttribute('quality'), 0),
         support: /SupportGem/.test(gemId),
-      };
-      gems.set(`${entry.name}\u0000${entry.level}\u0000${entry.quality}`, entry);
-      if (gems.size >= MAX_GEMS_PER_SET) return [...gems.values()];
+      });
+      if (gems.length >= MAX_GEMS_PER_SET) return gems;
     }
   }
-  return [...gems.values()];
+  return gems;
 }
 
 function parseSkillSets(skills: Element | null): PobSkillSet[] {

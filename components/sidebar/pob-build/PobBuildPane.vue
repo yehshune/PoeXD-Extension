@@ -334,9 +334,32 @@
                     :title="row.query ? t('pobBuild.searchTitle') : t('pobBuild.noSearchTitle')"
                     @click="openSearch(build.id, row, 'current')"
                   >
-                    <span class="min-w-0 truncate font-medium" :class="nameClass(row)">{{
-                      row.label
-                    }}</span>
+                    <span class="flex min-w-0 items-baseline gap-[var(--pxd-space-xs)]">
+                      <span class="min-w-0 truncate font-medium" :class="nameClass(row)">{{
+                        row.label
+                      }}</span>
+                      <span
+                        v-if="row.suffix"
+                        data-pob-build-suffix
+                        class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
+                        >{{ row.suffix }}</span
+                      >
+                      <span
+                        v-if="row.count > 1"
+                        data-pob-build-count
+                        class="shrink-0 rounded-sm bg-muted px-1 text-[length:var(--pxd-font-micro)] font-bold text-foreground tabular-nums"
+                        :title="t('pobBuild.countTitle', { count: row.count })"
+                        >×{{ row.count }}</span
+                      >
+                      <span
+                        v-if="row.searchCustomized"
+                        data-pob-build-customized
+                        role="img"
+                        class="size-1.5 shrink-0 self-center rounded-full bg-primary"
+                        :title="t('pobBuild.customizedTitle')"
+                        :aria-label="t('pobBuild.customizedTitle')"
+                      />
+                    </span>
                     <span
                       class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground"
                     >
@@ -392,32 +415,134 @@
                   </div>
                 </div>
 
-                <ul
+                <div
                   v-if="row.mods?.length && isExpanded(build.id, row.key)"
                   data-pob-build-mods
-                  class="m-0 list-none border-0 border-b border-dashed border-border bg-muted/20 py-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[calc(var(--pxd-space-md)+var(--checkbox-size,18px)+var(--pxd-space-sm))] last:border-b-0 text-[length:var(--pxd-font-caption)]"
+                  class="[--checkbox-size:14px] [--checkbox-indicator-size:9px] border-0 border-b border-dashed border-border bg-muted/20 py-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[calc(var(--pxd-space-md)+var(--checkbox-size,18px)+var(--pxd-space-sm))] last:border-b-0 text-[length:var(--pxd-font-caption)]"
                 >
-                  <div
-                    class="flex flex-col gap-[2px] border-l-2 border-border pl-[var(--pxd-space-sm)]"
+                  <ul
+                    class="m-0 flex list-none flex-col gap-[2px] border-0 border-l-2 border-solid border-border p-0 pl-[var(--pxd-space-sm)]"
                   >
                     <li
-                      v-for="(mod, index) in row.mods"
-                      :key="index"
-                      :data-mod-kind="mod.kind"
-                      :data-mod-searched="mod.searched ? 'true' : 'false'"
-                      class="flex gap-[var(--pxd-space-xs)] break-words"
-                      :class="MOD_CLASSES[mod.kind]"
+                      v-for="line in modLines(row)"
+                      :key="line.index"
+                      :data-mod-kind="line.mod.kind"
+                      :data-mod-searched="line.mod.searched ? 'true' : 'false'"
+                      class="flex items-center gap-[var(--pxd-space-xs)] break-words"
+                      :class="[
+                        MOD_CLASSES[line.mod.kind],
+                        { 'opacity-60': line.mod.stat && !line.mod.searched },
+                      ]"
                     >
+                      <Checkbox
+                        v-if="line.mod.stat"
+                        data-pob-build-mod-toggle
+                        :model-value="line.mod.searched"
+                        :aria-label="t('pobBuild.mods.statAria', { text: line.mod.text })"
+                        @update:model-value="
+                          (value) =>
+                            setStatEnabled(build.id, row.key, line.mod.stat!.id, value === true)
+                        "
+                      />
                       <span
-                        class="shrink-0 select-none"
-                        :class="mod.searched ? 'text-primary' : 'opacity-0'"
+                        v-else
+                        class="size-[var(--checkbox-size)] shrink-0"
                         aria-hidden="true"
-                        >●</span
-                      >
-                      <span class="min-w-0">{{ mod.text }}</span>
+                      />
+                      <span class="min-w-0 flex-1">{{ line.mod.text }}</span>
+                      <template v-if="line.editor">
+                        <span class="shrink-0 text-muted-foreground" aria-hidden="true">{{
+                          line.editor.bound === 'min' ? '≥' : '≤'
+                        }}</span>
+                        <input
+                          type="number"
+                          inputmode="decimal"
+                          step="any"
+                          data-pob-build-mod-bound
+                          :data-bound="line.editor.bound"
+                          class="h-5 w-14 shrink-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-sm border border-solid border-input bg-background px-1 text-right text-[length:var(--pxd-font-caption)] text-foreground tabular-nums focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                          :value="line.editor.value ?? ''"
+                          :disabled="!line.mod.searched"
+                          :aria-label="
+                            t(
+                              line.editor.bound === 'min'
+                                ? 'pobBuild.mods.minAria'
+                                : 'pobBuild.mods.maxAria',
+                            )
+                          "
+                          @change="commitBound(build.id, row.key, line.editor, $event)"
+                          @keydown.enter.prevent="blurTarget"
+                        />
+                      </template>
                     </li>
+                  </ul>
+
+                  <div
+                    v-if="row.filters.length > 0"
+                    class="mt-[var(--pxd-space-xs)] flex flex-wrap items-center gap-x-[var(--pxd-space-md)] gap-y-[var(--pxd-space-xs)] text-muted-foreground"
+                  >
+                    <span class="inline-flex items-center gap-[var(--pxd-space-xs)]">
+                      <Checkbox
+                        :id="controlId(build.id, row.key, 'count')"
+                        data-pob-build-count-mode
+                        :model-value="row.countMin !== undefined"
+                        @update:model-value="
+                          (value) => toggleCountMode(build.id, row, value === true)
+                        "
+                      />
+                      <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->
+                      <label :for="controlId(build.id, row.key, 'count')" class="cursor-pointer">{{
+                        t('pobBuild.mods.countMode')
+                      }}</label>
+                    </span>
+                    <span
+                      v-if="row.countMin !== undefined"
+                      class="inline-flex items-center gap-[var(--pxd-space-xs)]"
+                    >
+                      <input
+                        type="number"
+                        min="1"
+                        :max="enabledCount(row)"
+                        step="1"
+                        data-pob-build-count-min
+                        class="h-5 w-9 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-sm border border-solid border-input bg-background px-1 text-right text-[length:var(--pxd-font-caption)] text-foreground tabular-nums focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        :value="row.countMin"
+                        :aria-label="t('pobBuild.mods.countAria')"
+                        @change="commitCountMin(build.id, row, $event)"
+                        @keydown.enter.prevent="blurTarget"
+                      />
+                      <span v-if="t('pobBuild.mods.countUnit')">{{
+                        t('pobBuild.mods.countUnit')
+                      }}</span>
+                    </span>
+                    <span
+                      v-if="hasPseudo(row)"
+                      class="inline-flex items-center gap-[var(--pxd-space-xs)]"
+                    >
+                      <Checkbox
+                        :id="controlId(build.id, row.key, 'pseudo')"
+                        data-pob-build-pseudo
+                        :model-value="row.pseudo"
+                        @update:model-value="
+                          (value) => setPseudo(build.id, row.key, value === true)
+                        "
+                      />
+                      <label :for="controlId(build.id, row.key, 'pseudo')" class="cursor-pointer">{{
+                        t('pobBuild.mods.pseudo')
+                      }}</label>
+                    </span>
+                    <Button
+                      v-if="row.searchCustomized"
+                      variant="link"
+                      size="sm"
+                      data-pob-build-reset-search
+                      class="ml-auto h-auto p-0 text-[length:var(--pxd-font-caption)]"
+                      @click="resetSearch(build.id, row.key)"
+                    >
+                      {{ t('pobBuild.mods.reset') }}
+                    </Button>
                   </div>
-                </ul>
+                </div>
               </template>
             </section>
           </template>
@@ -468,11 +593,36 @@ import { Separator } from '@/components/ui/separator';
 import SidebarPane from '../layout/SidebarPane.vue';
 import { t, type I18nKey } from '@/utils/i18n';
 import { POB_BUILD_NAME_MAX_LENGTH } from '@/utils/pob-build-store';
-import type { ShoppingEntry, ShoppingEntryKind, ShoppingModKind } from '@/utils/pob-shopping-list';
+import {
+  isRequiredInCountMode,
+  type ShoppingEntry,
+  type ShoppingEntryKind,
+  type ShoppingMod,
+  type ShoppingModKind,
+} from '@/utils/pob-shopping-list';
 import { getPoeVersion } from '@/utils/trade-context';
 import PobBuildImportDialog from './PobBuildImportDialog.vue';
 import { formatPobSlot } from './pob-slot-label';
-import { usePobBuild, type BuildView, type SetOption } from './usePobBuild';
+import {
+  usePobBuild,
+  type BuildView,
+  type SetOption,
+  type ShoppingRow,
+  type StatBound,
+} from './usePobBuild';
+
+interface BoundEditor {
+  statId: string;
+  bound: StatBound;
+  value?: number;
+}
+
+interface ModLine {
+  index: number;
+  mod: ShoppingMod;
+  /** 數值輸入框；只放在同一個條件的第一行 */
+  editor?: BoundEditor;
+}
 
 const GROUP_TITLE_KEYS: Readonly<Record<ShoppingEntryKind, I18nKey>> = {
   unique: 'pobBuild.group.unique',
@@ -492,6 +642,7 @@ const GEM_CLASS = 'text-[oklch(0.7_0.1_190)]';
 
 const MOD_CLASSES: Readonly<Record<ShoppingModKind, string>> = {
   implicit: 'text-muted-foreground',
+  enchant: 'text-[oklch(0.74_0.09_300)]',
   explicit: 'text-foreground',
   crafted: 'text-[oklch(0.72_0.1_230)]',
 };
@@ -556,6 +707,53 @@ export default defineComponent({
       entry.kind === 'gem'
         ? t('pobBuild.gemDetail', { level: entry.level ?? 1, quality: entry.quality ?? 0 })
         : formatPobSlot(entry.slot ?? '');
+
+    /**
+     * 展開後的每一行詞綴。同一個代碼的多行是同一個條件，數值輸入只放在第一行；精確數值
+     * （種子編號、附魔）、選項型與沒有數值的條件不能改數值。
+     */
+    const modLines = (row: ShoppingRow): ModLine[] => {
+      const seen = new Set<string>();
+      return (row.mods ?? []).map((mod, index) => {
+        const stat = mod.stat;
+        if (!stat || seen.has(stat.id)) return { index, mod };
+        seen.add(stat.id);
+        const filter = row.filters.find((entry) => entry.id === stat.id);
+        if (!filter || filter.value === undefined || stat.exact) return { index, mod };
+        const bound: StatBound = filter.value < 0 ? 'max' : 'min';
+        return { index, mod, editor: { statId: stat.id, bound, value: filter[bound] } };
+      });
+    };
+
+    /** label 與 Checkbox 以 id 連結；key 含分隔字元，轉成只含安全字元的 id */
+    const controlId = (buildId: string, key: string, name: string) =>
+      `pob-${name}-${Array.from(rowId(buildId, key), (char) => char.charCodeAt(0).toString(36)).join('')}`;
+
+    const blurTarget = (event: Event) => (event.target as HTMLInputElement).blur();
+
+    const commitBound = (buildId: string, key: string, editor: BoundEditor, event: Event) => {
+      const raw = (event.target as HTMLInputElement).value.trim();
+      const value = raw === '' ? null : Number(raw);
+      if (value !== null && !Number.isFinite(value)) return;
+      pob.setStatBound(buildId, key, editor.statId, editor.bound, value);
+    };
+
+    /** 參與「至少符合 N 項」的條件數（固定詞綴與附魔一定要符合，不算在內） */
+    const enabledCount = (row: ShoppingRow) =>
+      row.filters.filter((filter) => filter.enabled && !isRequiredInCountMode(filter.id)).length;
+
+    const toggleCountMode = (buildId: string, row: ShoppingRow, on: boolean) => {
+      // 預設允許少一項；條件只有一項時就是一項
+      pob.setCountMin(buildId, row.key, on ? Math.max(1, enabledCount(row) - 1) : undefined);
+    };
+
+    const commitCountMin = (buildId: string, row: ShoppingRow, event: Event) => {
+      const value = Math.floor(Number((event.target as HTMLInputElement).value));
+      if (!Number.isFinite(value) || value < 1) return;
+      pob.setCountMin(buildId, row.key, value);
+    };
+
+    const hasPseudo = (row: ShoppingRow) => row.mods?.some((mod) => mod.stat?.pseudo) ?? false;
 
     const nameClass = (entry: ShoppingEntry): string =>
       entry.kind === 'gem' ? GEM_CLASS : (RARITY_CLASSES[entry.rarity ?? 'NORMAL'] ?? '');
@@ -673,6 +871,14 @@ export default defineComponent({
       activeSetLabel,
       rowDetail,
       nameClass,
+      modLines,
+      blurTarget,
+      controlId,
+      commitBound,
+      enabledCount,
+      toggleCountMode,
+      commitCountMin,
+      hasPseudo,
       openImportDialog,
       handleImport,
       toggleExpandAll,
@@ -692,6 +898,9 @@ export default defineComponent({
       removeEntry: pob.removeEntry,
       restoreRemoved: pob.restoreRemoved,
       openSearch: pob.openSearch,
+      resetSearch: pob.resetSearch,
+      setStatEnabled: pob.setStatEnabled,
+      setPseudo: pob.setPseudo,
     };
   },
 });

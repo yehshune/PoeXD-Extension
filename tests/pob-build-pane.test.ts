@@ -23,6 +23,11 @@ const fake = {
   removeEntry: vi.fn(),
   restoreRemoved: vi.fn(),
   openSearch: vi.fn(() => true),
+  setStatEnabled: vi.fn(),
+  setStatBound: vi.fn(),
+  setCountMin: vi.fn(),
+  setPseudo: vi.fn(),
+  resetSearch: vi.fn(),
   dispose: vi.fn(),
 } satisfies UsePobBuild;
 
@@ -53,9 +58,14 @@ const sampleBuild = (): BuildView => ({
           slot: 'Weapon 2',
           rarity: 'UNIQUE',
           mods: [],
+          count: 1,
+          searchBase: { type: 'x' },
           query: { type: 'x' },
           done: true,
           icon: ICON,
+          filters: [],
+          pseudo: false,
+          searchCustomized: false,
         },
       ],
     },
@@ -71,11 +81,36 @@ const sampleBuild = (): BuildView => ({
           rarity: 'RARE',
           mods: [
             { text: '+7% to Fire Damage over Time Multiplier', kind: 'implicit', searched: false },
-            { text: '+100 to maximum Life', kind: 'explicit', searched: true },
+            {
+              text: '+100 to maximum Life',
+              kind: 'explicit',
+              searched: true,
+              stat: {
+                id: 'explicit.stat_life',
+                value: 100,
+                defaultEnabled: true,
+                pseudo: [{ id: 'pseudo.pseudo_total_life', weight: 1 }],
+              },
+            },
+            {
+              text: '-10 to Strength Requirement',
+              kind: 'explicit',
+              searched: false,
+              stat: { id: 'explicit.stat_str_req', value: -10, defaultEnabled: true },
+            },
             { text: '12% increased Area of Effect', kind: 'crafted', searched: false },
           ],
+          count: 2,
+          searchBase: { type: 'y' },
           query: { type: 'y' },
           done: false,
+          filters: [
+            { id: 'explicit.stat_life', value: 100, enabled: true, min: 80, customized: false },
+            { id: 'explicit.stat_str_req', value: -10, enabled: false, max: -8, customized: true },
+          ],
+          countMin: 1,
+          pseudo: false,
+          searchCustomized: true,
         },
         {
           key: 'k-none',
@@ -85,8 +120,13 @@ const sampleBuild = (): BuildView => ({
           slot: 'Helmet',
           rarity: 'RARE',
           mods: [],
+          count: 1,
+          searchBase: null,
           query: null,
           done: false,
+          filters: [],
+          pseudo: false,
+          searchCustomized: false,
         },
       ],
     },
@@ -100,8 +140,13 @@ const sampleBuild = (): BuildView => ({
           englishName: 'Punishment',
           level: 20,
           quality: 20,
+          count: 1,
+          searchBase: { type: 'z' },
           query: { type: 'z' },
           done: false,
+          filters: [],
+          pseudo: false,
+          searchCustomized: false,
         },
       ],
     },
@@ -278,6 +323,69 @@ describe('PobBuildPane', () => {
     expect(fake.selectItemSet).toHaveBeenCalledWith('b1', '2');
   });
 
+  it('相同項目顯示數量，調整過搜尋條件的項目有標示', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    expect(row(1).querySelector('[data-pob-build-count]')?.textContent).toBe('×2');
+    expect(row(0).querySelector('[data-pob-build-count]')).toBeNull();
+    expect(row(1).querySelector('[data-pob-build-customized]')).not.toBeNull();
+    expect(row(3).querySelector('[data-pob-build-customized]')).toBeNull();
+  });
+
+  it('展開後可勾選詞綴、改數值、切換至少符合 N 項與總和條件、還原預設', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await nextTick();
+
+    const toggles = queryAll('[data-pob-build-mod-toggle]') as HTMLElement[];
+    // 工藝詞綴沒有市集代碼，不能勾選
+    expect(toggles).toHaveLength(2);
+    expect(toggles.map((toggle) => toggle.getAttribute('data-state'))).toEqual([
+      'checked',
+      'unchecked',
+    ]);
+    toggles[1].click();
+    await nextTick();
+    expect(fake.setStatEnabled).toHaveBeenCalledWith('b1', 'k-rare', 'explicit.stat_str_req', true);
+
+    const bounds = queryAll('[data-pob-build-mod-bound]') as HTMLInputElement[];
+    expect(bounds.map((input) => [input.dataset.bound, input.value, input.disabled])).toEqual([
+      ['min', '80', false],
+      // 負數用上限；沒有勾選時不能改
+      ['max', '-8', true],
+    ]);
+    bounds[0].value = '95';
+    bounds[0].dispatchEvent(new Event('change'));
+    expect(fake.setStatBound).toHaveBeenCalledWith('b1', 'k-rare', 'explicit.stat_life', 'min', 95);
+    bounds[0].value = '';
+    bounds[0].dispatchEvent(new Event('change'));
+    expect(fake.setStatBound).toHaveBeenLastCalledWith(
+      'b1',
+      'k-rare',
+      'explicit.stat_life',
+      'min',
+      null,
+    );
+
+    const countMode = query<HTMLElement>('[data-pob-build-count-mode]')!;
+    expect(countMode.getAttribute('data-state')).toBe('checked');
+    const countMin = query<HTMLInputElement>('[data-pob-build-count-min]')!;
+    countMin.value = '2';
+    countMin.dispatchEvent(new Event('change'));
+    expect(fake.setCountMin).toHaveBeenLastCalledWith('b1', 'k-rare', 2);
+    countMode.click();
+    await nextTick();
+    expect(fake.setCountMin).toHaveBeenLastCalledWith('b1', 'k-rare', undefined);
+
+    query<HTMLElement>('[data-pob-build-pseudo]')!.click();
+    await nextTick();
+    expect(fake.setPseudo).toHaveBeenCalledWith('b1', 'k-rare', true);
+
+    query<HTMLButtonElement>('[data-pob-build-reset-search]')!.click();
+    expect(fake.resetSearch).toHaveBeenCalledWith('b1', 'k-rare');
+  });
+
   it('展開後列出詞綴，標出有帶入搜尋條件的那幾行', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
@@ -291,11 +399,13 @@ describe('PobBuildPane', () => {
     expect(mods.map((mod) => mod.getAttribute('data-mod-kind'))).toEqual([
       'implicit',
       'explicit',
+      'explicit',
       'crafted',
     ]);
     expect(mods.map((mod) => mod.getAttribute('data-mod-searched'))).toEqual([
       'false',
       'true',
+      'false',
       'false',
     ]);
     expect(mods[1].textContent).toContain('+100 to maximum Life');

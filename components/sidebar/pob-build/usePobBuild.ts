@@ -12,6 +12,7 @@ import { decodePobBuildCode, PobBuildCodeError } from '@/utils/pob-build-code';
 import {
   createPobBuildStore,
   MAX_POB_BUILDS,
+  toEntrySearchSelection,
   type PobBuildStore,
   type StoredPobBuild,
   type StoredPobBuildPatch,
@@ -22,12 +23,16 @@ import {
   type PobSearchOpenMode,
 } from '@/utils/pob-icon-pending';
 import {
+  applyEntrySelection,
   buildShoppingList,
   buildTradeSearchUrl,
+  entryStatFilters,
   loadTradeNameCatalog,
+  type EntrySearchSelection,
   type ShoppingEntry,
   type ShoppingEntryKind,
   type ShoppingMod,
+  type ShoppingStatFilter,
   type TradeNameCatalog,
 } from '@/utils/pob-shopping-list';
 import { loadModLineTranslator, type ModLineTranslator } from '@/utils/pob-mod-translator';
@@ -59,7 +64,17 @@ export interface UsePobBuildDeps {
 export interface ShoppingRow extends ShoppingEntry {
   done: boolean;
   icon?: string;
+  /** 可以勾選的搜尋條件（同一個代碼的多行已合併），已套用使用者的調整 */
+  filters: ShoppingStatFilter[];
+  /** 「至少符合 N 項」；未設定時為全部符合 */
+  countMin?: number;
+  /** 抗性、生命、能力值改用總和條件 */
+  pseudo: boolean;
+  /** 使用者調整過這一項的搜尋條件 */
+  searchCustomized: boolean;
 }
+
+export type StatBound = 'min' | 'max';
 
 export interface ShoppingGroup {
   kind: ShoppingEntryKind;
@@ -106,6 +121,21 @@ export interface UsePobBuild {
   removeEntry(buildId: string, key: string): void;
   /** 把目前套裝中移除的項目全部放回清單 */
   restoreRemoved(buildId: string): void;
+  /** 勾選或取消某個搜尋條件 */
+  setStatEnabled(buildId: string, key: string, statId: string, enabled: boolean): void;
+  /** 修改某個搜尋條件的下限或上限；null 表示不設 */
+  setStatBound(
+    buildId: string,
+    key: string,
+    statId: string,
+    bound: StatBound,
+    value: number | null,
+  ): void;
+  /** 設定「至少符合 N 項」；undefined 表示全部符合 */
+  setCountMin(buildId: string, key: string, countMin: number | undefined): void;
+  setPseudo(buildId: string, key: string, on: boolean): void;
+  /** 清掉這一項的搜尋調整，回到預設 */
+  resetSearch(buildId: string, key: string): void;
   /** 開啟該項目的市集搜尋；頁面沒有聯盟或項目無法搜尋時回傳 false */
   openSearch(buildId: string, entry: ShoppingEntry, mode: PobSearchOpenMode): boolean;
   /** 停止等待搜尋結果圖片（元件卸載時呼叫） */
@@ -122,6 +152,7 @@ interface Session {
   done: ReadonlySet<string>;
   removed: ReadonlySet<string>;
   icons: Readonly<Record<string, string>>;
+  searchSelections: Readonly<Record<string, EntrySearchSelection>>;
 }
 
 const GROUP_ORDER: readonly ShoppingEntryKind[] = ['unique', 'equipment', 'gem'];
@@ -257,13 +288,21 @@ export function usePobBuild(
         kind,
         rows: visible
           .filter((entry) => entry.kind === kind)
-          .map((entry) => ({
-            ...entry,
-            label: displayNames.value?.toTradeName(entry.englishName) ?? entry.label,
-            ...(entry.mods ? { mods: entry.mods.map(localizeMod) } : {}),
-            done: session.done.has(entry.key),
-            ...(session.icons[entry.key] ? { icon: session.icons[entry.key] } : {}),
-          })),
+          .map((entry): ShoppingRow => {
+            const selection = session.searchSelections[entry.key];
+            const applied = applyEntrySelection(entry, selection);
+            return {
+              ...applied,
+              label: displayNames.value?.toTradeName(entry.englishName) ?? entry.label,
+              ...(applied.mods ? { mods: applied.mods.map(localizeMod) } : {}),
+              done: session.done.has(entry.key),
+              ...(session.icons[entry.key] ? { icon: session.icons[entry.key] } : {}),
+              filters: entryStatFilters(entry, selection),
+              ...(selection?.countMin !== undefined ? { countMin: selection.countMin } : {}),
+              pseudo: selection?.pseudo === true,
+              searchCustomized: selection !== undefined,
+            };
+          }),
       })).filter((group) => group.rows.length > 0),
       progress: {
         done: visible.filter((entry) => session.done.has(entry.key)).length,
@@ -302,8 +341,34 @@ export function usePobBuild(
       done: new Set(stored.done),
       removed: new Set(stored.removed),
       icons: stored.icons,
+      searchSelections: stored.searchSelections,
     };
   };
+
+  /** 修改一個項目的搜尋調整；調整完沒有內容時移除，回到預設 */
+  const updateSelection = (
+    buildId: string,
+    key: string,
+    change: (current: EntrySearchSelection) => EntrySearchSelection,
+  ) => {
+    const session = find(buildId);
+    if (!session) return;
+    const next = toEntrySearchSelection(change(session.searchSelections[key] ?? {}));
+    const { [key]: _previous, ...rest } = session.searchSelections;
+    const searchSelections = next ? { ...rest, [key]: next } : rest;
+    update(buildId, { searchSelections }, { searchSelections });
+  };
+
+  const updateStat = (
+    buildId: string,
+    key: string,
+    statId: string,
+    change: Record<string, unknown>,
+  ) =>
+    updateSelection(buildId, key, (current) => ({
+      ...current,
+      stats: { ...current.stats, [statId]: { ...current.stats?.[statId], ...change } },
+    }));
 
   /** 這個頁面是從某個項目開啟的搜尋：第一批結果圖片就是那個項目的圖片 */
   const captureIconFromResults = async (): Promise<void> => {
@@ -398,6 +463,26 @@ export function usePobBuild(
       const current = new Set(entriesOf(session).map((entry) => entry.key));
       const removed = new Set([...session.removed].filter((key) => !current.has(key)));
       update(buildId, { removed }, { removed: [...removed] });
+    },
+    setStatEnabled(buildId, key, statId, enabled) {
+      updateStat(buildId, key, statId, { enabled });
+    },
+    setStatBound(buildId, key, statId, bound, value) {
+      if (value !== null && !Number.isFinite(value)) return;
+      updateStat(buildId, key, statId, { [bound]: value });
+    },
+    setCountMin(buildId, key, countMin) {
+      updateSelection(buildId, key, ({ countMin: _previous, ...current }) =>
+        countMin === undefined ? current : { ...current, countMin },
+      );
+    },
+    setPseudo(buildId, key, on) {
+      updateSelection(buildId, key, ({ pseudo: _previous, ...current }) =>
+        on ? { ...current, pseudo: true } : current,
+      );
+    },
+    resetSearch(buildId, key) {
+      updateSelection(buildId, key, () => ({}));
     },
     openSearch(buildId, entry, mode) {
       const league = deps.getLeague();

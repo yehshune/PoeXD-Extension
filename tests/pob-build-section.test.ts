@@ -197,6 +197,7 @@ describe('usePobBuild', () => {
           done: [],
           removed: [],
           icons: {},
+          searchSelections: {},
         },
       ]);
       expect(pob.errorKey.value).toBeNull();
@@ -337,7 +338,7 @@ describe('usePobBuild', () => {
         stats: [{ type: 'and', filters: [{ id: 'explicit.stat_3299347043', value: { min: 80 } }] }],
       });
       expect(plate.rarity).toBe('RARE');
-      expect(plate.mods).toEqual([
+      expect(plate.mods?.map(({ stat: _stat, ...mod }) => mod)).toEqual([
         { text: '+100 to maximum Life', kind: 'explicit', searched: true },
         { text: '+20 to maximum Life', kind: 'crafted', searched: false },
       ]);
@@ -355,7 +356,7 @@ describe('usePobBuild', () => {
 
       const plate = rowByLabel(first(pob), 'Plate Vest');
       expect(loadModTranslator).toHaveBeenCalledWith('poe1', 'zh-TW');
-      expect(plate.mods).toEqual([
+      expect(plate.mods?.map(({ stat: _stat, ...mod }) => mod)).toEqual([
         { text: '+100 最大生命', kind: 'explicit', searched: true },
         { text: '+20 最大生命', kind: 'crafted', searched: false },
       ]);
@@ -465,6 +466,98 @@ describe('usePobBuild', () => {
       await flush();
       expect(labels(first(pob))).toContain('Not On Trade');
       expect(stored()[0].removed).toEqual([]);
+    });
+  });
+
+  describe('調整搜尋條件', () => {
+    const LIFE = 'explicit.stat_3299347043';
+    const plateOf = (pob: UsePobBuild) => rowByLabel(first(pob), 'Plate Vest');
+
+    it('取消勾選與改下限會更新搜尋、標示已調整並記住', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      pob.selectItemSet('build-1', '2');
+      expect(plateOf(pob).filters).toEqual([
+        { id: LIFE, value: 100, enabled: true, min: 80, customized: false },
+      ]);
+
+      pob.setStatBound('build-1', plateOf(pob).key, LIFE, 'min', 95);
+      expect(plateOf(pob).query).toMatchObject({
+        stats: [{ filters: [{ id: LIFE, value: { min: 95 } }] }],
+      });
+      expect(plateOf(pob).searchCustomized).toBe(true);
+
+      pob.setStatEnabled('build-1', plateOf(pob).key, LIFE, false);
+      expect(plateOf(pob).query).toEqual({ status: { option: 'online' }, type: 'Plate Vest' });
+      expect(plateOf(pob).mods?.[0].searched).toBe(false);
+      await flush();
+      expect(stored()[0].searchSelections).toEqual({
+        [plateOf(pob).key]: { stats: { [LIFE]: { min: 95, enabled: false } } },
+      });
+
+      // 重新開啟時讀回調整
+      const reopened = usePobBuild('poe1', deps);
+      await reopened.restore();
+      reopened.selectItemSet('build-1', '2');
+      expect(plateOf(reopened).filters[0]).toMatchObject({ enabled: false, min: 95 });
+    });
+
+    it('至少符合 N 項與總和條件；還原預設會清掉調整', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      pob.selectItemSet('build-1', '2');
+      const key = plateOf(pob).key;
+
+      pob.setCountMin('build-1', key, 1);
+      expect(plateOf(pob).countMin).toBe(1);
+      expect(plateOf(pob).query).toMatchObject({ stats: [{ type: 'count', value: { min: 1 } }] });
+
+      pob.setPseudo('build-1', key, true);
+      expect(plateOf(pob).pseudo).toBe(true);
+      expect(plateOf(pob).query).toMatchObject({
+        stats: [{ filters: [{ id: 'pseudo.pseudo_total_life', value: { min: 80 } }] }],
+      });
+
+      pob.setCountMin('build-1', key, undefined);
+      expect(plateOf(pob).countMin).toBeUndefined();
+
+      pob.resetSearch('build-1', key);
+      expect(plateOf(pob).searchCustomized).toBe(false);
+      expect(plateOf(pob).pseudo).toBe(false);
+      await flush();
+      expect(stored()[0].searchSelections).toEqual({});
+    });
+
+    it('開啟搜尋使用調整後的條件', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      pob.selectItemSet('build-1', '2');
+      pob.setStatBound('build-1', plateOf(pob).key, LIFE, 'min', 120);
+      pob.openSearch('build-1', plateOf(pob), 'current');
+      const url = new URL(navigate.mock.calls[0][0] as string);
+      expect(JSON.parse(url.searchParams.get('q')!).query.stats[0].filters).toEqual([
+        { id: LIFE, value: { min: 120 } },
+      ]);
+    });
+
+    it('本機存的調整格式不對時略過該欄，不影響其他資料', async () => {
+      storage.data[pobBuildsStorageKey('poe1')] = [
+        {
+          id: 'saved',
+          name: '',
+          code: toCode(buildXml()),
+          done: [],
+          removed: [],
+          icons: {},
+          searchSelections: {
+            good: { stats: { [LIFE]: { min: 50, enabled: 'yes' } }, countMin: 0, pseudo: 1 },
+            bad: 'oops',
+            empty: { stats: { [LIFE]: { min: Number.NaN } } },
+          },
+        },
+      ];
+      const list = await createPobBuildStore('poe1', { storage }).list();
+      expect(list[0].searchSelections).toEqual({ good: { stats: { [LIFE]: { min: 50 } } } });
     });
   });
 

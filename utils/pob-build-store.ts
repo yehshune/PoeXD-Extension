@@ -3,6 +3,7 @@
  * 不上傳、也不納入書籤匯出。存的是原始代碼，讀出時重新解碼，資料模型改版時不必搬遷。
  */
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
+import type { EntrySearchSelection, StatSelection } from './pob-shopping-list';
 import type { PoeVersion } from './trade-context';
 
 export interface PobBuildStorage {
@@ -25,6 +26,8 @@ export interface StoredPobBuild {
   removed: string[];
   /** 項目的圖片（ShoppingEntry.key → 官方 CDN 圖片網址），由搜尋結果擷取 */
   icons: Record<string, string>;
+  /** 使用者調整過的搜尋條件（ShoppingEntry.key → 調整內容） */
+  searchSelections: Record<string, EntrySearchSelection>;
 }
 
 export type StoredPobBuildPatch = Partial<Omit<StoredPobBuild, 'id' | 'code' | 'importedAt'>>;
@@ -42,6 +45,11 @@ export const POB_BUILD_NAME_MAX_LENGTH = 60;
 export const MAX_POB_BUILDS = 20;
 const MAX_MARKED_ENTRIES = 2000;
 const MAX_ICONS = 500;
+const MAX_SEARCH_SELECTIONS = 500;
+const MAX_STATS_PER_SELECTION = 80;
+const MAX_STAT_ID_LENGTH = 160;
+const MAX_COUNT_MIN = 80;
+const MAX_STAT_BOUND = 1e9;
 
 export function pobBuildsStorageKey(version: PoeVersion): string {
   return `poexdPobBuildsV2_${version}`;
@@ -80,6 +88,63 @@ const toIcons = (value: unknown): Record<string, string> =>
       )
     : {};
 
+const toBound = (value: unknown): number | null | undefined => {
+  if (value === null) return null;
+  return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= MAX_STAT_BOUND
+    ? value
+    : undefined;
+};
+
+function toStatSelection(value: unknown): StatSelection | undefined {
+  if (!isRecord(value)) return undefined;
+  const min = toBound(value.min);
+  const max = toBound(value.max);
+  const selection: StatSelection = {
+    ...(typeof value.enabled === 'boolean' ? { enabled: value.enabled } : {}),
+    ...('min' in value && min !== undefined ? { min } : {}),
+    ...('max' in value && max !== undefined ? { max } : {}),
+  };
+  return Object.keys(selection).length > 0 ? selection : undefined;
+}
+
+/** 搜尋調整來自本機儲存，仍逐欄驗證：代碼長度、數值範圍、筆數 */
+export function toEntrySearchSelection(value: unknown): EntrySearchSelection | undefined {
+  if (!isRecord(value)) return undefined;
+  const stats = isRecord(value.stats)
+    ? Object.fromEntries(
+        Object.entries(value.stats)
+          .filter(([statId]) => statId !== '' && statId.length <= MAX_STAT_ID_LENGTH)
+          .map(([statId, stat]) => [statId, toStatSelection(stat)] as const)
+          .filter((entry): entry is readonly [string, StatSelection] => entry[1] !== undefined)
+          .slice(0, MAX_STATS_PER_SELECTION),
+      )
+    : {};
+  const { countMin } = value;
+  const selection: EntrySearchSelection = {
+    ...(Object.keys(stats).length > 0 ? { stats } : {}),
+    ...(typeof countMin === 'number' &&
+    Number.isInteger(countMin) &&
+    countMin >= 1 &&
+    countMin <= MAX_COUNT_MIN
+      ? { countMin }
+      : {}),
+    ...(value.pseudo === true ? { pseudo: true } : {}),
+  };
+  return Object.keys(selection).length > 0 ? selection : undefined;
+}
+
+const toSearchSelections = (value: unknown): Record<string, EntrySearchSelection> =>
+  isRecord(value)
+    ? Object.fromEntries(
+        Object.entries(value)
+          .map(([key, selection]) => [key, toEntrySearchSelection(selection)] as const)
+          .filter(
+            (entry): entry is readonly [string, EntrySearchSelection] => entry[1] !== undefined,
+          )
+          .slice(0, MAX_SEARCH_SELECTIONS),
+      )
+    : {};
+
 function parseStored(value: unknown): StoredPobBuild | undefined {
   if (!isRecord(value)) return undefined;
   const { id, code, importedAt } = value;
@@ -97,6 +162,7 @@ function parseStored(value: unknown): StoredPobBuild | undefined {
     done: toKeyList(value.done),
     removed: toKeyList(value.removed),
     icons: toIcons(value.icons),
+    searchSelections: toSearchSelections(value.searchSelections),
   };
 }
 
@@ -110,6 +176,9 @@ function applyPatch(build: StoredPobBuild, patch: StoredPobBuildPatch): StoredPo
     ...('done' in patch ? { done: toKeyList(patch.done) } : {}),
     ...('removed' in patch ? { removed: toKeyList(patch.removed) } : {}),
     ...('icons' in patch ? { icons: toIcons(patch.icons) } : {}),
+    ...('searchSelections' in patch
+      ? { searchSelections: toSearchSelections(patch.searchSelections) }
+      : {}),
   };
 }
 
@@ -150,6 +219,7 @@ export function createPobBuildStore(
           done: [],
           removed: [],
           icons: {},
+          searchSelections: {},
         };
         await write([build, ...(await list())].slice(0, MAX_POB_BUILDS));
         return build;

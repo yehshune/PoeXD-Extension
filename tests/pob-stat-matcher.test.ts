@@ -171,8 +171,8 @@ Implicits: 1
 
   it('依 Implicits 行分出固定與一般詞綴，去掉標記並略過屬性行與狀態行', () => {
     expect(gloves.implicitMods).toEqual([
-      '3% increased Damage per 100 Strength',
-      '+7% to Fire Damage over Time Multiplier',
+      { text: '3% increased Damage per 100 Strength', crafted: false },
+      { text: '+7% to Fire Damage over Time Multiplier', crafted: true },
     ]);
     expect(gloves.explicitMods).toEqual([
       { text: '+35 to Armour', crafted: false },
@@ -182,7 +182,7 @@ Implicits: 1
   });
 
   it('可變數值依 range 算出實際值；只留目前選用變體的詞綴', () => {
-    expect(belt.implicitMods).toEqual(['+33 to maximum Life']);
+    expect(belt.implicitMods).toEqual([{ text: '+33 to maximum Life', crafted: false }]);
     expect(belt.explicitMods.map((mod) => mod.text)).toEqual([
       '+90 to maximum Life',
       'Regenerate 5.5 Life per second',
@@ -212,7 +212,8 @@ Implicits: 1
     });
     expect(entry.mods?.map((mod) => [mod.kind, mod.searched])).toEqual([
       ['implicit', false],
-      ['implicit', false],
+      // PoB 把附魔寫成標了 crafted 的固定詞綴
+      ['enchant', false],
       ['explicit', true],
       ['explicit', true],
       ['crafted', false],
@@ -536,7 +537,8 @@ describe('formatPobSlot', () => {
     expect(formatPobSlot('Ring 2')).toBe('戒指 2');
     expect(formatPobSlot('Flask 5')).toBe('藥劑 5');
     expect(formatPobSlot('Jewel')).toBe('珠寶');
-    expect(formatPobSlot('Weapon 1 Abyssal Socket 1')).toBe('Weapon 1 Abyssal Socket 1');
+    expect(formatPobSlot('Weapon 1 Abyssal Socket 1')).toBe('主手深淵插槽 1');
+    expect(formatPobSlot('Belt Abyssal Socket 2')).toBe('腰帶深淵插槽 2');
     expect(formatPobSlot('Arm 1')).toBe('Arm 1');
   });
 });

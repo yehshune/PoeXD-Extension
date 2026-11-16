@@ -224,7 +224,7 @@ describe('parsePobBuildXml', () => {
     ]);
   });
 
-  it('每組技能組只取啟用的寶石，略過裝備給的技能並去除重複', () => {
+  it('每組技能組只取啟用的寶石，略過裝備給的技能；不同連結各用一顆的寶石各列一次', () => {
     expect(parsePobBuildXml(buildXml()).skillSets).toEqual([
       {
         id: '1',
@@ -233,6 +233,7 @@ describe('parsePobBuildXml', () => {
           { name: 'Punishment', level: 20, quality: 0, support: false },
           { name: 'Lifetap', level: 1, quality: 0, support: true },
           { name: 'Blessed Call', level: 20, quality: 20, support: true },
+          { name: 'Lifetap', level: 1, quality: 0, support: true },
         ],
       },
       {
@@ -276,11 +277,19 @@ describe('buildShoppingList', () => {
     const list = buildShoppingList(build, createTradeNameCatalog({ englishItems: ENGLISH_ITEMS }));
     expect(
       list.map(
-        ({ key: _key, mods: _mods, rarity: _rarity, englishName: _englishName, ...rest }) => rest,
+        ({
+          key: _key,
+          mods: _mods,
+          rarity: _rarity,
+          englishName: _englishName,
+          searchBase: _searchBase,
+          ...rest
+        }) => rest,
       ),
     ).toEqual([
       {
         kind: 'unique',
+        count: 1,
         label: 'Rise of the Phoenix',
         slot: 'Weapon 2',
         query: {
@@ -291,24 +300,28 @@ describe('buildShoppingList', () => {
       },
       {
         kind: 'unique',
+        count: 1,
         label: "Xoph's Heart",
         slot: 'Amulet',
         query: { status: { option: 'online' }, name: "Xoph's Heart", type: 'Amber Amulet' },
       },
       {
         kind: 'equipment',
+        count: 1,
         label: 'Amethyst Flask',
         slot: 'Flask 1',
         query: { status: { option: 'online' }, type: 'Amethyst Flask' },
       },
       {
         kind: 'equipment',
+        count: 1,
         label: 'Crimson Jewel',
         slot: 'Jewel',
         query: { status: { option: 'online' }, type: 'Crimson Jewel' },
       },
       {
         kind: 'gem',
+        count: 1,
         label: 'Punishment',
         level: 20,
         quality: 0,
@@ -320,6 +333,7 @@ describe('buildShoppingList', () => {
       },
       {
         kind: 'gem',
+        count: 2,
         label: 'Lifetap Support',
         level: 1,
         quality: 0,
@@ -327,6 +341,7 @@ describe('buildShoppingList', () => {
       },
       {
         kind: 'gem',
+        count: 1,
         label: 'Blessed Call Support',
         level: 20,
         quality: 20,

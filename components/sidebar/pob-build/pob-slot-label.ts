@@ -1,5 +1,5 @@
 /**
- * PoB 的部位名稱（英文）轉成介面語言。認不得的部位（例如深淵插槽）保留 PoB 原文。
+ * PoB 的部位名稱（英文）轉成介面語言。認不得的部位保留 PoB 原文。
  */
 import { t, type I18nKey } from '@/utils/i18n';
 
@@ -24,9 +24,14 @@ const NUMBERED_SLOTS: Readonly<Record<string, I18nKey>> = {
 };
 
 const NUMBERED_SLOT = /^([A-Za-z]+) (\d+)$/;
+/** 裝備上的深淵插槽：`Belt Abyssal Socket 1` */
+const ABYSSAL_SLOT = /^(.+) Abyssal Socket (\d+)$/;
 
 export function formatPobSlot(slot: string): string {
   if (Object.hasOwn(FIXED_SLOTS, slot)) return t(FIXED_SLOTS[slot]);
+  const abyssal = ABYSSAL_SLOT.exec(slot);
+  if (abyssal)
+    return t('pobBuild.slot.abyssal', { slot: formatPobSlot(abyssal[1]), n: abyssal[2] });
   const numbered = NUMBERED_SLOT.exec(slot);
   if (numbered && Object.hasOwn(NUMBERED_SLOTS, numbered[1])) {
     return t(NUMBERED_SLOTS[numbered[1]], { n: numbered[2] });
