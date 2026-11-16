@@ -114,11 +114,11 @@ export const ZH_TW_MESSAGES = {
   'settings.resultExternalLinks.label': 'PoEDB 連結',
   'settings.resultExternalLinks.infoAria': 'PoEDB 連結說明',
   'settings.resultExternalLinks.tooltip':
-    '在搜尋結果的物品圖片下方加入 PoEDB 連結按鈕，一鍵開啟該物品的資料頁',
+    '滑鼠懸浮於搜尋結果時，於左上角顯示 DB 按鈕，一鍵開啟該物品的 PoEDB 資料頁',
   'settings.resultPobCopy.label': '複製 PoB 物品文字',
   'settings.resultPobCopy.infoAria': '複製 PoB 物品文字說明',
   'settings.resultPobCopy.tooltip':
-    '在搜尋結果的物品圖片下方加入 PoB 按鈕，一鍵複製可貼到 Path of Building 的英文物品文字；台服與國服頁面會自動轉成英文',
+    '滑鼠懸浮於搜尋結果時，於左上角顯示 PoB 按鈕，一鍵複製可貼到 Path of Building 的英文物品文字；台服與國服頁面會自動轉成英文',
 
   'settings.pureBackground.label': '隱藏官方網頁背景',
   'settings.pureBackground.infoAria': '隱藏官方網頁背景說明',

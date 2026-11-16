@@ -116,11 +116,11 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.resultExternalLinks.label': 'PoEDB 链接',
   'settings.resultExternalLinks.infoAria': 'PoEDB 链接说明',
   'settings.resultExternalLinks.tooltip':
-    '在搜索结果的物品图片下方加入 PoEDB 链接按钮，一键打开该物品的资料页',
+    '鼠标悬停于搜索结果时，在左上角显示 DB 按钮，一键打开该物品的 PoEDB 资料页',
   'settings.resultPobCopy.label': '复制 PoB 物品文字',
   'settings.resultPobCopy.infoAria': '复制 PoB 物品文字说明',
   'settings.resultPobCopy.tooltip':
-    '在搜索结果的物品图片下方加入 PoB 按钮，一键复制可粘贴到 Path of Building 的英文物品文字；台服与国服页面会自动转成英文',
+    '鼠标悬停于搜索结果时，在左上角显示 PoB 按钮，一键复制可粘贴到 Path of Building 的英文物品文字；台服与国服页面会自动转成英文',
 
   'settings.pureBackground.label': '隐藏官方网页背景',
   'settings.pureBackground.infoAria': '隐藏官方网页背景说明',

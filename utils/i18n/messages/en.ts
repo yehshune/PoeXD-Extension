@@ -122,11 +122,11 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.resultExternalLinks.label': 'PoEDB Link',
   'settings.resultExternalLinks.infoAria': 'PoEDB Link info',
   'settings.resultExternalLinks.tooltip':
-    'Add a PoEDB link button under each result item image to open the item page',
+    'Show a DB button in the top-left corner when hovering a search result to open the item page on PoEDB',
   'settings.resultPobCopy.label': 'Copy PoB Item Text',
   'settings.resultPobCopy.infoAria': 'Copy PoB Item Text info',
   'settings.resultPobCopy.tooltip':
-    'Add a PoB button under each result item image to copy English item text for Path of Building; Taiwan and China realm pages are converted to English automatically',
+    'Show a PoB button in the top-left corner when hovering a search result to copy English item text for Path of Building; Taiwan and China realm pages are converted to English automatically',
 
   'settings.pureBackground.label': 'Hide Official Page Background',
   'settings.pureBackground.infoAria': 'Hide Official Page Background info',
