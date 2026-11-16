@@ -26,6 +26,7 @@ describe('Preferences module interface', () => {
       enableItemNormalizer: true,
       enablePriceComparison: true,
       enablePureBackground: true,
+      enableResultExternalLinks: true,
       enableResultModHighlight: true,
       enableResultModQuickFilter: true,
       enableResultPobCopy: true,

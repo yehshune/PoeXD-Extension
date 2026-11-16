@@ -111,6 +111,10 @@ export const ZH_TW_MESSAGES = {
   'settings.resultModQuickFilter.infoAria': '結果詞綴快篩說明',
   'settings.resultModQuickFilter.tooltip':
     '滑鼠懸浮於搜尋結果詞綴時，於右側顯示 +和 / +不 按鈕快速加入篩選（僅帶入詞綴、不自動搜尋）',
+  'settings.resultExternalLinks.label': 'PoEDB 連結',
+  'settings.resultExternalLinks.infoAria': 'PoEDB 連結說明',
+  'settings.resultExternalLinks.tooltip':
+    '在搜尋結果的物品圖片下方加入 PoEDB 連結按鈕，一鍵開啟該物品的資料頁',
   'settings.resultPobCopy.label': '複製 PoB 物品文字',
   'settings.resultPobCopy.infoAria': '複製 PoB 物品文字說明',
   'settings.resultPobCopy.tooltip':
@@ -174,6 +178,8 @@ export const ZH_TW_MESSAGES = {
   'popup.module.enableResultModHighlight.description': '搜尋結果中符合過濾條件的詞綴樣式高亮',
   'popup.module.enableResultModQuickFilter.title': '結果詞綴快篩',
   'popup.module.enableResultModQuickFilter.description': '懸浮結果詞綴右側快速加入 和 / 不 篩選',
+  'popup.module.enableResultExternalLinks.title': 'PoEDB 連結',
+  'popup.module.enableResultExternalLinks.description': '搜尋結果一鍵開啟物品的 PoEDB 頁面',
   'popup.module.enableResultPobCopy.title': '複製 PoB 物品文字',
   'popup.module.enableResultPobCopy.description': '搜尋結果一鍵複製英文 PoB 物品文字',
   'popup.module.enableItemNormalizer.title': '符文覆寫試算',
@@ -978,6 +984,9 @@ export const ZH_TW_MESSAGES = {
     '此頁面語系尚不支援轉成英文 PoB 文字（目前支援英文、繁體中文、簡體中文）',
   'resultPobCopy.toast.failed': '複製 PoB 物品文字失敗：{message}',
   'resultPobCopy.error.itemMissing': '找不到這筆結果的物品資料',
+  'resultLinks.poedb.button': 'DB',
+  'resultLinks.poedb.title': '在 PoEDB 查看此物品',
+  'resultLinks.toast.poedbNameMissing': '找不到此物品的英文名稱，無法開啟 PoEDB',
   'onboarding.welcome.title': '歡迎使用 PoeXD',
   'onboarding.welcome.statGroups': '常用詞綴群組：存起來，一鍵疊加到目前搜尋',
   'onboarding.welcome.tiers': '點官網的詞綴欄位，可用階級直接帶入範圍',

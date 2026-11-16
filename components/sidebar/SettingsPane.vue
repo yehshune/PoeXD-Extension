@@ -641,6 +641,35 @@
             </Tooltip>
           </div>
         </div>
+        <div class="flex items-center gap-[var(--pxd-space-md)]">
+          <Checkbox
+            id="enable-result-external-links"
+            v-model="enableResultExternalLinks"
+            @update:model-value="savePreference('enableResultExternalLinks')"
+          />
+          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+            <label
+              for="enable-result-external-links"
+              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+            >
+              {{ t('settings.resultExternalLinks.label') }}
+            </label>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <span
+                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                  tabindex="-1"
+                  :aria-label="t('settings.resultExternalLinks.infoAria')"
+                >
+                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {{ t('settings.resultExternalLinks.tooltip') }}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
         <div v-if="isPoe2" class="flex items-center gap-[var(--pxd-space-md)]">
           <Checkbox
             id="enable-item-normalizer"
@@ -864,6 +893,7 @@ export default defineComponent({
       enableResultModHighlight,
       enableResultModQuickFilter,
       enableResultPobCopy,
+      enableResultExternalLinks,
       enablePureBackground,
       marketTranslation,
       marketTranslationBilingual,
@@ -1177,6 +1207,7 @@ export default defineComponent({
       enableResultModHighlight,
       enableResultModQuickFilter,
       enableResultPobCopy,
+      enableResultExternalLinks,
       enablePureBackground,
       marketTranslation,
       marketTranslationBilingual,

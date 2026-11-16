@@ -6,6 +6,7 @@ import type { ResultModHighlighter } from './result-mod-highlighter';
 import type { ResultItemNormalizer } from './result-item-normalizer';
 import type { ResultModQuickFilter } from './result-mod-quick-filter';
 import type { ResultPobCopy } from './result-pob-copy';
+import type { ResultExternalLinks } from './result-external-links';
 
 export class DomFilter {
   private observed = false;
@@ -23,6 +24,7 @@ export class DomFilter {
     private readonly itemNormalizer?: ResultItemNormalizer,
     private readonly modQuickFilter?: ResultModQuickFilter,
     private readonly pobCopy?: ResultPobCopy,
+    private readonly externalLinks?: ResultExternalLinks,
   ) {}
 
   init() {
@@ -143,6 +145,7 @@ export class DomFilter {
       this.itemNormalizer?.apply(root);
       this.modQuickFilter?.apply(root);
       this.pobCopy?.apply(root);
+      this.externalLinks?.apply(root);
     }
     this.modHighlighter?.apply(root);
   }

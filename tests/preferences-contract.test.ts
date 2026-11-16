@@ -37,6 +37,7 @@ describe('Preferences Domain Contract', () => {
       enableItemNormalizer: true,
       enablePriceComparison: true,
       enablePureBackground: true,
+      enableResultExternalLinks: true,
       enableResultModHighlight: true,
       enableResultModQuickFilter: true,
       enableResultPobCopy: true,

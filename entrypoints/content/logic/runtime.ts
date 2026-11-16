@@ -21,6 +21,7 @@ import { ResultModHighlighter } from './result-mod-highlighter';
 import { ResultItemNormalizer } from './result-item-normalizer';
 import { ResultModQuickFilter } from './result-mod-quick-filter';
 import { ResultPobCopy } from './result-pob-copy';
+import { ResultExternalLinks } from './result-external-links';
 import { isCloudflareChallenge } from '@/utils/trade-interstitial-classifier';
 import { whenTradePageReady } from './trade-page-readiness';
 import { createFilterDomEnhancements, type FilterDomEnhancements } from './common';
@@ -80,6 +81,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   const itemNormalizer = new ResultItemNormalizer(version, pricePresenter);
   const modQuickFilter = new ResultModQuickFilter();
   const pobCopy = new ResultPobCopy(version);
+  const externalLinks = new ResultExternalLinks(version, pobCopy);
   const domFilter = new DomFilter(
     version,
     pricePresenter,
@@ -87,6 +89,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     itemNormalizer,
     modQuickFilter,
     pobCopy,
+    externalLinks,
   );
   const filterEnhancements = createFilterDomEnhancements(version);
   let cleanupPageEvents: (() => void) | null = null;
@@ -110,6 +113,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     itemNormalizer.cleanup();
     modQuickFilter.cleanup();
     pobCopy.cleanup();
+    externalLinks.cleanup();
     modHighlighter.cleanup();
     cleanupHotkeys?.();
     cleanupSearchEnterCommit?.();
@@ -172,6 +176,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       modQuickFilter.refreshLocale();
       pobCopy.setEnabled(snapshot.enableResultPobCopy);
       pobCopy.refreshLocale();
+      externalLinks.setEnabled(snapshot.enableResultExternalLinks);
+      externalLinks.refreshLocale();
     };
     let appliedPreferences = preferences.read();
     await applyPreferences(appliedPreferences);
@@ -206,6 +212,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       pricePresenter,
       itemNormalizer,
       pobCopy,
+      externalLinks,
       filterEnhancements,
     );
     cleanupHotkeys = initHotkeysAndTildeListeners(preferences);
@@ -321,6 +328,7 @@ function registerPageContextEvents(
   pricePresenter: ResultPricePresenter,
   itemNormalizer: ResultItemNormalizer,
   pobCopy: ResultPobCopy,
+  externalLinks: ResultExternalLinks,
   filterEnhancements: FilterDomEnhancements,
 ) {
   const cleanups: (() => void)[] = [];
@@ -333,6 +341,7 @@ function registerPageContextEvents(
           itemNormalizer.handleFetchResponse(detail),
         ]);
         pobCopy.handleFetchResponse(detail);
+        externalLinks.refresh();
       } catch (error) {
         console.error('[PoeXD] 解析攔截資料失敗:', error);
       }

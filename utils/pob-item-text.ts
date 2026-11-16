@@ -124,6 +124,20 @@ export function isPobExportableItem(raw: unknown): boolean {
   return isRecord(raw) && resolveRarity(raw) !== undefined;
 }
 
+/**
+ * 物品在資料庫網站上的英文頁面名稱：傳奇用傳奇名稱，其餘用基底。
+ * 在地化頁面查不到英文時回傳 null；同名多個基底時取第一個。
+ */
+export function resolveEnglishItemName(raw: unknown, lexicon?: PobTextLexicon): string | null {
+  if (!isRecord(raw)) return null;
+  const isUnique = resolveRarity(raw) === 'UNIQUE';
+  const name = unwrapBrackets(text(raw.name));
+  const base = unwrapBrackets(text(raw.baseType) || text(raw.typeLine));
+  const localized = isUnique && name ? name : base;
+  if (!localized) return null;
+  return lexicon ? (lexicon.toEnglishNames(localized)[0] ?? null) : localized;
+}
+
 /** 讀出 `properties` / `requirements` 中指定 type 的第一個數值 */
 function readTypedNumber(entries: unknown, type: number): number | undefined {
   if (!Array.isArray(entries)) return undefined;

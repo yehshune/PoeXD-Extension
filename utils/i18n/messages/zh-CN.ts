@@ -113,6 +113,10 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.resultModQuickFilter.infoAria': '结果词缀快筛说明',
   'settings.resultModQuickFilter.tooltip':
     '鼠标悬停于搜索结果词缀时，在右侧显示 +和 / +不 按钮快速加入筛选（仅带入词缀、不自动搜索）',
+  'settings.resultExternalLinks.label': 'PoEDB 链接',
+  'settings.resultExternalLinks.infoAria': 'PoEDB 链接说明',
+  'settings.resultExternalLinks.tooltip':
+    '在搜索结果的物品图片下方加入 PoEDB 链接按钮，一键打开该物品的资料页',
   'settings.resultPobCopy.label': '复制 PoB 物品文字',
   'settings.resultPobCopy.infoAria': '复制 PoB 物品文字说明',
   'settings.resultPobCopy.tooltip':
@@ -176,6 +180,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'popup.module.enableResultModHighlight.description': '搜索结果中符合筛选条件的词缀样式高亮',
   'popup.module.enableResultModQuickFilter.title': '结果词缀快筛',
   'popup.module.enableResultModQuickFilter.description': '悬停结果词缀右侧快速加入 和 / 不 筛选',
+  'popup.module.enableResultExternalLinks.title': 'PoEDB 链接',
+  'popup.module.enableResultExternalLinks.description': '搜索结果一键打开物品的 PoEDB 页面',
   'popup.module.enableResultPobCopy.title': '复制 PoB 物品文字',
   'popup.module.enableResultPobCopy.description': '搜索结果一键复制英文 PoB 物品文字',
   'popup.module.enableItemNormalizer.title': '符文覆写试算',
@@ -980,6 +986,9 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
     '此页面语言尚不支持转成英文 PoB 文字（目前支持英文、繁体中文、简体中文）',
   'resultPobCopy.toast.failed': '复制 PoB 物品文字失败：{message}',
   'resultPobCopy.error.itemMissing': '找不到这条结果的物品数据',
+  'resultLinks.poedb.button': 'DB',
+  'resultLinks.poedb.title': '在 PoEDB 查看此物品',
+  'resultLinks.toast.poedbNameMissing': '找不到此物品的英文名称，无法打开 PoEDB',
   'onboarding.welcome.title': '欢迎使用 PoeXD',
   'onboarding.welcome.statGroups': '常用词缀群组：存起来，一键叠加到当前搜索',
   'onboarding.welcome.tiers': '点官网的词缀栏位，可用阶级直接带入范围',

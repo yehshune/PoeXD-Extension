@@ -119,6 +119,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.resultModQuickFilter.infoAria': 'Result Affix Quick Filter info',
   'settings.resultModQuickFilter.tooltip':
     'Show +AND / +NOT buttons when hovering result affixes to quickly add the mod to filters without auto-searching',
+  'settings.resultExternalLinks.label': 'PoEDB Link',
+  'settings.resultExternalLinks.infoAria': 'PoEDB Link info',
+  'settings.resultExternalLinks.tooltip':
+    'Add a PoEDB link button under each result item image to open the item page',
   'settings.resultPobCopy.label': 'Copy PoB Item Text',
   'settings.resultPobCopy.infoAria': 'Copy PoB Item Text info',
   'settings.resultPobCopy.tooltip':
@@ -191,6 +195,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'popup.module.enableResultModQuickFilter.title': 'Result Affix Quick Filter',
   'popup.module.enableResultModQuickFilter.description':
     'Hover result affixes to quickly add to AND / NOT filters',
+  'popup.module.enableResultExternalLinks.title': 'PoEDB Link',
+  'popup.module.enableResultExternalLinks.description':
+    'Open the PoEDB page of an item from search results',
   'popup.module.enableResultPobCopy.title': 'Copy PoB Item Text',
   'popup.module.enableResultPobCopy.description': 'Copy English PoB item text from search results',
   'popup.module.enableItemNormalizer.title': 'Rune Override Calculator',
@@ -1041,6 +1048,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'This page language cannot be converted to English PoB text yet (supported: English, Traditional Chinese, Simplified Chinese)',
   'resultPobCopy.toast.failed': 'Failed to copy PoB item text: {message}',
   'resultPobCopy.error.itemMissing': 'Item data for this result was not found',
+  'resultLinks.poedb.button': 'DB',
+  'resultLinks.poedb.title': 'View this item on PoEDB',
+  'resultLinks.toast.poedbNameMissing':
+    'English name for this item was not found, cannot open PoEDB',
   'onboarding.welcome.title': 'Welcome to PoeXD',
   'onboarding.welcome.statGroups':
     'Stat group templates: save common filters and add them to any search in one click',

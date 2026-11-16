@@ -152,6 +152,7 @@ export interface Preferences {
   enableItemNormalizer: boolean;
   enablePriceComparison: boolean;
   enablePureBackground: boolean;
+  enableResultExternalLinks: boolean;
   enableResultModHighlight: boolean;
   enableResultModQuickFilter: boolean;
   enableResultPobCopy: boolean;
@@ -189,6 +190,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   enableItemNormalizer: true,
   enablePriceComparison: true,
   enablePureBackground: true,
+  enableResultExternalLinks: true,
   enableResultModHighlight: true,
   enableResultModQuickFilter: true,
   enableResultPobCopy: true,

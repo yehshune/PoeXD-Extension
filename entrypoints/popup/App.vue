@@ -72,6 +72,11 @@ const MODULE_ITEMS: readonly ModuleConfigItem[] = [
     descriptionKey: 'popup.module.enableResultPobCopy.description',
   },
   {
+    key: 'enableResultExternalLinks',
+    titleKey: 'popup.module.enableResultExternalLinks.title',
+    descriptionKey: 'popup.module.enableResultExternalLinks.description',
+  },
+  {
     key: 'enableItemNormalizer',
     titleKey: 'popup.module.enableItemNormalizer.title',
     descriptionKey: 'popup.module.enableItemNormalizer.description',

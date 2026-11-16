@@ -69,6 +69,7 @@ const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
   'enableItemNormalizer',
   'enablePriceComparison',
   'enablePureBackground',
+  'enableResultExternalLinks',
   'enableResultModHighlight',
   'enableResultModQuickFilter',
   'enableResultPobCopy',

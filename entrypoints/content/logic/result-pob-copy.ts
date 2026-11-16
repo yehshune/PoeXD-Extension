@@ -178,7 +178,7 @@ export class ResultPobCopy {
       if (!item) throw new Error(t('resultPobCopy.error.itemMissing'));
 
       const locale = this.deps.getPageLocale();
-      const lexicon = locale === 'en' ? undefined : await this.getLexicon(locale);
+      const lexicon = locale === 'en' ? undefined : await this.getEnglishLexicon(locale);
       if (locale !== 'en' && !lexicon) {
         this.deps.notify(t('resultPobCopy.toast.unsupportedLocale'), 'error');
         return;
@@ -194,7 +194,12 @@ export class ResultPobCopy {
     }
   }
 
-  private getLexicon(locale: string): Promise<PobTextLexicon | undefined> {
+  getItem(resultId: string): unknown {
+    return this.items.get(resultId);
+  }
+
+  /** 頁面語系的英文反查字典（載入一次後快取）；該語系沒有資料時為 undefined */
+  getEnglishLexicon(locale: string): Promise<PobTextLexicon | undefined> {
     if (this.lexicon?.locale === locale) return this.lexicon.promise;
     const promise = this.deps.loadLexicon(this.version, locale).catch((error: unknown) => {
       console.warn('[PoeXD] PoB 英文反查字典載入失敗:', error);
