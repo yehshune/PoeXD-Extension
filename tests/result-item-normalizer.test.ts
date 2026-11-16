@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResultItemNormalizer } from '@/entrypoints/content/logic/result-item-normalizer';
+import { ResultSortController } from '@/entrypoints/content/logic/result-sort-controller';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -119,43 +120,44 @@ describe('Result item normalizer', () => {
       head: { appendChild: vi.fn() },
     });
 
-    const presenter = new ResultItemNormalizer('poe2');
+    const sortController = new ResultSortController('poe2');
+    const presenter = new ResultItemNormalizer('poe2', sortController);
 
-    await presenter.handleFetchResponse(
-      JSON.stringify({
-        url: '/api/trade2/fetch/res-1?query=search-1',
-        data: {
-          result: [
-            {
-              id: 'res-1',
-              item: {
-                realm: 'poe2',
-                baseType: 'Dreaming Quarterstaff',
-                sockets: [
-                  { group: 0, type: 'rune' },
-                  { group: 1, type: 'rune' },
-                ],
-                socketedItems: [{}, {}],
-                properties: [
-                  {
-                    name: 'Attacks per Second',
-                    values: [['1.50', 0]],
-                    type: 13,
-                  },
-                ],
-                runeMods: [{ description: '36% increased [Physical] Damage' }],
-                explicitMods: [{ description: '208% increased [Physical] Damage' }],
-                extended: {
-                  dps: 1071,
-                  pdps: 1071,
-                  edps: 0,
+    const detail = JSON.stringify({
+      url: '/api/trade2/fetch/res-1?query=search-1',
+      data: {
+        result: [
+          {
+            id: 'res-1',
+            item: {
+              realm: 'poe2',
+              baseType: 'Dreaming Quarterstaff',
+              sockets: [
+                { group: 0, type: 'rune' },
+                { group: 1, type: 'rune' },
+              ],
+              socketedItems: [{}, {}],
+              properties: [
+                {
+                  name: 'Attacks per Second',
+                  values: [['1.50', 0]],
+                  type: 13,
                 },
+              ],
+              runeMods: [{ description: '36% increased [Physical] Damage' }],
+              explicitMods: [{ description: '208% increased [Physical] Damage' }],
+              extended: {
+                dps: 1071,
+                pdps: 1071,
+                edps: 0,
               },
             },
-          ],
-        },
-      }),
-    );
+          },
+        ],
+      },
+    });
+    await presenter.handleFetchResponse(detail);
+    sortController.handleFetchResponse(detail);
 
     // 驗證 1：控制按鈕組以 prepend 注入官方 row-total 最左側
     expect(injectedControls).not.toBeNull();
@@ -269,57 +271,58 @@ describe('Result item normalizer', () => {
       head: { appendChild: vi.fn() },
     });
 
-    const presenter = new ResultItemNormalizer('poe2');
+    const sortController = new ResultSortController('poe2');
+    const presenter = new ResultItemNormalizer('poe2', sortController);
 
     // 載入兩筆物品：res-low (400 DPS) 與 res-high (1000 DPS)
-    await presenter.handleFetchResponse(
-      JSON.stringify({
-        url: '/api/trade2/fetch/res-low,res-high?query=search-sort',
-        data: {
-          result: [
-            {
-              id: 'res-low',
-              item: {
-                realm: 'poe2',
-                baseType: 'Expert Dual Bow',
-                sockets: [],
-                properties: [
-                  {
-                    name: 'Attacks per Second',
-                    values: [['1.40', 0]],
-                    type: 13,
-                  },
-                ],
-                extended: { dps: 400, pdps: 400, edps: 0 },
-              },
+    const detail = JSON.stringify({
+      url: '/api/trade2/fetch/res-low,res-high?query=search-sort',
+      data: {
+        result: [
+          {
+            id: 'res-low',
+            item: {
+              realm: 'poe2',
+              baseType: 'Expert Dual Bow',
+              sockets: [],
+              properties: [
+                {
+                  name: 'Attacks per Second',
+                  values: [['1.40', 0]],
+                  type: 13,
+                },
+              ],
+              extended: { dps: 400, pdps: 400, edps: 0 },
             },
-            {
-              id: 'res-high',
-              item: {
-                realm: 'poe2',
-                baseType: 'Expert Dual Bow',
-                sockets: [],
-                properties: [
-                  {
-                    name: 'Attacks per Second',
-                    values: [['1.40', 0]],
-                    type: 13,
-                  },
-                ],
-                extended: { dps: 1000, pdps: 1000, edps: 0 },
-              },
+          },
+          {
+            id: 'res-high',
+            item: {
+              realm: 'poe2',
+              baseType: 'Expert Dual Bow',
+              sockets: [],
+              properties: [
+                {
+                  name: 'Attacks per Second',
+                  values: [['1.40', 0]],
+                  type: 13,
+                },
+              ],
+              extended: { dps: 1000, pdps: 1000, edps: 0 },
             },
-          ],
-        },
-      }),
-    );
+          },
+        ],
+      },
+    });
+    await presenter.handleFetchResponse(detail);
+    sortController.handleFetchResponse(detail);
 
     // 驗證 1：預設排序下 display 完全不設為 flex，避免官方雙欄或網格被破壞
     expect(root.style.display).toBe('');
     expect(root.children).toEqual([row1, row2, sentinelControl]);
 
     // 觸發潛力 DPS 排序
-    presenter.setSortMode('potential_dps');
+    sortController.setSortMode('potential_dps');
 
     // 驗證 2：依然不修改容器 display，保持官方原生排版相容
     expect(root.style.display).toBe('');
@@ -331,7 +334,7 @@ describe('Result item normalizer', () => {
     expect(root.children[2]).toBe(sentinelControl);
 
     // 驗證 5：切回預設排序時，DOM 節點物理順序還原為官方原始順序
-    presenter.setSortMode('default');
+    sortController.setSortMode('default');
     expect(root.style.display).toBe('');
     expect(root.children).toEqual([row1, row2, sentinelControl]);
   });
@@ -417,62 +420,63 @@ describe('Result item normalizer', () => {
       head: { appendChild: vi.fn() },
     });
 
-    const presenter = new ResultItemNormalizer('poe2');
+    const sortController = new ResultSortController('poe2');
+    const presenter = new ResultItemNormalizer('poe2', sortController);
 
     // res-phys: 總 DPS 1100 (pDPS 1000, eDPS 100)
     // res-ele:  總 DPS 1000 (pDPS 200, eDPS 800)
-    await presenter.handleFetchResponse(
-      JSON.stringify({
-        url: '/api/trade2/fetch/res-phys,res-ele?query=search-ele-sort',
-        data: {
-          result: [
-            {
-              id: 'res-phys',
-              item: {
-                realm: 'poe2',
-                baseType: 'Expert Dual Bow',
-                sockets: [],
-                properties: [
-                  {
-                    name: 'Attacks per Second',
-                    values: [['1.40', 0]],
-                    type: 13,
-                  },
-                ],
-                extended: { dps: 1100, pdps: 1000, edps: 100 },
-              },
+    const detail = JSON.stringify({
+      url: '/api/trade2/fetch/res-phys,res-ele?query=search-ele-sort',
+      data: {
+        result: [
+          {
+            id: 'res-phys',
+            item: {
+              realm: 'poe2',
+              baseType: 'Expert Dual Bow',
+              sockets: [],
+              properties: [
+                {
+                  name: 'Attacks per Second',
+                  values: [['1.40', 0]],
+                  type: 13,
+                },
+              ],
+              extended: { dps: 1100, pdps: 1000, edps: 100 },
             },
-            {
-              id: 'res-ele',
-              item: {
-                realm: 'poe2',
-                baseType: 'Expert Dual Bow',
-                sockets: [],
-                properties: [
-                  {
-                    name: 'Attacks per Second',
-                    values: [['1.40', 0]],
-                    type: 13,
-                  },
-                ],
-                extended: { dps: 1000, pdps: 200, edps: 800 },
-              },
+          },
+          {
+            id: 'res-ele',
+            item: {
+              realm: 'poe2',
+              baseType: 'Expert Dual Bow',
+              sockets: [],
+              properties: [
+                {
+                  name: 'Attacks per Second',
+                  values: [['1.40', 0]],
+                  type: 13,
+                },
+              ],
+              extended: { dps: 1000, pdps: 200, edps: 800 },
             },
-          ],
-        },
-      }),
-    );
+          },
+        ],
+      },
+    });
+    await presenter.handleFetchResponse(detail);
+    sortController.handleFetchResponse(detail);
 
     // 1. 依總 DPS 排序：res-phys (1100) 排在前
-    presenter.setSortMode('potential_dps');
+    sortController.setSortMode('potential_dps');
     expect(root.children).toEqual([rowPhys, rowEle]);
 
     // 2. 依元素 DPS 排序：res-ele (800) 排在前
-    presenter.setSortMode('potential_edps');
+    sortController.setSortMode('potential_edps');
     expect(root.children).toEqual([rowEle, rowPhys]);
 
     // 3. 依物理 DPS 排序：res-phys (1000) 排在前
-    presenter.setSortMode('potential_pdps');
+    sortController.setSortMode('potential_pdps');
     expect(root.children).toEqual([rowPhys, rowEle]);
   });
 
@@ -542,72 +546,73 @@ describe('Result item normalizer', () => {
       head: { appendChild: vi.fn() },
     });
 
-    const presenter = new ResultItemNormalizer('poe2');
-    await presenter.handleFetchResponse(
-      JSON.stringify({
-        url: '/api/trade2/fetch/res-ar?query=search-def',
-        data: {
-          result: [
-            {
-              id: 'res-ar',
-              item: {
-                realm: 'poe2',
-                baseType: 'Exquisite Plate',
-                sockets: [],
-                properties: [
-                  { name: 'Quality', values: [['+20%', 1]], type: 6 },
-                  { name: 'Armour', values: [['900', 1]], type: 16 },
-                ],
-                extended: { ar: 900 },
-              },
+    const sortController = new ResultSortController('poe2');
+    const presenter = new ResultItemNormalizer('poe2', sortController);
+    const detail = JSON.stringify({
+      url: '/api/trade2/fetch/res-ar?query=search-def',
+      data: {
+        result: [
+          {
+            id: 'res-ar',
+            item: {
+              realm: 'poe2',
+              baseType: 'Exquisite Plate',
+              sockets: [],
+              properties: [
+                { name: 'Quality', values: [['+20%', 1]], type: 6 },
+                { name: 'Armour', values: [['900', 1]], type: 16 },
+              ],
+              extended: { ar: 900 },
             },
-            {
-              id: 'res-ev',
-              item: {
-                realm: 'poe2',
-                baseType: 'Smuggler Coat',
-                sockets: [],
-                properties: [
-                  { name: 'Quality', values: [['+20%', 1]], type: 6 },
-                  { name: 'Evasion Rating', values: [['700', 1]], type: 17 },
-                  { name: 'Energy Shield', values: [['150', 1]], type: 18 },
-                ],
-                extended: { ev: 700, es: 150 },
-              },
+          },
+          {
+            id: 'res-ev',
+            item: {
+              realm: 'poe2',
+              baseType: 'Smuggler Coat',
+              sockets: [],
+              properties: [
+                { name: 'Quality', values: [['+20%', 1]], type: 6 },
+                { name: 'Evasion Rating', values: [['700', 1]], type: 17 },
+                { name: 'Energy Shield', values: [['150', 1]], type: 18 },
+              ],
+              extended: { ev: 700, es: 150 },
             },
-            {
-              id: 'res-es',
-              item: {
-                realm: 'poe2',
-                baseType: 'Vile Robe',
-                sockets: [],
-                properties: [
-                  { name: 'Quality', values: [['+20%', 1]], type: 6 },
-                  { name: 'Armour', values: [['200', 1]], type: 16 },
-                  { name: 'Energy Shield', values: [['500', 1]], type: 18 },
-                ],
-                extended: { ar: 200, es: 500 },
-              },
+          },
+          {
+            id: 'res-es',
+            item: {
+              realm: 'poe2',
+              baseType: 'Vile Robe',
+              sockets: [],
+              properties: [
+                { name: 'Quality', values: [['+20%', 1]], type: 6 },
+                { name: 'Armour', values: [['200', 1]], type: 16 },
+                { name: 'Energy Shield', values: [['500', 1]], type: 18 },
+              ],
+              extended: { ar: 200, es: 500 },
             },
-          ],
-        },
-      }),
-    );
+          },
+        ],
+      },
+    });
+    await presenter.handleFetchResponse(detail);
+    sortController.handleFetchResponse(detail);
 
     // 總防禦：res-ar (1260) > res-ev (1190) > res-es (980)
-    presenter.setSortMode('potential_def');
+    sortController.setSortMode('potential_def');
     expect(root.children).toEqual([rowAr, rowEv, rowEs]);
 
     // 護甲：res-ar (1260) > res-es (280) > res-ev (0)
-    presenter.setSortMode('potential_armour');
+    sortController.setSortMode('potential_armour');
     expect(root.children).toEqual([rowAr, rowEs, rowEv]);
 
     // 閃避：res-ev (980) 最大，其餘 (0) 維持相對順序或排後
-    presenter.setSortMode('potential_evasion');
+    sortController.setSortMode('potential_evasion');
     expect(root.children[0]).toBe(rowEv);
 
     // 能量護盾：res-es (700) > res-ev (210) > res-ar (0)
-    presenter.setSortMode('potential_es');
+    sortController.setSortMode('potential_es');
     expect(root.children).toEqual([rowEs, rowEv, rowAr]);
   });
 
@@ -701,61 +706,63 @@ describe('Result item normalizer', () => {
       }),
     };
 
-    const presenter = new ResultItemNormalizer('poe2', mockPricePresenter);
+    const sortController = new ResultSortController('poe2', mockPricePresenter);
+    const presenter = new ResultItemNormalizer('poe2', sortController);
 
-    await presenter.handleFetchResponse(
-      JSON.stringify({
-        url: '/api/trade2/fetch/res-a,res-b?query=search-cp',
-        data: {
-          result: [
-            {
-              id: 'res-a',
-              item: {
-                realm: 'poe2',
-                baseType: 'Expert Dual Bow',
-                sockets: [],
-                properties: [
-                  {
-                    name: 'Attacks per Second',
-                    values: [['1.40', 0]],
-                    type: 13,
-                  },
-                ],
-                extended: { dps: 1000, pdps: 1000, edps: 0 },
-              },
+    const detail = JSON.stringify({
+      url: '/api/trade2/fetch/res-a,res-b?query=search-cp',
+      data: {
+        result: [
+          {
+            id: 'res-a',
+            item: {
+              realm: 'poe2',
+              baseType: 'Expert Dual Bow',
+              sockets: [],
+              properties: [
+                {
+                  name: 'Attacks per Second',
+                  values: [['1.40', 0]],
+                  type: 13,
+                },
+              ],
+              extended: { dps: 1000, pdps: 1000, edps: 0 },
             },
-            {
-              id: 'res-b',
-              item: {
-                realm: 'poe2',
-                baseType: 'Expert Dual Bow',
-                sockets: [],
-                properties: [
-                  {
-                    name: 'Attacks per Second',
-                    values: [['1.40', 0]],
-                    type: 13,
-                  },
-                ],
-                extended: { dps: 400, pdps: 400, edps: 0 },
-              },
+          },
+          {
+            id: 'res-b',
+            item: {
+              realm: 'poe2',
+              baseType: 'Expert Dual Bow',
+              sockets: [],
+              properties: [
+                {
+                  name: 'Attacks per Second',
+                  values: [['1.40', 0]],
+                  type: 13,
+                },
+              ],
+              extended: { dps: 400, pdps: 400, edps: 0 },
             },
-          ],
-        },
-      }),
-    );
+          },
+        ],
+      },
+    });
+    await presenter.handleFetchResponse(detail);
+    sortController.handleFetchResponse(detail);
 
     // 1. 匯率未開啟時，setSortMode("cp_ratio") 應不執行任何重排
-    presenter.setSortMode('cp_ratio');
+    sortController.setSortMode('cp_ratio');
     expect(root.children).toEqual([rowA, rowB]);
 
     // 2. 開啟匯率後，setSortMode("cp_ratio") 應正確重排：性價比高者 (res-b, ratio=40) 排在前
     ratesEnabled = true;
-    presenter.setSortMode('cp_ratio');
+    sortController.setSortMode('cp_ratio');
     expect(root.children).toEqual([rowB, rowA]);
 
     // 3. 停用模組 setEnabled(false) 時，應物理還原回原始順序 [rowA, rowB]
     presenter.setEnabled(false);
+    sortController.setEnabled(false);
     expect(root.children).toEqual([rowA, rowB]);
   });
 
@@ -835,39 +842,42 @@ describe('Result item normalizer', () => {
     });
 
     // 1. 在 live 網址下初始化：isLiveOrConsole() 為 true
-    const presenter = new ResultItemNormalizer('poe2');
+    const sortController = new ResultSortController('poe2');
+    const presenter = new ResultItemNormalizer('poe2', sortController);
     expect(presenter.isLiveOrConsole()).toBe(true);
+    expect(sortController.isLiveOrConsole()).toBe(true);
 
     // 2. 呼叫 apply(root)：因處於 live 網址，絕對不注入 controls
     presenter.apply(root);
+    sortController.apply(root);
     expect(prependCalled).toBe(false);
 
     // 3. handleFetchResponse 應直接略過
-    await presenter.handleFetchResponse(
-      JSON.stringify({
-        url: '/api/trade2/fetch/res-live?query=live-test',
-        data: {
-          result: [
-            {
-              id: 'res-live',
-              item: {
-                realm: 'poe2',
-                baseType: 'Expert Dual Bow',
-                sockets: [],
-                properties: [
-                  {
-                    name: 'Attacks per Second',
-                    values: [['1.40', 0]],
-                    type: 13,
-                  },
-                ],
-                extended: { dps: 500, pdps: 500, edps: 0 },
-              },
+    const liveDetail = JSON.stringify({
+      url: '/api/trade2/fetch/res-live?query=live-test',
+      data: {
+        result: [
+          {
+            id: 'res-live',
+            item: {
+              realm: 'poe2',
+              baseType: 'Expert Dual Bow',
+              sockets: [],
+              properties: [
+                {
+                  name: 'Attacks per Second',
+                  values: [['1.40', 0]],
+                  type: 13,
+                },
+              ],
+              extended: { dps: 500, pdps: 500, edps: 0 },
             },
-          ],
-        },
-      }),
-    );
+          },
+        ],
+      },
+    });
+    await presenter.handleFetchResponse(liveDetail);
+    sortController.handleFetchResponse(liveDetail);
     expect(prependCalled).toBe(false);
 
     // 4. 切換為一般搜尋網址，但在主控台角色 (live-search-primary) 下：依然嚴格排除
@@ -879,9 +889,13 @@ describe('Result item normalizer', () => {
     });
     presenter.setPageMode('search');
     presenter.setPageRole('live-search-primary');
+    sortController.setPageMode('search');
+    sortController.setPageRole('live-search-primary');
     expect(presenter.isLiveOrConsole()).toBe(true);
+    expect(sortController.isLiveOrConsole()).toBe(true);
 
     presenter.apply(root);
+    sortController.apply(root);
     expect(prependCalled).toBe(false);
   });
 
@@ -999,7 +1013,7 @@ describe('Result item normalizer', () => {
       async () => ({ primary: 'chaos', rates: { chaos: 1, divine: 150 } }),
       true,
     );
-    const normalizer = new ResultItemNormalizer('poe1', pricePresenter);
+    const sortController = new ResultSortController('poe1', pricePresenter);
 
     const fetchDetail = JSON.stringify({
       url: '/api/trade/fetch/a,b,c,d,e?query=poe1-s1',
@@ -1018,10 +1032,8 @@ describe('Result item normalizer', () => {
       },
     });
 
-    await Promise.all([
-      pricePresenter.handleFetchResponse(fetchDetail, 'Standard'),
-      normalizer.handleFetchResponse(fetchDetail),
-    ]);
+    await pricePresenter.handleFetchResponse(fetchDetail, 'Standard');
+    sortController.handleFetchResponse(fetchDetail);
 
     // 僅注入 sort 控制項，不應建立 weapon / armour 符文按鈕
     expect(injectedControls).not.toBeNull();
@@ -1029,16 +1041,16 @@ describe('Result item normalizer', () => {
     expect(builtControlWrappers[0].className).toContain('poexd-sort-wrapper');
 
     // 低 -> 高：100c < 1div(150c) < 2div(300c)，無標價與未知通貨維持相對順序並置底
-    normalizer.setSortMode('price_asc');
+    sortController.setSortMode('price_asc');
     expect(root.children).toEqual([row100c, row1Div, row2Div, rowUnpriced, rowUnknownCur]);
 
     // 高 -> 低：2div(300c) > 1div(150c) > 100c，無標價與未知通貨仍置底
-    normalizer.setSortMode('price_desc');
+    sortController.setSortMode('price_desc');
     expect(root.children).toEqual([row2Div, row1Div, row100c, rowUnpriced, rowUnknownCur]);
 
     // 停用價格換算時應自動重置排序並還原官方原始順序
     await pricePresenter.setEnabled(false);
-    normalizer.syncPriceSupport();
+    sortController.syncSupport();
     expect(root.children).toEqual([row2Div, rowUnpriced, row100c, rowUnknownCur, row1Div]);
   });
 
@@ -1121,8 +1133,8 @@ describe('Result item normalizer', () => {
     const { ResultPricePresenter } =
       await import('@/entrypoints/content/logic/result-price-presenter');
     const twPricePresenter = new ResultPricePresenter('poe1', async () => undefined, false);
-    const twNormalizer = new ResultItemNormalizer('poe1', twPricePresenter);
-    await twNormalizer.handleFetchResponse(
+    const twController = new ResultSortController('poe1', twPricePresenter);
+    twController.handleFetchResponse(
       JSON.stringify({
         url: '/api/trade/fetch/r-exp,r-cheap?query=tw-s1',
         data: {
@@ -1134,7 +1146,7 @@ describe('Result item normalizer', () => {
       }),
     );
     expect(injectedControls).toBeNull();
-    twNormalizer.setSortMode('price_asc');
+    twController.setSortMode('price_asc');
     expect(root.children).toEqual([rowExpensive, rowCheap]);
 
     // 改測國際服非同步匯率延遲到達
@@ -1148,7 +1160,7 @@ describe('Result item normalizer', () => {
       },
     );
     const intlPricePresenter = new ResultPricePresenter('poe1', () => pendingRates, true);
-    const intlNormalizer = new ResultItemNormalizer('poe1', intlPricePresenter);
+    const intlController = new ResultSortController('poe1', intlPricePresenter);
     const detail = JSON.stringify({
       url: '/api/trade/fetch/r-exp,r-cheap?query=intl-s2',
       data: {
@@ -1160,11 +1172,11 @@ describe('Result item normalizer', () => {
     });
 
     const pricePromise = intlPricePresenter.handleFetchResponse(detail, 'Standard');
-    await intlNormalizer.handleFetchResponse(detail);
+    intlController.handleFetchResponse(detail);
     expect(injectedControls).not.toBeNull();
 
     // 使用者在匯率載入完成前點擊 price_asc，此時尚未重排
-    intlNormalizer.setSortMode('price_asc');
+    intlController.setSortMode('price_asc');
     expect(root.children).toEqual([rowExpensive, rowCheap]);
 
     // 匯率完成載入後應自動觸發重排
@@ -1173,9 +1185,9 @@ describe('Result item normalizer', () => {
     expect(root.children).toEqual([rowCheap, rowExpensive]);
 
     // 切換為線上搜尋主控台角色時立即還原順序且不再允許排序
-    intlNormalizer.setPageRole('live-search-primary');
+    intlController.setPageRole('live-search-primary');
     expect(root.children).toEqual([rowExpensive, rowCheap]);
-    intlNormalizer.setSortMode('price_asc');
+    intlController.setSortMode('price_asc');
     expect(root.children).toEqual([rowExpensive, rowCheap]);
   });
 
@@ -1252,31 +1264,32 @@ describe('Result item normalizer', () => {
         id === 'ring-exp' ? 500 : id === 'ring-cheap' ? 20 : undefined,
       ),
     };
-    const normalizer = new ResultItemNormalizer('poe2', mockPricePresenter);
+    const sortController = new ResultSortController('poe2', mockPricePresenter);
+    const normalizer = new ResultItemNormalizer('poe2', sortController);
 
-    await normalizer.handleFetchResponse(
-      JSON.stringify({
-        url: '/api/trade2/fetch/ring-exp,ring-cheap?query=poe2-ring',
-        data: {
-          result: [
-            {
-              id: 'ring-exp',
-              item: { realm: 'poe2', baseType: 'Ruby Ring', category: { accessories: ['ring'] } },
-            },
-            {
-              id: 'ring-cheap',
-              item: { realm: 'poe2', baseType: 'Ruby Ring', category: { accessories: ['ring'] } },
-            },
-          ],
-        },
-      }),
-    );
+    const detail = JSON.stringify({
+      url: '/api/trade2/fetch/ring-exp,ring-cheap?query=poe2-ring',
+      data: {
+        result: [
+          {
+            id: 'ring-exp',
+            item: { realm: 'poe2', baseType: 'Ruby Ring', category: { accessories: ['ring'] } },
+          },
+          {
+            id: 'ring-cheap',
+            item: { realm: 'poe2', baseType: 'Ruby Ring', category: { accessories: ['ring'] } },
+          },
+        ],
+      },
+    });
+    await normalizer.handleFetchResponse(detail);
+    sortController.handleFetchResponse(detail);
 
-    normalizer.setSortMode('price_asc');
+    sortController.setSortMode('price_asc');
     expect(root.children).toEqual([rowCheap, rowExpensive]);
 
     ratesEnabled = false;
-    normalizer.syncPriceSupport();
+    sortController.syncSupport();
     expect(root.children).toEqual([rowExpensive, rowCheap]);
   });
 
@@ -1319,7 +1332,7 @@ describe('Result item normalizer', () => {
       async () => ({ primary: 'chaos', rates: { chaos: 1 } }),
       true,
     );
-    const normalizer = new ResultItemNormalizer('poe1', pricePresenter);
+    const sortController = new ResultSortController('poe1', pricePresenter);
     const detail = JSON.stringify({
       url: '/api/trade/fetch/a,b,c,d?query=lis',
       data: {
@@ -1331,13 +1344,11 @@ describe('Result item normalizer', () => {
         ],
       },
     });
-    await Promise.all([
-      pricePresenter.handleFetchResponse(detail, 'Standard'),
-      normalizer.handleFetchResponse(detail),
-    ]);
+    await pricePresenter.handleFetchResponse(detail, 'Standard');
+    sortController.handleFetchResponse(detail);
 
     // 目標升冪: [rD(50), rA(100), rB(200), rC(300)] -> 僅 rD 需要搬移 1 次，且不可越過 placeholderComment
-    normalizer.setSortMode('price_asc');
+    sortController.setSortMode('price_asc');
     expect(insertSpy).toHaveBeenCalledTimes(1);
     const childNodes = Array.from(resultSet.childNodes);
     expect(childNodes.indexOf(rD as any)).toBeLessThan(childNodes.indexOf(rA as any));
@@ -1347,9 +1358,9 @@ describe('Result item normalizer', () => {
     expect(childNodes.indexOf(placeholderComment as any)).toBeLessThan(
       childNodes.indexOf(controls as any),
     );
-    expect(normalizer.isRecentlyMovedRow(rD as any)).toBe(true);
-    expect(normalizer.isRecentlyMovedRow(rA as any)).toBe(false);
+    expect(sortController.isRecentlyMovedRow(rD as any)).toBe(true);
+    expect(sortController.isRecentlyMovedRow(rA as any)).toBe(false);
     await Promise.resolve();
-    expect(normalizer.isRecentlyMovedRow(rD as any)).toBe(false);
+    expect(sortController.isRecentlyMovedRow(rD as any)).toBe(false);
   });
 });

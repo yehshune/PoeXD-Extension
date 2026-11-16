@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { ResultItemNormalizer } from '@/entrypoints/content/logic/result-item-normalizer';
+import { ResultSortController } from '@/entrypoints/content/logic/result-sort-controller';
 import { ResultPricePresenter } from '@/entrypoints/content/logic/result-price-presenter';
 import { setActiveDisplayLocale, resetI18nStateForTests } from '@/utils/i18n';
 
@@ -94,7 +95,8 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
       armourRow.append(armourLeft, armourAdditional, armourDetails);
       resultsContainer.appendChild(armourRow);
 
-      const normalizer = new ResultItemNormalizer('poe2');
+      const sortController = new ResultSortController('poe2');
+      const normalizer = new ResultItemNormalizer('poe2', sortController);
 
       const fetchDetail = JSON.stringify({
         url: 'https://www.pathofexile.com/api/trade2/fetch/item-1?query=test-query',
@@ -103,7 +105,8 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
         },
       });
 
-      normalizer.handleFetchResponse(fetchDetail);
+      await normalizer.handleFetchResponse(fetchDetail);
+      sortController.handleFetchResponse(fetchDetail);
 
       // --- 1. Verify zh-TW ---
       const controls = document.querySelector('.poexd-total-controls');
@@ -149,6 +152,7 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
       // --- 2. Switch to en ---
       setActiveDisplayLocale('en');
       normalizer.refreshLocale?.();
+      sortController.refreshLocale();
 
       expect(weaponBtn?.title).toContain('Perfect Iron Rune (20% increased Physical Damage)');
 
@@ -183,6 +187,7 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
       // --- 3. Switch to zh-CN ---
       setActiveDisplayLocale('zh-CN');
       normalizer.refreshLocale?.();
+      sortController.refreshLocale();
 
       expect(weaponBtn?.title).toContain('完美锻铁符文 (增加 20% 物理伤害)');
       const weaponOverrideCn = weaponRow.querySelector('[data-field="dps"] .poexd-inline-override');
@@ -193,6 +198,7 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
       expect(socketWarnCn?.innerHTML).toContain('打孔潜力');
 
       normalizer.cleanup();
+      sortController.cleanup();
     });
   });
 

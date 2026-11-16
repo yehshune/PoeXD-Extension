@@ -19,6 +19,7 @@ import { mountSidebarLayout } from './sidebar-layout';
 import { ResultPricePresenter } from './result-price-presenter';
 import { ResultModHighlighter } from './result-mod-highlighter';
 import { ResultItemNormalizer } from './result-item-normalizer';
+import { ResultSortController } from './result-sort-controller';
 import { ResultModQuickFilter } from './result-mod-quick-filter';
 import { ResultPobCopy } from './result-pob-copy';
 import { ResultExternalLinks } from './result-external-links';
@@ -78,7 +79,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   const cleanupToastHost = initToastHost(ctx);
   const pricePresenter = new ResultPricePresenter(version);
   const modHighlighter = new ResultModHighlighter();
-  const itemNormalizer = new ResultItemNormalizer(version, pricePresenter);
+  const sortController = new ResultSortController(version, pricePresenter);
+  const itemNormalizer = new ResultItemNormalizer(version, sortController);
   const modQuickFilter = new ResultModQuickFilter();
   const pobCopy = new ResultPobCopy(version);
   const externalLinks = new ResultExternalLinks(version, pobCopy);
@@ -90,6 +92,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     modQuickFilter,
     pobCopy,
     externalLinks,
+    sortController,
   );
   const filterEnhancements = createFilterDomEnhancements(version);
   let cleanupPageEvents: (() => void) | null = null;
@@ -111,6 +114,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     domFilter.cleanup();
     pricePresenter.cleanup();
     itemNormalizer.cleanup();
+    sortController.cleanup();
     modQuickFilter.cleanup();
     pobCopy.cleanup();
     externalLinks.cleanup();
@@ -170,11 +174,15 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       await pricePresenter.setEnabled(snapshot.enablePriceComparison);
       pricePresenter.refreshLocale?.();
       modHighlighter.setEnabled(snapshot.enableResultModHighlight);
-      itemNormalizer.setEnabled(
-        version === 'poe1' ? snapshot.enablePriceComparison : snapshot.enableItemNormalizer,
-      );
-      itemNormalizer.syncPriceSupport();
+      itemNormalizer.setEnabled(version === 'poe2' && snapshot.enableItemNormalizer);
       itemNormalizer.refreshLocale?.();
+      sortController.setEnabled(
+        version === 'poe1'
+          ? snapshot.enablePriceComparison
+          : snapshot.enableItemNormalizer || snapshot.enablePriceComparison,
+      );
+      sortController.syncSupport();
+      sortController.refreshLocale();
       modQuickFilter.setEnabled(snapshot.enableResultModQuickFilter);
       modQuickFilter.refreshLocale();
       pobCopy.setEnabled(snapshot.enableResultPobCopy);
@@ -205,6 +213,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     cleanupPageMode = watchTradePageMode((mode) => {
       pricePresenter.setPageMode(mode);
       itemNormalizer.setPageMode(mode);
+      sortController.setPageMode(mode);
       modQuickFilter.setPageMode(mode);
       domFilter.setPageMode(mode);
       filterEnhancements.setEditorEnabled(mode === 'search');
@@ -214,6 +223,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       version,
       pricePresenter,
       itemNormalizer,
+      sortController,
       pobCopy,
       externalLinks,
       filterEnhancements,
@@ -248,6 +258,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       domFilter.setPageRole(pageRole);
       pricePresenter.setPageRole(pageRole);
       itemNormalizer.setPageRole(pageRole);
+      sortController.setPageRole(pageRole);
       modQuickFilter.setPageRole(pageRole);
       domFilter.init();
       if (pageRole === 'live-search-primary') {
@@ -330,6 +341,7 @@ function registerPageContextEvents(
   version: PoeVersion,
   pricePresenter: ResultPricePresenter,
   itemNormalizer: ResultItemNormalizer,
+  sortController: ResultSortController,
   pobCopy: ResultPobCopy,
   externalLinks: ResultExternalLinks,
   filterEnhancements: FilterDomEnhancements,
@@ -341,7 +353,10 @@ function registerPageContextEvents(
       try {
         await Promise.all([
           pricePresenter.handleFetchResponse(detail, getTradeLeague()),
-          itemNormalizer.handleFetchResponse(detail),
+          (async () => {
+            await itemNormalizer.handleFetchResponse(detail);
+            sortController.handleFetchResponse(detail);
+          })(),
         ]);
         pobCopy.handleFetchResponse(detail);
         externalLinks.refresh();

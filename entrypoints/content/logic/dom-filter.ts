@@ -4,6 +4,7 @@ import type { TradePageRole } from '@/utils/live-search-contract';
 import type { ResultPricePresenter } from './result-price-presenter';
 import type { ResultModHighlighter } from './result-mod-highlighter';
 import type { ResultItemNormalizer } from './result-item-normalizer';
+import type { ResultSortController } from './result-sort-controller';
 import type { ResultModQuickFilter } from './result-mod-quick-filter';
 import type { ResultPobCopy } from './result-pob-copy';
 import type { ResultExternalLinks } from './result-external-links';
@@ -38,6 +39,7 @@ export class DomFilter {
     private readonly modQuickFilter?: ResultModQuickFilter,
     private readonly pobCopy?: ResultPobCopy,
     private readonly externalLinks?: ResultExternalLinks,
+    private readonly sortController?: ResultSortController,
   ) {}
 
   init() {
@@ -67,7 +69,7 @@ export class DomFilter {
       return;
     }
     const observer = new MutationObserver((mutations) => {
-      if (this.itemNormalizer?.isReordering) {
+      if (this.sortController?.isReordering) {
         return;
       }
       mutations.forEach((mutation) => {
@@ -75,7 +77,7 @@ export class DomFilter {
           return;
         }
         mutation.addedNodes.forEach((node) => {
-          if (this.itemNormalizer?.isRecentlyMovedRow?.(node)) return;
+          if (this.sortController?.isRecentlyMovedRow?.(node)) return;
           this.collectAddedNode(node);
         });
       });
@@ -148,7 +150,7 @@ export class DomFilter {
     this.pendingRoots.clear();
     this.pendingRows.clear();
     const isSearchNormal = this.pageMode === 'search' && this.pageRole !== 'live-search-primary';
-    roots.forEach((root) => this.applyTargetEnhancements(root, isSearchNormal, true));
+    roots.forEach((root) => this.applyTargetEnhancements(root, isSearchNormal, true, true));
     const unrootedRows = rows.filter((row) => !roots.some((root) => root.contains(row)));
     if (unrootedRows.length === 0) return;
 
@@ -156,21 +158,30 @@ export class DomFilter {
       isSearchNormal && typeof this.itemNormalizer?.applyBatch === 'function'
         ? this.itemNormalizer
         : undefined;
+    const batchSorter =
+      isSearchNormal && typeof this.sortController?.applyBatch === 'function'
+        ? this.sortController
+        : undefined;
     unrootedRows.forEach((row) =>
-      this.applyTargetEnhancements(row, isSearchNormal, !batchNormalizer),
+      this.applyTargetEnhancements(row, isSearchNormal, !batchNormalizer, !batchSorter),
     );
     batchNormalizer?.applyBatch(unrootedRows);
+    batchSorter?.applyBatch(unrootedRows);
   }
 
   private applyTargetEnhancements(
     target: Element,
     isSearchNormal: boolean,
     includeItemNormalizer: boolean,
+    includeSortController: boolean,
   ) {
     if (isSearchNormal) {
       this.pricePresenter?.apply(target);
       if (includeItemNormalizer) {
         this.itemNormalizer?.apply(target);
+      }
+      if (includeSortController) {
+        this.sortController?.apply(target);
       }
       this.modQuickFilter?.apply(target);
       this.pobCopy?.apply(target);

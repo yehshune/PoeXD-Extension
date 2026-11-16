@@ -332,6 +332,32 @@ export function parsePoeFetchResponse(detail: unknown): PoeFetchResponsePayload 
   }
 }
 
+export function getFetchSearchId(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  try {
+    const baseOrigin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : 'https://www.pathofexile.com';
+    return new URL(value, baseOrigin).searchParams.get('query') || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function parsePoeFetchResultBatch(
+  detail: unknown,
+): { searchId?: string; results: unknown[] } | undefined {
+  const payload = parsePoeFetchResponse(detail);
+  if (!payload) return undefined;
+  const rawResults = (payload.data as { result?: unknown } | undefined)?.result;
+  if (!Array.isArray(rawResults)) return undefined;
+  return {
+    searchId: getFetchSearchId(payload.url),
+    results: rawResults,
+  };
+}
+
 export function serializePoeSearchQueryObserved(payload: PoeSearchQueryObservedPayload): string {
   return JSON.stringify(payload);
 }

@@ -164,6 +164,10 @@ describe('DomFilter result lifecycle', () => {
     newRow.ownerResults = results;
 
     const itemNormalizer = {
+      apply: vi.fn(),
+      applyBatch: vi.fn(),
+    };
+    const sortController = {
       isReordering: false,
       isRecentlyMovedRow: vi.fn((node: unknown) => node === movedRow),
       apply: vi.fn(),
@@ -174,12 +178,17 @@ describe('DomFilter result lifecycle', () => {
       pricePresenter as any,
       highlighter as any,
       itemNormalizer as any,
+      undefined,
+      undefined,
+      undefined,
+      sortController as any,
     );
     filter.init();
     dom.flushFrame();
     highlighter.apply.mockClear();
     pricePresenter.apply.mockClear();
     itemNormalizer.applyBatch.mockClear();
+    sortController.applyBatch.mockClear();
 
     const bodyObserver = dom.observers.find((observer) => observer.target === dom.body);
     bodyObserver.callback([{ target: results, addedNodes: [movedRow, newRow] }]);
@@ -191,6 +200,8 @@ describe('DomFilter result lifecycle', () => {
     expect(highlighter.apply).toHaveBeenCalledWith(newRow);
     expect(itemNormalizer.applyBatch).toHaveBeenCalledTimes(1);
     expect(itemNormalizer.applyBatch).toHaveBeenCalledWith([newRow]);
+    expect(sortController.applyBatch).toHaveBeenCalledTimes(1);
+    expect(sortController.applyBatch).toHaveBeenCalledWith([newRow]);
     filter.cleanup();
   });
 });
