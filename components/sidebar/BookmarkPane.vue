@@ -350,6 +350,7 @@ import {
   withTradeSearchId,
 } from '@/utils/trade-search-identity';
 import { encodeQueryToGzipBase64Url } from '@/utils/trade-url-codec';
+import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
 import { syncFormToUrl } from '@/entrypoints/content/logic/form-url-sync';
 import {
   BOOKMARK_NAME_MAX_LENGTH,
@@ -1155,15 +1156,8 @@ export default defineComponent({
       if (!bm) return;
       const baseUrl = resolveOpenUrl(bm);
       if (!baseUrl) return;
-      let targetUrl = baseUrl;
-      if (payload.modifiedQuery) {
-        try {
-          const code = await encodeQueryToGzipBase64Url(payload.modifiedQuery);
-          targetUrl = withTradeSearchId(baseUrl, code) ?? baseUrl;
-        } catch {
-          return;
-        }
-      }
+      const targetUrl = await resolveTunedTradeSearchUrl(baseUrl, payload.modifiedQuery);
+      if (!targetUrl) return;
       if (payload.mode === 'current') window.location.href = targetUrl;
       else window.open(targetUrl, '_blank');
     };

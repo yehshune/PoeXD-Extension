@@ -268,4 +268,68 @@ describe('TradeSearchPreviewContent 詞綴群組卡片', () => {
     expect(rows[3].querySelector('.stat-domain-badge')?.textContent?.trim()).toBe('偽屬性');
     expect(rows[3].style.getPropertyValue('--pxd-stat-color')).toBe('var(--pxd-stat-pseudo)');
   });
+
+  it('微調導致 previewData 更新但 resetKey 未變時保留區段摺疊狀態，且未指定 status 仍可於 canTune 模式顯示狀態選單', async () => {
+    const { h, nextTick, ref } = await import('vue');
+    const baseData: TradeSearchPreviewData = {
+      loading: false,
+      gameVersion: 'poe2',
+      meta: { suggestedName: 'keep-collapse', stats: [], filters: [] },
+      criteria: {
+        statGroups: [{ type: 'and', filters: [{ id: 'explicit.stat_int' }] }],
+        fields: [],
+        sectionDisabled: {},
+      },
+    };
+    const resetKeyRef = ref<TradeSearchPreviewData>(baseData);
+    const previewRef = ref<TradeSearchPreviewData>(baseData);
+    const container = document.createElement('div');
+    app = createApp({
+      setup: () => () =>
+        h(TradeSearchPreviewContent, {
+          previewData: previewRef.value,
+          resetKey: resetKeyRef.value,
+          canTune: true,
+        }),
+    });
+    app.mount(container);
+
+    // 即使原始 criteria 沒有 status，canTune 時仍顯示未指定的狀態選擇列
+    expect(
+      container.querySelector('[data-test="preview-status-select"]')?.textContent?.trim(),
+    ).toBe('未指定');
+
+    // 先摺疊詞綴區段
+    const toggleBtn = container.querySelector<HTMLButtonElement>('.preview-section-toggle')!;
+    toggleBtn.click();
+    await nextTick();
+    expect(toggleBtn.getAttribute('aria-expanded')).toBe('false');
+
+    // 模擬微調後傳入新 previewData 物件，但 resetKey（原始預覽）未變
+    previewRef.value = {
+      ...baseData,
+      criteria: {
+        status: 'available',
+        statGroups: [{ type: 'and', filters: [{ id: 'explicit.stat_int', value: { min: 10 } }] }],
+        fields: [],
+        sectionDisabled: {},
+      },
+    };
+    await nextTick();
+    expect(container.querySelector('.preview-section-toggle')?.getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+
+    // 切換到新的 resetKey（新預覽目標）時恢復全部展開
+    const nextData: TradeSearchPreviewData = {
+      ...baseData,
+      meta: { suggestedName: 'other', stats: [], filters: [] },
+    };
+    resetKeyRef.value = nextData;
+    previewRef.value = nextData;
+    await nextTick();
+    expect(container.querySelector('.preview-section-toggle')?.getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+  });
 });

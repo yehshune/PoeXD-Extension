@@ -15,6 +15,7 @@
     >
       <TradeSearchPreviewContent
         :preview-data="effectivePreviewData"
+        :reset-key="previewData"
         :can-overlay="canOverlay"
         :can-undo="manager.canUndo.value"
         :overlay-busy="manager.busy.value"

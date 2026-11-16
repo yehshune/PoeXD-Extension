@@ -165,12 +165,8 @@ import { createChromeSearchRecordClient } from '@/utils/search-record-messaging'
 import type { HistoryEntry } from '@/utils/search-records';
 import { createHistoryDomainFeed } from './history-domain-feed';
 import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
-import {
-  isLegacyTradeSearchUrl,
-  stripLiveSuffix,
-  withTradeSearchId,
-} from '@/utils/trade-search-identity';
-import { encodeQueryToGzipBase64Url } from '@/utils/trade-url-codec';
+import { isLegacyTradeSearchUrl, stripLiveSuffix } from '@/utils/trade-search-identity';
+import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
 import { getPreferences } from '@/utils/preferences';
 import TradeSearchPreviewPopover from './search-preview/TradeSearchPreviewPopover.vue';
 import { DEFAULT_PREFERENCES, type SearchEntryClickAction } from '@/utils/preferences-contract';
@@ -240,15 +236,8 @@ export default defineComponent({
     }) => {
       const h = previewHistory.value;
       if (!h) return;
-      let targetUrl = h.url;
-      if (payload.modifiedQuery) {
-        try {
-          const code = await encodeQueryToGzipBase64Url(payload.modifiedQuery);
-          targetUrl = withTradeSearchId(h.url, code) ?? h.url;
-        } catch {
-          return;
-        }
-      }
+      const targetUrl = await resolveTunedTradeSearchUrl(h.url, payload.modifiedQuery);
+      if (!targetUrl) return;
       if (payload.mode === 'current') openHistory(targetUrl);
       else openHistoryNewTab(targetUrl);
     };

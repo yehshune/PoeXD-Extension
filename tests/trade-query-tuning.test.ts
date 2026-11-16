@@ -4,6 +4,7 @@ import {
   cloneTradeQuery,
   isGroupValueEditable,
   isNumericStatFilter,
+  resolveTunedTradeSearchUrl,
   setTradeQueryStatus,
   setTradeStatFilterBound,
   setTradeStatFilterDisabled,
@@ -82,8 +83,18 @@ describe('trade-query-tuning', () => {
     expect(isGroupValueEditable('weight2')).toBe(true);
     expect(isGroupValueEditable('and')).toBe(false);
 
-    expect(isNumericStatFilter({ id: 'a', value: { min: 10 } })).toBe(true);
-    expect(isNumericStatFilter({ id: 'b', value: { option: 123 } })).toBe(false);
-    expect(isNumericStatFilter({ id: 'c' })).toBe(true);
+    expect(isNumericStatFilter({ value: { min: 10 } })).toBe(true);
+    expect(isNumericStatFilter({ value: { option: 123 } })).toBe(false);
+    expect(isNumericStatFilter({})).toBe(true);
+  });
+
+  it('resolveTunedTradeSearchUrl 在無修改時保留原網址，有修改時覆寫 gzip 搜尋碼', async () => {
+    const baseUrl = 'https://www.pathofexile.com/trade/search/Standard/H4sIAAAAAAAACqtWykxRsjI0AAA';
+    expect(await resolveTunedTradeSearchUrl(baseUrl, null)).toBe(baseUrl);
+
+    const tunedUrl = await resolveTunedTradeSearchUrl(baseUrl, { status: { option: 'online' } });
+    expect(tunedUrl).not.toBeNull();
+    expect(tunedUrl).not.toBe(baseUrl);
+    expect(tunedUrl).toContain('https://www.pathofexile.com/trade/search/Standard/');
   });
 });

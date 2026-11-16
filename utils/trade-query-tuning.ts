@@ -1,4 +1,6 @@
 import { normalizeStatFilter, type CriteriaOverlayStatFilter } from './criteria-overlay';
+import { withTradeSearchId } from './trade-search-identity';
+import { encodeQueryToGzipBase64Url } from './trade-url-codec';
 
 const EDITABLE_GROUP_TYPES = new Set(['count', 'weight', 'weight2']);
 
@@ -38,10 +40,22 @@ export function isGroupValueEditable(groupType: string): boolean {
   return EDITABLE_GROUP_TYPES.has(groupType);
 }
 
-export function isNumericStatFilter(
-  filter: Pick<CriteriaOverlayStatFilter, 'value'> & { id?: string },
-): boolean {
+export function isNumericStatFilter(filter: Pick<CriteriaOverlayStatFilter, 'value'>): boolean {
   return filter.value?.option === undefined;
+}
+
+/** 將微調後的查詢重新編碼寫入搜尋網址；無修改時直接回傳原網址，編碼失敗則回傳 null。 */
+export async function resolveTunedTradeSearchUrl(
+  baseUrl: string,
+  modifiedQuery: Record<string, unknown> | null,
+): Promise<string | null> {
+  if (!modifiedQuery) return baseUrl;
+  try {
+    const code = await encodeQueryToGzipBase64Url(modifiedQuery);
+    return withTradeSearchId(baseUrl, code) ?? baseUrl;
+  } catch {
+    return null;
+  }
 }
 
 /** 對齊 `criteriaFromTradeQuery` 略過無效／空群組後的索引，找出在 `root.stats` 裡的實際群組。 */

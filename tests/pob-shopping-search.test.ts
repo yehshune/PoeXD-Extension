@@ -5,10 +5,14 @@ import {
   applyEntrySelection,
   buildEntryQuery,
   buildShoppingList,
+  cloneEntrySearchSelection,
   createTradeNameCatalog,
   defaultStatBounds,
   entryStatFilters,
+  isSelectionDraftModified,
+  normalizeSelectionForEntry,
   pseudoContributions,
+  selectionFromRowState,
   type ShoppingEntry,
 } from '@/utils/pob-shopping-list';
 import { createStatMatcher } from '@/utils/pob-stat-matcher';
@@ -433,5 +437,61 @@ describe('使用者調整搜尋條件', () => {
       buildEntryQuery(ring, { stats: { 'explicit.stat_3299347043': { enabled: false } } }),
     );
     expect(applyEntrySelection(ring, undefined)).toBe(ring);
+  });
+
+  it('cloneEntrySearchSelection / selectionFromRowState / normalizeSelectionForEntry / isSelectionDraftModified 處理草稿與預設比較', () => {
+    const original = {
+      stats: { 'explicit.stat_3299347043': { enabled: false, min: 100 } },
+      countMin: 2,
+      pseudo: true as const,
+    };
+    const cloned = cloneEntrySearchSelection(original);
+    expect(cloned).toEqual(original);
+    expect(cloned).not.toBe(original);
+    expect(cloned.stats).not.toBe(original.stats);
+
+    const baseFilters = entryStatFilters(ring);
+    const derived = selectionFromRowState({
+      mods: ring.mods,
+      searchBase: ring.searchBase,
+      filters: baseFilters.map((f) =>
+        f.id === 'explicit.stat_3299347043' ? { ...f, min: 105, customized: true } : f,
+      ),
+      countMin: 1,
+      pseudo: false,
+    });
+    expect(derived).toEqual({
+      stats: { 'explicit.stat_3299347043': { min: 105 } },
+      countMin: 1,
+    });
+
+    // 等於預設值的邊界與未啟用 pseudo 在 normalize 時會被精簡；全部回到預設則為 undefined
+    expect(
+      normalizeSelectionForEntry(ring, {
+        stats: { 'explicit.stat_3299347043': { enabled: true, min: 91 } },
+      }),
+    ).toBeUndefined();
+    expect(
+      normalizeSelectionForEntry(ring, {
+        stats: { 'explicit.stat_3299347043': { min: 91 }, 'explicit.stat_3372524247': { min: 50 } },
+        pseudo: true,
+      }),
+    ).toEqual({
+      stats: { 'explicit.stat_3372524247': { min: 50 } },
+      pseudo: true,
+    });
+
+    expect(
+      isSelectionDraftModified(
+        { filters: baseFilters, countMin: undefined, pseudo: false },
+        { filters: baseFilters, countMin: undefined, pseudo: false },
+      ),
+    ).toBe(false);
+    expect(
+      isSelectionDraftModified(
+        { filters: baseFilters, countMin: undefined, pseudo: false },
+        { filters: baseFilters, countMin: 2, pseudo: false },
+      ),
+    ).toBe(true);
   });
 });

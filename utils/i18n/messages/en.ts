@@ -1005,7 +1005,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'searchPreview.action.overwriteBookmarkTitle': 'Save these tuned criteria back to this bookmark',
   'searchPreview.action.resetTune': 'Reset',
   'searchPreview.action.resetTuneTitle': 'Reset to original criteria',
-  'searchPreview.label.tuned': 'Tuned',
+  'searchPreview.statusUnset': 'Not specified',
   'statGroupTemplate.empty.noMatch': 'No stat templates matching "{query}"',
   'statGroupTemplate.action.preview': 'Preview stat template',
   'statGroupTemplate.action.overlayTitle':

@@ -943,7 +943,7 @@ export const ZH_TW_MESSAGES = {
   'searchPreview.action.overwriteBookmarkTitle': '將目前微調後的條件覆蓋儲存回此書籤',
   'searchPreview.action.resetTune': '還原',
   'searchPreview.action.resetTuneTitle': '還原為原本的搜尋條件',
-  'searchPreview.label.tuned': '已微調',
+  'searchPreview.statusUnset': '未指定',
   'statGroupTemplate.empty.noMatch': '找不到符合「{query}」的常用詞綴群組',
   'statGroupTemplate.action.preview': '預覽詞綴群組',
   'statGroupTemplate.action.overlayTitle': '把這筆的所有詞綴群組加到目前搜尋',

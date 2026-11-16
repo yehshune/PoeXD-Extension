@@ -197,7 +197,7 @@
         </div>
 
         <div
-          v-if="criteria?.status"
+          v-if="criteria && (criteria.status || canTune)"
           class="preview-section preview-status flex items-center justify-between gap-[var(--pxd-space-md)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)]"
         >
           <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
@@ -206,11 +206,15 @@
             }}</span>
             <Select
               v-if="canTune"
-              :model-value="criteria.status"
+              :model-value="criteria.status || undefined"
               @update:model-value="(val) => emit('set-status', String(val))"
             >
               <SelectTrigger size="sm" class="min-w-0 flex-1" data-test="preview-status-select">
-                <SelectValue>{{ STATUS_LABELS[criteria.status] ?? criteria.status }}</SelectValue>
+                <SelectValue>{{
+                  criteria.status
+                    ? (STATUS_LABELS[criteria.status] ?? criteria.status)
+                    : t('searchPreview.statusUnset')
+                }}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="option in statusOptions" :key="option" :value="option">
@@ -218,12 +222,12 @@
                 </SelectItem>
               </SelectContent>
             </Select>
-            <span v-else class="text-foreground">{{
+            <span v-else-if="criteria.status" class="text-foreground">{{
               STATUS_LABELS[criteria.status] ?? criteria.status
             }}</span>
           </div>
           <button
-            v-if="canOverlay"
+            v-if="canOverlay && criteria.status"
             type="button"
             :class="overlayIconClass"
             data-test="preview-overlay-status"
@@ -357,37 +361,37 @@
                 </button>
               </div>
               <div
-                v-for="(f, idx) in group.filters"
+                v-for="(item, idx) in displayedStatGroups[groupIndex].rows"
                 :key="idx"
                 class="preview-stat-row"
-                :class="[rowClass, f.disabled ? 'opacity-60' : '']"
-                :data-stat-domain="describeStatRow(f.id).domain"
-                :style="describeStatRow(f.id).style"
+                :class="[rowClass, item.filter.disabled ? 'opacity-60' : '']"
+                :data-stat-domain="item.display.domain"
+                :style="item.display.style"
               >
                 <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
                   <Checkbox
                     v-if="canTune"
                     data-test="preview-stat-toggle"
-                    :model-value="!f.disabled"
+                    :model-value="!item.filter.disabled"
                     :disabled="Boolean(group.disabled)"
-                    :aria-label="statLines(f.id).join(' ')"
+                    :aria-label="item.display.ariaLabel"
                     @update:model-value="
                       (val) => emit('set-stat-filter-disabled', groupIndex, idx, val !== true)
                     "
                   />
                   <span
-                    v-if="describeStatRow(f.id).badgeLabel"
+                    v-if="item.display.badgeLabel"
                     :class="['stat-domain-badge', STAT_DOMAIN_BADGE_CLASS]"
-                    :data-stat-domain="describeStatRow(f.id).domain"
-                    >{{ describeStatRow(f.id).badgeLabel }}</span
+                    :data-stat-domain="item.display.domain"
+                    >{{ item.display.badgeLabel }}</span
                   >
                   <span
                     class="stat-name flex min-w-0 flex-1 flex-col"
-                    :class="describeStatRow(f.id).textClass"
-                    :title="f.id"
+                    :class="item.display.textClass"
+                    :title="item.filter.id"
                   >
                     <span
-                      v-for="(line, lineIndex) in statLines(f.id)"
+                      v-for="(line, lineIndex) in item.display.lines"
                       :key="lineIndex"
                       class="stat-line truncate"
                       >{{ line }}</span
@@ -395,7 +399,7 @@
                   </span>
                 </div>
                 <span
-                  v-if="canTune && isNumericStatFilter(f)"
+                  v-if="canTune && isNumericStatFilter(item.filter)"
                   class="inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)]"
                 >
                   <input
@@ -404,9 +408,9 @@
                     step="any"
                     data-test="preview-stat-min"
                     :class="statBoundInputClass"
-                    :value="boundInputValue(f.value?.min)"
+                    :value="boundInputValue(item.filter.value?.min)"
                     :placeholder="t('tierDropdown.minPlaceholder')"
-                    :disabled="Boolean(f.disabled || group.disabled)"
+                    :disabled="Boolean(item.filter.disabled || group.disabled)"
                     :aria-label="t('tierDropdown.minPlaceholder')"
                     @change="
                       (e) =>
@@ -420,9 +424,9 @@
                     step="any"
                     data-test="preview-stat-max"
                     :class="statBoundInputClass"
-                    :value="boundInputValue(f.value?.max)"
+                    :value="boundInputValue(item.filter.value?.max)"
                     :placeholder="t('tierDropdown.maxPlaceholder')"
-                    :disabled="Boolean(f.disabled || group.disabled)"
+                    :disabled="Boolean(item.filter.disabled || group.disabled)"
                     :aria-label="t('tierDropdown.maxPlaceholder')"
                     @change="
                       (e) =>
@@ -432,10 +436,10 @@
                   />
                 </span>
                 <span
-                  v-else-if="rangeText(f.value)"
+                  v-else-if="rangeText(item.filter.value)"
                   class="stat-range shrink-0 font-mono text-foreground"
                 >
-                  {{ rangeText(f.value) }}
+                  {{ rangeText(item.filter.value) }}
                 </span>
               </div>
             </div>
@@ -446,27 +450,27 @@
             class="preview-stats-list overflow-hidden rounded-md border border-border"
           >
             <div
-              v-for="(s, idx) in stats"
+              v-for="(item, idx) in displayedStats"
               :key="idx"
               class="preview-stat-row"
               :class="rowClass"
-              :data-stat-domain="describeStatRow(s.id).domain"
-              :style="describeStatRow(s.id).style"
+              :data-stat-domain="item.display.domain"
+              :style="item.display.style"
             >
               <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
                 <span
-                  v-if="describeStatRow(s.id).badgeLabel"
+                  v-if="item.display.badgeLabel"
                   :class="['stat-domain-badge', STAT_DOMAIN_BADGE_CLASS]"
-                  :data-stat-domain="describeStatRow(s.id).domain"
-                  >{{ describeStatRow(s.id).badgeLabel }}</span
+                  :data-stat-domain="item.display.domain"
+                  >{{ item.display.badgeLabel }}</span
                 >
                 <span
                   class="stat-name flex min-w-0 flex-1 flex-col"
-                  :class="describeStatRow(s.id).textClass"
-                  :title="s.id"
+                  :class="item.display.textClass"
+                  :title="item.stat.id"
                 >
                   <span
-                    v-for="(line, lineIndex) in statLines(s.id)"
+                    v-for="(line, lineIndex) in item.display.lines"
                     :key="lineIndex"
                     class="stat-line truncate"
                     >{{ line }}</span
@@ -474,11 +478,11 @@
                 </span>
               </div>
               <span
-                v-if="s.min !== undefined || s.max !== undefined"
+                v-if="item.stat.min !== undefined || item.stat.max !== undefined"
                 class="stat-range shrink-0 font-mono text-foreground"
               >
-                {{ s.min !== undefined ? '≥' + s.min : ''
-                }}{{ s.max !== undefined ? ' ≤' + s.max : '' }}
+                {{ item.stat.min !== undefined ? '≥' + item.stat.min : ''
+                }}{{ item.stat.max !== undefined ? ' ≤' + item.stat.max : '' }}
               </span>
             </div>
           </div>
@@ -596,6 +600,11 @@ const props = defineProps({
   previewData: {
     type: Object as PropType<TradeSearchPreviewData | null>,
     default: null,
+  },
+  /** 用於區分「切換新搜尋目標」與「暫存微調 criteria 更新」的重置鍵；省略時跟隨 previewData。 */
+  resetKey: {
+    type: [Object, String, Number] as PropType<TradeSearchPreviewData | string | number | null>,
+    default: undefined,
   },
   /** 目前頁面有官方搜尋表單時才可疊加（見 CONTEXT.md「Criteria Overlay」）。 */
   canOverlay: {
@@ -730,20 +739,37 @@ function groupTypeLabel(group: CriteriaOverlayStatGroup): string {
   return STAT_GROUP_TYPE_LABELS[group.type] ?? group.type;
 }
 
-function statLines(statId: string): string[] {
-  return translateStatLines(statId, props.previewData?.gameVersion);
-}
-
 function describeStatRow(statId: string) {
+  const version = props.previewData?.gameVersion;
   const domain = extractStatDomain(statId);
   const showBadge = shouldShowStatDomainBadge(domain);
+  const lines = translateStatLines(statId, version);
   return {
     domain: domain ?? undefined,
-    badgeLabel: showBadge ? getStatDomainLabel(domain, props.previewData?.gameVersion) : null,
+    badgeLabel: showBadge ? getStatDomainLabel(domain, version) : null,
     style: getStatDomainStyle(domain),
     textClass: showBadge ? 'pxd-stat-domain-text' : 'text-foreground',
+    lines,
+    ariaLabel: lines.join(' '),
   };
 }
+
+const displayedStatGroups = computed(() =>
+  statGroups.value.map((group) => ({
+    group,
+    rows: group.filters.map((filter) => ({
+      filter,
+      display: describeStatRow(filter.id),
+    })),
+  })),
+);
+
+const displayedStats = computed(() =>
+  stats.value.map((stat) => ({
+    stat,
+    display: describeStatRow(stat.id),
+  })),
+);
 
 interface DisplayedFilterGroup {
   key: string;
@@ -815,9 +841,9 @@ function lockHeight(): void {
   if (height > 0) lockedHeight.value = height;
 }
 
-// 切換預覽的搜尋時一律回到全部展開
+// 切換預覽的搜尋目標時才重設摺疊與鎖定高度（暫存微調／還原僅換掉 criteria 時保留現狀）
 watch(
-  () => props.previewData,
+  () => (props.resetKey !== undefined ? props.resetKey : props.previewData),
   () => {
     collapsedKeys.value = new Set();
     lockedHeight.value = null;

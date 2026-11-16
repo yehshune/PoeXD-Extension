@@ -591,6 +591,24 @@ describe('PobBuildPane', () => {
     expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
   });
 
+  it('searchOverride 為 true 時禁用 Popover 內的詞綴勾選、數值輸入與條件模式', async () => {
+    const build = sampleBuild();
+    build.groups[0].rows[1].searchOverride = true;
+    buildsRef.value = [build];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+
+    expect(queryBody('[data-pob-build-override-notice]')).not.toBeNull();
+    const toggles = queryAllBody('[data-pob-build-mod-toggle]');
+    for (const toggle of toggles) expect(toggle.hasAttribute('disabled')).toBe(true);
+    const bounds = queryAllBody('[data-pob-build-mod-bound]') as HTMLInputElement[];
+    for (const bound of bounds) expect(bound.disabled).toBe(true);
+    expect(queryBody('[data-pob-build-count-mode]')?.hasAttribute('disabled')).toBe(true);
+    expect(queryBody<HTMLInputElement>('[data-pob-build-count-min]')?.disabled).toBe(true);
+    expect(queryBody('[data-pob-build-pseudo]')?.hasAttribute('disabled')).toBe(true);
+  });
+
   it('預覽 Popover 列出詞綴並標出有帶入搜尋條件的那幾行，再次點按鈕可關閉', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();

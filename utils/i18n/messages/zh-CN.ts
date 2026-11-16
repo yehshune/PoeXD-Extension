@@ -945,7 +945,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'searchPreview.action.overwriteBookmarkTitle': '将当前微调后的条件覆盖保存回此书签',
   'searchPreview.action.resetTune': '还原',
   'searchPreview.action.resetTuneTitle': '还原为原本的搜索条件',
-  'searchPreview.label.tuned': '已微调',
+  'searchPreview.statusUnset': '未指定',
   'statGroupTemplate.empty.noMatch': '找不到符合“{query}”的常用词缀分组',
   'statGroupTemplate.action.preview': '预览词缀分组',
   'statGroupTemplate.action.overlayTitle': '把这笔的所有词缀分组加到当前搜索',

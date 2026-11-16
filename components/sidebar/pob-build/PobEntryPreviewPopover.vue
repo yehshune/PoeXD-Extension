@@ -73,12 +73,9 @@ const anchorReference = computed(() => props.reference ?? undefined);
 /** Popover 內的暫存微調草稿；未微調為 null，關閉或切換項目時清空，不自動寫入儲存。 */
 const draftSelection = ref<EntrySearchSelection | null>(null);
 
-watch(
-  () => [props.open, props.buildId, props.row?.key] as const,
-  () => {
-    draftSelection.value = null;
-  },
-);
+watch([() => props.open, () => props.buildId, () => props.row?.key], () => {
+  draftSelection.value = null;
+});
 
 const effectiveRow = computed<ShoppingRow | null>(() => {
   const row = props.row;
@@ -444,6 +441,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                 v-if="line.mod.stat"
                 data-pob-build-mod-toggle
                 :model-value="line.mod.searched"
+                :disabled="effectiveRow.searchOverride"
                 :aria-label="t('pobBuild.mods.statAria', { text: line.mod.text })"
                 @update:model-value="(value) => setStatEnabled(line.mod.stat!.id, value === true)"
               />
@@ -471,7 +469,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                   :data-bound="line.editor.bound"
                   :class="[boundInputBaseClass, 'w-[calc(var(--control-height-sm)*2.25)] shrink-0']"
                   :value="line.editor.value ?? ''"
-                  :disabled="!line.mod.searched"
+                  :disabled="!line.mod.searched || effectiveRow.searchOverride"
                   :aria-label="
                     t(
                       line.editor.bound === 'min'
@@ -490,12 +488,14 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
           <div
             v-if="effectiveRow.filters.length > 0"
             class="mt-[var(--pxd-space-xs)] flex flex-wrap items-center gap-x-[var(--pxd-space-lg)] gap-y-[var(--pxd-space-sm)] rounded-md border border-border bg-muted/30 px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+            :class="{ 'opacity-60': effectiveRow.searchOverride }"
           >
             <span class="inline-flex items-center gap-[var(--pxd-space-xs)]">
               <Checkbox
                 :id="controlId('count')"
                 data-pob-build-count-mode
                 :model-value="effectiveRow.countMin !== undefined"
+                :disabled="effectiveRow.searchOverride"
                 @update:model-value="(value) => toggleCountMode(value === true)"
               />
               <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->
@@ -515,6 +515,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                 data-pob-build-count-min
                 :class="[boundInputBaseClass, 'w-[calc(var(--control-height-sm)*1.6)]']"
                 :value="effectiveRow.countMin"
+                :disabled="effectiveRow.searchOverride"
                 :aria-label="t('pobBuild.mods.countAria')"
                 @change="commitCountMin($event)"
                 @keydown.enter.prevent="blurTarget"
@@ -526,6 +527,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                 :id="controlId('pseudo')"
                 data-pob-build-pseudo
                 :model-value="effectiveRow.pseudo"
+                :disabled="effectiveRow.searchOverride"
                 @update:model-value="(value) => setPseudo(value === true)"
               />
               <label :for="controlId('pseudo')" class="cursor-pointer">{{
