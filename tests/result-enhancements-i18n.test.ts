@@ -123,6 +123,8 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
         '.poexd-sort-popover .poexd-popover-item span',
       );
       const sortPopTexts = Array.from(sortPopItems || []).map((el) => el.textContent);
+      expect(sortPopTexts).toContain('換算價格 (低 ➔ 高)');
+      expect(sortPopTexts).toContain('換算價格 (高 ➔ 低)');
       expect(sortPopTexts).toContain('覆寫 DPS (高 ➔ 低)');
       expect(sortPopTexts).toContain('覆寫總防禦 (高 ➔ 低)');
       expect(sortPopTexts).toContain('覆寫護甲 (高 ➔ 低)');
@@ -159,6 +161,8 @@ describe('Seam 3: PoE 2 Rune Normalizer (`result-item-normalizer.ts`) & Price Co
       const sortPopTextsEn = Array.from(
         controls?.querySelectorAll('.poexd-sort-popover .poexd-popover-item span') || [],
       ).map((el) => el.textContent);
+      expect(sortPopTextsEn).toContain('Converted Price (Low ➔ High)');
+      expect(sortPopTextsEn).toContain('Converted Price (High ➔ Low)');
       expect(sortPopTextsEn).toContain('Override DPS (High ➔ Low)');
       expect(sortPopTextsEn).toContain('Override Armour (High ➔ Low)');
       expect(sortPopTextsEn).toContain('Override Evasion (High ➔ Low)');

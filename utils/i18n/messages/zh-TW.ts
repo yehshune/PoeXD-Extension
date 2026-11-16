@@ -418,6 +418,8 @@ export const ZH_TW_MESSAGES = {
   'normalizer.rune.def_18': '高階鍛鐵符文 (增加 18% 護甲值、閃避和能量護盾)',
   'normalizer.rune.none': '無符文 (純淨底)',
   'normalizer.sort.default': '官方原始順序',
+  'normalizer.sort.price_asc': '換算價格 (低 ➔ 高)',
+  'normalizer.sort.price_desc': '換算價格 (高 ➔ 低)',
   'normalizer.sort.potential_dps': '覆寫 DPS (高 ➔ 低)',
   'normalizer.sort.potential_pdps': '覆寫物理 DPS (高 ➔ 低)',
   'normalizer.sort.potential_edps': '覆寫元素 DPS (高 ➔ 低)',

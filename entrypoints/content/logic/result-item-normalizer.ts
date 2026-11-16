@@ -12,7 +12,11 @@ import {
   type ArmourRuneConfig,
 } from '@/utils/poe2-item-normalizer';
 import type { PoeVersion } from '@/utils/trade-context';
-import { getTradePageMode, type TradePageMode } from '@/utils/trade-page-mode';
+import {
+  getTradePageMode,
+  isLiveOrConsoleTradePage,
+  type TradePageMode,
+} from '@/utils/trade-page-mode';
 import type { TradePageRole } from '@/utils/live-search-contract';
 import { parsePoeFetchResponse } from '@/utils/event-contracts';
 import type { ResultPricePresenter } from './result-price-presenter';
@@ -20,6 +24,8 @@ import { t, getActiveUiLocale, type I18nKey } from '@/utils/i18n';
 
 export type SortMode =
   | 'default'
+  | 'price_asc'
+  | 'price_desc'
   | 'potential_dps'
   | 'potential_pdps'
   | 'potential_edps'
@@ -28,6 +34,14 @@ export type SortMode =
   | 'potential_evasion'
   | 'potential_es'
   | 'cp_ratio';
+
+function isPurePriceSortMode(mode: SortMode): mode is 'price_asc' | 'price_desc' {
+  return mode === 'price_asc' || mode === 'price_desc';
+}
+
+function isPriceDependentSortMode(mode: SortMode): boolean {
+  return isPurePriceSortMode(mode) || mode === 'cp_ratio';
+}
 
 const ICON_SVG_ATTRS = {
   width: '15',
@@ -107,12 +121,20 @@ function getArmourRuneOptions(): Array<{
   ];
 }
 
-function getSortModeOptions(): Array<{
+function getSortModeOptions(version: PoeVersion): Array<{
   key: SortMode;
   label: string;
 }> {
-  return [
+  const base: Array<{ key: SortMode; label: string }> = [
     { key: 'default', label: t('normalizer.sort.default') },
+    { key: 'price_asc', label: t('normalizer.sort.price_asc') },
+    { key: 'price_desc', label: t('normalizer.sort.price_desc') },
+  ];
+  if (version === 'poe1') {
+    return base;
+  }
+  return [
+    ...base,
     { key: 'potential_dps', label: t('normalizer.sort.potential_dps') },
     { key: 'potential_pdps', label: t('normalizer.sort.potential_pdps') },
     { key: 'potential_edps', label: t('normalizer.sort.potential_edps') },
@@ -150,42 +172,45 @@ export class ResultItemNormalizer {
   private originalOrder: string[] = [];
   private runeConfig: RuneSubstitutionConfig = { ...DEFAULT_RUNE_CONFIG };
   private sortMode: SortMode = 'default';
+  private unsubRates?: () => void;
+  private suppressDomObserver = false;
   public isReordering = false;
 
   constructor(
     private readonly version: PoeVersion,
     private readonly pricePresenter?: ResultPricePresenter,
-  ) {}
+  ) {
+    if (typeof pricePresenter?.onRatesUpdated === 'function') {
+      this.unsubRates = pricePresenter.onRatesUpdated(() => this.handleRatesUpdated());
+    }
+  }
+
+  public isMutatingResultOrder(): boolean {
+    return this.isReordering || this.suppressDomObserver;
+  }
 
   public isLiveOrConsole(): boolean {
-    if (this.pageMode === 'live' || this.pageRole === 'live-search-primary') {
-      return true;
+    return isLiveOrConsoleTradePage(this.pageMode, this.pageRole);
+  }
+
+  private isFeatureActive(): boolean {
+    if (!this.enabled || this.isLiveOrConsole()) return false;
+    if (this.version === 'poe1') {
+      return Boolean(this.pricePresenter?.isEnabled());
     }
-    if (typeof window !== 'undefined') {
-      const pathname = (window.location?.pathname || '').toLowerCase();
-      if (
-        pathname
-          .split('/')
-          .filter(Boolean)
-          .some((p) => p === 'live')
-      ) {
-        return true;
-      }
+    return true;
+  }
+
+  private handleRatesUpdated() {
+    if (!this.isFeatureActive() || !isPriceDependentSortMode(this.sortMode)) return;
+    const root = typeof document !== 'undefined' ? document.querySelector('.results') : null;
+    if (root) {
+      this.reorderDomRows(root);
     }
-    if (typeof document !== 'undefined') {
-      if (
-        document.body?.getAttribute('data-poexd-page-role') === 'live-search-primary' ||
-        document.body?.classList.contains('live-search-primary') ||
-        document.querySelector('.live-search-primary, [data-console-host]')
-      ) {
-        return true;
-      }
-    }
-    return false;
   }
 
   async handleFetchResponse(detail: string) {
-    if (this.version !== 'poe2' || this.isLiveOrConsole()) return;
+    if (this.isLiveOrConsole()) return;
     const eventData = parsePoeFetchResponse(detail);
     if (!eventData) return;
     const data = eventData.data;
@@ -207,53 +232,82 @@ export class ResultItemNormalizer {
     results.forEach((res) => {
       if (!res || typeof res !== 'object') return;
       const { id, item } = res as { id?: string; item?: RawPoeItem };
-      if (typeof id === 'string' && item) {
-        this.rawItemsMap[id] = item;
+      if (typeof id === 'string') {
         if (!this.originalOrder.includes(id)) {
           this.originalOrder.push(id);
+        }
+        if (this.version === 'poe2' && item) {
+          this.rawItemsMap[id] = item;
         }
       }
     });
 
-    const itemsMap = createResultNormalizedItems(results, this.runeConfig);
-    Object.assign(this.normalizedMap, itemsMap);
+    if (this.version === 'poe2') {
+      const itemsMap = createResultNormalizedItems(results, this.runeConfig);
+      Object.assign(this.normalizedMap, itemsMap);
+    }
 
     const root = document.querySelector('.results');
-    if (root && this.enabled) {
+    if (root && this.isFeatureActive()) {
       this.apply(root);
     }
   }
 
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
-    if (!enabled || this.isLiveOrConsole()) {
-      removeInjectedElements();
+    if (!this.isFeatureActive()) {
       const root = document.querySelector('.results');
       if (root) this.restoreOriginalDomOrder(root);
+      removeInjectedElements();
       return;
     }
     const root = document.querySelector('.results');
     if (root) this.apply(root);
   }
 
+  syncPriceSupport() {
+    if (!this.isFeatureActive()) {
+      const root = typeof document !== 'undefined' ? document.querySelector('.results') : null;
+      if (root) this.restoreOriginalDomOrder(root);
+      removeInjectedElements();
+      return;
+    }
+
+    if (
+      this.pricePresenter &&
+      !this.pricePresenter.isEnabled() &&
+      isPriceDependentSortMode(this.sortMode)
+    ) {
+      this.restoreOriginalDomOrder();
+    }
+
+    this.updateControlsState();
+    const root = typeof document !== 'undefined' ? document.querySelector('.results') : null;
+    if (root) this.apply(root);
+  }
+
   private restoreOriginalDomOrder(container?: Element | null) {
     const root =
       container || (typeof document !== 'undefined' ? document.querySelector('.results') : null);
-    if (!root) return;
     this.sortMode = 'default';
+    if (!root) return;
     this.reorderDomRows(root);
+  }
+
+  private resetForLiveOrConsole() {
+    this.restoreOriginalDomOrder();
+    removeInjectedElements();
+    this.activeSearchId = undefined;
+    this.rawItemsMap = {};
+    this.normalizedMap = {};
+    this.originalOrder = [];
   }
 
   setPageRole(role: TradePageRole) {
     if (role === this.pageRole) return;
     this.pageRole = role;
     if (this.isLiveOrConsole()) {
-      this.activeSearchId = undefined;
-      this.rawItemsMap = {};
-      this.normalizedMap = {};
-      this.originalOrder = [];
-      removeInjectedElements();
-      this.restoreOriginalDomOrder();
+      this.resetForLiveOrConsole();
     }
   }
 
@@ -261,18 +315,14 @@ export class ResultItemNormalizer {
     if (mode === this.pageMode) return;
     this.pageMode = mode;
     if (this.isLiveOrConsole()) {
-      this.activeSearchId = undefined;
-      this.rawItemsMap = {};
-      this.normalizedMap = {};
-      this.originalOrder = [];
-      removeInjectedElements();
-      this.restoreOriginalDomOrder();
+      this.resetForLiveOrConsole();
     }
   }
 
   private hasRegisteredGlobalClick = false;
 
   setRuneConfig(config: Partial<RuneSubstitutionConfig>) {
+    if (this.version !== 'poe2') return;
     this.runeConfig = { ...this.runeConfig, ...config };
     this.updateControlsState();
     // 重新以新符文設定計算所有裝備 (全域統一控制全部符文石)
@@ -281,44 +331,45 @@ export class ResultItemNormalizer {
       if (stats) this.normalizedMap[id] = stats;
     }
     const root = document.querySelector('.results');
-    if (root && this.enabled) {
+    if (root && this.isFeatureActive()) {
       this.apply(root);
     }
   }
 
   setSortMode(mode: SortMode) {
-    if (mode === 'cp_ratio' && (!this.pricePresenter || !this.pricePresenter.isEnabled())) {
+    if (!this.isFeatureActive()) return;
+    if (
+      isPriceDependentSortMode(mode) &&
+      (!this.pricePresenter || !this.pricePresenter.isEnabled())
+    ) {
+      return;
+    }
+    if (this.version === 'poe1' && mode !== 'default' && !isPurePriceSortMode(mode)) {
       return;
     }
     this.sortMode = mode;
     this.updateControlsState();
     const root = document.querySelector('.results');
-    if (root && this.enabled) {
+    if (root) {
       this.reorderDomRows(root);
     }
   }
 
   apply(container: Element) {
-    if (this.version !== 'poe2' || !this.enabled || this.isLiveOrConsole() || this.isReordering) {
+    if (!this.isFeatureActive() || this.isReordering) {
       if (this.isLiveOrConsole()) {
         removeInjectedElements();
       }
       return;
     }
 
-    // 1. 確保官方 row-total 左側注入 3 顆 30px 圖標按鈕
+    // 1. 確保官方 row-total 左側注入控制按鈕組（PoE 2 三鈕 / PoE 1 單排序鈕）
     this.ensureRowTotalControls();
 
-    // 2. 在每張卡片的官方 .itemPopupAdditional 行內附註個別覆寫數值，並在圖片下方渲染打孔潛力
-    const rows = resultRows(container);
-    for (const row of rows) {
-      const resultId = resolveResultId(row, this.normalizedMap);
-      if (!resultId) continue;
-      const stats = this.normalizedMap[resultId];
-      if (!stats) continue;
-
-      renderInlinePopupOverrides(row, stats);
-      renderSocketBadge(row, stats);
+    // 2. PoE 2 專用：在每張卡片的官方 .itemPopupAdditional 行內附註個別覆寫數值，並在圖片下方渲染打孔潛力
+    if (this.version === 'poe2') {
+      const rows = resultRows(container);
+      this.applyPoe2RowEnhancements(rows);
     }
 
     // 3. 套用真實 DOM 物理排序 (零 flex 破壞，相容官方所有版型)
@@ -330,6 +381,43 @@ export class ResultItemNormalizer {
     ensureInjectedStyle();
   }
 
+  /**
+   * 批次套用多筆新增列（供 DomFilter 於單一 animation frame 內一次呼叫，避免每列重複重排與 reflow）。
+   */
+  applyBatch(rows: Element[]) {
+    if (!this.isFeatureActive() || this.isReordering || rows.length === 0) {
+      if (this.isLiveOrConsole()) {
+        removeInjectedElements();
+      }
+      return;
+    }
+
+    this.ensureRowTotalControls();
+
+    if (this.version === 'poe2') {
+      this.applyPoe2RowEnhancements(rows);
+    }
+
+    const resultsRoot = document.querySelector('.results');
+    if (resultsRoot) {
+      this.reorderDomRows(resultsRoot);
+    }
+
+    ensureInjectedStyle();
+  }
+
+  private applyPoe2RowEnhancements(rows: Element[]) {
+    for (const row of rows) {
+      const resultId = resolveResultId(row, this.normalizedMap);
+      if (!resultId) continue;
+      const stats = this.normalizedMap[resultId];
+      if (!stats) continue;
+
+      renderInlinePopupOverrides(row, stats);
+      renderSocketBadge(row, stats);
+    }
+  }
+
   private ensureRowTotalControls() {
     const rowTotal = document.querySelector('.row.row-total');
     const resultsContainer = document.querySelector('.results');
@@ -337,6 +425,14 @@ export class ResultItemNormalizer {
     if (!targetParent) return;
 
     let controls = document.querySelector('.poexd-total-controls') as HTMLElement | null;
+    if (
+      controls &&
+      controls.dataset?.poexdVersion &&
+      controls.dataset.poexdVersion !== this.version
+    ) {
+      controls.remove();
+      controls = null;
+    }
     if (!controls) {
       controls = this.buildRowTotalControls();
       if (rowTotal) {
@@ -380,7 +476,7 @@ export class ResultItemNormalizer {
   }
 
   refreshLocale() {
-    if (this.version !== 'poe2' || !this.enabled || this.isLiveOrConsole()) return;
+    if (!this.isFeatureActive()) return;
     this.updateControlsState();
     const root = document.querySelector('.results');
     if (root) {
@@ -391,39 +487,44 @@ export class ResultItemNormalizer {
   private buildRowTotalControls(): HTMLElement {
     const container = document.createElement('div');
     container.className = 'poexd-total-controls';
+    if (container.dataset) {
+      container.dataset.poexdVersion = this.version;
+    }
 
-    // 1. ⚔️ 武器覆寫按鈕
-    const weaponItems = getWeaponRuneOptions().map((opt) => ({
-      key: opt.key,
-      label: opt.label,
-      onSelect: () => this.setRuneConfig({ weaponRune: opt.config }),
-    }));
-    const weaponWrapper = this.createControlDropdown(
-      'weapon',
-      SWORD_SVG,
-      t('normalizer.btn.weaponTitle'),
-      t('normalizer.btn.weaponHeader'),
-      weaponItems,
-    );
-    container.appendChild(weaponWrapper);
+    if (this.version === 'poe2') {
+      // 1. ⚔️ 武器覆寫按鈕
+      const weaponItems = getWeaponRuneOptions().map((opt) => ({
+        key: opt.key,
+        label: opt.label,
+        onSelect: () => this.setRuneConfig({ weaponRune: opt.config }),
+      }));
+      const weaponWrapper = this.createControlDropdown(
+        'weapon',
+        SWORD_SVG,
+        t('normalizer.btn.weaponTitle'),
+        t('normalizer.btn.weaponHeader'),
+        weaponItems,
+      );
+      container.appendChild(weaponWrapper);
 
-    // 2. 🛡️ 防具覆寫按鈕
-    const armourItems = getArmourRuneOptions().map((opt) => ({
-      key: opt.key,
-      label: opt.label,
-      onSelect: () => this.setRuneConfig({ armourRune: opt.config }),
-    }));
-    const armourWrapper = this.createControlDropdown(
-      'armour',
-      SHIELD_SVG,
-      t('normalizer.btn.armourTitle'),
-      t('normalizer.btn.armourHeader'),
-      armourItems,
-    );
-    container.appendChild(armourWrapper);
+      // 2. 🛡️ 防具覆寫按鈕
+      const armourItems = getArmourRuneOptions().map((opt) => ({
+        key: opt.key,
+        label: opt.label,
+        onSelect: () => this.setRuneConfig({ armourRune: opt.config }),
+      }));
+      const armourWrapper = this.createControlDropdown(
+        'armour',
+        SHIELD_SVG,
+        t('normalizer.btn.armourTitle'),
+        t('normalizer.btn.armourHeader'),
+        armourItems,
+      );
+      container.appendChild(armourWrapper);
+    }
 
     // 3. ⇅ 排序方式按鈕
-    const sortItems = getSortModeOptions().map((opt) => ({
+    const sortItems = getSortModeOptions(this.version).map((opt) => ({
       key: opt.key,
       label: opt.label,
       onSelect: () => this.setSortMode(opt.key),
@@ -506,6 +607,7 @@ export class ResultItemNormalizer {
     titleText: string,
     headerText: string,
     isActive: boolean,
+    hiddenKeys?: ReadonlySet<string>,
   ) {
     const btn = controls.querySelector(`.poexd-${type}-btn`) as HTMLElement | null;
     if (btn) {
@@ -518,6 +620,11 @@ export class ResultItemNormalizer {
     }
     controls.querySelectorAll(`.poexd-${type}-popover .poexd-popover-item`).forEach((item) => {
       const val = item.getAttribute('data-value');
+      const isHidden = Boolean(hiddenKeys && val && hiddenKeys.has(val));
+      const htmlItem = item as HTMLElement;
+      if (htmlItem.style) {
+        htmlItem.style.display = isHidden ? 'none' : '';
+      }
       const isSelected = val === currentKey;
       item.classList.toggle('poexd-selected', isSelected);
       const opt = options.find((o) => o.key === val);
@@ -534,37 +641,43 @@ export class ResultItemNormalizer {
     const controls = document.querySelector('.poexd-total-controls');
     if (!controls) return;
 
-    // 更新武器符文狀態
-    const currentWeaponKey = getWeaponRuneKey(this.runeConfig.weaponRune);
-    const weaponOptions = getWeaponRuneOptions();
-    const currentWeaponOpt = weaponOptions.find((o) => o.key === currentWeaponKey);
-    this.updateControlState(
-      controls,
-      'weapon',
-      currentWeaponKey,
-      weaponOptions,
-      t('normalizer.activeWeaponRune', { label: currentWeaponOpt?.label || '' }),
-      t('normalizer.btn.weaponHeader'),
-      currentWeaponKey !== 'none',
-    );
+    if (this.version === 'poe2') {
+      // 更新武器符文狀態
+      const currentWeaponKey = getWeaponRuneKey(this.runeConfig.weaponRune);
+      const weaponOptions = getWeaponRuneOptions();
+      const currentWeaponOpt = weaponOptions.find((o) => o.key === currentWeaponKey);
+      this.updateControlState(
+        controls,
+        'weapon',
+        currentWeaponKey,
+        weaponOptions,
+        t('normalizer.activeWeaponRune', { label: currentWeaponOpt?.label || '' }),
+        t('normalizer.btn.weaponHeader'),
+        currentWeaponKey !== 'none',
+      );
 
-    // 更新防具符文狀態
-    const currentArmourKey = getArmourRuneKey(this.runeConfig.armourRune);
-    const armourOptions = getArmourRuneOptions();
-    const currentArmourOpt = armourOptions.find((o) => o.key === currentArmourKey);
-    this.updateControlState(
-      controls,
-      'armour',
-      currentArmourKey,
-      armourOptions,
-      t('normalizer.activeArmourRune', { label: currentArmourOpt?.label || '' }),
-      t('normalizer.btn.armourHeader'),
-      currentArmourKey !== 'none',
-    );
+      // 更新防具符文狀態
+      const currentArmourKey = getArmourRuneKey(this.runeConfig.armourRune);
+      const armourOptions = getArmourRuneOptions();
+      const currentArmourOpt = armourOptions.find((o) => o.key === currentArmourKey);
+      this.updateControlState(
+        controls,
+        'armour',
+        currentArmourKey,
+        armourOptions,
+        t('normalizer.activeArmourRune', { label: currentArmourOpt?.label || '' }),
+        t('normalizer.btn.armourHeader'),
+        currentArmourKey !== 'none',
+      );
+    }
 
     // 更新排序狀態
-    const sortOptions = getSortModeOptions();
+    const sortOptions = getSortModeOptions(this.version);
     const currentSortOpt = sortOptions.find((o) => o.key === this.sortMode);
+    const hiddenSortKeys =
+      this.pricePresenter && !this.pricePresenter.isEnabled()
+        ? new Set<string>(['price_asc', 'price_desc', 'cp_ratio'])
+        : undefined;
     this.updateControlState(
       controls,
       'sort',
@@ -573,6 +686,7 @@ export class ResultItemNormalizer {
       t('normalizer.activeSort', { label: currentSortOpt?.label || '' }),
       t('normalizer.btn.sortHeader'),
       this.sortMode !== 'default',
+      hiddenSortKeys,
     );
   }
 
@@ -584,7 +698,7 @@ export class ResultItemNormalizer {
   private reorderDomRows(container: Element) {
     if (this.isReordering) return;
     if (
-      this.sortMode === 'cp_ratio' &&
+      isPriceDependentSortMode(this.sortMode) &&
       (!this.pricePresenter || !this.pricePresenter.isEnabled())
     ) {
       return;
@@ -613,12 +727,25 @@ export class ResultItemNormalizer {
     let sortedRows: Element[] = [];
 
     if (this.sortMode === 'default') {
+      const orderIndexMap = new Map<string, number>();
+      this.originalOrder.forEach((id, index) => orderIndexMap.set(id, index));
       const items = rows.map((row) => {
         const id = resolveRowId(row);
-        const idx = this.originalOrder.indexOf(id);
-        return { row, idx: idx >= 0 ? idx : 999999 };
+        const idx = orderIndexMap.get(id);
+        return { row, idx: idx !== undefined ? idx : 999999 };
       });
       items.sort((a, b) => a.idx - b.idx);
+      sortedRows = items.map((i) => i.row);
+    } else if (isPurePriceSortMode(this.sortMode)) {
+      const direction = this.sortMode === 'price_asc' ? 'asc' : 'desc';
+      const items = rows.map((row) => {
+        const id = resolveRowId(row);
+        const price = this.pricePresenter?.getPrimaryPrice(id);
+        const val =
+          typeof price === 'number' && Number.isFinite(price) && price > 0 ? price : undefined;
+        return { row, val };
+      });
+      items.sort((a, b) => compareNullablePriceValues(a.val, b.val, direction));
       sortedRows = items.map((i) => i.row);
     } else {
       const items = rows.map((row) => {
@@ -632,15 +759,17 @@ export class ResultItemNormalizer {
     }
 
     // 檢查 DOM 目前卡片順序是否已完全吻合目標排序 (若已就位則 0 DOM 操作，消除卡頓)
-    const currentDomRows = Array.from(rowsContainer.children).filter((c) => rows.includes(c));
+    const rowSet = new Set(rows);
+    const containerChildren = Array.from(rowsContainer.children);
+    const currentDomRows = containerChildren.filter((c) => rowSet.has(c));
     const isAlreadySorted =
       currentDomRows.length === sortedRows.length &&
       sortedRows.every((r, idx) => currentDomRows[idx] === r);
     if (isAlreadySorted) return;
 
     // 尋找必須永遠維持在裝備卡片後方的節點（如 controls、load-more-btn、滾動加載哨兵）
-    const sentinel = Array.from(rowsContainer.children).find((child) => {
-      if (rows.includes(child)) return false;
+    const sentinel = containerChildren.find((child) => {
+      if (rowSet.has(child)) return false;
       return (
         child.matches?.('.controls') ||
         child.querySelector?.('.load-more-btn') ||
@@ -649,21 +778,50 @@ export class ResultItemNormalizer {
       );
     });
 
+    // 保留 Vue v-for 未載入佔位註解（<!-- -->）在已載入列後方，避免把已載入列搬到未載入錨點後面造成 Load More 插入錯位
+    const lastCurrentRow = currentDomRows[currentDomRows.length - 1];
+    const sentinelIdx = sentinel ? containerChildren.indexOf(sentinel) : -1;
+    const lastRowIdx = lastCurrentRow ? containerChildren.indexOf(lastCurrentRow) : -1;
+    const sentinelIsAfterRows = sentinelIdx === -1 || sentinelIdx > lastRowIdx;
+    const endAnchor: Node | null =
+      sentinelIsAfterRows && lastCurrentRow && 'nextSibling' in lastCurrentRow
+        ? (lastCurrentRow as ChildNode).nextSibling
+        : (sentinel ?? null);
+
+    // 僅移動不在最長遞增子序列（LIS）中的節點，大幅減少 DOM 搬移與 MutationObserver 負擔
+    const currentIndexByRow = new Map<Element, number>();
+    currentDomRows.forEach((row, index) => currentIndexByRow.set(row, index));
+    const targetIndices = sortedRows.map((row) => currentIndexByRow.get(row) ?? -1);
+    const keepInPlace = sentinelIsAfterRows
+      ? computeLongestIncreasingPositions(targetIndices)
+      : new Set<number>();
+
     this.isReordering = true;
+    this.suppressDomObserver = true;
     try {
-      sortedRows.forEach((row) => {
-        if (sentinel) {
-          rowsContainer.insertBefore(row, sentinel);
-        } else {
-          rowsContainer.appendChild(row);
+      let nextAnchor: Node | null = endAnchor;
+      for (let i = sortedRows.length - 1; i >= 0; i--) {
+        const row = sortedRows[i];
+        if (!keepInPlace.has(i)) {
+          if (typeof rowsContainer.insertBefore === 'function') {
+            rowsContainer.insertBefore(row, nextAnchor);
+          } else {
+            rowsContainer.appendChild(row);
+          }
         }
-      });
+        nextAnchor = row;
+      }
     } finally {
       this.isReordering = false;
+      queueMicrotask(() => {
+        this.suppressDomObserver = false;
+      });
     }
   }
 
   cleanup() {
+    this.unsubRates?.();
+    this.unsubRates = undefined;
     this.restoreOriginalDomOrder();
     this.enabled = false;
     this.isReordering = false;
@@ -694,6 +852,17 @@ export class ResultItemNormalizer {
       });
     }
   }
+}
+
+function compareNullablePriceValues(
+  a: number | undefined,
+  b: number | undefined,
+  direction: 'asc' | 'desc',
+): number {
+  if (a === undefined && b === undefined) return 0;
+  if (a === undefined) return 1;
+  if (b === undefined) return -1;
+  return direction === 'asc' ? a - b : b - a;
 }
 
 function getRowsContainer(container: Element): HTMLElement {
@@ -1053,6 +1222,7 @@ const INJECTED_STYLE_ID = 'poexd-normalized-stats-style-v2';
  * 官方未來若調整按鈕幾何，這裡會自動跟上；找不到原生按鈕時沿用 CSS 預設值 (30px / top 0)。
  */
 function syncWithNativeLayoutButtons(controls: HTMLElement, rowTotal: Element) {
+  if (controls.dataset?.poexdLayoutSynced === '1') return;
   const nativeBtn = rowTotal.querySelector<HTMLElement>('.layout-btn');
   if (!nativeBtn) return;
   const size = nativeBtn.offsetHeight;
@@ -1066,6 +1236,40 @@ function syncWithNativeLayoutButtons(controls: HTMLElement, rowTotal: Element) {
   if (controls.style.getPropertyValue('--poexd-native-btn-top') !== topValue) {
     controls.style.setProperty('--poexd-native-btn-top', topValue);
   }
+  if (controls.dataset) {
+    controls.dataset.poexdLayoutSynced = '1';
+  }
+}
+
+/** 回傳 targetIndices 中最長嚴格遞增子序列的位置索引集合，這些元素不需移動 DOM。 */
+function computeLongestIncreasingPositions(values: number[]): Set<number> {
+  const n = values.length;
+  const tails: number[] = [];
+  const tailPos: number[] = [];
+  const prevPos = new Array<number>(n).fill(-1);
+
+  for (let i = 0; i < n; i++) {
+    const val = values[i];
+    if (val < 0) continue;
+    let lo = 0;
+    let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (tails[mid] < val) lo = mid + 1;
+      else hi = mid;
+    }
+    tails[lo] = val;
+    tailPos[lo] = i;
+    if (lo > 0) prevPos[i] = tailPos[lo - 1];
+  }
+
+  const kept = new Set<number>();
+  let cur = tailPos.length > 0 ? tailPos[tailPos.length - 1] : -1;
+  while (cur !== -1) {
+    kept.add(cur);
+    cur = prevPos[cur];
+  }
+  return kept;
 }
 
 function ensureInjectedStyle() {

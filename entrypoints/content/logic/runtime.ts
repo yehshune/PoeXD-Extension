@@ -170,7 +170,10 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       await pricePresenter.setEnabled(snapshot.enablePriceComparison);
       pricePresenter.refreshLocale?.();
       modHighlighter.setEnabled(snapshot.enableResultModHighlight);
-      itemNormalizer.setEnabled(snapshot.enableItemNormalizer);
+      itemNormalizer.setEnabled(
+        version === 'poe1' ? snapshot.enablePriceComparison : snapshot.enableItemNormalizer,
+      );
+      itemNormalizer.syncPriceSupport();
       itemNormalizer.refreshLocale?.();
       modQuickFilter.setEnabled(snapshot.enableResultModQuickFilter);
       modQuickFilter.refreshLocale();
@@ -245,6 +248,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
         return;
       }
       domFilter.setPageRole(pageRole);
+      pricePresenter.setPageRole(pageRole);
       itemNormalizer.setPageRole(pageRole);
       modQuickFilter.setPageRole(pageRole);
       if (pageRole === 'live-search-primary') {

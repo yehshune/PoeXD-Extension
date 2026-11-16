@@ -450,6 +450,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'normalizer.rune.def_18': 'Greater Iron Rune (18% increased Armour, Evasion and Energy Shield)',
   'normalizer.rune.none': 'No Runes (Clean Base)',
   'normalizer.sort.default': 'Official Default Order',
+  'normalizer.sort.price_asc': 'Converted Price (Low ➔ High)',
+  'normalizer.sort.price_desc': 'Converted Price (High ➔ Low)',
   'normalizer.sort.potential_dps': 'Override DPS (High ➔ Low)',
   'normalizer.sort.potential_pdps': 'Override pDPS (High ➔ Low)',
   'normalizer.sort.potential_edps': 'Override eDPS (High ➔ Low)',

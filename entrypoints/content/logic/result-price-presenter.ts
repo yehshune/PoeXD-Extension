@@ -5,7 +5,12 @@ import {
   type PriceComparison,
 } from '@/utils/price-comparison';
 import type { PoeVersion } from '@/utils/trade-context';
-import type { TradePageMode } from '@/utils/trade-page-mode';
+import {
+  getTradePageMode,
+  isLiveOrConsoleTradePage,
+  type TradePageMode,
+} from '@/utils/trade-page-mode';
+import type { TradePageRole } from '@/utils/live-search-contract';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import { parsePoeFetchResponse } from '@/utils/event-contracts';
 import { isPriceConversionSupported } from '@/utils/trade-realms';
@@ -22,13 +27,16 @@ type RawListingPrice = {
 
 export class ResultPricePresenter {
   private enabled = true;
-  private pageMode: TradePageMode = 'search';
+  private pageMode: TradePageMode = typeof window !== 'undefined' ? getTradePageMode() : 'search';
+  private pageRole: TradePageRole = 'normal';
   private activeSearchId?: string;
   private activeLeague?: string;
   private observedResults: unknown[] = [];
   private comparisons: Record<string, PriceComparison> = {};
   private rawItemsMap: Record<string, { listing?: RawListingPrice }> = {};
   private latestRates?: CurrencyRateSnapshot;
+  private ratesLeague?: string;
+  private rateListeners = new Set<() => void>();
 
   constructor(
     private readonly version: PoeVersion,
@@ -38,8 +46,40 @@ export class ResultPricePresenter {
     private readonly supported: boolean = isPriceConversionSupported(),
   ) {}
 
+  private isLiveOrConsole(): boolean {
+    return isLiveOrConsoleTradePage(this.pageMode, this.pageRole);
+  }
+
+  private resetSessionState() {
+    this.activeSearchId = undefined;
+    this.activeLeague = undefined;
+    this.observedResults = [];
+    this.comparisons = {};
+    this.rawItemsMap = {};
+    this.latestRates = undefined;
+    this.ratesLeague = undefined;
+    removePriceComparisons();
+  }
+
+  onRatesUpdated(listener: () => void): () => void {
+    this.rateListeners.add(listener);
+    return () => {
+      this.rateListeners.delete(listener);
+    };
+  }
+
+  private notifyRatesUpdated() {
+    for (const listener of this.rateListeners) {
+      try {
+        listener();
+      } catch {
+        // Individual listener error does not abort other listeners
+      }
+    }
+  }
+
   async handleFetchResponse(detail: string, league: string | undefined) {
-    if (!this.supported || !league || this.pageMode === 'live') return;
+    if (!this.supported || !league || this.isLiveOrConsole()) return;
     const eventData = parsePoeFetchResponse(detail);
     if (!eventData) return;
     const data = eventData.data;
@@ -50,7 +90,8 @@ export class ResultPricePresenter {
     const searchId = getFetchSearchId(eventData.url);
     if (!Array.isArray(results) || !searchId) return;
 
-    if (searchId !== this.activeSearchId) {
+    const isSameSearch = searchId === this.activeSearchId;
+    if (!isSameSearch) {
       this.activeSearchId = searchId;
       this.observedResults = [];
       this.comparisons = {};
@@ -70,12 +111,18 @@ export class ResultPricePresenter {
         this.rawItemsMap[id] = { listing };
       }
     });
-    if (this.enabled) await this.loadAndApply(results, searchId, league);
+    if (this.enabled) {
+      if (isSameSearch && this.latestRates && this.ratesLeague === league) {
+        this.applyComparisonsForResults(results, this.latestRates);
+      } else {
+        await this.loadAndApply(results, searchId, league);
+      }
+    }
   }
 
   async setEnabled(enabled: boolean) {
     this.enabled = enabled;
-    if (!this.isEnabled() || this.pageMode === 'live') {
+    if (!this.isEnabled() || this.isLiveOrConsole()) {
       removePriceComparisons();
       return;
     }
@@ -84,20 +131,24 @@ export class ResultPricePresenter {
     }
   }
 
+  setPageRole(role: TradePageRole) {
+    if (role === this.pageRole) return;
+    this.pageRole = role;
+    if (this.isLiveOrConsole()) {
+      this.resetSessionState();
+    }
+  }
+
   setPageMode(mode: TradePageMode) {
     if (mode === this.pageMode) return;
     this.pageMode = mode;
-    if (mode === 'live') {
-      this.activeSearchId = undefined;
-      this.activeLeague = undefined;
-      this.observedResults = [];
-      this.comparisons = {};
-      removePriceComparisons();
+    if (this.isLiveOrConsole()) {
+      this.resetSessionState();
     }
   }
 
   apply(container: Element) {
-    if (!this.isEnabled() || this.pageMode === 'live') return;
+    if (!this.isEnabled() || this.isLiveOrConsole()) return;
     resultRows(container).forEach((row) => {
       const resultId = resolveResultId(row, this.comparisons);
       if (!resultId) return;
@@ -118,20 +169,17 @@ export class ResultPricePresenter {
   }
 
   refreshLocale() {
-    if (!this.isEnabled() || this.pageMode === 'live') return;
+    if (!this.isEnabled() || this.isLiveOrConsole()) return;
     const root = typeof document !== 'undefined' ? document.querySelector('.results') : null;
     if (root) this.apply(root);
   }
 
   cleanup() {
     this.enabled = false;
-    this.activeSearchId = undefined;
-    this.activeLeague = undefined;
-    this.observedResults = [];
-    this.comparisons = {};
-    this.rawItemsMap = {};
+    this.resetSessionState();
     this.latestRates = undefined;
-    removePriceComparisons();
+    this.ratesLeague = undefined;
+    this.rateListeners.clear();
     document.getElementById('poexd-price-comparison-style')?.remove();
   }
 
@@ -140,12 +188,29 @@ export class ResultPricePresenter {
     return this.enabled && this.supported;
   }
 
+  /** O(1) 熱路徑檢查，避免排序迴圈逐列呼叫 document.querySelector */
+  private isFastLiveOrConsole(): boolean {
+    if (this.pageMode === 'live' || this.pageRole === 'live-search-primary') {
+      return true;
+    }
+    if (typeof document !== 'undefined') {
+      if (
+        document.documentElement?.getAttribute?.('data-poexd-console-result-only') === 'true' ||
+        document.body?.getAttribute?.('data-poexd-page-role') === 'live-search-primary' ||
+        document.body?.classList?.contains?.('live-search-primary')
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
-   * 取得換算為統一主基準幣（Primary Currency）的金額數值，供性價比排序使用。
-   * 若價格換算未開啟、尚未取得匯率或該物品無標價則回傳 undefined。
+   * 取得換算為統一主基準幣（Primary Currency）的金額數值，供價格／性價比排序使用。
+   * 若價格換算未開啟、處於即時搜尋/主控台、尚未取得匯率或該物品無標價則回傳 undefined。
    */
   getPrimaryPrice(resultId: string): number | undefined {
-    if (!this.isEnabled() || !this.latestRates) return undefined;
+    if (!this.isEnabled() || this.isFastLiveOrConsole() || !this.latestRates) return undefined;
     const item = this.rawItemsMap[resultId];
     const price = item?.listing?.price;
     if (
@@ -158,7 +223,7 @@ export class ResultPricePresenter {
       return undefined;
     }
 
-    // 若標價貨幣即為主基準幣（例如 PoE 2 的 exalted），比率為 1
+    // 若標價貨幣即為主基準幣（例如 PoE 1 的 chaos、PoE 2 的 exalted），比率為 1
     if (
       this.latestRates.primary &&
       price.currency.toLowerCase() === this.latestRates.primary.toLowerCase()
@@ -166,18 +231,27 @@ export class ResultPricePresenter {
       return price.amount;
     }
 
-    const rate = this.latestRates.rates[price.currency];
+    const rate =
+      this.latestRates.rates[price.currency] ??
+      this.latestRates.rates[price.currency.toLowerCase()];
     if (typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0) return undefined;
     return price.amount * rate;
   }
 
-  private async loadAndApply(results: unknown[], searchId: string, league: string) {
-    const snapshot = await this.loadRates(league);
-    if (!snapshot || !this.enabled || searchId !== this.activeSearchId) return;
-    this.latestRates = snapshot;
+  private applyComparisonsForResults(results: unknown[], snapshot: CurrencyRateSnapshot) {
     Object.assign(this.comparisons, createResultPriceComparisons(this.version, snapshot, results));
     const root = typeof document !== 'undefined' ? document.querySelector('.results') : null;
     if (root) this.apply(root);
+    this.notifyRatesUpdated();
+  }
+
+  private async loadAndApply(results: unknown[], searchId: string, league: string) {
+    const snapshot = await this.loadRates(league);
+    if (!snapshot || !this.enabled || this.isLiveOrConsole() || searchId !== this.activeSearchId)
+      return;
+    this.latestRates = snapshot;
+    this.ratesLeague = league;
+    this.applyComparisonsForResults(results, snapshot);
   }
 }
 

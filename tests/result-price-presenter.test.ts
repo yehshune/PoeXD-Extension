@@ -75,7 +75,7 @@ describe('Result price presenter', () => {
     expect(style.textContent).toContain('border: 1px solid var(--border)');
     expect(style.textContent).not.toContain('color: var(--primary)');
     expect(style.textContent).not.toMatch(/#[0-9a-fA-F]{3,8}/);
-    expect(renderedChildren[0].textContent).toBe('≈ 1 ');
+    expect(renderedChildren[0].textContent).toBe('≈ 1');
     expect(renderedChildren[1]).toMatchObject({
       alt: '神聖石',
       title: '神聖石',
@@ -101,7 +101,7 @@ describe('Result price presenter', () => {
 
     await presenter.setEnabled(true);
     expect(loadRates).toHaveBeenCalledTimes(2);
-    expect(renderedChildren[0].textContent).toBe('≈ 2 ');
+    expect(renderedChildren[0].textContent).toBe('≈ 2');
 
     presenter.setPageMode('live');
     await presenter.handleFetchResponse(
@@ -201,5 +201,51 @@ describe('Result price presenter', () => {
     expect(loadRates).not.toHaveBeenCalled();
     expect(presenter.isEnabled()).toBe(false);
     expect(presenter.getPrimaryPrice('result-1')).toBeUndefined();
+  });
+
+  it('excludes live-search-primary role and notifies onRatesUpdated after loading rates', async () => {
+    vi.stubGlobal('window', {
+      location: { origin: 'https://www.pathofexile.com', pathname: '/trade/search/Standard/s1' },
+    });
+    vi.stubGlobal('document', {
+      querySelector: vi.fn(() => null),
+      querySelectorAll: vi.fn(() => []),
+      getElementById: vi.fn(() => null),
+    });
+    const loadRates = vi.fn(async () => ({
+      primary: 'chaos',
+      rates: { chaos: 1, divine: 150 },
+    }));
+    const presenter = new ResultPricePresenter('poe1', loadRates, true);
+    const onRatesUpdated = vi.fn();
+    const unsub = presenter.onRatesUpdated(onRatesUpdated);
+
+    await presenter.handleFetchResponse(
+      JSON.stringify({
+        url: '/api/trade/fetch/result-1?query=search-1',
+        data: {
+          result: [{ id: 'result-1', listing: { price: { amount: 2, currency: 'divine' } } }],
+        },
+      }),
+      'Standard',
+    );
+    expect(onRatesUpdated).toHaveBeenCalledTimes(1);
+    expect(presenter.getPrimaryPrice('result-1')).toBe(300);
+
+    presenter.setPageRole('live-search-primary');
+    expect(presenter.getPrimaryPrice('result-1')).toBeUndefined();
+
+    await presenter.handleFetchResponse(
+      JSON.stringify({
+        url: '/api/trade/fetch/result-2?query=search-2',
+        data: {
+          result: [{ id: 'result-2', listing: { price: { amount: 5, currency: 'divine' } } }],
+        },
+      }),
+      'Standard',
+    );
+    expect(loadRates).toHaveBeenCalledTimes(1);
+    expect(onRatesUpdated).toHaveBeenCalledTimes(1);
+    unsub();
   });
 });

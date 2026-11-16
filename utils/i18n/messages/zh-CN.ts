@@ -420,6 +420,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'normalizer.rune.def_18': '高阶锻铁符文 (增加 18% 护甲值、闪避和能量护盾)',
   'normalizer.rune.none': '无符文 (纯净底)',
   'normalizer.sort.default': '官方原始顺序',
+  'normalizer.sort.price_asc': '换算价格 (低 ➔ 高)',
+  'normalizer.sort.price_desc': '换算价格 (高 ➔ 低)',
   'normalizer.sort.potential_dps': '覆写 DPS (高 ➔ 低)',
   'normalizer.sort.potential_pdps': '覆写物理 DPS (高 ➔ 低)',
   'normalizer.sort.potential_edps': '覆写元素 DPS (高 ➔ 低)',

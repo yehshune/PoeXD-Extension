@@ -54,12 +54,18 @@ export class DomFilter {
       return;
     }
     const observer = new MutationObserver((mutations) => {
-      if (this.itemNormalizer?.isReordering) return;
+      if (this.itemNormalizer?.isReordering || this.itemNormalizer?.isMutatingResultOrder?.()) {
+        return;
+      }
       mutations.forEach((mutation) => {
         if (
           mutation.target instanceof Element &&
           (mutation.target.closest('.poexd-price-comparison') ||
-            mutation.target.closest('.poexd-result-mod-actions'))
+            mutation.target.closest('.poexd-result-mod-actions') ||
+            mutation.target.closest('.poexd-total-controls') ||
+            mutation.target.closest('.poexd-left-badges') ||
+            mutation.target.closest('.poexd-inline-override') ||
+            mutation.target.closest('.poexd-left-actions'))
         )
           return;
         mutation.addedNodes.forEach((node) => this.collectAddedNode(node));
@@ -92,7 +98,14 @@ export class DomFilter {
 
   private collectAddedNode(node: Node) {
     if (!(node instanceof Element)) return;
-    if (node.closest('.poexd-price-comparison') || node.closest('.poexd-result-mod-actions'))
+    if (
+      node.closest('.poexd-price-comparison') ||
+      node.closest('.poexd-result-mod-actions') ||
+      node.closest('.poexd-total-controls') ||
+      node.closest('.poexd-left-badges') ||
+      node.closest('.poexd-inline-override') ||
+      node.closest('.poexd-left-actions')
+    )
       return;
     const root = node.matches('.results') ? node : node.querySelector('.results');
     if (root) {
@@ -134,9 +147,26 @@ export class DomFilter {
     this.pendingRoots.clear();
     this.pendingRows.clear();
     roots.forEach((root) => this.applyResultEnhancements(root));
-    rows
-      .filter((row) => !roots.some((root) => root.contains(row)))
-      .forEach((row) => this.applyResultEnhancements(row));
+    const unrootedRows = rows.filter((row) => !roots.some((root) => root.contains(row)));
+    if (unrootedRows.length === 0) return;
+
+    const isSearchNormal = this.pageMode === 'search' && this.pageRole !== 'live-search-primary';
+    unrootedRows.forEach((row) => {
+      if (isSearchNormal) {
+        this.pricePresenter?.apply(row);
+        if (typeof this.itemNormalizer?.applyBatch !== 'function') {
+          this.itemNormalizer?.apply(row);
+        }
+        this.modQuickFilter?.apply(row);
+        this.pobCopy?.apply(row);
+        this.externalLinks?.apply(row);
+      }
+      this.modHighlighter?.apply(row);
+    });
+
+    if (isSearchNormal && typeof this.itemNormalizer?.applyBatch === 'function') {
+      this.itemNormalizer.applyBatch(unrootedRows);
+    }
   }
 
   private applyResultEnhancements(root: Element) {
