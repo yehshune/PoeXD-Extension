@@ -111,6 +111,10 @@ export const ZH_TW_MESSAGES = {
   'settings.resultModQuickFilter.infoAria': '結果詞綴快篩說明',
   'settings.resultModQuickFilter.tooltip':
     '滑鼠懸浮於搜尋結果詞綴時，於右側顯示 +和 / +不 按鈕快速加入篩選（僅帶入詞綴、不自動搜尋）',
+  'settings.resultPobCopy.label': '複製 PoB 物品文字',
+  'settings.resultPobCopy.infoAria': '複製 PoB 物品文字說明',
+  'settings.resultPobCopy.tooltip':
+    '在搜尋結果的物品圖片下方加入 PoB 按鈕，一鍵複製可貼到 Path of Building 的英文物品文字；台服與國服頁面會自動轉成英文',
 
   'settings.pureBackground.label': '隱藏官方網頁背景',
   'settings.pureBackground.infoAria': '隱藏官方網頁背景說明',
@@ -170,6 +174,8 @@ export const ZH_TW_MESSAGES = {
   'popup.module.enableResultModHighlight.description': '搜尋結果中符合過濾條件的詞綴樣式高亮',
   'popup.module.enableResultModQuickFilter.title': '結果詞綴快篩',
   'popup.module.enableResultModQuickFilter.description': '懸浮結果詞綴右側快速加入 和 / 不 篩選',
+  'popup.module.enableResultPobCopy.title': '複製 PoB 物品文字',
+  'popup.module.enableResultPobCopy.description': '搜尋結果一鍵複製英文 PoB 物品文字',
   'popup.module.enableItemNormalizer.title': '符文覆寫試算',
   'popup.module.enableItemNormalizer.description': '搜尋結果頂欄提供自訂符文覆寫與數值標準化',
   'popup.module.enablePureBackground.title': '隱藏官方背景',
@@ -962,6 +968,16 @@ export const ZH_TW_MESSAGES = {
   'resultModQuickFilter.toast.alreadyExists': '「{text}」已在「{group}」篩選器中',
   'resultModQuickFilter.toast.unknownStat': '此詞綴無法對應官方搜尋代碼：「{text}」',
   'resultModQuickFilter.toast.failed': '加入篩選器失敗：{message}',
+  'resultPobCopy.button': 'PoB',
+  'resultPobCopy.title': '複製英文 PoB 物品文字，可貼到 Path of Building',
+  'resultPobCopy.toast.copied': '已複製 PoB 物品文字',
+  'resultPobCopy.toast.noteUntranslated': '（{count} 行詞綴無法轉成英文）',
+  'resultPobCopy.toast.noteBaseUncertain': '（基底名稱可能不準確）',
+  'resultPobCopy.toast.noteSeparator': '',
+  'resultPobCopy.toast.unsupportedLocale':
+    '此頁面語系尚不支援轉成英文 PoB 文字（目前支援英文、繁體中文、簡體中文）',
+  'resultPobCopy.toast.failed': '複製 PoB 物品文字失敗：{message}',
+  'resultPobCopy.error.itemMissing': '找不到這筆結果的物品資料',
   'onboarding.welcome.title': '歡迎使用 PoeXD',
   'onboarding.welcome.statGroups': '常用詞綴群組：存起來，一鍵疊加到目前搜尋',
   'onboarding.welcome.tiers': '點官網的詞綴欄位，可用階級直接帶入範圍',

@@ -113,6 +113,10 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.resultModQuickFilter.infoAria': '结果词缀快筛说明',
   'settings.resultModQuickFilter.tooltip':
     '鼠标悬停于搜索结果词缀时，在右侧显示 +和 / +不 按钮快速加入筛选（仅带入词缀、不自动搜索）',
+  'settings.resultPobCopy.label': '复制 PoB 物品文字',
+  'settings.resultPobCopy.infoAria': '复制 PoB 物品文字说明',
+  'settings.resultPobCopy.tooltip':
+    '在搜索结果的物品图片下方加入 PoB 按钮，一键复制可粘贴到 Path of Building 的英文物品文字；台服与国服页面会自动转成英文',
 
   'settings.pureBackground.label': '隐藏官方网页背景',
   'settings.pureBackground.infoAria': '隐藏官方网页背景说明',
@@ -172,6 +176,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'popup.module.enableResultModHighlight.description': '搜索结果中符合筛选条件的词缀样式高亮',
   'popup.module.enableResultModQuickFilter.title': '结果词缀快筛',
   'popup.module.enableResultModQuickFilter.description': '悬停结果词缀右侧快速加入 和 / 不 筛选',
+  'popup.module.enableResultPobCopy.title': '复制 PoB 物品文字',
+  'popup.module.enableResultPobCopy.description': '搜索结果一键复制英文 PoB 物品文字',
   'popup.module.enableItemNormalizer.title': '符文覆写试算',
   'popup.module.enableItemNormalizer.description': '搜索结果顶栏提供自定义符文覆写与数值标准化',
   'popup.module.enablePureBackground.title': '隐藏官方背景',
@@ -964,6 +970,16 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'resultModQuickFilter.toast.alreadyExists': '「{text}」已在「{group}」筛选器中',
   'resultModQuickFilter.toast.unknownStat': '此词缀无法对应官方搜索代码：「{text}」',
   'resultModQuickFilter.toast.failed': '加入筛选器失败：{message}',
+  'resultPobCopy.button': 'PoB',
+  'resultPobCopy.title': '复制英文 PoB 物品文字，可粘贴到 Path of Building',
+  'resultPobCopy.toast.copied': '已复制 PoB 物品文字',
+  'resultPobCopy.toast.noteUntranslated': '（{count} 行词缀无法转成英文）',
+  'resultPobCopy.toast.noteBaseUncertain': '（基底名称可能不准确）',
+  'resultPobCopy.toast.noteSeparator': '',
+  'resultPobCopy.toast.unsupportedLocale':
+    '此页面语言尚不支持转成英文 PoB 文字（目前支持英文、繁体中文、简体中文）',
+  'resultPobCopy.toast.failed': '复制 PoB 物品文字失败：{message}',
+  'resultPobCopy.error.itemMissing': '找不到这条结果的物品数据',
   'onboarding.welcome.title': '欢迎使用 PoeXD',
   'onboarding.welcome.statGroups': '常用词缀群组：存起来，一键叠加到当前搜索',
   'onboarding.welcome.tiers': '点官网的词缀栏位，可用阶级直接带入范围',

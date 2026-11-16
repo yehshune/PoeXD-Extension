@@ -39,6 +39,7 @@ describe('Preferences Domain Contract', () => {
       enablePureBackground: true,
       enableResultModHighlight: true,
       enableResultModQuickFilter: true,
+      enableResultPobCopy: true,
       enableSearchTilde: true,
       enableTierHelper: true,
       fontSizeMode: 'medium',

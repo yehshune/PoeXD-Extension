@@ -71,6 +71,7 @@ const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
   'enablePureBackground',
   'enableResultModHighlight',
   'enableResultModQuickFilter',
+  'enableResultPobCopy',
   'enableSearchTilde',
   'enableTierHelper',
   'marketTranslation',

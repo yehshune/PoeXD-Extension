@@ -5,6 +5,7 @@ import type { ResultPricePresenter } from './result-price-presenter';
 import type { ResultModHighlighter } from './result-mod-highlighter';
 import type { ResultItemNormalizer } from './result-item-normalizer';
 import type { ResultModQuickFilter } from './result-mod-quick-filter';
+import type { ResultPobCopy } from './result-pob-copy';
 
 export class DomFilter {
   private observed = false;
@@ -21,6 +22,7 @@ export class DomFilter {
     private readonly modHighlighter?: ResultModHighlighter,
     private readonly itemNormalizer?: ResultItemNormalizer,
     private readonly modQuickFilter?: ResultModQuickFilter,
+    private readonly pobCopy?: ResultPobCopy,
   ) {}
 
   init() {
@@ -140,6 +142,7 @@ export class DomFilter {
       this.pricePresenter?.apply(root);
       this.itemNormalizer?.apply(root);
       this.modQuickFilter?.apply(root);
+      this.pobCopy?.apply(root);
     }
     this.modHighlighter?.apply(root);
   }

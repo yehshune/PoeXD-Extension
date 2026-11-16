@@ -119,6 +119,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.resultModQuickFilter.infoAria': 'Result Affix Quick Filter info',
   'settings.resultModQuickFilter.tooltip':
     'Show +AND / +NOT buttons when hovering result affixes to quickly add the mod to filters without auto-searching',
+  'settings.resultPobCopy.label': 'Copy PoB Item Text',
+  'settings.resultPobCopy.infoAria': 'Copy PoB Item Text info',
+  'settings.resultPobCopy.tooltip':
+    'Add a PoB button under each result item image to copy English item text for Path of Building; Taiwan and China realm pages are converted to English automatically',
 
   'settings.pureBackground.label': 'Hide Official Page Background',
   'settings.pureBackground.infoAria': 'Hide Official Page Background info',
@@ -187,6 +191,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'popup.module.enableResultModQuickFilter.title': 'Result Affix Quick Filter',
   'popup.module.enableResultModQuickFilter.description':
     'Hover result affixes to quickly add to AND / NOT filters',
+  'popup.module.enableResultPobCopy.title': 'Copy PoB Item Text',
+  'popup.module.enableResultPobCopy.description': 'Copy English PoB item text from search results',
   'popup.module.enableItemNormalizer.title': 'Rune Override Calculator',
   'popup.module.enableItemNormalizer.description':
     'Custom rune override calculation and normalization bar above results',
@@ -1025,6 +1031,16 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'resultModQuickFilter.toast.unknownStat':
     'This affix cannot be mapped to a Trade stat ID: "{text}"',
   'resultModQuickFilter.toast.failed': 'Failed to add filter: {message}',
+  'resultPobCopy.button': 'PoB',
+  'resultPobCopy.title': 'Copy English PoB item text to paste into Path of Building',
+  'resultPobCopy.toast.copied': 'PoB item text copied',
+  'resultPobCopy.toast.noteUntranslated': '({count} mod lines could not be converted to English)',
+  'resultPobCopy.toast.noteBaseUncertain': '(base type may be inaccurate)',
+  'resultPobCopy.toast.noteSeparator': ' ',
+  'resultPobCopy.toast.unsupportedLocale':
+    'This page language cannot be converted to English PoB text yet (supported: English, Traditional Chinese, Simplified Chinese)',
+  'resultPobCopy.toast.failed': 'Failed to copy PoB item text: {message}',
+  'resultPobCopy.error.itemMissing': 'Item data for this result was not found',
   'onboarding.welcome.title': 'Welcome to PoeXD',
   'onboarding.welcome.statGroups':
     'Stat group templates: save common filters and add them to any search in one click',

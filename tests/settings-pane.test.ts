@@ -435,9 +435,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Verify no RadioGroups remain in SettingsPane
     expect(container.querySelectorAll('[data-slot="radio-group"]').length).toBe(0);
 
-    // Verify Checkbox slots exist (13 settings).
+    // Verify Checkbox slots exist (14 settings).
     const checkboxes = container.querySelectorAll('[data-slot="checkbox"]');
-    expect(checkboxes.length).toBe(13);
+    expect(checkboxes.length).toBe(14);
     checkboxes.forEach((cb) => {
       expect(cb.className).toContain(FORM_INDICATOR_SPECS.checkbox.sizeClass);
     });

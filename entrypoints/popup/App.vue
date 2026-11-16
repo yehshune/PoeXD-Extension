@@ -67,6 +67,11 @@ const MODULE_ITEMS: readonly ModuleConfigItem[] = [
     descriptionKey: 'popup.module.enableResultModQuickFilter.description',
   },
   {
+    key: 'enableResultPobCopy',
+    titleKey: 'popup.module.enableResultPobCopy.title',
+    descriptionKey: 'popup.module.enableResultPobCopy.description',
+  },
+  {
     key: 'enableItemNormalizer',
     titleKey: 'popup.module.enableItemNormalizer.title',
     descriptionKey: 'popup.module.enableItemNormalizer.description',
