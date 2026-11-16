@@ -86,7 +86,7 @@ export default defineConfig({
       default_locale: 'en',
       name: '__MSG_extName__',
       description: '__MSG_extDescription__',
-      permissions: ['storage', 'unlimitedStorage'],
+      permissions: ['storage', 'unlimitedStorage', 'scripting'],
       host_permissions: [
         'https://*.pathofexile.com/*',
         'https://*.pathofexile.tw/*',
@@ -109,6 +109,8 @@ export default defineConfig({
             'json/poe1/locales/*/trade-static.json',
             'json/poe1/locales/*/trade-items.json',
             'json/poe1/locales/*/mod-lines.json',
+            'json/poe1/locales/*/stat-text-items.json',
+            'json/poe1/stat-aliases.json',
             'json/poe1/locales/*/result-labels.json',
             'json/poe1/mercenary.json',
             'json/poe1/locales/*/mercenary.json',
@@ -120,11 +122,13 @@ export default defineConfig({
             'json/poe2/locales/*/trade-static.json',
             'json/poe2/locales/*/trade-items.json',
             'json/poe2/locales/*/mod-lines.json',
+            'json/poe2/locales/*/stat-text-items.json',
+            'json/poe2/stat-aliases.json',
             'json/poe2/locales/*/result-labels.json',
             // 市集漢化（ADR-0012）：只有 zh-TW、zh-CN
             'json/locales/*/trade-ui.json',
           ],
-          matches: TRADE_SITE_MATCHES,
+          matches: [...TRADE_SITE_MATCHES, 'https://pobb.in/*'],
         },
       ],
       ...(isFirefox

@@ -3,7 +3,7 @@
  * 檢查選用權限，再以不帶 cookie 的請求取回；回傳的代碼仍由側欄用 decodePobBuildCode 驗證。
  */
 import type { extensionMessaging as ExtensionMessaging } from './extension-protocol';
-import { parsePobShareUrl } from './pob-share-url';
+import { POB_SHARE_OPTIONAL_ORIGINS, parsePobShareUrl } from './pob-share-url';
 
 export type PobShareFetchError =
   | 'invalid-url'
@@ -74,11 +74,62 @@ export async function fetchPobShareCode(
 }
 
 export const POB_SHARE_PERMISSION_PAGE = '/pob-share-permission.html';
+export const POBBIN_ORIGIN = POB_SHARE_OPTIONAL_ORIGINS[0];
+export const POBBIN_TRANSLATION_SCRIPT_ID = 'pobbin-translation';
+export const POBBIN_TRANSLATION_SCRIPT_FILE = 'content-scripts/pobbin-translation.js';
+
+export interface PobbinScriptingPort {
+  getRegisteredContentScripts: (filter?: { ids?: string[] }) => Promise<Array<{ id: string }>>;
+  registerContentScripts: (
+    scripts: Array<{
+      id: string;
+      matches: string[];
+      js: string[];
+      runAt?: 'document_start' | 'document_end' | 'document_idle';
+      persistAcrossSessions?: boolean;
+    }>,
+  ) => Promise<void>;
+  unregisterContentScripts: (filter: { ids: string[] }) => Promise<void>;
+}
+
+/** 依 `https://pobb.in/*` 選用權限狀態，動態註冊或移除 pobb.in 翻譯腳本 */
+export async function syncPobbinTranslationContentScript(deps: {
+  hasPermission: (origin: string) => Promise<boolean>;
+  scripting?: PobbinScriptingPort;
+}): Promise<void> {
+  const scripting = deps.scripting;
+  if (!scripting) return;
+  try {
+    const [granted, registered] = await Promise.all([
+      deps.hasPermission(POBBIN_ORIGIN).catch(() => false),
+      scripting
+        .getRegisteredContentScripts({ ids: [POBBIN_TRANSLATION_SCRIPT_ID] })
+        .catch(() => []),
+    ]);
+    const isRegistered = registered.some((script) => script.id === POBBIN_TRANSLATION_SCRIPT_ID);
+    if (granted && !isRegistered) {
+      await scripting.registerContentScripts([
+        {
+          id: POBBIN_TRANSLATION_SCRIPT_ID,
+          matches: [POBBIN_ORIGIN],
+          js: [POBBIN_TRANSLATION_SCRIPT_FILE],
+          runAt: 'document_idle',
+          persistAcrossSessions: true,
+        },
+      ]);
+    } else if (!granted && isRegistered) {
+      await scripting.unregisterContentScripts({ ids: [POBBIN_TRANSLATION_SCRIPT_ID] });
+    }
+  } catch (error) {
+    console.warn('[PoeXD] 無法同步 pobb.in 翻譯腳本註冊狀態:', error);
+  }
+}
 
 export function registerPobShareBackgroundHandlers(options: {
   messenger: typeof ExtensionMessaging;
   deps?: Partial<PobShareFetchDeps>;
   openPage?: (path: string) => Promise<unknown>;
+  scripting?: PobbinScriptingPort;
 }): () => void {
   const deps: PobShareFetchDeps = {
     fetch: (...args) => fetch(...args),
@@ -88,6 +139,18 @@ export function registerPobShareBackgroundHandlers(options: {
   const openPage =
     options.openPage ??
     ((path: string) => chrome.tabs.create({ url: chrome.runtime.getURL(path) }));
+  const chromeApi = (globalThis as { chrome?: typeof chrome }).chrome;
+  const scripting = options.scripting ?? chromeApi?.scripting;
+  const syncScript = () => {
+    void syncPobbinTranslationContentScript({
+      hasPermission: deps.hasPermission,
+      scripting,
+    });
+  };
+
+  syncScript();
+  chromeApi?.permissions?.onAdded?.addListener(syncScript);
+  chromeApi?.permissions?.onRemoved?.addListener(syncScript);
 
   const unregFetch = options.messenger.onMessage('pobShare:fetchCode', (message) =>
     fetchPobShareCode(message.data?.url, deps),
@@ -103,5 +166,7 @@ export function registerPobShareBackgroundHandlers(options: {
   return () => {
     unregFetch();
     unregOpen();
+    chromeApi?.permissions?.onAdded?.removeListener(syncScript);
+    chromeApi?.permissions?.onRemoved?.removeListener(syncScript);
   };
 }

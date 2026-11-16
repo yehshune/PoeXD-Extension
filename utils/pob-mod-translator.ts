@@ -125,6 +125,9 @@ const TRANSLATED_LOCALES: readonly string[] = ['zh-TW', 'zh-CN'];
 const SUPPORT_SUFFIX = ' Support';
 const NAME_SLOT = '\u0001';
 const LEVEL_PLACEHOLDER = '{0:d}';
+/** pobb.in 懸浮框保留的數值範圍（例如 `(100-129)`、`(-20--10)`）；以暫代數值比對句型後還原 */
+const VALUE_RANGE = /\((-?\d+(?:\.\d+)?--?\d+(?:\.\d+)?)\)/g;
+const RANGE_SENTINEL_BASE = 98765401;
 /** 前綴與後半句之間的分隔；依序嘗試，前綴含分隔字本身 */
 const PREFIX_SEPARATORS: readonly string[] = [': ', ' also grant '];
 const MAX_LEARNING_SAMPLES = 40;
@@ -266,15 +269,30 @@ export function createModLineTranslator(
   };
 
   const cache = new Map<string, string | undefined>();
-  function translateLine(line: string): string | undefined {
-    if (cache.has(line)) return cache.get(line);
-    cache.set(line, undefined);
-    const translated =
+  function translateCore(line: string): string | undefined {
+    return (
       withoutSupport(line, primary.translateWhole) ??
       translateNamed(line) ??
       translatePrefixed(line, false) ??
       withoutSupport(line, fallback.translateWhole) ??
-      translatePrefixed(line, true);
+      translatePrefixed(line, true)
+    );
+  }
+
+  function translateLine(line: string): string | undefined {
+    if (cache.has(line)) return cache.get(line);
+    cache.set(line, undefined);
+    const ranges: Array<{ sentinel: string; text: string }> = [];
+    const normalized = line.replace(VALUE_RANGE, (match) => {
+      const sentinel = String(RANGE_SENTINEL_BASE + ranges.length);
+      ranges.push({ sentinel, text: match });
+      return sentinel;
+    });
+    const raw = translateCore(normalized);
+    const translated =
+      raw && ranges.length > 0
+        ? ranges.reduce((text, { sentinel, text: range }) => text.replace(sentinel, range), raw)
+        : raw;
     cache.set(line, translated);
     return translated;
   }
