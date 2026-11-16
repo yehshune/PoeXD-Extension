@@ -100,6 +100,7 @@ describe('usePobBuild', () => {
   let navigate: ReturnType<typeof vi.fn>;
   let openUrl: ReturnType<typeof vi.fn>;
   let savePending: ReturnType<typeof vi.fn>;
+  let showToast: ReturnType<typeof vi.fn>;
   let pendingToTake: PendingIcon | undefined;
   let emitResultImages: ((images: string[]) => void) | undefined;
   let nextId: number;
@@ -139,6 +140,7 @@ describe('usePobBuild', () => {
     navigate = vi.fn();
     openUrl = vi.fn();
     savePending = vi.fn();
+    showToast = vi.fn();
     deps = {
       store: createPobBuildStore('poe1', {
         storage,
@@ -161,6 +163,7 @@ describe('usePobBuild', () => {
           emitResultImages = undefined;
         };
       },
+      showToast: showToast as never,
     };
   });
 
@@ -182,10 +185,11 @@ describe('usePobBuild', () => {
         progress: { done: 0, total: 4 },
         removedCount: 0,
       });
-      expect(build.groups.map((group) => [group.kind, group.rows.length])).toEqual([
-        ['unique', 3],
-        ['gem', 1],
+      expect(build.groups.map((group) => [group.id, group.rows.length])).toEqual([
+        ['equipment', 3],
+        ['gem:link:Punishment', 1],
       ]);
+      expect(build.groups[1]).toMatchObject({ kind: 'gem', skill: 'Punishment' });
       expect(loadCatalog).toHaveBeenCalledWith('poe1', 'en');
       expect(stored()).toEqual([
         {
@@ -194,6 +198,7 @@ describe('usePobBuild', () => {
           code: toCode(buildXml()),
           importedAt: 1234,
           collapsed: false,
+          hideDone: false,
           done: [],
           removed: [],
           icons: {},
@@ -318,7 +323,7 @@ describe('usePobBuild', () => {
       pob.selectSkillSet('build-1', '2');
       await flush();
 
-      expect(labels(first(pob))).toEqual(["Xoph's Heart", 'Plate Vest', 'Punishment']);
+      expect(labels(first(pob))).toEqual(['Plate Vest', "Xoph's Heart", 'Punishment']);
       expect(rowByLabel(first(pob), 'Punishment').level).toBe(8);
       expect(stored()[0]).toMatchObject({ itemSetId: '2', skillSetId: '2' });
 
@@ -379,7 +384,7 @@ describe('usePobBuild', () => {
       pob.selectItemSet('build-1', '2');
 
       expect(loadCatalog.mock.calls.map((call) => call[1])).toEqual(['en', 'zh-TW']);
-      expect(labels(first(pob))).toEqual(['索伏之心', '鍍金鎧甲', '懲戒']);
+      expect(labels(first(pob))).toEqual(['鍍金鎧甲', '索伏之心', '懲戒']);
       expect(rowByLabel(first(pob), '索伏之心').query).toMatchObject({
         name: "Xoph's Heart",
         type: 'Amber Amulet',
@@ -466,6 +471,136 @@ describe('usePobBuild', () => {
       await flush();
       expect(labels(first(pob))).toContain('Not On Trade');
       expect(stored()[0].removed).toEqual([]);
+    });
+  });
+
+  describe('隱藏已完成與排序', () => {
+    it('已完成的項目沉到所屬分組最下面；隱藏已完成時不列出但仍計入進度，並記住', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      expect(labels(first(pob))).toEqual([
+        'Rise of the Phoenix',
+        'Not On Trade',
+        "Xoph's Heart",
+        'Punishment',
+      ]);
+
+      pob.toggleDone('build-1', rowByLabel(first(pob), 'Rise of the Phoenix').key);
+      expect(labels(first(pob))).toEqual([
+        'Not On Trade',
+        "Xoph's Heart",
+        'Rise of the Phoenix',
+        'Punishment',
+      ]);
+
+      pob.setHideDone('build-1', true);
+      await flush();
+      expect(first(pob).hideDone).toBe(true);
+      expect(labels(first(pob))).toEqual(['Not On Trade', "Xoph's Heart", 'Punishment']);
+      expect(first(pob).progress).toEqual({ done: 1, total: 4 });
+      expect(stored()[0].hideDone).toBe(true);
+
+      // 分組全部完成時整組不列出
+      pob.toggleDone('build-1', rowByLabel(first(pob), 'Punishment').key);
+      expect(first(pob).groups.map((group) => group.id)).toEqual(['equipment']);
+    });
+  });
+
+  describe('更新代碼', () => {
+    // 新版：Endgame 拿掉頭盔、改穿 Plate Vest
+    const updatedXml = () =>
+      buildXml().replace(
+        '<Slot itemId="2" name="Helmet"/>',
+        '<Slot itemId="4" name="Body Armour"/>',
+      );
+
+    it('保留名稱、進度與搜尋調整，清掉新代碼已沒有的項目，並提示變動', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      pob.rename('build-1', '我的 build');
+      const phoenixKey = rowByLabel(first(pob), 'Rise of the Phoenix').key;
+      const helmetKey = rowByLabel(first(pob), 'Not On Trade').key;
+      pob.toggleDone('build-1', phoenixKey);
+      pob.toggleDone('build-1', helmetKey);
+      pob.selectItemSet('build-1', '2');
+      const plateKey = rowByLabel(first(pob), 'Plate Vest').key;
+      pob.setPseudo('build-1', plateKey, true);
+      pob.selectItemSet('build-1', '1');
+      await flush();
+
+      expect(await pob.updateCode('build-1', toCode(updatedXml()))).toBe(true);
+      await flush();
+
+      const build = first(pob);
+      expect(build.name).toBe('我的 build');
+      expect(labels(build)).toEqual([
+        'Plate Vest',
+        "Xoph's Heart",
+        'Rise of the Phoenix',
+        'Punishment',
+      ]);
+      expect(rowByLabel(build, 'Rise of the Phoenix').done).toBe(true);
+      expect(rowByLabel(build, 'Plate Vest').pseudo).toBe(true);
+      expect(stored()[0]).toMatchObject({
+        name: '我的 build',
+        code: toCode(updatedXml()),
+        done: [phoenixKey],
+        searchSelections: { [plateKey]: { pseudo: true } },
+      });
+      expect(showToast).toHaveBeenCalledWith('已更新代碼：保留 1 項進度，新增 1 項，移除 1 項');
+    });
+
+    it('代碼無效或遊戲版本不同時拒絕，原本的清單不變', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      await flush();
+
+      expect(await pob.updateCode('build-1', 'not-a-code')).toBe(false);
+      expect(pob.errorKey.value).toBe('pobBuild.error.invalid');
+      expect(await pob.updateCode('build-1', toCode(buildXml({ root: 'PathOfBuilding2' })))).toBe(
+        false,
+      );
+      expect(pob.errorKey.value).toBe('pobBuild.error.versionMismatch');
+      expect(stored()[0].code).toBe(toCode(buildXml()));
+      expect(labels(first(pob))).toContain('Not On Trade');
+      expect(showToast).not.toHaveBeenCalled();
+    });
+
+    it('本機儲存：不存在的 build 或空代碼不寫入', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      await flush();
+      expect(await deps.store.replaceCode('missing', 'CODE', {})).toBe(false);
+      expect(await deps.store.replaceCode('build-1', '', {})).toBe(false);
+      expect(stored()[0].code).toBe(toCode(buildXml()));
+    });
+  });
+
+  describe('舊版進度', () => {
+    it('讀回時把不分組的寶石 key 換成新格式並存回本機', async () => {
+      const legacyKey = ['gem', 'Punishment', 20, 0].join('\u0000');
+      storage.data[pobBuildsStorageKey('poe1')] = [
+        {
+          id: 'old',
+          name: 'Old',
+          code: toCode(buildXml()),
+          importedAt: 1,
+          collapsed: false,
+          done: [legacyKey],
+          removed: [],
+          icons: { [legacyKey]: ICON },
+          searchSelections: {},
+        },
+      ];
+      const pob = usePobBuild('poe1', deps);
+      await pob.restore();
+      await flush();
+
+      const gem = rowByLabel(first(pob), 'Punishment');
+      expect(gem.done).toBe(true);
+      expect(gem.icon).toBe(ICON);
+      expect(stored()[0].done).toEqual([gem.key]);
+      expect(stored()[0].icons).toEqual({ [gem.key]: ICON });
     });
   });
 

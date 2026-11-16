@@ -39,6 +39,10 @@ export interface PobBuildGem {
   level: number;
   quality: number;
   support: boolean;
+  /** 插在哪個部位（PoB 的部位名稱）；沒有指定部位時為空字串 */
+  slot: string;
+  /** 所屬連線的名稱：PoB 的技能標籤，沒有時為該連線第一顆主動寶石 */
+  skill: string;
 }
 
 interface PobSet {
@@ -287,17 +291,27 @@ function parseGems(skillSet: Element): PobBuildGem[] {
   const gems: PobBuildGem[] = [];
   for (const skill of children(skillSet, 'Skill')) {
     if (skill.getAttribute('enabled') === 'false') continue;
-    for (const gem of children(skill, 'Gem')) {
+    const linked = children(skill, 'Gem').flatMap((gem) => {
       const gemId = gem.getAttribute('gemId') ?? '';
       const name = clip(gem.getAttribute('nameSpec'));
       // 沒有 gemId 的是裝備或天賦給的技能，不是可以買的寶石
-      if (!gemId || !name || gem.getAttribute('enabled') === 'false') continue;
-      gems.push({
-        name,
-        level: toCount(gem.getAttribute('level'), 1),
-        quality: toCount(gem.getAttribute('quality'), 0),
-        support: /SupportGem/.test(gemId),
-      });
+      if (!gemId || !name || gem.getAttribute('enabled') === 'false') return [];
+      return [
+        {
+          name,
+          level: toCount(gem.getAttribute('level'), 1),
+          quality: toCount(gem.getAttribute('quality'), 0),
+          support: /SupportGem/.test(gemId),
+        },
+      ];
+    });
+    const slot = clip(skill.getAttribute('slot'));
+    const skillName =
+      clip(skill.getAttribute('label')) ||
+      (linked.find((gem) => !gem.support) ?? linked[0])?.name ||
+      '';
+    for (const gem of linked) {
+      gems.push({ ...gem, slot, skill: skillName });
       if (gems.length >= MAX_GEMS_PER_SET) return gems;
     }
   }

@@ -14,6 +14,8 @@ const fake = {
   isBusy: ref(false),
   restore: vi.fn(async () => undefined),
   importCode: vi.fn(async () => true),
+  updateCode: vi.fn(async () => true),
+  setHideDone: vi.fn(),
   rename: vi.fn(),
   removeBuild: vi.fn(),
   toggleCollapsed: vi.fn(),
@@ -48,7 +50,8 @@ const sampleBuild = (): BuildView => ({
   skillSetId: '1',
   groups: [
     {
-      kind: 'unique',
+      id: 'equipment',
+      kind: 'equipment',
       rows: [
         {
           key: 'k-unique',
@@ -67,11 +70,6 @@ const sampleBuild = (): BuildView => ({
           pseudo: false,
           searchCustomized: false,
         },
-      ],
-    },
-    {
-      kind: 'equipment',
-      rows: [
         {
           key: 'k-rare',
           kind: 'equipment',
@@ -131,7 +129,9 @@ const sampleBuild = (): BuildView => ({
       ],
     },
     {
+      id: 'gem:Body Armour',
       kind: 'gem',
+      slot: 'Body Armour',
       rows: [
         {
           key: 'k-gem',
@@ -152,6 +152,7 @@ const sampleBuild = (): BuildView => ({
     },
   ],
   progress: { done: 1, total: 4 },
+  hideDone: false,
   removedCount: 2,
 });
 
@@ -268,8 +269,66 @@ describe('PobBuildPane', () => {
     expect(query('[data-pob-build-skill-set]')).toBeNull();
     expect(
       queryAll('[data-pob-build-group]').map((group) => group.getAttribute('data-pob-build-group')),
-    ).toEqual(['unique', 'equipment', 'gem']);
+    ).toEqual(['equipment', 'gem']);
+    expect(
+      queryAll('[data-pob-build-group] h4 > span:first-child').map((title) => title.textContent),
+    ).toEqual(['裝備', '寶石 · 胸甲']);
     expect(queryAll('[data-pob-build-row]')).toHaveLength(4);
+  });
+
+  it('沒有部位的寶石分組以連線名稱為標題', async () => {
+    const build = sampleBuild();
+    buildsRef.value = [
+      {
+        ...build,
+        groups: [{ ...build.groups[1], id: 'gem:link:Arc', slot: undefined, skill: '電弧' }],
+      },
+    ];
+    await mount();
+    expect(query('[data-pob-build-group] h4')?.textContent).toContain('寶石 · 電弧');
+  });
+
+  it('隱藏已完成交給狀態處理；全部完成且隱藏時顯示已隱藏的數量', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    query<HTMLElement>('[data-pob-build-hide-done]')!.click();
+    expect(fake.setHideDone).toHaveBeenCalledWith('b1', true);
+
+    buildsRef.value = [
+      { ...sampleBuild(), groups: [], hideDone: true, progress: { done: 4, total: 4 } },
+    ];
+    await nextTick();
+    expect(query('[data-pob-build-empty]')?.textContent).toContain('全部完成，已隱藏 4 項');
+    expect(query('[data-pob-build-hide-done]')?.getAttribute('data-state')).toBe('checked');
+  });
+
+  it('名稱按鈕上按空白鍵標記完成，Enter 仍是搜尋', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    const button = row(1).querySelector<HTMLButtonElement>('[data-pob-build-search]')!;
+    button.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    expect(fake.toggleDone).toHaveBeenCalledWith('b1', 'k-rare');
+    expect(fake.openSearch).not.toHaveBeenCalled();
+  });
+
+  it('更新代碼開啟同一個對話框的更新模式，送出後交給 updateCode', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    query<HTMLButtonElement>('[data-pob-build-update-code]')!.click();
+    await flushAsync();
+
+    expect(document.body.textContent).toContain('更新「RF 酋長」的 PoB 代碼');
+    const input = queryBody<HTMLTextAreaElement>('[data-pob-build-input]')!;
+    input.value = 'NEW';
+    input.dispatchEvent(new Event('input'));
+    await nextTick();
+    const submit = queryBody<HTMLButtonElement>('[data-pob-build-import]')!;
+    expect(submit.textContent?.trim()).toBe('更新');
+    submit.click();
+    await flushAsync();
+    expect(fake.updateCode).toHaveBeenCalledWith('b1', 'NEW');
+    expect(fake.importCode).not.toHaveBeenCalled();
+    expect(queryBody('[data-pob-build-input]')).toBeNull();
   });
 
   it('項目顯示中文部位、寶石等級品質、擷取到的圖片與已完成狀態', async () => {

@@ -10,6 +10,8 @@ import {
   buildTradeSearchUrl,
   createTradeNameCatalog,
   loadTradeNameCatalog,
+  migrateLegacyGemKeys,
+  slotRank,
 } from '@/utils/pob-shopping-list';
 
 // 結構取自 PoB Community 與 PoB PoE 2 的實際匯出檔（內容為測試用的精簡版）
@@ -225,21 +227,46 @@ describe('parsePobBuildXml', () => {
   });
 
   it('每組技能組只取啟用的寶石，略過裝備給的技能；不同連結各用一顆的寶石各列一次', () => {
+    const gloves = (name: string, level: number, quality: number, support: boolean) => ({
+      name,
+      level,
+      quality,
+      support,
+      slot: 'Gloves',
+      skill: 'Punishment',
+    });
     expect(parsePobBuildXml(buildXml()).skillSets).toEqual([
       {
         id: '1',
         title: 'Endgame',
         gems: [
-          { name: 'Punishment', level: 20, quality: 0, support: false },
-          { name: 'Lifetap', level: 1, quality: 0, support: true },
-          { name: 'Blessed Call', level: 20, quality: 20, support: true },
-          { name: 'Lifetap', level: 1, quality: 0, support: true },
+          gloves('Punishment', 20, 0, false),
+          gloves('Lifetap', 1, 0, true),
+          gloves('Blessed Call', 20, 20, true),
+          // 只有輔助寶石的連線以第一顆寶石命名
+          {
+            name: 'Lifetap',
+            level: 1,
+            quality: 0,
+            support: true,
+            slot: 'Weapon 1',
+            skill: 'Lifetap',
+          },
         ],
       },
       {
         id: '2',
         title: 'Leveling',
-        gems: [{ name: 'Punishment', level: 8, quality: 0, support: false }],
+        gems: [
+          {
+            name: 'Punishment',
+            level: 8,
+            quality: 0,
+            support: false,
+            slot: 'Body Armour',
+            skill: 'Punishment',
+          },
+        ],
       },
     ]);
   });
@@ -322,7 +349,17 @@ describe('buildShoppingList', () => {
       {
         kind: 'gem',
         count: 1,
+        label: 'Lifetap Support',
+        gemGroup: { id: 'Weapon 1', slot: 'Weapon 1' },
+        level: 1,
+        quality: 0,
+        query: { status: { option: 'online' }, type: 'Lifetap Support' },
+      },
+      {
+        kind: 'gem',
+        count: 1,
         label: 'Punishment',
+        gemGroup: { id: 'Gloves', slot: 'Gloves' },
         level: 20,
         quality: 0,
         query: {
@@ -333,8 +370,9 @@ describe('buildShoppingList', () => {
       },
       {
         kind: 'gem',
-        count: 2,
+        count: 1,
         label: 'Lifetap Support',
+        gemGroup: { id: 'Gloves', slot: 'Gloves' },
         level: 1,
         quality: 0,
         query: { status: { option: 'online' }, type: 'Lifetap Support' },
@@ -343,6 +381,7 @@ describe('buildShoppingList', () => {
         kind: 'gem',
         count: 1,
         label: 'Blessed Call Support',
+        gemGroup: { id: 'Gloves', slot: 'Gloves' },
         level: 20,
         quality: 20,
         query: {
@@ -382,7 +421,7 @@ describe('buildShoppingList', () => {
       query: null,
     });
     expect(list.find((entry) => entry.kind === 'gem')).toMatchObject({
-      label: 'Punishment',
+      label: 'Lifetap',
       query: null,
     });
   });
@@ -398,8 +437,8 @@ describe('buildShoppingList', () => {
     const catalog = createTradeNameCatalog({ englishItems: ENGLISH_ITEMS });
     const list = buildShoppingList(build, catalog, { itemSetId: '2', skillSetId: '2' });
     expect(list.map((entry) => [entry.kind, entry.slot ?? entry.level, entry.label])).toEqual([
-      ['unique', 'Amulet', "Xoph's Heart"],
       ['equipment', 'Body Armour', 'Vaal Regalia'],
+      ['unique', 'Amulet', "Xoph's Heart"],
       ['equipment', 'Jewel', 'Viridian Jewel'],
       ['gem', 8, 'Punishment'],
     ]);
@@ -408,7 +447,7 @@ describe('buildShoppingList', () => {
   it('裝備套裝與技能組可以分開選；指定不存在的套裝時用匯出當下那一組', () => {
     const catalog = createTradeNameCatalog({ englishItems: ENGLISH_ITEMS });
     const mixed = buildShoppingList(build, catalog, { itemSetId: '2' });
-    expect(mixed.filter((entry) => entry.kind === 'gem').length).toBe(3);
+    expect(mixed.filter((entry) => entry.kind === 'gem').length).toBe(4);
     expect(mixed.some((entry) => entry.label === 'Vaal Regalia')).toBe(true);
 
     const fallback = buildShoppingList(build, catalog, { itemSetId: 'missing' });
@@ -473,5 +512,107 @@ describe('loadTradeNameCatalog：隨擴充發佈的資料分片', () => {
     expect(tw.toTradeName('Opal Wand')).toBe('靈石法杖');
     const poe2 = await loadTradeNameCatalog(loadJson, { version: 'poe2', locale: 'en' });
     expect(poe2.toTradeName('Heart of the Well')).toBe('Heart of the Well');
+  });
+});
+
+describe('清單排序與寶石分組', () => {
+  it('部位依主手、副手、頭部、胸甲、手套、鞋子、項鍊、戒指、腰帶、藥劑排序，珠寶最後', () => {
+    const slots = [
+      'Jewel',
+      'Flask 2',
+      'Belt Abyssal Socket 1',
+      'Ring 2',
+      'Belt',
+      'Flask 1',
+      'Amulet',
+      'Ring 1',
+      'Boots',
+      'Gloves',
+      'Unknown Slot',
+      'Body Armour',
+      'Helmet',
+      'Weapon 2',
+      'Weapon 1',
+    ];
+    expect([...slots].sort((left, right) => slotRank(left) - slotRank(right))).toEqual([
+      'Weapon 1',
+      'Weapon 2',
+      'Helmet',
+      'Body Armour',
+      'Gloves',
+      'Boots',
+      'Amulet',
+      'Ring 1',
+      'Ring 2',
+      'Belt',
+      'Belt Abyssal Socket 1',
+      'Flask 1',
+      'Flask 2',
+      'Unknown Slot',
+      'Jewel',
+    ]);
+  });
+
+  const skillsXml = `<PathOfBuilding>
+	<Build className="Witch" level="90"/>
+	<Skills activeSkillSet="1">
+		<SkillSet id="1">
+			<Skill enabled="true" slot="Helmet">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemArc" level="20" nameSpec="Arc" quality="0"/>
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemLifetap" level="1" nameSpec="Lifetap" quality="0"/>
+			</Skill>
+			<Skill enabled="true" label="Auras">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemClarity" level="20" nameSpec="Clarity" quality="0"/>
+			</Skill>
+			<Skill enabled="true">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemLifetap" level="1" nameSpec="Lifetap" quality="0"/>
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemFrostblink" level="20" nameSpec="Frostblink" quality="0"/>
+			</Skill>
+			<Skill enabled="true" slot="Helmet">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemLifetap" level="1" nameSpec="Lifetap" quality="0"/>
+			</Skill>
+			<Skill enabled="true" slot="Weapon 1">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemArc" level="20" nameSpec="Arc" quality="0"/>
+			</Skill>
+		</SkillSet>
+	</Skills>
+</PathOfBuilding>`;
+
+  it('同一部位的寶石一組（相同寶石合併計數），沒有部位的以連線為一組並排在最後', () => {
+    const build = parsePobBuildXml(skillsXml);
+    const list = buildShoppingList(build, createTradeNameCatalog({ englishItems: [] }));
+    expect(list.map((entry) => [entry.gemGroup?.id, entry.label, entry.count])).toEqual([
+      ['Weapon 1', 'Arc', 1],
+      ['Helmet', 'Arc', 1],
+      ['Helmet', 'Lifetap', 2],
+      ['link:Auras', 'Clarity', 1],
+      // 沒有標籤的連線以第一顆主動寶石命名
+      ['link:Frostblink', 'Lifetap', 1],
+      ['link:Frostblink', 'Frostblink', 1],
+    ]);
+    expect(list.find((entry) => entry.label === 'Clarity')?.gemGroup).toEqual({
+      id: 'link:Auras',
+      skill: 'Auras',
+    });
+    expect(new Set(list.map((entry) => entry.key)).size).toBe(list.length);
+  });
+
+  it('舊版不分組的寶石 key 換成每個分組各一個，其他 key 原樣保留', () => {
+    const build = parsePobBuildXml(skillsXml);
+    const list = buildShoppingList(build, createTradeNameCatalog({ englishItems: [] }));
+    const keyOf = (group: string, label: string) =>
+      list.find((entry) => entry.gemGroup?.id === group && entry.label === label)?.key;
+    const legacyLifetap = ['gem', 'Lifetap', 1, 0].join('\u0000');
+    const legacyArc = ['gem', 'Arc', 20, 0].join('\u0000');
+
+    expect(migrateLegacyGemKeys(build, [legacyLifetap, 'item-key', legacyArc])).toEqual([
+      keyOf('Helmet', 'Lifetap'),
+      keyOf('link:Frostblink', 'Lifetap'),
+      'item-key',
+      keyOf('Helmet', 'Arc'),
+      keyOf('Weapon 1', 'Arc'),
+    ]);
+    const migrated = migrateLegacyGemKeys(build, [legacyLifetap]);
+    expect(migrateLegacyGemKeys(build, migrated)).toEqual(migrated);
   });
 });

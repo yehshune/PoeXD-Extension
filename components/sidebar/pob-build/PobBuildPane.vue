@@ -185,6 +185,16 @@
               <Button
                 variant="ghost"
                 size="icon-sm"
+                data-pob-build-update-code
+                :title="t('pobBuild.updateCodeTitle')"
+                :aria-label="t('pobBuild.updateCodeTitle')"
+                @click.stop="openUpdateDialog(build)"
+              >
+                <RefreshCw />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 data-pob-build-rename
                 :title="t('pobBuild.renameTitle')"
                 :aria-label="t('pobBuild.renameTitle')"
@@ -209,7 +219,11 @@
             <div
               v-if="
                 !isFiltering &&
-                (build.itemSetOptions.length > 1 || showSkillSets(build) || build.removedCount > 0)
+                (build.itemSetOptions.length > 1 ||
+                  showSkillSets(build) ||
+                  build.removedCount > 0 ||
+                  build.progress.done > 0 ||
+                  build.hideDone)
               "
               class="flex flex-col gap-[var(--pxd-space-sm)] border-b border-border bg-muted/20 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
             >
@@ -269,16 +283,36 @@
                 </Select>
               </div>
 
-              <Button
-                v-if="build.removedCount > 0"
-                variant="link"
-                size="sm"
-                data-pob-build-restore-removed
-                class="h-auto self-start p-0 text-[length:var(--pxd-font-caption)]"
-                @click="restoreRemoved(build.id)"
+              <div
+                v-if="build.removedCount > 0 || build.progress.done > 0 || build.hideDone"
+                class="flex items-center gap-[var(--pxd-space-md)]"
               >
-                {{ t('pobBuild.restoreRemoved', { count: build.removedCount }) }}
-              </Button>
+                <span
+                  v-if="build.progress.done > 0 || build.hideDone"
+                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+                >
+                  <Checkbox
+                    :id="`pob-hide-done-${build.id}`"
+                    class="[--checkbox-size:14px] [--checkbox-indicator-size:9px]"
+                    data-pob-build-hide-done
+                    :model-value="build.hideDone"
+                    @update:model-value="(value) => setHideDone(build.id, value === true)"
+                  />
+                  <label :for="`pob-hide-done-${build.id}`" class="cursor-pointer select-none">{{
+                    t('pobBuild.hideDone')
+                  }}</label>
+                </span>
+                <Button
+                  v-if="build.removedCount > 0"
+                  variant="link"
+                  size="sm"
+                  data-pob-build-restore-removed
+                  class="ml-auto h-auto p-0 text-[length:var(--pxd-font-caption)]"
+                  @click="restoreRemoved(build.id)"
+                >
+                  {{ t('pobBuild.restoreRemoved', { count: build.removedCount }) }}
+                </Button>
+              </div>
             </div>
 
             <p
@@ -286,19 +320,24 @@
               class="m-0 px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-caption)] text-muted-foreground"
               data-pob-build-empty
             >
-              {{ t('pobBuild.empty') }}
+              {{
+                build.hideDone && build.progress.done > 0
+                  ? t('pobBuild.allDoneHidden', { count: build.progress.done })
+                  : t('pobBuild.empty')
+              }}
             </p>
 
             <section
               v-for="group in build.groups"
-              :key="group.kind"
+              :key="group.id"
               class="flex flex-col border-b border-border last:border-b-0"
               :data-pob-build-group="group.kind"
+              :data-pob-build-group-id="group.id"
             >
               <h4
                 class="m-0 flex items-center justify-between border-b border-border bg-muted/25 px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] font-bold text-muted-foreground select-none"
               >
-                <span>{{ t(GROUP_TITLE_KEYS[group.kind]) }}</span>
+                <span class="min-w-0 truncate">{{ groupTitle(group) }}</span>
                 <span class="tabular-nums">{{ group.rows.length }}</span>
               </h4>
 
@@ -333,6 +372,7 @@
                     :disabled="!row.query"
                     :title="row.query ? t('pobBuild.searchTitle') : t('pobBuild.noSearchTitle')"
                     @click="openSearch(build.id, row, 'current')"
+                    @keydown.space.prevent="toggleDone(build.id, row.key)"
                   >
                     <span class="flex min-w-0 items-baseline gap-[var(--pxd-space-xs)]">
                       <span class="min-w-0 truncate font-medium" :class="nameClass(row)">{{
@@ -364,33 +404,34 @@
                       class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground"
                     >
                       <span>{{ rowDetail(row) }}</span>
-                      <ChevronDown
-                        v-if="row.mods?.length"
-                        class="size-3 opacity-60 transition-transform duration-200"
-                        :class="{ '-rotate-90': !isExpanded(build.id, row.key) }"
-                        aria-hidden="true"
-                      />
                     </span>
                   </button>
 
-                  <div
-                    class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
+                  <Button
+                    v-if="row.mods?.length"
+                    variant="ghost"
+                    size="icon-sm"
+                    class="-mr-[var(--pxd-space-xs)] shrink-0 text-muted-foreground"
+                    data-pob-build-mods-toggle
+                    :aria-expanded="isExpanded(build.id, row.key)"
+                    :title="t('pobBuild.toggleModsTitle')"
+                    :aria-label="t('pobBuild.toggleModsTitle')"
+                    @click.stop="toggleExpanded(build.id, row.key)"
                   >
-                    <Button
-                      v-if="row.mods?.length"
-                      variant="ghost"
-                      size="icon-sm"
-                      data-pob-build-mods-toggle
-                      :aria-expanded="isExpanded(build.id, row.key)"
-                      :title="t('pobBuild.toggleModsTitle')"
-                      :aria-label="t('pobBuild.toggleModsTitle')"
-                      @click.stop="toggleExpanded(build.id, row.key)"
-                    >
-                      <ChevronDown
-                        class="transition-transform duration-200"
-                        :class="{ '-rotate-90': !isExpanded(build.id, row.key) }"
-                      />
-                    </Button>
+                    <ChevronDown
+                      class="transition-transform duration-200"
+                      :class="{ '-rotate-90': !isExpanded(build.id, row.key) }"
+                    />
+                  </Button>
+
+                  <div
+                    :class="
+                      row.mods?.length
+                        ? 'right-[calc(var(--pxd-space-md)+var(--control-height-sm))]'
+                        : 'right-[var(--pxd-space-md)]'
+                    "
+                    class="absolute top-1/2 -translate-y-1/2 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
+                  >
                     <Button
                       v-if="row.query"
                       variant="ghost"
@@ -560,6 +601,8 @@
         v-model:open="isImportOpen"
         :is-busy="isBusy"
         :error-key="errorKey"
+        :mode="updateTarget ? 'update' : 'import'"
+        :build-name="updateTarget?.name ?? ''"
         @submit="handleImport"
         @clear-error="errorKey = null"
       />
@@ -575,6 +618,7 @@ import {
   ExternalLink,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   X,
@@ -596,7 +640,6 @@ import { POB_BUILD_NAME_MAX_LENGTH } from '@/utils/pob-build-store';
 import {
   isRequiredInCountMode,
   type ShoppingEntry,
-  type ShoppingEntryKind,
   type ShoppingMod,
   type ShoppingModKind,
 } from '@/utils/pob-shopping-list';
@@ -607,6 +650,7 @@ import {
   usePobBuild,
   type BuildView,
   type SetOption,
+  type ShoppingGroup,
   type ShoppingRow,
   type StatBound,
 } from './usePobBuild';
@@ -623,12 +667,6 @@ interface ModLine {
   /** 數值輸入框；只放在同一個條件的第一行 */
   editor?: BoundEditor;
 }
-
-const GROUP_TITLE_KEYS: Readonly<Record<ShoppingEntryKind, I18nKey>> = {
-  unique: 'pobBuild.group.unique',
-  equipment: 'pobBuild.group.equipment',
-  gem: 'pobBuild.group.gem',
-};
 
 // 稀有度顏色取遊戲內的色相，亮度取在深淺主題都看得清楚的中間值
 const RARITY_CLASSES: Readonly<Record<string, string>> = {
@@ -659,6 +697,7 @@ export default defineComponent({
     Pencil,
     Plus,
     PobBuildImportDialog,
+    RefreshCw,
     Search,
     Select,
     SelectContent,
@@ -674,6 +713,8 @@ export default defineComponent({
     const version = getPoeVersion();
     const pob = usePobBuild(version);
     const isImportOpen = ref(false);
+    /** 匯入對話框以「更新代碼」模式開啟時的目標 build */
+    const updateTarget = ref<{ id: string; name: string } | null>(null);
     const isSearchVisible = ref(false);
     const searchQuery = ref('');
     const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
@@ -701,6 +742,13 @@ export default defineComponent({
     const activeSetLabel = (options: readonly SetOption[], activeId: string): string => {
       const found = options.find((option) => option.id === activeId);
       return found ? setLabel(found) : '';
+    };
+
+    const groupTitle = (group: ShoppingGroup): string => {
+      if (group.kind === 'equipment') return t('pobBuild.group.equipment');
+      return group.slot
+        ? t('pobBuild.group.gemSlot', { slot: formatPobSlot(group.slot) })
+        : t('pobBuild.group.gemLink', { skill: group.skill ?? '' });
     };
 
     const rowDetail = (entry: ShoppingEntry): string =>
@@ -809,13 +857,19 @@ export default defineComponent({
     };
 
     const openImportDialog = () => {
+      updateTarget.value = null;
+      isImportOpen.value = true;
+    };
+
+    const openUpdateDialog = (build: BuildView) => {
+      updateTarget.value = { id: build.id, name: build.name };
       isImportOpen.value = true;
     };
 
     const handleImport = async (code: string) => {
-      if (await pob.importCode(code)) {
-        isImportOpen.value = false;
-      }
+      const target = updateTarget.value;
+      const ok = target ? await pob.updateCode(target.id, code) : await pob.importCode(code);
+      if (ok) isImportOpen.value = false;
     };
 
     const startRename = (build: BuildView) => {
@@ -852,10 +906,10 @@ export default defineComponent({
 
     return {
       t,
-      GROUP_TITLE_KEYS,
       MOD_CLASSES,
       NAME_MAX_LENGTH: POB_BUILD_NAME_MAX_LENGTH,
       isImportOpen,
+      updateTarget,
       isSearchVisible,
       searchQuery,
       searchInputRef,
@@ -869,6 +923,7 @@ export default defineComponent({
       showSkillSets,
       setLabel,
       activeSetLabel,
+      groupTitle,
       rowDetail,
       nameClass,
       modLines,
@@ -880,6 +935,7 @@ export default defineComponent({
       commitCountMin,
       hasPseudo,
       openImportDialog,
+      openUpdateDialog,
       handleImport,
       toggleExpandAll,
       toggleSearch,
@@ -901,6 +957,7 @@ export default defineComponent({
       resetSearch: pob.resetSearch,
       setStatEnabled: pob.setStatEnabled,
       setPseudo: pob.setPseudo,
+      setHideDone: pob.setHideDone,
     };
   },
 });

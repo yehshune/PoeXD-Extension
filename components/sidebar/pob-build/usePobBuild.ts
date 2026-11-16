@@ -4,7 +4,7 @@
  */
 import { computed, shallowRef, ref, type ComputedRef, type Ref } from 'vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
-import { getActiveDisplayLocale, type I18nKey } from '@/utils/i18n';
+import { getActiveDisplayLocale, t, type I18nKey } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import { parsePobBuildXml, PobBuildError, type PobBuild } from '@/utils/pob-build';
@@ -28,9 +28,9 @@ import {
   buildTradeSearchUrl,
   entryStatFilters,
   loadTradeNameCatalog,
+  migrateLegacyGemKeys,
   type EntrySearchSelection,
   type ShoppingEntry,
-  type ShoppingEntryKind,
   type ShoppingMod,
   type ShoppingStatFilter,
   type TradeNameCatalog,
@@ -59,6 +59,8 @@ export interface UsePobBuildDeps {
   openUrl: (url: string) => void;
   /** 訂閱目前頁面搜尋結果的圖片；回傳取消訂閱 */
   onResultImages: (listener: (images: string[]) => void) => () => void;
+  /** 顯示短暫提示 */
+  showToast: (message: string) => void;
 }
 
 export interface ShoppingRow extends ShoppingEntry {
@@ -76,8 +78,14 @@ export interface ShoppingRow extends ShoppingEntry {
 
 export type StatBound = 'min' | 'max';
 
+/** 清單分組：全部裝備一組（依部位排序）；寶石依插的部位一組，沒有部位的以連線一組 */
 export interface ShoppingGroup {
-  kind: ShoppingEntryKind;
+  id: string;
+  kind: 'equipment' | 'gem';
+  /** 寶石分組的部位（PoB 部位名稱） */
+  slot?: string;
+  /** 沒有部位的寶石分組：連線名稱（已換成顯示語言） */
+  skill?: string;
   rows: ShoppingRow[];
 }
 
@@ -97,9 +105,11 @@ export interface BuildView {
   skillSetOptions: SetOption[];
   itemSetId: string;
   skillSetId: string;
-  /** 目前套裝的清單，不含已移除的項目 */
+  /** 目前套裝的清單，不含已移除的項目；隱藏已完成時也不含已完成的項目 */
   groups: ShoppingGroup[];
+  /** 進度一律計算全部項目（含隱藏的已完成項目） */
   progress: { done: number; total: number };
+  hideDone: boolean;
   /** 目前套裝中被移除的項目數 */
   removedCount: number;
 }
@@ -112,6 +122,12 @@ export interface UsePobBuild {
   restore(): Promise<void>;
   /** 新增一份 build；成功回傳 true，失敗時 errorKey 說明原因，既有的 build 不受影響 */
   importCode(code: string): Promise<boolean>;
+  /**
+   * 換成新的 PoB 代碼，保留名稱、進度與搜尋調整，清掉新代碼裡已不存在的項目；成功回傳 true，
+   * 失敗時 errorKey 說明原因，原本的清單不受影響。
+   */
+  updateCode(buildId: string, code: string): Promise<boolean>;
+  setHideDone(buildId: string, on: boolean): void;
   rename(buildId: string, name: string): void;
   removeBuild(buildId: string): void;
   toggleCollapsed(buildId: string): void;
@@ -147,6 +163,7 @@ interface Session {
   name: string;
   build: PobBuild;
   collapsed: boolean;
+  hideDone: boolean;
   itemSetId: string;
   skillSetId: string;
   done: ReadonlySet<string>;
@@ -154,8 +171,6 @@ interface Session {
   icons: Readonly<Record<string, string>>;
   searchSelections: Readonly<Record<string, EntrySearchSelection>>;
 }
-
-const GROUP_ORDER: readonly ShoppingEntryKind[] = ['unique', 'equipment', 'gem'];
 
 class VersionMismatchError extends Error {}
 class TooManyBuildsError extends Error {}
@@ -192,6 +207,9 @@ function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
       dispatchPoeEvent('poexd-request-result-images');
       return stop;
     },
+    showToast: (message) => {
+      dispatchPoeEvent('poexd-toast', { message, tone: 'default', durationMs: 4000 });
+    },
   };
 }
 
@@ -212,6 +230,21 @@ const toOptions = (sets: ReadonlyArray<{ id: string; title: string }>): SetOptio
 
 const defaultName = (build: PobBuild): string =>
   `${build.ascendancy || build.className || 'Build'} Lv.${build.level}`;
+
+/** 以 key 為鍵的物件只留下 keep 裡的 key */
+const pickKeys = <T>(source: Readonly<Record<string, T>>, keep: ReadonlySet<string>) =>
+  Object.fromEntries(Object.entries(source).filter(([key]) => keep.has(key)));
+
+/** 舊版存下的寶石 key 換成新格式；icons 這類以 key 為鍵的物件一併換 */
+const migrateKeyedRecord = <T>(build: PobBuild, source: Readonly<Record<string, T>>) =>
+  Object.fromEntries(
+    Object.entries(source).flatMap(([key, value]) =>
+      migrateLegacyGemKeys(build, [key]).map((next) => [next, value] as const),
+    ),
+  );
+
+const sameList = (left: readonly string[], right: readonly string[]) =>
+  left.length === right.length && left.every((value, index) => value === right[index]);
 
 const withToggled = (source: ReadonlySet<string>, key: string, on: boolean): Set<string> => {
   const next = new Set(source);
@@ -257,20 +290,77 @@ export function usePobBuild(
     modTranslator.value = loadedTranslator;
   };
 
-  const entriesOf = (session: Session): ShoppingEntry[] =>
+  const listFor = (build: PobBuild, itemSetId: string, skillSetId: string): ShoppingEntry[] =>
     catalog.value
-      ? buildShoppingList(
-          session.build,
-          catalog.value,
-          { itemSetId: session.itemSetId, skillSetId: session.skillSetId },
-          matcher.value,
-        )
+      ? buildShoppingList(build, catalog.value, { itemSetId, skillSetId }, matcher.value)
       : [];
+
+  const entriesOf = (session: Session): ShoppingEntry[] =>
+    listFor(session.build, session.itemSetId, session.skillSetId);
+
+  /** 一份 build 所有套裝、技能組會出現的 key；更新代碼時用來判斷哪些進度還用得到 */
+  const allKeysOf = (build: PobBuild): Set<string> => {
+    const itemSetIds = build.itemSets.length > 0 ? build.itemSets.map((set) => set.id) : [''];
+    const skillSetIds = build.skillSets.length > 0 ? build.skillSets.map((set) => set.id) : [''];
+    const keys = new Set<string>();
+    for (const itemSetId of itemSetIds) {
+      listFor(build, itemSetId, skillSetIds[0]).forEach((entry) => keys.add(entry.key));
+    }
+    for (const skillSetId of skillSetIds) {
+      listFor(build, itemSetIds[0], skillSetId).forEach((entry) => keys.add(entry.key));
+    }
+    return keys;
+  };
+
+  /** 沒有部位的寶石分組以連線名稱（英文寶石名稱或 PoB 標籤）顯示，能換成顯示語言就換 */
+  const skillLabel = (skill: string): string =>
+    (displayNames.value ?? catalog.value)?.toTradeName(skill) ?? skill;
 
   /** 詞綴顯示用顯示語言；翻不了的維持 PoB 的英文 */
   const localizeMod = (mod: ShoppingMod): ShoppingMod => {
     const translated = modTranslator.value?.translate(mod.text);
     return translated ? { ...mod, text: translated } : mod;
+  };
+
+  const toRow = (session: Session, entry: ShoppingEntry): ShoppingRow => {
+    const selection = session.searchSelections[entry.key];
+    const applied = applyEntrySelection(entry, selection);
+    return {
+      ...applied,
+      label: displayNames.value?.toTradeName(entry.englishName) ?? entry.label,
+      ...(applied.mods ? { mods: applied.mods.map(localizeMod) } : {}),
+      done: session.done.has(entry.key),
+      ...(session.icons[entry.key] ? { icon: session.icons[entry.key] } : {}),
+      filters: entryStatFilters(entry, selection),
+      ...(selection?.countMin !== undefined ? { countMin: selection.countMin } : {}),
+      pseudo: selection?.pseudo === true,
+      searchCustomized: selection !== undefined,
+    };
+  };
+
+  /** 依清單順序切成分組；已完成的項目沉到所屬分組最下面，隱藏已完成時直接略過 */
+  const toGroups = (session: Session, entries: readonly ShoppingEntry[]): ShoppingGroup[] => {
+    const groups = new Map<string, ShoppingGroup>();
+    for (const entry of entries) {
+      const gemGroup = entry.kind === 'gem' ? entry.gemGroup : undefined;
+      const id = entry.kind === 'gem' ? `gem:${gemGroup?.id ?? ''}` : 'equipment';
+      const group: ShoppingGroup = groups.get(id) ?? {
+        id,
+        kind: entry.kind === 'gem' ? 'gem' : 'equipment',
+        ...(gemGroup?.slot ? { slot: gemGroup.slot } : {}),
+        ...(gemGroup?.skill !== undefined ? { skill: skillLabel(gemGroup.skill) } : {}),
+        rows: [],
+      };
+      groups.set(id, { ...group, rows: [...group.rows, toRow(session, entry)] });
+    }
+    return [...groups.values()]
+      .map((group) => ({
+        ...group,
+        rows: session.hideDone
+          ? group.rows.filter((row) => !row.done)
+          : [...group.rows.filter((row) => !row.done), ...group.rows.filter((row) => row.done)],
+      }))
+      .filter((group) => group.rows.length > 0);
   };
 
   const toView = (session: Session): BuildView => {
@@ -284,30 +374,12 @@ export function usePobBuild(
       skillSetOptions: toOptions(session.build.skillSets),
       itemSetId: session.itemSetId,
       skillSetId: session.skillSetId,
-      groups: GROUP_ORDER.map((kind) => ({
-        kind,
-        rows: visible
-          .filter((entry) => entry.kind === kind)
-          .map((entry): ShoppingRow => {
-            const selection = session.searchSelections[entry.key];
-            const applied = applyEntrySelection(entry, selection);
-            return {
-              ...applied,
-              label: displayNames.value?.toTradeName(entry.englishName) ?? entry.label,
-              ...(applied.mods ? { mods: applied.mods.map(localizeMod) } : {}),
-              done: session.done.has(entry.key),
-              ...(session.icons[entry.key] ? { icon: session.icons[entry.key] } : {}),
-              filters: entryStatFilters(entry, selection),
-              ...(selection?.countMin !== undefined ? { countMin: selection.countMin } : {}),
-              pseudo: selection?.pseudo === true,
-              searchCustomized: selection !== undefined,
-            };
-          }),
-      })).filter((group) => group.rows.length > 0),
+      groups: toGroups(session, visible),
       progress: {
         done: visible.filter((entry) => session.done.has(entry.key)).length,
         total: visible.length,
       },
+      hideDone: session.hideDone,
       removedCount: entries.length - visible.length,
     };
   };
@@ -323,9 +395,32 @@ export function usePobBuild(
     void deps.store.update(buildId, patch).catch(() => undefined);
   };
 
-  const toSession = async (stored: StoredPobBuild): Promise<Session> => {
-    const build = parsePobBuildXml(await decodePobBuildCode(stored.code));
+  /** 解開代碼並確認遊戲版本與目前頁面相同 */
+  const decodeBuild = async (code: string): Promise<PobBuild> => {
+    const build = parsePobBuildXml(await decodePobBuildCode(code));
     if (build.gameVersion !== version) throw new VersionMismatchError();
+    return build;
+  };
+
+  /** 舊版的寶石 key 不含分組，讀回時換成新格式並存回本機 */
+  const migrateStored = (stored: StoredPobBuild, build: PobBuild): StoredPobBuild => {
+    const done = migrateLegacyGemKeys(build, stored.done);
+    const removed = migrateLegacyGemKeys(build, stored.removed);
+    const icons = migrateKeyedRecord(build, stored.icons);
+    if (
+      sameList(done, stored.done) &&
+      sameList(removed, stored.removed) &&
+      sameList(Object.keys(icons), Object.keys(stored.icons))
+    ) {
+      return stored;
+    }
+    void deps.store.update(stored.id, { done, removed, icons }).catch(() => undefined);
+    return { ...stored, done, removed, icons };
+  };
+
+  const toSession = async (source: StoredPobBuild): Promise<Session> => {
+    const build = await decodeBuild(source.code);
+    const stored = migrateStored(source, build);
     const pick = (
       sets: ReadonlyArray<{ id: string }>,
       wanted: string | undefined,
@@ -336,6 +431,7 @@ export function usePobBuild(
       name: stored.name || defaultName(build),
       build,
       collapsed: stored.collapsed,
+      hideDone: stored.hideDone,
       itemSetId: pick(build.itemSets, stored.itemSetId, build.activeItemSetId),
       skillSetId: pick(build.skillSets, stored.skillSetId, build.activeSkillSetId),
       done: new Set(stored.done),
@@ -411,8 +507,7 @@ export function usePobBuild(
       try {
         if (sessions.value.length >= MAX_POB_BUILDS) throw new TooManyBuildsError();
         const compactCode = typeof code === 'string' ? code.replace(/\s+/g, '') : '';
-        const build = parsePobBuildXml(await decodePobBuildCode(compactCode));
-        if (build.gameVersion !== version) throw new VersionMismatchError();
+        const build = await decodeBuild(compactCode);
         await ensureData();
         const stored = await deps.store.add({ name: defaultName(build), code: compactCode });
         sessions.value = [await toSession(stored), ...sessions.value];
@@ -423,6 +518,55 @@ export function usePobBuild(
       } finally {
         isBusy.value = false;
       }
+    },
+    async updateCode(buildId, code) {
+      isBusy.value = true;
+      errorKey.value = null;
+      try {
+        const session = find(buildId);
+        if (!session) return false;
+        const compactCode = typeof code === 'string' ? code.replace(/\s+/g, '') : '';
+        const build = await decodeBuild(compactCode);
+        await ensureData();
+        const keep = allKeysOf(build);
+        const patch = {
+          done: [...session.done].filter((key) => keep.has(key)),
+          removed: [...session.removed].filter((key) => keep.has(key)),
+          icons: pickKeys(session.icons, keep),
+          searchSelections: pickKeys(session.searchSelections, keep),
+        };
+        if (!(await deps.store.replaceCode(buildId, compactCode, patch))) return false;
+        const before = new Set(entriesOf(session).map((entry) => entry.key));
+        const next = await toSession({
+          id: session.id,
+          name: session.name,
+          code: compactCode,
+          importedAt: 0,
+          collapsed: session.collapsed,
+          hideDone: session.hideDone,
+          itemSetId: session.itemSetId,
+          skillSetId: session.skillSetId,
+          ...patch,
+        });
+        sessions.value = sessions.value.map((entry) => (entry.id === buildId ? next : entry));
+        const after = entriesOf(next).map((entry) => entry.key);
+        deps.showToast(
+          t('pobBuild.updateCode.summary', {
+            kept: after.filter((key) => before.has(key) && next.done.has(key)).length,
+            added: after.filter((key) => !before.has(key)).length,
+            removed: [...before].filter((key) => !after.includes(key)).length,
+          }),
+        );
+        return true;
+      } catch (error) {
+        errorKey.value = toErrorKey(error);
+        return false;
+      } finally {
+        isBusy.value = false;
+      }
+    },
+    setHideDone(buildId, on) {
+      update(buildId, { hideDone: on }, { hideDone: on });
     },
     rename(buildId, name) {
       const trimmed = name.trim();

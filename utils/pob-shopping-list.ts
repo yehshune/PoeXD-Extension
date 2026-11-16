@@ -79,6 +79,8 @@ export interface ShoppingEntry {
   suffix?: string;
   /** 同一套裡完全相同的項目數（兩顆一樣的珠寶、兩組連結各用一顆相同的寶石） */
   count: number;
+  /** 寶石才有：所屬的分組（同一部位或同一連線） */
+  gemGroup?: ShoppingGemGroup;
   /** 部位（裝備）或等級／品質（寶石），依 kind 由介面決定怎麼顯示 */
   slot?: string;
   level?: number;
@@ -90,6 +92,16 @@ export interface ShoppingEntry {
   searchBase: Record<string, unknown> | null;
   /** 官方市集的 query 物件（套用使用者的選擇後）；null 表示無法搜尋 */
   query: Record<string, unknown> | null;
+}
+
+/** 寶石的分組：插在同一部位的寶石一組；沒有指定部位的以連線為一組 */
+export interface ShoppingGemGroup {
+  /** 分組識別（部位名稱，或 `link:` 加連線名稱） */
+  id: string;
+  /** PoB 部位名稱；沒有指定部位時省略 */
+  slot?: string;
+  /** 沒有部位時的連線名稱：PoB 的技能標籤或第一顆主動寶石的英文名稱 */
+  skill?: string;
 }
 
 /** 使用者對單一條件的調整；min / max 為 null 表示清掉該邊界 */
@@ -140,6 +152,26 @@ const MIN_SEARCHED_LINKS = 5;
 /** 裝備本身有數值的部位：同一句詞綴優先對到市集標 `(Local)` 的代碼 */
 const LOCAL_STAT_SLOT = /^(Weapon|Helmet|Body Armour|Gloves|Boots)(?: |$)/;
 const KEY_SEPARATOR = '\u0000';
+/** 清單的部位順序；有編號的部位（戒指、藥劑、護符）以前綴比對，深淵插槽跟在所屬部位後面 */
+const SLOT_ORDER: readonly string[] = [
+  'Weapon 1',
+  'Weapon 2',
+  'Weapon 1 Swap',
+  'Weapon 2 Swap',
+  'Helmet',
+  'Body Armour',
+  'Gloves',
+  'Boots',
+  'Amulet',
+  'Ring',
+  'Belt',
+  'Flask',
+  'Charm',
+];
+const NUMBERED_SLOT = /^(.+?) (\d+)$/;
+const ABYSSAL_SLOT = /^(.+) Abyssal Socket (\d+)$/;
+const JEWEL_SLOT = 'Jewel';
+const LINK_GROUP_PREFIX = 'link:';
 
 const PSEUDO = {
   elemental: 'pseudo.pseudo_total_elemental_resistance',
@@ -517,6 +549,47 @@ function itemEntry(
   });
 }
 
+/**
+ * 部位的排序值：主手 → 副手 → 頭部 → 胸甲 → 手套 → 鞋子 → 項鍊 → 戒指 → 腰帶 → 藥劑 → 護符，
+ * 認不得的部位接在後面，天賦樹珠寶最後。
+ */
+export function slotRank(slot: string): number {
+  const abyssal = ABYSSAL_SLOT.exec(slot);
+  if (abyssal) return slotRank(abyssal[1]) + 0.5 + Math.min(Number(abyssal[2]), 99) / 1000;
+  if (slot === JEWEL_SLOT) return SLOT_ORDER.length + 1;
+  const exact = SLOT_ORDER.indexOf(slot);
+  if (exact >= 0) return exact;
+  const numbered = NUMBERED_SLOT.exec(slot);
+  const prefix = numbered ? SLOT_ORDER.indexOf(numbered[1]) : -1;
+  if (numbered && prefix >= 0) return prefix + Math.min(Number(numbered[2]), 99) / 1000;
+  return SLOT_ORDER.length;
+}
+
+const gemGroupOf = (gem: PobBuildGem): ShoppingGemGroup =>
+  gem.slot
+    ? { id: gem.slot, slot: gem.slot }
+    : { id: `${LINK_GROUP_PREFIX}${gem.skill}`, skill: gem.skill };
+
+const gemKey = (gem: PobBuildGem): string =>
+  ['gem', gemGroupOf(gem).id, gem.name, gem.level, gem.quality].join(KEY_SEPARATOR);
+
+/** 寶石分組前的 key（不含分組），舊版存下的進度用這個格式 */
+const legacyGemKey = (gem: PobBuildGem): string =>
+  ['gem', gem.name, gem.level, gem.quality].join(KEY_SEPARATOR);
+
+/**
+ * 把舊版（寶石不分組）存下的 key 換成新格式：同一顆寶石在幾個分組出現，就換成幾個 key。
+ * 不是舊格式的 key 原樣保留。
+ */
+export function migrateLegacyGemKeys(build: PobBuild, keys: readonly string[]): string[] {
+  const replacements = new Map<string, Set<string>>();
+  for (const gem of build.skillSets.flatMap((set) => set.gems)) {
+    const legacy = legacyGemKey(gem);
+    replacements.set(legacy, new Set([...(replacements.get(legacy) ?? []), gemKey(gem)]));
+  }
+  return [...new Set(keys.flatMap((key) => [...(replacements.get(key) ?? [key])]))];
+}
+
 function gemEntry(gem: PobBuildGem, catalog: TradeNameCatalog): ShoppingEntry {
   // PoB 的輔助寶石名稱不含「Support」，市集上有
   const supportName = `${gem.name}${SUPPORT_SUFFIX}`;
@@ -536,8 +609,9 @@ function gemEntry(gem: PobBuildGem, catalog: TradeNameCatalog): ShoppingEntry {
       }
     : null;
   return {
-    key: ['gem', gem.name, gem.level, gem.quality].join(KEY_SEPARATOR),
+    key: gemKey(gem),
     kind: 'gem',
+    gemGroup: gemGroupOf(gem),
     label: tradeName ?? gem.name,
     englishName,
     count: 1,
@@ -585,8 +659,22 @@ export function buildShoppingList(
     const existing = merged.get(entry.key);
     merged.set(entry.key, existing ? { ...existing, count: existing.count + 1 } : entry);
   }
-  const order: readonly ShoppingEntryKind[] = ['unique', 'equipment', 'gem'];
-  return order.flatMap((kind) => [...merged.values()].filter((entry) => entry.kind === kind));
+  // 裝備依部位排序（傳奇與其他裝備不再分開）；寶石依分組的部位排序，沒有部位的連線在最後，
+  // 分組內維持 PoB 的順序。sort 是穩定排序，同部位維持原本的先後
+  const entries = [...merged.values()];
+  const equipment = entries
+    .filter((entry) => entry.kind !== 'gem')
+    .sort((left, right) => slotRank(left.slot ?? '') - slotRank(right.slot ?? ''));
+  const gemEntries = entries.filter((entry) => entry.kind === 'gem');
+  const groupOrder = [...new Set(gemEntries.map((entry) => entry.gemGroup?.id))];
+  const groupRank = (entry: ShoppingEntry) =>
+    entry.gemGroup?.slot ? slotRank(entry.gemGroup.slot) : Number.MAX_SAFE_INTEGER;
+  const sortedGems = [...gemEntries].sort(
+    (left, right) =>
+      groupRank(left) - groupRank(right) ||
+      groupOrder.indexOf(left.gemGroup?.id) - groupOrder.indexOf(right.gemGroup?.id),
+  );
+  return [...equipment, ...sortedGems];
 }
 
 /** 官方市集支援以 `?q=` 帶入查詢條件，開啟後由官網自己執行搜尋 */

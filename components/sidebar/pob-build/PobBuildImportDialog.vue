@@ -11,11 +11,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { t, type I18nKey } from '@/utils/i18n';
 
-const props = defineProps<{
-  open: boolean;
-  isBusy: boolean;
-  errorKey: I18nKey | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    open: boolean;
+    isBusy: boolean;
+    errorKey: I18nKey | null;
+    /** update：替既有 build 換代碼，標題與按鈕文字不同 */
+    mode?: 'import' | 'update';
+    /** update 模式顯示在標題的 build 名稱 */
+    buildName?: string;
+  }>(),
+  { mode: 'import', buildName: '' },
+);
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
@@ -58,10 +65,14 @@ function handleSubmit() {
     >
       <DialogHeader class="gap-[var(--pxd-space-xs)]">
         <DialogTitle class="text-[length:var(--pxd-font-heading)] font-bold">
-          {{ t('pobBuild.importDialogTitle') }}
+          {{
+            mode === 'update'
+              ? t('pobBuild.updateDialogTitle', { name: buildName })
+              : t('pobBuild.importDialogTitle')
+          }}
         </DialogTitle>
         <DialogDescription class="text-[length:var(--pxd-font-secondary)] text-muted-foreground">
-          {{ t('pobBuild.description') }}
+          {{ mode === 'update' ? t('pobBuild.updateDescription') : t('pobBuild.description') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -106,7 +117,12 @@ function handleSubmit() {
           data-pob-build-import
           @click="handleSubmit"
         >
-          {{ isBusy ? t('pobBuild.importingBtn') : t('pobBuild.importBtn') }}
+          <template v-if="mode === 'update'">
+            {{ isBusy ? t('pobBuild.updatingBtn') : t('pobBuild.updateBtn') }}
+          </template>
+          <template v-else>
+            {{ isBusy ? t('pobBuild.importingBtn') : t('pobBuild.importBtn') }}
+          </template>
         </Button>
       </DialogFooter>
     </DialogContent>

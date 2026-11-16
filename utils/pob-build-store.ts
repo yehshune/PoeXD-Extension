@@ -19,6 +19,8 @@ export interface StoredPobBuild {
   importedAt: number;
   /** 清單收合 */
   collapsed: boolean;
+  /** 隱藏已完成的項目 */
+  hideDone: boolean;
   itemSetId?: string;
   skillSetId?: string;
   /** 已完成、已移除的項目（ShoppingEntry.key） */
@@ -38,6 +40,11 @@ export interface PobBuildStore {
   add(entry: { name: string; code: string }): Promise<StoredPobBuild>;
   /** 更新指定 build；該 build 已不存在時不做事 */
   update(id: string, patch: StoredPobBuildPatch): Promise<void>;
+  /**
+   * 換成新的 PoB 代碼，名稱、進度與搜尋調整保留，同時套用 patch（清掉已不存在的項目）。
+   * 該 build 已不存在時回傳 false。
+   */
+  replaceCode(id: string, code: string, patch: StoredPobBuildPatch): Promise<boolean>;
   remove(id: string): Promise<void>;
 }
 
@@ -157,6 +164,7 @@ function parseStored(value: unknown): StoredPobBuild | undefined {
     code,
     importedAt: typeof importedAt === 'number' ? importedAt : 0,
     collapsed: value.collapsed === true,
+    hideDone: value.hideDone === true,
     itemSetId: toOptionalId(value.itemSetId),
     skillSetId: toOptionalId(value.skillSetId),
     done: toKeyList(value.done),
@@ -171,6 +179,7 @@ function applyPatch(build: StoredPobBuild, patch: StoredPobBuildPatch): StoredPo
     ...build,
     ...('name' in patch ? { name: toName(patch.name) || build.name } : {}),
     ...('collapsed' in patch ? { collapsed: patch.collapsed === true } : {}),
+    ...('hideDone' in patch ? { hideDone: patch.hideDone === true } : {}),
     ...('itemSetId' in patch ? { itemSetId: toOptionalId(patch.itemSetId) } : {}),
     ...('skillSetId' in patch ? { skillSetId: toOptionalId(patch.skillSetId) } : {}),
     ...('done' in patch ? { done: toKeyList(patch.done) } : {}),
@@ -216,6 +225,7 @@ export function createPobBuildStore(
           code,
           importedAt: now(),
           collapsed: false,
+          hideDone: false,
           done: [],
           removed: [],
           icons: {},
@@ -229,6 +239,17 @@ export function createPobBuildStore(
         const builds = await list();
         if (!builds.some((build) => build.id === id)) return;
         await write(builds.map((build) => (build.id === id ? applyPatch(build, patch) : build)));
+      }),
+    replaceCode: (id, code, patch) =>
+      enqueue(async () => {
+        const builds = await list();
+        if (typeof code !== 'string' || code === '' || !builds.some((build) => build.id === id)) {
+          return false;
+        }
+        await write(
+          builds.map((build) => (build.id === id ? { ...applyPatch(build, patch), code } : build)),
+        );
+        return true;
       }),
     remove: (id) =>
       enqueue(async () => {
