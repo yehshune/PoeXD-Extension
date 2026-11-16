@@ -229,18 +229,37 @@ function ensurePriceComparisonStyle() {
   style.id = 'poexd-price-comparison-style';
   style.textContent = `
     .poexd-price-comparison {
-      display: block;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      padding: 5px 10px !important;
+      margin: 4px 0 !important;
       background-color: var(--muted);
       border: 1px solid var(--border);
-      font-size: 11px;
-      line-height: 1.25;
+      font-size: 14px !important;
+      line-height: 1.25 !important;
       white-space: nowrap;
     }
     .poexd-price-comparison-icon {
-      width: 16px;
-      height: 16px;
-      vertical-align: -3px;
-      object-fit: contain;
+      display: block !important;
+      width: 24px !important;
+      height: 24px !important;
+      flex-shrink: 0 !important;
+      object-fit: contain !important;
+    }
+    .results.compact .poexd-price-comparison {
+      display: inline-flex !important;
+      gap: 4px !important;
+      height: 20px !important;
+      padding: 0 6px !important;
+      margin: 0 6px 0 0 !important;
+      font-size: 11px !important;
+      line-height: 1 !important;
+    }
+    .results.compact .poexd-price-comparison-icon {
+      width: 16px !important;
+      height: 16px !important;
     }
   `;
   document.head.appendChild(style);
@@ -271,5 +290,5 @@ function renderPriceComparison(annotation: Element, comparison: PriceComparison)
   icon.alt = unit.name;
   icon.title = unit.name;
   annotation.setAttribute('title', t('pricePresenter.tooltip', { amount, currency: unit.name }));
-  annotation.replaceChildren(document.createTextNode(`≈ ${amount} `), icon);
+  annotation.replaceChildren(document.createTextNode(`≈ ${amount}`), icon);
 }

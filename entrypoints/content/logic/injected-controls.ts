@@ -165,26 +165,73 @@ export function injectCustomStyles(): void {
       box-shadow: 0 0 0 2px var(--ring) !important;
     }
 
+    #trade .controls .controls-left:has(.poexd-send-to-console-btn) {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      gap: 4px !important;
+    }
+    @media (max-width: 767px) {
+      #trade .controls .controls-left:has(.poexd-send-to-console-btn) {
+        margin-bottom: 5px !important;
+      }
+      #trade .controls .controls-left:has(.poexd-send-to-console-btn) .livesearch-btn {
+        margin-bottom: 0 !important;
+      }
+    }
+    @media (min-width: 1200px) {
+      #trade .controls:has(.poexd-send-to-console-btn) {
+        display: flex !important;
+        align-items: flex-start !important;
+      }
+      #trade .controls:has(.poexd-send-to-console-btn) .controls-left,
+      #trade .controls:has(.poexd-send-to-console-btn) .controls-right {
+        flex: 1 1 0 !important;
+        width: auto !important;
+        float: none !important;
+      }
+      #trade .controls:has(.poexd-send-to-console-btn) .controls-center {
+        flex: 0 0 28% !important;
+        width: auto !important;
+        float: none !important;
+      }
+      #trade .controls:has(.poexd-send-to-console-btn) .controls-center .search-btn {
+        width: 100% !important;
+      }
+      #trade .controls:has(.poexd-send-to-console-btn) > .clear {
+        display: none !important;
+      }
+    }
+
+    /* 顏色以 oklch() 對齊官網搜尋按鈕藍，不寫原始 hex/rgb */
     .poexd-send-to-console-btn {
-      background-color: var(--secondary) !important;
-      color: var(--secondary-foreground) !important;
-      border: 1px solid var(--border) !important;
-      box-shadow: var(--shadow-sm) !important;
-      padding: ${HOST_CATEGORY_BUTTON_SPEC.paddingYPx}px ${HOST_CATEGORY_BUTTON_SPEC.paddingXPx}px !important;
-      margin-left: ${HOST_CATEGORY_BUTTON_SPEC.marginLeftPx}px !important;
-      font-size: ${HOST_CATEGORY_BUTTON_SPEC.fontPx}px !important;
-      height: ${HOST_CATEGORY_BUTTON_SPEC.heightPx}px !important;
-      line-height: ${HOST_CATEGORY_BUTTON_SPEC.lineHeightPx}px !important;
       display: inline-flex !important;
       align-items: center !important;
-      vertical-align: middle !important;
+      justify-content: center !important;
+      min-width: 96px !important;
+      min-height: 34px !important;
+      margin: 0 !important;
+      padding: 6px 12px !important;
+      font-size: 13px !important;
+      line-height: 16px !important;
+      font-weight: 400 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      background-color: oklch(0.295 0.062 246) !important;
+      border: 1px solid oklch(0.45 0.075 268) !important;
+      color: oklch(0.913 0 0) !important;
       cursor: pointer !important;
-      transition: color 0.15s, background-color 0.15s, border-color 0.15s !important;
+      transition: background-color 0.15s, border-color 0.15s, opacity 0.15s !important;
     }
     .poexd-send-to-console-btn:hover:not(:disabled) {
-      background-color: var(--accent) !important;
-      color: var(--accent-foreground) !important;
-      border-color: var(--border) !important;
+      background-color: oklch(0.345 0.075 246) !important;
+      border-color: oklch(0.55 0.085 268) !important;
+      color: oklch(0.913 0 0) !important;
+    }
+    .poexd-send-to-console-btn:focus,
+    .poexd-send-to-console-btn:focus-visible {
+      outline: none !important;
+      box-shadow: 0 0 0 2px var(--ring) !important;
     }
     .poexd-send-to-console-btn:disabled {
       opacity: 0.6 !important;
@@ -571,7 +618,7 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
 
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'btn poexd-inline-btn poexd-send-to-console-btn';
+      btn.className = 'btn poexd-send-to-console-btn';
       btn.setAttribute('data-poexd-send-to-console', 'true');
       btn.title = t('injectedControls.sendToConsoleTitle');
       btn.textContent = t('injectedControls.sendToConsole');
