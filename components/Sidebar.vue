@@ -278,19 +278,17 @@
                   v-show="activeTab === 'stat-group-template'"
                   :sidebar-position="sidebarPosition"
                 />
+                <PobBuildPane v-show="activeTab === 'pob-build'" />
 
                 <!-- Outer-scroll panes: Tools & Settings 由外層 ScrollArea 擁有 scrolling -->
                 <ScrollAreaRoot
-                  v-show="
-                    activeTab === 'pob-build' || activeTab === 'tools' || activeTab === 'settings'
-                  "
+                  v-show="activeTab === 'tools' || activeTab === 'settings'"
                   data-sidebar-outer-scroll
                   class="relative flex-1 min-h-0 overflow-hidden"
                 >
                   <ScrollAreaViewport
                     class="h-full w-full min-h-0 p-[var(--pxd-pane-padding)] pb-[var(--pxd-pane-scroll-end-space)]"
                   >
-                    <PobBuildPane v-show="activeTab === 'pob-build'" />
                     <ToolsPane v-show="activeTab === 'tools'" />
                     <SettingsPane
                       v-show="activeTab === 'settings'"
@@ -913,7 +911,8 @@ export default defineComponent({
       () =>
         activeTab.value === 'history' ||
         activeTab.value === 'bookmark' ||
-        activeTab.value === 'stat-group-template',
+        activeTab.value === 'stat-group-template' ||
+        activeTab.value === 'pob-build',
     );
 
     let handleStorageChange: ((changes: any) => void) | null = null;

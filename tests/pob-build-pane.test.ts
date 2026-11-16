@@ -106,9 +106,35 @@ const sampleBuild = (): BuildView => ({
   removedCount: 2,
 });
 
+const flushAsync = async (ms = 20) => {
+  await nextTick();
+  await new Promise((resolve) => setTimeout(resolve, ms));
+  await nextTick();
+};
+
+async function chooseSelectOption(trigger: HTMLElement, value: string) {
+  trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+  trigger.click();
+  await flushAsync(40);
+  const items = Array.from(
+    document.body.querySelectorAll<HTMLElement>('[data-slot="select-item"]'),
+  );
+  const target = items.find((item) => item.getAttribute('data-value') === value);
+  expect(target).toBeDefined();
+  const EventCtor = typeof PointerEvent !== 'undefined' ? PointerEvent : MouseEvent;
+  target!.focus?.();
+  target!.dispatchEvent(new EventCtor('pointerdown', { bubbles: true, cancelable: true }));
+  target!.dispatchEvent(new EventCtor('pointerup', { bubbles: true, cancelable: true }));
+  target!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  target!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  target!.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
+  await flushAsync(40);
+}
+
 describe('PobBuildPane', () => {
   let container: HTMLElement;
   let app: App;
+  let confirmSpy: ReturnType<typeof vi.fn>;
 
   let PobBuildPane: Component;
 
@@ -124,6 +150,8 @@ describe('PobBuildPane', () => {
   };
   const query = <T extends Element = HTMLElement>(selector: string) =>
     container.querySelector<T>(selector);
+  const queryBody = <T extends Element = HTMLElement>(selector: string) =>
+    document.body.querySelector<T>(selector);
   const queryAll = (selector: string) => Array.from(container.querySelectorAll(selector));
   const row = (index: number) => queryAll('[data-pob-build-row]')[index] as HTMLElement;
 
@@ -132,6 +160,8 @@ describe('PobBuildPane', () => {
     buildsRef.value = [];
     errorKey.value = null;
     vi.clearAllMocks();
+    confirmSpy = vi.fn(async () => true);
+    (window as any).poexdConfirm = confirmSpy;
     container = document.createElement('div');
     document.body.appendChild(container);
   });
@@ -139,41 +169,52 @@ describe('PobBuildPane', () => {
   afterEach(() => {
     app.unmount();
     container.remove();
+    delete (window as any).poexdConfirm;
+    document.body.querySelectorAll('[data-reka-portal]').forEach((el) => el.remove());
   });
 
-  it('沒有 build 時顯示說明與匯入欄位，掛載時讀回上次的 build', async () => {
+  it('採用 SidebarPane 架構，沒有 build 時顯示空狀態與匯入對話框按鈕，掛載時讀回上次的 build', async () => {
     await mount();
     expect(fake.restore).toHaveBeenCalledTimes(1);
-    expect(query('[data-pob-build-input]')).not.toBeNull();
-    expect(query('[data-pob-build-add]')).toBeNull();
-    expect(query<HTMLButtonElement>('[data-pob-build-import]')?.disabled).toBe(true);
+    expect(query('[data-slot="sidebar-pane"]')).not.toBeNull();
+    expect(query('[data-slot="sidebar-pane-fixed"]')).not.toBeNull();
+    expect(query('[data-slot="sidebar-pane-scroll"]')).not.toBeNull();
+    expect(query('[data-pob-build-empty-state]')).not.toBeNull();
+    expect(query('[data-pob-build-add]')).not.toBeNull();
+    expect(queryBody('[data-pob-build-input]')).toBeNull();
   });
 
-  it('貼上代碼後可匯入，成功後清空欄位', async () => {
+  it('打開匯入對話框後貼上代碼可匯入，成功後關閉對話框並清空欄位', async () => {
     await mount();
-    const input = query<HTMLTextAreaElement>('[data-pob-build-input]')!;
+    query<HTMLButtonElement>('[data-pob-build-add]')!.click();
+    await flushAsync();
+
+    const input = queryBody<HTMLTextAreaElement>('[data-pob-build-input]')!;
+    expect(input).not.toBeNull();
+    expect(queryBody<HTMLButtonElement>('[data-pob-build-import]')?.disabled).toBe(true);
+
     input.value = 'CODE';
     input.dispatchEvent(new Event('input'));
     await nextTick();
 
-    query<HTMLButtonElement>('[data-pob-build-import]')!.click();
-    await nextTick();
-    await nextTick();
+    queryBody<HTMLButtonElement>('[data-pob-build-import]')!.click();
+    await flushAsync();
     expect(fake.importCode).toHaveBeenCalledWith('CODE');
-    expect(query<HTMLTextAreaElement>('[data-pob-build-input]')?.value ?? '').toBe('');
+    expect(queryBody('[data-pob-build-input]')).toBeNull();
   });
 
-  it('有 build 時匯入欄位收在按鈕裡，並列出名稱、進度、套裝與各組項目', async () => {
+  it('有 build 時列出名稱、進度、shadcn Select 套裝選單與各組項目', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
 
-    expect(query('[data-pob-build-input]')).toBeNull();
     expect(query('[data-pob-build-add]')).not.toBeNull();
     expect(query('[data-pob-build-name]')?.textContent?.trim()).toBe('RF 酋長');
     expect(query('[data-pob-build-progress]')?.textContent?.trim()).toBe('1/4');
-    expect(
-      queryAll('[data-pob-build-item-set] option').map((option) => option.textContent?.trim()),
-    ).toEqual(['Endgame', '套裝 2']);
+
+    const itemSetTrigger = query<HTMLElement>('[data-pob-build-item-set]')!;
+    expect(itemSetTrigger.getAttribute('data-slot')).toBe('select-trigger');
+    expect(itemSetTrigger.textContent).toContain('Endgame');
+
     // 技能組只有一組，不顯示選單
     expect(query('[data-pob-build-skill-set]')).toBeNull();
     expect(
@@ -228,9 +269,8 @@ describe('PobBuildPane', () => {
     query<HTMLButtonElement>('[data-pob-build-restore-removed]')!.click();
     expect(fake.restoreRemoved).toHaveBeenCalledWith('b1');
 
-    const select = query<HTMLSelectElement>('[data-pob-build-item-set]')!;
-    select.value = '2';
-    select.dispatchEvent(new Event('change'));
+    const trigger = query<HTMLElement>('[data-pob-build-item-set]')!;
+    await chooseSelectOption(trigger, '2');
     expect(fake.selectItemSet).toHaveBeenCalledWith('b1', '2');
   });
 
@@ -257,12 +297,28 @@ describe('PobBuildPane', () => {
     expect(mods[1].textContent).toContain('+100 to maximum Life');
   });
 
-  it('build 可收合、改名，刪除要按兩次確認', async () => {
+  it('build 可收合、全部展開/收合、搜尋過濾、改名，刪除使用 poexdConfirm 確認', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
 
     query<HTMLButtonElement>('[data-pob-build-toggle]')!.click();
     expect(fake.toggleCollapsed).toHaveBeenCalledWith('b1');
+
+    query<HTMLButtonElement>('[data-pob-build-expand-all]')!.click();
+    expect(fake.toggleCollapsed).toHaveBeenCalledTimes(2);
+
+    query<HTMLButtonElement>('[data-pob-build-search-toggle]')!.click();
+    await nextTick();
+    const filterInput = query<HTMLInputElement>('[data-pob-build-filter]')!;
+    filterInput.value = 'Punishment';
+    filterInput.dispatchEvent(new Event('input'));
+    await nextTick();
+    expect(queryAll('[data-pob-build-row]')).toHaveLength(1);
+    expect(row(0).textContent).toContain('Punishment');
+
+    filterInput.value = '';
+    filterInput.dispatchEvent(new Event('input'));
+    await nextTick();
 
     query<HTMLButtonElement>('[data-pob-build-rename]')!.click();
     await nextTick();
@@ -270,15 +326,22 @@ describe('PobBuildPane', () => {
     expect(input.value).toBe('RF 酋長');
     input.value = '新名稱';
     input.dispatchEvent(new Event('input'));
+    await nextTick();
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await nextTick();
     expect(fake.rename).toHaveBeenCalledWith('b1', '新名稱');
     expect(query('[data-pob-build-rename-input]')).toBeNull();
 
+    confirmSpy.mockResolvedValueOnce(false);
     query<HTMLButtonElement>('[data-pob-build-delete]')!.click();
-    await nextTick();
+    await flushAsync();
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(fake.removeBuild).not.toHaveBeenCalled();
-    query<HTMLButtonElement>('[data-pob-build-delete-confirm]')!.click();
+
+    confirmSpy.mockResolvedValueOnce(true);
+    query<HTMLButtonElement>('[data-pob-build-delete]')!.click();
+    await flushAsync();
+    expect(confirmSpy).toHaveBeenCalledTimes(2);
     expect(fake.removeBuild).toHaveBeenCalledWith('b1');
   });
 

@@ -264,6 +264,92 @@ describe('createModLineTranslator', () => {
   });
 });
 
+describe('createModLineTranslator：寶石名稱與前綴', () => {
+  const names: Record<string, string> = {
+    'Pierce Support': '穿透輔助',
+    'Shockwave Support': '震波輔助',
+    'Burning Damage Support': '燃燒傷害輔助',
+    Hatred: '憎恨',
+    'Purity of Ice': '冰霜淨化',
+    Wrath: '憤怒',
+  };
+  const translator = createModLineTranslator(
+    {
+      '1': [
+        ['Socketed Gems are Supported by Level {0:d} Pierce', '插槽中寶石被等級 {0:d} 的穿透輔助'],
+      ],
+      '2': [
+        [
+          'Socketed Gems are Supported by Level {0:d} Shockwave',
+          '插槽中寶石被等級 {0:d} 的震波輔助',
+        ],
+      ],
+      '3': [['Grants Level {0:d} Hatred Skill', '獲得等級 {0:d} 的憎恨技能']],
+      '4': [['Grants Level {0:d} Purity of Ice Skill', '獲得等級 {0:d} 的冰霜淨化技能']],
+      '5': [['{0:+d} to maximum Life', '{0:+d} 最大生命']],
+      '6': [['{0:d}% increased Fire Damage', '增加 {0:d}% 火焰傷害']],
+      '7': [
+        [
+          'Added Small Passive Skills also grant: {0:d}% increased Fire Damage',
+          '附加的小天賦給予：增加 {0:d}% 火焰傷害',
+        ],
+      ],
+      '8': [
+        [
+          'Added Small Passive Skills also grant: {0:+d} to maximum Life',
+          '附加的小天賦給予：{0:+d} 最大生命',
+        ],
+      ],
+    },
+    { toLocalizedName: (english) => names[english], labels: { 'Bonded:': '命定:' } },
+  );
+
+  it('PoB 在輔助寶石名稱後多寫的 Support 不影響比對', () => {
+    expect(translator.translate('Socketed Gems are Supported by Level 16 Pierce Support')).toBe(
+      '插槽中寶石被等級 16 的穿透輔助',
+    );
+  });
+
+  it('對照資料沒收錄的寶石：用已收錄句子的框架套上物品表的譯名', () => {
+    expect(
+      translator.translate('Socketed Gems are Supported by Level 16 Burning Damage Support'),
+    ).toBe('插槽中寶石被等級 16 的燃燒傷害輔助');
+    expect(translator.translate('Grants Level 22 Wrath Skill')).toBe('獲得等級 22 的憤怒技能');
+  });
+
+  it('物品表裡沒有的名稱不翻', () => {
+    expect(translator.translate('Grants Level 20 Approaching Flames Skill')).toBeUndefined();
+  });
+
+  it('前綴的譯文從同前綴的句子學出來，後半句照常翻譯', () => {
+    // 這一句本身不在對照資料裡，前綴與後半句分別來自其他句子
+    expect(translator.translate('Added Small Passive Skills also grant: +9 to maximum Life')).toBe(
+      '附加的小天賦給予：+9 最大生命',
+    );
+  });
+
+  it('學不到前綴時查標籤表；都沒有就保留英文前綴', () => {
+    expect(translator.translate('Bonded: +20 to maximum Life')).toBe('命定: +20 最大生命');
+    expect(translator.translate('Passives in Radius also grant 12% increased Fire Damage')).toBe(
+      'Passives in Radius also grant 增加 12% 火焰傷害',
+    );
+  });
+
+  it('後半句翻不出來時整句不翻，不會只翻前綴', () => {
+    expect(translator.translate('Bonded: Some unknown modifier')).toBeUndefined();
+    expect(translator.translate('Allocates Testudo')).toBeUndefined();
+  });
+
+  it('沒有物品表與標籤表時，一般詞綴仍可翻譯', () => {
+    const plain = createModLineTranslator({
+      '5': [['{0:+d} to maximum Life', '{0:+d} 最大生命']],
+    });
+    expect(plain.translate('+5 to maximum Life')).toBe('+5 最大生命');
+    expect(plain.translate('Grants Level 22 Wrath Skill')).toBeUndefined();
+    expect(plain.translate('Bonded: +5 to maximum Life')).toBe('Bonded: +5 最大生命');
+  });
+});
+
 describe('loadModLineTranslator：隨擴充發佈的資料分片', () => {
   const loadJson = async (path: string) =>
     JSON.parse(await readFile(resolve(__dirname, '../public', path), 'utf8')) as unknown;
@@ -277,8 +363,19 @@ describe('loadModLineTranslator：隨擴充發佈的資料分片', () => {
     expect(cn?.translate('+100 to maximum Life')).toBeTruthy();
   });
 
-  it('PoE 2 台服可翻譯', async () => {
+  it('PoE 1 台服：沒收錄的輔助寶石句子與星團珠寶前綴也翻得出來', async () => {
+    const tw = await loadModLineTranslator(loadJson, { version: 'poe1', locale: 'zh-TW' });
+    expect(tw?.translate('Socketed Gems are Supported by Level 16 Burning Damage Support')).toBe(
+      '插槽中寶石被等級 16 的燃燒傷害輔助',
+    );
+    expect(tw?.translate('Added Small Passive Skills also grant: +4% to Chaos Resistance')).toBe(
+      '附加的小天賦給予：+4% 混沌抗性',
+    );
+  });
+
+  it('PoE 2 台服可翻譯，Bonded 前綴用官方標籤', async () => {
     const tw = await loadModLineTranslator(loadJson, { version: 'poe2', locale: 'zh-TW' });
+    expect(tw?.translate('Bonded: +20 to maximum Life')).toBe('命定: +20最大生命');
     expect(tw?.translate('29% increased Evasion and Energy Shield')).toBe('增加29%閃避和能量護盾');
   });
 

@@ -446,10 +446,10 @@ describe('Sidebar Scrollbar Foundation & Overlay Contract', () => {
       );
       expect(sidebarSource).not.toContain('class="content-body pxd-scrollbar');
 
-      // Outer ScrollAreaRoot is only rendered for the PoB shopping list, Tools and Settings tabs
+      // Outer ScrollAreaRoot is only rendered for the Tools and Settings tabs
       expect(sidebarSource).toContain('data-sidebar-outer-scroll');
       expect(sidebarSource).toMatch(
-        /<ScrollAreaRoot[\s\S]*?v-show="\s*activeTab === 'pob-build' \|\| activeTab === 'tools' \|\| activeTab === 'settings'[\s\S]*?data-sidebar-outer-scroll/,
+        /<ScrollAreaRoot[\s\S]*?v-show="activeTab === 'tools' \|\| activeTab === 'settings'"[\s\S]*?data-sidebar-outer-scroll/,
       );
 
       // Outer viewport retains breathing room token
