@@ -8,23 +8,23 @@
  */
 import { detectBrowserLocale, resolveDisplayLocale } from './locale-resolution';
 import { type ModLinePairs } from './market-mod-lines';
-import {
-  createLabelLookup,
-  type LabelLookup,
-  type LabelTemplates,
-  type NameParts,
-} from './market-result-labels';
+import { createLabelLookup, type LabelLookup } from './market-result-labels';
 import {
   getMarketUiAssetPath,
   isMarketTranslationLocale,
   type MarketTranslationLocale,
 } from './market-translation';
+import { fieldLabels, parseResultLabels } from './market-translation-assets';
 import { MARKET_TRANSLATION_STORAGE_KEYS, parseMarketUiAsset } from './market-translation-bridge';
 import {
   createModLineTranslator,
+  readAliases,
+  readStatText,
+  readTradeStats,
   type ModLineTranslator,
   type TradeStatTexts,
 } from './pob-mod-translator';
+import { POB_SHARE_OPTIONAL_ORIGINS } from './pob-share-url';
 import { createTradeNameCatalog, type TradeNameCatalog } from './pob-shopping-list';
 import { resolveStoredDisplayLocale } from './preferences-contract';
 import {
@@ -466,72 +466,6 @@ function readItemsArray(data: unknown): string[] {
   return isStringArray(items) ? items : [];
 }
 
-function readTradeStatsRecord(data: unknown): TradeStatTexts | undefined {
-  const stats = isRecord(data) ? data.stats : undefined;
-  if (!isRecord(stats)) return undefined;
-  return Object.fromEntries(
-    Object.entries(stats).filter(
-      (entry): entry is [string, string | string[]] =>
-        typeof entry[1] === 'string' || isStringArray(entry[1]),
-    ),
-  );
-}
-
-function readModLinesRecord(data: unknown): Record<string, ModLinePairs> | undefined {
-  const lines = isRecord(data) ? data.lines : undefined;
-  return isRecord(lines) ? (lines as Record<string, ModLinePairs>) : undefined;
-}
-
-function readAliasesRecord(
-  data: unknown,
-): Record<string, ReadonlyArray<readonly [string, string]>> | undefined {
-  const aliases = isRecord(data) ? data.aliases : undefined;
-  return isRecord(aliases)
-    ? (aliases as Record<string, ReadonlyArray<readonly [string, string]>>)
-    : undefined;
-}
-
-function readResultLabelsData(data: unknown): {
-  labels: Record<string, string>;
-  templates: LabelTemplates;
-  names?: NameParts;
-} {
-  if (!isRecord(data)) return { labels: {}, templates: [] };
-  const rawLabels = isRecord(data.labels) ? data.labels : {};
-  const labels = Object.fromEntries(
-    Object.entries(rawLabels).filter(
-      (entry): entry is [string, string] => typeof entry[1] === 'string',
-    ),
-  );
-  const templates = Array.isArray(data.templates)
-    ? data.templates.filter(
-        (pair): pair is [string, string] =>
-          Array.isArray(pair) && typeof pair[0] === 'string' && typeof pair[1] === 'string',
-      )
-    : [];
-  const names =
-    isRecord(data.names) && isRecord(data.names.first) && isRecord(data.names.suffix)
-      ? {
-          first: data.names.first as Record<string, string>,
-          suffix: data.names.suffix as Record<string, string>,
-        }
-      : undefined;
-  return { labels, templates, names };
-}
-
-function readFieldLabels(english: unknown, localized: unknown): Record<string, string> {
-  const enFields = isRecord(english) && isRecord(english.fields) ? english.fields : {};
-  const zhFields = isRecord(localized) && isRecord(localized.fields) ? localized.fields : {};
-  const labels: Record<string, string> = {};
-  for (const [id, enText] of Object.entries(enFields)) {
-    const zhText = zhFields[id];
-    if (typeof enText === 'string' && typeof zhText === 'string') {
-      labels[enText] = zhText;
-    }
-  }
-  return labels;
-}
-
 export async function loadPobbinTranslatorData(
   loadJson: (path: string) => Promise<unknown>,
   options: { version: PoeVersion; locale: MarketTranslationLocale; bilingual: boolean },
@@ -565,7 +499,7 @@ export async function loadPobbinTranslatorData(
     optional(getLocaleTradeFiltersAssetPath(version, locale)),
   ]);
 
-  const modLines = readModLinesRecord(modLinesRaw);
+  const modLines = readStatText(modLinesRaw);
   if (!modLines) throw new Error('mod-lines.json 格式錯誤');
 
   const englishItems = readItemsArray(enItemsRaw);
@@ -585,20 +519,25 @@ export async function loadPobbinTranslatorData(
   });
 
   const catalog = createTradeNameCatalog({ englishItems, localizedItems });
-  const resultLabels = readResultLabelsData(resultLabelsRaw);
+  const resultLabels = resultLabelsRaw
+    ? parseResultLabels(resultLabelsRaw, locale)
+    : { labels: {}, templates: [] };
   const uiStrings = uiRaw ? parseMarketUiAsset(uiRaw, locale) : {};
-  const filterLabels = readFieldLabels(enFiltersRaw, zhFiltersRaw);
+  const zhFilterFields =
+    isRecord(zhFiltersRaw) && isRecord(zhFiltersRaw.fields)
+      ? (zhFiltersRaw.fields as Record<string, string>)
+      : undefined;
   const mergedLabels: Record<string, string> = {
     ...resultLabels.labels,
-    ...filterLabels,
+    ...fieldLabels(enFiltersRaw, zhFilterFields),
     ...uiStrings,
   };
 
-  const enStats = readTradeStatsRecord(enStatsRaw);
-  const zhStats = readTradeStatsRecord(zhStatsRaw);
+  const enStats = readTradeStats(enStatsRaw);
+  const zhStats = readTradeStats(zhStatsRaw);
   const tradeStats = enStats && zhStats ? { english: enStats, localized: zhStats } : undefined;
-  const statText = readModLinesRecord(statTextRaw);
-  const aliases = readAliasesRecord(aliasesRaw);
+  const statText = readStatText(statTextRaw);
+  const aliases = readAliases(aliasesRaw);
 
   const modTranslator = createModLineTranslator(modLines, {
     toLocalizedName: (en) => exactItems.get(en) ?? items[en.toLowerCase()],
@@ -651,4 +590,81 @@ export async function startPobbinTranslation(deps: {
   });
 
   return createPobbinTranslator(data).observe(deps.doc);
+}
+
+export const POBBIN_ORIGIN = POB_SHARE_OPTIONAL_ORIGINS[0];
+export const POBBIN_TRANSLATION_SCRIPT_ID = 'pobbin-translation';
+export const POBBIN_TRANSLATION_SCRIPT_FILE = 'content-scripts/pobbin-translation.js';
+
+export interface PobbinScriptingPort {
+  getRegisteredContentScripts: (filter?: { ids?: string[] }) => Promise<Array<{ id: string }>>;
+  registerContentScripts: (
+    scripts: Array<{
+      id: string;
+      matches: string[];
+      js: string[];
+      runAt?: 'document_start' | 'document_end' | 'document_idle';
+      persistAcrossSessions?: boolean;
+    }>,
+  ) => Promise<void>;
+  unregisterContentScripts: (filter: { ids: string[] }) => Promise<void>;
+}
+
+/** 依 `https://pobb.in/*` 選用權限狀態，動態註冊或移除 pobb.in 翻譯腳本 */
+export async function syncPobbinTranslationContentScript(deps: {
+  hasPermission: (origin: string) => Promise<boolean>;
+  scripting?: PobbinScriptingPort;
+}): Promise<void> {
+  const scripting = deps.scripting;
+  if (!scripting) return;
+  try {
+    const [granted, registered] = await Promise.all([
+      deps.hasPermission(POBBIN_ORIGIN).catch(() => false),
+      scripting
+        .getRegisteredContentScripts({ ids: [POBBIN_TRANSLATION_SCRIPT_ID] })
+        .catch(() => []),
+    ]);
+    const isRegistered = registered.some((script) => script.id === POBBIN_TRANSLATION_SCRIPT_ID);
+    if (granted && !isRegistered) {
+      await scripting.registerContentScripts([
+        {
+          id: POBBIN_TRANSLATION_SCRIPT_ID,
+          matches: [POBBIN_ORIGIN],
+          js: [POBBIN_TRANSLATION_SCRIPT_FILE],
+          runAt: 'document_idle',
+          persistAcrossSessions: true,
+        },
+      ]);
+    } else if (!granted && isRegistered) {
+      await scripting.unregisterContentScripts({ ids: [POBBIN_TRANSLATION_SCRIPT_ID] });
+    }
+  } catch (error) {
+    console.warn('[PoeXD] 無法同步 pobb.in 翻譯腳本註冊狀態:', error);
+  }
+}
+
+export function registerPobbinBackgroundHandlers(options?: {
+  hasPermission?: (origin: string) => Promise<boolean>;
+  scripting?: PobbinScriptingPort;
+}): () => void {
+  const chromeApi = (globalThis as { chrome?: typeof chrome }).chrome;
+  const hasPermission =
+    options?.hasPermission ??
+    ((origin: string) =>
+      chromeApi?.permissions?.contains({ origins: [origin] }) ?? Promise.resolve(false));
+  const scripting = options?.scripting ?? chromeApi?.scripting;
+  const syncScript = () => {
+    void syncPobbinTranslationContentScript({
+      hasPermission,
+      scripting,
+    });
+  };
+
+  syncScript();
+  chromeApi?.permissions?.onAdded?.addListener(syncScript);
+  chromeApi?.permissions?.onRemoved?.addListener(syncScript);
+  return () => {
+    chromeApi?.permissions?.onAdded?.removeListener(syncScript);
+    chromeApi?.permissions?.onRemoved?.removeListener(syncScript);
+  };
 }

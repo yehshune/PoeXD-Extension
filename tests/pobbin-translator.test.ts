@@ -1,13 +1,17 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createLabelLookup } from '@/utils/market-result-labels';
 import { createModLineTranslator } from '@/utils/pob-mod-translator';
 import { createTradeNameCatalog } from '@/utils/pob-shopping-list';
 import {
   createPobbinTranslator,
   extractPassiveNameMap,
+  POBBIN_ORIGIN,
+  POBBIN_TRANSLATION_SCRIPT_FILE,
+  POBBIN_TRANSLATION_SCRIPT_ID,
   resolvePobbinTranslationConfig,
   startPobbinTranslation,
+  syncPobbinTranslationContentScript,
   type PobbinTranslatorData,
 } from '@/utils/pobbin-translator';
 
@@ -311,5 +315,39 @@ describe('startPobbinTranslation', () => {
     });
     expect(stop).toBeNull();
     expect(loaded).toBe(false);
+  });
+
+  it('依選用權限狀態動態註冊與取消註冊 pobb.in 翻譯腳本', async () => {
+    const scripting = {
+      getRegisteredContentScripts: vi.fn(),
+      registerContentScripts: vi.fn().mockResolvedValue(undefined),
+      unregisterContentScripts: vi.fn().mockResolvedValue(undefined),
+    };
+
+    scripting.getRegisteredContentScripts.mockResolvedValueOnce([]);
+    await syncPobbinTranslationContentScript({
+      hasPermission: async () => true,
+      scripting,
+    });
+    expect(scripting.registerContentScripts).toHaveBeenCalledWith([
+      {
+        id: POBBIN_TRANSLATION_SCRIPT_ID,
+        matches: [POBBIN_ORIGIN],
+        js: [POBBIN_TRANSLATION_SCRIPT_FILE],
+        runAt: 'document_idle',
+        persistAcrossSessions: true,
+      },
+    ]);
+
+    scripting.getRegisteredContentScripts.mockResolvedValueOnce([
+      { id: POBBIN_TRANSLATION_SCRIPT_ID },
+    ]);
+    await syncPobbinTranslationContentScript({
+      hasPermission: async () => false,
+      scripting,
+    });
+    expect(scripting.unregisterContentScripts).toHaveBeenCalledWith({
+      ids: [POBBIN_TRANSLATION_SCRIPT_ID],
+    });
   });
 });

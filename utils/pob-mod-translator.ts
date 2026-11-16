@@ -329,7 +329,7 @@ function readLabels(data: unknown): Record<string, string> | undefined {
 }
 
 /** `trade-stats.json` 的 `stats`；格式不對時回傳 undefined，只保留字串與字串陣列 */
-function readTradeStats(data: unknown): TradeStatTexts | undefined {
+export function readTradeStats(data: unknown): TradeStatTexts | undefined {
   const stats = isRecord(data) ? data.stats : undefined;
   if (!isRecord(stats)) return undefined;
   return Object.fromEntries(
@@ -341,13 +341,13 @@ function readTradeStats(data: unknown): TradeStatTexts | undefined {
 }
 
 /** stat-text-items.json 的 `lines`；格式不對時回傳 undefined */
-function readStatText(data: unknown): Record<string, ModLinePairs> | undefined {
+export function readStatText(data: unknown): Record<string, ModLinePairs> | undefined {
   const lines = isRecord(data) ? data.lines : undefined;
   return isRecord(lines) ? (lines as Record<string, ModLinePairs>) : undefined;
 }
 
 /** stat-aliases.json 的 `aliases`；格式不對時回傳 undefined */
-function readAliases(
+export function readAliases(
   data: unknown,
 ): Record<string, ReadonlyArray<readonly [string, string]>> | undefined {
   const aliases = isRecord(data) ? data.aliases : undefined;

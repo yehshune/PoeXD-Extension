@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   fetchPobShareCode,
   POB_SHARE_PERMISSION_PAGE,
-  POBBIN_ORIGIN,
-  POBBIN_TRANSLATION_SCRIPT_FILE,
-  POBBIN_TRANSLATION_SCRIPT_ID,
   registerPobShareBackgroundHandlers,
-  syncPobbinTranslationContentScript,
 } from '@/utils/pob-share-fetch';
 
 const respond = (
@@ -152,39 +148,5 @@ describe('registerPobShareBackgroundHandlers', () => {
 
     unregister();
     expect(handlers.size).toBe(0);
-  });
-
-  it('依選用權限狀態動態註冊與取消註冊 pobb.in 翻譯腳本', async () => {
-    const scripting = {
-      getRegisteredContentScripts: vi.fn(),
-      registerContentScripts: vi.fn().mockResolvedValue(undefined),
-      unregisterContentScripts: vi.fn().mockResolvedValue(undefined),
-    };
-
-    scripting.getRegisteredContentScripts.mockResolvedValueOnce([]);
-    await syncPobbinTranslationContentScript({
-      hasPermission: async () => true,
-      scripting,
-    });
-    expect(scripting.registerContentScripts).toHaveBeenCalledWith([
-      {
-        id: POBBIN_TRANSLATION_SCRIPT_ID,
-        matches: [POBBIN_ORIGIN],
-        js: [POBBIN_TRANSLATION_SCRIPT_FILE],
-        runAt: 'document_idle',
-        persistAcrossSessions: true,
-      },
-    ]);
-
-    scripting.getRegisteredContentScripts.mockResolvedValueOnce([
-      { id: POBBIN_TRANSLATION_SCRIPT_ID },
-    ]);
-    await syncPobbinTranslationContentScript({
-      hasPermission: async () => false,
-      scripting,
-    });
-    expect(scripting.unregisterContentScripts).toHaveBeenCalledWith({
-      ids: [POBBIN_TRANSLATION_SCRIPT_ID],
-    });
   });
 });

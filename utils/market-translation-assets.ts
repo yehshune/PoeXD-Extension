@@ -133,7 +133,7 @@ function parseModLines(data: unknown, locale: string): Record<string, ModLinePai
   return shard.lines as Record<string, ModLinePairs>;
 }
 
-function parseResultLabels(data: unknown, locale: string) {
+export function parseResultLabels(data: unknown, locale: string) {
   const shard = requireMarketShard(data, locale, 'result-labels.json');
   if (!isRecord(shard.labels) || !Array.isArray(shard.templates)) {
     throw new Error('result-labels.json 格式錯誤');
@@ -161,7 +161,7 @@ function parseEnglishStats(data: unknown): Record<string, string | string[]> {
 }
 
 /** 篩選器欄位名稱（英文 → 譯文），以 id 對接 */
-function fieldLabels(english: unknown, localized: Record<string, string> | undefined) {
+export function fieldLabels(english: unknown, localized: Record<string, string> | undefined) {
   const fields = isRecord(english) && isRecord(english.fields) ? english.fields : {};
   const labels: Record<string, string> = {};
   if (!localized) return labels;
