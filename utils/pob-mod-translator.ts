@@ -11,17 +11,27 @@
  * 3. 固定前綴加上一句普通詞綴（例如 `Bonded: …`、`… also grant …`）：後半句照常翻譯，
  *    前綴的譯文從對照資料裡同前綴的句子學出來，學不到再查標籤表，都沒有就保留英文前綴。
  *
+ *
+ * 句型來源除了 `mod-lines.json`，還有市集 `trade-stats.json`（英文與譯文以同一個代碼對齊）：
+ * 它收錄了 mod-lines 沒有的選項型詞綴（塗油的 `Allocates …`、星團珠寶附魔），以 mod-lines
+ * 為優先。描述檔裡一個 stat 寫成多行的句子（例如藥劑的免疫流血／腐化之血），PoB 會拆成
+ * 多行，所以兩邊行數相同時每一行也各自當成一個句型。
+ *
  * 所有中文都來自官方資料，沒有手寫的字典。只有 zh-TW、zh-CN 有對照資料；其他語言沒有
  * 翻譯器。翻不了的詞綴回傳 undefined，由呼叫端顯示英文原文。
  */
-import { translateModLine, type ModLinePairs } from './market-mod-lines';
+import { tradeTextToModTemplate, translateModLine, type ModLinePairs } from './market-mod-lines';
 import { modLineSkeleton, modTemplateSkeleton } from './pob-stat-matcher';
 import {
   getLocaleItemsAssetPath,
   getLocaleModLinesAssetPath,
   getLocaleResultLabelsAssetPath,
+  getLocaleTradeStatsAssetPath,
   type PoeVersion,
 } from './trade-context';
+
+/** 市集 stat 代碼 → 文字；同一代碼有多種寫法時是陣列 */
+export type TradeStatTexts = Readonly<Record<string, string | readonly string[]>>;
 
 export interface ModLineTranslator {
   translate(englishLine: string): string | undefined;
@@ -32,9 +42,49 @@ export interface ModLineTranslatorExtras {
   toLocalizedName?: (english: string) => string | undefined;
   /** 介面標籤（英文 → 譯文），用來翻前綴 */
   labels?: Readonly<Record<string, string>>;
+  /** 市集 stat 文字（英文、譯文），補 mod-lines 沒收錄的句型 */
+  tradeStats?: { english: TradeStatTexts; localized: TradeStatTexts };
 }
 
 type Pair = readonly [english: string, localized: string];
+
+/** mod-lines 以字面的 `\n` 分行，市集文字用真的換行 */
+const LINE_BREAK = /\\n|\n/;
+const TRADE_PLACEHOLDER = /#/g;
+/** 市集文字的佔位符只依出現順序編號，兩個以上時無法確定譯文的數值順序，不採用 */
+const MAX_TRADE_PLACEHOLDERS = 1;
+const SKIPPED_TRADE_DOMAIN = 'pseudo.';
+
+/** 句型本身，加上行數相同時的每一行 */
+function expandPair(pair: Pair): Pair[] {
+  const englishLines = pair[0].split(LINE_BREAK);
+  const localizedLines = pair[1].split(LINE_BREAK);
+  if (englishLines.length < 2 || englishLines.length !== localizedLines.length) return [pair];
+  return [pair, ...englishLines.map((line, index) => [line, localizedLines[index]] as const)];
+}
+
+const asTextList = (value: string | readonly string[] | undefined): readonly string[] =>
+  typeof value === 'string' ? [value] : (value ?? []);
+
+const countPlaceholders = (text: string) => text.match(TRADE_PLACEHOLDER)?.length ?? 0;
+
+/** 市集文字轉成 [英文句型, 譯文句型]；寫法數量或佔位符數量對不上的略過 */
+export function tradeStatPairs(english: TradeStatTexts, localized: TradeStatTexts): Pair[] {
+  return Object.entries(english).flatMap(([id, value]) => {
+    if (id.startsWith(SKIPPED_TRADE_DOMAIN)) return [];
+    const englishTexts = asTextList(value);
+    const localizedTexts = asTextList(localized[id]);
+    if (englishTexts.length === 0 || englishTexts.length !== localizedTexts.length) return [];
+    return englishTexts.flatMap((text, index) => {
+      const translated = localizedTexts[index];
+      const placeholders = countPlaceholders(text);
+      if (placeholders > MAX_TRADE_PLACEHOLDERS || placeholders !== countPlaceholders(translated)) {
+        return [];
+      }
+      return [[tradeTextToModTemplate(text), tradeTextToModTemplate(translated)] as const];
+    });
+  });
+}
 
 const TRANSLATED_LOCALES: readonly string[] = ['zh-TW', 'zh-CN'];
 const SUPPORT_SUFFIX = ' Support';
@@ -70,29 +120,54 @@ function mostCommon(values: readonly string[]): string | undefined {
   return [...counts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0];
 }
 
+interface PairIndex {
+  /** 去重後的句型（含多行拆出的每一行），依加入順序 */
+  pairs: readonly Pair[];
+  translateWhole(line: string): string | undefined;
+}
+
+/** 骨架 → 英文句型相符的 [英文, 譯文]；同一句英文在不同 hash 下譯文相同，留第一筆即可 */
+function createPairIndex(source: readonly Pair[]): PairIndex {
+  const bySkeleton = new Map<string, Pair[]>();
+  const pairs: Pair[] = [];
+  for (const pair of source.flatMap(expandPair)) {
+    const skeleton = modTemplateSkeleton(pair[0]);
+    const known = bySkeleton.get(skeleton) ?? [];
+    if (known.some(([english]) => english === pair[0])) continue;
+    bySkeleton.set(skeleton, [...known, pair]);
+    pairs.push(pair);
+  }
+  return {
+    pairs,
+    translateWhole: (line) => {
+      const candidates = bySkeleton.get(modLineSkeleton(line));
+      return (candidates && translateModLine(line, candidates)) || undefined;
+    },
+  };
+}
+
 export function createModLineTranslator(
   modLines: Readonly<Record<string, ModLinePairs>>,
   extras: ModLineTranslatorExtras = {},
 ): ModLineTranslator {
-  // 骨架 → 英文句型相符的 [英文, 譯文]；同一句英文在不同 hash 下譯文相同，留第一筆即可
-  const pairsBySkeleton = new Map<string, Pair[]>();
-  const allPairs: Pair[] = [];
-  for (const pairs of Object.values(modLines)) {
-    if (!Array.isArray(pairs)) continue;
-    for (const [english, localized] of pairs) {
-      if (typeof english !== 'string' || typeof localized !== 'string') continue;
-      const skeleton = modTemplateSkeleton(english);
-      const known = pairsBySkeleton.get(skeleton) ?? [];
-      if (known.some(([knownEnglish]) => knownEnglish === english)) continue;
-      pairsBySkeleton.set(skeleton, [...known, [english, localized]]);
-      allPairs.push([english, localized]);
-    }
-  }
+  const primary = createPairIndex(
+    Object.values(modLines).flatMap((pairs) =>
+      Array.isArray(pairs)
+        ? pairs.filter(
+            (pair): pair is Pair => typeof pair[0] === 'string' && typeof pair[1] === 'string',
+          )
+        : [],
+    ),
+  );
+  // 市集文字是最後的備援：它的部分寫法（例如輔助寶石句子）不如從 mod-lines 學出的框架
+  const fallback = createPairIndex(
+    extras.tradeStats ? tradeStatPairs(extras.tradeStats.english, extras.tradeStats.localized) : [],
+  );
+  const allPairs = primary.pairs;
 
-  const translateWhole = (line: string): string | undefined => {
-    const pairs = pairsBySkeleton.get(modLineSkeleton(line));
-    return (pairs && translateModLine(line, pairs)) || undefined;
-  };
+  const withoutSupport = (line: string, translate: (text: string) => string | undefined) =>
+    translate(line) ??
+    (line.endsWith(SUPPORT_SUFFIX) ? translate(line.slice(0, -SUPPORT_SUFFIX.length)) : undefined);
 
   const localizedName = (english: string, suffix: string): string | undefined =>
     (suffix ? extras.toLocalizedName?.(`${english}${suffix}`) : undefined) ??
@@ -156,12 +231,10 @@ export function createModLineTranslator(
     if (cache.has(line)) return cache.get(line);
     cache.set(line, undefined);
     const translated =
-      translateWhole(line) ??
-      (line.endsWith(SUPPORT_SUFFIX)
-        ? translateWhole(line.slice(0, -SUPPORT_SUFFIX.length))
-        : undefined) ??
+      withoutSupport(line, primary.translateWhole) ??
       translateNamed(line) ??
-      translatePrefixed(line);
+      translatePrefixed(line) ??
+      withoutSupport(line, fallback.translateWhole);
     cache.set(line, translated);
     return translated;
   }
@@ -197,6 +270,18 @@ function readLabels(data: unknown): Record<string, string> | undefined {
   );
 }
 
+/** `trade-stats.json` 的 `stats`；格式不對時回傳 undefined，只保留字串與字串陣列 */
+function readTradeStats(data: unknown): TradeStatTexts | undefined {
+  const stats = isRecord(data) ? data.stats : undefined;
+  if (!isRecord(stats)) return undefined;
+  return Object.fromEntries(
+    Object.entries(stats).filter(
+      (entry): entry is [string, string | string[]] =>
+        typeof entry[1] === 'string' || isStringArray(entry[1]),
+    ),
+  );
+}
+
 /** 該語言沒有對照資料時回傳 undefined（不是錯誤） */
 export async function loadModLineTranslator(
   loadJson: (path: string) => Promise<unknown>,
@@ -204,18 +289,24 @@ export async function loadModLineTranslator(
 ): Promise<ModLineTranslator | undefined> {
   const { version, locale } = options;
   if (!TRANSLATED_LOCALES.includes(locale)) return undefined;
-  // 句型對照是必要的；物品名與標籤只用來補強，載不到就少翻幾種句子
+  // 句型對照是必要的；物品名、標籤與市集文字只用來補強，載不到就少翻幾種句子
   const optional = (path: string) => loadJson(path).catch(() => undefined);
-  const [data, englishItems, localizedItems, labels] = await Promise.all([
-    loadJson(getLocaleModLinesAssetPath(version, locale)),
-    optional(getLocaleItemsAssetPath(version, 'en')),
-    optional(getLocaleItemsAssetPath(version, locale)),
-    optional(getLocaleResultLabelsAssetPath(version, locale)),
-  ]);
+  const [data, englishItems, localizedItems, labels, englishStats, localizedStats] =
+    await Promise.all([
+      loadJson(getLocaleModLinesAssetPath(version, locale)),
+      optional(getLocaleItemsAssetPath(version, 'en')),
+      optional(getLocaleItemsAssetPath(version, locale)),
+      optional(getLocaleResultLabelsAssetPath(version, locale)),
+      optional(getLocaleTradeStatsAssetPath(version, 'en')),
+      optional(getLocaleTradeStatsAssetPath(version, locale)),
+    ]);
   const lines = isRecord(data) ? data.lines : undefined;
   if (!isRecord(lines)) throw new Error('mod-lines.json 格式錯誤');
+  const english = readTradeStats(englishStats);
+  const localized = readTradeStats(localizedStats);
   return createModLineTranslator(lines as Record<string, ModLinePairs>, {
     toLocalizedName: buildNameLookup(englishItems, localizedItems),
     labels: readLabels(labels),
+    ...(english && localized ? { tradeStats: { english, localized } } : {}),
   });
 }

@@ -142,6 +142,7 @@ Implicits: 2
 +35 to Armour
 +100 to maximum Life
 {crafted}12% increased Area of Effect
+Fractured Item
 Corrupted
 			<ModRange id="1" range="0.5"/>
 		</Item>
@@ -258,9 +259,80 @@ describe('createModLineTranslator', () => {
     expect(translator.translate('Regenerate 30 Life per second for 9 seconds')).toBeUndefined();
   });
 
-  it('對不到句型、被拆開的多行詞綴回傳 undefined', () => {
+  it('對不到句型回傳 undefined', () => {
     expect(translator.translate('Some unknown modifier 5')).toBeUndefined();
-    expect(translator.translate('Line one')).toBeUndefined();
+  });
+
+  it('多行句型被 PoB 拆開時，每一行各自翻譯', () => {
+    expect(translator.translate('Line one')).toBe('第一行');
+    expect(translator.translate('Line two')).toBe('第二行');
+    const escaped = createModLineTranslator({
+      '5': [
+        [
+          'Grants Immunity to Bleeding for {0:d} seconds if used while Bleeding\\nGrants Immunity to Corrupted Blood for {0:d} seconds',
+          '若使用時流血，獲得免疫流血 {0:d} 秒\\n獲得免疫腐化之血 {0:d} 秒',
+        ],
+      ],
+      '6': [['Only one\\nline here\\nthree', '只有\\n兩行']],
+    });
+    expect(
+      escaped.translate('Grants Immunity to Bleeding for 8 seconds if used while Bleeding'),
+    ).toBe('若使用時流血，獲得免疫流血 8 秒');
+    expect(escaped.translate('Grants Immunity to Corrupted Blood for 8 seconds')).toBe(
+      '獲得免疫腐化之血 8 秒',
+    );
+    // 行數不同時無法對應，不拆
+    expect(escaped.translate('Only one')).toBeUndefined();
+  });
+});
+
+describe('createModLineTranslator：市集文字補充句型', () => {
+  const translator = createModLineTranslator(
+    { '1': [['{0:+d} to maximum Life', '{0:+d} 最大生命']] },
+    {
+      tradeStats: {
+        english: {
+          'explicit.stat_3299347043': '+# to maximum Life',
+          'enchant.stat_2954116742|4833': 'Allocates Vigour',
+          'enchant.stat_3948993189|2':
+            'Added Small Passive Skills grant: Staff Attacks deal 12% increased Damage\nAdded Small Passive Skills grant: Mace Attacks deal 12% increased Damage',
+          'explicit.stat_1': '#% increased Armour (Local)',
+          'explicit.stat_2': 'Adds # to # Fire Damage',
+          'explicit.stat_3': ['# to Alpha', '# to Beta'],
+          'explicit.stat_4': ['# to Gamma', '# to Delta'],
+          'pseudo.pseudo_total_life': '+# total maximum Life',
+        },
+        localized: {
+          'explicit.stat_3299347043': '+# 市集寫法生命',
+          'enchant.stat_2954116742|4833': '配置 活力之源',
+          'enchant.stat_3948993189|2':
+            '附加的小型天賦給予：長杖攻擊增加 12% 傷害\n附加的小型天賦給予：錘攻擊增加 12% 傷害',
+          'explicit.stat_1': '增加 #% 護甲 (部分)',
+          'explicit.stat_2': '附加 # 至 # 火焰傷害',
+          'explicit.stat_3': ['# 阿爾法', '# 貝塔'],
+          'explicit.stat_4': ['# 伽瑪'],
+          'pseudo.pseudo_total_life': '+# 總生命',
+        },
+      },
+    },
+  );
+
+  it('翻出選項型詞綴（塗油、星團附魔的每一行）', () => {
+    expect(translator.translate('Allocates Vigour')).toBe('配置 活力之源');
+    expect(
+      translator.translate(
+        'Added Small Passive Skills grant: Staff Attacks deal 12% increased Damage',
+      ),
+    ).toBe('附加的小型天賦給予：長杖攻擊增加 12% 傷害');
+    expect(translator.translate('15% increased Armour')).toBe('增加 15% 護甲');
+    expect(translator.translate('5 to Beta')).toBe('5 貝塔');
+  });
+
+  it('mod-lines 優先；多個佔位符、寫法數量不同、pseudo 都不採用', () => {
+    expect(translator.translate('+50 to maximum Life')).toBe('+50 最大生命');
+    expect(translator.translate('Adds 5 to 10 Fire Damage')).toBeUndefined();
+    expect(translator.translate('5 to Gamma')).toBeUndefined();
+    expect(translator.translate('+50 total maximum Life')).toBeUndefined();
   });
 });
 
@@ -370,6 +442,19 @@ describe('loadModLineTranslator：隨擴充發佈的資料分片', () => {
     );
     expect(tw?.translate('Added Small Passive Skills also grant: +4% to Chaos Resistance')).toBe(
       '附加的小天賦給予：+4% 混沌抗性',
+    );
+  });
+
+  it('PoE 1 台服：塗油、星團附魔與藥劑的多行詞綴', async () => {
+    const tw = await loadModLineTranslator(loadJson, { version: 'poe1', locale: 'zh-TW' });
+    expect(tw?.translate('Allocates Vigour')).toBe('配置 活力之源');
+    expect(
+      tw?.translate(
+        'Added Small Passive Skills grant: Staff Attacks deal 12% increased Damage with Hits and Ailments',
+      ),
+    ).toBe('附加的小型天賦給予：長杖攻擊增加 12% 擊中和異常狀態傷害');
+    expect(tw?.translate('Grants Immunity to Bleeding for 8 seconds if used while Bleeding')).toBe(
+      '若使用時流血，獲得免疫流血 8 秒',
     );
   });
 

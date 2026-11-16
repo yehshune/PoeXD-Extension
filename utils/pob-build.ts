@@ -99,7 +99,23 @@ const MOD_TAG = /^\{([^}]*)\}/;
 /** PoB 以 `(10-20)` 表示可變數值，實際值由 `{range:x}` 決定 */
 const VALUE_RANGE = /\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)/g;
 /** 詞綴區之後的狀態行，不是詞綴 */
-const STATUS_LINES = new Set(['Corrupted', 'Mirrored', 'Split', 'Unidentified']);
+const STATUS_LINES = new Set([
+  'Corrupted',
+  'Mirrored',
+  'Split',
+  'Unidentified',
+  'Fractured Item',
+  'Synthesised Item',
+  // 勢力行通常寫在 Implicits 之前；手動編輯過的物品可能出現在詞綴區
+  'Shaper Item',
+  'Elder Item',
+  'Crusader Item',
+  'Redeemer Item',
+  'Hunter Item',
+  'Warlord Item',
+  'Searing Exarch Item',
+  'Eater of Worlds Item',
+]);
 const JEWEL_SLOT = 'Jewel';
 const RARITIES: readonly PobItemRarity[] = ['NORMAL', 'MAGIC', 'RARE', 'UNIQUE', 'RELIC'];
 const RARITY_LINE = /^Rarity:\s*(\w+)/i;
