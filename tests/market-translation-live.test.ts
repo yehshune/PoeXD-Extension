@@ -3,13 +3,16 @@ import {
   MARKET_LIVE_ERROR_COOLDOWN_MS,
   MARKET_LIVE_TTL_MS,
   alignLiveStatsWithEnglish,
+  alignLiveTradeItemsWithEnglish,
   createMarketTranslationLiveService,
   getMarketLiveDataCacheKey,
   getMarketLiveErrorCacheKey,
   getMarketLiveUiCacheKey,
   mergeMarketTradeDictionary,
   mergeMarketUiStrings,
+  parseOfficialEnglishTradeItems,
   parseOfficialTradeFilters,
+  parseOfficialTradeItems,
   parseOfficialTradeStatic,
   parseOfficialTradeStats,
   parseOfficialTranslateJs,
@@ -136,6 +139,62 @@ function buildFiltersResponse() {
             option: { options: [{ id: null, text: '直購價' }] },
           },
           ...filters,
+        ],
+      },
+    ],
+  };
+}
+
+function buildItemsResponse() {
+  return {
+    result: [
+      {
+        id: 'map',
+        entries: [
+          {
+            type: 'Crit1HShadowPhysSpell',
+            text: '傭兵委任狀（刃法師）',
+            disc: 'mercenary_warrant',
+          },
+          {
+            type: '金光戒指',
+            name: '貪慾之記',
+            text: '貪慾之記 金光戒指 (舊版)',
+            disc: 'legacy',
+          },
+          {
+            type: '靈體投擲',
+            text: '靈體投擲：特拉圖斯',
+            disc: 'alt_x',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildEnglishItemsResponse() {
+  return {
+    result: [
+      {
+        id: 'map',
+        entries: [
+          {
+            type: 'Crit1HShadowPhysSpell',
+            text: 'Mercenary Warrant (Bladecaster)',
+            disc: 'mercenary_warrant',
+          },
+          {
+            type: 'Gold Ring',
+            name: 'Andvarius',
+            text: 'Andvarius Gold Ring (Legacy)',
+            disc: 'legacy',
+          },
+          {
+            type: 'Spectral Throw',
+            text: 'Spectral Throw of Trarthus',
+            disc: 'alt_x',
+          },
         ],
       },
     ],
@@ -274,6 +333,50 @@ describe('parseOfficialTrade{Stats,Static,Filters}', () => {
     };
     expect(parseOfficialTradeFilters(english)).toBeNull();
   });
+
+  it('items 依英文比對只收錄跨服代碼 discEntries 與 legacy 後綴，拒絕英文回應', () => {
+    const raw = parseOfficialTradeItems(buildItemsResponse());
+    const en = parseOfficialEnglishTradeItems(buildEnglishItemsResponse());
+    expect(raw).not.toBeNull();
+    expect(en).not.toBeNull();
+    expect(alignLiveTradeItemsWithEnglish(raw!, en!)).toEqual({
+      discEntries: { mercenary_warrant: { Crit1HShadowPhysSpell: '傭兵委任狀（刃法師）' } },
+      discSuffixes: { legacy: ' (舊版)' },
+    });
+
+    // PoE 2 僅有 legacy 後綴而無跨服代碼 discEntries 時仍通過
+    const poe2Raw = parseOfficialTradeItems({
+      result: [
+        {
+          id: 'accessory',
+          entries: [
+            {
+              type: '金光戒指',
+              name: '貪慾之記',
+              text: '貪慾之記 金光戒指 (舊版)',
+              disc: 'legacy',
+            },
+          ],
+        },
+      ],
+    });
+    expect(alignLiveTradeItemsWithEnglish(poe2Raw!, en!)).toEqual({
+      discEntries: {},
+      discSuffixes: { legacy: ' (舊版)' },
+    });
+
+    // 目標網域退回英文時拒絕
+    expect(parseOfficialTradeItems(buildEnglishItemsResponse())).toBeNull();
+    expect(
+      alignLiveTradeItemsWithEnglish(
+        {
+          byDisc: { legacy: [{ type: 'Gold Ring', text: 'Andvarius Gold Ring (Legacy)' }] },
+          discSuffixes: { legacy: ' (Legacy)' },
+        },
+        en!,
+      ),
+    ).toBeNull();
+  });
 });
 
 describe('createMarketTranslationLiveService', () => {
@@ -289,10 +392,14 @@ describe('createMarketTranslationLiveService', () => {
         return okResponse(buildStaticResponse());
       if (url === 'https://pathofexile.tw/api/trade/data/filters')
         return okResponse(buildFiltersResponse());
+      if (url === 'https://pathofexile.tw/api/trade/data/items')
+        return okResponse(buildItemsResponse());
       if (url === 'https://www.pathofexile.com/api/trade/data/stats')
         return okResponse(buildEnglishStatsResponse());
       if (url === 'https://www.pathofexile.com/api/trade/data/filters')
         return okResponse(buildEnglishFiltersResponse());
+      if (url === 'https://www.pathofexile.com/api/trade/data/items')
+        return okResponse(buildEnglishItemsResponse());
       throw new Error(`unexpected ${url}`);
     });
     const service = createMarketTranslationLiveService({ storage, http, now: () => nowMs });
@@ -301,7 +408,7 @@ describe('createMarketTranslationLiveService', () => {
     expect(first).toEqual({
       ok: true,
       updated: true,
-      sources: ['ui', 'stats', 'static', 'filters', 'enStats', 'enFilters'],
+      sources: ['ui', 'stats', 'static', 'filters', 'items', 'enStats', 'enFilters', 'enItems'],
     });
     const cached = await storage.get([
       getMarketLiveUiCacheKey('zh-TW'),
@@ -313,6 +420,10 @@ describe('createMarketTranslationLiveService', () => {
     expect(
       (cached[getMarketLiveDataCacheKey('poe1', 'zh-TW')] as any).filters.groups.type_filters,
     ).toBe('類別過濾');
+    expect((cached[getMarketLiveDataCacheKey('poe1', 'zh-TW')] as any).tradeItems).toEqual({
+      discEntries: { mercenary_warrant: { Crit1HShadowPhysSpell: '傭兵委任狀（刃法師）' } },
+      discSuffixes: { legacy: ' (舊版)' },
+    });
 
     // TTL 內不再發請求
     http.mockClear();
@@ -340,10 +451,14 @@ describe('createMarketTranslationLiveService', () => {
         return okResponse(buildStaticResponse());
       if (url === 'https://poe.game.qq.com/api/trade2/data/filters')
         return okResponse(buildFiltersResponse());
+      if (url === 'https://poe.game.qq.com/api/trade2/data/items')
+        return okResponse(buildItemsResponse());
       if (url === 'https://www.pathofexile.com/api/trade2/data/stats')
         return okResponse(buildEnglishStatsResponse());
       if (url === 'https://www.pathofexile.com/api/trade2/data/filters')
         return okResponse(buildEnglishFiltersResponse());
+      if (url === 'https://www.pathofexile.com/api/trade2/data/items')
+        return okResponse(buildEnglishItemsResponse());
       throw new Error(`unexpected ${url}`);
     });
     const service = createMarketTranslationLiveService({ storage, http, now: () => 5_000_000 });
@@ -396,10 +511,14 @@ describe('createMarketTranslationLiveService', () => {
       }
       if (url === 'https://pathofexile.tw/api/trade/data/filters')
         return okResponse(buildFiltersResponse());
+      if (url === 'https://pathofexile.tw/api/trade/data/items')
+        return okResponse(buildItemsResponse());
       if (url === 'https://www.pathofexile.com/api/trade/data/stats')
         return okResponse(buildEnglishStatsResponse());
       if (url === 'https://www.pathofexile.com/api/trade/data/filters')
         return okResponse(buildEnglishFiltersResponse());
+      if (url === 'https://www.pathofexile.com/api/trade/data/items')
+        return okResponse(buildEnglishItemsResponse());
       throw new Error(`unexpected ${url}`);
     });
     const service = createMarketTranslationLiveService({ storage, http, now: () => nowMs });
@@ -408,7 +527,7 @@ describe('createMarketTranslationLiveService', () => {
     expect(first).toEqual({
       ok: true,
       updated: true,
-      sources: ['ui', 'stats', 'filters', 'enStats', 'enFilters'],
+      sources: ['ui', 'stats', 'filters', 'items', 'enStats', 'enFilters', 'enItems'],
     });
 
     // 冷卻期內不應重複發請求
@@ -447,6 +566,13 @@ describe('createMarketTranslationLiveService', () => {
           options: { category: { weapon: '武器', gem: '寶石' } },
         },
         items: { 'gold ring': '金光戒指' },
+        tradeItems: {
+          discEntries: {
+            mercenary_warrant: { Crit1HShadowPhysSpell: '舊委任狀' },
+            chart: { AbyssalPlain: '深淵平原星圖' },
+          },
+          discSuffixes: { legacy: ' (舊版)' },
+        },
       },
       {
         schemaVersion: 1,
@@ -458,6 +584,10 @@ describe('createMarketTranslationLiveService', () => {
           fields: { map_bonus: '輿圖掉落' },
           options: { category: { weapon: '新武器' } },
         },
+        tradeItems: {
+          discEntries: { mercenary_warrant: { Crit1HShadowPhysSpell: '傭兵委任狀（刃法師）' } },
+          discSuffixes: { legacy: ' (舊版)' },
+        },
       },
     );
     expect(mergedDict.filters?.groups).toEqual({
@@ -467,5 +597,12 @@ describe('createMarketTranslationLiveService', () => {
     });
     expect(mergedDict.filters?.options.category).toEqual({ weapon: '新武器', gem: '寶石' });
     expect(mergedDict.items).toEqual({ 'gold ring': '金光戒指' });
+    expect(mergedDict.tradeItems).toEqual({
+      discEntries: {
+        mercenary_warrant: { Crit1HShadowPhysSpell: '傭兵委任狀（刃法師）' },
+        chart: { AbyssalPlain: '深淵平原星圖' },
+      },
+      discSuffixes: { legacy: ' (舊版)' },
+    });
   });
 });

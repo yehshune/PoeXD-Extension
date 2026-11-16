@@ -56,6 +56,12 @@ export function getLocaleTradeStaticAssetPath(version: PoeVersion, locale: strin
   return `json/${profile.dataDirectory}/locales/${locale}/trade-static.json`;
 }
 
+/** 市集漢化（ADR-0012）的官方 /data/items disc 條目與後綴譯名，只有 zh-TW、zh-CN */
+export function getLocaleTradeItemsAssetPath(version: PoeVersion, locale: string): string {
+  const profile = tradeVersionProfiles[version];
+  return `json/${profile.dataDirectory}/locales/${locale}/trade-items.json`;
+}
+
 /** 市集漢化結果列的遊戲寫法變體（poexd-data 產生），只有 zh-TW、zh-CN */
 export function getLocaleModLinesAssetPath(version: PoeVersion, locale: string): string {
   const profile = tradeVersionProfiles[version];

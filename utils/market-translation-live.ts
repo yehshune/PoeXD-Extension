@@ -20,7 +20,14 @@ const MIN_STATIC_ENTRIES = 20;
 
 const CJK_RE = /[\u4e00-\u9fff]/;
 
-export type MarketLiveDataSourceKey = 'stats' | 'static' | 'filters' | 'enStats' | 'enFilters';
+export type MarketLiveDataSourceKey =
+  | 'stats'
+  | 'static'
+  | 'filters'
+  | 'items'
+  | 'enStats'
+  | 'enFilters'
+  | 'enItems';
 export type MarketLiveSourceKey = 'ui' | MarketLiveDataSourceKey;
 
 export interface MarketLiveUiCache {
@@ -28,6 +35,16 @@ export interface MarketLiveUiCache {
   locale: MarketTranslationLocale;
   updatedAt: number;
   strings: Record<string, string>;
+}
+
+export interface MarketLiveDiscItemsRaw {
+  byDisc: Record<string, Array<{ type: string; text: string }>>;
+  discSuffixes: Record<string, string>;
+}
+
+export interface MarketLiveEnglishItems {
+  byDisc: Record<string, Record<string, string>>;
+  legacySuffix?: string;
 }
 
 export interface MarketLiveDataCache {
@@ -39,8 +56,10 @@ export interface MarketLiveDataCache {
   stats?: NonNullable<MarketTradeDictionary['stats']>;
   static?: NonNullable<MarketTradeDictionary['static']>;
   filters?: NonNullable<MarketTradeDictionary['filters']>;
+  tradeItems?: NonNullable<MarketTradeDictionary['tradeItems']>;
   enStats?: Record<string, string | string[]>;
   enFields?: Record<string, string>;
+  enItems?: MarketLiveEnglishItems;
 }
 
 export interface MarketTranslationRefreshRequest {
@@ -326,6 +345,81 @@ export function parseOfficialEnglishTradeFilters(raw: unknown): Record<string, s
   return parsed ? parsed.fields : null;
 }
 
+function collectTradeDiscItems(raw: unknown): MarketLiveDiscItemsRaw | null {
+  if (!isRecord(raw) || !Array.isArray(raw.result) || raw.result.length === 0) return null;
+  const byDisc: Record<string, Array<{ type: string; text: string }>> = {};
+  const suffixCounts = new Map<string, Map<string, number>>();
+  let hasGroupEntries = false;
+
+  for (const group of raw.result) {
+    if (!isRecord(group) || !Array.isArray(group.entries)) return null;
+    if (group.entries.length > 0) hasGroupEntries = true;
+    for (const entry of group.entries) {
+      if (!isRecord(entry)) continue;
+      const disc = typeof entry.disc === 'string' ? entry.disc.trim() : '';
+      const type = typeof entry.type === 'string' ? entry.type.trim() : '';
+      const text = typeof entry.text === 'string' ? entry.text.trim() : '';
+      if (!disc || !type || !text) continue;
+      (byDisc[disc] ??= []).push({ type, text });
+
+      const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+      if (name) {
+        const prefix = `${name} ${type}`;
+        if (text.startsWith(prefix) && text.length > prefix.length) {
+          const suffix = text.slice(prefix.length);
+          let counts = suffixCounts.get(disc);
+          if (!counts) {
+            counts = new Map();
+            suffixCounts.set(disc, counts);
+          }
+          counts.set(suffix, (counts.get(suffix) ?? 0) + 1);
+        }
+      }
+    }
+  }
+
+  if (!hasGroupEntries) return null;
+  const discSuffixes: Record<string, string> = {};
+  for (const [disc, counts] of suffixCounts) {
+    let bestSuffix = '';
+    let bestCount = 0;
+    for (const [suffix, count] of counts) {
+      if (count > bestCount) {
+        bestSuffix = suffix;
+        bestCount = count;
+      }
+    }
+    if (bestSuffix) discSuffixes[disc] = bestSuffix;
+  }
+  return { byDisc, discSuffixes };
+}
+
+export function parseOfficialTradeItems(raw: unknown): MarketLiveDiscItemsRaw | null {
+  const parsed = collectTradeDiscItems(raw);
+  if (!parsed) return null;
+  const hasCjkEntries = Object.values(parsed.byDisc).some((entries) =>
+    entries.some((entry) => CJK_RE.test(entry.text)),
+  );
+  const hasCjkSuffix = hasAnyCjk(Object.values(parsed.discSuffixes));
+  if (!hasCjkEntries && !hasCjkSuffix) return null;
+  return parsed;
+}
+
+export function parseOfficialEnglishTradeItems(raw: unknown): MarketLiveEnglishItems | null {
+  const parsed = collectTradeDiscItems(raw);
+  if (!parsed) return null;
+  const byDisc: Record<string, Record<string, string>> = {};
+  for (const [disc, entries] of Object.entries(parsed.byDisc)) {
+    const map: Record<string, string> = {};
+    for (const entry of entries) map[entry.type] = entry.text;
+    if (Object.keys(map).length > 0) byDisc[disc] = map;
+  }
+  return {
+    byDisc,
+    ...(parsed.discSuffixes.legacy ? { legacySuffix: parsed.discSuffixes.legacy } : {}),
+  };
+}
+
 /** 驗證並讀出儲存於 chrome.storage.local 的 UI 快取 */
 export function readValidMarketLiveUiCache(
   value: unknown,
@@ -347,8 +441,10 @@ const DATA_SOURCE_KEYS: readonly MarketLiveDataSourceKey[] = [
   'stats',
   'static',
   'filters',
+  'items',
   'enStats',
   'enFilters',
+  'enItems',
 ];
 const MIN_ENGLISH_RATIO_SAMPLE = 10;
 const MAX_IDENTICAL_TO_ENGLISH_RATIO = 0.5;
@@ -419,6 +515,49 @@ function isFiltersMostlyEnglish(
   return isMostlyIdenticalToEnglish(compared, identical);
 }
 
+/**
+ * 依國際服英文 items 過濾並驗證在地化 `disc` 群組：
+ * 只收錄半數以上條目的 `type` 與英文相同且 `text` 已翻譯的群組（排除以在地化基底名為 type 的 `legacy`/`alt_x` 等），
+ * 同時驗證 `legacy` 後綴未退回英文。
+ */
+export function alignLiveTradeItemsWithEnglish(
+  localized: MarketLiveDiscItemsRaw,
+  enItems: MarketLiveEnglishItems,
+): NonNullable<MarketTradeDictionary['tradeItems']> | null {
+  if (enItems.legacySuffix && localized.discSuffixes.legacy === enItems.legacySuffix) {
+    return null;
+  }
+  const discEntries: Record<string, Record<string, string>> = {};
+  let compared = 0;
+  let identical = 0;
+
+  for (const [disc, entries] of Object.entries(localized.byDisc)) {
+    const enGroup = enItems.byDisc[disc];
+    if (!enGroup) continue;
+    const matched: Record<string, string> = {};
+    let matchedCount = 0;
+    for (const entry of entries) {
+      const enText = enGroup[entry.type];
+      if (!enText) continue;
+      compared += 1;
+      if (entry.text === enText) {
+        identical += 1;
+      } else {
+        matched[entry.type] = entry.text;
+        matchedCount += 1;
+      }
+    }
+    if (matchedCount > 0 && matchedCount * 2 >= entries.length) {
+      discEntries[disc] = matched;
+    }
+  }
+
+  if (Object.keys(discEntries).length > 0 && isMostlyIdenticalToEnglish(compared, identical)) {
+    return null;
+  }
+  return { discEntries, discSuffixes: localized.discSuffixes };
+}
+
 /** 驗證並讀出儲存於 chrome.storage.local 的 data API 快取 */
 export function readValidMarketLiveDataCache(
   value: unknown,
@@ -471,8 +610,22 @@ export function readValidMarketLiveDataCache(
   ) {
     out.filters = value.filters as NonNullable<MarketTradeDictionary['filters']>;
   }
+  if (
+    isRecord(value.tradeItems) &&
+    isNestedStringMap(value.tradeItems.discEntries) &&
+    isStringMap(value.tradeItems.discSuffixes)
+  ) {
+    out.tradeItems = value.tradeItems as NonNullable<MarketTradeDictionary['tradeItems']>;
+  }
   if (isStatsValueMap(value.enStats)) out.enStats = value.enStats;
   if (isStringMap(value.enFields)) out.enFields = value.enFields;
+  if (
+    isRecord(value.enItems) &&
+    isNestedStringMap(value.enItems.byDisc) &&
+    (value.enItems.legacySuffix === undefined || typeof value.enItems.legacySuffix === 'string')
+  ) {
+    out.enItems = value.enItems as unknown as MarketLiveEnglishItems;
+  }
   return out;
 }
 
@@ -531,6 +684,10 @@ export function mergeMarketTradeDictionary(
       options: mergeNestedMaps(base.options, overlay.options),
     })),
     items: bundled.items,
+    tradeItems: mergeSection(bundled.tradeItems, live.tradeItems, (base, overlay) => ({
+      discEntries: mergeNestedMaps(base.discEntries, overlay.discEntries),
+      discSuffixes: { ...base.discSuffixes, ...overlay.discSuffixes },
+    })),
   };
 }
 
@@ -549,8 +706,10 @@ function getRealmEndpoints(version: PoeVersion, locale: MarketTranslationLocale)
     statsUrl: `${origin}${apiBase}/stats`,
     staticUrl: `${origin}${apiBase}/static`,
     filtersUrl: `${origin}${apiBase}/filters`,
+    itemsUrl: `${origin}${apiBase}/items`,
     enStatsUrl: `https://www.pathofexile.com${apiBase}/stats`,
     enFiltersUrl: `https://www.pathofexile.com${apiBase}/filters`,
+    enItemsUrl: `https://www.pathofexile.com${apiBase}/items`,
   };
 }
 
@@ -610,7 +769,11 @@ function readEndpointUpdatedAt(
   const explicit = cache.endpointUpdatedAt?.[source];
   if (typeof explicit === 'number') return explicit;
   const fieldPresent =
-    source === 'enFilters' ? cache.enFields !== undefined : cache[source] !== undefined;
+    source === 'enFilters'
+      ? cache.enFields !== undefined
+      : source === 'items'
+        ? cache.tradeItems !== undefined
+        : cache[source] !== undefined;
   return fieldPresent && cache.updatedAt > 0 ? cache.updatedAt : undefined;
 }
 
@@ -683,6 +846,10 @@ export function createMarketTranslationLiveService(
       'filters',
       isMarketLiveCacheFresh(prevEndpointUpdatedAt.filters, currentNow),
     );
+    const fetchItems = shouldFetch(
+      'items',
+      isMarketLiveCacheFresh(prevEndpointUpdatedAt.items, currentNow),
+    );
     const fetchEnStats = shouldFetch(
       'enStats',
       isMarketLiveCacheFresh(prevEndpointUpdatedAt.enStats, currentNow),
@@ -691,21 +858,27 @@ export function createMarketTranslationLiveService(
       'enFilters',
       isMarketLiveCacheFresh(prevEndpointUpdatedAt.enFilters, currentNow),
     );
+    const fetchEnItems = shouldFetch(
+      'enItems',
+      isMarketLiveCacheFresh(prevEndpointUpdatedAt.enItems, currentNow),
+    );
 
     const attemptedSources: MarketLiveSourceKey[] = [];
     if (fetchUi) attemptedSources.push('ui');
     if (fetchStats) attemptedSources.push('stats');
     if (fetchStatic) attemptedSources.push('static');
     if (fetchFilters) attemptedSources.push('filters');
+    if (fetchItems) attemptedSources.push('items');
     if (fetchEnStats) attemptedSources.push('enStats');
     if (fetchEnFilters) attemptedSources.push('enFilters');
+    if (fetchEnItems) attemptedSources.push('enItems');
 
     if (attemptedSources.length === 0) {
       return { ok: true, updated: false, sources: [] };
     }
 
     const endpoints = getRealmEndpoints(version, locale);
-    const [uiRes, statsRes, staticRes, filtersRes, enStatsRes, enFiltersRes] =
+    const [uiRes, statsRes, staticRes, filtersRes, itemsRes, enStatsRes, enFiltersRes, enItemsRes] =
       await Promise.allSettled([
         fetchUi
           ? fetchFirstText(http, endpoints.uiUrls).then(parseOfficialTranslateJs)
@@ -719,11 +892,17 @@ export function createMarketTranslationLiveService(
         fetchFilters
           ? fetchJson(http, endpoints.filtersUrl).then(parseOfficialTradeFilters)
           : Promise.resolve(null),
+        fetchItems
+          ? fetchJson(http, endpoints.itemsUrl).then(parseOfficialTradeItems)
+          : Promise.resolve(null),
         fetchEnStats
           ? fetchJson(http, endpoints.enStatsUrl).then(parseOfficialEnglishTradeStats)
           : Promise.resolve(null),
         fetchEnFilters
           ? fetchJson(http, endpoints.enFiltersUrl).then(parseOfficialEnglishTradeFilters)
+          : Promise.resolve(null),
+        fetchEnItems
+          ? fetchJson(http, endpoints.enItemsUrl).then(parseOfficialEnglishTradeItems)
           : Promise.resolve(null),
       ]);
 
@@ -745,11 +924,14 @@ export function createMarketTranslationLiveService(
     const rawNextStats = statsRes.status === 'fulfilled' ? statsRes.value : null;
     const nextStatic = staticRes.status === 'fulfilled' ? staticRes.value : null;
     const rawNextFilters = filtersRes.status === 'fulfilled' ? filtersRes.value : null;
+    const rawNextItems = itemsRes.status === 'fulfilled' ? itemsRes.value : null;
     const nextEnStats = enStatsRes.status === 'fulfilled' ? enStatsRes.value : null;
     const nextEnFields = enFiltersRes.status === 'fulfilled' ? enFiltersRes.value : null;
+    const nextEnItems = enItemsRes.status === 'fulfilled' ? enItemsRes.value : null;
 
     const effectiveEnStats = nextEnStats ?? prevData?.enStats;
     const effectiveEnFields = nextEnFields ?? prevData?.enFields;
+    const effectiveEnItems = nextEnItems ?? prevData?.enItems;
 
     let nextStats = rawNextStats;
     if (nextStats && effectiveEnStats) {
@@ -763,12 +945,18 @@ export function createMarketTranslationLiveService(
     ) {
       nextFilters = null;
     }
+    const nextTradeItems =
+      rawNextItems && effectiveEnItems
+        ? alignLiveTradeItemsWithEnglish(rawNextItems, effectiveEnItems)
+        : null;
 
     if (nextStats) updatedSources.push('stats');
     if (nextStatic) updatedSources.push('static');
     if (nextFilters) updatedSources.push('filters');
+    if (nextTradeItems) updatedSources.push('items');
     if (nextEnStats) updatedSources.push('enStats');
     if (nextEnFields) updatedSources.push('enFilters');
+    if (nextEnItems) updatedSources.push('enItems');
 
     // 若本次補抓到 enStats 而既有的 stats 尚未依英文對齊，一併修剪既有 stats 以免重複 id 錯位
     let retainedStats = prevData?.stats;
@@ -777,7 +965,13 @@ export function createMarketTranslationLiveService(
     }
 
     const hasDataUpdate = Boolean(
-      nextStats || nextStatic || nextFilters || nextEnStats || nextEnFields,
+      nextStats ||
+      nextStatic ||
+      nextFilters ||
+      nextTradeItems ||
+      nextEnStats ||
+      nextEnFields ||
+      nextEnItems,
     );
     if (hasDataUpdate) {
       const nextEndpointUpdatedAt: Partial<Record<MarketLiveDataSourceKey, number>> = {
@@ -786,8 +980,10 @@ export function createMarketTranslationLiveService(
       if (nextStats) nextEndpointUpdatedAt.stats = fetchedAt;
       if (nextStatic) nextEndpointUpdatedAt.static = fetchedAt;
       if (nextFilters) nextEndpointUpdatedAt.filters = fetchedAt;
+      if (nextTradeItems) nextEndpointUpdatedAt.items = fetchedAt;
       if (nextEnStats) nextEndpointUpdatedAt.enStats = fetchedAt;
       if (nextEnFields) nextEndpointUpdatedAt.enFilters = fetchedAt;
+      if (nextEnItems) nextEndpointUpdatedAt.enItems = fetchedAt;
 
       const timestamps = DATA_SOURCE_KEYS.map((key) => nextEndpointUpdatedAt[key]).filter(
         (ts): ts is number => typeof ts === 'number',
@@ -803,8 +999,10 @@ export function createMarketTranslationLiveService(
         stats: nextStats ?? retainedStats,
         static: nextStatic ?? prevData?.static,
         filters: nextFilters ?? prevData?.filters,
+        tradeItems: nextTradeItems ?? prevData?.tradeItems,
         enStats: effectiveEnStats,
         enFields: effectiveEnFields,
+        enItems: effectiveEnItems,
       } satisfies MarketLiveDataCache;
     }
 

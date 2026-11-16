@@ -14,6 +14,7 @@ import {
   getLocaleModLinesAssetPath,
   getLocaleResultLabelsAssetPath,
   getLocaleTradeFiltersAssetPath,
+  getLocaleTradeItemsAssetPath,
   getLocaleTradeStaticAssetPath,
   getLocaleTradeStatsAssetPath,
   type PoeVersion,
@@ -52,6 +53,21 @@ function parseStatic(data: unknown, locale: string): MarketTradeDictionary['stat
   return shard as unknown as MarketTradeDictionary['static'];
 }
 
+function parseTradeItems(data: unknown, locale: string): MarketTradeDictionary['tradeItems'] {
+  const shard = requireMarketShard(data, locale, 'trade-items.json');
+  if (!isRecord(shard.discEntries) || !isRecord(shard.discSuffixes)) {
+    throw new Error('trade-items.json 格式錯誤');
+  }
+  return {
+    discEntries: shard.discEntries as NonNullable<
+      MarketTradeDictionary['tradeItems']
+    >['discEntries'],
+    discSuffixes: shard.discSuffixes as NonNullable<
+      MarketTradeDictionary['tradeItems']
+    >['discSuffixes'],
+  };
+}
+
 function parseFilters(data: unknown): MarketTradeDictionary['filters'] {
   if (!isRecord(data) || !isRecord(data.groups) || !isRecord(data.fields)) {
     throw new Error('trade-filters.json 格式錯誤');
@@ -85,7 +101,7 @@ export async function loadMarketTradeDictionary(
   options: { version: PoeVersion; locale: MarketTranslationLocale },
 ): Promise<Omit<MarketTradeDictionary, 'ui'>> {
   const { version, locale } = options;
-  const [stats, statics, filters, items] = await Promise.allSettled([
+  const [stats, statics, filters, items, tradeItems] = await Promise.allSettled([
     loadJson(getLocaleTradeStatsAssetPath(version, locale)).then((data) =>
       parseStats(data, locale),
     ),
@@ -97,6 +113,9 @@ export async function loadMarketTradeDictionary(
       loadJson(getLocaleItemsAssetPath(version, 'en')),
       loadJson(getLocaleItemsAssetPath(version, locale)),
     ]).then(([en, zh]) => buildItemMap(en, zh)),
+    loadJson(getLocaleTradeItemsAssetPath(version, locale)).then((data) =>
+      parseTradeItems(data, locale),
+    ),
   ]);
 
   return {
@@ -104,6 +123,7 @@ export async function loadMarketTradeDictionary(
     static: settledValue(statics),
     filters: settledValue(filters),
     items: settledValue(items),
+    tradeItems: settledValue(tradeItems),
   };
 }
 

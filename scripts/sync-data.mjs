@@ -64,7 +64,10 @@ const PATH_RULES = [
     (m) => `${m[1]}/trade-filters`,
   ],
   [new RegExp(`^locales/${LOCALE}/trade-ui\\.json$`), () => 'market'],
-  [new RegExp(`^${VERSION}/locales/${LOCALE}/trade-(?:stats|static)\\.json$`), () => 'market'],
+  [
+    new RegExp(`^${VERSION}/locales/${LOCALE}/trade-(?:stats|static|items)\\.json$`),
+    () => 'market',
+  ],
 ];
 
 /** 回傳資料檔所屬批次；不在白名單內的路徑回傳 null（與 poexd-data 的 src/publish/catalog.ts 一致） */

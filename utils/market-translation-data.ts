@@ -22,6 +22,11 @@ export interface MarketTradeDictionary {
   filters?: { groups: TextMap; fields: TextMap; options: NestedTextMap };
   /** 英文物品名（小寫）→ 譯名 */
   items?: TextMap;
+  /** 官方 /data/items 中以固定代碼為 type 的 disc 條目，與 legacy 等 disc 後綴 */
+  tradeItems?: {
+    discEntries: NestedTextMap;
+    discSuffixes: TextMap;
+  };
   /** 官方介面字典，補 filters 裡 id 為 null 的選項（例如「Any」） */
   ui?: TextMap;
 }
@@ -150,16 +155,57 @@ function localizeFilters(
   };
 }
 
-function itemText(entry: Json, items: TextMap): string | undefined {
+function itemText(entry: Json, dictionary: MarketTradeDictionary): string | undefined {
+  if (typeof entry.disc === 'string' && entry.disc) {
+    const direct = dictionary.tradeItems?.discEntries[entry.disc]?.[entry.type];
+    if (direct) return direct;
+  }
+  const items = dictionary.items;
+  if (!items) return undefined;
   const lookup = (value: unknown) =>
-    typeof value === 'string' ? items[value.toLowerCase()] : undefined;
-  const type = lookup(entry.type);
-  if (typeof entry.name !== 'string' || !entry.name) return type;
-  const name = lookup(entry.name);
-  return name && type ? `${name} ${type}` : undefined;
+    typeof value === 'string' ? items[value.trim().toLowerCase()] : undefined;
+
+  if (typeof entry.name === 'string' && entry.name) {
+    const type = lookup(entry.type);
+    const name = lookup(entry.name);
+    if (!name || !type) return undefined;
+    const base = `${name} ${type}`;
+    if (typeof entry.disc === 'string' && entry.disc) {
+      const suffix = dictionary.tradeItems?.discSuffixes[entry.disc];
+      if (suffix) return `${base}${suffix}`;
+      // 缺 tradeItems 時仍保留 Legacy 標記，避免與非舊版傳奇混在一起
+      if (
+        entry.disc === 'legacy' &&
+        typeof entry.text === 'string' &&
+        entry.text.endsWith(' (Legacy)')
+      ) {
+        return `${base} (Legacy)`;
+      }
+    }
+    return base;
+  }
+
+  // 變異寶石等以 text 區分同 type 的條目（如 Animate Weapon of Ranged Arms、Vaal X (Y)）：
+  // 查不到完整 text 時維持英文，不可退回只用 type 蓋掉後綴
+  if (typeof entry.text === 'string' && entry.text && entry.text !== entry.type) {
+    const exact = lookup(entry.text);
+    if (exact) return exact;
+    const prefix = `${entry.type} (`;
+    if (entry.text.startsWith(prefix) && entry.text.endsWith(')')) {
+      const type = lookup(entry.type);
+      const inner = lookup(entry.text.slice(prefix.length, -1));
+      if (type && inner) return `${type} (${inner})`;
+    }
+    return undefined;
+  }
+  return lookup(entry.type);
 }
 
-function localizeItems(data: { result: Json[] }, items: TextMap, bilingual: boolean) {
+function localizeItems(
+  data: { result: Json[] },
+  dictionary: MarketTradeDictionary,
+  bilingual: boolean,
+) {
   return {
     ...data,
     result: data.result.map((group) => ({
@@ -167,7 +213,7 @@ function localizeItems(data: { result: Json[] }, items: TextMap, bilingual: bool
       entries: Array.isArray(group.entries)
         ? group.entries.map((entry: Json) => {
             if (!isRecord(entry) || typeof entry.type !== 'string') return entry;
-            const translated = itemText(entry, items);
+            const translated = itemText(entry, dictionary);
             if (!translated) return entry;
             // 基底原本沒有 text：官網顯示時以 text 優先、沒有才用 type
             const english = typeof entry.text === 'string' ? entry.text : entry.type;
@@ -209,7 +255,7 @@ export function expandKnownItemFilters(
         seen.add(name);
         result.push({
           id: name,
-          text: combine(items[name.toLowerCase()], name, options.bilingual),
+          text: combine(items[name.trim().toLowerCase()], name, options.bilingual),
         });
       }
     }
@@ -222,7 +268,7 @@ export function expandKnownItemFilters(
         const english = typeof entry.text === 'string' ? entry.text : entry.type;
         return {
           id: entry.type,
-          text: combine(itemText(entry, items), english, options.bilingual),
+          text: combine(itemText(entry, dictionary), english, options.bilingual),
         };
       });
   const anyText = dictionary.ui?.Any ?? 'Any';
@@ -275,6 +321,8 @@ export function localizeTradeData(
     case 'filters':
       return dictionary.filters ? localizeFilters(data, dictionary.filters, dictionary.ui) : data;
     case 'items':
-      return dictionary.items ? localizeItems(data, dictionary.items, options.bilingual) : data;
+      return dictionary.items || dictionary.tradeItems
+        ? localizeItems(data, dictionary, options.bilingual)
+        : data;
   }
 }

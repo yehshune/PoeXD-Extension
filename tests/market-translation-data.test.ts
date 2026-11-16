@@ -226,6 +226,108 @@ describe('localizeTradeData（data API 改寫）', () => {
     expect(mono.result[0].entries[1].text).toBe('貪慾之記 金光戒指');
   });
 
+  it('items：支援 disc 跨服代碼、舊版後綴、變異寶石與尾端空白正規化', () => {
+    const dict: MarketTradeDictionary = {
+      items: {
+        ...DICTIONARY.items,
+        'animate weapon': '幻化武器',
+        'animate weapon of ranged arms': '幻化武器：遠程兵器',
+        'vaal cleave': '瓦爾．劈砍',
+        'cleave of rage': '劈砍：盛怒',
+        'blood stasis': '鮮血停滯',
+      },
+      tradeItems: {
+        discEntries: {
+          mercenary_warrant: { Crit1HShadowPhysSpell: '傭兵委任狀（刃法師）' },
+          scrying_orb: { '10021': '占卜之球：古墓' },
+          blighted: { '10021': '凋落的：古墓' },
+          uberblighted: { '10021': '凋落蔓延的：古墓' },
+          chart: { AbyssalPlain: '深淵平原星圖' },
+        },
+        discSuffixes: { legacy: ' (舊版)' },
+      },
+    };
+    const response = {
+      result: [
+        {
+          id: 'map',
+          label: 'Maps',
+          entries: [
+            {
+              type: 'Crit1HShadowPhysSpell',
+              text: 'Mercenary Warrant (Bladecaster)',
+              disc: 'mercenary_warrant',
+            },
+            { type: '10021', text: 'Scrying Orb (Burial Chambers)', disc: 'scrying_orb' },
+            { type: '10021', text: 'Blighted Burial Chambers Map', disc: 'blighted' },
+            { type: '10021', text: 'Blight-ravaged Burial Chambers Map', disc: 'uberblighted' },
+            { type: 'AbyssalPlain', text: 'Chart (Abyssal Plain)', disc: 'chart' },
+            {
+              type: 'Gold Ring',
+              text: 'Andvarius Gold Ring (Legacy)',
+              name: 'Andvarius',
+              disc: 'legacy',
+              flags: { unique: true },
+            },
+            {
+              type: 'Animate Weapon',
+              text: 'Animate Weapon of Ranged Arms',
+              disc: 'alt_x',
+            },
+            {
+              type: 'Vaal Cleave',
+              text: 'Vaal Cleave (Cleave of Rage)',
+              disc: 'alt_x',
+            },
+            {
+              type: 'Animate Weapon',
+              text: 'Animate Weapon of Unknown',
+              disc: 'alt_x',
+            },
+            { type: 'Blood Stasis ' },
+          ],
+        },
+      ],
+    };
+
+    const result = localizeTradeData('items', response, dict, { bilingual: false }) as any;
+    expect(result.result[0].entries.map((entry: any) => entry.text)).toEqual([
+      '傭兵委任狀（刃法師）',
+      '占卜之球：古墓',
+      '凋落的：古墓',
+      '凋落蔓延的：古墓',
+      '深淵平原星圖',
+      '貪慾之記 金光戒指 (舊版)',
+      '幻化武器：遠程兵器',
+      '瓦爾．劈砍 (劈砍：盛怒)',
+      'Animate Weapon of Unknown',
+      '鮮血停滯',
+    ]);
+
+    const withoutTradeItems = localizeTradeData(
+      'items',
+      {
+        result: [
+          {
+            id: 'acc',
+            label: 'Acc',
+            entries: [
+              {
+                type: 'Gold Ring',
+                text: 'Andvarius Gold Ring (Legacy)',
+                name: 'Andvarius',
+                disc: 'legacy',
+              },
+            ],
+          },
+        ],
+      },
+      { items: DICTIONARY.items },
+      { bilingual: false },
+    ) as any;
+    expect(withoutTradeItems.result[0].entries[0].text).toBe('貪慾之記 金光戒指 (Legacy)');
+  });
+
   it('形狀不符或缺少該類字典時原樣回傳', () => {
     const weird = { notResult: true };
     expect(localizeTradeData('stats', weird, DICTIONARY, { bilingual: false })).toBe(weird);

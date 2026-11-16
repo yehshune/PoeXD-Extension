@@ -33,6 +33,13 @@ const ASSETS: Record<string, unknown> = {
     patch: '0.5.5.8',
     items: ['金光戒指', '貪慾之記', ''],
   },
+  'json/poe2/locales/zh-TW/trade-items.json': {
+    schemaVersion: 1,
+    gameVersion: 'poe2',
+    locale: 'zh-TW',
+    discEntries: { mercenary_warrant: { Crit1HShadowPhysSpell: '傭兵委任狀（刃法師）' } },
+    discSuffixes: { legacy: ' (舊版)' },
+  },
 };
 
 const loader = (assets: Record<string, unknown>) =>
@@ -55,6 +62,10 @@ describe('loadMarketTradeDictionary', () => {
       'gold ring': '金光戒指',
       andvarius: '貪慾之記',
     });
+    expect(dictionary.tradeItems).toEqual({
+      discEntries: { mercenary_warrant: { Crit1HShadowPhysSpell: '傭兵委任狀（刃法師）' } },
+      discSuffixes: { legacy: ' (舊版)' },
+    });
   });
 
   it('單一分片失敗或格式不符時只略過那一類，其他照常翻譯', async () => {
@@ -65,6 +76,7 @@ describe('loadMarketTradeDictionary', () => {
         locale: 'zh-CN',
         stats: {},
       },
+      'json/poe2/locales/zh-TW/trade-items.json': { schemaVersion: 1, locale: 'zh-CN' },
       'json/poe2/locales/zh-TW/items.json': { items: ['金光戒指'] },
     };
     delete (assets as Record<string, unknown>)['json/poe2/locales/zh-TW/trade-static.json'];
@@ -74,6 +86,7 @@ describe('loadMarketTradeDictionary', () => {
     });
     expect(dictionary.stats).toBeUndefined();
     expect(dictionary.static).toBeUndefined();
+    expect(dictionary.tradeItems).toBeUndefined();
     // 物品分片長度與英文不同：索引對不齊，不採用
     expect(dictionary.items).toBeUndefined();
     expect(dictionary.filters?.fields.category).toBe('道具分類');

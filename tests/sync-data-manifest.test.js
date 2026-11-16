@@ -72,6 +72,7 @@ describe('batchOfDataPath', () => {
     expect(batchOfDataPath('poe2/locales/ko/trade-filters.json')).toBe('poe2/trade-filters');
     expect(batchOfDataPath('locales/zh-CN/trade-ui.json')).toBe('market');
     expect(batchOfDataPath('poe1/locales/en/trade-static.json')).toBe('market');
+    expect(batchOfDataPath('poe1/locales/zh-TW/trade-items.json')).toBe('market');
   });
 
   it('rejects anything outside the whitelist, including traversal attempts', () => {
