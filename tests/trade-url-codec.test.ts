@@ -4,6 +4,7 @@ import {
   isGzipHash,
   decodeGzipBase64UrlToQuery,
   decodeTradeSearchUrl,
+  encodeQueryToGzipBase64Url,
   extractQueryMetadata,
 } from '../utils/trade-url-codec';
 
@@ -648,5 +649,17 @@ describe('trade-url-codec (extension)', () => {
         ]);
       });
     });
+  });
+
+  it('encodeQueryToGzipBase64Url 產生的代碼可被解回同一個 query，且不含 Base64 填充字元', async () => {
+    const query = {
+      status: { option: 'online' },
+      type: '琥珀護身符',
+      stats: [{ type: 'and', filters: [] }],
+    };
+    const code = await encodeQueryToGzipBase64Url(query);
+    expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(isGzipHash(code)).toBe(true);
+    expect(await decodeGzipBase64UrlToQuery(code)).toEqual(query);
   });
 });

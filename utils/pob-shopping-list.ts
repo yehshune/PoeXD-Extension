@@ -677,18 +677,34 @@ export function buildShoppingList(
   return [...equipment, ...sortedGems];
 }
 
-/** 官方市集支援以 `?q=` 帶入查詢條件，開啟後由官網自己執行搜尋 */
+const searchPath = (version: PoeVersion, league: string): string => {
+  const profile = tradeVersionProfiles[version];
+  return [profile.routeRoot, 'search', profile.searchVersionSegment, league]
+    .filter((segment): segment is string => Boolean(segment))
+    .map(encodeURIComponent)
+    .join('/');
+};
+
+/** 官方市集支援以 `?q=` 帶入查詢條件，開啟後由官網自己執行搜尋（含價格排序） */
 export function buildTradeSearchUrl(options: {
   origin: string;
   version: PoeVersion;
   league: string;
   query: Record<string, unknown>;
 }): string {
-  const profile = tradeVersionProfiles[options.version];
-  const path = [profile.routeRoot, 'search', profile.searchVersionSegment, options.league]
-    .filter((segment): segment is string => Boolean(segment))
-    .map(encodeURIComponent)
-    .join('/');
   const payload = JSON.stringify({ query: options.query, sort: { price: 'asc' } });
-  return `${options.origin}/${path}?q=${encodeURIComponent(payload)}`;
+  return `${options.origin}/${searchPath(options.version, options.league)}?q=${encodeURIComponent(payload)}`;
+}
+
+/**
+ * 以搜尋代碼組成的固定網址（`…/search/<聯盟>/<代碼>`）。線上搜尋主控台與書籤需要這種網址，
+ * 代碼由呼叫端產生（市集 query 的 gzip，或使用者存下的代碼）。
+ */
+export function buildTradeCodeUrl(options: {
+  origin: string;
+  version: PoeVersion;
+  league: string;
+  code: string;
+}): string {
+  return `${options.origin}/${searchPath(options.version, options.league)}/${encodeURIComponent(options.code)}`;
 }

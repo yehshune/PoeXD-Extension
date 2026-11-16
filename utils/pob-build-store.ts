@@ -4,6 +4,7 @@
  */
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
 import type { EntrySearchSelection, StatSelection } from './pob-shopping-list';
+import { isGzipHash } from './trade-url-codec';
 import type { PoeVersion } from './trade-context';
 
 export interface PobBuildStorage {
@@ -30,6 +31,11 @@ export interface StoredPobBuild {
   icons: Record<string, string>;
   /** 使用者調整過的搜尋條件（ShoppingEntry.key → 調整內容） */
   searchSelections: Record<string, EntrySearchSelection>;
+  /**
+   * 從市集頁面存回的搜尋（ShoppingEntry.key → 官方搜尋代碼）。有覆寫時開啟搜尋改用這個代碼，
+   * 聯盟不跟著存，開啟時用目前頁面的聯盟。
+   */
+  searchOverrides: Record<string, string>;
 }
 
 export type StoredPobBuildPatch = Partial<Omit<StoredPobBuild, 'id' | 'code' | 'importedAt'>>;
@@ -57,6 +63,9 @@ const MAX_STATS_PER_SELECTION = 80;
 const MAX_STAT_ID_LENGTH = 160;
 const MAX_COUNT_MIN = 80;
 const MAX_STAT_BOUND = 1e9;
+const MAX_SEARCH_OVERRIDES = 500;
+/** 官方搜尋代碼通常數百字元；條件很多時也遠低於這個上限 */
+const MAX_SEARCH_CODE_LENGTH = 8192;
 
 export function pobBuildsStorageKey(version: PoeVersion): string {
   return `poexdPobBuildsV2_${version}`;
@@ -152,6 +161,21 @@ const toSearchSelections = (value: unknown): Record<string, EntrySearchSelection
       )
     : {};
 
+/** 搜尋代碼來自頁面網址：只收 gzip 格式、長度合理的代碼 */
+export const isValidSearchCode = (value: unknown): value is string =>
+  typeof value === 'string' && value.length <= MAX_SEARCH_CODE_LENGTH && isGzipHash(value);
+
+const toSearchOverrides = (value: unknown): Record<string, string> =>
+  isRecord(value)
+    ? Object.fromEntries(
+        Object.entries(value)
+          .filter(
+            (entry): entry is [string, string] => entry[0] !== '' && isValidSearchCode(entry[1]),
+          )
+          .slice(0, MAX_SEARCH_OVERRIDES),
+      )
+    : {};
+
 function parseStored(value: unknown): StoredPobBuild | undefined {
   if (!isRecord(value)) return undefined;
   const { id, code, importedAt } = value;
@@ -171,6 +195,7 @@ function parseStored(value: unknown): StoredPobBuild | undefined {
     removed: toKeyList(value.removed),
     icons: toIcons(value.icons),
     searchSelections: toSearchSelections(value.searchSelections),
+    searchOverrides: toSearchOverrides(value.searchOverrides),
   };
 }
 
@@ -187,6 +212,9 @@ function applyPatch(build: StoredPobBuild, patch: StoredPobBuildPatch): StoredPo
     ...('icons' in patch ? { icons: toIcons(patch.icons) } : {}),
     ...('searchSelections' in patch
       ? { searchSelections: toSearchSelections(patch.searchSelections) }
+      : {}),
+    ...('searchOverrides' in patch
+      ? { searchOverrides: toSearchOverrides(patch.searchOverrides) }
       : {}),
   };
 }
@@ -230,6 +258,7 @@ export function createPobBuildStore(
           removed: [],
           icons: {},
           searchSelections: {},
+          searchOverrides: {},
         };
         await write([build, ...(await list())].slice(0, MAX_POB_BUILDS));
         return build;

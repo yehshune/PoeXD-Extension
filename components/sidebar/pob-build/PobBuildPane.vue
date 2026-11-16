@@ -425,11 +425,12 @@
                   </Button>
 
                   <div
-                    :class="
+                    :class="[
                       row.mods?.length
                         ? 'right-[calc(var(--pxd-space-md)+var(--control-height-sm))]'
-                        : 'right-[var(--pxd-space-md)]'
-                    "
+                        : 'right-[var(--pxd-space-md)]',
+                      { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
+                    ]"
                     class="absolute top-1/2 -translate-y-1/2 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
                   >
                     <Button
@@ -443,6 +444,108 @@
                     >
                       <ExternalLink />
                     </Button>
+                    <DropdownMenu
+                      :open="isMenuOpen(build.id, row.key)"
+                      @update:open="(open) => setMenuOpen(build.id, row.key, open)"
+                    >
+                      <DropdownMenuTrigger as-child>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          data-pob-build-more
+                          :title="t('pobBuild.moreActionsTitle')"
+                          :aria-label="t('pobBuild.moreActionsTitle')"
+                          @click.stop
+                        >
+                          <Ellipsis />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        v-if="isMenuOpen(build.id, row.key)"
+                        align="end"
+                        class="max-h-[min(calc(var(--pxd-menu-max-height,240px)_*_1.5),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))]"
+                      >
+                        <DropdownMenuItem
+                          :disabled="!canSearch(row)"
+                          data-pob-build-send-console
+                          @click="sendToLiveSearch(build.id, row)"
+                        >
+                          <Send class="text-muted-foreground" />
+                          {{ t('pobBuild.sendToConsole') }}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          :disabled="!canSearch(row)"
+                          data-pob-build-open-live
+                          @click="openLiveSearch(build.id, row)"
+                        >
+                          <Radio class="text-muted-foreground" />
+                          {{ t('pobBuild.openLiveSearch') }}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          data-pob-build-save-current
+                          @click="saveCurrentSearch(build.id, row)"
+                        >
+                          <Save class="text-muted-foreground" />
+                          {{ t('pobBuild.saveCurrentSearch') }}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          v-if="row.searchCustomized"
+                          data-pob-build-menu-reset
+                          @click="resetSearch(build.id, row.key)"
+                        >
+                          <RotateCcw class="text-muted-foreground" />
+                          {{ t('pobBuild.mods.reset') }}
+                        </DropdownMenuItem>
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger
+                            :disabled="!canSearch(row)"
+                            data-pob-build-add-bookmark
+                          >
+                            <BookmarkPlus class="text-muted-foreground" />
+                            {{ t('pobBuild.addToBookmarks') }}
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent
+                            class="w-[var(--pxd-menu-sub-width,192px)] max-h-[min(var(--pxd-menu-sub-max-height,180px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))] overflow-y-auto pxd-scrollbar"
+                          >
+                            <DropdownMenuItem
+                              v-if="bookmarkFolders === null"
+                              disabled
+                              class="text-muted-foreground"
+                            >
+                              {{ t('pobBuild.loadingFolders') }}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              v-else-if="bookmarkFolders.length === 0"
+                              disabled
+                              class="text-muted-foreground"
+                            >
+                              {{ t('pobBuild.noFolders') }}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              v-for="folder in bookmarkFolders ?? []"
+                              :key="folder.id"
+                              data-pob-build-bookmark-folder
+                              @click="addToBookmarks(build.id, row, folder.id)"
+                            >
+                              <span
+                                v-if="getFolderItemIndentLevel(folder.depth) > 0"
+                                class="flex shrink-0 items-center -mr-[var(--control-gap-sm)]"
+                                aria-hidden="true"
+                              >
+                                <span
+                                  v-for="step in getFolderItemIndentLevel(folder.depth)"
+                                  :key="step"
+                                  class="w-[var(--pxd-space-md)] shrink-0"
+                                />
+                              </span>
+                              <Folder class="shrink-0 text-muted-foreground" />
+                              <span class="min-w-0 flex-1 truncate">{{ folder.name }}</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       variant="ghost-destructive"
                       size="icon-sm"
@@ -461,8 +564,16 @@
                   data-pob-build-mods
                   class="[--checkbox-size:14px] [--checkbox-indicator-size:9px] border-0 border-b border-dashed border-border bg-muted/20 py-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[calc(var(--pxd-space-md)+var(--checkbox-size,18px)+var(--pxd-space-sm))] last:border-b-0 text-[length:var(--pxd-font-caption)]"
                 >
+                  <p
+                    v-if="row.searchOverride"
+                    data-pob-build-override-notice
+                    class="m-0 mb-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-primary"
+                  >
+                    {{ t('pobBuild.mods.overrideNotice') }}
+                  </p>
                   <ul
                     class="m-0 flex list-none flex-col gap-[2px] border-0 border-l-2 border-solid border-border p-0 pl-[var(--pxd-space-sm)]"
+                    :class="{ 'opacity-60': row.searchOverride }"
                   >
                     <li
                       v-for="line in modLines(row)"
@@ -613,18 +724,35 @@
 <script lang="ts">
 import { computed, defineComponent, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import {
+  BookmarkPlus,
   ChevronDown,
   ChevronsUpDown,
+  Ellipsis,
   ExternalLink,
+  Folder,
   Pencil,
   Plus,
+  Radio,
   RefreshCw,
+  RotateCcw,
+  Save,
   Search,
+  Send,
   Trash2,
   X,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -644,7 +772,9 @@ import {
   type ShoppingModKind,
 } from '@/utils/pob-shopping-list';
 import { getPoeVersion } from '@/utils/trade-context';
+import { getFolderItemIndentLevel } from '../bookmark-tree';
 import PobBuildImportDialog from './PobBuildImportDialog.vue';
+import type { PobBookmarkFolder } from './pob-bookmark-bridge';
 import { formatPobSlot } from './pob-slot-label';
 import {
   usePobBuild,
@@ -688,22 +818,37 @@ const MOD_CLASSES: Readonly<Record<ShoppingModKind, string>> = {
 export default defineComponent({
   name: 'PobBuildPane',
   components: {
+    BookmarkPlus,
     Button,
     Checkbox,
     ChevronDown,
     ChevronsUpDown,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger,
+    Ellipsis,
     ExternalLink,
+    Folder,
     Input,
     Pencil,
     Plus,
     PobBuildImportDialog,
+    Radio,
     RefreshCw,
+    RotateCcw,
+    Save,
     Search,
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
+    Send,
     Separator,
     SidebarPane,
     Trash2,
@@ -721,6 +866,10 @@ export default defineComponent({
     const renamingId = ref<string | null>(null);
     const renameInput = ref('');
     const expandedRows = ref<ReadonlySet<string>>(new Set());
+    /** 目前開啟「更多動作」選單的那一列 */
+    const openMenuRow = ref<string | null>(null);
+    /** 書籤資料夾；null 表示載入中 */
+    const bookmarkFolders = ref<PobBookmarkFolder[] | null>(null);
 
     const rowId = (buildId: string, key: string) => `${buildId}\u0000${key}`;
     const isExpanded = (buildId: string, key: string) =>
@@ -731,6 +880,24 @@ export default defineComponent({
       if (!next.delete(id)) next.add(id);
       expandedRows.value = next;
     };
+
+    const isMenuOpen = (buildId: string, key: string) => openMenuRow.value === rowId(buildId, key);
+    const setMenuOpen = (buildId: string, key: string, open: boolean) => {
+      const id = rowId(buildId, key);
+      if (!open) {
+        if (openMenuRow.value === id) openMenuRow.value = null;
+        return;
+      }
+      openMenuRow.value = id;
+      // 每次開啟都重新讀資料夾，書籤面板的變動才會反映在這裡
+      bookmarkFolders.value = null;
+      void pob.listBookmarkFolders().then((folders) => {
+        if (openMenuRow.value === id) bookmarkFolders.value = folders;
+      });
+    };
+
+    /** 有存回的搜尋或有條件時才能送主控台、加書籤 */
+    const canSearch = (row: ShoppingRow) => row.searchOverride || row.query !== null;
 
     // PoE 2 的技能寶石不在市集交易，清單沒有寶石，技能組也就不必選
     const showSkillSets = (build: BuildView) =>
@@ -920,6 +1087,11 @@ export default defineComponent({
       isAllCollapsed,
       isExpanded,
       toggleExpanded,
+      isMenuOpen,
+      setMenuOpen,
+      bookmarkFolders,
+      canSearch,
+      getFolderItemIndentLevel,
       showSkillSets,
       setLabel,
       activeSetLabel,
@@ -958,6 +1130,10 @@ export default defineComponent({
       setStatEnabled: pob.setStatEnabled,
       setPseudo: pob.setPseudo,
       setHideDone: pob.setHideDone,
+      sendToLiveSearch: pob.sendToLiveSearch,
+      openLiveSearch: pob.openLiveSearch,
+      saveCurrentSearch: pob.saveCurrentSearch,
+      addToBookmarks: pob.addToBookmarks,
     };
   },
 });

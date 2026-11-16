@@ -16,6 +16,14 @@ const fake = {
   importCode: vi.fn(async () => true),
   updateCode: vi.fn(async () => true),
   setHideDone: vi.fn(),
+  openLiveSearch: vi.fn(async () => true),
+  sendToLiveSearch: vi.fn(async () => true),
+  saveCurrentSearch: vi.fn(() => true),
+  listBookmarkFolders: vi.fn(async () => [
+    { id: 'g1', name: 'PoB', depth: 0 },
+    { id: 'g2', name: 'Rings', depth: 1 },
+  ]),
+  addToBookmarks: vi.fn(async () => true),
   rename: vi.fn(),
   removeBuild: vi.fn(),
   toggleCollapsed: vi.fn(),
@@ -69,6 +77,7 @@ const sampleBuild = (): BuildView => ({
           filters: [],
           pseudo: false,
           searchCustomized: false,
+          searchOverride: false,
         },
         {
           key: 'k-rare',
@@ -109,6 +118,7 @@ const sampleBuild = (): BuildView => ({
           countMin: 1,
           pseudo: false,
           searchCustomized: true,
+          searchOverride: false,
         },
         {
           key: 'k-none',
@@ -125,6 +135,7 @@ const sampleBuild = (): BuildView => ({
           filters: [],
           pseudo: false,
           searchCustomized: false,
+          searchOverride: false,
         },
       ],
     },
@@ -147,6 +158,7 @@ const sampleBuild = (): BuildView => ({
           filters: [],
           pseudo: false,
           searchCustomized: false,
+          searchOverride: false,
         },
       ],
     },
@@ -309,6 +321,85 @@ describe('PobBuildPane', () => {
     button.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
     expect(fake.toggleDone).toHaveBeenCalledWith('b1', 'k-rare');
     expect(fake.openSearch).not.toHaveBeenCalled();
+  });
+
+  const openMenu = async (index: number) => {
+    const trigger = row(index).querySelector<HTMLElement>('[data-pob-build-more]')!;
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushAsync(40);
+  };
+  const clickMenuItem = async (selector: string) => {
+    const item = queryBody<HTMLElement>(selector)!;
+    expect(item).not.toBeNull();
+    item.click();
+    await flushAsync(40);
+  };
+
+  it('更多動作：送進主控台、線上搜尋開啟、存回目前頁面的搜尋', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+
+    await openMenu(1);
+    expect(queryBody('[data-pob-build-menu-reset]')).not.toBeNull();
+    await clickMenuItem('[data-pob-build-send-console]');
+    expect(fake.sendToLiveSearch).toHaveBeenCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-rare' }),
+    );
+
+    await openMenu(1);
+    await clickMenuItem('[data-pob-build-open-live]');
+    expect(fake.openLiveSearch).toHaveBeenCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-rare' }),
+    );
+
+    await openMenu(1);
+    await clickMenuItem('[data-pob-build-save-current]');
+    expect(fake.saveCurrentSearch).toHaveBeenCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-rare' }),
+    );
+  });
+
+  it('無法搜尋的項目不能送主控台；未調整的項目沒有還原預設', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    await openMenu(2);
+    expect(
+      queryBody('[data-pob-build-send-console]')?.getAttribute('data-disabled'),
+    ).not.toBeNull();
+    expect(queryBody('[data-pob-build-menu-reset]')).toBeNull();
+  });
+
+  it('開啟選單時讀取書籤資料夾', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    await openMenu(1);
+    expect(fake.listBookmarkFolders).toHaveBeenCalledTimes(1);
+  });
+
+  it('存回市集搜尋的項目在詞綴面板顯示說明', async () => {
+    const build = sampleBuild();
+    const [equipment, gems] = build.groups;
+    buildsRef.value = [
+      {
+        ...build,
+        groups: [
+          {
+            ...equipment,
+            rows: equipment.rows.map((entry) =>
+              entry.key === 'k-rare' ? { ...entry, searchOverride: true } : entry,
+            ),
+          },
+          gems,
+        ],
+      },
+    ];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await nextTick();
+    expect(query('[data-pob-build-override-notice]')).not.toBeNull();
   });
 
   it('更新代碼開啟同一個對話框的更新模式，送出後交給 updateCode', async () => {

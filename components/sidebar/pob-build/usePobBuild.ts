@@ -4,6 +4,11 @@
  */
 import { computed, shallowRef, ref, type ComputedRef, type Ref } from 'vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
+import { enqueueLiveSearchConnections } from '@/utils/extension-protocol';
+import type {
+  LiveSearchEnqueueRequest,
+  LiveSearchEnqueueResponse,
+} from '@/utils/live-search-contract';
 import { getActiveDisplayLocale, t, type I18nKey } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
@@ -11,6 +16,7 @@ import { parsePobBuildXml, PobBuildError, type PobBuild } from '@/utils/pob-buil
 import { decodePobBuildCode, PobBuildCodeError } from '@/utils/pob-build-code';
 import {
   createPobBuildStore,
+  isValidSearchCode,
   MAX_POB_BUILDS,
   toEntrySearchSelection,
   type PobBuildStore,
@@ -25,6 +31,7 @@ import {
 import {
   applyEntrySelection,
   buildShoppingList,
+  buildTradeCodeUrl,
   buildTradeSearchUrl,
   entryStatFilters,
   loadTradeNameCatalog,
@@ -38,6 +45,14 @@ import {
 import { loadModLineTranslator, type ModLineTranslator } from '@/utils/pob-mod-translator';
 import { loadStatMatcher, type StatMatcher } from '@/utils/pob-stat-matcher';
 import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
+import { parseTradeSearchUrl } from '@/utils/trade-search-identity';
+import { encodeQueryToGzipBase64Url } from '@/utils/trade-url-codec';
+import { resolveSingleEnqueueToast } from '../live-search-presentation';
+import {
+  createPobBookmarkBridge,
+  type PobBookmarkBridge,
+  type PobBookmarkFolder,
+} from './pob-bookmark-bridge';
 
 export interface UsePobBuildDeps {
   store: PobBuildStore;
@@ -60,7 +75,12 @@ export interface UsePobBuildDeps {
   /** 訂閱目前頁面搜尋結果的圖片；回傳取消訂閱 */
   onResultImages: (listener: (images: string[]) => void) => () => void;
   /** 顯示短暫提示 */
-  showToast: (message: string) => void;
+  showToast: (message: string, tone?: 'default' | 'error') => void;
+  /** 目前頁面的網址（存回搜尋時讀取） */
+  getCurrentUrl: () => string;
+  /** 送進線上搜尋主控台 */
+  enqueueLiveSearch: (request: LiveSearchEnqueueRequest) => Promise<LiveSearchEnqueueResponse>;
+  bookmarks: PobBookmarkBridge;
 }
 
 export interface ShoppingRow extends ShoppingEntry {
@@ -72,8 +92,10 @@ export interface ShoppingRow extends ShoppingEntry {
   countMin?: number;
   /** 抗性、生命、能力值改用總和條件 */
   pseudo: boolean;
-  /** 使用者調整過這一項的搜尋條件 */
+  /** 使用者調整過這一項的搜尋條件，或存回了市集搜尋 */
   searchCustomized: boolean;
+  /** 這一項使用從市集頁面存回的搜尋（詞綴條件不套用） */
+  searchOverride: boolean;
 }
 
 export type StatBound = 'min' | 'max';
@@ -154,6 +176,14 @@ export interface UsePobBuild {
   resetSearch(buildId: string, key: string): void;
   /** 開啟該項目的市集搜尋；頁面沒有聯盟或項目無法搜尋時回傳 false */
   openSearch(buildId: string, entry: ShoppingEntry, mode: PobSearchOpenMode): boolean;
+  /** 在新分頁以線上搜尋開啟 */
+  openLiveSearch(buildId: string, entry: ShoppingEntry): Promise<boolean>;
+  /** 送進線上搜尋主控台，結果以提示訊息告知 */
+  sendToLiveSearch(buildId: string, entry: ShoppingEntry): Promise<boolean>;
+  /** 把目前頁面的市集搜尋存回這一格；目前頁面不是同版本的搜尋時回傳 false */
+  saveCurrentSearch(buildId: string, entry: ShoppingEntry): boolean;
+  listBookmarkFolders(): Promise<PobBookmarkFolder[]>;
+  addToBookmarks(buildId: string, entry: ShoppingEntry, groupId: string): Promise<boolean>;
   /** 停止等待搜尋結果圖片（元件卸載時呼叫） */
   dispose(): void;
 }
@@ -170,6 +200,7 @@ interface Session {
   removed: ReadonlySet<string>;
   icons: Readonly<Record<string, string>>;
   searchSelections: Readonly<Record<string, EntrySearchSelection>>;
+  searchOverrides: Readonly<Record<string, string>>;
 }
 
 class VersionMismatchError extends Error {}
@@ -207,9 +238,15 @@ function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
       dispatchPoeEvent('poexd-request-result-images');
       return stop;
     },
-    showToast: (message) => {
-      dispatchPoeEvent('poexd-toast', { message, tone: 'default', durationMs: 4000 });
+    showToast: (message, tone = 'default') => {
+      dispatchPoeEvent('poexd-toast', { message, tone, durationMs: 4000 });
     },
+    getCurrentUrl: () => window.location.href,
+    enqueueLiveSearch: (request) =>
+      enqueueLiveSearchConnections(request, {
+        timeoutMessage: t('pobBuild.toast.consoleFailed'),
+      }),
+    bookmarks: createPobBookmarkBridge(version),
   };
 }
 
@@ -334,7 +371,8 @@ export function usePobBuild(
       filters: entryStatFilters(entry, selection),
       ...(selection?.countMin !== undefined ? { countMin: selection.countMin } : {}),
       pseudo: selection?.pseudo === true,
-      searchCustomized: selection !== undefined,
+      searchCustomized: selection !== undefined || session.searchOverrides[entry.key] !== undefined,
+      searchOverride: session.searchOverrides[entry.key] !== undefined,
     };
   };
 
@@ -438,6 +476,7 @@ export function usePobBuild(
       removed: new Set(stored.removed),
       icons: stored.icons,
       searchSelections: stored.searchSelections,
+      searchOverrides: stored.searchOverrides,
     };
   };
 
@@ -465,6 +504,46 @@ export function usePobBuild(
       ...current,
       stats: { ...current.stats, [statId]: { ...current.stats?.[statId], ...change } },
     }));
+
+  /** 目前頁面的聯盟；沒有時記下錯誤並回傳 undefined */
+  const requireLeague = (): string | undefined => {
+    const league = deps.getLeague();
+    if (!league) {
+      errorKey.value = 'pobBuild.error.noLeague';
+      return undefined;
+    }
+    errorKey.value = null;
+    return league;
+  };
+
+  /**
+   * 以搜尋代碼組成的固定網址（主控台、書籤、線上搜尋用）：有存回的搜尋就用它，否則把目前條件
+   * 編成代碼。項目無法搜尋或頁面沒有聯盟時回傳 undefined。
+   */
+  const resolveCodeUrl = async (
+    buildId: string,
+    entry: ShoppingEntry,
+  ): Promise<string | undefined> => {
+    const session = find(buildId);
+    const override = session?.searchOverrides[entry.key];
+    if (!session || (!override && !entry.query)) return undefined;
+    const league = requireLeague();
+    if (!league) return undefined;
+    const code = override ?? (await encodeQueryToGzipBase64Url(entry.query));
+    return buildTradeCodeUrl({ origin: deps.getOrigin(), version, league, code });
+  };
+
+  const iconOf = (buildId: string, key: string): string | undefined => find(buildId)?.icons[key];
+
+  const updateOverrides = (
+    buildId: string,
+    change: (current: Record<string, string>) => Record<string, string>,
+  ) => {
+    const session = find(buildId);
+    if (!session) return;
+    const searchOverrides = change({ ...session.searchOverrides });
+    update(buildId, { searchOverrides }, { searchOverrides });
+  };
 
   /** 這個頁面是從某個項目開啟的搜尋：第一批結果圖片就是那個項目的圖片 */
   const captureIconFromResults = async (): Promise<void> => {
@@ -534,6 +613,7 @@ export function usePobBuild(
           removed: [...session.removed].filter((key) => keep.has(key)),
           icons: pickKeys(session.icons, keep),
           searchSelections: pickKeys(session.searchSelections, keep),
+          searchOverrides: pickKeys(session.searchOverrides, keep),
         };
         if (!(await deps.store.replaceCode(buildId, compactCode, patch))) return false;
         const before = new Set(entriesOf(session).map((entry) => entry.key));
@@ -627,29 +707,89 @@ export function usePobBuild(
     },
     resetSearch(buildId, key) {
       updateSelection(buildId, key, () => ({}));
+      if (find(buildId)?.searchOverrides[key] !== undefined) {
+        updateOverrides(buildId, ({ [key]: _removed, ...rest }) => rest);
+      }
     },
     openSearch(buildId, entry, mode) {
-      const league = deps.getLeague();
-      if (!entry.query || !find(buildId)) return false;
-      if (!league) {
-        errorKey.value = 'pobBuild.error.noLeague';
-        return false;
-      }
-      errorKey.value = null;
-      const url = buildTradeSearchUrl({
-        origin: deps.getOrigin(),
-        version,
-        league,
-        query: entry.query,
-      });
+      const session = find(buildId);
+      const override = session?.searchOverrides[entry.key];
+      if (!session || (!override && !entry.query)) return false;
+      const league = requireLeague();
+      if (!league) return false;
+      const origin = deps.getOrigin();
+      const url = override
+        ? buildTradeCodeUrl({ origin, version, league, code: override })
+        : buildTradeSearchUrl({ origin, version, league, query: entry.query! });
       deps.pendingIcon.save({ buildId, entryKey: entry.key }, mode, url);
       if (mode === 'current') deps.navigate(url);
       else deps.openUrl(url);
       return true;
     },
+    async openLiveSearch(buildId, entry) {
+      const url = await resolveCodeUrl(buildId, entry);
+      if (!url) return false;
+      deps.openUrl(`${url}/live`);
+      return true;
+    },
+    async sendToLiveSearch(buildId, entry) {
+      const url = await resolveCodeUrl(buildId, entry);
+      const session = find(buildId);
+      if (!url || !session) return false;
+      const name = `${session.name} · ${entry.label}`;
+      const icon = iconOf(buildId, entry.key);
+      try {
+        const response = await deps.enqueueLiveSearch({
+          gameVersion: version,
+          items: [{ url, name, ...(icon ? { coverImageUrl: icon } : {}) }],
+        });
+        const toast = resolveSingleEnqueueToast(response, name);
+        deps.showToast(toast.message, toast.tone === 'error' ? 'error' : 'default');
+        return response.success;
+      } catch (error) {
+        deps.showToast(
+          error instanceof Error && error.message
+            ? error.message
+            : t('pobBuild.toast.consoleFailed'),
+          'error',
+        );
+        return false;
+      }
+    },
+    saveCurrentSearch(buildId, entry) {
+      if (!find(buildId)) return false;
+      const parsed = parseTradeSearchUrl(deps.getCurrentUrl());
+      const code = parsed?.searchId;
+      if (!parsed || parsed.gameVersion !== version || !isValidSearchCode(code)) {
+        deps.showToast(t('pobBuild.toast.overrideInvalid'), 'error');
+        return false;
+      }
+      updateOverrides(buildId, (current) => ({ ...current, [entry.key]: code }));
+      deps.showToast(t('pobBuild.toast.overrideSaved', { name: entry.label }));
+      return true;
+    },
+    listBookmarkFolders() {
+      return deps.bookmarks.listFolders().catch(() => []);
+    },
+    async addToBookmarks(buildId, entry, groupId) {
+      const url = await resolveCodeUrl(buildId, entry);
+      if (!url) return false;
+      const icon = iconOf(buildId, entry.key);
+      const result = await deps.bookmarks
+        .add({ groupId, name: entry.label, url, ...(icon ? { coverImageUrl: icon } : {}) })
+        .catch(() => ({ ok: false as const }));
+      deps.showToast(
+        result.ok
+          ? t('pobBuild.toast.bookmarkAdded', { name: result.name })
+          : t('pobBuild.toast.bookmarkFailed'),
+        result.ok ? 'default' : 'error',
+      );
+      return result.ok;
+    },
     dispose() {
       stopWaitingForIcon?.();
       stopWaitingForIcon = undefined;
+      deps.bookmarks.dispose();
     },
   };
 }

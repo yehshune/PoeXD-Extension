@@ -51,6 +51,20 @@ export async function decodeGzipBase64UrlToQuery(hash: string): Promise<any | nu
   }
 }
 
+/**
+ * decodeGzipBase64UrlToQuery 的反向：query 物件轉成官方市集的搜尋代碼（gzip 後的 Base64URL）。
+ * 官網接受本機產生的代碼（國際服、台服、PoE 1 與 PoE 2 皆已實測），可直接放在搜尋網址路徑。
+ */
+export async function encodeQueryToGzipBase64Url(query: unknown): Promise<string> {
+  const json = JSON.stringify(query);
+  if (typeof json !== 'string') throw new TypeError('query 無法轉成 JSON');
+  const stream = new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'));
+  const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 export interface DecodedTradeSearchResult extends ParsedTradeSearchIdentity {
   query: any;
 }

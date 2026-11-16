@@ -17,6 +17,8 @@ import { createPendingIconStore, type PendingIcon } from '@/utils/pob-icon-pendi
 import { createModLineTranslator } from '@/utils/pob-mod-translator';
 import { createTradeNameCatalog } from '@/utils/pob-shopping-list';
 import { createStatMatcher } from '@/utils/pob-stat-matcher';
+import { parseTradeSearchUrl } from '@/utils/trade-search-identity';
+import { decodeGzipBase64UrlToQuery, encodeQueryToGzipBase64Url } from '@/utils/trade-url-codec';
 
 // 兩個階段：Endgame（匯出當下選用）與 Leveling；護身符兩個階段都有
 const buildXml = (
@@ -101,6 +103,9 @@ describe('usePobBuild', () => {
   let openUrl: ReturnType<typeof vi.fn>;
   let savePending: ReturnType<typeof vi.fn>;
   let showToast: ReturnType<typeof vi.fn>;
+  let enqueueLiveSearch: ReturnType<typeof vi.fn>;
+  let bookmarkAdd: ReturnType<typeof vi.fn>;
+  let currentUrl: string;
   let pendingToTake: PendingIcon | undefined;
   let emitResultImages: ((images: string[]) => void) | undefined;
   let nextId: number;
@@ -141,6 +146,9 @@ describe('usePobBuild', () => {
     openUrl = vi.fn();
     savePending = vi.fn();
     showToast = vi.fn();
+    enqueueLiveSearch = vi.fn().mockResolvedValue({ success: true, addedCount: 1 });
+    bookmarkAdd = vi.fn(async (input: { name: string }) => ({ ok: true, name: input.name }));
+    currentUrl = 'https://www.pathofexile.com/trade/search/Standard';
     deps = {
       store: createPobBuildStore('poe1', {
         storage,
@@ -164,6 +172,13 @@ describe('usePobBuild', () => {
         };
       },
       showToast: showToast as never,
+      getCurrentUrl: () => currentUrl,
+      enqueueLiveSearch: enqueueLiveSearch as never,
+      bookmarks: {
+        listFolders: async () => [{ id: 'g1', name: 'PoB', depth: 0 }],
+        add: bookmarkAdd as never,
+        dispose: vi.fn(),
+      },
     };
   });
 
@@ -203,6 +218,7 @@ describe('usePobBuild', () => {
           removed: [],
           icons: {},
           searchSelections: {},
+          searchOverrides: {},
         },
       ]);
       expect(pob.errorKey.value).toBeNull();
@@ -693,6 +709,137 @@ describe('usePobBuild', () => {
       ];
       const list = await createPobBuildStore('poe1', { storage }).list();
       expect(list[0].searchSelections).toEqual({ good: { stats: { [LIFE]: { min: 50 } } } });
+    });
+  });
+
+  describe('串接主控台、存回搜尋與書籤', () => {
+    const codeOf = (url: string) => parseTradeSearchUrl(url)?.searchId ?? '';
+
+    it('送進主控台的網址可被解析，代碼解回該項目的條件，名稱帶清單名與項目名', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      const phoenix = rowByLabel(first(pob), 'Rise of the Phoenix');
+
+      expect(await pob.sendToLiveSearch('build-1', phoenix)).toBe(true);
+      const request = enqueueLiveSearch.mock.calls[0][0];
+      expect(request.gameVersion).toBe('poe1');
+      expect(request.items[0].name).toBe('Chieftain Lv.97 · Rise of the Phoenix');
+      const parsed = parseTradeSearchUrl(request.items[0].url);
+      expect(parsed).toMatchObject({ gameVersion: 'poe1', league: 'standard' });
+      expect(await decodeGzipBase64UrlToQuery(parsed!.searchId)).toEqual(phoenix.query);
+      expect(showToast).toHaveBeenCalledWith(
+        '已送入主控台：Chieftain Lv.97 · Rise of the Phoenix',
+        'default',
+      );
+    });
+
+    it('主控台拒絕或頁面沒有聯盟時說明原因', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      const phoenix = rowByLabel(first(pob), 'Rise of the Phoenix');
+
+      enqueueLiveSearch.mockResolvedValueOnce({ success: false, error: '主控台已滿' });
+      expect(await pob.sendToLiveSearch('build-1', phoenix)).toBe(false);
+      expect(showToast).toHaveBeenLastCalledWith('主控台已滿', 'error');
+
+      enqueueLiveSearch.mockRejectedValueOnce(new Error(''));
+      expect(await pob.sendToLiveSearch('build-1', phoenix)).toBe(false);
+      expect(showToast).toHaveBeenLastCalledWith('送進主控台失敗', 'error');
+
+      getLeague.mockReturnValue(undefined);
+      expect(await pob.sendToLiveSearch('build-1', phoenix)).toBe(false);
+      expect(pob.errorKey.value).toBe('pobBuild.error.noLeague');
+      expect(enqueueLiveSearch).toHaveBeenCalledTimes(2);
+    });
+
+    it('線上搜尋開啟用代碼網址加 /live', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      await pob.openLiveSearch('build-1', rowByLabel(first(pob), 'Rise of the Phoenix'));
+      expect(openUrl.mock.calls[0][0]).toMatch(
+        /^https:\/\/www\.pathofexile\.com\/trade\/search\/Standard\/[A-Za-z0-9_-]+\/live$/,
+      );
+    });
+
+    it('存回目前頁面的搜尋：之後開啟改用該代碼與目前聯盟，還原預設會清掉', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      const code = await encodeQueryToGzipBase64Url({ status: { option: 'online' }, type: 'X' });
+      currentUrl = `https://www.pathofexile.com/trade/search/Hardcore/${code}`;
+
+      expect(pob.saveCurrentSearch('build-1', rowByLabel(first(pob), 'Rise of the Phoenix'))).toBe(
+        true,
+      );
+      await flush();
+      const phoenix = rowByLabel(first(pob), 'Rise of the Phoenix');
+      expect(phoenix).toMatchObject({ searchOverride: true, searchCustomized: true });
+      expect(stored()[0].searchOverrides).toEqual({ [phoenix.key]: code });
+      expect(showToast).toHaveBeenLastCalledWith(
+        '已存回「Rise of the Phoenix」，之後開啟都會用這個搜尋',
+      );
+
+      pob.openSearch('build-1', phoenix, 'current');
+      expect(navigate).toHaveBeenLastCalledWith(
+        `https://www.pathofexile.com/trade/search/Standard/${code}`,
+      );
+      await pob.sendToLiveSearch('build-1', phoenix);
+      expect(codeOf(enqueueLiveSearch.mock.calls[0][0].items[0].url)).toBe(code);
+
+      pob.resetSearch('build-1', phoenix.key);
+      await flush();
+      expect(rowByLabel(first(pob), 'Rise of the Phoenix').searchOverride).toBe(false);
+      expect(stored()[0].searchOverrides).toEqual({});
+    });
+
+    it('目前頁面不是同版本、gzip 代碼的搜尋時不存回', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      const phoenix = rowByLabel(first(pob), 'Rise of the Phoenix');
+      const code = await encodeQueryToGzipBase64Url({ type: 'X' });
+
+      for (const url of [
+        'https://www.pathofexile.com/trade/search/Standard',
+        'https://www.pathofexile.com/trade/search/Standard/abc123',
+        `https://www.pathofexile.com/trade2/search/poe2/Standard/${code}`,
+      ]) {
+        currentUrl = url;
+        expect(pob.saveCurrentSearch('build-1', phoenix)).toBe(false);
+      }
+      expect(showToast).toHaveBeenLastCalledWith(
+        '目前頁面不是可存回的市集搜尋，請先在同一遊戲版本的市集執行搜尋',
+        'error',
+      );
+      expect(stored()[0].searchOverrides).toEqual({});
+    });
+
+    it('更新代碼時清掉已不存在項目的存回搜尋', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      currentUrl = `https://www.pathofexile.com/trade/search/Standard/${await encodeQueryToGzipBase64Url({ type: 'X' })}`;
+      pob.saveCurrentSearch('build-1', rowByLabel(first(pob), 'Not On Trade'));
+      await flush();
+      expect(Object.keys(stored()[0].searchOverrides)).toHaveLength(1);
+
+      const updated = buildXml().replace('<Slot itemId="2" name="Helmet"/>', '');
+      await pob.updateCode('build-1', toCode(updated));
+      expect(stored()[0].searchOverrides).toEqual({});
+    });
+
+    it('加入書籤帶入項目名與代碼網址，失敗時提示', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      const phoenix = rowByLabel(first(pob), 'Rise of the Phoenix');
+
+      expect(await pob.listBookmarkFolders()).toEqual([{ id: 'g1', name: 'PoB', depth: 0 }]);
+      expect(await pob.addToBookmarks('build-1', phoenix, 'g1')).toBe(true);
+      const input = bookmarkAdd.mock.calls[0][0];
+      expect(input).toMatchObject({ groupId: 'g1', name: 'Rise of the Phoenix' });
+      expect(await decodeGzipBase64UrlToQuery(codeOf(input.url))).toEqual(phoenix.query);
+      expect(showToast).toHaveBeenLastCalledWith('已加入書籤：Rise of the Phoenix', 'default');
+
+      bookmarkAdd.mockResolvedValueOnce({ ok: false });
+      expect(await pob.addToBookmarks('build-1', phoenix, 'g1')).toBe(false);
+      expect(showToast).toHaveBeenLastCalledWith('加入書籤失敗，請稍後再試', 'error');
     });
   });
 
