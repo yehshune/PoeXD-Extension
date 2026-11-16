@@ -68,15 +68,19 @@ export function useModSelection() {
     selectedModsMap.value = new Map();
   };
 
-  const applyT1ToSelected = (currentTypeGroups: ModGroup[]) => {
+  const applyT1ToSelected = (
+    currentTypeGroups: ModGroup[],
+    resolveTierIndex?: (mod: ModGroup, localTierIndex: number) => number,
+  ) => {
     const newMap = new Map(selectedModsMap.value);
     const updatedMap = new Map<string, SelectedModInfo>();
 
     newMap.forEach((info, mapKey) => {
       const modObj = currentTypeGroups.find((m) => m.id === info.id);
       if (modObj && modObj.tiers && modObj.tiers.length > 0) {
-        const tIdx = modObj.tiers.length - 1; // T1 最強 (在我們的 sorted list 中最後一個是 T1 最強)
-        const tier = modObj.tiers[tIdx];
+        const localIdx = modObj.tiers.length - 1; // T1 最強 (在我們的 sorted list 中最後一個是 T1 最強)
+        const tIdx = resolveTierIndex ? resolveTierIndex(modObj, localIdx) : localIdx;
+        const tier = modObj.tiers[localIdx];
         const { atLeast } = getTierFilterBounds(modObj.key, tier);
 
         updatedMap.set(mapKey, {

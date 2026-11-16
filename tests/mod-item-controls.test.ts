@@ -590,6 +590,26 @@ describe('ModItem Controls (Unit Runtime Contracts)', () => {
     await nextTick();
     expect(emitted['toggle-tier-select'].length).toBe(0);
   });
+
+  it('renders tier summary on mod row, T-rank labels and tier hint when expanded, and high-contrast action buttons', async () => {
+    const { host } = await mountModItem({ isExpanded: true });
+
+    const summary = host.querySelector('.mod-tier-summary');
+    expect(summary?.textContent?.trim()).toBe('2 階 · Lv.1–2');
+
+    const hint = host.querySelector('.mod-tier-hint');
+    expect(hint?.textContent?.trim()).toBe('勾選階級 = 至少此階（含以上）');
+
+    const ranks = Array.from(host.querySelectorAll('.tier-rank')).map((el) =>
+      el.textContent?.trim(),
+    );
+    expect(ranks).toEqual(['T2', 'T1']);
+
+    const modActionBtn = host.querySelector('.mod-action-zone button') as HTMLButtonElement;
+    const tierActionBtn = host.querySelector('.tier-action-zone button') as HTMLButtonElement;
+    expect(modActionBtn.className).toContain('text-accent-foreground');
+    expect(tierActionBtn.className).toContain('text-accent-foreground');
+  });
 });
 
 describe('FilterPane + ModItem Integration Contracts', () => {

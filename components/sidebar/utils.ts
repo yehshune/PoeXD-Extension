@@ -1,4 +1,4 @@
-import type { ModTier } from './types';
+import type { ModGroup, ModTier } from './types';
 import { negateBounds } from '@/utils/trade-value-sign';
 
 // 靜態數據與輔助計算函數
@@ -96,4 +96,62 @@ export const isTradeStatId = (id?: string): boolean => {
       id,
     )
   );
+};
+
+/** 解析物品等級篩選輸入值；空白或負數回傳 null（表示不限） */
+export const parseItemLevelFilter = (value: string | number | null | undefined): number | null => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  const num = Number(raw);
+  if (!Number.isFinite(num) || num < 0) return null;
+  return Math.floor(num);
+};
+
+/** 解析階級需求物品等級；無法解析時回傳 null */
+export const parseTierLevel = (level: string | number | undefined): number | null => {
+  if (level === undefined || level === null || level === '') return null;
+  const parsed = typeof level === 'number' ? level : Number.parseInt(String(level), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+export interface ItemLevelRange {
+  min: number | null;
+  max: number | null;
+}
+
+/** 判斷單一階級是否落在指定物品等級區間內 */
+export const isTierEligibleForItemLevel = (
+  level: string | number | undefined,
+  range: ItemLevelRange | number,
+): boolean => {
+  const tierLevel = parseTierLevel(level);
+  if (tierLevel === null) return true;
+  if (typeof range === 'number') {
+    return tierLevel <= range;
+  }
+  if (range.min !== null && tierLevel < range.min) return false;
+  if (range.max !== null && tierLevel > range.max) return false;
+  return true;
+};
+
+/** 依物品等級區間篩選可出現的詞綴群組與階級；上下限皆未指定時原樣回傳 */
+export const filterModGroupsByItemLevel = (
+  groups: ModGroup[],
+  range: ItemLevelRange | number | null,
+): ModGroup[] => {
+  if (range === null) return groups;
+  const normalized: ItemLevelRange = typeof range === 'number' ? { min: null, max: range } : range;
+  if (normalized.min === null && normalized.max === null) return groups;
+  return groups.reduce<ModGroup[]>((acc, mod) => {
+    const eligibleTiers = mod.tiers.filter((tier) =>
+      isTierEligibleForItemLevel(tier.level, normalized),
+    );
+    if (eligibleTiers.length > 0) {
+      acc.push({
+        ...mod,
+        tiers: eligibleTiers,
+      });
+    }
+    return acc;
+  }, []);
 };

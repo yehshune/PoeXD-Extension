@@ -44,13 +44,13 @@
 
         <!-- 左側主要區域 (包含 controls-row 與 mods-scroll-container) -->
         <div class="split-left-main flex-[7.2] flex flex-col min-h-0">
-          <!-- 篩選控制項整合為單行 -->
+          <!-- 篩選控制項整合為單行（窄螢幕自動換行） -->
           <div
-            class="controls-row flex gap-[var(--pxd-space-md)] mb-[var(--pxd-row-gap)] items-center"
+            class="controls-row flex flex-wrap gap-[var(--pxd-space-sm)] mb-[var(--pxd-row-gap)] items-center"
           >
             <!-- 物品類別選擇器 (自訂搜尋下拉) -->
             <div
-              class="control-item item-type custom-select-container flex flex-col flex-[1.2] min-w-0 relative w-full select-none"
+              class="control-item item-type custom-select-container flex flex-col flex-[1_1_104px] min-w-0 relative w-full select-none"
             >
               <Button
                 type="button"
@@ -66,7 +66,7 @@
 
             <!-- 關鍵字搜尋輸入框 (帶有一鍵清空打叉按鈕) -->
             <div
-              class="control-item item-search relative flex flex-[2] min-w-0 w-full items-center"
+              class="control-item item-search relative flex flex-[2.2_1_175px] min-w-0 w-full items-center"
             >
               <Input
                 ref="searchInputRef"
@@ -87,6 +87,69 @@
               >
                 <X />
               </Button>
+            </div>
+
+            <!-- 物品等級區間篩選輸入框 (下限 ~ 上限，帶有一鍵清空打叉按鈕) -->
+            <div
+              class="control-item item-level flex shrink-0 items-center gap-[var(--pxd-space-xs)]"
+              :title="t('filterPane.itemLevel.title')"
+            >
+              <span
+                class="text-[length:var(--pxd-font-caption)] text-muted-foreground whitespace-nowrap select-none"
+              >
+                {{ t('filterPane.itemLevel.label') }}
+              </span>
+              <div class="flex items-center gap-[var(--pxd-space-xs)]">
+                <Input
+                  id="filter-pane-item-level-min"
+                  v-model="itemLevelMin"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  size="sm"
+                  :aria-label="t('filterPane.itemLevel.minAria')"
+                  :placeholder="t('filterPane.itemLevel.minPlaceholder')"
+                  class="w-[50px] text-center [appearance:textfield] [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none"
+                  :class="
+                    isInvalidItemLevelRange
+                      ? 'border-destructive/70 focus-visible:ring-destructive'
+                      : ''
+                  "
+                />
+                <span
+                  class="text-[length:var(--pxd-font-caption)] text-muted-foreground select-none"
+                >
+                  ~
+                </span>
+                <Input
+                  id="filter-pane-item-level-max"
+                  v-model="itemLevelMax"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  size="sm"
+                  :aria-label="t('filterPane.itemLevel.maxAria')"
+                  :placeholder="t('filterPane.itemLevel.maxPlaceholder')"
+                  class="w-[50px] text-center [appearance:textfield] [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none"
+                  :class="
+                    isInvalidItemLevelRange
+                      ? 'border-destructive/70 focus-visible:ring-destructive'
+                      : ''
+                  "
+                />
+                <Button
+                  v-if="hasItemLevelFilter"
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  :title="t('filterPane.itemLevel.clearTitle')"
+                  @click="clearItemLevelFilter"
+                >
+                  <X />
+                </Button>
+              </div>
             </div>
 
             <!-- 前/後綴快速篩選 ToggleGroup -->
@@ -213,10 +276,13 @@
                           :search-query="searchQuery"
                           :is-expanded="expandedKeys.has(mod.id)"
                           :is-selected="isModSelected(mod.id, cat.affinity)"
-                          :is-tier-selected="(idx) => isTierSelected(mod.id, idx, cat.affinity)"
+                          :is-tier-selected="
+                            (idx) => isFilteredTierSelected(mod, idx, cat.affinity)
+                          "
+                          :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
                           @toggle-expand="toggleExpand"
                           @toggle-select="toggleModSelection"
-                          @toggle-tier-select="toggleTierSelection"
+                          @toggle-tier-select="handleToggleTierSelection"
                           @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
                           @add-tier-filter="addTierFilter"
                         />
@@ -242,10 +308,13 @@
                           :search-query="searchQuery"
                           :is-expanded="expandedKeys.has(mod.id)"
                           :is-selected="isModSelected(mod.id, cat.affinity)"
-                          :is-tier-selected="(idx) => isTierSelected(mod.id, idx, cat.affinity)"
+                          :is-tier-selected="
+                            (idx) => isFilteredTierSelected(mod, idx, cat.affinity)
+                          "
+                          :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
                           @toggle-expand="toggleExpand"
                           @toggle-select="toggleModSelection"
-                          @toggle-tier-select="toggleTierSelection"
+                          @toggle-tier-select="handleToggleTierSelection"
                           @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
                           @add-tier-filter="addTierFilter"
                         />
@@ -274,10 +343,11 @@
                         :search-query="searchQuery"
                         :is-expanded="expandedKeys.has(mod.id)"
                         :is-selected="isModSelected(mod.id, cat.affinity)"
-                        :is-tier-selected="(idx) => isTierSelected(mod.id, idx, cat.affinity)"
+                        :is-tier-selected="(idx) => isFilteredTierSelected(mod, idx, cat.affinity)"
+                        :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
-                        @toggle-tier-select="toggleTierSelection"
+                        @toggle-tier-select="handleToggleTierSelection"
                         @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
                         @add-tier-filter="addTierFilter"
                       />
@@ -305,10 +375,11 @@
                         :search-query="searchQuery"
                         :is-expanded="expandedKeys.has(mod.id)"
                         :is-selected="isModSelected(mod.id, cat.affinity)"
-                        :is-tier-selected="(idx) => isTierSelected(mod.id, idx, cat.affinity)"
+                        :is-tier-selected="(idx) => isFilteredTierSelected(mod, idx, cat.affinity)"
+                        :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
-                        @toggle-tier-select="toggleTierSelection"
+                        @toggle-tier-select="handleToggleTierSelection"
                         @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
                         @add-tier-filter="addTierFilter"
                       />
@@ -316,27 +387,36 @@
                   </div>
                 </template>
 
-                <!-- 單欄網格排版 (不分世代類別或特殊分類) -->
-                <template v-else>
-                  <div
-                    class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
-                  >
-                    <ModItem
-                      v-for="mod in cat.all"
-                      :key="mod.id"
-                      class="mb-[2px]"
-                      :mod="mod"
-                      :affinity="cat.affinity"
-                      :search-query="searchQuery"
-                      :is-expanded="expandedKeys.has(mod.id)"
-                      :is-selected="isModSelected(mod.id, cat.affinity)"
-                      :is-tier-selected="(idx) => isTierSelected(mod.id, idx, cat.affinity)"
-                      @toggle-expand="toggleExpand"
-                      @toggle-select="toggleModSelection"
-                      @toggle-tier-select="toggleTierSelection"
-                      @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
-                      @add-tier-filter="addTierFilter"
-                    />
+                <!-- 單欄網格排版 (不分世代類別或特殊分類，亦包含分割大類中的其他世代詞綴) -->
+                <template v-if="cat.all.length > 0">
+                  <div :class="cat.hasSplit ? 'mt-[var(--pxd-space-md)] w-full' : 'w-full'">
+                    <div
+                      v-if="cat.hasSplit"
+                      class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
+                    >
+                      {{ t('filterPane.column.others', { count: cat.all.length }) }}
+                    </div>
+                    <div
+                      class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
+                    >
+                      <ModItem
+                        v-for="mod in cat.all"
+                        :key="mod.id"
+                        class="mb-[2px]"
+                        :mod="mod"
+                        :affinity="cat.affinity"
+                        :search-query="searchQuery"
+                        :is-expanded="expandedKeys.has(mod.id)"
+                        :is-selected="isModSelected(mod.id, cat.affinity)"
+                        :is-tier-selected="(idx) => isFilteredTierSelected(mod, idx, cat.affinity)"
+                        :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
+                        @toggle-expand="toggleExpand"
+                        @toggle-select="toggleModSelection"
+                        @toggle-tier-select="handleToggleTierSelection"
+                        @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
+                        @add-tier-filter="addTierFilter"
+                      />
+                    </div>
                   </div>
                 </template>
               </div>
@@ -346,7 +426,11 @@
               v-if="isEmpty"
               class="empty-mods text-center text-muted-foreground text-[length:var(--pxd-font-body)] py-[var(--pxd-space-2xl)]"
             >
-              {{ t('filterPane.empty') }}
+              {{
+                isInvalidItemLevelRange
+                  ? t('filterPane.emptyInvalidItemLevelRange')
+                  : t('filterPane.empty')
+              }}
             </div>
           </div>
         </div>
@@ -617,7 +701,12 @@
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { getTierFilterBounds, isTradeStatId } from './utils';
+import {
+  filterModGroupsByItemLevel,
+  getTierFilterBounds,
+  isTradeStatId,
+  parseItemLevelFilter,
+} from './utils';
 import type {
   ModTier,
   ModGroup,
@@ -784,7 +873,10 @@ export default defineComponent({
     };
 
     const handleApplyT1ToSelected = () => {
-      applyT1ToSelected(currentTypeGroups.value);
+      applyT1ToSelected(
+        filterModGroupsByItemLevel(currentTypeGroups.value, itemLevelRange.value),
+        resolveCanonicalTierIndex,
+      );
     };
 
     const confirmBatchSelection = () => {
@@ -861,6 +953,30 @@ export default defineComponent({
     const selectedType = ref('body-armour');
     const searchQuery = ref('');
     const searchInputRef = ref<HTMLInputElement | { $el?: HTMLInputElement } | null>(null);
+    const itemLevelMin = ref('');
+    const itemLevelMax = ref('');
+    const itemLevelRange = computed(() => ({
+      min: parseItemLevelFilter(itemLevelMin.value),
+      max: parseItemLevelFilter(itemLevelMax.value),
+    }));
+    const hasItemLevelFilter = computed(
+      () =>
+        String(itemLevelMin.value ?? '').trim() !== '' ||
+        String(itemLevelMax.value ?? '').trim() !== '',
+    );
+    const hasActiveItemLevelRange = computed(
+      () => itemLevelRange.value.min !== null || itemLevelRange.value.max !== null,
+    );
+    const isInvalidItemLevelRange = computed(
+      () =>
+        itemLevelRange.value.min !== null &&
+        itemLevelRange.value.max !== null &&
+        itemLevelRange.value.min > itemLevelRange.value.max,
+    );
+    const clearItemLevelFilter = () => {
+      itemLevelMin.value = '';
+      itemLevelMax.value = '';
+    };
 
     const getSearchInputElement = (): HTMLInputElement | undefined => {
       const target = searchInputRef.value;
@@ -930,6 +1046,36 @@ export default defineComponent({
       getTypeName,
     } = useFilterData(version, selectedType);
 
+    const fullModById = computed(() => new Map(currentTypeGroups.value.map((m) => [m.id, m])));
+
+    const resolveCanonicalTierIndex = (mod: ModGroup, filteredTierIndex: number): number => {
+      const tier = mod.tiers?.[filteredTierIndex];
+      const fullMod = fullModById.value.get(mod.id);
+      if (!tier || !fullMod) return filteredTierIndex;
+      const idx = fullMod.tiers.indexOf(tier);
+      return idx !== -1 ? idx : filteredTierIndex;
+    };
+
+    const isFilteredTierSelected = (mod: ModGroup, idx: number, affinity: string): boolean => {
+      return isTierSelected(mod.id, resolveCanonicalTierIndex(mod, idx), affinity);
+    };
+
+    const handleToggleTierSelection = (
+      mod: ModGroup,
+      tier: ModTier,
+      idx: number,
+      affinity: string,
+    ) => {
+      toggleTierSelection(mod, tier, resolveCanonicalTierIndex(mod, idx), affinity);
+    };
+
+    const getFilteredTierNumber = (mod: ModGroup, idx: number): number => {
+      const fullMod = fullModById.value.get(mod.id);
+      const total = fullMod?.tiers?.length ?? mod.tiers.length;
+      const canonicalIdx = resolveCanonicalTierIndex(mod, idx);
+      return Math.max(1, total - canonicalIdx);
+    };
+
     const affinityProfile = getAffinityProfile(version);
     const categoryNames = affinityProfile.categoryNames;
     const categoryPriorities = affinityProfile.categoryPriorities;
@@ -967,6 +1113,8 @@ export default defineComponent({
           });
         });
       }
+
+      filtered = filterModGroupsByItemLevel(filtered, itemLevelRange.value);
 
       const categoriesMap: Record<string, CategoryGroup> = {};
 
@@ -1042,8 +1190,10 @@ export default defineComponent({
         // 依據世代類型篩選 Tab 過濾
         if (generationFilter.value === 'prefix') {
           cat.suffixes = [];
+          cat.all = [];
         } else if (generationFilter.value === 'suffix') {
           cat.prefixes = [];
+          cat.all = [];
         }
 
         const isCandidateForSplit =
@@ -1093,7 +1243,11 @@ export default defineComponent({
     watch(
       () => groupedAffixes.value,
       (newGroups) => {
-        if (searchQuery.value.trim() || expandedCategories.value.size === 0) {
+        if (
+          searchQuery.value.trim() ||
+          hasActiveItemLevelRange.value ||
+          expandedCategories.value.size === 0
+        ) {
           newGroups.forEach((g) => {
             expandedCategories.value.add(g.label);
           });
@@ -1540,6 +1694,14 @@ export default defineComponent({
       selectedType,
       searchQuery,
       searchInputRef,
+      itemLevelMin,
+      itemLevelMax,
+      hasItemLevelFilter,
+      isInvalidItemLevelRange,
+      clearItemLevelFilter,
+      isFilteredTierSelected,
+      handleToggleTierSelection,
+      getFilteredTierNumber,
       generationFilter,
       availableTypes,
       groupedAffixes,

@@ -142,9 +142,19 @@ describe('Seam 1: Affix Selector (`FilterPane.vue` and `ModItem.vue`) & Bilingua
     expect(genTexts).toContain('全選');
     expect(genTexts).toContain('取消全選');
 
-    // Check search placeholder
+    // Check search placeholder & item level label/placeholders
     const searchInput = appRoot.querySelector<HTMLInputElement>('.item-search input');
     expect(searchInput?.placeholder).toBe('搜尋詞綴關鍵字...');
+    const itemLevelLabel = appRoot.querySelector<HTMLElement>('.item-level span');
+    const itemLevelMinInput = appRoot.querySelector<HTMLInputElement>(
+      '#filter-pane-item-level-min',
+    );
+    const itemLevelMaxInput = appRoot.querySelector<HTMLInputElement>(
+      '#filter-pane-item-level-max',
+    );
+    expect(itemLevelLabel?.textContent?.trim()).toBe('物等');
+    expect(itemLevelMinInput?.placeholder).toBe('下限');
+    expect(itemLevelMaxInput?.placeholder).toBe('上限');
 
     // Now reactively switch to en
     setActiveDisplayLocale('en');
@@ -158,6 +168,9 @@ describe('Seam 1: Affix Selector (`FilterPane.vue` and `ModItem.vue`) & Bilingua
     expect(enGenTexts).toContain('Select All');
     expect(enGenTexts).toContain('Deselect All');
     expect(searchInput?.placeholder).toBe('Search affix keywords...');
+    expect(itemLevelLabel?.textContent?.trim()).toBe('iLvl');
+    expect(itemLevelMinInput?.placeholder).toBe('Min');
+    expect(itemLevelMaxInput?.placeholder).toBe('Max');
 
     // Switch to zh-CN
     setActiveDisplayLocale('zh-CN');
@@ -171,6 +184,9 @@ describe('Seam 1: Affix Selector (`FilterPane.vue` and `ModItem.vue`) & Bilingua
     expect(cnGenTexts).toContain('全选');
     expect(cnGenTexts).toContain('取消全选');
     expect(searchInput?.placeholder).toBe('搜索词缀关键词...');
+    expect(itemLevelLabel?.textContent?.trim()).toBe('物等');
+    expect(itemLevelMinInput?.placeholder).toBe('下限');
+    expect(itemLevelMaxInput?.placeholder).toBe('上限');
   });
 
   it('reactively switches ModItem UI text and action tooltips', async () => {

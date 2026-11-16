@@ -55,6 +55,12 @@
         >
           {{ t('modItem.badge.noOfficialId') }}
         </span>
+        <span
+          v-if="tierSummary"
+          class="mod-tier-summary ml-auto pl-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover/mod-row:opacity-0 transition-opacity shrink-0 tabular-nums whitespace-nowrap"
+        >
+          {{ tierSummary }}
+        </span>
       </button>
 
       <!-- 右側浮動加入按鈕區 (形式 A: 行內文字連結 + 長距平滑漸層，無硬切線且極致輕量) -->
@@ -65,7 +71,7 @@
           type="button"
           variant="link"
           size="sm"
-          class="h-full p-0 border-0 shadow-none text-[length:var(--pxd-font-micro)] text-primary hover:text-primary/80 font-medium gap-0.5 shrink-0 transition-colors"
+          class="h-full p-0 border-0 shadow-none text-[length:var(--pxd-font-micro)] text-accent-foreground hover:text-accent-foreground/85 font-medium gap-0.5 shrink-0 transition-colors"
           :aria-label="
             hasOfficialId ? t('modItem.actions.addNowTitle') : t('modItem.actions.fillSearchTitle')
           "
@@ -88,6 +94,12 @@
       v-if="isExpanded"
       class="mod-tiers-list py-[var(--pxd-space-xs)] pl-[var(--pxd-space-md)] ml-[var(--pxd-space-lg)] border-l-2 border-border bg-transparent"
     >
+      <div
+        v-if="mod.tiers && mod.tiers.length > 1"
+        class="mod-tier-hint px-[var(--pxd-space-sm)] pb-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground select-none"
+      >
+        {{ t('modItem.tierHint') }}
+      </div>
       <div
         v-for="(tier, idx) in mod.tiers"
         :key="idx"
@@ -119,6 +131,15 @@
         />
         <div class="tier-content-section flex items-center flex-1 min-w-0 self-stretch">
           <span
+            class="tier-rank inline-flex items-center min-w-[26px] pr-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] tabular-nums shrink-0"
+            :class="
+              resolveTierNumber(tier, idx) === 1
+                ? 'text-primary font-bold group-hover/tier-row:text-accent-foreground'
+                : 'text-muted-foreground group-hover/tier-row:text-accent-foreground'
+            "
+            >T{{ resolveTierNumber(tier, idx) }}</span
+          >
+          <span
             class="tier-level text-[length:var(--pxd-font-caption)] text-primary group-hover/tier-row:text-accent-foreground w-[var(--pxd-mod-tier-level-width)] shrink-0"
             >Lv.{{ tier.level }}</span
           >
@@ -141,7 +162,7 @@
             type="button"
             variant="link"
             size="sm"
-            class="h-full p-0 border-0 shadow-none text-[length:var(--pxd-font-micro)] text-primary hover:text-primary/80 font-medium gap-0.5 shrink-0 transition-colors"
+            class="h-full p-0 border-0 shadow-none text-[length:var(--pxd-font-micro)] text-accent-foreground hover:text-accent-foreground/85 font-medium gap-0.5 shrink-0 transition-colors"
             :aria-label="
               tierHasOfficialId(tier)
                 ? t('modItem.actions.addTierTitle')
@@ -176,6 +197,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight } from '@lucide/vue';
 import { Search } from '@lucide/vue';
 import { t } from '@/utils/i18n';
+import { parseTierLevel } from './utils';
 
 export default defineComponent({
   name: 'ModItem',
@@ -209,6 +231,10 @@ export default defineComponent({
     searchQuery: {
       type: String,
       default: '',
+    },
+    getTierNumber: {
+      type: Function as PropType<(tier: ModTier, idx: number) => number>,
+      default: undefined,
     },
   },
   emits: ['toggle-select', 'toggle-expand', 'toggle-tier-select', 'add-filter', 'add-tier-filter'],
@@ -300,6 +326,27 @@ export default defineComponent({
       emit('toggle-tier-select', props.mod, tier, idx, props.affinity);
     };
 
+    const resolveTierNumber = (tier: ModTier, idx: number): number => {
+      if (props.getTierNumber) return props.getTierNumber(tier, idx);
+      const total = props.mod.tiers?.length ?? 1;
+      return Math.max(1, total - idx);
+    };
+
+    const tierSummary = computed(() => {
+      const tiers = props.mod.tiers;
+      if (!tiers || tiers.length === 0) return '';
+      const levels = tiers
+        .map((tier) => parseTierLevel(tier.level))
+        .filter((lvl): lvl is number => lvl !== null);
+      if (levels.length === 0) return '';
+      const minLvl = Math.min(...levels);
+      const maxLvl = Math.max(...levels);
+      if (minLvl === maxLvl) {
+        return t('modItem.tierSummarySingle', { count: tiers.length, level: minLvl });
+      }
+      return t('modItem.tierSummaryRange', { count: tiers.length, min: minLvl, max: maxLvl });
+    });
+
     return {
       t,
       getHighlightSegments,
@@ -307,6 +354,8 @@ export default defineComponent({
       tierHasOfficialId,
       handleToggleSelect,
       handleToggleTierSelect,
+      resolveTierNumber,
+      tierSummary,
     };
   },
 });
