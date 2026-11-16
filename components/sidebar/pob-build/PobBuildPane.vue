@@ -716,6 +716,7 @@
         :build-name="updateTarget?.name ?? ''"
         @submit="handleImport"
         @clear-error="errorKey = null"
+        @open-permission="openSharePermissionPage"
       />
     </template>
   </SidebarPane>
@@ -1130,6 +1131,7 @@ export default defineComponent({
       setStatEnabled: pob.setStatEnabled,
       setPseudo: pob.setPseudo,
       setHideDone: pob.setHideDone,
+      openSharePermissionPage: pob.openSharePermissionPage,
       sendToLiveSearch: pob.sendToLiveSearch,
       openLiveSearch: pob.openLiveSearch,
       saveCurrentSearch: pob.saveCurrentSearch,

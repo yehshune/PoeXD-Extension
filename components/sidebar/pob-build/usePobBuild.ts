@@ -4,7 +4,7 @@
  */
 import { computed, shallowRef, ref, type ComputedRef, type Ref } from 'vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
-import { enqueueLiveSearchConnections } from '@/utils/extension-protocol';
+import { enqueueLiveSearchConnections, extensionMessaging } from '@/utils/extension-protocol';
 import type {
   LiveSearchEnqueueRequest,
   LiveSearchEnqueueResponse,
@@ -14,6 +14,8 @@ import { resolvePageLocale } from '@/utils/locale-resolution';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import { parsePobBuildXml, PobBuildError, type PobBuild } from '@/utils/pob-build';
 import { decodePobBuildCode, PobBuildCodeError } from '@/utils/pob-build-code';
+import type { PobShareFetchError, PobShareFetchOutcome } from '@/utils/pob-share-fetch';
+import { looksLikePobShareUrl } from '@/utils/pob-share-url';
 import {
   createPobBuildStore,
   isValidSearchCode,
@@ -81,6 +83,10 @@ export interface UsePobBuildDeps {
   /** 送進線上搜尋主控台 */
   enqueueLiveSearch: (request: LiveSearchEnqueueRequest) => Promise<LiveSearchEnqueueResponse>;
   bookmarks: PobBookmarkBridge;
+  /** 在 background 取回分享網址的原始代碼 */
+  fetchShareCode: (url: string) => Promise<PobShareFetchOutcome>;
+  /** 開啟選用權限的授權頁 */
+  openSharePermissionPage: () => Promise<boolean>;
 }
 
 export interface ShoppingRow extends ShoppingEntry {
@@ -142,8 +148,13 @@ export interface UsePobBuild {
   isBusy: Ref<boolean>;
   /** 讀回上次匯入的 build 與進度；解不開的 build 略過 */
   restore(): Promise<void>;
-  /** 新增一份 build；成功回傳 true，失敗時 errorKey 說明原因，既有的 build 不受影響 */
+  /**
+   * 新增一份 build（PoB 代碼或分享網址）；成功回傳 true，失敗時 errorKey 說明原因，既有的
+   * build 不受影響
+   */
   importCode(code: string): Promise<boolean>;
+  /** 開啟分享網址的授權頁（pobb.in、pastebin 需要使用者同意） */
+  openSharePermissionPage(): void;
   /**
    * 換成新的 PoB 代碼，保留名稱、進度與搜尋調整，清掉新代碼裡已不存在的項目；成功回傳 true，
    * 失敗時 errorKey 說明原因，原本的清單不受影響。
@@ -204,6 +215,22 @@ interface Session {
 }
 
 class VersionMismatchError extends Error {}
+class ShareFetchError extends Error {
+  constructor(readonly code: PobShareFetchError) {
+    super(`PoB share: ${code}`);
+  }
+}
+
+const SHARE_ERROR_KEYS: Readonly<Record<PobShareFetchError, I18nKey>> = {
+  'invalid-url': 'pobBuild.error.share.invalidUrl',
+  permission: 'pobBuild.error.share.permission',
+  'not-found': 'pobBuild.error.share.notFound',
+  http: 'pobBuild.error.share.http',
+  timeout: 'pobBuild.error.share.timeout',
+  network: 'pobBuild.error.share.network',
+  'too-large': 'pobBuild.error.tooLarge',
+  invalid: 'pobBuild.error.share.invalid',
+};
 class TooManyBuildsError extends Error {}
 
 async function loadExtensionJson(path: string): Promise<unknown> {
@@ -247,11 +274,14 @@ function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
         timeoutMessage: t('pobBuild.toast.consoleFailed'),
       }),
     bookmarks: createPobBookmarkBridge(version),
+    fetchShareCode: (url) => extensionMessaging.sendMessage('pobShare:fetchCode', { url }),
+    openSharePermissionPage: () => extensionMessaging.sendMessage('pobShare:openPermissionPage'),
   };
 }
 
 function toErrorKey(error: unknown): I18nKey {
   if (error instanceof VersionMismatchError) return 'pobBuild.error.versionMismatch';
+  if (error instanceof ShareFetchError) return SHARE_ERROR_KEYS[error.code];
   if (error instanceof TooManyBuildsError) return 'pobBuild.error.tooMany';
   if (error instanceof PobBuildCodeError) {
     if (error.code === 'empty') return 'pobBuild.error.empty';
@@ -433,6 +463,17 @@ export function usePobBuild(
     void deps.store.update(buildId, patch).catch(() => undefined);
   };
 
+  /** 輸入是分享網址時先取回原始代碼；其餘視為 PoB 代碼，去掉空白 */
+  const resolveInputCode = async (input: unknown): Promise<string> => {
+    const text = typeof input === 'string' ? input : '';
+    if (!looksLikePobShareUrl(text)) return text.replace(/\s+/g, '');
+    const outcome = await deps
+      .fetchShareCode(text.trim())
+      .catch((): PobShareFetchOutcome => ({ ok: false, error: 'network' }));
+    if (!outcome?.ok) throw new ShareFetchError(outcome?.error ?? 'network');
+    return outcome.code.replace(/\s+/g, '');
+  };
+
   /** 解開代碼並確認遊戲版本與目前頁面相同 */
   const decodeBuild = async (code: string): Promise<PobBuild> => {
     const build = parsePobBuildXml(await decodePobBuildCode(code));
@@ -585,7 +626,7 @@ export function usePobBuild(
       errorKey.value = null;
       try {
         if (sessions.value.length >= MAX_POB_BUILDS) throw new TooManyBuildsError();
-        const compactCode = typeof code === 'string' ? code.replace(/\s+/g, '') : '';
+        const compactCode = await resolveInputCode(code);
         const build = await decodeBuild(compactCode);
         await ensureData();
         const stored = await deps.store.add({ name: defaultName(build), code: compactCode });
@@ -604,7 +645,7 @@ export function usePobBuild(
       try {
         const session = find(buildId);
         if (!session) return false;
-        const compactCode = typeof code === 'string' ? code.replace(/\s+/g, '') : '';
+        const compactCode = await resolveInputCode(code);
         const build = await decodeBuild(compactCode);
         await ensureData();
         const keep = allKeysOf(build);
@@ -644,6 +685,9 @@ export function usePobBuild(
       } finally {
         isBusy.value = false;
       }
+    },
+    openSharePermissionPage() {
+      void deps.openSharePermissionPage().catch(() => false);
     },
     setHideDone(buildId, on) {
       update(buildId, { hideDone: on }, { hideDone: on });

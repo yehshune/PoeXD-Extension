@@ -95,6 +95,8 @@ export default defineConfig({
         'https://poecdn.game.qq.com/*',
         'https://poe.ninja/*',
       ],
+      // PoB 分享網址匯入（pobb.in、pastebin）：使用者在授權頁同意後才取用，見 utils/pob-share-url.ts
+      optional_host_permissions: ['https://pobb.in/*', 'https://pastebin.com/*'],
       web_accessible_resources: [
         {
           resources: [

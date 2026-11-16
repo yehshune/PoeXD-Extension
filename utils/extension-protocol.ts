@@ -33,6 +33,7 @@ import type {
   LiveSearchOpenPrimaryRequest,
   LiveSearchOpenPrimaryResponse,
 } from './live-search-contract';
+import type { PobShareFetchOutcome } from './pob-share-fetch';
 import type {
   MarketTranslationRefreshOutcome,
   MarketTranslationRefreshRequest,
@@ -67,6 +68,10 @@ export interface ExtensionProtocolMap {
   'marketTranslation:refresh': (
     request: MarketTranslationRefreshRequest,
   ) => MarketTranslationRefreshOutcome;
+  /** 取回 PoB 分享網址的原始代碼（網址在 background 重新驗證） */
+  'pobShare:fetchCode': (request: { url: string }) => PobShareFetchOutcome;
+  /** 開啟選用權限的授權頁 */
+  'pobShare:openPermissionPage': () => boolean;
 }
 
 export const extensionMessaging = defineExtensionMessaging<ExtensionProtocolMap>();

@@ -28,6 +28,7 @@ const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
   (e: 'submit', code: string): void;
   (e: 'clear-error'): void;
+  (e: 'open-permission'): void;
 }>();
 
 const codeInput = ref('');
@@ -93,9 +94,20 @@ function handleSubmit() {
         v-if="errorKey"
         role="alert"
         data-pob-build-import-error
-        class="break-words text-[length:var(--pxd-font-caption)] text-destructive"
+        class="flex flex-wrap items-center gap-x-[var(--pxd-space-sm)] gap-y-[var(--pxd-space-xs)] break-words text-[length:var(--pxd-font-caption)] text-destructive"
       >
-        {{ t(errorKey) }}
+        <span>{{ t(errorKey) }}</span>
+        <Button
+          v-if="errorKey === 'pobBuild.error.share.permission'"
+          type="button"
+          variant="link"
+          size="sm"
+          data-pob-build-grant-permission
+          class="h-auto p-0 text-[length:var(--pxd-font-caption)]"
+          @click="emit('open-permission')"
+        >
+          {{ t('pobBuild.share.grantBtn') }}
+        </Button>
       </div>
 
       <DialogFooter class="gap-[var(--pxd-space-sm)]">

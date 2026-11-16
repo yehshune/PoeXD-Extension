@@ -21,6 +21,7 @@ import {
   type BookmarkBroadcastTransport,
 } from '@/utils/bookmark-messaging';
 import { registerEconomyBackgroundHandlers, type EconomyBroadcastTransport } from '@/utils/economy';
+import { registerPobShareBackgroundHandlers } from '@/utils/pob-share-fetch';
 import { LiveSearchCoordinator } from '@/utils/live-search-coordinator';
 import { TRADE_PAGE_MATCH_PATTERNS } from '@/utils/trade-realms';
 import { registerLiveSearchBackgroundHandlers } from '@/utils/live-search-messaging';
@@ -130,6 +131,7 @@ export default defineBackground(() => {
   const liveSearchCoordinator = new LiveSearchCoordinator();
   registerLiveSearchBackgroundHandlers({ coordinator: liveSearchCoordinator });
   registerMarketTranslationBackgroundHandlers();
+  registerPobShareBackgroundHandlers({ messenger: extensionMessaging });
 
   chrome.tabs.onRemoved.addListener((tabId: number) => {
     void liveSearchCoordinator.handleTabRemoved(tabId);

@@ -105,6 +105,8 @@ describe('usePobBuild', () => {
   let showToast: ReturnType<typeof vi.fn>;
   let enqueueLiveSearch: ReturnType<typeof vi.fn>;
   let bookmarkAdd: ReturnType<typeof vi.fn>;
+  let fetchShareCode: ReturnType<typeof vi.fn>;
+  let openSharePermissionPage: ReturnType<typeof vi.fn>;
   let currentUrl: string;
   let pendingToTake: PendingIcon | undefined;
   let emitResultImages: ((images: string[]) => void) | undefined;
@@ -149,6 +151,8 @@ describe('usePobBuild', () => {
     enqueueLiveSearch = vi.fn().mockResolvedValue({ success: true, addedCount: 1 });
     bookmarkAdd = vi.fn(async (input: { name: string }) => ({ ok: true, name: input.name }));
     currentUrl = 'https://www.pathofexile.com/trade/search/Standard';
+    fetchShareCode = vi.fn();
+    openSharePermissionPage = vi.fn().mockResolvedValue(true);
     deps = {
       store: createPobBuildStore('poe1', {
         storage,
@@ -179,6 +183,8 @@ describe('usePobBuild', () => {
         add: bookmarkAdd as never,
         dispose: vi.fn(),
       },
+      fetchShareCode: fetchShareCode as never,
+      openSharePermissionPage: openSharePermissionPage as never,
     };
   });
 
@@ -300,6 +306,56 @@ describe('usePobBuild', () => {
       expect(pob.errorKey.value).toBe('pobBuild.error.empty');
       expect(pob.builds.value).toHaveLength(1);
       expect(stored()).toHaveLength(1);
+    });
+
+    it('貼上分享網址時先取回代碼再匯入，代碼中的空白會去掉', async () => {
+      const code = toCode(buildXml());
+      fetchShareCode.mockResolvedValue({
+        ok: true,
+        code: `${code.slice(0, 10)}\n${code.slice(10)}\n`,
+      });
+      const pob = usePobBuild('poe1', deps);
+      expect(await pob.importCode('  https://poe.ninja/poe1/pob/abc123  ')).toBe(true);
+      expect(fetchShareCode).toHaveBeenCalledWith('https://poe.ninja/poe1/pob/abc123');
+      expect(first(pob).name).toBe('Chieftain Lv.97');
+      expect(stored()[0].code).toBe(code);
+    });
+
+    it('分享網址取回失敗時依原因回報錯誤，不新增 build', async () => {
+      const pob = usePobBuild('poe1', deps);
+      const cases = [
+        ['permission', 'pobBuild.error.share.permission'],
+        ['not-found', 'pobBuild.error.share.notFound'],
+        ['invalid-url', 'pobBuild.error.share.invalidUrl'],
+        ['timeout', 'pobBuild.error.share.timeout'],
+        ['too-large', 'pobBuild.error.tooLarge'],
+        ['invalid', 'pobBuild.error.share.invalid'],
+      ] as const;
+      for (const [error, key] of cases) {
+        fetchShareCode.mockResolvedValueOnce({ ok: false, error });
+        expect(await pob.importCode('https://pobb.in/abcdef')).toBe(false);
+        expect(pob.errorKey.value).toBe(key);
+      }
+      fetchShareCode.mockRejectedValueOnce(new Error('disconnected'));
+      expect(await pob.importCode('pastebin.com/abcd1234')).toBe(false);
+      expect(pob.errorKey.value).toBe('pobBuild.error.share.network');
+      expect(pob.builds.value).toEqual([]);
+      expect(storage.data).toEqual({});
+    });
+
+    it('分享網址取回的代碼仍須是同版本的 PoB 代碼', async () => {
+      fetchShareCode.mockResolvedValue({ ok: true, code: 'not-a-code' });
+      const pob = usePobBuild('poe1', deps);
+      expect(await pob.importCode('https://poe.ninja/pob/abc')).toBe(false);
+      expect(pob.errorKey.value).toBe('pobBuild.error.invalid');
+    });
+
+    it('開啟授權頁交給 background，失敗不拋錯', async () => {
+      openSharePermissionPage.mockRejectedValueOnce(new Error('no receiver'));
+      const pob = usePobBuild('poe1', deps);
+      expect(() => pob.openSharePermissionPage()).not.toThrow();
+      await Promise.resolve();
+      expect(openSharePermissionPage).toHaveBeenCalledTimes(1);
     });
 
     it('另一個遊戲版本的代碼不匯入', async () => {

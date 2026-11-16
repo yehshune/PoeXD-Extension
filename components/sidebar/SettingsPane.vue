@@ -782,6 +782,22 @@
             {{ t('settings.bookmarkTooltip.label') }}
           </label>
         </div>
+
+        <!-- PoB 分享網址的選用權限（授權只能在擴充頁面進行） -->
+        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
+          <span class="min-w-0 text-[length:var(--pxd-font-secondary)] text-foreground">{{
+            t('pobShare.settings.label')
+          }}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            class="shrink-0"
+            data-test="pob-share-permission"
+            @click="openPobSharePermissionPage"
+          >
+            {{ t('pobShare.settings.manageBtn') }}
+          </Button>
+        </div>
       </CollapsibleContent>
     </Collapsible>
   </div>
@@ -838,6 +854,7 @@ import {
 } from '@/utils/market-translation';
 import { getPreferences, type PreferencesModule } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
+import { extensionMessaging } from '@/utils/extension-protocol';
 
 export default defineComponent({
   name: 'SettingsPane',
@@ -1168,8 +1185,15 @@ export default defineComponent({
       });
     };
 
+    const openPobSharePermissionPage = () => {
+      void extensionMessaging.sendMessage('pobShare:openPermissionPage').catch((error: unknown) => {
+        console.error('[Settings] 無法開啟 PoB 分享網址授權頁:', error);
+      });
+    };
+
     return {
       t,
+      openPobSharePermissionPage,
       sectionOpen,
       theme,
       THEME_LABELS,

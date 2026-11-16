@@ -234,8 +234,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'tools.releases.linkLabel': '前往 GitHub Releases',
 
   'pobBuild.description':
-    '粘贴 Path of Building 的导出代码，列出 build 的装备与宝石并一键搜索市集。可以同时保留多份 build；代码只保存在本机，不会上传',
-  'pobBuild.placeholder': '在此粘贴 PoB 导出代码',
+    '粘贴 Path of Building 的导出代码，或 poe.ninja、pobb.in、pastebin 的分享链接，列出 build 的装备与宝石并一键搜索市集。可以同时保留多份 build；代码只保存在本机，不会上传',
+  'pobBuild.placeholder': '在此粘贴 PoB 导出代码或分享链接',
   'pobBuild.importBtn': '导入',
   'pobBuild.importingBtn': '导入中…',
   'pobBuild.group.equipment': '装备',
@@ -318,11 +318,34 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.mods.reset': '还原默认',
   'pobBuild.error.tooMany': '已达可保留的 build 数量上限，请先删除不需要的 build',
   'pobBuild.error.empty': '请先粘贴 PoB 导出代码',
-  'pobBuild.error.invalid': '无法解析这组代码，请确认是 Path of Building 的导出代码（不是链接）',
+  'pobBuild.error.invalid':
+    '无法解析这组代码，请确认是 Path of Building 的导出代码或支持的分享链接',
   'pobBuild.error.tooLarge': '代码内容过大，无法导入',
   'pobBuild.error.versionMismatch': '这组代码的游戏版本与当前页面不同，请到对应版本的市集页面导入',
   'pobBuild.error.catalog': '物品名称数据加载失败，请稍后再试',
   'pobBuild.error.noLeague': '当前页面没有赛季信息，请先在市集选择赛季',
+  'pobBuild.error.share.invalidUrl':
+    '不支持这个链接，目前支持 poe.ninja、pobb.in、pastebin 的 PoB 分享链接',
+  'pobBuild.error.share.permission': '从 pobb.in、pastebin 导入需要先允许扩展连接到该网站',
+  'pobBuild.error.share.notFound': '找不到这个分享，链接可能已失效',
+  'pobBuild.error.share.http': '分享网站暂时无法响应，请稍后再试',
+  'pobBuild.error.share.timeout': '连接分享网站超时，请稍后再试',
+  'pobBuild.error.share.network': '无法连接到分享网站，请检查网络或稍后再试',
+  'pobBuild.error.share.invalid': '分享网站返回的内容不是 PoB 代码',
+  'pobBuild.share.grantBtn': '前往授权',
+  'pobShare.settings.label': '从 pobb.in、pastebin 分享链接导入 PoB',
+  'pobShare.settings.manageBtn': '设置权限',
+  'pobShare.page.documentTitle': 'PoeXD · PoB 分享链接权限',
+  'pobShare.page.title': '允许从分享链接导入 PoB',
+  'pobShare.page.description':
+    '在 PoB 购物清单粘贴 pobb.in 或 pastebin 的分享链接时，PoeXD 需要连接到该网站取回 PoB 代码。只会读取你粘贴的那个分享，不会发送其他数据；poe.ninja 不需要另外授权。',
+  'pobShare.page.sites': '会连接的网站：pobb.in、pastebin.com',
+  'pobShare.page.granted': '已允许',
+  'pobShare.page.notGranted': '尚未允许',
+  'pobShare.page.grantBtn': '允许',
+  'pobShare.page.revokeBtn': '取消允许',
+  'pobShare.page.denied': '没有获得权限，可以再点一次「允许」',
+  'pobShare.page.done': '完成后可以关闭这个标签页，回到市集重新导入',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '加载词缀数据中...',

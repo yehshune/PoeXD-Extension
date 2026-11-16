@@ -38,6 +38,7 @@ const fake = {
   setCountMin: vi.fn(),
   setPseudo: vi.fn(),
   resetSearch: vi.fn(),
+  openSharePermissionPage: vi.fn(),
   dispose: vi.fn(),
 } satisfies UsePobBuild;
 
@@ -263,6 +264,20 @@ describe('PobBuildPane', () => {
     await flushAsync();
     expect(fake.importCode).toHaveBeenCalledWith('CODE');
     expect(queryBody('[data-pob-build-input]')).toBeNull();
+  });
+
+  it('分享網址缺少權限時，對話框顯示前往授權按鈕並開啟授權頁', async () => {
+    await mount();
+    query<HTMLButtonElement>('[data-pob-build-add]')!.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-grant-permission]')).toBeNull();
+
+    errorKey.value = 'pobBuild.error.share.permission';
+    await flushAsync();
+    const grant = queryBody<HTMLButtonElement>('[data-pob-build-grant-permission]')!;
+    expect(grant).not.toBeNull();
+    grant.click();
+    expect(fake.openSharePermissionPage).toHaveBeenCalledTimes(1);
   });
 
   it('有 build 時列出名稱、進度、shadcn Select 套裝選單與各組項目', async () => {

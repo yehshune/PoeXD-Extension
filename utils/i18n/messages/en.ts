@@ -256,8 +256,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'tools.releases.linkLabel': 'View GitHub Releases',
 
   'pobBuild.description':
-    'Paste a Path of Building export code to list the build gear and gems and search the trade site for each. You can keep several builds; codes stay on this device and are never uploaded',
-  'pobBuild.placeholder': 'Paste a PoB export code here',
+    'Paste a Path of Building export code, or a poe.ninja, pobb.in or pastebin share link, to list the build gear and gems and search the trade site for each. You can keep several builds; codes stay on this device and are never uploaded',
+  'pobBuild.placeholder': 'Paste a PoB export code or share link here',
   'pobBuild.importBtn': 'Import',
   'pobBuild.importingBtn': 'Importing…',
   'pobBuild.group.equipment': 'Gear',
@@ -342,13 +342,37 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'The maximum number of saved builds is reached. Delete a build you no longer need first',
   'pobBuild.error.empty': 'Paste a PoB export code first',
   'pobBuild.error.invalid':
-    'This code could not be parsed. Make sure it is a Path of Building export code (not a link)',
+    'This code could not be parsed. Make sure it is a Path of Building export code or a supported share link',
   'pobBuild.error.tooLarge': 'The code is too large to import',
   'pobBuild.error.versionMismatch':
     'This code is for the other game version. Import it on the matching trade page',
   'pobBuild.error.catalog': 'Failed to load item name data, please try again later',
   'pobBuild.error.noLeague':
     'The current page has no league. Select a league on the trade site first',
+  'pobBuild.error.share.invalidUrl':
+    'This link is not supported. Use a PoB share link from poe.ninja, pobb.in or pastebin',
+  'pobBuild.error.share.permission':
+    'Importing from pobb.in or pastebin needs permission to connect to that site first',
+  'pobBuild.error.share.notFound': 'This share was not found. The link may have expired',
+  'pobBuild.error.share.http': 'The share site is not responding. Try again later',
+  'pobBuild.error.share.timeout': 'The share site took too long to respond. Try again later',
+  'pobBuild.error.share.network':
+    'Could not reach the share site. Check your connection or try again later',
+  'pobBuild.error.share.invalid': 'The share site did not return a PoB code',
+  'pobBuild.share.grantBtn': 'Grant access',
+  'pobShare.settings.label': 'Import PoB from pobb.in and pastebin links',
+  'pobShare.settings.manageBtn': 'Permissions',
+  'pobShare.page.documentTitle': 'PoeXD · PoB share link access',
+  'pobShare.page.title': 'Allow importing PoB from share links',
+  'pobShare.page.description':
+    'When you paste a pobb.in or pastebin link into the PoB shopping list, PoeXD connects to that site to fetch the PoB code. It only reads the share you pasted and sends nothing else. poe.ninja needs no extra permission.',
+  'pobShare.page.sites': 'Sites contacted: pobb.in, pastebin.com',
+  'pobShare.page.granted': 'Allowed',
+  'pobShare.page.notGranted': 'Not allowed yet',
+  'pobShare.page.grantBtn': 'Allow',
+  'pobShare.page.revokeBtn': 'Revoke',
+  'pobShare.page.denied': 'Permission was not granted. You can press Allow again',
+  'pobShare.page.done': 'You can close this tab and import again on the trade site',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': 'Loading affix data...',

@@ -232,8 +232,8 @@ export const ZH_TW_MESSAGES = {
   'tools.releases.linkLabel': '前往 GitHub Releases',
 
   'pobBuild.description':
-    '貼上 Path of Building 的匯出代碼，列出 build 的裝備與寶石並一鍵搜尋市集。可以同時保留多份 build；代碼只存在本機，不會上傳',
-  'pobBuild.placeholder': '在此貼上 PoB 匯出代碼',
+    '貼上 Path of Building 的匯出代碼，或 poe.ninja、pobb.in、pastebin 的分享網址，列出 build 的裝備與寶石並一鍵搜尋市集。可以同時保留多份 build；代碼只存在本機，不會上傳',
+  'pobBuild.placeholder': '在此貼上 PoB 匯出代碼或分享網址',
   'pobBuild.importBtn': '匯入',
   'pobBuild.importingBtn': '匯入中…',
   'pobBuild.group.equipment': '裝備',
@@ -316,11 +316,34 @@ export const ZH_TW_MESSAGES = {
   'pobBuild.mods.reset': '還原預設',
   'pobBuild.error.tooMany': '已達可保留的 build 數量上限，請先刪除不需要的 build',
   'pobBuild.error.empty': '請先貼上 PoB 匯出代碼',
-  'pobBuild.error.invalid': '無法解析這組代碼，請確認是 Path of Building 的匯出代碼（不是連結）',
+  'pobBuild.error.invalid':
+    '無法解析這組代碼，請確認是 Path of Building 的匯出代碼或支援的分享網址',
   'pobBuild.error.tooLarge': '代碼內容過大，無法匯入',
   'pobBuild.error.versionMismatch': '這組代碼的遊戲版本與目前頁面不同，請到對應版本的市集頁面匯入',
   'pobBuild.error.catalog': '物品名稱資料載入失敗，請稍後再試',
   'pobBuild.error.noLeague': '目前頁面沒有聯盟資訊，請先在市集選擇聯盟',
+  'pobBuild.error.share.invalidUrl':
+    '不支援這個網址，目前支援 poe.ninja、pobb.in、pastebin 的 PoB 分享網址',
+  'pobBuild.error.share.permission': '從 pobb.in、pastebin 匯入需要先允許擴充連線到該網站',
+  'pobBuild.error.share.notFound': '找不到這個分享，網址可能已失效',
+  'pobBuild.error.share.http': '分享網站暫時無法回應，請稍後再試',
+  'pobBuild.error.share.timeout': '連線分享網站逾時，請稍後再試',
+  'pobBuild.error.share.network': '無法連線到分享網站，請確認網路或稍後再試',
+  'pobBuild.error.share.invalid': '分享網站回傳的內容不是 PoB 代碼',
+  'pobBuild.share.grantBtn': '前往授權',
+  'pobShare.settings.label': '從 pobb.in、pastebin 分享網址匯入 PoB',
+  'pobShare.settings.manageBtn': '設定權限',
+  'pobShare.page.documentTitle': 'PoeXD · PoB 分享網址權限',
+  'pobShare.page.title': '允許從分享網址匯入 PoB',
+  'pobShare.page.description':
+    '在 PoB 購物清單貼上 pobb.in 或 pastebin 的分享網址時，PoeXD 需要連線到該網站取回 PoB 代碼。只會讀取你貼上的那個分享，不會傳送其他資料；poe.ninja 不需要另外授權。',
+  'pobShare.page.sites': '會連線的網站：pobb.in、pastebin.com',
+  'pobShare.page.granted': '已允許',
+  'pobShare.page.notGranted': '尚未允許',
+  'pobShare.page.grantBtn': '允許',
+  'pobShare.page.revokeBtn': '取消允許',
+  'pobShare.page.denied': '沒有取得權限，可以再按一次「允許」',
+  'pobShare.page.done': '完成後可以關閉這個分頁，回到市集重新匯入',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '載入詞綴資料中...',
