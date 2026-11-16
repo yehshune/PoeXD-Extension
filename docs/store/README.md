@@ -35,12 +35,12 @@ Chrome Web Store、Microsoft Edge Add-ons 與 Firefox Add-ons (AMO) 上架時要
 
 ### English
 
-**Name**（取自 `_locales/en`）：`PoeXD – PoE Trade Helper (Path of Exile)`
+**Name**（取自 `_locales/en`）：`PoeXD – PoE 1 & 2 Trade Helper`
 
 **Summary**（≤132 字元）：
 
 ```text
-Bookmark folders, a multi-search live console and quality-of-life tools for the official Path of Exile trade site.
+Path of Exile 1 & 2 trade helper: Chinese market translation, PoB shopping list, live search console, affix tools & bookmarks.
 ```
 
 **Description**：
@@ -70,12 +70,12 @@ Source code and issue tracker: https://github.com/yehshune/PoeXD-Extension
 
 ### 繁體中文
 
-**名稱**（取自 `_locales/zh_TW`）：`PoeXD – PoE 流亡黯道交易小幫手`
+**名稱**（取自 `_locales/zh_TW`）：`PoeXD – PoE 1 & 2 市集中文化・交易助手`
 
 **簡短說明**（≤132 字元）：
 
 ```text
-為《流亡黯道》官方交易網站加上書籤資料夾、多組即時搜尋主控台與各種便利工具。
+流亡黯道 Path of Exile 官方交易市集中文化工具（PoE 1 & 2）：提供繁簡漢化與中英並列、PoB 購物清單與 pobb.in 翻譯、線上搜尋主控台、詞綴篩選與書籤管理。
 ```
 
 **詳細說明**：

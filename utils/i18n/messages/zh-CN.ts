@@ -4,7 +4,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   // Manifest / Extension identity
   'ext.name': 'PoeXD 交易助手',
   'ext.description':
-    'Path of Exile 官方交易市集全方位辅助扩展程序，提供线上搜索主控台、常用词缀群组、阶层书签管理与实时搜索监听。',
+    '流放之路 Path of Exile 官方交易市集中文化工具（PoE 1 & 2）：提供简繁汉化与中英对照、PoB 购物清单与 pobb.in 翻译、线上搜索主控台、词缀筛选与书签管理。',
 
   // Common
   'common.confirm': '确认',

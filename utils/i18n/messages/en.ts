@@ -2,9 +2,9 @@ import type { I18nMessageCatalog } from './zh-TW';
 
 export const EN_MESSAGES: I18nMessageCatalog = {
   // Manifest / Extension identity
-  'ext.name': 'PoeXD Trade Assistant',
+  'ext.name': 'PoeXD Trade Helper',
   'ext.description':
-    'Path of Exile Trade assistant extension with LiveSearch console, affix templates, hierarchical bookmarks, and real-time monitoring.',
+    'Path of Exile 1 & 2 trade helper: Chinese market translation, PoB shopping list, live search console, affix tools & bookmarks.',
 
   // Common
   'common.confirm': 'Confirm',

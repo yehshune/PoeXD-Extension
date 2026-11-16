@@ -1,8 +1,8 @@
 export const ZH_TW_MESSAGES = {
   // Manifest / Extension identity
-  'ext.name': 'PoeXD 交易小幫手',
+  'ext.name': 'PoeXD 交易助手',
   'ext.description':
-    'Path of Exile 官方交易市集全方位輔助擴充套件，提供線上搜尋主控台、常用詞綴群組、階層書籤管理與即時搜尋監聽。',
+    '流亡黯道 Path of Exile 官方交易市集中文化工具（PoE 1 & 2）：提供繁簡漢化與中英並列、PoB 購物清單與 pobb.in 翻譯、線上搜尋主控台、詞綴篩選與書籤管理。',
 
   // Common
   'common.confirm': '確認',
