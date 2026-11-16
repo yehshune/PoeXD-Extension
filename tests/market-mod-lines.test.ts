@@ -46,6 +46,17 @@ describe('translateModLine', () => {
     expect(translateModLine('10 to Strength', signed)).toBe('+10 力量');
   });
 
+  it('英文與譯文的取負與否不同時，換回實際數值再依譯文格式輸出', () => {
+    const pairs: ModLinePairs = [
+      ['{0:d}% increased Rarity of Items found', '{0:+d}%物品稀有度'],
+      ['{0:n}% reduced Rarity of Items found', '{0:+d}%物品稀有度'],
+      ['Lose {0:d} Life', '失去 {0:n} 生命'],
+    ];
+    expect(translateModLine('22% increased Rarity of Items found', pairs)).toBe('+22%物品稀有度');
+    expect(translateModLine('22% reduced Rarity of Items found', pairs)).toBe('-22%物品稀有度');
+    expect(translateModLine('Lose -5 Life', pairs)).toBe('失去 5 生命');
+  });
+
   it('單複數等不同變體以整句比對區分', () => {
     expect(translateModLine('Bow Attacks fire an additional Arrow', ARROWS)).toBe(
       '弓攻擊額外發射 1 支箭矢',

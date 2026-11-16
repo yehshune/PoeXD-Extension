@@ -68,6 +68,9 @@ describe('batchOfDataPath', () => {
   it('maps every bundled data file to its batch', () => {
     expect(batchOfDataPath('poe1/mods-tiers.json')).toBe('poe1/game');
     expect(batchOfDataPath('poe2/locales/zh-CN/mod-lines.json')).toBe('poe2/game');
+    expect(batchOfDataPath('poe1/locales/zh-TW/stat-text-items.json')).toBe('poe1/game');
+    expect(batchOfDataPath('poe1/locales/zh-TW/stat-text.json')).toBeNull();
+    expect(batchOfDataPath('poe2/stat-aliases.json')).toBe('poe2/game');
     expect(batchOfDataPath('poe1/locales/ja/mercenary.json')).toBe('poe1/mercenary');
     expect(batchOfDataPath('poe2/locales/ko/trade-filters.json')).toBe('poe2/trade-filters');
     expect(batchOfDataPath('locales/zh-CN/trade-ui.json')).toBe('market');

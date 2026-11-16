@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { formatPobSlot } from '@/components/sidebar/pob-build/pob-slot-label';
 import { resetI18nStateForTests } from '@/utils/i18n';
 import { parsePobBuildXml } from '@/utils/pob-build';
-import { createModLineTranslator, loadModLineTranslator } from '@/utils/pob-mod-translator';
+import {
+  aliasPairs,
+  createModLineTranslator,
+  loadModLineTranslator,
+} from '@/utils/pob-mod-translator';
 import { buildShoppingList, createTradeNameCatalog } from '@/utils/pob-shopping-list';
 import { createStatMatcher, loadStatMatcher } from '@/utils/pob-stat-matcher';
 
@@ -286,6 +290,54 @@ describe('createModLineTranslator', () => {
   });
 });
 
+describe('createModLineTranslator：完整 stat 文字目錄與舊英文寫法', () => {
+  const translator = createModLineTranslator(
+    { '3299347043': [['{0:+d} to maximum Life', '{0:+d} 最大生命']] },
+    {
+      statText: {
+        '3299347043': [['{0:+d} to maximum Life', '目錄裡的另一種譯文 {0:+d}']],
+        '3917489142': [['{0:+d}% to Item Rarity', '{0:+d}%物品稀有度']],
+        '1': [['Unique only {0:d}', '只有傳奇 {0:d}']],
+      },
+      aliases: {
+        '3917489142': [
+          ['{0:d}% increased Rarity of Items found', '{0:+d}% to Item Rarity'],
+          ['{0:n}% reduced Rarity of Items found', '{0:+d}% to Item Rarity'],
+        ],
+        // 現行英文在該語系沒有譯文，或別名本身就是現行寫法時不採用
+        '2': [['Old wording {0:d}', 'Missing {0:d}']],
+        '3299347043': [['{0:+d} to maximum Life', '{0:+d} to maximum Life']],
+      },
+    },
+  );
+
+  it('市集上沒有的 stat 也能從完整目錄翻譯；同一句英文以 mod-lines 為準', () => {
+    expect(translator.translate('Unique only 7')).toBe('只有傳奇 7');
+    expect(translator.translate('+50 to maximum Life')).toBe('+50 最大生命');
+    expect(translator.translate('+22% to Item Rarity')).toBe('+22%物品稀有度');
+  });
+
+  it('舊英文寫法對到現行寫法的譯文，增加／減少換成正負號', () => {
+    expect(translator.translate('22% increased Rarity of Items found')).toBe('+22%物品稀有度');
+    expect(translator.translate('10% reduced Rarity of Items found')).toBe('-10%物品稀有度');
+    expect(translator.translate('Old wording 5')).toBeUndefined();
+  });
+
+  it('aliasPairs 只輸出找得到譯文的別名', () => {
+    expect(
+      aliasPairs(
+        {
+          h: [
+            ['Old {0:d}', 'New {0:d}'],
+            ['Gone {0:d}', 'Nope {0:d}'],
+          ],
+        },
+        [{ h: [['New {0:d}', '新 {0:d}']] }],
+      ),
+    ).toEqual([['Old {0:d}', '新 {0:d}']]);
+  });
+});
+
 describe('createModLineTranslator：市集文字補充句型', () => {
   const translator = createModLineTranslator(
     { '1': [['{0:+d} to maximum Life', '{0:+d} 最大生命']] },
@@ -437,8 +489,9 @@ describe('loadModLineTranslator：隨擴充發佈的資料分片', () => {
 
   it('PoE 1 台服：沒收錄的輔助寶石句子與星團珠寶前綴也翻得出來', async () => {
     const tw = await loadModLineTranslator(loadJson, { version: 'poe1', locale: 'zh-TW' });
-    expect(tw?.translate('Socketed Gems are Supported by Level 16 Burning Damage Support')).toBe(
-      '插槽中寶石被等級 16 的燃燒傷害輔助',
+    // 完整目錄有該寶石自己的官方句子時用它，否則用學出的框架；兩者只差在空白與「的」
+    expect(tw?.translate('Socketed Gems are Supported by Level 16 Burning Damage Support')).toMatch(
+      /^插槽中的?寶石被等級 ?16 ?的燃燒傷害輔助$/,
     );
     expect(tw?.translate('Added Small Passive Skills also grant: +4% to Chaos Resistance')).toBe(
       '附加的小天賦給予：+4% 混沌抗性',

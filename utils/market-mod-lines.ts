@@ -5,11 +5,14 @@
  * 佔位符格式為 `{i:d}`、`{i:+d}`、`{i:n}`、`{i:+n}`（n 表示描述檔取負，顯示值已是絕對值）。
  * 英文句子本身已經決定了用哪個變體（單複數、正負向），所以只要找到相符的英文模板，
  * 再把擷取到的數值填入同一個變體的譯文模板即可，不需要判斷條件。
+ *
+ * 兩邊佔位符的取負與否不同時（例如舊英文別名 `{0:n}% reduced …` 對到現行的 `{0:+d}% to …`），
+ * 先換回實際數值再依譯文的格式輸出，所以 `22% reduced` 會填成 `-22%`。
  */
 
 export type ModLinePairs = ReadonlyArray<readonly [string, string]>;
 
-const PLACEHOLDER = /\{(\d+):(\+?)[dn]\}/g;
+const PLACEHOLDER = /\{(\d+):(\+?)([dn])\}/g;
 const ESCAPED_NEWLINE = '\\n';
 const NUMBER_CAPTURE = '([+-]?\\d+(?:\\.\\d+)?)';
 
@@ -17,6 +20,8 @@ interface CompiledTemplate {
   pattern: RegExp;
   /** 第 k 個擷取群組對應的佔位符索引 */
   order: number[];
+  /** 第 k 個擷取群組的佔位符是否取負（`n`：顯示值是實際值的相反數） */
+  negated: boolean[];
 }
 
 const compiled = new Map<string, CompiledTemplate>();
@@ -34,15 +39,17 @@ function compile(template: string): CompiledTemplate {
   const cached = compiled.get(template);
   if (cached) return cached;
   const order: number[] = [];
+  const negated: boolean[] = [];
   let source = '';
   let last = 0;
   for (const match of template.matchAll(PLACEHOLDER)) {
     source += literalPattern(template.slice(last, match.index)) + NUMBER_CAPTURE;
     order.push(Number(match[1]));
+    negated.push(match[3] === 'n');
     last = (match.index ?? 0) + match[0].length;
   }
   source += literalPattern(template.slice(last));
-  const result = { pattern: new RegExp(`^\\s*${source}\\s*$`), order };
+  const result = { pattern: new RegExp(`^\\s*${source}\\s*$`), order, negated };
   compiled.set(template, result);
   return result;
 }
@@ -54,16 +61,31 @@ function formatValue(raw: string, signed: boolean): string {
   return unsigned.startsWith('-') ? unsigned : `+${unsigned}`;
 }
 
-function fill(template: string, values: ReadonlyMap<number, string>): string | null {
+/** 數值字串取相反數：`22` → `-22`、`-5` → `5`、`+3` → `-3` */
+function negateValue(raw: string): string {
+  const unsigned = raw.replace(/^[+-]/, '');
+  return raw.startsWith('-') ? unsigned : `-${unsigned}`;
+}
+
+interface CapturedValue {
+  raw: string;
+  negated: boolean;
+}
+
+function fill(template: string, values: ReadonlyMap<number, CapturedValue>): string | null {
   let missing = false;
-  const text = template.replace(PLACEHOLDER, (_match, index: string, plus: string) => {
-    const value = values.get(Number(index));
-    if (value === undefined) {
-      missing = true;
-      return '';
-    }
-    return formatValue(value, plus === '+');
-  });
+  const text = template.replace(
+    PLACEHOLDER,
+    (_match, index: string, plus: string, kind: string) => {
+      const value = values.get(Number(index));
+      if (value === undefined) {
+        missing = true;
+        return '';
+      }
+      const raw = value.negated === (kind === 'n') ? value.raw : negateValue(value.raw);
+      return formatValue(raw, plus === '+');
+    },
+  );
   return missing ? null : text.split(ESCAPED_NEWLINE).join('\n');
 }
 
@@ -74,10 +96,12 @@ export function translateModLine(
 ): string | null {
   if (!englishLine || !pairs) return null;
   for (const [english, localized] of pairs) {
-    const { pattern, order } = compile(english);
+    const { pattern, order, negated } = compile(english);
     const match = pattern.exec(englishLine);
     if (!match) continue;
-    const values = new Map(order.map((index, k) => [index, match[k + 1]] as const));
+    const values = new Map(
+      order.map((index, k) => [index, { raw: match[k + 1], negated: negated[k] }] as const),
+    );
     const text = fill(localized, values);
     if (text !== null) return text;
   }

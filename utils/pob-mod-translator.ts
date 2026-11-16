@@ -1,8 +1,9 @@
 /**
  * 把 PoB 物品文字裡的英文詞綴翻成顯示語言，供購物清單顯示。
  *
- * 用的是市集漢化的同一份對照（ADR-0012 的 `mod-lines.json`：每個 stat hash 的英文句型與
- * 官方譯文句型），所以譯文就是該區服遊戲內的寫法。先以骨架找出可能的句型，再由
+ * 句型來自 poexd-data 的官方資料：市集漢化的 `mod-lines.json`（ADR-0012）與
+ * `stat-text-items.json`（物品詞綴描述檔裡 mod-lines 沒收錄的句子，ADR-0015），都是每個 stat hash 的
+ * 英文句型與官方譯文句型，所以譯文就是該區服遊戲內的寫法。先以骨架找出可能的句型，再由
  * `translateModLine` 把數值填進同一個變體的譯文。整句對不到時依序嘗試：
  *
  * 1. PoB 會在輔助寶石名稱後多寫一個「Support」，去掉再比一次。
@@ -11,11 +12,13 @@
  * 3. 固定前綴加上一句普通詞綴（例如 `Bonded: …`、`… also grant …`）：後半句照常翻譯，
  *    前綴的譯文從對照資料裡同前綴的句子學出來，學不到再查標籤表，都沒有就保留英文前綴。
  *
+ * 舊英文寫法：GGG 改寫英文後（例如 3.30 的 `+#% to Item Rarity`），之前匯出的物品文字仍是
+ * 舊寫法。`stat-aliases.json` 記錄每個 hash 的「舊英文 → 現行英文」，舊寫法因此也對到同一個
+ * 譯文；兩邊的增加／減少寫法不同時，由 `translateModLine` 換算正負號。
  *
- * 句型來源除了 `mod-lines.json`，還有市集 `trade-stats.json`（英文與譯文以同一個代碼對齊）：
- * 它收錄了 mod-lines 沒有的選項型詞綴（塗油的 `Allocates …`、星團珠寶附魔），以 mod-lines
- * 為優先。描述檔裡一個 stat 寫成多行的句子（例如藥劑的免疫流血／腐化之血），PoB 會拆成
- * 多行，所以兩邊行數相同時每一行也各自當成一個句型。
+ * 最後的備援是市集 `trade-stats.json`（英文與譯文以同一個代碼對齊）：它收錄了選項型詞綴
+ * （塗油的 `Allocates …`、星團珠寶附魔）。描述檔裡一個 stat 寫成多行的句子（例如藥劑的
+ * 免疫流血／腐化之血），PoB 會拆成多行，所以兩邊行數相同時每一行也各自當成一個句型。
  *
  * 所有中文都來自官方資料，沒有手寫的字典。只有 zh-TW、zh-CN 有對照資料；其他語言沒有
  * 翻譯器。翻不了的詞綴回傳 undefined，由呼叫端顯示英文原文。
@@ -26,7 +29,9 @@ import {
   getLocaleItemsAssetPath,
   getLocaleModLinesAssetPath,
   getLocaleResultLabelsAssetPath,
+  getLocaleStatTextAssetPath,
   getLocaleTradeStatsAssetPath,
+  getStatAliasesAssetPath,
   type PoeVersion,
 } from './trade-context';
 
@@ -44,6 +49,36 @@ export interface ModLineTranslatorExtras {
   labels?: Readonly<Record<string, string>>;
   /** 市集 stat 文字（英文、譯文），補 mod-lines 沒收錄的句型 */
   tradeStats?: { english: TradeStatTexts; localized: TradeStatTexts };
+  /** 物品 stat 文字（stat-text-items.json 的 lines），排在 mod-lines 之後 */
+  statText?: Readonly<Record<string, ModLinePairs>>;
+  /** 舊英文寫法（stat hash → [舊英文模板, 現行英文模板]） */
+  aliases?: Readonly<Record<string, ReadonlyArray<readonly [string, string]>>>;
+}
+
+/** 有效的句型對：兩邊都是字串 */
+const validPairs = (pairs: unknown): Pair[] =>
+  Array.isArray(pairs)
+    ? pairs.filter(
+        (pair): pair is Pair =>
+          Array.isArray(pair) && typeof pair[0] === 'string' && typeof pair[1] === 'string',
+      )
+    : [];
+
+/**
+ * 舊英文寫法的句型：在同一個 hash 的句型裡找到現行英文的譯文，讓舊英文也對到它。
+ * 找不到現行英文（該語系沒有譯文）的別名略過。
+ */
+export function aliasPairs(
+  aliases: Readonly<Record<string, ReadonlyArray<readonly [string, string]>>>,
+  sources: ReadonlyArray<Readonly<Record<string, ModLinePairs>>>,
+): Pair[] {
+  return Object.entries(aliases).flatMap(([hash, entries]) => {
+    const candidates = sources.flatMap((source) => validPairs(source[hash]));
+    return validPairs(entries).flatMap(([legacy, current]) => {
+      const localized = candidates.find(([english]) => english === current)?.[1];
+      return localized === undefined ? [] : [[legacy, localized] as const];
+    });
+  });
 }
 
 type Pair = readonly [english: string, localized: string];
@@ -150,15 +185,13 @@ export function createModLineTranslator(
   modLines: Readonly<Record<string, ModLinePairs>>,
   extras: ModLineTranslatorExtras = {},
 ): ModLineTranslator {
-  const primary = createPairIndex(
-    Object.values(modLines).flatMap((pairs) =>
-      Array.isArray(pairs)
-        ? pairs.filter(
-            (pair): pair is Pair => typeof pair[0] === 'string' && typeof pair[1] === 'string',
-          )
-        : [],
-    ),
-  );
+  // 現行寫法在前：同一句英文以 mod-lines、再以完整目錄的譯文為準，舊寫法最後
+  const statText = extras.statText ?? {};
+  const primary = createPairIndex([
+    ...Object.values(modLines).flatMap(validPairs),
+    ...Object.values(statText).flatMap(validPairs),
+    ...(extras.aliases ? aliasPairs(extras.aliases, [modLines, statText]) : []),
+  ]);
   // 市集文字是最後的備援：它的部分寫法（例如輔助寶石句子）不如從 mod-lines 學出的框架
   const fallback = createPairIndex(
     extras.tradeStats ? tradeStatPairs(extras.tradeStats.english, extras.tradeStats.localized) : [],
@@ -213,7 +246,11 @@ export function createModLineTranslator(
     return learned;
   };
 
-  const translatePrefixed = (line: string): string | undefined => {
+  /**
+   * 前綴加後半句。前綴學不到也查不到標籤時保留英文前綴，但這樣的結果只在其他方法都失敗時
+   * 才採用（`keepEnglishPrefix`），以免蓋過市集文字的完整譯文。
+   */
+  const translatePrefixed = (line: string, keepEnglishPrefix: boolean): string | undefined => {
     for (const separator of PREFIX_SEPARATORS) {
       const at = line.indexOf(separator);
       if (at <= 0) continue;
@@ -221,7 +258,9 @@ export function createModLineTranslator(
       const tail = translateLine(line.slice(prefix.length));
       if (!tail) continue;
       const label = extras.labels?.[prefix.trim()];
-      return `${learnPrefix(prefix) ?? (label ? `${label} ` : prefix)}${tail}`;
+      const localizedPrefix = learnPrefix(prefix) ?? (label ? `${label} ` : undefined);
+      if (localizedPrefix) return `${localizedPrefix}${tail}`;
+      if (keepEnglishPrefix) return `${prefix}${tail}`;
     }
     return undefined;
   };
@@ -233,8 +272,9 @@ export function createModLineTranslator(
     const translated =
       withoutSupport(line, primary.translateWhole) ??
       translateNamed(line) ??
-      translatePrefixed(line) ??
-      withoutSupport(line, fallback.translateWhole);
+      translatePrefixed(line, false) ??
+      withoutSupport(line, fallback.translateWhole) ??
+      translatePrefixed(line, true);
     cache.set(line, translated);
     return translated;
   }
@@ -282,6 +322,22 @@ function readTradeStats(data: unknown): TradeStatTexts | undefined {
   );
 }
 
+/** stat-text-items.json 的 `lines`；格式不對時回傳 undefined */
+function readStatText(data: unknown): Record<string, ModLinePairs> | undefined {
+  const lines = isRecord(data) ? data.lines : undefined;
+  return isRecord(lines) ? (lines as Record<string, ModLinePairs>) : undefined;
+}
+
+/** stat-aliases.json 的 `aliases`；格式不對時回傳 undefined */
+function readAliases(
+  data: unknown,
+): Record<string, ReadonlyArray<readonly [string, string]>> | undefined {
+  const aliases = isRecord(data) ? data.aliases : undefined;
+  return isRecord(aliases)
+    ? (aliases as Record<string, ReadonlyArray<readonly [string, string]>>)
+    : undefined;
+}
+
 /** 該語言沒有對照資料時回傳 undefined（不是錯誤） */
 export async function loadModLineTranslator(
   loadJson: (path: string) => Promise<unknown>,
@@ -289,17 +345,27 @@ export async function loadModLineTranslator(
 ): Promise<ModLineTranslator | undefined> {
   const { version, locale } = options;
   if (!TRANSLATED_LOCALES.includes(locale)) return undefined;
-  // 句型對照是必要的；物品名、標籤與市集文字只用來補強，載不到就少翻幾種句子
+  // mod-lines 是必要的；其餘只用來補強，載不到就少翻幾種句子
   const optional = (path: string) => loadJson(path).catch(() => undefined);
-  const [data, englishItems, localizedItems, labels, englishStats, localizedStats] =
-    await Promise.all([
-      loadJson(getLocaleModLinesAssetPath(version, locale)),
-      optional(getLocaleItemsAssetPath(version, 'en')),
-      optional(getLocaleItemsAssetPath(version, locale)),
-      optional(getLocaleResultLabelsAssetPath(version, locale)),
-      optional(getLocaleTradeStatsAssetPath(version, 'en')),
-      optional(getLocaleTradeStatsAssetPath(version, locale)),
-    ]);
+  const [
+    data,
+    englishItems,
+    localizedItems,
+    labels,
+    englishStats,
+    localizedStats,
+    statText,
+    aliases,
+  ] = await Promise.all([
+    loadJson(getLocaleModLinesAssetPath(version, locale)),
+    optional(getLocaleItemsAssetPath(version, 'en')),
+    optional(getLocaleItemsAssetPath(version, locale)),
+    optional(getLocaleResultLabelsAssetPath(version, locale)),
+    optional(getLocaleTradeStatsAssetPath(version, 'en')),
+    optional(getLocaleTradeStatsAssetPath(version, locale)),
+    optional(getLocaleStatTextAssetPath(version, locale)),
+    optional(getStatAliasesAssetPath(version)),
+  ]);
   const lines = isRecord(data) ? data.lines : undefined;
   if (!isRecord(lines)) throw new Error('mod-lines.json 格式錯誤');
   const english = readTradeStats(englishStats);
@@ -308,5 +374,7 @@ export async function loadModLineTranslator(
     toLocalizedName: buildNameLookup(englishItems, localizedItems),
     labels: readLabels(labels),
     ...(english && localized ? { tradeStats: { english, localized } } : {}),
+    statText: readStatText(statText),
+    aliases: readAliases(aliases),
   });
 }

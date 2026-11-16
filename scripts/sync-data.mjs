@@ -53,8 +53,11 @@ const LOCALE = '[A-Za-z]{2}(?:-[A-Za-z]{2})?';
 const VERSION = '(poe1|poe2)';
 const PATH_RULES = [
   [new RegExp(`^${VERSION}/mods-tiers\\.json$`), (m) => `${m[1]}/game`],
+  [new RegExp(`^${VERSION}/stat-aliases\\.json$`), (m) => `${m[1]}/game`],
   [
-    new RegExp(`^${VERSION}/locales/${LOCALE}/(?:stats|items|mod-lines|result-labels)\\.json$`),
+    new RegExp(
+      `^${VERSION}/locales/${LOCALE}/(?:stats|items|mod-lines|stat-text-items|result-labels)\\.json$`,
+    ),
     (m) => `${m[1]}/game`,
   ],
   [/^poe1\/mercenary\.json$/, () => 'poe1/mercenary'],
@@ -83,7 +86,7 @@ export function batchOfDataPath(path) {
 
 /**
  * 檢查一個版本的整批分片是否一致；回傳錯誤訊息陣列（空陣列表示一致）。
- * @param {{ modsTiers: any, stats: Record<string, any>, items: Record<string, any>, modLines?: Record<string, any>, resultLabels?: Record<string, any> }} batch
+ * @param {{ modsTiers: any, stats: Record<string, any>, items: Record<string, any>, modLines?: Record<string, any>, statText?: Record<string, any>, resultLabels?: Record<string, any>, statAliases?: any }} batch
  */
 export function validateGameDataBatch(batch) {
   const errors = [];
@@ -118,6 +121,7 @@ export function validateGameDataBatch(batch) {
   const isObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
   const localeShards = [
     ['mod-lines.json', batch.modLines, (shard) => isObject(shard.lines)],
+    ['stat-text-items.json', batch.statText, (shard) => isObject(shard.lines)],
     [
       'result-labels.json',
       batch.resultLabels,
@@ -132,6 +136,14 @@ export function validateGameDataBatch(batch) {
       if (shard?.schemaVersion !== 1 || shard?.locale !== locale || !hasValidBody(shard)) {
         errors.push(`${file} (${locale}) 語系或格式不符`);
       }
+    }
+  }
+  if (batch.statAliases !== undefined && batch.statAliases !== null) {
+    if (batch.statAliases?.patch !== patch) {
+      errors.push(`stat-aliases.json patch ${batch.statAliases?.patch ?? '缺少'} ≠ ${patch}`);
+    }
+    if (batch.statAliases?.schemaVersion !== 1 || !isObject(batch.statAliases?.aliases)) {
+      errors.push('stat-aliases.json 格式不符');
     }
   }
   return errors;
@@ -179,12 +191,15 @@ export function validateBatchContent(batchId, filesByPath) {
       stats: {},
       items: {},
       modLines: {},
+      statText: {},
       resultLabels: {},
+      statAliases: filesByPath[`${version}/stat-aliases.json`],
     };
     const keyByFile = {
       'stats.json': 'stats',
       'items.json': 'items',
       'mod-lines.json': 'modLines',
+      'stat-text-items.json': 'statText',
       'result-labels.json': 'resultLabels',
     };
     for (const [path, data] of entries) {

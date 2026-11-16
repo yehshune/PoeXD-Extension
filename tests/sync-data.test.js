@@ -47,6 +47,27 @@ describe('validateGameDataBatch', () => {
     ]);
   });
 
+  it('驗證 stat-text-items 分片與 stat-aliases 檔', () => {
+    const statText = {
+      'zh-TW': { schemaVersion: 1, patch: '1.0', locale: 'zh-TW', lines: {} },
+      'zh-CN': { schemaVersion: 1, patch: '0.9', locale: 'zh-CN', lines: {} },
+    };
+    expect(
+      validateGameDataBatch(
+        batch({ statText, statAliases: { schemaVersion: 1, patch: '0.9', aliases: [] } }),
+      ),
+    ).toEqual([
+      'stat-text-items.json (zh-CN) patch 0.9 ≠ 1.0',
+      'stat-aliases.json patch 0.9 ≠ 1.0',
+      'stat-aliases.json 格式不符',
+    ]);
+    expect(
+      validateGameDataBatch(
+        batch({ statAliases: { schemaVersion: 1, patch: '1.0', aliases: {} } }),
+      ),
+    ).toEqual([]);
+  });
+
   it('validates optional result-labels shards (labels object, templates array)', () => {
     const resultLabels = {
       'zh-TW': {
