@@ -281,13 +281,16 @@
 
                 <!-- Outer-scroll panes: Tools & Settings 由外層 ScrollArea 擁有 scrolling -->
                 <ScrollAreaRoot
-                  v-show="activeTab === 'tools' || activeTab === 'settings'"
+                  v-show="
+                    activeTab === 'pob-build' || activeTab === 'tools' || activeTab === 'settings'
+                  "
                   data-sidebar-outer-scroll
                   class="relative flex-1 min-h-0 overflow-hidden"
                 >
                   <ScrollAreaViewport
                     class="h-full w-full min-h-0 p-[var(--pxd-pane-padding)] pb-[var(--pxd-pane-scroll-end-space)]"
                   >
+                    <PobBuildPane v-show="activeTab === 'pob-build'" />
                     <ToolsPane v-show="activeTab === 'tools'" />
                     <SettingsPane
                       v-show="activeTab === 'settings'"
@@ -498,6 +501,7 @@ import FilterPane from './sidebar/FilterPane.vue';
 import HistoryPane from './sidebar/HistoryPane.vue';
 import StatGroupTemplatePane from './sidebar/stat-group-templates/StatGroupTemplatePane.vue';
 import ToolsPane from './sidebar/ToolsPane.vue';
+import PobBuildPane from './sidebar/pob-build/PobBuildPane.vue';
 import SettingsPane from './sidebar/SettingsPane.vue';
 import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
@@ -553,6 +557,7 @@ import {
   RotateCcw,
   CircleHelp,
   SlidersHorizontal,
+  ShoppingCart,
 } from '@lucide/vue';
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
@@ -611,6 +616,7 @@ export default defineComponent({
     HistoryPane,
     StatGroupTemplatePane,
     ToolsPane,
+    PobBuildPane,
     SettingsPane,
     LiveSearchPrimaryPane,
     LiveSearchConsoleSettingsPane,
@@ -870,6 +876,13 @@ export default defineComponent({
           return t('sidebar.nav.statGroupTemplates');
         },
         icon: SlidersHorizontal,
+      },
+      {
+        id: 'pob-build',
+        get name() {
+          return t('sidebar.nav.pobBuild');
+        },
+        icon: ShoppingCart,
       },
       {
         id: 'tools',

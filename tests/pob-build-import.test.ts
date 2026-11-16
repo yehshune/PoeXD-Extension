@@ -55,18 +55,24 @@ Amber Amulet
 Unused Spare
 Vaal Regalia
 		</Item>
-		<ItemSet id="1">
+		<Item id="6">
+			Rarity: RARE
+Early Gem
+Viridian Jewel
+		</Item>
+		<ItemSet id="1" title="Endgame">
 			<Slot itemId="2" itemPbURL="" name="Weapon 2"/>
 			<Slot itemId="0" itemPbURL="" name="Weapon 2 Swap"/>
 			<Slot itemId="3" itemPbURL="" name="Flask 1"/>
 			<Slot itemId="4" itemPbURL="" name="Amulet"/>
 		</ItemSet>
-		<ItemSet id="2">
+		<ItemSet id="2" title="Leveling">
 			<Slot itemId="5" itemPbURL="" name="Body Armour"/>
+			<Slot itemId="4" itemPbURL="" name="Amulet"/>
 		</ItemSet>
 	</Items>
 	<Skills activeSkillSet="1">
-		<SkillSet id="1">
+		<SkillSet id="1" title="Endgame">
 			<Skill enabled="true" label="Explode" source="Explode">
 				<Gem enabled="true" level="1" nameSpec="" quality="0" skillId="EnemyExplode"/>
 			</Skill>
@@ -83,13 +89,23 @@ Vaal Regalia
 				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemOff" level="20" nameSpec="Skill Off" quality="0"/>
 			</Skill>
 		</SkillSet>
+		<SkillSet id="2" title="Leveling">
+			<Skill enabled="true" slot="Body Armour">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemPunishment" level="8" nameSpec="Punishment" quality="0"/>
+			</Skill>
+		</SkillSet>
 	</Skills>
 	<Tree activeSpec="1">
-		<Spec>
+		<Spec title="Endgame">
 			<URL>https://example.invalid/tree</URL>
 			<Sockets>
 				<Socket itemId="1" nodeId="26196"/>
 				<Socket itemId="0" nodeId="7960"/>
+			</Sockets>
+		</Spec>
+		<Spec title="Leveling">
+			<Sockets>
+				<Socket itemId="6" nodeId="26196"/>
 			</Sockets>
 		</Spec>
 	</Tree>
@@ -109,6 +125,8 @@ const ENGLISH_ITEMS = [
   'Lifetap Support',
   'Blessed Call Support',
   'Flask',
+  'Vaal Regalia',
+  'Viridian Jewel',
 ];
 const TW_ITEMS = [
   '緋紅珠寶',
@@ -121,6 +139,8 @@ const TW_ITEMS = [
   '賭血輔助',
   '神聖呼喚輔助',
   '藥劑',
+  '瓦爾法衣',
+  '翠綠珠寶',
 ];
 
 describe('decodePobBuildCode', () => {
@@ -142,39 +162,104 @@ describe('decodePobBuildCode', () => {
 });
 
 describe('parsePobBuildXml', () => {
-  it('讀出角色摘要、目前裝備組的裝備與天賦樹珠寶', () => {
+  it('讀出角色摘要與每一組裝備套裝的裝備', () => {
     const build = parsePobBuildXml(buildXml());
     expect(build).toMatchObject({
       gameVersion: 'poe1',
       className: 'Marauder',
       ascendancy: 'Chieftain',
       level: 97,
+      activeItemSetId: '1',
+      activeSkillSetId: '1',
+      activeTreeSpecId: '1',
     });
-    expect(build.items).toEqual([
+    expect(build.itemSets).toMatchObject([
       {
-        slot: 'Weapon 2',
-        rarity: 'UNIQUE',
-        name: 'Rise of the Phoenix',
-        baseType: 'Mosaic Kite Shield',
+        id: '1',
+        title: 'Endgame',
+        items: [
+          {
+            slot: 'Weapon 2',
+            rarity: 'UNIQUE',
+            name: 'Rise of the Phoenix',
+            baseType: 'Mosaic Kite Shield',
+          },
+          { slot: 'Flask 1', rarity: 'MAGIC', name: "Flagellant's Amethyst Flask of the Owl" },
+          {
+            slot: 'Amulet',
+            rarity: 'UNIQUE',
+            name: "Foulborn Xoph's Heart",
+            baseType: 'Amber Amulet',
+          },
+        ],
       },
-      { slot: 'Flask 1', rarity: 'MAGIC', name: "Flagellant's Amethyst Flask of the Owl" },
-      { slot: 'Amulet', rarity: 'UNIQUE', name: "Foulborn Xoph's Heart", baseType: 'Amber Amulet' },
-      { slot: 'Jewel', rarity: 'RARE', name: 'Soul Joy', baseType: 'Crimson Jewel' },
+      {
+        id: '2',
+        title: 'Leveling',
+        items: [
+          { slot: 'Body Armour', rarity: 'RARE', name: 'Unused Spare', baseType: 'Vaal Regalia' },
+          {
+            slot: 'Amulet',
+            rarity: 'UNIQUE',
+            name: "Foulborn Xoph's Heart",
+            baseType: 'Amber Amulet',
+          },
+        ],
+      },
     ]);
   });
 
-  it('只取目前技能組中啟用的寶石，略過裝備給的技能並去除重複', () => {
-    expect(parsePobBuildXml(buildXml()).gems).toEqual([
-      { name: 'Punishment', level: 20, quality: 0, support: false },
-      { name: 'Lifetap', level: 1, quality: 0, support: true },
-      { name: 'Blessed Call', level: 20, quality: 20, support: true },
+  it('每份天賦樹各自記錄插上的珠寶，以順序當 id', () => {
+    expect(parsePobBuildXml(buildXml()).treeSpecs).toMatchObject([
+      {
+        id: '1',
+        title: 'Endgame',
+        jewels: [{ slot: 'Jewel', rarity: 'RARE', name: 'Soul Joy', baseType: 'Crimson Jewel' }],
+      },
+      {
+        id: '2',
+        title: 'Leveling',
+        jewels: [{ slot: 'Jewel', rarity: 'RARE', name: 'Early Gem', baseType: 'Viridian Jewel' }],
+      },
     ]);
   });
 
-  it('依 activeItemSet 選裝備組，依根元素判斷遊戲版本', () => {
+  it('每組技能組只取啟用的寶石，略過裝備給的技能並去除重複', () => {
+    expect(parsePobBuildXml(buildXml()).skillSets).toEqual([
+      {
+        id: '1',
+        title: 'Endgame',
+        gems: [
+          { name: 'Punishment', level: 20, quality: 0, support: false },
+          { name: 'Lifetap', level: 1, quality: 0, support: true },
+          { name: 'Blessed Call', level: 20, quality: 20, support: true },
+        ],
+      },
+      {
+        id: '2',
+        title: 'Leveling',
+        gems: [{ name: 'Punishment', level: 8, quality: 0, support: false }],
+      },
+    ]);
+  });
+
+  it('記下匯出當下選用的套裝；屬性對不到時退回第一組；依根元素判斷遊戲版本', () => {
     const build = parsePobBuildXml(buildXml({ root: 'PathOfBuilding2', activeItemSet: '2' }));
     expect(build.gameVersion).toBe('poe2');
-    expect(build.items[0]).toMatchObject({ slot: 'Body Armour', baseType: 'Vaal Regalia' });
+    expect(build.activeItemSetId).toBe('2');
+    expect(parsePobBuildXml(buildXml({ activeItemSet: '99' })).activeItemSetId).toBe('1');
+  });
+
+  it('沒有任何套裝的 build 也能解析', () => {
+    const build = parsePobBuildXml(
+      '<PathOfBuilding><Build className="Witch" level="1"/></PathOfBuilding>',
+    );
+    expect(build).toMatchObject({
+      itemSets: [],
+      skillSets: [],
+      treeSpecs: [],
+      activeItemSetId: '',
+    });
   });
 
   it('不是 PoB build 或 XML 壞掉時丟出錯誤', () => {
@@ -189,7 +274,7 @@ describe('buildShoppingList', () => {
 
   it('英文頁面：傳奇用名稱加基底、其餘用基底、寶石帶等級與品質下限', () => {
     const list = buildShoppingList(build, createTradeNameCatalog({ englishItems: ENGLISH_ITEMS }));
-    expect(list).toEqual([
+    expect(list.map(({ key: _key, mods: _mods, rarity: _rarity, ...rest }) => rest)).toEqual([
       {
         kind: 'unique',
         label: 'Rise of the Phoenix',
@@ -271,7 +356,7 @@ describe('buildShoppingList', () => {
       build,
       createTradeNameCatalog({ englishItems: ['Amber Amulet'] }),
     );
-    expect(list[0]).toEqual({
+    expect(list[0]).toMatchObject({
       kind: 'unique',
       label: 'Rise of the Phoenix',
       slot: 'Weapon 2',
@@ -288,6 +373,41 @@ describe('buildShoppingList', () => {
     const list = buildShoppingList(poe2, createTradeNameCatalog({ englishItems: ENGLISH_ITEMS }));
     expect(list.some((entry) => entry.kind === 'gem')).toBe(false);
     expect(list.length).toBe(4);
+  });
+
+  it('可指定裝備套裝與技能組；珠寶取自同標題的天賦樹', () => {
+    const catalog = createTradeNameCatalog({ englishItems: ENGLISH_ITEMS });
+    const list = buildShoppingList(build, catalog, { itemSetId: '2', skillSetId: '2' });
+    expect(list.map((entry) => [entry.kind, entry.slot ?? entry.level, entry.label])).toEqual([
+      ['unique', 'Amulet', "Xoph's Heart"],
+      ['equipment', 'Body Armour', 'Vaal Regalia'],
+      ['equipment', 'Jewel', 'Viridian Jewel'],
+      ['gem', 8, 'Punishment'],
+    ]);
+  });
+
+  it('裝備套裝與技能組可以分開選；指定不存在的套裝時用匯出當下那一組', () => {
+    const catalog = createTradeNameCatalog({ englishItems: ENGLISH_ITEMS });
+    const mixed = buildShoppingList(build, catalog, { itemSetId: '2' });
+    expect(mixed.filter((entry) => entry.kind === 'gem').length).toBe(3);
+    expect(mixed.some((entry) => entry.label === 'Vaal Regalia')).toBe(true);
+
+    const fallback = buildShoppingList(build, catalog, { itemSetId: 'missing' });
+    expect(fallback).toEqual(buildShoppingList(build, catalog));
+  });
+
+  it('同一件裝備在不同套裝是同一個 key，不同項目的 key 不重複', () => {
+    const catalog = createTradeNameCatalog({ englishItems: ENGLISH_ITEMS });
+    const endgame = buildShoppingList(build, catalog, { itemSetId: '1', skillSetId: '1' });
+    const leveling = buildShoppingList(build, catalog, { itemSetId: '2', skillSetId: '2' });
+    const amuletKey = (list: typeof endgame) => list.find((entry) => entry.slot === 'Amulet')?.key;
+
+    expect(amuletKey(endgame)).toBe(amuletKey(leveling));
+    expect(new Set(endgame.map((entry) => entry.key)).size).toBe(endgame.length);
+    // 同名但等級不同的寶石是不同項目
+    expect(endgame.find((entry) => entry.label === 'Punishment')?.key).not.toBe(
+      leveling.find((entry) => entry.label === 'Punishment')?.key,
+    );
   });
 });
 

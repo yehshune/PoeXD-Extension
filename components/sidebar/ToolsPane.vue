@@ -90,11 +90,6 @@
 
     <Separator class="my-[var(--pxd-section-gap)]" />
 
-    <!-- PoB 購物清單 -->
-    <PobBuildSection />
-
-    <Separator class="my-[var(--pxd-section-gap)]" />
-
     <!-- 支持開發 -->
     <section class="flex flex-col gap-[var(--pxd-field-gap)]">
       <h3
@@ -124,7 +119,6 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { SUPPORT_PAGE_URL } from '@/utils/support-links';
-import PobBuildSection from './pob-build/PobBuildSection.vue';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from '@lucide/vue';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
@@ -198,7 +192,6 @@ export default defineComponent({
   name: 'ToolsPane',
   components: {
     Button,
-    PobBuildSection,
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
