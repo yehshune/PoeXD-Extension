@@ -284,6 +284,7 @@
                   v-show="activeTab === 'stat-group-template'"
                   :sidebar-position="sidebarPosition"
                 />
+                <PobBuildPane v-show="activeTab === 'pob-build'" />
 
                 <!-- Outer-scroll panes: Tools & Settings 由外層 ScrollArea 擁有 scrolling -->
                 <ScrollAreaRoot
@@ -504,6 +505,7 @@ import FilterPane from './sidebar/FilterPane.vue';
 import HistoryPane from './sidebar/HistoryPane.vue';
 import StatGroupTemplatePane from './sidebar/stat-group-templates/StatGroupTemplatePane.vue';
 import ToolsPane from './sidebar/ToolsPane.vue';
+import PobBuildPane from './sidebar/pob-build/PobBuildPane.vue';
 import SettingsPane from './sidebar/SettingsPane.vue';
 import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
@@ -561,6 +563,7 @@ import {
   RotateCcw,
   CircleHelp,
   SlidersHorizontal,
+  ShoppingCart,
 } from '@lucide/vue';
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
@@ -624,6 +627,7 @@ export default defineComponent({
     HistoryPane,
     StatGroupTemplatePane,
     ToolsPane,
+    PobBuildPane,
     SettingsPane,
     LiveSearchPrimaryPane,
     LiveSearchConsoleSettingsPane,
@@ -896,6 +900,13 @@ export default defineComponent({
         icon: SlidersHorizontal,
       },
       {
+        id: 'pob-build',
+        get name() {
+          return t('sidebar.nav.pobBuild');
+        },
+        icon: ShoppingCart,
+      },
+      {
         id: 'tools',
         get name() {
           return t('sidebar.nav.tools');
@@ -924,7 +935,8 @@ export default defineComponent({
       () =>
         activeTab.value === 'history' ||
         activeTab.value === 'bookmark' ||
-        activeTab.value === 'stat-group-template',
+        activeTab.value === 'stat-group-template' ||
+        activeTab.value === 'pob-build',
     );
 
     let handleStorageChange: ((changes: any) => void) | null = null;
