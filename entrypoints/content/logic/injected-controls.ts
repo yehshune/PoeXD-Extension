@@ -492,6 +492,11 @@ export function createTierSlotDomainData(
       if (modGroups.length > 1) {
         const detectedGroupId = filterEl.getAttribute('data-poexd-mod-group');
         let activeGroup = modGroups.find((g) => g.id === detectedGroupId);
+        if (!activeGroup && detectedGroupId) {
+          const sepIdx = detectedGroupId.indexOf('::');
+          const rawTemplate = sepIdx !== -1 ? detectedGroupId.slice(sepIdx + 2) : detectedGroupId;
+          activeGroup = modGroups.find((g) => g.templateZh === rawTemplate);
+        }
         if (!activeGroup) {
           activeGroup = modGroups.find((g) => g.isPure) || modGroups[0];
           filterEl.setAttribute('data-poexd-mod-group', activeGroup.id);
@@ -504,6 +509,7 @@ export function createTierSlotDomainData(
             label: g.label,
             groupId: g.id,
             groupIndex: gIdx,
+            ...(g.affinityLabel ? { affinityLabel: g.affinityLabel } : {}),
             isActive: g.id === activeGroup!.id,
           });
         });

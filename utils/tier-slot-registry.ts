@@ -12,6 +12,7 @@ export interface TierDropdownItemSpec {
   isRange?: boolean;
   groupId?: string;
   groupIndex?: number;
+  affinityLabel?: string;
   isActive?: boolean;
 }
 

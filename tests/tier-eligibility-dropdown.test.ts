@@ -1106,4 +1106,211 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       expect(result.normalTiers.every((t) => t.affinities.includes('enchant'))).toBe(true);
     });
   });
+
+  describe('11. 同模板多詞綴來源類別 (affinity) 分組隔離與跨類別 fallback', () => {
+    it('groupTiersByMod 會將同模板但不同來源類別（如胸甲 異界尊師 vs 救贖者 #% 敏捷）拆分為獨立分組', () => {
+      const multiAffinityTiers = [
+        {
+          displayTemplate: '增加 #% 敏捷',
+          level: 68,
+          affinities: ['elder'],
+          values: [['5', '8']],
+        },
+        {
+          displayTemplate: '增加 #% 敏捷',
+          level: 68,
+          affinities: ['redeemer'],
+          values: [['5', '8']],
+        },
+        {
+          displayTemplate: '增加 #% 敏捷',
+          level: 75,
+          affinities: ['redeemer'],
+          values: [['9', '12']],
+        },
+        {
+          displayTemplate: '增加 #% 敏捷',
+          level: 83,
+          affinities: ['elder'],
+          values: [['9', '12']],
+        },
+      ];
+
+      const groups = groupTiersByMod(multiAffinityTiers, 'poe1');
+      expect(groups).toHaveLength(2);
+      expect(groups[0].id).toBe('elder::增加 #% 敏捷');
+      expect(groups[0].affinity).toBe('elder');
+      expect(groups[0].affinityLabel).toBe('異界尊師');
+      expect(groups[0].label).toBe('增加 #% 敏捷');
+      expect(groups[0].tiers.map((t) => t.level)).toEqual([68, 83]);
+
+      expect(groups[1].id).toBe('redeemer::增加 #% 敏捷');
+      expect(groups[1].affinity).toBe('redeemer');
+      expect(groups[1].affinityLabel).toBe('救贖者');
+      expect(groups[1].label).toBe('增加 #% 敏捷');
+      expect(groups[1].tiers.map((t) => t.level)).toEqual([68, 75]);
+    });
+
+    it('groupTiersByMod 不會將同時帶有 essence 與 normal 的一般詞綴進階階級拆散', () => {
+      const lifeProgressionTiers = [
+        {
+          displayTemplate: '+# 最大生命',
+          level: 1,
+          affinities: ['normal'],
+          values: [['3', '9']],
+        },
+        {
+          displayTemplate: '+# 最大生命',
+          level: 5,
+          affinities: ['essence', 'normal'],
+          values: [['10', '24']],
+        },
+        {
+          displayTemplate: '+# 最大生命',
+          level: 86,
+          affinities: ['normal'],
+          values: [['175', '189']],
+        },
+      ];
+
+      const groups = groupTiersByMod(lifeProgressionTiers, 'poe1');
+      expect(groups).toHaveLength(1);
+      expect(groups[0].id).toBe('+# 最大生命');
+      expect(groups[0].affinityLabel).toBeUndefined();
+      expect(groups[0].tiers).toHaveLength(3);
+    });
+
+    it('createTierSlotDomainData 在多類別詞綴下各自呈現獨立 T1/T2 並支援預選與切換', async () => {
+      filterEl.setAttribute('data-poexd-stat-id', 'explicit.stat_4139681126');
+      filterEl.setAttribute('data-poexd-category', 'body-armour');
+      filterEl.setAttribute('data-poexd-mod-group', 'redeemer::增加 #% 敏捷');
+
+      const dexPercentTiers = [
+        {
+          displayTemplate: '增加 #% 敏捷',
+          level: 68,
+          types: ['body-armour'],
+          affinities: ['elder'],
+          ids: ['explicit.stat_4139681126'],
+          values: [['5', '8']],
+        },
+        {
+          displayTemplate: '增加 #% 敏捷',
+          level: 68,
+          types: ['body-armour', 'amulet'],
+          affinities: ['redeemer'],
+          ids: ['explicit.stat_4139681126'],
+          values: [['5', '8']],
+        },
+        {
+          displayTemplate: '增加 #% 敏捷',
+          level: 75,
+          types: ['body-armour', 'amulet'],
+          affinities: ['redeemer'],
+          ids: ['explicit.stat_4139681126'],
+          values: [['9', '12']],
+        },
+        {
+          displayTemplate: '增加 #% 敏捷',
+          level: 83,
+          types: ['body-armour'],
+          affinities: ['elder'],
+          ids: ['explicit.stat_4139681126'],
+          values: [['9', '12']],
+        },
+      ];
+
+      const rawMods = {
+        'explicit.stat_4139681126': dexPercentTiers,
+      };
+      const tierDomainService = createTierDomainService('poe1');
+      vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue(rawMods);
+      vi.spyOn(tierDomainService, 'getRawModsData').mockReturnValue(rawMods);
+
+      const injectedControls = createInjectedControls({
+        version: 'poe1',
+        tierDomainService,
+        isCurrentGeneration: () => true,
+      });
+
+      await injectedControls.injectTierSelectorButtons(1);
+      const slot = activeTierSlots.value[0];
+
+      const groupOptions = slot.items.filter((i) => i.type === 'mod_group_option');
+      expect(groupOptions).toHaveLength(2);
+      expect(groupOptions[0]).toMatchObject({
+        affinityLabel: '異界尊師',
+        label: '增加 #% 敏捷',
+        isActive: false,
+      });
+      expect(groupOptions[1]).toMatchObject({
+        affinityLabel: '救贖者',
+        label: '增加 #% 敏捷',
+        isActive: true,
+      });
+
+      const redeemerTiers = slot.items.filter((i) => i.type === 'tier');
+      expect(redeemerTiers).toHaveLength(2);
+      expect(redeemerTiers[0].label).toContain('T1 (Lv.75) (9 ~ 12)');
+      expect(redeemerTiers[1].label).toContain('T2 (Lv.68) (5 ~ 8)');
+
+      // 切換至異界尊師分組
+      slot.onSelect(groupOptions[0]);
+      const updatedSlot = activeTierSlots.value[0];
+      expect(filterEl.getAttribute('data-poexd-mod-group')).toBe('elder::增加 #% 敏捷');
+      const elderTiers = updatedSlot.items.filter((i) => i.type === 'tier');
+      expect(elderTiers).toHaveLength(2);
+      expect(elderTiers[0].label).toContain('T1 (Lv.83) (9 ~ 12)');
+      expect(elderTiers[1].label).toContain('T2 (Lv.68) (5 ~ 8)');
+    });
+
+    it('其他物品類別（如聖物 sanctum）帶有 normal 不會遮蔽胸甲上的勢力／掘獄詞綴階級', () => {
+      const auraEffectTiers = [
+        {
+          displayTemplate: '增加 #% 你技能的非詛咒光環效果',
+          level: 1,
+          types: ['body-armour'],
+          affinities: ['delve'],
+          values: [['20', '25']],
+        },
+        {
+          displayTemplate: '增加 #% 你技能的非詛咒光環效果',
+          level: 75,
+          types: ['body-armour'],
+          affinities: ['redeemer'],
+          values: [['15', '20']],
+        },
+        {
+          displayTemplate: '增加 #% 你技能的非詛咒光環效果',
+          level: 80,
+          types: ['body-armour'],
+          affinities: ['redeemer'],
+          values: [['21', '25']],
+        },
+        {
+          displayTemplate: '增加 #% 你技能的非詛咒光環效果',
+          level: 82,
+          types: ['relic'],
+          affinities: ['sanctum', 'normal'],
+          values: [['10', '15']],
+        },
+      ];
+
+      const eligibility = resolveTierModEligibility(
+        auraEffectTiers,
+        'explicit.stat_1880071428',
+        'poe1',
+      );
+      expect(eligibility.isEligible).toBe(true);
+      expect(eligibility.availableTypes).toContain('body-armour');
+      expect(eligibility.availableTypes).toContain('relic');
+
+      const bodyTiers = filterTiersByCategory(eligibility.normalTiers, 'body-armour');
+      expect(bodyTiers).toHaveLength(3);
+
+      const groups = groupTiersByMod(bodyTiers, 'poe1');
+      expect(groups).toHaveLength(2);
+      expect(groups.map((g) => g.affinityLabel)).toEqual(['救贖者', '掘獄']);
+    });
+  });
 });

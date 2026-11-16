@@ -745,4 +745,57 @@ describe('FilterPane Selected Mods Panel (Runtime Contracts)', () => {
 
     addCleanup();
   });
+
+  it('Q. prefixes modGroup with affinity when the same stat exists across multiple affinities on the selected item type', async () => {
+    const multiAffinityModsData = {
+      '#% increased Dexterity': [
+        {
+          key: '(5-8)% increased dexterity',
+          displayKey: '增加 (5-8)% 敏捷',
+          displayTemplate: '增加 #% 敏捷',
+          values: [['5', '8']],
+          level: '68',
+          generation_type: '2',
+          affinities: ['elder'],
+          types: ['body-armour'],
+          id: 'explicit.stat_4139681126',
+          ids: ['explicit.stat_4139681126'],
+        },
+        {
+          key: '(9-12)% increased dexterity',
+          displayKey: '增加 (9-12)% 敏捷',
+          displayTemplate: '增加 #% 敏捷',
+          values: [['9', '12']],
+          level: '75',
+          generation_type: '2',
+          affinities: ['redeemer'],
+          types: ['body-armour'],
+          id: 'explicit.stat_4139681126',
+          ids: ['explicit.stat_4139681126'],
+        },
+      ],
+    };
+    mockModsData(multiAffinityModsData);
+
+    await mountFilterPane();
+
+    const addedFilters: any[] = [];
+    const addCleanup = listenPoeEvent('poexd-add-stat-filter', (detail) => {
+      addedFilters.push(detail);
+    });
+
+    const addButtons = Array.from(
+      appRoot.querySelectorAll<HTMLButtonElement>('.mod-row .mod-action-zone button'),
+    );
+    expect(addButtons).toHaveLength(2);
+    // Click the second category (救贖者 redeemer)
+    addButtons[1].click();
+    await nextTick();
+
+    expect(addedFilters).toHaveLength(1);
+    expect(addedFilters[0].statId).toBe('explicit.stat_4139681126');
+    expect(addedFilters[0].modGroup).toBe('redeemer::增加 #% 敏捷');
+
+    addCleanup();
+  });
 });

@@ -1,5 +1,11 @@
 import { type PoeVersion } from '@/utils/trade-context';
-import { getAffinityProfile, commonAffinityProfile } from '@/utils/affinity-registry';
+import {
+  getAffinityProfile,
+  commonAffinityProfile,
+  resolveTierPrimaryAffinity,
+  getAffinityDisplayName,
+  getAffinityPriority,
+} from '@/utils/affinity-registry';
 import {
   ensureAffixLexiconLoaded,
   findModTiersByStatId as findModTiersFromLexicon,
@@ -70,32 +76,45 @@ export interface TierModGroup {
   label: string;
   templateZh: string;
   isPure: boolean;
+  affinity?: string;
+  affinityLabel?: string;
   tiers: any[];
 }
 
 /**
- * 依詞綴（displayTemplate 或 key）將該類別的 tiers 進行分組，純粹詞綴優先排在首位
+ * 依詞綴（displayTemplate 或 key）與來源類別 (affinity) 將該類別的 tiers 進行分組，純粹詞綴優先排在首位
  */
-export function groupTiersByMod(filteredTiers: any[]): TierModGroup[] {
+export function groupTiersByMod(filteredTiers: any[], version?: PoeVersion): TierModGroup[] {
   if (!Array.isArray(filteredTiers) || filteredTiers.length === 0) return [];
-  const groupsMap = new Map<string, any[]>();
+
+  const distinctAffinities = new Set<string>();
   for (const tier of filteredTiers) {
-    const key = (tier && (tier.displayTemplate || tier.displayKey || tier.key)) || '';
-    if (!groupsMap.has(key)) {
-      groupsMap.set(key, []);
+    distinctAffinities.add(resolveTierPrimaryAffinity(tier?.affinities));
+  }
+  const splitByAffinity = distinctAffinities.size > 1;
+
+  const groupsMap = new Map<string, { templateKey: string; affinity?: string; tiers: any[] }>();
+  for (const tier of filteredTiers) {
+    const templateKey = (tier && (tier.displayTemplate || tier.displayKey || tier.key)) || '';
+    const affinity = splitByAffinity ? resolveTierPrimaryAffinity(tier?.affinities) : undefined;
+    const mapKey = affinity ? `${affinity}::${templateKey}` : templateKey;
+    if (!groupsMap.has(mapKey)) {
+      groupsMap.set(mapKey, { templateKey, affinity, tiers: [] });
     }
-    groupsMap.get(key)!.push(tier);
+    groupsMap.get(mapKey)!.tiers.push(tier);
   }
 
   const groups: TierModGroup[] = [];
-  for (const [key, tiers] of groupsMap.entries()) {
-    const isPure = !key.includes('|||||');
-    const label = key.replace(/\|\|\|\|\|/g, '\n');
+  for (const [mapKey, entry] of groupsMap.entries()) {
+    const { templateKey, affinity, tiers } = entry;
+    const isPure = !templateKey.includes('|||||');
+    const label = templateKey.replace(/\|\|\|\|\|/g, '\n');
     groups.push({
-      id: key,
+      id: mapKey,
       label,
-      templateZh: key,
+      templateZh: templateKey,
       isPure,
+      ...(affinity ? { affinity, affinityLabel: getAffinityDisplayName(affinity, version) } : {}),
       tiers,
     });
   }
@@ -103,6 +122,9 @@ export function groupTiersByMod(filteredTiers: any[]): TierModGroup[] {
   groups.sort((a, b) => {
     if (a.isPure && !b.isPure) return -1;
     if (!a.isPure && b.isPure) return 1;
+    if (a.affinity && b.affinity && a.affinity !== b.affinity) {
+      return getAffinityPriority(a.affinity, version) - getAffinityPriority(b.affinity, version);
+    }
     return 0;
   });
 
@@ -265,12 +287,13 @@ export function resolveTierModEligibility(
 
   // 2. 多個 tiers：依 statId 對應目標 affinities 篩選候選 tiers
   const targetAffinities = resolveTargetAffinitiesByStatId(statId, version);
-  let candidateTiers = tiers.filter(
+  const primaryTiers = tiers.filter(
     (t) =>
       t &&
       Array.isArray(t.affinities) &&
       t.affinities.some((a: string) => targetAffinities.includes(a)),
   );
+  let candidateTiers = primaryTiers;
   if (candidateTiers.length === 0 && targetAffinities.includes('enchant')) {
     // 市集以附魔篩選星團珠寶詞綴，沒有專屬附魔階級時沿用星團階級
     candidateTiers = tiers.filter(
@@ -280,17 +303,53 @@ export function resolveTierModEligibility(
     candidateTiers = tiers.filter(
       (t) => t && Array.isArray(t.affinities) && t.affinities.includes('normal'),
     );
-  } else if (candidateTiers.length === 0 && targetAffinities.includes('normal')) {
-    // 若為明確詞綴 (explicit) 且無 normal 階級，但為特殊專屬詞綴，允許納入候選
+  } else if (targetAffinities.includes('normal') && !statId?.startsWith('implicit.')) {
+    // 若為明確詞綴 (explicit)，針對無 normal 階級或僅部分物品類別有 normal、其餘類別為特殊專屬詞綴者納入候選
     const specialAffinities = version
       ? getAffinityProfile(version).specialExplicitAffinities
       : commonAffinityProfile.specialExplicitAffinities;
-    candidateTiers = tiers.filter(
-      (t) =>
-        t &&
-        Array.isArray(t.affinities) &&
-        t.affinities.some((a: string) => specialAffinities.has(a)),
-    );
+    if (candidateTiers.length === 0) {
+      candidateTiers = tiers.filter(
+        (t) =>
+          t &&
+          Array.isArray(t.affinities) &&
+          t.affinities.some((a: string) => specialAffinities.has(a)),
+      );
+    } else {
+      const coveredTypes = new Set<string>();
+      for (const t of primaryTiers) {
+        if (Array.isArray(t.types)) {
+          for (const type of t.types) {
+            if (typeof type === 'string' && type.trim()) {
+              coveredTypes.add(type.trim());
+            }
+          }
+        }
+      }
+      const extraTiers: any[] = [];
+      for (const t of tiers) {
+        if (
+          !t ||
+          primaryTiers.includes(t) ||
+          !Array.isArray(t.affinities) ||
+          !t.affinities.some((a: string) => specialAffinities.has(a)) ||
+          !Array.isArray(t.types)
+        ) {
+          continue;
+        }
+        const uncoveredTypes = t.types.filter(
+          (type: string) =>
+            typeof type === 'string' && type.trim() && !coveredTypes.has(type.trim()),
+        );
+        if (uncoveredTypes.length === 0) continue;
+        extraTiers.push(
+          uncoveredTypes.length === t.types.length ? t : { ...t, types: uncoveredTypes },
+        );
+      }
+      if (extraTiers.length > 0) {
+        candidateTiers = [...primaryTiers, ...extraTiers];
+      }
+    }
   }
 
   if (candidateTiers.length === 0) {
@@ -377,7 +436,9 @@ export function createTierDomainService(version: PoeVersion): TierDomainService 
 
     filterTiersByCategory,
 
-    groupTiersByMod,
+    groupTiersByMod(filteredTiers) {
+      return groupTiersByMod(filteredTiers, version);
+    },
 
     getRawModsData() {
       return rawModsData;

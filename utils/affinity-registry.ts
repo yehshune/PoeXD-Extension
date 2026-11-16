@@ -325,3 +325,40 @@ export const commonAffinityProfile: CommonAffinityProfile = {
     ...poe2AffinityProfile.specialExplicitAffinities,
   ]),
 };
+
+/**
+ * 將單一 tier 的 affinities 正規化為用於 T 階分組的主類別：
+ * - 含 normal（如 ['essence', 'normal']、['soul', 'normal']）歸為 'normal'，避免與一般詞綴拆散
+ * - ['sanctum', 'normal'] / ['sanctum', 'corrupted'] 依其機制歸為 'sanctum' / 'corrupted'
+ */
+export function resolveTierPrimaryAffinity(affinities?: readonly string[] | null): string {
+  if (!Array.isArray(affinities) || affinities.length === 0) return 'normal';
+  if (affinities.includes('sanctum') && affinities.includes('normal')) return 'sanctum';
+  if (affinities.includes('sanctum') && affinities.includes('corrupted')) return 'corrupted';
+  if (affinities.includes('normal')) return 'normal';
+  const first = affinities.find((a) => typeof a === 'string' && a.trim());
+  return first ? first.trim() : 'normal';
+}
+
+export function getAffinityDisplayName(affinity: string, version?: PoeVersion): string {
+  if (version) {
+    const names = getAffinityProfile(version).categoryNames;
+    return names[affinity] ?? affinity;
+  }
+  return (
+    poe1AffinityProfile.categoryNames[affinity] ??
+    poe2AffinityProfile.categoryNames[affinity] ??
+    affinity
+  );
+}
+
+export function getAffinityPriority(affinity: string, version?: PoeVersion): number {
+  if (version) {
+    return getAffinityProfile(version).categoryPriorities[affinity] ?? 999;
+  }
+  return (
+    poe1AffinityProfile.categoryPriorities[affinity] ??
+    poe2AffinityProfile.categoryPriorities[affinity] ??
+    999
+  );
+}

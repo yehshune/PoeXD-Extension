@@ -282,10 +282,19 @@ function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpe
                 <span
                   class="flex items-start justify-between w-full min-w-0 gap-[var(--pxd-space-xs)]"
                 >
-                  <span
-                    class="whitespace-pre-line break-words text-[length:var(--pxd-font-body)] leading-snug select-none"
-                    >{{ item.label }}</span
-                  >
+                  <span class="flex flex-col min-w-0 gap-[var(--pxd-space-xs)] select-none">
+                    <span
+                      v-if="item.affinityLabel"
+                      data-slot="mod-group-affinity"
+                      class="text-[length:var(--pxd-font-caption)] font-medium leading-tight"
+                      :class="item.isActive ? 'text-primary/90' : 'text-muted-foreground'"
+                      >{{ item.affinityLabel }}</span
+                    >
+                    <span
+                      class="whitespace-pre-line break-words text-[length:var(--pxd-font-body)] leading-snug"
+                      >{{ item.label }}</span
+                    >
+                  </span>
                   <span
                     v-if="item.isActive"
                     class="text-primary text-[length:var(--pxd-font-caption)] shrink-0 font-bold mt-0.5"

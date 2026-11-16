@@ -738,7 +738,7 @@ import {
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { readMarketDropdownLocale } from '@/utils/market-translation';
 import { getTradeMapping } from './mapping-registry';
-import { getAffinityProfile } from '@/utils/affinity-registry';
+import { getAffinityProfile, resolveTierPrimaryAffinity } from '@/utils/affinity-registry';
 import { useFilterData } from './composables/useFilterData';
 import { useFilterNavigation } from './composables/useFilterNavigation';
 import { t, getActiveDisplayLocale, getActiveUiLocale } from '@/utils/i18n';
@@ -1439,6 +1439,29 @@ export default defineComponent({
       return source.displayTemplate || source.displayKey || source.key || undefined;
     };
 
+    const hasMultiplePrimaryAffinitiesForStat = (mod: StatFilterModPayload): boolean => {
+      const targetStatIds = new Set<string>();
+      if (Array.isArray(mod.ids)) {
+        mod.ids.forEach((id) => {
+          if (id) targetStatIds.add(id);
+        });
+      }
+      if (mod.officialId) targetStatIds.add(mod.officialId);
+      if (mod.id && isTradeStatId(mod.id)) targetStatIds.add(mod.id);
+      if (targetStatIds.size === 0) return false;
+
+      const primaryAffinities = new Set<string>();
+      for (const g of currentTypeGroups.value) {
+        const groupMatches =
+          (g.officialId && targetStatIds.has(g.officialId)) ||
+          (Array.isArray(g.ids) && g.ids.some((id) => targetStatIds.has(id)));
+        if (!groupMatches) continue;
+        primaryAffinities.add(resolveTierPrimaryAffinity(g.tiers?.[0]?.affinities ?? g.affinities));
+        if (primaryAffinities.size > 1) return true;
+      }
+      return false;
+    };
+
     // 發送事件新增屬性篩選到官方網頁 (複合詞綴多事件發送處理)
     const addStatFilter = (
       mod: StatFilterModPayload,
@@ -1449,7 +1472,12 @@ export default defineComponent({
     ) => {
       const keyToMatch = matchKey || mod.key;
       const affinities = mod.affinities || ['normal'];
-      const modGroup = mod.modGroup || resolveModGroupKey(mod.tiers?.[0] || mod);
+      const baseModGroup = mod.modGroup || resolveModGroupKey(mod.tiers?.[0] || mod);
+      const primaryAffinity = resolveTierPrimaryAffinity(affinities);
+      const modGroup =
+        baseModGroup && !baseModGroup.includes('::') && hasMultiplePrimaryAffinitiesForStat(mod)
+          ? `${primaryAffinity}::${baseModGroup}`
+          : baseModGroup;
 
       const getSingleVal = (val?: string | string[]) => (Array.isArray(val) ? val[0] : val);
 

@@ -1659,4 +1659,52 @@ describe('Chromium Regressions (Native Reka + Vue Teleport Phase 3)', () => {
     );
     expect(tierRow?.classList.contains('bg-primary/15')).toBe(true);
   });
+
+  it('renders affinityLabel badge above group label when mod_group_option provides affinityLabel', async () => {
+    const items: TierDropdownItemSpec[] = [
+      { id: 'cat', type: 'switch_category', label: '胸甲 (點選切換)' },
+      {
+        id: 'group-elder::增加 #% 敏捷',
+        type: 'mod_group_option',
+        label: '增加 #% 敏捷',
+        affinityLabel: '異界尊師',
+        groupId: 'elder::增加 #% 敏捷',
+        groupIndex: 0,
+        isActive: true,
+      },
+      {
+        id: 'group-redeemer::增加 #% 敏捷',
+        type: 'mod_group_option',
+        label: '增加 #% 敏捷',
+        affinityLabel: '救贖者',
+        groupId: 'redeemer::增加 #% 敏捷',
+        groupIndex: 1,
+        isActive: false,
+      },
+      {
+        id: 't1',
+        type: 'tier',
+        label: 'T1 (Lv.83) (9 ~ 12)',
+        valMin: '9',
+        valMax: '12',
+        isRange: true,
+      },
+    ];
+
+    syncTierSlots([{ key: 'slot-1', targetEl: slotEl1, items, onSelect: vi.fn() }]);
+    await nextTick();
+
+    const trigger = slotEl1.querySelector<HTMLButtonElement>('button.poexd-tier-trigger');
+    trigger?.click();
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 50));
+
+    const content = portalRoot.querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]');
+    const affinityBadges = content?.querySelectorAll<HTMLElement>(
+      '[data-slot="mod-group-affinity"]',
+    );
+    expect(affinityBadges).toHaveLength(2);
+    expect(affinityBadges![0].textContent?.trim()).toBe('異界尊師');
+    expect(affinityBadges![1].textContent?.trim()).toBe('救贖者');
+  });
 });
