@@ -54,7 +54,8 @@ FEATURES
 • Search history – every search you run is recorded so you can find it again.
 • Stat group templates – save frequently used stat filter groups and overlay them onto any search.
 • LiveSearch Console – watch several live searches side by side in one tab.
-• Trade page enhancements – tier quick buttons, affix selector, price conversion, matched-affix highlighting and more.
+• PoB shopping list – import Path of Building codes or share links to track gear and gems, tune mod filters and search the trade site in one click.
+• Trade page enhancements – tier quick buttons, affix selector, price conversion, PoB item copy, PoEDB links, matched-affix highlighting and more.
 • Market Translation – show the international trade site in Traditional or Simplified Chinese with each official realm's wording (optional bilingual mode).
 • Themes, panel position, UI scale and keyboard shortcuts.
 • Interface in English, Traditional Chinese and Simplified Chinese.
@@ -88,7 +89,8 @@ PoeXD 在《流亡黯道》官方交易網站（PoE 1 與 PoE 2）加上一個�
 • 搜尋紀錄：自動記錄每一次搜尋，方便回頭找。
 • 詞綴群組範本：儲存常用的詞綴篩選群組，隨時疊加到任何搜尋。
 • 線上搜尋主控台：在同一個分頁同時監聽多組即時搜尋。
-• 交易頁增強：T 階快捷按鈕、詞綴選擇器、價格換算、結果詞綴高亮等。
+• PoB 購物清單：匯入 Path of Building 代碼或分享網址，整理裝備與技能清單、微調詞綴條件並一鍵搜尋。
+• 交易頁增強：T 階快捷按鈕、詞綴選擇器、價格換算、複製英文 PoB 裝備、PoEDB 連結、結果詞綴高亮等。
 • 市集漢化：以台服或國服官方用語顯示國際服市集的介面、篩選器、下拉選單與搜尋結果，可選擇中英並列。
 • 可調整主題、面板位置、介面縮放比例與快捷鍵。
 • 介面支援繁體中文、简体中文與 English。

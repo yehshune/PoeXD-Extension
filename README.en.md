@@ -28,15 +28,24 @@ on the right. Store versions update automatically. Firefox is not available yet.
 
 ## What's new
 
-- **Fixed "Send to console" freezes**: a bookmark change during console startup could freeze the
-  whole console tab on the next enqueue; sending and league loading now also time out with a
-  fallback queue, so the button no longer gets stuck and batches are never added twice.
-- **Fixed edited criteria missing from console and bookmarks**: sending or bookmarking right after
-  changing criteria such as the item category could use the stale URL; it now waits for the
-  official site to write the form into the URL first.
-- **Fixed search bar glitches with Chinese IME**: with the search tilde option on, typing Chinese
-  continuously could insert ~ mid-composition and leave stray characters (e.g. Bopomofo); the
-  prefix is now applied only after composition ends.
+- **PoB shopping list & `pobb.in` translation**: added a PoB Shopping List tab in the sidebar to
+  import Path of Building codes or `poe.ninja`, `pobb.in` and `pastebin` share links (optional
+  host permission for the latter two) across multiple builds; items are grouped by gear slot and
+  gems, with mod translation (including legacy wording), a tuning popover before searching, and
+  one-click search, bookmarking or sending to the LiveSearch Console. With `pobb.in` permission and
+  Market Translation enabled, `pobb.in` share pages are also translated to Chinese.
+- **PoB copy, PoEDB links & converted-price sorting on results**: added buttons on the top-left
+  hover strip of result cards to copy English PoB item text or open the item's PoEDB page (mapping
+  Taiwan/China realm names back to English), plus converted-price sorting (asc/desc) for both PoE 1
+  and PoE 2.
+- **Unified search preview tuning**: bookmark and history search previews now share the same mod
+  tuning popover and stat domain badges as the PoB shopping list so you can adjust criteria before
+  applying or opening a search.
+- **Affix selector, bookmark & Market Translation improvements**: added an item level range filter
+  and fixed multi-affinity mod groups in the affix selector; added bookmark overwrite with the
+  current search and active-search highlighting; added a sidebar update notice and welcome banner;
+  expanded Market Translation coverage (discriminant, legacy and transfigured items) and synced
+  bundled data shards.
 
 See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
 
@@ -64,20 +73,29 @@ overlay individual affixes from them.
 
 ### 🔍 Affix filter and tier tools
 
-Browse prefixes and suffixes by item class and write them to the official filters in one go; tier
-buttons next to each filter fill in value ranges; drag affixes to reorder or move them between
-groups. PoE 2 tablets, waystones and radius jewels are supported.
+Browse prefixes and suffixes by item class and item level range, and write them to the official
+filters in one go; tier buttons next to each filter fill in value ranges; drag affixes to reorder or
+move them between groups. PoE 2 tablets, waystones and radius jewels are supported.
 
 ### 💰 Result enhancements
 
-Price conversion between currencies using poe.ninja rates (international realm), highlighting of
-matching affixes, and PoE 2 rune-override DPS / defence estimates with sorting.
+Price conversion between currencies using poe.ninja rates with converted-price sorting
+(international realm), highlighting of matching affixes, one-click English PoB item copy and PoEDB
+links, and PoE 2 rune-override DPS / defence estimates with sorting.
+
+### 🧩 PoB shopping list
+
+Import Path of Building codes or `poe.ninja`, `pobb.in` and `pastebin` share links to organize
+multiple builds by gear slot and gems; translate mods, tune search criteria and search, bookmark or
+send items to the LiveSearch Console in one click. When `pobb.in` permission and Market Translation
+are enabled, `pobb.in` pages are also displayed in Chinese.
 
 ### 📁 Bookmarks, history and TFT interop
 
-Tree folders with drag and drop, cover images and hover previews; bookmarks follow your current
-realm and league. Search history is recorded automatically. Import and export bookmarks with TFT
-Trade Extension, with a diff preview before importing.
+Tree folders with drag and drop, cover images, hover previews, active-search highlighting and
+overwriting with the current search; bookmarks follow your current realm and league. Search history
+is recorded automatically. Import and export bookmarks with TFT Trade Extension, with a diff preview
+before importing.
 
 <p align="center"><img src="./docs/store/images/en/screenshot-1.jpg" width="80%" alt="Bookmark tree"></p>
 
