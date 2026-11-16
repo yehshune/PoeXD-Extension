@@ -147,6 +147,8 @@ export const LAYOUT_TOKENS = Object.freeze({
   overlayInspectMaxHeightVar: '--pxd-overlay-inspect-max-height',
   searchPreviewWidthPx: 380,
   searchPreviewWidthVar: '--pxd-search-preview-width',
+  tooltipMaxWidthPx: 280,
+  tooltipMaxWidthVar: '--pxd-tooltip-max-width',
   temporarySearchDialogWidthPx: 420,
   temporarySearchDialogWidthVar: '--pxd-temporary-search-dialog-width',
   temporarySearchDialogMaxHeightPx: 520,
@@ -604,6 +606,7 @@ export function createUiRuntimeTokenValues(
       LAYOUT_TOKENS.overlayInspectMaxHeightPx * scale,
     ),
     [LAYOUT_TOKENS.searchPreviewWidthVar]: formatPx(LAYOUT_TOKENS.searchPreviewWidthPx * scale),
+    [LAYOUT_TOKENS.tooltipMaxWidthVar]: formatPx(LAYOUT_TOKENS.tooltipMaxWidthPx * scale),
     [LAYOUT_TOKENS.temporarySearchDialogWidthVar]: formatPx(
       LAYOUT_TOKENS.temporarySearchDialogWidthPx * scale,
     ),

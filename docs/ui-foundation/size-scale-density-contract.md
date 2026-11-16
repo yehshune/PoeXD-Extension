@@ -286,11 +286,12 @@ PoeXD 控制項分為三大元件 Profile，加上 Layout Spacing 組成四大�
     - `--pxd-overlay-inspect-width`: 基準 300px (Resume Inspect Popover 面寬)
     - `--pxd-overlay-inspect-max-height`: 基準 220px (Inspect 內部列表最大高度)
     - `--pxd-search-preview-width`: 基準 380px (Trade Search Preview 浮層面寬，等同側欄基準寬)
+    - `--pxd-tooltip-max-width`: 基準 280px (Tooltip 預設最大寬度，確保長說明文字可自動換行閱讀)
     - `--pxd-mercenary-build-width`: 基準 300px (傭兵技能選擇器的 Build 下拉寬)
     - `--pxd-temporary-search-dialog-width`: 基準 420px (Temporary Search 對話框面寬)
     - `--pxd-temporary-search-dialog-max-height`: 520px (Temporary Search 對話框最大高度)
-  - **Tooltip & Popover Primitive Padding Ownership**：
-    - `TooltipContent` 預設字級由語意排版契約 (`--pxd-font-secondary`) 驅動，預設內距由語意間距契約 (`--pxd-space-lg` 12px, `--pxd-space-sm` 6px) 驅動，隨 Scale 等比縮放且留白依 Density 收斂。
+  - **Tooltip & Popover Primitive Padding / Width Ownership**：
+    - `TooltipContent` 預設字級由語意排版契約 (`--pxd-font-secondary`) 驅動，預設內距由語意間距契約 (`--pxd-space-lg` 12px, `--pxd-space-sm` 6px) 驅動，隨 Scale 等比縮放且留白依 Density 收斂；預設最大寬度由 `min(var(--pxd-tooltip-max-width,280px),var(--reka-tooltip-content-available-width,calc(100vw-32px)))` 限制並搭配自動換行 (`whitespace-normal break-words`)，專責寬度之浮層（如 `TradeSearchPreviewTooltip`）可透過 `max-w-*` 覆寫為可用視口寬度。
     - `PopoverContent` 預設內距由 Primitive 提供 Scale/Density 驅動之 `--pxd-space-lg` (12px baseline)，Consumer 專注於業務排版，嚴禁在 Consumer 上重複宣告手寫 `p-3` 形成雙重 ownership。
 
 ---
