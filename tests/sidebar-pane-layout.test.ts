@@ -249,10 +249,10 @@ describe('Sidebar Header activeTabName and scroll ownership contract', () => {
     expect(sidebarSource).not.toContain('<style');
   });
 
-  it('applies has-pane-scroll when activeTab is history, bookmark or stat-group-template (usesPaneScroll) and zeroes outer padding for edge-to-edge scroll viewport', () => {
+  it('applies has-pane-scroll when activeTab is history, bookmark, stat-group-template or pob-build (usesPaneScroll) and zeroes outer padding for edge-to-edge scroll viewport', () => {
     expect(sidebarSource).toContain('has-pane-scroll');
     expect(sidebarSource).toContain('usesPaneScroll = computed(');
-    ['history', 'bookmark', 'stat-group-template'].forEach((tab) => {
+    ['history', 'bookmark', 'stat-group-template', 'pob-build'].forEach((tab) => {
       expect(sidebarSource).toContain(`activeTab.value === '${tab}'`);
     });
     expect(sidebarSource).toContain('usesPaneScroll,');
