@@ -49,14 +49,14 @@
 
       <div v-if="isSearchVisible" class="relative mb-[var(--pxd-space-md)] flex items-center">
         <Search
-          class="pointer-events-none absolute left-2.5 size-[var(--control-icon-sm,14px)] text-muted-foreground"
+          class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
         />
         <Input
           ref="searchInputRef"
           v-model="searchQuery"
           size="sm"
           :placeholder="t('pobBuild.searchPlaceholder')"
-          class="w-full pl-8 pr-7"
+          class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))]"
           data-pob-build-filter
           @keydown.esc.stop.prevent="closeSearch"
         />
@@ -64,7 +64,7 @@
           v-if="searchQuery"
           variant="ghost"
           size="icon-sm"
-          class="absolute right-1"
+          class="absolute right-[var(--pxd-space-xs)]"
           :title="t('bookmark.search.clearTooltip')"
           @click="searchQuery = ''"
         >
@@ -76,7 +76,7 @@
         v-if="errorKey && !isImportOpen"
         role="alert"
         data-pob-build-error
-        class="mb-[var(--pxd-space-md)] rounded-md border border-destructive/40 bg-destructive/10 px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-destructive"
+        class="mb-[var(--pxd-space-md)] rounded-md border border-destructive/40 bg-destructive/10 px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] text-destructive"
       >
         {{ t(errorKey) }}
       </div>
@@ -155,7 +155,7 @@
               />
               <template v-else>
                 <span
-                  class="min-w-0 flex-1 truncate text-[length:var(--pxd-font-secondary)] font-bold text-foreground"
+                  class="min-w-0 flex-1 truncate text-[length:var(--pxd-font-section-title)] font-bold text-foreground"
                   data-pob-build-name
                   :title="build.name"
                 >
@@ -163,7 +163,7 @@
                 </span>
 
                 <span
-                  class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
+                  class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums"
                   data-pob-build-progress
                   :title="
                     t('pobBuild.progress', {
@@ -179,39 +179,54 @@
 
             <div
               v-if="renamingId !== build.id"
-              class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) bg-[color-mix(in_srgb,var(--muted)_70%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto flex items-center gap-[var(--pxd-space-xs)]"
+              :class="{ '!opacity-100 !pointer-events-auto': isBuildMenuOpen(build.id) }"
+              class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) bg-[color-mix(in_srgb,var(--muted)_70%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto flex items-center"
               @click.stop
             >
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                data-pob-build-update-code
-                :title="t('pobBuild.updateCodeTitle')"
-                :aria-label="t('pobBuild.updateCodeTitle')"
-                @click.stop="openUpdateDialog(build)"
+              <DropdownMenu
+                :open="isBuildMenuOpen(build.id)"
+                @update:open="(open) => setBuildMenuOpen(build.id, open)"
               >
-                <RefreshCw />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                data-pob-build-rename
-                :title="t('pobBuild.renameTitle')"
-                :aria-label="t('pobBuild.renameTitle')"
-                @click.stop="startRename(build)"
-              >
-                <Pencil />
-              </Button>
-              <Button
-                variant="ghost-destructive"
-                size="icon-sm"
-                data-pob-build-delete
-                :title="t('pobBuild.deleteBuildTitle')"
-                :aria-label="t('pobBuild.deleteBuildTitle')"
-                @click.stop="confirmDeleteBuild(build)"
-              >
-                <Trash2 />
-              </Button>
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    data-pob-build-menu
+                    :title="t('pobBuild.moreActionsTitle')"
+                    :aria-label="t('pobBuild.moreActionsTitle')"
+                    @click.stop
+                  >
+                    <Ellipsis />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  v-if="isBuildMenuOpen(build.id)"
+                  align="end"
+                  @close-auto-focus="
+                    (e) => {
+                      if (renamingId) e.preventDefault();
+                    }
+                  "
+                >
+                  <DropdownMenuItem data-pob-build-update-code @click="openUpdateDialog(build)">
+                    <RefreshCw class="text-muted-foreground" />
+                    {{ t('pobBuild.updateCodeTitle') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem data-pob-build-rename @click="startRename(build)">
+                    <Pencil class="text-muted-foreground" />
+                    {{ t('pobBuild.renameTitle') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    data-pob-build-delete
+                    @click="confirmDeleteBuild(build)"
+                  >
+                    <Trash2 class="text-destructive" />
+                    {{ t('pobBuild.deleteBuildTitle') }}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
 
@@ -231,7 +246,9 @@
                 v-if="build.itemSetOptions.length > 1"
                 class="flex items-center justify-between gap-[var(--pxd-space-md)]"
               >
-                <span class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+                <span
+                  class="shrink-0 text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+                >
                   {{ t('pobBuild.itemSetLabel') }}
                 </span>
                 <Select
@@ -259,7 +276,9 @@
                 v-if="showSkillSets(build)"
                 class="flex items-center justify-between gap-[var(--pxd-space-md)]"
               >
-                <span class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+                <span
+                  class="shrink-0 text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+                >
                   {{ t('pobBuild.skillSetLabel') }}
                 </span>
                 <Select
@@ -289,11 +308,10 @@
               >
                 <span
                   v-if="build.progress.done > 0 || build.hideDone"
-                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] text-muted-foreground"
                 >
                   <Checkbox
                     :id="`pob-hide-done-${build.id}`"
-                    class="[--checkbox-size:14px] [--checkbox-indicator-size:9px]"
                     data-pob-build-hide-done
                     :model-value="build.hideDone"
                     @update:model-value="(value) => setHideDone(build.id, value === true)"
@@ -307,7 +325,7 @@
                   variant="link"
                   size="sm"
                   data-pob-build-restore-removed
-                  class="ml-auto h-auto p-0 text-[length:var(--pxd-font-caption)]"
+                  class="ml-auto h-auto p-0 text-[length:var(--pxd-font-secondary)]"
                   @click="restoreRemoved(build.id)"
                 >
                   {{ t('pobBuild.restoreRemoved', { count: build.removedCount }) }}
@@ -317,7 +335,7 @@
 
             <p
               v-if="build.groups.length === 0"
-              class="m-0 px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-caption)] text-muted-foreground"
+              class="m-0 px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
               data-pob-build-empty
             >
               {{
@@ -335,17 +353,25 @@
               :data-pob-build-group-id="group.id"
             >
               <h4
-                class="m-0 flex items-center justify-between border-b border-border bg-muted/25 px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] font-bold text-muted-foreground select-none"
+                class="m-0 flex items-center justify-between gap-[var(--pxd-space-sm)] border-b border-border bg-muted/35 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-body)] font-bold text-foreground select-none"
               >
                 <span class="min-w-0 truncate">{{ groupTitle(group) }}</span>
-                <span class="tabular-nums">{{ group.rows.length }}</span>
+                <span
+                  class="shrink-0 text-[length:var(--pxd-font-caption)] font-semibold text-muted-foreground tabular-nums"
+                  >{{ group.rows.length }}</span
+                >
               </h4>
 
               <template v-for="row in group.rows" :key="row.key">
                 <div
                   data-pob-build-row
                   :data-done="row.done ? 'true' : 'false'"
-                  class="group/row relative flex items-center gap-[var(--pxd-space-sm)] border-0 border-b border-dashed border-border px-[var(--pxd-space-md)] py-[var(--pxd-bookmark-row-padding-y)] last:border-b-0 transition-colors hover:bg-muted/40"
+                  :class="
+                    isPreviewActive(build.id, row.key)
+                      ? 'bg-primary/12 hover:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
+                      : 'hover:bg-muted/40'
+                  "
+                  class="group/row relative flex items-center gap-[var(--pxd-space-sm)] border-0 border-b border-dashed border-border px-[var(--pxd-space-md)] py-[var(--pxd-bookmark-row-padding-y)] last:border-b-0 transition-colors"
                 >
                   <Checkbox
                     :model-value="row.done"
@@ -367,7 +393,7 @@
                   <button
                     type="button"
                     data-pob-build-search
-                    class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-secondary)] cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-body)] cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     :class="{ 'line-through opacity-50': row.done, 'opacity-60': !row.query }"
                     :disabled="!row.query"
                     :title="row.query ? t('pobBuild.searchTitle') : t('pobBuild.noSearchTitle')"
@@ -381,13 +407,13 @@
                       <span
                         v-if="row.suffix"
                         data-pob-build-suffix
-                        class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
+                        class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums"
                         >{{ row.suffix }}</span
                       >
                       <span
                         v-if="row.count > 1"
                         data-pob-build-count
-                        class="shrink-0 rounded-sm bg-muted px-1 text-[length:var(--pxd-font-micro)] font-bold text-foreground tabular-nums"
+                        class="shrink-0 rounded-sm bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-bold text-foreground tabular-nums"
                         :title="t('pobBuild.countTitle', { count: row.count })"
                         >×{{ row.count }}</span
                       >
@@ -395,43 +421,48 @@
                         v-if="row.searchCustomized"
                         data-pob-build-customized
                         role="img"
-                        class="size-1.5 shrink-0 self-center rounded-full bg-primary"
+                        class="size-[6px] shrink-0 self-center rounded-full bg-primary"
                         :title="t('pobBuild.customizedTitle')"
                         :aria-label="t('pobBuild.customizedTitle')"
                       />
                     </span>
                     <span
-                      class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground"
+                      class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
                     >
                       <span>{{ rowDetail(row) }}</span>
                     </span>
                   </button>
 
                   <Button
-                    v-if="row.mods?.length"
+                    v-if="row.mods?.length || row.searchOverride"
                     variant="ghost"
                     size="icon-sm"
-                    class="-mr-[var(--pxd-space-xs)] shrink-0 text-muted-foreground"
+                    class="-mr-[var(--pxd-space-xs)] shrink-0"
+                    :class="
+                      isPreviewActive(build.id, row.key)
+                        ? 'text-primary bg-primary/15'
+                        : 'text-muted-foreground'
+                    "
                     data-pob-build-mods-toggle
-                    :aria-expanded="isExpanded(build.id, row.key)"
+                    :aria-expanded="isPreviewActive(build.id, row.key)"
                     :title="t('pobBuild.toggleModsTitle')"
                     :aria-label="t('pobBuild.toggleModsTitle')"
-                    @click.stop="toggleExpanded(build.id, row.key)"
+                    @click.stop="togglePreview(build.id, row.key, $event)"
                   >
-                    <ChevronDown
-                      class="transition-transform duration-200"
-                      :class="{ '-rotate-90': !isExpanded(build.id, row.key) }"
-                    />
+                    <SlidersHorizontal />
                   </Button>
 
                   <div
                     :class="[
-                      row.mods?.length
+                      row.mods?.length || row.searchOverride
                         ? 'right-[calc(var(--pxd-space-md)+var(--control-height-sm))]'
                         : 'right-[var(--pxd-space-md)]',
+                      isPreviewActive(build.id, row.key)
+                        ? 'bg-[color-mix(in_srgb,var(--primary)_15%,var(--card))]'
+                        : 'bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))]',
                       { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
                     ]"
-                    class="absolute top-1/2 -translate-y-1/2 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
+                    class="absolute top-1/2 -translate-y-1/2 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
                   >
                     <Button
                       v-if="row.query"
@@ -544,155 +575,17 @@
                             </DropdownMenuItem>
                           </DropdownMenuSubContent>
                         </DropdownMenuSub>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          data-pob-build-remove
+                          @click="removeEntry(build.id, row.key)"
+                        >
+                          <Trash2 class="text-destructive" />
+                          {{ t('pobBuild.removeTitle') }}
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button
-                      variant="ghost-destructive"
-                      size="icon-sm"
-                      data-pob-build-remove
-                      :title="t('pobBuild.removeTitle')"
-                      :aria-label="t('pobBuild.removeAria', { name: row.label })"
-                      @click.stop="removeEntry(build.id, row.key)"
-                    >
-                      <X />
-                    </Button>
-                  </div>
-                </div>
-
-                <div
-                  v-if="row.mods?.length && isExpanded(build.id, row.key)"
-                  data-pob-build-mods
-                  class="[--checkbox-size:14px] [--checkbox-indicator-size:9px] border-0 border-b border-dashed border-border bg-muted/20 py-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[calc(var(--pxd-space-md)+var(--checkbox-size,18px)+var(--pxd-space-sm))] last:border-b-0 text-[length:var(--pxd-font-caption)]"
-                >
-                  <p
-                    v-if="row.searchOverride"
-                    data-pob-build-override-notice
-                    class="m-0 mb-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-primary"
-                  >
-                    {{ t('pobBuild.mods.overrideNotice') }}
-                  </p>
-                  <ul
-                    class="m-0 flex list-none flex-col gap-[2px] border-0 border-l-2 border-solid border-border p-0 pl-[var(--pxd-space-sm)]"
-                    :class="{ 'opacity-60': row.searchOverride }"
-                  >
-                    <li
-                      v-for="line in modLines(row)"
-                      :key="line.index"
-                      :data-mod-kind="line.mod.kind"
-                      :data-mod-searched="line.mod.searched ? 'true' : 'false'"
-                      class="flex items-center gap-[var(--pxd-space-xs)] break-words"
-                      :class="[
-                        MOD_CLASSES[line.mod.kind],
-                        { 'opacity-60': line.mod.stat && !line.mod.searched },
-                      ]"
-                    >
-                      <Checkbox
-                        v-if="line.mod.stat"
-                        data-pob-build-mod-toggle
-                        :model-value="line.mod.searched"
-                        :aria-label="t('pobBuild.mods.statAria', { text: line.mod.text })"
-                        @update:model-value="
-                          (value) =>
-                            setStatEnabled(build.id, row.key, line.mod.stat!.id, value === true)
-                        "
-                      />
-                      <span
-                        v-else
-                        class="size-[var(--checkbox-size)] shrink-0"
-                        aria-hidden="true"
-                      />
-                      <span class="min-w-0 flex-1">{{ line.mod.text }}</span>
-                      <template v-if="line.editor">
-                        <span class="shrink-0 text-muted-foreground" aria-hidden="true">{{
-                          line.editor.bound === 'min' ? '≥' : '≤'
-                        }}</span>
-                        <input
-                          type="number"
-                          inputmode="decimal"
-                          step="any"
-                          data-pob-build-mod-bound
-                          :data-bound="line.editor.bound"
-                          class="h-5 w-14 shrink-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-sm border border-solid border-input bg-background px-1 text-right text-[length:var(--pxd-font-caption)] text-foreground tabular-nums focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
-                          :value="line.editor.value ?? ''"
-                          :disabled="!line.mod.searched"
-                          :aria-label="
-                            t(
-                              line.editor.bound === 'min'
-                                ? 'pobBuild.mods.minAria'
-                                : 'pobBuild.mods.maxAria',
-                            )
-                          "
-                          @change="commitBound(build.id, row.key, line.editor, $event)"
-                          @keydown.enter.prevent="blurTarget"
-                        />
-                      </template>
-                    </li>
-                  </ul>
-
-                  <div
-                    v-if="row.filters.length > 0"
-                    class="mt-[var(--pxd-space-xs)] flex flex-wrap items-center gap-x-[var(--pxd-space-md)] gap-y-[var(--pxd-space-xs)] text-muted-foreground"
-                  >
-                    <span class="inline-flex items-center gap-[var(--pxd-space-xs)]">
-                      <Checkbox
-                        :id="controlId(build.id, row.key, 'count')"
-                        data-pob-build-count-mode
-                        :model-value="row.countMin !== undefined"
-                        @update:model-value="
-                          (value) => toggleCountMode(build.id, row, value === true)
-                        "
-                      />
-                      <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->
-                      <label :for="controlId(build.id, row.key, 'count')" class="cursor-pointer">{{
-                        t('pobBuild.mods.countMode')
-                      }}</label>
-                    </span>
-                    <span
-                      v-if="row.countMin !== undefined"
-                      class="inline-flex items-center gap-[var(--pxd-space-xs)]"
-                    >
-                      <input
-                        type="number"
-                        min="1"
-                        :max="enabledCount(row)"
-                        step="1"
-                        data-pob-build-count-min
-                        class="h-5 w-9 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-sm border border-solid border-input bg-background px-1 text-right text-[length:var(--pxd-font-caption)] text-foreground tabular-nums focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        :value="row.countMin"
-                        :aria-label="t('pobBuild.mods.countAria')"
-                        @change="commitCountMin(build.id, row, $event)"
-                        @keydown.enter.prevent="blurTarget"
-                      />
-                      <span v-if="t('pobBuild.mods.countUnit')">{{
-                        t('pobBuild.mods.countUnit')
-                      }}</span>
-                    </span>
-                    <span
-                      v-if="hasPseudo(row)"
-                      class="inline-flex items-center gap-[var(--pxd-space-xs)]"
-                    >
-                      <Checkbox
-                        :id="controlId(build.id, row.key, 'pseudo')"
-                        data-pob-build-pseudo
-                        :model-value="row.pseudo"
-                        @update:model-value="
-                          (value) => setPseudo(build.id, row.key, value === true)
-                        "
-                      />
-                      <label :for="controlId(build.id, row.key, 'pseudo')" class="cursor-pointer">{{
-                        t('pobBuild.mods.pseudo')
-                      }}</label>
-                    </span>
-                    <Button
-                      v-if="row.searchCustomized"
-                      variant="link"
-                      size="sm"
-                      data-pob-build-reset-search
-                      class="ml-auto h-auto p-0 text-[length:var(--pxd-font-caption)]"
-                      @click="resetSearch(build.id, row.key)"
-                    >
-                      {{ t('pobBuild.mods.reset') }}
-                    </Button>
                   </div>
                 </div>
               </template>
@@ -703,10 +596,44 @@
 
       <p
         v-if="builds.length > 0"
-        class="m-0 pt-[var(--pxd-space-md)] text-[length:var(--pxd-font-micro)] leading-relaxed text-muted-foreground"
+        class="m-0 pt-[var(--pxd-space-md)] text-[length:var(--pxd-font-caption)] leading-relaxed text-muted-foreground"
       >
         {{ t('pobBuild.listHint') }}
       </p>
+
+      <PobEntryPreviewPopover
+        :open="isPreviewOpen"
+        :side="sidebarPosition === 'left' ? 'right' : 'left'"
+        :reference="previewAnchorEl"
+        :build-id="activePreview?.buildId ?? ''"
+        :row="activePreview?.row ?? null"
+        :row-detail-text="activePreview ? rowDetail(activePreview.row) : ''"
+        :name-class="activePreview ? nameClass(activePreview.row) : ''"
+        @update:open="(open) => !open && closePreview()"
+        @set-stat-enabled="
+          (statId, enabled) =>
+            activePreview &&
+            setStatEnabled(activePreview.buildId, activePreview.row.key, statId, enabled)
+        "
+        @set-stat-bound="
+          (statId, bound, value) =>
+            activePreview &&
+            setStatBound(activePreview.buildId, activePreview.row.key, statId, bound, value)
+        "
+        @set-count-min="
+          (countMin) =>
+            activePreview && setCountMin(activePreview.buildId, activePreview.row.key, countMin)
+        "
+        @set-pseudo="
+          (on) => activePreview && setPseudo(activePreview.buildId, activePreview.row.key, on)
+        "
+        @reset-search="
+          () => activePreview && resetSearch(activePreview.buildId, activePreview.row.key)
+        "
+        @open-search="
+          (mode) => activePreview && openSearch(activePreview.buildId, activePreview.row, mode)
+        "
+      />
 
       <PobBuildImportDialog
         v-model:open="isImportOpen"
@@ -723,7 +650,16 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import {
+  computed,
+  defineComponent,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  type PropType,
+} from 'vue';
 import {
   BookmarkPlus,
   ChevronDown,
@@ -739,6 +675,7 @@ import {
   Save,
   Search,
   Send,
+  SlidersHorizontal,
   Trash2,
   X,
 } from '@lucide/vue';
@@ -764,17 +701,14 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import SidebarPane from '../layout/SidebarPane.vue';
+import { rowAnchorFromEvent } from '../composables/usePinnedPreview';
 import { t, type I18nKey } from '@/utils/i18n';
 import { POB_BUILD_NAME_MAX_LENGTH } from '@/utils/pob-build-store';
-import {
-  isRequiredInCountMode,
-  type ShoppingEntry,
-  type ShoppingMod,
-  type ShoppingModKind,
-} from '@/utils/pob-shopping-list';
+import type { ShoppingEntry } from '@/utils/pob-shopping-list';
 import { getPoeVersion } from '@/utils/trade-context';
 import { getFolderItemIndentLevel } from '../bookmark-tree';
 import PobBuildImportDialog from './PobBuildImportDialog.vue';
+import PobEntryPreviewPopover from './PobEntryPreviewPopover.vue';
 import type { PobBookmarkFolder } from './pob-bookmark-bridge';
 import { formatPobSlot } from './pob-slot-label';
 import {
@@ -783,21 +717,7 @@ import {
   type SetOption,
   type ShoppingGroup,
   type ShoppingRow,
-  type StatBound,
 } from './usePobBuild';
-
-interface BoundEditor {
-  statId: string;
-  bound: StatBound;
-  value?: number;
-}
-
-interface ModLine {
-  index: number;
-  mod: ShoppingMod;
-  /** 數值輸入框；只放在同一個條件的第一行 */
-  editor?: BoundEditor;
-}
 
 // 稀有度顏色取遊戲內的色相，亮度取在深淺主題都看得清楚的中間值
 const RARITY_CLASSES: Readonly<Record<string, string>> = {
@@ -809,15 +729,14 @@ const RARITY_CLASSES: Readonly<Record<string, string>> = {
 };
 const GEM_CLASS = 'text-[oklch(0.7_0.1_190)]';
 
-const MOD_CLASSES: Readonly<Record<ShoppingModKind, string>> = {
-  implicit: 'text-muted-foreground',
-  enchant: 'text-[oklch(0.74_0.09_300)]',
-  explicit: 'text-foreground',
-  crafted: 'text-[oklch(0.72_0.1_230)]',
-};
-
 export default defineComponent({
   name: 'PobBuildPane',
+  props: {
+    sidebarPosition: {
+      type: String as PropType<'left' | 'right'>,
+      default: 'left',
+    },
+  },
   components: {
     BookmarkPlus,
     Button,
@@ -839,6 +758,7 @@ export default defineComponent({
     Pencil,
     Plus,
     PobBuildImportDialog,
+    PobEntryPreviewPopover,
     Radio,
     RefreshCw,
     RotateCcw,
@@ -852,6 +772,7 @@ export default defineComponent({
     Send,
     Separator,
     SidebarPane,
+    SlidersHorizontal,
     Trash2,
     X,
   },
@@ -866,20 +787,25 @@ export default defineComponent({
     const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
     const renamingId = ref<string | null>(null);
     const renameInput = ref('');
-    const expandedRows = ref<ReadonlySet<string>>(new Set());
+    /** 目前在右側 Popover 檢視／調整詞綴的項目 */
+    const activePreviewTarget = ref<{ buildId: string; key: string } | null>(null);
+    const previewAnchorEl = ref<HTMLElement | null>(null);
     /** 目前開啟「更多動作」選單的那一列 */
     const openMenuRow = ref<string | null>(null);
+    /** 目前開啟操作選單的那份 build */
+    const openBuildMenuId = ref<string | null>(null);
     /** 書籤資料夾；null 表示載入中 */
     const bookmarkFolders = ref<PobBookmarkFolder[] | null>(null);
 
     const rowId = (buildId: string, key: string) => `${buildId}\u0000${key}`;
-    const isExpanded = (buildId: string, key: string) =>
-      expandedRows.value.has(rowId(buildId, key));
-    const toggleExpanded = (buildId: string, key: string) => {
-      const next = new Set(expandedRows.value);
-      const id = rowId(buildId, key);
-      if (!next.delete(id)) next.add(id);
-      expandedRows.value = next;
+
+    const isBuildMenuOpen = (buildId: string) => openBuildMenuId.value === buildId;
+    const setBuildMenuOpen = (buildId: string, open: boolean) => {
+      if (!open) {
+        if (openBuildMenuId.value === buildId) openBuildMenuId.value = null;
+        return;
+      }
+      openBuildMenuId.value = buildId;
     };
 
     const isMenuOpen = (buildId: string, key: string) => openMenuRow.value === rowId(buildId, key);
@@ -924,53 +850,6 @@ export default defineComponent({
         ? t('pobBuild.gemDetail', { level: entry.level ?? 1, quality: entry.quality ?? 0 })
         : formatPobSlot(entry.slot ?? '');
 
-    /**
-     * 展開後的每一行詞綴。同一個代碼的多行是同一個條件，數值輸入只放在第一行；精確數值
-     * （種子編號、附魔）、選項型與沒有數值的條件不能改數值。
-     */
-    const modLines = (row: ShoppingRow): ModLine[] => {
-      const seen = new Set<string>();
-      return (row.mods ?? []).map((mod, index) => {
-        const stat = mod.stat;
-        if (!stat || seen.has(stat.id)) return { index, mod };
-        seen.add(stat.id);
-        const filter = row.filters.find((entry) => entry.id === stat.id);
-        if (!filter || filter.value === undefined || stat.exact) return { index, mod };
-        const bound: StatBound = filter.value < 0 ? 'max' : 'min';
-        return { index, mod, editor: { statId: stat.id, bound, value: filter[bound] } };
-      });
-    };
-
-    /** label 與 Checkbox 以 id 連結；key 含分隔字元，轉成只含安全字元的 id */
-    const controlId = (buildId: string, key: string, name: string) =>
-      `pob-${name}-${Array.from(rowId(buildId, key), (char) => char.charCodeAt(0).toString(36)).join('')}`;
-
-    const blurTarget = (event: Event) => (event.target as HTMLInputElement).blur();
-
-    const commitBound = (buildId: string, key: string, editor: BoundEditor, event: Event) => {
-      const raw = (event.target as HTMLInputElement).value.trim();
-      const value = raw === '' ? null : Number(raw);
-      if (value !== null && !Number.isFinite(value)) return;
-      pob.setStatBound(buildId, key, editor.statId, editor.bound, value);
-    };
-
-    /** 參與「至少符合 N 項」的條件數（固定詞綴與附魔一定要符合，不算在內） */
-    const enabledCount = (row: ShoppingRow) =>
-      row.filters.filter((filter) => filter.enabled && !isRequiredInCountMode(filter.id)).length;
-
-    const toggleCountMode = (buildId: string, row: ShoppingRow, on: boolean) => {
-      // 預設允許少一項；條件只有一項時就是一項
-      pob.setCountMin(buildId, row.key, on ? Math.max(1, enabledCount(row) - 1) : undefined);
-    };
-
-    const commitCountMin = (buildId: string, row: ShoppingRow, event: Event) => {
-      const value = Math.floor(Number((event.target as HTMLInputElement).value));
-      if (!Number.isFinite(value) || value < 1) return;
-      pob.setCountMin(buildId, row.key, value);
-    };
-
-    const hasPseudo = (row: ShoppingRow) => row.mods?.some((mod) => mod.stat?.pseudo) ?? false;
-
     const nameClass = (entry: ShoppingEntry): string =>
       entry.kind === 'gem' ? GEM_CLASS : (RARITY_CLASSES[entry.rarity ?? 'NORMAL'] ?? '');
 
@@ -997,6 +876,46 @@ export default defineComponent({
         }))
         .filter((build) => build.groups.length > 0);
     });
+
+    /** 由可見清單即時查出目前預覽的項目，詞綴／數值更新時 Popover 同步反映，列消失時自動關閉 */
+    const activePreview = computed<{ buildId: string; row: ShoppingRow } | null>(() => {
+      const target = activePreviewTarget.value;
+      if (!target) return null;
+      const build = visibleBuilds.value.find((entry) => entry.id === target.buildId);
+      if (!build || (build.collapsed && !isFiltering.value)) return null;
+      for (const group of build.groups) {
+        const found = group.rows.find((entry) => entry.key === target.key);
+        if (found) return { buildId: build.id, row: found };
+      }
+      return null;
+    });
+
+    const isPreviewOpen = computed(() => activePreview.value !== null);
+
+    const closePreview = () => {
+      activePreviewTarget.value = null;
+      previewAnchorEl.value = null;
+    };
+
+    watch(activePreview, (value) => {
+      if (!value && activePreviewTarget.value) {
+        closePreview();
+      }
+    });
+
+    const isPreviewActive = (buildId: string, key: string) =>
+      activePreview.value?.buildId === buildId && activePreview.value?.row.key === key;
+
+    const togglePreview = (buildId: string, key: string, event: Event) => {
+      if (isPreviewActive(buildId, key)) {
+        closePreview();
+        return;
+      }
+      const anchor = rowAnchorFromEvent(event, '[data-pob-build-row]');
+      if (!anchor) return;
+      activePreviewTarget.value = { buildId, key };
+      previewAnchorEl.value = anchor;
+    };
 
     const isAllCollapsed = computed(
       () => pob.builds.value.length > 0 && pob.builds.value.every((build) => build.collapsed),
@@ -1074,7 +993,6 @@ export default defineComponent({
 
     return {
       t,
-      MOD_CLASSES,
       NAME_MAX_LENGTH: POB_BUILD_NAME_MAX_LENGTH,
       isImportOpen,
       updateTarget,
@@ -1086,8 +1004,14 @@ export default defineComponent({
       isFiltering,
       visibleBuilds,
       isAllCollapsed,
-      isExpanded,
-      toggleExpanded,
+      activePreview,
+      previewAnchorEl,
+      isPreviewOpen,
+      isPreviewActive,
+      togglePreview,
+      closePreview,
+      isBuildMenuOpen,
+      setBuildMenuOpen,
       isMenuOpen,
       setMenuOpen,
       bookmarkFolders,
@@ -1099,14 +1023,6 @@ export default defineComponent({
       groupTitle,
       rowDetail,
       nameClass,
-      modLines,
-      blurTarget,
-      controlId,
-      commitBound,
-      enabledCount,
-      toggleCountMode,
-      commitCountMin,
-      hasPseudo,
       openImportDialog,
       openUpdateDialog,
       handleImport,
@@ -1129,6 +1045,8 @@ export default defineComponent({
       openSearch: pob.openSearch,
       resetSearch: pob.resetSearch,
       setStatEnabled: pob.setStatEnabled,
+      setStatBound: pob.setStatBound,
+      setCountMin: pob.setCountMin,
       setPseudo: pob.setPseudo,
       setHideDone: pob.setHideDone,
       openSharePermissionPage: pob.openSharePermissionPage,

@@ -134,7 +134,7 @@ export interface ShoppingStatFilter {
   customized: boolean;
 }
 
-const ONLINE_STATUS = { option: 'online' } as const;
+const INSTANT_BUYOUT_STATUS = { option: 'securable' } as const;
 const SUPPORT_SUFFIX = ' Support';
 /** 異變傳奇在 PoB 的名稱多一個前綴，市集上仍是原名 */
 const MUTATED_UNIQUE_PREFIX = /^Foulborn\s+/;
@@ -519,7 +519,7 @@ function itemEntry(
       slot: item.slot,
       rarity: item.rarity,
       searchBase: base.trade
-        ? { status: ONLINE_STATUS, type: base.trade, ...linkFilters(item) }
+        ? { status: INSTANT_BUYOUT_STATUS, type: base.trade, ...linkFilters(item) }
         : null,
     });
   }
@@ -540,7 +540,7 @@ function itemEntry(
     rarity: item.rarity,
     searchBase: tradeName
       ? {
-          status: ONLINE_STATUS,
+          status: INSTANT_BUYOUT_STATUS,
           name: tradeName,
           ...(base.trade ? { type: base.trade } : {}),
           ...linkFilters(item),
@@ -601,7 +601,7 @@ function gemEntry(gem: PobBuildGem, catalog: TradeNameCatalog): ShoppingEntry {
   };
   const searchBase = tradeName
     ? {
-        status: ONLINE_STATUS,
+        status: INSTANT_BUYOUT_STATUS,
         type: tradeName,
         ...(Object.keys(gemFilters).length > 0
           ? { filters: { misc_filters: { filters: gemFilters } } }

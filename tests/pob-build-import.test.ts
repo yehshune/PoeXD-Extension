@@ -320,7 +320,7 @@ describe('buildShoppingList', () => {
         label: 'Rise of the Phoenix',
         slot: 'Weapon 2',
         query: {
-          status: { option: 'online' },
+          status: { option: 'securable' },
           name: 'Rise of the Phoenix',
           type: 'Mosaic Kite Shield',
         },
@@ -330,21 +330,21 @@ describe('buildShoppingList', () => {
         count: 1,
         label: "Xoph's Heart",
         slot: 'Amulet',
-        query: { status: { option: 'online' }, name: "Xoph's Heart", type: 'Amber Amulet' },
+        query: { status: { option: 'securable' }, name: "Xoph's Heart", type: 'Amber Amulet' },
       },
       {
         kind: 'equipment',
         count: 1,
         label: 'Amethyst Flask',
         slot: 'Flask 1',
-        query: { status: { option: 'online' }, type: 'Amethyst Flask' },
+        query: { status: { option: 'securable' }, type: 'Amethyst Flask' },
       },
       {
         kind: 'equipment',
         count: 1,
         label: 'Crimson Jewel',
         slot: 'Jewel',
-        query: { status: { option: 'online' }, type: 'Crimson Jewel' },
+        query: { status: { option: 'securable' }, type: 'Crimson Jewel' },
       },
       {
         kind: 'gem',
@@ -353,7 +353,7 @@ describe('buildShoppingList', () => {
         gemGroup: { id: 'Weapon 1', slot: 'Weapon 1' },
         level: 1,
         quality: 0,
-        query: { status: { option: 'online' }, type: 'Lifetap Support' },
+        query: { status: { option: 'securable' }, type: 'Lifetap Support' },
       },
       {
         kind: 'gem',
@@ -363,7 +363,7 @@ describe('buildShoppingList', () => {
         level: 20,
         quality: 0,
         query: {
-          status: { option: 'online' },
+          status: { option: 'securable' },
           type: 'Punishment',
           filters: { misc_filters: { filters: { gem_level: { min: 20 } } } },
         },
@@ -375,7 +375,7 @@ describe('buildShoppingList', () => {
         gemGroup: { id: 'Gloves', slot: 'Gloves' },
         level: 1,
         quality: 0,
-        query: { status: { option: 'online' }, type: 'Lifetap Support' },
+        query: { status: { option: 'securable' }, type: 'Lifetap Support' },
       },
       {
         kind: 'gem',
@@ -385,7 +385,7 @@ describe('buildShoppingList', () => {
         level: 20,
         quality: 20,
         query: {
-          status: { option: 'online' },
+          status: { option: 'securable' },
           type: 'Blessed Call Support',
           filters: { misc_filters: { filters: { gem_level: { min: 20 }, quality: { min: 20 } } } },
         },
@@ -403,7 +403,7 @@ describe('buildShoppingList', () => {
       query: { name: '鳳凰之昇', type: '馬賽克鳶盾' },
     });
     expect(list.find((entry) => entry.slot === 'Flask 1')?.query).toEqual({
-      status: { option: 'online' },
+      status: { option: 'securable' },
       type: '紫晶藥劑',
     });
     expect(list.at(-1)?.query).toMatchObject({ type: '神聖呼喚輔助' });
@@ -470,7 +470,7 @@ describe('buildShoppingList', () => {
 });
 
 describe('buildTradeSearchUrl', () => {
-  const query = { status: { option: 'online' }, type: '紫晶藥劑' };
+  const query = { status: { option: 'securable' }, type: '紫晶藥劑' };
 
   it('PoE 1 與 PoE 2 的路徑不同，聯盟與查詢都做編碼', () => {
     const poe1 = buildTradeSearchUrl({

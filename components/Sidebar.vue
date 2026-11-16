@@ -284,7 +284,10 @@
                   v-show="activeTab === 'stat-group-template'"
                   :sidebar-position="sidebarPosition"
                 />
-                <PobBuildPane v-show="activeTab === 'pob-build'" />
+                <PobBuildPane
+                  v-show="activeTab === 'pob-build'"
+                  :sidebar-position="sidebarPosition"
+                />
 
                 <!-- Outer-scroll panes: Tools & Settings 由外層 ScrollArea 擁有 scrolling -->
                 <ScrollAreaRoot

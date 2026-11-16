@@ -241,7 +241,7 @@ describe('buildShoppingList：搜尋條件', () => {
 
   it('同一個代碼的多行數值加總；小數保留、負數用上限；六連帶入連結數；工藝詞綴不列入', () => {
     expect(entry('Reaver Axe').query).toEqual({
-      status: { option: 'online' },
+      status: { option: 'securable' },
       type: 'Reaver Axe',
       filters: { socket_filters: { filters: { links: { min: 6 } } } },
       stats: [
@@ -281,7 +281,7 @@ describe('buildShoppingList：搜尋條件', () => {
     const cluster = entry('Large Cluster Jewel');
     expect(cluster.count).toBe(2);
     expect(cluster.query).toEqual({
-      status: { option: 'online' },
+      status: { option: 'securable' },
       type: 'Large Cluster Jewel',
       stats: [
         {
@@ -301,7 +301,7 @@ describe('buildShoppingList：搜尋條件', () => {
     const timeless = entry('Lethal Pride');
     expect(timeless.suffix).toBe('16137');
     expect(timeless.query).toEqual({
-      status: { option: 'online' },
+      status: { option: 'securable' },
       name: 'Lethal Pride',
       type: 'Timeless Jewel',
       stats: [
@@ -318,7 +318,7 @@ describe('buildShoppingList：搜尋條件', () => {
   it('傳奇的詞綴預設不帶入但可以勾選；連結數不到五連不帶入', () => {
     const kaom = entry("Kaom's Heart");
     expect(kaom.query).toEqual({
-      status: { option: 'online' },
+      status: { option: 'securable' },
       name: "Kaom's Heart",
       type: 'Glorious Plate',
     });
@@ -419,7 +419,7 @@ describe('使用者調整搜尋條件', () => {
       entryStatFilters(ring).map((filter) => [filter.id, { enabled: false }]),
     );
     expect(buildEntryQuery(ring, { stats })).toEqual({
-      status: { option: 'online' },
+      status: { option: 'securable' },
       type: 'Two-Stone Ring',
     });
   });

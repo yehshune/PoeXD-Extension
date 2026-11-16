@@ -380,7 +380,7 @@ describe('usePobBuild', () => {
       expect(await pob.importCode(toCode(buildXml()))).toBe(true);
       pob.selectItemSet('build-1', '2');
       expect(rowByLabel(first(pob), 'Plate Vest').query).toEqual({
-        status: { option: 'online' },
+        status: { option: 'securable' },
         type: 'Plate Vest',
       });
     });
@@ -410,7 +410,7 @@ describe('usePobBuild', () => {
 
       const plate = rowByLabel(first(pob), 'Plate Vest');
       expect(plate.query).toEqual({
-        status: { option: 'online' },
+        status: { option: 'securable' },
         type: 'Plate Vest',
         stats: [{ type: 'and', filters: [{ id: 'explicit.stat_3299347043', value: { min: 80 } }] }],
       });
@@ -695,7 +695,7 @@ describe('usePobBuild', () => {
       expect(plateOf(pob).searchCustomized).toBe(true);
 
       pob.setStatEnabled('build-1', plateOf(pob).key, LIFE, false);
-      expect(plateOf(pob).query).toEqual({ status: { option: 'online' }, type: 'Plate Vest' });
+      expect(plateOf(pob).query).toEqual({ status: { option: 'securable' }, type: 'Plate Vest' });
       expect(plateOf(pob).mods?.[0].searched).toBe(false);
       await flush();
       expect(stored()[0].searchSelections).toEqual({
@@ -909,7 +909,7 @@ describe('usePobBuild', () => {
       const url = new URL(navigate.mock.calls[0][0] as string);
       expect(url.origin + url.pathname).toBe('https://www.pathofexile.com/trade/search/Standard');
       expect(JSON.parse(url.searchParams.get('q') ?? '').query).toEqual({
-        status: { option: 'online' },
+        status: { option: 'securable' },
         name: 'Rise of the Phoenix',
         type: 'Mosaic Kite Shield',
       });

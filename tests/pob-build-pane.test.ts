@@ -216,6 +216,7 @@ describe('PobBuildPane', () => {
   const queryBody = <T extends Element = HTMLElement>(selector: string) =>
     document.body.querySelector<T>(selector);
   const queryAll = (selector: string) => Array.from(container.querySelectorAll(selector));
+  const queryAllBody = (selector: string) => Array.from(document.body.querySelectorAll(selector));
   const row = (index: number) => queryAll('[data-pob-build-row]')[index] as HTMLElement;
 
   beforeEach(() => {
@@ -343,6 +344,11 @@ describe('PobBuildPane', () => {
     trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await flushAsync(40);
   };
+  const openBuildMenu = async () => {
+    const trigger = query<HTMLElement>('[data-pob-build-menu]')!;
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushAsync(40);
+  };
   const clickMenuItem = async (selector: string) => {
     const item = queryBody<HTMLElement>(selector)!;
     expect(item).not.toBeNull();
@@ -413,14 +419,15 @@ describe('PobBuildPane', () => {
     ];
     await mount();
     row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
-    await nextTick();
-    expect(query('[data-pob-build-override-notice]')).not.toBeNull();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-override-notice]')).not.toBeNull();
   });
 
   it('更新代碼開啟同一個對話框的更新模式，送出後交給 updateCode', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
-    query<HTMLButtonElement>('[data-pob-build-update-code]')!.click();
+    await openBuildMenu();
+    await clickMenuItem('[data-pob-build-update-code]');
     await flushAsync();
 
     expect(document.body.textContent).toContain('更新「RF 酋長」的 PoB 代碼');
@@ -477,7 +484,8 @@ describe('PobBuildPane', () => {
     row(1).querySelector<HTMLElement>('[data-pob-build-done]')!.click();
     expect(fake.toggleDone).toHaveBeenCalledWith('b1', 'k-rare');
 
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-remove]')!.click();
+    await openMenu(1);
+    await clickMenuItem('[data-pob-build-remove]');
     expect(fake.removeEntry).toHaveBeenCalledWith('b1', 'k-rare');
 
     query<HTMLButtonElement>('[data-pob-build-restore-removed]')!.click();
@@ -497,13 +505,14 @@ describe('PobBuildPane', () => {
     expect(row(3).querySelector('[data-pob-build-customized]')).toBeNull();
   });
 
-  it('展開後可勾選詞綴、改數值、切換至少符合 N 項與總和條件、還原預設', async () => {
+  it('開啟預覽 Popover 後可勾選詞綴、改數值、切換至少符合 N 項與總和條件、搜尋與還原預設', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
     row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
-    await nextTick();
+    await flushAsync();
 
-    const toggles = queryAll('[data-pob-build-mod-toggle]') as HTMLElement[];
+    expect(queryBody('[data-pob-build-mods-popover]')).not.toBeNull();
+    const toggles = queryAllBody('[data-pob-build-mod-toggle]') as HTMLElement[];
     // 工藝詞綴沒有市集代碼，不能勾選
     expect(toggles).toHaveLength(2);
     expect(toggles.map((toggle) => toggle.getAttribute('data-state'))).toEqual([
@@ -514,7 +523,7 @@ describe('PobBuildPane', () => {
     await nextTick();
     expect(fake.setStatEnabled).toHaveBeenCalledWith('b1', 'k-rare', 'explicit.stat_str_req', true);
 
-    const bounds = queryAll('[data-pob-build-mod-bound]') as HTMLInputElement[];
+    const bounds = queryAllBody('[data-pob-build-mod-bound]') as HTMLInputElement[];
     expect(bounds.map((input) => [input.dataset.bound, input.value, input.disabled])).toEqual([
       ['min', '80', false],
       // 負數用上限；沒有勾選時不能改
@@ -533,9 +542,9 @@ describe('PobBuildPane', () => {
       null,
     );
 
-    const countMode = query<HTMLElement>('[data-pob-build-count-mode]')!;
+    const countMode = queryBody<HTMLElement>('[data-pob-build-count-mode]')!;
     expect(countMode.getAttribute('data-state')).toBe('checked');
-    const countMin = query<HTMLInputElement>('[data-pob-build-count-min]')!;
+    const countMin = queryBody<HTMLInputElement>('[data-pob-build-count-min]')!;
     countMin.value = '2';
     countMin.dispatchEvent(new Event('change'));
     expect(fake.setCountMin).toHaveBeenLastCalledWith('b1', 'k-rare', 2);
@@ -543,24 +552,35 @@ describe('PobBuildPane', () => {
     await nextTick();
     expect(fake.setCountMin).toHaveBeenLastCalledWith('b1', 'k-rare', undefined);
 
-    query<HTMLElement>('[data-pob-build-pseudo]')!.click();
+    queryBody<HTMLElement>('[data-pob-build-pseudo]')!.click();
     await nextTick();
     expect(fake.setPseudo).toHaveBeenCalledWith('b1', 'k-rare', true);
 
-    query<HTMLButtonElement>('[data-pob-build-reset-search]')!.click();
+    queryBody<HTMLButtonElement>('[data-pob-build-popover-search]')!.click();
+    expect(fake.openSearch).toHaveBeenLastCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-rare' }),
+      'current',
+    );
+
+    queryBody<HTMLButtonElement>('[data-pob-build-reset-search]')!.click();
     expect(fake.resetSearch).toHaveBeenCalledWith('b1', 'k-rare');
+
+    queryBody<HTMLButtonElement>('[data-pob-build-popover-close]')!.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
   });
 
-  it('展開後列出詞綴，標出有帶入搜尋條件的那幾行', async () => {
+  it('預覽 Popover 列出詞綴並標出有帶入搜尋條件的那幾行，再次點按鈕可關閉', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
-    expect(query('[data-pob-build-mods]')).toBeNull();
-    // 沒有詞綴的項目沒有展開按鈕
+    expect(queryBody('[data-pob-build-mods]')).toBeNull();
+    // 沒有詞綴的項目沒有預覽按鈕
     expect(row(0).querySelector('[data-pob-build-mods-toggle]')).toBeNull();
 
     row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
-    await nextTick();
-    const mods = queryAll('[data-pob-build-mods] li');
+    await flushAsync();
+    const mods = queryAllBody('[data-pob-build-mods] li');
     expect(mods.map((mod) => mod.getAttribute('data-mod-kind'))).toEqual([
       'implicit',
       'explicit',
@@ -574,6 +594,10 @@ describe('PobBuildPane', () => {
       'false',
     ]);
     expect(mods[1].textContent).toContain('+100 to maximum Life');
+
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
   });
 
   it('build 可收合、全部展開/收合、搜尋過濾、改名，刪除使用 poexdConfirm 確認', async () => {
@@ -599,7 +623,8 @@ describe('PobBuildPane', () => {
     filterInput.dispatchEvent(new Event('input'));
     await nextTick();
 
-    query<HTMLButtonElement>('[data-pob-build-rename]')!.click();
+    await openBuildMenu();
+    await clickMenuItem('[data-pob-build-rename]');
     await nextTick();
     const input = query<HTMLInputElement>('[data-pob-build-rename-input]')!;
     expect(input.value).toBe('RF 酋長');
@@ -612,13 +637,15 @@ describe('PobBuildPane', () => {
     expect(query('[data-pob-build-rename-input]')).toBeNull();
 
     confirmSpy.mockResolvedValueOnce(false);
-    query<HTMLButtonElement>('[data-pob-build-delete]')!.click();
+    await openBuildMenu();
+    await clickMenuItem('[data-pob-build-delete]');
     await flushAsync();
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(fake.removeBuild).not.toHaveBeenCalled();
 
     confirmSpy.mockResolvedValueOnce(true);
-    query<HTMLButtonElement>('[data-pob-build-delete]')!.click();
+    await openBuildMenu();
+    await clickMenuItem('[data-pob-build-delete]');
     await flushAsync();
     expect(confirmSpy).toHaveBeenCalledTimes(2);
     expect(fake.removeBuild).toHaveBeenCalledWith('b1');

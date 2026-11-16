@@ -198,7 +198,7 @@ Implicits: 1
     ).filter((item) => item.kind === 'equipment');
 
     expect(entry.query).toEqual({
-      status: { option: 'online' },
+      status: { option: 'securable' },
       type: 'Leviathan Gauntlets',
       stats: [
         {
@@ -228,7 +228,7 @@ Implicits: 1
       matcher,
     ).find((item) => item.kind === 'unique');
     expect(unique?.query).toEqual({
-      status: { option: 'online' },
+      status: { option: 'securable' },
       name: 'Test Unique',
       type: 'Leather Belt',
     });

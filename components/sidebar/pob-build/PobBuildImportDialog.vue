@@ -81,11 +81,11 @@ function handleSubmit() {
         ref="textareaRef"
         v-model="codeInput"
         data-pob-build-input
-        rows="5"
+        rows="6"
         spellcheck="false"
         :placeholder="t('pobBuild.placeholder')"
         :disabled="isBusy"
-        class="w-full resize-y rounded-md border border-input bg-background px-[var(--input-padding-x-default)] py-[var(--pxd-space-sm)] font-mono text-[length:var(--pxd-font-caption)] text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        class="w-full resize-y rounded-md border border-input bg-background px-[var(--input-padding-x-default)] py-[var(--pxd-space-md)] font-mono text-[length:var(--pxd-font-body)] leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         @keydown.ctrl.enter.prevent="handleSubmit"
         @keydown.meta.enter.prevent="handleSubmit"
       ></textarea>
@@ -94,7 +94,7 @@ function handleSubmit() {
         v-if="errorKey"
         role="alert"
         data-pob-build-import-error
-        class="flex flex-wrap items-center gap-x-[var(--pxd-space-sm)] gap-y-[var(--pxd-space-xs)] break-words text-[length:var(--pxd-font-caption)] text-destructive"
+        class="flex flex-wrap items-center gap-x-[var(--pxd-space-sm)] gap-y-[var(--pxd-space-xs)] break-words text-[length:var(--pxd-font-secondary)] text-destructive"
       >
         <span>{{ t(errorKey) }}</span>
         <Button
@@ -103,7 +103,7 @@ function handleSubmit() {
           variant="link"
           size="sm"
           data-pob-build-grant-permission
-          class="h-auto p-0 text-[length:var(--pxd-font-caption)]"
+          class="h-auto p-0 text-[length:var(--pxd-font-secondary)]"
           @click="emit('open-permission')"
         >
           {{ t('pobBuild.share.grantBtn') }}
