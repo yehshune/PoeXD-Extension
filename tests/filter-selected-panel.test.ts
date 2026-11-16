@@ -798,4 +798,57 @@ describe('FilterPane Selected Mods Panel (Runtime Contracts)', () => {
 
     addCleanup();
   });
+
+  it('R. normalizes mixed [essence, normal] affinities to normal:: when another distinct affinity exists on the same stat', async () => {
+    const mixedModsData = {
+      '+# to Intelligence': [
+        {
+          key: '+(43-50) to intelligence',
+          displayKey: '+(43-50) 智慧',
+          displayTemplate: '+# 智慧',
+          values: [['43', '50']],
+          level: '74',
+          generation_type: '2',
+          affinities: ['essence', 'normal'],
+          types: ['body-armour'],
+          id: 'explicit.stat_328541901',
+          ids: ['explicit.stat_328541901'],
+        },
+        {
+          key: '+(51-55) to intelligence',
+          displayKey: '+(51-55) 智慧',
+          displayTemplate: '+# 智慧',
+          values: [['51', '55']],
+          level: '82',
+          generation_type: '2',
+          affinities: ['elder'],
+          types: ['body-armour'],
+          id: 'explicit.stat_328541901',
+          ids: ['explicit.stat_328541901'],
+        },
+      ],
+    };
+    mockModsData(mixedModsData);
+
+    await mountFilterPane();
+
+    const addedFilters: any[] = [];
+    const addCleanup = listenPoeEvent('poexd-add-stat-filter', (detail) => {
+      addedFilters.push(detail);
+    });
+
+    // Click the Essence category button (index 2: normal, elder, essence)
+    const addButtons = Array.from(
+      appRoot.querySelectorAll<HTMLButtonElement>('.mod-row .mod-action-zone button'),
+    );
+    expect(addButtons).toHaveLength(3);
+    addButtons[2].click();
+    await nextTick();
+
+    expect(addedFilters).toHaveLength(1);
+    expect(addedFilters[0].statId).toBe('explicit.stat_328541901');
+    expect(addedFilters[0].modGroup).toBe('normal::+# 智慧');
+
+    addCleanup();
+  });
 });

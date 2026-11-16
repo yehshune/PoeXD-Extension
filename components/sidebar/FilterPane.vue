@@ -738,7 +738,7 @@ import {
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { readMarketDropdownLocale } from '@/utils/market-translation';
 import { getTradeMapping } from './mapping-registry';
-import { getAffinityProfile, resolveTierPrimaryAffinity } from '@/utils/affinity-registry';
+import { getAffinityProfile, resolveScopedModGroupId } from '@/utils/affinity-registry';
 import { useFilterData } from './composables/useFilterData';
 import { useFilterNavigation } from './composables/useFilterNavigation';
 import { t, getActiveDisplayLocale, getActiveUiLocale } from '@/utils/i18n';
@@ -906,7 +906,9 @@ export default defineComponent({
             displayKey: info.displayKey,
             displayTemplate: info.displayTemplate,
             modGroup: resolvedModGroup,
-            affinities: info.affinities,
+            affinities: modObj?.tiers?.[0]?.affinities?.length
+              ? modObj.tiers[0].affinities
+              : info.affinities,
             officialId: info.officialId,
             ids: info.ids,
           },
@@ -1439,27 +1441,16 @@ export default defineComponent({
       return source.displayTemplate || source.displayKey || source.key || undefined;
     };
 
-    const hasMultiplePrimaryAffinitiesForStat = (mod: StatFilterModPayload): boolean => {
-      const targetStatIds = new Set<string>();
+    const collectTargetStatIds = (mod: StatFilterModPayload): string[] => {
+      const statIds: string[] = [];
       if (Array.isArray(mod.ids)) {
         mod.ids.forEach((id) => {
-          if (id) targetStatIds.add(id);
+          if (id) statIds.push(id);
         });
       }
-      if (mod.officialId) targetStatIds.add(mod.officialId);
-      if (mod.id && isTradeStatId(mod.id)) targetStatIds.add(mod.id);
-      if (targetStatIds.size === 0) return false;
-
-      const primaryAffinities = new Set<string>();
-      for (const g of currentTypeGroups.value) {
-        const groupMatches =
-          (g.officialId && targetStatIds.has(g.officialId)) ||
-          (Array.isArray(g.ids) && g.ids.some((id) => targetStatIds.has(id)));
-        if (!groupMatches) continue;
-        primaryAffinities.add(resolveTierPrimaryAffinity(g.tiers?.[0]?.affinities ?? g.affinities));
-        if (primaryAffinities.size > 1) return true;
-      }
-      return false;
+      if (mod.officialId) statIds.push(mod.officialId);
+      if (mod.id && isTradeStatId(mod.id)) statIds.push(mod.id);
+      return statIds;
     };
 
     // 發送事件新增屬性篩選到官方網頁 (複合詞綴多事件發送處理)
@@ -1471,13 +1462,16 @@ export default defineComponent({
       isBatch = false,
     ) => {
       const keyToMatch = matchKey || mod.key;
-      const affinities = mod.affinities || ['normal'];
+      const affinities = mod.tiers?.[0]?.affinities?.length
+        ? mod.tiers[0].affinities
+        : mod.affinities || ['normal'];
       const baseModGroup = mod.modGroup || resolveModGroupKey(mod.tiers?.[0] || mod);
-      const primaryAffinity = resolveTierPrimaryAffinity(affinities);
-      const modGroup =
-        baseModGroup && !baseModGroup.includes('::') && hasMultiplePrimaryAffinitiesForStat(mod)
-          ? `${primaryAffinity}::${baseModGroup}`
-          : baseModGroup;
+      const modGroup = resolveScopedModGroupId({
+        baseModGroup,
+        affinities,
+        statIds: collectTargetStatIds(mod),
+        typeGroups: currentTypeGroups.value,
+      });
 
       const getSingleVal = (val?: string | string[]) => (Array.isArray(val) ? val[0] : val);
 
@@ -1596,10 +1590,11 @@ export default defineComponent({
         mod.officialId ||
         (mod.ids && mod.ids.length > 0 ? mod.ids[0] : undefined);
 
+      const tierAffinities = tier.affinities?.length ? tier.affinities : [currentAffinity];
       const hasOfficialId = Boolean(tierOfficialId);
       if (!hasOfficialId) {
         addStatFilter(
-          { ...tier, officialId: tierOfficialId, affinities: [currentAffinity] },
+          { ...tier, officialId: tierOfficialId, affinities: tierAffinities },
           undefined,
           undefined,
           mod.key,
@@ -1612,7 +1607,7 @@ export default defineComponent({
           ...tier,
           officialId: tierOfficialId,
           ids: tier.ids || (tierOfficialId ? [tierOfficialId] : mod.ids),
-          affinities: [currentAffinity],
+          affinities: tierAffinities,
         },
         atLeast.mins,
         atLeast.maxs,

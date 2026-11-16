@@ -340,25 +340,87 @@ export function resolveTierPrimaryAffinity(affinities?: readonly string[] | null
   return first ? first.trim() : 'normal';
 }
 
-export function getAffinityDisplayName(affinity: string, version?: PoeVersion): string {
-  if (version) {
-    const names = getAffinityProfile(version).categoryNames;
-    return names[affinity] ?? affinity;
+export const AFFINITY_MOD_GROUP_SEPARATOR = '::';
+
+export function formatAffinityModGroupId(affinity: string, template: string): string {
+  return `${affinity}${AFFINITY_MOD_GROUP_SEPARATOR}${template}`;
+}
+
+export function parseAffinityModGroupId(groupId: string): {
+  affinity: string | null;
+  template: string;
+} {
+  const sepIdx = groupId.indexOf(AFFINITY_MOD_GROUP_SEPARATOR);
+  if (sepIdx === -1) {
+    return { affinity: null, template: groupId };
   }
-  return (
-    poe1AffinityProfile.categoryNames[affinity] ??
-    poe2AffinityProfile.categoryNames[affinity] ??
-    affinity
-  );
+  return {
+    affinity: groupId.slice(0, sepIdx),
+    template: groupId.slice(sepIdx + AFFINITY_MOD_GROUP_SEPARATOR.length),
+  };
+}
+
+export interface AffinityModGroupLookupEntry {
+  officialId?: string;
+  ids?: readonly string[];
+  affinities?: readonly string[];
+  tiers?: ReadonlyArray<{ affinities?: readonly string[] }>;
+}
+
+/**
+ * 判斷同一物品類別下指定的 statIds 是否涵蓋多個獨立主類別 (primary affinity)
+ */
+export function hasMultiplePrimaryAffinitiesForStat(
+  statIds: readonly string[],
+  typeGroups: ReadonlyArray<AffinityModGroupLookupEntry>,
+): boolean {
+  const targetStatIds = new Set(statIds.filter(Boolean));
+  if (targetStatIds.size === 0) return false;
+
+  const primaryAffinities = new Set<string>();
+  for (const g of typeGroups) {
+    const groupMatches =
+      (g.officialId && targetStatIds.has(g.officialId)) ||
+      (Array.isArray(g.ids) && g.ids.some((id) => targetStatIds.has(id)));
+    if (!groupMatches) continue;
+    primaryAffinities.add(resolveTierPrimaryAffinity(g.tiers?.[0]?.affinities ?? g.affinities));
+    if (primaryAffinities.size > 1) return true;
+  }
+  return false;
+}
+
+/**
+ * 當同一 statId 在目前物品類別跨越多個主類別時，為 modGroup 補上正規化後的 primary affinity 前綴
+ */
+export function resolveScopedModGroupId(options: {
+  baseModGroup?: string;
+  affinities?: readonly string[] | null;
+  statIds: readonly string[];
+  typeGroups: ReadonlyArray<AffinityModGroupLookupEntry>;
+}): string | undefined {
+  const { baseModGroup, affinities, statIds, typeGroups } = options;
+  if (!baseModGroup) return undefined;
+  if (parseAffinityModGroupId(baseModGroup).affinity !== null) return baseModGroup;
+  if (!hasMultiplePrimaryAffinitiesForStat(statIds, typeGroups)) return baseModGroup;
+  return formatAffinityModGroupId(resolveTierPrimaryAffinity(affinities), baseModGroup);
+}
+
+function lookupAffinityField<T>(
+  affinity: string,
+  pick: (profile: AffinityProfile) => Record<string, T>,
+  fallback: T,
+  version?: PoeVersion,
+): T {
+  if (version) {
+    return pick(getAffinityProfile(version))[affinity] ?? fallback;
+  }
+  return pick(poe1AffinityProfile)[affinity] ?? pick(poe2AffinityProfile)[affinity] ?? fallback;
+}
+
+export function getAffinityDisplayName(affinity: string, version?: PoeVersion): string {
+  return lookupAffinityField(affinity, (p) => p.categoryNames, affinity, version);
 }
 
 export function getAffinityPriority(affinity: string, version?: PoeVersion): number {
-  if (version) {
-    return getAffinityProfile(version).categoryPriorities[affinity] ?? 999;
-  }
-  return (
-    poe1AffinityProfile.categoryPriorities[affinity] ??
-    poe2AffinityProfile.categoryPriorities[affinity] ??
-    999
-  );
+  return lookupAffinityField(affinity, (p) => p.categoryPriorities, 999, version);
 }

@@ -4,6 +4,13 @@ import {
   poe1AffinityProfile,
   poe2AffinityProfile,
   commonAffinityProfile,
+  resolveTierPrimaryAffinity,
+  formatAffinityModGroupId,
+  parseAffinityModGroupId,
+  hasMultiplePrimaryAffinitiesForStat,
+  resolveScopedModGroupId,
+  getAffinityDisplayName,
+  getAffinityPriority,
 } from '@/utils/affinity-registry';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '@/utils/i18n';
 
@@ -119,6 +126,70 @@ describe('Affinity Registry & Version Profiles', () => {
       expect(getAffinityProfile('poe1').categoryNames.shaper).toBe('Shaper');
       expect(getAffinityProfile('poe2').categoryNames.bonded).toBe('Bonded');
       expect(getAffinityProfile('poe2').categoryNames.liquid).toBe('Distilled');
+    });
+  });
+
+  describe('Affinity Primary & Mod-Group Helpers', () => {
+    it('normalizes mixed normal affinities and sanctum tags consistently', () => {
+      expect(resolveTierPrimaryAffinity(undefined)).toBe('normal');
+      expect(resolveTierPrimaryAffinity(['essence', 'normal'])).toBe('normal');
+      expect(resolveTierPrimaryAffinity(['soul', 'normal'])).toBe('normal');
+      expect(resolveTierPrimaryAffinity(['sanctum', 'normal'])).toBe('sanctum');
+      expect(resolveTierPrimaryAffinity(['sanctum', 'corrupted'])).toBe('corrupted');
+      expect(resolveTierPrimaryAffinity(['redeemer'])).toBe('redeemer');
+    });
+
+    it('formats and parses affinity-scoped modGroup IDs cleanly', () => {
+      const formatted = formatAffinityModGroupId('elder', '增加 #% 敏捷');
+      expect(formatted).toBe('elder::增加 #% 敏捷');
+      expect(parseAffinityModGroupId(formatted)).toEqual({
+        affinity: 'elder',
+        template: '增加 #% 敏捷',
+      });
+      expect(parseAffinityModGroupId('增加 #% 敏捷')).toEqual({
+        affinity: null,
+        template: '增加 #% 敏捷',
+      });
+    });
+
+    it('resolves scoped modGroup IDs only when a stat spans multiple primary affinities', () => {
+      const typeGroups = [
+        { officialId: 'explicit.stat_1', tiers: [{ affinities: ['essence', 'normal'] }] },
+        { officialId: 'explicit.stat_1', tiers: [{ affinities: ['elder'] }] },
+        { officialId: 'explicit.stat_2', tiers: [{ affinities: ['normal'] }] },
+        { officialId: 'explicit.stat_2', tiers: [{ affinities: ['essence', 'normal'] }] },
+      ];
+
+      expect(hasMultiplePrimaryAffinitiesForStat(['explicit.stat_1'], typeGroups)).toBe(true);
+      expect(hasMultiplePrimaryAffinitiesForStat(['explicit.stat_2'], typeGroups)).toBe(false);
+
+      expect(
+        resolveScopedModGroupId({
+          baseModGroup: '+# 智慧',
+          affinities: ['essence', 'normal'],
+          statIds: ['explicit.stat_1'],
+          typeGroups,
+        }),
+      ).toBe('normal::+# 智慧');
+
+      expect(
+        resolveScopedModGroupId({
+          baseModGroup: '+# 最大生命',
+          affinities: ['essence', 'normal'],
+          statIds: ['explicit.stat_2'],
+          typeGroups,
+        }),
+      ).toBe('+# 最大生命');
+    });
+
+    it('looks up affinity display names and priorities with and without version', () => {
+      expect(getAffinityDisplayName('redeemer', 'poe1')).toBe('救贖者');
+      expect(getAffinityDisplayName('redeemer')).toBe('救贖者');
+      expect(getAffinityDisplayName('bonded')).toBe('命定詞綴');
+      expect(getAffinityPriority('elder', 'poe1')).toBeLessThan(
+        getAffinityPriority('redeemer', 'poe1'),
+      );
+      expect(getAffinityPriority('unknown_aff')).toBe(999);
     });
   });
 });

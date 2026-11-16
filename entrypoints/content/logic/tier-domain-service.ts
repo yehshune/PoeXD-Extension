@@ -3,6 +3,7 @@ import {
   getAffinityProfile,
   commonAffinityProfile,
   resolveTierPrimaryAffinity,
+  formatAffinityModGroupId,
   getAffinityDisplayName,
   getAffinityPriority,
 } from '@/utils/affinity-registry';
@@ -97,7 +98,7 @@ export function groupTiersByMod(filteredTiers: any[], version?: PoeVersion): Tie
   for (const tier of filteredTiers) {
     const templateKey = (tier && (tier.displayTemplate || tier.displayKey || tier.key)) || '';
     const affinity = splitByAffinity ? resolveTierPrimaryAffinity(tier?.affinities) : undefined;
-    const mapKey = affinity ? `${affinity}::${templateKey}` : templateKey;
+    const mapKey = affinity ? formatAffinityModGroupId(affinity, templateKey) : templateKey;
     if (!groupsMap.has(mapKey)) {
       groupsMap.set(mapKey, { templateKey, affinity, tiers: [] });
     }

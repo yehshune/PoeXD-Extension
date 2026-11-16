@@ -12,6 +12,7 @@ import {
   type TierSlotDescriptor,
 } from '@/utils/tier-slot-registry';
 import { type PoeVersion } from '@/utils/trade-context';
+import { parseAffinityModGroupId } from '@/utils/affinity-registry';
 import { getTradeMapping } from '@/components/sidebar/mapping-registry';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { enqueueLiveSearchConnections } from '@/utils/extension-protocol';
@@ -493,8 +494,7 @@ export function createTierSlotDomainData(
         const detectedGroupId = filterEl.getAttribute('data-poexd-mod-group');
         let activeGroup = modGroups.find((g) => g.id === detectedGroupId);
         if (!activeGroup && detectedGroupId) {
-          const sepIdx = detectedGroupId.indexOf('::');
-          const rawTemplate = sepIdx !== -1 ? detectedGroupId.slice(sepIdx + 2) : detectedGroupId;
+          const { template: rawTemplate } = parseAffinityModGroupId(detectedGroupId);
           activeGroup = modGroups.find((g) => g.templateZh === rawTemplate);
         }
         if (!activeGroup) {
