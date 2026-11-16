@@ -1,0 +1,89 @@
+import { describe, expect, it } from 'vitest';
+import {
+  areTradeQueriesEqual,
+  cloneTradeQuery,
+  isGroupValueEditable,
+  isNumericStatFilter,
+  setTradeQueryStatus,
+  setTradeStatFilterBound,
+  setTradeStatFilterDisabled,
+  setTradeStatGroupBound,
+  setTradeStatGroupDisabled,
+} from '@/utils/trade-query-tuning';
+
+describe('trade-query-tuning', () => {
+  const sampleQuery = {
+    status: { option: 'securable' },
+    type: 'Amber Amulet',
+    stats: [
+      { type: 'and', filters: [] },
+      {
+        type: 'count',
+        value: { min: 2 },
+        filters: [
+          { id: 'explicit.stat_life', value: { min: 70 } },
+          { id: 'explicit.stat_res', value: { min: 30, weight: 1 } },
+          { id: 'enchant.stat_anoint', value: { option: 12345 } },
+        ],
+      },
+    ],
+  };
+
+  it('cloneTradeQuery 深拷貝且不共用參考', () => {
+    const cloned = cloneTradeQuery(sampleQuery)!;
+    expect(cloned).toEqual(sampleQuery);
+    expect(cloned).not.toBe(sampleQuery);
+    expect(areTradeQueriesEqual(cloned, sampleQuery)).toBe(true);
+    expect(cloneTradeQuery(null)).toBeNull();
+    expect(cloneTradeQuery([])).toBeNull();
+  });
+
+  it('修改上架狀態並保持原物件不變', () => {
+    const next = setTradeQueryStatus(sampleQuery, 'available');
+    expect((next as any).status).toEqual({ option: 'available' });
+    expect((sampleQuery as any).status).toEqual({ option: 'securable' });
+    expect(areTradeQueriesEqual(next, sampleQuery)).toBe(false);
+  });
+
+  it('對齊可見群組索引（跳過空群組），切換群組與詞綴停用及修改範圍', () => {
+    // visibleGroupIndex 0 對應 sampleQuery.stats[1]（因 stats[0] 為空）
+    const disabledGroup = setTradeStatGroupDisabled(sampleQuery, 0, true);
+    expect((disabledGroup as any).stats[1].disabled).toBe(true);
+    expect((disabledGroup as any).stats[0].disabled).toBeUndefined();
+
+    const reEnabledGroup = setTradeStatGroupDisabled(disabledGroup, 0, false);
+    expect(areTradeQueriesEqual(reEnabledGroup, sampleQuery)).toBe(true);
+
+    const tunedGroupMin = setTradeStatGroupBound(sampleQuery, 0, 'min', 3);
+    expect((tunedGroupMin as any).stats[1].value).toEqual({ min: 3 });
+
+    const disabledFilter = setTradeStatFilterDisabled(sampleQuery, 0, 0, true);
+    expect((disabledFilter as any).stats[1].filters[0].disabled).toBe(true);
+    expect(
+      areTradeQueriesEqual(setTradeStatFilterDisabled(disabledFilter, 0, 0, false), sampleQuery),
+    ).toBe(true);
+
+    // 保留 weight 的同時設定上限並清空下限
+    const tunedMax = setTradeStatFilterBound(sampleQuery, 0, 1, 'max', 45);
+    const clearedMin = setTradeStatFilterBound(tunedMax, 0, 1, 'min', null);
+    expect((clearedMin as any).stats[1].filters[1].value).toEqual({ weight: 1, max: 45 });
+  });
+
+  it('支援外層包著 { query, sort } 的 payload', () => {
+    const wrapped = { query: sampleQuery, sort: { price: 'asc' } };
+    const next = setTradeStatFilterBound(wrapped, 0, 0, 'min', 90);
+    expect((next as any).query.stats[1].filters[0].value).toEqual({ min: 90 });
+    expect((next as any).sort).toEqual({ price: 'asc' });
+  });
+
+  it('判斷群組與詞綴是否支援數值編輯', () => {
+    expect(isGroupValueEditable('count')).toBe(true);
+    expect(isGroupValueEditable('weight')).toBe(true);
+    expect(isGroupValueEditable('weight2')).toBe(true);
+    expect(isGroupValueEditable('and')).toBe(false);
+
+    expect(isNumericStatFilter({ id: 'a', value: { min: 10 } })).toBe(true);
+    expect(isNumericStatFilter({ id: 'b', value: { option: 123 } })).toBe(false);
+    expect(isNumericStatFilter({ id: 'c' })).toBe(true);
+  });
+});

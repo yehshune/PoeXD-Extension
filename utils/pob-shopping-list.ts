@@ -475,6 +475,108 @@ export function applyEntrySelection(
   };
 }
 
+export interface SelectionRowSnapshot extends Pick<ShoppingEntry, 'mods' | 'searchBase'> {
+  filters?: readonly ShoppingStatFilter[];
+  countMin?: number;
+  pseudo?: boolean;
+  searchSelection?: EntrySearchSelection;
+}
+
+/** 深拷貝使用者的項目搜尋調整草稿，避免改動到已儲存的狀態。 */
+export function cloneEntrySearchSelection(selection?: EntrySearchSelection): EntrySearchSelection {
+  if (!selection) return {};
+  const stats = selection.stats
+    ? Object.fromEntries(
+        Object.entries(selection.stats).map(([id, value]) => [id, { ...value }] as const),
+      )
+    : undefined;
+  return {
+    ...(stats && Object.keys(stats).length > 0 ? { stats } : {}),
+    ...(selection.countMin !== undefined ? { countMin: selection.countMin } : {}),
+    ...(selection.pseudo === true ? { pseudo: true } : {}),
+  };
+}
+
+/** 從購物列目前狀態建立可編輯草稿（優先採用已儲存的 searchSelection，缺乏時由 filters 推導）。 */
+export function selectionFromRowState(row: SelectionRowSnapshot): EntrySearchSelection {
+  if (row.searchSelection) return cloneEntrySearchSelection(row.searchSelection);
+  const defaults = entryStatFilters(row);
+  const stats: Record<string, StatSelection> = {};
+  row.filters?.forEach((filter, index) => {
+    const base = defaults[index];
+    if (!base) return;
+    const change: StatSelection = {};
+    if (filter.enabled !== base.enabled) change.enabled = filter.enabled;
+    if (filter.min !== base.min) change.min = filter.min ?? null;
+    if (filter.max !== base.max) change.max = filter.max ?? null;
+    if (Object.keys(change).length > 0) stats[filter.id] = change;
+  });
+  return {
+    ...(Object.keys(stats).length > 0 ? { stats } : {}),
+    ...(row.countMin !== undefined ? { countMin: row.countMin } : {}),
+    ...(row.pseudo ? { pseudo: true } : {}),
+  };
+}
+
+/** 僅保留相對於 PoB 預設值有差異的欄位；全部回到預設時回傳 undefined。 */
+export function normalizeSelectionForEntry(
+  entry: Pick<ShoppingEntry, 'mods'>,
+  selection: EntrySearchSelection | undefined,
+): EntrySearchSelection | undefined {
+  if (!selection) return undefined;
+  const defaults = new Map(entryStatFilters(entry).map((filter) => [filter.id, filter]));
+  const stats: Record<string, StatSelection> = {};
+  for (const [id, custom] of Object.entries(selection.stats ?? {})) {
+    const base = defaults.get(id);
+    if (!base) continue;
+    const change: StatSelection = {};
+    if (custom.enabled !== undefined && custom.enabled !== base.enabled) {
+      change.enabled = custom.enabled;
+    }
+    if ('min' in custom) {
+      const nextMin = finiteOrUndefined(custom.min);
+      if (nextMin !== base.min) change.min = nextMin ?? null;
+    }
+    if ('max' in custom) {
+      const nextMax = finiteOrUndefined(custom.max);
+      if (nextMax !== base.max) change.max = nextMax ?? null;
+    }
+    if (Object.keys(change).length > 0) stats[id] = change;
+  }
+  const normalized: EntrySearchSelection = {
+    ...(Object.keys(stats).length > 0 ? { stats } : {}),
+    ...(selection.countMin !== undefined &&
+    Number.isInteger(selection.countMin) &&
+    selection.countMin >= 1
+      ? { countMin: selection.countMin }
+      : {}),
+    ...(selection.pseudo === true ? { pseudo: true } : {}),
+  };
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+/** 比較兩個搜尋條件快照，判斷暫存微調是否與已儲存狀態不同。 */
+export function isSelectionDraftModified(
+  saved: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo'>,
+  draft: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo'>,
+): boolean {
+  if (Boolean(saved.pseudo) !== Boolean(draft.pseudo)) return true;
+  if (saved.countMin !== draft.countMin) return true;
+  const left = saved.filters ?? [];
+  const right = draft.filters ?? [];
+  if (left.length !== right.length) return true;
+  return left.some((filter, index) => {
+    const target = right[index];
+    return (
+      !target ||
+      filter.id !== target.id ||
+      filter.enabled !== target.enabled ||
+      filter.min !== target.min ||
+      filter.max !== target.max
+    );
+  });
+}
+
 function linkFilters(item: PobBuildItem): Record<string, unknown> {
   if (!item.maxLinks || item.maxLinks < MIN_SEARCHED_LINKS) return {};
   return { filters: { socket_filters: { filters: { links: { min: item.maxLinks } } } } };

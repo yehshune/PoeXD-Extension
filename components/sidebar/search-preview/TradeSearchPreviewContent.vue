@@ -43,6 +43,56 @@
       </button>
     </div>
 
+    <!-- 快捷搜尋列（書籤／歷史預覽提供直接開啟搜尋，比照 PoB Popover） -->
+    <div
+      v-if="canOpenSearch"
+      class="preview-search-row flex min-w-0 shrink-0 items-center gap-[var(--pxd-space-xs)] border-b border-border px-[var(--pxd-pane-padding)] py-[var(--pxd-space-sm)]"
+    >
+      <button
+        type="button"
+        :class="overlayButtonClass"
+        data-test="preview-open-current"
+        :title="t('bookmark.row.openSearch')"
+        @click="emit('open-search', 'current')"
+      >
+        <Search :class="iconClass" aria-hidden="true" />{{ t('bookmark.row.openSearch') }}
+      </button>
+      <button
+        type="button"
+        :class="overlayButtonClass"
+        data-test="preview-open-new-tab"
+        :title="t('bookmark.row.openNewTab')"
+        @click="emit('open-search', 'new-tab')"
+      >
+        <ExternalLink :class="iconClass" aria-hidden="true" />{{ t('bookmark.row.openNewTab') }}
+      </button>
+      <button
+        v-if="canOverwrite && isModified"
+        type="button"
+        :class="overlayButtonClass"
+        class="border-primary/50 text-primary"
+        data-test="preview-overwrite-bookmark"
+        :title="t('searchPreview.action.overwriteBookmarkTitle')"
+        :disabled="overwriteBusy"
+        @click="emit('overwrite-bookmark')"
+      >
+        <Save :class="iconClass" aria-hidden="true" />{{
+          t('searchPreview.action.overwriteBookmark')
+        }}
+      </button>
+      <button
+        v-if="isModified"
+        type="button"
+        :class="overlayButtonClass"
+        class="ml-auto"
+        data-test="preview-reset-tune"
+        :title="t('searchPreview.action.resetTuneTitle')"
+        @click="emit('reset-tune')"
+      >
+        <RotateCcw :class="iconClass" aria-hidden="true" />{{ t('searchPreview.action.resetTune') }}
+      </button>
+    </div>
+
     <!-- 工具列：摺疊與疊加操作，固定於標題列下方 -->
     <div
       v-if="sectionKeys.length > 0 || canOverlay || overlayHint"
@@ -150,12 +200,28 @@
           v-if="criteria?.status"
           class="preview-section preview-status flex items-center justify-between gap-[var(--pxd-space-md)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)]"
         >
-          <span class="text-muted-foreground"
-            >{{ t('searchPreview.label.status')
-            }}<span class="text-foreground">{{
+          <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
+            <span class="shrink-0 text-muted-foreground">{{
+              t('searchPreview.label.status')
+            }}</span>
+            <Select
+              v-if="canTune"
+              :model-value="criteria.status"
+              @update:model-value="(val) => emit('set-status', String(val))"
+            >
+              <SelectTrigger size="sm" class="min-w-0 flex-1" data-test="preview-status-select">
+                <SelectValue>{{ STATUS_LABELS[criteria.status] ?? criteria.status }}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="option in statusOptions" :key="option" :value="option">
+                  {{ STATUS_LABELS[option] ?? option }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <span v-else class="text-foreground">{{
               STATUS_LABELS[criteria.status] ?? criteria.status
-            }}</span></span
-          >
+            }}</span>
+          </div>
           <button
             v-if="canOverlay"
             type="button"
@@ -207,14 +273,58 @@
               :data-disabled="group.disabled ? 'true' : undefined"
             >
               <div
-                class="preview-stat-group-header flex items-center gap-[var(--pxd-space-xs)] bg-muted px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)]"
+                class="preview-stat-group-header flex flex-wrap items-center gap-[var(--pxd-space-xs)] bg-muted px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)]"
               >
+                <Checkbox
+                  v-if="canTune"
+                  data-test="preview-stat-group-toggle"
+                  :model-value="!group.disabled"
+                  :aria-label="groupTypeLabel(group)"
+                  @update:model-value="
+                    (val) => emit('set-stat-group-disabled', groupIndex, val !== true)
+                  "
+                />
                 <span
                   class="preview-stat-group-type whitespace-nowrap font-semibold text-foreground"
                   >{{ groupTypeLabel(group) }}</span
                 >
                 <span
-                  v-if="rangeText(group.value)"
+                  v-if="canTune && isGroupValueEditable(group.type)"
+                  class="inline-flex items-center gap-[var(--pxd-space-xs)]"
+                >
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    step="any"
+                    data-test="preview-stat-group-min"
+                    :class="groupBoundInputClass"
+                    :value="boundInputValue(group.value?.min)"
+                    :placeholder="t('tierDropdown.minPlaceholder')"
+                    :disabled="Boolean(group.disabled)"
+                    :aria-label="t('tierDropdown.minPlaceholder')"
+                    @change="
+                      (e) => emit('set-stat-group-bound', groupIndex, 'min', parseBoundInput(e))
+                    "
+                    @keydown.enter.prevent="blurInputTarget"
+                  />
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    step="any"
+                    data-test="preview-stat-group-max"
+                    :class="groupBoundInputClass"
+                    :value="boundInputValue(group.value?.max)"
+                    :placeholder="t('tierDropdown.maxPlaceholder')"
+                    :disabled="Boolean(group.disabled)"
+                    :aria-label="t('tierDropdown.maxPlaceholder')"
+                    @change="
+                      (e) => emit('set-stat-group-bound', groupIndex, 'max', parseBoundInput(e))
+                    "
+                    @keydown.enter.prevent="blurInputTarget"
+                  />
+                </span>
+                <span
+                  v-else-if="rangeText(group.value)"
                   class="whitespace-nowrap font-mono text-foreground"
                   >{{ rangeText(group.value) }}</span
                 >
@@ -251,17 +361,78 @@
                 :key="idx"
                 class="preview-stat-row"
                 :class="[rowClass, f.disabled ? 'opacity-60' : '']"
+                :data-stat-domain="describeStatRow(f.id).domain"
+                :style="describeStatRow(f.id).style"
               >
-                <span class="stat-name flex min-w-0 flex-col text-foreground" :title="f.id">
+                <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
+                  <Checkbox
+                    v-if="canTune"
+                    data-test="preview-stat-toggle"
+                    :model-value="!f.disabled"
+                    :disabled="Boolean(group.disabled)"
+                    :aria-label="statLines(f.id).join(' ')"
+                    @update:model-value="
+                      (val) => emit('set-stat-filter-disabled', groupIndex, idx, val !== true)
+                    "
+                  />
                   <span
-                    v-for="(line, lineIndex) in statLines(f.id)"
-                    :key="lineIndex"
-                    class="stat-line truncate"
-                    >{{ line }}</span
+                    v-if="describeStatRow(f.id).badgeLabel"
+                    :class="['stat-domain-badge', STAT_DOMAIN_BADGE_CLASS]"
+                    :data-stat-domain="describeStatRow(f.id).domain"
+                    >{{ describeStatRow(f.id).badgeLabel }}</span
                   >
+                  <span
+                    class="stat-name flex min-w-0 flex-1 flex-col"
+                    :class="describeStatRow(f.id).textClass"
+                    :title="f.id"
+                  >
+                    <span
+                      v-for="(line, lineIndex) in statLines(f.id)"
+                      :key="lineIndex"
+                      class="stat-line truncate"
+                      >{{ line }}</span
+                    >
+                  </span>
+                </div>
+                <span
+                  v-if="canTune && isNumericStatFilter(f)"
+                  class="inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)]"
+                >
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    step="any"
+                    data-test="preview-stat-min"
+                    :class="statBoundInputClass"
+                    :value="boundInputValue(f.value?.min)"
+                    :placeholder="t('tierDropdown.minPlaceholder')"
+                    :disabled="Boolean(f.disabled || group.disabled)"
+                    :aria-label="t('tierDropdown.minPlaceholder')"
+                    @change="
+                      (e) =>
+                        emit('set-stat-filter-bound', groupIndex, idx, 'min', parseBoundInput(e))
+                    "
+                    @keydown.enter.prevent="blurInputTarget"
+                  />
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    step="any"
+                    data-test="preview-stat-max"
+                    :class="statBoundInputClass"
+                    :value="boundInputValue(f.value?.max)"
+                    :placeholder="t('tierDropdown.maxPlaceholder')"
+                    :disabled="Boolean(f.disabled || group.disabled)"
+                    :aria-label="t('tierDropdown.maxPlaceholder')"
+                    @change="
+                      (e) =>
+                        emit('set-stat-filter-bound', groupIndex, idx, 'max', parseBoundInput(e))
+                    "
+                    @keydown.enter.prevent="blurInputTarget"
+                  />
                 </span>
                 <span
-                  v-if="rangeText(f.value)"
+                  v-else-if="rangeText(f.value)"
                   class="stat-range shrink-0 font-mono text-foreground"
                 >
                   {{ rangeText(f.value) }}
@@ -274,15 +445,34 @@
             v-show="!isCollapsed(STATS_SECTION_KEY)"
             class="preview-stats-list overflow-hidden rounded-md border border-border"
           >
-            <div v-for="(s, idx) in stats" :key="idx" class="preview-stat-row" :class="rowClass">
-              <span class="stat-name flex min-w-0 flex-col text-foreground" :title="s.id">
+            <div
+              v-for="(s, idx) in stats"
+              :key="idx"
+              class="preview-stat-row"
+              :class="rowClass"
+              :data-stat-domain="describeStatRow(s.id).domain"
+              :style="describeStatRow(s.id).style"
+            >
+              <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
                 <span
-                  v-for="(line, lineIndex) in statLines(s.id)"
-                  :key="lineIndex"
-                  class="stat-line truncate"
-                  >{{ line }}</span
+                  v-if="describeStatRow(s.id).badgeLabel"
+                  :class="['stat-domain-badge', STAT_DOMAIN_BADGE_CLASS]"
+                  :data-stat-domain="describeStatRow(s.id).domain"
+                  >{{ describeStatRow(s.id).badgeLabel }}</span
                 >
-              </span>
+                <span
+                  class="stat-name flex min-w-0 flex-1 flex-col"
+                  :class="describeStatRow(s.id).textClass"
+                  :title="s.id"
+                >
+                  <span
+                    v-for="(line, lineIndex) in statLines(s.id)"
+                    :key="lineIndex"
+                    class="stat-line truncate"
+                    >{{ line }}</span
+                  >
+                </span>
+              </div>
               <span
                 v-if="s.min !== undefined || s.max !== undefined"
                 class="stat-range shrink-0 font-mono text-foreground"
@@ -358,9 +548,36 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, type PropType } from 'vue';
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, Plus, Undo2, X } from '@lucide/vue';
+import {
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  ExternalLink,
+  Plus,
+  RotateCcw,
+  Save,
+  Search,
+  Undo2,
+  X,
+} from '@lucide/vue';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { t } from '@/utils/i18n';
 import type { OverlayTarget, CriteriaOverlayStatGroup } from '@/utils/criteria-overlay';
+import {
+  extractStatDomain,
+  getStatDomainLabel,
+  getStatDomainStyle,
+  shouldShowStatDomainBadge,
+  STAT_DOMAIN_BADGE_CLASS,
+} from '@/utils/stat-domain';
+import { isGroupValueEditable, isNumericStatFilter } from '@/utils/trade-query-tuning';
 import {
   rangeText,
   STAT_GROUP_TYPE_LABELS,
@@ -408,12 +625,49 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  /** 書籤／歷史等帶有網址的預覽可顯示快捷開啟搜尋按鈕。 */
+  canOpenSearch: {
+    type: Boolean,
+    default: false,
+  },
+  /** 是否允許在預覽中臨時勾選與修改詞綴數值／上架狀態。 */
+  canTune: {
+    type: Boolean,
+    default: false,
+  },
+  /** 目前預覽的條件是否已經與原始搜尋不同。 */
+  isModified: {
+    type: Boolean,
+    default: false,
+  },
+  /** 書籤預覽提供「覆蓋回書籤」按鈕。 */
+  canOverwrite: {
+    type: Boolean,
+    default: false,
+  },
+  overwriteBusy: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits<{
   overlay: [target: OverlayTarget];
   undo: [];
   close: [];
+  'open-search': [mode: 'current' | 'new-tab'];
+  'set-status': [status: string];
+  'set-stat-group-disabled': [groupIndex: number, disabled: boolean];
+  'set-stat-group-bound': [groupIndex: number, bound: 'min' | 'max', value: number | null];
+  'set-stat-filter-disabled': [groupIndex: number, filterIndex: number, disabled: boolean];
+  'set-stat-filter-bound': [
+    groupIndex: number,
+    filterIndex: number,
+    bound: 'min' | 'max',
+    value: number | null,
+  ];
+  'reset-tune': [];
+  'overwrite-bookmark': [];
 }>();
 
 /** 版面比照詞綴選擇器（FilterPane／ModItem）：字級、間距、圓角一律用 design tokens。 */
@@ -432,6 +686,34 @@ const sectionCountClass =
 /** 條件列比照 ModItem 的詞綴列：本文字級、分隔線。 */
 const rowClass =
   'flex items-center justify-between gap-[var(--pxd-space-md)] border-t border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)] leading-[1.25] first:border-t-0';
+const boundInputBaseClass =
+  'h-[calc(var(--control-height-sm)*0.78)] shrink-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-md border border-solid border-input bg-background px-[var(--input-padding-x-sm)] py-0 text-right text-[length:var(--control-font-sm)] leading-none text-foreground tabular-nums shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50';
+const statBoundInputClass = `${boundInputBaseClass} w-[calc(var(--control-height-sm)*1.85)]`;
+const groupBoundInputClass = `${boundInputBaseClass} w-[calc(var(--control-height-sm)*1.55)]`;
+
+const STATUS_OPTION_ORDER = ['securable', 'available', 'online', 'onlineleague', 'any'] as const;
+
+const statusOptions = computed(() => {
+  const current = criteria.value?.status;
+  return current && !STATUS_OPTION_ORDER.includes(current as (typeof STATUS_OPTION_ORDER)[number])
+    ? [current, ...STATUS_OPTION_ORDER]
+    : [...STATUS_OPTION_ORDER];
+});
+
+function boundInputValue(value: unknown): string | number {
+  return typeof value === 'number' || typeof value === 'string' ? value : '';
+}
+
+function parseBoundInput(event: Event): number | null {
+  const raw = (event.target as HTMLInputElement).value.trim();
+  if (raw === '') return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function blurInputTarget(event: Event): void {
+  (event.target as HTMLInputElement).blur();
+}
 
 const criteria = computed(() => props.previewData?.criteria);
 const statGroups = computed(() => criteria.value?.statGroups ?? []);
@@ -450,6 +732,17 @@ function groupTypeLabel(group: CriteriaOverlayStatGroup): string {
 
 function statLines(statId: string): string[] {
   return translateStatLines(statId, props.previewData?.gameVersion);
+}
+
+function describeStatRow(statId: string) {
+  const domain = extractStatDomain(statId);
+  const showBadge = shouldShowStatDomainBadge(domain);
+  return {
+    domain: domain ?? undefined,
+    badgeLabel: showBadge ? getStatDomainLabel(domain, props.previewData?.gameVersion) : null,
+    style: getStatDomainStyle(domain),
+    textClass: showBadge ? 'pxd-stat-domain-text' : 'text-foreground',
+  };
 }
 
 interface DisplayedFilterGroup {

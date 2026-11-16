@@ -222,6 +222,12 @@
           :preview-data="activePreviewData"
           :reference="previewAnchorEl"
           :source-name="previewBookmark?.name ?? ''"
+          :raw-query="activeRawQuery"
+          :can-open-search="canOpenPreviewSearch"
+          :can-overwrite="true"
+          :overwrite-busy="isOverwritingPreview"
+          @open-search="handleOpenPreviewSearch"
+          @overwrite-search="handleOverwritePreviewSearch"
           @update:open="
             (val) => {
               if (!val) closePreview();
@@ -336,11 +342,14 @@ import { readBookmarkTargetContext, resolveBookmarkUrl } from '@/utils/bookmark-
 import { useBookmarkSortables } from './composables/useBookmarkSortables';
 import { rowAnchorFromEvent } from './composables/usePinnedPreview';
 import {
+  isLegacyTradeSearchUrl,
   isSameTradeSearchPageUrl,
   parseTradeSearchUrl,
   stripLiveSuffix,
   toLiveUrl,
+  withTradeSearchId,
 } from '@/utils/trade-search-identity';
+import { encodeQueryToGzipBase64Url } from '@/utils/trade-url-codec';
 import { syncFormToUrl } from '@/entrypoints/content/logic/form-url-sync';
 import {
   BOOKMARK_NAME_MAX_LENGTH,
@@ -1102,6 +1111,7 @@ export default defineComponent({
     const {
       activeBookmarkId,
       activePreviewData,
+      activeRawQuery,
       loadBookmarkPreview,
       clearActivePreview,
       previewBookmark,
@@ -1129,6 +1139,61 @@ export default defineComponent({
         return;
       }
       openBookmark(bm);
+    };
+
+    const isOverwritingPreview = ref(false);
+
+    const canOpenPreviewSearch = computed(() =>
+      Boolean(previewBookmark.value && !isLegacyTradeSearchUrl(previewBookmark.value.url)),
+    );
+
+    const handleOpenPreviewSearch = async (payload: {
+      mode: 'current' | 'new-tab';
+      modifiedQuery: Record<string, unknown> | null;
+    }) => {
+      const bm = previewBookmark.value;
+      if (!bm) return;
+      const baseUrl = resolveOpenUrl(bm);
+      if (!baseUrl) return;
+      let targetUrl = baseUrl;
+      if (payload.modifiedQuery) {
+        try {
+          const code = await encodeQueryToGzipBase64Url(payload.modifiedQuery);
+          targetUrl = withTradeSearchId(baseUrl, code) ?? baseUrl;
+        } catch {
+          return;
+        }
+      }
+      if (payload.mode === 'current') window.location.href = targetUrl;
+      else window.open(targetUrl, '_blank');
+    };
+
+    const handleOverwritePreviewSearch = async (modifiedQuery: Record<string, unknown>) => {
+      const bm = previewBookmark.value;
+      if (!bm || isOverwritingPreview.value) return;
+      isOverwritingPreview.value = true;
+      try {
+        const code = await encodeQueryToGzipBase64Url(modifiedQuery);
+        const nextUrl =
+          withTradeSearchId(bm.url, code) ?? withTradeSearchId(bm.canonicalUrl ?? '', code);
+        if (!nextUrl) return;
+        const saved = await executeBookmarkIntent({
+          type: 'overwrite-bookmark',
+          bookmarkId: bm.id,
+          url: nextUrl,
+        });
+        if (!saved) return;
+        const updated = bookmarks.value.find((entry) => entry.id === bm.id) ?? {
+          ...bm,
+          url: nextUrl,
+        };
+        await loadBookmarkPreview(updated);
+        showToast(t('bookmark.toast.overwritten', { name: bm.name }));
+      } catch {
+        showToast(t('bookmark.toast.cannotResolveUrl'));
+      } finally {
+        isOverwritingPreview.value = false;
+      }
     };
 
     const handlePreviewOpenChange = (bm: Bookmark, open: boolean) => {
@@ -1315,6 +1380,7 @@ export default defineComponent({
       liveFolderDeleteImpact,
       activeBookmarkId,
       activePreviewData,
+      activeRawQuery,
       handlePreviewOpenChange,
       isCollectionEmpty,
       confirmClearCollection,
@@ -1322,6 +1388,10 @@ export default defineComponent({
       previewAnchorEl,
       isPreviewOpen,
       closePreview,
+      canOpenPreviewSearch,
+      isOverwritingPreview,
+      handleOpenPreviewSearch,
+      handleOverwritePreviewSearch,
       enableBookmarkTooltip,
     };
   },

@@ -291,6 +291,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.mods.overrideNotice':
     'This item uses a saved trade search; the filters below are not applied',
   'pobBuild.toast.overrideSaved': 'Saved to "{name}"; opening it now uses this search',
+  'pobBuild.toast.selectionSaved': 'Saved search criteria for "{name}"',
   'pobBuild.toast.overrideInvalid':
     'This page is not a trade search that can be saved. Run a search for the same game first',
   'pobBuild.toast.bookmarkAdded': 'Bookmarked: {name}',
@@ -339,6 +340,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.mods.countUnit': '',
   'pobBuild.mods.countAria': 'Number of filters to match',
   'pobBuild.mods.pseudo': 'Use totals for resistances, life and attributes',
+  'pobBuild.mods.saveSelection': 'Save Criteria',
+  'pobBuild.mods.saveSelectionTitle': 'Save these tuned criteria to this shopping item',
   'pobBuild.mods.reset': 'Reset',
   'pobBuild.error.tooMany':
     'The maximum number of saved builds is reached. Delete a build you no longer need first',
@@ -998,6 +1001,11 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Criteria overlay is only available on official search pages',
   'searchPreview.hint.versionMismatch': 'Cannot overlay: game version mismatch',
   'searchPreview.defaultSourceName': 'Search Preview',
+  'searchPreview.action.overwriteBookmark': 'Overwrite Bookmark',
+  'searchPreview.action.overwriteBookmarkTitle': 'Save these tuned criteria back to this bookmark',
+  'searchPreview.action.resetTune': 'Reset',
+  'searchPreview.action.resetTuneTitle': 'Reset to original criteria',
+  'searchPreview.label.tuned': 'Tuned',
   'statGroupTemplate.empty.noMatch': 'No stat templates matching "{query}"',
   'statGroupTemplate.action.preview': 'Preview stat template',
   'statGroupTemplate.action.overlayTitle':

@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { createApp, defineComponent, h, nextTick, ref } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -186,5 +187,14 @@ describe('Checkbox Primitive Baseline Contract', () => {
 
     app.unmount();
     container.remove();
+  });
+
+  it('6. snaps checkbox and inset indicator sizes to a 2px grid in main.css so subpixel scales stay visually centered', () => {
+    const mainCss = readFileSync('assets/main.css', 'utf8');
+    expect(mainCss).toContain('@supports (width: round(nearest, 18px, 2px))');
+    expect(mainCss).toContain('width: round(nearest, var(--checkbox-size, 18px), 2px);');
+    expect(mainCss).toContain(
+      'width: calc(round(nearest, var(--checkbox-size, 18px), 2px) - 6px);',
+    );
   });
 });

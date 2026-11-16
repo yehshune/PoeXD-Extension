@@ -34,6 +34,8 @@ export interface LiveStatLabels {
   readonly stats: Readonly<Record<string, string>>;
   /** `pseudo` 群組的文字，格式同 `trade-filters.json` 的 `pseudoStats` */
   readonly pseudoStats: Readonly<Record<string, string>>;
+  /** 各 stat 網域（`pseudo` / `explicit` / `implicit` 等）對應的官方顯示標籤 */
+  readonly domainLabels?: Readonly<Record<string, string>>;
 }
 
 /** 驗證失敗時中斷整份解析 */
@@ -144,12 +146,16 @@ function buildStatLabels(raw: unknown): LiveStatLabels {
   const groupsRaw = requireArray(raw, LIVE_TRADE_DATA_LIMITS.maxStatGroups, 'stats');
   const stats: Record<string, string> = {};
   const pseudoStats: Record<string, string> = {};
+  const domainLabels: Record<string, string> = {};
   let entryCount = 0;
   let hasPseudo = false;
 
   for (const group of groupsRaw) {
     if (!isRecord(group)) return fail('stats 群組形狀不符');
     const groupId = requireId(group.id, 'stats 群組');
+    const rawGroupLabel = optionalText(group.label, groupId);
+    const groupLabel = rawGroupLabel === null ? '' : cleanFilterText(rawGroupLabel);
+    if (groupLabel) domainLabels[groupId] = groupLabel;
     const entries = requireArray(
       group.entries,
       LIVE_TRADE_DATA_LIMITS.maxStatEntries,
@@ -174,7 +180,9 @@ function buildStatLabels(raw: unknown): LiveStatLabels {
   }
 
   if (!hasPseudo) fail('stats 缺少 pseudo 群組');
-  return { stats, pseudoStats };
+  return Object.keys(domainLabels).length > 0
+    ? { stats, pseudoStats, domainLabels }
+    : { stats, pseudoStats };
 }
 
 /**

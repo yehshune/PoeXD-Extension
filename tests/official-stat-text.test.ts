@@ -2,17 +2,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computed } from 'vue';
 import {
   ensureOfficialStatTextLoaded,
+  getOfficialStatDomainLabel,
   getOfficialStatLabel,
   resetOfficialStatTextForTests,
   setMockOfficialStatText,
 } from '@/utils/official-stat-text';
 
-const shard = (locale: string, stats: Record<string, string | string[]>) => ({
+const shard = (
+  locale: string,
+  stats: Record<string, string | string[]>,
+  labels: Record<string, string> = {},
+) => ({
   schemaVersion: 1,
   gameVersion: 'poe2',
   locale,
   source: 'test',
-  labels: {},
+  labels,
   stats,
   options: {},
 });
@@ -104,5 +109,18 @@ describe('official stat text (官方市集詞綴文字)', () => {
     expect(await ensureOfficialStatTextLoaded('poe1', 'zh-TW')).toBe(false);
     expect(getOfficialStatLabel('explicit.stat_1', 'poe1', 'zh-TW')).toBeNull();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('載入分片時同時保存並查詢官方 labels（stat 網域標籤）', async () => {
+    const fetchSpy = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify(shard('zh-TW', { 'fractured.stat_1': 'test' }, { fractured: '破裂' })),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchSpy);
+    expect(await ensureOfficialStatTextLoaded('poe2', 'zh-TW')).toBe(true);
+    expect(getOfficialStatDomainLabel('fractured', 'poe2', 'zh-TW')).toBe('破裂');
   });
 });

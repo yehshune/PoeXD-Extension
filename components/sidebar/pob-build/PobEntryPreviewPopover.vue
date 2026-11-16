@@ -1,14 +1,28 @@
 <script setup lang="ts">
-import { computed, type PropType } from 'vue';
-import { ExternalLink, RotateCcw, Search, X } from '@lucide/vue';
+import { computed, ref, watch, type PropType } from 'vue';
+import { ExternalLink, RotateCcw, Save, Search, X } from '@lucide/vue';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/utils/i18n';
 import {
+  applyEntrySelection,
+  buildEntryQuery,
+  cloneEntrySearchSelection,
+  entryStatFilters,
   isRequiredInCountMode,
+  isSelectionDraftModified,
+  normalizeSelectionForEntry,
+  selectionFromRowState,
+  type EntrySearchSelection,
   type ShoppingMod,
   type ShoppingModKind,
 } from '@/utils/pob-shopping-list';
+import {
+  getStatDomainLabel,
+  getStatDomainStyle,
+  shouldShowStatDomainBadge,
+  STAT_DOMAIN_BADGE_CLASS,
+} from '@/utils/stat-domain';
 import type { ShoppingRow, StatBound } from './usePobBuild';
 
 interface BoundEditor {
@@ -24,12 +38,9 @@ interface ModLine {
   editor?: BoundEditor;
 }
 
-const MOD_CLASSES: Readonly<Record<ShoppingModKind, string>> = {
-  implicit: 'text-muted-foreground',
-  enchant: 'text-[oklch(0.74_0.09_300)]',
-  explicit: 'text-foreground',
-  crafted: 'text-[oklch(0.72_0.1_230)]',
-};
+function modDomainBadge(kind: ShoppingModKind): string | null {
+  return shouldShowStatDomainBadge(kind) ? getStatDomainLabel(kind) : null;
+}
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -52,47 +63,82 @@ const props = defineProps({
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
-  (e: 'set-stat-enabled', statId: string, enabled: boolean): void;
-  (e: 'set-stat-bound', statId: string, bound: StatBound, value: number | null): void;
-  (e: 'set-count-min', countMin: number | undefined): void;
-  (e: 'set-pseudo', on: boolean): void;
+  (e: 'save-selection', selection: EntrySearchSelection | undefined): void;
   (e: 'reset-search'): void;
-  (e: 'open-search', mode: 'current' | 'new-tab'): void;
+  (e: 'open-search', mode: 'current' | 'new-tab', row: ShoppingRow): void;
 }>();
 
 const anchorReference = computed(() => props.reference ?? undefined);
 
+/** Popover 內的暫存微調草稿；未微調為 null，關閉或切換項目時清空，不自動寫入儲存。 */
+const draftSelection = ref<EntrySearchSelection | null>(null);
+
+watch(
+  () => [props.open, props.buildId, props.row?.key] as const,
+  () => {
+    draftSelection.value = null;
+  },
+);
+
+const effectiveRow = computed<ShoppingRow | null>(() => {
+  const row = props.row;
+  if (!row) return null;
+  const draft = draftSelection.value;
+  if (!draft) return row;
+  const filters = entryStatFilters(row, draft);
+  const applied = applyEntrySelection(row, draft);
+  const countMin = draft.countMin;
+  const pseudo = draft.pseudo === true;
+  return {
+    ...row,
+    mods: applied.mods,
+    filters,
+    countMin,
+    pseudo,
+    query: buildEntryQuery(row, draft),
+    searchSelection: draft,
+  };
+});
+
+const isDraftModified = computed(() =>
+  Boolean(
+    props.row && effectiveRow.value && isSelectionDraftModified(props.row, effectiveRow.value),
+  ),
+);
+
 const canSearch = computed(() =>
-  Boolean(props.row && (props.row.searchOverride || props.row.query !== null)),
+  Boolean(
+    effectiveRow.value && (effectiveRow.value.searchOverride || effectiveRow.value.query !== null),
+  ),
 );
 
 const queryType = computed(() => {
-  const type = props.row?.query?.type;
+  const type = effectiveRow.value?.query?.type;
   return typeof type === 'string' && type.trim() ? type.trim() : '';
 });
 
 const itemCardTitle = computed(() => {
-  const row = props.row;
+  const row = effectiveRow.value;
   if (!row) return '';
   if (row.kind === 'equipment') return '';
   return row.label;
 });
 
 const itemCardBase = computed(() => {
-  const row = props.row;
+  const row = effectiveRow.value;
   if (!row) return '';
   if (row.kind === 'equipment') return row.label;
   return queryType.value && queryType.value !== row.label ? queryType.value : '';
 });
 
 const showEnglishSubtitle = computed(() => {
-  const row = props.row;
+  const row = effectiveRow.value;
   return Boolean(row?.englishName && row.englishName !== row.label);
 });
 
 /** 展開後的每一行詞綴。同一個代碼的多行是同一個條件，數值輸入只放在第一行。 */
 const modLines = computed<ModLine[]>(() => {
-  const row = props.row;
+  const row = effectiveRow.value;
   if (!row?.mods) return [];
   const seen = new Set<string>();
   return row.mods.map((mod, index) => {
@@ -106,19 +152,26 @@ const modLines = computed<ModLine[]>(() => {
   });
 });
 
-const searchedModCount = computed(() => props.row?.mods?.filter((mod) => mod.searched).length ?? 0);
+const searchedModCount = computed(
+  () => effectiveRow.value?.mods?.filter((mod) => mod.searched).length ?? 0,
+);
 
 /** 參與「至少符合 N 項」的條件數（固定詞綴與附魔一定要符合，不算在內） */
 const enabledCount = computed(
   () =>
-    props.row?.filters.filter((filter) => filter.enabled && !isRequiredInCountMode(filter.id))
-      .length ?? 0,
+    effectiveRow.value?.filters.filter(
+      (filter) => filter.enabled && !isRequiredInCountMode(filter.id),
+    ).length ?? 0,
 );
 
-const hasPseudo = computed(() => props.row?.mods?.some((mod) => mod.stat?.pseudo) ?? false);
+const hasPseudo = computed(
+  () => effectiveRow.value?.mods?.some((mod) => mod.stat?.pseudo) ?? false,
+);
 
 const actionButtonClass =
   'inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)] whitespace-nowrap rounded-sm border border-border bg-transparent px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] leading-none text-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+const boundInputBaseClass =
+  'h-[calc(var(--control-height-sm)*0.78)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-md border border-solid border-input bg-background px-[var(--input-padding-x-sm)] py-0 text-right text-[length:var(--control-font-sm)] leading-none text-foreground tabular-nums shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50';
 
 function controlId(name: string): string {
   const raw = `${props.buildId}\u0000${props.row?.key ?? ''}`;
@@ -129,22 +182,62 @@ function blurTarget(event: Event): void {
   (event.target as HTMLInputElement).blur();
 }
 
+function mutateDraft(update: (draft: EntrySearchSelection) => EntrySearchSelection): void {
+  const row = props.row;
+  if (!row) return;
+  const current = draftSelection.value
+    ? cloneEntrySearchSelection(draftSelection.value)
+    : selectionFromRowState(row);
+  draftSelection.value = update(current);
+}
+
+function setStatEnabled(statId: string, enabled: boolean): void {
+  mutateDraft((draft) => ({
+    ...draft,
+    stats: { ...draft.stats, [statId]: { ...draft.stats?.[statId], enabled } },
+  }));
+}
+
 function commitBound(editor: BoundEditor, event: Event): void {
   const raw = (event.target as HTMLInputElement).value.trim();
   const value = raw === '' ? null : Number(raw);
   if (value !== null && !Number.isFinite(value)) return;
-  emit('set-stat-bound', editor.statId, editor.bound, value);
+  mutateDraft((draft) => ({
+    ...draft,
+    stats: {
+      ...draft.stats,
+      [editor.statId]: { ...draft.stats?.[editor.statId], [editor.bound]: value },
+    },
+  }));
 }
 
 function toggleCountMode(on: boolean): void {
   // 預設允許少一項；條件只有一項時就是一項
-  emit('set-count-min', on ? Math.max(1, enabledCount.value - 1) : undefined);
+  const countMin = on ? Math.max(1, enabledCount.value - 1) : undefined;
+  mutateDraft(({ countMin: _previous, ...draft }) =>
+    countMin === undefined ? draft : { ...draft, countMin },
+  );
 }
 
 function commitCountMin(event: Event): void {
   const value = Math.floor(Number((event.target as HTMLInputElement).value));
   if (!Number.isFinite(value) || value < 1) return;
-  emit('set-count-min', value);
+  mutateDraft((draft) => ({ ...draft, countMin: value }));
+}
+
+function setPseudo(on: boolean): void {
+  mutateDraft(({ pseudo: _previous, ...draft }) => (on ? { ...draft, pseudo: true } : draft));
+}
+
+function saveDraft(): void {
+  if (!props.row || !draftSelection.value) return;
+  const normalized = normalizeSelectionForEntry(props.row, draftSelection.value);
+  draftSelection.value = null;
+  emit('save-selection', normalized);
+}
+
+function discardDraft(): void {
+  draftSelection.value = null;
 }
 
 /**
@@ -160,7 +253,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
   <Popover :open="open" @update:open="(val: boolean) => emit('update:open', val)">
     <PopoverAnchor :reference="anchorReference" />
     <PopoverContent
-      v-if="open && row"
+      v-if="open && effectiveRow"
       data-pob-build-mods-popover
       :side="side"
       align="start"
@@ -178,16 +271,16 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
         <span
           class="min-w-0 flex-1 truncate text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px]"
           :class="nameClass || 'text-foreground'"
-          :title="row.label"
+          :title="effectiveRow.label"
         >
-          {{ row.label }}
+          {{ effectiveRow.label }}
         </span>
         <div class="flex min-w-0 shrink-0 items-center gap-[var(--pxd-space-xs)]">
           <span
-            v-if="row.suffix"
+            v-if="effectiveRow.suffix"
             class="whitespace-nowrap rounded-sm border border-border bg-secondary px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold text-secondary-foreground tabular-nums"
           >
-            {{ row.suffix }}
+            {{ effectiveRow.suffix }}
           </span>
           <span
             v-if="rowDetailText"
@@ -208,35 +301,59 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
         </button>
       </div>
 
-      <!-- 工具列：搜尋與還原預設 -->
+      <!-- 工具列：搜尋、存回條件與還原 -->
       <div
-        v-if="canSearch || row.searchCustomized"
-        class="flex min-w-0 shrink-0 items-center gap-[var(--pxd-space-xs)] border-b border-border px-[var(--pxd-pane-padding)] py-[var(--pxd-space-sm)]"
+        v-if="canSearch || effectiveRow.searchCustomized || isDraftModified"
+        class="flex min-w-0 shrink-0 flex-wrap items-center gap-[var(--pxd-space-xs)] border-b border-border px-[var(--pxd-pane-padding)] py-[var(--pxd-space-sm)]"
       >
         <button
-          v-if="row.query"
+          v-if="effectiveRow.query"
           type="button"
           :class="actionButtonClass"
           data-pob-build-popover-search
           :title="t('pobBuild.searchTitle')"
-          @click="emit('open-search', 'current')"
+          @click="emit('open-search', 'current', effectiveRow)"
         >
           <Search class="size-[var(--control-icon-sm)] shrink-0" aria-hidden="true" />
           {{ t('pobBuild.searchCurrentBtn') }}
         </button>
         <button
-          v-if="row.query"
+          v-if="effectiveRow.query"
           type="button"
           :class="actionButtonClass"
           data-pob-build-popover-new-tab
           :title="t('pobBuild.openNewTabTitle')"
-          @click="emit('open-search', 'new-tab')"
+          @click="emit('open-search', 'new-tab', effectiveRow)"
         >
           <ExternalLink class="size-[var(--control-icon-sm)] shrink-0" aria-hidden="true" />
           {{ t('pobBuild.openNewTabTitle') }}
         </button>
         <button
-          v-if="row.searchCustomized"
+          v-if="isDraftModified"
+          type="button"
+          :class="actionButtonClass"
+          class="border-primary/50 text-primary"
+          data-pob-build-save-selection
+          :title="t('pobBuild.mods.saveSelectionTitle')"
+          @click="saveDraft"
+        >
+          <Save class="size-[var(--control-icon-sm)] shrink-0" aria-hidden="true" />
+          {{ t('pobBuild.mods.saveSelection') }}
+        </button>
+        <button
+          v-if="isDraftModified"
+          type="button"
+          :class="actionButtonClass"
+          class="ml-auto"
+          data-pob-build-discard-draft
+          :title="t('searchPreview.action.resetTuneTitle')"
+          @click="discardDraft"
+        >
+          <RotateCcw class="size-[var(--control-icon-sm)] shrink-0" aria-hidden="true" />
+          {{ t('searchPreview.action.resetTune') }}
+        </button>
+        <button
+          v-else-if="effectiveRow.searchCustomized"
           type="button"
           :class="actionButtonClass"
           class="ml-auto"
@@ -268,13 +385,13 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
             v-if="showEnglishSubtitle"
             class="text-[length:var(--pxd-font-caption)] text-muted-foreground"
           >
-            {{ row.englishName }}
+            {{ effectiveRow.englishName }}
           </div>
         </div>
 
         <!-- 上架狀態卡片 -->
         <div
-          v-if="row.query && !row.searchOverride"
+          v-if="effectiveRow.query && !effectiveRow.searchOverride"
           class="flex items-center justify-between gap-[var(--pxd-space-md)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)]"
         >
           <span class="text-muted-foreground">
@@ -285,7 +402,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
 
         <!-- 存回搜尋覆寫提示 -->
         <p
-          v-if="row.searchOverride"
+          v-if="effectiveRow.searchOverride"
           data-pob-build-override-notice
           class="m-0 rounded-md border border-primary/40 bg-primary/10 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] text-primary"
         >
@@ -294,7 +411,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
 
         <!-- 詞綴清單區 -->
         <div
-          v-if="row.mods?.length"
+          v-if="effectiveRow.mods?.length"
           data-pob-build-mods
           class="flex flex-col gap-[var(--pxd-space-xs)]"
         >
@@ -303,13 +420,13 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
               {{ t('searchPreview.section.stats') }}
             </span>
             <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums">
-              ({{ searchedModCount }}/{{ row.mods.length }})
+              ({{ searchedModCount }}/{{ effectiveRow.mods.length }})
             </span>
           </div>
 
           <ul
             class="m-0 list-none overflow-hidden rounded-md border border-border p-0"
-            :class="{ 'opacity-60': row.searchOverride }"
+            :class="{ 'opacity-60': effectiveRow.searchOverride }"
           >
             <li
               v-for="line in modLines"
@@ -318,20 +435,26 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
               :data-mod-searched="line.mod.searched ? 'true' : 'false'"
               class="flex min-h-[var(--control-height-sm)] items-center gap-[var(--pxd-space-sm)] border-t border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)] leading-[1.35] first:border-t-0 break-words"
               :class="[
-                MOD_CLASSES[line.mod.kind],
+                line.mod.kind === 'explicit' ? 'text-foreground' : 'pxd-stat-domain-text',
                 { 'opacity-60': line.mod.stat && !line.mod.searched },
               ]"
+              :style="getStatDomainStyle(line.mod.kind)"
             >
               <Checkbox
                 v-if="line.mod.stat"
                 data-pob-build-mod-toggle
                 :model-value="line.mod.searched"
                 :aria-label="t('pobBuild.mods.statAria', { text: line.mod.text })"
-                @update:model-value="
-                  (value) => emit('set-stat-enabled', line.mod.stat!.id, value === true)
-                "
+                @update:model-value="(value) => setStatEnabled(line.mod.stat!.id, value === true)"
               />
               <span v-else class="size-[var(--checkbox-size,18px)] shrink-0" aria-hidden="true" />
+              <span
+                v-if="modDomainBadge(line.mod.kind)"
+                :class="STAT_DOMAIN_BADGE_CLASS"
+                :data-stat-domain="line.mod.kind"
+              >
+                {{ modDomainBadge(line.mod.kind) }}
+              </span>
               <span class="min-w-0 flex-1">{{ line.mod.text }}</span>
               <template v-if="line.editor">
                 <span
@@ -346,7 +469,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                   step="any"
                   data-pob-build-mod-bound
                   :data-bound="line.editor.bound"
-                  class="h-[var(--control-height-sm)] w-[calc(var(--control-height-sm)*2.25)] shrink-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-md border border-solid border-input bg-background px-[var(--input-padding-x-sm)] text-right text-[length:var(--control-font-sm)] text-foreground tabular-nums shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                  :class="[boundInputBaseClass, 'w-[calc(var(--control-height-sm)*2.25)] shrink-0']"
                   :value="line.editor.value ?? ''"
                   :disabled="!line.mod.searched"
                   :aria-label="
@@ -365,14 +488,14 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
 
           <!-- 至少符合 N 項 / 總和條件 -->
           <div
-            v-if="row.filters.length > 0"
+            v-if="effectiveRow.filters.length > 0"
             class="mt-[var(--pxd-space-xs)] flex flex-wrap items-center gap-x-[var(--pxd-space-lg)] gap-y-[var(--pxd-space-sm)] rounded-md border border-border bg-muted/30 px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] text-muted-foreground"
           >
             <span class="inline-flex items-center gap-[var(--pxd-space-xs)]">
               <Checkbox
                 :id="controlId('count')"
                 data-pob-build-count-mode
-                :model-value="row.countMin !== undefined"
+                :model-value="effectiveRow.countMin !== undefined"
                 @update:model-value="(value) => toggleCountMode(value === true)"
               />
               <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->
@@ -381,7 +504,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
               }}</label>
             </span>
             <span
-              v-if="row.countMin !== undefined"
+              v-if="effectiveRow.countMin !== undefined"
               class="inline-flex items-center gap-[var(--pxd-space-xs)]"
             >
               <input
@@ -390,8 +513,8 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                 :max="enabledCount"
                 step="1"
                 data-pob-build-count-min
-                class="h-[var(--control-height-sm)] w-[calc(var(--control-height-sm)*1.6)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-md border border-solid border-input bg-background px-[var(--input-padding-x-sm)] text-right text-[length:var(--control-font-sm)] text-foreground tabular-nums shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                :value="row.countMin"
+                :class="[boundInputBaseClass, 'w-[calc(var(--control-height-sm)*1.6)]']"
+                :value="effectiveRow.countMin"
                 :aria-label="t('pobBuild.mods.countAria')"
                 @change="commitCountMin($event)"
                 @keydown.enter.prevent="blurTarget"
@@ -402,8 +525,8 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
               <Checkbox
                 :id="controlId('pseudo')"
                 data-pob-build-pseudo
-                :model-value="row.pseudo"
-                @update:model-value="(value) => emit('set-pseudo', value === true)"
+                :model-value="effectiveRow.pseudo"
+                @update:model-value="(value) => setPseudo(value === true)"
               />
               <label :for="controlId('pseudo')" class="cursor-pointer">{{
                 t('pobBuild.mods.pseudo')

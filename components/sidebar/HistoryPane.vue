@@ -47,6 +47,11 @@
         <template v-for="h in history" :key="h.id">
           <div
             :data-history-id="h.id"
+            :class="
+              previewHistory?.id === h.id
+                ? 'bg-[color-mix(in_srgb,var(--primary)_12%,var(--card))] shadow-[inset_2px_0_0_var(--primary)]'
+                : undefined
+            "
             class="history-row-item group relative flex items-center justify-between rounded-md border border-border bg-card px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] shadow-sm text-[length:var(--pxd-font-secondary)] transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_50%,var(--card))]"
           >
             <div class="flex min-w-0 w-full items-center gap-[var(--pxd-space-md)]">
@@ -99,6 +104,7 @@
                 v-else
                 variant="ghost"
                 size="icon-sm"
+                :class="previewHistory?.id === h.id ? 'text-primary bg-primary/15' : undefined"
                 :title="t('history.row.preview')"
                 data-test="history-preview-toggle"
                 @click.stop="toggleHistoryPreview(h, $event)"
@@ -131,6 +137,9 @@
           :preview-data="activePreviewData"
           :reference="previewAnchorEl"
           :source-name="previewSourceName"
+          :raw-query="activeRawQuery"
+          :can-open-search="canOpenPreviewSearch"
+          @open-search="handleOpenPreviewSearch"
           @update:open="(open) => !open && closeHistoryPreview()"
         />
       </div>
@@ -156,7 +165,12 @@ import { createChromeSearchRecordClient } from '@/utils/search-record-messaging'
 import type { HistoryEntry } from '@/utils/search-records';
 import { createHistoryDomainFeed } from './history-domain-feed';
 import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
-import { isLegacyTradeSearchUrl, stripLiveSuffix } from '@/utils/trade-search-identity';
+import {
+  isLegacyTradeSearchUrl,
+  stripLiveSuffix,
+  withTradeSearchId,
+} from '@/utils/trade-search-identity';
+import { encodeQueryToGzipBase64Url } from '@/utils/trade-url-codec';
 import { getPreferences } from '@/utils/preferences';
 import TradeSearchPreviewPopover from './search-preview/TradeSearchPreviewPopover.vue';
 import { DEFAULT_PREFERENCES, type SearchEntryClickAction } from '@/utils/preferences-contract';
@@ -194,6 +208,7 @@ export default defineComponent({
 
     const {
       activePreviewData,
+      activeRawQuery,
       loadPreview: loadHistoryPreview,
       clearActivePreview,
     } = useTradeSearchPreview({
@@ -214,6 +229,29 @@ export default defineComponent({
     const previewSourceName = computed(() =>
       previewHistory.value ? getHistoryName(previewHistory.value) : '',
     );
+
+    const canOpenPreviewSearch = computed(() =>
+      Boolean(previewHistory.value && !isLegacyTradeSearchUrl(previewHistory.value.url)),
+    );
+
+    const handleOpenPreviewSearch = async (payload: {
+      mode: 'current' | 'new-tab';
+      modifiedQuery: Record<string, unknown> | null;
+    }) => {
+      const h = previewHistory.value;
+      if (!h) return;
+      let targetUrl = h.url;
+      if (payload.modifiedQuery) {
+        try {
+          const code = await encodeQueryToGzipBase64Url(payload.modifiedQuery);
+          targetUrl = withTradeSearchId(h.url, code) ?? h.url;
+        } catch {
+          return;
+        }
+      }
+      if (payload.mode === 'current') openHistory(targetUrl);
+      else openHistoryNewTab(targetUrl);
+    };
 
     const toggleHistoryPreview = (h: HistoryEntry, event: Event) => {
       togglePinnedHistoryPreview(h, rowAnchorFromEvent(event, '.history-row-item'));
@@ -357,10 +395,13 @@ export default defineComponent({
       sidebarPosition,
       isHistoryPreviewOpen,
       activePreviewData,
+      activeRawQuery,
       previewHistory,
       searchEntryClickAction,
       previewAnchorEl,
       previewSourceName,
+      canOpenPreviewSearch,
+      handleOpenPreviewSearch,
       toggleHistoryPreview,
       closeHistoryPreview,
       handleHistoryPrimaryClick,

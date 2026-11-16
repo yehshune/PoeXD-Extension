@@ -4,7 +4,9 @@
     :class="
       isCurrentBookmark
         ? 'is-current-bookmark bg-primary/12 hover:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
-        : 'bg-transparent hover:bg-muted/40'
+        : isPreviewActive
+          ? 'bg-primary/12 hover:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
+          : 'bg-transparent hover:bg-muted/40'
     "
     :data-id="bm.id"
     :data-current="isCurrentBookmark ? 'true' : undefined"
@@ -62,7 +64,7 @@
       v-if="showActions"
       class="bookmark-item-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) pl-[var(--pxd-space-sm)] flex items-center shrink-0 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
       :class="
-        isCurrentBookmark
+        isCurrentBookmark || isPreviewActive
           ? 'bg-[color-mix(in_srgb,var(--primary)_15%,var(--background))]'
           : 'bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))]'
       "
@@ -82,6 +84,7 @@
         v-else-if="ctx.toggleBookmarkPreview && ctx.enableBookmarkTooltip?.value !== false"
         variant="ghost"
         size="icon-sm"
+        :class="isPreviewActive ? 'text-primary bg-primary/15' : undefined"
         :title="t('bookmark.row.previewSearch')"
         data-test="bookmark-preview-toggle"
         @click.stop="ctx.toggleBookmarkPreview(bm, $event)"
@@ -368,6 +371,7 @@ export default defineComponent({
       const currentUrl = ctx.currentPageUrl?.value;
       return currentUrl ? isSameTradeSearchPageUrl(currentUrl, props.bookmark.url) : false;
     });
+    const isPreviewActive = computed(() => ctx.activeBookmarkId?.value === props.bookmark.id);
     const actionsActivated = ref(false);
 
     // 短路順序刻意讓尚未互動的列不追蹤 isDragging，拖曳開始時不會連帶重繪全部書籤列。
@@ -398,6 +402,7 @@ export default defineComponent({
       isMenuOpen,
       isLegacyUrl,
       isCurrentBookmark,
+      isPreviewActive,
       showActions,
       moveTargetFolders,
       activateActions,

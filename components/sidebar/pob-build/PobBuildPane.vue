@@ -610,29 +610,14 @@
         :row-detail-text="activePreview ? rowDetail(activePreview.row) : ''"
         :name-class="activePreview ? nameClass(activePreview.row) : ''"
         @update:open="(open) => !open && closePreview()"
-        @set-stat-enabled="
-          (statId, enabled) =>
-            activePreview &&
-            setStatEnabled(activePreview.buildId, activePreview.row.key, statId, enabled)
-        "
-        @set-stat-bound="
-          (statId, bound, value) =>
-            activePreview &&
-            setStatBound(activePreview.buildId, activePreview.row.key, statId, bound, value)
-        "
-        @set-count-min="
-          (countMin) =>
-            activePreview && setCountMin(activePreview.buildId, activePreview.row.key, countMin)
-        "
-        @set-pseudo="
-          (on) => activePreview && setPseudo(activePreview.buildId, activePreview.row.key, on)
+        @save-selection="
+          (selection) =>
+            activePreview && saveSelection(activePreview.buildId, activePreview.row.key, selection)
         "
         @reset-search="
           () => activePreview && resetSearch(activePreview.buildId, activePreview.row.key)
         "
-        @open-search="
-          (mode) => activePreview && openSearch(activePreview.buildId, activePreview.row, mode)
-        "
+        @open-search="(mode, row) => activePreview && openSearch(activePreview.buildId, row, mode)"
       />
 
       <PobBuildImportDialog
@@ -1043,6 +1028,7 @@ export default defineComponent({
       removeEntry: pob.removeEntry,
       restoreRemoved: pob.restoreRemoved,
       openSearch: pob.openSearch,
+      saveSelection: pob.saveSelection,
       resetSearch: pob.resetSearch,
       setStatEnabled: pob.setStatEnabled,
       setStatBound: pob.setStatBound,

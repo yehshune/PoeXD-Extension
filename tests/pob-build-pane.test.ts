@@ -37,6 +37,7 @@ const fake = {
   setStatBound: vi.fn(),
   setCountMin: vi.fn(),
   setPseudo: vi.fn(),
+  saveSelection: vi.fn(),
   resetSearch: vi.fn(),
   openSharePermissionPage: vi.fn(),
   dispose: vi.fn(),
@@ -253,8 +254,9 @@ describe('PobBuildPane', () => {
     query<HTMLButtonElement>('[data-pob-build-add]')!.click();
     await flushAsync();
 
-    const input = queryBody<HTMLTextAreaElement>('[data-pob-build-input]')!;
+    const input = queryBody<HTMLInputElement>('[data-pob-build-input]')!;
     expect(input).not.toBeNull();
+    expect(input.tagName).toBe('INPUT');
     expect(queryBody<HTMLButtonElement>('[data-pob-build-import]')?.disabled).toBe(true);
 
     input.value = 'CODE';
@@ -431,7 +433,7 @@ describe('PobBuildPane', () => {
     await flushAsync();
 
     expect(document.body.textContent).toContain('更新「RF 酋長」的 PoB 代碼');
-    const input = queryBody<HTMLTextAreaElement>('[data-pob-build-input]')!;
+    const input = queryBody<HTMLInputElement>('[data-pob-build-input]')!;
     input.value = 'NEW';
     input.dispatchEvent(new Event('input'));
     await nextTick();
@@ -505,13 +507,18 @@ describe('PobBuildPane', () => {
     expect(row(3).querySelector('[data-pob-build-customized]')).toBeNull();
   });
 
-  it('開啟預覽 Popover 後可勾選詞綴、改數值、切換至少符合 N 項與總和條件、搜尋與還原預設', async () => {
+  it('開啟預覽 Popover 後暫存微調不立即存檔，有變更時顯示存回條件與還原，搜尋套用微調後條件', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
     row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
     await flushAsync();
 
     expect(queryBody('[data-pob-build-mods-popover]')).not.toBeNull();
+    // 尚未微調時不顯示存回條件與放棄草稿，顯示已自訂的還原預設
+    expect(queryBody('[data-pob-build-save-selection]')).toBeNull();
+    expect(queryBody('[data-pob-build-discard-draft]')).toBeNull();
+    expect(queryBody('[data-pob-build-reset-search]')).not.toBeNull();
+
     const toggles = queryAllBody('[data-pob-build-mod-toggle]') as HTMLElement[];
     // 工藝詞綴沒有市集代碼，不能勾選
     expect(toggles).toHaveLength(2);
@@ -521,48 +528,61 @@ describe('PobBuildPane', () => {
     ]);
     toggles[1].click();
     await nextTick();
-    expect(fake.setStatEnabled).toHaveBeenCalledWith('b1', 'k-rare', 'explicit.stat_str_req', true);
+    // 暫存模式不會直接觸發寫入
+    expect(fake.setStatEnabled).not.toHaveBeenCalled();
+    expect(fake.saveSelection).not.toHaveBeenCalled();
+    expect(queryBody('[data-pob-build-save-selection]')?.textContent?.trim()).toBe('存回條件');
+    expect(queryBody('[data-pob-build-discard-draft]')?.textContent?.trim()).toBe('還原');
+    expect(queryBody('[data-pob-build-reset-search]')).toBeNull();
 
     const bounds = queryAllBody('[data-pob-build-mod-bound]') as HTMLInputElement[];
-    expect(bounds.map((input) => [input.dataset.bound, input.value, input.disabled])).toEqual([
-      ['min', '80', false],
-      // 負數用上限；沒有勾選時不能改
-      ['max', '-8', true],
-    ]);
     bounds[0].value = '95';
     bounds[0].dispatchEvent(new Event('change'));
-    expect(fake.setStatBound).toHaveBeenCalledWith('b1', 'k-rare', 'explicit.stat_life', 'min', 95);
-    bounds[0].value = '';
-    bounds[0].dispatchEvent(new Event('change'));
-    expect(fake.setStatBound).toHaveBeenLastCalledWith(
-      'b1',
-      'k-rare',
-      'explicit.stat_life',
-      'min',
-      null,
-    );
+    await nextTick();
 
-    const countMode = queryBody<HTMLElement>('[data-pob-build-count-mode]')!;
-    expect(countMode.getAttribute('data-state')).toBe('checked');
     const countMin = queryBody<HTMLInputElement>('[data-pob-build-count-min]')!;
     countMin.value = '2';
     countMin.dispatchEvent(new Event('change'));
-    expect(fake.setCountMin).toHaveBeenLastCalledWith('b1', 'k-rare', 2);
-    countMode.click();
     await nextTick();
-    expect(fake.setCountMin).toHaveBeenLastCalledWith('b1', 'k-rare', undefined);
 
     queryBody<HTMLElement>('[data-pob-build-pseudo]')!.click();
     await nextTick();
-    expect(fake.setPseudo).toHaveBeenCalledWith('b1', 'k-rare', true);
 
+    // 以暫存草稿搜尋時會帶出微調後的 query
     queryBody<HTMLButtonElement>('[data-pob-build-popover-search]')!.click();
     expect(fake.openSearch).toHaveBeenLastCalledWith(
       'b1',
-      expect.objectContaining({ key: 'k-rare' }),
+      expect.objectContaining({
+        key: 'k-rare',
+        pseudo: true,
+        countMin: 2,
+      }),
       'current',
     );
+    expect(fake.saveSelection).not.toHaveBeenCalled();
 
+    // 按下「還原」可放棄未存檔的微調，回到原本儲存狀態與「還原預設」按鈕
+    queryBody<HTMLButtonElement>('[data-pob-build-discard-draft]')!.click();
+    await nextTick();
+    expect(queryBody('[data-pob-build-save-selection]')).toBeNull();
+    expect(queryBody('[data-pob-build-reset-search]')).not.toBeNull();
+    expect((queryAllBody('[data-pob-build-mod-bound]')[0] as HTMLInputElement).value).toBe('80');
+
+    // 重新微調並按下「存回條件」才真正寫回此項目
+    bounds[0].value = '95';
+    bounds[0].dispatchEvent(new Event('change'));
+    await nextTick();
+    queryBody<HTMLButtonElement>('[data-pob-build-save-selection]')!.click();
+    await nextTick();
+    expect(fake.saveSelection).toHaveBeenCalledWith('b1', 'k-rare', {
+      stats: {
+        'explicit.stat_life': { min: 95 },
+        'explicit.stat_str_req': { enabled: false },
+      },
+      countMin: 1,
+    });
+
+    // 未微調且已自訂時可還原預設
     queryBody<HTMLButtonElement>('[data-pob-build-reset-search]')!.click();
     expect(fake.resetSearch).toHaveBeenCalledWith('b1', 'k-rare');
 
@@ -594,6 +614,22 @@ describe('PobBuildPane', () => {
       'false',
     ]);
     expect(mods[1].textContent).toContain('+100 to maximum Life');
+
+    // 與書籤／歷史預覽共用 --pxd-stat-* 色票與官方網域標籤（explicit 不顯示徽章）
+    expect((mods[0] as HTMLElement).style.getPropertyValue('--pxd-stat-color')).toBe(
+      'var(--pxd-stat-implicit)',
+    );
+    expect(mods[0].querySelector('[data-stat-domain="implicit"]')?.textContent?.trim()).toBe(
+      '固性屬性',
+    );
+    expect(mods[1].querySelector('[data-stat-domain]')).toBeNull();
+    expect(mods[1].className).toContain('text-foreground');
+    expect((mods[3] as HTMLElement).style.getPropertyValue('--pxd-stat-color')).toBe(
+      'var(--pxd-stat-crafted)',
+    );
+    expect(mods[3].querySelector('[data-stat-domain="crafted"]')?.textContent?.trim()).toBe(
+      '已工藝',
+    );
 
     row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
     await flushAsync();

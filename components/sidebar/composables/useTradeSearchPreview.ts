@@ -32,9 +32,11 @@ export function useTradeSearchPreview(options?: UseTradeSearchPreviewOptions) {
   const disabled = options?.disabled;
   const version = options?.version;
   const previewCache = new Map<string, TradeSearchPreviewData>();
+  const rawQueryCache = new Map<string, Record<string, unknown> | null>();
 
   const activeEntityKey = ref<string | null>(null);
   const activePreviewData = ref<TradeSearchPreviewData | null>(null);
+  const activeRawQuery = ref<Record<string, unknown> | null>(null);
   let currentRequestId = 0;
 
   const loadPreview = async (entityKey: string, url: string) => {
@@ -45,20 +47,29 @@ export function useTradeSearchPreview(options?: UseTradeSearchPreviewOptions) {
 
     if (previewCache.has(url)) {
       activePreviewData.value = previewCache.get(url)!;
+      activeRawQuery.value = rawQueryCache.get(url) ?? null;
       return;
     }
 
     const realmLabel = getTradeRealmLabel(url);
     const realm = realmLabel ? { realmLabel } : {};
     activePreviewData.value = { loading: true, ...realm };
+    activeRawQuery.value = null;
 
     try {
       const decoded = await decodeTradeSearchUrl(url);
       let item: TradeSearchPreviewData;
+      let rawQuery: Record<string, unknown> | null = null;
       if (decoded?.query) {
         const gameVersion = decoded.gameVersion || (version ? toValue(version) : 'poe1');
         await loadTradeDictionaries(gameVersion);
         const meta = extractQueryMetadata(decoded.query, gameVersion);
+        rawQuery =
+          typeof decoded.query === 'object' &&
+          decoded.query !== null &&
+          !Array.isArray(decoded.query)
+            ? (decoded.query as Record<string, unknown>)
+            : null;
         item = {
           loading: false,
           gameVersion: decoded.gameVersion,
@@ -72,15 +83,19 @@ export function useTradeSearchPreview(options?: UseTradeSearchPreviewOptions) {
       }
 
       previewCache.set(url, item);
+      rawQueryCache.set(url, rawQuery);
 
       if (requestId === currentRequestId && activeEntityKey.value === entityKey) {
         activePreviewData.value = item;
+        activeRawQuery.value = rawQuery;
       }
     } catch {
       const errItem: TradeSearchPreviewData = { loading: false, isLegacy: true, ...realm };
       previewCache.set(url, errItem);
+      rawQueryCache.set(url, null);
       if (requestId === currentRequestId && activeEntityKey.value === entityKey) {
         activePreviewData.value = errItem;
+        activeRawQuery.value = null;
       }
     }
   };
@@ -90,6 +105,7 @@ export function useTradeSearchPreview(options?: UseTradeSearchPreviewOptions) {
       currentRequestId++;
       activeEntityKey.value = null;
       activePreviewData.value = null;
+      activeRawQuery.value = null;
     }
   };
 
@@ -104,6 +120,7 @@ export function useTradeSearchPreview(options?: UseTradeSearchPreviewOptions) {
   return {
     activeEntityKey,
     activePreviewData,
+    activeRawQuery,
     loadPreview,
     clearActivePreview,
     previewCache,

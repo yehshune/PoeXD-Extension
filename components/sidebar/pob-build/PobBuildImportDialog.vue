@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { t, type I18nKey } from '@/utils/i18n';
 
 const props = withDefaults(
@@ -32,7 +33,7 @@ const emit = defineEmits<{
 }>();
 
 const codeInput = ref('');
-const textareaRef = ref<HTMLTextAreaElement | null>(null);
+const inputRef = ref<InstanceType<typeof Input> | null>(null);
 
 watch(
   () => props.open,
@@ -40,7 +41,7 @@ watch(
     if (open) {
       emit('clear-error');
       await nextTick();
-      textareaRef.value?.focus?.();
+      (inputRef.value?.$el as HTMLInputElement | undefined)?.focus?.();
     } else {
       codeInput.value = '';
       emit('clear-error');
@@ -77,18 +78,16 @@ function handleSubmit() {
         </DialogDescription>
       </DialogHeader>
 
-      <textarea
-        ref="textareaRef"
+      <Input
+        ref="inputRef"
         v-model="codeInput"
         data-pob-build-input
-        rows="6"
         spellcheck="false"
         :placeholder="t('pobBuild.placeholder')"
         :disabled="isBusy"
-        class="w-full resize-y rounded-md border border-input bg-background px-[var(--input-padding-x-default)] py-[var(--pxd-space-md)] font-mono text-[length:var(--pxd-font-body)] leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-        @keydown.ctrl.enter.prevent="handleSubmit"
-        @keydown.meta.enter.prevent="handleSubmit"
-      ></textarea>
+        class="w-full min-w-0 font-mono"
+        @keydown.enter.prevent="handleSubmit"
+      />
 
       <div
         v-if="errorKey"

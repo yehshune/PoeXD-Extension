@@ -100,6 +100,8 @@ export interface ShoppingRow extends ShoppingEntry {
   pseudo: boolean;
   /** 使用者調整過這一項的搜尋條件，或存回了市集搜尋 */
   searchCustomized: boolean;
+  /** 目前已儲存的條件調整（供 Popover 建立暫存草稿使用） */
+  searchSelection?: EntrySearchSelection;
   /** 這一項使用從市集頁面存回的搜尋（詞綴條件不套用） */
   searchOverride: boolean;
 }
@@ -183,6 +185,8 @@ export interface UsePobBuild {
   /** 設定「至少符合 N 項」；undefined 表示全部符合 */
   setCountMin(buildId: string, key: string, countMin: number | undefined): void;
   setPseudo(buildId: string, key: string, on: boolean): void;
+  /** 整批將 Popover 微調後的搜尋條件存回此項目（undefined 表示回到預設） */
+  saveSelection(buildId: string, key: string, selection: EntrySearchSelection | undefined): void;
   /** 清掉這一項的搜尋調整，回到預設 */
   resetSearch(buildId: string, key: string): void;
   /** 開啟該項目的市集搜尋；頁面沒有聯盟或項目無法搜尋時回傳 false */
@@ -402,6 +406,7 @@ export function usePobBuild(
       ...(selection?.countMin !== undefined ? { countMin: selection.countMin } : {}),
       pseudo: selection?.pseudo === true,
       searchCustomized: selection !== undefined || session.searchOverrides[entry.key] !== undefined,
+      ...(selection ? { searchSelection: selection } : {}),
       searchOverride: session.searchOverrides[entry.key] !== undefined,
     };
   };
@@ -748,6 +753,16 @@ export function usePobBuild(
       updateSelection(buildId, key, ({ pseudo: _previous, ...current }) =>
         on ? { ...current, pseudo: true } : current,
       );
+    },
+    saveSelection(buildId, key, selection) {
+      const session = find(buildId);
+      if (!session) return;
+      updateSelection(buildId, key, () => selection ?? {});
+      const entry = entriesOf(session).find((item) => item.key === key);
+      if (entry) {
+        const label = displayNames.value?.toTradeName(entry.englishName) ?? entry.label;
+        deps.showToast(t('pobBuild.toast.selectionSaved', { name: label }));
+      }
     },
     resetSearch(buildId, key) {
       updateSelection(buildId, key, () => ({}));

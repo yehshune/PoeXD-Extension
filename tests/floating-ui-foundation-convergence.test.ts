@@ -25,9 +25,9 @@ describe('LiveSearch Floating UI Scale / Density Foundation Convergence', () => 
       expect(scale120[LAYOUT_TOKENS.overlayInspectMaxHeightVar]).toBe('264px');
 
       // Trade Search Preview overlay width
-      expect(scale085[LAYOUT_TOKENS.searchPreviewWidthVar]).toBe('323px');
-      expect(scale100[LAYOUT_TOKENS.searchPreviewWidthVar]).toBe('380px');
-      expect(scale120[LAYOUT_TOKENS.searchPreviewWidthVar]).toBe('456px');
+      expect(scale085[LAYOUT_TOKENS.searchPreviewWidthVar]).toBe('391px');
+      expect(scale100[LAYOUT_TOKENS.searchPreviewWidthVar]).toBe('460px');
+      expect(scale120[LAYOUT_TOKENS.searchPreviewWidthVar]).toBe('552px');
 
       // Tooltip max width
       expect(scale085[LAYOUT_TOKENS.tooltipMaxWidthVar]).toBe('238px');

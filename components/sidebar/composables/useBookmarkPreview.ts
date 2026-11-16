@@ -33,6 +33,7 @@ export function useBookmarkPreview(options?: UseBookmarkPreviewOptions) {
   const {
     activeEntityKey: activeBookmarkId,
     activePreviewData,
+    activeRawQuery,
     loadPreview,
     clearActivePreview,
     previewCache: bookmarkPreviewCache,
@@ -61,6 +62,7 @@ export function useBookmarkPreview(options?: UseBookmarkPreviewOptions) {
   return {
     activeBookmarkId,
     activePreviewData,
+    activeRawQuery,
     loadBookmarkPreview,
     loadPreview,
     clearActivePreview,

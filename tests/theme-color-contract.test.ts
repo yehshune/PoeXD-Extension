@@ -203,6 +203,18 @@ describe('Theme Foundation Phase 2D — Theme Color Contract Tests', () => {
       expect(previewContentSource).toContain('bg-secondary');
       expect(previewContentSource).toContain('text-secondary-foreground');
       expect(previewContentSource).toContain('text-foreground');
+
+      // Search Preview 與 PoB 共用 CSS stat-domain tokens，不在 Vue 元件內寫死硬編碼顏色
+      const pobPopoverSource = readFileSync(
+        path.resolve(__dirname, '../components/sidebar/pob-build/PobEntryPreviewPopover.vue'),
+        'utf-8',
+      );
+      expect(mainCssSource).toContain('--pxd-stat-implicit:');
+      expect(mainCssSource).toContain('--pxd-stat-crafted:');
+      expect(mainCssSource).toContain('--pxd-stat-fractured:');
+      expect(pobPopoverSource).not.toContain('MOD_CLASSES');
+      expect(previewContentSource).toContain('pxd-stat-domain-text');
+      expect(pobPopoverSource).toContain('pxd-stat-domain-text');
     });
 
     it('enforces Theme semantic colors on mod search highlight and disallows hardcoded gold/brown/glow', () => {

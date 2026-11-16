@@ -67,15 +67,18 @@ describe('Structured Transfer & Criteria Overlay i18n (Seam 2)', () => {
     it('reactively translates stat group types and listing statuses', () => {
       setActiveDisplayLocale('zh-TW');
       expect(STAT_GROUP_TYPE_LABELS.and).toBe('且 (AND)');
-      expect(STATUS_LABELS.online).toBe('僅限線上');
+      expect(STATUS_LABELS.online).toBe('面對面交易(在線)');
+      expect(STATUS_LABELS.securable).toBe('即刻購買');
 
       setActiveDisplayLocale('zh-CN');
       expect(STAT_GROUP_TYPE_LABELS.and).toBe('且 (AND)');
-      expect(STATUS_LABELS.online).toBe('仅限在线');
+      expect(STATUS_LABELS.online).toBe('当面交易(在线)');
+      expect(STATUS_LABELS.securable).toBe('立即购买');
 
       setActiveDisplayLocale('en');
       expect(STAT_GROUP_TYPE_LABELS.and).toBe('AND');
-      expect(STATUS_LABELS.online).toBe('Online Only');
+      expect(STATUS_LABELS.online).toBe('In Person (Online)');
+      expect(STATUS_LABELS.securable).toBe('Instant Buyout');
     });
 
     it('reactively formats criteria overlay report across locales', () => {

@@ -1,0 +1,170 @@
+import { normalizeStatFilter, type CriteriaOverlayStatFilter } from './criteria-overlay';
+
+const EDITABLE_GROUP_TYPES = new Set(['count', 'weight', 'weight2']);
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** 深拷貝一個 Trade query payload；不是物件時回傳 null。 */
+export function cloneTradeQuery(payload: unknown): Record<string, unknown> | null {
+  if (!isPlainRecord(payload)) return null;
+  try {
+    return JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/** 取得真正的 query 物件（支援直接是 query，或包在 `{ query, sort }` 裡）。 */
+function getQueryRoot(payload: Record<string, unknown>): Record<string, unknown> {
+  return isPlainRecord(payload.query) ? payload.query : payload;
+}
+
+function canonicalValue(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalValue).join(',')}]`;
+  if (isPlainRecord(value)) {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalValue(value[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export function areTradeQueriesEqual(left: unknown, right: unknown): boolean {
+  return canonicalValue(left) === canonicalValue(right);
+}
+
+export function isGroupValueEditable(groupType: string): boolean {
+  return EDITABLE_GROUP_TYPES.has(groupType);
+}
+
+export function isNumericStatFilter(
+  filter: Pick<CriteriaOverlayStatFilter, 'value'> & { id?: string },
+): boolean {
+  return filter.value?.option === undefined;
+}
+
+/** 對齊 `criteriaFromTradeQuery` 略過無效／空群組後的索引，找出在 `root.stats` 裡的實際群組。 */
+function findVisibleGroup(
+  root: Record<string, unknown>,
+  visibleGroupIndex: number,
+): Record<string, unknown> | null {
+  if (!Array.isArray(root.stats)) return null;
+  let seen = 0;
+  for (const raw of root.stats) {
+    if (!isPlainRecord(raw) || typeof raw.type !== 'string' || raw.type === '') continue;
+    const rawFilters = Array.isArray(raw.filters) ? raw.filters : [];
+    const hasValidFilter = rawFilters.some((f) => normalizeStatFilter(f) !== undefined);
+    if (!hasValidFilter) continue;
+    if (seen === visibleGroupIndex) return raw;
+    seen++;
+  }
+  return null;
+}
+
+/** 找出可見群組裡第 `visibleFilterIndex` 個有效詞綴物件。 */
+function findVisibleFilter(
+  group: Record<string, unknown>,
+  visibleFilterIndex: number,
+): Record<string, unknown> | null {
+  if (!Array.isArray(group.filters)) return null;
+  let seen = 0;
+  for (const raw of group.filters) {
+    if (!isPlainRecord(raw) || normalizeStatFilter(raw) === undefined) continue;
+    if (seen === visibleFilterIndex) return raw;
+    seen++;
+  }
+  return null;
+}
+
+function mutateQuery(
+  payload: Record<string, unknown>,
+  mutator: (root: Record<string, unknown>) => void,
+): Record<string, unknown> {
+  const cloned = cloneTradeQuery(payload) ?? {};
+  mutator(getQueryRoot(cloned));
+  return cloned;
+}
+
+function applyBound(
+  holder: Record<string, unknown>,
+  bound: 'min' | 'max',
+  value: number | null,
+): void {
+  const current = isPlainRecord(holder.value) ? { ...holder.value } : {};
+  if (value === null || !Number.isFinite(value)) {
+    delete current[bound];
+  } else {
+    current[bound] = value;
+  }
+  if (Object.keys(current).length === 0) {
+    delete holder.value;
+  } else {
+    holder.value = current;
+  }
+}
+
+export function setTradeQueryStatus(
+  payload: Record<string, unknown>,
+  statusOption: string,
+): Record<string, unknown> {
+  return mutateQuery(payload, (root) => {
+    root.status = { option: statusOption };
+  });
+}
+
+export function setTradeStatGroupDisabled(
+  payload: Record<string, unknown>,
+  visibleGroupIndex: number,
+  disabled: boolean,
+): Record<string, unknown> {
+  return mutateQuery(payload, (root) => {
+    const group = findVisibleGroup(root, visibleGroupIndex);
+    if (!group) return;
+    if (disabled) group.disabled = true;
+    else delete group.disabled;
+  });
+}
+
+export function setTradeStatGroupBound(
+  payload: Record<string, unknown>,
+  visibleGroupIndex: number,
+  bound: 'min' | 'max',
+  value: number | null,
+): Record<string, unknown> {
+  return mutateQuery(payload, (root) => {
+    const group = findVisibleGroup(root, visibleGroupIndex);
+    if (!group) return;
+    applyBound(group, bound, value);
+  });
+}
+
+export function setTradeStatFilterDisabled(
+  payload: Record<string, unknown>,
+  visibleGroupIndex: number,
+  visibleFilterIndex: number,
+  disabled: boolean,
+): Record<string, unknown> {
+  return mutateQuery(payload, (root) => {
+    const group = findVisibleGroup(root, visibleGroupIndex);
+    const filter = group ? findVisibleFilter(group, visibleFilterIndex) : null;
+    if (!filter) return;
+    if (disabled) filter.disabled = true;
+    else delete filter.disabled;
+  });
+}
+
+export function setTradeStatFilterBound(
+  payload: Record<string, unknown>,
+  visibleGroupIndex: number,
+  visibleFilterIndex: number,
+  bound: 'min' | 'max',
+  value: number | null,
+): Record<string, unknown> {
+  return mutateQuery(payload, (root) => {
+    const group = findVisibleGroup(root, visibleGroupIndex);
+    const filter = group ? findVisibleFilter(group, visibleFilterIndex) : null;
+    if (!filter) return;
+    applyBound(filter, bound, value);
+  });
+}

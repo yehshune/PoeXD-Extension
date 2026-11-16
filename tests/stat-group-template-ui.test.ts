@@ -110,7 +110,7 @@ describe('labelCriteriaOverlayParts', () => {
       'stat:0',
       'field:misc_filters.corrupted',
     ]);
-    expect(labels[1].detail).toBe('僅限線上');
+    expect(labels[1].detail).toBe('面對面交易(在線)');
     expect(labels[2].label).toBe('計數 (COUNT) ≥ 2 · 1 條');
     expect(labels[3].detail).toBe('否');
     expect(labels.map((l) => l.target)).toEqual([

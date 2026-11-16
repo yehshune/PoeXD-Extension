@@ -177,6 +177,26 @@
   --pxd-z-dialog-system: 120;
   --pxd-z-floating: 200; /* 浮動選單，永遠在對話框之上 */
   --pxd-z-toast: 2147483647;
+
+  /* 詞綴來源網域語意色彩（對齊官方市集 .mutate-type-* 色系，供 PoB 與書籤／歷史搜尋預覽共用） */
+  --pxd-stat-explicit: var(--foreground);
+  --pxd-stat-implicit: oklch(0.82 0.085 100);
+  --pxd-stat-crafted: oklch(0.75 0.125 245);
+  --pxd-stat-enchant: oklch(0.76 0.115 312);
+  --pxd-stat-fractured: oklch(0.79 0.072 88);
+  --pxd-stat-pseudo: oklch(0.78 0.015 110);
+  --pxd-stat-imbued: oklch(0.75 0.145 305);
+  --pxd-stat-scourge: oklch(0.76 0.165 42);
+  --pxd-stat-delve: oklch(0.76 0.135 58);
+  --pxd-stat-ultimatum: oklch(0.71 0.185 28);
+  --pxd-stat-sanctum: oklch(0.78 0.08 82);
+  --pxd-stat-crucible: oklch(0.77 0.16 38);
+  --pxd-stat-mercenary: oklch(0.8 0.036 55);
+  --pxd-stat-veiled: oklch(0.74 0.025 235);
+  --pxd-stat-monster: oklch(0.69 0.155 25);
+  --pxd-stat-rune: oklch(0.75 0.012 340);
+  --pxd-stat-desecrated: oklch(0.79 0.105 118);
+  --pxd-stat-skill: oklch(0.75 0.145 305);
 }
 
 :host([data-poexd-theme='modern-dark']),
@@ -428,5 +448,37 @@
 @container (max-width: 300px) {
   .pxd-toolbar-btn-text {
     display: none !important;
+  }
+}
+
+/* 詞綴來源網域共用色票與標籤樣式（--pxd-stat-color 由各網域套用對應 --pxd-stat-* token） */
+.pxd-stat-domain-text {
+  color: var(--pxd-stat-color, var(--foreground));
+}
+
+.pxd-stat-domain-badge {
+  color: var(--pxd-stat-color, var(--secondary-foreground));
+  background-color: color-mix(
+    in oklab,
+    var(--pxd-stat-color, var(--secondary-foreground)) 16%,
+    transparent
+  );
+  border-color: color-mix(
+    in oklab,
+    var(--pxd-stat-color, var(--secondary-foreground)) 40%,
+    transparent
+  );
+}
+
+/* 對齊 2px 偶數像素網格（搭配 1px 邊框），確保任何 UI Scale 與子像素座標下，勾選框內部實心方塊皆左右／上下等距置中 */
+@supports (width: round(nearest, 18px, 2px)) {
+  [data-slot='checkbox'] {
+    width: round(nearest, var(--checkbox-size, 18px), 2px);
+    height: round(nearest, var(--checkbox-size, 18px), 2px);
+  }
+
+  [data-slot='checkbox-indicator']:not([data-state='indeterminate']) {
+    width: calc(round(nearest, var(--checkbox-size, 18px), 2px) - 6px);
+    height: calc(round(nearest, var(--checkbox-size, 18px), 2px) - 6px);
   }
 }

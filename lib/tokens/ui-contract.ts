@@ -145,7 +145,7 @@ export const LAYOUT_TOKENS = Object.freeze({
   overlayInspectWidthVar: '--pxd-overlay-inspect-width',
   overlayInspectMaxHeightPx: 220,
   overlayInspectMaxHeightVar: '--pxd-overlay-inspect-max-height',
-  searchPreviewWidthPx: 380,
+  searchPreviewWidthPx: 460,
   searchPreviewWidthVar: '--pxd-search-preview-width',
   tooltipMaxWidthPx: 280,
   tooltipMaxWidthVar: '--pxd-tooltip-max-width',

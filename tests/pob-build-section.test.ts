@@ -735,6 +735,38 @@ describe('usePobBuild', () => {
       expect(stored()[0].searchSelections).toEqual({});
     });
 
+    it('saveSelection 整批存回條件、更新 searchSelection 與提示，傳入 undefined 則清回預設', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      pob.selectItemSet('build-1', '2');
+      const key = plateOf(pob).key;
+
+      pob.saveSelection('build-1', key, {
+        stats: { [LIFE]: { min: 110 } },
+        countMin: 1,
+        pseudo: true,
+      });
+      expect(plateOf(pob).searchCustomized).toBe(true);
+      expect(plateOf(pob).searchSelection).toEqual({
+        stats: { [LIFE]: { min: 110 } },
+        countMin: 1,
+        pseudo: true,
+      });
+      expect(showToast).toHaveBeenCalledWith('已存回「Plate Vest」的搜尋條件');
+      await flush();
+      expect(stored()[0].searchSelections[key]).toEqual({
+        stats: { [LIFE]: { min: 110 } },
+        countMin: 1,
+        pseudo: true,
+      });
+
+      pob.saveSelection('build-1', key, undefined);
+      expect(plateOf(pob).searchCustomized).toBe(false);
+      expect(plateOf(pob).searchSelection).toBeUndefined();
+      await flush();
+      expect(stored()[0].searchSelections).toEqual({});
+    });
+
     it('開啟搜尋使用調整後的條件', async () => {
       const pob = usePobBuild('poe1', deps);
       await pob.importCode(toCode(buildXml()));

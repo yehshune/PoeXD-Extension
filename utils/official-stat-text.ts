@@ -15,9 +15,15 @@ export const OFFICIAL_STAT_TEXT_LOCALES = ['en', 'zh-TW', 'zh-CN'] as const;
 type OfficialStatTextLocale = (typeof OFFICIAL_STAT_TEXT_LOCALES)[number];
 
 type StatTexts = Readonly<Record<string, string | readonly string[]>>;
+type StatDomainLabels = Readonly<Record<string, string>>;
+
+interface StatShard {
+  readonly stats: StatTexts;
+  readonly labels: StatDomainLabels;
+}
 
 interface VersionState {
-  shards: Map<OfficialStatTextLocale, StatTexts>;
+  shards: Map<OfficialStatTextLocale, StatShard>;
   pending: Map<OfficialStatTextLocale, Promise<boolean>>;
   unavailable: Set<OfficialStatTextLocale>;
 }
@@ -41,14 +47,23 @@ const isOfficialLocale = (locale: string): locale is OfficialStatTextLocale =>
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-function parseStatTexts(data: unknown): StatTexts | null {
+function parseStatLabels(raw: unknown): StatDomainLabels {
+  if (!isRecord(raw)) return {};
+  const labels: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string' && value.trim()) labels[key] = value.trim();
+  }
+  return labels;
+}
+
+function parseStatShard(data: unknown): StatShard | null {
   if (!isRecord(data) || !isRecord(data.stats)) return null;
   const valid = Object.values(data.stats).every(
     (value) =>
       typeof value === 'string' ||
       (Array.isArray(value) && value.every((text) => typeof text === 'string')),
   );
-  return valid ? (data.stats as StatTexts) : null;
+  return valid ? { stats: data.stats as StatTexts, labels: parseStatLabels(data.labels) } : null;
 }
 
 function resolveAssetUrl(assetPath: string): string {
@@ -58,7 +73,7 @@ function resolveAssetUrl(assetPath: string): string {
 
 async function fetchShard(version: PoeVersion, locale: OfficialStatTextLocale) {
   const res = await fetch(resolveAssetUrl(getLocaleTradeStatsAssetPath(version, locale)));
-  return parseStatTexts(res?.ok ? await res.json() : null);
+  return parseStatShard(res?.ok ? await res.json() : null);
 }
 
 /** 載入指定語系的官方詞綴文字；沒有官方資料的語系或載入失敗回傳 false，且不重複請求 */
@@ -75,13 +90,13 @@ export async function ensureOfficialStatTextLoaded(
 
   const promise = fetchShard(version, locale)
     .catch(() => null)
-    .then((stats) => {
+    .then((shard) => {
       state.pending.delete(locale);
-      if (!stats) {
+      if (!shard) {
         state.unavailable.add(locale);
         return false;
       }
-      state.shards.set(locale, stats);
+      state.shards.set(locale, shard);
       revision.value += 1;
       return true;
     });
@@ -115,7 +130,7 @@ function rejectUntranslated(
   if (locale === 'en') return text;
   const state = getState(version);
   if (!state.shards.has('en')) void ensureOfficialStatTextLoaded(version, 'en');
-  return text === lookupRaw(state.shards.get('en'), statId) ? null : text;
+  return text === lookupRaw(state.shards.get('en')?.stats, statId) ? null : text;
 }
 
 /**
@@ -148,25 +163,46 @@ export function getOfficialStatLabel(
   if (live !== undefined) return live === null ? null : renderGenericTemplate(live, locale);
   if (!isOfficialLocale(locale)) return null;
   const state = getState(version);
-  const stats = state.shards.get(locale);
-  if (!stats) {
+  const shard = state.shards.get(locale);
+  if (!shard) {
     void ensureOfficialStatTextLoaded(version, locale);
     return null;
   }
-  const text = lookupRaw(stats, statId);
+  const text = lookupRaw(shard.stats, statId);
   if (!text) return null;
   const translated = rejectUntranslated(text, statId, version, locale);
   return translated === null ? null : renderGenericTemplate(translated, locale);
 }
 
-/** 測試用：直接指定某語系的官方詞綴文字；傳入 null 清除 */
+/** 查詢官方市集 stat 網域（`pseudo` / `implicit` / `crafted` 等）對應的顯示標籤 */
+export function getOfficialStatDomainLabel(
+  domain: string,
+  version: PoeVersion,
+  locale: SupportedAffixLocale | string,
+): string | null {
+  void revision.value;
+  if (!domain) return null;
+  const liveLabel = getUsableLiveTradeData(version, locale)?.statLabels?.domainLabels?.[domain];
+  if (typeof liveLabel === 'string' && liveLabel.trim()) return liveLabel.trim();
+  if (!isOfficialLocale(locale)) return null;
+  const state = getState(version);
+  const shard = state.shards.get(locale);
+  if (!shard) {
+    void ensureOfficialStatTextLoaded(version, locale);
+    return null;
+  }
+  return shard.labels[domain] ?? null;
+}
+
+/** 測試用：直接指定某語系的官方詞綴文字與分類標籤；傳入 null 清除 */
 export function setMockOfficialStatText(
   version: PoeVersion,
   locale: OfficialStatTextLocale,
   stats: StatTexts | null,
+  labels?: StatDomainLabels,
 ): void {
   const state = getState(version);
-  if (stats) state.shards.set(locale, stats);
+  if (stats) state.shards.set(locale, { stats, labels: labels ?? {} });
   else state.shards.delete(locale);
   revision.value += 1;
 }

@@ -167,6 +167,20 @@ describe('parseLiveStatLabels', () => {
     expect(result!.stats[ids[0]]).toBe(result!.pseudoStats[ids[0]]);
   });
 
+  it.each(CASES)(
+    '$name：同時擷取與打包 trade-stats.json 一致的網域標籤 (domainLabels)',
+    (entry) => {
+      const bundledLabels = readJson(
+        `../public/json/${entry.version}/locales/${entry.locale}/trade-stats.json`,
+      ).labels;
+      const result = parseLiveStatLabels(entry.stats);
+      expect(result!.domainLabels).toBeDefined();
+      for (const [domain, label] of Object.entries(result!.domainLabels!)) {
+        if (domain in bundledLabels) expect(label).toBe(bundledLabels[domain]);
+      }
+    },
+  );
+
   it.each([
     ['不是陣列', {}],
     ['缺少 pseudo 群組', [{ id: 'explicit', entries: [{ id: 'explicit.stat_1', text: 'x' }] }]],
