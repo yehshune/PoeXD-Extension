@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
 import type { StatGroupTemplate } from '@/utils/stat-group-template-store';
 import { isTradeSearchFormUrl } from '@/entrypoints/content/logic/form-url-sync';
+import { criteriaFromTradeQuery } from '@/utils/criteria-overlay';
 import SidebarPane from '../layout/SidebarPane.vue';
 import DragTrashZone from '../layout/DragTrashZone.vue';
 import TradeSearchPreviewPopover from '../search-preview/TradeSearchPreviewPopover.vue';
@@ -80,6 +81,20 @@ const previewData = computed<TradeSearchPreviewData | null>(() => {
     criteria: criteriaOf(template),
   };
 });
+
+/** 預覽可暫時微調的條件：範本的詞綴群組就是市集 query 的 stats */
+const previewRawQuery = computed<Record<string, unknown> | null>(() => {
+  const template = preview.activeItem.value;
+  return template ? { query: { stats: template.statGroups } } : null;
+});
+
+/** 把預覽中微調後的詞綴群組存回範本；存回後範本更新，預覽的暫存也跟著重設 */
+async function saveBackPreview(modifiedQuery: Record<string, unknown>): Promise<void> {
+  const template = preview.activeItem.value;
+  if (!template) return;
+  const { statGroups } = criteriaFromTradeQuery(modifiedQuery);
+  await manager.updateTemplateStatGroups(template, statGroups);
+}
 
 function summaryOf(template: StatGroupTemplate): string {
   const filters = template.statGroups.reduce((sum, g) => sum + g.filters.length, 0);
@@ -306,7 +321,15 @@ onUnmounted(() => {
         :source-name="preview.activeItem.value?.name ?? ''"
         :manager="manager"
         :read-url="readUrl"
+        :raw-query="previewRawQuery"
+        tunable
+        stats-only
+        can-overwrite
+        :overwrite-busy="busy"
+        :overwrite-label="t('statGroupTemplate.action.saveBack')"
+        :overwrite-title="t('statGroupTemplate.action.saveBackTitle')"
         @update:open="(open) => !open && preview.close()"
+        @overwrite-search="saveBackPreview"
       />
 
       <DragTrashZone

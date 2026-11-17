@@ -6,49 +6,31 @@
     class="trade-search-preview-popover bookmark-preview-popover flex min-h-0 flex-1 flex-col text-[length:var(--pxd-font-body)]"
   >
     <!-- 固定標題列（比照詞綴選擇器）：來源名稱、標籤與關閉鈕，不隨內容捲動 -->
-    <div
-      class="preview-header preview-title-row flex h-[var(--pxd-sidebar-affix-dialog-header-height)] min-w-0 shrink-0 items-center gap-[var(--pxd-space-sm)] border-b border-border bg-background px-[var(--pxd-pane-padding)]"
-    >
-      <span
-        class="preview-source-name min-w-0 flex-1 truncate text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px] text-foreground"
-        data-test="preview-source-name"
-        :title="headerTitle"
-        >{{ headerTitle }}</span
-      >
-      <div v-if="hasTags" class="preview-tags flex min-w-0 shrink gap-[var(--pxd-space-xs)]">
+    <ItemPreviewHeader :title="headerTitle" :closable="closable" @close="emit('close')">
+      <template v-if="hasTags" #tags>
         <span
           v-if="previewData.realmLabel"
-          class="preview-tag realm-tag whitespace-nowrap rounded-sm border border-border bg-secondary px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold text-secondary-foreground"
+          :class="['preview-tag realm-tag', PREVIEW_TAG_CLASS.secondary]"
         >
           {{ previewData.realmLabel }}
         </span>
         <span
           v-if="previewData.league"
-          class="preview-tag league-tag min-w-0 truncate rounded-sm border border-border bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold text-muted-foreground"
+          :class="['preview-tag league-tag', PREVIEW_TAG_CLASS.muted]"
           :title="previewData.league"
         >
           {{ previewData.league }}
         </span>
-      </div>
-      <button
-        v-if="closable"
-        type="button"
-        class="preview-close inline-flex size-[var(--control-height-sm)] shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-70 transition-opacity hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        data-test="preview-close"
-        :aria-label="t('common.close')"
-        :title="t('common.close')"
-        @click="emit('close')"
-      >
-        <X class="size-[var(--control-icon-default)]" aria-hidden="true" />
-      </button>
-    </div>
+      </template>
+    </ItemPreviewHeader>
 
     <!-- 快捷搜尋列（書籤／歷史預覽提供直接開啟搜尋，比照 PoB Popover） -->
     <div
-      v-if="canOpenSearch"
+      v-if="canOpenSearch || isModified"
       class="preview-search-row flex min-w-0 shrink-0 items-center gap-[var(--pxd-space-xs)] border-b border-border px-[var(--pxd-pane-padding)] py-[var(--pxd-space-sm)]"
     >
       <button
+        v-if="canOpenSearch"
         type="button"
         :class="overlayButtonClass"
         data-test="preview-open-current"
@@ -58,6 +40,7 @@
         <Search :class="iconClass" aria-hidden="true" />{{ t('bookmark.row.openSearch') }}
       </button>
       <button
+        v-if="canOpenSearch"
         type="button"
         :class="overlayButtonClass"
         data-test="preview-open-new-tab"
@@ -72,12 +55,12 @@
         :class="overlayButtonClass"
         class="border-primary/50 text-primary"
         data-test="preview-overwrite-bookmark"
-        :title="t('searchPreview.action.overwriteBookmarkTitle')"
+        :title="overwriteTitle || t('searchPreview.action.overwriteBookmarkTitle')"
         :disabled="overwriteBusy"
         @click="emit('overwrite-bookmark')"
       >
         <Save :class="iconClass" aria-hidden="true" />{{
-          t('searchPreview.action.overwriteBookmark')
+          overwriteLabel || t('searchPreview.action.overwriteBookmark')
         }}
       </button>
       <button
@@ -197,7 +180,7 @@
         </div>
 
         <div
-          v-if="criteria && (criteria.status || canTune)"
+          v-if="criteria && (criteria.status || (canTune && canTuneStatus))"
           class="preview-section preview-status flex items-center justify-between gap-[var(--pxd-space-md)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)]"
         >
           <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
@@ -205,7 +188,7 @@
               t('searchPreview.label.status')
             }}</span>
             <Select
-              v-if="canTune"
+              v-if="canTune && canTuneStatus"
               :model-value="criteria.status || undefined"
               @update:model-value="(val) => emit('set-status', String(val))"
             >
@@ -276,9 +259,7 @@
               :data-stat-group-index="groupIndex"
               :data-disabled="group.disabled ? 'true' : undefined"
             >
-              <div
-                class="preview-stat-group-header flex flex-wrap items-center gap-[var(--pxd-space-xs)] bg-muted px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)]"
-              >
+              <div :class="['preview-stat-group-header', PREVIEW_GROUP_HEADER_CLASS]">
                 <Checkbox
                   v-if="canTune"
                   data-test="preview-stat-group-toggle"
@@ -288,30 +269,14 @@
                     (val) => emit('set-stat-group-disabled', groupIndex, val !== true)
                   "
                 />
-                <Select
+                <StatGroupTypeSelect
                   v-if="canTune"
-                  :model-value="group.type"
-                  @update:model-value="
-                    (val) => emit('set-stat-group-type', groupIndex, String(val))
-                  "
-                >
-                  <SelectTrigger
-                    size="sm"
-                    class="preview-stat-group-type w-auto shrink-0 font-semibold"
-                    data-test="preview-stat-group-type"
-                  >
-                    <SelectValue>{{ groupTypeLabel(group) }}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="option in groupTypeOptions(group)"
-                      :key="option"
-                      :value="option"
-                    >
-                      {{ STAT_GROUP_TYPE_LABELS[option] ?? option }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                  class="preview-stat-group-type"
+                  data-test="preview-stat-group-type"
+                  :type="group.type"
+                  :options="groupTypeOptions(group)"
+                  @select="(type) => emit('set-stat-group-type', groupIndex, type)"
+                />
                 <span
                   v-else
                   class="preview-stat-group-type whitespace-nowrap font-semibold text-foreground"
@@ -326,7 +291,7 @@
                     inputmode="decimal"
                     step="any"
                     data-test="preview-stat-group-min"
-                    :class="groupBoundInputClass"
+                    :class="PREVIEW_GROUP_BOUND_INPUT_CLASS"
                     :value="boundInputValue(group.value?.min)"
                     :placeholder="t('tierDropdown.minPlaceholder')"
                     :disabled="Boolean(group.disabled)"
@@ -341,7 +306,7 @@
                     inputmode="decimal"
                     step="any"
                     data-test="preview-stat-group-max"
-                    :class="groupBoundInputClass"
+                    :class="PREVIEW_GROUP_BOUND_INPUT_CLASS"
                     :value="boundInputValue(group.value?.max)"
                     :placeholder="t('tierDropdown.maxPlaceholder')"
                     :disabled="Boolean(group.disabled)"
@@ -385,100 +350,29 @@
                   }}
                 </button>
               </div>
-              <div
+              <PreviewStatRow
                 v-for="(item, idx) in displayedStatGroups[groupIndex].rows"
                 :key="idx"
-                class="preview-stat-row"
-                :class="[rowClass, item.filter.disabled ? 'opacity-60' : '']"
-                :data-stat-domain="item.display.domain"
-                :style="item.display.style"
-              >
-                <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
-                  <Checkbox
-                    v-if="canTune"
-                    data-test="preview-stat-toggle"
-                    :model-value="!item.filter.disabled"
-                    :disabled="Boolean(group.disabled)"
-                    :aria-label="item.display.ariaLabel"
-                    @update:model-value="
-                      (val) => emit('set-stat-filter-disabled', groupIndex, idx, val !== true)
-                    "
-                  />
-                  <StatDomainMenu
-                    v-if="item.domains.length > 1"
-                    data-test="preview-stat-domain"
-                    :domain="item.display.domain ?? ''"
-                    :domains="item.domains"
-                    :version="previewData?.gameVersion"
-                    :disabled="Boolean(group.disabled)"
-                    @select="
-                      (domain) =>
-                        emit('set-stat-filter-domain', groupIndex, idx, domain, item.domains)
-                    "
-                  />
-                  <span
-                    v-else-if="item.display.badgeLabel"
-                    :class="['stat-domain-badge', STAT_DOMAIN_BADGE_CLASS]"
-                    :data-stat-domain="item.display.domain"
-                    >{{ item.display.badgeLabel }}</span
-                  >
-                  <span
-                    class="stat-name flex min-w-0 flex-1 flex-col"
-                    :class="item.display.textClass"
-                    :title="item.filter.id"
-                  >
-                    <span
-                      v-for="(line, lineIndex) in item.display.lines"
-                      :key="lineIndex"
-                      class="stat-line truncate"
-                      >{{ line }}</span
-                    >
-                  </span>
-                </div>
-                <span
-                  v-if="canTune && isNumericStatFilter(item.filter)"
-                  class="inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)]"
-                >
-                  <input
-                    type="number"
-                    inputmode="decimal"
-                    step="any"
-                    data-test="preview-stat-min"
-                    :class="statBoundInputClass"
-                    :value="boundInputValue(item.filter.value?.min)"
-                    :placeholder="t('tierDropdown.minPlaceholder')"
-                    :disabled="Boolean(item.filter.disabled || group.disabled)"
-                    :aria-label="t('tierDropdown.minPlaceholder')"
-                    @change="
-                      (e) =>
-                        emit('set-stat-filter-bound', groupIndex, idx, 'min', parseBoundInput(e))
-                    "
-                    @keydown.enter.prevent="blurInputTarget"
-                  />
-                  <input
-                    type="number"
-                    inputmode="decimal"
-                    step="any"
-                    data-test="preview-stat-max"
-                    :class="statBoundInputClass"
-                    :value="boundInputValue(item.filter.value?.max)"
-                    :placeholder="t('tierDropdown.maxPlaceholder')"
-                    :disabled="Boolean(item.filter.disabled || group.disabled)"
-                    :aria-label="t('tierDropdown.maxPlaceholder')"
-                    @change="
-                      (e) =>
-                        emit('set-stat-filter-bound', groupIndex, idx, 'max', parseBoundInput(e))
-                    "
-                    @keydown.enter.prevent="blurInputTarget"
-                  />
-                </span>
-                <span
-                  v-else-if="rangeText(item.filter.value)"
-                  class="stat-range shrink-0 font-mono text-foreground"
-                >
-                  {{ rangeText(item.filter.value) }}
-                </span>
-              </div>
+                :domain="item.domain"
+                :domains="item.domains"
+                :domain-disabled="Boolean(group.disabled)"
+                :version="previewData.gameVersion"
+                :lines="item.lines"
+                :title="item.filter.id"
+                :checked="canTune ? !item.filter.disabled : undefined"
+                :toggle-disabled="Boolean(group.disabled)"
+                :bounds="canTune ? statBounds(item.filter) : null"
+                :bounds-disabled="Boolean(item.filter.disabled || group.disabled)"
+                :range-text="rangeText(item.filter.value)"
+                :dimmed="Boolean(item.filter.disabled)"
+                @toggle="(checked) => emit('set-stat-filter-disabled', groupIndex, idx, !checked)"
+                @select-domain="
+                  (domain) => emit('set-stat-filter-domain', groupIndex, idx, domain, item.domains)
+                "
+                @commit-bound="
+                  (bound, value) => emit('set-stat-filter-bound', groupIndex, idx, bound, value)
+                "
+              />
             </div>
           </div>
           <div
@@ -486,42 +380,15 @@
             v-show="!isCollapsed(STATS_SECTION_KEY)"
             class="preview-stats-list overflow-hidden rounded-md border border-border"
           >
-            <div
+            <PreviewStatRow
               v-for="(item, idx) in displayedStats"
               :key="idx"
-              class="preview-stat-row"
-              :class="rowClass"
-              :data-stat-domain="item.display.domain"
-              :style="item.display.style"
-            >
-              <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
-                <span
-                  v-if="item.display.badgeLabel"
-                  :class="['stat-domain-badge', STAT_DOMAIN_BADGE_CLASS]"
-                  :data-stat-domain="item.display.domain"
-                  >{{ item.display.badgeLabel }}</span
-                >
-                <span
-                  class="stat-name flex min-w-0 flex-1 flex-col"
-                  :class="item.display.textClass"
-                  :title="item.stat.id"
-                >
-                  <span
-                    v-for="(line, lineIndex) in item.display.lines"
-                    :key="lineIndex"
-                    class="stat-line truncate"
-                    >{{ line }}</span
-                  >
-                </span>
-              </div>
-              <span
-                v-if="item.stat.min !== undefined || item.stat.max !== undefined"
-                class="stat-range shrink-0 font-mono text-foreground"
-              >
-                {{ item.stat.min !== undefined ? '≥' + item.stat.min : ''
-                }}{{ item.stat.max !== undefined ? ' ≤' + item.stat.max : '' }}
-              </span>
-            </div>
+              :domain="item.domain"
+              :version="previewData.gameVersion"
+              :lines="item.lines"
+              :title="item.stat.id"
+              :range-text="flatRangeText(item.stat)"
+            />
           </div>
         </div>
 
@@ -599,7 +466,6 @@ import {
   Save,
   Search,
   Undo2,
-  X,
 } from '@lucide/vue';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -611,20 +477,24 @@ import {
 } from '@/components/ui/select';
 import { t } from '@/utils/i18n';
 import type { OverlayTarget, CriteriaOverlayStatGroup } from '@/utils/criteria-overlay';
-import {
-  extractStatDomain,
-  getStatDomainBadgeLabel,
-  getStatDomainStyle,
-  shouldShowStatDomainBadge,
-  STAT_DOMAIN_BADGE_CLASS,
-} from '@/utils/stat-domain';
+import { extractStatDomain } from '@/utils/stat-domain';
 import {
   isGroupValueEditable,
   isNumericStatFilter,
   STAT_GROUP_TYPES,
 } from '@/utils/trade-query-tuning';
 import { getOfficialStatDomains } from '@/utils/official-stat-text';
-import StatDomainMenu from '../stat-domain/StatDomainMenu.vue';
+import ItemPreviewHeader from '../item-preview/ItemPreviewHeader.vue';
+import PreviewStatRow, { type PreviewStatBounds } from '../item-preview/PreviewStatRow.vue';
+import StatGroupTypeSelect from '../item-preview/StatGroupTypeSelect.vue';
+import {
+  PREVIEW_ACTION_BUTTON_CLASS,
+  PREVIEW_GROUP_BOUND_INPUT_CLASS,
+  PREVIEW_GROUP_HEADER_CLASS,
+  PREVIEW_ICON_CLASS,
+  PREVIEW_STAT_ROW_CLASS,
+  PREVIEW_TAG_CLASS,
+} from '../item-preview/preview-classes';
 import {
   rangeText,
   STAT_GROUP_TYPE_LABELS,
@@ -697,6 +567,11 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  /** 覆蓋按鈕的文字與提示；省略時為「覆蓋回書籤」 */
+  overwriteLabel: { type: String, default: '' },
+  overwriteTitle: { type: String, default: '' },
+  /** 微調時可改上架狀態；常用詞綴群組只有詞綴，不提供 */
+  canTuneStatus: { type: Boolean, default: true },
   overwriteBusy: {
     type: Boolean,
     default: false,
@@ -730,10 +605,9 @@ const emit = defineEmits<{
   'overwrite-bookmark': [];
 }>();
 
-/** 版面比照詞綴選擇器（FilterPane／ModItem）：字級、間距、圓角一律用 design tokens。 */
-const iconClass = 'size-[var(--control-icon-sm)] shrink-0';
-const overlayButtonClass =
-  'preview-overlay-btn inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)] whitespace-nowrap rounded-sm border border-border bg-transparent px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] leading-none text-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50';
+/** 版面比照詞綴選擇器（FilterPane／ModItem）：共用類別見 item-preview/preview-classes。 */
+const iconClass = PREVIEW_ICON_CLASS;
+const overlayButtonClass = `preview-overlay-btn ${PREVIEW_ACTION_BUTTON_CLASS}`;
 const overlayIconClass =
   'preview-overlay-icon inline-flex shrink-0 items-center justify-center rounded-sm border-0 bg-transparent p-[var(--pxd-space-xs)] text-muted-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50';
 /** 分區標頭比照 FilterPane 的群組標頭。 */
@@ -743,13 +617,8 @@ const sectionTitleClass =
   'preview-section-title min-w-0 truncate text-[length:var(--pxd-font-section-title)] font-semibold text-current';
 const sectionCountClass =
   'preview-section-count shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground';
-/** 條件列比照 ModItem 的詞綴列：本文字級、分隔線。 */
-const rowClass =
-  'flex items-center justify-between gap-[var(--pxd-space-md)] border-t border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)] leading-[1.25] first:border-t-0';
-const boundInputBaseClass =
-  'h-[calc(var(--control-height-sm)*0.78)] shrink-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-md border border-solid border-input bg-background px-[var(--input-padding-x-sm)] py-0 text-right text-[length:var(--control-font-sm)] leading-none text-foreground tabular-nums shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50';
-const statBoundInputClass = `${boundInputBaseClass} w-[calc(var(--control-height-sm)*1.85)]`;
-const groupBoundInputClass = `${boundInputBaseClass} w-[calc(var(--control-height-sm)*1.55)]`;
+/** 篩選條件列比照詞綴列 */
+const rowClass = PREVIEW_STAT_ROW_CLASS;
 
 const STATUS_OPTION_ORDER = ['securable', 'available', 'online', 'onlineleague', 'any'] as const;
 
@@ -762,6 +631,23 @@ const statusOptions = computed(() => {
 
 function boundInputValue(value: unknown): string | number {
   return typeof value === 'number' || typeof value === 'string' ? value : '';
+}
+
+/** 數值型條件可編輯下限／上限；選項型條件不能改 */
+function statBounds(filter: CriteriaOverlayStatGroup['filters'][number]): PreviewStatBounds | null {
+  if (!isNumericStatFilter(filter)) return null;
+  const toBound = (value: unknown) =>
+    typeof value === 'number' || typeof value === 'string' ? value : undefined;
+  return { min: toBound(filter.value?.min), max: toBound(filter.value?.max) };
+}
+
+/** 攤平的詞綴（舊版 metadata）只顯示範圍文字 */
+function flatRangeText(stat: { min?: number; max?: number }): string {
+  const parts = [
+    stat.min !== undefined ? `≥${stat.min}` : '',
+    stat.max !== undefined ? `≤${stat.max}` : '',
+  ];
+  return parts.filter(Boolean).join(' ');
 }
 
 function parseBoundInput(event: Event): number | null {
@@ -797,17 +683,9 @@ function groupTypeLabel(group: CriteriaOverlayStatGroup): string {
 }
 
 function describeStatRow(statId: string) {
-  const version = props.previewData?.gameVersion;
-  const domain = extractStatDomain(statId);
-  const showBadge = shouldShowStatDomainBadge(domain);
-  const lines = translateStatLines(statId, version);
   return {
-    domain: domain ?? undefined,
-    badgeLabel: showBadge ? getStatDomainBadgeLabel(domain, version) : null,
-    style: getStatDomainStyle(domain),
-    textClass: showBadge ? 'pxd-stat-domain-text' : 'text-foreground',
-    lines,
-    ariaLabel: lines.join(' '),
+    domain: extractStatDomain(statId),
+    lines: translateStatLines(statId, props.previewData?.gameVersion),
   };
 }
 
@@ -816,7 +694,7 @@ const displayedStatGroups = computed(() =>
     group,
     rows: group.filters.map((filter) => ({
       filter,
-      display: describeStatRow(filter.id),
+      ...describeStatRow(filter.id),
       // 可微調時才提供切換；同一個代碼後綴在市集上有兩種以上前綴才顯示選單
       domains: props.canTune
         ? getOfficialStatDomains(filter.id, props.previewData?.gameVersion ?? 'poe1')
@@ -828,7 +706,7 @@ const displayedStatGroups = computed(() =>
 const displayedStats = computed(() =>
   stats.value.map((stat) => ({
     stat,
-    display: describeStatRow(stat.id),
+    ...describeStatRow(stat.id),
   })),
 );
 

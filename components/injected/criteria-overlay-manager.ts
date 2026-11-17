@@ -82,6 +82,11 @@ export interface CriteriaOverlayManager {
   beginSaveTemplate(): Promise<void>;
   saveTemplate(payload: { name: string; keys: readonly string[] }): Promise<void>;
   renameTemplate(template: StatGroupTemplate): Promise<void>;
+  /** 把預覽中微調後的詞綴群組存回範本；成功回傳 true。 */
+  updateTemplateStatGroups(
+    template: StatGroupTemplate,
+    statGroups: readonly CriteriaOverlayStatGroup[],
+  ): Promise<boolean>;
   removeTemplate(template: StatGroupTemplate): Promise<void>;
   reorderTemplates(orderedIds: readonly string[]): Promise<void>;
   /** 目前清單的匯出內容（見 stat-group-template-transfer）。 */
@@ -276,6 +281,16 @@ export function createCriteriaOverlayManager(
         if (next == null || next.trim() === '' || next.trim() === template.name) return;
         await requireStore().rename(template.id, next);
       }),
+
+    updateTemplateStatGroups: async (template, statGroups) => {
+      let saved = false;
+      await run(async () => {
+        await requireStore().updateStatGroups(template.id, statGroups);
+        notify(`已存回常用詞綴群組「${template.name}」`, 'success');
+        saved = true;
+      });
+      return saved;
+    },
 
     removeTemplate: (template) =>
       run(async () => {

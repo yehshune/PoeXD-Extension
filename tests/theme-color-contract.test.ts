@@ -188,6 +188,20 @@ describe('Theme Foundation Phase 2D — Theme Color Contract Tests', () => {
         'utf-8',
       );
 
+      // 共用的物品預覽元件（標題列、詞綴列、版面類別）也算在預覽的樣式裡
+      const sharedPreviewSource = [
+        'ItemPreviewHeader.vue',
+        'PreviewStatRow.vue',
+        'preview-classes.ts',
+      ]
+        .map((file) =>
+          readFileSync(
+            path.resolve(__dirname, '../components/sidebar/item-preview', file),
+            'utf-8',
+          ),
+        )
+        .join('\n');
+
       // Untyped preview metadata must not use hardcoded colors
       expect(bookmarkSource).not.toContain('#38bdf8');
       expect(bookmarkSource).not.toContain('#af6025');
@@ -200,8 +214,10 @@ describe('Theme Foundation Phase 2D — Theme Color Contract Tests', () => {
       expect(previewContentSource).not.toContain('#f59e0b');
 
       // Generic preview uses Theme semantic tokens (class-first)
-      expect(previewContentSource).toContain('bg-secondary');
-      expect(previewContentSource).toContain('text-secondary-foreground');
+      expect(sharedPreviewSource).not.toContain('#38bdf8');
+      expect(sharedPreviewSource).not.toContain('#af6025');
+      expect(sharedPreviewSource).toContain('bg-secondary');
+      expect(sharedPreviewSource).toContain('text-secondary-foreground');
       expect(previewContentSource).toContain('text-foreground');
 
       // Search Preview 與 PoB 共用 CSS stat-domain tokens，不在 Vue 元件內寫死硬編碼顏色
@@ -213,8 +229,10 @@ describe('Theme Foundation Phase 2D — Theme Color Contract Tests', () => {
       expect(mainCssSource).toContain('--pxd-stat-crafted:');
       expect(mainCssSource).toContain('--pxd-stat-fractured:');
       expect(pobPopoverSource).not.toContain('MOD_CLASSES');
-      expect(previewContentSource).toContain('pxd-stat-domain-text');
-      expect(pobPopoverSource).toContain('pxd-stat-domain-text');
+      // 兩邊的詞綴列都用共用的 PreviewStatRow（網域文字色在那裡）
+      expect(sharedPreviewSource).toContain('pxd-stat-domain-text');
+      expect(previewContentSource).toContain('PreviewStatRow');
+      expect(pobPopoverSource).toContain('PreviewStatRow');
     });
 
     it('enforces Theme semantic colors on mod search highlight and disallows hardcoded gold/brown/glow', () => {

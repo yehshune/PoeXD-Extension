@@ -1,68 +1,62 @@
 <template>
-  <Popover :open="open" @update:open="(val: boolean) => $emit('update:open', val)">
-    <PopoverAnchor :reference="anchorReference" />
-    <PopoverContent
-      v-if="open"
-      data-test="search-preview-popover"
-      :side="side"
-      align="start"
-      :side-offset="10"
-      :collision-padding="10"
-      :avoid-collisions="true"
-      class="flex flex-col w-[var(--pxd-search-preview-width)] max-w-[var(--reka-popover-content-available-width,calc(100vw-32px))] max-h-[var(--reka-popover-content-available-height,calc(100vh-32px))] overflow-hidden bg-background p-0"
-      @open-auto-focus.prevent
-      @interact-outside="handleInteractOutside"
-    >
-      <TradeSearchPreviewContent
-        :preview-data="effectivePreviewData"
-        :reset-key="previewData"
-        :can-overlay="canOverlay"
-        :can-undo="manager.canUndo.value"
-        :overlay-busy="manager.busy.value"
-        :overlay-hint="overlayHint"
-        :source-name="sourceName"
-        :can-open-search="canOpenSearch"
-        :can-tune="canTune"
-        :is-modified="isModified"
-        :can-overwrite="canOverwrite"
-        :overwrite-busy="overwriteBusy"
-        closable
-        @close="$emit('update:open', false)"
-        @overlay="handleOverlay"
-        @undo="manager.undo()"
-        @open-search="handleOpenSearch"
-        @set-status="applyTune((q) => setTradeQueryStatus(q, $event))"
-        @set-stat-group-disabled="
-          (idx, disabled) => applyTune((q) => setTradeStatGroupDisabled(q, idx, disabled))
-        "
-        @set-stat-group-bound="
-          (idx, bound, val) => applyTune((q) => setTradeStatGroupBound(q, idx, bound, val))
-        "
-        @set-stat-group-type="(idx, type) => applyTune((q) => setTradeStatGroupType(q, idx, type))"
-        @set-stat-filter-disabled="
-          (gIdx, fIdx, disabled) =>
-            applyTune((q) => setTradeStatFilterDisabled(q, gIdx, fIdx, disabled))
-        "
-        @set-stat-filter-bound="
-          (gIdx, fIdx, bound, val) =>
-            applyTune((q) => setTradeStatFilterBound(q, gIdx, fIdx, bound, val))
-        "
-        @set-stat-filter-domain="
-          (gIdx, fIdx, domain, allowed) =>
-            applyTune((q) => setTradeStatFilterDomain(q, gIdx, fIdx, domain, allowed))
-        "
-        @reset-tune="resetTune"
-        @overwrite-bookmark="handleOverwriteBookmark"
-      />
-    </PopoverContent>
-  </Popover>
+  <ItemPreviewPopover
+    :open="open"
+    :side="side"
+    :reference="reference"
+    data-test="search-preview-popover"
+    @update:open="(val: boolean) => $emit('update:open', val)"
+  >
+    <TradeSearchPreviewContent
+      :preview-data="effectivePreviewData"
+      :reset-key="previewData"
+      :can-overlay="canOverlay"
+      :can-undo="manager.canUndo.value"
+      :overlay-busy="manager.busy.value"
+      :overlay-hint="overlayHint"
+      :source-name="sourceName"
+      :can-open-search="canOpenSearch"
+      :can-tune="canTune"
+      :is-modified="isModified"
+      :can-overwrite="canOverwrite"
+      :overwrite-busy="overwriteBusy"
+      :overwrite-label="overwriteLabel"
+      :overwrite-title="overwriteTitle"
+      :can-tune-status="!statsOnly"
+      closable
+      @close="$emit('update:open', false)"
+      @overlay="handleOverlay"
+      @undo="manager.undo()"
+      @open-search="handleOpenSearch"
+      @set-status="applyTune((q) => setTradeQueryStatus(q, $event))"
+      @set-stat-group-disabled="
+        (idx, disabled) => applyTune((q) => setTradeStatGroupDisabled(q, idx, disabled))
+      "
+      @set-stat-group-bound="
+        (idx, bound, val) => applyTune((q) => setTradeStatGroupBound(q, idx, bound, val))
+      "
+      @set-stat-group-type="(idx, type) => applyTune((q) => setTradeStatGroupType(q, idx, type))"
+      @set-stat-filter-disabled="
+        (gIdx, fIdx, disabled) =>
+          applyTune((q) => setTradeStatFilterDisabled(q, gIdx, fIdx, disabled))
+      "
+      @set-stat-filter-bound="
+        (gIdx, fIdx, bound, val) =>
+          applyTune((q) => setTradeStatFilterBound(q, gIdx, fIdx, bound, val))
+      "
+      @set-stat-filter-domain="
+        (gIdx, fIdx, domain, allowed) =>
+          applyTune((q) => setTradeStatFilterDomain(q, gIdx, fIdx, domain, allowed))
+      "
+      @reset-tune="resetTune"
+      @overwrite-bookmark="handleOverwriteBookmark"
+    />
+  </ItemPreviewPopover>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch, type PropType } from 'vue';
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import ItemPreviewPopover from '../item-preview/ItemPreviewPopover.vue';
 import TradeSearchPreviewContent from './TradeSearchPreviewContent.vue';
-import { isNestedMenuInteraction } from '../stat-domain/nested-menu-guard';
 import type { TradeSearchPreviewData } from '../composables/useTradeSearchPreview';
 import {
   criteriaFromTradeQuery,
@@ -126,6 +120,12 @@ const props = defineProps({
   /** 書籤預覽允許把微調結果覆蓋寫回書籤。 */
   canOverwrite: { type: Boolean, default: false },
   overwriteBusy: { type: Boolean, default: false },
+  overwriteLabel: { type: String, default: '' },
+  overwriteTitle: { type: String, default: '' },
+  /** 沒有搜尋網址也允許以 rawQuery 暫時微調（常用詞綴群組）。 */
+  tunable: { type: Boolean, default: false },
+  /** 條件只有詞綴群組（常用詞綴群組），不提供上架狀態微調。 */
+  statsOnly: { type: Boolean, default: false },
 });
 
 const emit = defineEmits<{
@@ -138,8 +138,6 @@ const emit = defineEmits<{
 }>();
 
 const manager = props.manager ?? useCriteriaOverlayManager();
-
-const anchorReference = computed(() => props.reference ?? undefined);
 
 const draftQuery = ref<Record<string, unknown> | null>(null);
 
@@ -164,7 +162,7 @@ const isModified = computed(() =>
 
 const canTune = computed(() =>
   Boolean(
-    props.canOpenSearch &&
+    (props.canOpenSearch || props.tunable) &&
     draftQuery.value &&
     !props.previewData?.loading &&
     !props.previewData?.isLegacy,
@@ -220,24 +218,6 @@ const overlayHint = computed(() => {
   if (!pageHasForm.value) return t('searchPreview.hint.notOnSearchPage');
   return t('searchPreview.hint.versionMismatch');
 });
-
-/**
- * 點擊錨點那一列交給列表自己的切換邏輯處理；否則外部點擊會先關閉、接著的 click 又把它打開。
- * 同時避免點選 Popover 內的 Select portal 選項時誤關 Popover。
- */
-function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>) {
-  const path = event.detail?.originalEvent?.composedPath?.() ?? [];
-  if (props.reference && path.includes(props.reference)) {
-    event.preventDefault();
-    return;
-  }
-  // Select 與網域選單掛在 Popover 外；側欄在 Shadow DOM 裡時要另外判斷（見 nested-menu-guard）
-  const inPopoverOrMenu = isNestedMenuInteraction(
-    path,
-    (element) => element.getAttribute('data-test') === 'search-preview-popover',
-  );
-  if (inPopoverOrMenu) event.preventDefault();
-}
 
 function handleOverlay(target: OverlayTarget) {
   const criteria = effectivePreviewData.value?.criteria;

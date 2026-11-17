@@ -753,6 +753,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'statGroupTemplate.action.manage': '管理常用词缀群组...',
   'statGroupTemplate.action.saveAs': '另存为常用词缀群组...',
   'statGroupTemplate.action.overlay': '叠加套用',
+  'statGroupTemplate.action.saveBack': '存回词缀群组',
+  'statGroupTemplate.action.saveBackTitle': '将当前微调后的词缀存回此常用词缀群组',
   'statGroupTemplate.action.overlayNamed': '叠加套用：{name}',
   'statGroupTemplate.action.rename': '重命名',
   'statGroupTemplate.action.delete': '删除',

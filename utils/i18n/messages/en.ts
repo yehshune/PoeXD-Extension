@@ -797,6 +797,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'statGroupTemplate.action.manage': 'Manage Stat Templates...',
   'statGroupTemplate.action.saveAs': 'Save as Stat Template...',
   'statGroupTemplate.action.overlay': 'Overlay',
+  'statGroupTemplate.action.saveBack': 'Save to Group',
+  'statGroupTemplate.action.saveBackTitle': 'Save these tuned affixes back to this stat group',
   'statGroupTemplate.action.overlayNamed': 'Overlay: {name}',
   'statGroupTemplate.action.rename': 'Rename',
   'statGroupTemplate.action.delete': 'Delete',

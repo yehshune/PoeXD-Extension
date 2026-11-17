@@ -50,6 +50,8 @@ export interface StatGroupTemplateStore {
   /** 清空此版本的常用詞綴群組；無法解析的原始項目仍保留。 */
   clear(): Promise<void>;
   rename(id: string, name: string): Promise<void>;
+  /** 以新的詞綴群組取代既有項目的內容（名稱與順序不變）。 */
+  updateStatGroups(id: string, statGroups: readonly CriteriaOverlayStatGroup[]): Promise<void>;
   remove(id: string): Promise<void>;
   reorder(orderedIds: readonly string[]): Promise<void>;
   subscribe(listener: (templates: StatGroupTemplate[]) => void): () => void;
@@ -178,6 +180,17 @@ export function createStatGroupTemplateStore(
         if (!templates.some((t) => t.id === id)) throw new Error('找不到指定的常用詞綴群組');
         return templates.map((t) =>
           t.id === id ? { ...t, name: normalized, updatedAt: now() } : t,
+        );
+      });
+    },
+
+    async updateStatGroups(id, statGroups) {
+      const parsed = parseCriteriaOverlayStatGroups(JSON.parse(JSON.stringify(statGroups)));
+      if (!parsed || parsed.length === 0) throw new Error('沒有可儲存的詞綴群組');
+      await update((templates) => {
+        if (!templates.some((t) => t.id === id)) throw new Error('找不到指定的常用詞綴群組');
+        return templates.map((t) =>
+          t.id === id ? { ...t, statGroups: parsed, updatedAt: now() } : t,
         );
       });
     },

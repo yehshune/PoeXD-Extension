@@ -136,6 +136,42 @@ describe('StatGroupTemplatePane', () => {
     expect(popover()).toBeNull();
   });
 
+  it('預覽可暫時微調詞綴並疊加微調後的條件，存回後寫進範本並重設暫存', async () => {
+    const { container, applied, store } = await mountPane();
+    items(container)[0]
+      .querySelector<HTMLButtonElement>('[data-test="stat-group-template-toggle"]')!
+      .click();
+    await flush();
+    // 常用詞綴群組只有詞綴：沒有上架狀態、沒有開啟搜尋
+    expect(popover()?.querySelector('[data-test="preview-status-select"]')).toBeNull();
+    expect(popover()?.querySelector('[data-test="preview-open-current"]')).toBeNull();
+    expect(popover()?.querySelector('[data-test="preview-overwrite-bookmark"]')).toBeNull();
+
+    const min = popover()!.querySelector<HTMLInputElement>('[data-stat-bound][data-bound="min"]')!;
+    min.value = '5';
+    min.dispatchEvent(new Event('change'));
+    await flush();
+    const saveBack = () =>
+      popover()?.querySelector<HTMLButtonElement>('[data-test="preview-overwrite-bookmark"]');
+    expect(saveBack()?.textContent).toContain('存回詞綴群組');
+    expect(popover()?.querySelector('[data-test="preview-reset-tune"]')).not.toBeNull();
+
+    // 暫時疊加：用微調後的條件，範本本身不變
+    popover()!.querySelector<HTMLButtonElement>('[data-test="preview-overlay-stats"]')!.click();
+    await flush();
+    expect(applied[0].statGroups[0].filters[0]).toEqual({ id: 'explicit.a', value: { min: 5 } });
+    expect((await store.list())[0].statGroups).toEqual(groups);
+
+    saveBack()!.click();
+    await flush();
+    const saved = (await store.list())[0];
+    expect(saved.name).toBe('生命抗性');
+    expect(saved.statGroups[0].filters[0]).toEqual({ id: 'explicit.a', value: { min: 5 } });
+    expect(saved.statGroups[1]).toEqual(groups[1]);
+    expect(saveBack()).toBeNull();
+    expect(popover()?.querySelector('[data-test="preview-reset-tune"]')).toBeNull();
+  });
+
   it('switches the preview to another template instead of opening a second one', async () => {
     const { container } = await mountPane();
     const toggles = container.querySelectorAll<HTMLButtonElement>(

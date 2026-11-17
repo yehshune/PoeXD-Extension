@@ -192,13 +192,13 @@ describe('TradeSearchPreviewContent 詞綴群組卡片', () => {
     groupMin.value = '3';
     groupMin.dispatchEvent(new Event('change'));
 
-    const statToggles = container.querySelectorAll<HTMLElement>(
-      '[data-test="preview-stat-toggle"]',
-    );
+    const statToggles = container.querySelectorAll<HTMLElement>('[data-stat-toggle]');
     expect(statToggles[0].hasAttribute('disabled')).toBe(true);
     statToggles[2].click();
 
-    const statMins = container.querySelectorAll<HTMLInputElement>('[data-test="preview-stat-min"]');
+    const statMins = container.querySelectorAll<HTMLInputElement>(
+      '[data-stat-bound][data-bound="min"]',
+    );
     statMins[1].value = '50';
     statMins[1].dispatchEvent(new Event('change'));
 
@@ -237,7 +237,7 @@ describe('TradeSearchPreviewContent 詞綴群組卡片', () => {
       });
       document.body.appendChild(container);
       const menus = Array.from(
-        container.querySelectorAll<HTMLButtonElement>('[data-test="preview-stat-domain"]'),
+        container.querySelectorAll<HTMLButtonElement>('[data-stat-domain-trigger]'),
       );
       // 第一組的混合詞綴只有一種前綴；兩個 stat_int 列可切換
       expect(menus).toHaveLength(2);
@@ -267,7 +267,7 @@ describe('TradeSearchPreviewContent 詞綴群組卡片', () => {
 
       app?.unmount();
       const readOnly = render({ canTune: false });
-      expect(readOnly.querySelector('[data-test="preview-stat-domain"]')).toBeNull();
+      expect(readOnly.querySelector('[data-stat-domain-trigger]')).toBeNull();
     } finally {
       resetOfficialStatTextForTests();
     }

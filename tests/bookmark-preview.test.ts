@@ -703,9 +703,14 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
     expect(content).not.toContain('#d4af37'); // Stat title/range
     expect(content).not.toContain('#f59e0b'); // Filter title
 
-    // Generic preview uses Theme semantic tokens (class-first)
-    expect(content).toContain('bg-secondary');
-    expect(content).toContain('text-secondary-foreground');
+    // Generic preview uses Theme semantic tokens (class-first)；標籤樣式在共用的版面類別
+    const sharedClasses = readFileSync(
+      path.resolve(__dirname, '../components/sidebar/item-preview/preview-classes.ts'),
+      'utf-8',
+    );
+    expect(content).toContain('PREVIEW_TAG_CLASS');
+    expect(sharedClasses).toContain('bg-secondary');
+    expect(sharedClasses).toContain('text-secondary-foreground');
     expect(content).toContain('text-foreground');
     expect(content).toContain('text-muted-foreground');
 

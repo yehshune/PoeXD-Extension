@@ -71,6 +71,25 @@ describe('StatGroupTemplateStore', () => {
     await expect(store.rename('missing', 'x')).rejects.toThrow('找不到');
   });
 
+  it('updateStatGroups 取代內容但保留名稱與順序，拒絕空白或不合法的群組', async () => {
+    const { store } = setup();
+    await store.create('A', groups);
+    await store.create('B', groups);
+    const tuned = [{ type: 'and', filters: [{ id: 'explicit.z', value: { min: 3 } }] }];
+
+    await store.updateStatGroups('t1', tuned);
+    const list = await store.list();
+    expect(list.map((t) => t.name)).toEqual(['A', 'B']);
+    expect(list[0].statGroups).toEqual(tuned);
+    expect(list[1].statGroups).toEqual(groups);
+
+    await expect(store.updateStatGroups('t1', [])).rejects.toThrow('沒有可儲存');
+    await expect(store.updateStatGroups('t1', [{ type: 'and', filters: [] }])).rejects.toThrow(
+      '沒有可儲存',
+    );
+    await expect(store.updateStatGroups('missing', tuned)).rejects.toThrow('找不到');
+  });
+
   it('skips malformed entries on read but keeps them on write', async () => {
     const key = statGroupTemplateStorageKey('poe2');
     const bad = { id: 'bad', name: 'Bad', statGroups: 'nope' };

@@ -1,18 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, type PropType } from 'vue';
-import { ExternalLink, RotateCcw, Save, Search, X } from '@lucide/vue';
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { ExternalLink, RotateCcw, Save, Search } from '@lucide/vue';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { STAT_GROUP_TYPE_LABELS } from '@/components/injected/criteria-overlay-labels';
-import StatDomainMenu from '../stat-domain/StatDomainMenu.vue';
-import { isNestedMenuInteraction } from '../stat-domain/nested-menu-guard';
 import { t } from '@/utils/i18n';
 import {
   applyEntrySelection,
@@ -28,48 +17,34 @@ import {
   type ShoppingMod,
 } from '@/utils/pob-shopping-list';
 import { statDomainOf } from '@/utils/stat-domain-order';
+import ItemPreviewHeader from '../item-preview/ItemPreviewHeader.vue';
+import ItemPreviewPopover from '../item-preview/ItemPreviewPopover.vue';
+import PreviewStatRow, { type PreviewStatBounds } from '../item-preview/PreviewStatRow.vue';
+import StatGroupTypeSelect from '../item-preview/StatGroupTypeSelect.vue';
 import {
-  extractStatDomain,
-  getStatDomainBadgeLabel,
-  getStatDomainStyle,
-  shouldShowStatDomainBadge,
-  STAT_DOMAIN_BADGE_CLASS,
-  type StatDomainKey,
-} from '@/utils/stat-domain';
+  PREVIEW_ACTION_BUTTON_CLASS,
+  PREVIEW_BOUND_INPUT_CLASS,
+  PREVIEW_ICON_CLASS,
+  PREVIEW_TAG_CLASS,
+  PREVIEW_TOOLBAR_CLASS,
+} from '../item-preview/preview-classes';
 import type { ShoppingRow, StatBound } from './usePobBuild';
-
-interface BoundEditor {
-  statId: string;
-  min?: number;
-  max?: number;
-}
 
 /** PoB 項目的詞綴群組只有兩種：全部符合（且）或至少符合 N 項（計數） */
 const POB_GROUP_TYPES = ['and', 'count'] as const;
-const BOUNDS: readonly StatBound[] = ['min', 'max'];
 
-/** 可切換網域的標籤：點開選單選擇前綴 */
-interface DomainSwitch {
-  /** 條件的原代碼（使用者調整的鍵） */
-  key: string;
-  domains: readonly string[];
-  current: string;
-}
-
+/** 一行詞綴轉成共用詞綴列需要的資料 */
 interface ModLine {
   index: number;
   mod: ShoppingMod;
-  /** 這一行目前的網域（切換後的）；決定標籤文字與顏色 */
-  domain: StatDomainKey | null;
-  domainSwitch?: DomainSwitch;
-  /** 數值輸入框；只放在同一個條件的第一行 */
-  editor?: BoundEditor;
-}
-
-/** 可切換時一律顯示標籤（包含一般詞綴），否則只有非一般詞綴才顯示 */
-function modDomainBadge(line: ModLine): string | null {
-  if (line.domainSwitch) return getStatDomainBadgeLabel(line.domain) ?? line.domainSwitch.current;
-  return shouldShowStatDomainBadge(line.domain) ? getStatDomainBadgeLabel(line.domain) : null;
+  /** 這一行目前的網域（切換後的）；沒有市集代碼的行用 PoB 的詞綴種類 */
+  domain: string;
+  /** 可切換的網域（含目前的）；只有一種時為空 */
+  domains: readonly string[];
+  /** 條件的原代碼（使用者調整的鍵）；沒有市集代碼時省略 */
+  key?: string;
+  /** 下限／上限輸入框；只放在同一個條件的第一行，選項型條件沒有 */
+  bounds?: PreviewStatBounds;
 }
 
 const props = defineProps({
@@ -97,8 +72,6 @@ const emit = defineEmits<{
   (e: 'reset-search'): void;
   (e: 'open-search', mode: 'current' | 'new-tab', row: ShoppingRow): void;
 }>();
-
-const anchorReference = computed(() => props.reference ?? undefined);
 
 /** Popover 內的暫存微調草稿；未微調為 null，關閉或切換項目時清空，不自動寫入儲存。 */
 const draftSelection = ref<EntrySearchSelection | null>(null);
@@ -171,16 +144,18 @@ const modLines = computed<ModLine[]>(() => {
   return row.mods.map((mod, index) => {
     const stat = mod.stat;
     const filter = stat ? row.filters.find((entry) => entry.key === stat.id) : undefined;
-    const domain = filter ? extractStatDomain(filter.id) : (mod.kind as StatDomainKey);
-    const domainSwitch = filter?.domains
-      ? { key: filter.key, domains: filter.domains, current: statDomainOf(filter.id) }
-      : undefined;
-    const line: ModLine = { index, mod, domain, ...(domainSwitch ? { domainSwitch } : {}) };
+    const line: ModLine = {
+      index,
+      mod,
+      domain: filter ? statDomainOf(filter.id) : mod.kind,
+      domains: filter?.domains ?? [],
+      ...(stat ? { key: stat.id } : {}),
+    };
     if (!stat || seen.has(stat.id)) return line;
     seen.add(stat.id);
     // 選項型條件（沒有數值）不能改範圍；其餘都可以改下限與上限
     if (!filter || filter.value === undefined) return line;
-    return { ...line, editor: { statId: stat.id, min: filter.min, max: filter.max } };
+    return { ...line, bounds: { min: filter.min, max: filter.max } };
   });
 });
 
@@ -199,11 +174,6 @@ const enabledCount = computed(
 const hasPseudo = computed(
   () => effectiveRow.value?.mods?.some((mod) => mod.stat?.pseudo) ?? false,
 );
-
-const actionButtonClass =
-  'inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)] whitespace-nowrap rounded-sm border border-border bg-transparent px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] leading-none text-foreground cursor-pointer hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
-const boundInputBaseClass =
-  'h-[calc(var(--control-height-sm)*0.78)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none rounded-md border border-solid border-input bg-background px-[var(--input-padding-x-sm)] py-0 text-right text-[length:var(--control-font-sm)] leading-none text-foreground tabular-nums shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50';
 
 function controlId(name: string): string {
   const raw = `${props.buildId}\u0000${props.row?.key ?? ''}`;
@@ -237,16 +207,10 @@ function setDomain(key: string, domain: string): void {
   }));
 }
 
-function commitBound(editor: BoundEditor, bound: StatBound, event: Event): void {
-  const raw = (event.target as HTMLInputElement).value.trim();
-  const value = raw === '' ? null : Number(raw);
-  if (value !== null && !Number.isFinite(value)) return;
+function commitBound(statId: string, bound: StatBound, value: number | null): void {
   mutateDraft((draft) => ({
     ...draft,
-    stats: {
-      ...draft.stats,
-      [editor.statId]: { ...draft.stats?.[editor.statId], [bound]: value },
-    },
+    stats: { ...draft.stats, [statId]: { ...draft.stats?.[statId], [bound]: value } },
   }));
 }
 
@@ -278,134 +242,89 @@ function saveDraft(): void {
 function discardDraft(): void {
   draftSelection.value = null;
 }
-
-/**
- * 點擊錨點那一列交給列表自己的切換邏輯處理；否則外部點擊會先關閉、接著的 click 又把它打開。
- */
-function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): void {
-  const path = event.detail?.originalEvent?.composedPath?.() ?? [];
-  if (props.reference && path.includes(props.reference)) event.preventDefault();
-  // 網域選單掛在 Popover 外；側欄在 Shadow DOM 裡時要另外判斷（見 nested-menu-guard）
-  if (
-    isNestedMenuInteraction(path, (element) => element.hasAttribute('data-pob-build-mods-popover'))
-  ) {
-    event.preventDefault();
-  }
-}
 </script>
 
 <template>
-  <Popover :open="open" @update:open="(val: boolean) => emit('update:open', val)">
-    <PopoverAnchor :reference="anchorReference" />
-    <PopoverContent
-      v-if="open && effectiveRow"
-      data-pob-build-mods-popover
-      :side="side"
-      align="start"
-      :side-offset="10"
-      :collision-padding="10"
-      :avoid-collisions="true"
-      class="flex flex-col w-[var(--pxd-search-preview-width)] max-w-[var(--reka-popover-content-available-width,calc(100vw-32px))] max-h-[var(--reka-popover-content-available-height,calc(100vh-32px))] overflow-hidden bg-background p-0 text-[length:var(--pxd-font-body)]"
-      @open-auto-focus.prevent
-      @interact-outside="handleInteractOutside"
-    >
-      <!-- 固定標題列（比照書籤物品預覽）：名稱、標籤與關閉鈕 -->
-      <div
-        class="flex h-[var(--pxd-sidebar-affix-dialog-header-height)] min-w-0 shrink-0 items-center gap-[var(--pxd-space-sm)] border-b border-border bg-background px-[var(--pxd-pane-padding)]"
+  <ItemPreviewPopover
+    :open="open"
+    :side="side"
+    :reference="reference"
+    :ready="Boolean(effectiveRow)"
+    data-pob-build-mods-popover
+    @update:open="(value) => emit('update:open', value)"
+  >
+    <template v-if="effectiveRow">
+      <ItemPreviewHeader
+        :title="effectiveRow.label"
+        :title-class="nameClass"
+        closable
+        @close="emit('update:open', false)"
       >
-        <span
-          class="min-w-0 flex-1 truncate text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px]"
-          :class="nameClass || 'text-foreground'"
-          :title="effectiveRow.label"
-        >
-          {{ effectiveRow.label }}
-        </span>
-        <div class="flex min-w-0 shrink-0 items-center gap-[var(--pxd-space-xs)]">
-          <span
-            v-if="effectiveRow.suffix"
-            class="whitespace-nowrap rounded-sm border border-border bg-secondary px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold text-secondary-foreground tabular-nums"
-          >
+        <template v-if="effectiveRow.suffix || rowDetailText" #tags>
+          <span v-if="effectiveRow.suffix" :class="[PREVIEW_TAG_CLASS.secondary, 'tabular-nums']">
             {{ effectiveRow.suffix }}
           </span>
-          <span
-            v-if="rowDetailText"
-            class="whitespace-nowrap rounded-sm border border-border bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold text-muted-foreground"
-          >
-            {{ rowDetailText }}
-          </span>
-        </div>
-        <button
-          type="button"
-          class="inline-flex size-[var(--control-height-sm)] shrink-0 items-center justify-center rounded-sm border-0 bg-transparent text-muted-foreground opacity-70 transition-opacity hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-          data-pob-build-popover-close
-          :aria-label="t('common.close')"
-          :title="t('common.close')"
-          @click="emit('update:open', false)"
-        >
-          <X class="size-[var(--control-icon-default)]" aria-hidden="true" />
-        </button>
-      </div>
+          <span v-if="rowDetailText" :class="PREVIEW_TAG_CLASS.muted">{{ rowDetailText }}</span>
+        </template>
+      </ItemPreviewHeader>
 
       <!-- 工具列：搜尋、存回條件與還原 -->
       <div
         v-if="canSearch || effectiveRow.searchCustomized || isDraftModified"
-        class="flex min-w-0 shrink-0 flex-wrap items-center gap-[var(--pxd-space-xs)] border-b border-border px-[var(--pxd-pane-padding)] py-[var(--pxd-space-sm)]"
+        :class="PREVIEW_TOOLBAR_CLASS"
       >
         <button
           v-if="effectiveRow.query"
           type="button"
-          :class="actionButtonClass"
+          :class="PREVIEW_ACTION_BUTTON_CLASS"
           data-pob-build-popover-search
           :title="t('pobBuild.searchTitle')"
           @click="emit('open-search', 'current', effectiveRow)"
         >
-          <Search class="size-[var(--control-icon-sm)] shrink-0" aria-hidden="true" />
+          <Search :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
           {{ t('pobBuild.searchCurrentBtn') }}
         </button>
         <button
           v-if="effectiveRow.query"
           type="button"
-          :class="actionButtonClass"
+          :class="PREVIEW_ACTION_BUTTON_CLASS"
           data-pob-build-popover-new-tab
           :title="t('pobBuild.openNewTabTitle')"
           @click="emit('open-search', 'new-tab', effectiveRow)"
         >
-          <ExternalLink class="size-[var(--control-icon-sm)] shrink-0" aria-hidden="true" />
+          <ExternalLink :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
           {{ t('pobBuild.openNewTabTitle') }}
         </button>
         <button
           v-if="isDraftModified"
           type="button"
-          :class="actionButtonClass"
-          class="border-primary/50 text-primary"
+          :class="[PREVIEW_ACTION_BUTTON_CLASS, 'border-primary/50 text-primary']"
           data-pob-build-save-selection
           :title="t('pobBuild.mods.saveSelectionTitle')"
           @click="saveDraft"
         >
-          <Save class="size-[var(--control-icon-sm)] shrink-0" aria-hidden="true" />
+          <Save :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
           {{ t('pobBuild.mods.saveSelection') }}
         </button>
         <button
           v-if="isDraftModified"
           type="button"
-          :class="actionButtonClass"
-          class="ml-auto"
+          :class="[PREVIEW_ACTION_BUTTON_CLASS, 'ml-auto']"
           data-pob-build-discard-draft
           :title="t('searchPreview.action.resetTuneTitle')"
           @click="discardDraft"
         >
-          <RotateCcw class="size-[var(--control-icon-sm)] shrink-0" aria-hidden="true" />
+          <RotateCcw :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
           {{ t('searchPreview.action.resetTune') }}
         </button>
         <button
           v-else-if="effectiveRow.searchCustomized"
           type="button"
-          :class="actionButtonClass"
-          class="ml-auto"
+          :class="[PREVIEW_ACTION_BUTTON_CLASS, 'ml-auto']"
           data-pob-build-reset-search
           @click="emit('reset-search')"
         >
-          <RotateCcw class="size-[var(--control-icon-sm)] shrink-0" aria-hidden="true" />
+          <RotateCcw :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
           {{ t('pobBuild.mods.reset') }}
         </button>
       </div>
@@ -469,77 +388,32 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
             </span>
           </div>
 
-          <ul
-            class="m-0 list-none overflow-hidden rounded-md border border-border p-0"
+          <div
+            class="overflow-hidden rounded-md border border-border"
             :class="{ 'opacity-60': effectiveRow.searchOverride }"
           >
-            <li
+            <PreviewStatRow
               v-for="line in modLines"
               :key="line.index"
               :data-mod-kind="line.mod.kind"
               :data-mod-searched="line.mod.searched ? 'true' : 'false'"
-              class="flex min-h-[var(--control-height-sm)] items-center gap-[var(--pxd-space-sm)] border-t border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)] leading-[1.35] first:border-t-0 break-words"
-              :class="[
-                !line.domain || line.domain === 'explicit'
-                  ? 'text-foreground'
-                  : 'pxd-stat-domain-text',
-                { 'opacity-60': line.mod.stat && !line.mod.searched },
-              ]"
-              :style="getStatDomainStyle(line.domain)"
-            >
-              <Checkbox
-                v-if="line.mod.stat"
-                data-pob-build-mod-toggle
-                :model-value="line.mod.searched"
-                :disabled="effectiveRow.searchOverride"
-                :aria-label="t('pobBuild.mods.statAria', { text: line.mod.text })"
-                @update:model-value="(value) => setStatEnabled(line.mod.stat!.id, value === true)"
-              />
-              <span v-else class="size-[var(--checkbox-size,18px)] shrink-0" aria-hidden="true" />
-              <StatDomainMenu
-                v-if="line.domainSwitch"
-                data-pob-build-mod-domain
-                :domain="line.domainSwitch.current"
-                :domains="line.domainSwitch.domains"
-                :disabled="effectiveRow.searchOverride"
-                @select="(domain) => setDomain(line.domainSwitch!.key, domain)"
-              />
-              <span
-                v-else-if="modDomainBadge(line)"
-                :class="STAT_DOMAIN_BADGE_CLASS"
-                :data-stat-domain="line.domain"
-              >
-                {{ modDomainBadge(line) }}
-              </span>
-              <span class="min-w-0 flex-1">{{ line.mod.text }}</span>
-              <template v-if="line.editor">
-                <input
-                  v-for="bound in BOUNDS"
-                  :key="bound"
-                  type="number"
-                  inputmode="decimal"
-                  step="any"
-                  data-pob-build-mod-bound
-                  :data-bound="bound"
-                  :class="[boundInputBaseClass, 'w-[calc(var(--control-height-sm)*1.85)] shrink-0']"
-                  :value="line.editor[bound] ?? ''"
-                  :placeholder="
-                    t(
-                      bound === 'min'
-                        ? 'tierDropdown.minPlaceholder'
-                        : 'tierDropdown.maxPlaceholder',
-                    )
-                  "
-                  :disabled="!line.mod.searched || effectiveRow.searchOverride"
-                  :aria-label="
-                    t(bound === 'min' ? 'pobBuild.mods.minAria' : 'pobBuild.mods.maxAria')
-                  "
-                  @change="commitBound(line.editor, bound, $event)"
-                  @keydown.enter.prevent="blurTarget"
-                />
-              </template>
-            </li>
-          </ul>
+              :domain="line.domain"
+              :domains="line.domains"
+              :domain-disabled="effectiveRow.searchOverride"
+              :lines="[line.mod.text]"
+              wrap
+              :checked="line.key ? line.mod.searched : undefined"
+              reserve-toggle
+              :toggle-disabled="effectiveRow.searchOverride"
+              :toggle-aria-label="t('pobBuild.mods.statAria', { text: line.mod.text })"
+              :bounds="line.bounds ?? null"
+              :bounds-disabled="!line.mod.searched || effectiveRow.searchOverride"
+              :dimmed="Boolean(line.key) && !line.mod.searched"
+              @toggle="(checked) => setStatEnabled(line.key!, checked)"
+              @select-domain="(domain) => setDomain(line.key!, domain)"
+              @commit-bound="(bound, value) => commitBound(line.key!, bound, value)"
+            />
+          </div>
 
           <!-- 群組類別（且／計數，同市集的詞綴群組）與總和條件 -->
           <div
@@ -547,27 +421,14 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
             class="mt-[var(--pxd-space-xs)] flex flex-wrap items-center gap-x-[var(--pxd-space-lg)] gap-y-[var(--pxd-space-sm)] rounded-md border border-border bg-muted/30 px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] text-muted-foreground"
             :class="{ 'opacity-60': effectiveRow.searchOverride }"
           >
-            <Select
-              :model-value="effectiveRow.countMin !== undefined ? 'count' : 'and'"
+            <StatGroupTypeSelect
+              data-pob-build-count-mode
+              :type="effectiveRow.countMin !== undefined ? 'count' : 'and'"
+              :options="POB_GROUP_TYPES"
               :disabled="effectiveRow.searchOverride || effectiveRow.visceraBundle"
-              @update:model-value="(value) => toggleCountMode(value === 'count')"
-            >
-              <SelectTrigger
-                size="sm"
-                class="w-auto shrink-0 font-semibold"
-                data-pob-build-count-mode
-                :aria-label="t('pobBuild.mods.groupTypeAria')"
-              >
-                <SelectValue>{{
-                  STAT_GROUP_TYPE_LABELS[effectiveRow.countMin !== undefined ? 'count' : 'and']
-                }}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="option in POB_GROUP_TYPES" :key="option" :value="option">
-                  {{ STAT_GROUP_TYPE_LABELS[option] }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              :aria-label="t('pobBuild.mods.groupTypeAria')"
+              @select="(type) => toggleCountMode(type === 'count')"
+            />
             <span
               v-if="effectiveRow.countMin !== undefined"
               class="inline-flex items-center gap-[var(--pxd-space-xs)]"
@@ -578,7 +439,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                 :max="enabledCount"
                 step="1"
                 data-pob-build-count-min
-                :class="[boundInputBaseClass, 'w-[calc(var(--control-height-sm)*1.6)]']"
+                :class="[PREVIEW_BOUND_INPUT_CLASS, 'w-[calc(var(--control-height-sm)*1.6)]']"
                 :value="effectiveRow.countMin"
                 :disabled="effectiveRow.searchOverride"
                 :aria-label="t('pobBuild.mods.countAria')"
@@ -595,6 +456,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                 :disabled="effectiveRow.searchOverride"
                 @update:model-value="(value) => setPseudo(value === true)"
               />
+              <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->
               <label :for="controlId('pseudo')" class="cursor-pointer">{{
                 t('pobBuild.mods.pseudo')
               }}</label>
@@ -602,6 +464,6 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
           </div>
         </div>
       </div>
-    </PopoverContent>
-  </Popover>
+    </template>
+  </ItemPreviewPopover>
 </template>

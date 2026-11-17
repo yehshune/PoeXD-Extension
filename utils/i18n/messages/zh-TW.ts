@@ -751,6 +751,8 @@ export const ZH_TW_MESSAGES = {
   'statGroupTemplate.action.manage': '管理常用詞綴群組...',
   'statGroupTemplate.action.saveAs': '另存為常用詞綴群組...',
   'statGroupTemplate.action.overlay': '疊加套用',
+  'statGroupTemplate.action.saveBack': '存回詞綴群組',
+  'statGroupTemplate.action.saveBackTitle': '將目前微調後的詞綴存回此常用詞綴群組',
   'statGroupTemplate.action.overlayNamed': '疊加套用：{name}',
   'statGroupTemplate.action.rename': '重新命名',
   'statGroupTemplate.action.delete': '刪除',

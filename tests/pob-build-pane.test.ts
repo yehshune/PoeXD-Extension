@@ -534,7 +534,7 @@ describe('PobBuildPane', () => {
     expect(queryBody('[data-pob-build-discard-draft]')).toBeNull();
     expect(queryBody('[data-pob-build-reset-search]')).not.toBeNull();
 
-    const toggles = queryAllBody('[data-pob-build-mod-toggle]') as HTMLElement[];
+    const toggles = queryAllBody('[data-pob-build-mods] [data-stat-toggle]') as HTMLElement[];
     // 工藝詞綴沒有市集代碼，不能勾選
     expect(toggles).toHaveLength(2);
     expect(toggles.map((toggle) => toggle.getAttribute('data-state'))).toEqual([
@@ -550,7 +550,7 @@ describe('PobBuildPane', () => {
     expect(queryBody('[data-pob-build-discard-draft]')?.textContent?.trim()).toBe('還原');
     expect(queryBody('[data-pob-build-reset-search]')).toBeNull();
 
-    const bounds = queryAllBody('[data-pob-build-mod-bound]') as HTMLInputElement[];
+    const bounds = queryAllBody('[data-pob-build-mods] [data-stat-bound]') as HTMLInputElement[];
     bounds[0].value = '95';
     bounds[0].dispatchEvent(new Event('change'));
     await nextTick();
@@ -581,7 +581,9 @@ describe('PobBuildPane', () => {
     await nextTick();
     expect(queryBody('[data-pob-build-save-selection]')).toBeNull();
     expect(queryBody('[data-pob-build-reset-search]')).not.toBeNull();
-    expect((queryAllBody('[data-pob-build-mod-bound]')[0] as HTMLInputElement).value).toBe('80');
+    expect(
+      (queryAllBody('[data-pob-build-mods] [data-stat-bound]')[0] as HTMLInputElement).value,
+    ).toBe('80');
 
     // 重新微調並按下「存回條件」才真正寫回此項目
     bounds[0].value = '95';
@@ -601,7 +603,9 @@ describe('PobBuildPane', () => {
     queryBody<HTMLButtonElement>('[data-pob-build-reset-search]')!.click();
     expect(fake.resetSearch).toHaveBeenCalledWith('b1', 'k-rare');
 
-    queryBody<HTMLButtonElement>('[data-pob-build-popover-close]')!.click();
+    queryBody<HTMLButtonElement>(
+      '[data-pob-build-mods-popover] [data-test="preview-close"]',
+    )!.click();
     await flushAsync();
     expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
   });
@@ -612,7 +616,8 @@ describe('PobBuildPane', () => {
     row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
     await flushAsync();
 
-    const bounds = () => queryAllBody('[data-pob-build-mod-bound]') as HTMLInputElement[];
+    const bounds = () =>
+      queryAllBody('[data-pob-build-mods] [data-stat-bound]') as HTMLInputElement[];
     // 生命（下限 80）與力量需求（上限 -8）各有下限與上限兩格
     expect(bounds().map((input) => [input.dataset.bound, input.value])).toEqual([
       ['min', '80'],
@@ -657,7 +662,8 @@ describe('PobBuildPane', () => {
     row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
     await flushAsync();
 
-    const domainButton = () => queryBody<HTMLButtonElement>('[data-pob-build-mod-domain]')!;
+    const domainButton = () =>
+      queryBody<HTMLButtonElement>('[data-pob-build-mods] [data-stat-domain-trigger]')!;
     const openMenu = async () => {
       domainButton().dispatchEvent(
         new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }),
@@ -765,14 +771,16 @@ describe('PobBuildPane', () => {
       await flushAsync(40);
       expect(inShadow('[data-pob-build-mods-popover]')).not.toBeNull();
 
-      await press(inShadow<HTMLButtonElement>('[data-pob-build-mod-domain]')!);
+      await press(inShadow<HTMLButtonElement>('[data-pob-build-mods] [data-stat-domain-trigger]')!);
       const options = Array.from(shadow.querySelectorAll<HTMLElement>('[data-stat-domain-option]'));
       expect(options).toHaveLength(3);
       await press(options[1]);
       await flushAsync(40);
 
       expect(inShadow('[data-pob-build-mods-popover]')).not.toBeNull();
-      expect(inShadow('[data-pob-build-mod-domain]')?.textContent?.trim()).toBe('破裂');
+      expect(
+        inShadow('[data-pob-build-mods] [data-stat-domain-trigger]')?.textContent?.trim(),
+      ).toBe('破裂');
     } finally {
       // app 由 afterEach 卸載
       host.remove();
@@ -788,9 +796,9 @@ describe('PobBuildPane', () => {
     await flushAsync();
 
     expect(queryBody('[data-pob-build-override-notice]')).not.toBeNull();
-    const toggles = queryAllBody('[data-pob-build-mod-toggle]');
+    const toggles = queryAllBody('[data-pob-build-mods] [data-stat-toggle]');
     for (const toggle of toggles) expect(toggle.hasAttribute('disabled')).toBe(true);
-    const bounds = queryAllBody('[data-pob-build-mod-bound]') as HTMLInputElement[];
+    const bounds = queryAllBody('[data-pob-build-mods] [data-stat-bound]') as HTMLInputElement[];
     for (const bound of bounds) expect(bound.disabled).toBe(true);
     expect(queryBody('[data-pob-build-count-mode]')?.hasAttribute('disabled')).toBe(true);
     expect(queryBody<HTMLInputElement>('[data-pob-build-count-min]')?.disabled).toBe(true);
@@ -806,7 +814,7 @@ describe('PobBuildPane', () => {
 
     row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
     await flushAsync();
-    const mods = queryAllBody('[data-pob-build-mods] li');
+    const mods = queryAllBody('[data-pob-build-mods] .preview-stat-row');
     expect(mods.map((mod) => mod.getAttribute('data-mod-kind'))).toEqual([
       'implicit',
       'explicit',
@@ -829,7 +837,7 @@ describe('PobBuildPane', () => {
       '固定',
     );
     expect(mods[1].querySelector('[data-stat-domain]')).toBeNull();
-    expect(mods[1].className).toContain('text-foreground');
+    expect(mods[1].querySelector('.stat-name')?.className).toContain('text-foreground');
     expect((mods[3] as HTMLElement).style.getPropertyValue('--pxd-stat-color')).toBe(
       'var(--pxd-stat-crafted)',
     );
