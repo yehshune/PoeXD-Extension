@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
-import { nextTick, ref } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import {
   ensureAffixLexiconLoaded,
   resolveFallbackQueryForUnmatchedMod,
@@ -622,6 +622,35 @@ describe('Seam 2C: useFilterData multilingual search, lazy pageLocale fallbackQu
     );
     expect(ruFallback).toBe('к максимуму здоровья');
     expect(requestedUrls.filter((u) => u.endsWith('poe2/locales/ru/stats.json'))).toHaveLength(1);
+  });
+
+  it('hydrates the mod groups only once when loadData loads the lexicon', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('poe2/mods-tiers.json')) {
+          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+        }
+        if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
+          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+        }
+        if (url.endsWith('poe2/locales/en/stats.json')) {
+          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+        }
+        return new Response(JSON.stringify({}), { status: 200 });
+      }),
+    );
+
+    setActiveDisplayLocalePreference('zh-TW');
+    const filterData = useFilterData('poe2', ref('helmet'));
+    let hydrations = 0;
+    watch(filterData.rawModsData, () => (hydrations += 1), { flush: 'sync' });
+    await filterData.loadData();
+    await nextTick();
+    await nextTick();
+    expect(hydrations).toBe(1);
+    expect(filterData.currentTypeGroups.value.length).toBeGreaterThan(0);
   });
 
   it('reactively updates useFilterData groups when affixDisplayLocale changes at runtime', async () => {

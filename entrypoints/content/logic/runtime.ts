@@ -9,6 +9,7 @@ import { injectScript } from 'wxt/utils/inject-script';
 import { getPreferences, type Preferences } from '@/utils/preferences';
 import { ensureAffixLexiconLoaded } from '@/utils/affix-lexicon';
 import { setActiveDisplayLocalePreference } from '@/utils/i18n';
+import { rememberPageLoadPreferences } from '@/utils/page-load-preferences';
 import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
 import { watchTradePageMode } from '@/utils/trade-page-mode';
 import { DomFilter } from './dom-filter';
@@ -177,6 +178,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     const preferencesOutcome = await getPreferences(version);
     if (!preferencesOutcome.ok) throw new Error(preferencesOutcome.error.message);
     const preferences = preferencesOutcome.value;
+    rememberPageLoadPreferences(preferences.read());
     syncToastPreferences(preferences.read());
     const applyPreferences = async (
       snapshot: Readonly<Preferences>,
@@ -265,7 +267,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
 
     const initialize = async () => {
       if (disposed) return;
-      // 側邊欄要等首批結果才掛載；先讓出版面，避免掛載時已顯示的結果整個位移
+      // 掛載前還要等攔截器與頁面角色：先依儲存的版面讓出位置，掛載時頁面才不會位移
       void reserveSidebarPageLayout(version, preferences, () => disposed)
         .then((remove) => {
           if (disposed) remove();
@@ -351,15 +353,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
           isDisposed: () => disposed || !activeBookmarkController?.enqueueIncomingConnections,
         });
       }
-      if (pageRole === 'normal') {
-        // 側邊欄與篩選控制項的初始化會佔住主執行緒一秒以上，等官方頁面載完首批結果再做；
-        // 主控台頁不等，以免延後主控台的搜尋保護與連線恢復
-        await pageLoadGate.ready;
-        if (disposed) return;
-      } else {
-        pageLoadGate.cancel();
-      }
-      preloadAffixLexicon();
+      // 側邊欄一進官方頁就掛載（版面已先預留，掛載時頁面不位移）
       stopSidebarPreferences =
         (await mountSidebarLayout(
           ctx,
@@ -378,6 +372,15 @@ export async function runLogic(ctx: any, version: PoeVersion) {
         return;
       }
       filterEnhancements.initialize();
+      if (pageRole === 'normal') {
+        // 詞綴字典約 3.6 MB，解析會佔住主執行緒：等官方頁面載完首批結果再預載；
+        // 主控台頁不等，以免延後主控台的搜尋保護與連線恢復
+        await pageLoadGate.ready;
+        if (disposed) return;
+      } else {
+        pageLoadGate.cancel();
+      }
+      preloadAffixLexicon();
     };
     stopWaitingTradePage = whenTradePageReady(document, () => void initialize(), {
       isDisposed: () => disposed,

@@ -211,11 +211,24 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
     Object.keys(rawModsData.value).length ? getModGroups(selectedType.value) : [],
   );
 
-  watch(getAffixLexiconRevision(), () => {
+  /**
+   * 組裝數千筆 tier 要上百毫秒：同一個字典版本與語系只組一次。
+   * 字典載完會同時觸發 revision watch 與 loadData，沒有這道檢查會連續組兩次。
+   */
+  let hydratedKey: string | null = null;
+  const hydrate = () => {
+    const key = `${getAffixLexiconRevision().value}|${getActiveDisplayLocaleRef().value}`;
+    if (key === hydratedKey) return;
     const hydrated = getHydratedModsByGroup(version);
     if (Object.keys(hydrated).length > 0) {
       rawModsData.value = hydrated;
+      hydratedKey = key;
     }
+  };
+
+  // loadData 載入期間字典會分段到齊（revision 遞增數次），由它載完後組一次即可
+  watch(getAffixLexiconRevision(), () => {
+    if (!loading.value) hydrate();
   });
 
   const loadData = async () => {
@@ -223,7 +236,7 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
     try {
       // Display Locale 由偏好模組統一寫入全域狀態，這裡只依目前語系載入分片
       await ensureAffixLexiconLoaded(version);
-      rawModsData.value = getHydratedModsByGroup(version);
+      hydrate();
       if (typeof window !== 'undefined') {
         dispatchPoeEvent('poexd-request-known-stats');
       }
@@ -237,8 +250,7 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
   // 語系切換時載入新語系分片，並以新語系重新組裝詞綴（分片已快取時不會觸發 revision）
   watch(getActiveDisplayLocaleRef(), async () => {
     await ensureAffixLexiconLoaded(version);
-    const hydrated = getHydratedModsByGroup(version);
-    if (Object.keys(hydrated).length > 0) rawModsData.value = hydrated;
+    hydrate();
   });
   if (getCurrentInstance()) {
     onMounted(() => void loadData());

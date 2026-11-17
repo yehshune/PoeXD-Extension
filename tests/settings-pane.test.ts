@@ -12,7 +12,11 @@ import {
   type PreferencesModule,
 } from '@/utils/preferences';
 import { resetI18nStateForTests } from '@/utils/i18n';
-import { SIDEBAR_SIZE_PRESETS } from '@/utils/preferences-contract';
+import { DEFAULT_PREFERENCES, SIDEBAR_SIZE_PRESETS } from '@/utils/preferences-contract';
+import {
+  rememberPageLoadPreferences,
+  resetPageLoadPreferencesForTests,
+} from '@/utils/page-load-preferences';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 
 let storage = createInMemoryPreferencesStorage();
@@ -1104,6 +1108,33 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
         configurable: true,
         value: originalLocation,
       });
+    }
+  });
+
+  it('compares the reload prompt against the page-load preferences when mounted later', async () => {
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        hostname: 'www.pathofexile.com',
+        pathname: '/trade2/search/poe2/Standard',
+        reload: vi.fn(),
+      },
+    });
+    resetPageLoadPreferencesForTests();
+    try {
+      // 開頁時漢化關閉；設定分頁打開前，漢化已在別處被打開
+      rememberPageLoadPreferences({ ...DEFAULT_PREFERENCES, marketTranslation: false });
+      storage = createInMemoryPreferencesStorage({
+        marketTranslation: true,
+        displayLocale: 'zh-TW',
+      });
+      const { container } = await mountSettingsPane();
+      expect(container.querySelector('[data-test="market-translation-reload"]')).not.toBeNull();
+    } finally {
+      resetPageLoadPreferencesForTests();
+      Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
     }
   });
 

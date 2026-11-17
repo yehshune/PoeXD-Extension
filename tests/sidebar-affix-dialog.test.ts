@@ -360,11 +360,9 @@ describe('Sidebar Affix Selector Modal (Runtime Contracts)', () => {
     vi.restoreAllMocks();
   });
 
-  it('25. preserves FilterPane mount persistence across open -> close -> reopen lifecycle', async () => {
-    // Initially unmountOnHide=false means FilterPane is mounted on start
-    expect(filterPaneLifecycle.mountCount).toBe(1);
-    expect(filterPaneLifecycle.unmountCount).toBe(0);
-    expect(filterPaneLifecycle.lastProps.isOpen).toBe(false);
+  it('25. mounts FilterPane on first open and preserves it across close -> reopen', async () => {
+    // 詞綴選擇器很重：側邊欄掛載時不渲染，第一次打開才掛載
+    expect(filterPaneLifecycle.mountCount).toBe(0);
 
     // Open Affix Modal
     dispatchPoeEvent('poexd-open-affix-modal', { groupIndex: 1 });
@@ -398,6 +396,24 @@ describe('Sidebar Affix Selector Modal (Runtime Contracts)', () => {
     expect(filterPaneLifecycle.lastProps.targetGroupIndex).toBe(2);
 
     dispatchPoeEvent('poexd-close-affix-modal');
+  });
+
+  it('25b. mounts FilterPane and forwards the select-type trigger when it is not mounted yet', async () => {
+    const received = vi.fn();
+    const stop = listenPoeEvent('poexd-trigger-select-type-modal', received);
+    dispatchPoeEvent('poexd-trigger-select-type-modal');
+    await nextTick();
+    await nextTick();
+    expect(filterPaneLifecycle.mountCount).toBe(1);
+    // 原事件一次，加上掛載後補送給 FilterPane 的一次
+    expect(received).toHaveBeenCalledTimes(2);
+
+    dispatchPoeEvent('poexd-trigger-select-type-modal');
+    await nextTick();
+    await nextTick();
+    expect(received).toHaveBeenCalledTimes(3);
+    expect(filterPaneLifecycle.mountCount).toBe(1);
+    stop();
   });
 
   it('26. opens dialog and passes targetGroupIndex upon poexd-open-affix-modal event', async () => {

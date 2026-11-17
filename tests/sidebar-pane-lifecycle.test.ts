@@ -29,8 +29,10 @@ describe('Sidebar pane lifecycle', () => {
       /:class="\{\s*['"]?collapsed['"]?:\s*isCollapsed,\s*'settings-pending invisible':\s*!areSettingsReady,?\s*\}"/,
     );
     expect(sidebarSource).toContain('@ready="settingsPaneReady = true"');
+    expect(sidebarSource).toContain('const areSettingsReady = ref(false);');
+    // 開頁就停在設定分頁時，等設定分頁讀完偏好才顯示
     expect(sidebarSource).toContain(
-      'const areSettingsReady = computed(() => sidebarStateReady.value && settingsPaneReady.value);',
+      "if (isTabMounted('settings') && !settingsPaneReady.value) return;",
     );
     expect(sidebarSource).toContain('sidebarStateReady.value = true;');
     expect(sidebarSource).not.toContain('<style');
@@ -77,8 +79,10 @@ describe('Sidebar pane lifecycle', () => {
     },
   );
 
-  it('always mounts SettingsPane because the sidebar waits for its ready event', () => {
-    expect(sidebarSource).toMatch(/<SettingsPane\s+v-show="activeTab === 'settings'"/);
+  it('mounts SettingsPane the first time the settings tab is shown', () => {
+    expect(sidebarSource).toMatch(
+      /<SettingsPane\s+v-if="isTabMounted\('settings'\)"\s+v-show="activeTab === 'settings'"/,
+    );
   });
 
   it('falls back to Bookmarks when a saved tab no longer exists', () => {

@@ -302,8 +302,9 @@
                     class="h-full w-full min-h-0 p-[var(--pxd-pane-padding)] pb-[var(--pxd-pane-scroll-end-space)]"
                   >
                     <ToolsPane v-if="isTabMounted('tools')" v-show="activeTab === 'tools'" />
-                    <!-- 設定分頁一律掛載：側邊欄要等它讀完偏好設定（ready）才顯示 -->
+                    <!-- 設定分頁控制項很多，第一次顯示才掛載；開頁就停在設定分頁時，側邊欄等它讀完偏好（ready）才顯示 -->
                     <SettingsPane
+                      v-if="isTabMounted('settings')"
                       v-show="activeTab === 'settings'"
                       @ready="settingsPaneReady = true"
                     />
@@ -366,7 +367,9 @@
             </DialogHeader>
 
             <div class="flex-1 overflow-visible p-[var(--pxd-pane-padding)] relative">
+              <!-- 詞綴選擇器很重（數百個詞綴列與詞綴字典）：第一次用到才掛載，之後關閉也保留狀態 -->
               <FilterPane
+                v-if="isAffixPaneMounted"
                 :target-group-index="targetGroupIndex"
                 :is-open="isModalOpen"
                 @type-dialog-open-changed="handleTypeDialogOpenChange"
@@ -691,7 +694,11 @@ export default defineComponent({
     const sidebarStateReady = ref(false);
     const settingsPaneReady = ref(props.pageRole === 'live-search-primary');
     const pageRole = computed(() => props.pageRole);
-    const areSettingsReady = computed(() => sidebarStateReady.value && settingsPaneReady.value);
+    /**
+     * 側邊欄第一次顯示的時機：狀態讀完；若一開始就顯示設定分頁，也等它讀完偏好，避免先畫預設值。
+     * 一旦顯示就不再收回（之後才打開設定分頁時不必讓整個側邊欄閃一下）。
+     */
+    const areSettingsReady = ref(false);
 
     /**
      * 曾在展開的側邊欄顯示過的分頁。分頁內容（書籤樹、歷史清單、PoB build 解碼等）
@@ -705,6 +712,11 @@ export default defineComponent({
       mountedTabs.value = new Set([...mountedTabs.value, tab]);
     });
     const isTabMounted = (tab: string) => mountedTabs.value.has(tab);
+    watchEffect(() => {
+      if (areSettingsReady.value || !sidebarStateReady.value) return;
+      if (isTabMounted('settings') && !settingsPaneReady.value) return;
+      areSettingsReady.value = true;
+    });
 
     // 初次安裝引導（只有全新安裝才有狀態，舊使用者維持 NO_ONBOARDING）
     const onboardingStore = createChromeOnboardingStore();
@@ -1072,10 +1084,22 @@ export default defineComponent({
       isMouseDownOnOverlay.value = false;
     };
 
+    // 詞綴選擇器第一次打開（或篩選列的「選擇類別」第一次被觸發）才掛載 FilterPane，
+    // 側邊欄掛載時不必先渲染整份詞綴清單、載入詞綴字典
+    const isAffixPaneMounted = ref(false);
+
     // 監聽來自 content.ts (注入按鈕點擊) 的打開 Modal 事件
     const removeOpenAffixModalListener = listenPoeEvent('poexd-open-affix-modal', (detail) => {
+      isAffixPaneMounted.value = true;
       targetGroupIndex.value = detail.groupIndex;
       isModalOpen.value = true;
+    });
+
+    // 類別選擇窗由 FilterPane 自己監聽；它還沒掛載時先掛載，再把事件補送給它
+    const removeSelectTypeModalListener = listenPoeEvent('poexd-trigger-select-type-modal', () => {
+      if (isAffixPaneMounted.value) return;
+      isAffixPaneMounted.value = true;
+      void nextTick(() => dispatchPoeEvent('poexd-trigger-select-type-modal'));
     });
 
     const isTypeDialogOpen = ref(false);
@@ -1196,6 +1220,7 @@ export default defineComponent({
       window.removeEventListener('keydown', handleGlobalKeyDown);
       removeCloseAffixModalListener();
       removeOpenAffixModalListener();
+      removeSelectTypeModalListener();
       if (resizeRafId !== null) {
         window.cancelAnimationFrame(resizeRafId);
         resizeRafId = null;
@@ -1244,6 +1269,7 @@ export default defineComponent({
       toggleCollapse,
       isModalOpen,
       targetGroupIndex,
+      isAffixPaneMounted,
       closeModal,
       setAffixDialogOpen,
       dialogState,

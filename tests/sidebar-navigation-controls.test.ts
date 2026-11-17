@@ -88,7 +88,9 @@ vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
     emits: ['ready'],
     setup(props, { emit }) {
       paneMountCounts.settings++;
-      onMounted(() => {
+      onMounted(async () => {
+        // 測試可以延後 ready，模擬設定分頁讀偏好需要時間
+        await (globalThis as any).__settingsReadyGate;
         emit('ready');
       });
       onUnmounted(() => {
@@ -460,9 +462,9 @@ describe('Sidebar Navigation Controls Migration', () => {
       const toolsTab = container.querySelector<HTMLElement>('[data-sidebar-tab="tools"]');
       const settingsTab = container.querySelector<HTMLElement>('[data-sidebar-tab="settings"]');
 
-      // 分頁第一次顯示時才掛載：書籤是目前分頁，設定一律掛載，其餘尚未掛載
+      // 分頁第一次顯示時才掛載：書籤是目前分頁，其餘（包含設定）尚未掛載
       expect(container.querySelector<HTMLElement>('[data-test="bookmark-pane"]')).not.toBeNull();
-      expect(container.querySelector<HTMLElement>('[data-test="settings-pane"]')).not.toBeNull();
+      expect(container.querySelector<HTMLElement>('[data-test="settings-pane"]')).toBeNull();
       expect(container.querySelector<HTMLElement>('[data-test="history-pane"]')).toBeNull();
       expect(container.querySelector<HTMLElement>('[data-test="tools-pane"]')).toBeNull();
 
@@ -493,9 +495,7 @@ describe('Sidebar Navigation Controls Migration', () => {
         container.querySelector<HTMLElement>('[data-test="bookmark-pane"]')?.style.display,
       ).toBe('none');
       expect(container.querySelector<HTMLElement>('[data-test="tools-pane"]')).toBeNull();
-      expect(
-        container.querySelector<HTMLElement>('[data-test="settings-pane"]')?.style.display,
-      ).toBe('none');
+      expect(container.querySelector<HTMLElement>('[data-test="settings-pane"]')).toBeNull();
     });
 
     it('H. switches to Settings tab and updates aria-pressed and pane visibility', async () => {
@@ -545,9 +545,7 @@ describe('Sidebar Navigation Controls Migration', () => {
       const toolsPane = container.querySelector<HTMLElement>('[data-test="tools-pane"]');
       expect(toolsPane).not.toBeNull();
       expect(toolsPane?.style.display).not.toBe('none');
-      expect(
-        container.querySelector<HTMLElement>('[data-test="settings-pane"]')?.style.display,
-      ).toBe('none');
+      expect(container.querySelector<HTMLElement>('[data-test="settings-pane"]')).toBeNull();
     });
 
     it('I. persists activeTab into chrome storage using versioned activeTabKey', async () => {
@@ -584,14 +582,55 @@ describe('Sidebar Navigation Controls Migration', () => {
       });
     });
 
+    it('J2. waits for the settings pane only when the sidebar opens on the settings tab', async () => {
+      let release: () => void = () => {};
+      (globalThis as any).__settingsReadyGate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      try {
+        const keys = createVersionedStorageKeys(getPoeVersion());
+        await mountSidebar({ [keys.isCollapsed]: false, [keys.activeTab]: 'settings' });
+        const wrapper = container.querySelector<HTMLElement>('.pxd-sidebar-wrapper')!;
+        expect(paneMountCounts.settings).toBe(1);
+        expect(wrapper.classList.contains('invisible')).toBe(true);
+
+        release();
+        await new Promise((r) => setTimeout(r, 0));
+        await nextTick();
+        expect(wrapper.classList.contains('invisible')).toBe(false);
+      } finally {
+        (globalThis as any).__settingsReadyGate = undefined;
+      }
+    });
+
+    it('J3. shows the sidebar without mounting the settings pane when another tab is active', async () => {
+      (globalThis as any).__settingsReadyGate = new Promise<void>(() => {});
+      try {
+        await mountSidebar();
+        const wrapper = container.querySelector<HTMLElement>('.pxd-sidebar-wrapper')!;
+        expect(paneMountCounts.settings).toBe(0);
+        expect(wrapper.classList.contains('invisible')).toBe(false);
+
+        // 之後才打開設定分頁：設定還沒 ready 也不會讓整個側邊欄隱藏
+        container.querySelector<HTMLElement>('[data-sidebar-action="expand"]')?.click();
+        await nextTick();
+        container.querySelector<HTMLElement>('[data-sidebar-tab="settings"]')?.click();
+        await nextTick();
+        expect(paneMountCounts.settings).toBe(1);
+        expect(wrapper.classList.contains('invisible')).toBe(false);
+      } finally {
+        (globalThis as any).__settingsReadyGate = undefined;
+      }
+    });
+
     it('J. mounts each pane once on first display and keeps it across tab switching', async () => {
       await mountSidebar();
 
-      // 收合時只掛載設定分頁（側邊欄等它 ready 才顯示）
+      // 收合時不掛載任何分頁
       expect(paneMountCounts.bookmark).toBe(0);
       expect(paneMountCounts.history).toBe(0);
       expect(paneMountCounts.tools).toBe(0);
-      expect(paneMountCounts.settings).toBe(1);
+      expect(paneMountCounts.settings).toBe(0);
 
       const expandBtn = container.querySelector<HTMLElement>('[data-sidebar-action="expand"]');
       expandBtn?.click();
@@ -601,7 +640,7 @@ describe('Sidebar Navigation Controls Migration', () => {
       expect(paneMountCounts.bookmark).toBe(1);
       expect(paneMountCounts.history).toBe(0);
       expect(paneMountCounts.tools).toBe(0);
-      expect(paneMountCounts.settings).toBe(1);
+      expect(paneMountCounts.settings).toBe(0);
       expect(paneUnmountCounts.bookmark).toBe(0);
       expect(paneUnmountCounts.history).toBe(0);
       expect(paneUnmountCounts.tools).toBe(0);

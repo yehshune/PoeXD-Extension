@@ -62,8 +62,8 @@ async function readSidebarCollapsed(version: PoeVersion): Promise<boolean> {
 }
 
 /**
- * 側邊欄延到首批結果後才掛載（見 initial-page-load-gate.ts）；先依儲存的位置、寬度與收合狀態
- * 讓出版面，掛載時頁面才不會在結果已顯示後整個位移。回傳移除預留樣式的函式。
+ * 側邊欄掛載前還要等攔截器與頁面角色；先依儲存的位置、寬度與收合狀態讓出版面，
+ * 掛載時官方頁面才不會整個位移。回傳移除預留樣式的函式。
  */
 export async function reserveSidebarPageLayout(
   version: PoeVersion,

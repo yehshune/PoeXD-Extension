@@ -854,6 +854,7 @@ import {
 } from '@/utils/market-translation';
 import { getPreferences, type PreferencesModule } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
+import { getPageLoadPreferences } from '@/utils/page-load-preferences';
 import { extensionMessaging } from '@/utils/extension-protocol';
 
 export default defineComponent({
@@ -958,7 +959,9 @@ export default defineComponent({
       setActiveDisplayLocalePreference(snapshot.displayLocale);
       const currentMarketState = computeEffectiveMarketState(snapshot);
       if (pageLoadMarketState === null) {
-        pageLoadMarketState = currentMarketState;
+        // 設定分頁第一次打開才掛載：基準要用開頁時的偏好，不是掛載當下的
+        const pageLoad = getPageLoadPreferences();
+        pageLoadMarketState = pageLoad ? computeEffectiveMarketState(pageLoad) : currentMarketState;
       }
       marketTranslationReloadRequired.value =
         currentMarketState.locale !== pageLoadMarketState.locale ||
