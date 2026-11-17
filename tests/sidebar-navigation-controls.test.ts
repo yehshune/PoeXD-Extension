@@ -460,10 +460,11 @@ describe('Sidebar Navigation Controls Migration', () => {
       const toolsTab = container.querySelector<HTMLElement>('[data-sidebar-tab="tools"]');
       const settingsTab = container.querySelector<HTMLElement>('[data-sidebar-tab="settings"]');
 
-      const bookmarkPane = container.querySelector<HTMLElement>('[data-test="bookmark-pane"]');
-      const historyPane = container.querySelector<HTMLElement>('[data-test="history-pane"]');
-      const toolsPane = container.querySelector<HTMLElement>('[data-test="tools-pane"]');
-      const settingsPane = container.querySelector<HTMLElement>('[data-test="settings-pane"]');
+      // 分頁第一次顯示時才掛載：書籤是目前分頁，設定一律掛載，其餘尚未掛載
+      expect(container.querySelector<HTMLElement>('[data-test="bookmark-pane"]')).not.toBeNull();
+      expect(container.querySelector<HTMLElement>('[data-test="settings-pane"]')).not.toBeNull();
+      expect(container.querySelector<HTMLElement>('[data-test="history-pane"]')).toBeNull();
+      expect(container.querySelector<HTMLElement>('[data-test="tools-pane"]')).toBeNull();
 
       // Initial tab is bookmark
       expect(bookmarkTab?.getAttribute('aria-pressed')).toBe('true');
@@ -485,10 +486,16 @@ describe('Sidebar Navigation Controls Migration', () => {
       expect(historyTab?.className).not.toContain('border-border');
       expect(bookmarkTab?.className).not.toContain('border-border');
 
-      expect(historyPane?.style.display).not.toBe('none');
-      expect(bookmarkPane?.style.display).toBe('none');
-      expect(toolsPane?.style.display).toBe('none');
-      expect(settingsPane?.style.display).toBe('none');
+      expect(
+        container.querySelector<HTMLElement>('[data-test="history-pane"]')?.style.display,
+      ).not.toBe('none');
+      expect(
+        container.querySelector<HTMLElement>('[data-test="bookmark-pane"]')?.style.display,
+      ).toBe('none');
+      expect(container.querySelector<HTMLElement>('[data-test="tools-pane"]')).toBeNull();
+      expect(
+        container.querySelector<HTMLElement>('[data-test="settings-pane"]')?.style.display,
+      ).toBe('none');
     });
 
     it('H. switches to Settings tab and updates aria-pressed and pane visibility', async () => {
@@ -503,9 +510,6 @@ describe('Sidebar Navigation Controls Migration', () => {
       const toolsTab = container.querySelector<HTMLElement>('[data-sidebar-tab="tools"]');
       const bookmarkTab = container.querySelector<HTMLElement>('[data-sidebar-tab="bookmark"]');
 
-      const settingsPane = container.querySelector<HTMLElement>('[data-test="settings-pane"]');
-      const toolsPane = container.querySelector<HTMLElement>('[data-test="tools-pane"]');
-
       settingsTab?.click();
       await nextTick();
 
@@ -514,8 +518,10 @@ describe('Sidebar Navigation Controls Migration', () => {
       expect(toolsTab?.getAttribute('aria-pressed')).toBe('false');
       expect(bookmarkTab?.getAttribute('aria-pressed')).toBe('false');
 
-      expect(settingsPane?.style.display).not.toBe('none');
-      expect(toolsPane?.style.display).toBe('none');
+      expect(
+        container.querySelector<HTMLElement>('[data-test="settings-pane"]')?.style.display,
+      ).not.toBe('none');
+      expect(container.querySelector<HTMLElement>('[data-test="tools-pane"]')).toBeNull();
     });
 
     it('H2. switches to Tools & Info tab and updates aria-pressed and pane visibility', async () => {
@@ -529,9 +535,6 @@ describe('Sidebar Navigation Controls Migration', () => {
       const settingsTab = container.querySelector<HTMLElement>('[data-sidebar-tab="settings"]');
       const bookmarkTab = container.querySelector<HTMLElement>('[data-sidebar-tab="bookmark"]');
 
-      const toolsPane = container.querySelector<HTMLElement>('[data-test="tools-pane"]');
-      const settingsPane = container.querySelector<HTMLElement>('[data-test="settings-pane"]');
-
       toolsTab?.click();
       await nextTick();
 
@@ -539,8 +542,12 @@ describe('Sidebar Navigation Controls Migration', () => {
       expect(settingsTab?.getAttribute('aria-pressed')).toBe('false');
       expect(bookmarkTab?.getAttribute('aria-pressed')).toBe('false');
 
+      const toolsPane = container.querySelector<HTMLElement>('[data-test="tools-pane"]');
+      expect(toolsPane).not.toBeNull();
       expect(toolsPane?.style.display).not.toBe('none');
-      expect(settingsPane?.style.display).toBe('none');
+      expect(
+        container.querySelector<HTMLElement>('[data-test="settings-pane"]')?.style.display,
+      ).toBe('none');
     });
 
     it('I. persists activeTab into chrome storage using versioned activeTabKey', async () => {
@@ -577,17 +584,23 @@ describe('Sidebar Navigation Controls Migration', () => {
       });
     });
 
-    it('J. keeps all panes mounted across repeated tab switching (pane mount persistence)', async () => {
+    it('J. mounts each pane once on first display and keeps it across tab switching', async () => {
       await mountSidebar();
+
+      // 收合時只掛載設定分頁（側邊欄等它 ready 才顯示）
+      expect(paneMountCounts.bookmark).toBe(0);
+      expect(paneMountCounts.history).toBe(0);
+      expect(paneMountCounts.tools).toBe(0);
+      expect(paneMountCounts.settings).toBe(1);
 
       const expandBtn = container.querySelector<HTMLElement>('[data-sidebar-action="expand"]');
       expandBtn?.click();
       await nextTick();
 
-      // Verify all four panes mounted exactly once on initial load
+      // 展開後才掛載目前分頁
       expect(paneMountCounts.bookmark).toBe(1);
-      expect(paneMountCounts.history).toBe(1);
-      expect(paneMountCounts.tools).toBe(1);
+      expect(paneMountCounts.history).toBe(0);
+      expect(paneMountCounts.tools).toBe(0);
       expect(paneMountCounts.settings).toBe(1);
       expect(paneUnmountCounts.bookmark).toBe(0);
       expect(paneUnmountCounts.history).toBe(0);

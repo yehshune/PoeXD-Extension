@@ -15,6 +15,14 @@ const panes = [
   ['SettingsPane', 'settings'],
 ] as const;
 
+const lazyPanes = [
+  ['BookmarkPane', 'bookmark'],
+  ['HistoryPane', 'history'],
+  ['StatGroupTemplatePane', 'stat-group-template'],
+  ['PobBuildPane', 'pob-build'],
+  ['ToolsPane', 'tools'],
+] as const;
+
 describe('Sidebar pane lifecycle', () => {
   it('keeps the sidebar hidden until its saved settings are loaded', () => {
     expect(sidebarSource).toMatch(
@@ -52,7 +60,25 @@ describe('Sidebar pane lifecycle', () => {
     expect(sidebarSource).toMatch(
       new RegExp(`<${component}[\\s\\S]*?v-show="activeTab === '${tab}'"`),
     );
-    expect(sidebarSource).not.toContain(`<${component} v-if=`);
+  });
+
+  it.each(lazyPanes)(
+    'mounts %s the first time its tab is shown, then keeps it',
+    (component, tab) => {
+      expect(sidebarSource).toMatch(
+        new RegExp(
+          `<${component}\\s+v-if="isTabMounted\\('${tab}'\\)"\\s+v-show="activeTab === '${tab}'"`,
+        ),
+      );
+      // 只會加入、不會移除：顯示過的分頁之後切換都不會重新掛載
+      expect(sidebarSource).toMatch(
+        /if \(!sidebarStateReady\.value \|\| isCollapsed\.value\) return;[\s\S]*?mountedTabs\.value = new Set\(\[\.\.\.mountedTabs\.value, tab\]\);/,
+      );
+    },
+  );
+
+  it('always mounts SettingsPane because the sidebar waits for its ready event', () => {
+    expect(sidebarSource).toMatch(/<SettingsPane\s+v-show="activeTab === 'settings'"/);
   });
 
   it('falls back to Bookmarks when a saved tab no longer exists', () => {

@@ -571,6 +571,9 @@ describe('Sidebar Scrollbar Foundation & Overlay Contract', () => {
       hostApp.mount(hostContainer);
       await nextTick();
       await nextTick();
+      // 等側邊欄讀完儲存的收合狀態（展開），目前分頁才會掛載
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
 
       const contentBody = hostContainer.querySelector('.content-body');
       expect(contentBody).not.toBeNull();
@@ -789,10 +792,13 @@ describe('Sidebar Scrollbar Foundation & Overlay Contract', () => {
       await nextTick();
       await nextTick();
 
-      // Initially all normal panes are mounted exactly once
+      // 儲存狀態為展開：只掛載目前分頁（書籤）與設定分頁
+      // 等側邊欄讀完儲存的收合狀態（展開），目前分頁才會掛載
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await nextTick();
       expect(paneMountCounts.bookmark).toBe(1);
-      expect(paneMountCounts.history).toBe(1);
-      expect(paneMountCounts.tools).toBe(1);
+      expect(paneMountCounts.history).toBe(0);
+      expect(paneMountCounts.tools).toBe(0);
       expect(paneMountCounts.settings).toBe(1);
       expect(paneUnmountCounts.bookmark).toBe(0);
       expect(paneUnmountCounts.history).toBe(0);

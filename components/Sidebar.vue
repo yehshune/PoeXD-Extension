@@ -278,13 +278,16 @@
                     @dismiss="dismissUpdateNotice"
                   />
                 </div>
-                <BookmarkPane v-show="activeTab === 'bookmark'" />
-                <HistoryPane v-show="activeTab === 'history'" />
+                <!-- 分頁第一次在展開的側邊欄顯示時才掛載，之後以 v-show 保留狀態 -->
+                <BookmarkPane v-if="isTabMounted('bookmark')" v-show="activeTab === 'bookmark'" />
+                <HistoryPane v-if="isTabMounted('history')" v-show="activeTab === 'history'" />
                 <StatGroupTemplatePane
+                  v-if="isTabMounted('stat-group-template')"
                   v-show="activeTab === 'stat-group-template'"
                   :sidebar-position="sidebarPosition"
                 />
                 <PobBuildPane
+                  v-if="isTabMounted('pob-build')"
                   v-show="activeTab === 'pob-build'"
                   :sidebar-position="sidebarPosition"
                 />
@@ -298,7 +301,8 @@
                   <ScrollAreaViewport
                     class="h-full w-full min-h-0 p-[var(--pxd-pane-padding)] pb-[var(--pxd-pane-scroll-end-space)]"
                   >
-                    <ToolsPane v-show="activeTab === 'tools'" />
+                    <ToolsPane v-if="isTabMounted('tools')" v-show="activeTab === 'tools'" />
+                    <!-- 設定分頁一律掛載：側邊欄要等它讀完偏好設定（ready）才顯示 -->
                     <SettingsPane
                       v-show="activeTab === 'settings'"
                       @ready="settingsPaneReady = true"
@@ -500,6 +504,7 @@ import {
   onMounted,
   onUnmounted,
   watch,
+  watchEffect,
   computed,
   nextTick,
   type PropType,
@@ -687,6 +692,19 @@ export default defineComponent({
     const settingsPaneReady = ref(props.pageRole === 'live-search-primary');
     const pageRole = computed(() => props.pageRole);
     const areSettingsReady = computed(() => sidebarStateReady.value && settingsPaneReady.value);
+
+    /**
+     * 曾在展開的側邊欄顯示過的分頁。分頁內容（書籤樹、歷史清單、PoB build 解碼等）
+     * 合計數千個元件，頁面載入時全部掛載會拖慢官方頁面；第一次顯示時才掛載，之後保留。
+     */
+    const mountedTabs = ref<ReadonlySet<string>>(new Set());
+    watchEffect(() => {
+      if (!sidebarStateReady.value || isCollapsed.value) return;
+      const tab = activeTab.value;
+      if (mountedTabs.value.has(tab)) return;
+      mountedTabs.value = new Set([...mountedTabs.value, tab]);
+    });
+    const isTabMounted = (tab: string) => mountedTabs.value.has(tab);
 
     // 初次安裝引導（只有全新安裝才有狀態，舊使用者維持 NO_ONBOARDING）
     const onboardingStore = createChromeOnboardingStore();
@@ -1216,6 +1234,7 @@ export default defineComponent({
       actualWidth,
       runtimeTokens,
       activeTab,
+      isTabMounted,
       primaryActiveTab,
       isTemporarySearchDialogOpen,
       activeTabName,

@@ -260,10 +260,13 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
     ) as HTMLButtonElement | null;
     expect(openLiveSearchBtn).not.toBeNull();
 
-    // 驗證 normal panes 有被 mount，而 Primary panes 未被 mount
+    // 目前分頁與設定分頁已掛載；其餘 normal panes 第一次顯示時才掛載，Primary panes 一律不掛載
     expect(paneMountCounts.bookmark).toBeGreaterThan(0);
-    expect(paneMountCounts.history).toBeGreaterThan(0);
+    expect(paneMountCounts.history).toBe(0);
     expect(paneMountCounts.settings).toBeGreaterThan(0);
+    historyBtn && (historyBtn as HTMLElement).click();
+    await nextTick();
+    expect(paneMountCounts.history).toBeGreaterThan(0);
     expect(paneMountCounts.liveSearchPrimary).toBe(0);
     expect(paneMountCounts.liveSearchConsoleSettings).toBe(0);
 
