@@ -4,6 +4,7 @@ import { getLocaleTradeStatsAssetPath, type PoeVersion } from './trade-context';
 import { getCandidateStatIds, renderGenericTemplate } from './affix-lexicon';
 import { getUsableLiveTradeData } from './live-trade-data-store';
 import { buildStatDomainIndex, statDomainsOf, type StatDomainIndex } from './stat-domain-order';
+import { loadExtensionJson } from './extension-json-cache';
 
 /**
  * 官方市集的詞綴文字（各語系市集 /data/stats，以詞綴代碼為 key）。
@@ -67,14 +68,11 @@ function parseStatShard(data: unknown): StatShard | null {
   return valid ? { stats: data.stats as StatTexts, labels: parseStatLabels(data.labels) } : null;
 }
 
-function resolveAssetUrl(assetPath: string): string {
-  const runtimeGetUrl = (globalThis as any).chrome?.runtime?.getURL;
-  return typeof runtimeGetUrl === 'function' ? runtimeGetUrl(assetPath) : assetPath;
-}
-
 async function fetchShard(version: PoeVersion, locale: OfficialStatTextLocale) {
-  const res = await fetch(resolveAssetUrl(getLocaleTradeStatsAssetPath(version, locale)));
-  return parseStatShard(res?.ok ? await res.json() : null);
+  const data = await loadExtensionJson(getLocaleTradeStatsAssetPath(version, locale)).catch(
+    () => null,
+  );
+  return parseStatShard(data);
 }
 
 /** 載入指定語系的官方詞綴文字；沒有官方資料的語系或載入失敗回傳 false，且不重複請求 */

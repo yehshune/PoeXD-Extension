@@ -9,6 +9,7 @@ import poe1ZhCn from '../public/json/poe1/locales/zh-CN/trade-filters.json';
 import poe2En from '../public/json/poe2/locales/en/trade-filters.json';
 import poe2ZhTw from '../public/json/poe2/locales/zh-TW/trade-filters.json';
 import poe2ZhCn from '../public/json/poe2/locales/zh-CN/trade-filters.json';
+import { loadExtensionJson } from './extension-json-cache';
 
 /**
  * 市集篩選翻譯（官方 /api/{trade,trade2}/data/filters 產生，由 poexd-data 產生，見 docs/trade-filter-data.md）。
@@ -55,11 +56,6 @@ function getState(version: PoeVersion): VersionFiltersState {
   return state;
 }
 
-function resolveAssetUrl(assetPath: string): string {
-  const runtimeGetUrl = (globalThis as any).chrome?.runtime?.getURL;
-  return typeof runtimeGetUrl === 'function' ? runtimeGetUrl(assetPath) : assetPath;
-}
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -82,8 +78,9 @@ export async function ensureTradeFiltersLoaded(
 
   const promise = (async () => {
     try {
-      const res = await fetch(resolveAssetUrl(getLocaleTradeFiltersAssetPath(version, locale)));
-      const json: unknown = res?.ok ? await res.json() : null;
+      const json: unknown = await loadExtensionJson(
+        getLocaleTradeFiltersAssetPath(version, locale),
+      ).catch(() => null);
       if (!isTradeFiltersData(json)) {
         state.unavailable.add(locale);
         return null;

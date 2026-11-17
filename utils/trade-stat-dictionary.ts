@@ -25,6 +25,7 @@ import {
   setMockTradeFilters,
   type TradeFiltersData,
 } from './trade-filters-store';
+import { loadExtensionJson } from './extension-json-cache';
 
 export interface LocaleItemsShard {
   /** 產生此檔的遊戲 patch；各語系 items 以索引對齊 */
@@ -58,11 +59,6 @@ function getOrCreateItemState(version: PoeVersion): VersionItemState {
     itemStateByVersion.set(version, state);
   }
   return state;
-}
-
-function resolveAssetUrl(assetPath: string): string {
-  const runtimeGetUrl = (globalThis as any).chrome?.runtime?.getURL;
-  return typeof runtimeGetUrl === 'function' ? runtimeGetUrl(assetPath) : assetPath;
 }
 
 function indexItemShard(
@@ -109,10 +105,7 @@ export async function ensureItemShardLoaded(
     try {
       // 先載入 en 作為相容性基準，也讓反查索引的寫入順序固定
       if (locale !== 'en') await ensureItemShardLoaded(version, 'en');
-      const url = resolveAssetUrl(getLocaleItemsAssetPath(version, locale));
-      const res = await fetch(url);
-      if (!res || !res.ok) return null;
-      const json = await res.json();
+      const json = (await loadExtensionJson(getLocaleItemsAssetPath(version, locale))) as any;
       const items: string[] | null = Array.isArray(json)
         ? json
         : json && Array.isArray(json.items)

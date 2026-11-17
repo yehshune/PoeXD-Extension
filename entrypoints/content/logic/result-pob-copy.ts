@@ -21,6 +21,7 @@ import {
   mountLeftAction,
   removeLeftActionsByClass,
 } from './result-left-actions';
+import { loadExtensionJson } from '@/utils/extension-json-cache';
 
 const STYLE_ID = 'poexd-result-pob-copy-style';
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
@@ -34,12 +35,6 @@ export interface ResultPobCopyDeps {
   loadLexicon: (version: PoeVersion, locale: string) => Promise<PobTextLexicon>;
   writeClipboard: (text: string) => Promise<void>;
   notify: (message: string, tone: 'success' | 'error') => void;
-}
-
-async function loadExtensionJson(path: string): Promise<unknown> {
-  const response = await fetch(chrome.runtime.getURL(`/${path}`));
-  if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
-  return response.json();
 }
 
 const defaultDeps: ResultPobCopyDeps = {

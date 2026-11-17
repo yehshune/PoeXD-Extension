@@ -41,3 +41,12 @@ if (happyDom?.settings?.fetch) {
     },
   };
 }
+
+/**
+ * 擴充 JSON 共用快取掛在 globalThis，同一個測試檔的測試會共用；每個測試前清掉，
+ * 避免沿用上一個測試 stub 的 fetch 假資料。
+ */
+import { beforeEach } from 'vitest';
+import { resetExtensionJsonCacheForTests } from '@/utils/extension-json-cache';
+
+beforeEach(() => resetExtensionJsonCacheForTests());

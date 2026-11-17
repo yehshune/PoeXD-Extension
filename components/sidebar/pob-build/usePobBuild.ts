@@ -59,6 +59,7 @@ import {
   type PobBookmarkBridge,
   type PobBookmarkFolder,
 } from './pob-bookmark-bridge';
+import { loadExtensionJson } from '@/utils/extension-json-cache';
 
 export interface UsePobBuildDeps {
   store: PobBuildStore;
@@ -244,12 +245,6 @@ const SHARE_ERROR_KEYS: Readonly<Record<PobShareFetchError, I18nKey>> = {
   invalid: 'pobBuild.error.share.invalid',
 };
 class TooManyBuildsError extends Error {}
-
-async function loadExtensionJson(path: string): Promise<unknown> {
-  const response = await fetch(chrome.runtime.getURL(`/${path}`));
-  if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
-  return response.json();
-}
 
 function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
   return {
