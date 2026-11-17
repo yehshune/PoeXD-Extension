@@ -6,6 +6,10 @@
  *   方便找到相近而不必完全相同的裝備）；工藝詞綴可以自己做，不列入條件。附魔只有星團珠寶預設帶入。
  * - 寶石：以名稱搜尋，等級與品質帶入下限；PoE 2 的技能寶石不在市集交易，不列入。
  * - 身甲與雙手武器有五連以上時帶入連結數下限。
+ * - 身外 Wickerman 的臟器（3.30）：放在 Wickerman 部位的臟器是普通物品，以基底搜尋、詞綴是固定詞綴。
+ *   PoB 只給合併後的臟器詞綴（自訂詞綴區塊）時，依詞綴資料把每一行分到頭部／身體／手部／腿部，
+ *   每個部位一列、以市集的部位分類搜尋。分不出部位的詞綴合成一個「臟器」項目，以臟器分類搜尋、
+ *   預設至少符合 1 項（詞綴分屬不同件，全部符合找不到東西）。
  *
  * 每一行詞綴對到的市集代碼都記在 `ShoppingMod.stat`，使用者可以在清單上自行勾選、改數值、改成
  * 「至少符合 N 項」或總和條件（`EntrySearchSelection`），由 `buildEntryQuery` 組出實際的搜尋。
@@ -13,7 +17,15 @@
  * PoB 的名稱是英文；市集搜尋要用頁面所在區服的名稱，由 `TradeNameCatalog` 轉換。對不到
  * 市集名稱的項目仍列出，但沒有搜尋（`query` 為 null），不會用猜的名稱去搜。
  */
-import type { PobBuild, PobBuildGem, PobBuildItem, PobItemRarity, PobItemSet } from './pob-build';
+import {
+  VISCERA_BUNDLE_NAME,
+  VISCERA_BUNDLE_SLOT,
+  type PobBuild,
+  type PobBuildGem,
+  type PobBuildItem,
+  type PobItemRarity,
+  type PobItemSet,
+} from './pob-build';
 import { modLineSkeleton, type StatDomain, type StatMatcher } from './pob-stat-matcher';
 import { getLocaleItemsAssetPath, tradeVersionProfiles, type PoeVersion } from './trade-context';
 
@@ -88,6 +100,13 @@ export interface ShoppingEntry {
   /** 裝備才有：稀有度與詞綴，供介面顯示 */
   rarity?: PobItemRarity;
   mods?: ShoppingMod[];
+  /**
+   * 從 PoB 自訂詞綴合成的臟器項目：詞綴來自多件臟器，搜尋一律是「至少符合 N 項」（預設 1），
+   * 固定詞綴也算進 N 項。
+   */
+  visceraBundle?: true;
+  /** 從合成臟器拆出、只含單一部位詞綴的項目：以市集的部位分類搜尋，詞綴全部符合 */
+  visceraPart?: VisceraPart;
   /** 不含詞綴條件的搜尋（名稱、基底、連結）；null 表示無法搜尋 */
   searchBase: Record<string, unknown> | null;
   /** 官方市集的 query 物件（套用使用者的選擇後）；null 表示無法搜尋 */
@@ -167,7 +186,169 @@ const SLOT_ORDER: readonly string[] = [
   'Belt',
   'Flask',
   'Charm',
+  'Wickerman Head',
+  'Wickerman Torso',
+  'Wickerman Upper Limb',
+  'Wickerman Lower Limb',
+  VISCERA_BUNDLE_SLOT,
 ];
+/** 市集的臟器分類（`viscera`） */
+const VISCERA_CATEGORY = 'viscera';
+
+/** 臟器部位（市集子分類 `viscera.head` 等） */
+export type VisceraPart = 'head' | 'body' | 'arm' | 'leg';
+
+/** 一條臟器詞綴：所在部位與它的所有交易代碼（多行詞綴有多個代碼，一定一起出現） */
+export interface VisceraModCandidate {
+  readonly part: VisceraPart;
+  readonly statIds: readonly string[];
+}
+
+/** 依交易代碼查出含有它的臟器詞綴 */
+export type VisceraModIndex = (statId: string) => readonly VisceraModCandidate[];
+
+/** 部位 → PoB 的 Wickerman 部位名稱（排序與標籤沿用 PoB 原生部位） */
+const VISCERA_PART_SLOTS: Readonly<Record<VisceraPart, string>> = {
+  head: 'Wickerman Head',
+  body: 'Wickerman Torso',
+  arm: 'Wickerman Upper Limb',
+  leg: 'Wickerman Lower Limb',
+};
+const VISCERA_PARTS = Object.keys(VISCERA_PART_SLOTS) as VisceraPart[];
+const visceraPartOfSlot = (slot: string): VisceraPart | undefined =>
+  VISCERA_PARTS.find((part) => VISCERA_PART_SLOTS[part] === slot);
+
+/** 詞綴資料裡臟器詞綴的部位標籤 */
+const VISCERA_PART_TAGS: Readonly<Record<string, VisceraPart>> = {
+  viscera_head: 'head',
+  viscera_body: 'body',
+  viscera_arm: 'arm',
+  viscera_leg: 'leg',
+};
+/** 窮舉組合的上限；超過時只採用已找到的組合（實際的臟器組合遠少於此） */
+const MAX_VISCERA_SOLUTIONS = 64;
+
+/**
+ * 由詞綴資料建立臟器詞綴索引：`lookup` 回傳含有該代碼的所有詞綴階級（類別與代碼）。
+ * 只收有部位標籤的臟器詞綴；同部位、同一組代碼的不同階級合併成一筆。
+ */
+export function createVisceraModIndex(
+  lookup: (statId: string) =>
+    | readonly {
+        readonly types?: readonly string[];
+        readonly id?: string;
+        readonly ids?: readonly string[];
+      }[]
+    | null
+    | undefined,
+): VisceraModIndex {
+  return (statId) => {
+    const found = new Map<string, VisceraModCandidate>();
+    for (const tier of lookup(statId) ?? []) {
+      const statIds = tier.ids ?? (tier.id ? [tier.id] : []);
+      if (!statIds.includes(statId)) continue;
+      const parts = new Set(
+        (tier.types ?? []).map((type) => VISCERA_PART_TAGS[type]).filter((part) => !!part),
+      );
+      for (const part of parts) {
+        const key = [part, ...[...statIds].sort()].join(KEY_SEPARATOR);
+        if (!found.has(key)) found.set(key, { part, statIds: [...statIds] });
+      }
+    }
+    return [...found.values()];
+  };
+}
+
+/**
+ * 判斷合成臟器每一行屬於哪個部位。每件臟器只有一條詞綴（可能有多行），四個部位各一件，
+ * 所以找出「每行剛好被一條詞綴涵蓋、每個部位最多用一次」的組合：
+ * - 有組合時，所有組合都同意的部位才採用（例如火／冰／電三行一起出現時，是頭部那條三行詞綴，
+ *   而不是手部的冰電詞綴加另一條火焰詞綴，因為手部已經被別的詞綴占用）。
+ * - 沒有組合時（例如自訂詞綴不是完整的四件），逐行判斷：只出現在單一部位的詞綴才採用。
+ */
+export function assignVisceraParts(
+  statIds: readonly (string | undefined)[],
+  index: VisceraModIndex,
+): (VisceraPart | undefined)[] {
+  const candidatesOf = statIds.map((statId) => (statId ? index(statId) : []));
+  const solutions: (VisceraPart | undefined)[][] = [];
+  const assigned: (VisceraPart | undefined)[] = statIds.map(() => undefined);
+  const usedParts = new Set<VisceraPart>();
+
+  // 一條詞綴要涵蓋的行：每個代碼各取一個尚未分配的行；有代碼找不到行時這條詞綴不成立
+  const linesFor = (candidate: VisceraModCandidate): number[] | undefined => {
+    const lines: number[] = [];
+    for (const statId of candidate.statIds) {
+      const line = statIds.findIndex(
+        (id, index) => id === statId && assigned[index] === undefined && !lines.includes(index),
+      );
+      if (line < 0) return undefined;
+      lines.push(line);
+    }
+    return lines;
+  };
+
+  const search = (): void => {
+    if (solutions.length >= MAX_VISCERA_SOLUTIONS) return;
+    const next = statIds.findIndex(
+      (id, index) => id !== undefined && assigned[index] === undefined,
+    );
+    if (next < 0) {
+      solutions.push([...assigned]);
+      return;
+    }
+    for (const candidate of candidatesOf[next]) {
+      if (usedParts.has(candidate.part)) continue;
+      const lines = linesFor(candidate);
+      if (!lines || !lines.includes(next)) continue;
+      usedParts.add(candidate.part);
+      lines.forEach((line) => (assigned[line] = candidate.part));
+      search();
+      lines.forEach((line) => (assigned[line] = undefined));
+      usedParts.delete(candidate.part);
+    }
+  };
+  search();
+
+  if (solutions.length > 0) {
+    return statIds.map((_, line) => {
+      const parts = new Set(solutions.map((solution) => solution[line]));
+      return parts.size === 1 ? [...parts][0] : undefined;
+    });
+  }
+  return candidatesOf.map((candidates) => {
+    const parts = new Set(candidates.map((candidate) => candidate.part));
+    return parts.size === 1 ? [...parts][0] : undefined;
+  });
+}
+
+const isVisceraBundleItem = (item: PobBuildItem): boolean =>
+  item.slot === VISCERA_BUNDLE_SLOT && item.name === VISCERA_BUNDLE_NAME;
+
+/**
+ * 合成的臟器項目依詞綴分到各部位：每個部位一件，分不出部位的詞綴留在合成項目。
+ * 沒有詞綴對應或臟器詞綴資料時原樣保留。
+ */
+function splitVisceraBundle(
+  item: PobBuildItem,
+  matcher: StatMatcher | undefined,
+  index: VisceraModIndex | undefined,
+): PobBuildItem[] {
+  if (!matcher || !index) return [item];
+  const statIds = item.implicitMods.map(
+    (mod) => matcher.match(mod.text, { preferLocal: false, domain: 'implicit' })?.statId,
+  );
+  const parts = assignVisceraParts(statIds, index);
+  const modsOf = (part: VisceraPart | undefined) =>
+    item.implicitMods.filter((_, line) => parts[line] === part);
+  const split = VISCERA_PARTS.filter((part) => parts.includes(part)).map((part) => ({
+    ...item,
+    slot: VISCERA_PART_SLOTS[part],
+    implicitMods: modsOf(part),
+  }));
+  const rest = modsOf(undefined);
+  return rest.length > 0 ? [...split, { ...item, implicitMods: rest }] : split;
+}
 const NUMBERED_SLOT = /^(.+?) (\d+)$/;
 const ABYSSAL_SLOT = /^(.+) Abyssal Socket (\d+)$/;
 const JEWEL_SLOT = 'Jewel';
@@ -430,8 +611,19 @@ function mergeIntoPseudo(
 }
 
 /** 套用使用者的選擇組出搜尋；項目無法搜尋時回傳 null */
+/** 臟器合成項目預設「至少符合 1 項」 */
+export const VISCERA_BUNDLE_COUNT_MIN = 1;
+
+/** 實際套用的「至少符合 N 項」：使用者沒設定時，臟器合成項目用預設值，其餘為全部符合 */
+export function effectiveCountMin(
+  entry: Pick<ShoppingEntry, 'visceraBundle'>,
+  selection?: EntrySearchSelection,
+): number | undefined {
+  return selection?.countMin ?? (entry.visceraBundle ? VISCERA_BUNDLE_COUNT_MIN : undefined);
+}
+
 export function buildEntryQuery(
-  entry: Pick<ShoppingEntry, 'mods' | 'searchBase'>,
+  entry: Pick<ShoppingEntry, 'mods' | 'searchBase' | 'visceraBundle'>,
   selection?: EntrySearchSelection,
 ): Record<string, unknown> | null {
   if (!entry.searchBase) return null;
@@ -440,12 +632,14 @@ export function buildEntryQuery(
     ? mergeIntoPseudo(enabled, entry.mods ?? [])
     : enabled.map(toQueryFilter);
   if (filters.length === 0) return entry.searchBase;
-  const countMin = selection?.countMin;
+  const countMin = effectiveCountMin(entry, selection);
   if (countMin === undefined || !Number.isInteger(countMin) || countMin < 1) {
     return { ...entry.searchBase, stats: [{ type: 'and', filters }] };
   }
-  const required = filters.filter((filter) => isRequiredInCountMode(filter.id));
-  const countable = filters.filter((filter) => !isRequiredInCountMode(filter.id));
+  // 臟器合成項目的固定詞綴分屬不同件，不能全部強制符合
+  const isRequired = (id: string) => !entry.visceraBundle && isRequiredInCountMode(id);
+  const required = filters.filter((filter) => isRequired(filter.id));
+  const countable = filters.filter((filter) => !isRequired(filter.id));
   const groups = [
     ...(required.length > 0 ? [{ type: 'and', filters: required }] : []),
     ...(countable.length > 0
@@ -482,7 +676,10 @@ export function applyEntrySelection(
   };
 }
 
-export interface SelectionRowSnapshot extends Pick<ShoppingEntry, 'mods' | 'searchBase'> {
+export interface SelectionRowSnapshot extends Pick<
+  ShoppingEntry,
+  'mods' | 'searchBase' | 'visceraBundle'
+> {
   filters?: readonly ShoppingStatFilter[];
   countMin?: number;
   pseudo?: boolean;
@@ -619,6 +816,41 @@ function itemEntry(
     return { ...full, query: buildEntryQuery(full) };
   };
 
+  const visceraPart = item.name === VISCERA_BUNDLE_NAME ? visceraPartOfSlot(item.slot) : undefined;
+  if (visceraPart) {
+    return finish({
+      key,
+      kind: 'equipment',
+      label: VISCERA_BUNDLE_NAME,
+      englishName: VISCERA_BUNDLE_NAME,
+      slot: item.slot,
+      rarity: item.rarity,
+      visceraPart,
+      searchBase: {
+        status: INSTANT_BUYOUT_STATUS,
+        filters: {
+          type_filters: {
+            filters: { category: { option: `${VISCERA_CATEGORY}.${visceraPart}` } },
+          },
+        },
+      },
+    });
+  }
+  if (isVisceraBundleItem(item)) {
+    return finish({
+      key,
+      kind: 'equipment',
+      label: VISCERA_BUNDLE_NAME,
+      englishName: VISCERA_BUNDLE_NAME,
+      slot: item.slot,
+      rarity: item.rarity,
+      visceraBundle: true,
+      searchBase: {
+        status: INSTANT_BUYOUT_STATUS,
+        filters: { type_filters: { filters: { category: { option: VISCERA_CATEGORY } } } },
+      },
+    });
+  }
   if (!isUnique) {
     return finish({
       key,
@@ -748,6 +980,7 @@ export function buildShoppingList(
   catalog: TradeNameCatalog,
   selection: ShoppingSelection = {},
   matcher?: StatMatcher,
+  options: { visceraMods?: VisceraModIndex } = {},
 ): ShoppingEntry[] {
   const pick = <T extends { id: string }>(
     sets: readonly T[],
@@ -757,9 +990,11 @@ export function buildShoppingList(
   const itemSet = pick(build.itemSets, selection.itemSetId, build.activeItemSetId);
   const skillSet = pick(build.skillSets, selection.skillSetId, build.activeSkillSetId);
 
-  const items = [...(itemSet?.items ?? []), ...jewelsFor(build, itemSet)].map((item) =>
-    itemEntry(item, catalog, matcher),
-  );
+  const items = [...(itemSet?.items ?? []), ...jewelsFor(build, itemSet)]
+    .flatMap((item) =>
+      isVisceraBundleItem(item) ? splitVisceraBundle(item, matcher, options.visceraMods) : [item],
+    )
+    .map((item) => itemEntry(item, catalog, matcher));
   const gems =
     build.gameVersion === 'poe1' ? (skillSet?.gems ?? []).map((gem) => gemEntry(gem, catalog)) : [];
   // 同一套裡內容完全相同的項目（例如兩顆一樣的珠寶）共用一個 key，合併成一列並計數

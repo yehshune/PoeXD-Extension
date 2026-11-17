@@ -36,6 +36,8 @@ import {
   buildShoppingList,
   buildTradeCodeUrl,
   buildTradeSearchUrl,
+  effectiveCountMin,
+  type VisceraModIndex,
   entryStatFilters,
   loadTradeNameCatalog,
   migrateLegacyGemKeys,
@@ -47,6 +49,7 @@ import {
 } from '@/utils/pob-shopping-list';
 import { loadModLineTranslator, type ModLineTranslator } from '@/utils/pob-mod-translator';
 import { loadStatMatcher, type StatMatcher } from '@/utils/pob-stat-matcher';
+import { loadVisceraModIndex } from '@/utils/pob-viscera-parts';
 import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
 import { parseTradeSearchUrl } from '@/utils/trade-search-identity';
 import { encodeQueryToGzipBase64Url } from '@/utils/trade-url-codec';
@@ -62,6 +65,8 @@ export interface UsePobBuildDeps {
   pendingIcon: PendingIconStore;
   loadCatalog: (version: PoeVersion, locale: string) => Promise<TradeNameCatalog>;
   loadMatcher: (version: PoeVersion) => Promise<StatMatcher>;
+  /** 合成臟器拆部位用的臟器詞綴索引；沒有時臟器維持一列 */
+  loadVisceraMods?: (version: PoeVersion) => Promise<VisceraModIndex | undefined>;
   /** 把 PoB 的英文詞綴翻成顯示語言；該語言沒有對照資料時回傳 undefined */
   loadModTranslator: (
     version: PoeVersion,
@@ -253,6 +258,7 @@ function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
     loadCatalog: (catalogVersion, locale) =>
       loadTradeNameCatalog(loadExtensionJson, { version: catalogVersion, locale }),
     loadMatcher: (matcherVersion) => loadStatMatcher(loadExtensionJson, matcherVersion),
+    loadVisceraMods: (modsVersion) => loadVisceraModIndex(modsVersion),
     loadModTranslator: (translatorVersion, locale) =>
       loadModLineTranslator(loadExtensionJson, { version: translatorVersion, locale }),
     getDisplayLocale: () => getActiveDisplayLocale(),
@@ -344,6 +350,7 @@ export function usePobBuild(
   const sessions = shallowRef<Session[]>([]);
   const catalog = shallowRef<TradeNameCatalog | null>(null);
   const matcher = shallowRef<StatMatcher | undefined>(undefined);
+  const visceraMods = shallowRef<VisceraModIndex | undefined>(undefined);
   const modTranslator = shallowRef<ModLineTranslator | undefined>(undefined);
   const displayNames = shallowRef<TradeNameCatalog | undefined>(undefined);
   const errorKey = ref<I18nKey | null>(null);
@@ -361,24 +368,32 @@ export function usePobBuild(
     if (catalog.value) return;
     const pageLocale = deps.getPageLocale();
     const displayLocale = deps.getDisplayLocale();
-    const [loadedCatalog, loadedMatcher, loadedTranslator, loadedDisplayNames] = await Promise.all([
-      deps.loadCatalog(version, pageLocale),
-      deps.loadMatcher(version).catch(() => undefined),
-      deps.loadModTranslator(version, displayLocale).catch(() => undefined),
-      // 顯示語言和頁面區服不同時（例如國際服頁面配中文介面），名稱另外用顯示語言呈現
-      displayLocale === pageLocale
-        ? undefined
-        : deps.loadCatalog(version, displayLocale).catch(() => undefined),
-    ]);
+    const [loadedCatalog, loadedMatcher, loadedTranslator, loadedDisplayNames, loadedParts] =
+      await Promise.all([
+        deps.loadCatalog(version, pageLocale),
+        deps.loadMatcher(version).catch(() => undefined),
+        deps.loadModTranslator(version, displayLocale).catch(() => undefined),
+        // 顯示語言和頁面區服不同時（例如國際服頁面配中文介面），名稱另外用顯示語言呈現
+        displayLocale === pageLocale
+          ? undefined
+          : deps.loadCatalog(version, displayLocale).catch(() => undefined),
+        deps.loadVisceraMods?.(version).catch((error: unknown) => {
+          console.warn('[PoeXD] viscera part data unavailable', error);
+          return undefined;
+        }),
+      ]);
     displayNames.value = loadedDisplayNames;
     catalog.value = loadedCatalog;
     matcher.value = loadedMatcher;
+    visceraMods.value = loadedParts;
     modTranslator.value = loadedTranslator;
   };
 
   const listFor = (build: PobBuild, itemSetId: string, skillSetId: string): ShoppingEntry[] =>
     catalog.value
-      ? buildShoppingList(build, catalog.value, { itemSetId, skillSetId }, matcher.value)
+      ? buildShoppingList(build, catalog.value, { itemSetId, skillSetId }, matcher.value, {
+          visceraMods: visceraMods.value,
+        })
       : [];
 
   const entriesOf = (session: Session): ShoppingEntry[] =>
@@ -411,14 +426,18 @@ export function usePobBuild(
   const toRow = (session: Session, entry: ShoppingEntry): ShoppingRow => {
     const selection = session.searchSelections[entry.key];
     const applied = applyEntrySelection(entry, selection);
+    const countMin = effectiveCountMin(entry, selection);
     return {
       ...applied,
-      label: displayNames.value?.toTradeName(entry.englishName) ?? entry.label,
+      label:
+        entry.visceraBundle || entry.visceraPart
+          ? t('pobBuild.viscera.bundle')
+          : (displayNames.value?.toTradeName(entry.englishName) ?? entry.label),
       ...(applied.mods ? { mods: applied.mods.map(localizeMod) } : {}),
       done: session.done.has(entry.key),
       ...(session.icons[entry.key] ? { icon: session.icons[entry.key] } : {}),
       filters: entryStatFilters(entry, selection),
-      ...(selection?.countMin !== undefined ? { countMin: selection.countMin } : {}),
+      ...(countMin !== undefined ? { countMin } : {}),
       pseudo: selection?.pseudo === true,
       searchCustomized: selection !== undefined || session.searchOverrides[entry.key] !== undefined,
       ...(selection ? { searchSelection: selection } : {}),

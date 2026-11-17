@@ -15,6 +15,11 @@ const FIXED_SLOTS: Readonly<Record<string, I18nKey>> = {
   Amulet: 'pobBuild.slot.amulet',
   Belt: 'pobBuild.slot.belt',
   Jewel: 'pobBuild.slot.jewel',
+  'Wickerman Head': 'pobBuild.slot.wickermanHead',
+  'Wickerman Torso': 'pobBuild.slot.wickermanTorso',
+  'Wickerman Upper Limb': 'pobBuild.slot.wickermanUpperLimb',
+  'Wickerman Lower Limb': 'pobBuild.slot.wickermanLowerLimb',
+  Wickerman: 'pobBuild.slot.wickerman',
 };
 
 const NUMBERED_SLOTS: Readonly<Record<string, I18nKey>> = {

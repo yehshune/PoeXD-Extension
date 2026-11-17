@@ -7,6 +7,7 @@ import { t } from '@/utils/i18n';
 import {
   applyEntrySelection,
   buildEntryQuery,
+  effectiveCountMin,
   cloneEntrySearchSelection,
   entryStatFilters,
   isRequiredInCountMode,
@@ -84,7 +85,7 @@ const effectiveRow = computed<ShoppingRow | null>(() => {
   if (!draft) return row;
   const filters = entryStatFilters(row, draft);
   const applied = applyEntrySelection(row, draft);
-  const countMin = draft.countMin;
+  const countMin = effectiveCountMin(row, draft);
   const pseudo = draft.pseudo === true;
   return {
     ...row,
@@ -495,7 +496,7 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                 :id="controlId('count')"
                 data-pob-build-count-mode
                 :model-value="effectiveRow.countMin !== undefined"
-                :disabled="effectiveRow.searchOverride"
+                :disabled="effectiveRow.searchOverride || effectiveRow.visceraBundle"
                 @update:model-value="(value) => toggleCountMode(value === true)"
               />
               <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->

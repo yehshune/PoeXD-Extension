@@ -125,6 +125,15 @@ const STATUS_LINES = new Set([
   'Eater of Worlds Item',
 ]);
 const JEWEL_SLOT = 'Jewel';
+/**
+ * 身外 Wickerman（3.30）的臟器。新版 PoB 放在 `Wickerman Head` 等四個部位，跟一般裝備一樣；
+ * 還沒有這些部位的 PoB（例如從角色匯入的 build）把四件臟器的詞綴合併寫成標題為 `Viscera`
+ * 的自訂詞綴區塊，這時拿不到各件的名稱，只能合成一個代表全部臟器的項目。
+ */
+export const VISCERA_BUNDLE_SLOT = 'Wickerman';
+export const VISCERA_BUNDLE_NAME = 'Viscera';
+const WICKERMAN_SLOT = /^Wickerman\b/;
+const VISCERA_BLOCK_TITLE = /^viscera$/i;
 const RARITIES: readonly PobItemRarity[] = ['NORMAL', 'MAGIC', 'RARE', 'UNIQUE', 'RELIC'];
 const RARITY_LINE = /^Rarity:\s*(\w+)/i;
 /** 物品名稱之後的屬性行（`Unique ID: …`、`Item Level: …`），不是基底名稱 */
@@ -286,6 +295,42 @@ function parseTreeSpecs(tree: Element | null, itemById: ItemLookup): PobTreeSpec
     }));
 }
 
+/** 匯出當下選用的配置組合裡、標題為 `Viscera` 的自訂詞綴區塊；沒有或已停用時回傳 undefined */
+function parseVisceraBundle(config: Element | null): PobBuildItem | undefined {
+  const sets = children(config, 'ConfigSet');
+  const activeId = config?.getAttribute('activeConfigSet');
+  const active = sets.find((set) => set.getAttribute('id') === activeId) ?? sets[0] ?? config;
+  const block = children(active, 'CustomModifierBlock').find(
+    (element) =>
+      VISCERA_BLOCK_TITLE.test(clip(element.getAttribute('title'))) &&
+      element.getAttribute('enabled') !== 'false',
+  );
+  if (!block) return undefined;
+  const implicitMods = itemTextLines(block)
+    .slice(0, MAX_MODS_PER_ITEM)
+    .map((raw) => parseModLine(raw, undefined).text)
+    .filter(Boolean)
+    .map((text) => ({ text, crafted: false }));
+  if (implicitMods.length === 0) return undefined;
+  return {
+    slot: VISCERA_BUNDLE_SLOT,
+    rarity: 'NORMAL',
+    name: VISCERA_BUNDLE_NAME,
+    implicitMods,
+    explicitMods: [],
+  };
+}
+
+/** 套裝裡沒有放在 Wickerman 部位的臟器時，補上從自訂詞綴合成的臟器項目 */
+function withVisceraBundle(sets: PobItemSet[], bundle: PobBuildItem | undefined): PobItemSet[] {
+  if (!bundle) return sets;
+  return sets.map((set) =>
+    set.items.some((item) => WICKERMAN_SLOT.test(item.slot))
+      ? set
+      : { ...set, items: [...set.items, bundle] },
+  );
+}
+
 /** 每一顆啟用的寶石都列出（不同連結各用一顆相同的寶石時要買兩顆），由購物清單合併計數 */
 function parseGems(skillSet: Element): PobBuildGem[] {
   const gems: PobBuildGem[] = [];
@@ -350,7 +395,10 @@ export function parsePobBuildXml(xml: string): PobBuild {
   const itemById: ItemLookup = new Map(
     children(itemsElement, 'Item').map((item) => [item.getAttribute('id') ?? '', item] as const),
   );
-  const itemSets = parseItemSets(itemsElement, itemById);
+  const itemSets = withVisceraBundle(
+    parseItemSets(itemsElement, itemById),
+    parseVisceraBundle(children(root, 'Config')[0] ?? null),
+  );
   const skillSets = parseSkillSets(skillsElement);
   const treeSpecs = parseTreeSpecs(treeElement, itemById);
 
