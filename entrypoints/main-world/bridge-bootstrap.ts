@@ -35,6 +35,19 @@ function hasUrlChanged(
   return false;
 }
 
+/**
+ * 在官方 history.pushState / replaceState 內同步執行外掛的副作用。官方 `save(true)` 會 await
+ * pushState，副作用拋出的例外若往外冒，會讓官方存網址失敗（書籤、送入主控台都會跟著失敗），
+ * 因此一律在此攔下並記錄，不影響官方的導航結果。
+ */
+function runHistorySideEffect(label: string, effect: () => void) {
+  try {
+    effect();
+  } catch (error) {
+    console.error(`[PoeXD] history ${label} 副作用失敗:`, error);
+  }
+}
+
 function installHistoryInterceptor(options?: {
   windowObj?: Window;
   onHistoryChanged?: () => void;
@@ -66,8 +79,8 @@ function installHistoryInterceptor(options?: {
     const urlChanged = hasUrlChanged(prevHref, nextHref, args[2]);
 
     if (urlChanged) {
-      options?.onHistoryChanged?.();
-      dispatchRouteSync('pushState');
+      runHistorySideEffect('pushState', () => options?.onHistoryChanged?.());
+      runHistorySideEffect('pushState', () => dispatchRouteSync('pushState'));
     }
     return result;
   };
@@ -93,14 +106,14 @@ function installHistoryInterceptor(options?: {
     const urlChanged = hasUrlChanged(prevHref, nextHref, rest[1]);
 
     if (urlChanged) {
-      options?.onHistoryChanged?.();
-      dispatchRouteSync('replaceState');
+      runHistorySideEffect('replaceState', () => options?.onHistoryChanged?.());
+      runHistorySideEffect('replaceState', () => dispatchRouteSync('replaceState'));
     }
     return result;
   };
 
   win.addEventListener('popstate', () => {
-    dispatchRouteSync('pushState');
+    runHistorySideEffect('popstate', () => dispatchRouteSync('pushState'));
   });
 }
 
