@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { t } from '@/utils/i18n';
 import { isTradeSearchFormUrl, syncFormToUrl } from '@/entrypoints/content/logic/form-url-sync';
 
 const SEARCH_URL = 'https://www.pathofexile.com/trade/search/Standard/old';
@@ -51,8 +52,17 @@ describe('syncFormToUrl', () => {
   });
 
   it('rejects when the write-through fails so no stale URL is stored', async () => {
-    const { deps } = setup({ commitError: new Error('timeout') });
-    await expect(syncFormToUrl(deps)).rejects.toThrow('無法同步目前搜尋表單');
+    const { deps } = setup({ commitError: new Error('官方頁面沒有回應，請重新整理後再試') });
+    await expect(syncFormToUrl(deps)).rejects.toThrow(
+      t('formUrlSync.failed', { reason: '官方頁面沒有回應，請重新整理後再試' }),
+    );
+  });
+
+  it('falls back to a refresh hint when the failure has no message', async () => {
+    const { deps } = setup({ commitError: new Error('') });
+    await expect(syncFormToUrl(deps)).rejects.toThrow(
+      t('formUrlSync.failed', { reason: t('formUrlSync.unknownReason') }),
+    );
   });
 
   it('skips the write-through on non-search routes', async () => {

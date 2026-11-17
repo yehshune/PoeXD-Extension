@@ -746,6 +746,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'criteriaOverlay.session.readFailed': '无法读取官方搜索表单',
   'criteriaOverlay.session.commitFailed': '套用搜索条件失败',
   'criteriaOverlay.session.undoConflict': '套用后搜索条件已变更，无法复原上次套用',
+  'formUrlSync.failed': '无法同步当前搜索表单：{reason}',
+  'formUrlSync.unknownReason': '请刷新页面后再试',
 
   // Stat Group Templates
   'statGroupTemplate.title': '常用词缀群组',

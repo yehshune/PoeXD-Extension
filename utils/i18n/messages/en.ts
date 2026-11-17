@@ -790,6 +790,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'criteriaOverlay.session.readFailed': 'Failed to read official search form.',
   'criteriaOverlay.session.commitFailed': 'Failed to apply search criteria.',
   'criteriaOverlay.session.undoConflict': 'Search criteria changed after applying; cannot undo.',
+  'formUrlSync.failed': 'Could not sync the current search form: {reason}',
+  'formUrlSync.unknownReason': 'Please refresh the page and try again.',
 
   // Stat Group Templates
   'statGroupTemplate.title': 'Stat Group Templates',

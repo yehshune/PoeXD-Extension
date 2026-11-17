@@ -1,4 +1,5 @@
 import type { CriteriaOverlayOp } from '@/utils/criteria-overlay';
+import { t } from '@/utils/i18n';
 import { createPoeEventCriteriaOverlayChannel } from './criteria-overlay-session';
 
 export interface FormUrlSyncDeps {
@@ -41,7 +42,11 @@ export async function syncFormToUrl(deps: FormUrlSyncDeps = {}): Promise<string>
     await commit([]);
   } catch (error) {
     console.warn('[PoeXD] 同步搜尋表單到網址失敗:', error);
-    throw new Error('無法同步目前搜尋表單，書籤未儲存，請稍後再試');
+    // 帶出實際原因（例如官方頁面沒有回應時要重新整理），而不是一律要使用者稍後再試
+    const reason = error instanceof Error ? error.message.trim() : '';
+    throw new Error(t('formUrlSync.failed', { reason: reason || t('formUrlSync.unknownReason') }), {
+      cause: error,
+    });
   }
 
   // Main World 會等官方 async save(true) 寫完網址才回覆 commit；此輪詢只是保險：

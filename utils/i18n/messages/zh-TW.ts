@@ -744,6 +744,8 @@ export const ZH_TW_MESSAGES = {
   'criteriaOverlay.session.readFailed': '無法讀取官方搜尋表單',
   'criteriaOverlay.session.commitFailed': '套用搜尋條件失敗',
   'criteriaOverlay.session.undoConflict': '套用後搜尋條件已變更，無法復原上次套用',
+  'formUrlSync.failed': '無法同步目前搜尋表單：{reason}',
+  'formUrlSync.unknownReason': '請重新整理頁面後再試',
 
   // Stat Group Templates
   'statGroupTemplate.title': '常用詞綴群組',
