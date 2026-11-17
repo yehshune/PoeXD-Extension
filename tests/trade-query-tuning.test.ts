@@ -12,6 +12,7 @@ import {
   setTradeStatGroupBound,
   setTradeStatGroupDisabled,
   setTradeStatGroupType,
+  type StatGroupType,
 } from '@/utils/trade-query-tuning';
 
 describe('trade-query-tuning', () => {
@@ -103,9 +104,12 @@ describe('trade-query-tuning', () => {
       type: 'weight',
       value: { min: 2 },
     });
-    expect(areTradeQueriesEqual(setTradeStatGroupType(sampleQuery, 0, 'bogus'), sampleQuery)).toBe(
-      true,
-    );
+    expect(
+      areTradeQueriesEqual(
+        setTradeStatGroupType(sampleQuery, 0, 'bogus' as StatGroupType),
+        sampleQuery,
+      ),
+    ).toBe(true);
     expect(sampleQuery.stats[1].type).toBe('count');
   });
 

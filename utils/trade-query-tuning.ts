@@ -7,7 +7,7 @@ const EDITABLE_GROUP_TYPES = new Set(['count', 'weight', 'weight2']);
 /** 市集詞綴群組的類別（且、非、若、計數、加權總和） */
 export const STAT_GROUP_TYPES = ['and', 'not', 'if', 'count', 'weight', 'weight2'] as const;
 export type StatGroupType = (typeof STAT_GROUP_TYPES)[number];
-const isStatGroupType = (value: string): value is StatGroupType =>
+export const isStatGroupType = (value: string): value is StatGroupType =>
   (STAT_GROUP_TYPES as readonly string[]).includes(value);
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -153,7 +153,7 @@ export function setTradeStatGroupDisabled(
 export function setTradeStatGroupType(
   payload: Record<string, unknown>,
   visibleGroupIndex: number,
-  type: string,
+  type: StatGroupType,
 ): Record<string, unknown> {
   if (!isStatGroupType(type)) return cloneTradeQuery(payload) ?? {};
   return mutateQuery(payload, (root) => {

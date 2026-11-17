@@ -772,8 +772,11 @@ export const ZH_TW_MESSAGES = {
   'statGroupTemplate.host.trigger': '常用 ▾',
   'statGroupTemplate.host.tooltip': '儲存目前詞綴或套用已儲存的常用詞綴群組',
   'statGroupTemplate.toast.saved': '已成功儲存常用詞綴群組「{name}」',
+  'statGroupTemplate.toast.updated': '已存回常用詞綴群組「{name}」',
   'statGroupTemplate.toast.deleted': '已刪除常用詞綴群組「{name}」',
   'statGroupTemplate.toast.renamed': '已將群組重新命名為「{name}」',
+  'statGroupTemplate.error.emptyGroups': '沒有可儲存的詞綴群組',
+  'statGroupTemplate.error.notFound': '找不到指定的常用詞綴群組',
 
   // LiveSearch Primary Page / Console
   'liveSearch.console.title': '線上搜尋主控台',

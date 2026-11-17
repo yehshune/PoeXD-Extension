@@ -19,6 +19,7 @@ import {
   serializeStatGroupTemplates,
 } from '@/utils/stat-group-template-transfer';
 import { getPoeVersion, type PoeVersion } from '@/utils/trade-context';
+import { t } from '@/utils/i18n';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
 import {
   createCriteriaOverlaySession,
@@ -286,7 +287,7 @@ export function createCriteriaOverlayManager(
       let saved = false;
       await run(async () => {
         await requireStore().updateStatGroups(template.id, statGroups);
-        notify(`已存回常用詞綴群組「${template.name}」`, 'success');
+        notify(t('statGroupTemplate.toast.updated', { name: template.name }), 'success');
         saved = true;
       });
       return saved;

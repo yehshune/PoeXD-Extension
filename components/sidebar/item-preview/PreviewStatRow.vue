@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, type PropType } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { t } from '@/utils/i18n';
 import {
   extractStatDomain,
@@ -11,7 +12,7 @@ import {
 } from '@/utils/stat-domain';
 import type { PoeVersion } from '@/utils/trade-context';
 import StatDomainMenu from '../stat-domain/StatDomainMenu.vue';
-import { PREVIEW_STAT_BOUND_INPUT_CLASS, PREVIEW_STAT_ROW_CLASS } from './preview-classes';
+import { PREVIEW_BOUND_INPUT_CLASS, PREVIEW_STAT_ROW_CLASS } from './preview-classes';
 
 export type PreviewStatBound = 'min' | 'max';
 export interface PreviewStatBounds {
@@ -133,16 +134,17 @@ function blurTarget(event: Event): void {
       </span>
     </div>
     <span v-if="bounds" class="inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)]">
-      <input
+      <Input
         v-for="bound in BOUNDS"
         :key="bound"
+        size="sm"
         type="number"
         inputmode="decimal"
         step="any"
         data-stat-bound
         :data-bound="bound"
-        :class="PREVIEW_STAT_BOUND_INPUT_CLASS"
-        :value="bounds[bound] ?? ''"
+        :class="PREVIEW_BOUND_INPUT_CLASS"
+        :model-value="bounds[bound] ?? ''"
         :placeholder="
           t(bound === 'min' ? 'tierDropdown.minPlaceholder' : 'tierDropdown.maxPlaceholder')
         "

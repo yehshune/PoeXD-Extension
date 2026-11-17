@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch, type PropType } from 'vue';
 import { ExternalLink, RotateCcw, Save, Search } from '@lucide/vue';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { t } from '@/utils/i18n';
 import {
   applyEntrySelection,
@@ -22,9 +24,7 @@ import ItemPreviewPopover from '../item-preview/ItemPreviewPopover.vue';
 import PreviewStatRow, { type PreviewStatBounds } from '../item-preview/PreviewStatRow.vue';
 import StatGroupTypeSelect from '../item-preview/StatGroupTypeSelect.vue';
 import {
-  PREVIEW_ACTION_BUTTON_CLASS,
   PREVIEW_BOUND_INPUT_CLASS,
-  PREVIEW_ICON_CLASS,
   PREVIEW_TAG_CLASS,
   PREVIEW_TOOLBAR_CLASS,
 } from '../item-preview/preview-classes';
@@ -273,60 +273,63 @@ function discardDraft(): void {
         v-if="canSearch || effectiveRow.searchCustomized || isDraftModified"
         :class="PREVIEW_TOOLBAR_CLASS"
       >
-        <button
+        <Button
           v-if="effectiveRow.query"
-          type="button"
-          :class="PREVIEW_ACTION_BUTTON_CLASS"
+          variant="outline"
+          size="sm"
           data-pob-build-popover-search
           :title="t('pobBuild.searchTitle')"
           @click="emit('open-search', 'current', effectiveRow)"
         >
-          <Search :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
+          <Search aria-hidden="true" />
           {{ t('pobBuild.searchCurrentBtn') }}
-        </button>
-        <button
+        </Button>
+        <Button
           v-if="effectiveRow.query"
-          type="button"
-          :class="PREVIEW_ACTION_BUTTON_CLASS"
+          variant="outline"
+          size="sm"
           data-pob-build-popover-new-tab
           :title="t('pobBuild.openNewTabTitle')"
           @click="emit('open-search', 'new-tab', effectiveRow)"
         >
-          <ExternalLink :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
+          <ExternalLink aria-hidden="true" />
           {{ t('pobBuild.openNewTabTitle') }}
-        </button>
-        <button
+        </Button>
+        <Button
           v-if="isDraftModified"
-          type="button"
-          :class="[PREVIEW_ACTION_BUTTON_CLASS, 'border-primary/50 text-primary']"
+          variant="outline"
+          size="sm"
+          class="border-primary/50 text-primary"
           data-pob-build-save-selection
           :title="t('pobBuild.mods.saveSelectionTitle')"
           @click="saveDraft"
         >
-          <Save :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
+          <Save aria-hidden="true" />
           {{ t('pobBuild.mods.saveSelection') }}
-        </button>
-        <button
+        </Button>
+        <Button
           v-if="isDraftModified"
-          type="button"
-          :class="[PREVIEW_ACTION_BUTTON_CLASS, 'ml-auto']"
+          variant="outline"
+          size="sm"
+          class="ml-auto"
           data-pob-build-discard-draft
           :title="t('searchPreview.action.resetTuneTitle')"
           @click="discardDraft"
         >
-          <RotateCcw :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
+          <RotateCcw aria-hidden="true" />
           {{ t('searchPreview.action.resetTune') }}
-        </button>
-        <button
+        </Button>
+        <Button
           v-else-if="effectiveRow.searchCustomized"
-          type="button"
-          :class="[PREVIEW_ACTION_BUTTON_CLASS, 'ml-auto']"
+          variant="outline"
+          size="sm"
+          class="ml-auto"
           data-pob-build-reset-search
           @click="emit('reset-search')"
         >
-          <RotateCcw :class="PREVIEW_ICON_CLASS" aria-hidden="true" />
+          <RotateCcw aria-hidden="true" />
           {{ t('pobBuild.mods.reset') }}
-        </button>
+        </Button>
       </div>
 
       <!-- 內容捲動區 -->
@@ -433,14 +436,15 @@ function discardDraft(): void {
               v-if="effectiveRow.countMin !== undefined"
               class="inline-flex items-center gap-[var(--pxd-space-xs)]"
             >
-              <input
+              <Input
+                size="sm"
                 type="number"
                 min="1"
                 :max="enabledCount"
                 step="1"
                 data-pob-build-count-min
-                :class="[PREVIEW_BOUND_INPUT_CLASS, 'w-[calc(var(--control-height-sm)*1.6)]']"
-                :value="effectiveRow.countMin"
+                :class="PREVIEW_BOUND_INPUT_CLASS"
+                :model-value="effectiveRow.countMin"
                 :disabled="effectiveRow.searchOverride"
                 :aria-label="t('pobBuild.mods.countAria')"
                 @change="commitCountMin($event)"

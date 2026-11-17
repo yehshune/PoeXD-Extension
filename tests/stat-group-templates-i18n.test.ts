@@ -4,6 +4,9 @@ import { createApp, h, nextTick, ref } from 'vue';
 import StatGroupTemplateToolbar from '@/components/sidebar/stat-group-templates/StatGroupTemplateToolbar.vue';
 import StatGroupTemplateSaveDialog from '@/components/injected/StatGroupTemplateSaveDialog.vue';
 import StatGroupTemplatePane from '@/components/sidebar/stat-group-templates/StatGroupTemplatePane.vue';
+import { createCriteriaOverlayManager } from '@/components/injected/criteria-overlay-manager';
+import { createInMemoryPreferencesStorage } from '@/utils/preferences';
+import { createStatGroupTemplateStore } from '@/utils/stat-group-template-store';
 import { setActiveDisplayLocale, resetI18nStateForTests, t } from '@/utils/i18n';
 
 describe('Stat Group Templates i18n (Seam 6)', () => {
@@ -159,6 +162,41 @@ describe('Stat Group Templates i18n (Seam 6)', () => {
 
       app.unmount();
       host.remove();
+    });
+  });
+
+  describe('Template update i18n', () => {
+    it('localizes updateTemplateStatGroups toast and store errors across locales', async () => {
+      const store = createStatGroupTemplateStore('poe2', {
+        storage: createInMemoryPreferencesStorage(),
+        createId: () => 'tpl_1',
+      });
+      const tpl = await store.create('Life', [{ type: 'and', filters: [{ id: 'explicit.a' }] }]);
+      const notify = vi.fn();
+      const manager = createCriteriaOverlayManager({
+        version: 'poe2',
+        createStore: () => store,
+        notify,
+        loadDictionaries: async () => {},
+      });
+      await manager.start();
+
+      setActiveDisplayLocale('en');
+      await manager.updateTemplateStatGroups(tpl, [
+        { type: 'and', filters: [{ id: 'explicit.b' }] },
+      ]);
+      expect(notify).toHaveBeenLastCalledWith('Updated stat template "Life"', 'success');
+      await expect(store.updateStatGroups('tpl_1', [])).rejects.toThrow('No stat groups to save');
+      await expect(
+        store.updateStatGroups('missing', [{ type: 'and', filters: [{ id: 'explicit.b' }] }]),
+      ).rejects.toThrow('Stat template not found');
+
+      setActiveDisplayLocale('zh-CN');
+      await manager.updateTemplateStatGroups(tpl, [
+        { type: 'and', filters: [{ id: 'explicit.c' }] },
+      ]);
+      expect(notify).toHaveBeenLastCalledWith('已存回常用词缀分组「Life」', 'success');
+      await expect(store.updateStatGroups('tpl_1', [])).rejects.toThrow('没有可保存的词缀分组');
     });
   });
 });

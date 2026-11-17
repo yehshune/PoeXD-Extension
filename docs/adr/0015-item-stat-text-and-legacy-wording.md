@@ -15,16 +15,18 @@ poexd-data now publishes two more files in each game batch, built from the same 
 
 The PoB mod translator tries, in order: `mod-lines.json`, `stat-text-items.json`, Legacy Wording, the gem-name and prefix rules, the Trade site texts, and finally a translated tail behind an untranslated prefix. When a Legacy Wording and its current wording differ in direction (an "increased"/"reduced" pair mapped to a signed `+#%`), `translateModLine` converts the value back to its actual sign before formatting it, so "22% reduced …" becomes "-22% …".
 
-poexd-data also publishes a full catalog, `<version>/locales/{zh-TW,zh-CN}/stat-text.json`, with every rule of the item, passive and skill stat description files (33 files for PoE 1, 15 for PoE 2; about 2.6–2.9 MB per locale and game). It is not in the manifest and the extension does not sync it: PoB item text only needs item mods, and the alias tracking reads it on the poexd-data side.
+poexd-data also publishes a full catalog, `<version>/locales/{zh-TW,zh-CN}/stat-text.json`, with every rule of the item, passive and skill stat description files (33 files for PoE 1, 15 for PoE 2; about 2.6–2.9 MB per locale and game). It is not in the manifest and the extension does not sync it: skill stat descriptions are still excluded, and the alias tracking reads the full catalog on the poexd-data side.
 
-`scripts/sync-data.mjs` whitelists `stat-text-items.json` and `stat-aliases.json` in the `<version>/game` batch and validates them (same patch as `mods-tiers.json`, `schemaVersion` 1, matching locale), mirroring poexd-data's catalog. The translator treats both as optional: before the data is synced, or if either fails to load, it falls back to the previous sources.
+**Passive stat text and passive names for pobb.in (added 2026-11-17)**: When `pobb.in` share-page translation was added (using the same official data shards under optional `https://pobb.in/*` permission), passive tree nodes, masteries, and cluster jewel notables/enchants needed passive descriptions and passive names that `stat-text-items.json` and `trade-stats.json` do not cover. The `<version>/game` batch in `scripts/sync-data.mjs` and the `pobb.in` background asset allowlist (`POBBIN_ASSET_PATH`) therefore also sync and serve `<version>/locales/{zh-TW,zh-CN}/stat-text-passives.json` and `<version>/locales/zh-TW/passive-names.json` (with trade-derived passive names still taking precedence). Both remain optional at runtime.
+
+`scripts/sync-data.mjs` whitelists `stat-text-items.json`, `stat-aliases.json`, `stat-text-passives.json`, and `passive-names.json` in the `<version>/game` batch and validates them (same patch as `mods-tiers.json`, `schemaVersion` 1, matching locale), mirroring poexd-data's catalog. The translator treats them as optional: before the data is synced, or if any file fails to load, it falls back to the previous sources.
 
 ## Considered Options
 
 - **Extend `mod-lines.json` to every rule**: rejected; Market Translation chooses one rule per Trade stat id to match the Trade site's wording, while translation of arbitrary game text needs every wording of a hash. Keeping the two files separate keeps Market Translation's behaviour unchanged.
 - **Hand-written alias table**: rejected; all translations stay derived from official data. The Legacy Wordings come from earlier exports of the same official descriptions, and the alias only redirects to the current official translation.
 - **Only record rewrites from now on**: rejected; text that GGG had already rewritten, which current builds still contain, would stay untranslated.
-- **Ship the full catalog in the extension**: rejected; passive and skill wording is not needed to translate PoB item text, and it would roughly triple the size.
+- **Ship the full `stat-text.json` catalog in the extension**: rejected; skill wording is not needed, and shipping the merged catalog would roughly triple the size. Passive wording is shipped separately as `stat-text-passives.json` (plus `passive-names.json` for `zh-TW`) once `pobb.in` passive translation required it.
 - **Ship all 11 locales**: deferred; only `zh-TW` and `zh-CN` have a translator today, and the other locales would multiply the package size.
 
 ## Consequences

@@ -6,6 +6,7 @@ import {
   type CriteriaOverlayStatGroup,
 } from '@/utils/criteria-overlay';
 import type { PoeVersion } from '@/utils/trade-context';
+import type { StatGroupType } from '@/utils/trade-query-tuning';
 import {
   formatFilterValue,
   translateFilterGroup,
@@ -25,7 +26,7 @@ export interface CriteriaOverlayPartLabel {
   target: OverlayTarget;
 }
 
-const STAT_GROUP_TYPE_LABELS_BY_LOCALE: Record<SupportedUiLocale, Record<string, string>> = {
+const STAT_GROUP_TYPE_LABELS_BY_LOCALE: Record<SupportedUiLocale, Record<StatGroupType, string>> = {
   'zh-TW': {
     and: '且 (AND)',
     not: '非 (NOT)',

@@ -155,6 +155,9 @@ export const LAYOUT_TOKENS = Object.freeze({
   temporarySearchDialogMaxHeightVar: '--pxd-temporary-search-dialog-max-height',
   mercenaryBuildWidthPx: 300,
   mercenaryBuildWidthVar: '--pxd-mercenary-build-width',
+  // Item Preview bound input width (Scale-aware, Density invariant)
+  previewBoundInputWidthPx: 52,
+  previewBoundInputWidthVar: '--pxd-preview-bound-input-width',
 } as const);
 
 // --- 4. Spacing System (Density & Scale Aware) ---
@@ -614,6 +617,9 @@ export function createUiRuntimeTokenValues(
       LAYOUT_TOKENS.temporarySearchDialogMaxHeightPx * scale,
     ),
     [LAYOUT_TOKENS.mercenaryBuildWidthVar]: formatPx(LAYOUT_TOKENS.mercenaryBuildWidthPx * scale),
+    [LAYOUT_TOKENS.previewBoundInputWidthVar]: formatPx(
+      LAYOUT_TOKENS.previewBoundInputWidthPx * scale,
+    ),
 
     // 3. Scale-aware Control Heights (直接依照 Scale 縮放，無 floor clamp)
     [LAYOUT_TOKENS.controlHeightSmVar]: formatPx(COMPONENT_SIZE_SPECS.sm.heightPx * scale),

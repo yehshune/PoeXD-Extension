@@ -774,8 +774,11 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'statGroupTemplate.host.trigger': '常用 ▾',
   'statGroupTemplate.host.tooltip': '保存当前词缀或套用已保存的常用词缀群组',
   'statGroupTemplate.toast.saved': '已成功保存常用词缀群组「{name}」',
+  'statGroupTemplate.toast.updated': '已存回常用词缀分组「{name}」',
   'statGroupTemplate.toast.deleted': '已删除常用词缀群组「{name}」',
   'statGroupTemplate.toast.renamed': '已将群组重命名为「{name}」',
+  'statGroupTemplate.error.emptyGroups': '没有可保存的词缀分组',
+  'statGroupTemplate.error.notFound': '找不到指定的常用词缀分组',
 
   // LiveSearch Primary Page / Console
   'liveSearch.console.title': '线上搜索主控台',

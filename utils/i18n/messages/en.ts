@@ -818,8 +818,11 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'statGroupTemplate.host.trigger': 'Templates ▾',
   'statGroupTemplate.host.tooltip': 'Save current stats or overlay a saved template',
   'statGroupTemplate.toast.saved': 'Saved stat group template "{name}"',
+  'statGroupTemplate.toast.updated': 'Updated stat template "{name}"',
   'statGroupTemplate.toast.deleted': 'Deleted stat group template "{name}"',
   'statGroupTemplate.toast.renamed': 'Renamed template to "{name}"',
+  'statGroupTemplate.error.emptyGroups': 'No stat groups to save',
+  'statGroupTemplate.error.notFound': 'Stat template not found',
 
   // LiveSearch Primary Page / Console
   'liveSearch.console.title': 'LiveSearch Console',

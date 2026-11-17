@@ -1,4 +1,5 @@
 import { parseCriteriaOverlayStatGroups, type CriteriaOverlayStatGroup } from './criteria-overlay';
+import { t } from './i18n';
 import type { PoeVersion } from './trade-context';
 
 /** 最小 key-value 儲存介面（與 PreferencesStorage 相容，測試可替換為記憶體實作）。 */
@@ -137,7 +138,7 @@ export function createStatGroupTemplateStore(
     name: string,
     statGroups: readonly CriteriaOverlayStatGroup[],
   ): StatGroupTemplate => {
-    if (statGroups.length === 0) throw new Error('沒有可儲存的詞綴群組');
+    if (statGroups.length === 0) throw new Error(t('statGroupTemplate.error.emptyGroups'));
     const timestamp = now();
     return {
       id: createId(),
@@ -177,7 +178,9 @@ export function createStatGroupTemplateStore(
     async rename(id, name) {
       const normalized = normalizeStatGroupTemplateName(name);
       await update((templates) => {
-        if (!templates.some((t) => t.id === id)) throw new Error('找不到指定的常用詞綴群組');
+        if (!templates.some((t) => t.id === id)) {
+          throw new Error(t('statGroupTemplate.error.notFound'));
+        }
         return templates.map((t) =>
           t.id === id ? { ...t, name: normalized, updatedAt: now() } : t,
         );
@@ -186,9 +189,11 @@ export function createStatGroupTemplateStore(
 
     async updateStatGroups(id, statGroups) {
       const parsed = parseCriteriaOverlayStatGroups(JSON.parse(JSON.stringify(statGroups)));
-      if (!parsed || parsed.length === 0) throw new Error('沒有可儲存的詞綴群組');
+      if (!parsed || parsed.length === 0) throw new Error(t('statGroupTemplate.error.emptyGroups'));
       await update((templates) => {
-        if (!templates.some((t) => t.id === id)) throw new Error('找不到指定的常用詞綴群組');
+        if (!templates.some((t) => t.id === id)) {
+          throw new Error(t('statGroupTemplate.error.notFound'));
+        }
         return templates.map((t) =>
           t.id === id ? { ...t, statGroups: parsed, updatedAt: now() } : t,
         );
