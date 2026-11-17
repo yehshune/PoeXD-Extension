@@ -25,6 +25,8 @@ import { ResultPobCopy } from './result-pob-copy';
 import { ResultExternalLinks } from './result-external-links';
 import { isCloudflareChallenge } from '@/utils/trade-interstitial-classifier';
 import { whenTradePageReady } from './trade-page-readiness';
+import { createInitialPageLoadGate, type InitialPageLoadGate } from './initial-page-load-gate';
+import { expectsInitialSearchResults } from '@/utils/trade-search-identity';
 import { createFilterDomEnhancements, type FilterDomEnhancements } from './common';
 import { initToastHost, syncToastPreferences } from './toast-host';
 import { extensionMessaging } from '@/utils/extension-protocol';
@@ -109,11 +111,13 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   let stopSidebarPreferences: (() => void) | null = null;
   let stopWaitingTradePage: (() => void) | null = null;
   let cleanupEnqueueListener: (() => void) | null = null;
+  let initialPageLoad: InitialPageLoadGate | null = null;
   let disposed = false;
   const cleanupAll = () => {
     if (disposed) return;
     disposed = true;
     stopWaitingTradePage?.();
+    initialPageLoad?.cancel();
     cleanupEnqueueListener?.();
     cleanupSearchSession?.();
     domFilter.cleanup();
@@ -172,10 +176,15 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     if (!preferencesOutcome.ok) throw new Error(preferencesOutcome.error.message);
     const preferences = preferencesOutcome.value;
     syncToastPreferences(preferences.read());
-    const applyPreferences = async (snapshot: Readonly<Preferences>) => {
+    const applyPreferences = async (
+      snapshot: Readonly<Preferences>,
+      { deferAffixLexicon = false }: { deferAffixLexicon?: boolean } = {},
+    ) => {
       const effectiveLocalePref = snapshot.displayLocale;
       setActiveDisplayLocalePreference(effectiveLocalePref);
-      await ensureAffixLexiconLoaded(version);
+      // 首次套用不等詞綴字典：mods-tiers 約 3.6 MB，解析時會擋住官網腳本；
+      // 用到它的控制項會自行載入，其餘在首批結果後預載（見 preloadAffixLexicon）
+      if (!deferAffixLexicon) await ensureAffixLexiconLoaded(version);
       filterEnhancements.updatePureBackgroundClass(snapshot.enablePureBackground);
       filterEnhancements.setTierHelperEnabled(snapshot.enableTierHelper);
       filterEnhancements.setAffixSelectorEnabled(snapshot.enableAffixSelector);
@@ -200,7 +209,14 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       externalLinks.refreshLocale();
     };
     let appliedPreferences = preferences.read();
-    await applyPreferences(appliedPreferences);
+    await applyPreferences(appliedPreferences, { deferAffixLexicon: true });
+    const preloadAffixLexicon = () => {
+      void ensureAffixLexiconLoaded(version)
+        .then(() => {
+          if (!disposed) filterEnhancements.refreshAffixDisplayLocale();
+        })
+        .catch((error) => console.error('[PoeXD] 預載詞綴字典失敗:', error));
+    };
     cleanupPreferences = preferences.subscribe((snapshot) => {
       if (snapshot === appliedPreferences) return;
       appliedPreferences = snapshot;
@@ -228,6 +244,11 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       filterEnhancements.setEditorEnabled(mode === 'search');
     });
     const interceptorReady = injectApiInterceptor();
+    // 與 interceptor 同時建立，才不會漏掉等待頁面角色期間送達的首批結果事件
+    const pageLoadGate = createInitialPageLoadGate({
+      expectsInitialResults: expectsInitialSearchResults(window.location.href),
+    });
+    initialPageLoad = pageLoadGate;
     cleanupPageEvents = registerPageContextEvents(
       version,
       pricePresenter,
@@ -321,6 +342,15 @@ export async function runLogic(ctx: any, version: PoeVersion) {
           isDisposed: () => disposed || !activeBookmarkController?.enqueueIncomingConnections,
         });
       }
+      if (pageRole === 'normal') {
+        // 側邊欄與篩選控制項的初始化會佔住主執行緒一秒以上，等官方頁面載完首批結果再做；
+        // 主控台頁不等，以免延後主控台的搜尋保護與連線恢復
+        await pageLoadGate.ready;
+        if (disposed) return;
+      } else {
+        pageLoadGate.cancel();
+      }
+      preloadAffixLexicon();
       stopSidebarPreferences =
         (await mountSidebarLayout(
           ctx,
