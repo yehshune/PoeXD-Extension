@@ -913,8 +913,7 @@ describe('usePobBuild', () => {
           return () => listeners.delete(listener);
         },
       };
-      const notify = () =>
-        listeners.forEach((listener) => listener([pobBuildsStorageKey('poe1')]));
+      const notify = () => listeners.forEach((listener) => listener([pobBuildsStorageKey('poe1')]));
       return { shared, notify };
     };
 
@@ -941,10 +940,7 @@ describe('usePobBuild', () => {
       storage.data[key] = stored().map((build) => ({ ...build, code: 'not-a-pob-code' }));
       notify();
       await settle();
-      expect(error).toHaveBeenCalledWith(
-        expect.stringContaining('build-1'),
-        expect.anything(),
-      );
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('build-1'), expect.anything());
       expect(a.builds.value.map((build) => build.id)).toEqual(['build-1']);
       error.mockRestore();
       a.dispose();

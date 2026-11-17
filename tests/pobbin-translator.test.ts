@@ -321,7 +321,9 @@ describe('createPobbinTranslator', () => {
     const stop = translator.observe(document);
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    expect(Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent)).toEqual([
+    expect(
+      Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent),
+    ).toEqual([
       '+(10-20) 最大生命',
       '受到元素之純影響時',
       '你擊中造成的元素傷害有 75% 不會被反射',
@@ -353,10 +355,9 @@ describe('createPobbinTranslator', () => {
     `;
     createPobbinTranslator(makeTestTranslatorData(true)).translate(document);
 
-    expect(Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent)).toEqual([
-      '受到元素之純影響時',
-      '你擊中造成的元素傷害有 7.5% 不會被反射',
-    ]);
+    expect(
+      Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent),
+    ).toEqual(['受到元素之純影響時', '你擊中造成的元素傷害有 7.5% 不會被反射']);
   });
 
   it('多行合併只在整組都翻得出來時採用，不把保留英文前綴的結果當成功（星團珠寶）', () => {
@@ -374,7 +375,9 @@ describe('createPobbinTranslator', () => {
     `;
     createPobbinTranslator(makeTestTranslatorData(true)).translate(document);
 
-    expect(Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent)).toEqual([
+    expect(
+      Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent),
+    ).toEqual([
       'Adds 8 Passive Skills',
       '1 個附加的天賦為刺激戰鬥',
       'Added Small Passive Skills grant: 增加 12% 物理傷害',

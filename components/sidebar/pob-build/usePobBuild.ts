@@ -362,7 +362,7 @@ const isSameSession = (left: Session, right: Session): boolean =>
   sameJson(left.searchSelections, right.searchSelections) &&
   sameJson(left.searchOverrides, right.searchOverrides);
 
-type PatchSource =StoredPobBuildPatch | ((current: StoredPobBuild) => StoredPobBuildPatch);
+type PatchSource = StoredPobBuildPatch | ((current: StoredPobBuild) => StoredPobBuildPatch);
 
 export function usePobBuild(
   version: PoeVersion,

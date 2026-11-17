@@ -91,10 +91,15 @@ describe('fetchPobShareCode', () => {
       return response;
     };
     const paste = 'https://pastebin.com/abcd1234';
-    await fetchPobShareCode(paste, makeDeps(async () => new Response(streamFor('404'), { status: 404 })));
+    await fetchPobShareCode(
+      paste,
+      makeDeps(async () => new Response(streamFor('404'), { status: 404 })),
+    );
     await fetchPobShareCode(
       NINJA,
-      makeDeps(async () => withUrl(new Response(streamFor('redirect')), 'https://evil.example/raw')),
+      makeDeps(async () =>
+        withUrl(new Response(streamFor('redirect')), 'https://evil.example/raw'),
+      ),
     );
     await fetchPobShareCode(
       NINJA,
