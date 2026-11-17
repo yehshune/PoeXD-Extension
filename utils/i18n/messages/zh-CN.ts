@@ -320,6 +320,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.countTitle': '需要 {count} 个',
   'pobBuild.customizedTitle': '已自定义搜索条件',
   'pobBuild.mods.statAria': '带入搜索：{text}',
+  'pobBuild.mods.domainTitle': '切换词缀类型',
+  'pobBuild.mods.domainAria': '词缀类型{domain}，切换词缀类型',
   'pobBuild.mods.minAria': '下限',
   'pobBuild.mods.maxAria': '上限',
   'pobBuild.mods.countMode': '至少符合',

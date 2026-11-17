@@ -15,9 +15,10 @@ import {
   getLocaleTradeStatsAssetPath,
   type PoeVersion,
 } from './trade-context';
+import { buildStatDomainIndex, statDomainsOf } from './stat-domain-order';
 
-/** 市集 stat 代碼的網域：一般詞綴、固定詞綴、附魔 */
-export type StatDomain = 'explicit' | 'implicit' | 'enchant';
+/** 市集 stat 代碼的網域：一般詞綴、固定詞綴、附魔、工藝詞綴 */
+export type StatDomain = 'explicit' | 'implicit' | 'enchant' | 'crafted';
 
 export interface StatMatch {
   /** 例如 `explicit.stat_3299347043` */
@@ -36,6 +37,11 @@ export interface StatMatchOptions {
 
 export interface StatMatcher {
   match(line: string, options: StatMatchOptions): StatMatch | undefined;
+  /**
+   * 同一個代碼後綴在市集上存在的所有網域前綴（例如 `explicit`、`fractured`、`crafted`），
+   * 依常用程度排序；代碼不在市集資料裡時回傳空陣列。
+   */
+  domainsOf?(statId: string): string[];
 }
 
 type TradeStatTexts = Readonly<Record<string, string | readonly string[]>>;
@@ -50,14 +56,14 @@ interface Template {
   option?: number;
 }
 
-const DOMAINS: readonly StatDomain[] = ['explicit', 'implicit', 'enchant'];
+const DOMAINS: readonly StatDomain[] = ['explicit', 'implicit', 'enchant', 'crafted'];
 const LOCAL_MARKER = '(Local)';
 const NUMBER = /[+-]?\d+(?:\.\d+)?/g;
 /** 佔位符 `{0:d}`、`{0:+d}`、`{0:n}`（n 表示描述檔取負，顯示值是絕對值），或寫死的數字 */
 const TEMPLATE_TOKEN = /\{\d+:\+?([dn])\}|[+-]?\d+(?:\.\d+)?/g;
 /** 市集寫法的佔位符 `#`（前面可能有正負號），或寫死的數字 */
 const TRADE_TOKEN = /[+-]?#|[+-]?\d+(?:\.\d+)?/g;
-const TRADE_STAT_ID = /^(explicit|implicit|enchant)\.([^|]+)(?:\|(\d+))?$/;
+const TRADE_STAT_ID = /^(explicit|implicit|enchant|crafted)\.([^|]+)(?:\|(\d+))?$/;
 /** 英文句型分片：任何有 mod-lines 的語系都含英文句型，固定讀這一份 */
 const MOD_LINES_SOURCE_LOCALE = 'zh-TW';
 
@@ -159,7 +165,10 @@ export function createStatMatcher(data: {
     });
   }
 
+  const domainIndex = buildStatDomainIndex(Object.keys(data.tradeStats));
+
   return {
+    domainsOf: (statId) => statDomainsOf(domainIndex, statId),
     match(line, { preferLocal, domain = 'explicit' }) {
       const skeleton = modLineSkeleton(line);
       const chosen =

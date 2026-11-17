@@ -343,6 +343,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.countTitle': 'Need {count}',
   'pobBuild.customizedTitle': 'Search filters customized',
   'pobBuild.mods.statAria': 'Include in search: {text}',
+  'pobBuild.mods.domainTitle': 'Change mod type',
+  'pobBuild.mods.domainAria': 'Mod type {domain}, change mod type',
   'pobBuild.mods.minAria': 'Minimum',
   'pobBuild.mods.maxAria': 'Maximum',
   'pobBuild.mods.countMode': 'Match at least',

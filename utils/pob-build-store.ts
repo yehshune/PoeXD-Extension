@@ -139,12 +139,18 @@ const toBound = (value: unknown): number | null | undefined => {
     : undefined;
 };
 
+/** 網域前綴只收小寫英文字；是否在可切換清單裡由購物清單在套用時判斷 */
+const STAT_DOMAIN_PATTERN = /^[a-z]{1,20}$/;
+
 function toStatSelection(value: unknown): StatSelection | undefined {
   if (!isRecord(value)) return undefined;
   const min = toBound(value.min);
   const max = toBound(value.max);
   const selection: StatSelection = {
     ...(typeof value.enabled === 'boolean' ? { enabled: value.enabled } : {}),
+    ...(typeof value.domain === 'string' && STAT_DOMAIN_PATTERN.test(value.domain)
+      ? { domain: value.domain }
+      : {}),
     ...('min' in value && min !== undefined ? { min } : {}),
     ...('max' in value && max !== undefined ? { max } : {}),
   };

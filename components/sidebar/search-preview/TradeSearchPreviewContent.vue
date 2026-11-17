@@ -379,8 +379,20 @@
                       (val) => emit('set-stat-filter-disabled', groupIndex, idx, val !== true)
                     "
                   />
+                  <StatDomainMenu
+                    v-if="item.domains.length > 1"
+                    data-test="preview-stat-domain"
+                    :domain="item.display.domain ?? ''"
+                    :domains="item.domains"
+                    :version="previewData?.gameVersion"
+                    :disabled="Boolean(group.disabled)"
+                    @select="
+                      (domain) =>
+                        emit('set-stat-filter-domain', groupIndex, idx, domain, item.domains)
+                    "
+                  />
                   <span
-                    v-if="item.display.badgeLabel"
+                    v-else-if="item.display.badgeLabel"
                     :class="['stat-domain-badge', STAT_DOMAIN_BADGE_CLASS]"
                     :data-stat-domain="item.display.domain"
                     >{{ item.display.badgeLabel }}</span
@@ -576,12 +588,14 @@ import { t } from '@/utils/i18n';
 import type { OverlayTarget, CriteriaOverlayStatGroup } from '@/utils/criteria-overlay';
 import {
   extractStatDomain,
-  getStatDomainLabel,
+  getStatDomainBadgeLabel,
   getStatDomainStyle,
   shouldShowStatDomainBadge,
   STAT_DOMAIN_BADGE_CLASS,
 } from '@/utils/stat-domain';
 import { isGroupValueEditable, isNumericStatFilter } from '@/utils/trade-query-tuning';
+import { getOfficialStatDomains } from '@/utils/official-stat-text';
+import StatDomainMenu from '../stat-domain/StatDomainMenu.vue';
 import {
   rangeText,
   STAT_GROUP_TYPE_LABELS,
@@ -675,6 +689,13 @@ const emit = defineEmits<{
     bound: 'min' | 'max',
     value: number | null,
   ];
+  /** 換掉詞綴條件的網域前綴；allowed 為這個代碼可切換的前綴 */
+  'set-stat-filter-domain': [
+    groupIndex: number,
+    filterIndex: number,
+    domain: string,
+    allowed: readonly string[],
+  ];
   'reset-tune': [];
   'overwrite-bookmark': [];
 }>();
@@ -746,7 +767,7 @@ function describeStatRow(statId: string) {
   const lines = translateStatLines(statId, version);
   return {
     domain: domain ?? undefined,
-    badgeLabel: showBadge ? getStatDomainLabel(domain, version) : null,
+    badgeLabel: showBadge ? getStatDomainBadgeLabel(domain, version) : null,
     style: getStatDomainStyle(domain),
     textClass: showBadge ? 'pxd-stat-domain-text' : 'text-foreground',
     lines,
@@ -760,6 +781,10 @@ const displayedStatGroups = computed(() =>
     rows: group.filters.map((filter) => ({
       filter,
       display: describeStatRow(filter.id),
+      // 可微調時才提供切換；同一個代碼後綴在市集上有兩種以上前綴才顯示選單
+      domains: props.canTune
+        ? getOfficialStatDomains(filter.id, props.previewData?.gameVersion ?? 'poe1')
+        : [],
     })),
   })),
 );

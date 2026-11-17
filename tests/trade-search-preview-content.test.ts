@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createApp, type App } from 'vue';
+import { createApp, nextTick, type App } from 'vue';
+import { resetOfficialStatTextForTests, setMockOfficialStatText } from '@/utils/official-stat-text';
 import TradeSearchPreviewContent from '@/components/sidebar/search-preview/TradeSearchPreviewContent.vue';
 import type { TradeSearchPreviewData } from '@/components/sidebar/composables/useTradeSearchPreview';
 import { setMockDictionaries } from '@/utils/trade-stat-dictionary';
@@ -219,6 +220,57 @@ describe('TradeSearchPreviewContent 詞綴群組卡片', () => {
       'f:1:0:true',
       'fb:0:1:min:50',
     ]);
+  });
+
+  it('canTune 時同一個代碼有多種前綴的詞綴可從選單切換網域；不可微調時維持一般標籤', async () => {
+    setMockOfficialStatText('poe2', 'en', {
+      'explicit.stat_int': '+# to Intelligence',
+      'fractured.stat_int': '+# to Intelligence',
+      'desecrated.stat_int': '+# to Intelligence',
+      'explicit.stat_hybrid': '#% increased Physical Damage',
+    });
+    try {
+      const picked: unknown[][] = [];
+      const container = render({
+        canTune: true,
+        onSetStatFilterDomain: (...args: unknown[]) => picked.push(args),
+      });
+      document.body.appendChild(container);
+      const menus = Array.from(
+        container.querySelectorAll<HTMLButtonElement>('[data-test="preview-stat-domain"]'),
+      );
+      // 第一組的混合詞綴只有一種前綴；兩個 stat_int 列可切換
+      expect(menus).toHaveLength(2);
+      expect(menus[0].dataset.statDomain).toBe('explicit');
+      // 群組停用時選單也停用
+      expect(menus[0].disabled).toBe(true);
+      expect(menus[1].disabled).toBe(false);
+
+      menus[1].dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }),
+      );
+      menus[1].click();
+      await nextTick();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const options = Array.from(
+        document.body.querySelectorAll<HTMLElement>('[data-stat-domain-option]'),
+      );
+      expect(options.map((option) => option.dataset.statDomain)).toEqual([
+        'explicit',
+        'fractured',
+        'desecrated',
+      ]);
+      options[1].click();
+      await nextTick();
+      expect(picked).toEqual([[1, 0, 'fractured', ['explicit', 'fractured', 'desecrated']]]);
+      container.remove();
+
+      app?.unmount();
+      const readOnly = render({ canTune: false });
+      expect(readOnly.querySelector('[data-test="preview-stat-domain"]')).toBeNull();
+    } finally {
+      resetOfficialStatTextForTests();
+    }
   });
 
   it('依官方詞綴網域顯示對應標籤徽章與共用色票，explicit 不顯示標籤', () => {

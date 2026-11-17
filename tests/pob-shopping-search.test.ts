@@ -343,12 +343,76 @@ describe('使用者調整搜尋條件', () => {
 
   it('entryStatFilters 列出合併後的條件與預設範圍', () => {
     expect(entryStatFilters(ring)).toEqual([
-      { id: 'implicit.stat_4277795662', value: 16, enabled: true, min: 12, customized: false },
-      { id: 'explicit.stat_3299347043', value: 114, enabled: true, min: 91, customized: false },
-      { id: 'explicit.stat_3372524247', value: 46, enabled: true, min: 36, customized: false },
-      { id: 'explicit.stat_2923486259', value: 30, enabled: true, min: 24, customized: false },
-      { id: 'explicit.stat_2901986750', value: 15, enabled: true, min: 12, customized: false },
+      {
+        id: 'implicit.stat_4277795662',
+        key: 'implicit.stat_4277795662',
+        value: 16,
+        enabled: true,
+        min: 12,
+        customized: false,
+      },
+      {
+        id: 'explicit.stat_3299347043',
+        key: 'explicit.stat_3299347043',
+        domains: ['explicit', 'implicit'],
+        value: 114,
+        enabled: true,
+        min: 91,
+        customized: false,
+      },
+      {
+        id: 'explicit.stat_3372524247',
+        key: 'explicit.stat_3372524247',
+        value: 46,
+        enabled: true,
+        min: 36,
+        customized: false,
+      },
+      {
+        id: 'explicit.stat_2923486259',
+        key: 'explicit.stat_2923486259',
+        value: 30,
+        enabled: true,
+        min: 24,
+        customized: false,
+      },
+      {
+        id: 'explicit.stat_2901986750',
+        key: 'explicit.stat_2901986750',
+        value: 15,
+        enabled: true,
+        min: 12,
+        customized: false,
+      },
     ]);
+  });
+
+  it('切換網域：搜尋改用新前綴、以原代碼記住；不在可切換清單的前綴不採用', () => {
+    const life = 'explicit.stat_3299347043';
+    const switched = { stats: { [life]: { domain: 'implicit' } } };
+    expect(entryStatFilters(ring, switched)[1]).toMatchObject({
+      id: 'implicit.stat_3299347043',
+      key: life,
+    });
+    expect(
+      (buildEntryQuery(ring, switched)?.stats as Array<{ filters: Array<{ id: string }> }>)[0]
+        .filters[1].id,
+    ).toBe('implicit.stat_3299347043');
+    // 切換後勾選狀態仍對應原本那一行
+    expect(
+      applyEntrySelection(ring, switched).mods?.find((mod) => mod.stat?.id === life)?.searched,
+    ).toBe(true);
+    expect(normalizeSelectionForEntry(ring, switched)).toEqual(switched);
+    // 從畫面狀態推回草稿時保留切換
+    const row = { ...ring, filters: entryStatFilters(ring, switched) };
+    expect(selectionFromRowState(row)).toEqual(switched);
+
+    // 清單外的前綴、切回原前綴：都視為沒有切換
+    for (const domain of ['fractured', 'explicit']) {
+      const selection = { stats: { [life]: { domain } } };
+      expect(entryStatFilters(ring, selection)[1].id).toBe(life);
+      expect(normalizeSelectionForEntry(ring, selection)).toBeUndefined();
+    }
   });
 
   it('取消勾選、改下限、清掉下限、設定上限', () => {
@@ -680,6 +744,61 @@ Implicits: 1
       'leg',
       'leg',
       undefined,
+    ]);
+  });
+});
+
+describe('工藝詞綴', () => {
+  const craftedMatcher = createStatMatcher({
+    modLines: { '3299347043': [['{0:+d} to maximum Life', '{0:+d} 最大生命']] },
+    tradeStats: {
+      'explicit.stat_3299347043': '+# to maximum Life',
+      'crafted.stat_3299347043': '+# to maximum Life',
+      'pseudo.stat_3299347043': '+# total maximum Life',
+    },
+  });
+  const ringXml = `<PathOfBuilding>
+	<Build className="Duelist" level="100"/>
+	<Items activeItemSet="1">
+		<Item id="1">
+			Rarity: RARE
+Doom Loop
+Two-Stone Ring
+Implicits: 0
++40 to maximum Life
+{crafted}+25 to maximum Life
+		</Item>
+		<ItemSet id="1"><Slot name="Ring 1" itemId="1"/></ItemSet>
+	</Items>
+</PathOfBuilding>`;
+  const ring = buildShoppingList(parsePobBuildXml(ringXml), catalog, {}, craftedMatcher)[0];
+
+  it('對到 crafted 代碼、預設不勾，和同代碼的隨機詞綴分開；可切換的網域不含總和代碼', () => {
+    expect(ring.mods?.[1]).toMatchObject({
+      kind: 'crafted',
+      searched: false,
+      stat: {
+        id: 'crafted.stat_3299347043',
+        value: 25,
+        defaultEnabled: false,
+        domains: ['explicit', 'crafted'],
+      },
+    });
+    expect(entryStatFilters(ring).map((filter) => [filter.id, filter.enabled])).toEqual([
+      ['explicit.stat_3299347043', true],
+      ['crafted.stat_3299347043', false],
+    ]);
+    // 勾選後帶入搜尋
+    expect(
+      buildEntryQuery(ring, { stats: { 'crafted.stat_3299347043': { enabled: true } } })?.stats,
+    ).toEqual([
+      {
+        type: 'and',
+        filters: [
+          { id: 'explicit.stat_3299347043', value: { min: 32 } },
+          { id: 'crafted.stat_3299347043', value: { min: 20 } },
+        ],
+      },
     ]);
   });
 });

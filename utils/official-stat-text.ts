@@ -3,6 +3,7 @@ import type { SupportedAffixLocale } from './preferences-contract';
 import { getLocaleTradeStatsAssetPath, type PoeVersion } from './trade-context';
 import { getCandidateStatIds, renderGenericTemplate } from './affix-lexicon';
 import { getUsableLiveTradeData } from './live-trade-data-store';
+import { buildStatDomainIndex, statDomainsOf, type StatDomainIndex } from './stat-domain-order';
 
 /**
  * 官方市集的詞綴文字（各語系市集 /data/stats，以詞綴代碼為 key）。
@@ -192,6 +193,28 @@ export function getOfficialStatDomainLabel(
     return null;
   }
   return shard.labels[domain] ?? null;
+}
+
+const domainIndexByShard = new WeakMap<StatTexts, StatDomainIndex>();
+
+/**
+ * 同一個代碼後綴在市集上存在的網域前綴（依常用程度排序），用英文官方分片判斷。
+ * 分片尚未載入時在背景載入並回傳空陣列，載入後 revision 遞增，讀取者會重新判斷。
+ */
+export function getOfficialStatDomains(statId: string, version: PoeVersion): string[] {
+  void revision.value;
+  if (!statId) return [];
+  const shard = getState(version).shards.get('en');
+  if (!shard) {
+    void ensureOfficialStatTextLoaded(version, 'en');
+    return [];
+  }
+  let index = domainIndexByShard.get(shard.stats);
+  if (!index) {
+    index = buildStatDomainIndex(Object.keys(shard.stats));
+    domainIndexByShard.set(shard.stats, index);
+  }
+  return statDomainsOf(index, statId);
 }
 
 /** 測試用：直接指定某語系的官方詞綴文字與分類標籤；傳入 null 清除 */

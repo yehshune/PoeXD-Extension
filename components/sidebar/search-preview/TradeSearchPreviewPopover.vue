@@ -46,6 +46,10 @@
           (gIdx, fIdx, bound, val) =>
             applyTune((q) => setTradeStatFilterBound(q, gIdx, fIdx, bound, val))
         "
+        @set-stat-filter-domain="
+          (gIdx, fIdx, domain, allowed) =>
+            applyTune((q) => setTradeStatFilterDomain(q, gIdx, fIdx, domain, allowed))
+        "
         @reset-tune="resetTune"
         @overwrite-bookmark="handleOverwriteBookmark"
       />
@@ -57,6 +61,7 @@
 import { computed, ref, watch, type PropType } from 'vue';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import TradeSearchPreviewContent from './TradeSearchPreviewContent.vue';
+import { isNestedMenuInteraction } from '../stat-domain/nested-menu-guard';
 import type { TradeSearchPreviewData } from '../composables/useTradeSearchPreview';
 import {
   criteriaFromTradeQuery,
@@ -68,6 +73,7 @@ import {
   cloneTradeQuery,
   setTradeQueryStatus,
   setTradeStatFilterBound,
+  setTradeStatFilterDomain,
   setTradeStatFilterDisabled,
   setTradeStatGroupBound,
   setTradeStatGroupDisabled,
@@ -223,10 +229,12 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>) {
     event.preventDefault();
     return;
   }
-  const inSelectPortal = path.some(
-    (node) => node instanceof HTMLElement && node.dataset?.slot === 'select-content',
+  // Select 與網域選單掛在 Popover 外；側欄在 Shadow DOM 裡時要另外判斷（見 nested-menu-guard）
+  const inPopoverOrMenu = isNestedMenuInteraction(
+    path,
+    (element) => element.getAttribute('data-test') === 'search-preview-popover',
   );
-  if (inSelectPortal) event.preventDefault();
+  if (inPopoverOrMenu) event.preventDefault();
 }
 
 function handleOverlay(target: OverlayTarget) {

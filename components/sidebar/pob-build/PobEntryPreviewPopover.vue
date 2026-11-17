@@ -3,6 +3,8 @@ import { computed, ref, watch, type PropType } from 'vue';
 import { ExternalLink, RotateCcw, Save, Search, X } from '@lucide/vue';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import StatDomainMenu from '../stat-domain/StatDomainMenu.vue';
+import { isNestedMenuInteraction } from '../stat-domain/nested-menu-guard';
 import { t } from '@/utils/i18n';
 import {
   applyEntrySelection,
@@ -16,13 +18,15 @@ import {
   selectionFromRowState,
   type EntrySearchSelection,
   type ShoppingMod,
-  type ShoppingModKind,
 } from '@/utils/pob-shopping-list';
+import { statDomainOf } from '@/utils/stat-domain-order';
 import {
-  getStatDomainLabel,
+  extractStatDomain,
+  getStatDomainBadgeLabel,
   getStatDomainStyle,
   shouldShowStatDomainBadge,
   STAT_DOMAIN_BADGE_CLASS,
+  type StatDomainKey,
 } from '@/utils/stat-domain';
 import type { ShoppingRow, StatBound } from './usePobBuild';
 
@@ -32,15 +36,28 @@ interface BoundEditor {
   value?: number;
 }
 
+/** 可切換網域的標籤：點開選單選擇前綴 */
+interface DomainSwitch {
+  /** 條件的原代碼（使用者調整的鍵） */
+  key: string;
+  domains: readonly string[];
+  current: string;
+}
+
 interface ModLine {
   index: number;
   mod: ShoppingMod;
+  /** 這一行目前的網域（切換後的）；決定標籤文字與顏色 */
+  domain: StatDomainKey | null;
+  domainSwitch?: DomainSwitch;
   /** 數值輸入框；只放在同一個條件的第一行 */
   editor?: BoundEditor;
 }
 
-function modDomainBadge(kind: ShoppingModKind): string | null {
-  return shouldShowStatDomainBadge(kind) ? getStatDomainLabel(kind) : null;
+/** 可切換時一律顯示標籤（包含一般詞綴），否則只有非一般詞綴才顯示 */
+function modDomainBadge(line: ModLine): string | null {
+  if (line.domainSwitch) return getStatDomainBadgeLabel(line.domain) ?? line.domainSwitch.current;
+  return shouldShowStatDomainBadge(line.domain) ? getStatDomainBadgeLabel(line.domain) : null;
 }
 
 const props = defineProps({
@@ -141,12 +158,17 @@ const modLines = computed<ModLine[]>(() => {
   const seen = new Set<string>();
   return row.mods.map((mod, index) => {
     const stat = mod.stat;
-    if (!stat || seen.has(stat.id)) return { index, mod };
+    const filter = stat ? row.filters.find((entry) => entry.key === stat.id) : undefined;
+    const domain = filter ? extractStatDomain(filter.id) : (mod.kind as StatDomainKey);
+    const domainSwitch = filter?.domains
+      ? { key: filter.key, domains: filter.domains, current: statDomainOf(filter.id) }
+      : undefined;
+    const line: ModLine = { index, mod, domain, ...(domainSwitch ? { domainSwitch } : {}) };
+    if (!stat || seen.has(stat.id)) return line;
     seen.add(stat.id);
-    const filter = row.filters.find((entry) => entry.id === stat.id);
-    if (!filter || filter.value === undefined || stat.exact) return { index, mod };
+    if (!filter || filter.value === undefined || stat.exact) return line;
     const bound: StatBound = filter.value < 0 ? 'max' : 'min';
-    return { index, mod, editor: { statId: stat.id, bound, value: filter[bound] } };
+    return { ...line, editor: { statId: stat.id, bound, value: filter[bound] } };
   });
 });
 
@@ -193,6 +215,13 @@ function setStatEnabled(statId: string, enabled: boolean): void {
   mutateDraft((draft) => ({
     ...draft,
     stats: { ...draft.stats, [statId]: { ...draft.stats?.[statId], enabled } },
+  }));
+}
+
+function setDomain(key: string, domain: string): void {
+  mutateDraft((draft) => ({
+    ...draft,
+    stats: { ...draft.stats, [key]: { ...draft.stats?.[key], domain } },
   }));
 }
 
@@ -244,6 +273,12 @@ function discardDraft(): void {
 function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): void {
   const path = event.detail?.originalEvent?.composedPath?.() ?? [];
   if (props.reference && path.includes(props.reference)) event.preventDefault();
+  // 網域選單掛在 Popover 外；側欄在 Shadow DOM 裡時要另外判斷（見 nested-menu-guard）
+  if (
+    isNestedMenuInteraction(path, (element) => element.hasAttribute('data-pob-build-mods-popover'))
+  ) {
+    event.preventDefault();
+  }
 }
 </script>
 
@@ -433,10 +468,12 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
               :data-mod-searched="line.mod.searched ? 'true' : 'false'"
               class="flex min-h-[var(--control-height-sm)] items-center gap-[var(--pxd-space-sm)] border-t border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)] leading-[1.35] first:border-t-0 break-words"
               :class="[
-                line.mod.kind === 'explicit' ? 'text-foreground' : 'pxd-stat-domain-text',
+                !line.domain || line.domain === 'explicit'
+                  ? 'text-foreground'
+                  : 'pxd-stat-domain-text',
                 { 'opacity-60': line.mod.stat && !line.mod.searched },
               ]"
-              :style="getStatDomainStyle(line.mod.kind)"
+              :style="getStatDomainStyle(line.domain)"
             >
               <Checkbox
                 v-if="line.mod.stat"
@@ -447,12 +484,20 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
                 @update:model-value="(value) => setStatEnabled(line.mod.stat!.id, value === true)"
               />
               <span v-else class="size-[var(--checkbox-size,18px)] shrink-0" aria-hidden="true" />
+              <StatDomainMenu
+                v-if="line.domainSwitch"
+                data-pob-build-mod-domain
+                :domain="line.domainSwitch.current"
+                :domains="line.domainSwitch.domains"
+                :disabled="effectiveRow.searchOverride"
+                @select="(domain) => setDomain(line.domainSwitch!.key, domain)"
+              />
               <span
-                v-if="modDomainBadge(line.mod.kind)"
+                v-else-if="modDomainBadge(line)"
                 :class="STAT_DOMAIN_BADGE_CLASS"
-                :data-stat-domain="line.mod.kind"
+                :data-stat-domain="line.domain"
               >
-                {{ modDomainBadge(line.mod.kind) }}
+                {{ modDomainBadge(line) }}
               </span>
               <span class="min-w-0 flex-1">{{ line.mod.text }}</span>
               <template v-if="line.editor">

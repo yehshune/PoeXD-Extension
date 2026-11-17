@@ -685,7 +685,7 @@ describe('usePobBuild', () => {
       await pob.importCode(toCode(buildXml()));
       pob.selectItemSet('build-1', '2');
       expect(plateOf(pob).filters).toEqual([
-        { id: LIFE, value: 100, enabled: true, min: 80, customized: false },
+        { id: LIFE, key: LIFE, value: 100, enabled: true, min: 80, customized: false },
       ]);
 
       pob.setStatBound('build-1', plateOf(pob).key, LIFE, 'min', 95);
@@ -789,14 +789,22 @@ describe('usePobBuild', () => {
           removed: [],
           icons: {},
           searchSelections: {
-            good: { stats: { [LIFE]: { min: 50, enabled: 'yes' } }, countMin: 0, pseudo: 1 },
+            good: {
+              stats: { [LIFE]: { min: 50, enabled: 'yes', domain: 'Fractured!' } },
+              countMin: 0,
+              pseudo: 1,
+            },
+            switched: { stats: { [LIFE]: { domain: 'fractured' } } },
             bad: 'oops',
             empty: { stats: { [LIFE]: { min: Number.NaN } } },
           },
         },
       ];
       const list = await createPobBuildStore('poe1', { storage }).list();
-      expect(list[0].searchSelections).toEqual({ good: { stats: { [LIFE]: { min: 50 } } } });
+      expect(list[0].searchSelections).toEqual({
+        good: { stats: { [LIFE]: { min: 50 } } },
+        switched: { stats: { [LIFE]: { domain: 'fractured' } } },
+      });
     });
   });
 

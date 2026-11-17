@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { computed, createApp, nextTick, ref, type App, type Component } from 'vue';
+import { computed, createApp, h, nextTick, ref, type App, type Component } from 'vue';
+import { ConfigProvider } from 'reka-ui';
 import type { BuildView, UsePobBuild } from '@/components/sidebar/pob-build/usePobBuild';
 import { resetI18nStateForTests } from '@/utils/i18n';
 
@@ -114,8 +115,22 @@ const sampleBuild = (): BuildView => ({
           query: { type: 'y' },
           done: false,
           filters: [
-            { id: 'explicit.stat_life', value: 100, enabled: true, min: 80, customized: false },
-            { id: 'explicit.stat_str_req', value: -10, enabled: false, max: -8, customized: true },
+            {
+              id: 'explicit.stat_life',
+              key: 'explicit.stat_life',
+              value: 100,
+              enabled: true,
+              min: 80,
+              customized: false,
+            },
+            {
+              id: 'explicit.stat_str_req',
+              key: 'explicit.stat_str_req',
+              value: -10,
+              enabled: false,
+              max: -8,
+              customized: true,
+            },
           ],
           countMin: 1,
           pseudo: false,
@@ -591,6 +606,143 @@ describe('PobBuildPane', () => {
     expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
   });
 
+  it('可切換網域的詞綴標籤：點開選單直接選前綴，存回條件時以原代碼記住', async () => {
+    const build = sampleBuild();
+    const rare = build.groups[0].rows[1];
+    const domains = ['explicit', 'fractured', 'crafted'];
+    rare.mods = rare.mods!.map((mod) =>
+      mod.stat?.id === 'explicit.stat_life' ? { ...mod, stat: { ...mod.stat, domains } } : mod,
+    );
+    rare.filters = rare.filters.map((filter) =>
+      filter.key === 'explicit.stat_life' ? { ...filter, domains } : filter,
+    );
+    buildsRef.value = [build];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+
+    const domainButton = () => queryBody<HTMLButtonElement>('[data-pob-build-mod-domain]')!;
+    const openMenu = async () => {
+      domainButton().dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }),
+      );
+      domainButton().click();
+      await flushAsync();
+    };
+    const options = () => queryAllBody('[data-stat-domain-option]') as HTMLElement[];
+
+    // 一般詞綴可切換時也顯示標籤
+    expect(domainButton().textContent?.trim()).toBe('隨機');
+    await openMenu();
+    expect(options().map((option) => option.textContent?.trim())).toEqual(['隨機', '破裂', '工藝']);
+    // 直接選第三個，不必逐一切換（比照真實點擊：先 pointerdown 再 click）
+    const choose = async (option: HTMLElement) => {
+      option.dispatchEvent(
+        new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }),
+      );
+      option.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+      option.click();
+      await flushAsync();
+    };
+    await choose(options()[2]);
+    await flushAsync();
+    expect(domainButton().textContent?.trim()).toBe('工藝');
+    expect(domainButton().dataset.statDomain).toBe('crafted');
+    // 選完 Popover 仍開著
+    expect(queryBody('[data-pob-build-mods-popover]')).not.toBeNull();
+
+    queryBody<HTMLButtonElement>('[data-pob-build-popover-search]')!.click();
+    expect(fake.openSearch).toHaveBeenLastCalledWith(
+      'b1',
+      expect.objectContaining({
+        query: expect.objectContaining({
+          stats: [
+            expect.objectContaining({
+              filters: [{ id: 'crafted.stat_life', value: { min: 80 } }],
+            }),
+          ],
+        }),
+      }),
+      'current',
+    );
+
+    await openMenu();
+    await choose(options()[1]);
+    queryBody<HTMLButtonElement>('[data-pob-build-save-selection]')!.click();
+    await nextTick();
+    expect(fake.saveSelection).toHaveBeenCalledWith('b1', 'k-rare', {
+      stats: {
+        'explicit.stat_life': { domain: 'fractured' },
+        'explicit.stat_str_req': { enabled: false },
+      },
+      countMin: 1,
+    });
+  });
+
+  it('側欄在 Shadow DOM 裡時，從網域選單選完不會關閉 Popover', async () => {
+    const build = sampleBuild();
+    const rare = build.groups[0].rows[1];
+    const domains = ['explicit', 'fractured', 'crafted'];
+    rare.mods = rare.mods!.map((mod) =>
+      mod.stat?.id === 'explicit.stat_life' ? { ...mod, stat: { ...mod.stat, domains } } : mod,
+    );
+    rare.filters = rare.filters.map((filter) =>
+      filter.key === 'explicit.stat_life' ? { ...filter, domains } : filter,
+    );
+    buildsRef.value = [build];
+
+    // 比照正式環境：側欄與 portal 都在同一個 shadow root 裡
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    const shadowContainer = document.createElement('div');
+    const portal = document.createElement('div');
+    shadow.append(shadowContainer, portal);
+    app = createApp({
+      render: () => h(ConfigProvider, { teleportTo: portal }, () => h(PobBuildPane)),
+    });
+    app.mount(shadowContainer);
+    await flushAsync();
+    try {
+      const inShadow = <T extends Element = HTMLElement>(selector: string) =>
+        shadow.querySelector<T>(selector);
+      const EventCtor = typeof PointerEvent !== 'undefined' ? PointerEvent : MouseEvent;
+      const press = async (target: HTMLElement) => {
+        target.focus();
+        target.dispatchEvent(
+          new EventCtor('pointerdown', {
+            bubbles: true,
+            composed: true,
+            cancelable: true,
+            button: 0,
+          }),
+        );
+        target.dispatchEvent(
+          new EventCtor('pointerup', { bubbles: true, composed: true, cancelable: true }),
+        );
+        target.click();
+        await flushAsync(40);
+      };
+
+      const rows = Array.from(shadow.querySelectorAll<HTMLElement>('[data-pob-build-row]'));
+      rows[1].querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+      await flushAsync(40);
+      expect(inShadow('[data-pob-build-mods-popover]')).not.toBeNull();
+
+      await press(inShadow<HTMLButtonElement>('[data-pob-build-mod-domain]')!);
+      const options = Array.from(shadow.querySelectorAll<HTMLElement>('[data-stat-domain-option]'));
+      expect(options).toHaveLength(3);
+      await press(options[1]);
+      await flushAsync(40);
+
+      expect(inShadow('[data-pob-build-mods-popover]')).not.toBeNull();
+      expect(inShadow('[data-pob-build-mod-domain]')?.textContent?.trim()).toBe('破裂');
+    } finally {
+      // app 由 afterEach 卸載
+      host.remove();
+    }
+  });
+
   it('searchOverride 為 true 時禁用 Popover 內的詞綴勾選、數值輸入與條件模式', async () => {
     const build = sampleBuild();
     build.groups[0].rows[1].searchOverride = true;
@@ -638,16 +790,14 @@ describe('PobBuildPane', () => {
       'var(--pxd-stat-implicit)',
     );
     expect(mods[0].querySelector('[data-stat-domain="implicit"]')?.textContent?.trim()).toBe(
-      '固性屬性',
+      '固定',
     );
     expect(mods[1].querySelector('[data-stat-domain]')).toBeNull();
     expect(mods[1].className).toContain('text-foreground');
     expect((mods[3] as HTMLElement).style.getPropertyValue('--pxd-stat-color')).toBe(
       'var(--pxd-stat-crafted)',
     );
-    expect(mods[3].querySelector('[data-stat-domain="crafted"]')?.textContent?.trim()).toBe(
-      '已工藝',
-    );
+    expect(mods[3].querySelector('[data-stat-domain="crafted"]')?.textContent?.trim()).toBe('工藝');
 
     row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
     await flushAsync();

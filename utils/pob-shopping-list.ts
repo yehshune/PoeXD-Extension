@@ -27,6 +27,7 @@ import {
   type PobItemSet,
 } from './pob-build';
 import { modLineSkeleton, type StatDomain, type StatMatcher } from './pob-stat-matcher';
+import { statDomainOf, withStatDomain } from './stat-domain-order';
 import { getLocaleItemsAssetPath, tradeVersionProfiles, type PoeVersion } from './trade-context';
 
 export interface TradeNameCatalog {
@@ -64,6 +65,8 @@ export interface ShoppingStat {
   /** 預設是否帶入搜尋 */
   defaultEnabled: boolean;
   pseudo?: readonly PseudoContribution[];
+  /** 可以切換的網域前綴（含目前的；市集上這個代碼後綴有兩種以上前綴時才有） */
+  domains?: readonly string[];
 }
 
 export interface ShoppingMod {
@@ -126,13 +129,15 @@ export interface ShoppingGemGroup {
 /** 使用者對單一條件的調整；min / max 為 null 表示清掉該邊界 */
 export interface StatSelection {
   enabled?: boolean;
+  /** 改用的網域前綴（例如把 `explicit.stat_1` 換成 `fractured.stat_1`） */
+  domain?: string;
   min?: number | null;
   max?: number | null;
 }
 
 /** 使用者對一個項目的搜尋調整，存在本機 */
 export interface EntrySearchSelection {
-  /** 以市集代碼為鍵：同一個代碼的多行是同一個條件 */
+  /** 以 PoB 對到的市集代碼為鍵（切換網域後仍用原代碼）：同一個代碼的多行是同一個條件 */
   stats?: Readonly<Record<string, StatSelection>>;
   /** 設定時改為「至少符合 N 項」 */
   countMin?: number;
@@ -142,7 +147,12 @@ export interface EntrySearchSelection {
 
 /** 介面顯示的一個條件：同一個代碼的多行已合併 */
 export interface ShoppingStatFilter {
+  /** 搜尋用的代碼（套用使用者切換的網域） */
   id: string;
+  /** PoB 對到的原代碼，也是使用者調整的鍵 */
+  key: string;
+  /** 可以切換的網域前綴；只有一種時省略 */
+  domains?: readonly string[];
   /** 合併後的數值；選項型與沒有數值的條件省略 */
   value?: number;
   option?: number;
@@ -473,7 +483,7 @@ function modPlans(item: PobBuildItem): ModPlan[] {
     ),
     ...item.explicitMods.map((mod) =>
       mod.crafted
-        ? { text: mod.text, kind: 'crafted' as const }
+        ? { text: mod.text, kind: 'crafted' as const, domain: 'crafted' as const }
         : { text: mod.text, kind: 'explicit' as const, domain: 'explicit' as const },
     ),
   ];
@@ -486,16 +496,19 @@ function itemMods(
 ): ShoppingMod[] {
   const preferLocal = LOCAL_STAT_SLOT.test(item.slot);
   return modPlans(item).map(({ text, kind, domain }) => {
+    // 工藝詞綴只對市集的 crafted 代碼：退回一般詞綴的代碼會和同代碼的隨機詞綴合併成一個條件
     const match = domain && matcher?.match(text, { preferLocal, domain });
     if (!match) return { text, kind, searched: false };
     const isTimeless = TIMELESS_STAT.test(match.statId);
     // 附魔的數值是固定的（星團珠寶的天賦數、插槽數），不取八成
     const exact = isTimeless || kind === 'enchant';
+    // 工藝詞綴可以自己做，預設不帶入搜尋
     const defaultEnabled = options.isUnique
       ? isTimeless
       : kind === 'enchant'
         ? options.isClusterJewel
-        : true;
+        : kind !== 'crafted';
+    const domains = matcher?.domainsOf?.(match.statId) ?? [];
     const pseudo = match.option === undefined && !exact ? pseudoContributions(text) : undefined;
     const stat: ShoppingStat = {
       id: match.statId,
@@ -504,6 +517,7 @@ function itemMods(
       ...(exact ? { exact } : {}),
       defaultEnabled,
       ...(pseudo?.length ? { pseudo } : {}),
+      ...(domains.length > 1 ? { domains } : {}),
     };
     return { text, kind, stat, searched: defaultEnabled };
   });
@@ -517,6 +531,16 @@ const sumValues = (stats: readonly ShoppingStat[]): number | undefined => {
 const finiteOrUndefined = (value: number | null | undefined): number | undefined =>
   typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 
+/** 使用者選的網域在可切換清單裡才採用；和原代碼相同時視為沒有切換 */
+function validDomain(
+  stat: { id: string; domains?: readonly string[] },
+  domain: string | undefined,
+): string | undefined {
+  return domain && domain !== statDomainOf(stat.id) && stat.domains?.includes(domain)
+    ? domain
+    : undefined;
+}
+
 /** 同一個代碼的多行合併成一個條件（數值加總），再套用使用者的調整 */
 export function entryStatFilters(
   entry: Pick<ShoppingEntry, 'mods'>,
@@ -526,17 +550,20 @@ export function entryStatFilters(
   for (const mod of entry.mods ?? []) {
     if (mod.stat) groups.set(mod.stat.id, [...(groups.get(mod.stat.id) ?? []), mod.stat]);
   }
-  return [...groups.entries()].map(([id, stats]) => {
+  return [...groups.entries()].map(([key, stats]) => {
     const [first] = stats;
     const value = first.option === undefined ? sumValues(stats) : undefined;
     const bounds = defaultStatBounds(value, first.exact);
-    const custom = selection?.stats?.[id];
+    const custom = selection?.stats?.[key];
+    const id = withStatDomain(key, validDomain(first, custom?.domain));
     const pick = (key: 'min' | 'max') =>
       custom && key in custom ? finiteOrUndefined(custom[key]) : bounds[key];
     const min = pick('min');
     const max = pick('max');
     return {
       id,
+      key,
+      ...(first.domains ? { domains: first.domains } : {}),
       ...(value !== undefined ? { value } : {}),
       ...(first.option !== undefined ? { option: first.option } : {}),
       enabled: custom?.enabled ?? first.defaultEnabled,
@@ -586,7 +613,7 @@ function mergeIntoPseudo(
   const totals = new Map<string, number>();
   const rest: QueryStatFilter[] = [];
   for (const filter of filters) {
-    const contributions = pseudoOf.get(filter.id);
+    const contributions = pseudoOf.get(filter.key);
     if (!contributions || filter.value === undefined) {
       rest.push(toQueryFilter(filter));
       continue;
@@ -664,7 +691,7 @@ export function applyEntrySelection(
   const enabled = new Set(
     entryStatFilters(entry, selection)
       .filter((filter) => filter.enabled)
-      .map((filter) => filter.id),
+      .map((filter) => filter.key),
   );
   return {
     ...entry,
@@ -711,9 +738,10 @@ export function selectionFromRowState(row: SelectionRowSnapshot): EntrySearchSel
     if (!base) return;
     const change: StatSelection = {};
     if (filter.enabled !== base.enabled) change.enabled = filter.enabled;
+    if (filter.id !== base.id) change.domain = statDomainOf(filter.id);
     if (filter.min !== base.min) change.min = filter.min ?? null;
     if (filter.max !== base.max) change.max = filter.max ?? null;
-    if (Object.keys(change).length > 0) stats[filter.id] = change;
+    if (Object.keys(change).length > 0) stats[base.key] = change;
   });
   return {
     ...(Object.keys(stats).length > 0 ? { stats } : {}),
@@ -728,7 +756,7 @@ export function normalizeSelectionForEntry(
   selection: EntrySearchSelection | undefined,
 ): EntrySearchSelection | undefined {
   if (!selection) return undefined;
-  const defaults = new Map(entryStatFilters(entry).map((filter) => [filter.id, filter]));
+  const defaults = new Map(entryStatFilters(entry).map((filter) => [filter.key, filter]));
   const stats: Record<string, StatSelection> = {};
   for (const [id, custom] of Object.entries(selection.stats ?? {})) {
     const base = defaults.get(id);
@@ -737,6 +765,8 @@ export function normalizeSelectionForEntry(
     if (custom.enabled !== undefined && custom.enabled !== base.enabled) {
       change.enabled = custom.enabled;
     }
+    const domain = validDomain({ id: base.key, domains: base.domains }, custom.domain);
+    if (domain) change.domain = domain;
     if ('min' in custom) {
       const nextMin = finiteOrUndefined(custom.min);
       if (nextMin !== base.min) change.min = nextMin ?? null;

@@ -137,3 +137,61 @@ export function getStatDomainLabel(
   if (liveOrShard) return liveOrShard;
   return FALLBACK_DOMAIN_LABELS[getActiveUiLocale()]?.[domain] ?? null;
 }
+
+/**
+ * 標籤徽章用的簡短網域名稱（2～3 字）。官方分類名稱偏長（「隨機屬性」「已工藝」），
+ * 徽章空間有限，中文介面改用簡稱；其他語言沿用官方名稱。
+ */
+const SHORT_DOMAIN_LABELS: Partial<Record<string, Readonly<Record<StatDomainKey, string>>>> = {
+  'zh-TW': {
+    explicit: '隨機',
+    implicit: '固定',
+    crafted: '工藝',
+    enchant: '附魔',
+    fractured: '破裂',
+    pseudo: '偽屬性',
+    imbued: '注能',
+    scourge: '災魘',
+    delve: '掘獄',
+    ultimatum: '通牒',
+    sanctum: '聖域',
+    crucible: '熔火',
+    mercenary: '傭兵',
+    veiled: '隱匿',
+    monster: '怪物',
+    rune: '增幅',
+    desecrated: '褻瀆',
+    skill: '技能',
+  },
+  'zh-CN': {
+    explicit: '外延',
+    implicit: '基底',
+    crafted: '工艺',
+    enchant: '附魔',
+    fractured: '分裂',
+    pseudo: '综合',
+    imbued: '灌注',
+    scourge: '天灾',
+    delve: '地心',
+    ultimatum: '贪婪',
+    sanctum: '禁域',
+    crucible: '熔炉',
+    mercenary: '佣兵',
+    veiled: '影匿',
+    monster: '怪物',
+    rune: '增幅',
+    desecrated: '渎灵',
+    skill: '技能',
+  },
+};
+
+/** 徽章用的網域名稱：中文顯示語言用簡稱，其餘沿用官方分類名稱（`getStatDomainLabel`）。 */
+export function getStatDomainBadgeLabel(
+  domain: StatDomainKey | null | undefined,
+  version: PoeVersion = 'poe1',
+): string | null {
+  if (!domain) return null;
+  return (
+    SHORT_DOMAIN_LABELS[getActiveDisplayLocale()]?.[domain] ?? getStatDomainLabel(domain, version)
+  );
+}

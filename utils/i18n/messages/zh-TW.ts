@@ -318,6 +318,8 @@ export const ZH_TW_MESSAGES = {
   'pobBuild.countTitle': '需要 {count} 個',
   'pobBuild.customizedTitle': '已自訂搜尋條件',
   'pobBuild.mods.statAria': '帶入搜尋：{text}',
+  'pobBuild.mods.domainTitle': '切換詞綴類型',
+  'pobBuild.mods.domainAria': '詞綴類型{domain}，切換詞綴類型',
   'pobBuild.mods.minAria': '下限',
   'pobBuild.mods.maxAria': '上限',
   'pobBuild.mods.countMode': '至少符合',

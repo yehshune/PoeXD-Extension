@@ -8,6 +8,7 @@ import {
   setTradeQueryStatus,
   setTradeStatFilterBound,
   setTradeStatFilterDisabled,
+  setTradeStatFilterDomain,
   setTradeStatGroupBound,
   setTradeStatGroupDisabled,
 } from '@/utils/trade-query-tuning';
@@ -68,6 +69,28 @@ describe('trade-query-tuning', () => {
     const tunedMax = setTradeStatFilterBound(sampleQuery, 0, 1, 'max', 45);
     const clearedMin = setTradeStatFilterBound(tunedMax, 0, 1, 'min', null);
     expect((clearedMin as any).stats[1].filters[1].value).toEqual({ weight: 1, max: 45 });
+  });
+
+  it('setTradeStatFilterDomain 換掉網域前綴並保留數值；不在可切換清單的前綴不更動', () => {
+    const allowed = ['explicit', 'fractured'];
+    const switched = setTradeStatFilterDomain(sampleQuery, 0, 0, 'fractured', allowed);
+    expect((switched as any).stats[1].filters[0]).toEqual({
+      id: 'fractured.stat_life',
+      value: { min: 70 },
+    });
+    expect((sampleQuery as any).stats[1].filters[0].id).toBe('explicit.stat_life');
+    expect(
+      areTradeQueriesEqual(
+        setTradeStatFilterDomain(switched, 0, 0, 'explicit', allowed),
+        sampleQuery,
+      ),
+    ).toBe(true);
+    expect(
+      areTradeQueriesEqual(
+        setTradeStatFilterDomain(sampleQuery, 0, 0, 'crafted', allowed),
+        sampleQuery,
+      ),
+    ).toBe(true);
   });
 
   it('支援外層包著 { query, sort } 的 payload', () => {

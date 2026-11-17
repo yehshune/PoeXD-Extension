@@ -5,6 +5,7 @@ import { resetLiveTradeDataForTests, setLiveTradeData } from '@/utils/live-trade
 import { resetOfficialStatTextForTests, setMockOfficialStatText } from '@/utils/official-stat-text';
 import {
   extractStatDomain,
+  getStatDomainBadgeLabel,
   getStatDomainLabel,
   getStatDomainStyle,
   shouldShowStatDomainBadge,
@@ -80,6 +81,24 @@ describe('stat-domain (詞綴網域色票與官方標籤)', () => {
       },
     });
     expect(getStatDomainLabel('fractured', 'poe1')).toBe('Live Fractured');
+  });
+
+  it('徽章用簡稱：中文為 2～3 字且涵蓋所有網域，其他語言沿用官方標籤', () => {
+    setMockOfficialStatText('poe1', 'zh-TW', { 'explicit.stat_1': 'x' }, { crafted: '已工藝' });
+    expect(getStatDomainBadgeLabel('crafted')).toBe('工藝');
+    expect(getStatDomainBadgeLabel('implicit')).toBe('固定');
+    expect(getStatDomainBadgeLabel(null)).toBeNull();
+    for (const locale of ['zh-TW', 'zh-CN'] as const) {
+      setActiveDisplayLocale(locale);
+      for (const domain of STAT_DOMAIN_KEYS) {
+        expect([...(getStatDomainBadgeLabel(domain) ?? '')].length).toBeGreaterThanOrEqual(2);
+        expect([...(getStatDomainBadgeLabel(domain) ?? '')].length).toBeLessThanOrEqual(3);
+      }
+    }
+    expect(getStatDomainBadgeLabel('implicit')).toBe('基底');
+
+    setActiveDisplayLocale('en');
+    expect(getStatDomainBadgeLabel('crafted')).toBe('Crafted');
   });
 
   it('assets/main.css 針對所有網域皆宣告對應的 --pxd-stat-* token', () => {

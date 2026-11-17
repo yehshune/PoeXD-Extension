@@ -1,3 +1,4 @@
+import { withStatDomain } from './stat-domain-order';
 import { normalizeStatFilter, type CriteriaOverlayStatFilter } from './criteria-overlay';
 import { withTradeSearchId } from './trade-search-identity';
 import { encodeQueryToGzipBase64Url } from './trade-url-codec';
@@ -165,6 +166,25 @@ export function setTradeStatFilterDisabled(
     if (!filter) return;
     if (disabled) filter.disabled = true;
     else delete filter.disabled;
+  });
+}
+
+/**
+ * 換掉單一詞綴條件代碼的網域前綴（`explicit.stat_1` → `fractured.stat_1`）。
+ * 只接受同一個後綴在市集上存在的前綴（由 `allowed` 提供），其他值不更動。
+ */
+export function setTradeStatFilterDomain(
+  payload: Record<string, unknown>,
+  visibleGroupIndex: number,
+  visibleFilterIndex: number,
+  domain: string,
+  allowed: readonly string[],
+): Record<string, unknown> {
+  return mutateQuery(payload, (root) => {
+    const group = findVisibleGroup(root, visibleGroupIndex);
+    const filter = group ? findVisibleFilter(group, visibleFilterIndex) : null;
+    if (!filter || typeof filter.id !== 'string' || !allowed.includes(domain)) return;
+    filter.id = withStatDomain(filter.id, domain);
   });
 }
 
