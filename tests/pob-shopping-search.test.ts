@@ -484,6 +484,26 @@ describe('使用者調整搜尋條件', () => {
     ]);
   });
 
+  it('總和條件：使用者切換過網域的那一行保留成獨立條件，數值仍計入總和', () => {
+    const life = 'explicit.stat_3299347043';
+    const withFractured = {
+      ...ring,
+      mods: ring.mods?.map((mod) =>
+        mod.stat?.id === life
+          ? { ...mod, stat: { ...mod.stat, domains: ['explicit', 'fractured'] } }
+          : mod,
+      ),
+    };
+    const filters = (
+      buildEntryQuery(withFractured, {
+        pseudo: true,
+        stats: { [life]: { domain: 'fractured' } },
+      })?.stats as Array<{ filters: Array<{ id: string; value?: { min?: number } }> }>
+    )[0].filters;
+    expect(filters).toContainEqual({ id: 'pseudo.pseudo_total_life', value: { min: 91 } });
+    expect(filters).toContainEqual({ id: 'fractured.stat_3299347043', value: { min: 91 } });
+  });
+
   it('總和條件：使用者調整過的那一行以他填的下限計入總和，清空視為 0', () => {
     const fire = entryStatFilters(ring).find((filter) => filter.value === 46)!;
     const totalResist = (min: number | null) =>
@@ -641,6 +661,9 @@ Gain 5% of Physical Damage as Extra Fire Damage
     expect(buildEntryQuery(bundle, { countMin: 2 })?.stats).toMatchObject([
       { type: 'count', value: { min: 2 } },
     ]);
+    // 等於預設的至少 1 項不算自訂，存回時拿掉
+    expect(normalizeSelectionForEntry(bundle, { countMin: 1 })).toBeUndefined();
+    expect(normalizeSelectionForEntry(bundle, { countMin: 2 })).toEqual({ countMin: 2 });
   });
 
   it('依詞綴資料拆成部位：每個部位一列、部位分類、詞綴全部符合；分不出部位的留在合成項目', () => {

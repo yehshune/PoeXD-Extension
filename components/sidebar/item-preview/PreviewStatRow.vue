@@ -4,7 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { t } from '@/utils/i18n';
 import {
-  extractStatDomain,
+  toStatDomainKey,
   getStatDomainBadgeLabel,
   getStatDomainStyle,
   shouldShowStatDomainBadge,
@@ -60,7 +60,7 @@ const emit = defineEmits<{
 
 const BOUNDS: readonly PreviewStatBound[] = ['min', 'max'];
 
-const domainKey = computed(() => (props.domain ? extractStatDomain(`${props.domain}.x`) : null));
+const domainKey = computed(() => toStatDomainKey(props.domain));
 const canSwitchDomain = computed(() => props.domains.length > 1 && Boolean(props.domain));
 const badgeLabel = computed(() =>
   shouldShowStatDomainBadge(domainKey.value)

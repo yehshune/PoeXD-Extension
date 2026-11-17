@@ -624,8 +624,11 @@ function mergeIntoPseudo(
     for (const { id, weight } of contributions) {
       totals.set(id, (totals.get(id) ?? 0) + lineMinimum * weight);
     }
-    // 固定詞綴決定基底的種類（雙玉戒指是哪兩種抗性），保留成獨立條件，數值仍計入總和
-    if (filter.id.startsWith(IMPLICIT_PREFIX)) rest.push(toQueryFilter(filter));
+    // 固定詞綴決定基底的種類（雙玉戒指是哪兩種抗性）；使用者切換過網域（例如改成破裂）的那一行
+    // 也是明確要求。兩者都保留成獨立條件，數值仍計入總和
+    if (filter.id.startsWith(IMPLICIT_PREFIX) || filter.id !== filter.key) {
+      rest.push(toQueryFilter(filter));
+    }
   }
   const pseudo = [...totals.entries()].map(([id, total]) => {
     // 先四捨五入到 1e-6 消掉浮點誤差（120 × 0.8 = 96.00000000000001），再往 0 的方向取整
@@ -752,7 +755,7 @@ export function selectionFromRowState(row: SelectionRowSnapshot): EntrySearchSel
 
 /** 僅保留相對於 PoB 預設值有差異的欄位；全部回到預設時回傳 undefined。 */
 export function normalizeSelectionForEntry(
-  entry: Pick<ShoppingEntry, 'mods'>,
+  entry: Pick<ShoppingEntry, 'mods' | 'visceraBundle'>,
   selection: EntrySearchSelection | undefined,
 ): EntrySearchSelection | undefined {
   if (!selection) return undefined;
@@ -779,9 +782,11 @@ export function normalizeSelectionForEntry(
   }
   const normalized: EntrySearchSelection = {
     ...(Object.keys(stats).length > 0 ? { stats } : {}),
+    // 等於項目本身的預設（臟器合成項目預設至少符合 1 項）時不算自訂
     ...(selection.countMin !== undefined &&
     Number.isInteger(selection.countMin) &&
-    selection.countMin >= 1
+    selection.countMin >= 1 &&
+    selection.countMin !== effectiveCountMin(entry)
       ? { countMin: selection.countMin }
       : {}),
     ...(selection.pseudo === true ? { pseudo: true } : {}),

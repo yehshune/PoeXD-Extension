@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { t } from '@/utils/i18n';
 import {
-  extractStatDomain,
+  toStatDomainKey,
   getStatDomainBadgeLabel,
   getStatDomainStyle,
   STAT_DOMAIN_BADGE_CLASS,
@@ -35,7 +35,7 @@ const props = defineProps({
 
 const emit = defineEmits<{ select: [domain: string] }>();
 
-const keyOf = (domain: string) => extractStatDomain(`${domain}.x`);
+const keyOf = (domain: string) => toStatDomainKey(domain);
 const labelOf = (domain: string) => getStatDomainBadgeLabel(keyOf(domain), props.version) ?? domain;
 
 // 選單開著時被卸載（例如外層 Popover 關閉）不會收到關閉事件，自己補上，避免開啟計數卡住

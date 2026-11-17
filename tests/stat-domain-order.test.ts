@@ -41,5 +41,9 @@ describe('stat-domain-order', () => {
     expect(statDomainOf('fractured.stat_1')).toBe('fractured');
     expect(withStatDomain('explicit.stat_1', 'crafted')).toBe('crafted.stat_1');
     expect(withStatDomain('explicit.stat_1', undefined)).toBe('explicit.stat_1');
+    // 沒有網域前綴的代碼不拆、不換
+    expect(statDomainOf('stat_1')).toBe('');
+    expect(statDomainOf('.stat_1')).toBe('');
+    expect(withStatDomain('stat_1', 'crafted')).toBe('stat_1');
   });
 });

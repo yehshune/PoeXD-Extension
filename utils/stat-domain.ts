@@ -2,6 +2,7 @@ import type { CSSProperties } from 'vue';
 import { getActiveDisplayLocale, getActiveUiLocale } from './i18n';
 import { getOfficialStatDomainLabel } from './official-stat-text';
 import type { SupportedUiLocale } from './preferences-contract';
+import { splitStatId } from './stat-domain-order';
 import type { PoeVersion } from './trade-context';
 
 /** 所有在 `assets/main.css` 定義 `--pxd-stat-*` token 的官方詞綴網域。 */
@@ -105,11 +106,13 @@ const FALLBACK_DOMAIN_LABELS: Readonly<
 
 /** 從官方 stat id（例如 `fractured.stat_...`）解析網域前綴；不認得時回傳 null。 */
 export function extractStatDomain(statId: string | undefined): StatDomainKey | null {
-  if (!statId) return null;
-  const dotIndex = statId.indexOf('.');
-  if (dotIndex <= 0) return null;
-  const prefix = statId.slice(0, dotIndex);
-  return STAT_DOMAIN_SET.has(prefix) ? (prefix as StatDomainKey) : null;
+  const prefix = statId ? splitStatId(statId)?.domain : undefined;
+  return prefix ? toStatDomainKey(prefix) : null;
+}
+
+/** 網域前綴字串（例如 `fractured`）轉成認得的網域鍵；不認得時回傳 null。 */
+export function toStatDomainKey(domain: string | null | undefined): StatDomainKey | null {
+  return domain && STAT_DOMAIN_SET.has(domain) ? (domain as StatDomainKey) : null;
 }
 
 /** 對齊官方市集：只有非 `explicit` 的網域需要顯示來源標籤徽章。 */

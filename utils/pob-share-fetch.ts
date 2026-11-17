@@ -71,6 +71,27 @@ async function readTextWithin(response: Response, maxBytes: number): Promise<str
   return new TextDecoder('utf-8').decode(bytes);
 }
 
+/** 讀內容之前就能判斷要拒絕的回應（轉址到別的網站、HTTP 錯誤、宣告的大小超過上限） */
+function earlyRejection(response: Response, requestedUrl: string): PobShareFetchError | undefined {
+  // 轉址後必須仍在同一個網站，避免被導到白名單以外
+  if (response.url && new URL(response.url).hostname !== new URL(requestedUrl).hostname) {
+    return 'invalid';
+  }
+  if (response.status === 404) return 'not-found';
+  if (!response.ok) return 'http';
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_CODE_LENGTH) return 'too-large';
+  return undefined;
+}
+
+/** 不讀的回應內容直接取消，不讓連線繼續下載到被回收為止 */
+function discardBody(response: Response): void {
+  if (!response.body || response.bodyUsed) return;
+  response.body.cancel().catch((error: unknown) => {
+    console.warn('[PoeXD] 無法取消 PoB 分享網址的回應內容:', error);
+  });
+}
+
 export async function fetchPobShareCode(
   input: unknown,
   deps: PobShareFetchDeps,
@@ -90,15 +111,10 @@ export async function fetchPobShareCode(
       signal: controller.signal,
       headers: { Accept: 'text/plain' },
     });
-    // 轉址後必須仍在同一個網站，避免被導到白名單以外
-    if (response.url && new URL(response.url).hostname !== new URL(link.rawUrl).hostname) {
-      return { ok: false, error: 'invalid' };
-    }
-    if (response.status === 404) return { ok: false, error: 'not-found' };
-    if (!response.ok) return { ok: false, error: 'http' };
-    const declared = Number(response.headers.get('content-length'));
-    if (Number.isFinite(declared) && declared > MAX_CODE_LENGTH) {
-      return { ok: false, error: 'too-large' };
+    const rejected = earlyRejection(response, link.rawUrl);
+    if (rejected) {
+      discardBody(response);
+      return { ok: false, error: rejected };
     }
     const text = await readTextWithin(response, MAX_CODE_LENGTH);
     if (text === undefined) return { ok: false, error: 'too-large' };

@@ -42,9 +42,20 @@ export function statDomainsOf(index: StatDomainIndex, statId: string): string[] 
   return [...(index.get(parsed[2]) ?? [])];
 }
 
-/** 市集代碼的網域前綴：`explicit.stat_1` → `explicit` */
-export const statDomainOf = (statId: string): string => statId.slice(0, statId.indexOf('.'));
+/**
+ * 市集代碼拆成網域前綴與其後的部分（含 `.`）：`explicit.stat_1` → `explicit` + `.stat_1`。
+ * 沒有前綴（不含 `.` 或以 `.` 開頭）時回傳 null。網域前綴的解析都經過這裡。
+ */
+export function splitStatId(statId: string): { domain: string; rest: string } | null {
+  const dot = statId.indexOf('.');
+  return dot > 0 ? { domain: statId.slice(0, dot), rest: statId.slice(dot) } : null;
+}
 
-/** 換掉代碼的網域前綴；domain 省略時原樣回傳 */
-export const withStatDomain = (statId: string, domain: string | undefined): string =>
-  domain ? `${domain}${statId.slice(statId.indexOf('.'))}` : statId;
+/** 市集代碼的網域前綴：`explicit.stat_1` → `explicit`；沒有前綴時回傳空字串 */
+export const statDomainOf = (statId: string): string => splitStatId(statId)?.domain ?? '';
+
+/** 換掉代碼的網域前綴；domain 省略或代碼沒有前綴時原樣回傳 */
+export function withStatDomain(statId: string, domain: string | undefined): string {
+  const parts = domain ? splitStatId(statId) : null;
+  return parts ? `${domain}${parts.rest}` : statId;
+}

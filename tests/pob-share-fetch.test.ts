@@ -75,6 +75,38 @@ describe('fetchPobShareCode', () => {
     ).toEqual({ ok: false, error: 'http' });
   });
 
+  it('讀內容前就拒絕的回應會取消內容串流', async () => {
+    const cancelled: string[] = [];
+    const streamFor = (label: string) =>
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          controller.enqueue(new Uint8Array(10).fill(97));
+        },
+        cancel() {
+          cancelled.push(label);
+        },
+      });
+    const withUrl = (response: Response, url: string) => {
+      Object.defineProperty(response, 'url', { value: url });
+      return response;
+    };
+    const paste = 'https://pastebin.com/abcd1234';
+    await fetchPobShareCode(paste, makeDeps(async () => new Response(streamFor('404'), { status: 404 })));
+    await fetchPobShareCode(
+      NINJA,
+      makeDeps(async () => withUrl(new Response(streamFor('redirect')), 'https://evil.example/raw')),
+    );
+    await fetchPobShareCode(
+      NINJA,
+      makeDeps(
+        async () =>
+          new Response(streamFor('declared'), { headers: { 'content-length': '500000' } }),
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(cancelled.sort()).toEqual(['404', 'declared', 'redirect']);
+  });
+
   it('轉址到其他網站時不採用', async () => {
     const deps = makeDeps(async () => respond('abc', { url: 'https://evil.example/raw' }));
     expect(await fetchPobShareCode(NINJA, deps)).toEqual({ ok: false, error: 'invalid' });

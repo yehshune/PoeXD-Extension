@@ -5,7 +5,8 @@
  * `result-labels.json`、`trade-ui.json`）翻譯頁面上的裝備與藥劑懸浮框、技能寶石清單、
  * 天賦預覽（關鍵天賦、專精與天賦樹圓點懸浮框）及角色屬性標籤。
  *
- * 只改既有文字節點的內容、不增刪節點，不碰 build code `<textarea>` 與 `<pre>` 筆記區。
+ * 只改既有文字節點的內容、不增刪節點（多行合併後清空的 `<li>` 只加上 hidden），
+ * 不碰 build code `<textarea>` 與 `<pre>` 筆記區。
  */
 import { detectBrowserLocale, resolveDisplayLocale } from './locale-resolution';
 import { parsePobBuildXml } from './pob-build';
@@ -71,6 +72,8 @@ const QUALITY_MODIFIER_LABEL = /^Quality\s*\(([^)]+)\)\s*(:?)$/;
 const DECIMAL_COMMA = /(\d),(\d)/g;
 /** 多行詞綴合併翻譯時一次合併的行數，長的先試 */
 const MULTILINE_SPANS: readonly number[] = [3, 2];
+/** 標記因多行合併而被隱藏的 `<li>` */
+const MERGED_LINE_ATTR = 'data-poexd-merged-line';
 
 interface LineResult {
   /** 這一行的新文字；null 表示不動 */
@@ -306,11 +309,23 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
         const window = lines.slice(index, index + size);
         if (window.length !== size || window.some((line) => !line?.trim())) return false;
         const sources = window.map((line) => (line as string).trim());
-        const translated = data.modTranslator.translate(sources.join('\n'), {
-          keepEnglishPrefix: false,
-        });
+        const joined = sources.join('\n');
+        // 與逐行翻譯相同：小數逗號（0,5）對不到時改成小數點再試一次
+        const normalizedSources = sources.map((source) => source.replace(DECIMAL_COMMA, '$1.$2'));
+        const normalizedJoined = normalizedSources.join('\n');
+        const strict = { keepEnglishPrefix: false };
+        const translated =
+          data.modTranslator.translate(joined, strict) ??
+          (normalizedJoined !== joined
+            ? data.modTranslator.translate(normalizedJoined, strict)
+            : undefined);
         // 譯文裡還留著任何一行英文原文，代表只翻到一部分，不算合併成功
-        if (!translated || sources.some((source) => translated.includes(source))) return false;
+        if (
+          !translated ||
+          [...sources, ...normalizedSources].some((source) => translated.includes(source))
+        ) {
+          return false;
+        }
         const parts = translated.split('\n');
         const slots =
           parts.length === size ? parts : [parts.join(''), ...Array<string>(size - 1).fill('')];
@@ -344,6 +359,18 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     return joined === raw ? null : joined;
   };
 
+  /** 隱藏（或取消隱藏）多行合併後清空的 `<li>`；只取消這裡自己隱藏的，不動網站原本的 hidden */
+  const setMergedHidden = (li: Element, hide: boolean) => {
+    if (!(li instanceof HTMLElement)) return;
+    if (hide) {
+      li.setAttribute(MERGED_LINE_ATTR, '');
+      li.hidden = true;
+    } else if (li.hasAttribute(MERGED_LINE_ATTR)) {
+      li.removeAttribute(MERGED_LINE_ATTR);
+      li.hidden = false;
+    }
+  };
+
   /** 一個 `<ul>` 裡只有文字的 `<li>` 依序當成可合併的多行 */
   const translateListLines = (listItems: readonly Element[]) => {
     const nodes = listItems.map((li) => {
@@ -353,9 +380,15 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     });
     const results = translateLineGroup(nodes.map((node) => node?.data ?? null));
     nodes.forEach((node, i) => {
+      if (!node) return;
       const { text } = results[i];
-      if (!node || text === null) return;
+      if (text === null) {
+        setMergedHidden(listItems[i], false);
+        return;
+      }
       setText(node, text === '' ? '' : (keepPadding(node.data, () => text) ?? text));
+      // 併入前一行的 <li> 已清空，隱藏起來，不留下空白列
+      setMergedHidden(listItems[i], text === '');
     });
     listItems.forEach((li, i) => {
       if (nodes[i]) return;

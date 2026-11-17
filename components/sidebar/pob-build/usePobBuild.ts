@@ -340,7 +340,29 @@ const withoutKey = <T>(source: Readonly<Record<string, T>>, key: string): Record
   return rest;
 };
 
-type PatchSource = StoredPobBuildPatch | ((current: StoredPobBuild) => StoredPobBuildPatch);
+const sameSet = (left: ReadonlySet<string>, right: ReadonlySet<string>) =>
+  left.size === right.size && [...left].every((value) => right.has(value));
+
+/** 本機存的 JSON 欄位（icons、搜尋調整）以序列化結果比較 */
+const sameJson = (left: unknown, right: unknown) =>
+  left === right || JSON.stringify(left) === JSON.stringify(right);
+
+/** 兩份 session 的畫面狀態是否相同（同一份 build 解碼結果） */
+const isSameSession = (left: Session, right: Session): boolean =>
+  left.build === right.build &&
+  left.name === right.name &&
+  left.code === right.code &&
+  left.collapsed === right.collapsed &&
+  left.hideDone === right.hideDone &&
+  left.itemSetId === right.itemSetId &&
+  left.skillSetId === right.skillSetId &&
+  sameSet(left.done, right.done) &&
+  sameSet(left.removed, right.removed) &&
+  sameJson(left.icons, right.icons) &&
+  sameJson(left.searchSelections, right.searchSelections) &&
+  sameJson(left.searchOverrides, right.searchOverrides);
+
+type PatchSource =StoredPobBuildPatch | ((current: StoredPobBuild) => StoredPobBuildPatch);
 
 export function usePobBuild(
   version: PoeVersion,
@@ -359,6 +381,8 @@ export function usePobBuild(
   /** 這個分頁送出、尚未寫完的變更數；有未完成的寫入時，先不拿本機資料覆蓋畫面 */
   let pendingWrites = 0;
   let resyncRequested = false;
+  /** 每次開始同步遞增；同步算完時不是最新一次就捨棄結果 */
+  let syncGeneration = 0;
 
   /**
    * 名稱資料必要（載不到就無法搜尋）。詞綴對應與翻譯載不到時仍可用，只是稀有裝少了詞綴條件、
@@ -702,6 +726,9 @@ export function usePobBuild(
       resyncRequested = true;
       return;
     }
+    // 同時有多次同步時只採用最後開始的那次：較早的快照可能較晚算完（需要重新解碼），不能蓋掉較新的
+    const generation = ++syncGeneration;
+    const isStale = () => generation !== syncGeneration;
     let stored: StoredPobBuild[];
     try {
       stored = await deps.store.list();
@@ -712,25 +739,39 @@ export function usePobBuild(
     if (stored.length > 0 && !catalog.value) {
       try {
         await ensureData();
-      } catch {
+      } catch (error) {
+        console.error('[PoeXD] 無法載入 PoB 購物清單的名稱資料，略過這次同步:', error);
         return;
       }
     }
     const current = new Map(sessions.value.map((session) => [session.id, session]));
     const next = await Promise.all(
-      stored.map((entry) => {
+      stored.map(async (entry): Promise<Session | undefined> => {
         const existing = current.get(entry.id);
         if (existing && existing.code === entry.code) {
-          return Promise.resolve(sessionFrom(existing.build, entry));
+          const synced = sessionFrom(existing.build, entry);
+          // 內容沒變（多半是這個分頁自己剛寫入）時沿用原物件，畫面不重新計算
+          return isSameSession(existing, synced) ? existing : synced;
         }
-        return toSession(entry).catch(() => undefined);
+        try {
+          return await toSession(entry);
+        } catch (error) {
+          // 解不開時保留畫面上原本的版本（若有），不讓 build 無聲消失
+          console.error(`[PoeXD] 無法解碼本機的 PoB build ${entry.id}:`, error);
+          return existing;
+        }
       }),
     );
+    if (isStale()) return;
     if (pendingWrites > 0) {
       resyncRequested = true;
       return;
     }
-    sessions.value = next.filter((session): session is Session => session !== undefined);
+    const synced = next.filter((session): session is Session => session !== undefined);
+    const unchanged =
+      synced.length === sessions.value.length &&
+      synced.every((session, index) => session === sessions.value[index]);
+    if (!unchanged) sessions.value = synced;
   }
 
   const unsubscribeStore = deps.store.subscribe(() => void syncFromStore());
@@ -750,12 +791,18 @@ export function usePobBuild(
       if (stored.length === 0) return;
       try {
         await ensureData();
-      } catch {
+      } catch (error) {
         // 名稱資料載不到時沒有清單可顯示；維持空白，使用者重新匯入時會看到錯誤
+        console.error('[PoeXD] 無法載入 PoB 購物清單的名稱資料:', error);
         return;
       }
       const restored = await Promise.all(
-        stored.map((entry) => toSession(entry).catch(() => undefined)),
+        stored.map((entry) =>
+          toSession(entry).catch((error: unknown) => {
+            console.error(`[PoeXD] 無法解碼本機的 PoB build ${entry.id}:`, error);
+            return undefined;
+          }),
+        ),
       );
       sessions.value = restored.filter((session): session is Session => session !== undefined);
       await captureIconFromResults();

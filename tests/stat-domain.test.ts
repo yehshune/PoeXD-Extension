@@ -5,6 +5,7 @@ import { resetLiveTradeDataForTests, setLiveTradeData } from '@/utils/live-trade
 import { resetOfficialStatTextForTests, setMockOfficialStatText } from '@/utils/official-stat-text';
 import {
   extractStatDomain,
+  toStatDomainKey,
   getStatDomainBadgeLabel,
   getStatDomainLabel,
   getStatDomainStyle,
@@ -32,6 +33,9 @@ describe('stat-domain (詞綴網域色票與官方標籤)', () => {
     expect(extractStatDomain('stat_12345')).toBeNull();
     expect(extractStatDomain('unknown_prefix.stat_1')).toBeNull();
     expect(extractStatDomain('')).toBeNull();
+    expect(toStatDomainKey('fractured')).toBe('fractured');
+    expect(toStatDomainKey('unknown_prefix')).toBeNull();
+    expect(toStatDomainKey(undefined)).toBeNull();
   });
 
   it('對齊官方市集：只有非 explicit 的網域需要顯示標籤徽章', () => {

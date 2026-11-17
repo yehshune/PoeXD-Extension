@@ -859,6 +859,97 @@ describe('usePobBuild', () => {
       b.dispose();
     });
 
+    it('同時有多次同步時，較晚算完的舊快照不會蓋掉較新的內容', async () => {
+      const listeners = new Set<(keys: readonly string[]) => void>();
+      let hold: Promise<void> | undefined;
+      const slow: PobBuildStorage = {
+        // 先取快照再等待：模擬較早開始、較晚算完的同步
+        get: async (keys) => {
+          const snapshot = await storage.get(keys);
+          if (hold) await hold;
+          return snapshot;
+        },
+        set: storage.set,
+        onChanged: (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      };
+      const a = tab(slow);
+      await a.importCode(toCode(buildXml()));
+      const phoenix = rowByLabel(first(a), 'Rise of the Phoenix').key;
+      const key = pobBuildsStorageKey('poe1');
+      const notify = () => listeners.forEach((listener) => listener([key]));
+
+      storage.data[key] = stored().map((build) => ({ ...build, done: [phoenix] }));
+      let release!: () => void;
+      hold = new Promise((resolve) => (release = resolve));
+      notify();
+      await flush();
+      hold = undefined;
+      storage.data[key] = stored().map((build) => ({ ...build, done: [] }));
+      notify();
+      await settle();
+      expect(rowByLabel(first(a), 'Rise of the Phoenix').done).toBe(false);
+
+      release();
+      await settle();
+      expect(rowByLabel(first(a), 'Rise of the Phoenix').done).toBe(false);
+      a.dispose();
+    });
+
+    /** 本機資料可由測試直接改寫、再手動送出變更通知 */
+    const notifyingStorage = () => {
+      const listeners = new Set<(keys: readonly string[]) => void>();
+      const shared: PobBuildStorage = {
+        get: storage.get,
+        set: async (values) => {
+          await storage.set(values);
+          const keys = Object.keys(values);
+          queueMicrotask(() => listeners.forEach((listener) => listener(keys)));
+        },
+        onChanged: (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      };
+      const notify = () =>
+        listeners.forEach((listener) => listener([pobBuildsStorageKey('poe1')]));
+      return { shared, notify };
+    };
+
+    it('這個分頁自己的寫入觸發同步時，內容沒變就不重建畫面', async () => {
+      const { shared } = notifyingStorage();
+      const a = tab(shared);
+      await a.importCode(toCode(buildXml()));
+      await settle();
+      a.toggleDone('build-1', rowByLabel(first(a), 'Rise of the Phoenix').key);
+      const afterToggle = a.builds.value;
+      await settle();
+      expect(stored()[0].done).toHaveLength(1);
+      expect(a.builds.value).toBe(afterToggle);
+      a.dispose();
+    });
+
+    it('同步時解不開的 build 記錄錯誤並保留畫面上原本的版本', async () => {
+      const { shared, notify } = notifyingStorage();
+      const a = tab(shared);
+      await a.importCode(toCode(buildXml()));
+      await settle();
+      const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const key = pobBuildsStorageKey('poe1');
+      storage.data[key] = stored().map((build) => ({ ...build, code: 'not-a-pob-code' }));
+      notify();
+      await settle();
+      expect(error).toHaveBeenCalledWith(
+        expect.stringContaining('build-1'),
+        expect.anything(),
+      );
+      expect(a.builds.value.map((build) => build.id)).toEqual(['build-1']);
+      error.mockRestore();
+      a.dispose();
+    });
+
     it('另一個分頁新增的 build 也會出現在這個分頁，且不會重複', async () => {
       const shared = sharedStorage();
       const a = tab(shared);

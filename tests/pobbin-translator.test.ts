@@ -329,10 +329,34 @@ describe('createPobbinTranslator', () => {
       '',
       '不會被暈眩',
     ]);
+    // 併入前一行而清空的 <li> 隱藏起來，不留空白列；其餘照常顯示
+    expect(
+      Array.from(document.querySelectorAll<HTMLElement>('.pob-item li')).map((li) => li.hidden),
+    ).toEqual([false, false, false, false, true, false]);
     expect(document.querySelector('.whitespace-pre-line')?.textContent).toBe(
       '若力量是你最高的能力值，你靜止時周圍會有奉獻地面\n不會被暈眩',
     );
     stop();
+  });
+
+  it('多行合併：小數逗號（7,5）對不到時改成小數點再試', () => {
+    document.body.innerHTML = `
+      <div class="pob-item" data-rarity="Unique">
+        <div><div>Watcher's Eye</div><div>Prismatic Jewel</div></div>
+        <div>
+          <ul>
+            <li>7,5% of Elemental Damage from your Hits cannot be Reflected while</li>
+            <li>affected by Purity of Elements</li>
+          </ul>
+        </div>
+      </div>
+    `;
+    createPobbinTranslator(makeTestTranslatorData(true)).translate(document);
+
+    expect(Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent)).toEqual([
+      '受到元素之純影響時',
+      '你擊中造成的元素傷害有 7.5% 不會被反射',
+    ]);
   });
 
   it('多行合併只在整組都翻得出來時採用，不把保留英文前綴的結果當成功（星團珠寶）', () => {
