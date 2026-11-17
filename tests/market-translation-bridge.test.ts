@@ -7,6 +7,7 @@ import {
 import {
   MARKET_LIVE_SCHEMA_VERSION,
   getMarketLiveDataCacheKey,
+  getMarketLiveEnglishCacheKey,
   getMarketLiveUiCacheKey,
 } from '@/utils/market-translation-live';
 import {
@@ -97,7 +98,13 @@ describe('startMarketTranslationBridge', () => {
     const onPayload = vi.fn();
     const { deps } = createDeps({ onPayload });
     await startMarketTranslationBridge(deps);
-    expect(onPayload).toHaveBeenCalledWith(expect.objectContaining({ locale: 'zh-TW' }), 'poe2');
+    expect(onPayload).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'zh-TW' }),
+      'poe2',
+      expect.any(Function),
+    );
+    // 沒有即時英文快取時結果列翻譯只用打包資料
+    await expect(onPayload.mock.calls[0][2]()).resolves.toBeUndefined();
 
     const disabled = vi.fn();
     await startMarketTranslationBridge(
@@ -229,6 +236,11 @@ describe('startMarketTranslationBridge', () => {
           stats: { 'explicit.stat_new': '新 3.30 詞綴' },
           options: {},
         },
+      },
+      [getMarketLiveEnglishCacheKey('poe2', 'zh-TW')]: {
+        schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
+        version: 'poe2',
+        locale: 'zh-TW',
         enStats: { 'explicit.stat_new': 'New 3.30 stat' },
       },
     };
@@ -254,17 +266,95 @@ describe('startMarketTranslationBridge', () => {
         },
       },
     });
-    expect(onPayload).toHaveBeenCalledWith(expect.objectContaining({ locale: 'zh-TW' }), 'poe2', {
+    await expect(onPayload.mock.calls[0][2]()).resolves.toEqual({
       stats: { 'explicit.stat_new': 'New 3.30 stat' },
       fields: undefined,
     });
 
+    const staleOnPayload = vi.fn();
     const stale = createDeps({
+      onPayload: staleOnPayload,
       requestLiveRefresh,
       now: () => nowMs,
     });
     await startMarketTranslationBridge(stale.deps);
     expect(requestLiveRefresh).toHaveBeenCalledWith({ version: 'poe2', locale: 'zh-TW' });
     expect(stale.posted[0]).toMatchObject({ type: 'payload', payload: { locale: 'zh-TW' } });
+  });
+
+  it('舊格式快取即使未過期也通知背景拆開存放', async () => {
+    const nowMs = 10_000_000;
+    const requestLiveRefresh = vi.fn(async () => undefined);
+    const storage = {
+      marketTranslation: true,
+      displayLocale: 'zh-TW',
+      [getMarketLiveUiCacheKey('zh-TW')]: {
+        schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
+        locale: 'zh-TW',
+        updatedAt: nowMs - 1000,
+        strings: {},
+      },
+      [getMarketLiveDataCacheKey('poe2', 'zh-TW')]: {
+        schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
+        version: 'poe2',
+        locale: 'zh-TW',
+        updatedAt: nowMs - 1000,
+        enStats: { 'explicit.stat_old': 'Legacy stat' },
+      },
+    };
+    const onPayload = vi.fn();
+    await startMarketTranslationBridge(
+      createDeps({
+        readStorage: vi.fn(async () => storage),
+        requestLiveRefresh,
+        onPayload,
+        now: () => nowMs,
+      }).deps,
+    );
+    expect(requestLiveRefresh).toHaveBeenCalledWith({ version: 'poe2', locale: 'zh-TW' });
+    // 拆開之前結果列翻譯仍讀得到舊格式裡的英文資料
+    await expect(onPayload.mock.calls[0][2]()).resolves.toEqual({
+      stats: { 'explicit.stat_old': 'Legacy stat' },
+      fields: undefined,
+    });
+  });
+
+  it('啟動時不讀英文快取，結果列翻譯要用時才讀並優先於舊格式欄位', async () => {
+    const nowMs = 10_000_000;
+    const englishKey = getMarketLiveEnglishCacheKey('poe2', 'zh-TW');
+    const storage: Record<string, unknown> = {
+      marketTranslation: true,
+      displayLocale: 'zh-TW',
+      [getMarketLiveDataCacheKey('poe2', 'zh-TW')]: {
+        schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
+        version: 'poe2',
+        locale: 'zh-TW',
+        updatedAt: nowMs - 1000,
+        enStats: { 'explicit.stat_old': 'Legacy stat' },
+      },
+      [englishKey]: {
+        schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
+        version: 'poe2',
+        locale: 'zh-TW',
+        enStats: { 'explicit.stat_new': 'New 3.30 stat' },
+        enFields: { ilvl: 'Item Level' },
+      },
+    };
+    const readStorage = vi.fn(async (keys: readonly string[]) =>
+      Object.fromEntries(keys.filter((key) => key in storage).map((key) => [key, storage[key]])),
+    );
+    const onPayload = vi.fn();
+    await startMarketTranslationBridge(
+      createDeps({ readStorage, onPayload, now: () => nowMs }).deps,
+    );
+
+    const startupKeys = readStorage.mock.calls.flatMap(([keys]) => keys);
+    expect(startupKeys).not.toContain(englishKey);
+
+    await expect(onPayload.mock.calls[0][2]()).resolves.toEqual({
+      stats: { 'explicit.stat_new': 'New 3.30 stat' },
+      fields: { ilvl: 'Item Level' },
+    });
+    expect(readStorage).toHaveBeenLastCalledWith([englishKey]);
   });
 });

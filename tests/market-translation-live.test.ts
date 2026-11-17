@@ -6,6 +6,7 @@ import {
   alignLiveTradeItemsWithEnglish,
   createMarketTranslationLiveService,
   getMarketLiveDataCacheKey,
+  getMarketLiveEnglishCacheKey,
   getMarketLiveErrorCacheKey,
   getMarketLiveUiCacheKey,
   mergeMarketTradeDictionary,
@@ -390,7 +391,121 @@ describe('parseOfficialTrade{Stats,Static,Filters}', () => {
   });
 });
 
+function createTwHttp() {
+  return vi.fn<MarketLiveHttpClient>(async (url) => {
+    if (url === 'https://webtw.poecdn.com/js/translate.zh_TW.js')
+      return okResponse(buildTranslateJs());
+    if (url === 'https://pathofexile.tw/api/trade/data/stats')
+      return okResponse(buildStatsResponse());
+    if (url === 'https://pathofexile.tw/api/trade/data/static')
+      return okResponse(buildStaticResponse());
+    if (url === 'https://pathofexile.tw/api/trade/data/filters')
+      return okResponse(buildFiltersResponse());
+    if (url === 'https://pathofexile.tw/api/trade/data/items')
+      return okResponse(buildItemsResponse());
+    if (url === 'https://www.pathofexile.com/api/trade/data/stats')
+      return okResponse(buildEnglishStatsResponse());
+    if (url === 'https://www.pathofexile.com/api/trade/data/filters')
+      return okResponse(buildEnglishFiltersResponse());
+    if (url === 'https://www.pathofexile.com/api/trade/data/items')
+      return okResponse(buildEnglishItemsResponse());
+    throw new Error(`unexpected ${url}`);
+  });
+}
+
 describe('createMarketTranslationLiveService', () => {
+  it('英文資料另存一筆：頁面啟動讀的 data 快取不含英文欄位', async () => {
+    const storage = createMemoryStorage();
+    const service = createMarketTranslationLiveService({
+      storage,
+      http: createTwHttp(),
+      now: () => 1_000_000,
+    });
+
+    await service.refresh({ version: 'poe1', locale: 'zh-TW' });
+
+    const dataKey = getMarketLiveDataCacheKey('poe1', 'zh-TW');
+    const englishKey = getMarketLiveEnglishCacheKey('poe1', 'zh-TW');
+    const cached = await storage.get([dataKey, englishKey]);
+    const data = cached[dataKey] as Record<string, unknown>;
+    expect(data).not.toHaveProperty('enStats');
+    expect(data).not.toHaveProperty('enFields');
+    expect(data).not.toHaveProperty('enItems');
+    expect(data.stats).toBeDefined();
+    expect(data.endpointUpdatedAt).toMatchObject({ enStats: 1_000_000, enItems: 1_000_000 });
+    expect(cached[englishKey]).toMatchObject({
+      version: 'poe1',
+      locale: 'zh-TW',
+      enStats: expect.any(Object),
+      enFields: expect.any(Object),
+      enItems: expect.any(Object),
+    });
+  });
+
+  it('舊格式快取在 TTL 內也會拆開存放，不重抓官方 API 且保留英文資料', async () => {
+    const nowMs = 1_000_000;
+    const dataKey = getMarketLiveDataCacheKey('poe1', 'zh-TW');
+    const englishKey = getMarketLiveEnglishCacheKey('poe1', 'zh-TW');
+    // 先用新版寫一份完整快取，再合併回舊版的單筆格式
+    const seed = createMemoryStorage();
+    await createMarketTranslationLiveService({
+      storage: seed,
+      http: createTwHttp(),
+      now: () => nowMs,
+    }).refresh({ version: 'poe1', locale: 'zh-TW' });
+    const seeded = await seed.get([getMarketLiveUiCacheKey('zh-TW'), dataKey, englishKey]);
+    const english = seeded[englishKey] as Record<string, unknown>;
+    const legacy = {
+      ...(seeded[dataKey] as Record<string, unknown>),
+      enStats: english.enStats,
+      enFields: english.enFields,
+      enItems: english.enItems,
+    };
+    const storage = createMemoryStorage({
+      [getMarketLiveUiCacheKey('zh-TW')]: seeded[getMarketLiveUiCacheKey('zh-TW')],
+      [dataKey]: legacy,
+    });
+    const http = createTwHttp();
+
+    const outcome = await createMarketTranslationLiveService({
+      storage,
+      http,
+      now: () => nowMs + 1000,
+    }).refresh({ version: 'poe1', locale: 'zh-TW' });
+
+    expect(outcome).toEqual({ ok: true, updated: false, sources: [] });
+    expect(http).not.toHaveBeenCalled();
+    const migrated = await storage.get([dataKey, englishKey]);
+    expect(migrated[dataKey]).not.toHaveProperty('enStats');
+    expect(migrated[englishKey]).toMatchObject({
+      enStats: english.enStats,
+      enFields: english.enFields,
+      enItems: english.enItems,
+    });
+  });
+
+  it('只重抓在地化端點時沿用英文快取對齊，英文快取保持不變', async () => {
+    let nowMs = 1_000_000;
+    const storage = createMemoryStorage();
+    const http = createTwHttp();
+    const service = createMarketTranslationLiveService({ storage, http, now: () => nowMs });
+    await service.refresh({ version: 'poe1', locale: 'zh-TW' });
+    const englishKey = getMarketLiveEnglishCacheKey('poe1', 'zh-TW');
+    const before = (await storage.get([englishKey]))[englishKey];
+
+    // 英文端點全部失敗：重抓的 stats 仍要用既有英文快取對齊
+    http.mockImplementation(async (url) => {
+      if (url.startsWith('https://www.pathofexile.com/')) throw new Error('down');
+      return createTwHttp()(url);
+    });
+    nowMs += MARKET_LIVE_TTL_MS + 1000;
+    const outcome = await service.refresh({ version: 'poe1', locale: 'zh-TW', force: true });
+
+    expect(outcome).toMatchObject({ ok: true, updated: true });
+    expect(outcome.ok && outcome.sources).toContain('stats');
+    expect((await storage.get([englishKey]))[englishKey]).toEqual(before);
+  });
+
   it('抓取台服官方 API 與 UI 字典並寫入快取，TTL 內不重抓', async () => {
     let nowMs = 1_000_000;
     const storage = createMemoryStorage();

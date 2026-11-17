@@ -13,12 +13,16 @@ import {
 import { loadMarketTradeDictionary, type MarketLiveEnglishData } from './market-translation-assets';
 import {
   getMarketLiveDataCacheKey,
+  getMarketLiveEnglishCacheKey,
   getMarketLiveUiCacheKey,
+  isLegacyMarketLiveDataCache,
   isMarketLiveCacheFresh,
   mergeMarketTradeDictionary,
   mergeMarketUiStrings,
   readValidMarketLiveDataCache,
+  readValidMarketLiveEnglishCache,
   readValidMarketLiveUiCache,
+  resolveMarketLiveEnglishData,
   type MarketTranslationRefreshRequest,
 } from './market-translation-live';
 import { getPoeVersion, type PoeVersion } from './trade-context';
@@ -53,11 +57,14 @@ export interface MarketTranslationBridgeDeps {
   /** 背景非同步向官方 API 更新最新譯文（不阻塞開頁閘門） */
   requestLiveRefresh?(request: MarketTranslationRefreshRequest): Promise<unknown> | void;
   now?: () => number;
-  /** payload 送出後呼叫（例如啟動結果列翻譯）；停用時不呼叫 */
+  /**
+   * payload 送出後呼叫（例如啟動結果列翻譯）；停用時不呼叫。
+   * 國際服英文資料只有結果列翻譯用得到，由 loadLiveEn 在需要時才讀取（沒有時為 undefined）。
+   */
   onPayload?(
     payload: MarketTranslationPayload,
     version: PoeVersion,
-    liveEn?: MarketLiveEnglishData,
+    loadLiveEn: () => Promise<MarketLiveEnglishData | undefined>,
   ): void;
 }
 
@@ -85,7 +92,7 @@ export function parseMarketUiAsset(
 
 interface BuiltBridgeResult {
   message: MarketTranslationMessage;
-  liveEn?: MarketLiveEnglishData;
+  loadLiveEn?: () => Promise<MarketLiveEnglishData | undefined>;
 }
 
 async function buildMessage(deps: MarketTranslationBridgeDeps): Promise<BuiltBridgeResult> {
@@ -114,7 +121,9 @@ async function buildMessage(deps: MarketTranslationBridgeDeps): Promise<BuiltBri
   const now = (deps.now ?? Date.now)();
   if (
     !isMarketLiveCacheFresh(liveUi?.updatedAt, now) ||
-    !isMarketLiveCacheFresh(liveData?.updatedAt, now)
+    !isMarketLiveCacheFresh(liveData?.updatedAt, now) ||
+    // 舊格式（英文資料合併存放）：背景會在不重抓的情況下拆開存放
+    isLegacyMarketLiveDataCache(liveData)
   ) {
     try {
       void Promise.resolve(deps.requestLiveRefresh?.({ version, locale })).catch(() => undefined);
@@ -125,14 +134,21 @@ async function buildMessage(deps: MarketTranslationBridgeDeps): Promise<BuiltBri
 
   const ui = mergeMarketUiStrings(bundledUi, liveUi?.strings);
   const data = mergeMarketTradeDictionary(bundledData, liveData);
-  const liveEn =
-    liveData?.enStats || liveData?.enFields
-      ? { stats: liveData.enStats, fields: liveData.enFields }
-      : undefined;
+  const englishKey = getMarketLiveEnglishCacheKey(version, locale);
+  const loadLiveEn = async () => {
+    try {
+      const stored = await deps.readStorage([englishKey]);
+      const english = readValidMarketLiveEnglishCache(stored[englishKey], version, locale);
+      return resolveMarketLiveEnglishData(english, liveData);
+    } catch (error) {
+      console.warn('[PoeXD] 讀取市集漢化英文快取失敗，結果列改用打包資料:', error);
+      return resolveMarketLiveEnglishData(null, liveData);
+    }
+  };
 
   // 偏好沒存過時預設中英並列（與 DEFAULT_PREFERENCES 一致）
   const bilingual = stored.marketTranslationBilingual !== false;
-  return { message: createPayloadMessage({ locale, ui, bilingual, data }), liveEn };
+  return { message: createPayloadMessage({ locale, ui, bilingual, data }), loadLiveEn };
 }
 
 const isRequest = (data: unknown): boolean =>
@@ -143,7 +159,7 @@ export async function startMarketTranslationBridge(
   deps: MarketTranslationBridgeDeps,
 ): Promise<() => void> {
   let latest: MarketTranslationMessage | null = null;
-  let liveEn: MarketLiveEnglishData | undefined;
+  let loadLiveEn: BuiltBridgeResult['loadLiveEn'];
   // 先訂閱：MAIN world 可能比這裡早啟動，它的 request 要在準備好之後得到回應
   const unsubscribe = deps.subscribe((data) => {
     if (latest && isRequest(data)) deps.post(latest);
@@ -152,7 +168,7 @@ export async function startMarketTranslationBridge(
   try {
     const built = await buildMessage(deps);
     latest = built.message;
-    liveEn = built.liveEn;
+    loadLiveEn = built.loadLiveEn;
   } catch (error) {
     console.warn('[PoeXD] 市集漢化資料載入失敗，維持英文顯示:', error);
     latest = createDisabledMessage();
@@ -160,8 +176,7 @@ export async function startMarketTranslationBridge(
   deps.post(latest);
   if (latest.type === 'payload') {
     const version = getPoeVersion(deps.pathname);
-    if (liveEn) deps.onPayload?.(latest.payload, version, liveEn);
-    else deps.onPayload?.(latest.payload, version);
+    deps.onPayload?.(latest.payload, version, loadLiveEn ?? (async () => undefined));
   }
   return unsubscribe;
 }

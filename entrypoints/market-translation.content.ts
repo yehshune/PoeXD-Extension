@@ -46,19 +46,22 @@ export default defineContentScript({
       requestLiveRefresh: (request) =>
         extensionMessaging.sendMessage('marketTranslation:refresh', request),
       // 第 4 階段：結果列（詞綴、物品名、屬性標籤）在 isolated world 直接改 DOM 文字
-      onPayload: (payload, version, liveEn) => {
+      onPayload: (payload, version, loadLiveEn) => {
         markMarketTranslationActive(document, payload);
         // 結果列翻譯資料約 3 MB，只有結果列用得到；官網此時正在載入、執行自己的腳本，
         // 等主執行緒閒置（通常是官方 search / fetch 的網路等待期間）再解析，
         // observe() 啟動時會補翻已出現的結果列
         whenMainThreadIdle(() => {
-          void loadResultTranslatorData(loadJson, {
-            version,
-            locale: payload.locale,
-            dictionary: payload.data ?? {},
-            ui: payload.ui,
-            liveEn,
-          })
+          void loadLiveEn()
+            .then((liveEn) =>
+              loadResultTranslatorData(loadJson, {
+                version,
+                locale: payload.locale,
+                dictionary: payload.data ?? {},
+                ui: payload.ui,
+                liveEn,
+              }),
+            )
             .then((data) => createResultTranslator(data).observe(document))
             .catch((error) => console.warn('[PoeXD] 市集漢化結果列翻譯啟動失敗:', error));
         });

@@ -62,6 +62,16 @@ export interface MarketLiveDataCache {
   enItems?: MarketLiveEnglishItems;
 }
 
+/** 英文資料的獨立快取（見 getMarketLiveEnglishCacheKey）；時間戳記在 data 快取的 endpointUpdatedAt */
+export interface MarketLiveEnglishCache {
+  schemaVersion: number;
+  version: PoeVersion;
+  locale: MarketTranslationLocale;
+  enStats?: Record<string, string | string[]>;
+  enFields?: Record<string, string>;
+  enItems?: MarketLiveEnglishItems;
+}
+
 export interface MarketTranslationRefreshRequest {
   version: PoeVersion;
   locale: MarketTranslationLocale;
@@ -87,6 +97,15 @@ export const getMarketLiveUiCacheKey = (locale: MarketTranslationLocale) =>
 
 export const getMarketLiveDataCacheKey = (version: PoeVersion, locale: MarketTranslationLocale) =>
   `poexd_market_live_data_${version}_${locale}`;
+
+/**
+ * 國際服英文資料（enStats / enFields / enItems）另存一筆：約占即時快取的六成，
+ * 只有背景對齊與結果列翻譯用得到，頁面啟動時不必連同 data 字典一起讀出來。
+ */
+export const getMarketLiveEnglishCacheKey = (
+  version: PoeVersion,
+  locale: MarketTranslationLocale,
+) => `poexd_market_live_en_${version}_${locale}`;
 
 export const getMarketLiveErrorCacheKey = (version: PoeVersion, locale: MarketTranslationLocale) =>
   `poexd_market_live_error_${version}_${locale}`;
@@ -624,6 +643,13 @@ export function readValidMarketLiveDataCache(
   ) {
     out.tradeItems = value.tradeItems as NonNullable<MarketTradeDictionary['tradeItems']>;
   }
+  // 舊版把英文資料存在同一筆；背景下次刷新時會拆到英文快取
+  Object.assign(out, readEnglishFields(value));
+  return out;
+}
+
+function readEnglishFields(value: Record<string, unknown>): Partial<MarketLiveEnglishCache> {
+  const out: Partial<MarketLiveEnglishCache> = {};
   if (isStatsValueMap(value.enStats)) out.enStats = value.enStats;
   if (isStringMap(value.enFields)) out.enFields = value.enFields;
   if (
@@ -634,6 +660,45 @@ export function readValidMarketLiveDataCache(
     out.enItems = value.enItems as unknown as MarketLiveEnglishItems;
   }
   return out;
+}
+
+export function readValidMarketLiveEnglishCache(
+  value: unknown,
+  version: PoeVersion,
+  locale: MarketTranslationLocale,
+): MarketLiveEnglishCache | null {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== MARKET_LIVE_SCHEMA_VERSION ||
+    value.version !== version ||
+    value.locale !== locale
+  ) {
+    return null;
+  }
+  return {
+    schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
+    version,
+    locale,
+    ...readEnglishFields(value),
+  };
+}
+
+/** data 快取是否仍是英文資料合併存放的舊格式 */
+export function isLegacyMarketLiveDataCache(data: MarketLiveDataCache | null): boolean {
+  return Boolean(data && (data.enStats || data.enFields || data.enItems));
+}
+
+/**
+ * 結果列翻譯用的國際服英文資料：英文快取優先，沒有時退回舊格式 data 快取裡的欄位。
+ * 兩者都沒有時回傳 undefined。
+ */
+export function resolveMarketLiveEnglishData(
+  english: MarketLiveEnglishCache | null,
+  legacyData: MarketLiveDataCache | null,
+): { stats?: Record<string, string | string[]>; fields?: Record<string, string> } | undefined {
+  const stats = english?.enStats ?? legacyData?.enStats;
+  const fields = english?.enFields ?? legacyData?.enFields;
+  return stats || fields ? { stats, fields } : undefined;
 }
 
 export function isMarketLiveCacheFresh(
@@ -768,6 +833,26 @@ export interface MarketTranslationLiveService {
   refresh(request: MarketTranslationRefreshRequest): Promise<MarketTranslationRefreshOutcome>;
 }
 
+/** 把完整的即時資料拆成 data 快取與英文快取兩筆寫入內容 */
+function splitMarketLiveDataCache(
+  cache: MarketLiveDataCache,
+  dataKey: string,
+  englishKey: string,
+): Record<string, unknown> {
+  const { enStats, enFields, enItems, ...data } = cache;
+  return {
+    [dataKey]: data satisfies MarketLiveDataCache,
+    [englishKey]: {
+      schemaVersion: cache.schemaVersion,
+      version: cache.version,
+      locale: cache.locale,
+      enStats,
+      enFields,
+      enItems,
+    } satisfies MarketLiveEnglishCache,
+  };
+}
+
 function readEndpointUpdatedAt(
   cache: MarketLiveDataCache | null,
   source: MarketLiveDataSourceKey,
@@ -823,12 +908,21 @@ export function createMarketTranslationLiveService(
     const { version, locale, force } = request;
     const uiKey = getMarketLiveUiCacheKey(locale);
     const dataKey = getMarketLiveDataCacheKey(version, locale);
+    const englishKey = getMarketLiveEnglishCacheKey(version, locale);
     const errorKey = getMarketLiveErrorCacheKey(version, locale);
     const currentNow = now();
 
-    const stored = await storage.get([uiKey, dataKey, errorKey]);
+    const stored = await storage.get([uiKey, dataKey, englishKey, errorKey]);
     const prevUi = readValidMarketLiveUiCache(stored[uiKey], locale);
-    const prevData = readValidMarketLiveDataCache(stored[dataKey], version, locale);
+    const storedData = readValidMarketLiveDataCache(stored[dataKey], version, locale);
+    const storedEnglish = readValidMarketLiveEnglishCache(stored[englishKey], version, locale);
+    // 英文快取優先；舊格式 data 快取裡的英文欄位只在英文快取缺該欄位時沿用
+    const prevData: MarketLiveDataCache | null = storedData && {
+      ...storedData,
+      enStats: storedEnglish?.enStats ?? storedData.enStats,
+      enFields: storedEnglish?.enFields ?? storedData.enFields,
+      enItems: storedEnglish?.enItems ?? storedData.enItems,
+    };
     const cooledDown = readCooldownSet(stored[errorKey], currentNow, force);
 
     const prevEndpointUpdatedAt: Partial<Record<MarketLiveDataSourceKey, number>> = {};
@@ -881,6 +975,10 @@ export function createMarketTranslationLiveService(
     if (fetchEnItems) attemptedSources.push('enItems');
 
     if (attemptedSources.length === 0) {
+      // 都還新鮮但仍是舊格式：拆開存放，之後頁面啟動不必讀英文資料
+      if (prevData && isLegacyMarketLiveDataCache(storedData)) {
+        await storage.set(splitMarketLiveDataCache(prevData, dataKey, englishKey));
+      }
       return { ok: true, updated: false, sources: [] };
     }
 
@@ -997,20 +1095,27 @@ export function createMarketTranslationLiveService(
       );
       const allDataPresent = timestamps.length === DATA_SOURCE_KEYS.length;
 
-      nextWrites[dataKey] = {
-        schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
-        version,
-        locale,
-        updatedAt: allDataPresent ? Math.min(...timestamps) : 0,
-        endpointUpdatedAt: nextEndpointUpdatedAt,
-        stats: nextStats ?? retainedStats,
-        static: nextStatic ?? prevData?.static,
-        filters: nextFilters ?? prevData?.filters,
-        tradeItems: nextTradeItems ?? prevData?.tradeItems,
-        enStats: effectiveEnStats,
-        enFields: effectiveEnFields,
-        enItems: effectiveEnItems,
-      } satisfies MarketLiveDataCache;
+      Object.assign(
+        nextWrites,
+        splitMarketLiveDataCache(
+          {
+            schemaVersion: MARKET_LIVE_SCHEMA_VERSION,
+            version,
+            locale,
+            updatedAt: allDataPresent ? Math.min(...timestamps) : 0,
+            endpointUpdatedAt: nextEndpointUpdatedAt,
+            stats: nextStats ?? retainedStats,
+            static: nextStatic ?? prevData?.static,
+            filters: nextFilters ?? prevData?.filters,
+            tradeItems: nextTradeItems ?? prevData?.tradeItems,
+            enStats: effectiveEnStats,
+            enFields: effectiveEnFields,
+            enItems: effectiveEnItems,
+          },
+          dataKey,
+          englishKey,
+        ),
+      );
     }
 
     const updatedSet = new Set(updatedSources);
