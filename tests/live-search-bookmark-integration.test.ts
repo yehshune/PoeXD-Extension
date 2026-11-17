@@ -2638,6 +2638,86 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       sourceCtrl.dispose();
     });
 
+    it('[Regression 6] 跨聯盟啟用的未釘選書籤：重新載入書籤時不得把它的 Resume 身分當成已刪除', async () => {
+      // 書籤存於 Standard、未釘選聯盟；主控台在 Covens 啟用時網址改寫為 Covens，Resume Plan 也存 Covens
+      const listeners = new Set<() => void>();
+      const unpinnedSource: LiveSearchBookmarkSourcePort = {
+        async readCollection() {
+          return {
+            ok: true,
+            value: {
+              groups: [{ id: 'g_1', name: '資料夾', order: 0 } as any],
+              bookmarks: [
+                {
+                  id: 'bmk_unpinned',
+                  name: '魔血',
+                  url: 'https://www.pathofexile.com/trade/search/Standard/H4sIunpinned_item',
+                  groupId: 'g_1',
+                  order: 0,
+                  gameVersion: 'poe1',
+                  searchRecordId: 'rec_unpinned',
+                },
+              ],
+            },
+          };
+        },
+        subscribe: (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      };
+
+      let persistedState: Record<string, unknown> = {};
+      const resumeStorage: LiveSearchResumeStorage = {
+        async get() {
+          return persistedState;
+        },
+        async set(items) {
+          persistedState = { ...persistedState, ...items };
+        },
+        async remove(keys) {
+          for (const k of keys) delete persistedState[k];
+        },
+      };
+      const resumeStore = createLiveSearchResumeStore('poe1', resumeStorage);
+
+      const sourceCtrl = createLiveSearchSourceController(unpinnedSource, liveController, {
+        initialLeague: 'Covens',
+        resumeStore,
+      });
+      await vi.waitFor(() => expect(sourceCtrl.read().loading).toBe(false));
+
+      const enableRes = await sourceCtrl.enable('bmk_unpinned');
+      expect(enableRes.success).toBe(true);
+      const afterEnable = await resumeStore.read();
+      expect(afterEnable.ok && afterEnable.value.identities).toEqual([
+        { gameVersion: 'poe1', league: 'covens', searchId: 'H4sIunpinned_item' },
+      ]);
+
+      // 書籤重新載入（主控台重新整理、書籤變動時都會發生）
+      for (const listener of listeners) listener();
+      await vi.waitFor(async () => {
+        const read = await resumeStore.read();
+        expect(read.ok && read.value.identities).toHaveLength(1);
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const afterReload = await resumeStore.read();
+      expect(afterReload.ok && afterReload.value.identities).toHaveLength(1);
+
+      // 主控台重開：新的控制器以同一份儲存啟動
+      sourceCtrl.dispose();
+      const reopened = createLiveSearchSourceController(unpinnedSource, liveController, {
+        initialLeague: 'Covens',
+        resumeStore: createLiveSearchResumeStore('poe1', resumeStorage),
+      });
+      await vi.waitFor(() => expect(reopened.read().loading).toBe(false));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const persisted = persistedState.liveSearchResumePlan_poe1 as { identities: unknown[] };
+      expect(persisted.identities).toHaveLength(1);
+
+      reopened.dispose();
+    });
+
     it('[Regression 9] Rapid superseded switch + latest Host failure: superseded Hardcore switch does not leave Host committed to Hardcore when latest Standard switch fails, and workspace remains operable', async () => {
       const sourceCtrl = createLiveSearchSourceController(bookmarkSource, liveController, {
         initialLeague: 'Standard',

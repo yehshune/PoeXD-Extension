@@ -1696,23 +1696,24 @@ export function createLiveSearchSourceController(
           rawCollection = outcome.value;
           syncResolvedCollection();
           reconcileSourceOwnership();
-          if (resumeStore) {
+          // 書籤網址會依主控台選定聯盟改寫（未釘選聯盟者），Resume Plan 也以改寫後的身分保存；
+          // 必須用改寫後的網址比對，否則跨聯盟啟用的書籤連線會在下次載入時被當成已刪除。
+          // 聯盟尚未決定前無法改寫，也無法限定聯盟範圍，交給 Resume 控制器在聯盟決定後清理。
+          if (resumeStore && selectedLeague && currentCollection) {
             const validKeys = new Set<string>();
-            for (const b of outcome.value.bookmarks) {
-              const cleanUrl = stripLiveSuffix(b.url);
-              const parsed = parseTradeSearchUrl(cleanUrl);
-              if (parsed) {
-                validKeys.add(getTradeSearchCanonicalKey(parsed));
-              }
+            for (const b of currentCollection.bookmarks) {
+              const key = getBookmarkCanonicalKey(b);
+              if (key) validKeys.add(key);
             }
+            const leagueLower = selectedLeague.trim().toLowerCase();
             for (const [k, v] of baselineResumeByKey.entries()) {
-              if (!v.url && !v.name && !validKeys.has(k)) {
-                if (
-                  !selectedLeague ||
-                  v.league.trim().toLowerCase() === selectedLeague.trim().toLowerCase()
-                ) {
-                  baselineResumeByKey.delete(k);
-                }
+              if (
+                !v.url &&
+                !v.name &&
+                !validKeys.has(k) &&
+                v.league.trim().toLowerCase() === leagueLower
+              ) {
+                baselineResumeByKey.delete(k);
               }
             }
             void resumeStore.pruneToAuthoritative(validKeys, { league: selectedLeague });
