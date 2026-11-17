@@ -4,7 +4,10 @@ import { detectBrowserLocale } from '@/utils/locale-resolution';
 import { startMarketTranslationBridge } from '@/utils/market-translation-bridge';
 import { loadResultTranslatorData } from '@/utils/market-translation-assets';
 import { createResultTranslator } from '@/utils/market-result-translator';
-import { MARKET_TRANSLATION_MATCH_PATTERNS } from '@/utils/market-translation-protocol';
+import {
+  MARKET_TRANSLATION_MATCH_PATTERNS,
+  postMarketTranslationMessage,
+} from '@/utils/market-translation-protocol';
 import { markMarketTranslationActive } from '@/utils/market-translation';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
 
@@ -35,7 +38,7 @@ export default defineContentScript({
       browserLocale: detectBrowserLocale(),
       readStorage: (keys) => chrome.storage.local.get([...keys]),
       loadJson,
-      post: (message) => window.postMessage(message, window.location.origin),
+      post: (message) => postMarketTranslationMessage(window, message),
       subscribe: (handler) => {
         const listener = (event: MessageEvent) => {
           if (event.source === window) handler(event.data);

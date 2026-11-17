@@ -4,6 +4,10 @@
  * 兩支 content script 都在 document_start 執行但先後不保證，所以 MAIN world 啟動時送 `request`，
  * isolated world 準備好就送 `payload` 或 `disabled`，收到 `request` 時再送一次最新結果。
  * 頁面本身也能送出同形訊息，但最多只影響它自己的顯示，不涉及擴充權限或使用者資料。
+ *
+ * payload 有數 MB：直接 window.postMessage 時，每個在 window 上聽 message 並讀取 `event.data`
+ * 的 world（包含送出它的 isolated world 自己）都會各反序列化一次。所以 payload 改走
+ * MessageChannel：window 上只送附帶 port 的小訊息 `payload-port`，payload 經 port 只交給 MAIN world。
  */
 
 import type { MarketTradeDictionary } from './market-translation-data';
@@ -67,6 +71,40 @@ export const createDisabledMessage = (): MarketTranslationMessage => ({
   source: MARKET_MESSAGE_SOURCE,
   type: 'disabled',
 });
+
+/** window 上的小訊息：附帶的 port 會送來一則 payload 訊息 */
+export interface MarketTranslationPortMessage {
+  source: typeof MARKET_MESSAGE_SOURCE;
+  type: 'payload-port';
+}
+
+export function isMarketTranslationPortMessage(
+  value: unknown,
+): value is MarketTranslationPortMessage {
+  return isRecord(value) && value.source === MARKET_MESSAGE_SOURCE && value.type === 'payload-port';
+}
+
+/**
+ * 送出協定訊息；payload 經 MessageChannel 傳遞，其他訊息直接 window.postMessage。
+ * `createChannel` 供測試替換。
+ */
+export function postMarketTranslationMessage(
+  win: Pick<Window, 'postMessage'> & { location: { origin: string } },
+  message: MarketTranslationMessage,
+  createChannel: () => MessageChannel = () => new MessageChannel(),
+): void {
+  if (message.type !== 'payload') {
+    win.postMessage(message, win.location.origin);
+    return;
+  }
+  const channel = createChannel();
+  const notice: MarketTranslationPortMessage = {
+    source: MARKET_MESSAGE_SOURCE,
+    type: 'payload-port',
+  };
+  win.postMessage(notice, win.location.origin, [channel.port2]);
+  channel.port1.postMessage(message);
+}
 
 export const createPayloadMessage = (
   payload: MarketTranslationPayload,

@@ -339,6 +339,31 @@ describe('startMarketTranslationPage', () => {
     postSpy.mockRestore();
   });
 
+  it('payload 經 MessageChannel 送達時套用 __ 並放行 data API', async () => {
+    const original = vi.fn(async () => new Response('{}'));
+    (window as any).fetch = original;
+    const postSpy = vi.spyOn(window, 'postMessage').mockImplementation(() => {});
+    const stop = startMarketTranslationPage(window, { timeoutMs: 1500 });
+
+    const pending = window.fetch('/api/trade/data/stats');
+    const port = { onmessage: null as ((event: { data: unknown }) => void) | null, close: vi.fn() };
+    const notice = new MessageEvent('message', {
+      data: { source: MARKET_MESSAGE_SOURCE, type: 'payload-port' },
+      source: window,
+    });
+    Object.defineProperty(notice, 'ports', { value: [port] });
+    window.dispatchEvent(notice);
+    expect(port.onmessage).toBeTypeOf('function');
+    port.onmessage!({ data: { source: MARKET_MESSAGE_SOURCE, type: 'payload', payload } });
+
+    await pending;
+    expect(original).toHaveBeenCalledTimes(1);
+    expect((window as any).__['Bulk Item Exchange']).toBe('以物易物');
+    expect(port.close).toHaveBeenCalled();
+    stop();
+    postSpy.mockRestore();
+  });
+
   it('忽略不是來自本視窗的訊息', async () => {
     (window as any).fetch = vi.fn(async () => new Response('{}'));
     const postSpy = vi.spyOn(window, 'postMessage').mockImplementation(() => {});

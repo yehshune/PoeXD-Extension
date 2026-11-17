@@ -20,6 +20,7 @@ import {
 import {
   createRequestMessage,
   isMarketTranslationMessage,
+  isMarketTranslationPortMessage,
   type MarketTranslationPayload,
 } from './market-translation-protocol';
 
@@ -241,9 +242,9 @@ export function startMarketTranslationPage(
   const gate = createPayloadGate(options.timeoutMs);
   const restoreFetch = wrapFetchWithGate(win, gate);
 
-  const handleMessage = (event: MessageEvent) => {
-    if (event.source !== win || !isMarketTranslationMessage(event.data)) return;
-    const message = event.data;
+  const receive = (data: unknown) => {
+    if (!isMarketTranslationMessage(data)) return;
+    const message = data;
     if (message.type === 'request' || gate.settled) return;
     if (message.type === 'disabled') {
       gate.settle(null);
@@ -252,6 +253,19 @@ export function startMarketTranslationPage(
     applyUiDictionary(win, message.payload.ui);
     gate.settle(message.payload);
     forceRerenderVueApps(win.document);
+  };
+
+  const handleMessage = (event: MessageEvent) => {
+    if (event.source !== win) return;
+    const [port] = event.ports ?? [];
+    if (port && isMarketTranslationPortMessage(event.data)) {
+      port.onmessage = (portEvent) => {
+        port.close();
+        receive(portEvent.data);
+      };
+      return;
+    }
+    receive(event.data);
   };
 
   win.addEventListener('message', handleMessage);
