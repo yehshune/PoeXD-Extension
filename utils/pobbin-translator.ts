@@ -1,8 +1,9 @@
 /**
  * pobb.in 分享頁翻譯：在使用者已授權 `https://pobb.in/*` 選用權限、且開啟市集漢化（繁中／簡中）時，
  * 直接以擴充現有的官方資料（`items.json`、`mod-lines.json`、`stat-text-items.json`、
- * `stat-aliases.json`、`trade-stats.json`、`result-labels.json`、`trade-ui.json`）翻譯頁面上的
- * 裝備與藥劑懸浮框、技能寶石清單、天賦預覽（關鍵天賦、專精與天賦樹圓點懸浮框）及角色屬性標籤。
+ * `stat-text-passives.json`、`passive-names.json`、`stat-aliases.json`、`trade-stats.json`、
+ * `result-labels.json`、`trade-ui.json`）翻譯頁面上的裝備與藥劑懸浮框、技能寶石清單、
+ * 天賦預覽（關鍵天賦、專精與天賦樹圓點懸浮框）及角色屬性標籤。
  *
  * 只改既有文字節點的內容、不增刪節點，不碰 build code `<textarea>` 與 `<pre>` 筆記區。
  */
@@ -32,6 +33,8 @@ import { resolveStoredDisplayLocale } from './preferences-contract';
 import {
   getLocaleItemsAssetPath,
   getLocaleModLinesAssetPath,
+  getLocalePassiveNamesAssetPath,
+  getLocalePassiveStatTextAssetPath,
   getLocaleResultLabelsAssetPath,
   getLocaleStatTextAssetPath,
   getLocaleTradeFiltersAssetPath,
@@ -51,7 +54,7 @@ export interface PobbinTranslatorData {
   catalog: TradeNameCatalog;
   /** 英文物品／寶石／關鍵天賦名（小寫）→ 譯名 */
   items: Readonly<Record<string, string>>;
-  /** 英文核心／昇華／星團天賦名（小寫）→ 譯名 */
+  /** 英文天賦／昇華名（小寫）→ 譯名：市集對得到的名稱優先，其餘取遊戲資料表的天賦名稱表 */
   passives?: Readonly<Record<string, string>>;
   bilingual: boolean;
 }
@@ -66,6 +69,15 @@ const TIMELESS_HEADER = /^(.+?)(\s+\d+;.*)$/;
 const FOULBORN_HEADER = /^Foulborn\s+(.+)$/i;
 const QUALITY_MODIFIER_LABEL = /^Quality\s*\(([^)]+)\)\s*(:?)$/;
 const DECIMAL_COMMA = /(\d),(\d)/g;
+/** 多行詞綴合併翻譯時一次合併的行數，長的先試 */
+const MULTILINE_SPANS: readonly number[] = [3, 2];
+
+interface LineResult {
+  /** 這一行的新文字；null 表示不動 */
+  text: string | null;
+  /** 併入前一行的譯文，這一行清空 */
+  consumed: boolean;
+}
 
 const SKIP_SELECTOR = 'textarea, pre, script, style, select, code, [data-marker-content]';
 const POB_ITEM_SELECTOR = '.pob-item';
@@ -281,18 +293,72 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     );
   };
 
+  /**
+   * 描述檔裡寫成多行的詞綴，pobb.in 會拆成相鄰的幾行（各自一個 `<li>`，或懸浮框裡以換行分隔）。
+   * 先試著把相鄰 3、2 行合併成一句翻譯，對不到才逐行翻。合併翻譯的譯文行數與原文相同時逐行對應，
+   * 不同時整句放在第一行、其餘行清空（`consumed`）。`null` 表示該行不能參與合併（已翻譯或非詞綴）。
+   */
+  const translateLineGroup = (lines: ReadonlyArray<string | null>): LineResult[] => {
+    const results: LineResult[] = lines.map(() => ({ text: null, consumed: false }));
+    let index = 0;
+    while (index < lines.length) {
+      const span = MULTILINE_SPANS.find((size) => {
+        const window = lines.slice(index, index + size);
+        if (window.length !== size || window.some((line) => !line?.trim())) return false;
+        const translated = data.modTranslator.translate(
+          window.map((line) => (line as string).trim()).join('\n'),
+        );
+        if (!translated) return false;
+        const parts = translated.split('\n');
+        const slots =
+          parts.length === size ? parts : [parts.join(''), ...Array<string>(size - 1).fill('')];
+        slots.forEach((text, offset) => {
+          results[index + offset] = { text, consumed: text === '' };
+        });
+        return true;
+      });
+      if (span) {
+        index += span;
+        continue;
+      }
+      const line = lines[index];
+      if (line) results[index] = { text: translateSingleLine(line), consumed: false };
+      index += 1;
+    }
+    return results;
+  };
+
   const translateMultiline = (raw: string): string | null => {
     const lines = raw.split('\n');
-    let changed = false;
-    const translatedLines = lines.map((line) => {
-      const replaced = keepPadding(line, translateSingleLine);
-      if (replaced && replaced !== line) {
-        changed = true;
-        return replaced;
-      }
-      return line;
+    const results = translateLineGroup(lines);
+    if (results.every((result) => result.text === null)) return null;
+    const output = lines.flatMap((line, i) => {
+      const { text, consumed } = results[i];
+      if (consumed) return [];
+      if (text === null) return [line];
+      return [keepPadding(line, () => text) ?? line];
     });
-    return changed ? translatedLines.join('\n') : null;
+    const joined = output.join('\n');
+    return joined === raw ? null : joined;
+  };
+
+  /** 一個 `<ul>` 裡只有文字的 `<li>` 依序當成可合併的多行 */
+  const translateListLines = (listItems: readonly Element[]) => {
+    const nodes = listItems.map((li) => {
+      const textNodes = textNodesOf(li);
+      const node = textNodes.length === 1 ? textNodes[0] : undefined;
+      return node && !isCurrent(node) && !node.data.includes('\n') ? node : undefined;
+    });
+    const results = translateLineGroup(nodes.map((node) => node?.data ?? null));
+    nodes.forEach((node, i) => {
+      const { text } = results[i];
+      if (!node || text === null) return;
+      setText(node, text === '' ? '' : (keepPadding(node.data, () => text) ?? text));
+    });
+    listItems.forEach((li, i) => {
+      if (nodes[i]) return;
+      for (const node of textNodesOf(li)) replaceNode(node, translateMultiline);
+    });
   };
 
   const translatePobItem = (itemEl: Element) => {
@@ -309,18 +375,17 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     const bodyContainer = itemEl.children[1];
     if (!bodyContainer) return;
 
-    const listItems = Array.from(bodyContainer.querySelectorAll('ul > li'));
-    if (listItems.length > 0) {
-      for (const li of listItems) {
-        if (li.children.length > 0) {
+    const lists = Array.from(bodyContainer.querySelectorAll('ul'));
+    if (lists.length > 0) {
+      for (const list of lists) {
+        const listItems = Array.from(list.children).filter((child) => child.tagName === 'LI');
+        for (const li of listItems) {
+          if (li.children.length === 0) continue;
           for (const node of textNodesOf(li)) {
             replaceNode(node, translatePropertyLabel);
           }
-        } else {
-          for (const node of textNodesOf(li)) {
-            replaceNode(node, translateMultiline);
-          }
         }
+        translateListLines(listItems.filter((li) => li.children.length === 0));
       }
       return;
     }
@@ -463,6 +528,38 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 
+/** 兩份 stat 文字（hash → 句型）合併；同一 hash 兩邊都有時依序串接 */
+function mergeStatText(
+  ...sources: ReadonlyArray<Readonly<Record<string, ModLinePairs>> | undefined>
+): Record<string, ModLinePairs> | undefined {
+  const present = sources.filter((source): source is Readonly<Record<string, ModLinePairs>> =>
+    Boolean(source),
+  );
+  if (present.length === 0) return undefined;
+  const merged: Record<string, ModLinePairs> = {};
+  for (const source of present) {
+    for (const [hash, pairs] of Object.entries(source)) {
+      if (!Array.isArray(pairs)) continue;
+      merged[hash] = merged[hash] ? [...merged[hash], ...pairs] : pairs;
+    }
+  }
+  return merged;
+}
+
+/** `passive-names.json` 的 `names` 轉成「小寫英文 → 譯名」；格式不對時回傳空物件 */
+export function readPassiveNames(data: unknown): Record<string, string> {
+  const names = isRecord(data) ? data.names : undefined;
+  if (!isRecord(names)) return {};
+  const result: Record<string, string> = {};
+  for (const [english, localized] of Object.entries(names)) {
+    if (typeof localized !== 'string') continue;
+    const key = english.trim().toLowerCase();
+    const value = localized.trim();
+    if (key && value && !(key in result)) result[key] = value;
+  }
+  return result;
+}
+
 function readItemsArray(data: unknown): string[] {
   const items = isRecord(data) ? data.items : undefined;
   return isStringArray(items) ? items : [];
@@ -483,6 +580,8 @@ export async function loadPobbinTranslatorData(
     enStatsRaw,
     zhStatsRaw,
     statTextRaw,
+    passiveStatTextRaw,
+    passiveNamesRaw,
     aliasesRaw,
     uiRaw,
     enFiltersRaw,
@@ -495,6 +594,9 @@ export async function loadPobbinTranslatorData(
     optional(getLocaleTradeStatsAssetPath(version, 'en')),
     optional(getLocaleTradeStatsAssetPath(version, locale)),
     optional(getLocaleStatTextAssetPath(version, locale)),
+    optional(getLocalePassiveStatTextAssetPath(version, locale)),
+    // 天賦名稱表只有 zh-TW（官方 CDN 沒有簡中資料表），其他語系不要求
+    locale === 'zh-TW' ? optional(getLocalePassiveNamesAssetPath(version, locale)) : undefined,
     optional(getStatAliasesAssetPath(version)),
     optional(getMarketUiAssetPath(locale)),
     optional(getLocaleTradeFiltersAssetPath(version, 'en')),
@@ -538,7 +640,7 @@ export async function loadPobbinTranslatorData(
   const enStats = readTradeStats(enStatsRaw);
   const zhStats = readTradeStats(zhStatsRaw);
   const tradeStats = enStats && zhStats ? { english: enStats, localized: zhStats } : undefined;
-  const statText = readStatText(statTextRaw);
+  const statText = mergeStatText(readStatText(statTextRaw), readStatText(passiveStatTextRaw));
   const aliases = readAliases(aliasesRaw);
 
   const modTranslator = createModLineTranslator(modLines, {
@@ -549,10 +651,13 @@ export async function loadPobbinTranslatorData(
     aliases,
   });
 
-  const passives = extractPassiveNameMap({
-    tradeStats,
-    modLines: [modLines, ...(statText ? [statText] : [])],
-  });
+  const passives = {
+    ...readPassiveNames(passiveNamesRaw),
+    ...extractPassiveNameMap({
+      tradeStats,
+      modLines: [modLines, ...(statText ? [statText] : [])],
+    }),
+  };
 
   const labelLookup = createLabelLookup(
     mergedLabels,
@@ -619,7 +724,7 @@ export const POBBIN_ORIGIN = POB_SHARE_OPTIONAL_ORIGINS[0];
  * 不把這些檔案列入 pobb.in 的 web_accessible_resources（否則網站能藉此偵測擴充是否安裝）。
  */
 const POBBIN_ASSET_PATH =
-  /^json\/(?:poe1|poe2)\/(?:locales\/(?:en|zh-TW|zh-CN)\/(?:items|mod-lines|stat-text-items|result-labels|trade-stats|trade-filters)\.json|stat-aliases\.json)$|^json\/locales\/(?:zh-TW|zh-CN)\/trade-ui\.json$/;
+  /^json\/(?:poe1|poe2)\/(?:locales\/(?:en|zh-TW|zh-CN)\/(?:items|mod-lines|stat-text-items|stat-text-passives|passive-names|result-labels|trade-stats|trade-filters)\.json|stat-aliases\.json)$|^json\/locales\/(?:zh-TW|zh-CN)\/trade-ui\.json$/;
 
 export const isPobbinAssetPath = (value: unknown): value is string =>
   typeof value === 'string' && POBBIN_ASSET_PATH.test(value);

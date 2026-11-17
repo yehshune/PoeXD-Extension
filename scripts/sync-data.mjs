@@ -56,7 +56,7 @@ const PATH_RULES = [
   [new RegExp(`^${VERSION}/stat-aliases\\.json$`), (m) => `${m[1]}/game`],
   [
     new RegExp(
-      `^${VERSION}/locales/${LOCALE}/(?:stats|items|mod-lines|stat-text-items|result-labels)\\.json$`,
+      `^${VERSION}/locales/${LOCALE}/(?:stats|items|mod-lines|stat-text-items|stat-text-passives|passive-names|result-labels)\\.json$`,
     ),
     (m) => `${m[1]}/game`,
   ],
@@ -86,7 +86,7 @@ export function batchOfDataPath(path) {
 
 /**
  * 檢查一個版本的整批分片是否一致；回傳錯誤訊息陣列（空陣列表示一致）。
- * @param {{ modsTiers: any, stats: Record<string, any>, items: Record<string, any>, modLines?: Record<string, any>, statText?: Record<string, any>, resultLabels?: Record<string, any>, statAliases?: any }} batch
+ * @param {{ modsTiers: any, stats: Record<string, any>, items: Record<string, any>, modLines?: Record<string, any>, statText?: Record<string, any>, passiveStatText?: Record<string, any>, passiveNames?: Record<string, any>, resultLabels?: Record<string, any>, statAliases?: any }} batch
  */
 export function validateGameDataBatch(batch) {
   const errors = [];
@@ -122,6 +122,8 @@ export function validateGameDataBatch(batch) {
   const localeShards = [
     ['mod-lines.json', batch.modLines, (shard) => isObject(shard.lines)],
     ['stat-text-items.json', batch.statText, (shard) => isObject(shard.lines)],
+    ['stat-text-passives.json', batch.passiveStatText, (shard) => isObject(shard.lines)],
+    ['passive-names.json', batch.passiveNames, (shard) => isObject(shard.names)],
     [
       'result-labels.json',
       batch.resultLabels,
@@ -192,6 +194,8 @@ export function validateBatchContent(batchId, filesByPath) {
       items: {},
       modLines: {},
       statText: {},
+      passiveStatText: {},
+      passiveNames: {},
       resultLabels: {},
       statAliases: filesByPath[`${version}/stat-aliases.json`],
     };
@@ -200,6 +204,8 @@ export function validateBatchContent(batchId, filesByPath) {
       'items.json': 'items',
       'mod-lines.json': 'modLines',
       'stat-text-items.json': 'statText',
+      'stat-text-passives.json': 'passiveStatText',
+      'passive-names.json': 'passiveNames',
       'result-labels.json': 'resultLabels',
     };
     for (const [path, data] of entries) {

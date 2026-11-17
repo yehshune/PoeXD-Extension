@@ -72,9 +72,12 @@ const normalize = (text: string): string => text.replace(/\s+/g, ' ').trim().toL
 /** 詞綴句子的骨架：數字換成 #，忽略大小寫與多餘空白 */
 export const modLineSkeleton = (line: string): string => normalize(line.replace(NUMBER, '#'));
 
-/** 英文句型（`{0:d}` 佔位符格式）的骨架，與 modLineSkeleton 的結果可直接比對 */
+/**
+ * 英文句型（`{0:d}` 佔位符格式）的骨架，與 modLineSkeleton 的結果可直接比對。
+ * 多行句型以字面的 `\n` 分行，視同空白，才對得到頁面上合併起來的多行詞綴。
+ */
 export const modTemplateSkeleton = (english: string): string =>
-  normalize(english.replace(TEMPLATE_TOKEN, '#'));
+  normalize(english.replace(/\\n/g, ' ').replace(TEMPLATE_TOKEN, '#'));
 
 function compileTemplate(english: string): { skeleton: string; slots: Slot[] } {
   const slots: Slot[] = [];

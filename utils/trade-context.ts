@@ -68,10 +68,22 @@ export function getLocaleModLinesAssetPath(version: PoeVersion, locale: string):
   return `json/${profile.dataDirectory}/locales/${locale}/mod-lines.json`;
 }
 
-/** 完整 stat 文字目錄（物品、天賦、技能描述檔的全部規則，poexd-data 產生），只有 zh-TW、zh-CN */
+/** 物品詞綴描述檔裡 mod-lines 沒收錄的句子（poexd-data 的 stat-text-items.json），只有 zh-TW、zh-CN */
 export function getLocaleStatTextAssetPath(version: PoeVersion, locale: string): string {
   const profile = tradeVersionProfiles[version];
   return `json/${profile.dataDirectory}/locales/${locale}/stat-text-items.json`;
+}
+
+/** 天賦描述檔裡 mod-lines 與 stat-text-items 都沒收錄的句子（pobb.in 天賦樹用） */
+export function getLocalePassiveStatTextAssetPath(version: PoeVersion, locale: string): string {
+  const profile = tradeVersionProfiles[version];
+  return `json/${profile.dataDirectory}/locales/${locale}/stat-text-passives.json`;
+}
+
+/** 遊戲資料表的天賦名稱表（英文 → 譯名；只有 zh-TW） */
+export function getLocalePassiveNamesAssetPath(version: PoeVersion, locale: string): string {
+  const profile = tradeVersionProfiles[version];
+  return `json/${profile.dataDirectory}/locales/${locale}/passive-names.json`;
 }
 
 /** 舊英文寫法別名（stat hash → [舊英文模板, 現行英文模板]，poexd-data 產生），與語系無關 */

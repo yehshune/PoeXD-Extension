@@ -7,6 +7,8 @@ import { createTradeNameCatalog } from '@/utils/pob-shopping-list';
 import {
   createPobbinTranslator,
   extractPassiveNameMap,
+  isPobbinAssetPath,
+  loadPobbinTranslatorData,
   POBBIN_ORIGIN,
   POBBIN_TRANSLATION_SCRIPT_FILE,
   POBBIN_TRANSLATION_SCRIPT_ID,
@@ -55,6 +57,19 @@ function makeTestTranslatorData(bilingual = true): PobbinTranslatorData {
     '1005': [['Cannot be Stunned', '不會被暈眩']] as const,
     '1006': [['Gain {0:d} Rage on Hit with Axes', '以斧擊中時獲得 {0:d} 層盛怒']] as const,
     '1007': [['1 Added Passive Skill is Fuel the Fight', '1 個附加的天賦為刺激戰鬥']] as const,
+    // 多行詞綴：譯文行數相同（但語序不同）、譯文行數不同
+    '1008': [
+      [
+        '{0:d}% of Elemental Damage from your Hits cannot be Reflected while\\naffected by Purity of Elements',
+        '受到元素之純影響時\\n你擊中造成的元素傷害有 {0:d}% 不會被反射',
+      ],
+    ] as const,
+    '1009': [
+      [
+        'You have Consecrated Ground around you while\\nstationary if Strength is your highest Attribute',
+        '若力量是你最高的能力值，你靜止時周圍會有奉獻地面',
+      ],
+    ] as const,
   };
 
   const tradeStats = {
@@ -283,6 +298,43 @@ describe('createPobbinTranslator', () => {
     stop();
   });
 
+  it('多行詞綴：相鄰的 <li> 與懸浮框換行合併成一句翻譯', async () => {
+    document.body.innerHTML = `
+      <div class="pob-item" data-rarity="Unique">
+        <div><div>Watcher's Eye</div><div>Prismatic Jewel</div></div>
+        <div>
+          <ul>
+            <li>+(10-20) to maximum Life</li>
+            <li>75% of Elemental Damage from your Hits cannot be Reflected while</li>
+            <li>affected by Purity of Elements</li>
+            <li>You have Consecrated Ground around you while</li>
+            <li>stationary if Strength is your highest Attribute</li>
+            <li>Cannot be Stunned</li>
+          </ul>
+        </div>
+      </div>
+      <div class="pointer-events-none">
+        <div class="whitespace-pre-line">You have Consecrated Ground around you while\nstationary if Strength is your highest Attribute\nCannot be Stunned</div>
+      </div>
+    `;
+    const translator = createPobbinTranslator(makeTestTranslatorData(true));
+    const stop = translator.observe(document);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent)).toEqual([
+      '+(10-20) 最大生命',
+      '受到元素之純影響時',
+      '你擊中造成的元素傷害有 75% 不會被反射',
+      '若力量是你最高的能力值，你靜止時周圍會有奉獻地面',
+      '',
+      '不會被暈眩',
+    ]);
+    expect(document.querySelector('.whitespace-pre-line')?.textContent).toBe(
+      '若力量是你最高的能力值，你靜止時周圍會有奉獻地面\n不會被暈眩',
+    );
+    stop();
+  });
+
   it('關閉雙語時名稱只顯示中文', () => {
     document.body.innerHTML = `
       <div data-gem-id="Metadata/Items/Gems/SkillGemStaticStrike">Static Strike</div>
@@ -331,6 +383,75 @@ describe('detectPobbinGameVersion', () => {
     );
     expect(await detectPobbinGameVersion(docWith(pobCode('PathOfBuilding')))).toBe('poe1');
     expect(await detectPobbinGameVersion(docWith('not a code'))).toBeUndefined();
+  });
+});
+
+describe('loadPobbinTranslatorData', () => {
+  const assets = (locale: string): Record<string, unknown> => ({
+    [`json/poe1/locales/${locale}/mod-lines.json`]: { lines: {} },
+    'json/poe1/locales/en/items.json': { items: ['Herald of Ash'] },
+    [`json/poe1/locales/${locale}/items.json`]: { items: ['灰燼之捷'] },
+    'json/poe1/locales/en/trade-stats.json': {
+      stats: { 'enchant.stat_1': 'Allocates Exceptional Performance' },
+    },
+    [`json/poe1/locales/${locale}/trade-stats.json`]: {
+      stats: { 'enchant.stat_1': '配置 卓越的表現' },
+    },
+    [`json/poe1/locales/${locale}/stat-text-passives.json`]: {
+      lines: {
+        '42': [['Maximum Life becomes 1, Immune to Chaos Damage', '最大生命變為 1，免疫混沌傷害']],
+      },
+    },
+    'json/poe1/locales/zh-TW/passive-names.json': {
+      names: {
+        'Chaos Inoculation': '異靈之體',
+        'Exceptional Performance': '遊戲資料表譯名',
+        'Life Mastery': '生命專精',
+      },
+    },
+  });
+  const loader = (files: Record<string, unknown>) => {
+    const requested: string[] = [];
+    const loadJson = async (path: string) => {
+      requested.push(path);
+      if (!(path in files)) throw new Error(`missing ${path}`);
+      return files[path];
+    };
+    return { loadJson, requested };
+  };
+
+  it('載入天賦 stat 文字與天賦名稱表；市集對得到的天賦名優先', async () => {
+    const { loadJson } = loader(assets('zh-TW'));
+    const data = await loadPobbinTranslatorData(loadJson, {
+      version: 'poe1',
+      locale: 'zh-TW',
+      bilingual: false,
+    });
+    expect(data.passives).toMatchObject({
+      'chaos inoculation': '異靈之體',
+      'life mastery': '生命專精',
+      'exceptional performance': '卓越的表現',
+    });
+    expect(data.modTranslator.translate('Maximum Life becomes 1, Immune to Chaos Damage')).toBe(
+      '最大生命變為 1，免疫混沌傷害',
+    );
+  });
+
+  it('簡中不要求天賦名稱表（官方沒有簡中資料表）', async () => {
+    const { loadJson, requested } = loader(assets('zh-CN'));
+    const data = await loadPobbinTranslatorData(loadJson, {
+      version: 'poe1',
+      locale: 'zh-CN',
+      bilingual: false,
+    });
+    expect(requested.some((path) => path.endsWith('passive-names.json'))).toBe(false);
+    expect(data.passives).toEqual({ 'exceptional performance': '卓越的表現' });
+  });
+
+  it('pobb.in 可要求的資料檔包含天賦 stat 文字與天賦名稱表', () => {
+    expect(isPobbinAssetPath('json/poe2/locales/zh-CN/stat-text-passives.json')).toBe(true);
+    expect(isPobbinAssetPath('json/poe1/locales/zh-TW/passive-names.json')).toBe(true);
+    expect(isPobbinAssetPath('json/poe1/locales/zh-TW/stat-text.json')).toBe(false);
   });
 });
 
