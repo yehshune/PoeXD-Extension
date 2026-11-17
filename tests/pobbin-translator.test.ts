@@ -335,6 +335,28 @@ describe('createPobbinTranslator', () => {
     stop();
   });
 
+  it('多行合併只在整組都翻得出來時採用，不把保留英文前綴的結果當成功（星團珠寶）', () => {
+    document.body.innerHTML = `
+      <div class="pob-item" data-rarity="Rare">
+        <div><div>New Item</div><div>Large Cluster Jewel</div></div>
+        <div>
+          <ul>
+            <li>Adds 8 Passive Skills</li>
+            <li>1 Added Passive Skill is Fuel the Fight</li>
+            <li>Added Small Passive Skills grant: 12% increased Physical Damage</li>
+          </ul>
+        </div>
+      </div>
+    `;
+    createPobbinTranslator(makeTestTranslatorData(true)).translate(document);
+
+    expect(Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent)).toEqual([
+      'Adds 8 Passive Skills',
+      '1 個附加的天賦為刺激戰鬥',
+      'Added Small Passive Skills grant: 增加 12% 物理傷害',
+    ]);
+  });
+
   it('關閉雙語時名稱只顯示中文', () => {
     document.body.innerHTML = `
       <div data-gem-id="Metadata/Items/Gems/SkillGemStaticStrike">Static Strike</div>

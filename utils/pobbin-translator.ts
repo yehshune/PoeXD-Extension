@@ -305,10 +305,12 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
       const span = MULTILINE_SPANS.find((size) => {
         const window = lines.slice(index, index + size);
         if (window.length !== size || window.some((line) => !line?.trim())) return false;
-        const translated = data.modTranslator.translate(
-          window.map((line) => (line as string).trim()).join('\n'),
-        );
-        if (!translated) return false;
+        const sources = window.map((line) => (line as string).trim());
+        const translated = data.modTranslator.translate(sources.join('\n'), {
+          keepEnglishPrefix: false,
+        });
+        // 譯文裡還留著任何一行英文原文，代表只翻到一部分，不算合併成功
+        if (!translated || sources.some((source) => translated.includes(source))) return false;
         const parts = translated.split('\n');
         const slots =
           parts.length === size ? parts : [parts.join(''), ...Array<string>(size - 1).fill('')];

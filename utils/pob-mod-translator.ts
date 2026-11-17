@@ -38,8 +38,16 @@ import {
 /** 市集 stat 代碼 → 文字；同一代碼有多種寫法時是陣列 */
 export type TradeStatTexts = Readonly<Record<string, string | readonly string[]>>;
 
+export interface ModLineTranslatorOptions {
+  /**
+   * 前綴翻不出來時保留英文前綴、只翻後半句（預設 true）。合併多行一起翻時要關掉：
+   * 保留英文前綴會把「前幾行英文 + 最後一行的前綴」當成前綴，讓整組看起來翻譯成功。
+   */
+  keepEnglishPrefix?: boolean;
+}
+
 export interface ModLineTranslator {
-  translate(englishLine: string): string | undefined;
+  translate(englishLine: string, options?: ModLineTranslatorOptions): string | undefined;
 }
 
 export interface ModLineTranslatorExtras {
@@ -131,6 +139,8 @@ const RANGE_SENTINEL_BASE = 98765401;
 /** 前綴與後半句之間的分隔；依序嘗試，前綴含分隔字本身 */
 const PREFIX_SEPARATORS: readonly string[] = [': ', ' also grant '];
 const MAX_LEARNING_SAMPLES = 40;
+/** 不保留英文前綴的翻譯結果另外快取，鍵加上這個前綴（英文句子不會含 NUL） */
+const STRICT_CACHE_PREFIX = '\u0000';
 
 /** 句中帶寶石名稱的句型：名稱在等級之後，結尾可能有固定字 */
 const NAMED_PATTERNS: ReadonlyArray<{
@@ -269,31 +279,33 @@ export function createModLineTranslator(
   };
 
   const cache = new Map<string, string | undefined>();
-  function translateCore(line: string): string | undefined {
+  function translateCore(line: string, keepEnglishPrefix: boolean): string | undefined {
     return (
       withoutSupport(line, primary.translateWhole) ??
       translateNamed(line) ??
       translatePrefixed(line, false) ??
       withoutSupport(line, fallback.translateWhole) ??
-      translatePrefixed(line, true)
+      (keepEnglishPrefix ? translatePrefixed(line, true) : undefined)
     );
   }
 
-  function translateLine(line: string): string | undefined {
-    if (cache.has(line)) return cache.get(line);
-    cache.set(line, undefined);
+  function translateLine(line: string, options?: ModLineTranslatorOptions): string | undefined {
+    const keepEnglishPrefix = options?.keepEnglishPrefix !== false;
+    const cacheKey = keepEnglishPrefix ? line : `${STRICT_CACHE_PREFIX}${line}`;
+    if (cache.has(cacheKey)) return cache.get(cacheKey);
+    cache.set(cacheKey, undefined);
     const ranges: Array<{ sentinel: string; text: string }> = [];
     const normalized = line.replace(VALUE_RANGE, (match) => {
       const sentinel = String(RANGE_SENTINEL_BASE + ranges.length);
       ranges.push({ sentinel, text: match });
       return sentinel;
     });
-    const raw = translateCore(normalized);
+    const raw = translateCore(normalized, keepEnglishPrefix);
     const translated =
       raw && ranges.length > 0
         ? ranges.reduce((text, { sentinel, text: range }) => text.replace(sentinel, range), raw)
         : raw;
-    cache.set(line, translated);
+    cache.set(cacheKey, translated);
     return translated;
   }
 
