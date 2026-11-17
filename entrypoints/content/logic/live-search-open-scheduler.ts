@@ -9,6 +9,29 @@ export interface LiveSearchOpenSchedulerOptions {
 }
 
 /**
+ * 先經過一次 MessageChannel 再排計時器，讓每次冷卻都從新的 task 開始計時。
+ *
+ * Chrome 會沿著「計時器回呼 → microtask → 下一個 setTimeout」累計巢狀層數；分頁隱藏超過 5 分鐘後，
+ * 巢狀達到門檻的計時器會被強力節流到每分鐘才執行一次。排程器的「開連線 → 冷卻 → 開下一條」
+ * 中間沒有網路事件打斷，實測（Chrome 157，背景 7 分鐘）第 7 次起冷卻變成 8–60 秒；
+ * 從 MessageChannel 訊息排出的計時器巢狀層數歸零，只會被對齊到 1 秒。
+ */
+export function sleepFromFreshTask(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof MessageChannel === 'undefined') {
+      setTimeout(resolve, ms);
+      return;
+    }
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      setTimeout(resolve, ms);
+    };
+    channel.port2.postMessage(null);
+  });
+}
+
+/**
  * Primary-wide WebSocket Open Scheduler
  *
  * 職責：
@@ -26,12 +49,7 @@ export class LiveSearchOpenScheduler implements ILiveSearchOpenScheduler {
 
   constructor(options?: LiveSearchOpenSchedulerOptions) {
     this.cooldownMs = options?.cooldownMs ?? 1500;
-    this.sleep =
-      options?.sleep ??
-      ((ms: number) =>
-        new Promise((resolve) => {
-          setTimeout(resolve, ms);
-        }));
+    this.sleep = options?.sleep ?? sleepFromFreshTask;
   }
 
   public enqueue(task: () => Promise<void> | void): void {

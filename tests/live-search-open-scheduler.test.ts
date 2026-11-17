@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search-open-scheduler';
+import {
+  LiveSearchOpenScheduler,
+  sleepFromFreshTask,
+} from '@/entrypoints/content/logic/live-search-open-scheduler';
 
 describe('LiveSearchOpenScheduler Tests', () => {
   it('serializes open tasks with cooldown delay between each execution', async () => {
@@ -91,5 +94,33 @@ describe('LiveSearchOpenScheduler Tests', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(executed).toEqual(['first', 'second']);
+  });
+});
+
+describe('sleepFromFreshTask', () => {
+  it('不在呼叫當下排計時器，而是從 MessageChannel 訊息排出，之後才 resolve', async () => {
+    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const started = performance.now();
+    const pending = sleepFromFreshTask(20);
+
+    expect(timeoutSpy).not.toHaveBeenCalled();
+
+    await pending;
+    expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 20);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(15);
+    timeoutSpy.mockRestore();
+  });
+
+  it('沒有 MessageChannel 時退回直接 setTimeout', async () => {
+    vi.stubGlobal('MessageChannel', undefined);
+    try {
+      const timeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+      const pending = sleepFromFreshTask(5);
+      expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5);
+      await pending;
+      timeoutSpy.mockRestore();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
