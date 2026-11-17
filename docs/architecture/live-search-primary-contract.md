@@ -38,6 +38,8 @@
   當新分頁啟動並發送 `liveSearch:getPageRole` 時，若 Background 正在執行 `openPrimary` 交易，`getPageRole` 會主動等待互斥鎖完成，確保 ownership 已確定性落盤至 `storage.session`。
 - **加載中資格保護 (Loading Eligibility Safety)**：
   新分頁在建立初期處於 `status: 'loading'`、`about:blank` 且真實網址尚在 `pendingUrl` 階段時，檢驗邏輯視為合法加載中，嚴禁誤判為非 Trade 網址而誤殺 ownership。
+- **主控台分頁不被自動捨棄 (Auto-Discard Exemption)**：
+  建立主控台分頁並寫入 ownership 後，Background 以 `tabs.update(tabId, { autoDiscardable: false })` 讓瀏覽器不因記憶體節省或記憶體不足自動捨棄該分頁，避免閒置後被重新載入而中斷所有連線。此為分頁本身屬性，Service Worker 重啟後仍保留，故僅於建立時設定；聚焦既有主控台不重複設定。設定失敗（例如瀏覽器不支援）只記錄錯誤，不影響開啟流程與 ownership。
 - **儲存失敗乾淨性 (Storage Failure Cleanliness)**：
   若分頁建立後寫入 `storage.session` 發生異常，強制回滾清除該版本的 ownership，絕不殘留無效記錄。
 

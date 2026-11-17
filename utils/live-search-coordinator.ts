@@ -46,7 +46,7 @@ export interface LiveSearchTabsApi {
   create(props: { url?: string; active?: boolean }): Promise<LiveSearchTab>;
   update(
     tabId: number,
-    props: { active?: boolean; url?: string },
+    props: { active?: boolean; url?: string; autoDiscardable?: boolean },
   ): Promise<LiveSearchTab | undefined>;
 }
 
@@ -392,6 +392,22 @@ export class LiveSearchCoordinator {
     }
   }
 
+  /**
+   * 讓瀏覽器不自動捨棄主控台分頁（記憶體節省、記憶體不足），避免閒置後被重新載入而中斷所有連線。
+   * 這是分頁本身的屬性，service worker 重啟後仍保留，所以只在建立時設定。
+   * 失敗（例如瀏覽器不支援）不影響開啟主控台，只記錄錯誤。
+   */
+  private async keepPrimaryTabAlive(tabId: number): Promise<void> {
+    try {
+      await this.tabs.update(tabId, { autoDiscardable: false });
+    } catch (err) {
+      console.warn(
+        '[PoeXD LiveSearch] Could not keep the console tab from being discarded:',
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
   private async executeOpenPrimary(
     effectiveVersion: PoeVersion,
     sender?: any,
@@ -456,6 +472,8 @@ export class LiveSearchCoordinator {
           [storageKey]: record,
         });
       });
+
+      await this.keepPrimaryTabAlive(newTab.id);
 
       if (shouldActivate) {
         this.pendingArrivalTabIds.add(newTab.id);

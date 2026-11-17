@@ -85,6 +85,42 @@ describe('LiveSearch Primary Coordinator (Phase 1 Ownership & Lifecycle)', () =>
     expect(mockTabsApi.create).toHaveBeenCalledTimes(1);
   });
 
+  describe('主控台分頁不被自動捨棄', () => {
+    it('建立主控台後設定 autoDiscardable: false（含背景建立）', async () => {
+      const res = await coordinator.openPrimary({ gameVersion: 'poe1', active: false });
+
+      expect(res.success).toBe(true);
+      expect(mockTabsApi.update).toHaveBeenCalledWith(res.tabId, { autoDiscardable: false });
+      expect(mockTabsApi.update).not.toHaveBeenCalledWith(res.tabId, { active: true });
+    });
+
+    it('設定失敗時仍成功開啟並保留 ownership，只記錄錯誤', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.mocked(mockTabsApi.update).mockRejectedValueOnce(new Error('autoDiscardable unsupported'));
+
+      const res = await coordinator.openPrimary({ gameVersion: 'poe2' });
+
+      expect(res.success).toBe(true);
+      expect(res.created).toBe(true);
+      const stored = await storage.get<LiveSearchPrimaryStorageRecord>(
+        LIVE_SEARCH_PRIMARY_STORAGE_KEY,
+      );
+      expect(stored[LIVE_SEARCH_PRIMARY_STORAGE_KEY]?.tabId).toBe(res.tabId);
+      expect(warn).toHaveBeenCalledTimes(1);
+      warn.mockRestore();
+    });
+
+    it('聚焦既有主控台時不重複設定', async () => {
+      const first = await coordinator.openPrimary({ gameVersion: 'poe2' });
+      vi.mocked(mockTabsApi.update).mockClear();
+
+      await coordinator.openPrimary({ gameVersion: 'poe2' });
+
+      expect(mockTabsApi.update).toHaveBeenCalledTimes(1);
+      expect(mockTabsApi.update).toHaveBeenCalledWith(first.tabId, { active: true });
+    });
+  });
+
   it('2. 已有有效 Primary 時再次 open → focus 同一 tab，不建立第二個', async () => {
     // 第一次 open
     const firstRes = await coordinator.openPrimary({ gameVersion: 'poe2' });
