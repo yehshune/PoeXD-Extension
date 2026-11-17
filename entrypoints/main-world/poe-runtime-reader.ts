@@ -5,6 +5,7 @@ import {
 } from '@/utils/event-protocol-types';
 import type { MainWorldBridge } from './bridge-bootstrap';
 import type { HostStaticData, HostVueInstance, HostVuexStore } from './host-types';
+import { runWhenTradeRequestsIdle } from './trade-request-idle';
 
 export function getVueStore(): HostVuexStore | null {
   if (typeof document === 'undefined') return null;
@@ -183,9 +184,12 @@ export function initPoeRuntimeReader(bridge: MainWorldBridge) {
     if (ready || attempts >= 30) {
       clearInterval(pollInterval);
       if (ready) {
-        sendKnownStats(bridge);
-        sendLiveTradeData(bridge);
-        sendCurrentQuery(bridge);
+        // 序列化很貴：等官方搜尋與首批結果處理完、主執行緒閒置時再送
+        runWhenTradeRequestsIdle(() => {
+          sendKnownStats(bridge);
+          sendLiveTradeData(bridge);
+          sendCurrentQuery(bridge);
+        });
       }
     }
   }, 300);

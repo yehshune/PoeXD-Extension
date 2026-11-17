@@ -29,6 +29,19 @@ export function parseTradeSearchUrl(urlValue: string): ParsedTradeSearchIdentity
   }
 }
 
+/**
+ * 載入這個網址時官方會不會自動搜尋並抓取第一批結果：一般搜尋頁且網址帶搜尋 id 才會。
+ * 即時搜尋頁的結果由 WebSocket 推送，不在首次載入時抓取。
+ */
+export function expectsInitialSearchResults(urlValue: string): boolean {
+  if (!parseTradeSearchUrl(urlValue)) return false;
+  try {
+    return !new URL(urlValue).pathname.split('/').some((part) => part.toLowerCase() === 'live');
+  } catch {
+    return false;
+  }
+}
+
 function isSupportedTradeOrigin(url: URL) {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
   return isSupportedTradeHost(url.hostname);

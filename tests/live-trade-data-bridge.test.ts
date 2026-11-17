@@ -13,6 +13,7 @@ import {
   resetLiveTradeDataForTests,
   setLiveTradeData,
 } from '@/utils/live-trade-data-store';
+import { resetTradeRequestIdleForTests } from '@/entrypoints/main-world/trade-request-idle';
 
 const readJson = (path: string): any =>
   JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -117,6 +118,9 @@ describe('sendLiveTradeData（MAIN world）', () => {
 describe('initPoeRuntimeReader（MAIN world）', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    // 送資料前會等主執行緒閒置；讓 idle callback 也走 fake timers
+    vi.stubGlobal('requestIdleCallback', (callback: () => void) => setTimeout(callback, 0));
+    resetTradeRequestIdleForTests();
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     document.body.innerHTML = '';
     resetLiveTradeDataSentForTests();
@@ -124,6 +128,7 @@ describe('initPoeRuntimeReader（MAIN world）', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -136,7 +141,7 @@ describe('initPoeRuntimeReader（MAIN world）', () => {
     const { bridge, events } = createBridge();
 
     initPoeRuntimeReader(bridge);
-    vi.advanceTimersByTime(300);
+    vi.advanceTimersByTime(301); // 輪詢命中後再等主執行緒閒置
 
     expect(events.some((event) => event.type === 'poexd-known-stats')).toBe(true);
     expect(liveEvents(events)).toHaveLength(1);

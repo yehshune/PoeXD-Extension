@@ -15,6 +15,7 @@ import {
   markSearchSubmissionResponded,
   startPendingSearchSubmission,
 } from './category-binding-manager';
+import { runWhenTradeRequestsIdle, trackTradeRequest } from './trade-request-idle';
 
 let consoleSearchGuardActive = false;
 
@@ -31,9 +32,20 @@ export function isOfficialTradeSearchEndpoint(url?: string): boolean {
   return url.includes('/api/trade/search') || url.includes('/api/trade2/search');
 }
 
+function isOfficialTradeFetchEndpoint(url: string): boolean {
+  return url.includes('/api/trade/fetch') || url.includes('/api/trade2/fetch');
+}
+
 export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = window) {
   const originalFetch = win.fetch;
   if (!originalFetch) return;
+
+  // 同一個函式重複排入只會執行一次：官網 4 支 data API 回應時只送一次
+  const sendRuntimeData = () => {
+    sendKnownStats(bridge);
+    sendLiveTradeData(bridge);
+    sendCurrentQuery(bridge);
+  };
 
   win.fetch = async function (...args: Parameters<typeof originalFetch>) {
     const url =
@@ -47,6 +59,10 @@ export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = w
     if (isSearch && consoleSearchGuardActive) {
       throw new Error('[PoeXD] 線上搜尋主控台已停用官方搜尋請求');
     }
+
+    const isResultFetch = isOfficialTradeFetchEndpoint(url);
+    const endTradeRequest =
+      isSearch || isResultFetch ? trackTradeRequest(isSearch ? 'search' : 'fetch') : null;
 
     let submissionReqId: number | null = null;
     if (isSearch) {
@@ -91,50 +107,51 @@ export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = w
       if (isSearch && submissionReqId !== null) {
         cancelPendingSearchSubmission(submissionReqId);
       }
+      endTradeRequest?.('failed');
       throw err;
     }
 
-    if (url) {
-      if (url.includes('/api/trade/fetch') || url.includes('/api/trade2/fetch')) {
-        try {
-          const clone = response.clone();
-          const data = await clone.json();
-          bridge.dispatchEvent('poexd-fetch-response', serializePoeFetchResponse({ url, data }));
-        } catch (e) {
-          console.error('[PoeXD Inject] 攔截 fetch 解析錯誤:', e);
-        }
-      } else if (isSearch) {
-        try {
-          const clone = response.clone();
-          const data = await clone.json();
-          const searchId = data.id;
-          const store = getVueStore();
-          const query = store && store.state ? store.state.query || store.state.persistent : null;
-          const queryJson = query
-            ? JSON.stringify({ query })
-            : args[1] && (args[1] as RequestInit).body
-              ? String((args[1] as RequestInit).body)
-              : '';
-          if (searchId && queryJson) {
-            bridge.dispatchEvent(
-              'poexd-search-query-observed',
-              serializePoeSearchQueryObserved({ searchId, queryJson, source: 'search-response' }),
-            );
+    try {
+      if (url) {
+        if (isResultFetch) {
+          try {
+            const clone = response.clone();
+            const data = await clone.json();
+            bridge.dispatchEvent('poexd-fetch-response', serializePoeFetchResponse({ url, data }));
+          } catch (e) {
+            console.error('[PoeXD Inject] 攔截 fetch 解析錯誤:', e);
           }
-        } catch (e) {
-          console.error('[PoeXD Inject] 攔截 search response 錯誤:', e);
+        } else if (isSearch) {
+          try {
+            const clone = response.clone();
+            const data = await clone.json();
+            const searchId = data.id;
+            const store = getVueStore();
+            const query = store && store.state ? store.state.query || store.state.persistent : null;
+            const queryJson = query
+              ? JSON.stringify({ query })
+              : args[1] && (args[1] as RequestInit).body
+                ? String((args[1] as RequestInit).body)
+                : '';
+            if (searchId && queryJson) {
+              bridge.dispatchEvent(
+                'poexd-search-query-observed',
+                serializePoeSearchQueryObserved({ searchId, queryJson, source: 'search-response' }),
+              );
+            }
+          } catch (e) {
+            console.error('[PoeXD Inject] 攔截 search response 錯誤:', e);
+          }
+          bridge.dispatchEvent('poexd-search-triggered');
         }
-        bridge.dispatchEvent('poexd-search-triggered');
-      }
 
-      // 當初始化數據加載完畢後，發送官網屬性列表給擴充套件
-      if (url.includes('/api/trade/data') || url.includes('/api/trade2/data')) {
-        setTimeout(() => {
-          sendKnownStats(bridge);
-          sendLiveTradeData(bridge);
-          sendCurrentQuery(bridge);
-        }, 500);
+        // 官網初始化資料載入完畢後送出屬性列表；序列化很貴，等官方搜尋與首批結果處理完、主執行緒閒置時再送
+        if (url.includes('/api/trade/data') || url.includes('/api/trade2/data')) {
+          setTimeout(() => runWhenTradeRequestsIdle(sendRuntimeData), 500);
+        }
       }
+    } finally {
+      endTradeRequest?.(response.ok === false ? 'failed' : 'ok');
     }
     return response;
   };
@@ -197,6 +214,18 @@ export function installXhrInterceptor(bridge: MainWorldBridge, win: Window = win
       });
       const currentReqId = submissionReqId;
       const queryJson = typeof body === 'string' ? body : '';
+
+      // loadend 在 load / error / abort 之後觸發，官方的 load handler 已經發出後續 fetch
+      const endTradeRequest = trackTradeRequest('search');
+      this.addEventListener(
+        'loadend',
+        function (this: XMLHttpRequest) {
+          const isSuccess =
+            typeof this.status === 'number' ? this.status >= 200 && this.status < 300 : false;
+          endTradeRequest(isSuccess ? 'ok' : 'failed');
+        },
+        { once: true },
+      );
 
       this.addEventListener(
         'load',

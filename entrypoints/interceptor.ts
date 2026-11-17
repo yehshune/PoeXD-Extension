@@ -10,6 +10,7 @@ import { initNetworkObserver } from './main-world/network-observer';
 import { initOfficialLiveSearchAdapter } from './main-world/official-livesearch-adapter';
 import { initPoeRuntimeMutation } from './main-world/poe-runtime-mutation';
 import { initPoeRuntimeReader } from './main-world/poe-runtime-reader';
+import { initTradeRequestIdle } from './main-world/trade-request-idle';
 
 export function runInterceptorBootstrap(options?: {
   documentObj?: Document;
@@ -38,6 +39,7 @@ export function runInterceptorBootstrap(options?: {
     return null;
   }
 
+  if (win?.location?.href) initTradeRequestIdle(win.location.href);
   initNetworkObserver(bridge);
   initPoeRuntimeReader(bridge);
   initPoeRuntimeMutation(bridge);

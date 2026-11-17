@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MainWorldBridge } from '@/entrypoints/main-world/bridge-bootstrap';
 import { installFetchInterceptor } from '@/entrypoints/main-world/network-observer';
+import { resetTradeRequestIdleForTests } from '@/entrypoints/main-world/trade-request-idle';
 
 describe('installFetchInterceptor runtime regression', () => {
   let dispatchedEvents: Array<{ type: string; payload?: string }> = [];
@@ -11,6 +12,9 @@ describe('installFetchInterceptor runtime regression', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    // 送資料前會等主執行緒閒置；讓 idle callback 也走 fake timers
+    vi.stubGlobal('requestIdleCallback', (callback: () => void) => setTimeout(callback, 0));
+    resetTradeRequestIdleForTests();
     dispatchedEvents = [];
     bridge = {
       dispatchEvent: (type: string, payload?: string) => {
@@ -46,6 +50,7 @@ describe('installFetchInterceptor runtime regression', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
     document.body.innerHTML = '';
   });
 
@@ -111,7 +116,7 @@ describe('installFetchInterceptor runtime regression', () => {
     for (const kind of ['stats', 'static', 'filters', 'items']) {
       await win.fetch(`https://www.pathofexile.com/api/trade/data/${kind}`);
     }
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(501); // 500ms 延遲後再等主執行緒閒置
     const count = () => dispatchedEvents.filter((e) => e.type === 'poexd-known-stats').length;
     expect(count()).toBe(1);
 
@@ -121,7 +126,7 @@ describe('installFetchInterceptor runtime regression', () => {
       type: 'explicit',
     };
     await win.fetch('https://www.pathofexile.com/api/trade/data/stats');
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(501);
     expect(count()).toBe(2);
   });
 
@@ -142,7 +147,7 @@ describe('installFetchInterceptor runtime regression', () => {
     expect(dispatchedEvents.some((e) => e.type === 'poexd-known-stats')).toBe(false);
 
     // Fast-forward past 500ms
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(501);
 
     const knownStatsEvent = dispatchedEvents.find((e) => e.type === 'poexd-known-stats');
     expect(knownStatsEvent).toBeDefined();
