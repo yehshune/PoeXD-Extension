@@ -47,7 +47,7 @@ describe('createPobBookmarkBridge', () => {
     expect(fake.connect).toHaveBeenCalledTimes(1);
   });
 
-  it('新增書籤：名稱整理成單行並截斷，只收官方 CDN 圖示，排在最後', async () => {
+  it('新增書籤：名稱整理成單行並截斷，只收官方 CDN 圖示，交給模型排序', async () => {
     const fake = createFakeModel();
     const bridge = createPobBookmarkBridge('poe1', () => fake.model);
     const result = await bridge.add({
@@ -58,7 +58,9 @@ describe('createPobBookmarkBridge', () => {
     });
     expect(result.ok).toBe(true);
     const bookmark = fake.execute.mock.calls[0][0].bookmark;
-    expect(bookmark).toMatchObject({ groupId: 'child', order: 1, searchRecordId: '' });
+    expect(bookmark).toMatchObject({ groupId: 'child', searchRecordId: '' });
+    // 排序值交給書籤模型依資料夾決定
+    expect(bookmark).not.toHaveProperty('order');
     expect(String(bookmark.name).startsWith('Rise of x')).toBe(true);
     expect(bookmark.name).toHaveLength(BOOKMARK_NAME_MAX_LENGTH);
     expect(bookmark).not.toHaveProperty('coverImageUrl');

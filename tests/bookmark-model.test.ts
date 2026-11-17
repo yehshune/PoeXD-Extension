@@ -184,6 +184,81 @@ describe('Bookmark pane model interface', () => {
     expect(adapter.client.putBookmark).not.toHaveBeenCalled();
   });
 
+  const gappedView: BookmarkCollectionView = {
+    groups: [
+      { id: 'group-1', gameVersion: 'poe1', name: 'Favorites', order: 0 },
+      { id: 'group-2', gameVersion: 'poe1', name: 'Other', order: 1 },
+    ],
+    bookmarks: [
+      // 刪除前段書籤後留下的缺口：數量 3，但 group-1 最大 order 是 9
+      { ...initialView.bookmarks[0], id: 'bm-8', order: 8 },
+      { ...initialView.bookmarks[0], id: 'bm-9', order: 9 },
+      { ...initialView.bookmarks[0], id: 'bm-other', groupId: 'group-2', order: 5 },
+    ],
+  };
+
+  it('appends a new Bookmark after the largest order in its folder even when orders have gaps', async () => {
+    const adapter = setupClient(gappedView);
+    const model = createBookmarkModel(adapter.client);
+    await model.connect();
+
+    const outcome = model.execute({
+      type: 'add-bookmark',
+      bookmark: {
+        id: 'bm-new',
+        searchRecordId: '',
+        name: 'New',
+        url: 'https://www.pathofexile.com/trade/search/Standard/new',
+        groupId: 'group-1',
+      },
+    });
+    expect(model.state.value.bookmarks.find((b) => b.id === 'bm-new')?.order).toBe(10);
+
+    await outcome;
+    expect(adapter.client.putBookmark).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'bm-new', groupId: 'group-1', order: 10 }),
+    );
+  });
+
+  it('gives back-to-back additions distinct trailing orders before either commits', async () => {
+    const adapter = setupClient(gappedView);
+    const model = createBookmarkModel(adapter.client);
+    await model.connect();
+    const base = {
+      searchRecordId: '',
+      url: 'https://www.pathofexile.com/trade/search/Standard/x',
+      groupId: 'group-2',
+    };
+
+    const first = model.execute({ type: 'add-bookmark', bookmark: { ...base, id: 'a', name: 'A' } });
+    const second = model.execute({ type: 'add-bookmark', bookmark: { ...base, id: 'b', name: 'B' } });
+    await Promise.all([first, second]);
+
+    const orders = vi
+      .mocked(adapter.client.putBookmark)
+      .mock.calls.map(([input]) => [input.id, input.order]);
+    expect(orders).toEqual([
+      ['a', 6],
+      ['b', 7],
+    ]);
+  });
+
+  it('moves a Bookmark to the end of another folder and keeps its place within the same folder', async () => {
+    const adapter = setupClient(gappedView);
+    const model = createBookmarkModel(adapter.client);
+    await model.connect();
+
+    await model.execute({ type: 'move-bookmark', bookmarkId: 'bm-other', groupId: 'group-1' });
+    expect(adapter.client.reorderBookmarks).toHaveBeenLastCalledWith([
+      { id: 'bm-other', groupId: 'group-1', order: 10 },
+    ]);
+
+    await model.execute({ type: 'move-bookmark', bookmarkId: 'bm-8', groupId: 'group-1' });
+    expect(adapter.client.reorderBookmarks).toHaveBeenLastCalledWith([
+      { id: 'bm-8', groupId: 'group-1', order: 8 },
+    ]);
+  });
+
   it('replaces leagues for a Bookmark Group with one background command', async () => {
     const adapter = setupClient();
     const model = createBookmarkModel(adapter.client);

@@ -70,13 +70,12 @@ export function createPobBookmarkBridge(
       if (!name || !connected.state.value.groups.some((group) => group.id === input.groupId)) {
         return { ok: false };
       }
-      const bookmark: Bookmark = {
+      const bookmark: Omit<Bookmark, 'order'> = {
         id: `bm_${Math.random().toString(36).slice(2, 11)}_${Date.now()}`,
         searchRecordId: '',
         name,
         url: input.url,
         groupId: input.groupId,
-        order: connected.state.value.bookmarks.length,
         createdAt: Date.now(),
         ...(input.coverImageUrl && isValidPoeCdnImageUrl(input.coverImageUrl)
           ? { coverImageUrl: input.coverImageUrl }

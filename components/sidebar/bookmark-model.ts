@@ -4,6 +4,7 @@ import {
   BOOKMARK_NAME_MAX_LENGTH,
   isValidBookmarkName,
   getFolderSubtreeIds,
+  getNextBookmarkOrder,
   resolveFolderDropPlacement,
   type BookmarkReorderPlacement,
   type FolderDropIntent,
@@ -36,9 +37,11 @@ export type BookmarkMutationIntent =
       dropIntent?: FolderDropIntent;
     }
   | { type: 'reorder-groups'; groupIds: string[] }
-  | { type: 'add-bookmark'; bookmark: Bookmark }
+  /** order 由模型依目標資料夾決定（排在最後），呼叫端不需提供。 */
+  | { type: 'add-bookmark'; bookmark: Omit<Bookmark, 'order'> }
   | { type: 'overwrite-bookmark'; bookmarkId: string; url: string; coverImageUrl?: string }
   | { type: 'rename-bookmark'; bookmarkId: string; name: string }
+  /** 移到其他資料夾時排在該資料夾最後；同資料夾內維持原位置。 */
   | { type: 'move-bookmark'; bookmarkId: string; groupId: string }
   | { type: 'set-bookmark-cover'; bookmarkId: string; coverImageUrl?: string }
   | { type: 'delete-bookmark'; bookmarkId: string }
@@ -91,8 +94,14 @@ interface Projection {
   groups: BookmarkGroup[];
 }
 
+/** 已決定排序值的意圖：樂觀投影與背景寫入共用同一個 order。 */
+type ResolvedMutationIntent =
+  | Exclude<BookmarkMutationIntent, { type: 'add-bookmark' } | { type: 'move-bookmark' }>
+  | { type: 'add-bookmark'; bookmark: Bookmark }
+  | { type: 'move-bookmark'; bookmarkId: string; groupId: string; order: number };
+
 interface PendingMutation {
-  intent: BookmarkMutationIntent;
+  intent: ResolvedMutationIntent;
 }
 
 export function createBookmarkModel(
@@ -114,11 +123,14 @@ export function createBookmarkModel(
   let published: BookmarkModelState = initialState;
 
   // 結構共享：內容未變的書籤／資料夾沿用上一版物件與陣列，讓 Vue 只重繪真正變動的部分。
-  const publish = () => {
-    const projection = pending.reduce(
+  const currentProjection = () =>
+    pending.reduce(
       (current, mutation) => applyIntent(current, mutation.intent),
       cloneProjection(canonical),
     );
+
+  const publish = () => {
+    const projection = currentProjection();
     const next = resolveProjectionTargets(projection, resolveTargetContext());
     const groups = reuseUnchangedItems(published.groups, next.groups);
     const bookmarks = reuseUnchangedItems(published.bookmarks, next.bookmarks);
@@ -194,15 +206,15 @@ export function createBookmarkModel(
       );
     }
 
-    const mutation = { intent };
+    const mutation = { intent: resolveIntent(currentProjection(), intent) };
     pending.push(mutation);
     publish();
     return schedule(async (): Promise<BookmarkModelOutcome> => {
-      const outcome = await commitIntent(client, canonical, intent);
+      const outcome = await commitIntent(client, canonical, mutation.intent);
       const index = pending.indexOf(mutation);
       if (index >= 0) pending.splice(index, 1);
       if (outcome.ok && intent.type !== 'import-transfer') {
-        canonical = applyIntent(canonical, intent);
+        canonical = applyIntent(canonical, mutation.intent);
       }
       const reconcileOutcome = await reconcileFresh();
       publish();
@@ -249,10 +261,34 @@ export function createBookmarkModel(
   } as BookmarkModel;
 }
 
+function resolveIntent(
+  projection: Projection,
+  intent: BookmarkMutationIntent,
+): ResolvedMutationIntent {
+  if (intent.type === 'add-bookmark') {
+    return {
+      type: 'add-bookmark',
+      bookmark: {
+        ...intent.bookmark,
+        order: getNextBookmarkOrder(projection.bookmarks, intent.bookmark.groupId),
+      },
+    };
+  }
+  if (intent.type === 'move-bookmark') {
+    const bookmark = projection.bookmarks.find((item) => item.id === intent.bookmarkId);
+    const order =
+      bookmark && bookmark.groupId === intent.groupId
+        ? bookmark.order
+        : getNextBookmarkOrder(projection.bookmarks, intent.groupId);
+    return { ...intent, order };
+  }
+  return intent;
+}
+
 async function commitIntent(
   client: BookmarkClient,
   canonical: Projection,
-  intent: BookmarkMutationIntent,
+  intent: ResolvedMutationIntent,
 ): Promise<SearchRecordOutcome> {
   switch (intent.type) {
     case 'add-group':
@@ -299,7 +335,7 @@ async function commitIntent(
           {
             id: bookmark.id,
             groupId: intent.groupId,
-            order: bookmark.order,
+            order: intent.order,
           },
         ]);
       }
@@ -323,7 +359,7 @@ async function commitIntent(
   }
 }
 
-function applyIntent(state: Projection, intent: BookmarkMutationIntent): Projection {
+function applyIntent(state: Projection, intent: ResolvedMutationIntent): Projection {
   const next = cloneProjection(state);
   switch (intent.type) {
     case 'add-group':
@@ -399,7 +435,9 @@ function applyIntent(state: Projection, intent: BookmarkMutationIntent): Project
       break;
     case 'move-bookmark':
       next.bookmarks = next.bookmarks.map((bookmark) =>
-        bookmark.id === intent.bookmarkId ? { ...bookmark, groupId: intent.groupId } : bookmark,
+        bookmark.id === intent.bookmarkId
+          ? { ...bookmark, groupId: intent.groupId, order: intent.order }
+          : bookmark,
       );
       break;
     case 'set-bookmark-cover':

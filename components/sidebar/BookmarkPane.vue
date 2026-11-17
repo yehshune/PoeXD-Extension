@@ -1027,13 +1027,12 @@ export default defineComponent({
       if (!snapshot) return;
       const coverImageUrl = resolveDefaultCoverImage(snapshot.url);
 
-      const newBm: Bookmark = {
+      const newBm: Omit<Bookmark, 'order'> = {
         id: 'bm_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now(),
         searchRecordId: '',
         name: snapshot.title,
         url: snapshot.url,
         groupId,
-        order: bookmarks.value.length,
         createdAt: Date.now(),
         ...(coverImageUrl ? { coverImageUrl } : {}),
       };

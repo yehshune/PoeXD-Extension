@@ -668,6 +668,21 @@ export function validateFolderHierarchy(folders: BookmarkFolder[]):
   return { ok: true };
 }
 
+/**
+ * 資料夾內下一個書籤排序值：取該資料夾最大 order + 1。
+ * 刪除書籤不會重新編號，order 可能有缺口，因此不能用書籤數量代替。
+ */
+export function getNextBookmarkOrder(
+  bookmarks: ReadonlyArray<{ readonly groupId: string; readonly order: number }>,
+  groupId: string,
+): number {
+  let max = -1;
+  for (const bookmark of bookmarks) {
+    if (bookmark.groupId === groupId && bookmark.order > max) max = bookmark.order;
+  }
+  return max + 1;
+}
+
 export function createBookmarkCollectionModule(
   initialState: BookmarkCollectionState | BookmarkCollectionStateV2 | unknown,
 ): BookmarkCollectionModule {
