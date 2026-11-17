@@ -2,7 +2,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { createUiRuntimeTokenValues } from '@/lib/tokens';
-import { mountSidebarLayout } from '@/entrypoints/content/logic/sidebar-layout';
+import {
+  mountSidebarLayout,
+  reserveSidebarPageLayout,
+} from '@/entrypoints/content/logic/sidebar-layout';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 
 const layoutSource = readFileSync('entrypoints/content/logic/sidebar-layout.ts', 'utf8').replace(
@@ -18,7 +21,7 @@ describe('Sidebar page layout', () => {
       'transition: width 0.15s ease, margin-left 0.15s ease, margin-right 0.15s ease !important;',
     );
     expect(layoutSource).toContain(
-      "const pageMarginLeft = currentPosition === 'left' && !currentCollapsed ? width : 0;",
+      "const pageMarginLeft = position === 'left' && !collapsed ? width : 0;",
     );
     expect(layoutSource).toContain('margin-left: ${pageMarginLeft}px !important;');
   });
@@ -238,6 +241,38 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
       update: vi.fn(async () => {}),
     } as any;
   };
+
+  it('reserves the page layout before the sidebar mounts so the page does not shift after results show', async () => {
+    const prefs = createMockPreferences({ sidebarPosition: 'right', sidebarWidth: 400 });
+
+    const remove = await reserveSidebarPageLayout('poe1', prefs);
+
+    const layoutStyle = document.getElementById('poexd-layout-style') as HTMLStyleElement;
+    const reserved = layoutStyle.textContent;
+    expect(reserved).toContain('width: calc(100% - 400px) !important;');
+    expect(reserved).toContain('margin-right: 400px !important;');
+    expect(reserved).toContain('transition: none !important;');
+
+    // 掛載沿用同一個樣式元素，版面數值不變
+    const stop = await mountSidebarLayout(createMockCtx(), 'poe1', prefs);
+    if (stop) layoutCleanups.push(stop);
+    expect(document.querySelectorAll('#poexd-layout-style')).toHaveLength(1);
+    expect(layoutStyle.textContent).toContain('width: calc(100% - 400px) !important;');
+    expect(layoutStyle.textContent).toContain('margin-right: 400px !important;');
+
+    remove();
+    expect(document.getElementById('poexd-layout-style')).toBeNull();
+  });
+
+  it('reserves no space when the sidebar was left collapsed', async () => {
+    (globalThis as any).chrome.storage.local.get = vi.fn(async () => ({ isCollapsed_poe1: true }));
+    const remove = await reserveSidebarPageLayout('poe1', createMockPreferences());
+
+    const layoutStyle = document.getElementById('poexd-layout-style') as HTMLStyleElement;
+    expect(layoutStyle.textContent).toContain('width: 100% !important;');
+    expect(layoutStyle.textContent).toContain('margin-left: 0px !important;');
+    remove();
+  });
 
   it('updates PoE .content width and margin-left in real time upon poexd-sidebar-width-preview for left sidebar (420 -> 500)', async () => {
     const mockCtx = createMockCtx();

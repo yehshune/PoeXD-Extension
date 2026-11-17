@@ -15,7 +15,7 @@ import { DomFilter } from './dom-filter';
 import { initHotkeysAndTildeListeners } from './hotkeys';
 import { installSearchEnterCommit } from './search-enter-commit';
 import { connectSearchObservationSession } from './search-observation-session';
-import { mountSidebarLayout } from './sidebar-layout';
+import { mountSidebarLayout, reserveSidebarPageLayout } from './sidebar-layout';
 import { ResultPricePresenter } from './result-price-presenter';
 import { ResultModHighlighter } from './result-mod-highlighter';
 import { ResultItemNormalizer } from './result-item-normalizer';
@@ -109,6 +109,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   let cleanupPreferences: (() => void) | null = null;
   let cleanupSearchSession: (() => void) | null = null;
   let stopSidebarPreferences: (() => void) | null = null;
+  let removeReservedSidebarLayout: (() => void) | null = null;
   let stopWaitingTradePage: (() => void) | null = null;
   let cleanupEnqueueListener: (() => void) | null = null;
   let initialPageLoad: InitialPageLoadGate | null = null;
@@ -133,6 +134,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     cleanupPageMode?.();
     cleanupPreferences?.();
     stopSidebarPreferences?.();
+    removeReservedSidebarLayout?.();
     filterEnhancements.cleanup();
     cleanupPageEvents?.();
     cleanupToastHost();
@@ -263,6 +265,13 @@ export async function runLogic(ctx: any, version: PoeVersion) {
 
     const initialize = async () => {
       if (disposed) return;
+      // 側邊欄要等首批結果才掛載；先讓出版面，避免掛載時已顯示的結果整個位移
+      void reserveSidebarPageLayout(version, preferences, () => disposed)
+        .then((remove) => {
+          if (disposed) remove();
+          else removeReservedSidebarLayout = remove;
+        })
+        .catch((error) => console.warn('[PoeXD] 預留側邊欄版面失敗:', error));
       await interceptorReady;
       if (disposed) {
         return;

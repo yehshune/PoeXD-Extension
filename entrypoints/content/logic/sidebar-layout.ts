@@ -17,6 +17,71 @@ import { applyThemeToHost } from '@/lib/theme/theme-runtime';
 import { appendShadowHostStyle } from './shadow-host-style';
 
 const POEXD_HOST_Z_INDEX = '2147483647';
+const LAYOUT_STYLE_ID = 'poexd-layout-style';
+
+interface PageLayoutState {
+  collapsed: boolean;
+  position: 'left' | 'right';
+  width: number;
+  /** 拖曳寬度時不加過場動畫；預留版面時也不加，避免頁面剛渲染就滑動 */
+  animate: boolean;
+}
+
+/** 官網 `.content` 讓出側邊欄位置的樣式 */
+function buildPageLayoutCss({ collapsed, position, width, animate }: PageLayoutState): string {
+  const pageWidth = collapsed ? '100%' : `calc(100% - ${width}px)`;
+  const pageMarginLeft = position === 'left' && !collapsed ? width : 0;
+  const pageMarginRight = position === 'right' && !collapsed ? width : 0;
+  const transitionProperty = animate
+    ? 'transition: width 0.15s ease, margin-left 0.15s ease, margin-right 0.15s ease !important;'
+    : 'transition: none !important;';
+  return `
+      .content {
+        ${transitionProperty}
+        width: ${pageWidth} !important;
+        margin-left: ${pageMarginLeft}px !important;
+        margin-right: ${pageMarginRight}px !important;
+      }
+    `;
+}
+
+function ensureLayoutStyle(): HTMLStyleElement {
+  let layoutStyle = document.getElementById(LAYOUT_STYLE_ID) as HTMLStyleElement | null;
+  if (!layoutStyle) {
+    layoutStyle = document.createElement('style');
+    layoutStyle.id = LAYOUT_STYLE_ID;
+    (document.head || document.documentElement).appendChild(layoutStyle);
+  }
+  return layoutStyle;
+}
+
+async function readSidebarCollapsed(version: PoeVersion): Promise<boolean> {
+  const keys = createVersionedStorageKeys(version);
+  const data = await chrome.storage.local.get([keys.isCollapsed, 'isCollapsed']);
+  return readStorageValue(data, keys.isCollapsed, 'isCollapsed', true);
+}
+
+/**
+ * 側邊欄延到首批結果後才掛載（見 initial-page-load-gate.ts）；先依儲存的位置、寬度與收合狀態
+ * 讓出版面，掛載時頁面才不會在結果已顯示後整個位移。回傳移除預留樣式的函式。
+ */
+export async function reserveSidebarPageLayout(
+  version: PoeVersion,
+  preferences: PreferencesModule,
+  isDisposed = () => false,
+): Promise<() => void> {
+  const remove = () => document.getElementById(LAYOUT_STYLE_ID)?.remove();
+  const collapsed = await readSidebarCollapsed(version);
+  if (isDisposed()) return remove;
+  const prefs = preferences.read();
+  ensureLayoutStyle().textContent = buildPageLayoutCss({
+    collapsed,
+    position: prefs.sidebarPosition,
+    width: prefs.sidebarWidth,
+    animate: false,
+  });
+  return remove;
+}
 
 export async function mountSidebarLayout(
   ctx: any,
@@ -38,12 +103,7 @@ export async function mountSidebarLayout(
   if (Object.keys(migration).length > 0) await chrome.storage.local.set(migration);
   if (isDisposed()) return;
 
-  let layoutStyle = document.getElementById('poexd-layout-style') as HTMLStyleElement | null;
-  if (!layoutStyle) {
-    layoutStyle = document.createElement('style');
-    layoutStyle.id = 'poexd-layout-style';
-    (document.head || document.documentElement).appendChild(layoutStyle);
-  }
+  const layoutStyle = ensureLayoutStyle();
 
   // 宿主樣式另外注入，讓 WXT 主樣式與 toast 完全相同而共用解析結果（見 shadow-host-style.ts）
   const hostCss = `
@@ -102,7 +162,7 @@ export async function mountSidebarLayout(
       mounted?.app?.unmount();
       mounted?.appRoot?.remove();
       mounted?.portalRoot?.remove();
-      document.getElementById('poexd-layout-style')?.remove();
+      document.getElementById(LAYOUT_STYLE_ID)?.remove();
     },
   });
   if (isDisposed()) {
@@ -153,20 +213,12 @@ export async function mountSidebarLayout(
   };
   let isResizing = false;
   const updatePageLayout = () => {
-    const pageWidth = currentCollapsed ? '100%' : `calc(100% - ${width}px)`;
-    const pageMarginLeft = currentPosition === 'left' && !currentCollapsed ? width : 0;
-    const pageMarginRight = currentPosition === 'right' && !currentCollapsed ? width : 0;
-    const transitionProperty = isResizing
-      ? 'transition: none !important;'
-      : 'transition: width 0.15s ease, margin-left 0.15s ease, margin-right 0.15s ease !important;';
-    layoutStyle.textContent = `
-      .content {
-        ${transitionProperty}
-        width: ${pageWidth} !important;
-        margin-left: ${pageMarginLeft}px !important;
-        margin-right: ${pageMarginRight}px !important;
-      }
-    `;
+    layoutStyle.textContent = buildPageLayoutCss({
+      collapsed: currentCollapsed,
+      position: currentPosition,
+      width,
+      animate: !isResizing,
+    });
   };
   const updateLayout = () => {
     updateWrapper();
