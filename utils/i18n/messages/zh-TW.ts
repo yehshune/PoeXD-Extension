@@ -322,7 +322,7 @@ export const ZH_TW_MESSAGES = {
   'pobBuild.mods.domainAria': '詞綴類型{domain}，切換詞綴類型',
   'pobBuild.mods.minAria': '下限',
   'pobBuild.mods.maxAria': '上限',
-  'pobBuild.mods.countMode': '至少符合',
+  'pobBuild.mods.groupTypeAria': '符合方式',
   'pobBuild.mods.countUnit': '項',
   'pobBuild.mods.countAria': '至少符合的項數',
   'pobBuild.mods.pseudo': '抗性、生命、能力值改用總和',

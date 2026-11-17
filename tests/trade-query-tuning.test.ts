@@ -11,6 +11,7 @@ import {
   setTradeStatFilterDomain,
   setTradeStatGroupBound,
   setTradeStatGroupDisabled,
+  setTradeStatGroupType,
 } from '@/utils/trade-query-tuning';
 
 describe('trade-query-tuning', () => {
@@ -91,6 +92,21 @@ describe('trade-query-tuning', () => {
         sampleQuery,
       ),
     ).toBe(true);
+  });
+
+  it('setTradeStatGroupType 換群組類別：無數值類別清掉數值，計數沒有下限時補 1，不認得的類別不更動', () => {
+    const toAnd = setTradeStatGroupType(sampleQuery, 0, 'and');
+    expect((toAnd as any).stats[1]).toMatchObject({ type: 'and' });
+    expect((toAnd as any).stats[1].value).toBeUndefined();
+    expect((setTradeStatGroupType(toAnd, 0, 'count') as any).stats[1].value).toEqual({ min: 1 });
+    expect((setTradeStatGroupType(sampleQuery, 0, 'weight') as any).stats[1]).toMatchObject({
+      type: 'weight',
+      value: { min: 2 },
+    });
+    expect(areTradeQueriesEqual(setTradeStatGroupType(sampleQuery, 0, 'bogus'), sampleQuery)).toBe(
+      true,
+    );
+    expect(sampleQuery.stats[1].type).toBe('count');
   });
 
   it('支援外層包著 { query, sort } 的 payload', () => {

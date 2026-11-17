@@ -273,6 +273,55 @@ describe('TradeSearchPreviewContent 詞綴群組卡片', () => {
     }
   });
 
+  it('canTune 時群組類別是下拉選單，選擇後送出新類別；不可微調時只顯示文字', async () => {
+    const picked: unknown[][] = [];
+    const container = render({
+      canTune: true,
+      onSetStatGroupType: (...args: unknown[]) => picked.push(args),
+    });
+    document.body.appendChild(container);
+    const triggers = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-test="preview-stat-group-type"]'),
+    );
+    expect(triggers.map((trigger) => trigger.textContent?.trim())).toEqual([
+      '且 (AND)',
+      '計數 (COUNT)',
+    ]);
+    triggers[1].dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+    triggers[1].click();
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const items = Array.from(
+      document.body.querySelectorAll<HTMLElement>('[data-slot="select-item"]'),
+    );
+    expect(items.map((item) => item.getAttribute('data-value'))).toEqual([
+      'and',
+      'not',
+      'if',
+      'count',
+      'weight',
+      'weight2',
+    ]);
+    const weight = items.find((item) => item.getAttribute('data-value') === 'weight')!;
+    const EventCtor = typeof PointerEvent !== 'undefined' ? PointerEvent : MouseEvent;
+    weight.focus?.();
+    weight.dispatchEvent(new EventCtor('pointerdown', { bubbles: true, cancelable: true }));
+    weight.dispatchEvent(new EventCtor('pointerup', { bubbles: true, cancelable: true }));
+    weight.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    weight.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    weight.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(picked[0]).toEqual([1, 'weight']);
+    container.remove();
+
+    app?.unmount();
+    const readOnly = render({ canTune: false });
+    expect(readOnly.querySelector('[data-test="preview-stat-group-type"]')).toBeNull();
+    expect(readOnly.querySelector('.preview-stat-group-type')?.textContent?.trim()).toBe(
+      '且 (AND)',
+    );
+  });
+
   it('依官方詞綴網域顯示對應標籤徽章與共用色票，explicit 不顯示標籤', () => {
     setMockDictionaries('poe2', {
       'explicit.stat_int': [{ displayTemplate: '+# 智慧' }],

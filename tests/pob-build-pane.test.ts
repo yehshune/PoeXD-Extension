@@ -606,6 +606,42 @@ describe('PobBuildPane', () => {
     expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
   });
 
+  it('詞綴可同時改下限與上限；符合方式以下拉選單在且／計數之間切換', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+
+    const bounds = () => queryAllBody('[data-pob-build-mod-bound]') as HTMLInputElement[];
+    // 生命（下限 80）與力量需求（上限 -8）各有下限與上限兩格
+    expect(bounds().map((input) => [input.dataset.bound, input.value])).toEqual([
+      ['min', '80'],
+      ['max', ''],
+      ['min', ''],
+      ['max', '-8'],
+    ]);
+    bounds()[1].value = '150';
+    bounds()[1].dispatchEvent(new Event('change'));
+    await nextTick();
+
+    const mode = () => queryBody<HTMLElement>('[data-pob-build-count-mode]')!;
+    expect(mode().textContent).toContain('計數 (COUNT)');
+    await chooseSelectOption(mode(), 'and');
+    expect(mode().textContent).toContain('且 (AND)');
+    expect(queryBody('[data-pob-build-count-min]')).toBeNull();
+    // 選單在 Popover 外，選完 Popover 仍開著
+    expect(queryBody('[data-pob-build-mods-popover]')).not.toBeNull();
+
+    queryBody<HTMLButtonElement>('[data-pob-build-save-selection]')!.click();
+    await nextTick();
+    expect(fake.saveSelection).toHaveBeenCalledWith('b1', 'k-rare', {
+      stats: {
+        'explicit.stat_life': { max: 150 },
+        'explicit.stat_str_req': { enabled: false },
+      },
+    });
+  });
+
   it('可切換網域的詞綴標籤：點開選單直接選前綴，存回條件時以原代碼記住', async () => {
     const build = sampleBuild();
     const rare = build.groups[0].rows[1];

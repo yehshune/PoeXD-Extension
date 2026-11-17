@@ -3,6 +3,14 @@ import { computed, ref, watch, type PropType } from 'vue';
 import { ExternalLink, RotateCcw, Save, Search, X } from '@lucide/vue';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { STAT_GROUP_TYPE_LABELS } from '@/components/injected/criteria-overlay-labels';
 import StatDomainMenu from '../stat-domain/StatDomainMenu.vue';
 import { isNestedMenuInteraction } from '../stat-domain/nested-menu-guard';
 import { t } from '@/utils/i18n';
@@ -32,9 +40,13 @@ import type { ShoppingRow, StatBound } from './usePobBuild';
 
 interface BoundEditor {
   statId: string;
-  bound: StatBound;
-  value?: number;
+  min?: number;
+  max?: number;
 }
+
+/** PoB 項目的詞綴群組只有兩種：全部符合（且）或至少符合 N 項（計數） */
+const POB_GROUP_TYPES = ['and', 'count'] as const;
+const BOUNDS: readonly StatBound[] = ['min', 'max'];
 
 /** 可切換網域的標籤：點開選單選擇前綴 */
 interface DomainSwitch {
@@ -166,9 +178,9 @@ const modLines = computed<ModLine[]>(() => {
     const line: ModLine = { index, mod, domain, ...(domainSwitch ? { domainSwitch } : {}) };
     if (!stat || seen.has(stat.id)) return line;
     seen.add(stat.id);
-    if (!filter || filter.value === undefined || stat.exact) return line;
-    const bound: StatBound = filter.value < 0 ? 'max' : 'min';
-    return { ...line, editor: { statId: stat.id, bound, value: filter[bound] } };
+    // 選項型條件（沒有數值）不能改範圍；其餘都可以改下限與上限
+    if (!filter || filter.value === undefined) return line;
+    return { ...line, editor: { statId: stat.id, min: filter.min, max: filter.max } };
   });
 });
 
@@ -225,7 +237,7 @@ function setDomain(key: string, domain: string): void {
   }));
 }
 
-function commitBound(editor: BoundEditor, event: Event): void {
+function commitBound(editor: BoundEditor, bound: StatBound, event: Event): void {
   const raw = (event.target as HTMLInputElement).value.trim();
   const value = raw === '' ? null : Number(raw);
   if (value !== null && !Number.isFinite(value)) return;
@@ -233,7 +245,7 @@ function commitBound(editor: BoundEditor, event: Event): void {
     ...draft,
     stats: {
       ...draft.stats,
-      [editor.statId]: { ...draft.stats?.[editor.statId], [editor.bound]: value },
+      [editor.statId]: { ...draft.stats?.[editor.statId], [bound]: value },
     },
   }));
 }
@@ -501,54 +513,61 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
               </span>
               <span class="min-w-0 flex-1">{{ line.mod.text }}</span>
               <template v-if="line.editor">
-                <span
-                  class="shrink-0 text-[length:var(--pxd-font-secondary)] text-muted-foreground"
-                  aria-hidden="true"
-                >
-                  {{ line.editor.bound === 'min' ? '≥' : '≤' }}
-                </span>
                 <input
+                  v-for="bound in BOUNDS"
+                  :key="bound"
                   type="number"
                   inputmode="decimal"
                   step="any"
                   data-pob-build-mod-bound
-                  :data-bound="line.editor.bound"
-                  :class="[boundInputBaseClass, 'w-[calc(var(--control-height-sm)*2.25)] shrink-0']"
-                  :value="line.editor.value ?? ''"
-                  :disabled="!line.mod.searched || effectiveRow.searchOverride"
-                  :aria-label="
+                  :data-bound="bound"
+                  :class="[boundInputBaseClass, 'w-[calc(var(--control-height-sm)*1.85)] shrink-0']"
+                  :value="line.editor[bound] ?? ''"
+                  :placeholder="
                     t(
-                      line.editor.bound === 'min'
-                        ? 'pobBuild.mods.minAria'
-                        : 'pobBuild.mods.maxAria',
+                      bound === 'min'
+                        ? 'tierDropdown.minPlaceholder'
+                        : 'tierDropdown.maxPlaceholder',
                     )
                   "
-                  @change="commitBound(line.editor, $event)"
+                  :disabled="!line.mod.searched || effectiveRow.searchOverride"
+                  :aria-label="
+                    t(bound === 'min' ? 'pobBuild.mods.minAria' : 'pobBuild.mods.maxAria')
+                  "
+                  @change="commitBound(line.editor, bound, $event)"
                   @keydown.enter.prevent="blurTarget"
                 />
               </template>
             </li>
           </ul>
 
-          <!-- 至少符合 N 項 / 總和條件 -->
+          <!-- 群組類別（且／計數，同市集的詞綴群組）與總和條件 -->
           <div
             v-if="effectiveRow.filters.length > 0"
             class="mt-[var(--pxd-space-xs)] flex flex-wrap items-center gap-x-[var(--pxd-space-lg)] gap-y-[var(--pxd-space-sm)] rounded-md border border-border bg-muted/30 px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] text-muted-foreground"
             :class="{ 'opacity-60': effectiveRow.searchOverride }"
           >
-            <span class="inline-flex items-center gap-[var(--pxd-space-xs)]">
-              <Checkbox
-                :id="controlId('count')"
+            <Select
+              :model-value="effectiveRow.countMin !== undefined ? 'count' : 'and'"
+              :disabled="effectiveRow.searchOverride || effectiveRow.visceraBundle"
+              @update:model-value="(value) => toggleCountMode(value === 'count')"
+            >
+              <SelectTrigger
+                size="sm"
+                class="w-auto shrink-0 font-semibold"
                 data-pob-build-count-mode
-                :model-value="effectiveRow.countMin !== undefined"
-                :disabled="effectiveRow.searchOverride || effectiveRow.visceraBundle"
-                @update:model-value="(value) => toggleCountMode(value === true)"
-              />
-              <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->
-              <label :for="controlId('count')" class="cursor-pointer">{{
-                t('pobBuild.mods.countMode')
-              }}</label>
-            </span>
+                :aria-label="t('pobBuild.mods.groupTypeAria')"
+              >
+                <SelectValue>{{
+                  STAT_GROUP_TYPE_LABELS[effectiveRow.countMin !== undefined ? 'count' : 'and']
+                }}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="option in POB_GROUP_TYPES" :key="option" :value="option">
+                  {{ STAT_GROUP_TYPE_LABELS[option] }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <span
               v-if="effectiveRow.countMin !== undefined"
               class="inline-flex items-center gap-[var(--pxd-space-xs)]"

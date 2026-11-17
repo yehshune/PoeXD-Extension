@@ -347,7 +347,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.mods.domainAria': 'Mod type {domain}, change mod type',
   'pobBuild.mods.minAria': 'Minimum',
   'pobBuild.mods.maxAria': 'Maximum',
-  'pobBuild.mods.countMode': 'Match at least',
+  'pobBuild.mods.groupTypeAria': 'Match mode',
   'pobBuild.mods.countUnit': '',
   'pobBuild.mods.countAria': 'Number of filters to match',
   'pobBuild.mods.pseudo': 'Use totals for resistances, life and attributes',

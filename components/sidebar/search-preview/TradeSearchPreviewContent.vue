@@ -288,7 +288,32 @@
                     (val) => emit('set-stat-group-disabled', groupIndex, val !== true)
                   "
                 />
+                <Select
+                  v-if="canTune"
+                  :model-value="group.type"
+                  @update:model-value="
+                    (val) => emit('set-stat-group-type', groupIndex, String(val))
+                  "
+                >
+                  <SelectTrigger
+                    size="sm"
+                    class="preview-stat-group-type w-auto shrink-0 font-semibold"
+                    data-test="preview-stat-group-type"
+                  >
+                    <SelectValue>{{ groupTypeLabel(group) }}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="option in groupTypeOptions(group)"
+                      :key="option"
+                      :value="option"
+                    >
+                      {{ STAT_GROUP_TYPE_LABELS[option] ?? option }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 <span
+                  v-else
                   class="preview-stat-group-type whitespace-nowrap font-semibold text-foreground"
                   >{{ groupTypeLabel(group) }}</span
                 >
@@ -593,7 +618,11 @@ import {
   shouldShowStatDomainBadge,
   STAT_DOMAIN_BADGE_CLASS,
 } from '@/utils/stat-domain';
-import { isGroupValueEditable, isNumericStatFilter } from '@/utils/trade-query-tuning';
+import {
+  isGroupValueEditable,
+  isNumericStatFilter,
+  STAT_GROUP_TYPES,
+} from '@/utils/trade-query-tuning';
 import { getOfficialStatDomains } from '@/utils/official-stat-text';
 import StatDomainMenu from '../stat-domain/StatDomainMenu.vue';
 import {
@@ -682,6 +711,7 @@ const emit = defineEmits<{
   'set-status': [status: string];
   'set-stat-group-disabled': [groupIndex: number, disabled: boolean];
   'set-stat-group-bound': [groupIndex: number, bound: 'min' | 'max', value: number | null];
+  'set-stat-group-type': [groupIndex: number, type: string];
   'set-stat-filter-disabled': [groupIndex: number, filterIndex: number, disabled: boolean];
   'set-stat-filter-bound': [
     groupIndex: number,
@@ -754,6 +784,12 @@ const hasCriteria = computed(() => {
 
 function hasSection(section: string): boolean {
   return Boolean(criteria.value?.fields.some((f) => f.section === section));
+}
+
+/** 群組類別選單：市集支援的類別；原本是不認得的類別時保留在最前面 */
+function groupTypeOptions(group: CriteriaOverlayStatGroup): string[] {
+  const known: readonly string[] = STAT_GROUP_TYPES;
+  return known.includes(group.type) ? [...known] : [group.type, ...known];
 }
 
 function groupTypeLabel(group: CriteriaOverlayStatGroup): string {

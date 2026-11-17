@@ -324,7 +324,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.mods.domainAria': '词缀类型{domain}，切换词缀类型',
   'pobBuild.mods.minAria': '下限',
   'pobBuild.mods.maxAria': '上限',
-  'pobBuild.mods.countMode': '至少符合',
+  'pobBuild.mods.groupTypeAria': '符合方式',
   'pobBuild.mods.countUnit': '项',
   'pobBuild.mods.countAria': '至少符合的项数',
   'pobBuild.mods.pseudo': '抗性、生命、属性改用总和',

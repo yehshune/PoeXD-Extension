@@ -38,6 +38,7 @@
         @set-stat-group-bound="
           (idx, bound, val) => applyTune((q) => setTradeStatGroupBound(q, idx, bound, val))
         "
+        @set-stat-group-type="(idx, type) => applyTune((q) => setTradeStatGroupType(q, idx, type))"
         @set-stat-filter-disabled="
           (gIdx, fIdx, disabled) =>
             applyTune((q) => setTradeStatFilterDisabled(q, gIdx, fIdx, disabled))
@@ -76,6 +77,7 @@ import {
   setTradeStatFilterDomain,
   setTradeStatFilterDisabled,
   setTradeStatGroupBound,
+  setTradeStatGroupType,
   setTradeStatGroupDisabled,
 } from '@/utils/trade-query-tuning';
 import { isTradeSearchFormUrl } from '@/entrypoints/content/logic/form-url-sync';

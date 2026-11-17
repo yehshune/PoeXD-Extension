@@ -4,6 +4,11 @@ import { withTradeSearchId } from './trade-search-identity';
 import { encodeQueryToGzipBase64Url } from './trade-url-codec';
 
 const EDITABLE_GROUP_TYPES = new Set(['count', 'weight', 'weight2']);
+/** 市集詞綴群組的類別（且、非、若、計數、加權總和） */
+export const STAT_GROUP_TYPES = ['and', 'not', 'if', 'count', 'weight', 'weight2'] as const;
+export type StatGroupType = (typeof STAT_GROUP_TYPES)[number];
+const isStatGroupType = (value: string): value is StatGroupType =>
+  (STAT_GROUP_TYPES as readonly string[]).includes(value);
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -138,6 +143,29 @@ export function setTradeStatGroupDisabled(
     if (!group) return;
     if (disabled) group.disabled = true;
     else delete group.disabled;
+  });
+}
+
+/**
+ * 改變詞綴群組的類別。換成沒有數值的類別（且、非、若）時清掉群組數值；換成計數且沒有下限時
+ * 帶入下限 1（計數沒有下限等於不限制）。不認得的類別不更動。
+ */
+export function setTradeStatGroupType(
+  payload: Record<string, unknown>,
+  visibleGroupIndex: number,
+  type: string,
+): Record<string, unknown> {
+  if (!isStatGroupType(type)) return cloneTradeQuery(payload) ?? {};
+  return mutateQuery(payload, (root) => {
+    const group = findVisibleGroup(root, visibleGroupIndex);
+    if (!group || group.type === type) return;
+    group.type = type;
+    if (!EDITABLE_GROUP_TYPES.has(type)) {
+      delete group.value;
+      return;
+    }
+    const value = isPlainRecord(group.value) ? group.value : {};
+    if (type === 'count' && typeof value.min !== 'number') group.value = { ...value, min: 1 };
   });
 }
 
