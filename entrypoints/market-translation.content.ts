@@ -6,6 +6,18 @@ import { loadResultTranslatorData } from '@/utils/market-translation-assets';
 import { createResultTranslator } from '@/utils/market-result-translator';
 import { MARKET_TRANSLATION_MATCH_PATTERNS } from '@/utils/market-translation-protocol';
 import { markMarketTranslationActive } from '@/utils/market-translation';
+import { loadExtensionJson } from '@/utils/extension-json-cache';
+
+/** 等主執行緒閒置最多多久就照樣執行，避免頁面一直忙碌時結果列永遠不翻譯 */
+const RESULT_TRANSLATOR_IDLE_TIMEOUT_MS = 2000;
+
+function whenMainThreadIdle(task: () => void): void {
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(task, { timeout: RESULT_TRANSLATOR_IDLE_TIMEOUT_MS });
+  } else {
+    setTimeout(task, 0);
+  }
+}
 
 /**
  * 市集漢化 isolated world 腳本（ADR-0012）：讀偏好、擴充內建分片與快取的官方即時譯文，
@@ -15,11 +27,8 @@ export default defineContentScript({
   matches: MARKET_TRANSLATION_MATCH_PATTERNS,
   runAt: 'document_start',
   main() {
-    const loadJson = async (path: string) => {
-      const response = await fetch(chrome.runtime.getURL(`/${path}`));
-      if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
-      return response.json();
-    };
+    // 與主要 content script 共用同一份已解析資料（同一個 isolated world）
+    const loadJson = loadExtensionJson;
     void startMarketTranslationBridge({
       hostname: window.location.hostname,
       pathname: window.location.pathname,
@@ -39,15 +48,20 @@ export default defineContentScript({
       // 第 4 階段：結果列（詞綴、物品名、屬性標籤）在 isolated world 直接改 DOM 文字
       onPayload: (payload, version, liveEn) => {
         markMarketTranslationActive(document, payload);
-        void loadResultTranslatorData(loadJson, {
-          version,
-          locale: payload.locale,
-          dictionary: payload.data ?? {},
-          ui: payload.ui,
-          liveEn,
-        })
-          .then((data) => createResultTranslator(data).observe(document))
-          .catch((error) => console.warn('[PoeXD] 市集漢化結果列翻譯啟動失敗:', error));
+        // 結果列翻譯資料約 3 MB，只有結果列用得到；官網此時正在載入、執行自己的腳本，
+        // 等主執行緒閒置（通常是官方 search / fetch 的網路等待期間）再解析，
+        // observe() 啟動時會補翻已出現的結果列
+        whenMainThreadIdle(() => {
+          void loadResultTranslatorData(loadJson, {
+            version,
+            locale: payload.locale,
+            dictionary: payload.data ?? {},
+            ui: payload.ui,
+            liveEn,
+          })
+            .then((data) => createResultTranslator(data).observe(document))
+            .catch((error) => console.warn('[PoeXD] 市集漢化結果列翻譯啟動失敗:', error));
+        });
       },
     });
   },
