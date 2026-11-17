@@ -153,9 +153,14 @@ describe('LiveSearch Primary Runtime & Subscription Pipeline', () => {
 
   const createRuntime = (
     gameVersion: PoeVersion = 'poe1',
-    options?: { displayLocalId?: string; origin?: string },
+    options?: {
+      displayLocalId?: string;
+      origin?: string;
+      onResultTokenAccepted?: (event: { ownerKey: string }) => void;
+    },
   ) => {
     return new LiveSearchPrimaryRuntime(gameVersion, {
+      onResultTokenAccepted: options?.onResultTokenAccepted,
       hostClient: fakeHostClient,
       webSocketFactory: createFakeWebSocket,
       fetchClient: createFakeFetch,
@@ -912,6 +917,74 @@ describe('LiveSearch Primary Runtime & Subscription Pipeline', () => {
       expect(fakeHostClient.renderCalls).toHaveLength(2);
       expect(fakeHostClient.renderCalls[0].sourceSearchId).toBe('search_A');
       expect(fakeHostClient.renderCalls[1].sourceSearchId).toBe('search_B');
+    });
+  });
+
+  describe('Result token accepted signal (ADR-0016)', () => {
+    it('新 token 觸發一次並帶 canonical key；重複 token 不再觸發', async () => {
+      const events: Array<{ ownerKey: string }> = [];
+      const runtime = createRuntime('poe1', { onResultTokenAccepted: (e) => events.push(e) });
+      await runtime.addSubscription(
+        createSubFixture({
+          id: 'sub_sound',
+          gameVersion: 'poe1',
+          league: 'Settlers',
+          searchId: 'search_sound',
+        }),
+      );
+      const ws = createdSockets[0];
+
+      ws.simulateMessage(JSON.stringify({ result: 'token_s1', count: 1 }));
+      ws.simulateMessage(JSON.stringify({ result: 'token_s1', count: 1 }));
+      await new Promise((r) => setTimeout(r, 15));
+      ws.simulateMessage(JSON.stringify({ result: 'token_s1', count: 1 }));
+      ws.simulateMessage(JSON.stringify({ result: 'token_s2', count: 1 }));
+      await new Promise((r) => setTimeout(r, 15));
+
+      expect(events).toHaveLength(2);
+      expect(events[0].ownerKey).toContain('search_sound');
+    });
+
+    it('監聽者拋錯不影響 fetch 與渲染', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const runtime = createRuntime('poe1', {
+        onResultTokenAccepted: () => {
+          throw new Error('boom');
+        },
+      });
+      await runtime.addSubscription(
+        createSubFixture({
+          id: 'sub_throw',
+          gameVersion: 'poe1',
+          league: 'Settlers',
+          searchId: 'search_throw',
+        }),
+      );
+      createdSockets[0].simulateMessage(JSON.stringify({ result: 'token_t1', count: 1 }));
+      await new Promise((r) => setTimeout(r, 15));
+
+      expect(fakeHostClient.renderCalls).toHaveLength(1);
+      expect(errorSpy).toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it('dispose 之後不再觸發', async () => {
+      const onAccepted = vi.fn();
+      const runtime = createRuntime('poe1', { onResultTokenAccepted: onAccepted });
+      await runtime.addSubscription(
+        createSubFixture({
+          id: 'sub_disposed',
+          gameVersion: 'poe1',
+          league: 'Settlers',
+          searchId: 'search_disposed',
+        }),
+      );
+      const ws = createdSockets[0];
+      runtime.dispose();
+      ws.simulateMessage(JSON.stringify({ result: 'token_d1', count: 1 }));
+      await new Promise((r) => setTimeout(r, 15));
+
+      expect(onAccepted).not.toHaveBeenCalled();
     });
   });
 

@@ -11,6 +11,7 @@ import type { PoeVersion } from '@/utils/trade-context';
 import type { LiveSearchPrimaryController, TradePageRole } from '@/utils/live-search-contract';
 import type { LiveSearchBookmarkController } from './live-search-bookmark-controller';
 import type { LiveSearchResumeController } from './live-search-resume-controller';
+import type { LiveSearchSoundNotifier } from './live-search-sound-notifier';
 import { syncUiRuntimeTokens } from '@/lib/tokens';
 import { applyThemeToHost } from '@/lib/theme/theme-runtime';
 import { appendShadowHostStyle } from './shadow-host-style';
@@ -27,6 +28,7 @@ export async function mountSidebarLayout(
   liveSearchBookmarkController?: LiveSearchBookmarkController | null,
   liveSearchResumeController?: LiveSearchResumeController | null,
   initialArrivalSignal: boolean = false,
+  liveSearchSoundNotifier: LiveSearchSoundNotifier | null = null,
 ) {
   const keys = createVersionedStorageKeys(version);
   const data = await chrome.storage.local.get([keys.isCollapsed, 'isCollapsed']);
@@ -91,6 +93,7 @@ export async function mountSidebarLayout(
         liveSearchBookmarkController,
         liveSearchResumeController,
         initialArrivalSignal,
+        liveSearchSoundNotifier,
       });
       app.mount(appRoot);
       return { app, appRoot, portalRoot };

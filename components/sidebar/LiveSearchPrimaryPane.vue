@@ -123,6 +123,21 @@
           </button>
         </div>
 
+        <!-- 通知音效被瀏覽器擋下（ADR-0016）：點一下即可解除並試聽。
+             用 pointerdown 而非 click：解除監聽在 pointerdown 就會讓提示消失，click 會落空 -->
+        <button
+          v-if="isSoundBlocked"
+          type="button"
+          data-test="sound-blocked-notice"
+          class="flex items-center gap-[var(--pxd-space-xs)] px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)] rounded-md border border-amber-500/25 bg-amber-500/10 text-left text-[length:var(--pxd-font-caption)] text-foreground cursor-pointer hover:bg-amber-500/15 transition-colors"
+          :title="t('liveSearch.sound.blockedTitle')"
+          @pointerdown="handleEnableSound"
+          @keydown.enter.space.prevent="handleEnableSound"
+        >
+          <VolumeX class="size-[var(--control-icon-sm,14px)] shrink-0 text-amber-500" />
+          <span class="min-w-0 flex-1">{{ t('liveSearch.sound.blockedNotice') }}</span>
+        </button>
+
         <!-- 展開式 API Rate Limit Details (Session UI State) -->
         <div
           v-show="isRateDetailsOpen"
@@ -878,6 +893,7 @@ import {
   Radio,
   RotateCcw,
   Search,
+  VolumeX,
   X,
 } from '@lucide/vue';
 import { Input } from '@/components/ui/input';
@@ -939,6 +955,7 @@ import type {
   LiveSearchResumeController,
   LiveSearchResumeSnapshot,
 } from '@/entrypoints/content/logic/live-search-resume-controller';
+import type { LiveSearchSoundNotifier } from '@/entrypoints/content/logic/live-search-sound-notifier';
 
 const props = defineProps({
   controller: {
@@ -959,6 +976,10 @@ const props = defineProps({
   },
   preferences: {
     type: Object as PropType<PreferencesModule | null>,
+    default: null,
+  },
+  soundNotifier: {
+    type: Object as PropType<LiveSearchSoundNotifier | null>,
     default: null,
   },
 });
@@ -1758,6 +1779,27 @@ watch(
   { immediate: true },
 );
 
+const isSoundBlocked = ref(false);
+let stopSoundSub: (() => void) | null = null;
+
+watch(
+  () => props.soundNotifier,
+  (notifier) => {
+    stopSoundSub?.();
+    stopSoundSub = null;
+    isSoundBlocked.value = notifier?.getState() === 'blocked';
+    if (!notifier) return;
+    stopSoundSub = notifier.subscribe((state) => {
+      isSoundBlocked.value = state === 'blocked';
+    });
+  },
+  { immediate: true },
+);
+
+function handleEnableSound() {
+  void props.soundNotifier?.preview();
+}
+
 onUnmounted(() => {
   if (trashCleanup) {
     trashCleanup();
@@ -1767,6 +1809,8 @@ onUnmounted(() => {
   clearScopedActivePreview();
   stopResumeSub?.();
   stopResumeSub = null;
+  stopSoundSub?.();
+  stopSoundSub = null;
   clearCountdownTimer();
   if (menuClickResetTimer) {
     clearTimeout(menuClickResetTimer);

@@ -50,6 +50,16 @@ export interface LiveSearchPrimaryRuntimeOptions {
   /** 結果展示區最多保留筆數（每次渲染時讀取，可隨偏好設定即時變更） */
   getMaxDisplayedResults?: () => number | undefined;
   resultFilter?: LiveSearchResultFilter;
+  /**
+   * 連線收到新的結果 token（通過 dedup、送進 /fetch 佇列之前）時呼叫，供主控台通知音效使用（ADR-0016）。
+   * 監聽者拋出的例外會被隔離，不影響 pipeline。
+   */
+  onResultTokenAccepted?: (event: LiveSearchResultTokenAcceptedEvent) => void;
+}
+
+export interface LiveSearchResultTokenAcceptedEvent {
+  /** 結果所屬連線的 canonical key */
+  ownerKey: string;
 }
 
 /** 開發用假結果：僅經由 Host Adapter 渲染，不建立 WebSocket、不呼叫 /fetch。 */
@@ -110,6 +120,7 @@ export class LiveSearchPrimaryRuntime {
   private readonly random?: () => number;
   private readonly getMaxDisplayedResults?: () => number | undefined;
   private readonly resultFilter: LiveSearchResultFilter;
+  private readonly onResultTokenAccepted?: (event: LiveSearchResultTokenAcceptedEvent) => void;
 
   private runtimeLeague: string | null = null;
   private activeTargetLeague: string | null = null;
@@ -168,6 +179,7 @@ export class LiveSearchPrimaryRuntime {
     this.random = options?.random;
     this.getMaxDisplayedResults = options?.getMaxDisplayedResults;
     this.resultFilter = options?.resultFilter ?? createLiveSearchResultFilter();
+    this.onResultTokenAccepted = options?.onResultTokenAccepted;
   }
 
   private readMaxDisplayedResults(): number | undefined {
@@ -668,6 +680,26 @@ export class LiveSearchPrimaryRuntime {
       subCtx,
       token,
     });
+
+    this.emitResultTokenAccepted(subCtx);
+  }
+
+  private emitResultTokenAccepted(subCtx: SubscriptionContext): void {
+    if (!this.onResultTokenAccepted) return;
+    try {
+      this.onResultTokenAccepted({
+        ownerKey: getTradeSearchCanonicalKey({
+          gameVersion: this.gameVersion,
+          league: subCtx.subscription.league,
+          searchId: subCtx.subscription.searchId,
+        }),
+      });
+    } catch (err) {
+      console.error(
+        '[PoeXD LiveSearch] Result token listener failed:',
+        err instanceof Error ? err.name : 'unknown error',
+      );
+    }
   }
 
   private enqueueTask(task: PipelineTask): void {

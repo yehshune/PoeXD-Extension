@@ -57,6 +57,10 @@ import {
   createLiveSearchResumeController,
   type LiveSearchResumeController,
 } from './live-search-resume-controller';
+import {
+  createLiveSearchSoundNotifier,
+  type LiveSearchSoundNotifier,
+} from './live-search-sound-notifier';
 import { setKnownStats } from '@/utils/known-stats-store';
 import { setLiveTradeData, setMarketLiveTradeData } from '@/utils/live-trade-data-store';
 import { startMarketLiveLabelsSync } from '@/utils/market-live-labels';
@@ -67,6 +71,7 @@ let activePrimaryController: LiveSearchPrimaryController | null = null;
 let activeBookmarkController: LiveSearchBookmarkController | null = null;
 let activeResumeStore: LiveSearchResumeStore | null = null;
 let activeResumeController: LiveSearchResumeController | null = null;
+let activeSoundNotifier: LiveSearchSoundNotifier | null = null;
 let activeExitGuard: LiveSearchPrimaryExitGuard | null = null;
 let activeConsoleHostGuard: LiveSearchConsoleHostGuard | null = null;
 let activeConsoleTitleGuard: LiveSearchConsoleTitleGuard | null = null;
@@ -152,6 +157,10 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       activePrimaryRuntime.dispose();
       activePrimaryRuntime = null;
       activePrimaryController = null;
+    }
+    if (activeSoundNotifier) {
+      activeSoundNotifier.dispose();
+      activeSoundNotifier = null;
     }
     console.log('[PoeXD] Logic cleaned up successfully.');
   };
@@ -267,8 +276,14 @@ export async function runLogic(ctx: any, version: PoeVersion) {
         activeConsoleTitleGuard.start();
         activeConsoleHostGuard = createLiveSearchConsoleHostGuard();
         activeConsoleHostGuard.start();
+        const soundNotifier = createLiveSearchSoundNotifier({
+          version,
+          isEnabled: () => preferences.read().liveSearchSoundEnabled,
+        });
+        activeSoundNotifier = soundNotifier;
         activePrimaryRuntime = new LiveSearchPrimaryRuntime(version, {
           getMaxDisplayedResults: () => preferences.read().liveSearchMaxDisplayedResults,
+          onResultTokenAccepted: () => soundNotifier.notify(),
         });
         activePrimaryController = createLiveSearchPrimaryController(activePrimaryRuntime);
         activeResumeStore = createLiveSearchResumeStore(version);
@@ -317,6 +332,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
           activeBookmarkController,
           activeResumeController,
           initialArrivalSignal,
+          activeSoundNotifier,
         )) || null;
       if (disposed) {
         domFilter.cleanup();

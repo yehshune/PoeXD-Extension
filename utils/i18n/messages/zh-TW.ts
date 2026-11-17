@@ -1009,6 +1009,17 @@ export const ZH_TW_MESSAGES = {
   'liveSearch.settings.resumeAutoDesc':
     '重新開啟主控台時，自動連線上次啟用的搜尋並加入「本次連線」。',
   'liveSearch.settings.clearPlanBtn': '清除上次啟用記錄',
+  'liveSearch.sound.label': '通知音效',
+  'liveSearch.sound.enableLabel': '有新結果時播放音效',
+  'liveSearch.sound.previewBtn': '試聽',
+  'liveSearch.sound.desc':
+    '音效與音量跟隨官方網站的設定。要更換，請在一般市集分頁的官方設定中調整；音量立即生效，音效在重新開啟主控台後生效。',
+  'liveSearch.sound.blockedNotice': '瀏覽器擋下了通知音效，點一下這裡即可啟用',
+  'liveSearch.sound.blockedTitle': '主控台在背景開啟、尚未互動過時，瀏覽器不允許播放音效',
+  'liveSearch.sound.preview.muted': '官方設定的音量為靜音，請在官方設定中調高音量',
+  'liveSearch.sound.preview.missing': '找不到官方的音效元件，請重新整理主控台',
+  'liveSearch.sound.preview.blocked': '瀏覽器擋下了音效，請再按一次試聽',
+  'liveSearch.sound.preview.error': '播放音效失敗',
   'liveSearch.settings.clearingPlan': '清除中...',
   'liveSearch.settings.resumeModeClean': '清理',
   'liveSearch.settings.resumeModeManual': '手動',

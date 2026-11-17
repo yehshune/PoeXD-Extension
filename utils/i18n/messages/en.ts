@@ -1075,6 +1075,21 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.settings.resumeAutoDesc':
     'Automatically reconnect previous active searches and add to "Current Session" on restart.',
   'liveSearch.settings.clearPlanBtn': 'Clear Previous Session Records',
+  'liveSearch.sound.label': 'Notification Sound',
+  'liveSearch.sound.enableLabel': 'Play a sound on new results',
+  'liveSearch.sound.previewBtn': 'Preview',
+  'liveSearch.sound.desc':
+    'Sound and volume follow the official site setting. To change them, use the official settings in a normal Trade tab; volume applies at once, a new sound after the console is reopened.',
+  'liveSearch.sound.blockedNotice':
+    'The browser blocked the notification sound. Click here to enable it',
+  'liveSearch.sound.blockedTitle':
+    'Browsers block sound in a tab opened in the background until you interact with it',
+  'liveSearch.sound.preview.muted':
+    'The official volume is muted. Raise it in the official settings',
+  'liveSearch.sound.preview.missing':
+    'The official sound element was not found. Reload the console',
+  'liveSearch.sound.preview.blocked': 'The browser blocked the sound. Press Preview again',
+  'liveSearch.sound.preview.error': 'Could not play the sound',
   'liveSearch.settings.clearingPlan': 'Clearing...',
   'liveSearch.settings.resumeModeClean': 'Clean',
   'liveSearch.settings.resumeModeManual': 'Manual',

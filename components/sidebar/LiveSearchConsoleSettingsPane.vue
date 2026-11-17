@@ -38,6 +38,55 @@
         </span>
       </div>
 
+      <!-- 通知音效（ADR-0016）：播放官方 <audio>，音效與音量跟隨官方設定 -->
+      <Separator class="my-[var(--pxd-section-gap)]" />
+
+      <div class="flex flex-col gap-[var(--pxd-space-sm)]">
+        <span class="text-[length:var(--pxd-font-secondary)] font-bold text-foreground">
+          {{ t('liveSearch.sound.label') }}
+        </span>
+
+        <div class="flex items-center justify-between gap-[var(--pxd-space-sm)] min-w-0">
+          <div class="flex items-center gap-[var(--pxd-space-md)] min-w-0 flex-1">
+            <Checkbox
+              id="live-search-sound-enabled"
+              :model-value="liveSearchSoundEnabled"
+              data-test="pref-sound-enabled"
+              class="shrink-0"
+              @update:model-value="handleUpdateSoundEnabled"
+            />
+            <label
+              for="live-search-sound-enabled"
+              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground min-w-0 truncate"
+            >
+              {{ t('liveSearch.sound.enableLabel') }}
+            </label>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-test="btn-sound-preview"
+            :disabled="!soundNotifier"
+            class="shrink-0 text-[length:var(--pxd-font-caption)]"
+            @click="handlePreviewSound"
+          >
+            {{ t('liveSearch.sound.previewBtn') }}
+          </Button>
+        </div>
+
+        <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground leading-relaxed">
+          {{ t('liveSearch.sound.desc') }}
+        </span>
+        <span
+          v-if="previewMessage"
+          data-test="sound-preview-message"
+          class="text-[length:var(--pxd-font-caption)] text-amber-500 leading-relaxed"
+        >
+          {{ previewMessage }}
+        </span>
+      </div>
+
       <!-- 重新開啟主控台時 (Resume Mode) -->
       <Separator class="my-[var(--pxd-section-gap)]" />
 
@@ -119,6 +168,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, type PropType } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
@@ -137,8 +187,12 @@ import {
   type LiveSearchMaxDisplayedResults,
 } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
-import { t } from '@/utils/i18n';
+import { t, type I18nKey } from '@/utils/i18n';
 import type { LiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
+import type {
+  LiveSearchSoundNotifier,
+  LiveSearchSoundPlayOutcome,
+} from '@/entrypoints/content/logic/live-search-sound-notifier';
 import {
   createLiveSearchResumeStore,
   clearLiveSearchResumePlan,
@@ -154,6 +208,10 @@ const props = defineProps({
     type: Object as PropType<LiveSearchResumeController | null>,
     default: null,
   },
+  soundNotifier: {
+    type: Object as PropType<LiveSearchSoundNotifier | null>,
+    default: null,
+  },
 });
 
 const version = getPoeVersion();
@@ -161,6 +219,8 @@ const liveSearchResumeMode = ref<LiveSearchResumeMode>(DEFAULT_PREFERENCES.liveS
 const liveSearchMaxDisplayedResults = ref<LiveSearchMaxDisplayedResults>(
   DEFAULT_PREFERENCES.liveSearchMaxDisplayedResults,
 );
+const liveSearchSoundEnabled = ref<boolean>(DEFAULT_PREFERENCES.liveSearchSoundEnabled);
+const previewMessage = ref('');
 const hasPersistedPlan = ref(false);
 const isClearingPlan = ref(false);
 
@@ -174,6 +234,8 @@ function applyPreferences(snapshot: Readonly<Preferences>) {
     snapshot.liveSearchResumeMode ?? DEFAULT_PREFERENCES.liveSearchResumeMode;
   liveSearchMaxDisplayedResults.value =
     snapshot.liveSearchMaxDisplayedResults ?? DEFAULT_PREFERENCES.liveSearchMaxDisplayedResults;
+  liveSearchSoundEnabled.value =
+    snapshot.liveSearchSoundEnabled ?? DEFAULT_PREFERENCES.liveSearchSoundEnabled;
 }
 
 function bindPreferencesModule(mod: PreferencesModule | undefined) {
@@ -247,10 +309,9 @@ onUnmounted(() => {
   stopResumeSub?.();
 });
 
-async function updatePreference<K extends 'liveSearchResumeMode' | 'liveSearchMaxDisplayedResults'>(
-  key: K,
-  value: Preferences[K],
-) {
+async function updatePreference<
+  K extends 'liveSearchResumeMode' | 'liveSearchMaxDisplayedResults' | 'liveSearchSoundEnabled',
+>(key: K, value: Preferences[K]) {
   if (!activePreferences) return;
   const outcome = await activePreferences.update({ [key]: value });
   if (!outcome.ok) {
@@ -270,6 +331,27 @@ async function handleUpdateMaxResults(val: unknown) {
   if (match === undefined) return;
   liveSearchMaxDisplayedResults.value = match;
   await updatePreference('liveSearchMaxDisplayedResults', match);
+}
+
+async function handleUpdateSoundEnabled(val: unknown) {
+  if (typeof val !== 'boolean') return;
+  liveSearchSoundEnabled.value = val;
+  await updatePreference('liveSearchSoundEnabled', val);
+}
+
+const PREVIEW_FAILURE_KEYS = {
+  muted: 'liveSearch.sound.preview.muted',
+  missing: 'liveSearch.sound.preview.missing',
+  blocked: 'liveSearch.sound.preview.blocked',
+  error: 'liveSearch.sound.preview.error',
+} as const satisfies Record<Exclude<LiveSearchSoundPlayOutcome, { ok: true }>['reason'], I18nKey>;
+
+async function handlePreviewSound() {
+  if (!props.soundNotifier) return;
+  previewMessage.value = '';
+  const outcome = await props.soundNotifier.preview();
+  if (outcome.ok) return;
+  previewMessage.value = t(PREVIEW_FAILURE_KEYS[outcome.reason]);
 }
 
 async function handleClearResumePlan() {

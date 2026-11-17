@@ -316,11 +316,13 @@
                   :controller="liveSearchController"
                   :bookmark-controller="liveSearchBookmarkController"
                   :resume-controller="liveSearchResumeController"
+                  :sound-notifier="liveSearchSoundNotifier"
                   @open-add-connection="handleOpenCustomSearch"
                 />
                 <LiveSearchConsoleSettingsPane
                   v-show="primaryActiveTab === 'console-settings'"
                   :resume-controller="liveSearchResumeController"
+                  :sound-notifier="liveSearchSoundNotifier"
                 />
               </template>
             </div>
@@ -574,6 +576,7 @@ import { t } from '@/utils/i18n';
 import type { LiveSearchPrimaryController, TradePageRole } from '@/utils/live-search-contract';
 import type { LiveSearchBookmarkController } from '@/entrypoints/content/logic/live-search-bookmark-controller';
 import type { LiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
+import type { LiveSearchSoundNotifier } from '@/entrypoints/content/logic/live-search-sound-notifier';
 
 installDialogGlobals();
 
@@ -615,6 +618,10 @@ export default defineComponent({
     },
     liveSearchResumeController: {
       type: Object as PropType<LiveSearchResumeController | null>,
+      default: null,
+    },
+    liveSearchSoundNotifier: {
+      type: Object as PropType<LiveSearchSoundNotifier | null>,
       default: null,
     },
     initialArrivalSignal: {

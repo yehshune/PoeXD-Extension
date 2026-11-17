@@ -165,6 +165,8 @@ export interface Preferences {
   liveSearchMaxDisplayedResults: LiveSearchMaxDisplayedResults;
   liveSearchResumeMode: LiveSearchResumeMode;
   liveSearchSelectedLeague: string;
+  /** 主控台通知音效（ADR-0016）：播放官方 <audio>，音效與音量跟隨官方設定 */
+  liveSearchSoundEnabled: boolean;
   /** 市集漢化（ADR-0012）：國際服英文市集頁以 Display Locale 的繁中或簡中顯示 */
   marketTranslation: boolean;
   /** 市集漢化的下拉選單（詞綴、通貨、物品）顯示成「中文 (English)」，中英文都搜得到 */
@@ -203,6 +205,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   liveSearchMaxDisplayedResults: 100,
   liveSearchResumeMode: 'prompt',
   liveSearchSelectedLeague: '',
+  liveSearchSoundEnabled: true,
   marketTranslation: false,
   marketTranslationBilingual: true,
   searchEntryClickAction: 'preview',

@@ -1011,6 +1011,17 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.settings.resumeAutoDesc':
     '重新打开主控台时，自动连接上次启用的搜索并加入“本次连接”。',
   'liveSearch.settings.clearPlanBtn': '清除上次启用记录',
+  'liveSearch.sound.label': '通知音效',
+  'liveSearch.sound.enableLabel': '有新结果时播放音效',
+  'liveSearch.sound.previewBtn': '试听',
+  'liveSearch.sound.desc':
+    '音效与音量跟随官方网站的设置。要更换，请在普通市集标签页的官方设置中调整；音量立即生效，音效在重新打开主控台后生效。',
+  'liveSearch.sound.blockedNotice': '浏览器拦截了通知音效，点一下这里即可启用',
+  'liveSearch.sound.blockedTitle': '主控台在后台打开、尚未交互过时，浏览器不允许播放音效',
+  'liveSearch.sound.preview.muted': '官方设置的音量为静音，请在官方设置中调高音量',
+  'liveSearch.sound.preview.missing': '找不到官方的音效组件，请刷新主控台',
+  'liveSearch.sound.preview.blocked': '浏览器拦截了音效，请再按一次试听',
+  'liveSearch.sound.preview.error': '播放音效失败',
   'liveSearch.settings.clearingPlan': '清除中...',
   'liveSearch.settings.resumeModeClean': '清理',
   'liveSearch.settings.resumeModeManual': '手动',
