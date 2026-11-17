@@ -555,7 +555,14 @@ export function alignLiveTradeItemsWithEnglish(
   if (Object.keys(discEntries).length > 0 && isMostlyIdenticalToEnglish(compared, identical)) {
     return null;
   }
-  return { discEntries, discSuffixes: localized.discSuffixes };
+  // 只收已翻譯的後綴：官方退回英文的後綴不得覆蓋內建的中文後綴（不只 legacy，alt_x 等亦同）
+  const discSuffixes = Object.fromEntries(
+    Object.entries(localized.discSuffixes).filter(([, suffix]) => CJK_RE.test(suffix)),
+  );
+  if (Object.keys(discEntries).length === 0 && Object.keys(discSuffixes).length === 0) {
+    return null;
+  }
+  return { discEntries, discSuffixes };
 }
 
 /** 驗證並讀出儲存於 chrome.storage.local 的 data API 快取 */

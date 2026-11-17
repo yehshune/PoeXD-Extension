@@ -128,7 +128,8 @@ export default defineConfig({
             // 市集漢化（ADR-0012）：只有 zh-TW、zh-CN
             'json/locales/*/trade-ui.json',
           ],
-          matches: [...TRADE_SITE_MATCHES, 'https://pobb.in/*'],
+          // pobb.in 翻譯腳本的資料改經 background 傳回，不列入這裡，網站便無法藉此偵測擴充
+          matches: TRADE_SITE_MATCHES,
         },
       ],
       ...(isFirefox

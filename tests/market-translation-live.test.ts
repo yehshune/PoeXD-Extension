@@ -365,6 +365,17 @@ describe('parseOfficialTrade{Stats,Static,Filters}', () => {
       discSuffixes: { legacy: ' (舊版)' },
     });
 
+    // 只收已翻譯的後綴：alt_x 退回英文時不覆蓋內建中文後綴；沒有任何可用內容時不更新
+    expect(
+      alignLiveTradeItemsWithEnglish(
+        { byDisc: {}, discSuffixes: { legacy: ' (舊版)', alt_x: ' (Alternate)' } },
+        en!,
+      ),
+    ).toEqual({ discEntries: {}, discSuffixes: { legacy: ' (舊版)' } });
+    expect(
+      alignLiveTradeItemsWithEnglish({ byDisc: {}, discSuffixes: { alt_x: ' (Alternate)' } }, en!),
+    ).toBeNull();
+
     // 目標網域退回英文時拒絕
     expect(parseOfficialTradeItems(buildEnglishItemsResponse())).toBeNull();
     expect(

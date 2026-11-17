@@ -7,6 +7,8 @@
  * 只改既有文字節點的內容、不增刪節點，不碰 build code `<textarea>` 與 `<pre>` 筆記區。
  */
 import { detectBrowserLocale, resolveDisplayLocale } from './locale-resolution';
+import { parsePobBuildXml } from './pob-build';
+import { decodePobBuildCode } from './pob-build-code';
 import { type ModLinePairs } from './market-mod-lines';
 import { createLabelLookup, type LabelLookup } from './market-result-labels';
 import {
@@ -569,6 +571,23 @@ export async function loadPobbinTranslatorData(
   };
 }
 
+/**
+ * 從頁面上的 build code `<textarea>` 判斷是 PoE 1 還是 PoE 2 的 build；
+ * 找不到或解不開時回傳 undefined（呼叫端退回 PoE 1）。
+ */
+export async function detectPobbinGameVersion(doc: Document): Promise<PoeVersion | undefined> {
+  for (const textarea of Array.from(doc.querySelectorAll('textarea'))) {
+    const code = textarea.value?.trim();
+    if (!code) continue;
+    try {
+      return parsePobBuildXml(await decodePobBuildCode(code)).gameVersion;
+    } catch {
+      // 不是 PoB 代碼的 textarea，繼續找下一個
+    }
+  }
+  return undefined;
+}
+
 export async function startPobbinTranslation(deps: {
   doc: Document;
   browserLocale?: string;
@@ -583,8 +602,9 @@ export async function startPobbinTranslation(deps: {
   });
   if (!config) return null;
 
+  const version = deps.version ?? (await detectPobbinGameVersion(deps.doc)) ?? 'poe1';
   const data = await loadPobbinTranslatorData(deps.loadJson, {
-    version: deps.version ?? 'poe1',
+    version,
     locale: config.locale,
     bilingual: config.bilingual,
   });
@@ -593,6 +613,26 @@ export async function startPobbinTranslation(deps: {
 }
 
 export const POBBIN_ORIGIN = POB_SHARE_OPTIONAL_ORIGINS[0];
+
+/**
+ * pobb.in 翻譯腳本可以向 background 要的資料檔。資料改由 background 讀取後經訊息傳回，
+ * 不把這些檔案列入 pobb.in 的 web_accessible_resources（否則網站能藉此偵測擴充是否安裝）。
+ */
+const POBBIN_ASSET_PATH =
+  /^json\/(?:poe1|poe2)\/(?:locales\/(?:en|zh-TW|zh-CN)\/(?:items|mod-lines|stat-text-items|result-labels|trade-stats|trade-filters)\.json|stat-aliases\.json)$|^json\/locales\/(?:zh-TW|zh-CN)\/trade-ui\.json$/;
+
+export const isPobbinAssetPath = (value: unknown): value is string =>
+  typeof value === 'string' && POBBIN_ASSET_PATH.test(value);
+
+/** 訊息必須來自 pobb.in 分頁裡的翻譯腳本 */
+export function isPobbinSenderUrl(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  try {
+    return new URL(value).origin === 'https://pobb.in';
+  } catch {
+    return false;
+  }
+}
 export const POBBIN_TRANSLATION_SCRIPT_ID = 'pobbin-translation';
 export const POBBIN_TRANSLATION_SCRIPT_FILE = 'content-scripts/pobbin-translation.js';
 

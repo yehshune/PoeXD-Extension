@@ -20,6 +20,7 @@ import {
   createPobBuildStore,
   isValidSearchCode,
   MAX_POB_BUILDS,
+  PobBuildLimitError,
   toEntrySearchSelection,
   type PobBuildStore,
   type StoredPobBuild,
@@ -206,6 +207,8 @@ export interface UsePobBuild {
 interface Session {
   id: string;
   name: string;
+  /** 目前的 PoB 代碼；跨分頁同步時用來判斷要不要重新解碼 */
+  code: string;
   build: PobBuild;
   collapsed: boolean;
   hideDone: boolean;
@@ -286,7 +289,9 @@ function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
 function toErrorKey(error: unknown): I18nKey {
   if (error instanceof VersionMismatchError) return 'pobBuild.error.versionMismatch';
   if (error instanceof ShareFetchError) return SHARE_ERROR_KEYS[error.code];
-  if (error instanceof TooManyBuildsError) return 'pobBuild.error.tooMany';
+  if (error instanceof TooManyBuildsError || error instanceof PobBuildLimitError) {
+    return 'pobBuild.error.tooMany';
+  }
   if (error instanceof PobBuildCodeError) {
     if (error.code === 'empty') return 'pobBuild.error.empty';
     if (error.code === 'too-large') return 'pobBuild.error.tooLarge';
@@ -317,12 +322,19 @@ const migrateKeyedRecord = <T>(build: PobBuild, source: Readonly<Record<string, 
 const sameList = (left: readonly string[], right: readonly string[]) =>
   left.length === right.length && left.every((value, index) => value === right[index]);
 
-const withToggled = (source: ReadonlySet<string>, key: string, on: boolean): Set<string> => {
+const withToggled = (source: Iterable<string>, key: string, on: boolean): Set<string> => {
   const next = new Set(source);
   if (on) next.add(key);
   else next.delete(key);
   return next;
 };
+
+const withoutKey = <T>(source: Readonly<Record<string, T>>, key: string): Record<string, T> => {
+  const { [key]: _removed, ...rest } = source;
+  return rest;
+};
+
+type PatchSource = StoredPobBuildPatch | ((current: StoredPobBuild) => StoredPobBuildPatch);
 
 export function usePobBuild(
   version: PoeVersion,
@@ -337,6 +349,9 @@ export function usePobBuild(
   const errorKey = ref<I18nKey | null>(null);
   const isBusy = ref(false);
   let stopWaitingForIcon: (() => void) | undefined;
+  /** 這個分頁送出、尚未寫完的變更數；有未完成的寫入時，先不拿本機資料覆蓋畫面 */
+  let pendingWrites = 0;
+  let resyncRequested = false;
 
   /**
    * 名稱資料必要（載不到就無法搜尋）。詞綴對應與翻譯載不到時仍可用，只是稀有裝少了詞綴條件、
@@ -459,13 +474,47 @@ export function usePobBuild(
 
   const find = (buildId: string) => sessions.value.find((session) => session.id === buildId);
 
-  /** 更新一份 build 的畫面狀態並存回本機；存不進去不影響目前畫面 */
-  const update = (buildId: string, change: Partial<Session>, patch: StoredPobBuildPatch) => {
+  /** 存回本機失敗：記下錯誤、提示使用者，寫入結束後以本機實際內容重新同步畫面 */
+  const reportStorageError = (error: unknown) => {
+    console.error('[PoeXD] PoB 購物清單無法存到本機:', error);
+    deps.showToast(t('pobBuild.toast.saveFailed'), 'error');
+    resyncRequested = true;
+  };
+
+  /**
+   * 包住一段「寫入本機並更新畫面」的工作：進行中不讓跨分頁同步覆蓋畫面，
+   * 全部結束後若期間有變更通知，再從本機重新同步一次。
+   */
+  const withPendingWrite = async <T>(task: () => Promise<T>): Promise<T> => {
+    pendingWrites += 1;
+    try {
+      return await task();
+    } finally {
+      pendingWrites -= 1;
+      if (pendingWrites === 0 && resyncRequested) {
+        resyncRequested = false;
+        void syncFromStore();
+      }
+    }
+  };
+
+  /** 排入一個寫入本機的工作；失敗時提示使用者並在之後以本機內容重新同步 */
+  const persist = (task: () => Promise<unknown>) => {
+    // 錯誤在 withPendingWrite 結束前處理，重新同步的旗標才來得及在寫入收尾時生效
+    void withPendingWrite(() => task().catch(reportStorageError));
+  };
+
+  /**
+   * 更新一份 build 的畫面狀態並存回本機。patch 可以是函式：以本機最新的內容計算
+   * （集合類的進度只增減這一項），不會用這個分頁的舊資料蓋掉其他分頁剛寫入的進度。
+   */
+  const update = (buildId: string, change: Partial<Session>, patch: PatchSource) => {
     if (!find(buildId)) return;
     sessions.value = sessions.value.map((session) =>
       session.id === buildId ? { ...session, ...change } : session,
     );
-    void deps.store.update(buildId, patch).catch(() => undefined);
+    const compute = typeof patch === 'function' ? patch : () => patch;
+    persist(() => deps.store.mutate(buildId, compute));
   };
 
   /** 輸入是分享網址時先取回原始代碼；其餘視為 PoB 代碼，去掉空白 */
@@ -498,13 +547,22 @@ export function usePobBuild(
     ) {
       return stored;
     }
-    void deps.store.update(stored.id, { done, removed, icons }).catch(() => undefined);
+    persist(() =>
+      deps.store.mutate(stored.id, (current) => ({
+        done: migrateLegacyGemKeys(build, current.done),
+        removed: migrateLegacyGemKeys(build, current.removed),
+        icons: migrateKeyedRecord(build, current.icons),
+      })),
+    );
     return { ...stored, done, removed, icons };
   };
 
   const toSession = async (source: StoredPobBuild): Promise<Session> => {
     const build = await decodeBuild(source.code);
-    const stored = migrateStored(source, build);
+    return sessionFrom(build, migrateStored(source, build));
+  };
+
+  const sessionFrom = (build: PobBuild, stored: StoredPobBuild): Session => {
     const pick = (
       sets: ReadonlyArray<{ id: string }>,
       wanted: string | undefined,
@@ -513,6 +571,7 @@ export function usePobBuild(
     return {
       id: stored.id,
       name: stored.name || defaultName(build),
+      code: stored.code,
       build,
       collapsed: stored.collapsed,
       hideDone: stored.hideDone,
@@ -535,9 +594,13 @@ export function usePobBuild(
     const session = find(buildId);
     if (!session) return;
     const next = toEntrySearchSelection(change(session.searchSelections[key] ?? {}));
-    const { [key]: _previous, ...rest } = session.searchSelections;
-    const searchSelections = next ? { ...rest, [key]: next } : rest;
-    update(buildId, { searchSelections }, { searchSelections });
+    const merge = (source: Readonly<Record<string, EntrySearchSelection>>) => {
+      const rest = withoutKey(source, key);
+      return next ? { ...rest, [key]: next } : rest;
+    };
+    update(buildId, { searchSelections: merge(session.searchSelections) }, (current) => ({
+      searchSelections: merge(current.searchSelections),
+    }));
   };
 
   const updateStat = (
@@ -587,8 +650,9 @@ export function usePobBuild(
   ) => {
     const session = find(buildId);
     if (!session) return;
-    const searchOverrides = change({ ...session.searchOverrides });
-    update(buildId, { searchOverrides }, { searchOverrides });
+    update(buildId, { searchOverrides: change({ ...session.searchOverrides }) }, (current) => ({
+      searchOverrides: change({ ...current.searchOverrides }),
+    }));
   };
 
   /** 這個頁面是從某個項目開啟的搜尋：第一批結果圖片就是那個項目的圖片 */
@@ -602,17 +666,68 @@ export function usePobBuild(
       if (!icon || !session) return;
       stopWaitingForIcon?.();
       stopWaitingForIcon = undefined;
-      const icons = { ...session.icons, [pending.entryKey]: icon };
-      update(pending.buildId, { icons }, { icons });
+      update(
+        pending.buildId,
+        { icons: { ...session.icons, [pending.entryKey]: icon } },
+        (current) => ({ icons: { ...current.icons, [pending.entryKey]: icon } }),
+      );
     });
   };
+
+  /**
+   * 以本機資料重新同步畫面（其他分頁的變更、或本分頁寫入失敗後）。代碼沒變的 build 不重新解碼；
+   * 這個分頁還有未寫完的變更時延後到寫完再同步，避免畫面跳回舊狀態。
+   */
+  async function syncFromStore(): Promise<void> {
+    if (pendingWrites > 0) {
+      resyncRequested = true;
+      return;
+    }
+    let stored: StoredPobBuild[];
+    try {
+      stored = await deps.store.list();
+    } catch (error) {
+      console.error('[PoeXD] 無法讀取本機的 PoB 購物清單:', error);
+      return;
+    }
+    if (stored.length > 0 && !catalog.value) {
+      try {
+        await ensureData();
+      } catch {
+        return;
+      }
+    }
+    const current = new Map(sessions.value.map((session) => [session.id, session]));
+    const next = await Promise.all(
+      stored.map((entry) => {
+        const existing = current.get(entry.id);
+        if (existing && existing.code === entry.code) {
+          return Promise.resolve(sessionFrom(existing.build, entry));
+        }
+        return toSession(entry).catch(() => undefined);
+      }),
+    );
+    if (pendingWrites > 0) {
+      resyncRequested = true;
+      return;
+    }
+    sessions.value = next.filter((session): session is Session => session !== undefined);
+  }
+
+  const unsubscribeStore = deps.store.subscribe(() => void syncFromStore());
 
   return {
     builds: computed(() => sessions.value.map(toView)),
     errorKey,
     isBusy,
     async restore() {
-      const stored = await deps.store.list().catch(() => []);
+      let stored: StoredPobBuild[];
+      try {
+        stored = await deps.store.list();
+      } catch (error) {
+        console.error('[PoeXD] 無法讀取本機的 PoB 購物清單:', error);
+        return;
+      }
       if (stored.length === 0) return;
       try {
         await ensureData();
@@ -634,8 +749,11 @@ export function usePobBuild(
         const compactCode = await resolveInputCode(code);
         const build = await decodeBuild(compactCode);
         await ensureData();
-        const stored = await deps.store.add({ name: defaultName(build), code: compactCode });
-        sessions.value = [await toSession(stored), ...sessions.value];
+        await withPendingWrite(async () => {
+          const stored = await deps.store.add({ name: defaultName(build), code: compactCode });
+          const session = await toSession(stored);
+          sessions.value = [session, ...sessions.value.filter((entry) => entry.id !== session.id)];
+        });
         return true;
       } catch (error) {
         errorKey.value = toErrorKey(error);
@@ -654,27 +772,43 @@ export function usePobBuild(
         const build = await decodeBuild(compactCode);
         await ensureData();
         const keep = allKeysOf(build);
-        const patch = {
-          done: [...session.done].filter((key) => keep.has(key)),
-          removed: [...session.removed].filter((key) => keep.has(key)),
-          icons: pickKeys(session.icons, keep),
-          searchSelections: pickKeys(session.searchSelections, keep),
-          searchOverrides: pickKeys(session.searchOverrides, keep),
-        };
-        if (!(await deps.store.replaceCode(buildId, compactCode, patch))) return false;
-        const before = new Set(entriesOf(session).map((entry) => entry.key));
-        const next = await toSession({
-          id: session.id,
-          name: session.name,
-          code: compactCode,
-          importedAt: 0,
-          collapsed: session.collapsed,
-          hideDone: session.hideDone,
-          itemSetId: session.itemSetId,
-          skillSetId: session.skillSetId,
-          ...patch,
+        const prune = (source: {
+          done: Iterable<string>;
+          removed: Iterable<string>;
+          icons: Readonly<Record<string, string>>;
+          searchSelections: Readonly<Record<string, EntrySearchSelection>>;
+          searchOverrides: Readonly<Record<string, string>>;
+        }) => ({
+          done: [...source.done].filter((key) => keep.has(key)),
+          removed: [...source.removed].filter((key) => keep.has(key)),
+          icons: pickKeys(source.icons, keep),
+          searchSelections: pickKeys(source.searchSelections, keep),
+          searchOverrides: pickKeys(source.searchOverrides, keep),
         });
-        sessions.value = sessions.value.map((entry) => (entry.id === buildId ? next : entry));
+        // 以本機最新的進度裁剪（其他分頁可能剛勾完成），畫面也用同一份結果
+        let patch = prune(session);
+        const before = new Set(entriesOf(session).map((entry) => entry.key));
+        const next = await withPendingWrite(async () => {
+          const replaced = await deps.store.replaceCode(buildId, compactCode, (current) => {
+            patch = prune(current);
+            return patch;
+          });
+          if (!replaced) return undefined;
+          const updated = await toSession({
+            id: session.id,
+            name: session.name,
+            code: compactCode,
+            importedAt: 0,
+            collapsed: session.collapsed,
+            hideDone: session.hideDone,
+            itemSetId: session.itemSetId,
+            skillSetId: session.skillSetId,
+            ...patch,
+          });
+          sessions.value = sessions.value.map((entry) => (entry.id === buildId ? updated : entry));
+          return updated;
+        });
+        if (!next) return false;
         const after = entriesOf(next).map((entry) => entry.key);
         deps.showToast(
           t('pobBuild.updateCode.summary', {
@@ -692,7 +826,15 @@ export function usePobBuild(
       }
     },
     openSharePermissionPage() {
-      void deps.openSharePermissionPage().catch(() => false);
+      void deps
+        .openSharePermissionPage()
+        .catch((error: unknown) => {
+          console.error('[PoeXD] 無法開啟 PoB 分享網址授權頁:', error);
+          return false;
+        })
+        .then((opened) => {
+          if (!opened) deps.showToast(t('pobBuild.toast.permissionPageFailed'), 'error');
+        });
     },
     setHideDone(buildId, on) {
       update(buildId, { hideDone: on }, { hideDone: on });
@@ -704,7 +846,7 @@ export function usePobBuild(
     },
     removeBuild(buildId) {
       sessions.value = sessions.value.filter((session) => session.id !== buildId);
-      void deps.store.remove(buildId).catch(() => undefined);
+      persist(() => deps.store.remove(buildId));
     },
     toggleCollapsed(buildId) {
       const collapsed = !find(buildId)?.collapsed;
@@ -721,21 +863,27 @@ export function usePobBuild(
     toggleDone(buildId, key) {
       const session = find(buildId);
       if (!session) return;
-      const done = withToggled(session.done, key, !session.done.has(key));
-      update(buildId, { done }, { done: [...done] });
+      const on = !session.done.has(key);
+      update(buildId, { done: withToggled(session.done, key, on) }, (current) => ({
+        done: [...withToggled(current.done, key, on)],
+      }));
     },
     removeEntry(buildId, key) {
       const session = find(buildId);
       if (!session) return;
-      const removed = withToggled(session.removed, key, true);
-      update(buildId, { removed }, { removed: [...removed] });
+      update(buildId, { removed: withToggled(session.removed, key, true) }, (current) => ({
+        removed: [...withToggled(current.removed, key, true)],
+      }));
     },
     restoreRemoved(buildId) {
       const session = find(buildId);
       if (!session) return;
       const current = new Set(entriesOf(session).map((entry) => entry.key));
-      const removed = new Set([...session.removed].filter((key) => !current.has(key)));
-      update(buildId, { removed }, { removed: [...removed] });
+      const keepRemoved = (source: Iterable<string>) =>
+        [...source].filter((key) => !current.has(key));
+      update(buildId, { removed: new Set(keepRemoved(session.removed)) }, (stored) => ({
+        removed: keepRemoved(stored.removed),
+      }));
     },
     setStatEnabled(buildId, key, statId, enabled) {
       updateStat(buildId, key, statId, { enabled });
@@ -846,6 +994,7 @@ export function usePobBuild(
       return result.ok;
     },
     dispose() {
+      unsubscribeStore();
       stopWaitingForIcon?.();
       stopWaitingForIcon = undefined;
       deps.bookmarks.dispose();

@@ -410,15 +410,22 @@ function mergeIntoPseudo(
       rest.push(toQueryFilter(filter));
       continue;
     }
+    // 使用者調整過的那一行以他填的界限計入（正數看下限、負數看上限，清空視為 0），否則取八成
+    const customBound = filter.value < 0 ? filter.max : filter.min;
+    const lineMinimum = filter.customized ? (customBound ?? 0) : filter.value * STAT_MIN_RATIO;
     for (const { id, weight } of contributions) {
-      totals.set(id, (totals.get(id) ?? 0) + filter.value * weight);
+      totals.set(id, (totals.get(id) ?? 0) + lineMinimum * weight);
     }
     // 固定詞綴決定基底的種類（雙玉戒指是哪兩種抗性），保留成獨立條件，數值仍計入總和
     if (filter.id.startsWith(IMPLICIT_PREFIX)) rest.push(toQueryFilter(filter));
   }
-  const pseudo = [...totals.entries()].map(([id, total]) =>
-    toQueryFilter({ id, ...defaultStatBounds(total) }),
-  );
+  const pseudo = [...totals.entries()].map(([id, total]) => {
+    // 先四捨五入到 1e-6 消掉浮點誤差（120 × 0.8 = 96.00000000000001），再往 0 的方向取整
+    const settled = Math.round(total * 1e6) / 1e6;
+    const bound =
+      settled > 0 ? { min: Math.floor(settled) } : settled < 0 ? { max: Math.ceil(settled) } : {};
+    return toQueryFilter({ id, ...bound });
+  });
   return [...pseudo, ...rest];
 }
 

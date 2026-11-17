@@ -1,4 +1,5 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
+import { extensionMessaging } from '@/utils/extension-protocol';
 import { detectBrowserLocale } from '@/utils/locale-resolution';
 import { startPobbinTranslation } from '@/utils/pobbin-translator';
 
@@ -11,11 +12,8 @@ export default defineContentScript({
   matches: [],
   runAt: 'document_idle',
   main() {
-    const loadJson = async (path: string) => {
-      const response = await fetch(chrome.runtime.getURL(`/${path}`));
-      if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
-      return response.json();
-    };
+    // 資料檔不開放給 pobb.in 直接讀取（避免網站偵測擴充），改由 background 讀取後傳回
+    const loadJson = (path: string) => extensionMessaging.sendMessage('pobbin:loadAsset', { path });
     void startPobbinTranslation({
       doc: document,
       browserLocale: detectBrowserLocale(),

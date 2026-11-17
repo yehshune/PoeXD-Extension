@@ -800,6 +800,111 @@ describe('usePobBuild', () => {
     });
   });
 
+  describe('多個分頁同時開啟與存檔失敗', () => {
+    /** 共用同一份本機資料、寫入後通知所有訂閱者（模擬 chrome.storage.onChanged） */
+    const sharedStorage = (): PobBuildStorage => {
+      const listeners = new Set<(keys: readonly string[]) => void>();
+      return {
+        get: storage.get,
+        set: async (values) => {
+          await storage.set(values);
+          const keys = Object.keys(values);
+          queueMicrotask(() => listeners.forEach((listener) => listener(keys)));
+        },
+        onChanged: (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      };
+    };
+    const tab = (shared: PobBuildStorage) =>
+      usePobBuild('poe1', {
+        ...deps,
+        store: createPobBuildStore('poe1', {
+          storage: shared,
+          createId: () => `build-${++nextId}`,
+        }),
+      });
+    const settle = async () => {
+      for (let i = 0; i < 5; i++) await flush();
+    };
+
+    it('另一個分頁勾的完成不會被這個分頁的舊資料蓋掉，且畫面會同步', async () => {
+      const shared = sharedStorage();
+      const a = tab(shared);
+      await a.importCode(toCode(buildXml()));
+      const b = tab(shared);
+      await b.restore();
+      const phoenix = rowByLabel(first(a), 'Rise of the Phoenix').key;
+      const amulet = rowByLabel(first(a), "Xoph's Heart").key;
+
+      a.toggleDone('build-1', phoenix);
+      await settle();
+      // B 還沒收到通知前就勾了另一項：寫入時以本機最新內容計算，不會丟掉 A 的進度
+      b.toggleDone('build-1', amulet);
+      await settle();
+
+      expect(stored()[0].done.sort()).toEqual([amulet, phoenix].sort());
+      expect(rowByLabel(first(a), "Xoph's Heart").done).toBe(true);
+      expect(rowByLabel(first(b), 'Rise of the Phoenix').done).toBe(true);
+      a.dispose();
+      b.dispose();
+    });
+
+    it('另一個分頁新增的 build 也會出現在這個分頁，且不會重複', async () => {
+      const shared = sharedStorage();
+      const a = tab(shared);
+      const b = tab(shared);
+      await a.importCode(toCode(buildXml()));
+      await settle();
+      expect(a.builds.value.map((build) => build.id)).toEqual(['build-1']);
+      expect(b.builds.value.map((build) => build.id)).toEqual(['build-1']);
+      a.dispose();
+      b.dispose();
+    });
+
+    it('本機已達上限時不擠掉既有的 build，顯示數量上限錯誤', async () => {
+      storage.data[pobBuildsStorageKey('poe1')] = Array.from({ length: 20 }, (_, index) => ({
+        id: `old-${index}`,
+        name: `Old ${index}`,
+        code: toCode(buildXml()),
+      }));
+      // 這個分頁的畫面還沒讀到其他分頁新增的 build
+      const pob = usePobBuild('poe1', deps);
+      expect(await pob.importCode(toCode(buildXml()))).toBe(false);
+      expect(pob.errorKey.value).toBe('pobBuild.error.tooMany');
+      expect(stored()).toHaveLength(20);
+      expect(stored()[19].id).toBe('old-19');
+    });
+
+    it('存不進本機時提示使用者並記錄錯誤，畫面回到本機實際內容', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const original = storage.set;
+      storage.set = async () => {
+        throw new Error('QUOTA_BYTES quota exceeded');
+      };
+      pob.toggleDone('build-1', rowByLabel(first(pob), 'Rise of the Phoenix').key);
+      expect(rowByLabel(first(pob), 'Rise of the Phoenix').done).toBe(true);
+      await settle();
+
+      expect(showToast).toHaveBeenCalledWith(expect.any(String), 'error');
+      expect(error).toHaveBeenCalled();
+      expect(rowByLabel(first(pob), 'Rise of the Phoenix').done).toBe(false);
+      storage.set = original;
+      error.mockRestore();
+    });
+
+    it('授權頁開不起來時提示使用者', async () => {
+      openSharePermissionPage.mockResolvedValueOnce(false);
+      const pob = usePobBuild('poe1', deps);
+      pob.openSharePermissionPage();
+      await flush();
+      expect(showToast).toHaveBeenCalledWith(expect.any(String), 'error');
+    });
+  });
+
   describe('串接主控台、存回搜尋與書籤', () => {
     const codeOf = (url: string) => parseTradeSearchUrl(url)?.searchId ?? '';
 

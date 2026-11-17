@@ -33,7 +33,7 @@ import type {
   LiveSearchOpenPrimaryRequest,
   LiveSearchOpenPrimaryResponse,
 } from './live-search-contract';
-import type { PobShareFetchOutcome } from './pob-share-fetch';
+import type { PobbinAssetJson, PobShareFetchOutcome } from './pob-share-fetch';
 import type {
   MarketTranslationRefreshOutcome,
   MarketTranslationRefreshRequest,
@@ -72,6 +72,8 @@ export interface ExtensionProtocolMap {
   'pobShare:fetchCode': (request: { url: string }) => PobShareFetchOutcome;
   /** 開啟選用權限的授權頁 */
   'pobShare:openPermissionPage': () => boolean;
+  /** pobb.in 翻譯腳本讀取擴充內建的資料檔（路徑與來源分頁在 background 驗證） */
+  'pobbin:loadAsset': (request: { path: string }) => PobbinAssetJson;
 }
 
 export const extensionMessaging = defineExtensionMessaging<ExtensionProtocolMap>();

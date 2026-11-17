@@ -10,6 +10,8 @@ import type { PoeVersion } from './trade-context';
 export interface PobBuildStorage {
   get(keys: readonly string[]): Promise<Record<string, unknown>>;
   set(values: Record<string, unknown>): Promise<void>;
+  /** 訂閱鍵值變更（含其他分頁的寫入）；回傳取消訂閱。沒有提供時不做跨分頁同步 */
+  onChanged?(listener: (changedKeys: readonly string[]) => void): () => void;
 }
 
 export interface StoredPobBuild {
@@ -40,17 +42,36 @@ export interface StoredPobBuild {
 
 export type StoredPobBuildPatch = Partial<Omit<StoredPobBuild, 'id' | 'code' | 'importedAt'>>;
 
+/** 已達可保留的 build 數量上限（以本機最新的清單判斷，其他分頁新增的也算） */
+export class PobBuildLimitError extends Error {
+  constructor() {
+    super('PoB build limit reached');
+    this.name = 'PobBuildLimitError';
+  }
+}
+
 export interface PobBuildStore {
   list(): Promise<StoredPobBuild[]>;
-  /** 新增一份 build，放在清單最前面 */
+  /** 新增一份 build，放在清單最前面；已達上限時丟出 PobBuildLimitError，不會擠掉既有的 build */
   add(entry: { name: string; code: string }): Promise<StoredPobBuild>;
   /** 更新指定 build；該 build 已不存在時不做事 */
   update(id: string, patch: StoredPobBuildPatch): Promise<void>;
   /**
+   * 以本機最新的 build 內容計算 patch 再寫回（讀出、修改、寫回在同一個排隊步驟內），
+   * 其他分頁剛寫入的進度不會被這個分頁記憶體裡的舊資料蓋掉。該 build 已不存在時不做事。
+   */
+  mutate(id: string, change: (current: StoredPobBuild) => StoredPobBuildPatch): Promise<void>;
+  /** 訂閱這個遊戲版本清單的變更（含其他分頁）；回傳取消訂閱 */
+  subscribe(listener: () => void): () => void;
+  /**
    * 換成新的 PoB 代碼，名稱、進度與搜尋調整保留，同時套用 patch（清掉已不存在的項目）。
    * 該 build 已不存在時回傳 false。
    */
-  replaceCode(id: string, code: string, patch: StoredPobBuildPatch): Promise<boolean>;
+  replaceCode(
+    id: string,
+    code: string,
+    patch: StoredPobBuildPatch | ((current: StoredPobBuild) => StoredPobBuildPatch),
+  ): Promise<boolean>;
   remove(id: string): Promise<void>;
 }
 
@@ -75,6 +96,13 @@ function createChromeLocalStorage(): PobBuildStorage {
   return {
     get: (keys) => chrome.storage.local.get([...keys]),
     set: (values) => chrome.storage.local.set(values),
+    onChanged: (listener) => {
+      const handle = (changes: Record<string, unknown>, areaName: string) => {
+        if (areaName === 'local') listener(Object.keys(changes));
+      };
+      chrome.storage.onChanged.addListener(handle);
+      return () => chrome.storage.onChanged.removeListener(handle);
+    },
   };
 }
 
@@ -243,6 +271,15 @@ export function createPobBuildStore(
     return result;
   };
 
+  const mutate = (id: string, change: (current: StoredPobBuild) => StoredPobBuildPatch) =>
+    enqueue(async () => {
+      const builds = await list();
+      const current = builds.find((build) => build.id === id);
+      if (!current) return;
+      const next = applyPatch(current, change(current));
+      await write(builds.map((build) => (build.id === id ? next : build)));
+    });
+
   return {
     list,
     add: ({ name, code }) =>
@@ -260,24 +297,25 @@ export function createPobBuildStore(
           searchSelections: {},
           searchOverrides: {},
         };
-        await write([build, ...(await list())].slice(0, MAX_POB_BUILDS));
+        const builds = await list();
+        if (builds.length >= MAX_POB_BUILDS) throw new PobBuildLimitError();
+        await write([build, ...builds]);
         return build;
       }),
-    update: (id, patch) =>
-      enqueue(async () => {
-        const builds = await list();
-        if (!builds.some((build) => build.id === id)) return;
-        await write(builds.map((build) => (build.id === id ? applyPatch(build, patch) : build)));
-      }),
+    update: (id, patch) => mutate(id, () => patch),
+    mutate,
+    subscribe: (listener) =>
+      storage.onChanged?.((changedKeys) => {
+        if (changedKeys.includes(key)) listener();
+      }) ?? (() => undefined),
     replaceCode: (id, code, patch) =>
       enqueue(async () => {
         const builds = await list();
-        if (typeof code !== 'string' || code === '' || !builds.some((build) => build.id === id)) {
-          return false;
-        }
-        await write(
-          builds.map((build) => (build.id === id ? { ...applyPatch(build, patch), code } : build)),
-        );
+        const current = builds.find((build) => build.id === id);
+        if (typeof code !== 'string' || code === '' || !current) return false;
+        const resolved = typeof patch === 'function' ? patch(current) : patch;
+        const next = { ...applyPatch(current, resolved), code };
+        await write(builds.map((build) => (build.id === id ? next : build)));
         return true;
       }),
     remove: (id) =>

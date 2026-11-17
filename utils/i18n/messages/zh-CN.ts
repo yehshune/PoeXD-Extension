@@ -274,6 +274,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.toast.bookmarkAdded': '已加入书签：{name}',
   'pobBuild.toast.bookmarkFailed': '加入书签失败，请稍后再试',
   'pobBuild.toast.consoleFailed': '送入主控台失败',
+  'pobBuild.toast.saveFailed': '购物清单无法保存到本机，刚才的更改可能没有保存',
+  'pobBuild.toast.permissionPageFailed': '无法打开授权页',
   'pobBuild.updateCode.summary':
     '已更新代码：保留 {kept} 项进度，新增 {added} 项，移除 {removed} 项',
   'pobBuild.empty': '这组套装没有可列出的项目',

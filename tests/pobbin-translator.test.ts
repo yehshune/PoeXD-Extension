@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { deflateSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import { createLabelLookup } from '@/utils/market-result-labels';
 import { createModLineTranslator } from '@/utils/pob-mod-translator';
@@ -13,6 +14,7 @@ import {
   startPobbinTranslation,
   syncPobbinTranslationContentScript,
   type PobbinTranslatorData,
+  detectPobbinGameVersion,
 } from '@/utils/pobbin-translator';
 
 function makeTestTranslatorData(bilingual = true): PobbinTranslatorData {
@@ -298,6 +300,37 @@ describe('createPobbinTranslator', () => {
         (d) => d.textContent,
       ),
     ).toEqual(['破曉', '巨型塔盾']);
+  });
+});
+
+describe('detectPobbinGameVersion', () => {
+  const pobCode = (root: string) =>
+    deflateSync(
+      Buffer.from(
+        `<?xml version="1.0"?><${root}><Build className="Ranger" level="90"/></${root}>`,
+        'utf8',
+      ),
+    )
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+
+  const docWith = (...values: string[]) => {
+    const doc = document.implementation.createHTMLDocument('');
+    for (const value of values) {
+      const textarea = doc.createElement('textarea');
+      textarea.value = value;
+      doc.body.append(textarea);
+    }
+    return doc;
+  };
+
+  it('從頁面上的 build code 判斷 PoE 1／PoE 2，略過不是 PoB 代碼的 textarea', async () => {
+    expect(await detectPobbinGameVersion(docWith('notes', pobCode('PathOfBuilding2')))).toBe(
+      'poe2',
+    );
+    expect(await detectPobbinGameVersion(docWith(pobCode('PathOfBuilding')))).toBe('poe1');
+    expect(await detectPobbinGameVersion(docWith('not a code'))).toBeUndefined();
   });
 });
 

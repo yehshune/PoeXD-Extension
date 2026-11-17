@@ -418,6 +418,26 @@ describe('使用者調整搜尋條件', () => {
     ]);
   });
 
+  it('總和條件：使用者調整過的那一行以他填的下限計入總和，清空視為 0', () => {
+    const fire = entryStatFilters(ring).find((filter) => filter.value === 46)!;
+    const totalResist = (min: number | null) =>
+      (
+        buildEntryQuery(ring, { pseudo: true, stats: { [fire.id]: { min } } })?.stats as Array<{
+          filters: Array<{ id: string; value?: { min?: number } }>;
+        }>
+      )[0].filters.find((filter) => filter.id === 'pseudo.pseudo_total_elemental_resistance');
+    // 16×2×0.8 + 40 + 15×3×0.8 = 101.6
+    expect(totalResist(40)).toEqual({
+      id: 'pseudo.pseudo_total_elemental_resistance',
+      value: { min: 101 },
+    });
+    // 清空下限：這一行不再要求數值，16×2×0.8 + 0 + 36 = 61.6
+    expect(totalResist(null)).toEqual({
+      id: 'pseudo.pseudo_total_elemental_resistance',
+      value: { min: 61 },
+    });
+  });
+
   it('全部取消勾選時只剩基底搜尋', () => {
     const stats = Object.fromEntries(
       entryStatFilters(ring).map((filter) => [filter.id, { enabled: false }]),

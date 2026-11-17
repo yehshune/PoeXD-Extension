@@ -272,6 +272,8 @@ export const ZH_TW_MESSAGES = {
   'pobBuild.toast.bookmarkAdded': '已加入書籤：{name}',
   'pobBuild.toast.bookmarkFailed': '加入書籤失敗，請稍後再試',
   'pobBuild.toast.consoleFailed': '送進主控台失敗',
+  'pobBuild.toast.saveFailed': '購物清單無法存到本機，剛才的變更可能沒有保存',
+  'pobBuild.toast.permissionPageFailed': '無法開啟授權頁',
   'pobBuild.updateCode.summary':
     '已更新代碼：保留 {kept} 項進度，新增 {added} 項，移除 {removed} 項',
   'pobBuild.empty': '這組套裝沒有可列出的項目',

@@ -90,6 +90,17 @@ describe('fetchPobShareCode', () => {
     });
     const bodyLarge = makeDeps(async () => respond('a'.repeat(400_001)));
     expect(await fetchPobShareCode(NINJA, bodyLarge)).toEqual({ ok: false, error: 'too-large' });
+    // 沒有 content-length 的串流：超過上限就中止讀取，不把剩下的內容讀完
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(new Uint8Array(100_000).fill(97));
+      },
+    });
+    const streamed = makeDeps(async () => new Response(endless));
+    expect(await fetchPobShareCode(NINJA, streamed)).toEqual({ ok: false, error: 'too-large' });
+    expect(pulled).toBeLessThan(10);
     const html = makeDeps(async () => respond('<html>blocked</html>'));
     expect(await fetchPobShareCode(NINJA, html)).toEqual({ ok: false, error: 'invalid' });
     const blank = makeDeps(async () => respond('   '));
@@ -148,5 +159,46 @@ describe('registerPobShareBackgroundHandlers', () => {
 
     unregister();
     expect(handlers.size).toBe(0);
+  });
+
+  it('pobb.in 翻譯腳本只能讀白名單內的資料檔，且只接受來自 pobb.in 分頁的請求', async () => {
+    const handlers = new Map<string, (message: unknown) => unknown>();
+    const messenger = {
+      onMessage: vi.fn((type: string, handler: (message: unknown) => unknown) => {
+        handlers.set(type, handler);
+        return () => handlers.delete(type);
+      }),
+    };
+    const loadAsset = vi.fn(async (path: string) => ({ path }));
+    registerPobShareBackgroundHandlers({
+      messenger: messenger as never,
+      deps: makeDeps(async () => respond('abc')),
+      loadAsset,
+    });
+    const load = handlers.get('pobbin:loadAsset')!;
+    const fromPobbin = { url: 'https://pobb.in/abc123' };
+
+    await expect(
+      load({ data: { path: 'json/poe1/locales/zh-TW/mod-lines.json' }, sender: fromPobbin }),
+    ).resolves.toEqual({ path: 'json/poe1/locales/zh-TW/mod-lines.json' });
+    await expect(
+      load({ data: { path: 'json/locales/zh-CN/trade-ui.json' }, sender: fromPobbin }),
+    ).resolves.toEqual({ path: 'json/locales/zh-CN/trade-ui.json' });
+
+    for (const path of [
+      '../manifest.json',
+      'json/poe1/../../manifest.json',
+      'json/poe1/mods-tiers.json',
+      'interceptor.js',
+    ]) {
+      expect(() => load({ data: { path }, sender: fromPobbin })).toThrow();
+    }
+    expect(() =>
+      load({
+        data: { path: 'json/poe1/locales/zh-TW/mod-lines.json' },
+        sender: { url: 'https://evil.example/pobb.in' },
+      }),
+    ).toThrow();
+    expect(loadAsset).toHaveBeenCalledTimes(2);
   });
 });

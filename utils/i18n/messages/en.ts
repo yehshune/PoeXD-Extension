@@ -297,6 +297,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.toast.bookmarkAdded': 'Bookmarked: {name}',
   'pobBuild.toast.bookmarkFailed': 'Could not add the bookmark. Try again later',
   'pobBuild.toast.consoleFailed': 'Could not send to the console',
+  'pobBuild.toast.saveFailed':
+    'Could not save the shopping list on this device; the latest change may be lost',
+  'pobBuild.toast.permissionPageFailed': 'Could not open the permission page',
   'pobBuild.updateCode.summary': 'Code updated: kept {kept} done, {added} added, {removed} removed',
   'pobBuild.empty': 'This set has nothing to list',
   'pobBuild.doneAria': 'Mark "{name}" as done',

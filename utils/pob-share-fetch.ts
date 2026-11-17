@@ -4,7 +4,12 @@
  */
 import type { extensionMessaging as ExtensionMessaging } from './extension-protocol';
 import { parsePobShareUrl } from './pob-share-url';
-import { registerPobbinBackgroundHandlers, type PobbinScriptingPort } from './pobbin-translator';
+import {
+  isPobbinAssetPath,
+  isPobbinSenderUrl,
+  registerPobbinBackgroundHandlers,
+  type PobbinScriptingPort,
+} from './pobbin-translator';
 
 export type PobShareFetchError =
   | 'invalid-url'
@@ -15,6 +20,9 @@ export type PobShareFetchError =
   | 'network'
   | 'too-large'
   | 'invalid';
+
+/** 擴充內建的 JSON 資料檔（物件或陣列） */
+export type PobbinAssetJson = Record<string, unknown> | unknown[];
 
 export type PobShareFetchOutcome =
   | { ok: true; code: string }
@@ -31,6 +39,37 @@ const MAX_CODE_LENGTH = 400_000;
 const DEFAULT_TIMEOUT_MS = 10_000;
 /** PoB 代碼是 Base64（標準或 URL 安全），允許換行與空白 */
 const CODE_CHARS = /^[A-Za-z0-9+/=_\-\s]+$/;
+
+/**
+ * 邊讀邊計算大小，超過上限就中止，不把整份回應讀進記憶體（伺服器可能沒給 content-length）。
+ * PoB 代碼是 ASCII，位元組數即字元數。超過上限時回傳 undefined。
+ */
+async function readTextWithin(response: Response, maxBytes: number): Promise<string | undefined> {
+  if (!response.body) {
+    const text = await response.text();
+    return text.length > maxBytes ? undefined : text;
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      return undefined;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder('utf-8').decode(bytes);
+}
 
 export async function fetchPobShareCode(
   input: unknown,
@@ -61,8 +100,8 @@ export async function fetchPobShareCode(
     if (Number.isFinite(declared) && declared > MAX_CODE_LENGTH) {
       return { ok: false, error: 'too-large' };
     }
-    const text = await response.text();
-    if (text.length > MAX_CODE_LENGTH) return { ok: false, error: 'too-large' };
+    const text = await readTextWithin(response, MAX_CODE_LENGTH);
+    if (text === undefined) return { ok: false, error: 'too-large' };
     const code = text.trim();
     if (!code || !CODE_CHARS.test(code)) return { ok: false, error: 'invalid' };
     return { ok: true, code };
@@ -81,6 +120,7 @@ export function registerPobShareBackgroundHandlers(options: {
   deps?: Partial<PobShareFetchDeps>;
   openPage?: (path: string) => Promise<unknown>;
   scripting?: PobbinScriptingPort;
+  loadAsset?: (path: string) => Promise<PobbinAssetJson>;
 }): () => void {
   const deps: PobShareFetchDeps = {
     fetch: (...args) => fetch(...args),
@@ -90,6 +130,15 @@ export function registerPobShareBackgroundHandlers(options: {
   const openPage =
     options.openPage ??
     ((path: string) => chrome.tabs.create({ url: chrome.runtime.getURL(path) }));
+  const loadAsset =
+    options.loadAsset ??
+    (async (path: string) => {
+      const response = await fetch(chrome.runtime.getURL(`/${path}`));
+      if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
+      const data: unknown = await response.json();
+      if (typeof data !== 'object' || data === null) throw new Error(`${path}: not JSON`);
+      return data as PobbinAssetJson;
+    });
   const unregPobbin = registerPobbinBackgroundHandlers({
     hasPermission: deps.hasPermission,
     scripting: options.scripting,
@@ -106,9 +155,17 @@ export function registerPobShareBackgroundHandlers(options: {
       return false;
     }
   });
+  const unregAsset = options.messenger.onMessage('pobbin:loadAsset', (message) => {
+    const path = message.data?.path;
+    if (!isPobbinSenderUrl(message.sender?.url) || !isPobbinAssetPath(path)) {
+      throw new Error('pobbin:loadAsset rejected');
+    }
+    return loadAsset(path);
+  });
   return () => {
     unregFetch();
     unregOpen();
+    unregAsset();
     unregPobbin();
   };
 }
