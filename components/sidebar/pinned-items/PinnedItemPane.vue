@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Sortable from 'sortablejs';
-import { ChevronDown, ClipboardCopy, ExternalLink, Home, Pin, Trash2 } from '@lucide/vue';
+import { GripVertical, Pin, Trash2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { getActiveUiLocale, t } from '@/utils/i18n';
-import type { PinnedItemSnapshot } from '@/utils/pinned-items';
+import { isSameLeague, type PinnedItemSnapshot } from '@/utils/pinned-items';
 import { getTradeRealm } from '@/utils/trade-realms';
 import SidebarPane from '../layout/SidebarPane.vue';
 import DragTrashZone from '../layout/DragTrashZone.vue';
@@ -18,7 +18,10 @@ import {
 } from '../composables/useDragTrash';
 import { createSidebarDragScrollOptions } from '../composables/sidebar-drag-scroll';
 import { moveTemplateId } from '../stat-group-templates/template-order';
+import { requestResultTranslation } from '@/utils/market-result-translation-request';
+import PinnedItemActions from './PinnedItemActions.vue';
 import PinnedItemCardView from './PinnedItemCardView.vue';
+import { resolveRarityClass } from './pinned-item-card';
 import { usePinnedItems } from './usePinnedItems';
 
 const props = defineProps<{
@@ -151,7 +154,15 @@ onUnmounted(() => {
   disableDragScrollBlock();
 });
 
-/** 卡片預設收合只顯示物品名稱；展開狀態是這次瀏覽的暫時狀態，不保存 */
+// 名稱以 `.item-popup__header-line` 標記，市集漢化會像結果列一樣翻譯（清單本身沒有 `poexd*` class）
+watch(listRef, (list) => {
+  if (list) requestResultTranslation(list);
+});
+
+/**
+ * 收合時是一行精簡列（圖示、名稱、價格），點一下展開官方卡片快照與完整按鈕列。
+ * 展開狀態是這次瀏覽的暫時狀態，不保存。拖曳由 Sortable 判斷：按住移動才算拖曳，單純點擊會展開。
+ */
 const expandedIds = ref<ReadonlySet<string>>(new Set());
 
 function isExpanded(item: PinnedItemSnapshot): boolean {
@@ -169,12 +180,49 @@ function toggleExpanded(item: PinnedItemSnapshot): void {
   expandedIds.value = next;
 }
 
-/** 有通貨圖示時與官方結果列相同顯示「數量×圖示」，否則以文字顯示通貨代碼 */
-function priceLabel(item: PinnedItemSnapshot): string {
+/** 官方物品名稱的稀有度顏色（所有主題都是深色底） */
+const RARITY_COLOURS: Readonly<Record<string, string>> = {
+  normal: '#c8c8c8',
+  magic: '#8888ff',
+  rare: '#ffff77',
+  unique: '#af6025',
+  gem: '#1ba29b',
+  currency: '#aa9e82',
+  divination: '#0ebaff',
+};
+
+function rarityColour(item: PinnedItemSnapshot): string {
+  return RARITY_COLOURS[resolveRarityClass(item.item)] ?? RARITY_COLOURS.normal!;
+}
+
+const textOf = (value: unknown): string => (typeof value === 'string' ? value : '');
+
+/** 名稱與基底；PoE 2 的 `[標籤|文字]` 標記只顯示文字 */
+function nameLines(item: PinnedItemSnapshot): string[] {
+  const unwrap = (value: string) => value.replace(/\[(?:[^\]|]*\|)?([^\]]*)\]/g, '$1');
+  const name = unwrap(textOf(item.item.name));
+  const typeLine = unwrap(textOf(item.item.typeLine) || textOf(item.item.baseType));
+  return [name, typeLine].filter(Boolean);
+}
+
+/** 價格只顯示數量（官方的 `~b/o` / `~price` 前綴不顯示）；沒有通貨圖示時改顯示通貨代碼 */
+function priceAmount(item: PinnedItemSnapshot): string {
   const price = item.listing.price;
   if (!price) return t('pinnedItem.noPrice');
-  const prefix = `${price.type ? `${price.type} ` : ''}${price.amount}`;
-  return price.icon ? `${prefix}×` : `${prefix} ${price.currency}`;
+  return price.icon ? `${price.amount}` : `${price.amount} ${price.currency}`;
+}
+
+/** 收合列第二行的灰色資訊 */
+function metaParts(item: PinnedItemSnapshot): string[] {
+  return [
+    item.listing.instantBuyout ? t('pinnedItem.instantBuyout') : '',
+    item.listing.accountName ?? '',
+    formatAge(item.listing.indexed),
+    showAllLeagues.value || !currentLeague || !isSameLeague(item.league, currentLeague)
+      ? item.league
+      : '',
+    sameRealm(item) ? '' : realmLabel(item),
+  ].filter(Boolean);
 }
 
 const RELATIVE_UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
@@ -192,13 +240,6 @@ function formatAge(iso: string | undefined): string {
     if (elapsed >= ms) return format.format(-Math.floor(elapsed / ms), unit);
   }
   return format.format(0, 'minute');
-}
-
-function travelLabel(item: PinnedItemSnapshot): string {
-  const state = states.value[item.id];
-  if (state === 'in-demand') return t('pinnedItem.action.travelAgain');
-  if (state === 'teleporting') return t('pinnedItem.action.travelSent');
-  return t('pinnedItem.action.travel');
 }
 
 function realmLabel(item: PinnedItemSnapshot): string {
@@ -257,134 +298,123 @@ function realmLabel(item: PinnedItemSnapshot): string {
         </p>
       </div>
 
-      <ul v-else ref="listRef" class="flex flex-col gap-[var(--pxd-space-md)]">
+      <ul v-else ref="listRef" class="flex flex-col border border-border" data-pinned-items-list>
         <li
           v-for="item in visibleItems"
           :key="item.id"
-          class="pinned-item-row flex flex-col gap-[var(--pxd-space-xs)] border border-border bg-background p-[var(--pxd-space-sm)] cursor-grab active:cursor-grabbing"
-          :class="{ 'opacity-60': states[item.id] === 'sold' }"
+          class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 cursor-grab active:cursor-grabbing transition-colors"
+          :class="[
+            isExpanded(item) ? 'bg-muted/30' : 'hover:bg-muted/40',
+            { 'opacity-60': states[item.id] === 'sold' },
+          ]"
           :data-pinned-item-id="item.id"
+          :data-expanded="isExpanded(item) ? '' : undefined"
         >
-          <div class="flex items-start gap-[var(--pxd-space-2xs)]">
-            <PinnedItemCardView
-              class="min-w-0 flex-1"
-              :snapshot="item"
-              :collapsed="!isExpanded(item)"
+          <div
+            role="button"
+            tabindex="0"
+            class="flex items-center gap-[var(--pxd-space-sm)] py-[var(--pxd-bookmark-row-padding-y)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-xs)] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            data-pinned-item-toggle
+            :aria-expanded="isExpanded(item)"
+            :title="expandLabel(item)"
+            @click="toggleExpanded(item)"
+            @keydown.enter.prevent="toggleExpanded(item)"
+            @keydown.space.prevent="toggleExpanded(item)"
+          >
+            <GripVertical
+              class="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+              aria-hidden="true"
             />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              class="shrink-0"
-              data-pinned-item-expand
-              :aria-expanded="isExpanded(item)"
-              :title="expandLabel(item)"
-              :aria-label="expandLabel(item)"
-              @click="toggleExpanded(item)"
-            >
-              <ChevronDown
-                class="transition-transform"
-                :class="{ 'rotate-180': isExpanded(item) }"
-              />
-            </Button>
+            <img
+              v-if="typeof item.item.icon === 'string'"
+              :src="item.item.icon"
+              alt=""
+              class="size-[var(--control-height-sm)] shrink-0 object-contain"
+              referrerpolicy="no-referrer"
+              draggable="false"
+            />
+            <div class="flex min-w-0 flex-1 flex-col">
+              <span
+                class="truncate text-[length:var(--pxd-font-caption)] font-semibold"
+                :style="{ color: rarityColour(item) }"
+                data-pinned-item-name
+              >
+                <span
+                  v-for="(line, index) in nameLines(item)"
+                  :key="index"
+                  class="item-popup__header-line"
+                  :class="{ 'ml-[0.35em]': index > 0 }"
+                  >{{ line }}</span
+                >
+              </span>
+              <span
+                class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground"
+                data-pinned-item-meta
+                >{{ metaParts(item).join(' · ') }}</span
+              >
+            </div>
+            <div class="flex shrink-0 flex-col items-end">
+              <span
+                class="inline-flex items-center gap-[var(--pxd-space-2xs)] text-[length:var(--pxd-font-caption)] font-bold tabular-nums text-foreground"
+                :class="{ 'line-through': states[item.id] === 'sold' }"
+                data-pinned-item-price
+              >
+                {{ priceAmount(item) }}
+                <img
+                  v-if="item.listing.price?.icon"
+                  :src="item.listing.price.icon"
+                  :alt="item.listing.price.currency"
+                  :title="item.listing.price.currencyName ?? item.listing.price.currency"
+                  class="size-5 object-contain"
+                  referrerpolicy="no-referrer"
+                  draggable="false"
+                  data-pinned-item-currency-icon
+                />
+              </span>
+              <span
+                v-if="states[item.id] === 'sold'"
+                class="text-[length:var(--pxd-font-micro)] text-destructive"
+                >{{ t('pinnedItem.sold') }}</span
+              >
+            </div>
           </div>
+
+          <!-- 收合時 hover / 鍵盤聚焦才浮出的操作（與書籤列相同），蓋在價格上方 -->
+          <PinnedItemActions
+            v-if="!isExpanded(item)"
+            class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) pl-[var(--pxd-space-sm)] bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
+            :item="item"
+            :state="states[item.id]"
+            :same-realm="sameRealm(item)"
+            :can-copy-pob="canCopyPob(item)"
+            :has-source="!!sourceUrl(item)"
+            :full="false"
+            @travel="travel(item)"
+            @whisper="copyWhisper(item)"
+            @pob="copyPob(item)"
+            @source="openSource(item)"
+            @unpin="unpin(item)"
+          />
 
           <div
-            class="flex flex-wrap items-center gap-x-[var(--pxd-space-sm)] gap-y-[var(--pxd-space-2xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+            v-else
+            class="flex flex-col gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] pb-[var(--pxd-space-sm)]"
           >
-            <span
-              class="inline-flex items-center gap-[var(--pxd-space-2xs)] font-bold text-foreground"
-              data-pinned-item-price
-            >
-              {{ priceLabel(item) }}
-              <img
-                v-if="item.listing.price?.icon"
-                :src="item.listing.price.icon"
-                :alt="item.listing.price.currency"
-                :title="item.listing.price.currencyName ?? item.listing.price.currency"
-                class="size-6 object-contain"
-                referrerpolicy="no-referrer"
-                data-pinned-item-currency-icon
-              />
-            </span>
-            <span v-if="item.listing.instantBuyout" class="text-primary">{{
-              t('pinnedItem.instantBuyout')
-            }}</span>
-            <span v-if="item.listing.accountName" class="truncate">{{
-              item.listing.accountName
-            }}</span>
-            <span v-if="item.listing.indexed">{{ formatAge(item.listing.indexed) }}</span>
-            <span v-if="showAllLeagues || item.league !== currentLeague">{{ item.league }}</span>
-            <span v-if="!sameRealm(item)">{{ realmLabel(item) }}</span>
-            <span v-if="states[item.id] === 'sold'" class="text-destructive">{{
-              t('pinnedItem.sold')
-            }}</span>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-[var(--pxd-space-xs)]">
-            <Button
-              v-if="item.listing.instantBuyout"
-              variant="default"
-              size="sm"
-              data-pinned-item-travel
-              :disabled="
-                !sameRealm(item) || states[item.id] === 'busy' || states[item.id] === 'sold'
-              "
-              :title="
-                sameRealm(item) ? t('pinnedItem.action.travelTitle') : t('pinnedItem.realmMismatch')
-              "
-              @click="travel(item)"
-            >
-              <Home />
-              <span class="ml-1">{{ travelLabel(item) }}</span>
-            </Button>
-            <Button
-              v-else-if="item.listing.whisper"
-              variant="default"
-              size="sm"
-              data-pinned-item-whisper
-              :disabled="!sameRealm(item)"
-              :title="
-                sameRealm(item)
-                  ? t('pinnedItem.action.whisperTitle')
-                  : t('pinnedItem.realmMismatch')
-              "
-              @click="copyWhisper(item)"
-            >
-              <ClipboardCopy />
-              <span class="ml-1">{{ t('pinnedItem.action.whisper') }}</span>
-            </Button>
-            <Button
-              v-if="canCopyPob(item)"
-              variant="secondary"
-              size="sm"
-              data-pinned-item-pob
-              :title="t('resultPobCopy.title')"
-              @click="copyPob(item)"
-            >
-              {{ t('resultPobCopy.button') }}
-            </Button>
-            <Button
-              v-if="sourceUrl(item)"
-              variant="secondary"
-              size="icon-sm"
-              data-pinned-item-source
-              :title="t('pinnedItem.action.openSource')"
-              :aria-label="t('pinnedItem.action.openSource')"
-              @click="openSource(item)"
-            >
-              <ExternalLink />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              class="ml-auto"
-              data-pinned-item-unpin
-              :title="t('pinnedItem.button.unpinTitle')"
-              :aria-label="t('pinnedItem.button.unpinTitle')"
-              @click="unpin(item)"
-            >
-              <Trash2 />
-            </Button>
+            <PinnedItemCardView :snapshot="item" :collapsed="false" />
+            <PinnedItemActions
+              class="flex-wrap"
+              :item="item"
+              :state="states[item.id]"
+              :same-realm="sameRealm(item)"
+              :can-copy-pob="canCopyPob(item)"
+              :has-source="!!sourceUrl(item)"
+              :full="true"
+              @travel="travel(item)"
+              @whisper="copyWhisper(item)"
+              @pob="copyPob(item)"
+              @source="openSource(item)"
+              @unpin="unpin(item)"
+            />
           </div>
         </li>
       </ul>
