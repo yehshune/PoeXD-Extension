@@ -108,6 +108,7 @@ const resolveRowId = (row: Element): string =>
 export class ResultPinButton {
   private enabled = false;
   private pinnedIds = new Set<string>();
+  private readonly pending = new Set<string>();
   private unsubscribe?: () => void;
   private readonly deps: ResultPinButtonDeps;
 
@@ -180,8 +181,24 @@ export class ResultPinButton {
     this.pinnedIds.clear();
   }
 
-  /** 釘選或取消釘選；按鈕點擊與測試共用 */
+  /**
+   * 釘選或取消釘選；按鈕點擊與測試共用。
+   * 背景通訊失敗（例如擴充功能重新載入後舊 content script 的 context 失效）時要提示，不可靜默。
+   */
   async toggle(resultId: string): Promise<void> {
+    if (this.pending.has(resultId)) return;
+    this.pending.add(resultId);
+    try {
+      await this.performToggle(resultId);
+    } catch (error: unknown) {
+      console.warn('[PoeXD] 釘選失敗:', error instanceof Error ? error.message : error);
+      this.deps.notify(t('pinnedItem.toast.failed'), 'error');
+    } finally {
+      this.pending.delete(resultId);
+    }
+  }
+
+  private async performToggle(resultId: string): Promise<void> {
     if (this.pinnedIds.has(resultId)) {
       const outcome = await this.client.unpin(resultId);
       if (!outcome.ok) this.deps.notify(t('pinnedItem.toast.failed'), 'error');

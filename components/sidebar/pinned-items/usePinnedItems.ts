@@ -14,7 +14,7 @@ import {
   type HideoutTravelOutcome,
 } from '@/utils/pinned-item-actions';
 import { createPinnedItemClient } from '@/utils/pinned-item-client';
-import { PINNED_ITEM_LIMIT, type PinnedItemSnapshot } from '@/utils/pinned-items';
+import { isSameLeague, PINNED_ITEM_LIMIT, type PinnedItemSnapshot } from '@/utils/pinned-items';
 import { isPobExportableItem } from '@/utils/pob-item-text';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
 import { getTradeResultCache } from '@/utils/trade-result-cache';
@@ -55,7 +55,7 @@ export function usePinnedItems() {
   const visibleItems = computed(() =>
     showAllLeagues.value || !currentLeague
       ? items.value
-      : items.value.filter((item) => item.league === currentLeague),
+      : items.value.filter((item) => isSameLeague(item.league, currentLeague)),
   );
   const hiddenCount = computed(() => items.value.length - visibleItems.value.length);
 

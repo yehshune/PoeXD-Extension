@@ -103,6 +103,25 @@ describe('ResultPinButton', () => {
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('50'), 'error');
   });
 
+  it('reports a failure instead of staying silent when messaging throws', async () => {
+    const { client } = setupClient();
+    client.pin.mockRejectedValueOnce(new Error('Extension context invalidated.'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const pin = create(client);
+    pin.setEnabled(true);
+    await expect(pin.toggle('r1')).resolves.toBeUndefined();
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'error');
+    warn.mockRestore();
+  });
+
+  it('ignores repeated clicks while a toggle is in flight', async () => {
+    const { client } = setupClient();
+    const pin = create(client);
+    pin.setEnabled(true);
+    await Promise.all([pin.toggle('r1'), pin.toggle('r1')]);
+    expect(client.pin).toHaveBeenCalledTimes(1);
+  });
+
   it('removes buttons and markers when disabled', () => {
     const { client, emit } = setupClient();
     const pin = create(client);

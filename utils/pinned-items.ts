@@ -10,6 +10,14 @@ import type { PoeVersion } from './trade-context';
 import { findTradeRealm, type TradeRealmId } from './trade-realms';
 
 export const PINNED_ITEM_LIMIT = 50;
+
+/**
+ * 聯盟名稱比對不分大小寫：一般搜尋頁的 URL 是 `Covens`，線上搜尋主控台的訂閱聯盟是小寫 `covens`，
+ * 兩者是同一個聯盟。快照保留原始寫法，只有比對時正規化。
+ */
+export const isSameLeague = (a: string, b: string): boolean =>
+  a.trim().toLowerCase() === b.trim().toLowerCase();
+
 /** 單筆物品 JSON 的大小上限（一般物品約 3 KB） */
 export const PINNED_ITEM_MAX_JSON_LENGTH = 64 * 1024;
 const MAX_TEXT_LENGTH = 512;
@@ -334,12 +342,14 @@ export function createPinnedItemStore(storage: PinnedItemStorage): PinnedItemSto
       case 'unpin':
         next = items.filter((item) => item.id !== command.id);
         break;
-      case 'clear':
+      case 'clear': {
+        const { league } = command;
         next =
-          command.league === undefined
+          league === undefined
             ? []
-            : items.filter((item) => item.league !== command.league);
+            : items.filter((item) => !isSameLeague(item.league, league));
         break;
+      }
     }
     await storage.set({ [key]: [...next, ...unparsed] });
     return { ok: true };

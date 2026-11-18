@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createPinnedItemSnapshot,
   createPinnedItemStore,
+  isSameLeague,
   parsePinnedItemCommand,
   parseStoredPinnedList,
   PINNED_ITEM_LIMIT,
@@ -153,6 +154,19 @@ describe('createPinnedItemStore', () => {
     expect(data[key]).toEqual([unknown]);
   });
 
+  it('clears a league regardless of case (console subscriptions use lowercase)', async () => {
+    const consolePin = { ...snapshot('console'), league: 'covens' };
+    const pagePin = { ...snapshot('page'), league: 'Covens' };
+    const other = { ...snapshot('other'), league: 'Standard' };
+    const { data, storage } = memoryStorage({ [key]: [consolePin, pagePin, other] });
+    await createPinnedItemStore(storage).execute({
+      type: 'clear',
+      gameVersion: 'poe1',
+      league: 'Covens',
+    });
+    expect(data[key]).toEqual([other]);
+  });
+
   it('rejects invalid commands and snapshots', async () => {
     const { storage } = memoryStorage();
     const store = createPinnedItemStore(storage);
@@ -174,6 +188,14 @@ describe('createPinnedItemStore', () => {
       ),
     );
     expect(data[key]).toHaveLength(3);
+  });
+});
+
+describe('isSameLeague', () => {
+  it('ignores case and surrounding whitespace', () => {
+    expect(isSameLeague('covens', 'Covens')).toBe(true);
+    expect(isSameLeague(' Covens ', 'COVENS')).toBe(true);
+    expect(isSameLeague('Covens', 'Standard')).toBe(false);
   });
 });
 
