@@ -77,14 +77,31 @@ export function usePinnedItems() {
     states.value = state ? { ...rest, [id]: state } : rest;
   };
 
+  /** 儲存層更新後同步清除已不存在或已被重新釘選覆寫的暫態 sold 狀態 */
+  const reconcileSoldStates = (next: readonly PinnedItemSnapshot[]) => {
+    const persistedSoldIds = new Set(next.filter((entry) => entry.sold === true).map((e) => e.id));
+    let changed = false;
+    const updated: Record<string, PinnedItemTransientState> = {};
+    for (const [id, state] of Object.entries(states.value)) {
+      if (state === 'sold' && !persistedSoldIds.has(id)) {
+        changed = true;
+        continue;
+      }
+      updated[id] = state;
+    }
+    if (changed) states.value = updated;
+  };
+
   onMounted(() => {
     unsubscribe = client.subscribe((next) => {
       items.value = next;
+      reconcileSoldStates(next);
     });
     void client
       .list()
       .then((next) => {
         items.value = next;
+        reconcileSoldStates(next);
       })
       .catch((error: unknown) => console.warn('[PoeXD] 讀取釘選清單失敗:', error));
   });
@@ -178,14 +195,17 @@ export function usePinnedItems() {
     const count = visibleItems.value.length;
     if (count === 0) return;
     const league = showAllLeagues.value || !currentLeague ? undefined : currentLeague;
+    const message = league
+      ? t('pinnedItem.dialog.clearLeagueConfirm', { count, league })
+      : t('pinnedItem.dialog.clearAllConfirm', { count });
+    const title = league ? t('pinnedItem.clearLeague') : t('pinnedItem.clearAll');
     const confirm = (window as { poexdConfirm?: (msg: string, title?: string) => Promise<boolean> })
       .poexdConfirm;
-    const confirmed = await confirm?.(
-      league
-        ? t('pinnedItem.dialog.clearLeagueConfirm', { count, league })
-        : t('pinnedItem.dialog.clearAllConfirm', { count }),
-      league ? t('pinnedItem.clearLeague') : t('pinnedItem.clearAll'),
-    );
+    const confirmed = confirm
+      ? await confirm(message, title)
+      : typeof window.confirm === 'function'
+        ? window.confirm(message)
+        : false;
     if (!confirmed) return;
     const outcome = await client.clear(league);
     if (!outcome.ok) notify(t('pinnedItem.toast.failed'), 'error');

@@ -46,10 +46,17 @@ const { mockList, mockClear, mockMarkSold, mockClearSold } = vi.hoisted(() => ({
   mockClearSold: vi.fn(async () => ({ ok: true })),
 }));
 
+let emitSubscribed: ((items: (typeof item)[]) => void) | undefined;
+
 vi.mock('@/utils/pinned-item-client', () => ({
   createPinnedItemClient: () => ({
     list: mockList,
-    subscribe: () => () => {},
+    subscribe: (next: (items: (typeof item)[]) => void) => {
+      emitSubscribed = next;
+      return () => {
+        emitSubscribed = undefined;
+      };
+    },
     pin: vi.fn(async () => ({ ok: true })),
     unpin: vi.fn(async () => ({ ok: true })),
     reorder: vi.fn(async () => ({ ok: true })),
@@ -164,6 +171,50 @@ describe('PinnedItemPane travel feedback', () => {
     btn.click();
     await flush();
     expect(mockMarkSold).toHaveBeenCalledTimes(1);
+
+    // Re-pinning overwrites snapshot without sold -> clears in-memory sold state immediately
+    emitSubscribed?.([{ ...item, pinnedAt: 200 }]);
+    await flush();
+    expect(container.querySelector('[data-pinned-item-sold]')).toBeNull();
+    expect(btn.disabled).toBe(false);
+    expect(btn.textContent).toContain('前往藏身處');
+  });
+
+  it('omits instant-buyout badge from row meta and falls back to window.confirm when poexdConfirm is absent', async () => {
+    const previousConfirm = window.confirm;
+    const windowConfirmSpy = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+    (window as { confirm?: unknown }).confirm = windowConfirmSpy;
+    try {
+      const app = createApp({ render: () => h(PinnedItemPane) });
+      app.mount(container);
+      unmount = () => app.unmount();
+      await flush();
+
+      const meta = container.querySelector('[data-pinned-item-meta]')?.textContent ?? '';
+      expect(meta).not.toContain('直購');
+      expect(meta).toContain('Seller#1234');
+
+      const trigger = container.querySelector<HTMLElement>('[data-pinned-items-clear]')!;
+      trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+      trigger.click();
+      await flush();
+      document.body.querySelector<HTMLElement>('[data-pinned-items-clear-all]')!.click();
+      await flush();
+
+      expect(windowConfirmSpy).toHaveBeenCalledTimes(1);
+      expect(mockClear).not.toHaveBeenCalled();
+
+      trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+      trigger.click();
+      await flush();
+      document.body.querySelector<HTMLElement>('[data-pinned-items-clear-all]')!.click();
+      await flush();
+
+      expect(windowConfirmSpy).toHaveBeenCalledTimes(2);
+      expect(mockClear).toHaveBeenCalledWith('Covens');
+    } finally {
+      (window as { confirm?: unknown }).confirm = previousConfirm;
+    }
   });
 
   it('renders persisted sold items as sold on load and supports clearing sold items', async () => {

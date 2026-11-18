@@ -263,7 +263,6 @@ function priceAmount(item: PinnedItemSnapshot): string {
 /** 收合列第二行的灰色資訊 */
 function metaParts(item: PinnedItemSnapshot): string[] {
   return [
-    item.listing.instantBuyout ? t('pinnedItem.instantBuyout') : '',
     item.listing.accountName ?? '',
     formatAge(item.listing.indexed),
     showAllLeagues.value || !currentLeague || !isSameLeague(item.league, currentLeague)
@@ -473,7 +472,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
                 referrerpolicy="no-referrer"
                 draggable="false"
               />
-              <div class="flex min-w-0 flex-1 flex-col gap-[2px]">
+              <div class="flex min-w-0 flex-1 flex-col gap-[var(--pxd-space-xs)]">
                 <span
                   class="truncate text-[length:var(--pxd-font-secondary)] font-semibold leading-tight"
                   :style="{ color: rarityColour(item) }"
@@ -505,7 +504,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
                     :src="item.listing.price.icon"
                     :alt="item.listing.price.currency"
                     :title="item.listing.price.currencyName ?? item.listing.price.currency"
-                    class="size-6 object-contain"
+                    class="size-[var(--control-icon-lg)] object-contain"
                     referrerpolicy="no-referrer"
                     draggable="false"
                     data-pinned-item-currency-icon
@@ -519,11 +518,16 @@ function realmLabel(item: PinnedItemSnapshot): string {
                 >
                 <span
                   v-else-if="states[item.id] === 'refreshing' || states[item.id] === 'traveling'"
-                  class="inline-flex items-center gap-1 text-[length:var(--pxd-font-micro)]"
-                  :class="states[item.id] === 'refreshing' ? 'text-amber-500' : 'text-primary'"
+                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
+                  :class="
+                    states[item.id] === 'refreshing' ? 'text-muted-foreground' : 'text-primary'
+                  "
                   data-pinned-item-busy
                 >
-                  <Loader2 class="size-3 shrink-0 animate-spin" aria-hidden="true" />
+                  <Loader2
+                    class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
+                    aria-hidden="true"
+                  />
                   {{
                     states[item.id] === 'refreshing'
                       ? t('pinnedItem.action.refreshing')
