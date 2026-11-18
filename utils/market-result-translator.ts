@@ -124,13 +124,23 @@ function isSingleLineHeader(line: Element): boolean {
  * 品質普通物品帶 `Superior`；基底一定是其中連續的單字。前後綴沒有譯名資料，保留英文。
  * 稀有名稱（雙行標題第一行）不做部分比對，避免隨機名字的單字被誤翻。
  */
-export function translateItemName(name: string, items: TextMap, partial: boolean): string | null {
+export function translateResultItemName(
+  name: string,
+  items: TextMap,
+  partial: boolean,
+): string | null {
   const exact = items[name.toLowerCase()];
   if (exact || !partial) return exact ?? null;
   const words = name.split(' ');
   for (let size = words.length - 1; size > 0; size -= 1) {
     for (let start = 0; start + size <= words.length; start += 1) {
-      const translated = items[words.slice(start, start + size).join(' ').toLowerCase()];
+      const translated =
+        items[
+          words
+            .slice(start, start + size)
+            .join(' ')
+            .toLowerCase()
+        ];
       if (!translated) continue;
       return [...words.slice(0, start), translated, ...words.slice(start + size)].join(' ');
     }
@@ -367,7 +377,8 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
         replace(node, (text) =>
           keepPadding(
             text,
-            (name) => translateItemName(name, data.items, partial) ?? translateNameTemplate(name),
+            (name) =>
+              translateResultItemName(name, data.items, partial) ?? translateNameTemplate(name),
           ),
         );
       }

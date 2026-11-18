@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   createResultTranslator,
-  translateItemName,
+  translateResultItemName,
   type ResultTranslatorData,
 } from '@/utils/market-result-translator';
 
@@ -127,9 +127,9 @@ describe('createResultTranslator', () => {
 
   it('部分比對取最長的段落', () => {
     const items = { spear: '矛', 'helix spear': '螺旋長矛' };
-    expect(translateItemName('Sharp Helix Spear', items, true)).toBe('Sharp 螺旋長矛');
-    expect(translateItemName('Sharp Helix Spear', items, false)).toBeNull();
-    expect(translateItemName('Nothing Here', items, true)).toBeNull();
+    expect(translateResultItemName('Sharp Helix Spear', items, true)).toBe('Sharp 螺旋長矛');
+    expect(translateResultItemName('Sharp Helix Spear', items, false)).toBeNull();
+    expect(translateResultItemName('Nothing Here', items, true)).toBeNull();
   });
 
   it('重複執行不會重翻；官網重繪換回英文時重新翻譯', () => {
