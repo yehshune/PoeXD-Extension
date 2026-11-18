@@ -192,8 +192,8 @@ importers:
   .:
     dependencies:
       '@lucide/vue':
-        specifier: ^1.71.0
-        version: 1.71.0(vue@3.5.45(typescript@6.0.3))
+        specifier: ^1.73.0
+        version: 1.73.0(vue@3.5.45(typescript@6.0.3))
       '@vueuse/core':
         specifier: ^15.0.0
         version: 15.0.0(vue@3.5.45(typescript@6.0.3))
@@ -223,8 +223,8 @@ importers:
         version: 4.6.7
     devDependencies:
       '@playwright/test':
-        specifier: ^1.65.0
-        version: 1.65.0
+        specifier: ^1.65.1
+        version: 1.65.1
       '@tailwindcss/vite':
         specifier: ^4.3.5
         version: 4.3.5(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))
@@ -238,8 +238,8 @@ importers:
         specifier: ^1.15.9
         version: 1.15.9
       '@vitejs/plugin-vue':
-        specifier: ^6.0.10
-        version: 6.0.10(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))(vue@3.5.45(typescript@6.0.3))
+        specifier: ^6.0.11
+        version: 6.0.11(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))(vue@3.5.45(typescript@6.0.3))
       '@vitest/coverage-v8':
         specifier: ^4.1.12
         version: 4.1.12(vitest@4.1.12)
@@ -438,8 +438,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@lucide/vue@1.71.0':
-    resolution: {integrity: sha512-R64tQ5dJMvLjAOEIhF+vOunHm/wUI3VP6NhJEaigwpLVaAEL3O2251byH2IBEeBofLunvOiTGh4lkzDfIpgKcQ==}
+  '@lucide/vue@1.73.0':
+    resolution: {integrity: sha512-QVVRSgu2rqRX3NAUktT9venW0Bvtr03aCZjhFRLwnV3uqLyR7KCTOx5mMlukhw0aiyjC3D6w2b+fmy4MeM5R3Q==}
     peerDependencies:
       vue: '>=3.0.1'
 
@@ -574,8 +574,8 @@ packages:
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
 
-  '@playwright/test@1.65.0':
-    resolution: {integrity: sha512-iGURLGuKDLakSEl7Pgfv8h7f+XLT+V861Wfhz0zlEl5nyFuKUopdkFBPKqTllTUp06aOwPuH8iuUEb3yp3MpbQ==}
+  '@playwright/test@1.65.1':
+    resolution: {integrity: sha512-y+NCIRm2LvY4slUVWvGh1nujJ8RF/hEisIsq2mtUPgdQC4L701bq5hZGMhrpeXjACvwvO9tj5dJqhvM6TP9lbw==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -837,12 +837,12 @@ packages:
   '@types/ws@8.18.2':
     resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
-  '@vitejs/plugin-vue@6.0.10':
-    resolution: {integrity: sha512-b80aUQh3n+qEzzZm5oQp3rT2QImeCx58K6eFl/RkJ3d65KW0kTuv5lNsLRVAjbW9YRUpo/wzmvzMgV34bTAItA==}
+  '@vitejs/plugin-vue@6.0.11':
+    resolution: {integrity: sha512-m48lskIUJGlB6qUiYhDMI8nd2ngeidz2U4nKTjqI13cFMu5rH8JeEILPkDtK9Fk/TjBA2pkj8AlbenqDaKu+ww==}
     engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
       vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
-      vue: ^3.2.25 || ^3.6.0-rc.10
+      vue: ^3.2.25 || ^3.6.0-rc.15
 
   '@vitest/coverage-v8@4.1.12':
     resolution: {integrity: sha512-6S7/iVknKglLAxMFxQGNppBI0iqJS2NgM6FBxavitj7KaDq/vywOWGf6dGu7F2L1Qy0G6S3uTp7aGshHrzK8JA==}
@@ -2129,13 +2129,13 @@ packages:
   pkg-types@2.4.0:
     resolution: {integrity: sha512-07Fys7iVx0X6TcviMOgogM1Lk33ZyqOezMnU79S+kffWqwolG/5W9V8EgQSeYCIfFTYVgssRbnH630Oa2+soBA==}
 
-  playwright-core@1.65.0:
-    resolution: {integrity: sha512-vNSKgH6YqtN7cdT/L334zo0a+YwkrpicyrHJlWWPIm/Q+Nn2SWInil01oT0mbu96U4GgoRtCYQD9CzJQgju+lA==}
+  playwright-core@1.65.1:
+    resolution: {integrity: sha512-hqPpz7blSMPxWVdoeE1yiBSzXsKiVOd2k+kjCvmUywD2GPO2Dd9HfcWnq9NN0GHbNZDFgZ9JfBFr+X5/BLo0qw==}
     engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.65.0:
-    resolution: {integrity: sha512-F3AMWcR44qMBt4kq+6Kb6mX7bjGXshktKFOPULd7reED6ZJWevjbNRqysP7q+AATE9kdPEZBibex1BYsvpVoeA==}
+  playwright@1.65.1:
+    resolution: {integrity: sha512-vJ1FuoOrNwOKHUIVEvSt3jT1L+wjjDpwhwIstKtfvTh8XIG4FG4bIFuvNdMxi81LGfAhUgUZleVFaOLY4RIUUw==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -2945,7 +2945,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@lucide/vue@1.71.0(vue@3.5.45(typescript@6.0.3))':
+  '@lucide/vue@1.73.0(vue@3.5.45(typescript@6.0.3))':
     dependencies:
       vue: 3.5.45(typescript@6.0.3)
 
@@ -3012,9 +3012,9 @@ snapshots:
 
   '@pinojs/redact@0.4.0': {}
 
-  '@playwright/test@1.65.0':
+  '@playwright/test@1.65.1':
     dependencies:
-      playwright: 1.65.0
+      playwright: 1.65.1
 
   '@pnpm/config.env-replace@1.1.0': {}
 
@@ -3189,7 +3189,7 @@ snapshots:
     dependencies:
       '@types/node': 26.6.6
 
-  '@vitejs/plugin-vue@6.0.10(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))(vue@3.5.45(typescript@6.0.3))':
+  '@vitejs/plugin-vue@6.0.11(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))(vue@3.5.45(typescript@6.0.3))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.3.6(@types/node@26.6.6)(jiti@2.7.0)
@@ -3387,7 +3387,7 @@ snapshots:
 
   '@wxt-dev/module-vue@1.0.3(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))(vue@3.5.45(typescript@6.0.3))(wxt@0.21.5(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))(rolldown@1.2.16)(typescript@6.0.3)(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))(web-ext@10.8.0(jiti@2.7.0)(supports-color@7.2.0)))':
     dependencies:
-      '@vitejs/plugin-vue': 6.0.10(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))(vue@3.5.45(typescript@6.0.3))
+      '@vitejs/plugin-vue': 6.0.11(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))(vue@3.5.45(typescript@6.0.3))
       wxt: 0.21.5(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))(rolldown@1.2.16)(typescript@6.0.3)(vite@8.3.6(@types/node@26.6.6)(jiti@2.7.0))(web-ext@10.8.0(jiti@2.7.0)(supports-color@7.2.0))
     transitivePeerDependencies:
       - vite
@@ -4524,11 +4524,11 @@ snapshots:
       exsolve: 1.2.0
       pathe: 2.0.3
 
-  playwright-core@1.65.0: {}
+  playwright-core@1.65.1: {}
 
-  playwright@1.65.0:
+  playwright@1.65.1:
     dependencies:
-      playwright-core: 1.65.0
+      playwright-core: 1.65.1
 
   postcss@8.5.32:
     dependencies:
