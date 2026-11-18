@@ -5,15 +5,16 @@
 <p align="center">
   <a href="https://chromewebstore.google.com/detail/fbbkaeekjalfecgjfcephaiopffeobjg"><img src="https://img.shields.io/badge/Chrome-Web%20Store-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome Web Store"></a>
   <a href="https://microsoftedge.microsoft.com/addons/detail/hnnpgpcnmgjbmmhgogcljbnfoklblgmb"><img src="https://img.shields.io/badge/Edge-Add--ons-0078D7?style=flat-square&logo=microsoftedge&logoColor=white" alt="Edge Add-ons"></a>
+  <a href="https://yehshune.github.io/poexd/"><img src="https://img.shields.io/badge/Docs-使用教學-10B981?style=flat-square" alt="使用教學"></a>
   <img src="https://img.shields.io/badge/PoE-1%20%26%202-F59E0B?style=flat-square" alt="PoE 1 & 2">
   <img src="https://img.shields.io/badge/License-MIT-94A3B8?style=flat-square" alt="License">
 </p>
 
 <p align="center"><b>繁體中文</b> · <a href="./README.en.md">English</a></p>
 
-**PoeXD Extension** 是《流亡黯道》（PoE 1／PoE 2）官方交易市集的輔助擴充套件：集中管理即時搜尋、快速套用詞綴、整理書籤，並把國際服市集翻成中文。
+**PoeXD Extension** 是《流亡黯道》（PoE 1／PoE 2）官方交易市集的輔助擴充套件：在交易頁面旁加上側邊工具列，集中監看即時搜尋、快速套用詞綴、整理書籤與 PoB 採購清單，並把國際服市集翻成中文。完整圖文操作說明請見 [PoeXD 使用教學](https://yehshune.github.io/poexd/)。
 
-## 安裝
+## 安裝與初次使用
 
 | 瀏覽器                    | 安裝方式                                                                                                                                                                      |
 | :------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -21,57 +22,74 @@
 | Microsoft Edge            | [Edge 附加元件](https://microsoftedge.microsoft.com/addons/detail/hnnpgpcnmgjbmmhgogcljbnfoklblgmb)                                                                           |
 | 手動安裝（不會自動更新）  | 到 [Releases](https://github.com/yehshune/PoeXD-Extension/releases) 下載 `chromium.zip` 解壓縮，在 `chrome://extensions/` 開啟「開發人員模式」→「載入未封裝項目」選擇該資料夾 |
 
-裝好後開啟[官方交易網站](https://www.pathofexile.com/trade)，右側會出現 PoeXD 工具列。商店版會自動更新；Firefox 目前不提供。
+商店版會自動更新，建議優先使用；Firefox 目前不提供。
+
+- 裝好後開啟[官方交易網站](https://www.pathofexile.com/trade)（台服、國服也支援），頁面**左側**會出現 PoeXD 側邊工具列（可在設定的「面板位置」改到右側）；縮起時只會留下一個 PoeXD 標誌。
+- 點瀏覽器右上角的 PoeXD 圖示可個別開關各項功能模組（T 階快捷按鈕、詞綴選擇器、價格換算、市集漢化等）；詳細步驟見[安裝與初次使用教學](https://yehshune.github.io/poexd/#first-run)。
 
 ## 最新更新
 
-- **PoB 購物清單與 `pobb.in` 分享頁漢化**：在側邊欄新增「PoB 購物清單」，支援貼上 PoB 匯出代碼或 `poe.ninja`、`pobb.in`、`pastebin` 分享網址（後兩者採選用授權）匯入多組 build；清單依裝備欄位與技能分類整理，支援詞綴翻譯（含舊英文寫法）、在彈出預覽微調條件後一鍵搜尋、加入書籤或送入線上搜尋主控台。開啟市集漢化並授權 `pobb.in` 後，`pobb.in` 分享頁也會自動顯示中文裝備、技能與天賦。
-- **搜尋結果新增 PoB 複製、PoEDB 連結與換算價格排序**：結果卡片左上角新增複製英文 `PoB` 裝備文字與開啟 `PoEDB` 物品頁按鈕（在台服／國服也會自動對應英文名稱）；並為 PoE 1 與 PoE 2 搜尋結果加入依換算價格排序。
-- **搜尋預覽統一詞綴微調介面**：書籤與歷史紀錄的搜尋預覽彈出視窗與 PoB 購物清單共用一致的詞綴微調與屬性領域標記，可在套用或開啟前直接調整條件。
-- **詞綴篩選、書籤與介面細節改善**：詞綴選擇器新增「物等」區間篩選並修正多來源詞綴分組；書籤支援以目前搜尋覆蓋並高亮目前頁面對應的書籤；側邊欄新增版本更新提示與歡迎橫幅；市集漢化補齊異變、傳承等品項翻譯並同步最新資料分片。
+- **v1.9.1 效能最佳化與穩定性修正**：
+  - **更快的市集啟動與載入**：側邊欄立即顯示並預先保留頁面版面空間（避免結果跳動），次要分頁改於首次點開時掛載；詞綴字典、執行期交易資料與結果翻譯延後至首次結果／空閒時載入，市集漢化改用 `MessageChannel` 專線傳輸並共用唯讀快取，大幅減少頁面載入卡頓。
+  - **主控台與書籤修正**：修正主控台卡片重新整理按鈕與已售出狀態未更新、跨聯盟書籤恢復誤判，以及新增／移動書籤一律附加到資料夾尾端；同步 `poexd-data` 最新資料（補齊 PoE 1 簡中 472 項「1 個增加的天賦技能為 X」附魔與繁中缺漏天賦節點）。
+- **v1.9.0 重點功能**：
+  - **PoB 購物清單與 `pobb.in` 分享頁漢化**：匯入 PoB 代碼或 `poe.ninja`、`pobb.in`、`pastebin` 網址（後兩者採選用授權），支援多套裝備／技能組切換、詞綴翻譯、預覽微調與一鍵搜尋／書籤／送入主控台；開啟市集漢化並授權 `pobb.in` 後，`pobb.in` 頁面自動中文化。
+  - **結果增強與主控台升級**：結果卡片新增 **PoB 複製**、**PoEDB 連結**與國際服**換算價格排序**；主控台支援**通知提示音**與**防止分頁自動休眠**；搜尋預覽統一詞綴微調介面，詞綴選擇器新增「物等」區間篩選。
 
 完整紀錄見 [Releases](https://github.com/yehshune/PoeXD-Extension/releases)。
 
 ## 功能
 
+完整截圖與操作示範請參考 [PoeXD 使用教學](https://yehshune.github.io/poexd/)。
+
 ### ⚡ 線上搜尋主控台
 
-在單一分頁集中監聽多組即時搜尋，斷線自動重連；依書籤資料夾分組、批次啟用或停止，重開瀏覽器可恢復上次的連線。只顯示結果區、可點單一連線過濾，並即時顯示 API 速率狀態，避免觸發官方限制。
+在單一分頁集中監聽多組即時搜尋（Live Search），斷線自動重連，有新物品上架時即時顯示並可播放提示音。支援從書籤挑選或直接貼上搜尋網址、依書籤資料夾分組、批次啟用或停止、只顯示結果區、點單一連線過濾，並即時顯示 API 速率狀態與防止分頁被瀏覽器自動捨棄，重開瀏覽器可恢復上次的連線。
 
 <p align="center"><img src="./docs/store/images/zh-TW/screenshot-4.jpg" width="80%" alt="線上搜尋主控台"></p>
 
 ### 🎯 常用詞綴群組與搜尋預覽
 
-把常用條件（例如「生命 + 總元素抗性」）存成群組，直接疊加到目前的搜尋，不覆蓋其他篩選，套錯可一鍵復原；可用分享碼或備份檔匯入匯出。搜尋預覽能看到歷史紀錄或書籤背後的實際條件，並單獨疊加其中的詞綴。
+把常用條件（例如「生命 ＋ 總元素抗性」）存成群組，直接疊加到目前的搜尋而不覆蓋其他篩選，套錯可一鍵復原，並支援分享碼與備份檔匯入匯出。點書籤或歷史紀錄名稱會先打開**搜尋預覽**（名稱旁的箭頭才是直接開啟搜尋），可在預覽中微調數值、切換條件群組或只把部分詞綴疊加到目前搜尋；書籤預覽還可直接覆蓋回書籤。
 
 <p align="center">
   <img src="./docs/store/images/zh-TW/screenshot-3.jpg" width="49%" alt="常用詞綴群組">
   <img src="./docs/store/images/zh-TW/screenshot-2.jpg" width="49%" alt="搜尋預覽與疊加">
 </p>
 
-### 🔍 詞綴篩選與階級工具
+### 🔍 詞綴篩選與 T 階工具
 
-依物品類別與物品等級區間瀏覽前綴／後綴、勾選後一次寫入官方篩選器；篩選欄旁的 T 階按鈕一鍵填入數值範圍；詞綴可拖曳排序或移到其他群組。PoE 2 碑牌、換界石與範圍珠寶也支援。
+在官方篩選群組旁打開詞綴選擇器，依物品類別與「物等」區間瀏覽前綴／後綴，勾選後一次寫入官方篩選器；篩選欄旁的 T 階按鈕可選階級自動填入數值範圍（同詞綴有多種來源時可在左側切換詞綴分組）；詞綴可拖曳排序或移到其他群組。PoE 2 的碑牌、換界石與範圍珠寶同樣支援。
 
 ### 💰 搜尋結果強化
 
-依 poe.ninja 匯率換算不同通貨的標價並依換算價格排序（國際服）、標示符合條件的詞綴、一鍵複製英文 PoB 裝備文字或開啟 PoEDB 物品頁，以及 PoE 2 符文覆寫後的 DPS／防禦試算與排序。
+- **價格換算與排序**：依 poe.ninja 匯率換算不同通貨的標價，並可依換算後價格排序（國際服）。
+- **結果詞綴高亮與快篩**：標示符合條件的詞綴；滑鼠移到結果中的詞綴右側會出現「`+和`／`+不`」按鈕，可快速加入篩選（只帶入詞綴，不會自動搜尋）。
+- **PoB 複製與 PoEDB 連結**：滑鼠移到結果左上角可一鍵複製英文 **PoB** 物品文字（台服與國服會自動轉成英文）或開啟 **PoEDB** 物品頁。
+- **PoE 2 符文覆寫試算**：試算符文覆寫後的 DPS／防禦，並可依試算結果排序。
 
 ### 🧩 PoB 購物清單
 
-匯入 Path of Building 代碼或 `poe.ninja`、`pobb.in`、`pastebin` 分享網址，依裝備欄位與技能分類整理採購清單；可翻譯詞綴並微調搜尋條件，一鍵搜尋、加入書籤或送入線上搜尋主控台。授權 `pobb.in` 並開啟市集漢化時，也會自動將 `pobb.in` 分享頁翻成中文。
+貼上 Path of Building 匯出代碼，或 `poe.ninja`、`pobb.in`、`pastebin` 分享網址（後兩者需另外授權網站存取，代碼僅存於本機瀏覽器），依裝備欄位與寶石整理並保留多份 build，支援裝備套裝與技能組切換。內建詞綴中文翻譯（含舊版英文寫法），可在預覽微調條件後一鍵搜尋、加入書籤或送入線上搜尋主控台。
 
 ### 📁 書籤、歷史紀錄與 TFT 互通
 
-樹狀資料夾收納搜尋，支援拖曳、封面圖、滑過預覽、高亮目前搜尋與以目前搜尋覆蓋既有書籤；書籤會自動套用目前的伺服器與聯盟。自動記錄搜尋歷史。可與 TFT Trade Extension 互相匯入匯出書籤，匯入前可預覽差異。
+- 樹狀資料夾收納搜尋，支援拖曳排序、封面圖與滑過預覽。
+- 目前頁面對應的書籤會自動高亮，並支援以目前搜尋覆蓋既有書籤；書籤會自動套用目前的伺服器與聯盟。
+- 自動記錄搜尋歷史；可與 TFT Trade Extension 互相匯入匯出書籤，匯入前先預覽差異。
 
 <p align="center"><img src="./docs/store/images/zh-TW/screenshot-1.jpg" width="80%" alt="樹狀書籤管理"></p>
 
-### ⚙️ 其他
+### 🌐 市集漢化
 
-- 道具名稱與篩選欄模糊搜尋（自動加 `~`）、聚焦／清除搜尋欄快捷鍵、分頁標題顯示道具名稱。
-- 主題、面板位置、寬度與縮放可調整；點工具列圖示即可開關各項功能。
+把國際服英文市集的介面、篩選器與搜尋結果顯示成中文（支援繁體中文台服用語／簡體中文國服用語），只改變顯示、不影響搜尋內容。開啟「中英並列」時，詞綴、通貨與物品下拉選單會同時呈現中英文，中英文都搜得到；開啟市集漢化並授權 `pobb.in` 後，`pobb.in` 分享頁也會自動顯示中文。
+
+### ⚙️ 設定、快捷鍵與常見問題
+
+- 面板位置（預設左側，可改右側）、主題、寬度與介面縮放可調；點瀏覽器擴充圖示即可個別開關功能模組。
+- 道具名稱與篩選欄支援模糊搜尋（自動加 `~`）、可自訂聚焦／清除搜尋欄快捷鍵（`Backspace` 清除、`Esc` 取消），以及將分頁標題換成目前搜尋的道具名稱。
 - 擴充介面提供繁體中文、簡體中文與英文；詞綴資料涵蓋官方交易網站的 11 種語言。
+- 更多疑難排解請見 [常見問題](https://yehshune.github.io/poexd/#faq)。
 
 <p align="center"><img src="./docs/store/images/zh-TW/screenshot-5.jpg" width="80%" alt="設定頁"></p>
 

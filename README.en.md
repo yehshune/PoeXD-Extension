@@ -5,17 +5,20 @@
 <p align="center">
   <a href="https://chromewebstore.google.com/detail/fbbkaeekjalfecgjfcephaiopffeobjg"><img src="https://img.shields.io/badge/Chrome-Web%20Store-4285F4?style=flat-square&logo=googlechrome&logoColor=white" alt="Chrome Web Store"></a>
   <a href="https://microsoftedge.microsoft.com/addons/detail/hnnpgpcnmgjbmmhgogcljbnfoklblgmb"><img src="https://img.shields.io/badge/Edge-Add--ons-0078D7?style=flat-square&logo=microsoftedge&logoColor=white" alt="Edge Add-ons"></a>
+  <a href="https://yehshune.github.io/poexd/"><img src="https://img.shields.io/badge/Guide-zh--TW-10B981?style=flat-square" alt="User Guide"></a>
   <img src="https://img.shields.io/badge/PoE-1%20%26%202-F59E0B?style=flat-square" alt="PoE 1 & 2">
   <img src="https://img.shields.io/badge/License-MIT-94A3B8?style=flat-square" alt="License">
 </p>
 
 <p align="center"><a href="./README.md">繁體中文</a> · <b>English</b></p>
 
-**PoeXD Extension** is a helper for the official Path of Exile (PoE 1 / PoE 2) trade site: manage
-live searches in one place, apply affixes quickly, organize bookmarks, and show the international
-trade site in Chinese.
+**PoeXD Extension** is a helper for the official Path of Exile (PoE 1 / PoE 2) trade site: it adds a
+side toolbar next to the trade page so you can watch live searches in one place, apply affixes
+quickly, organize bookmarks and PoB shopping lists, and display the international trade site in
+Chinese. A full visual walkthrough is available in the
+[User Guide (zh-TW)](https://yehshune.github.io/poexd/).
 
-## Install
+## Install and first run
 
 | Browser                          | How                                                                                                                                                                         |
 | :------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -23,48 +26,57 @@ trade site in Chinese.
 | Microsoft Edge                   | [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/hnnpgpcnmgjbmmhgogcljbnfoklblgmb)                                                                          |
 | Manual install (no auto-update)  | Download `chromium.zip` from [Releases](https://github.com/yehshune/PoeXD-Extension/releases), unzip, enable Developer mode in `chrome://extensions/`, then "Load unpacked" |
 
-Then open the [official trade site](https://www.pathofexile.com/trade); the PoeXD toolbar appears
-on the right. Store versions update automatically. Firefox is not available yet.
+Store versions update automatically and are recommended. Firefox is not available yet.
+
+- Open the [official trade site](https://www.pathofexile.com/trade) (Taiwan and China realms are
+  also supported); the PoeXD toolbar appears on the **left** by default (switchable to the right in
+  Settings → Panel Position), or collapses down to a single PoeXD badge.
+- Click the PoeXD icon in your browser toolbar to toggle individual modules (tier shortcuts, affix
+  selector, price conversion, Market Translation, etc.).
 
 ## What's new
 
-- **PoB shopping list & `pobb.in` translation**: added a PoB Shopping List tab in the sidebar to
-  import Path of Building codes or `poe.ninja`, `pobb.in` and `pastebin` share links (optional
-  host permission for the latter two) across multiple builds; items are grouped by gear slot and
-  gems, with mod translation (including legacy wording), a tuning popover before searching, and
-  one-click search, bookmarking or sending to the LiveSearch Console. With `pobb.in` permission and
-  Market Translation enabled, `pobb.in` share pages are also translated to Chinese.
-- **PoB copy, PoEDB links & converted-price sorting on results**: added buttons on the top-left
-  hover strip of result cards to copy English PoB item text or open the item's PoEDB page (mapping
-  Taiwan/China realm names back to English), plus converted-price sorting (asc/desc) for both PoE 1
-  and PoE 2.
-- **Unified search preview tuning**: bookmark and history search previews now share the same mod
-  tuning popover and stat domain badges as the PoB shopping list so you can adjust criteria before
-  applying or opening a search.
-- **Affix selector, bookmark & Market Translation improvements**: added an item level range filter
-  and fixed multi-affinity mod groups in the affix selector; added bookmark overwrite with the
-  current search and active-search highlighting; added a sidebar update notice and welcome banner;
-  expanded Market Translation coverage (discriminant, legacy and transfigured items) and synced
-  bundled data shards.
+- **v1.9.1 performance & stability fixes**:
+  - **Faster trade page startup**: mounts the sidebar immediately while reserving layout space
+    upfront to prevent shifts, lazy-mounts secondary tabs on first open, defers affix lexicon,
+    runtime trade data and result-translator loading until initial results / idle time, delivers
+    Market Translation payloads over `MessageChannel`, and shares read-only extension JSON caches.
+  - **Console & bookmark fixes**: keyed LiveSearch Console result batches by `itemData.id` so the
+    official refresh button and sold state work properly; fixed cross-league bookmark resume and
+    appending new/moved bookmarks to the end of folders; synced the latest `poexd-data` batch.
+- **v1.9.0 highlights**:
+  - **PoB Shopping List & `pobb.in` translation**: import PoB codes or `poe.ninja`, `pobb.in` and
+    `pastebin` links (optional host permissions for the latter two), switch gear/gem sets, translate
+    and tune mods, and search, bookmark or send to the LiveSearch Console in one click; `pobb.in`
+    share pages also translate to Chinese when permitted.
+  - **Result & console upgrades**: added **PoB copy**, **PoEDB links** and **converted-price
+    sorting** (international realm); added console **notification sounds** and **tab auto-discard
+    protection**; unified search preview tuning and added an item level range filter in the affix
+    selector.
 
 See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
 
 ## Features
 
+See the [User Guide (zh-TW)](https://yehshune.github.io/poexd/) for step-by-step screenshots.
+
 ### ⚡ Live search console
 
-Watch many live searches from a single tab with automatic reconnects; group them by bookmark
-folder, start or stop in batches, and resume last session's connections. A results-only view,
-per-connection filtering and a live API rate indicator help you stay under the official limits.
+Watch multiple live searches from a single tab with automatic reconnects, real-time result cards and
+optional notification sounds. Add searches from bookmarks or paste trade URLs directly, group by
+bookmark folder, start or stop in batches, switch to a results-only view, filter by connection,
+monitor live API rate status, protect the console tab from browser auto-discard, and resume your
+previous session after restarting the browser.
 
 <p align="center"><img src="./docs/store/images/en/screenshot-4.jpg" width="80%" alt="Live search console"></p>
 
 ### 🎯 Stat group templates and search preview
 
 Save common conditions (e.g. "Life + total elemental resistance") as groups and overlay them on the
-current search without touching other filters, with one-click undo; share via codes or backup
-files. Search preview shows the real criteria behind history entries and bookmarks, and lets you
-overlay individual affixes from them.
+current search without overwriting other filters, with one-click undo and share-code / backup-file
+import and export. Clicking a bookmark or history entry's name opens **Search Preview** first (click
+the arrow beside the name to open the search directly), where you can tune values, switch condition
+group types, overlay individual affixes, or overwrite the bookmark.
 
 <p align="center">
   <img src="./docs/store/images/en/screenshot-3.jpg" width="49%" alt="Stat group templates">
@@ -73,39 +85,57 @@ overlay individual affixes from them.
 
 ### 🔍 Affix filter and tier tools
 
-Browse prefixes and suffixes by item class and item level range, and write them to the official
-filters in one go; tier buttons next to each filter fill in value ranges; drag affixes to reorder or
-move them between groups. PoE 2 tablets, waystones and radius jewels are supported.
+Open the affix selector beside official filter groups to browse prefixes and suffixes by item class
+and item level range, then apply checked stats to the official filters in one go. Tier buttons next
+to each filter fill in value ranges (switch mod groups on the left when a stat has multiple sources
+on the item class), and affixes can be dragged to reorder or move between groups. PoE 2 tablets,
+waystones and radius jewels are supported.
 
 ### 💰 Result enhancements
 
-Price conversion between currencies using poe.ninja rates with converted-price sorting
-(international realm), highlighting of matching affixes, one-click English PoB item copy and PoEDB
-links, and PoE 2 rune-override DPS / defence estimates with sorting.
+- **Converted prices & sorting**: convert listed prices using poe.ninja rates and sort by converted
+  price (international realm).
+- **Affix highlight & quick filter**: highlight matching affixes; hover a mod on a result card to
+  reveal `+AND` / `+NOT` buttons that add the stat to your filters without triggering a search.
+- **PoB copy & PoEDB links**: hover the top-left of a result card to copy English **PoB** item text
+  (automatically mapped to English on Taiwan/China realms) or open the item's **PoEDB** page.
+- **PoE 2 rune-override estimates**: estimate DPS and defence after rune overrides and sort results.
 
 ### 🧩 PoB shopping list
 
-Import Path of Building codes or `poe.ninja`, `pobb.in` and `pastebin` share links to organize
-multiple builds by gear slot and gems; translate mods, tune search criteria and search, bookmark or
-send items to the LiveSearch Console in one click. When `pobb.in` permission and Market Translation
-are enabled, `pobb.in` pages are also displayed in Chinese.
+Paste Path of Building export codes or `poe.ninja`, `pobb.in` and `pastebin` share links (the latter
+two require granting access to those sites; codes stay local in your browser) to organize multiple
+builds by gear slot and gems, with gear-set and skill-group switching. Translates mods (including
+legacy wording) and lets you tune criteria before searching, bookmarking or sending to the
+LiveSearch Console.
 
 ### 📁 Bookmarks, history and TFT interop
 
-Tree folders with drag and drop, cover images, hover previews, active-search highlighting and
-overwriting with the current search; bookmarks follow your current realm and league. Search history
-is recorded automatically. Import and export bookmarks with TFT Trade Extension, with a diff preview
-before importing.
+- Tree folders with drag and drop, cover images and hover previews.
+- Highlights the bookmark matching the current page and lets you overwrite existing bookmarks with
+  the current search; bookmarks automatically follow your current realm and league.
+- Automatic search history, plus bookmark import/export with TFT Trade Extension (with a diff
+  preview before importing).
 
 <p align="center"><img src="./docs/store/images/en/screenshot-1.jpg" width="80%" alt="Bookmark tree"></p>
 
-### ⚙️ More
+### 🌐 Market translation
 
-- Fuzzy search for item names and filters (auto `~`), focus / clear search hotkeys, item name in
-  the tab title.
-- Themes, panel side, width and zoom are adjustable; toggle features from the toolbar popup.
+Display the international trade site UI, filters and search results in Chinese (Traditional Chinese
+for Taiwan-realm terminology or Simplified Chinese for China-realm terminology) without altering the
+underlying search query. Enable **Bilingual** mode to show Chinese and English together in affix,
+currency and item dropdowns so you can search in either language. When enabled alongside `pobb.in`
+permission, `pobb.in` share pages are also translated to Chinese.
+
+### ⚙️ Settings, hotkeys and FAQ
+
+- Adjustable panel position (left by default, switchable to right), theme, width and UI zoom;
+  toggle feature modules individually from the extension popup.
+- Fuzzy search for item names and filters (auto `~`), customizable focus / clear search hotkeys
+  (`Backspace` to clear, `Esc` to cancel), and optional item names in browser tab titles.
 - Extension UI in Traditional Chinese, Simplified Chinese and English; affix data covers all 11
   languages of the official trade site.
+- More troubleshooting tips are listed in the [FAQ (zh-TW)](https://yehshune.github.io/poexd/#faq).
 
 <p align="center"><img src="./docs/store/images/en/screenshot-5.jpg" width="80%" alt="Settings"></p>
 
