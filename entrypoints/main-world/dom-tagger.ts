@@ -40,16 +40,9 @@ export function setDomTaggerBridge(bridge: MainWorldBridge | null): void {
   activeBridge = bridge;
   if (bridge && typeof bridge.addListener === 'function') {
     unlistenCategoryRequest = bridge.addListener('poexd-request-official-category', () => {
-      if (!hasEstablishedBaseline) {
-        syncOfficialCategoryFromStore();
-        return;
-      }
-      const prevBaseline = baselineCategory;
-      const resolution = syncOfficialCategoryFromStore();
-      const didDispatchTransition =
-        (resolution.status === 'known_category' && resolution.category !== prevBaseline) ||
-        (resolution.status === 'known_cleared' && prevBaseline !== null);
-      if (!didDispatchTransition) {
+      const hadBaseline = hasEstablishedBaseline;
+      const { dispatched } = syncOfficialCategoryWithStatus();
+      if (hadBaseline && !dispatched) {
         bridge.dispatchEvent('poexd-equipment-type-changed', {
           type: getOfficialCategorySnapshot(),
         });
@@ -73,10 +66,24 @@ export function resetOfficialCategoryBaselineForTest(): void {
 export function syncOfficialCategoryFromStore(
   queryOverride?: unknown,
 ): OfficialTierCategoryResolution {
+  return syncOfficialCategoryWithStatus(queryOverride).resolution;
+}
+
+function syncOfficialCategoryWithStatus(queryOverride?: unknown): {
+  resolution: OfficialTierCategoryResolution;
+  dispatched: boolean;
+} {
+  let dispatched = false;
+  const emitCategoryChanged = (type: string | null) => {
+    if (!activeBridge) return;
+    activeBridge.dispatchEvent('poexd-equipment-type-changed', { type });
+    dispatched = true;
+  };
+
   const store = getVueStore();
   if (!store) {
     currentOfficialResolution = { status: 'unavailable' };
-    return currentOfficialResolution;
+    return { resolution: currentOfficialResolution, dispatched };
   }
 
   if (queryOverride !== undefined) {
@@ -87,7 +94,7 @@ export function syncOfficialCategoryFromStore(
     queryOverride ?? (store.state?.query || lastQueryOverride || store.state?.persistent);
   if (!query) {
     currentOfficialResolution = { status: 'unavailable' };
-    return currentOfficialResolution;
+    return { resolution: currentOfficialResolution, dispatched };
   }
 
   const version: PoeVersion =
@@ -100,7 +107,7 @@ export function syncOfficialCategoryFromStore(
 
   if (resolution.status === 'unavailable') {
     // 嚴格落實 unavailable：不更新 snapshot、不 batch clear、不修改 filters、不破壞 binding identity、不派發 clear
-    return resolution;
+    return { resolution, dispatched };
   }
 
   const stats = store.state?.persistent?.stats || store.state?.query?.stats;
@@ -111,9 +118,7 @@ export function syncOfficialCategoryFromStore(
       hasEstablishedBaseline = true;
       baselineCategory = nextCategory;
       setOfficialCategorySnapshot(nextCategory);
-      if (activeBridge) {
-        activeBridge.dispatchEvent('poexd-equipment-type-changed', { type: nextCategory });
-      }
+      emitCategoryChanged(nextCategory);
     } else if (baselineCategory !== nextCategory) {
       baselineCategory = nextCategory;
       setOfficialCategorySnapshot(nextCategory);
@@ -122,9 +127,7 @@ export function syncOfficialCategoryFromStore(
           batchUpdateAllCategories(stats, nextCategory);
         });
       }
-      if (activeBridge) {
-        activeBridge.dispatchEvent('poexd-equipment-type-changed', { type: nextCategory });
-      }
+      emitCategoryChanged(nextCategory);
     } else if (getOfficialCategorySnapshot() !== nextCategory) {
       // 官方 save(true) 會以 gzip slug (H4sI...) 呼叫 history.pushState 觸發 session rollover，
       // 把新 session 的 officialCategorySnapshot 清為 null；此時 baselineCategory 已是 nextCategory，
@@ -136,9 +139,7 @@ export function syncOfficialCategoryFromStore(
       hasEstablishedBaseline = true;
       baselineCategory = null;
       setOfficialCategorySnapshot(null);
-      if (activeBridge) {
-        activeBridge.dispatchEvent('poexd-equipment-type-changed', { type: null });
-      }
+      emitCategoryChanged(null);
     } else if (baselineCategory !== null) {
       baselineCategory = null;
       setOfficialCategorySnapshot(null);
@@ -147,13 +148,11 @@ export function syncOfficialCategoryFromStore(
           clearAllFilterCategories(stats);
         });
       }
-      if (activeBridge) {
-        activeBridge.dispatchEvent('poexd-equipment-type-changed', { type: null });
-      }
+      emitCategoryChanged(null);
     }
   }
 
-  return resolution;
+  return { resolution, dispatched };
 }
 
 export function unsubscribeStore(): void {

@@ -232,23 +232,24 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
     if (!loading.value) hydrate();
   });
 
+  const finishHydration = () => {
+    hydrate();
+    if (typeof window !== 'undefined') {
+      dispatchPoeEvent('poexd-request-known-stats');
+    }
+  };
+
   const loadData = async () => {
     if (isAffixLexiconReady(version)) {
-      hydrate();
+      finishHydration();
       loading.value = false;
-      if (typeof window !== 'undefined') {
-        dispatchPoeEvent('poexd-request-known-stats');
-      }
       return;
     }
     loading.value = true;
     try {
       // Display Locale 由偏好模組統一寫入全域狀態，這裡只依目前語系載入分片
       await ensureAffixLexiconLoaded(version);
-      hydrate();
-      if (typeof window !== 'undefined') {
-        dispatchPoeEvent('poexd-request-known-stats');
-      }
+      finishHydration();
     } catch (error) {
       console.error('[PoeXD] 載入詞綴資料失敗:', error);
     } finally {
