@@ -142,8 +142,9 @@ describe('Business Layer Migration Phase 2A — BookmarkPane Top Controls', () =
       expect(fixedSection).not.toMatch(/<Input[^>]*rounded-none/);
       expect(fixedSection).not.toMatch(/<Input[^>]*focus-visible:ring-0/);
 
-      // Retains composite positioning padding
-      expect(fixedSection).toMatch(/<Input[^>]*pl-8 pr-7/);
+      // Retains composite positioning padding driven by UI Scale tokens
+      expect(fixedSection).toContain('--input-padding-x-sm');
+      expect(fixedSection).toContain('--control-height-sm');
     });
 
     it('uses Scale-aware foundation icon token for Search indicator', () => {
@@ -302,8 +303,8 @@ describe('Business Layer Migration Phase 2A — BookmarkPane Top Controls', () =
       expect(searchInput).not.toBeNull();
       expect(searchInput?.className).toContain(COMPONENT_SIZE_SPECS.sm.heightClass);
       expect(searchInput?.className).toContain(COMPONENT_SIZE_SPECS.sm.fontSizeClass);
-      expect(searchInput?.className).toContain('pl-8');
-      expect(searchInput?.className).toContain('pr-7');
+      expect(searchInput?.className).toContain('--input-padding-x-sm');
+      expect(searchInput?.className).toContain('--control-height-sm');
       expect(searchInput?.className).not.toContain('focus-visible:ring-0');
 
       // Type into search input to show clear button

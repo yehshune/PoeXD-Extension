@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Sortable from 'sortablejs';
-import { GripVertical, Pin, Trash2 } from '@lucide/vue';
+import { ChevronsDownUp, Pin, Trash2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -9,6 +9,7 @@ import { getActiveUiLocale, t } from '@/utils/i18n';
 import { isSameLeague, type PinnedItemSnapshot } from '@/utils/pinned-items';
 import { getTradeRealm } from '@/utils/trade-realms';
 import SidebarPane from '../layout/SidebarPane.vue';
+import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import DragTrashZone from '../layout/DragTrashZone.vue';
 import {
   hideDragTrash,
@@ -89,6 +90,7 @@ function initSortable() {
   sortable = Sortable.create(listRef.value, {
     animation: 200,
     draggable: ROW_SELECTOR,
+    handle: '[data-pinned-item-toggle]',
     ghostClass: 'sortable-ghost',
     filter: 'button, a, input, label',
     preventOnFilter: false,
@@ -180,15 +182,24 @@ function toggleExpanded(item: PinnedItemSnapshot): void {
   expandedIds.value = next;
 }
 
-/** 官方物品名稱的稀有度顏色（所有主題都是深色底） */
+const hasAnyExpanded = computed(() =>
+  visibleItems.value.some((item) => expandedIds.value.has(item.id)),
+);
+
+function collapseAll(): void {
+  if (expandedIds.value.size === 0) return;
+  expandedIds.value = new Set();
+}
+
+/** 官方物品名稱的稀有度顏色（以 OKLCH 調和亮度與飽和度，與深色主題及 PoB 購物清單色票協調） */
 const RARITY_COLOURS: Readonly<Record<string, string>> = {
-  normal: '#c8c8c8',
-  magic: '#8888ff',
-  rare: '#ffff77',
-  unique: '#af6025',
-  gem: '#1ba29b',
-  currency: '#aa9e82',
-  divination: '#0ebaff',
+  normal: 'var(--foreground)',
+  magic: 'oklch(0.68 0.13 258)',
+  rare: 'oklch(0.76 0.13 92)',
+  unique: 'oklch(0.68 0.15 50)',
+  gem: 'oklch(0.7 0.1 190)',
+  currency: 'oklch(0.74 0.06 82)',
+  divination: 'oklch(0.72 0.12 225)',
 };
 
 function rarityColour(item: PinnedItemSnapshot): string {
@@ -255,9 +266,9 @@ function realmLabel(item: PinnedItemSnapshot): string {
       >
         <label
           v-if="currentLeague"
-          class="flex items-center gap-[var(--pxd-space-xs)] min-w-0 flex-1 text-[length:var(--pxd-font-caption)] text-muted-foreground cursor-pointer"
+          class="flex items-center gap-[var(--pxd-space-md)] min-w-0 flex-1 text-[length:var(--pxd-font-secondary)] text-foreground cursor-pointer select-none"
         >
-          <Checkbox v-model="showAllLeagues" data-pinned-items-show-all />
+          <Checkbox v-model="showAllLeagues" class="shrink-0" data-pinned-items-show-all />
           <span class="truncate">{{ t('pinnedItem.showAllLeagues') }}</span>
         </label>
         <span v-else class="flex-1"></span>
@@ -266,6 +277,18 @@ function realmLabel(item: PinnedItemSnapshot): string {
           data-pinned-items-count
           >{{ t('pinnedItem.count', { count: items.length, limit }) }}</span
         >
+        <Button
+          variant="secondary"
+          size="icon-sm"
+          class="shrink-0"
+          data-pinned-items-collapse-all
+          :disabled="!hasAnyExpanded"
+          :title="t('bookmark.action.collapseAll')"
+          :aria-label="t('bookmark.action.collapseAll')"
+          @click="collapseAll"
+        >
+          <ChevronsDownUp />
+        </Button>
         <Button
           variant="secondary"
           size="sm"
@@ -286,25 +309,27 @@ function realmLabel(item: PinnedItemSnapshot): string {
     </template>
 
     <template #scroll>
-      <div
+      <SidebarEmptyState
         v-if="visibleItems.length === 0"
-        class="flex flex-col items-center gap-[var(--pxd-space-sm)] py-[var(--pxd-space-xl)] text-center text-muted-foreground"
+        :message="t('pinnedItem.empty')"
+        :hint="hiddenCount > 0 ? t('pinnedItem.hiddenByLeague', { count: hiddenCount }) : undefined"
         data-pinned-items-empty
       >
-        <Pin class="size-6" />
-        <p class="text-[length:var(--pxd-font-body)]">{{ t('pinnedItem.empty') }}</p>
-        <p v-if="hiddenCount > 0" class="text-[length:var(--pxd-font-caption)]">
-          {{ t('pinnedItem.hiddenByLeague', { count: hiddenCount }) }}
-        </p>
-      </div>
+        <template #icon><Pin /></template>
+      </SidebarEmptyState>
 
-      <ul v-else ref="listRef" class="flex flex-col border border-border" data-pinned-items-list>
+      <ul
+        v-else
+        ref="listRef"
+        class="m-0 flex list-none flex-col overflow-hidden rounded-md border border-border bg-card p-0"
+        data-pinned-items-list
+      >
         <li
           v-for="item in visibleItems"
           :key="item.id"
-          class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 cursor-grab active:cursor-grabbing transition-colors"
+          class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
           :class="[
-            isExpanded(item) ? 'bg-muted/30' : 'hover:bg-muted/40',
+            isExpanded(item) ? 'bg-muted/20' : 'hover:bg-muted/40',
             { 'opacity-60': states[item.id] === 'sold' },
           ]"
           :data-pinned-item-id="item.id"
@@ -313,7 +338,8 @@ function realmLabel(item: PinnedItemSnapshot): string {
           <div
             role="button"
             tabindex="0"
-            class="flex items-center gap-[var(--pxd-space-sm)] py-[var(--pxd-bookmark-row-padding-y)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-xs)] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            class="flex items-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] py-[var(--pxd-space-md)] cursor-grab active:cursor-grabbing outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            :class="isExpanded(item) ? 'bg-muted/35 border-b border-border/60' : ''"
             data-pinned-item-toggle
             :aria-expanded="isExpanded(item)"
             :title="expandLabel(item)"
@@ -321,21 +347,17 @@ function realmLabel(item: PinnedItemSnapshot): string {
             @keydown.enter.prevent="toggleExpanded(item)"
             @keydown.space.prevent="toggleExpanded(item)"
           >
-            <GripVertical
-              class="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-              aria-hidden="true"
-            />
             <img
               v-if="typeof item.item.icon === 'string'"
               :src="item.item.icon"
               alt=""
-              class="size-[var(--control-height-sm)] shrink-0 object-contain"
+              class="size-[var(--control-height-default)] shrink-0 object-contain"
               referrerpolicy="no-referrer"
               draggable="false"
             />
-            <div class="flex min-w-0 flex-1 flex-col">
+            <div class="flex min-w-0 flex-1 flex-col gap-[2px]">
               <span
-                class="truncate text-[length:var(--pxd-font-caption)] font-semibold"
+                class="truncate text-[length:var(--pxd-font-secondary)] font-semibold leading-tight"
                 :style="{ color: rarityColour(item) }"
                 data-pinned-item-name
               >
@@ -348,14 +370,14 @@ function realmLabel(item: PinnedItemSnapshot): string {
                 >
               </span>
               <span
-                class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground"
+                class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
                 data-pinned-item-meta
                 >{{ metaParts(item).join(' · ') }}</span
               >
             </div>
             <div class="flex shrink-0 flex-col items-end">
               <span
-                class="inline-flex items-center gap-[var(--pxd-space-2xs)] text-[length:var(--pxd-font-caption)] font-bold tabular-nums text-foreground"
+                class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
                 :class="{ 'line-through': states[item.id] === 'sold' }"
                 data-pinned-item-price
               >
@@ -365,7 +387,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
                   :src="item.listing.price.icon"
                   :alt="item.listing.price.currency"
                   :title="item.listing.price.currencyName ?? item.listing.price.currency"
-                  class="size-5 object-contain"
+                  class="size-6 object-contain"
                   referrerpolicy="no-referrer"
                   draggable="false"
                   data-pinned-item-currency-icon
@@ -379,10 +401,10 @@ function realmLabel(item: PinnedItemSnapshot): string {
             </div>
           </div>
 
-          <!-- 收合時 hover / 鍵盤聚焦才浮出的操作（與書籤列相同），蓋在價格上方 -->
+          <!-- 收合時 hover 才浮出的操作（與書籤列相同），蓋在價格上方 -->
           <PinnedItemActions
             v-if="!isExpanded(item)"
-            class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) pl-[var(--pxd-space-sm)] bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
+            class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) rounded-l-sm pl-[var(--pxd-space-sm)] bg-card group-hover:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
             :item="item"
             :state="states[item.id]"
             :same-realm="sameRealm(item)"
@@ -396,25 +418,26 @@ function realmLabel(item: PinnedItemSnapshot): string {
             @unpin="unpin(item)"
           />
 
-          <div
-            v-else
-            class="flex flex-col gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] pb-[var(--pxd-space-sm)]"
-          >
+          <div v-else class="flex flex-col bg-background">
             <PinnedItemCardView :snapshot="item" :collapsed="false" />
-            <PinnedItemActions
-              class="flex-wrap"
-              :item="item"
-              :state="states[item.id]"
-              :same-realm="sameRealm(item)"
-              :can-copy-pob="canCopyPob(item)"
-              :has-source="!!sourceUrl(item)"
-              :full="true"
-              @travel="travel(item)"
-              @whisper="copyWhisper(item)"
-              @pob="copyPob(item)"
-              @source="openSource(item)"
-              @unpin="unpin(item)"
-            />
+            <div
+              class="border-t border-border/60 bg-card/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
+            >
+              <PinnedItemActions
+                class="flex-wrap"
+                :item="item"
+                :state="states[item.id]"
+                :same-realm="sameRealm(item)"
+                :can-copy-pob="canCopyPob(item)"
+                :has-source="!!sourceUrl(item)"
+                :full="true"
+                @travel="travel(item)"
+                @whisper="copyWhisper(item)"
+                @pob="copyPob(item)"
+                @source="openSource(item)"
+                @unpin="unpin(item)"
+              />
+            </div>
           </div>
         </li>
       </ul>

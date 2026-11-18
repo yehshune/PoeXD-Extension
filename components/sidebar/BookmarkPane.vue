@@ -143,21 +143,21 @@
       <!-- 搜尋篩選器 -->
       <div v-if="isSearchVisible" class="relative mb-[var(--pxd-space-md)] flex items-center">
         <Search
-          class="pointer-events-none absolute left-2.5 size-[var(--control-icon-sm,14px)] text-muted-foreground"
+          class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
         />
         <Input
           ref="searchInputRef"
           v-model="searchQuery"
           size="sm"
           :placeholder="t('bookmark.search.placeholder')"
-          class="w-full pl-8 pr-7"
+          class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))]"
           @keydown.esc.stop.prevent="closeSearch"
         />
         <Button
           v-if="searchQuery"
           variant="ghost"
           size="icon-sm"
-          class="absolute right-1"
+          class="absolute right-[var(--pxd-space-xs)]"
           :title="t('bookmark.search.clearTooltip') /* title=&quot;清除搜尋&quot; */"
           @click="searchQuery = ''"
         >
@@ -176,28 +176,27 @@
             <!-- 無任何書籤的全局提示 -->
             <div
               v-if="isLoading"
-              class="empty-state text-center text-muted-foreground text-[length:var(--pxd-font-caption)] py-[var(--pxd-space-2xl)]"
+              class="empty-state text-center text-muted-foreground text-[length:var(--pxd-font-secondary)] py-[var(--pxd-space-2xl)]"
               key="loading"
             >
               {{ t('bookmark.empty.loading') }}
             </div>
-            <div
+            <SidebarEmptyState
               v-else-if="groups.length === 0"
-              class="empty-state flex flex-col items-center justify-center gap-3 text-center text-muted-foreground py-[var(--pxd-space-2xl)] px-4"
+              :message="t('bookmark.empty.noBookmarks')"
+              class="empty-state"
               key="empty"
             >
-              <div class="text-[length:var(--pxd-font-caption)]">
-                {{ t('bookmark.empty.noBookmarks') }}
-              </div>
-              <div class="flex items-center gap-2">
+              <template #icon><BookmarkIcon /></template>
+              <template #actions>
                 <Button variant="default" size="sm" @click="addGroup()">
                   {{ t('bookmark.action.newFolder') }}
                 </Button>
                 <Button variant="secondary" size="sm" @click="openImportDialog">
                   {{ t('bookmark.transfer.import') }}
                 </Button>
-              </div>
-            </div>
+              </template>
+            </SidebarEmptyState>
             <template v-else key="groups-content">
               <div
                 :key="listRenderKey"
@@ -289,6 +288,7 @@ import { defineComponent, ref, onMounted, onUnmounted, computed, watch, provide 
 import { describeBookmarkImportFailure } from '@/utils/bookmark-transfer-messages';
 import { t } from '@/utils/i18n';
 import SidebarPane from './layout/SidebarPane.vue';
+import SidebarEmptyState from './layout/SidebarEmptyState.vue';
 import DragTrashZone from './layout/DragTrashZone.vue';
 import BookmarkFolderNode from './BookmarkFolderNode.vue';
 import {
@@ -318,6 +318,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
+  Bookmark as BookmarkIcon,
   ChevronsUpDown,
   FolderPlus,
   MoreVertical,
@@ -390,8 +391,10 @@ export default defineComponent({
   name: 'BookmarkPane',
   components: {
     SidebarPane,
+    SidebarEmptyState,
     DragTrashZone,
     BookmarkFolderNode,
+    BookmarkIcon,
     BookmarkImportDialog,
     TradeSearchPreviewPopover,
     TooltipProvider,

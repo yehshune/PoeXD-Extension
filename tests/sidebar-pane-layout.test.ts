@@ -467,8 +467,8 @@ describe('BookmarkPane SidebarPane integration and SortableJS contract', () => {
     expect(freshBookmarkSource).toContain('size="icon-sm"');
     // Separator and search margins use Foundation spacing tokens
     expect(freshBookmarkSource).toContain('mb-[var(--pxd-space-md)]');
-    // Search input uses size="sm" with composite reserve
-    expect(freshBookmarkSource).toMatch(/<Input[^>]*size="sm"[^>]*pl-8 pr-7/);
+    // Search input uses size="sm" with token-based composite reserve
+    expect(freshBookmarkSource).toMatch(/<Input[^>]*size="sm"[^>]*--input-padding-x-sm/);
   });
 
   it('ensures empty and loading states reside inside .bookmark-accordion-list as template children', () => {

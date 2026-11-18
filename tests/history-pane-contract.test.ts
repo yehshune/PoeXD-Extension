@@ -92,7 +92,6 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       // Typography tokens
       expect(historyPaneSource).toContain('--pxd-font-secondary');
       expect(historyPaneSource).toContain('--pxd-font-micro');
-      expect(historyPaneSource).toContain('--pxd-font-caption');
     });
 
     it('enforces standard size="sm" for Clear Button and size="icon-sm" for row actions', () => {
@@ -129,7 +128,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
 
       // Actions must be absolute overlay with z-index: 1 and inherit opaque color-mix background from row hover
       expect(historyPaneSource).toContain(
-        'hover:bg-[color-mix(in_srgb,var(--accent)_50%,var(--card))]',
+        'hover:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))]',
       );
       expect(historyPaneSource).toContain('group-hover:opacity-100');
       expect(historyPaneSource).toContain('group-hover:pointer-events-auto');
@@ -253,7 +252,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       });
     });
 
-    it('renders empty state with caption font token when history is empty', async () => {
+    it('renders empty state with secondary font token when history is empty', async () => {
       historyEntriesMock.value = [];
       app = createApp(HistoryPane);
       app.mount(container);
@@ -264,10 +263,10 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(emptyDiv).not.toBeNull();
       expect(emptyDiv?.textContent?.trim()).toBe('尚無歷史搜尋紀錄');
       expect(emptyDiv?.className).toContain('py-[var(--pxd-space-2xl)]');
-      expect(emptyDiv?.className).toContain('text-[length:var(--pxd-font-caption)]');
+      expect(emptyDiv?.className).toContain('text-[length:var(--pxd-font-secondary)]');
     });
 
-    it('renders subtle empty state with caption font token when history is disabled and empty', async () => {
+    it('renders subtle empty state with secondary font token when history is disabled and empty', async () => {
       historyEnabledMock.value = false;
       historyEntriesMock.value = [];
       app = createApp(HistoryPane);
@@ -279,7 +278,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(disabledDiv).not.toBeNull();
       expect(disabledDiv?.textContent?.trim()).toBe('尚無歷史搜尋紀錄（已停止記錄）');
       expect(disabledDiv?.className).toContain('py-[var(--pxd-space-2xl)]');
-      expect(disabledDiv?.className).toContain('text-[length:var(--pxd-font-caption)]');
+      expect(disabledDiv?.className).toContain('text-[length:var(--pxd-font-secondary)]');
 
       // Status notice is shown without hiding anything
       expect(container.textContent).toContain('已停止記錄新搜尋，既有歷史仍可查看與清理');

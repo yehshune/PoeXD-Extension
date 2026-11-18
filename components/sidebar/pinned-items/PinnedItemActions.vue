@@ -5,7 +5,7 @@
  * 取消釘選放在「⋯」選單裡，平常也可以直接拖到垃圾桶。
  */
 import { ref } from 'vue';
-import { ClipboardCopy, ExternalLink, Home, MoreVertical, Trash2 } from '@lucide/vue';
+import { ClipboardCopy, Copy, ExternalLink, Home, MoreVertical, Trash2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -50,7 +50,7 @@ const travelDisabled = () => !props.sameRealm || props.state === 'busy' || props
   <div class="flex items-center gap-[var(--pxd-space-xs)]" @pointerdown.stop>
     <Button
       v-if="item.listing.instantBuyout"
-      :variant="full ? 'default' : 'ghost'"
+      :variant="full ? 'secondary' : 'ghost'"
       :size="full ? 'sm' : 'icon-sm'"
       data-pinned-item-travel
       :disabled="travelDisabled()"
@@ -59,11 +59,11 @@ const travelDisabled = () => !props.sameRealm || props.state === 'busy' || props
       @click.stop="emit('travel')"
     >
       <Home />
-      <span v-if="full" class="ml-1">{{ travelLabel() }}</span>
+      <span v-if="full">{{ travelLabel() }}</span>
     </Button>
     <Button
       v-else-if="item.listing.whisper"
-      :variant="full ? 'default' : 'ghost'"
+      :variant="full ? 'secondary' : 'ghost'"
       :size="full ? 'sm' : 'icon-sm'"
       data-pinned-item-whisper
       :disabled="!sameRealm"
@@ -72,22 +72,23 @@ const travelDisabled = () => !props.sameRealm || props.state === 'busy' || props
       @click.stop="emit('whisper')"
     >
       <ClipboardCopy />
-      <span v-if="full" class="ml-1">{{ t('pinnedItem.action.whisper') }}</span>
+      <span v-if="full">{{ t('pinnedItem.action.whisper') }}</span>
     </Button>
     <Button
       v-if="canCopyPob"
-      :variant="full ? 'secondary' : 'ghost'"
+      :variant="full ? 'outline' : 'ghost'"
       size="sm"
       class="px-[var(--pxd-space-sm)]"
       data-pinned-item-pob
       :title="t('resultPobCopy.title')"
       @click.stop="emit('pob')"
     >
-      {{ t('resultPobCopy.button') }}
+      <Copy v-if="full" />
+      <span>{{ t('resultPobCopy.button') }}</span>
     </Button>
     <Button
       v-if="hasSource"
-      :variant="full ? 'secondary' : 'ghost'"
+      :variant="full ? 'outline' : 'ghost'"
       size="icon-sm"
       data-pinned-item-source
       :title="t('pinnedItem.action.openSource')"

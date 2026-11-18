@@ -1,6 +1,6 @@
 <template>
   <div
-    class="group-container relative border border-border bg-card mb-0"
+    class="group-container relative rounded-md border border-border bg-card mb-0"
     :data-group-id="node.folder.id"
     :data-depth="node.depth"
     :style="folderContainerStyle"
@@ -10,8 +10,8 @@
       class="group-header-row group"
       :class="[
         'relative flex items-center justify-between cursor-pointer select-none border-0 border-solid border-l-2 border-l-primary bg-muted/40 hover:bg-muted/70 py-[var(--pxd-bookmark-folder-header-padding-y)] px-[var(--pxd-space-lg)]',
+        isBodyVisible ? 'rounded-t-md border-b border-border' : 'rounded-md',
         {
-          'border-b border-border': isBodyVisible,
           collapsed: ctx.isGroupCollapsed(node.folder.id),
         },
       ]"
@@ -262,7 +262,7 @@
     <div
       v-if="!ctx.isGroupCollapsed(node.folder.id)"
       v-show="isBodyVisible"
-      class="group-body pr-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)] bg-background"
+      class="group-body rounded-b-md pr-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)] bg-background"
       :class="[
         isParentWithoutBookmarks
           ? 'py-[var(--pxd-space-xs)]'
@@ -276,7 +276,7 @@
       >
         <div
           v-if="isParentWithoutBookmarks"
-          class="empty-group-text compact-drop-zone text-[length:var(--pxd-font-micro)] text-muted-foreground py-1 px-2 border border-dashed border-border rounded bg-muted/20 text-center pointer-events-none"
+          class="empty-group-text compact-drop-zone text-[length:var(--pxd-font-micro)] text-muted-foreground py-1 px-2 border border-dashed border-border rounded-sm bg-muted/20 text-center pointer-events-none"
         >
           {{ t('bookmark.folder.dropBookmarksHere') }}
         </div>

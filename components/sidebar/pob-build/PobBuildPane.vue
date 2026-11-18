@@ -83,27 +83,25 @@
     </template>
 
     <template #scroll>
-      <div
+      <SidebarEmptyState
         v-if="builds.length === 0"
+        :message="t('pobBuild.description')"
         data-pob-build-empty-state
-        class="flex flex-col items-center justify-center gap-[var(--pxd-space-md)] px-[var(--pxd-space-md)] py-[var(--pxd-space-2xl)] text-center"
       >
-        <p
-          class="m-0 text-[length:var(--pxd-font-secondary)] leading-relaxed text-muted-foreground"
-        >
-          {{ t('pobBuild.description') }}
-        </p>
-        <Button
-          variant="default"
-          size="sm"
-          class="font-bold"
-          data-pob-build-empty-import
-          @click="openImportDialog"
-        >
-          <Plus />
-          <span class="ml-1.5">{{ t('pobBuild.addBuildBtn') }}</span>
-        </Button>
-      </div>
+        <template #icon><ShoppingCart /></template>
+        <template #actions>
+          <Button
+            variant="default"
+            size="sm"
+            class="font-bold"
+            data-pob-build-empty-import
+            @click="openImportDialog"
+          >
+            <Plus />
+            <span class="ml-1.5">{{ t('pobBuild.addBuildBtn') }}</span>
+          </Button>
+        </template>
+      </SidebarEmptyState>
 
       <p
         v-else-if="visibleBuilds.length === 0"
@@ -117,7 +115,7 @@
         <section
           v-for="build in visibleBuilds"
           :key="build.id"
-          class="rounded-md border border-border bg-card overflow-hidden shadow-sm"
+          class="rounded-md border border-border bg-card overflow-hidden"
           data-pob-build
         >
           <header
@@ -335,7 +333,7 @@
 
             <p
               v-if="build.groups.length === 0"
-              class="m-0 px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+              class="m-0 bg-background px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
               data-pob-build-empty
             >
               {{
@@ -348,7 +346,7 @@
             <section
               v-for="group in build.groups"
               :key="group.id"
-              class="flex flex-col border-b border-border last:border-b-0"
+              class="flex flex-col bg-background border-b border-border last:border-b-0"
               :data-pob-build-group="group.kind"
               :data-pob-build-group-id="group.id"
             >
@@ -393,7 +391,7 @@
                   <button
                     type="button"
                     data-pob-build-search
-                    class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-body)] cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-secondary)] cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     :class="{ 'line-through opacity-50': row.done, 'opacity-60': !row.query }"
                     :disabled="!row.query"
                     :title="row.query ? t('pobBuild.searchTitle') : t('pobBuild.noSearchTitle')"
@@ -458,8 +456,8 @@
                         ? 'right-[calc(var(--pxd-space-md)+var(--control-height-sm))]'
                         : 'right-[var(--pxd-space-md)]',
                       isPreviewActive(build.id, row.key)
-                        ? 'bg-[color-mix(in_srgb,var(--primary)_15%,var(--card))]'
-                        : 'bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))]',
+                        ? 'bg-[color-mix(in_srgb,var(--primary)_15%,var(--background))]'
+                        : 'bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))]',
                       { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
                     ]"
                     class="absolute top-1/2 -translate-y-1/2 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
@@ -660,6 +658,7 @@ import {
   Save,
   Search,
   Send,
+  ShoppingCart,
   SlidersHorizontal,
   Trash2,
   X,
@@ -686,6 +685,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import SidebarPane from '../layout/SidebarPane.vue';
+import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import { rowAnchorFromEvent } from '../composables/usePinnedPreview';
 import { t, type I18nKey } from '@/utils/i18n';
 import { POB_BUILD_NAME_MAX_LENGTH } from '@/utils/pob-build-store';
@@ -756,6 +756,8 @@ export default defineComponent({
     SelectValue,
     Send,
     Separator,
+    ShoppingCart,
+    SidebarEmptyState,
     SidebarPane,
     SlidersHorizontal,
     Trash2,

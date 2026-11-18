@@ -377,34 +377,32 @@
               {{ t('liveSearch.primary.loadingConnections') }}
             </div>
 
-            <div
+            <SidebarEmptyState
               v-else-if="filteredGroups.length === 0"
               data-test="connections-empty"
-              class="flex flex-col items-center justify-center p-[var(--pxd-space-lg)] rounded-md border border-dashed border-border text-center text-muted-foreground gap-[var(--pxd-space-xs)]"
+              :message="
+                hasAnySources
+                  ? t('liveSearch.primary.noMatchingConnections')
+                  : t('liveSearch.primary.noAvailableConnections')
+              "
+              :hint="!hasAnySources ? t('liveSearch.primary.emptyGuide') : undefined"
+              class="rounded-md border border-dashed border-border"
             >
-              <span class="text-[length:var(--pxd-font-caption)]">
-                {{
-                  hasAnySources
-                    ? t('liveSearch.primary.noMatchingConnections')
-                    : t('liveSearch.primary.noAvailableConnections')
-                }}
-              </span>
-              <span v-if="!hasAnySources" class="text-[length:var(--pxd-font-caption)] opacity-70">
-                {{ t('liveSearch.primary.emptyGuide') }}
-              </span>
-              <Button
-                v-if="!hasAnySources"
-                type="button"
-                variant="secondary"
-                size="sm"
-                data-test="btn-empty-add-connection"
-                class="mt-1 text-[length:var(--pxd-font-caption)]"
-                @click="handleOpenAddConnection"
-              >
-                <Plus />
-                <span>{{ t('liveSearch.primary.addNewConnection') }}</span>
-              </Button>
-            </div>
+              <template v-if="!hasAnySources" #icon><Radio /></template>
+              <template v-if="!hasAnySources" #actions>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-test="btn-empty-add-connection"
+                  class="text-[length:var(--pxd-font-caption)]"
+                  @click="handleOpenAddConnection"
+                >
+                  <Plus />
+                  <span>{{ t('liveSearch.primary.addNewConnection') }}</span>
+                </Button>
+              </template>
+            </SidebarEmptyState>
 
             <template v-else>
               <div
@@ -680,7 +678,7 @@
                           <span
                             data-test="connection-item-name"
                             :data-folder="getItemFolderBadge(item, group) || undefined"
-                            class="text-[length:var(--pxd-font-caption)] truncate min-w-0 flex-1"
+                            class="text-[length:var(--pxd-font-secondary)] truncate min-w-0 flex-1"
                             :class="
                               isItemActive(item.status)
                                 ? 'font-semibold text-foreground'
@@ -914,6 +912,7 @@ import {
   ScrollBar,
 } from '@/components/ui/scroll-area';
 import DragTrashZone from './layout/DragTrashZone.vue';
+import SidebarEmptyState from './layout/SidebarEmptyState.vue';
 import TradeSearchPreviewTooltip from './search-preview/TradeSearchPreviewTooltip.vue';
 import { resolveBatchEnableToast, resolveBatchStopToast } from './live-search-presentation';
 import { hideDragTrash, showDragTrash, useDragTrash } from './composables/useDragTrash';

@@ -49,10 +49,10 @@
             :data-history-id="h.id"
             :class="
               previewHistory?.id === h.id
-                ? 'bg-[color-mix(in_srgb,var(--primary)_12%,var(--card))] shadow-[inset_2px_0_0_var(--primary)]'
-                : undefined
+                ? 'bg-[color-mix(in_srgb,var(--primary)_12%,var(--card))] hover:bg-[color-mix(in_srgb,var(--primary)_15%,var(--card))] shadow-[inset_2px_0_0_var(--primary)]'
+                : 'bg-card hover:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))]'
             "
-            class="history-row-item group relative flex items-center justify-between rounded-md border border-border bg-card px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] shadow-sm text-[length:var(--pxd-font-secondary)] transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_50%,var(--card))]"
+            class="history-row-item group relative flex items-center justify-between rounded-md border border-border px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] transition-colors"
           >
             <div class="flex min-w-0 w-full items-center gap-[var(--pxd-space-md)]">
               <div
@@ -63,7 +63,7 @@
               </div>
               <div
                 v-else
-                class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center border border-border bg-muted"
+                class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center rounded-sm border border-border bg-muted"
               >
                 <span class="text-[length:var(--pxd-font-micro)] font-bold text-muted-foreground"
                   >?</span
@@ -143,12 +143,12 @@
           @update:open="(open) => !open && closeHistoryPreview()"
         />
       </div>
-      <div
+      <SidebarEmptyState
         v-else
-        class="py-[var(--pxd-space-2xl)] text-center text-[length:var(--pxd-font-caption)] text-muted-foreground"
+        :message="enableHistory ? t('history.empty.noHistory') : t('history.empty.stopped')"
       >
-        {{ enableHistory ? t('history.empty.noHistory') : t('history.empty.stopped') }}
-      </div>
+        <template #icon><History /></template>
+      </SidebarEmptyState>
     </template>
   </SidebarPane>
 </template>
@@ -159,7 +159,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import SidebarPane from './layout/SidebarPane.vue';
-import { ArrowRight, ExternalLink, Eye, Trash2, X } from '@lucide/vue';
+import SidebarEmptyState from './layout/SidebarEmptyState.vue';
+import { ArrowRight, ExternalLink, Eye, History, Trash2, X } from '@lucide/vue';
 import { getPoeVersion } from '@/utils/trade-context';
 import { createChromeSearchRecordClient } from '@/utils/search-record-messaging';
 import type { HistoryEntry } from '@/utils/search-records';
@@ -178,12 +179,14 @@ export default defineComponent({
   name: 'HistoryPane',
   components: {
     SidebarPane,
+    SidebarEmptyState,
     Button,
     Checkbox,
     Separator,
     ArrowRight,
     ExternalLink,
     Eye,
+    History,
     Trash2,
     X,
     TradeSearchPreviewPopover,

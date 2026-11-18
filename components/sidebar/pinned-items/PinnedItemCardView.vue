@@ -18,38 +18,65 @@ const host = ref<HTMLElement | null>(null);
 let resultset: HTMLElement | null = null;
 
 // 官方規則以 `#trade` / `.results` 為前綴，是為寬版結果列設計的（例如 `.item-popup` 最小寬度 400px）；
-// 這裡只修正卡片放在窄欄時的版面：圖示在左側垂直置中，物品框佔剩下的寬度並自動換行。
-// 收合時隱藏物品框內容與插槽，圖示依格數縮到約一格高（官方圖示一格約 47px）
+// 展開在窄側邊欄時改為縱向滿寬排版：圖示置頂（1×1 無插槽小物品直接沿用上方標題列小圖示，不重複佔高），
+// `.item-popup` 撐滿展開區寬度並開放文字選取，並清除官網倉庫格的藍色高亮底色。
 const LOCAL_STYLE = `
   :host { display: block; }
-  /* 卡片是拖曳排序的把手：不讓圖片被單獨拖走、也不選取文字 */
-  #trade, #trade * { user-select: none; -webkit-user-drag: none; }
+  /* 展開後的物品細節文字允許選取複製；圖片保留不可拖曳 */
+  #trade { user-select: text; cursor: auto; }
+  #trade img { user-select: none; -webkit-user-drag: none; }
+  #trade .item-popup__content,
+  #trade .item-popup__header,
+  #trade .itemPopupAdditional { user-select: text; cursor: text; }
+
   #trade {
     width: auto; min-width: 0; min-height: 0; margin: 0; padding: 0; background: none;
   }
   #trade .results { width: auto; min-width: 0; margin: 0; padding: 0; border: 0; }
   #trade .resultset { margin: 0; padding: 0; }
   #trade .row {
-    display: flex; align-items: center; gap: 8px;
-    width: auto; min-height: 0; margin: 0; padding: 0; border: 0;
+    display: flex; flex-direction: column; align-items: stretch; gap: 0;
+    width: 100%; min-height: 0; margin: 0; padding: 0; border: 0;
+    background: rgba(0, 0, 0, 0.95);
   }
-  #trade .row > .left { flex: 0 0 auto; width: auto; min-height: 0; margin: 0; padding: 0; }
+  #trade .row > .left {
+    display: flex; justify-content: center; align-items: center;
+    flex: 0 0 auto; width: 100%; min-height: 0; margin: 0; padding: 4px 0;
+  }
+  #trade .row[data-single-cell] > .left { display: none; }
+  /* 清除官網倉庫格的藍色高亮底色，改為透明吃卡片深黑底 */
+  #trade .newItemContainer,
+  #trade .newItemContainer.itemPlaced {
+    background: transparent !important;
+    margin: 0 auto;
+  }
+  #trade .newItemContainer.iH2 { zoom: 0.78; }
+  #trade .newItemContainer.iH3 { zoom: 0.56; }
+  #trade .newItemContainer.iH4 { zoom: 0.46; }
+
   #trade .row > .middle {
-    flex: 1 1 0; min-width: 0; width: auto; margin: 0; padding: 0; overflow: hidden;
+    flex: 1 1 auto; min-width: 0; width: 100%; margin: 0; padding: 0; overflow: hidden;
   }
-  #trade .item-popup { width: auto; min-width: 0; max-width: none; margin: 0; }
+  #trade .item-popup { width: 100%; min-width: 0; max-width: none; margin: 0; }
+  /* 適度收斂左右飾條留白，讓雙語／長物品名稱更完整 */
+  #trade .item-popup__header--item { padding-left: 24px; padding-right: 24px; }
+  #trade .item-popup__header--double { padding-left: 34px; padding-right: 34px; }
   #trade .item-popup__content,
   #trade .item-popup__property { width: auto; }
   #trade .item-popup__content * { white-space: normal; overflow-wrap: anywhere; }
   #trade .item-popup__header-line {
     display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   }
+  #trade .itemPopupAdditional {
+    width: auto; margin: 0; padding: 4px 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
 
   #trade .row[data-fallback] > .left .newItemContainer,
   #trade .row[data-fallback] > .left .iconContainer,
   #trade .row[data-fallback] > .left .icon { width: auto; height: auto; }
   #trade .row[data-fallback] > .left .icon img {
-    display: block; width: auto; height: auto; max-width: 96px; max-height: 192px; margin: 0;
+    display: block; width: auto; height: auto; max-width: 140px; max-height: 88px; margin: 0;
   }
 
   #trade .row[data-collapsed] .item-popup__content,
@@ -61,11 +88,22 @@ const LOCAL_STYLE = `
   #trade .row[data-collapsed][data-fallback] > .left .icon img { max-height: 48px; }
 `;
 
+function markSingleCellWithoutSockets(row: HTMLElement): void {
+  const container = row.querySelector(':scope > .left .newItemContainer');
+  if (!container) return;
+  const hasSockets = Boolean(container.querySelector('.socket'));
+  const isSingleCell = container.classList.contains('iW1') && container.classList.contains('iH1');
+  if (isSingleCell && !hasSockets) {
+    row.setAttribute('data-single-cell', '');
+  }
+}
+
 function buildRow(): HTMLElement {
   const card = props.snapshot.card;
   if (!card) {
     const fallback = renderPinnedItemCard(props.snapshot);
     fallback.setAttribute('data-fallback', '');
+    markSingleCellWithoutSockets(fallback);
     return fallback;
   }
   const row = document.createElement('div');
@@ -77,6 +115,7 @@ function buildRow(): HTMLElement {
   middle.className = 'middle';
   card.popup.forEach((node) => middle.appendChild(buildPinnedCardNode(node, document)));
   row.append(left, middle);
+  markSingleCellWithoutSockets(row);
   return row;
 }
 

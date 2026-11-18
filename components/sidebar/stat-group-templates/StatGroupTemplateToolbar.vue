@@ -175,14 +175,14 @@ function downloadBackup() {
 
   <div v-if="isSearchVisible" class="relative mb-[var(--pxd-space-md)] flex items-center">
     <Search
-      class="pointer-events-none absolute left-2.5 size-[var(--control-icon-sm,14px)] text-muted-foreground"
+      class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
     />
     <Input
       ref="searchInputRef"
       v-model="query"
       size="sm"
       :placeholder="t('statGroupTemplate.toolbar.searchPlaceholder')"
-      class="w-full pl-8 pr-7"
+      class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))]"
       data-test="stat-group-template-search"
       @keydown.esc.stop.prevent="closeSearch"
     />
@@ -190,7 +190,7 @@ function downloadBackup() {
       v-if="query"
       variant="ghost"
       size="icon-sm"
-      class="absolute right-1"
+      class="absolute right-[var(--pxd-space-xs)]"
       :title="t('bookmark.search.clearTooltip')"
       @click="query = ''"
     >

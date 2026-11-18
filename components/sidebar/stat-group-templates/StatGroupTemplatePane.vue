@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Sortable from 'sortablejs';
-import { Eye, Pencil } from '@lucide/vue';
+import { Eye, Pencil, SlidersHorizontal } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
 import type { StatGroupTemplate } from '@/utils/stat-group-template-store';
 import { isTradeSearchFormUrl } from '@/entrypoints/content/logic/form-url-sync';
 import { criteriaFromTradeQuery } from '@/utils/criteria-overlay';
 import SidebarPane from '../layout/SidebarPane.vue';
+import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import DragTrashZone from '../layout/DragTrashZone.vue';
 import TradeSearchPreviewPopover from '../search-preview/TradeSearchPreviewPopover.vue';
 import type { TradeSearchPreviewData } from '../composables/useTradeSearchPreview';
@@ -223,16 +224,14 @@ onUnmounted(() => {
     </template>
 
     <template #scroll>
-      <div
+      <SidebarEmptyState
         v-if="templates.length === 0"
-        class="flex flex-col gap-[var(--pxd-space-xs)] py-[var(--pxd-space-xl)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+        :message="t('statGroupTemplate.empty.noTemplates')"
+        :hint="t('statGroupTemplate.empty.hint')"
         data-test="stat-group-template-empty"
       >
-        <span>{{ t('statGroupTemplate.empty.noTemplates') }}</span>
-        <span class="text-[length:var(--pxd-font-micro)]">
-          {{ t('statGroupTemplate.empty.hint') }}
-        </span>
-      </div>
+        <template #icon><SlidersHorizontal /></template>
+      </SidebarEmptyState>
 
       <p
         v-else-if="visibleTemplates.length === 0"
@@ -244,17 +243,19 @@ onUnmounted(() => {
       <ul
         v-show="visibleTemplates.length > 0"
         ref="listRef"
-        class="m-0 flex list-none flex-col rounded-md border border-border bg-card p-0 shadow-sm"
+        class="m-0 flex list-none flex-col overflow-hidden rounded-md border border-border bg-card p-0"
       >
         <li
           v-for="template in visibleTemplates"
           :key="template.id"
           :data-template-id="template.id"
           data-test="stat-group-template-item"
-          class="template-row-item group flex items-center gap-[var(--pxd-space-xs)] border-0 border-b border-dashed border-border px-[var(--pxd-space-md)] py-[var(--pxd-bookmark-row-padding-y)] last:border-b-0 hover:bg-muted/40"
+          class="template-row-item group flex items-center gap-[var(--pxd-space-xs)] border-0 border-b border-dashed border-border px-[var(--pxd-space-md)] py-[var(--pxd-bookmark-row-padding-y)] last:border-b-0 transition-colors"
           :class="[
             canDrag ? 'cursor-grab active:cursor-grabbing' : '',
-            preview.activeItem.value?.id === template.id ? 'bg-muted/60' : '',
+            preview.activeItem.value?.id === template.id
+              ? 'bg-primary/12 hover:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
+              : 'hover:bg-muted/40',
           ]"
         >
           <button
