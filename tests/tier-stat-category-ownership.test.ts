@@ -1968,4 +1968,64 @@ describe('Tier Stat Category Ownership & Lifecycle Contracts', () => {
     expect(filterNew.poexdCategory).toBeUndefined();
     expect(getOfficialCategorySnapshot()).toBeNull();
   });
+
+  it('51. Request after baseline re-syncs from store: category changed in store after initial clear baseline is detected on poexd-request-official-category', () => {
+    // 1. 初始載入時無選擇分類 (Any -> baseline = null)
+    (mockStore.state!.persistent as any).filters = {
+      type_filters: { filters: { category: { option: '' } } },
+    };
+    syncOfficialCategoryFromStore();
+    expect(getOfficialCategorySnapshot()).toBeNull();
+    mockBridge.dispatchEvent.mockClear();
+
+    // 2. 官方市集選了頭盔 (armour.helmet)，但假設此時尚未透過 observer 觸發 sync
+    (mockStore.state!.persistent as any).filters = {
+      type_filters: { filters: { category: { option: 'armour.helmet' } } },
+    };
+
+    // 3. 詞綴選擇器開啟並請求官方分類
+    const requestHandler = listeners.get('poexd-request-official-category');
+    expect(requestHandler).toBeDefined();
+    requestHandler!(undefined);
+
+    // 4. 斷言：立即從 store 同步並派發一次 helmet
+    expect(getOfficialCategorySnapshot()).toBe('helmet');
+    expect(mockBridge.dispatchEvent).toHaveBeenCalledTimes(1);
+    expect(mockBridge.dispatchEvent).toHaveBeenCalledWith('poexd-equipment-type-changed', {
+      type: 'helmet',
+    });
+  });
+
+  it('52. Preserves officialCategorySnapshot across official save(true) history.pushState with gzip slug (H4sI...)', () => {
+    // 1. 初始載入無分類
+    (mockStore.state!.persistent as any).filters = {
+      type_filters: { filters: { category: { option: '' } } },
+    };
+    syncOfficialCategoryFromStore();
+    expect(getOfficialCategorySnapshot()).toBeNull();
+
+    // 2. 使用者在官方市集選擇「法杖」(weapon.wand)，store 先更新
+    (mockStore.state!.persistent as any).filters = {
+      type_filters: { filters: { category: { option: 'weapon.wand' } } },
+    };
+    syncOfficialCategoryFromStore();
+    expect(getOfficialCategorySnapshot()).toBe('wand');
+
+    // 3. 官方 save(true) 隨後完成 CompressionStream 並呼叫 history.pushState 寫入 H4sI... 網址
+    window.history.pushState(
+      mockStore.state!.persistent,
+      '',
+      '/trade/search/Standard/H4sIAAAAAAAAClWNUQqAIBBE7zLf0QG8SkhstUU',
+    );
+    tagFilterDomElements();
+
+    // 4. 斷言：snapshot 不因 pushState session rollover 而遺失為 null；此時打開詞綴選擇器請求分類可拿到 wand
+    expect(getOfficialCategorySnapshot()).toBe('wand');
+    mockBridge.dispatchEvent.mockClear();
+    const requestHandler = listeners.get('poexd-request-official-category');
+    requestHandler!(undefined);
+    expect(mockBridge.dispatchEvent).toHaveBeenCalledWith('poexd-equipment-type-changed', {
+      type: 'wand',
+    });
+  });
 });

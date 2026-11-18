@@ -5,6 +5,10 @@ import { createApp, defineComponent, h, nextTick, ref } from 'vue';
 import Sidebar from '@/components/Sidebar.vue';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
+import {
+  markAffixSelectorPrewarmed,
+  resetAffixLexiconCacheForTests,
+} from '@/utils/affix-lexicon';
 
 const sidebarSource = readFileSync('components/Sidebar.vue', 'utf8');
 const filterPaneSource = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
@@ -350,6 +354,7 @@ describe('Sidebar Affix Selector Modal (Runtime Contracts)', () => {
   });
 
   afterEach(() => {
+    resetAffixLexiconCacheForTests();
     if (app) {
       app.unmount();
       app = null;
@@ -414,6 +419,26 @@ describe('Sidebar Affix Selector Modal (Runtime Contracts)', () => {
     expect(received).toHaveBeenCalledTimes(3);
     expect(filterPaneLifecycle.mountCount).toBe(1);
     stop();
+  });
+
+  it('25c. pre-mounts FilterPane in the background when affix lexicon prewarm finishes on normal pages', async () => {
+    expect(filterPaneLifecycle.mountCount).toBe(0);
+
+    markAffixSelectorPrewarmed();
+    await nextTick();
+
+    // 背景預熱後已掛載 FilterPane，但 Dialog 維持關閉
+    expect(filterPaneLifecycle.mountCount).toBe(1);
+    expect(filterPaneLifecycle.lastProps.isOpen).toBe(false);
+
+    // 之後使用者第一次開啟時，直接沿用同一個已預掛載的 FilterPane
+    dispatchPoeEvent('poexd-open-affix-modal', { groupIndex: 3 });
+    await nextTick();
+    expect(filterPaneLifecycle.mountCount).toBe(1);
+    expect(filterPaneLifecycle.lastProps.isOpen).toBe(true);
+    expect(filterPaneLifecycle.lastProps.targetGroupIndex).toBe(3);
+
+    dispatchPoeEvent('poexd-close-affix-modal');
   });
 
   it('26. opens dialog and passes targetGroupIndex upon poexd-open-affix-modal event', async () => {

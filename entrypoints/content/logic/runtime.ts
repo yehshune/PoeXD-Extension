@@ -7,7 +7,11 @@ import {
 } from '@/utils/event-contracts';
 import { injectScript } from 'wxt/utils/inject-script';
 import { getPreferences, type Preferences } from '@/utils/preferences';
-import { ensureAffixLexiconLoaded } from '@/utils/affix-lexicon';
+import {
+  ensureAffixLexiconLoaded,
+  getHydratedModsByGroup,
+  markAffixSelectorPrewarmed,
+} from '@/utils/affix-lexicon';
 import { setActiveDisplayLocalePreference } from '@/utils/i18n';
 import { rememberPageLoadPreferences } from '@/utils/page-load-preferences';
 import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
@@ -114,12 +118,14 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   let stopWaitingTradePage: (() => void) | null = null;
   let cleanupEnqueueListener: (() => void) | null = null;
   let initialPageLoad: InitialPageLoadGate | null = null;
+  let cancelAffixPrewarm: (() => void) | null = null;
   let disposed = false;
   const cleanupAll = () => {
     if (disposed) return;
     disposed = true;
     stopWaitingTradePage?.();
     initialPageLoad?.cancel();
+    cancelAffixPrewarm?.();
     cleanupEnqueueListener?.();
     cleanupSearchSession?.();
     domFilter.cleanup();
@@ -214,10 +220,31 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     };
     let appliedPreferences = preferences.read();
     await applyPreferences(appliedPreferences, { deferAffixLexicon: true });
-    const preloadAffixLexicon = () => {
+    const scheduleIdle = (callback: () => void, timeoutMs = 1500): (() => void) => {
+      if (typeof requestIdleCallback === 'function') {
+        const id = requestIdleCallback(callback, { timeout: timeoutMs });
+        return () => cancelIdleCallback(id);
+      }
+      const id = setTimeout(callback, 0);
+      return () => clearTimeout(id);
+    };
+    const preloadAffixLexicon = (role: TradePageRole) => {
       void ensureAffixLexiconLoaded(version)
         .then(() => {
-          if (!disposed) filterEnhancements.refreshAffixDisplayLocale();
+          if (disposed) return;
+          filterEnhancements.refreshAffixDisplayLocale();
+          if (role !== 'normal') return;
+          // 官網載入完畢後，趁主執行緒閒置分兩段預熱：先組好詞綴 tier 快取，再讓隱藏的 FilterPane 預先掛載
+          cancelAffixPrewarm = scheduleIdle(() => {
+            cancelAffixPrewarm = null;
+            if (disposed) return;
+            getHydratedModsByGroup(version);
+            cancelAffixPrewarm = scheduleIdle(() => {
+              cancelAffixPrewarm = null;
+              if (disposed) return;
+              markAffixSelectorPrewarmed();
+            });
+          });
         })
         .catch((error) => console.error('[PoeXD] 預載詞綴字典失敗:', error));
     };
@@ -380,7 +407,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       } else {
         pageLoadGate.cancel();
       }
-      preloadAffixLexicon();
+      preloadAffixLexicon(pageRole);
     };
     stopWaitingTradePage = whenTradePageReady(document, () => void initialize(), {
       isDisposed: () => disposed,

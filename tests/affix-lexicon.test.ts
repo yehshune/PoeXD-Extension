@@ -4,6 +4,7 @@ import { resolve as resolvePath } from 'node:path';
 import { nextTick, ref, watch } from 'vue';
 import {
   ensureAffixLexiconLoaded,
+  getHydratedModsByGroup,
   resolveFallbackQueryForUnmatchedMod,
   resetAffixLexiconCacheForTests,
   type LocaleStatsShard,
@@ -688,5 +689,37 @@ describe('Seam 2C: useFilterData multilingual search, lazy pageLocale fallbackQu
 
     expect(filterData.currentTypeGroups.value[0].displayTemplate).toBe('# к максимуму здоровья');
     expect(filterData.currentTypeGroups.value[0].displayKey).toBe('+(10-19) к максимуму здоровья');
+  });
+
+  it('caches getHydratedModsByGroup per locale and revision, and hydrates synchronously when lexicon is already ready', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('poe2/mods-tiers.json')) {
+          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+        }
+        if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
+          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+        }
+        if (url.endsWith('poe2/locales/en/stats.json')) {
+          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+        }
+        return new Response(JSON.stringify({}), { status: 200 });
+      }),
+    );
+
+    setActiveDisplayLocalePreference('zh-TW');
+    await ensureAffixLexiconLoaded('poe2');
+
+    const firstHydrated = getHydratedModsByGroup('poe2');
+    const secondHydrated = getHydratedModsByGroup('poe2');
+    expect(secondHydrated).toBe(firstHydrated);
+
+    // 字典與分片已就緒時，loadData 同步完成，不需等待非同步 microtask
+    const filterData = useFilterData('poe2', ref('helmet'));
+    void filterData.loadData();
+    expect(filterData.loading.value).toBe(false);
+    expect(filterData.currentTypeGroups.value).toHaveLength(1);
   });
 });

@@ -835,4 +835,50 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
       stopOfficialCategoryResponder();
     }
   });
+
+  it('expands affix categories when switching equipment type and applies official body-armour after initial null category', async () => {
+    let officialCategory: string | null = null;
+    const stopOfficialCategoryResponder = listenPoeEvent('poexd-request-official-category', () => {
+      dispatchPoeEvent('poexd-equipment-type-changed', { type: officialCategory });
+    });
+
+    try {
+      await mountFilterPane({
+        ...multiLevelModsData,
+        '+# 敏捷': [
+          {
+            id: 'stat_dex_1',
+            officialId: 'explicit.stat_dex_1',
+            displayKey: '敏捷',
+            displayTemplate: '+# 敏捷',
+            values: [['20', '30']],
+            level: '1',
+            generation_type: '2',
+            affinities: ['normal'],
+            types: ['boots'],
+          },
+        ],
+      });
+      await nextTick();
+
+      const scrollArea = appRoot.querySelector('.mods-scroll-container') as HTMLElement;
+      expect(scrollArea.textContent).toContain('最大生命');
+
+      // 官方分類切換為 boots -> 切換至鞋子且詞綴分類維持展開
+      officialCategory = 'boots';
+      dispatchPoeEvent('poexd-equipment-type-changed', { type: 'boots' });
+      await nextTick();
+      expect(scrollArea.textContent).toContain('敏捷');
+      expect(scrollArea.textContent).not.toContain('最大生命');
+
+      // 隨後官方分類明確選擇 body-armour（即使初始曾為 null）-> 仍應切換回胸甲並展開
+      officialCategory = 'body-armour';
+      dispatchPoeEvent('poexd-equipment-type-changed', { type: 'body-armour' });
+      await nextTick();
+      expect(scrollArea.textContent).toContain('最大生命');
+      expect(scrollArea.textContent).not.toContain('敏捷');
+    } finally {
+      stopOfficialCategoryResponder();
+    }
+  });
 });

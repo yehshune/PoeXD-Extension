@@ -126,12 +126,17 @@ interface VersionLexiconState {
   tierIndicesByStatId: Map<string, number[]>;
   tierIndicesByGroupIdx: Map<number, number[]>;
   shards: Map<SupportedAffixLocale, LocaleStatsShard>;
+  hydratedByLocale: Map<
+    SupportedAffixLocale,
+    { revision: number; data: Record<string, ModTier[]> }
+  >;
   artifactPromise: Promise<void> | null;
   shardPromises: Map<SupportedAffixLocale, Promise<LocaleStatsShard | null>>;
 }
 
 const lexiconByVersion = new Map<PoeVersion, VersionLexiconState>();
 const lexiconRevisionRef = ref(0);
+const affixSelectorPrewarmedRef = ref(false);
 
 function bumpLexiconRevision() {
   lexiconRevisionRef.value += 1;
@@ -139,6 +144,14 @@ function bumpLexiconRevision() {
 
 export function getAffixLexiconRevision(): Ref<number> {
   return lexiconRevisionRef;
+}
+
+export function getAffixSelectorPrewarmedRef(): Ref<boolean> {
+  return affixSelectorPrewarmedRef;
+}
+
+export function markAffixSelectorPrewarmed(): void {
+  affixSelectorPrewarmedRef.value = true;
 }
 
 function getOrCreateState(version: PoeVersion): VersionLexiconState {
@@ -150,6 +163,7 @@ function getOrCreateState(version: PoeVersion): VersionLexiconState {
       tierIndicesByStatId: new Map(),
       tierIndicesByGroupIdx: new Map(),
       shards: new Map(),
+      hydratedByLocale: new Map(),
       artifactPromise: null,
       shardPromises: new Map(),
     };
@@ -185,6 +199,7 @@ function acceptStatsShard(
 function indexArtifact(state: VersionLexiconState, artifact: ModsTiersArtifact) {
   state.artifact = artifact;
   state.mockModsByGroup = null;
+  state.hydratedByLocale.clear();
   state.tierIndicesByStatId.clear();
   state.tierIndicesByGroupIdx.clear();
   for (const [locale, shard] of state.shards) {
@@ -231,6 +246,7 @@ export function setAffixLexiconMockData(
   state.artifactPromise = null;
   state.shardPromises.clear();
   state.shards.clear();
+  state.hydratedByLocale.clear();
   state.tierIndicesByStatId.clear();
   state.tierIndicesByGroupIdx.clear();
 
@@ -260,6 +276,7 @@ export function setAffixLexiconMockData(
 
 export function resetAffixLexiconCacheForTests() {
   lexiconByVersion.clear();
+  affixSelectorPrewarmedRef.value = false;
   resetExtensionJsonCacheForTests();
   bumpLexiconRevision();
 }
@@ -350,6 +367,18 @@ export async function ensureAffixLexiconLoaded(
     const requiredLocales = getRequiredLocalesForDisplay(targetLocale);
     await Promise.all(requiredLocales.map((loc) => ensureLocaleShardLoaded(version, loc)));
   }
+}
+
+export function isAffixLexiconReady(
+  version: PoeVersion,
+  options: { displayLocale?: SupportedAffixLocale } = {},
+): boolean {
+  const state = lexiconByVersion.get(version);
+  if (!state) return false;
+  if (state.mockModsByGroup) return true;
+  if (!state.artifact) return false;
+  const targetLocale = options.displayLocale ?? getActiveDisplayLocale();
+  return getRequiredLocalesForDisplay(targetLocale).every((loc) => state.shards.has(loc));
 }
 
 function hydrateCompactTier(
@@ -565,12 +594,16 @@ export function getHydratedModsByGroup(
   version: PoeVersion = 'poe1',
   localeOverride?: SupportedAffixLocale,
 ): Record<string, ModTier[]> {
-  void lexiconRevisionRef.value;
+  const revision = lexiconRevisionRef.value;
   const state = lexiconByVersion.get(version);
   if (!state) return {};
 
   if (state.artifact) {
     const displayLocale = localeOverride ?? getActiveDisplayLocale();
+    const cached = state.hydratedByLocale.get(displayLocale);
+    if (cached && cached.revision === revision) {
+      return cached.data;
+    }
     const result: Record<string, ModTier[]> = {};
     for (let groupIdx = 0; groupIdx < state.artifact.groups.length; groupIdx++) {
       const groupKey = state.artifact.groups[groupIdx];
@@ -585,6 +618,7 @@ export function getHydratedModsByGroup(
         result[groupKey] = tiers;
       }
     }
+    state.hydratedByLocale.set(displayLocale, { revision, data: result });
     return result;
   }
 

@@ -529,6 +529,7 @@ import TierDropdownHost from './injected/TierDropdownHost.vue';
 import StatGroupTemplateHost from './injected/StatGroupTemplateHost.vue';
 import MercenaryPickerHost from './injected/mercenary/MercenaryPickerHost.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
+import { getAffixSelectorPrewarmedRef } from '@/utils/affix-lexicon';
 import {
   DEFAULT_PREFERENCES,
   getPreferences,
@@ -1084,9 +1085,14 @@ export default defineComponent({
       isMouseDownOnOverlay.value = false;
     };
 
-    // 詞綴選擇器第一次打開（或篩選列的「選擇類別」第一次被觸發）才掛載 FilterPane，
-    // 側邊欄掛載時不必先渲染整份詞綴清單、載入詞綴字典
+    // 詞綴選擇器很重：頁面初始載入時不掛載；等官方頁面載完並於閒置時預熱完字典，或使用者提前開啟時才掛載
     const isAffixPaneMounted = ref(false);
+    const affixSelectorPrewarmed = getAffixSelectorPrewarmedRef();
+    watchEffect(() => {
+      if (pageRole.value === 'normal' && affixSelectorPrewarmed.value) {
+        isAffixPaneMounted.value = true;
+      }
+    });
 
     // 監聽來自 content.ts (注入按鈕點擊) 的打開 Modal 事件
     const removeOpenAffixModalListener = listenPoeEvent('poexd-open-affix-modal', (detail) => {

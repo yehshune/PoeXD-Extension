@@ -1623,11 +1623,11 @@ export default defineComponent({
       });
     };
 
-    let lastDetectedType: string | null = null;
+    let lastDetectedType: string | null | undefined = undefined;
     let pendingDetectedType: string | null | undefined = undefined;
 
     const applyEquipmentType = (detectedType: string | null) => {
-      if (detectedType && availableTypes.value.length === 0) {
+      if (availableTypes.value.length === 0) {
         pendingDetectedType = detectedType;
         return;
       }
@@ -1639,9 +1639,9 @@ export default defineComponent({
           searchQuery.value = ''; // 僅當裝備大類變更時清空搜尋
         }
       } else if (!detectedType) {
-        if (lastDetectedType !== 'body-armour') {
+        if (lastDetectedType !== null) {
           selectedType.value = 'body-armour';
-          lastDetectedType = 'body-armour';
+          lastDetectedType = null;
           searchQuery.value = '';
         }
       }
@@ -1651,11 +1651,16 @@ export default defineComponent({
       applyEquipmentType(detail.type);
     };
 
-    watch(availableTypes, (types) => {
-      if (types.length > 0 && pendingDetectedType !== undefined) {
-        applyEquipmentType(pendingDetectedType);
-      }
-    });
+    // flush: 'sync' 讓 rawModsData 載入當下先套用官方類別，再計算 groupedAffixes（避免先白算一次胸甲）
+    watch(
+      availableTypes,
+      (types) => {
+        if (types.length > 0 && pendingDetectedType !== undefined) {
+          applyEquipmentType(pendingDetectedType);
+        }
+      },
+      { flush: 'sync' },
+    );
 
     const handleTriggerSelectTypeModal = () => {
       isSelectDropdownOpen.value = true;
@@ -1685,6 +1690,15 @@ export default defineComponent({
     });
 
     watch(
+      () => props.isOpen,
+      (isOpen, wasOpen) => {
+        if (isOpen && !wasOpen) {
+          dispatchPoeEvent('poexd-request-official-category');
+        }
+      },
+    );
+
+    watch(
       [() => props.isOpen, loading],
       ([isOpen, isLoading], prev) => {
         if (isOpen && !isLoading) {
@@ -1702,10 +1716,15 @@ export default defineComponent({
     );
 
     // 切換物品類別後，清空已選擇詞綴，並預設展開所有詞綴大類手風琴
-    watch(selectedType, () => {
-      selectedModsMap.value = new Map();
-      expandedCategories.value.clear();
-    });
+    // flush: 'sync' 確保在 groupedAffixes 的 pre-watch 執行前先清空 expandedCategories，讓新類別能自動展開
+    watch(
+      selectedType,
+      () => {
+        selectedModsMap.value = new Map();
+        expandedCategories.value.clear();
+      },
+      { flush: 'sync' },
+    );
 
     const toggleMaxLimit = (key: string) => {
       const newMap = new Map(selectedModsMap.value);

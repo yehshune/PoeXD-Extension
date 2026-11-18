@@ -42,7 +42,14 @@ export function setDomTaggerBridge(bridge: MainWorldBridge | null): void {
     unlistenCategoryRequest = bridge.addListener('poexd-request-official-category', () => {
       if (!hasEstablishedBaseline) {
         syncOfficialCategoryFromStore();
-      } else {
+        return;
+      }
+      const prevBaseline = baselineCategory;
+      const resolution = syncOfficialCategoryFromStore();
+      const didDispatchTransition =
+        (resolution.status === 'known_category' && resolution.category !== prevBaseline) ||
+        (resolution.status === 'known_cleared' && prevBaseline !== null);
+      if (!didDispatchTransition) {
         bridge.dispatchEvent('poexd-equipment-type-changed', {
           type: getOfficialCategorySnapshot(),
         });
@@ -118,6 +125,11 @@ export function syncOfficialCategoryFromStore(
       if (activeBridge) {
         activeBridge.dispatchEvent('poexd-equipment-type-changed', { type: nextCategory });
       }
+    } else if (getOfficialCategorySnapshot() !== nextCategory) {
+      // 官方 save(true) 會以 gzip slug (H4sI...) 呼叫 history.pushState 觸發 session rollover，
+      // 把新 session 的 officialCategorySnapshot 清為 null；此時 baselineCategory 已是 nextCategory，
+      // 需把 snapshot 補寫回新 session，否則之後掛載或打開的 FilterPane 會讀到 null（退回胸甲）
+      setOfficialCategorySnapshot(nextCategory);
     }
   } else if (resolution.status === 'known_cleared') {
     if (!hasEstablishedBaseline) {

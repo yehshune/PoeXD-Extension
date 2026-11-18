@@ -32,6 +32,22 @@ describe('official category structured query resolver', () => {
       status: 'known_category',
       category: 'thrusting-one-hand-sword',
     });
+    expect(resolveOfficialTierCategory('poe1', makeCategoryQuery('weapon.basedagger'))).toEqual({
+      status: 'known_category',
+      category: 'dagger',
+    });
+    expect(resolveOfficialTierCategory('poe1', makeCategoryQuery('weapon.basesword'))).toEqual({
+      status: 'known_category',
+      category: 'one-hand-sword',
+    });
+    expect(resolveOfficialTierCategory('poe1', makeCategoryQuery('weapon.basemace'))).toEqual({
+      status: 'known_category',
+      category: 'one-hand-mace',
+    });
+    expect(resolveOfficialTierCategory('poe1', makeCategoryQuery('weapon.basestaff'))).toEqual({
+      status: 'known_category',
+      category: 'staff',
+    });
   });
 
   it('resolves canonical bow in both PoE versions', () => {

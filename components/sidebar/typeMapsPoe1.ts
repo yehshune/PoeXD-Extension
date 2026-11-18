@@ -539,12 +539,16 @@ export const typeRowConfigsPoe1: TypeRowConfig[] = createActiveUiLocaleProxy(
 
 export const officialCategoryMapPoe1: Record<string, string> = {
   'weapon.claw': 'claw',
+  'weapon.basedagger': 'dagger',
   'weapon.runedagger': 'rune-dagger',
   'weapon.wand': 'wand',
+  'weapon.basesword': 'one-hand-sword',
   'weapon.rapier': 'thrusting-one-hand-sword',
   'weapon.oneaxe': 'one-hand-axe',
+  'weapon.basemace': 'one-hand-mace',
   'weapon.sceptre': 'sceptre',
   'weapon.bow': 'bow',
+  'weapon.basestaff': 'staff',
   'weapon.warstaff': 'warstaff',
   'weapon.twosword': 'two-hand-sword',
   'weapon.twoaxe': 'two-hand-axe',
