@@ -324,7 +324,7 @@ describe('Sidebar Navigation Controls Migration', () => {
       const navButtons = Array.from(
         container.querySelectorAll('.sidebar-nav button[data-sidebar-tab]'),
       );
-      expect(navButtons.length).toBe(6);
+      expect(navButtons.length).toBe(7);
       expect(navButtons[navButtons.length - 1]).toBe(settingsTab);
       expect(navButtons[navButtons.length - 2]).toBe(toolsTab);
 

@@ -22,6 +22,7 @@ import {
 } from '@/utils/bookmark-messaging';
 import { registerEconomyBackgroundHandlers, type EconomyBroadcastTransport } from '@/utils/economy';
 import { registerPobShareBackgroundHandlers } from '@/utils/pob-share-fetch';
+import { createPinnedItemStore } from '@/utils/pinned-items';
 import { LiveSearchCoordinator } from '@/utils/live-search-coordinator';
 import { TRADE_PAGE_MATCH_PATTERNS } from '@/utils/trade-realms';
 import { registerLiveSearchBackgroundHandlers } from '@/utils/live-search-messaging';
@@ -132,6 +133,11 @@ export default defineBackground(() => {
   registerLiveSearchBackgroundHandlers({ coordinator: liveSearchCoordinator });
   registerMarketTranslationBackgroundHandlers();
   registerPobShareBackgroundHandlers({ messenger: extensionMessaging });
+  const pinnedItemStore = createPinnedItemStore({
+    get: (keys) => chrome.storage.local.get([...keys]),
+    set: (values) => chrome.storage.local.set(values),
+  });
+  extensionMessaging.onMessage('pinnedItem:execute', ({ data }) => pinnedItemStore.execute(data));
 
   chrome.tabs.onRemoved.addListener((tabId: number) => {
     void liveSearchCoordinator.handleTabRemoved(tabId);

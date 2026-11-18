@@ -184,6 +184,20 @@
                 type="button"
                 variant="ghost"
                 size="icon-lg"
+                :title="t('sidebar.nav.pinnedItems')"
+                :aria-label="t('sidebar.nav.pinnedItems')"
+                :aria-pressed="primaryActiveTab === 'pinned-items'"
+                data-sidebar-tab="pinned-items"
+                data-sidebar-primary-tab="pinned-items"
+                @click="openPrimaryTab('pinned-items')"
+              >
+                <Pin class="w-5 h-5" />
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-lg"
                 :title="t('sidebar.nav.addConnection')"
                 :aria-label="t('sidebar.nav.addConnection')"
                 data-sidebar-action="open-custom-search"
@@ -291,6 +305,10 @@
                   v-show="activeTab === 'pob-build'"
                   :sidebar-position="sidebarPosition"
                 />
+                <PinnedItemPane
+                  v-if="isTabMounted('pinned-items')"
+                  v-show="activeTab === 'pinned-items'"
+                />
 
                 <!-- Outer-scroll panes: Tools & Settings 由外層 ScrollArea 擁有 scrolling -->
                 <ScrollAreaRoot
@@ -323,6 +341,10 @@
                   :resume-controller="liveSearchResumeController"
                   :sound-notifier="liveSearchSoundNotifier"
                   @open-add-connection="handleOpenCustomSearch"
+                />
+                <PinnedItemPane
+                  v-if="primaryPinnedMounted"
+                  v-show="primaryActiveTab === 'pinned-items'"
                 />
                 <LiveSearchConsoleSettingsPane
                   v-show="primaryActiveTab === 'console-settings'"
@@ -519,6 +541,7 @@ import HistoryPane from './sidebar/HistoryPane.vue';
 import StatGroupTemplatePane from './sidebar/stat-group-templates/StatGroupTemplatePane.vue';
 import ToolsPane from './sidebar/ToolsPane.vue';
 import PobBuildPane from './sidebar/pob-build/PobBuildPane.vue';
+import PinnedItemPane from './sidebar/pinned-items/PinnedItemPane.vue';
 import SettingsPane from './sidebar/SettingsPane.vue';
 import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
@@ -578,6 +601,7 @@ import {
   CircleHelp,
   SlidersHorizontal,
   ShoppingCart,
+  Pin,
 } from '@lucide/vue';
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
@@ -647,6 +671,7 @@ export default defineComponent({
     StatGroupTemplatePane,
     ToolsPane,
     PobBuildPane,
+    PinnedItemPane,
     SettingsPane,
     LiveSearchPrimaryPane,
     LiveSearchConsoleSettingsPane,
@@ -671,6 +696,7 @@ export default defineComponent({
     Box,
     ChevronLeft,
     Radio,
+    Pin,
     Plus,
     RotateCcw,
     Settings,
@@ -690,7 +716,15 @@ export default defineComponent({
     const fontSizeScale = ref(1.0);
     const densityScale = ref(1.0);
     const activeTab = ref('bookmark');
-    const primaryActiveTab = ref<'connections' | 'console-settings'>('connections');
+    const primaryActiveTab = ref<'connections' | 'pinned-items' | 'console-settings'>(
+      'connections',
+    );
+    // 主控台的釘選 pane 第一次打開才掛載
+    const primaryPinnedMounted = ref(false);
+    const openPrimaryTab = (tab: 'connections' | 'pinned-items' | 'console-settings') => {
+      if (tab === 'pinned-items') primaryPinnedMounted.value = true;
+      primaryActiveTab.value = tab;
+    };
     const isTemporarySearchDialogOpen = ref(false);
     const sidebarStateReady = ref(false);
     const settingsPaneReady = ref(props.pageRole === 'live-search-primary');
@@ -948,6 +982,13 @@ export default defineComponent({
         icon: ShoppingCart,
       },
       {
+        id: 'pinned-items',
+        get name() {
+          return t('sidebar.nav.pinnedItems');
+        },
+        icon: Pin,
+      },
+      {
         id: 'tools',
         get name() {
           return t('sidebar.nav.tools');
@@ -965,6 +1006,7 @@ export default defineComponent({
 
     const activeTabName = computed(() => {
       if (pageRole.value === 'live-search-primary') {
+        if (primaryActiveTab.value === 'pinned-items') return t('sidebar.nav.pinnedItems');
         return primaryActiveTab.value === 'console-settings'
           ? t('sidebar.nav.liveSearchSettings')
           : t('sidebar.nav.liveSearchConnections');
@@ -977,7 +1019,8 @@ export default defineComponent({
         activeTab.value === 'history' ||
         activeTab.value === 'bookmark' ||
         activeTab.value === 'stat-group-template' ||
-        activeTab.value === 'pob-build',
+        activeTab.value === 'pob-build' ||
+        activeTab.value === 'pinned-items',
     );
 
     let handleStorageChange: ((changes: any) => void) | null = null;
@@ -1267,6 +1310,8 @@ export default defineComponent({
       activeTab,
       isTabMounted,
       primaryActiveTab,
+      primaryPinnedMounted,
+      openPrimaryTab,
       isTemporarySearchDialogOpen,
       activeTabName,
       openStatGroupTemplateManager,
