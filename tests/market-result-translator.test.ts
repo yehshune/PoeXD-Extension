@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   createResultTranslator,
+  translateItemName,
   type ResultTranslatorData,
 } from '@/utils/market-result-translator';
 
@@ -74,6 +75,61 @@ describe('createResultTranslator', () => {
     expect(document.querySelector('.item-property:nth-child(2) .lc')?.textContent).toBe(
       '需求: 等級 65, 25 力量',
     );
+  });
+
+  it('魔法物品與品質普通物品（單行標題）翻出其中的基底名，前後綴保留英文', () => {
+    document.body.innerHTML = `
+      <div class="item-popup item-popup--magic"><div class="item-popup__header">
+        <div class="item-popup__header-line">Thirsty Helix Spear of the Whale</div>
+      </div></div>
+      <div class="item-popup item-popup--normal"><div class="item-popup__header">
+        <div class="item-popup__header-line">Superior Helix Spear</div>
+      </div></div>`;
+    createResultTranslator(DATA).translate(document.body);
+    expect(texts('.item-popup__header-line')).toEqual([
+      'Thirsty 螺旋長矛 of the Whale',
+      'Superior 螺旋長矛',
+    ]);
+  });
+
+  it('雙行標題的稀有名稱不做部分比對', () => {
+    document.body.innerHTML = `
+      <div class="item-popup__header">
+        <div class="item-popup__header-line">Helix Spear Song</div>
+        <div class="item-popup__header-line">Helix Spear</div>
+      </div>`;
+    createResultTranslator(DATA).translate(document.body);
+    expect(texts('.item-popup__header-line')).toEqual(['Helix Spear Song', '螺旋長矛']);
+  });
+
+  it('異變傳奇名稱套 Foulborn 句型；佔位值不是物品名時不套', () => {
+    document.body.innerHTML = `
+      <div class="item-popup__header">
+        <div class="item-popup__header-line">Foulborn Mageblood</div>
+        <div class="item-popup__header-line">Heavy Belt</div>
+      </div>
+      <div class="item-popup__header">
+        <div class="item-popup__header-line">Foulborn Grasp</div>
+        <div class="item-popup__header-line">Heavy Belt</div>
+      </div>`;
+    createResultTranslator({
+      ...DATA,
+      items: { mageblood: '魔血', 'heavy belt': '重革腰帶' },
+      templates: [['Foulborn {0}', '穢生 {0}']],
+    }).translate(document.body);
+    expect(texts('.item-popup__header-line')).toEqual([
+      '穢生 魔血',
+      '重革腰帶',
+      'Foulborn Grasp',
+      '重革腰帶',
+    ]);
+  });
+
+  it('部分比對取最長的段落', () => {
+    const items = { spear: '矛', 'helix spear': '螺旋長矛' };
+    expect(translateItemName('Sharp Helix Spear', items, true)).toBe('Sharp 螺旋長矛');
+    expect(translateItemName('Sharp Helix Spear', items, false)).toBeNull();
+    expect(translateItemName('Nothing Here', items, true)).toBeNull();
   });
 
   it('重複執行不會重翻；官網重繪換回英文時重新翻譯', () => {

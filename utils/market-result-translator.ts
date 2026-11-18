@@ -111,6 +111,33 @@ function keepPadding(text: string, translate: (core: string) => string | null): 
   return translated ? `${match[1]}${translated}${match[3]}` : null;
 }
 
+/** 標題只有一行（普通、魔法、寶石、通貨、未鑑定）；稀有、傳奇的第一行是名稱、第二行才是基底 */
+function isSingleLineHeader(line: Element): boolean {
+  const parent = line.parentElement;
+  if (!parent) return true;
+  return Array.from(parent.children).filter((el) => el.matches(HEADER_SELECTOR)).length === 1;
+}
+
+/**
+ * 物品名查 `items`：整行查不到且允許部分比對時（單行標題），找最長的連續單字段落。
+ * 魔法物品的 typeLine 是「前綴 基底 後綴」（如 `Thirsty Vaal Regalia of the Whale`），
+ * 品質普通物品帶 `Superior`；基底一定是其中連續的單字。前後綴沒有譯名資料，保留英文。
+ * 稀有名稱（雙行標題第一行）不做部分比對，避免隨機名字的單字被誤翻。
+ */
+export function translateItemName(name: string, items: TextMap, partial: boolean): string | null {
+  const exact = items[name.toLowerCase()];
+  if (exact || !partial) return exact ?? null;
+  const words = name.split(' ');
+  for (let size = words.length - 1; size > 0; size -= 1) {
+    for (let start = 0; start + size <= words.length; start += 1) {
+      const translated = items[words.slice(start, start + size).join(' ').toLowerCase()];
+      if (!translated) continue;
+      return [...words.slice(0, start), translated, ...words.slice(start + size)].join(' ');
+    }
+  }
+  return null;
+}
+
 export interface ResultTranslator {
   /** 翻譯 root 底下（含 root 本身）所有結果列節點 */
   translate(root: ParentNode): void;
@@ -160,6 +187,22 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
       }
     }
     return skeletonIndex.get(english.replace(MOD_NUMBER, '#'));
+  };
+
+  /**
+   * 物品名套句型（如異變傳奇 `Foulborn {0}` → `穢生 {0}`）。每個佔位值都要是查得到的物品名，
+   * 避免隨機稀有名稱誤套其他句型。
+   */
+  const translateNameTemplate = (name: string): string | null => {
+    const match = lookup.matchTemplate(name);
+    if (!match) return null;
+    const values = match.values.map((value) => data.items[value.toLowerCase()]);
+    if (values.some((value) => !value)) return null;
+    return match.localizedLiterals
+      .map((literal, i) =>
+        i < match.localizedOrder.length ? literal + values[match.localizedOrder[i]] : literal,
+      )
+      .join('');
   };
 
   const isCurrent = (node: Text) => written.get(node) === node.data;
@@ -319,8 +362,14 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
     if (element.matches(STAT_SELECTOR)) {
       translateStat(element);
     } else if (element.matches(HEADER_SELECTOR)) {
+      const partial = isSingleLineHeader(element);
       for (const node of textNodesOf(element)) {
-        replace(node, (text) => keepPadding(text, (key) => data.items[key.toLowerCase()] ?? null));
+        replace(node, (text) =>
+          keepPadding(
+            text,
+            (name) => translateItemName(name, data.items, partial) ?? translateNameTemplate(name),
+          ),
+        );
       }
     } else if (element.matches(PROPERTY_SELECTOR)) {
       translateProperty(element);
