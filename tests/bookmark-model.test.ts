@@ -230,8 +230,14 @@ describe('Bookmark pane model interface', () => {
       groupId: 'group-2',
     };
 
-    const first = model.execute({ type: 'add-bookmark', bookmark: { ...base, id: 'a', name: 'A' } });
-    const second = model.execute({ type: 'add-bookmark', bookmark: { ...base, id: 'b', name: 'B' } });
+    const first = model.execute({
+      type: 'add-bookmark',
+      bookmark: { ...base, id: 'a', name: 'A' },
+    });
+    const second = model.execute({
+      type: 'add-bookmark',
+      bookmark: { ...base, id: 'b', name: 'B' },
+    });
     await Promise.all([first, second]);
 
     const orders = vi
