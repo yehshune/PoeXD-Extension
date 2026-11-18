@@ -545,29 +545,47 @@ describe('OfficialLiveSearchAdapter Foundation (Phase 2B)', () => {
         localId: 'target_container',
         resultId: 'batch_alpha',
         id: 'search_id_source_a',
-        result: [resultToken],
-        items: { [resultToken]: fakeItemData },
+        result: [fakeItemData.id],
+        items: { [fakeItemData.id]: fakeItemData },
         total: 1,
         inexact: false,
       });
 
       // 檢查 setItemForSearchResult payload
-      // 關鍵契約：itemId 必須為 Result Token，絕非 fakeItemData.id！
+      // 關鍵契約：itemId 為 itemData.id（官方重新整理、轉圈與已售出標記都以物品 id 定位），不是 Result Token
       expect(commitHistory[1].payload).toEqual({
         localId: 'target_container',
         id: 'batch_alpha',
-        itemId: resultToken,
+        itemId: fakeItemData.id,
         itemData: fakeItemData,
       });
-      expect((commitHistory[1].payload as any).itemId).not.toBe(fakeItemData.id);
+      expect((commitHistory[1].payload as any).itemId).not.toBe(resultToken);
 
       // 檢查 store 內部響應式 batch.items 是否已被精確寫入
       const container = searches.find((s) => s.localId === 'target_container');
       const batch = container?.results?.find((b) => b.id === 'batch_alpha');
-      expect(batch?.items?.[resultToken]).toBe(fakeItemData);
+      expect(batch?.items?.[fakeItemData.id]).toBe(fakeItemData);
+      expect(batch?.items?.[resultToken]).toBeUndefined();
 
       // 斷言不發起任何 fetch 或 WebSocket
       expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects itemData without a string id and leaves the store untouched', () => {
+      const outcome = renderFetchedResult(
+        {
+          localId: 'target_container',
+          batchId: 'batch_no_id',
+          sourceSearchId: 'search_id_source_a',
+          token: resultToken,
+          itemData: { item: { name: 'No id' } },
+          total: 1,
+        },
+        mockStore,
+      );
+      expect(outcome.success).toBe(false);
+      expect(outcome.error).toContain('itemData.id');
+      expect(commitHistory.length).toBe(0);
     });
 
     it('rejects duplicate batchId and does not corrupt store', () => {
@@ -983,7 +1001,7 @@ describe('OfficialLiveSearchAdapter Foundation (Phase 2B)', () => {
       expect(mockStore.commit).toHaveBeenCalledWith(
         'setItemForSearchResult',
         expect.objectContaining({
-          itemId: 'token_bridge_123',
+          itemId: 'item_raw_id',
         }),
       );
 

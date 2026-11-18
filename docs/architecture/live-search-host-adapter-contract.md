@@ -79,8 +79,8 @@
     localId: params.localId,
     resultId: params.batchId,
     id: params.sourceSearchId,
-    result: [params.token],
-    items: { [params.token]: params.itemData }, // 實機驗證之第一道零 Fetch 防線
+    result: [params.itemData.id],
+    items: { [params.itemData.id]: params.itemData }, // 實機驗證之第一道零 Fetch 防線
     total: params.total,
     inexact: false,
   });
@@ -88,14 +88,16 @@
   store.commit('setItemForSearchResult', {
     localId: params.localId,
     id: params.batchId,
-    itemId: params.token,
+    itemId: params.itemData.id,
     itemData: params.itemData,
   });
   ```
 - **絕對禁止中斷**：兩次 commit 之間嚴禁 `await`、Promise/microtask yield、timer 或二階段跨 world event round trip。
-- **Token 識別語意嚴格分離**：
-  - `token`（傳遞給 `setItemForSearchResult` 的 `itemId`）為 LiveSearch Result Token（即 `batch.items` lookup key）。
-  - 嚴格禁止錯用 HTTP `/fetch` 回傳之 `itemData.id` 作為 `itemId`。
+- **Result Key 語意（itemData.id）**：
+  - `batch.result`、`batch.items` 的 key 與 `setItemForSearchResult` 的 `itemId` 一律為 `/fetch` 回傳之 `itemData.id`，與官方一般搜尋相同；`itemData.id` 缺失或非字串時拒絕且零 mutation。
+  - 官方結果卡片以物品 id 運作：重新整理按鈕呼叫 `/fetch/{itemData.id}` 後 commit `setItemForSearchResult { itemId: itemData.id }`，轉圈狀態（`refreshing`）以 result key 查詢，已售出標記（`gone`）讀取 `items[itemData.id]`。若以 LiveSearch Result Token 為 key，三者全部失效（重新整理資料不會反映到卡片、不轉圈、已售出不標灰）。
+  - `token`（LiveSearch Result Token）仍保留於 render payload 作為該次命中的識別，但不再作為 Vuex key。
+  - 官方 renderer 只會對 `items` 中沒有資料的 key 自主發送 `/fetch`；本交易在 `addSearchResult` 時即帶入 `items`，不會觸發。
 - **Total Semantics 契約**：
   - 在 `live: false` 下，官方 `addSearchResult` 執行 `container.total = params.total`，不進行內部累加。
   - Primary Runtime 傳入之 `total` 為展示區「實際保留」的結果數（受 `maxResults` 上限限制）；依連線篩選時為該連線的保留筆數。
@@ -109,7 +111,7 @@
   - 當以下任一情況發生時：
     1. `addSearchResult` 拋出例外（可能已執行部分屬性污染或 pop 舊 batch）。
     2. `setItemForSearchResult` 拋出例外。
-    3. `setItemForSearchResult` 為 no-op（未成功將 `itemData` 綁定至 `batch.items[token]`）。
+    3. `setItemForSearchResult` 為 no-op（未成功將 `itemData` 綁定至 `batch.items[itemData.id]`）。
   - 統一透過官方 store 的 `_withCommit` 同步還原完整狀態：
     ```typescript
     container.id = snapshot.id;
@@ -122,7 +124,7 @@
     - `container.inexact === before.inexact`
     - `container.total === before.total`
     - `container.results` 包含原先所有舊 batch 且順序一致（被官方 limit pop 淘汰之舊 batch 均被還原，半套新 batch 徹底被移除）。
-  - 杜絕官方 renderer 在 Vue flush 時因 `items[token] === null` 自主發送錯誤 `/fetch`。
+  - 杜絕官方 renderer 在 Vue flush 時因 `items[key] === null` 自主發送錯誤 `/fetch`。
 - **Bridge 例外穿透防護**：
   - Adapter 內部全程 try-catch，禁止未捕獲 exception 穿透 bridge listener；一律對應 dispatch 帶有 `success: false` 與診斷訊息的 `poexd-livesearch-command-result`。
 

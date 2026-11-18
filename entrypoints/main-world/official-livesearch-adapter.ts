@@ -254,7 +254,8 @@ export interface RenderFetchedResultOutcome {
  * 依據 Phase 2A/2B 確鑿契約：
  * 1. 同一同步 Main World call stack 內連續執行 addSearchResult 與 setItemForSearchResult
  * 2. 中間絕對禁止 await、Promise/microtask yield、timer
- * 3. setItemForSearchResult 之 itemId 必須為 Result Token，絕非 itemData.id
+ * 3. batch 的 result key 與 setItemForSearchResult 之 itemId 一律為 itemData.id（與官方一般搜尋相同）。
+ *    官方卡片的重新整理、轉圈狀態與已售出標記都以物品 id 定位，用 Result Token 當 key 會全部失效
  * 4. 驗證必要 mutations 與 _withCommit 存在，任何失敗時透過 _withCommit 完整還原 pre-transaction state
  */
 export function renderFetchedResult(
@@ -284,6 +285,10 @@ export function renderFetchedResult(
   }
   if (!itemData || typeof itemData !== 'object') {
     return { success: false, error: 'Invalid itemData: must be non-null object' };
+  }
+  const rawItemId = (itemData as { id?: unknown }).id;
+  if (typeof rawItemId !== 'string' || !rawItemId.trim()) {
+    return { success: false, error: 'Invalid itemData.id: must be non-empty string' };
   }
 
   const s = store !== undefined ? store : getVueStore();
@@ -325,7 +330,7 @@ export function renderFetchedResult(
 
   const cleanBatchId = batchId.trim();
   const cleanLocalId = localId.trim();
-  const cleanToken = token.trim();
+  const resultKey = rawItemId.trim();
   const cleanSourceId = sourceSearchId.trim();
 
   // 保存交易前完整狀態快照（涵蓋官方 addSearchResult 會修改之 id, inexact, total 與可能淘汰舊 batch 之 results）
@@ -342,8 +347,8 @@ export function renderFetchedResult(
       localId: cleanLocalId,
       resultId: cleanBatchId,
       id: cleanSourceId,
-      result: [cleanToken],
-      items: { [cleanToken]: itemData },
+      result: [resultKey],
+      items: { [resultKey]: itemData },
       total,
       inexact: false,
     });
@@ -360,7 +365,7 @@ export function renderFetchedResult(
     s.commit('setItemForSearchResult', {
       localId: cleanLocalId,
       id: cleanBatchId,
-      itemId: cleanToken, // LiveSearch Result Token (即 batch.items lookup key)
+      itemId: resultKey, // itemData.id（即 batch.items lookup key）
       itemData,
     });
   } catch (err) {
@@ -374,11 +379,11 @@ export function renderFetchedResult(
 
   // 3. 驗證注入成功：防範 setItemForSearchResult 是 no-op
   const createdBatch = container.results?.find((b) => b && b.id === cleanBatchId);
-  if (!createdBatch || !createdBatch.items || createdBatch.items[cleanToken] === undefined) {
+  if (!createdBatch || !createdBatch.items || createdBatch.items[resultKey] === undefined) {
     rollbackToPreState(s, container, preState);
     return {
       success: false,
-      error: `setItemForSearchResult no-op: itemData was not bound to batch.items[${cleanToken}]`,
+      error: `setItemForSearchResult no-op: itemData was not bound to batch.items[${resultKey}]`,
     };
   }
 
