@@ -10,8 +10,8 @@ Chrome Web Store、Microsoft Edge Add-ons 與 Firefox Add-ons (AMO) 上架時要
 | 上傳檔案                           | Chrome / Edge：商店版 zip（`POEXD_STORE_BUILD=1 pnpm zip`，不含 `key`）<br>Firefox：`pnpm zip:firefox` 產出的 `poexd-extension-*-firefox.zip` |
 | 隱私權政策 URL                     | <https://github.com/yehshune/PoeXD-Extension/blob/main/PRIVACY.md>                                                                            |
 | 首頁 / 支援 URL                    | <https://github.com/yehshune/PoeXD-Extension> · <https://github.com/yehshune/PoeXD-Extension/issues>                                          |
-| 類別                               | Lifestyle → Games（Edge：Entertainment，Firefox：Games & Entertainment）                                                                      |
-| 商店語言                           | English（預設）、繁體中文                                                                                                                     |
+| 類別                               | Tools（工具）；Edge：Entertainment；Firefox：Games & Entertainment                                                                            |
+| 商店語言                           | English（預設）、繁體中文、简体中文                                                                                                           |
 
 > **Firefox (AMO) 說明：**
 > 擴充套件已設定為純 Desktop 版本（不支援 Android）。若搭配本地桌面連接器使用，注意 Firefox 每次安裝時的 Origin 為動態 `moz-extension://<UUID>`。
@@ -46,17 +46,17 @@ Path of Exile 1 & 2 trade helper: Chinese market translation, PoB shopping list,
 **Description**：
 
 ```text
-PoeXD adds a sidebar to the official Path of Exile trade site (PoE 1 and PoE 2) that helps you organize searches and react to new listings faster.
+PoeXD adds a sidebar to the official Path of Exile trade site (PoE 1 and PoE 2 / PoE2) that helps you organize searches, import PoB shopping lists, and react to new listings faster.
 
 FEATURES
 • Bookmark folders – save trade searches into nested folders, drag to reorder and reopen them in one click.
-• Search preview – check the filters of a bookmark or history entry before opening it.
+• Search preview – check and tune the filters of a bookmark or history entry before opening it.
 • Search history – every search you run is recorded so you can find it again.
 • Stat group templates – save frequently used stat filter groups and overlay them onto any search.
-• LiveSearch Console – watch several live searches side by side in one tab.
-• PoB shopping list – import Path of Building codes or share links to track gear and gems, tune mod filters and search the trade site in one click.
-• Trade page enhancements – tier quick buttons, affix selector, price conversion, PoB item copy, PoEDB links, matched-affix highlighting and more.
-• Market Translation – show the international trade site in Traditional or Simplified Chinese with each official realm's wording (optional bilingual mode).
+• Live Search Console – watch several live searches side by side in one tab with auto-reconnect and sound alerts.
+• PoB shopping list – import Path of Building codes or poe.ninja / pobb.in / pastebin share links to track gear and gems, tune mod filters and search the trade site in one click.
+• Trade page enhancements – tier quick buttons, affix selector, poe.ninja price conversion & sorting, PoB item copy, PoEDB links, matched-affix highlighting and PoE2 rune previews.
+• Market Translation – show the international trade site and pobb.in pages in Traditional or Simplified Chinese with each official realm's wording (optional bilingual mode).
 • Themes, panel position, UI scale and keyboard shortcuts.
 • Interface in English, Traditional Chinese and Simplified Chinese.
 
@@ -65,6 +65,7 @@ PRIVACY
 • Fully open source under the MIT license.
 
 PoeXD is a fan-made tool and is not affiliated with or endorsed by Grinding Gear Games.
+Guide: https://yehshune.github.io/poexd/
 Source code and issue tracker: https://github.com/yehshune/PoeXD-Extension
 ```
 
@@ -81,26 +82,59 @@ Source code and issue tracker: https://github.com/yehshune/PoeXD-Extension
 **詳細說明**：
 
 ```text
-PoeXD 在《流亡黯道》官方交易網站（PoE 1 與 PoE 2）加上一個側邊欄，幫你整理搜尋條件，更快掌握新上架的物品。
+PoeXD 是專為《流亡黯道》（Path of Exile / PoE 1 & PoE2）官方交易市集打造的免費開源輔助工具，同時支援國際服、台服與國服。除了提供國際服 POE 市集完整漢化（支援繁簡中文與中英並列），還在交易頁面加上側邊欄，幫你整理搜尋書籤、匯入 PoB 購物清單，並在單一分頁集中監聽多組即時搜尋（Live Search）。
 
-功能
-• 書籤資料夾：用多層資料夾整理交易搜尋，可拖曳排序，一鍵重新開啟。
-• 搜尋預覽：開啟書籤或歷史紀錄前，先確認裡面的篩選條件。
-• 搜尋紀錄：自動記錄每一次搜尋，方便回頭找。
-• 詞綴群組範本：儲存常用的詞綴篩選群組，隨時疊加到任何搜尋。
-• 線上搜尋主控台：在同一個分頁同時監聽多組即時搜尋。
-• PoB 購物清單：匯入 Path of Building 代碼或分享網址，整理裝備與技能清單、微調詞綴條件並一鍵搜尋。
-• 交易頁增強：T 階快捷按鈕、詞綴選擇器、價格換算、複製英文 PoB 裝備、PoEDB 連結、結果詞綴高亮等。
-• 市集漢化：以台服或國服官方用語顯示國際服市集的介面、篩選器、下拉選單與搜尋結果，可選擇中英並列。
-• 可調整主題、面板位置、介面縮放比例與快捷鍵。
-• 介面支援繁體中文、简体中文與 English。
+功能亮點
+• POE 市集漢化（國際服中文化）：以台服或國服官方用語顯示國際服市集的介面、篩選器、下拉選單與搜尋結果，支援繁體中文與簡體中文；開啟「中英並列」模式後，輸入中文或英文都搜得到。
+• pobb.in 分享頁翻譯：授權存取並開啟市集漢化後，pobb.in 配裝分享頁也會自動顯示中文裝備與天賦詞綴。
+• PoB 購物清單：貼上 Path of Building 代碼或 poe.ninja、pobb.in、pastebin 分享網址，依部位整理裝備與技能寶石清單、微調詞綴條件並一鍵前往官方市集搜尋。
+• 線上搜尋主控台（Live Search）：在同一個分頁同時監聽多組即時搜尋，斷線自動重連，並支援通知提示音、書籤分組與防止分頁自動休眠。
+• 詞綴篩選與 T 階工具：篩選欄旁提供 T 階快捷按鈕與詞綴選擇器（支援物等區間與 PoE2 碑牌／換界石／珠寶），可直接帶入數值範圍並拖曳排序。
+• 搜尋結果強化：整合 poe.ninja 匯率價格換算與排序（國際服）、結果詞綴高亮與「+和／+不」快速加入篩選、一鍵複製英文 PoB 裝備文字、PoEDB 連結，以及 PoE2 符文覆寫試算。
+• 常用詞綴群組與搜尋預覽：儲存常用詞綴範本隨時疊加到目前搜尋；開啟書籤或歷史紀錄前可先預覽並微調篩選條件。
+• 書籤資料夾與 TFT 互通：多層資料夾收納交易搜尋、拖曳排序、自動記錄搜尋歷史，並支援與 TFT Trade Extension 互相匯入匯出書籤。
+• 個人化設定：可調整主題、面板左右位置、介面縮放比例與快捷鍵；擴充介面支援繁體中文、简体中文與 English。
 
-隱私
-• 不需註冊、沒有伺服器、沒有分析或廣告，所有資料都存在你的瀏覽器裡。
-• 以 MIT 授權完整開源。
+隱私與授權
+• 免註冊帳號、無後端伺服器、無追蹤分析或廣告，所有書籤與設定皆保存在你的瀏覽器本機。
+• 以 MIT 授權完整開源，原始碼與問題回報：https://github.com/yehshune/PoeXD-Extension
+• 使用教學：https://yehshune.github.io/poexd/
 
-PoeXD 是玩家自製工具，與 Grinding Gear Games 無關，也未獲其背書。
-原始碼與問題回報：https://github.com/yehshune/PoeXD-Extension
+PoeXD 為玩家社群自製工具，與 Grinding Gear Games 無隸屬或背書關係。
+```
+
+### 简体中文
+
+**名称**（取自 `_locales/zh_CN`）：`PoeXD – PoE 1 & 2 市集中文化・交易助手`
+
+**简短说明**（≤132 字符）：
+
+```text
+流放之路 Path of Exile 官方交易市集中文化工具（PoE 1 & 2）：提供简繁汉化与中英对照、PoB 购物清单与 pobb.in 翻译、线上搜索主控台、词缀筛选与书签管理。
+```
+
+**详细说明**：
+
+```text
+PoeXD 是专为《流放之路》（Path of Exile / PoE 1 & PoE2）官方交易市集打造的免费开源辅助工具，同时支持国际服、国服与台服。除了提供国际服 POE 市集完整汉化（支持简繁中文与中英对照），还在交易页面旁加上侧边栏，帮你整理搜索书签、导入 PoB 购物清单，并在单个标签页中集中监听多组实时搜索（Live Search）。
+
+功能亮点
+• POE 市集汉化（国际服中文化）：以国服或台服官方用语显示国际服市集的界面、筛选器、下拉菜单与搜索结果，支持简体中文与繁体中文；开启「中英对照」模式后，输入中文或英文都能搜到。
+• pobb.in 分享页翻译：授权访问并开启市集汉化后，pobb.in 配装分享页也会自动显示中文装备与天赋词缀。
+• PoB 购物清单：粘贴 Path of Building 代码或 poe.ninja、pobb.in、pastebin 分享链接，按部位整理装备与技能宝石清单、微调词缀条件并一键前往官方市集搜索。
+• 线上搜索主控台（Live Search）：在同一个标签页同时监听多组实时搜索，断线自动重连，并支持通知提示音、书签分组与防止标签页自动休眠。
+• 词缀筛选与 T 阶工具：筛选栏旁提供 T 阶快捷按钮与词缀选择器（支持物等区间与 PoE2 碑牌／换界石／珠宝），可直接填入数值范围并拖拽排序。
+• 搜索结果增强：集成 poe.ninja 汇率价格换算与排序（国际服）、结果词缀高亮与「+和／+不」快速加入筛选、一键复制英文 PoB 装备文本、PoEDB 链接，以及 PoE2 符文覆盖试算。
+• 常用词缀群组与搜索预览：保存常用词缀模板随时叠加到当前搜索；打开书签或历史记录前可先预览并微调筛选条件。
+• 书签文件夹与 TFT 互通：多级文件夹收纳交易搜索、拖拽排序、自动记录搜索历史，并支持与 TFT Trade Extension 互相导入导出书签。
+• 个性化设置：可调整主题、面板左右位置、界面缩放比例与快捷键；扩展界面支持简体中文、繁体中文与 English。
+
+隐私与许可
+• 无需注册账号、无后端服务器、无统计追踪或广告，所有书签与设置均保存在你的浏览器本地。
+• 以 MIT 协议完全开源，源码与问题反馈：https://github.com/yehshune/PoeXD-Extension
+• 使用教程：https://yehshune.github.io/poexd/
+
+PoeXD 为玩家社区自制工具，与 Grinding Gear Games 或腾讯无隶属或背书关系。
 ```
 
 ---
