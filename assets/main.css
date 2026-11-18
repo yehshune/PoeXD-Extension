@@ -340,9 +340,21 @@
   background: var(--muted-foreground);
 }
 
+/* Reka SelectViewport 內建會注入 [data-reka-select-viewport] { scrollbar-width: none } 與 ::-webkit-scrollbar { display: none }；
+   掛上 .pxd-scrollbar 時恢復顯示，改以統一自訂卷軸取代上下捲動箭頭 */
+[data-reka-select-viewport].pxd-scrollbar {
+  scrollbar-width: auto;
+  -ms-overflow-style: auto;
+}
+
+[data-reka-select-viewport].pxd-scrollbar::-webkit-scrollbar {
+  display: block;
+}
+
 /* Firefox fallback */
 @supports not selector(::-webkit-scrollbar) {
-  .pxd-scrollbar {
+  .pxd-scrollbar,
+  [data-reka-select-viewport].pxd-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }

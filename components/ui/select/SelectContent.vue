@@ -4,7 +4,6 @@ import type { HTMLAttributes } from 'vue';
 import { reactiveOmit } from '@vueuse/core';
 import { SelectContent, SelectPortal, SelectViewport, useForwardPropsEmits } from 'reka-ui';
 import { cn } from '@/lib/utils';
-import { SelectScrollDownButton, SelectScrollUpButton } from '.';
 
 defineOptions({
   inheritAttrs: false,
@@ -32,19 +31,18 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
       v-bind="{ ...forwarded, ...$attrs }"
       :class="
         cn(
-          'relative z-(--pxd-z-floating) max-h-96 min-w-32 overflow-hidden box-border rounded-md border border-border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+          'relative z-(--pxd-z-floating) max-h-[min(var(--pxd-menu-max-height,240px),var(--reka-select-content-available-height,calc(100vh-32px)))] max-w-[var(--reka-select-content-available-width,calc(100vw-32px))] min-w-32 overflow-hidden box-border rounded-md border border-border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
           position === 'popper' &&
             'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
           props.class,
         )
       "
     >
-      <SelectScrollUpButton />
       <SelectViewport
         data-slot="select-viewport"
         :class="
           cn(
-            'p-1',
+            'min-h-0 overflow-y-auto overflow-x-hidden p-1 pxd-scrollbar',
             position === 'popper' &&
               'h-(--reka-select-trigger-height) w-full min-w-(--reka-select-trigger-width)',
           )
@@ -52,7 +50,6 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
       >
         <slot />
       </SelectViewport>
-      <SelectScrollDownButton />
     </SelectContent>
   </SelectPortal>
 </template>

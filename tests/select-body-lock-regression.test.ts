@@ -289,6 +289,48 @@ describe('ShadowRoot Overlay Foundation & Select/Dropdown Policy Regression', ()
     expect(content).toContain('disableOutsidePointerEvents: false');
   });
 
+  it('uses pxd-scrollbar on SelectViewport instead of scroll up/down arrow buttons', async () => {
+    const selectContentPath = path.resolve(__dirname, '../components/ui/select/SelectContent.vue');
+    const selectContentSource = fs.readFileSync(selectContentPath, 'utf-8');
+    expect(selectContentSource).not.toContain('SelectScrollUpButton');
+    expect(selectContentSource).not.toContain('SelectScrollDownButton');
+
+    const mainCssPath = path.resolve(__dirname, '../assets/main.css');
+    const mainCssSource = fs.readFileSync(mainCssPath, 'utf-8');
+    expect(mainCssSource).toContain('[data-reka-select-viewport].pxd-scrollbar');
+    expect(mainCssSource).toContain('[data-reka-select-viewport].pxd-scrollbar::-webkit-scrollbar');
+
+    const app = createApp(
+      defineComponent({
+        setup() {
+          return () =>
+            h(ConfigProvider, { teleportTo: portalRoot, scrollBody: false }, () => [
+              h(Select, { modelValue: 'a', open: true }, () => [
+                h(SelectTrigger, null, () => h(SelectValue)),
+                h(SelectContent, null, () => [
+                  h(SelectItem, { value: 'a' }, () => '選項 A'),
+                  h(SelectItem, { value: 'b' }, () => '選項 B'),
+                ]),
+              ]),
+            ]);
+        },
+      }),
+    );
+
+    app.mount(appRoot);
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 50));
+
+    const viewport = portalRoot.querySelector<HTMLElement>('[data-slot="select-viewport"]');
+    expect(viewport).not.toBeNull();
+    expect(viewport?.className).toContain('pxd-scrollbar');
+    expect(viewport?.className).toContain('overflow-y-auto');
+    expect(portalRoot.querySelector('[data-slot="select-scroll-up-button"]')).toBeNull();
+    expect(portalRoot.querySelector('[data-slot="select-scroll-down-button"]')).toBeNull();
+
+    app.unmount();
+  });
+
   it('static contract: BookmarkPane.vue no longer relies on workaround high z-index (10000000 / 10000001)', () => {
     const bookmarkPanePath = path.resolve(__dirname, '../components/sidebar/BookmarkPane.vue');
     const content = fs.readFileSync(bookmarkPanePath, 'utf-8');
