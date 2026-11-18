@@ -13,6 +13,8 @@ import { findTradeRealm } from './trade-realms';
 /** token 剩餘有效時間不足這麼久就重新取得，避免送出途中過期 */
 const TOKEN_EXPIRY_MARGIN_MS = 15_000;
 
+export type HideoutTravelPhase = 'refreshing' | 'traveling';
+
 export type HideoutTravelOutcome =
   | { status: 'teleporting' }
   /** 有人搶先；再按一次會帶 `continue: true` */
@@ -125,11 +127,13 @@ async function obtainHideoutToken(
   snapshot: PinnedItemSnapshot,
   deps: HideoutTravelDeps,
   nowMs: number,
+  onPhaseChange?: (phase: HideoutTravelPhase) => void,
 ): Promise<TokenResult> {
   const cached = readUsableHideoutToken(deps.getCachedListing(snapshot.id), nowMs);
   if (cached) return { token: cached };
   if (!snapshot.sourceSearchId) return { outcome: { status: 'refresh-required' } };
 
+  onPhaseChange?.('refreshing');
   const response = await deps.fetchGate.fetch(
     buildPinnedItemFetchUrl(snapshot, snapshot.sourceSearchId),
     {
@@ -157,16 +161,17 @@ async function obtainHideoutToken(
 export async function travelToHideout(
   snapshot: PinnedItemSnapshot,
   deps: HideoutTravelDeps,
-  options: { continueInDemand?: boolean } = {},
+  options: { continueInDemand?: boolean; onPhaseChange?: (phase: HideoutTravelPhase) => void } = {},
 ): Promise<HideoutTravelOutcome> {
   if (!isSameRealm(snapshot, deps.currentOrigin) || snapshot.origin !== deps.currentOrigin) {
     return { status: 'realm-mismatch' };
   }
   try {
     const nowMs = (deps.now ?? Date.now)();
-    const tokenResult = await obtainHideoutToken(snapshot, deps, nowMs);
+    const tokenResult = await obtainHideoutToken(snapshot, deps, nowMs, options.onPhaseChange);
     if ('outcome' in tokenResult) return tokenResult.outcome;
 
+    options.onPhaseChange?.('traveling');
     const response = await deps.whisperGate.fetch(`${apiBase(snapshot)}/whisper`, {
       method: 'POST',
       headers: {

@@ -23,8 +23,11 @@ export interface PinnedItemClient {
   subscribe(listener: (items: PinnedItemSnapshot[]) => void): () => void;
   pin(snapshot: PinnedItemSnapshot): Promise<PinnedItemOutcome>;
   unpin(id: string): Promise<PinnedItemOutcome>;
+  markSold(id: string): Promise<PinnedItemOutcome>;
   /** 不帶 league 時清除此遊戲版本的全部釘選 */
   clear(league?: string): Promise<PinnedItemOutcome>;
+  /** 不帶 league 時清除此遊戲版本的全部已售出釘選 */
+  clearSold(league?: string): Promise<PinnedItemOutcome>;
   /** 依 ids 的順序重排（沒列出的物品維持原位） */
   reorder(ids: readonly string[]): Promise<PinnedItemOutcome>;
 }
@@ -61,9 +64,16 @@ export function createPinnedItemClient(
       deps.subscribe(key, (value) => listener(parseStoredPinnedList(value, version).items)),
     pin: (snapshot) => send({ type: 'pin', gameVersion: version, snapshot }),
     unpin: (id) => send({ type: 'unpin', gameVersion: version, id }),
+    markSold: (id) => send({ type: 'mark-sold', gameVersion: version, id }),
     reorder: (ids) => send({ type: 'reorder', gameVersion: version, ids: [...ids] }),
     clear: (league) =>
       send({ type: 'clear', gameVersion: version, ...(league !== undefined ? { league } : {}) }),
+    clearSold: (league) =>
+      send({
+        type: 'clear-sold',
+        gameVersion: version,
+        ...(league !== undefined ? { league } : {}),
+      }),
   };
 }
 

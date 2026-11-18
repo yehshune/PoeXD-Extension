@@ -115,6 +115,8 @@ export interface PinnedItemSnapshot {
   listing: PinnedItemListing;
   /** 釘選時擷取的官方卡片快照（清理過的節點樹）；沒有時 Sidebar 以物品 JSON 自繪 */
   card?: PinnedCardDom;
+  /** 是否已確認售出或下架（持久化保存，直到重新釘選、清除已售出或取消釘選） */
+  sold?: boolean;
 }
 
 export interface PinnedItemSource {
@@ -292,7 +294,8 @@ export function parseStoredPinnedItem(
     },
     pinnedAt,
   );
-  return snapshot && snapshot.realm === value.realm ? snapshot : undefined;
+  if (!snapshot || snapshot.realm !== value.realm) return undefined;
+  return value.sold === true ? { ...snapshot, sold: true } : snapshot;
 }
 
 interface StoredPinnedList {
@@ -326,7 +329,9 @@ export interface PinnedItemStorage {
 export type PinnedItemCommand =
   | { type: 'pin'; gameVersion: PoeVersion; snapshot: unknown }
   | { type: 'unpin'; gameVersion: PoeVersion; id: string }
+  | { type: 'mark-sold'; gameVersion: PoeVersion; id: string }
   | { type: 'clear'; gameVersion: PoeVersion; league?: string }
+  | { type: 'clear-sold'; gameVersion: PoeVersion; league?: string }
   /**
    * 依 ids 的順序重排：列出的物品照新順序填回它們原本佔的位置，沒列出的不動。
    * 只顯示目前聯盟時拖曳排序，其他聯盟的釘選因此維持原位。
@@ -396,6 +401,9 @@ export function createPinnedItemStore(storage: PinnedItemStorage): PinnedItemSto
       case 'unpin':
         next = items.filter((item) => item.id !== command.id);
         break;
+      case 'mark-sold':
+        next = items.map((item) => (item.id === command.id ? { ...item, sold: true } : item));
+        break;
       case 'reorder':
         next = applyPinnedOrder(items, command.ids);
         break;
@@ -403,6 +411,14 @@ export function createPinnedItemStore(storage: PinnedItemStorage): PinnedItemSto
         const { league } = command;
         next =
           league === undefined ? [] : items.filter((item) => !isSameLeague(item.league, league));
+        break;
+      }
+      case 'clear-sold': {
+        const { league } = command;
+        next = items.filter(
+          (item) =>
+            !(item.sold === true && (league === undefined || isSameLeague(item.league, league))),
+        );
         break;
       }
     }
@@ -426,6 +442,19 @@ export function createPinnedItemStore(storage: PinnedItemStorage): PinnedItemSto
   };
 }
 
+function parseOptionalLeagueCommand(
+  type: 'clear' | 'clear-sold',
+  gameVersion: PoeVersion,
+  league: unknown,
+): PinnedItemCommand | undefined {
+  if (league !== undefined && typeof league !== 'string') return undefined;
+  return {
+    type,
+    gameVersion,
+    ...(typeof league === 'string' ? { league } : {}),
+  };
+}
+
 /** 訊息來自 content script，視為跨信任邊界的輸入 */
 export function parsePinnedItemCommand(raw: unknown): PinnedItemCommand | undefined {
   if (!isRecord(raw) || !isPoeVersion(raw.gameVersion)) return undefined;
@@ -434,16 +463,13 @@ export function parsePinnedItemCommand(raw: unknown): PinnedItemCommand | undefi
     case 'pin':
       return { type: 'pin', gameVersion, snapshot: raw.snapshot };
     case 'unpin':
+    case 'mark-sold':
       return typeof raw.id === 'string' && raw.id
-        ? { type: 'unpin', gameVersion, id: raw.id }
+        ? { type: raw.type, gameVersion, id: raw.id }
         : undefined;
     case 'clear':
-      if (raw.league !== undefined && typeof raw.league !== 'string') return undefined;
-      return {
-        type: 'clear',
-        gameVersion,
-        ...(typeof raw.league === 'string' ? { league: raw.league } : {}),
-      };
+    case 'clear-sold':
+      return parseOptionalLeagueCommand(raw.type, gameVersion, raw.league);
     case 'reorder': {
       const ids = raw.ids;
       if (

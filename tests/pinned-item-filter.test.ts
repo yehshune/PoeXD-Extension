@@ -91,6 +91,8 @@ vi.mock('@/utils/pinned-item-client', () => ({
     unpin: vi.fn(async () => ({ ok: true })),
     reorder: vi.fn(async () => ({ ok: true })),
     clear: vi.fn(async () => ({ ok: true })),
+    markSold: vi.fn(async () => ({ ok: true })),
+    clearSold: vi.fn(async () => ({ ok: true })),
   }),
 }));
 

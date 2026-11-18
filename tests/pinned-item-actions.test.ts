@@ -164,6 +164,31 @@ describe('travelToHideout', () => {
     });
   });
 
+  it('reports phases: traveling directly when cached, refreshing then traveling when refetching', async () => {
+    const cachedPhases: string[] = [];
+    const cachedDeps = deps({
+      cachedListing: { hideout_token: FRESH },
+      whisperResponse: json({ success: true }),
+    });
+    await travelToHideout(pinned(), cachedDeps.value, {
+      onPhaseChange: (p) => cachedPhases.push(p),
+    });
+    expect(cachedPhases).toEqual(['traveling']);
+
+    const expiredPhases: string[] = [];
+    const expiredDeps = deps({
+      cachedListing: { hideout_token: EXPIRED },
+      fetchResponse: json({
+        result: [{ id: 'item1', item: {}, listing: { hideout_token: FRESH } }],
+      }),
+      whisperResponse: json({ success: true }),
+    });
+    await travelToHideout(pinned(), expiredDeps.value, {
+      onPhaseChange: (p) => expiredPhases.push(p),
+    });
+    expect(expiredPhases).toEqual(['refreshing', 'traveling']);
+  });
+
   it('refuses to act on another realm', async () => {
     const d = deps({ cachedListing: { hideout_token: FRESH } });
     d.value.currentOrigin = 'https://pathofexile.tw';

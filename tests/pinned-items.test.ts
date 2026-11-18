@@ -237,6 +237,63 @@ describe('createPinnedItemStore', () => {
     );
     expect(data[key]).toHaveLength(3);
   });
+
+  it('marks an item sold, clears sold on re-pin, and clears sold items selectively', async () => {
+    const covens1 = { ...snapshot('a', 1), league: 'Covens' };
+    const covens2 = { ...snapshot('b', 2), league: 'Covens' };
+    const standard = { ...snapshot('c', 3), league: 'Standard' };
+    const { data, storage } = memoryStorage({ [key]: [covens1, covens2, standard] });
+    const store = createPinnedItemStore(storage);
+    const stored = () => data[key] as PinnedItemSnapshot[];
+
+    await expect(
+      store.execute({ type: 'mark-sold', gameVersion: 'poe1', id: 'a' }),
+    ).resolves.toEqual({
+      ok: true,
+    });
+    expect(stored().find((x) => x.id === 'a')?.sold).toBe(true);
+    expect(stored().find((x) => x.id === 'b')?.sold).toBeUndefined();
+
+    // Mark c sold as well to verify league-scoped clear-sold
+    await store.execute({ type: 'mark-sold', gameVersion: 'poe1', id: 'c' });
+
+    // Clearing sold in Covens only removes 'a'
+    await expect(
+      store.execute({ type: 'clear-sold', gameVersion: 'poe1', league: 'covens' }),
+    ).resolves.toEqual({ ok: true });
+    expect(stored().map((x) => x.id)).toEqual(['b', 'c']);
+
+    // Re-pinning 'c' replaces it with a fresh snapshot (not sold)
+    await expect(
+      store.execute({
+        type: 'pin',
+        gameVersion: 'poe1',
+        snapshot: { ...snapshot('c', 4), league: 'Standard' },
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(stored().find((x) => x.id === 'c')?.sold).toBeUndefined();
+
+    // Marking 'b' sold then clearing sold globally removes only sold items
+    await store.execute({ type: 'mark-sold', gameVersion: 'poe1', id: 'b' });
+    await expect(store.execute({ type: 'clear-sold', gameVersion: 'poe1' })).resolves.toEqual({
+      ok: true,
+    });
+    expect(stored().map((x) => x.id)).toEqual(['c']);
+  });
+});
+
+describe('parseStoredPinnedList sold flag', () => {
+  it('preserves sold: true and ignores non-boolean sold values', () => {
+    const parsed = parseStoredPinnedList(
+      [{ ...snapshot('a'), sold: true }, { ...snapshot('b'), sold: 'yes' }, snapshot('c')],
+      'poe1',
+    );
+    expect(parsed.items.map((x) => [x.id, x.sold])).toEqual([
+      ['a', true],
+      ['b', undefined],
+      ['c', undefined],
+    ]);
+  });
 });
 
 describe('applyPinnedOrder', () => {
@@ -276,6 +333,24 @@ describe('parsePinnedItemCommand', () => {
     expect(parsePinnedItemCommand({ type: 'clear', gameVersion: 'poe2' })).toEqual({
       type: 'clear',
       gameVersion: 'poe2',
+    });
+    expect(
+      parsePinnedItemCommand({ type: 'mark-sold', gameVersion: 'poe1', id: '' }),
+    ).toBeUndefined();
+    expect(parsePinnedItemCommand({ type: 'mark-sold', gameVersion: 'poe1', id: 'a' })).toEqual({
+      type: 'mark-sold',
+      gameVersion: 'poe1',
+      id: 'a',
+    });
+    expect(
+      parsePinnedItemCommand({ type: 'clear-sold', gameVersion: 'poe1', league: 5 }),
+    ).toBeUndefined();
+    expect(
+      parsePinnedItemCommand({ type: 'clear-sold', gameVersion: 'poe1', league: 'Covens' }),
+    ).toEqual({
+      type: 'clear-sold',
+      gameVersion: 'poe1',
+      league: 'Covens',
     });
   });
 

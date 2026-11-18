@@ -24,7 +24,12 @@ import { isPobExportableItem } from '@/utils/pob-item-text';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
 import { getTradeResultCache } from '@/utils/trade-result-cache';
 
-export type PinnedItemTransientState = 'sold' | 'in-demand' | 'teleporting' | 'busy';
+export type PinnedItemTransientState =
+  | 'sold'
+  | 'in-demand'
+  | 'teleporting'
+  | 'refreshing'
+  | 'traveling';
 
 let fetchGate: LiveSearchFetchRateGate | undefined;
 let whisperGate: LiveSearchFetchRateGate | undefined;
@@ -63,6 +68,9 @@ export function usePinnedItems() {
       : items.value.filter((item) => isSameLeague(item.league, currentLeague)),
   );
   const hiddenCount = computed(() => items.value.length - visibleItems.value.length);
+  const isSold = (item: PinnedItemSnapshot) =>
+    item.sold === true || states.value[item.id] === 'sold';
+  const soldVisibleCount = computed(() => visibleItems.value.filter(isSold).length);
 
   const setState = (id: string, state: PinnedItemTransientState | undefined) => {
     const { [id]: _removed, ...rest } = states.value;
@@ -101,9 +109,10 @@ export function usePinnedItems() {
   }
 
   async function travel(item: PinnedItemSnapshot) {
-    if (states.value[item.id] === 'busy') return;
-    const continueInDemand = states.value[item.id] === 'in-demand';
-    setState(item.id, 'busy');
+    if (isSold(item)) return;
+    const current = states.value[item.id];
+    if (current === 'refreshing' || current === 'traveling') return;
+    const continueInDemand = current === 'in-demand';
     const cache = getTradeResultCache();
     const outcome = await travelToHideout(
       item,
@@ -115,7 +124,10 @@ export function usePinnedItems() {
         fetchGate: getFetchGate(),
         whisperGate: getWhisperGate(),
       },
-      { continueInDemand },
+      {
+        continueInDemand,
+        onPhaseChange: (phase) => setState(item.id, phase),
+      },
     );
     const nextState: PinnedItemTransientState | undefined =
       outcome.status === 'sold' ||
@@ -124,6 +136,12 @@ export function usePinnedItems() {
         ? outcome.status
         : undefined;
     setState(item.id, nextState);
+    if (outcome.status === 'sold') {
+      items.value = items.value.map((entry) =>
+        entry.id === item.id ? { ...entry, sold: true } : entry,
+      );
+      void client.markSold(item.id);
+    }
     const message = t(TRAVEL_MESSAGES[outcome.status]);
     // 錯誤訊息只帶官方回應的說明文字，不含 token
     notify(
@@ -157,8 +175,25 @@ export function usePinnedItems() {
   }
 
   async function clearVisible() {
+    const count = visibleItems.value.length;
+    if (count === 0) return;
     const league = showAllLeagues.value || !currentLeague ? undefined : currentLeague;
+    const confirm = (window as { poexdConfirm?: (msg: string, title?: string) => Promise<boolean> })
+      .poexdConfirm;
+    const confirmed = await confirm?.(
+      league
+        ? t('pinnedItem.dialog.clearLeagueConfirm', { count, league })
+        : t('pinnedItem.dialog.clearAllConfirm', { count }),
+      league ? t('pinnedItem.clearLeague') : t('pinnedItem.clearAll'),
+    );
+    if (!confirmed) return;
     const outcome = await client.clear(league);
+    if (!outcome.ok) notify(t('pinnedItem.toast.failed'), 'error');
+  }
+
+  async function clearSold() {
+    const league = showAllLeagues.value || !currentLeague ? undefined : currentLeague;
+    const outcome = await client.clearSold(league);
     if (!outcome.ok) notify(t('pinnedItem.toast.failed'), 'error');
   }
 
@@ -166,10 +201,12 @@ export function usePinnedItems() {
     items,
     visibleItems,
     hiddenCount,
+    soldVisibleCount,
     showAllLeagues,
     states,
     currentLeague,
     limit: PINNED_ITEM_LIMIT,
+    isSold,
     sameRealm,
     canCopyPob,
     sourceUrl,
@@ -180,5 +217,6 @@ export function usePinnedItems() {
     unpin,
     reorder,
     clearVisible,
+    clearSold,
   };
 }

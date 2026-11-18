@@ -5,7 +5,15 @@
  * 取消釘選放在「⋯」選單裡，平常也可以直接拖到垃圾桶。
  */
 import { ref } from 'vue';
-import { ClipboardCopy, Copy, ExternalLink, Home, MoreVertical, Trash2 } from '@lucide/vue';
+import {
+  ClipboardCopy,
+  Copy,
+  ExternalLink,
+  Home,
+  Loader2,
+  MoreVertical,
+  Trash2,
+} from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -37,13 +45,18 @@ const emit = defineEmits<{
 
 const menuOpen = ref(false);
 
+const isBusy = () => props.state === 'refreshing' || props.state === 'traveling';
+
 function travelLabel(): string {
+  if (props.state === 'sold') return t('pinnedItem.sold');
+  if (props.state === 'refreshing') return t('pinnedItem.action.refreshing');
+  if (props.state === 'traveling') return t('pinnedItem.action.traveling');
   if (props.state === 'in-demand') return t('pinnedItem.action.travelAgain');
   if (props.state === 'teleporting') return t('pinnedItem.action.travelSent');
   return t('pinnedItem.action.travel');
 }
 
-const travelDisabled = () => !props.sameRealm || props.state === 'busy' || props.state === 'sold';
+const travelDisabled = () => !props.sameRealm || isBusy() || props.state === 'sold';
 </script>
 
 <template>
@@ -54,11 +67,13 @@ const travelDisabled = () => !props.sameRealm || props.state === 'busy' || props
       :size="full ? 'sm' : 'icon-sm'"
       data-pinned-item-travel
       :disabled="travelDisabled()"
+      :aria-busy="isBusy() ? 'true' : undefined"
       :title="sameRealm ? t('pinnedItem.action.travelTitle') : t('pinnedItem.realmMismatch')"
       :aria-label="travelLabel()"
       @click.stop="emit('travel')"
     >
-      <Home />
+      <Loader2 v-if="isBusy()" class="animate-spin" />
+      <Home v-else />
       <span v-if="full">{{ travelLabel() }}</span>
     </Button>
     <Button

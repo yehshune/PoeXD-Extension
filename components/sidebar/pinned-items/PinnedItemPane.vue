@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Sortable from 'sortablejs';
-import { ChevronsDownUp, Pin, Search, Trash2, X } from '@lucide/vue';
+import { ChevronsDownUp, Loader2, Pin, Search, Trash2, X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { getActiveUiLocale, t } from '@/utils/i18n';
@@ -39,10 +46,12 @@ const {
   items,
   visibleItems,
   hiddenCount,
+  soldVisibleCount,
   showAllLeagues,
   states,
   currentLeague,
   limit,
+  isSold,
   sameRealm,
   canCopyPob,
   sourceUrl,
@@ -53,10 +62,12 @@ const {
   unpin,
   reorder,
   clearVisible,
+  clearSold,
 } = usePinnedItems();
 
 const sidebarPosition = computed(() => props.sidebarPosition ?? 'left');
 const listRef = ref<HTMLElement | null>(null);
+const isClearMenuOpen = ref(false);
 const isSearchVisible = ref(false);
 const searchQuery = ref('');
 const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
@@ -331,21 +342,49 @@ function realmLabel(item: PinnedItemSnapshot): string {
         >
           <ChevronsDownUp />
         </Button>
-        <Button
-          variant="secondary"
-          size="icon-sm"
-          class="shrink-0"
-          data-pinned-items-clear
-          :disabled="visibleItems.length === 0"
-          :title="
-            showAllLeagues || !currentLeague
-              ? t('pinnedItem.clearAll')
-              : t('pinnedItem.clearLeague')
-          "
-          @click="clearVisible"
-        >
-          <Trash2 />
-        </Button>
+        <DropdownMenu v-model:open="isClearMenuOpen">
+          <DropdownMenuTrigger as-child>
+            <Button
+              variant="secondary"
+              size="icon-sm"
+              class="shrink-0"
+              data-pinned-items-clear
+              :disabled="visibleItems.length === 0"
+              :title="t('pinnedItem.clearMenuTitle')"
+              :aria-label="t('pinnedItem.clearMenuTitle')"
+            >
+              <Trash2 />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent v-if="isClearMenuOpen" align="end">
+            <DropdownMenuItem
+              :disabled="soldVisibleCount === 0"
+              data-pinned-items-clear-sold
+              @click="clearSold"
+            >
+              <Trash2 class="text-muted-foreground" />
+              <span>{{ t('pinnedItem.clearSold') }}</span>
+              <span
+                v-if="soldVisibleCount > 0"
+                class="ml-auto pl-[var(--pxd-space-sm)] text-[length:var(--pxd-font-micro)] tabular-nums text-muted-foreground"
+                >{{ soldVisibleCount }}</span
+              >
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              data-pinned-items-clear-all
+              @click="clearVisible"
+            >
+              <Trash2 class="text-destructive" />
+              {{
+                showAllLeagues || !currentLeague
+                  ? t('pinnedItem.clearAll')
+                  : t('pinnedItem.clearLeague')
+              }}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <Separator class="mb-[var(--pxd-space-md)]" />
 
@@ -406,7 +445,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
             class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
             :class="[
               isExpanded(item) ? 'bg-muted/20' : 'hover:bg-muted/40',
-              { 'opacity-60': states[item.id] === 'sold' },
+              { 'opacity-60': isSold(item) },
             ]"
             :data-pinned-item-id="item.id"
             :data-expanded="isExpanded(item) ? '' : undefined"
@@ -457,7 +496,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
               <div class="flex shrink-0 flex-col items-end">
                 <span
                   class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
-                  :class="{ 'line-through': states[item.id] === 'sold' }"
+                  :class="{ 'line-through': isSold(item) }"
                   data-pinned-item-price
                 >
                   {{ priceAmount(item) }}
@@ -473,10 +512,24 @@ function realmLabel(item: PinnedItemSnapshot): string {
                   />
                 </span>
                 <span
-                  v-if="states[item.id] === 'sold'"
+                  v-if="isSold(item)"
                   class="text-[length:var(--pxd-font-micro)] text-destructive"
+                  data-pinned-item-sold
                   >{{ t('pinnedItem.sold') }}</span
                 >
+                <span
+                  v-else-if="states[item.id] === 'refreshing' || states[item.id] === 'traveling'"
+                  class="inline-flex items-center gap-1 text-[length:var(--pxd-font-micro)]"
+                  :class="states[item.id] === 'refreshing' ? 'text-amber-500' : 'text-primary'"
+                  data-pinned-item-busy
+                >
+                  <Loader2 class="size-3 shrink-0 animate-spin" aria-hidden="true" />
+                  {{
+                    states[item.id] === 'refreshing'
+                      ? t('pinnedItem.action.refreshing')
+                      : t('pinnedItem.action.traveling')
+                  }}
+                </span>
               </div>
             </div>
 
@@ -485,7 +538,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
               v-if="!isExpanded(item)"
               class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) rounded-l-sm pl-[var(--pxd-space-sm)] bg-card group-hover:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
               :item="item"
-              :state="states[item.id]"
+              :state="isSold(item) ? 'sold' : states[item.id]"
               :same-realm="sameRealm(item)"
               :can-copy-pob="canCopyPob(item)"
               :has-source="!!sourceUrl(item)"
@@ -505,7 +558,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
                 <PinnedItemActions
                   class="flex-wrap"
                   :item="item"
-                  :state="states[item.id]"
+                  :state="isSold(item) ? 'sold' : states[item.id]"
                   :same-realm="sameRealm(item)"
                   :can-copy-pob="canCopyPob(item)"
                   :has-source="!!sourceUrl(item)"
