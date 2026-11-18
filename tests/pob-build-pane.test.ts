@@ -13,7 +13,7 @@ const fake = {
   builds: computed(() => buildsRef.value),
   errorKey,
   isBusy: ref(false),
-  restore: vi.fn(async () => undefined),
+  restore: vi.fn<() => Promise<void>>(async () => undefined),
   importCode: vi.fn(async () => true),
   updateCode: vi.fn(async () => true),
   setHideDone: vi.fn(),
@@ -226,6 +226,8 @@ describe('PobBuildPane', () => {
     app = createApp(PobBuildPane);
     app.mount(container);
     await nextTick();
+    await nextTick();
+    await nextTick();
   };
   const query = <T extends Element = HTMLElement>(selector: string) =>
     container.querySelector<T>(selector);
@@ -259,9 +261,58 @@ describe('PobBuildPane', () => {
     expect(query('[data-slot="sidebar-pane"]')).not.toBeNull();
     expect(query('[data-slot="sidebar-pane-fixed"]')).not.toBeNull();
     expect(query('[data-slot="sidebar-pane-scroll"]')).not.toBeNull();
+    expect(query('[data-pob-build-loading]')).toBeNull();
     expect(query('[data-pob-build-empty-state]')).not.toBeNull();
     expect(query('[data-pob-build-add]')).not.toBeNull();
     expect(queryBody('[data-pob-build-input]')).toBeNull();
+  });
+
+  it('初次掛載尚未讀完本機資料時顯示載入中，不會閃現空狀態', async () => {
+    let resolveRestore!: () => void;
+    fake.restore.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    );
+
+    app = createApp(PobBuildPane);
+    app.mount(container);
+    await nextTick();
+
+    expect(query('[data-pob-build-loading]')).not.toBeNull();
+    expect(query('[data-pob-build-empty-state]')).toBeNull();
+
+    buildsRef.value = [sampleBuild()];
+    resolveRestore();
+    await flushAsync(0);
+
+    expect(query('[data-pob-build-loading]')).toBeNull();
+    expect(query('[data-pob-build-empty-state]')).toBeNull();
+    expect(query('[data-pob-build-name]')?.textContent?.trim()).toBe('RF 酋長');
+  });
+
+  it('讀完本機資料確認沒有 build 時，才從載入中切換為空狀態', async () => {
+    let resolveRestore!: () => void;
+    fake.restore.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    );
+
+    app = createApp(PobBuildPane);
+    app.mount(container);
+    await nextTick();
+
+    expect(query('[data-pob-build-loading]')).not.toBeNull();
+    expect(query('[data-pob-build-empty-state]')).toBeNull();
+
+    resolveRestore();
+    await flushAsync(0);
+
+    expect(query('[data-pob-build-loading]')).toBeNull();
+    expect(query('[data-pob-build-empty-state]')).not.toBeNull();
   });
 
   it('打開匯入對話框後貼上代碼可匯入，成功後關閉對話框並清空欄位', async () => {

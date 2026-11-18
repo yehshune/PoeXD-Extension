@@ -306,6 +306,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.removeTitle': 'Remove from list',
   'pobBuild.removeAria': 'Remove "{name}" from list',
   'pobBuild.addBuildBtn': 'Import build',
+  'pobBuild.loading': 'Loading PoB builds…',
   'pobBuild.importDialogTitle': 'Import PoB build',
   'pobBuild.cancelBtn': 'Cancel',
   'pobBuild.toggleBuildAria': 'Expand or collapse "{name}"',

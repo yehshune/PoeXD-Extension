@@ -281,6 +281,7 @@ export const ZH_TW_MESSAGES = {
   'pobBuild.removeTitle': '從清單移除',
   'pobBuild.removeAria': '從清單移除「{name}」',
   'pobBuild.addBuildBtn': '匯入 build',
+  'pobBuild.loading': '正在載入 PoB 清單…',
   'pobBuild.importDialogTitle': '匯入 PoB build',
   'pobBuild.cancelBtn': '取消',
   'pobBuild.toggleBuildAria': '展開或收合「{name}」',

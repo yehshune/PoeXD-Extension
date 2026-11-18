@@ -283,6 +283,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.removeTitle': '从清单移除',
   'pobBuild.removeAria': '从清单移除「{name}」',
   'pobBuild.addBuildBtn': '导入 build',
+  'pobBuild.loading': '正在载入 PoB 清单…',
   'pobBuild.importDialogTitle': '导入 PoB build',
   'pobBuild.cancelBtn': '取消',
   'pobBuild.toggleBuildAria': '展开或收起「{name}」',

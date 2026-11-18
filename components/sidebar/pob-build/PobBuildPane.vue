@@ -83,8 +83,18 @@
     </template>
 
     <template #scroll>
+      <div
+        v-if="isLoading && builds.length === 0"
+        data-pob-build-loading
+        role="status"
+        class="flex flex-col items-center justify-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] py-[var(--pxd-space-2xl)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+      >
+        <Loader2 class="size-5 animate-spin opacity-60" aria-hidden="true" />
+        <p class="m-0 leading-relaxed">{{ t('pobBuild.loading') }}</p>
+      </div>
+
       <SidebarEmptyState
-        v-if="builds.length === 0"
+        v-else-if="builds.length === 0"
         :message="t('pobBuild.description')"
         data-pob-build-empty-state
       >
@@ -650,6 +660,7 @@ import {
   Ellipsis,
   ExternalLink,
   Folder,
+  Loader2,
   Pencil,
   Plus,
   Radio,
@@ -740,6 +751,7 @@ export default defineComponent({
     ExternalLink,
     Folder,
     Input,
+    Loader2,
     Pencil,
     Plus,
     PobBuildImportDialog,
@@ -766,6 +778,7 @@ export default defineComponent({
   setup() {
     const version = getPoeVersion();
     const pob = usePobBuild(version);
+    const isLoading = ref(true);
     const isImportOpen = ref(false);
     /** 匯入對話框以「更新代碼」模式開啟時的目標 build */
     const updateTarget = ref<{ id: string; name: string } | null>(null);
@@ -973,14 +986,19 @@ export default defineComponent({
       pob.removeBuild(build.id);
     };
 
-    onMounted(() => {
-      void pob.restore();
+    onMounted(async () => {
+      try {
+        await pob.restore();
+      } finally {
+        isLoading.value = false;
+      }
     });
     onUnmounted(() => pob.dispose());
 
     return {
       t,
       NAME_MAX_LENGTH: POB_BUILD_NAME_MAX_LENGTH,
+      isLoading,
       isImportOpen,
       updateTarget,
       isSearchVisible,
