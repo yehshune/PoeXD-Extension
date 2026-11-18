@@ -345,9 +345,7 @@ export function createPinnedItemStore(storage: PinnedItemStorage): PinnedItemSto
       case 'clear': {
         const { league } = command;
         next =
-          league === undefined
-            ? []
-            : items.filter((item) => !isSameLeague(item.league, league));
+          league === undefined ? [] : items.filter((item) => !isSameLeague(item.league, league));
         break;
       }
     }
