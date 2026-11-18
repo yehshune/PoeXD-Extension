@@ -36,6 +36,16 @@ Store versions update automatically and are recommended. Firefox is not availabl
 
 ## What's new
 
+- **v1.10.0 pinned items & faster affix selector**:
+  - **Pinned items**: pin a result from its hover toolbar and review it later as an official-style
+    card in the sidebar; works on search pages, live search and the LiveSearch Console. Filter,
+    drag to reorder or drag out to unpin; sold items are marked as sold, and instant-buyout items
+    can travel to the seller's hideout.
+  - **Smoother affix selector**: categories with many affixes (e.g. PoE 1 helmets and maps) now
+    render progressively instead of freezing for almost a second.
+  - **Other fixes**: Market Translation now covers magic and Foulborn item names, the PoB shopping
+    list shows a loading state while restoring builds, and dropdowns and sidebar panes share a
+    consistent theme.
 - **v1.9.1 performance & stability fixes**:
   - **Faster trade page startup**: mounts the sidebar immediately while reserving layout space
     upfront to prevent shifts, lazy-mounts secondary tabs on first open, defers affix lexicon,
@@ -44,15 +54,6 @@ Store versions update automatically and are recommended. Firefox is not availabl
   - **Console & bookmark fixes**: keyed LiveSearch Console result batches by `itemData.id` so the
     official refresh button and sold state work properly; fixed cross-league bookmark resume and
     appending new/moved bookmarks to the end of folders; synced the latest `poexd-data` batch.
-- **v1.9.0 highlights**:
-  - **PoB Shopping List & `pobb.in` translation**: import PoB codes or `poe.ninja`, `pobb.in` and
-    `pastebin` links (optional host permissions for the latter two), switch gear/gem sets, translate
-    and tune mods, and search, bookmark or send to the LiveSearch Console in one click; `pobb.in`
-    share pages also translate to Chinese when permitted.
-  - **Result & console upgrades**: added **PoB copy**, **PoEDB links** and **converted-price
-    sorting** (international realm); added console **notification sounds** and **tab auto-discard
-    protection**; unified search preview tuning and added an item level range filter in the affix
-    selector.
 
 See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
 
@@ -100,6 +101,14 @@ waystones and radius jewels are supported.
 - **PoB copy & PoEDB links**: hover the top-left of a result card to copy English **PoB** item text
   (automatically mapped to English on Taiwan/China realms) or open the item's **PoEDB** page.
 - **PoE 2 rune-override estimates**: estimate DPS and defence after rune overrides and sort results.
+
+### 📌 Pinned items
+
+Pin a result from its hover toolbar to save the item with its price, seller and listing time to
+the sidebar, then compare it later as an official-style card; works on search pages, live search
+and the LiveSearch Console. Filter, drag to reorder or drag out to unpin; sold items are marked as
+sold, and instant-buyout items can travel to the seller's hideout. Up to 50 pins per game version,
+stored locally in your browser.
 
 ### 🧩 PoB shopping list
 
