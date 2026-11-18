@@ -215,7 +215,7 @@
             @scroll="handleScroll"
           >
             <div
-              v-for="cat in groupedAffixes"
+              v-for="cat in renderedCategories"
               :key="cat.label"
               class="mods-group mb-[var(--pxd-space-md)] [&+&]:pt-[var(--pxd-section-gap)]"
             >
@@ -234,7 +234,7 @@
                   <span
                     class="group-count text-[length:var(--pxd-font-caption)] text-muted-foreground group-hover/header:text-accent-foreground shrink-0 select-none"
                   >
-                    {{ cat.prefixes.length + cat.suffixes.length + cat.all.length }}
+                    {{ cat.totals.prefixes + cat.totals.suffixes + cat.totals.all }}
                   </span>
                 </div>
                 <Minus
@@ -262,7 +262,7 @@
                       <div
                         class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
                       >
-                        {{ t('filterPane.column.prefixes', { count: cat.prefixes.length }) }}
+                        {{ t('filterPane.column.prefixes', { count: cat.totals.prefixes }) }}
                       </div>
                       <div
                         class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
@@ -270,16 +270,21 @@
                         <ModItem
                           v-for="mod in cat.prefixes"
                           :key="mod.id"
+                          v-memo="[
+                            mod,
+                            cat.affinity,
+                            searchQuery,
+                            expandedKeys.has(mod.id),
+                            isModSelected(mod.id, cat.affinity),
+                          ]"
                           class="mb-[2px]"
                           :mod="mod"
                           :affinity="cat.affinity"
                           :search-query="searchQuery"
                           :is-expanded="expandedKeys.has(mod.id)"
                           :is-selected="isModSelected(mod.id, cat.affinity)"
-                          :is-tier-selected="
-                            (idx) => isFilteredTierSelected(mod, idx, cat.affinity)
-                          "
-                          :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
+                          :is-tier-selected="isModTierSelected"
+                          :get-tier-number="resolveModTierNumber"
                           @toggle-expand="toggleExpand"
                           @toggle-select="toggleModSelection"
                           @toggle-tier-select="handleToggleTierSelection"
@@ -294,7 +299,7 @@
                       <div
                         class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
                       >
-                        {{ t('filterPane.column.suffixes', { count: cat.suffixes.length }) }}
+                        {{ t('filterPane.column.suffixes', { count: cat.totals.suffixes }) }}
                       </div>
                       <div
                         class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
@@ -302,16 +307,21 @@
                         <ModItem
                           v-for="mod in cat.suffixes"
                           :key="mod.id"
+                          v-memo="[
+                            mod,
+                            cat.affinity,
+                            searchQuery,
+                            expandedKeys.has(mod.id),
+                            isModSelected(mod.id, cat.affinity),
+                          ]"
                           class="mb-[2px]"
                           :mod="mod"
                           :affinity="cat.affinity"
                           :search-query="searchQuery"
                           :is-expanded="expandedKeys.has(mod.id)"
                           :is-selected="isModSelected(mod.id, cat.affinity)"
-                          :is-tier-selected="
-                            (idx) => isFilteredTierSelected(mod, idx, cat.affinity)
-                          "
-                          :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
+                          :is-tier-selected="isModTierSelected"
+                          :get-tier-number="resolveModTierNumber"
                           @toggle-expand="toggleExpand"
                           @toggle-select="toggleModSelection"
                           @toggle-tier-select="handleToggleTierSelection"
@@ -329,7 +339,7 @@
                     <div
                       class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
                     >
-                      {{ t('filterPane.column.prefixes', { count: cat.prefixes.length }) }}
+                      {{ t('filterPane.column.prefixes', { count: cat.totals.prefixes }) }}
                     </div>
                     <div
                       class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
@@ -337,14 +347,21 @@
                       <ModItem
                         v-for="mod in cat.prefixes"
                         :key="mod.id"
+                        v-memo="[
+                          mod,
+                          cat.affinity,
+                          searchQuery,
+                          expandedKeys.has(mod.id),
+                          isModSelected(mod.id, cat.affinity),
+                        ]"
                         class="mb-[2px]"
                         :mod="mod"
                         :affinity="cat.affinity"
                         :search-query="searchQuery"
                         :is-expanded="expandedKeys.has(mod.id)"
                         :is-selected="isModSelected(mod.id, cat.affinity)"
-                        :is-tier-selected="(idx) => isFilteredTierSelected(mod, idx, cat.affinity)"
-                        :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
+                        :is-tier-selected="isModTierSelected"
+                        :get-tier-number="resolveModTierNumber"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
                         @toggle-tier-select="handleToggleTierSelection"
@@ -361,7 +378,7 @@
                     <div
                       class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
                     >
-                      {{ t('filterPane.column.suffixes', { count: cat.suffixes.length }) }}
+                      {{ t('filterPane.column.suffixes', { count: cat.totals.suffixes }) }}
                     </div>
                     <div
                       class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
@@ -369,14 +386,21 @@
                       <ModItem
                         v-for="mod in cat.suffixes"
                         :key="mod.id"
+                        v-memo="[
+                          mod,
+                          cat.affinity,
+                          searchQuery,
+                          expandedKeys.has(mod.id),
+                          isModSelected(mod.id, cat.affinity),
+                        ]"
                         class="mb-[2px]"
                         :mod="mod"
                         :affinity="cat.affinity"
                         :search-query="searchQuery"
                         :is-expanded="expandedKeys.has(mod.id)"
                         :is-selected="isModSelected(mod.id, cat.affinity)"
-                        :is-tier-selected="(idx) => isFilteredTierSelected(mod, idx, cat.affinity)"
-                        :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
+                        :is-tier-selected="isModTierSelected"
+                        :get-tier-number="resolveModTierNumber"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
                         @toggle-tier-select="handleToggleTierSelection"
@@ -394,7 +418,7 @@
                       v-if="cat.hasSplit"
                       class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
                     >
-                      {{ t('filterPane.column.others', { count: cat.all.length }) }}
+                      {{ t('filterPane.column.others', { count: cat.totals.all }) }}
                     </div>
                     <div
                       class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
@@ -402,14 +426,21 @@
                       <ModItem
                         v-for="mod in cat.all"
                         :key="mod.id"
+                        v-memo="[
+                          mod,
+                          cat.affinity,
+                          searchQuery,
+                          expandedKeys.has(mod.id),
+                          isModSelected(mod.id, cat.affinity),
+                        ]"
                         class="mb-[2px]"
                         :mod="mod"
                         :affinity="cat.affinity"
                         :search-query="searchQuery"
                         :is-expanded="expandedKeys.has(mod.id)"
                         :is-selected="isModSelected(mod.id, cat.affinity)"
-                        :is-tier-selected="(idx) => isFilteredTierSelected(mod, idx, cat.affinity)"
-                        :get-tier-number="(_tier, idx) => getFilteredTierNumber(mod, idx)"
+                        :is-tier-selected="isModTierSelected"
+                        :get-tier-number="resolveModTierNumber"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
                         @toggle-tier-select="handleToggleTierSelection"
@@ -715,6 +746,7 @@ import type {
   StatFilterModPayload,
 } from './types';
 import ModItem from './ModItem.vue';
+import { useProgressiveAffixRender } from './composables/useProgressiveAffixRender';
 import {
   Dialog,
   DialogContent,
@@ -1062,6 +1094,15 @@ export default defineComponent({
       return isTierSelected(mod.id, resolveCanonicalTierIndex(mod, idx), affinity);
     };
 
+    // ModItem 用的穩定函式參考：inline arrow 每次重繪都是新函式，會讓所有已掛載的 ModItem 一起重繪。
+    // 模板上的 v-memo 依賴 [mod, affinity, searchQuery, 展開, 勾選]；新增會影響 ModItem 的 prop 時要一併加入。
+    // tier 勾選狀態由 ModItem 渲染時自行讀取，不受 v-memo 影響。
+    const isModTierSelected = (idx: number, mod: ModGroup, affinity: string): boolean =>
+      isFilteredTierSelected(mod, idx, affinity);
+
+    const resolveModTierNumber = (_tier: ModTier, idx: number, mod: ModGroup): number =>
+      getFilteredTierNumber(mod, idx);
+
     const handleToggleTierSelection = (
       mod: ModGroup,
       tier: ModTier,
@@ -1119,6 +1160,8 @@ export default defineComponent({
       filtered = filterModGroupsByItemLevel(filtered, itemLevelRange.value);
 
       const categoriesMap: Record<string, CategoryGroup> = {};
+      // 每個大類已加入的詞綴 id；用 Set 查重，避免上千筆詞綴時逐一比對成 O(n²)
+      const seenIdsByAffinity = new Map<string, Set<string>>();
 
       filtered.forEach((mod) => {
         const affinities =
@@ -1141,13 +1184,14 @@ export default defineComponent({
           }
 
           const cat = categoriesMap[affKey];
-          // 檢查是否已加入過此分類，避免重複
-          const exists =
-            cat.prefixes.some((p) => p.id === mod.id) ||
-            cat.suffixes.some((s) => s.id === mod.id) ||
-            cat.all.some((a) => a.id === mod.id);
+          let seenIds = seenIdsByAffinity.get(affKey);
+          if (!seenIds) {
+            seenIds = new Set();
+            seenIdsByAffinity.set(affKey, seenIds);
+          }
 
-          if (!exists) {
+          if (!seenIds.has(mod.id)) {
+            seenIds.add(mod.id);
             if (String(mod.generation_type) === '1') {
               cat.prefixes.push(mod);
             } else if (String(mod.generation_type) === '2') {
@@ -1227,6 +1271,12 @@ export default defineComponent({
 
     const expandedCategories = ref<Set<string>>(new Set());
 
+    // 詞綴多的類別一次掛載上千個 ModItem 會卡住切換，改為分批渲染
+    const { renderedCategories, revealMod } = useProgressiveAffixRender({
+      categories: groupedAffixes,
+      expandedCategories,
+    });
+
     const {
       navAnchorsRef,
       scrollContainerRef,
@@ -1239,6 +1289,7 @@ export default defineComponent({
       expandedCategories,
       expandedKeys,
       getCategoryLabel,
+      revealMod,
     });
 
     // 當搜尋時或剛載入時，自動展開所有匹配結果的區塊
@@ -1761,11 +1812,14 @@ export default defineComponent({
       isInvalidItemLevelRange,
       clearItemLevelFilter,
       isFilteredTierSelected,
+      isModTierSelected,
+      resolveModTierNumber,
       handleToggleTierSelection,
       getFilteredTierNumber,
       generationFilter,
       availableTypes,
       groupedAffixes,
+      renderedCategories,
       expandedCategories,
       toggleCategory,
       clearSearchQuery,

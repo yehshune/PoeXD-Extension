@@ -11,6 +11,8 @@ export interface UseFilterNavigationOptions<
   expandedCategories: Ref<Set<string>>;
   expandedKeys: Ref<Set<string>>;
   getCategoryLabel: (affinity: string) => string;
+  /** 清單分批渲染時，捲動前確保目標詞綴已渲染 */
+  revealMod?: (label: string, modId: string) => void;
 }
 
 export function useFilterNavigation<
@@ -20,6 +22,7 @@ export function useFilterNavigation<
   expandedCategories,
   expandedKeys,
   getCategoryLabel,
+  revealMod,
 }: UseFilterNavigationOptions<T>) {
   const currentActiveCategory = ref('');
   const navAnchorsRef = ref<HTMLElement | null>(null);
@@ -96,6 +99,7 @@ export function useFilterNavigation<
     if (!expandedKeys.value.has(modId)) {
       expandedKeys.value.add(modId);
     }
+    revealMod?.(label, modId);
     setTimeout(() => {
       const container = scrollContainerRef.value;
       if (!container) return;

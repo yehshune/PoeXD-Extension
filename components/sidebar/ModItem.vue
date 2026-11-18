@@ -106,13 +106,15 @@
         class="tier-row group/tier-row relative flex items-center justify-between gap-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] transition-colors duration-100"
         :class="[
           tierHasOfficialId(tier) ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
-          isTierSelected(idx) ? 'bg-muted hover:bg-accent' : 'bg-transparent hover:bg-accent',
+          isTierSelected(idx, mod, affinity)
+            ? 'bg-muted hover:bg-accent'
+            : 'bg-transparent hover:bg-accent',
         ]"
         @click="handleToggleTierSelect(tier, idx)"
       >
         <!-- Checkbox 勾選框 -->
         <Checkbox
-          :model-value="isTierSelected(idx)"
+          :model-value="isTierSelected(idx, mod, affinity)"
           :disabled="!tierHasOfficialId(tier)"
           :aria-label="
             tierHasOfficialId(tier) ? t('modItem.selectTier.aria') : t('modItem.select.unsupported')
@@ -224,8 +226,9 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    /** 會收到 mod 與 affinity，父層可傳同一個函式給所有詞綴，避免每次重繪都產生新 prop 使全部 ModItem 重繪 */
     isTierSelected: {
-      type: Function as PropType<(idx: number) => boolean>,
+      type: Function as PropType<(idx: number, mod: ModGroup, affinity: string) => boolean>,
       required: true,
     },
     searchQuery: {
@@ -233,7 +236,7 @@ export default defineComponent({
       default: '',
     },
     getTierNumber: {
-      type: Function as PropType<(tier: ModTier, idx: number) => number>,
+      type: Function as PropType<(tier: ModTier, idx: number, mod: ModGroup) => number>,
       default: undefined,
     },
   },
@@ -327,7 +330,7 @@ export default defineComponent({
     };
 
     const resolveTierNumber = (tier: ModTier, idx: number): number => {
-      if (props.getTierNumber) return props.getTierNumber(tier, idx);
+      if (props.getTierNumber) return props.getTierNumber(tier, idx, props.mod);
       const total = props.mod.tiers?.length ?? 1;
       return Math.max(1, total - idx);
     };

@@ -14,6 +14,59 @@ import { getOfficialStatLabel } from '@/utils/official-stat-text';
 import { getKnownStatsRef } from '@/utils/known-stats-store';
 import type { ModGroup, ModTier } from '../types';
 
+/** 一個詞綴群組不含顯示標籤的結構；firstTier 留給標籤解析用 */
+type ModGroupStructure = Omit<ModGroup, 'displayTemplate'> & { firstTier: ModTier };
+
+function buildModGroupStructures(
+  modsByKey: Record<string, ModTier[]>,
+  targetTypes: string[],
+): ModGroupStructure[] {
+  const targetTypeSet = new Set(targetTypes);
+  const groups: ModGroupStructure[] = [];
+  for (const [modKey, tiers] of Object.entries(modsByKey)) {
+    const grouped = new Map<
+      string,
+      { generationType: string; affinity: string; tiers: ModTier[] }
+    >();
+    for (const tier of tiers) {
+      if (!tier.types?.some((itemType) => targetTypeSet.has(itemType))) continue;
+      const generationType = String(tier.generation_type || '1');
+      const affinities = tier.affinities?.length ? tier.affinities : ['normal'];
+      for (const affinity of affinities) {
+        const key = `${generationType}_${affinity}`;
+        let group = grouped.get(key);
+        if (!group) {
+          group = { generationType, affinity, tiers: [] };
+          grouped.set(key, group);
+        }
+        group.tiers.push(tier);
+      }
+    }
+    for (const group of grouped.values()) {
+      // 補上 officialId 時產生副本，不改動詞綴字典共用的 tier 物件（computed 內不應有寫入）
+      const sortedTiers = group.tiers
+        .map((tier) => (tier.id && !tier.officialId ? { ...tier, officialId: tier.id } : tier))
+        .sort((a, b) => parseInt(a.level) - parseInt(b.level));
+      const firstTier = sortedTiers[0];
+      groups.push({
+        id: `${modKey}_${group.generationType}_${group.affinity}`,
+        officialId: firstTier.id || firstTier.officialId,
+        ids: firstTier.ids,
+        key: modKey,
+        displayKey: firstTier.displayKey || '',
+        details: sortedTiers
+          .map((tier) => `Lv.${tier.level}: ${tier.displayKey ? `${tier.displayKey} ` : ''}`)
+          .join('\n'),
+        tiers: sortedTiers,
+        generation_type: group.generationType,
+        affinities: [group.affinity],
+        firstTier,
+      });
+    }
+  }
+  return groups;
+}
+
 export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
   /**
    * 數千筆 tier 的唯讀資料，每次都整份替換；用 shallowRef 避免每個 tier 與陣列都被轉成 Proxy + Dep
@@ -163,55 +216,36 @@ export function useFilterData(version: PoeVersion, selectedType: Ref<string>) {
     );
   };
 
-  const getModGroups = (type: string): ModGroup[] => {
-    const groups: ModGroup[] = [];
-    const targetTypes = typeAliases[type] || [type];
-    Object.entries(rawModsData.value).forEach(([modKey, tiers]) => {
-      const matchingTiers = tiers.filter((tier) =>
-        tier.types?.some((itemType) => targetTypes.includes(itemType)),
-      );
-      const grouped: Record<
-        string,
-        { generationType: string; affinity: string; tiers: ModTier[] }
-      > = {};
-      matchingTiers.forEach((tier) => {
-        const generationType = String(tier.generation_type || '1');
-        const affinities = tier.affinities?.length ? tier.affinities : ['normal'];
-        affinities.forEach((affinity) => {
-          const key = `${generationType}_${affinity}`;
-          grouped[key] ||= { generationType, affinity, tiers: [] };
-          grouped[key].tiers.push(tier);
-        });
-      });
-      Object.values(grouped).forEach((group) => {
-        // 補上 officialId 時產生副本，不改動詞綴字典共用的 tier 物件（computed 內不應有寫入）
-        const sortedTiers = group.tiers
-          .map((tier) => (tier.id && !tier.officialId ? { ...tier, officialId: tier.id } : tier))
-          .sort((a, b) => parseInt(a.level) - parseInt(b.level));
-        const firstTier = sortedTiers[0];
-        groups.push({
-          id: `${modKey}_${group.generationType}_${group.affinity}`,
-          officialId: firstTier.id || firstTier.officialId,
-          ids: firstTier.ids,
-          key: modKey,
-          displayKey: firstTier.displayKey || '',
-          displayTemplate: resolveGroupLabel(firstTier),
-          details: sortedTiers
-            .map((tier) => `Lv.${tier.level}: ${tier.displayKey ? `${tier.displayKey} ` : ''}`)
-            .join('\n'),
-          tiers: sortedTiers,
-          generation_type: group.generationType,
-          affinities: [group.affinity],
-        });
-      });
-    });
-    return groups;
+  /**
+   * 分組結構（不含標籤）只取決於字典資料與類別，依類別快取：切回看過的類別不用再掃一次全部 tier。
+   * 以 rawModsData 物件當 WeakMap 鍵，字典或語系重組時自然失效。
+   * 標籤仍每次解析，才會跟著官方市集文字的載入（revision）與語系即時更新。
+   */
+  const structureCache = new WeakMap<object, Map<string, ModGroupStructure[]>>();
+
+  const getModGroupStructures = (type: string): ModGroupStructure[] => {
+    const source = rawModsData.value;
+    let byType = structureCache.get(source);
+    if (!byType) {
+      byType = new Map();
+      structureCache.set(source, byType);
+    }
+    const cached = byType.get(type);
+    if (cached) return cached;
+    const structures = buildModGroupStructures(source, typeAliases[type] || [type]);
+    byType.set(type, structures);
+    return structures;
   };
+
+  const getModGroups = (type: string): ModGroup[] =>
+    getModGroupStructures(type).map(({ firstTier, ...group }) => ({
+      ...group,
+      displayTemplate: resolveGroupLabel(firstTier),
+    }));
 
   const currentTypeGroups = computed(() =>
     Object.keys(rawModsData.value).length ? getModGroups(selectedType.value) : [],
   );
-
   /**
    * 組裝數千筆 tier 要上百毫秒：同一個字典版本與語系只組一次。
    * 字典載完會同時觸發 revision watch 與 loadData，沒有這道檢查會連續組兩次。
