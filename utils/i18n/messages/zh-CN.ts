@@ -1186,6 +1186,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pinnedItem.action.travelSent': '已传送',
   'pinnedItem.action.travelTitle': '与官方按钮相同：直接传送到卖家的藏身处',
   'pinnedItem.action.expand': '展开物品详细',
+  'pinnedItem.trash.release': '松开以取消钉选',
   'pinnedItem.action.collapse': '收起，只显示物品名称',
   'pinnedItem.action.whisper': '复制密语',
   'pinnedItem.action.whisperTitle': '复制密语到剪贴板（不会自动发送）',

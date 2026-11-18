@@ -326,7 +326,12 @@ export interface PinnedItemStorage {
 export type PinnedItemCommand =
   | { type: 'pin'; gameVersion: PoeVersion; snapshot: unknown }
   | { type: 'unpin'; gameVersion: PoeVersion; id: string }
-  | { type: 'clear'; gameVersion: PoeVersion; league?: string };
+  | { type: 'clear'; gameVersion: PoeVersion; league?: string }
+  /**
+   * 依 ids 的順序重排：列出的物品照新順序填回它們原本佔的位置，沒列出的不動。
+   * 只顯示目前聯盟時拖曳排序，其他聯盟的釘選因此維持原位。
+   */
+  | { type: 'reorder'; gameVersion: PoeVersion; ids: string[] };
 
 export type PinnedItemErrorCode = 'limit' | 'invalid' | 'unavailable';
 
@@ -340,6 +345,24 @@ const fail = (code: PinnedItemErrorCode, message: string): PinnedItemOutcome => 
 });
 
 const isPoeVersion = (value: unknown): value is PoeVersion => value === 'poe1' || value === 'poe2';
+
+/**
+ * 依 ids 的順序重排（回傳新陣列，不修改輸入）：列出的物品照新順序填回它們原本佔的位置，
+ * 沒列出或不存在的 id 不影響其他物品。只顯示目前聯盟時拖曳排序，其他聯盟的釘選因此維持原位。
+ */
+export function applyPinnedOrder<T extends { id: string }>(
+  items: readonly T[],
+  ids: readonly string[],
+): T[] {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const ordered = [...new Set(ids)].flatMap((id) => {
+    const item = byId.get(id);
+    return item ? [item] : [];
+  });
+  const listed = new Set(ordered.map((item) => item.id));
+  let slot = 0;
+  return items.map((item) => (listed.has(item.id) ? ordered[slot++]! : item));
+}
 
 export interface PinnedItemStore {
   execute(command: unknown): Promise<PinnedItemOutcome>;
@@ -372,6 +395,9 @@ export function createPinnedItemStore(storage: PinnedItemStorage): PinnedItemSto
       }
       case 'unpin':
         next = items.filter((item) => item.id !== command.id);
+        break;
+      case 'reorder':
+        next = applyPinnedOrder(items, command.ids);
         break;
       case 'clear': {
         const { league } = command;
@@ -418,6 +444,18 @@ export function parsePinnedItemCommand(raw: unknown): PinnedItemCommand | undefi
         gameVersion,
         ...(typeof raw.league === 'string' ? { league: raw.league } : {}),
       };
+    case 'reorder': {
+      const ids = raw.ids;
+      if (
+        !Array.isArray(ids) ||
+        ids.length > PINNED_ITEM_LIMIT * 2 ||
+        !ids.every((id) => typeof id === 'string' && id.length > 0 && id.length <= 128) ||
+        new Set(ids).size !== ids.length
+      ) {
+        return undefined;
+      }
+      return { type: 'reorder', gameVersion, ids: [...(ids as string[])] };
+    }
     default:
       return undefined;
   }

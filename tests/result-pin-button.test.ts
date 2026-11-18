@@ -21,6 +21,7 @@ function setupClient(pinOutcome: PinnedItemOutcome = { ok: true }) {
     pin: vi.fn(async (_snapshot: PinnedItemSnapshot) => pinOutcome),
     unpin: vi.fn(async (): Promise<PinnedItemOutcome> => ({ ok: true })),
     clear: vi.fn(async (): Promise<PinnedItemOutcome> => ({ ok: true })),
+    reorder: vi.fn(async (): Promise<PinnedItemOutcome> => ({ ok: true })),
   } satisfies PinnedItemClient;
   return { client, emit: (items: PinnedItemSnapshot[]) => listener?.(items) };
 }

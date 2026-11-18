@@ -1259,6 +1259,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pinnedItem.action.travelSent': 'Sent',
   'pinnedItem.action.travelTitle': "Same as the official button: teleport to the seller's hideout",
   'pinnedItem.action.expand': 'Show item details',
+  'pinnedItem.trash.release': 'Release to unpin item',
   'pinnedItem.action.collapse': 'Collapse to the item name',
   'pinnedItem.action.whisper': 'Copy whisper',
   'pinnedItem.action.whisperTitle': 'Copy the whisper to the clipboard (it is not sent)',

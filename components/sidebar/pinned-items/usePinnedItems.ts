@@ -14,7 +14,12 @@ import {
   type HideoutTravelOutcome,
 } from '@/utils/pinned-item-actions';
 import { createPinnedItemClient } from '@/utils/pinned-item-client';
-import { isSameLeague, PINNED_ITEM_LIMIT, type PinnedItemSnapshot } from '@/utils/pinned-items';
+import {
+  applyPinnedOrder,
+  isSameLeague,
+  PINNED_ITEM_LIMIT,
+  type PinnedItemSnapshot,
+} from '@/utils/pinned-items';
 import { isPobExportableItem } from '@/utils/pob-item-text';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
 import { getTradeResultCache } from '@/utils/trade-result-cache';
@@ -142,6 +147,15 @@ export function usePinnedItems() {
     if (!outcome.ok) notify(t('pinnedItem.toast.failed'), 'error');
   }
 
+  /** 拖曳排序：先在畫面上套用新順序，再交給背景寫入；失敗時提示並讀回儲存的順序 */
+  async function reorder(ids: readonly string[]) {
+    items.value = applyPinnedOrder(items.value, ids);
+    const outcome = await client.reorder(ids).catch(() => undefined);
+    if (outcome?.ok) return;
+    notify(t('pinnedItem.toast.failed'), 'error');
+    items.value = await client.list().catch(() => items.value);
+  }
+
   async function clearVisible() {
     const league = showAllLeagues.value || !currentLeague ? undefined : currentLeague;
     const outcome = await client.clear(league);
@@ -164,6 +178,7 @@ export function usePinnedItems() {
     copyPob,
     openSource,
     unpin,
+    reorder,
     clearVisible,
   };
 }

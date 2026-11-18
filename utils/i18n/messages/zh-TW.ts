@@ -1184,6 +1184,7 @@ export const ZH_TW_MESSAGES = {
   'pinnedItem.action.travelSent': '已傳送',
   'pinnedItem.action.travelTitle': '與官方按鈕相同：直接傳送到賣家的藏身處',
   'pinnedItem.action.expand': '展開物品詳細',
+  'pinnedItem.trash.release': '放開以取消釘選',
   'pinnedItem.action.collapse': '收合，只顯示物品名稱',
   'pinnedItem.action.whisper': '複製密語',
   'pinnedItem.action.whisperTitle': '複製密語到剪貼簿（不會自動送出）',

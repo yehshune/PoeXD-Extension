@@ -22,6 +22,8 @@ let resultset: HTMLElement | null = null;
 // 收合時隱藏物品框內容與插槽，圖示依格數縮到約一格高（官方圖示一格約 47px）
 const LOCAL_STYLE = `
   :host { display: block; }
+  /* 卡片是拖曳排序的把手：不讓圖片被單獨拖走、也不選取文字 */
+  #trade, #trade * { user-select: none; -webkit-user-drag: none; }
   #trade {
     width: auto; min-width: 0; min-height: 0; margin: 0; padding: 0; background: none;
   }

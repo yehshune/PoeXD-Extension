@@ -308,6 +308,7 @@
                 <PinnedItemPane
                   v-if="isTabMounted('pinned-items')"
                   v-show="activeTab === 'pinned-items'"
+                  :sidebar-position="sidebarPosition"
                 />
 
                 <!-- Outer-scroll panes: Tools & Settings 由外層 ScrollArea 擁有 scrolling -->
@@ -345,6 +346,7 @@
                 <PinnedItemPane
                   v-if="primaryPinnedMounted"
                   v-show="primaryActiveTab === 'pinned-items'"
+                  :sidebar-position="sidebarPosition"
                 />
                 <LiveSearchConsoleSettingsPane
                   v-show="primaryActiveTab === 'console-settings'"

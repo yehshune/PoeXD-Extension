@@ -25,6 +25,8 @@ export interface PinnedItemClient {
   unpin(id: string): Promise<PinnedItemOutcome>;
   /** 不帶 league 時清除此遊戲版本的全部釘選 */
   clear(league?: string): Promise<PinnedItemOutcome>;
+  /** 依 ids 的順序重排（沒列出的物品維持原位） */
+  reorder(ids: readonly string[]): Promise<PinnedItemOutcome>;
 }
 
 const chromeDeps: PinnedItemClientDeps = {
@@ -59,6 +61,7 @@ export function createPinnedItemClient(
       deps.subscribe(key, (value) => listener(parseStoredPinnedList(value, version).items)),
     pin: (snapshot) => send({ type: 'pin', gameVersion: version, snapshot }),
     unpin: (id) => send({ type: 'unpin', gameVersion: version, id }),
+    reorder: (ids) => send({ type: 'reorder', gameVersion: version, ids: [...ids] }),
     clear: (league) =>
       send({ type: 'clear', gameVersion: version, ...(league !== undefined ? { league } : {}) }),
   };

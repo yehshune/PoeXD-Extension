@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyPinnedOrder,
   createPinnedItemSnapshot,
   createPinnedItemStore,
   isSameLeague,
@@ -203,6 +204,29 @@ describe('createPinnedItemStore', () => {
     ).resolves.toMatchObject({ ok: false, error: { code: 'invalid' } });
   });
 
+  it('reorders the listed pins within their own slots and leaves the rest in place', async () => {
+    const other = { ...snapshot('x'), league: 'Standard' };
+    const unknown = { future: true };
+    const { data, storage } = memoryStorage({
+      [key]: [snapshot('a'), other, snapshot('b'), unknown, snapshot('c')],
+    });
+    await expect(
+      createPinnedItemStore(storage).execute({
+        type: 'reorder',
+        gameVersion: 'poe1',
+        ids: ['c', 'missing', 'a', 'b'],
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect((data[key] as { id?: string }[]).map((entry) => entry.id ?? 'unknown')).toEqual([
+      'c',
+      'x',
+      'a',
+      'b',
+      // 無法解析的項目照既有規則保留在最後
+      'unknown',
+    ]);
+  });
+
   it('serializes concurrent writes', async () => {
     const { data, storage } = memoryStorage();
     const store = createPinnedItemStore(storage);
@@ -212,6 +236,25 @@ describe('createPinnedItemStore', () => {
       ),
     );
     expect(data[key]).toHaveLength(3);
+  });
+});
+
+describe('applyPinnedOrder', () => {
+  const list = ['a', 'b', 'c', 'd'].map((id) => ({ id }));
+
+  it('returns a new array without touching the input', () => {
+    const next = applyPinnedOrder(list, ['d', 'a']);
+    expect(next.map((item) => item.id)).toEqual(['d', 'b', 'c', 'a']);
+    expect(list.map((item) => item.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('ignores unknown and repeated ids', () => {
+    expect(applyPinnedOrder(list, ['b', 'b', 'zz', 'a']).map((item) => item.id)).toEqual([
+      'b',
+      'a',
+      'c',
+      'd',
+    ]);
   });
 });
 
@@ -234,5 +277,16 @@ describe('parsePinnedItemCommand', () => {
       type: 'clear',
       gameVersion: 'poe2',
     });
+  });
+
+  it('validates reorder ids', () => {
+    const reorder = (ids: unknown) =>
+      parsePinnedItemCommand({ type: 'reorder', gameVersion: 'poe1', ids });
+    expect(reorder(['a', 'b'])).toEqual({ type: 'reorder', gameVersion: 'poe1', ids: ['a', 'b'] });
+    expect(reorder('a')).toBeUndefined();
+    expect(reorder(['a', 'a'])).toBeUndefined();
+    expect(reorder(['a', 5])).toBeUndefined();
+    expect(reorder([''])).toBeUndefined();
+    expect(reorder(Array.from({ length: 101 }, (_, i) => `id${i}`))).toBeUndefined();
   });
 });
