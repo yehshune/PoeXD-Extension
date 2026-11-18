@@ -1,13 +1,8 @@
 <script setup lang="ts">
-import { onBeforeUnmount, type PropType } from 'vue';
+import { onBeforeUnmount, ref, type PropType } from 'vue';
 import { ChevronDown } from '@lucide/vue';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { SelectTrigger } from 'reka-ui';
+import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { t } from '@/utils/i18n';
 import {
   toStatDomainKey,
@@ -19,8 +14,8 @@ import type { PoeVersion } from '@/utils/trade-context';
 import { trackNestedMenuOpen } from './nested-menu-guard';
 
 /**
- * 可切換網域的詞綴標籤：外觀與網域徽章相同，點開選單直接選擇前綴。
- * 根節點是無外框的 DropdownMenu，額外屬性（例如 data-*）套在觸發鈕上。
+ * 可切換網域的詞綴標籤：外觀維持微型網域徽章，選單採用與群組類別一致的 Select，
+ * 額外屬性（例如 data-*）套在觸發鈕上。
  */
 defineOptions({ inheritAttrs: false });
 
@@ -39,29 +34,39 @@ const keyOf = (domain: string) => toStatDomainKey(domain);
 const labelOf = (domain: string) => getStatDomainBadgeLabel(keyOf(domain), props.version) ?? domain;
 
 // 選單開著時被卸載（例如外層 Popover 關閉）不會收到關閉事件，自己補上，避免開啟計數卡住
-let isOpen = false;
+const isOpen = ref(false);
 function onOpenChange(open: boolean): void {
-  if (open === isOpen) return;
-  isOpen = open;
+  if (open === isOpen.value) return;
+  isOpen.value = open;
   trackNestedMenuOpen(open);
 }
 onBeforeUnmount(() => onOpenChange(false));
 
 function onSelect(value: unknown): void {
   const domain = String(value);
+  onOpenChange(false);
   if (domain !== props.domain && props.domains.includes(domain)) emit('select', domain);
 }
 </script>
 
 <template>
-  <DropdownMenu @update:open="onOpenChange">
-    <DropdownMenuTrigger as-child :disabled="disabled">
+  <Select
+    :open="isOpen"
+    :model-value="domain"
+    :disabled="disabled"
+    @update:open="onOpenChange"
+    @update:model-value="onSelect"
+  >
+    <SelectTrigger as-child>
       <button
         type="button"
         v-bind="$attrs"
         :class="[
           STAT_DOMAIN_BADGE_CLASS,
-          'inline-flex cursor-pointer items-center gap-px bg-transparent hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50',
+          domain === 'explicit'
+            ? 'bg-transparent font-normal text-muted-foreground/65 hover:bg-muted hover:text-foreground'
+            : 'hover:border-current/35',
+          'inline-flex cursor-pointer items-center gap-px transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         ]"
         :style="getStatDomainStyle(keyOf(domain))"
         :data-stat-domain="domain"
@@ -71,21 +76,20 @@ function onSelect(value: unknown): void {
         {{ labelOf(domain) }}
         <ChevronDown class="size-3 shrink-0" aria-hidden="true" />
       </button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="start">
-      <DropdownMenuRadioGroup :model-value="domain" @update:model-value="onSelect">
-        <DropdownMenuRadioItem
-          v-for="option in domains"
-          :key="option"
-          :value="option"
-          data-stat-domain-option
-          :data-stat-domain="option"
-          :class="option === 'explicit' ? undefined : 'pxd-stat-domain-text'"
-          :style="getStatDomainStyle(keyOf(option))"
-        >
-          {{ labelOf(option) }}
-        </DropdownMenuRadioItem>
-      </DropdownMenuRadioGroup>
-    </DropdownMenuContent>
-  </DropdownMenu>
+    </SelectTrigger>
+    <SelectContent align="start" class="min-w-24">
+      <SelectItem
+        v-for="option in domains"
+        :key="option"
+        :value="option"
+        data-stat-domain-option
+        :data-stat-domain="option"
+        :class="option === 'explicit' ? undefined : 'pxd-stat-domain-text'"
+        :style="getStatDomainStyle(keyOf(option))"
+        @click="onSelect(option)"
+      >
+        {{ labelOf(option) }}
+      </SelectItem>
+    </SelectContent>
+  </Select>
 </template>

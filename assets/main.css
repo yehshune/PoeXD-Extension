@@ -456,18 +456,14 @@
   color: var(--pxd-stat-color, var(--foreground));
 }
 
-.pxd-stat-domain-badge {
-  color: var(--pxd-stat-color, var(--secondary-foreground));
+.pxd-stat-domain-badge:not([data-stat-domain='explicit']) {
+  color: var(--pxd-stat-color, var(--muted-foreground));
   background-color: color-mix(
     in oklab,
-    var(--pxd-stat-color, var(--secondary-foreground)) 16%,
+    var(--pxd-stat-color, var(--muted-foreground)) 15%,
     transparent
   );
-  border-color: color-mix(
-    in oklab,
-    var(--pxd-stat-color, var(--secondary-foreground)) 40%,
-    transparent
-  );
+  border-color: transparent;
 }
 
 /* 對齊 2px 偶數像素網格（搭配 1px 邊框），確保任何 UI Scale 與子像素座標下，勾選框內部實心方塊皆左右／上下等距置中 */

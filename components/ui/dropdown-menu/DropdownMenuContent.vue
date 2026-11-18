@@ -17,9 +17,45 @@ const delegatedProps = reactiveOmit(props, 'class');
 
 const forwarded = useForwardPropsEmits(delegatedProps, emits);
 
+function isTriggerInPath(event: CustomEvent<{ originalEvent?: Event }>): boolean {
+  const path = event.detail?.originalEvent?.composedPath?.() ?? [];
+  const currentTarget = event.currentTarget as HTMLElement | null;
+  const contentId = currentTarget?.id;
+  return path.some(
+    (node) =>
+      node instanceof Element &&
+      ((contentId && node.getAttribute('aria-controls') === contentId) ||
+        node.getAttribute('data-slot') === 'dropdown-menu-trigger'),
+  );
+}
+
 function handleFocusOutside(event: CustomEvent<{ originalEvent?: FocusEvent }>) {
   const target = event.detail?.originalEvent?.target;
-  if (target instanceof Element && target.closest('[data-slot="dropdown-menu-trigger"]')) {
+  if (
+    (target instanceof Element && target.closest('[data-slot="dropdown-menu-trigger"]')) ||
+    isTriggerInPath(event)
+  ) {
+    event.preventDefault();
+  }
+}
+
+/**
+ * Shadow DOM 內點擊已開啟的觸發鈕時，document 層級看到的 event.target 會被重導向為 shadowHost，
+ * 導致 reka 內建的 triggerElement.contains(event.target) 失效而於 pointerdown 先行關閉、緊接著被
+ * trigger 的 click 重新打開。透過 composedPath 辨識自身觸發鈕並擋下 outside dismiss，交由 click 正常切換關閉。
+ */
+function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>) {
+  const path = event.detail?.originalEvent?.composedPath?.() ?? [];
+  const currentTarget = event.currentTarget as HTMLElement | null;
+  const contentId = currentTarget?.id;
+  const hitOwnOpenTrigger = path.some(
+    (node) =>
+      node instanceof Element &&
+      ((contentId && node.getAttribute('aria-controls') === contentId) ||
+        (node.getAttribute('data-slot') === 'dropdown-menu-trigger' &&
+          node.getAttribute('data-state') === 'open')),
+  );
+  if (hitOwnOpenTrigger) {
     event.preventDefault();
   }
 }
@@ -37,6 +73,7 @@ function handleFocusOutside(event: CustomEvent<{ originalEvent?: FocusEvent }>) 
         )
       "
       @focus-outside="handleFocusOutside"
+      @interact-outside="handleInteractOutside"
     >
       <slot />
     </DropdownMenuContent>

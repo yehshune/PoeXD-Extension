@@ -16,7 +16,7 @@ const emit = defineEmits<{ close: [] }>();
 
 <template>
   <div
-    class="preview-header preview-title-row flex h-[var(--pxd-sidebar-affix-dialog-header-height)] min-w-0 shrink-0 items-center gap-[var(--pxd-space-sm)] border-b border-border bg-background px-[var(--pxd-pane-padding)]"
+    class="preview-header preview-title-row flex h-[var(--pxd-sidebar-affix-dialog-header-height)] min-w-0 shrink-0 items-center gap-[var(--pxd-space-sm)] border-b border-border/60 bg-muted/30 px-[var(--pxd-pane-padding)]"
   >
     <span
       class="preview-source-name min-w-0 flex-1 truncate text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px]"

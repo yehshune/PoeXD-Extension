@@ -25,6 +25,9 @@ import PreviewStatRow, { type PreviewStatBounds } from '../item-preview/PreviewS
 import StatGroupTypeSelect from '../item-preview/StatGroupTypeSelect.vue';
 import {
   PREVIEW_BOUND_INPUT_CLASS,
+  PREVIEW_CARD_CLASS,
+  PREVIEW_GROUP_HEADER_CLASS,
+  PREVIEW_META_BLOCK_CLASS,
   PREVIEW_TAG_CLASS,
   PREVIEW_TOOLBAR_CLASS,
 } from '../item-preview/preview-classes';
@@ -275,8 +278,9 @@ function discardDraft(): void {
       >
         <Button
           v-if="effectiveRow.query"
-          variant="outline"
+          variant="secondary"
           size="sm"
+          class="border-transparent px-[var(--pxd-space-sm)] shadow-none"
           data-pob-build-popover-search
           :title="t('pobBuild.searchTitle')"
           @click="emit('open-search', 'current', effectiveRow)"
@@ -286,20 +290,22 @@ function discardDraft(): void {
         </Button>
         <Button
           v-if="effectiveRow.query"
-          variant="outline"
-          size="sm"
+          variant="ghost"
+          size="icon-sm"
+          class="shrink-0 text-foreground/80"
           data-pob-build-popover-new-tab
           :title="t('pobBuild.openNewTabTitle')"
+          :aria-label="t('pobBuild.openNewTabTitle')"
           @click="emit('open-search', 'new-tab', effectiveRow)"
         >
           <ExternalLink aria-hidden="true" />
-          {{ t('pobBuild.openNewTabTitle') }}
+          <span class="sr-only">{{ t('pobBuild.openNewTabTitle') }}</span>
         </Button>
         <Button
           v-if="isDraftModified"
           variant="outline"
           size="sm"
-          class="border-primary/50 text-primary"
+          class="ml-auto border-primary/50 bg-primary/10 px-[var(--pxd-space-sm)] text-primary shadow-none"
           data-pob-build-save-selection
           :title="t('pobBuild.mods.saveSelectionTitle')"
           @click="saveDraft"
@@ -309,21 +315,22 @@ function discardDraft(): void {
         </Button>
         <Button
           v-if="isDraftModified"
-          variant="outline"
-          size="sm"
-          class="ml-auto"
+          variant="ghost"
+          size="icon-sm"
+          class="shrink-0"
           data-pob-build-discard-draft
           :title="t('searchPreview.action.resetTuneTitle')"
+          :aria-label="t('searchPreview.action.resetTune')"
           @click="discardDraft"
         >
           <RotateCcw aria-hidden="true" />
-          {{ t('searchPreview.action.resetTune') }}
+          <span class="sr-only">{{ t('searchPreview.action.resetTune') }}</span>
         </Button>
         <Button
           v-else-if="effectiveRow.searchCustomized"
-          variant="outline"
+          variant="ghost"
           size="sm"
-          class="ml-auto"
+          class="ml-auto px-[var(--pxd-space-sm)]"
           data-pob-build-reset-search
           @click="emit('reset-search')"
         >
@@ -336,17 +343,38 @@ function discardDraft(): void {
       <div
         class="min-h-0 flex-1 overflow-y-auto pxd-scrollbar p-[var(--pxd-pane-padding)] flex flex-col gap-[var(--pxd-space-md)]"
       >
-        <!-- 物品／基底卡片 -->
+        <!-- 物品／基底與上架狀態摘要區：合併為單一無框底色區塊 -->
         <div
-          class="flex flex-col gap-[var(--pxd-space-xs)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] leading-[1.35]"
+          v-if="
+            itemCardTitle ||
+            itemCardBase ||
+            showEnglishSubtitle ||
+            (effectiveRow.query && !effectiveRow.searchOverride)
+          "
+          :class="[PREVIEW_META_BLOCK_CLASS, 'flex flex-col gap-[var(--pxd-space-xs)]']"
         >
-          <div v-if="itemCardTitle" class="text-foreground">
-            {{ t('searchPreview.label.item')
-            }}<span class="font-semibold" :class="nameClass">{{ itemCardTitle }}</span>
-          </div>
-          <div v-if="itemCardBase" class="text-muted-foreground">
-            {{ t('searchPreview.label.base')
-            }}<span class="text-foreground">{{ itemCardBase }}</span>
+          <div
+            class="flex flex-wrap items-baseline justify-between gap-x-[var(--pxd-space-md)] gap-y-[var(--pxd-space-xs)]"
+          >
+            <div
+              class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-[var(--pxd-space-md)] gap-y-[var(--pxd-space-xs)]"
+            >
+              <div v-if="itemCardTitle" class="text-foreground">
+                <span class="text-muted-foreground">{{ t('searchPreview.label.item') }}</span>
+                <span class="font-semibold" :class="nameClass">{{ itemCardTitle }}</span>
+              </div>
+              <div v-if="itemCardBase" class="text-muted-foreground">
+                {{ t('searchPreview.label.base')
+                }}<span class="text-foreground">{{ itemCardBase }}</span>
+              </div>
+            </div>
+            <span
+              v-if="effectiveRow.query && !effectiveRow.searchOverride"
+              class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground"
+            >
+              {{ t('searchPreview.label.status')
+              }}<span class="text-foreground">{{ t('pobBuild.statusInstantBuyout') }}</span>
+            </span>
           </div>
           <div
             v-if="showEnglishSubtitle"
@@ -354,17 +382,6 @@ function discardDraft(): void {
           >
             {{ effectiveRow.englishName }}
           </div>
-        </div>
-
-        <!-- 上架狀態卡片 -->
-        <div
-          v-if="effectiveRow.query && !effectiveRow.searchOverride"
-          class="flex items-center justify-between gap-[var(--pxd-space-md)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)]"
-        >
-          <span class="text-muted-foreground">
-            {{ t('searchPreview.label.status')
-            }}<span class="text-foreground">{{ t('pobBuild.statusInstantBuyout') }}</span>
-          </span>
         </div>
 
         <!-- 存回搜尋覆寫提示 -->
@@ -391,10 +408,61 @@ function discardDraft(): void {
             </span>
           </div>
 
-          <div
-            class="overflow-hidden rounded-md border border-border"
-            :class="{ 'opacity-60': effectiveRow.searchOverride }"
-          >
+          <div :class="[PREVIEW_CARD_CLASS, { 'opacity-60': effectiveRow.searchOverride }]">
+            <!-- 群組類別（且／計數，比照搜尋預覽整合在卡片標頭）與總和條件 -->
+            <div
+              v-if="effectiveRow.filters.length > 0"
+              :class="[
+                PREVIEW_GROUP_HEADER_CLASS,
+                'gap-x-[var(--pxd-space-md)] text-muted-foreground',
+              ]"
+            >
+              <StatGroupTypeSelect
+                data-pob-build-count-mode
+                :type="effectiveRow.countMin !== undefined ? 'count' : 'and'"
+                :options="POB_GROUP_TYPES"
+                :disabled="effectiveRow.searchOverride || effectiveRow.visceraBundle"
+                :aria-label="t('pobBuild.mods.groupTypeAria')"
+                @select="(type) => toggleCountMode(type === 'count')"
+              />
+              <span
+                v-if="effectiveRow.countMin !== undefined"
+                class="inline-flex items-center gap-[var(--pxd-space-xs)]"
+              >
+                <Input
+                  size="sm"
+                  type="number"
+                  min="1"
+                  :max="enabledCount"
+                  step="1"
+                  data-pob-build-count-min
+                  :class="PREVIEW_BOUND_INPUT_CLASS"
+                  :model-value="effectiveRow.countMin"
+                  :disabled="effectiveRow.searchOverride"
+                  :aria-label="t('pobBuild.mods.countAria')"
+                  @change="commitCountMin($event)"
+                  @keydown.enter.prevent="blurTarget"
+                />
+                <span v-if="t('pobBuild.mods.countUnit')">{{ t('pobBuild.mods.countUnit') }}</span>
+              </span>
+              <span
+                v-if="hasPseudo"
+                class="ml-auto inline-flex items-center gap-[var(--pxd-space-xs)]"
+              >
+                <Checkbox
+                  :id="controlId('pseudo')"
+                  data-pob-build-pseudo
+                  :model-value="effectiveRow.pseudo"
+                  :disabled="effectiveRow.searchOverride"
+                  @update:model-value="(value) => setPseudo(value === true)"
+                />
+                <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->
+                <label :for="controlId('pseudo')" class="cursor-pointer text-foreground/85">{{
+                  t('pobBuild.mods.pseudo')
+                }}</label>
+              </span>
+            </div>
+
             <PreviewStatRow
               v-for="line in modLines"
               :key="line.index"
@@ -416,55 +484,6 @@ function discardDraft(): void {
               @select-domain="(domain) => setDomain(line.key!, domain)"
               @commit-bound="(bound, value) => commitBound(line.key!, bound, value)"
             />
-          </div>
-
-          <!-- 群組類別（且／計數，同市集的詞綴群組）與總和條件 -->
-          <div
-            v-if="effectiveRow.filters.length > 0"
-            class="mt-[var(--pxd-space-xs)] flex flex-wrap items-center gap-x-[var(--pxd-space-lg)] gap-y-[var(--pxd-space-sm)] rounded-md border border-border bg-muted/30 px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] text-muted-foreground"
-            :class="{ 'opacity-60': effectiveRow.searchOverride }"
-          >
-            <StatGroupTypeSelect
-              data-pob-build-count-mode
-              :type="effectiveRow.countMin !== undefined ? 'count' : 'and'"
-              :options="POB_GROUP_TYPES"
-              :disabled="effectiveRow.searchOverride || effectiveRow.visceraBundle"
-              :aria-label="t('pobBuild.mods.groupTypeAria')"
-              @select="(type) => toggleCountMode(type === 'count')"
-            />
-            <span
-              v-if="effectiveRow.countMin !== undefined"
-              class="inline-flex items-center gap-[var(--pxd-space-xs)]"
-            >
-              <Input
-                size="sm"
-                type="number"
-                min="1"
-                :max="enabledCount"
-                step="1"
-                data-pob-build-count-min
-                :class="PREVIEW_BOUND_INPUT_CLASS"
-                :model-value="effectiveRow.countMin"
-                :disabled="effectiveRow.searchOverride"
-                :aria-label="t('pobBuild.mods.countAria')"
-                @change="commitCountMin($event)"
-                @keydown.enter.prevent="blurTarget"
-              />
-              <span v-if="t('pobBuild.mods.countUnit')">{{ t('pobBuild.mods.countUnit') }}</span>
-            </span>
-            <span v-if="hasPseudo" class="inline-flex items-center gap-[var(--pxd-space-xs)]">
-              <Checkbox
-                :id="controlId('pseudo')"
-                data-pob-build-pseudo
-                :model-value="effectiveRow.pseudo"
-                :disabled="effectiveRow.searchOverride"
-                @update:model-value="(value) => setPseudo(value === true)"
-              />
-              <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->
-              <label :for="controlId('pseudo')" class="cursor-pointer">{{
-                t('pobBuild.mods.pseudo')
-              }}</label>
-            </span>
           </div>
         </div>
       </div>

@@ -33,7 +33,7 @@ const STAT_DOMAIN_SET = new Set<string>(STAT_DOMAIN_KEYS);
 
 /** PoB 與書籤／歷史預覽共用的網域標籤外觀類別。 */
 export const STAT_DOMAIN_BADGE_CLASS =
-  'pxd-stat-domain-badge shrink-0 whitespace-nowrap rounded-sm border px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold leading-[1.3]';
+  'pxd-stat-domain-badge shrink-0 whitespace-nowrap rounded-sm border border-transparent px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-caption)] font-semibold leading-[1.3]';
 
 /**
  * 同步 fallback 對照表（取自各語系官方 trade-stats.json `labels`）：

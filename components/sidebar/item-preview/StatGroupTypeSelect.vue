@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/select';
 import { STAT_GROUP_TYPE_LABELS } from '@/components/injected/criteria-overlay-labels';
 import { isStatGroupType, type StatGroupType } from '@/utils/trade-query-tuning';
+import { PREVIEW_COMPACT_SELECT_CLASS } from './preview-classes';
 
 /**
  * 詞綴群組類別的下拉選單（且、非、若、計數、加權總和），名稱同市集。
@@ -39,7 +40,11 @@ function onSelect(value: unknown): void {
 
 <template>
   <Select :model-value="type" :disabled="disabled" @update:model-value="onSelect">
-    <SelectTrigger size="sm" class="w-auto shrink-0 font-semibold" v-bind="$attrs">
+    <SelectTrigger
+      size="sm"
+      :class="[PREVIEW_COMPACT_SELECT_CLASS, 'font-semibold']"
+      v-bind="$attrs"
+    >
       <SelectValue>{{ labelOf(type) }}</SelectValue>
     </SelectTrigger>
     <SelectContent>

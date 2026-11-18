@@ -771,7 +771,18 @@ describe('PobBuildPane', () => {
       await flushAsync(40);
       expect(inShadow('[data-pob-build-mods-popover]')).not.toBeNull();
 
-      await press(inShadow<HTMLButtonElement>('[data-pob-build-mods] [data-stat-domain-trigger]')!);
+      const trigger = () =>
+        inShadow<HTMLButtonElement>('[data-pob-build-mods] [data-stat-domain-trigger]')!;
+      await press(trigger());
+      expect(shadow.querySelectorAll('[data-stat-domain-option]')).toHaveLength(3);
+
+      // 再次點擊同一個網域標籤可收回選單，且外層 Popover 保持開啟
+      await press(trigger());
+      expect(shadow.querySelectorAll('[data-stat-domain-option]')).toHaveLength(0);
+      expect(inShadow('[data-pob-build-mods-popover]')).not.toBeNull();
+
+      // 重新點開並選擇項目
+      await press(trigger());
       const options = Array.from(shadow.querySelectorAll<HTMLElement>('[data-stat-domain-option]'));
       expect(options).toHaveLength(3);
       await press(options[1]);

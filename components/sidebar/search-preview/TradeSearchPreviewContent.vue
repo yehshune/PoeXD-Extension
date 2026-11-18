@@ -24,115 +24,134 @@
       </template>
     </ItemPreviewHeader>
 
-    <!-- 快捷搜尋列（書籤／歷史預覽提供直接開啟搜尋，比照 PoB Popover） -->
+    <!-- 整合式單行頂部工具列：左側搜尋與微調存回、右側摺疊與疊加，固定單行避免微調時面板上下位移 -->
     <div
-      v-if="canOpenSearch || isModified"
-      class="preview-search-row flex min-w-0 shrink-0 items-center gap-[var(--pxd-space-xs)] border-b border-border px-[var(--pxd-pane-padding)] py-[var(--pxd-space-sm)]"
+      v-if="canOpenSearch || isModified || sectionKeys.length > 0 || canOverlay || overlayHint"
+      :class="PREVIEW_TOOLBAR_CLASS"
     >
-      <Button
-        v-if="canOpenSearch"
-        variant="outline"
-        size="sm"
-        class="preview-overlay-btn"
-        data-test="preview-open-current"
-        :title="t('bookmark.row.openSearch')"
-        @click="emit('open-search', 'current')"
-      >
-        <Search aria-hidden="true" />{{ t('bookmark.row.openSearch') }}
-      </Button>
-      <Button
-        v-if="canOpenSearch"
-        variant="outline"
-        size="sm"
-        class="preview-overlay-btn"
-        data-test="preview-open-new-tab"
-        :title="t('bookmark.row.openNewTab')"
-        @click="emit('open-search', 'new-tab')"
-      >
-        <ExternalLink aria-hidden="true" />{{ t('bookmark.row.openNewTab') }}
-      </Button>
-      <Button
-        v-if="canOverwrite && isModified"
-        variant="outline"
-        size="sm"
-        class="preview-overlay-btn border-primary/50 text-primary"
-        data-test="preview-overwrite-bookmark"
-        :title="overwriteTitle || t('searchPreview.action.overwriteBookmarkTitle')"
-        :disabled="overwriteBusy"
-        @click="emit('overwrite-bookmark')"
-      >
-        <Save aria-hidden="true" />{{
-          overwriteLabel || t('searchPreview.action.overwriteBookmark')
-        }}
-      </Button>
-      <Button
-        v-if="isModified"
-        variant="outline"
-        size="sm"
-        class="preview-overlay-btn ml-auto"
-        data-test="preview-reset-tune"
-        :title="t('searchPreview.action.resetTuneTitle')"
-        @click="emit('reset-tune')"
-      >
-        <RotateCcw aria-hidden="true" />{{ t('searchPreview.action.resetTune') }}
-      </Button>
-    </div>
-
-    <!-- 工具列：摺疊與疊加操作，固定於標題列下方 -->
-    <div
-      v-if="sectionKeys.length > 0 || canOverlay || overlayHint"
-      class="preview-action-row flex min-w-0 shrink-0 items-center gap-[var(--pxd-space-xs)] border-b border-border px-[var(--pxd-pane-padding)] py-[var(--pxd-space-sm)]"
-    >
-      <Button
-        v-if="sectionKeys.length > 0"
-        variant="ghost"
-        size="sm"
-        class="preview-toggle-all px-[var(--pxd-space-xs)]"
-        :aria-label="
-          allExpanded ? t('searchPreview.action.collapseAll') : t('searchPreview.action.expandAll')
-        "
-        @click="toggleAll"
-      >
-        <ChevronsDownUp v-if="allExpanded" aria-hidden="true" />
-        <ChevronsUpDown v-else aria-hidden="true" />
-        {{
-          allExpanded ? t('searchPreview.action.collapseAll') : t('searchPreview.action.expandAll')
-        }}
-      </Button>
       <div
-        v-if="canOverlay"
-        class="preview-overlay-actions ml-auto flex shrink-0 items-center gap-[var(--pxd-space-xs)]"
+        v-if="canOpenSearch || isModified"
+        class="preview-search-row flex min-w-0 shrink-0 items-center gap-[var(--pxd-space-xs)]"
       >
         <Button
-          variant="outline"
+          v-if="canOpenSearch"
+          variant="secondary"
           size="sm"
-          class="preview-overlay-btn"
-          data-test="preview-overlay-all"
-          :title="t('searchPreview.action.overlayAllTitle')"
-          :disabled="overlayBusy || !hasCriteria"
-          @click="emit('overlay', { kind: 'all' })"
+          class="preview-overlay-btn border-transparent px-[var(--pxd-space-sm)] shadow-none"
+          data-test="preview-open-current"
+          :title="t('bookmark.row.openSearch')"
+          @click="emit('open-search', 'current')"
         >
-          <Plus aria-hidden="true" />{{ t('searchPreview.action.overlayAll') }}
+          <Search aria-hidden="true" />{{ t('bookmark.row.openSearch') }}
         </Button>
         <Button
+          v-if="canOpenSearch"
+          variant="ghost"
+          size="icon-sm"
+          class="preview-overlay-btn shrink-0 text-foreground/80"
+          data-test="preview-open-new-tab"
+          :title="t('bookmark.row.openNewTab')"
+          :aria-label="t('bookmark.row.openNewTab')"
+          @click="emit('open-search', 'new-tab')"
+        >
+          <ExternalLink aria-hidden="true" />
+          <span class="sr-only">{{ t('bookmark.row.openNewTab') }}</span>
+        </Button>
+        <Button
+          v-if="canOverwrite && isModified"
           variant="outline"
           size="sm"
-          class="preview-overlay-btn"
-          data-test="preview-overlay-undo"
-          :title="t('searchPreview.action.undoTitle')"
-          :disabled="overlayBusy || !canUndo"
-          @click="emit('undo')"
+          class="preview-overlay-btn border-primary/50 bg-primary/10 px-[var(--pxd-space-sm)] text-primary shadow-none"
+          data-test="preview-overwrite-bookmark"
+          :title="overwriteTitle || t('searchPreview.action.overwriteBookmarkTitle')"
+          :disabled="overwriteBusy"
+          @click="emit('overwrite-bookmark')"
         >
-          <Undo2 aria-hidden="true" />{{ t('searchPreview.action.undo') }}
+          <Save aria-hidden="true" />{{
+            overwriteLabel || t('searchPreview.action.overwriteBookmark')
+          }}
+        </Button>
+        <Button
+          v-if="isModified"
+          variant="ghost"
+          size="icon-sm"
+          class="preview-overlay-btn shrink-0"
+          data-test="preview-reset-tune"
+          :title="t('searchPreview.action.resetTuneTitle')"
+          :aria-label="t('searchPreview.action.resetTune')"
+          @click="emit('reset-tune')"
+        >
+          <RotateCcw aria-hidden="true" />
+          <span class="sr-only">{{ t('searchPreview.action.resetTune') }}</span>
         </Button>
       </div>
-      <span
-        v-else-if="overlayHint"
-        class="preview-overlay-hint ml-auto min-w-0 truncate text-[length:var(--pxd-font-caption)] text-muted-foreground"
-        data-test="preview-overlay-hint"
-        :title="overlayHint"
-        >{{ overlayHint }}</span
+
+      <div
+        v-if="sectionKeys.length > 0 || canOverlay || overlayHint"
+        class="preview-action-row ml-auto flex min-w-0 flex-1 items-center justify-end gap-[var(--pxd-space-xs)]"
       >
+        <Button
+          v-if="sectionKeys.length > 0"
+          variant="ghost"
+          size="icon-sm"
+          class="preview-toggle-all shrink-0"
+          :title="
+            allExpanded
+              ? t('searchPreview.action.collapseAll')
+              : t('searchPreview.action.expandAll')
+          "
+          :aria-label="
+            allExpanded
+              ? t('searchPreview.action.collapseAll')
+              : t('searchPreview.action.expandAll')
+          "
+          @click="toggleAll"
+        >
+          <ChevronsDownUp v-if="allExpanded" aria-hidden="true" />
+          <ChevronsUpDown v-else aria-hidden="true" />
+          <span class="sr-only">{{
+            allExpanded
+              ? t('searchPreview.action.collapseAll')
+              : t('searchPreview.action.expandAll')
+          }}</span>
+        </Button>
+        <div
+          v-if="canOverlay"
+          class="preview-overlay-actions flex shrink-0 items-center gap-[var(--pxd-space-xs)]"
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            class="preview-overlay-btn px-[var(--pxd-space-sm)] text-foreground/85"
+            data-test="preview-overlay-all"
+            :title="t('searchPreview.action.overlayAllTitle')"
+            :disabled="overlayBusy || !hasCriteria"
+            @click="emit('overlay', { kind: 'all' })"
+          >
+            <Plus aria-hidden="true" />{{ t('searchPreview.action.overlayAll') }}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="preview-overlay-btn shrink-0"
+            data-test="preview-overlay-undo"
+            :title="t('searchPreview.action.undoTitle')"
+            :aria-label="t('searchPreview.action.undo')"
+            :disabled="overlayBusy || !canUndo"
+            @click="emit('undo')"
+          >
+            <Undo2 aria-hidden="true" />
+            <span class="sr-only">{{ t('searchPreview.action.undo') }}</span>
+          </Button>
+        </div>
+        <span
+          v-else-if="overlayHint"
+          class="preview-overlay-hint min-w-0 truncate text-[length:var(--pxd-font-caption)] text-muted-foreground"
+          data-test="preview-overlay-hint"
+          :title="overlayHint"
+          >{{ overlayHint }}</span
+        >
+      </div>
     </div>
 
     <div
@@ -157,76 +176,97 @@
         class="preview-content flex flex-col gap-[var(--pxd-space-md)]"
       >
         <div
-          v-if="previewData.meta.name || previewData.meta.type"
-          class="preview-section item-names flex items-start gap-[var(--pxd-space-sm)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)]"
+          v-if="
+            previewData.meta.name ||
+            previewData.meta.type ||
+            (criteria && (criteria.status || (canTune && canTuneStatus)))
+          "
+          :class="[PREVIEW_META_BLOCK_CLASS, 'flex flex-col gap-[var(--pxd-space-xs)]']"
         >
-          <div class="flex min-w-0 flex-1 flex-col leading-[1.25]">
-            <div v-if="previewData.meta.name" class="preview-item-name text-foreground">
-              {{ t('searchPreview.label.item')
-              }}<span class="highlight-unique font-semibold text-foreground">{{
-                previewData.meta.name
+          <div
+            v-if="previewData.meta.name || previewData.meta.type"
+            class="preview-section item-names flex items-center justify-between gap-[var(--pxd-space-sm)]"
+          >
+            <div
+              class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-[var(--pxd-space-md)] gap-y-[var(--pxd-space-xs)] leading-[1.25]"
+            >
+              <div v-if="previewData.meta.name" class="preview-item-name text-foreground">
+                <span class="text-muted-foreground">{{ t('searchPreview.label.item') }}</span>
+                <span class="highlight-unique font-semibold text-foreground">{{
+                  previewData.meta.name
+                }}</span>
+              </div>
+              <div v-if="previewData.meta.type" class="preview-item-type text-muted-foreground">
+                {{ t('searchPreview.label.base')
+                }}<span class="text-foreground">{{ previewData.meta.type }}</span>
+              </div>
+            </div>
+            <Button
+              v-if="canOverlay && criteria?.item"
+              variant="ghost"
+              size="icon-sm"
+              class="preview-overlay-icon shrink-0"
+              data-test="preview-overlay-item"
+              :title="t('searchPreview.action.overlayItemTitle')"
+              :disabled="overlayBusy"
+              @click="emit('overlay', { kind: 'item' })"
+            >
+              <Plus aria-hidden="true" />
+            </Button>
+          </div>
+
+          <div
+            v-if="criteria && (criteria.status || (canTune && canTuneStatus))"
+            class="preview-section preview-status flex items-center justify-between gap-[var(--pxd-space-md)] text-[length:var(--pxd-font-body)]"
+            :class="
+              previewData.meta.name || previewData.meta.type
+                ? 'border-t border-border/30 pt-[var(--pxd-space-xs)]'
+                : ''
+            "
+          >
+            <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
+              <span class="shrink-0 text-muted-foreground">{{
+                t('searchPreview.label.status')
+              }}</span>
+              <Select
+                v-if="canTune && canTuneStatus"
+                :model-value="criteria.status || undefined"
+                @update:model-value="(val) => emit('set-status', String(val))"
+              >
+                <SelectTrigger
+                  size="sm"
+                  :class="PREVIEW_COMPACT_SELECT_CLASS"
+                  data-test="preview-status-select"
+                >
+                  <SelectValue>{{
+                    criteria.status
+                      ? (STATUS_LABELS[criteria.status] ?? criteria.status)
+                      : t('searchPreview.statusUnset')
+                  }}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="option in statusOptions" :key="option" :value="option">
+                    {{ STATUS_LABELS[option] ?? option }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <span v-else-if="criteria.status" class="text-foreground">{{
+                STATUS_LABELS[criteria.status] ?? criteria.status
               }}</span>
             </div>
-            <div v-if="previewData.meta.type" class="preview-item-type text-muted-foreground">
-              {{ t('searchPreview.label.base') }}{{ previewData.meta.type }}
-            </div>
-          </div>
-          <Button
-            v-if="canOverlay && criteria?.item"
-            variant="ghost"
-            size="icon-sm"
-            class="preview-overlay-icon shrink-0"
-            data-test="preview-overlay-item"
-            :title="t('searchPreview.action.overlayItemTitle')"
-            :disabled="overlayBusy"
-            @click="emit('overlay', { kind: 'item' })"
-          >
-            <Plus aria-hidden="true" />
-          </Button>
-        </div>
-
-        <div
-          v-if="criteria && (criteria.status || (canTune && canTuneStatus))"
-          class="preview-section preview-status flex items-center justify-between gap-[var(--pxd-space-md)] rounded-md border border-border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-body)]"
-        >
-          <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-sm)]">
-            <span class="shrink-0 text-muted-foreground">{{
-              t('searchPreview.label.status')
-            }}</span>
-            <Select
-              v-if="canTune && canTuneStatus"
-              :model-value="criteria.status || undefined"
-              @update:model-value="(val) => emit('set-status', String(val))"
+            <Button
+              v-if="canOverlay && criteria.status"
+              variant="ghost"
+              size="icon-sm"
+              class="preview-overlay-icon shrink-0"
+              data-test="preview-overlay-status"
+              :title="t('searchPreview.action.overlayStatusTitle')"
+              :disabled="overlayBusy"
+              @click="emit('overlay', { kind: 'status' })"
             >
-              <SelectTrigger size="sm" class="min-w-0 flex-1" data-test="preview-status-select">
-                <SelectValue>{{
-                  criteria.status
-                    ? (STATUS_LABELS[criteria.status] ?? criteria.status)
-                    : t('searchPreview.statusUnset')
-                }}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="option in statusOptions" :key="option" :value="option">
-                  {{ STATUS_LABELS[option] ?? option }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <span v-else-if="criteria.status" class="text-foreground">{{
-              STATUS_LABELS[criteria.status] ?? criteria.status
-            }}</span>
+              <Plus aria-hidden="true" />
+            </Button>
           </div>
-          <Button
-            v-if="canOverlay && criteria.status"
-            variant="ghost"
-            size="icon-sm"
-            class="preview-overlay-icon shrink-0"
-            data-test="preview-overlay-status"
-            :title="t('searchPreview.action.overlayStatusTitle')"
-            :disabled="overlayBusy"
-            @click="emit('overlay', { kind: 'status' })"
-          >
-            <Plus aria-hidden="true" />
-          </Button>
         </div>
 
         <div v-if="statCount > 0" class="preview-section">
@@ -262,8 +302,11 @@
             <div
               v-for="(group, groupIndex) in statGroups"
               :key="groupIndex"
-              class="preview-stat-group overflow-hidden rounded-md border border-border"
-              :class="group.disabled ? 'opacity-60' : ''"
+              :class="[
+                'preview-stat-group',
+                PREVIEW_CARD_CLASS,
+                group.disabled ? 'opacity-60' : '',
+              ]"
               :data-stat-group-index="groupIndex"
               :data-disabled="group.disabled ? 'true' : undefined"
             >
@@ -336,7 +379,7 @@
                 >
                 <span
                   v-if="group.disabled"
-                  class="preview-stat-group-disabled whitespace-nowrap rounded-sm border border-border px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+                  class="preview-stat-group-disabled whitespace-nowrap rounded-sm bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
                   >{{ t('searchPreview.statGroup.disabled') }}</span
                 >
                 <span
@@ -350,9 +393,9 @@
                 >
                 <Button
                   v-if="canOverlay"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  class="preview-overlay-btn"
+                  class="preview-overlay-btn px-[var(--pxd-space-xs)] text-foreground/85"
                   data-test="preview-overlay-stat-group"
                   :title="t('searchPreview.action.overlayStatGroupTitle')"
                   :disabled="overlayBusy"
@@ -389,7 +432,7 @@
           <div
             v-else
             v-show="!isCollapsed(STATS_SECTION_KEY)"
-            class="preview-stats-list overflow-hidden rounded-md border border-border"
+            :class="['preview-stats-list', PREVIEW_CARD_CLASS]"
           >
             <PreviewStatRow
               v-for="(item, idx) in displayedStats"
@@ -437,7 +480,7 @@
           </div>
           <div
             v-show="!isCollapsed(group.key)"
-            class="preview-filters-list overflow-hidden rounded-md border border-border"
+            :class="['preview-filters-list', PREVIEW_CARD_CLASS]"
           >
             <div
               v-for="(item, idx) in group.filters"
@@ -504,9 +547,13 @@ import PreviewStatRow, { type PreviewStatBounds } from '../item-preview/PreviewS
 import StatGroupTypeSelect from '../item-preview/StatGroupTypeSelect.vue';
 import {
   PREVIEW_BOUND_INPUT_CLASS,
+  PREVIEW_CARD_CLASS,
+  PREVIEW_COMPACT_SELECT_CLASS,
   PREVIEW_GROUP_HEADER_CLASS,
+  PREVIEW_META_BLOCK_CLASS,
   PREVIEW_STAT_ROW_CLASS,
   PREVIEW_TAG_CLASS,
+  PREVIEW_TOOLBAR_CLASS,
 } from '../item-preview/preview-classes';
 import {
   rangeText,
@@ -619,9 +666,9 @@ const emit = defineEmits<{
 }>();
 
 /** 版面比照詞綴選擇器（FilterPane／ModItem）：共用類別見 item-preview/preview-classes。 */
-/** 分區標頭比照 FilterPane 的群組標頭。 */
+/** 分區標頭比照 FilterPane 的群組標頭，右側留白與頂部摘要區塊對齊使「＋」按鈕落在同一垂直軸線。 */
 const sectionHeaderClass =
-  'preview-section-header mb-[var(--pxd-space-xs)] flex items-center gap-[var(--pxd-space-xs)]';
+  'preview-section-header mb-[var(--pxd-space-xs)] flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-xs)]';
 const sectionTitleClass =
   'preview-section-title min-w-0 truncate text-[length:var(--pxd-font-section-title)] font-semibold text-current';
 const sectionCountClass =
