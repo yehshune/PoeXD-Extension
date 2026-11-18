@@ -55,6 +55,18 @@ export interface LiveSearchPrimaryRuntimeOptions {
    * 監聽者拋出的例外會被隔離，不影響 pipeline。
    */
   onResultTokenAccepted?: (event: LiveSearchResultTokenAcceptedEvent) => void;
+  /**
+   * `/fetch` 取得結果、渲染進官方展示區之前呼叫，供共用結果快取（PoB 複製、釘選）使用。
+   * 監聽者拋出的例外會被隔離，不影響 pipeline。
+   */
+  onResultFetched?: (event: LiveSearchResultFetchedEvent) => void;
+}
+
+export interface LiveSearchResultFetchedEvent {
+  /** 官方 `/fetch` 回應 `result` 中的一筆（不可信輸入） */
+  itemData: unknown;
+  searchId: string;
+  league: string;
 }
 
 export interface LiveSearchResultTokenAcceptedEvent {
@@ -121,6 +133,7 @@ export class LiveSearchPrimaryRuntime {
   private readonly getMaxDisplayedResults?: () => number | undefined;
   private readonly resultFilter: LiveSearchResultFilter;
   private readonly onResultTokenAccepted?: (event: LiveSearchResultTokenAcceptedEvent) => void;
+  private readonly onResultFetched?: (event: LiveSearchResultFetchedEvent) => void;
 
   private runtimeLeague: string | null = null;
   private activeTargetLeague: string | null = null;
@@ -180,6 +193,7 @@ export class LiveSearchPrimaryRuntime {
     this.getMaxDisplayedResults = options?.getMaxDisplayedResults;
     this.resultFilter = options?.resultFilter ?? createLiveSearchResultFilter();
     this.onResultTokenAccepted = options?.onResultTokenAccepted;
+    this.onResultFetched = options?.onResultFetched;
   }
 
   private readMaxDisplayedResults(): number | undefined {
@@ -787,6 +801,15 @@ export class LiveSearchPrimaryRuntime {
       }
 
       itemData = json.result[0];
+      try {
+        this.onResultFetched?.({
+          itemData,
+          searchId: subCtx.subscription.searchId,
+          league: subCtx.subscription.league,
+        });
+      } catch (error) {
+        console.error('[PoeXD LiveSearch] Error in result fetched listener:', error);
+      }
     } catch {
       // 網路例外：移除 pending，不累積 total，不標記 processed
       subCtx.activeCancelWait = undefined;

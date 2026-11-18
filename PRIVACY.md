@@ -1,6 +1,6 @@
 # Privacy Policy / 隱私權政策
 
-Effective date / 生效日期：2026-11-09
+Effective date / 生效日期：2026-11-18
 
 - [English](#english)
 - [繁體中文](#繁體中文)
@@ -20,6 +20,9 @@ The extension stores the following data locally in your browser (`chrome.storage
 
 - Bookmarks, folders and stat group templates you create
 - Search history records and live search connections to restore
+- Trade results you pin: a copy of the item, its price, the seller's account name and whisper
+  text, the listing time and the search it came from. Hideout travel and whisper tokens are never
+  stored.
 - Preferences such as theme, display language and layout
 - Cached currency exchange rates
 
@@ -57,6 +60,8 @@ PoeXD Extension（以下稱「本擴充功能」）是《流亡黯道》官方�
 
 - 你建立的書籤、資料夾與常用詞綴群組
 - 搜尋紀錄與可還原的即時搜尋連線
+- 你釘選的交易結果：物品內容、價格、賣家帳號名稱與密語文字、刊登時間及來源搜尋；
+  前往藏身處與密語所需的 token 一律不保存
 - 主題、顯示語言、版面等偏好設定
 - 快取的通貨匯率
 

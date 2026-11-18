@@ -3,6 +3,7 @@ import { extensionMessaging } from '@/utils/extension-protocol';
 import { detectBrowserLocale } from '@/utils/locale-resolution';
 import { startMarketTranslationBridge } from '@/utils/market-translation-bridge';
 import { loadResultTranslatorData } from '@/utils/market-translation-assets';
+import { receiveResultTranslationRequests } from '@/utils/market-result-translation-request';
 import { createResultTranslator } from '@/utils/market-result-translator';
 import {
   MARKET_TRANSLATION_MATCH_PATTERNS,
@@ -32,6 +33,8 @@ export default defineContentScript({
   main() {
     // 與主要 content script 共用同一份已解析資料（同一個 isolated world）
     const loadJson = loadExtensionJson;
+    // Sidebar 釘選物品等自己畫的官方樣式卡片在 shadow root 內，翻譯器準備好後另外監看
+    const extraRoots = receiveResultTranslationRequests(document);
     void startMarketTranslationBridge({
       hostname: window.location.hostname,
       pathname: window.location.pathname,
@@ -65,7 +68,11 @@ export default defineContentScript({
                 liveEn,
               }),
             )
-            .then((data) => createResultTranslator(data).observe(document))
+            .then((data) => {
+              const translator = createResultTranslator(data);
+              translator.observe(document);
+              extraRoots.attach((root) => translator.observe(root));
+            })
             .catch((error) => console.warn('[PoeXD] 市集漢化結果列翻譯啟動失敗:', error));
         });
       },

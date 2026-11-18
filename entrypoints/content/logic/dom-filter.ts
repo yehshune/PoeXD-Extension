@@ -7,6 +7,7 @@ import type { ResultItemNormalizer } from './result-item-normalizer';
 import type { ResultSortController } from './result-sort-controller';
 import type { ResultModQuickFilter } from './result-mod-quick-filter';
 import type { ResultPobCopy } from './result-pob-copy';
+import type { ResultPinButton } from './result-pin-button';
 import type { ResultExternalLinks } from './result-external-links';
 
 const IGNORED_EXTENSION_SELECTORS = [
@@ -40,6 +41,7 @@ export class DomFilter {
     private readonly pobCopy?: ResultPobCopy,
     private readonly externalLinks?: ResultExternalLinks,
     private readonly sortController?: ResultSortController,
+    private readonly resultPin?: ResultPinButton,
   ) {}
 
   init() {
@@ -188,5 +190,7 @@ export class DomFilter {
       this.externalLinks?.apply(target);
     }
     this.modHighlighter?.apply(target);
+    // 釘選在主控台與即時搜尋也提供
+    this.resultPin?.apply(target);
   }
 }

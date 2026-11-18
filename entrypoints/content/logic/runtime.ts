@@ -27,6 +27,9 @@ import { ResultItemNormalizer } from './result-item-normalizer';
 import { ResultSortController } from './result-sort-controller';
 import { ResultModQuickFilter } from './result-mod-quick-filter';
 import { ResultPobCopy } from './result-pob-copy';
+import { ResultPinButton } from './result-pin-button';
+import { getTradeResultCache, type TradeResultCache } from '@/utils/trade-result-cache';
+import { createPinnedItemClient } from '@/utils/pinned-item-client';
 import { ResultExternalLinks } from './result-external-links';
 import { isCloudflareChallenge } from '@/utils/trade-interstitial-classifier';
 import { whenTradePageReady } from './trade-page-readiness';
@@ -94,7 +97,9 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   const sortController = new ResultSortController(version, pricePresenter);
   const itemNormalizer = new ResultItemNormalizer(version, sortController);
   const modQuickFilter = new ResultModQuickFilter();
-  const pobCopy = new ResultPobCopy(version);
+  const resultCache = getTradeResultCache();
+  const pobCopy = new ResultPobCopy(version, {}, resultCache);
+  const resultPin = new ResultPinButton(version, resultCache, createPinnedItemClient(version));
   const externalLinks = new ResultExternalLinks(version, pobCopy);
   const domFilter = new DomFilter(
     version,
@@ -105,6 +110,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     pobCopy,
     externalLinks,
     sortController,
+    resultPin,
   );
   const filterEnhancements = createFilterDomEnhancements(version);
   let cleanupPageEvents: (() => void) | null = null;
@@ -134,6 +140,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     sortController.cleanup();
     modQuickFilter.cleanup();
     pobCopy.cleanup();
+    resultPin.cleanup();
+    resultCache.clear();
     externalLinks.cleanup();
     modHighlighter.cleanup();
     cleanupHotkeys?.();
@@ -215,6 +223,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       modQuickFilter.refreshLocale();
       pobCopy.setEnabled(snapshot.enableResultPobCopy);
       pobCopy.refreshLocale();
+      resultPin.setEnabled(true);
+      resultPin.refreshLocale();
       externalLinks.setEnabled(snapshot.enableResultExternalLinks);
       externalLinks.refreshLocale();
     };
@@ -285,7 +295,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       pricePresenter,
       itemNormalizer,
       sortController,
-      pobCopy,
+      resultCache,
+      [pobCopy, resultPin],
       externalLinks,
       filterEnhancements,
     );
@@ -343,6 +354,9 @@ export async function runLogic(ctx: any, version: PoeVersion) {
         activePrimaryRuntime = new LiveSearchPrimaryRuntime(version, {
           getMaxDisplayedResults: () => preferences.read().liveSearchMaxDisplayedResults,
           onResultTokenAccepted: () => soundNotifier.notify(),
+          // 主控台自己打的 /fetch 不經過 MAIN world 攔截，結果要另外交給共用快取
+          onResultFetched: ({ itemData, searchId, league }) =>
+            resultCache.ingestResult(itemData, { sourceSearchId: searchId, league }),
         });
         activePrimaryController = createLiveSearchPrimaryController(activePrimaryRuntime);
         activeResumeStore = createLiveSearchResumeStore(version);
@@ -427,7 +441,8 @@ function registerPageContextEvents(
   pricePresenter: ResultPricePresenter,
   itemNormalizer: ResultItemNormalizer,
   sortController: ResultSortController,
-  pobCopy: ResultPobCopy,
+  resultCache: TradeResultCache,
+  resultConsumers: readonly { refresh(): void }[],
   externalLinks: ResultExternalLinks,
   filterEnhancements: FilterDomEnhancements,
 ) {
@@ -443,7 +458,8 @@ function registerPageContextEvents(
             sortController.handleFetchResponse(detail);
           })(),
         ]);
-        pobCopy.handleFetchResponse(detail);
+        resultCache.ingestFetchResponse(detail, { league: getTradeLeague() });
+        resultConsumers.forEach((consumer) => consumer.refresh());
         externalLinks.refresh();
       } catch (error) {
         console.error('[PoeXD] 解析攔截資料失敗:', error);

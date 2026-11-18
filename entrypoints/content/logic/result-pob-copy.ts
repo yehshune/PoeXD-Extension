@@ -4,7 +4,7 @@
  * 物品資料來自攔截到的官方 fetch 回應（頁面送來的內容，視為不可信輸入，只取字串與數值組字）。
  * 頁面不是英文時才載入英文反查字典；字典載不到（該語系沒有資料）就不複製並告知原因。
  */
-import { dispatchPoeEvent, parsePoeFetchResponse } from '@/utils/event-contracts';
+import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import {
@@ -22,11 +22,10 @@ import {
   removeLeftActionsByClass,
 } from './result-left-actions';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
+import { TradeResultCache } from '@/utils/trade-result-cache';
 
 const STYLE_ID = 'poexd-result-pob-copy-style';
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
-/** 即時搜尋會不斷收到新物品，只保留最近的這麼多筆 */
-const MAX_RETAINED_ITEMS = 500;
 
 export const RESULT_POB_COPY_BUTTON_CLASS = 'poexd-pob-copy-btn';
 
@@ -71,36 +70,28 @@ function describeResult(result: PobItemText): string {
 
 export class ResultPobCopy {
   private enabled = false;
-  private items = new Map<string, unknown>();
   private lexicon?: { locale: string; promise: Promise<PobTextLexicon | undefined> };
   private readonly deps: ResultPobCopyDeps;
 
+  /**
+   * @param cache 物品資料來源；runtime 傳入頁面共用的快取（見 `trade-result-cache.ts`）
+   */
   constructor(
     private readonly version: PoeVersion,
     deps: Partial<ResultPobCopyDeps> = {},
+    private readonly cache: TradeResultCache = new TradeResultCache(),
   ) {
     this.deps = { ...defaultDeps, ...deps };
   }
 
+  /** 把官方 fetch 回應加入快取並補上按鈕（測試與獨立使用時的入口） */
   handleFetchResponse(detail: string): void {
-    const data = parsePoeFetchResponse(detail)?.data;
-    const results =
-      data && typeof data === 'object' ? (data as { result?: unknown }).result : undefined;
-    if (!Array.isArray(results)) return;
+    this.cache.ingestFetchResponse(detail);
+    this.refresh();
+  }
 
-    for (const entry of results) {
-      if (!entry || typeof entry !== 'object') continue;
-      const { id, item } = entry as { id?: unknown; item?: unknown };
-      if (typeof id !== 'string' || !isPobExportableItem(item)) continue;
-      this.items.delete(id);
-      this.items.set(id, item);
-    }
-    while (this.items.size > MAX_RETAINED_ITEMS) {
-      const oldest = this.items.keys().next().value;
-      if (oldest === undefined) break;
-      this.items.delete(oldest);
-    }
-
+  /** 快取有新結果後，替已在畫面上的結果補上按鈕 */
+  refresh(): void {
     if (this.enabled && typeof document !== 'undefined') {
       const root = document.querySelector('.results');
       if (root) this.apply(root);
@@ -127,7 +118,7 @@ export class ResultPobCopy {
     let injected = false;
     for (const row of rows) {
       const id = resolveRowId(row);
-      if (!id || !this.items.has(id)) continue;
+      if (!id || this.getItem(id) === undefined) continue;
       if (row.querySelector(`.${RESULT_POB_COPY_BUTTON_CLASS}`)) continue;
       mountLeftAction(row, this.createButton(id));
       injected = true;
@@ -145,7 +136,6 @@ export class ResultPobCopy {
 
   cleanup(): void {
     this.enabled = false;
-    this.items.clear();
     this.lexicon = undefined;
     if (typeof document === 'undefined') return;
     this.removeInjected();
@@ -153,11 +143,17 @@ export class ResultPobCopy {
 
   /** 把指定結果的 PoB 文字寫入剪貼簿並回報結果；按鈕點擊與測試共用 */
   async copy(resultId: string): Promise<void> {
-    try {
-      const item = this.items.get(resultId);
-      if (!item) throw new Error(t('resultPobCopy.error.itemMissing'));
+    await this.copyItem(this.getItem(resultId));
+  }
 
-      const locale = this.deps.getPageLocale();
+  /**
+   * 把指定物品 JSON 的 PoB 文字寫入剪貼簿（釘選卡片也用這個入口）。
+   * @param locale 物品 JSON 的語系；釘選快照傳入釘選當時的頁面語系
+   */
+  async copyItem(item: unknown, locale = this.deps.getPageLocale()): Promise<void> {
+    try {
+      if (!isPobExportableItem(item)) throw new Error(t('resultPobCopy.error.itemMissing'));
+
       const lexicon = locale === 'en' ? undefined : await this.getEnglishLexicon(locale);
       if (locale !== 'en' && !lexicon) {
         this.deps.notify(t('resultPobCopy.toast.unsupportedLocale'), 'error');
@@ -174,8 +170,10 @@ export class ResultPobCopy {
     }
   }
 
+  /** 可匯出 PoB 文字的物品（普通、魔法、稀有、傳奇裝備）；其餘回傳 undefined */
   getItem(resultId: string): unknown {
-    return this.items.get(resultId);
+    const item = this.cache.get(resultId)?.item;
+    return isPobExportableItem(item) ? item : undefined;
   }
 
   /** 頁面語系的英文反查字典（載入一次後快取）；該語系沒有資料時為 undefined */

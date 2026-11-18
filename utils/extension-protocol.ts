@@ -34,6 +34,7 @@ import type {
   LiveSearchOpenPrimaryResponse,
 } from './live-search-contract';
 import type { PobbinAssetJson, PobShareFetchOutcome } from './pob-share-fetch';
+import type { PinnedItemCommand, PinnedItemOutcome } from './pinned-items';
 import type {
   MarketTranslationRefreshOutcome,
   MarketTranslationRefreshRequest,
@@ -74,6 +75,8 @@ export interface ExtensionProtocolMap {
   'pobShare:openPermissionPage': () => boolean;
   /** pobb.in 翻譯腳本讀取擴充內建的資料檔（路徑與來源分頁在 background 驗證） */
   'pobbin:loadAsset': (request: { path: string }) => PobbinAssetJson;
+  /** 釘選物品的寫入（background 依序執行；內容在 background 重新驗證） */
+  'pinnedItem:execute': (command: PinnedItemCommand) => PinnedItemOutcome;
 }
 
 export const extensionMessaging = defineExtensionMessaging<ExtensionProtocolMap>();
