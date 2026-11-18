@@ -17,6 +17,7 @@ import {
   type ShardFingerprint,
 } from './game-data-shard-compat';
 import { getLocaleStatsAssetPath, getModsTiersAssetPath, type PoeVersion } from './trade-context';
+import { loadExtensionJson, resetExtensionJsonCacheForTests } from './extension-json-cache';
 
 export interface CompactModTier {
   modId: string;
@@ -157,11 +158,6 @@ function getOrCreateState(version: PoeVersion): VersionLexiconState {
   return state;
 }
 
-function resolveAssetUrl(assetPath: string): string {
-  const runtimeGetUrl = (globalThis as any).chrome?.runtime?.getURL;
-  return typeof runtimeGetUrl === 'function' ? runtimeGetUrl(assetPath) : assetPath;
-}
-
 const artifactFingerprint = (artifact: ModsTiersArtifact): ShardFingerprint => ({
   patch: artifact.patch,
   length: artifact.tiers.length,
@@ -264,6 +260,7 @@ export function setAffixLexiconMockData(
 
 export function resetAffixLexiconCacheForTests() {
   lexiconByVersion.clear();
+  resetExtensionJsonCacheForTests();
   bumpLexiconRevision();
 }
 
@@ -285,10 +282,7 @@ export async function ensureLocaleShardLoaded(
 
   const promise = (async () => {
     try {
-      const url = resolveAssetUrl(getLocaleStatsAssetPath(version, locale));
-      const res = await fetch(url);
-      if (!res || res.ok === false) return null;
-      const json = await res.json();
+      const json = (await loadExtensionJson(getLocaleStatsAssetPath(version, locale))) as any;
       if (
         json &&
         typeof json === 'object' &&
@@ -337,10 +331,7 @@ export async function ensureAffixLexiconLoaded(
     if (!state.artifactPromise) {
       state.artifactPromise = (async () => {
         try {
-          const url = resolveAssetUrl(getModsTiersAssetPath(version));
-          const res = await fetch(url);
-          if (!res || res.ok === false) return;
-          const json = await res.json();
+          const json = await loadExtensionJson(getModsTiersAssetPath(version));
           if (isModsTiersArtifact(json)) {
             indexArtifact(state, json);
             bumpLexiconRevision();

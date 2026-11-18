@@ -72,7 +72,7 @@ export async function reserveSidebarPageLayout(
 ): Promise<() => void> {
   const remove = () => document.getElementById(LAYOUT_STYLE_ID)?.remove();
   const collapsed = await readSidebarCollapsed(version);
-  if (isDisposed()) return remove;
+  if (isDisposed() || document.getElementById(LAYOUT_STYLE_ID)) return remove;
   const prefs = preferences.read();
   ensureLayoutStyle().textContent = buildPageLayoutCss({
     collapsed,

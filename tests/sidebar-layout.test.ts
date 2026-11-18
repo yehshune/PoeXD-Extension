@@ -274,6 +274,40 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
     remove();
   });
 
+  it('does not overwrite mounted layout style if reserveSidebarPageLayout resolves after mountSidebarLayout', async () => {
+    let resolveReserveStorage!: (val: Record<string, unknown>) => void;
+    let callCount = 0;
+    (globalThis as any).chrome.storage.local.get = vi.fn(() => {
+      callCount += 1;
+      if (callCount === 1) {
+        return new Promise((resolve) => {
+          resolveReserveStorage = resolve;
+        });
+      }
+      return Promise.resolve({ isCollapsed_poe1: false });
+    });
+
+    const prefs = createMockPreferences({ sidebarPosition: 'left', sidebarWidth: 420 });
+    const reservePromise = reserveSidebarPageLayout('poe1', prefs);
+
+    const stop = await mountSidebarLayout(createMockCtx(), 'poe1', prefs);
+    if (stop) layoutCleanups.push(stop);
+
+    const layoutStyle = document.getElementById('poexd-layout-style') as HTMLStyleElement;
+    expect(layoutStyle.textContent).toContain(
+      'transition: width 0.15s ease, margin-left 0.15s ease, margin-right 0.15s ease !important;',
+    );
+
+    // 較晚完成的 reserveSidebarPageLayout 不應把已掛載的過場動畫洗回 transition: none
+    resolveReserveStorage({ isCollapsed_poe1: true });
+    await reservePromise;
+
+    expect(layoutStyle.textContent).toContain(
+      'transition: width 0.15s ease, margin-left 0.15s ease, margin-right 0.15s ease !important;',
+    );
+    expect(layoutStyle.textContent).toContain('width: calc(100% - 420px) !important;');
+  });
+
   it('updates PoE .content width and margin-left in real time upon poexd-sidebar-width-preview for left sidebar (420 -> 500)', async () => {
     const mockCtx = createMockCtx();
     const prefs = createMockPreferences({ sidebarPosition: 'left', sidebarWidth: 420 });

@@ -10,6 +10,7 @@
 import { ref } from 'vue';
 import type { SupportedLocale } from './preferences-contract';
 import { getActiveDisplayLocale, getActiveUiLocale } from './i18n';
+import { loadExtensionJson, resetExtensionJsonCacheForTests } from './extension-json-cache';
 
 export type MercenarySupportSlots = 'none' | 'low' | 'medium' | 'high';
 
@@ -139,15 +140,7 @@ export function createMercenaryCatalog(
 
 export type MercenaryAssetFetcher = (assetPath: string) => Promise<unknown>;
 
-function resolveAssetUrl(assetPath: string): string {
-  const runtimeGetUrl = (globalThis as any).chrome?.runtime?.getURL;
-  return typeof runtimeGetUrl === 'function' ? runtimeGetUrl(assetPath) : assetPath;
-}
-
-const defaultFetcher: MercenaryAssetFetcher = async (assetPath) => {
-  const res = await fetch(resolveAssetUrl(assetPath));
-  return res?.ok ? res.json() : null;
-};
+const defaultFetcher: MercenaryAssetFetcher = (assetPath) => loadExtensionJson(assetPath);
 
 async function tryFetch(fetcher: MercenaryAssetFetcher, assetPath: string): Promise<unknown> {
   try {
@@ -240,5 +233,6 @@ export function resetMercenaryCatalogForTests(): void {
   catalogCache.clear();
   resolvedCatalogs.clear();
   failedKeys.clear();
+  resetExtensionJsonCacheForTests();
   catalogRevision.value += 1;
 }

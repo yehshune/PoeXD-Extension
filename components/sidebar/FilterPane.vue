@@ -1624,9 +1624,14 @@ export default defineComponent({
     };
 
     let lastDetectedType: string | null = null;
+    let pendingDetectedType: string | null | undefined = undefined;
 
-    const handleEquipmentTypeChange = (detail: { type: string | null }) => {
-      const detectedType = detail.type;
+    const applyEquipmentType = (detectedType: string | null) => {
+      if (detectedType && availableTypes.value.length === 0) {
+        pendingDetectedType = detectedType;
+        return;
+      }
+      pendingDetectedType = undefined;
       if (detectedType && availableTypes.value.includes(detectedType)) {
         if (detectedType !== lastDetectedType) {
           selectedType.value = detectedType;
@@ -1641,6 +1646,16 @@ export default defineComponent({
         }
       }
     };
+
+    const handleEquipmentTypeChange = (detail: { type: string | null }) => {
+      applyEquipmentType(detail.type);
+    };
+
+    watch(availableTypes, (types) => {
+      if (types.length > 0 && pendingDetectedType !== undefined) {
+        applyEquipmentType(pendingDetectedType);
+      }
+    });
 
     const handleTriggerSelectTypeModal = () => {
       isSelectDropdownOpen.value = true;
@@ -1670,16 +1685,20 @@ export default defineComponent({
     });
 
     watch(
-      () => props.isOpen,
-      (newVal) => {
-        if (newVal) {
-          setTimeout(() => {
-            const input = getSearchInputElement();
-            input?.focus();
-            input?.select();
-          }, 60);
+      [() => props.isOpen, loading],
+      ([isOpen, isLoading], prev) => {
+        if (isOpen && !isLoading) {
+          const wasOpenAndLoaded = prev ? prev[0] && !prev[1] : false;
+          if (!wasOpenAndLoaded) {
+            setTimeout(() => {
+              const input = getSearchInputElement();
+              input?.focus();
+              input?.select();
+            }, 60);
+          }
         }
       },
+      { immediate: true },
     );
 
     // 切換物品類別後，清空已選擇詞綴，並預設展開所有詞綴大類手風琴

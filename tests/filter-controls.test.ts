@@ -5,6 +5,7 @@ import { mockModsData } from './helpers/mock-mods-data';
 import { createApp, defineComponent, h, nextTick, ref } from 'vue';
 import { ConfigProvider } from 'reka-ui';
 import FilterPane from '@/components/sidebar/FilterPane.vue';
+import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 
 const source = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
 
@@ -572,8 +573,8 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
     ],
   };
 
-  const mountFilterPane = async () => {
-    mockModsData(multiLevelModsData);
+  const mountFilterPane = async (modsData: Record<string, any> = multiLevelModsData) => {
+    mockModsData(modsData);
     host = document.createElement('div');
     document.body.appendChild(host);
     shadowRoot = host.attachShadow({ mode: 'open' });
@@ -793,5 +794,45 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
 
     expect(scrollArea.textContent).not.toContain('移動速度');
     expect(scrollArea.textContent).toContain('最大生命');
+  });
+
+  it('applies initial official equipment category and focuses search input when FilterPane lazy-mounts on first open', async () => {
+    // 模擬 dom-tagger 在收到 poexd-request-official-category 時同步回傳裝備類別（此時 loadData 尚未完成）
+    const stopOfficialCategoryResponder = listenPoeEvent('poexd-request-official-category', () => {
+      dispatchPoeEvent('poexd-equipment-type-changed', { type: 'boots' });
+    });
+
+    try {
+      await mountFilterPane({
+        ...multiLevelModsData,
+        '+# 敏捷': [
+          {
+            id: 'stat_dex_1',
+            officialId: 'explicit.stat_dex_1',
+            displayKey: '敏捷',
+            displayTemplate: '+# 敏捷',
+            values: [['20', '30']],
+            level: '1',
+            generation_type: '2',
+            affinities: ['normal'],
+            types: ['boots'],
+          },
+        ],
+      });
+      await new Promise((r) => setTimeout(r, 80));
+      await nextTick();
+
+      const scrollArea = appRoot.querySelector('.mods-scroll-container') as HTMLElement;
+      expect(scrollArea.textContent).toContain('敏捷');
+      expect(scrollArea.textContent).not.toContain('最大生命');
+
+      const searchInput = appRoot.querySelector(
+        'input[placeholder="搜尋詞綴關鍵字..."]',
+      ) as HTMLInputElement;
+      expect(searchInput).toBeTruthy();
+      expect(shadowRoot.activeElement).toBe(searchInput);
+    } finally {
+      stopOfficialCategoryResponder();
+    }
   });
 });
