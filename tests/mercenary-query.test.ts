@@ -249,7 +249,13 @@ describe('translateMercenaryStat', () => {
     };
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (path: string) => ({ ok: path in files, json: async () => files[path] })),
+      vi.fn(async (path: string) => {
+        const key = path.replace(/^\/+/, '');
+        return {
+          ok: key in files,
+          json: async () => (key in files ? structuredClone(files[key]) : undefined),
+        };
+      }),
     );
     expect(translateMercenaryStat('explicit.stat_1')).toBeNull();
     expect(translateMercenaryStat('mercenary.skill_12583')).toBeNull();

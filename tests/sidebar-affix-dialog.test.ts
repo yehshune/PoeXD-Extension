@@ -5,10 +5,7 @@ import { createApp, defineComponent, h, nextTick, ref } from 'vue';
 import Sidebar from '@/components/Sidebar.vue';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
-import {
-  markAffixSelectorPrewarmed,
-  resetAffixLexiconCacheForTests,
-} from '@/utils/affix-lexicon';
+import { markAffixSelectorPrewarmed, resetAffixLexiconCacheForTests } from '@/utils/affix-lexicon';
 
 const sidebarSource = readFileSync('components/Sidebar.vue', 'utf8');
 const filterPaneSource = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
