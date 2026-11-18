@@ -4,6 +4,7 @@ import {
   RESULT_PIN_BUTTON_CLASS,
   RESULT_PINNED_ROW_CLASS,
   ResultPinButton,
+  readRowCurrency,
 } from '@/entrypoints/content/logic/result-pin-button';
 import type { PinnedItemClient } from '@/utils/pinned-item-client';
 import type { PinnedItemOutcome, PinnedItemSnapshot } from '@/utils/pinned-items';
@@ -55,6 +56,8 @@ describe('ResultPinButton', () => {
       getPageLocale: () => 'en',
       now: () => 42,
       notify,
+      readCurrency: () => undefined,
+      readCard: () => undefined,
     });
 
   it('mounts only on rows whose result data is cached', () => {
@@ -130,5 +133,40 @@ describe('ResultPinButton', () => {
     pin.setEnabled(false);
     expect(document.querySelector(`.${RESULT_PIN_BUTTON_CLASS}`)).toBeNull();
     expect(document.querySelector(`.${RESULT_PINNED_ROW_CLASS}`)).toBeNull();
+  });
+
+  it('reads the currency icon and name from the official price on the row', () => {
+    document
+      .querySelector('[data-id="r1"]')!
+      .insertAdjacentHTML(
+        'beforeend',
+        '<div class="right"><div class="price"><span class="currency-text currency-image">' +
+          '<img src="https://web.poecdn.com/gen/image/divine.png" alt="divine" title="divine">' +
+          '<span>神聖石 (Divine Orb)</span></span></div></div>',
+      );
+    expect(readRowCurrency('r1')).toEqual({
+      icon: 'https://web.poecdn.com/gen/image/divine.png',
+      name: '神聖石 (Divine Orb)',
+    });
+    expect(readRowCurrency('r2')).toBeUndefined();
+  });
+
+  it('stores the row currency icon in the pinned snapshot', async () => {
+    const { client } = setupClient();
+    const pin = new ResultPinButton('poe1', cache, client, {
+      getOrigin: () => 'https://www.pathofexile.com',
+      getPageLeague: () => 'Standard',
+      getPageLocale: () => 'en',
+      now: () => 42,
+      notify,
+      readCurrency: () => ({ icon: 'https://web.poecdn.com/gen/image/alch.png', name: 'Alch' }),
+      readCard: () => undefined,
+    });
+    pin.setEnabled(true);
+    await pin.toggle('r1');
+    expect(client.pin.mock.calls[0]![0].listing.price).toMatchObject({
+      icon: 'https://web.poecdn.com/gen/image/alch.png',
+      currencyName: 'Alch',
+    });
   });
 });

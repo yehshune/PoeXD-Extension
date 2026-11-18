@@ -103,6 +103,30 @@ describe('createPinnedItemSnapshot', () => {
     ).toBeUndefined();
   });
 
+  it('keeps the row currency icon only from the official CDN', () => {
+    const icon = 'https://web.poecdn.com/gen/image/divine.png';
+    const withIcon = createPinnedItemSnapshot(
+      { id: 'r1', item: ITEM, listing: LISTING },
+      { ...SOURCE, currency: { icon, name: 'Divine Orb' } },
+      1,
+    );
+    expect(withIcon?.listing.price).toEqual({
+      type: '~b/o',
+      amount: 1,
+      currency: 'alch',
+      icon,
+      currencyName: 'Divine Orb',
+    });
+    expect(parseStoredPinnedList([withIcon], 'poe1').items[0]?.listing.price?.icon).toBe(icon);
+
+    const foreign = createPinnedItemSnapshot(
+      { id: 'r1', item: ITEM, listing: LISTING },
+      { ...SOURCE, currency: { icon: 'https://evil.example/divine.png' } },
+      1,
+    );
+    expect(foreign?.listing.price?.icon).toBeUndefined();
+  });
+
   it('round-trips through storage parsing', () => {
     const stored = JSON.parse(JSON.stringify([snapshot()]));
     expect(parseStoredPinnedList(stored, 'poe1').items).toEqual([snapshot()]);

@@ -6,6 +6,7 @@
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
+import { capturePinnedCardDom } from '@/utils/pinned-card-dom';
 import type { PinnedItemClient } from '@/utils/pinned-item-client';
 import { createPinnedItemSnapshot, PINNED_ITEM_LIMIT } from '@/utils/pinned-items';
 import { createSvgIcon, type SvgIconSpec } from '@/utils/safe-dom';
@@ -20,6 +21,9 @@ import {
 
 const STYLE_ID = 'poexd-result-pin-style';
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
+
+const resolveRowId = (row: Element): string =>
+  row.getAttribute('data-id') || row.getAttribute('id') || '';
 
 export const RESULT_PIN_BUTTON_CLASS = 'poexd-pin-btn';
 export const RESULT_PINNED_ROW_CLASS = 'poexd-row-pinned';
@@ -92,6 +96,30 @@ export interface ResultPinButtonDeps {
   getPageLocale: () => string;
   now: () => number;
   notify: (message: string, tone: 'success' | 'error') => void;
+  /** 結果列價格旁的通貨圖示與名稱（官方 fetch 回應沒有圖示網址） */
+  readCurrency: (resultId: string) => { icon?: string; name?: string } | undefined;
+  /** 結果列上的官方卡片快照（建立快照時再驗證） */
+  readCard: (resultId: string) => unknown;
+}
+
+function findRow(resultId: string, doc: Document): Element | undefined {
+  return Array.from(doc.querySelectorAll(ITEM_ROW_SELECTOR)).find(
+    (candidate) => resolveRowId(candidate) === resultId,
+  );
+}
+
+/** 從畫面上的結果列讀取通貨圖示；內容會在建立快照時再驗證 */
+export function readRowCurrency(
+  resultId: string,
+  doc: Document = document,
+): { icon?: string; name?: string } | undefined {
+  const img = findRow(resultId, doc)?.querySelector<HTMLImageElement>('.price .currency-image img');
+  if (!img) return undefined;
+  const name =
+    img.closest('.currency-image')?.querySelector(':scope > span')?.textContent?.trim() ||
+    img.getAttribute('title') ||
+    undefined;
+  return { icon: img.src, ...(name ? { name } : {}) };
 }
 
 const defaultDeps: ResultPinButtonDeps = {
@@ -100,10 +128,12 @@ const defaultDeps: ResultPinButtonDeps = {
   getPageLocale: () => resolvePageLocale(),
   now: () => Date.now(),
   notify: (message, tone) => dispatchPoeEvent('poexd-toast', { message, tone }),
+  readCurrency: (resultId) => readRowCurrency(resultId),
+  readCard: (resultId) => {
+    const row = findRow(resultId, document);
+    return row ? capturePinnedCardDom(row) : undefined;
+  },
 };
-
-const resolveRowId = (row: Element): string =>
-  row.getAttribute('data-id') || row.getAttribute('id') || '';
 
 export class ResultPinButton {
   private enabled = false;
@@ -216,6 +246,8 @@ export class ResultPinButton {
               league,
               sourceSearchId: entry.sourceSearchId,
               locale: this.deps.getPageLocale(),
+              currency: this.deps.readCurrency(resultId),
+              card: this.deps.readCard(resultId),
             },
             this.deps.now(),
           )

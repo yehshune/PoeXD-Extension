@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ClipboardCopy, ExternalLink, Home, Pin, Trash2 } from '@lucide/vue';
+import { ref } from 'vue';
+import { ChevronDown, ClipboardCopy, ExternalLink, Home, Pin, Trash2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -29,10 +30,26 @@ const {
   clearVisible,
 } = usePinnedItems();
 
-function formatPrice(item: PinnedItemSnapshot): string {
+/** 卡片預設收合只顯示物品名稱；展開狀態是這次瀏覽的暫時狀態，不保存 */
+const expandedIds = ref<ReadonlySet<string>>(new Set());
+
+function isExpanded(item: PinnedItemSnapshot): boolean {
+  return expandedIds.value.has(item.id);
+}
+
+function toggleExpanded(item: PinnedItemSnapshot): void {
+  const next = new Set(expandedIds.value);
+  if (next.has(item.id)) next.delete(item.id);
+  else next.add(item.id);
+  expandedIds.value = next;
+}
+
+/** 有通貨圖示時與官方結果列相同顯示「數量×圖示」，否則以文字顯示通貨代碼 */
+function priceLabel(item: PinnedItemSnapshot): string {
   const price = item.listing.price;
   if (!price) return t('pinnedItem.noPrice');
-  return `${price.type ? `${price.type} ` : ''}${price.amount} ${price.currency}`;
+  const prefix = `${price.type ? `${price.type} ` : ''}${price.amount}`;
+  return price.icon ? `${prefix}×` : `${prefix} ${price.currency}`;
 }
 
 const RELATIVE_UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
@@ -123,12 +140,45 @@ function realmLabel(item: PinnedItemSnapshot): string {
           :class="{ 'opacity-60': states[item.id] === 'sold' }"
           :data-pinned-item-id="item.id"
         >
-          <PinnedItemCardView :snapshot="item" />
+          <div
+            role="button"
+            tabindex="0"
+            class="cursor-pointer focus-visible:outline-2 focus-visible:outline-ring"
+            data-pinned-item-toggle
+            :aria-expanded="isExpanded(item)"
+            :title="
+              isExpanded(item) ? t('pinnedItem.action.collapse') : t('pinnedItem.action.expand')
+            "
+            @click="toggleExpanded(item)"
+            @keydown.enter.prevent="toggleExpanded(item)"
+            @keydown.space.prevent="toggleExpanded(item)"
+          >
+            <PinnedItemCardView :snapshot="item" :collapsed="!isExpanded(item)" />
+          </div>
 
           <div
             class="flex flex-wrap items-center gap-x-[var(--pxd-space-sm)] gap-y-[var(--pxd-space-2xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
           >
-            <span class="font-bold text-foreground">{{ formatPrice(item) }}</span>
+            <ChevronDown
+              class="size-4 shrink-0 transition-transform"
+              :class="{ 'rotate-180': isExpanded(item) }"
+              aria-hidden="true"
+            />
+            <span
+              class="inline-flex items-center gap-[var(--pxd-space-2xs)] font-bold text-foreground"
+              data-pinned-item-price
+            >
+              {{ priceLabel(item) }}
+              <img
+                v-if="item.listing.price?.icon"
+                :src="item.listing.price.icon"
+                :alt="item.listing.price.currency"
+                :title="item.listing.price.currencyName ?? item.listing.price.currency"
+                class="size-6 object-contain"
+                referrerpolicy="no-referrer"
+                data-pinned-item-currency-icon
+              />
+            </span>
             <span v-if="item.listing.instantBuyout" class="text-primary">{{
               t('pinnedItem.instantBuyout')
             }}</span>

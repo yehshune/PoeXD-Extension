@@ -5,6 +5,7 @@
  * 官方 fetch 回應是頁面送來的不可信輸入，這裡只挑白名單欄位，並且一律不保存
  * `hideout_token` / `whisper_token` 等有時效、綁定搜尋的 token。
  */
+import { sanitizePinnedCardDom, type PinnedCardDom } from './pinned-card-dom';
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
 import type { PoeVersion } from './trade-context';
 import { findTradeRealm, type TradeRealmId } from './trade-realms';
@@ -77,6 +78,10 @@ export interface PinnedItemPrice {
   type?: string;
   amount: number;
   currency: string;
+  /** 官方結果列價格旁的通貨圖示（官方 CDN），釘選時從結果列取得 */
+  icon?: string;
+  /** 結果列顯示的通貨名稱（可能已被市集漢化翻譯），只作為提示文字 */
+  currencyName?: string;
 }
 
 export interface PinnedItemListing {
@@ -108,6 +113,8 @@ export interface PinnedItemSnapshot {
   pinnedAt: number;
   item: PinnedItemData;
   listing: PinnedItemListing;
+  /** 釘選時擷取的官方卡片快照（清理過的節點樹）；沒有時 Sidebar 以物品 JSON 自繪 */
+  card?: PinnedCardDom;
 }
 
 export interface PinnedItemSource {
@@ -116,6 +123,10 @@ export interface PinnedItemSource {
   league: string;
   sourceSearchId?: string;
   locale?: string;
+  /** 結果列上的通貨顯示（官方 fetch 回應沒有圖示網址） */
+  currency?: { icon?: string; name?: string };
+  /** 結果列上的官方卡片快照（未驗證；建立快照時驗證） */
+  card?: unknown;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -173,7 +184,15 @@ export function sanitizePinnedItemListing(raw: unknown): PinnedItemListing | und
     const currency = boundedText(raw.price.currency, 64);
     if (amount !== undefined && currency) {
       const type = boundedText(raw.price.type, 32);
-      listing.price = { amount, currency, ...(type ? { type } : {}) };
+      const icon = isValidPoeCdnImageUrl(raw.price.icon) ? raw.price.icon : undefined;
+      const currencyName = boundedText(raw.price.currencyName, 64);
+      listing.price = {
+        amount,
+        currency,
+        ...(type ? { type } : {}),
+        ...(icon ? { icon } : {}),
+        ...(currencyName ? { currencyName } : {}),
+      };
     }
   }
   if (isRecord(raw.stash)) {
@@ -189,6 +208,15 @@ export function sanitizePinnedItemListing(raw: unknown): PinnedItemListing | und
   return listing;
 }
 
+/** 把結果列上的通貨圖示與名稱併入官方 listing.price，再交給白名單驗證 */
+function withCurrencyDisplay(listing: unknown, currency: PinnedItemSource['currency']): unknown {
+  if (!currency || !isRecord(listing) || !isRecord(listing.price)) return listing;
+  return {
+    ...listing,
+    price: { ...listing.price, icon: currency.icon, currencyName: currency.name },
+  };
+}
+
 /** 由官方 fetch 結果的一筆 `{ id, item, listing }` 建立快照；欄位不足時回傳 undefined */
 export function createPinnedItemSnapshot(
   entry: { id: unknown; item: unknown; listing: unknown },
@@ -197,12 +225,13 @@ export function createPinnedItemSnapshot(
 ): PinnedItemSnapshot | undefined {
   const id = boundedText(entry.id, 128);
   const item = sanitizePinnedItemData(entry.item);
-  const listing = sanitizePinnedItemListing(entry.listing);
+  const listing = sanitizePinnedItemListing(withCurrencyDisplay(entry.listing, source.currency));
   const realm = parseRealmFromOrigin(source.origin);
   const league = boundedText(source.league, 128);
   if (!id || !item || !listing || !realm || !league) return undefined;
   const sourceSearchId = boundedText(source.sourceSearchId, 4096);
   const locale = boundedText(source.locale, 16);
+  const card = source.card === undefined ? undefined : sanitizePinnedCardDom(source.card);
   return {
     id,
     gameVersion: source.gameVersion,
@@ -214,6 +243,7 @@ export function createPinnedItemSnapshot(
     pinnedAt,
     item,
     listing,
+    ...(card ? { card } : {}),
   };
 }
 
@@ -258,6 +288,7 @@ export function parseStoredPinnedItem(
       league: typeof value.league === 'string' ? value.league : '',
       sourceSearchId: typeof value.sourceSearchId === 'string' ? value.sourceSearchId : undefined,
       locale: typeof value.locale === 'string' ? value.locale : undefined,
+      card: value.card,
     },
     pinnedAt,
   );

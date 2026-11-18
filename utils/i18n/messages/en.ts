@@ -1258,6 +1258,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pinnedItem.action.travelAgain': 'Go anyway',
   'pinnedItem.action.travelSent': 'Sent',
   'pinnedItem.action.travelTitle': "Same as the official button: teleport to the seller's hideout",
+  'pinnedItem.action.expand': 'Show item details',
+  'pinnedItem.action.collapse': 'Collapse to the item name',
   'pinnedItem.action.whisper': 'Copy whisper',
   'pinnedItem.action.whisperTitle': 'Copy the whisper to the clipboard (it is not sent)',
   'pinnedItem.action.openSource': 'Open the source search in a new tab',
