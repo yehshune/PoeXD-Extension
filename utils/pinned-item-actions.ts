@@ -17,9 +17,12 @@ export type HideoutTravelOutcome =
   | { status: 'teleporting' }
   /** 有人搶先；再按一次會帶 `continue: true` */
   | { status: 'in-demand' }
-  /** `/fetch` 回傳 null：已售出或下架 */
+  /**
+   * 已售出或下架：`/fetch` 回傳 null 或物品帶 `gone: true`（此時 listing 仍帶 token），
+   * 或 whisper 回錯誤 code 1（HTTP 404「Item no longer available」）
+   */
   | { status: 'sold' }
-  /** 拿得到物品但沒有 token：來源搜尋已失效，或官方要求重新整理 */
+  /** 拿得到物品但沒有 token：來源搜尋已失效 */
   | { status: 'refresh-required' }
   | { status: 'realm-mismatch' }
   | { status: 'error'; message: string };
@@ -144,6 +147,8 @@ async function obtainHideoutToken(
   const result = isRecord(body) && Array.isArray(body.result) ? body.result[0] : undefined;
   if (result === null) return { outcome: { status: 'sold' } };
   if (!isRecord(result)) return { outcome: { status: 'error', message: 'Unexpected response' } };
+  // 已售出的物品仍會回傳完整資料與 token，只多一個 `gone: true`；不可拿去送 whisper
+  if (result.gone === true) return { outcome: { status: 'sold' } };
   deps.rememberResult?.(result, snapshot.sourceSearchId);
   const token = readUsableHideoutToken(result.listing, nowMs);
   return token ? { token } : { outcome: { status: 'refresh-required' } };
@@ -177,8 +182,8 @@ export async function travelToHideout(
     if (!response) return { status: 'error', message: 'Request cancelled' };
     const body = await readJson(response);
     if (isRecord(body) && isRecord(body.error)) {
-      // 官方在 code 1 時要求重新整理物品（token 失效）
-      if (body.error.code === 1) return { status: 'refresh-required' };
+      // code 1 = HTTP 404「Item no longer available」，官方同樣把卡片標成已售出（gone）
+      if (body.error.code === 1) return { status: 'sold' };
       return { status: 'error', message: readApiErrorMessage(body, `HTTP ${response.status}`) };
     }
     if (!response.ok) return { status: 'error', message: `HTTP ${response.status}` };

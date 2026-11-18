@@ -118,13 +118,41 @@ describe('travelToHideout', () => {
     expect(whisperBody(again.whisperGate)).toEqual({ token: FRESH, continue: true });
   });
 
-  it('maps official error code 1 to refresh-required and other errors to messages', async () => {
+  it('treats sold items returned with gone: true as sold without sending a whisper', async () => {
+    const d = deps({
+      fetchResponse: json({
+        result: [{ id: 'item1', gone: true, item: {}, listing: { hideout_token: FRESH } }],
+      }),
+    });
+    await expect(travelToHideout(pinned(), d.value)).resolves.toEqual({ status: 'sold' });
+    expect(d.whisperGate.fetch).not.toHaveBeenCalled();
+    expect(d.rememberResult).not.toHaveBeenCalled();
+  });
+
+  it('maps official error code 1 (item no longer available) to sold and other errors to messages', async () => {
     const invalid = deps({
       cachedListing: { hideout_token: FRESH },
-      whisperResponse: json({ error: { code: 1, message: 'Invalid token' } }, 400),
+      whisperResponse: json(
+        { error: { code: 1, message: 'Resource not found; Item no longer available' } },
+        404,
+      ),
     });
-    await expect(travelToHideout(pinned(), invalid.value)).resolves.toEqual({
-      status: 'refresh-required',
+    await expect(travelToHideout(pinned(), invalid.value)).resolves.toEqual({ status: 'sold' });
+    const notInGame = deps({
+      cachedListing: { hideout_token: FRESH },
+      whisperResponse: json(
+        {
+          error: {
+            code: 2,
+            message: 'Invalid query; Your account must be in-game to use this feature',
+          },
+        },
+        400,
+      ),
+    });
+    await expect(travelToHideout(pinned(), notInGame.value)).resolves.toEqual({
+      status: 'error',
+      message: 'Invalid query; Your account must be in-game to use this feature',
     });
     const other = deps({
       cachedListing: { hideout_token: FRESH },
