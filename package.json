@@ -1,6 +1,6 @@
 {
   "name": "poexd-extension",
-  "version": "1.9.1",
+  "version": "1.10.0",
   "private": true,
   "description": "流亡黯道 Path of Exile 官方交易市集中文化工具（PoE 1 & 2）：提供繁簡漢化與中英並列、PoB 購物清單與 pobb.in 翻譯、線上搜尋主控台、詞綴篩選與書籤管理。",
   "homepage": "https://github.com/yehshune/PoeXD-Extension#readme",
