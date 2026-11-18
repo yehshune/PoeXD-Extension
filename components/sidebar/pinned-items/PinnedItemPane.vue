@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Sortable from 'sortablejs';
-import { ChevronsDownUp, Pin, Trash2 } from '@lucide/vue';
+import { ChevronsDownUp, Pin, Search, Trash2, X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { getActiveUiLocale, t } from '@/utils/i18n';
 import { isSameLeague, type PinnedItemSnapshot } from '@/utils/pinned-items';
@@ -23,6 +24,7 @@ import { requestResultTranslation } from '@/utils/market-result-translation-requ
 import PinnedItemActions from './PinnedItemActions.vue';
 import PinnedItemCardView from './PinnedItemCardView.vue';
 import { resolveRarityClass } from './pinned-item-card';
+import { filterPinnedItems } from './pinned-item-filter';
 import { usePinnedItems } from './usePinnedItems';
 
 const props = defineProps<{
@@ -55,6 +57,28 @@ const {
 
 const sidebarPosition = computed(() => props.sidebarPosition ?? 'left');
 const listRef = ref<HTMLElement | null>(null);
+const isSearchVisible = ref(false);
+const searchQuery = ref('');
+const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
+
+const filteredItems = computed(() => filterPinnedItems(visibleItems.value, searchQuery.value));
+/** 搜尋中只看得到部分結果，拖曳位置容易誤判，因此停用排序與拖曳刪除。 */
+const canDrag = computed(() => searchQuery.value.trim() === '');
+
+async function toggleSearch() {
+  if (isSearchVisible.value) {
+    closeSearch();
+    return;
+  }
+  isSearchVisible.value = true;
+  await nextTick();
+  (searchInputRef.value?.$el as HTMLInputElement | undefined)?.focus?.();
+}
+
+function closeSearch() {
+  isSearchVisible.value = false;
+  searchQuery.value = '';
+}
 
 const {
   trashZone,
@@ -94,6 +118,7 @@ function initSortable() {
     ghostClass: 'sortable-ghost',
     filter: 'button, a, input, label',
     preventOnFilter: false,
+    disabled: !canDrag.value,
     ...createSidebarDragScrollOptions(listRef.value.closest<HTMLElement>(LIST_SCROLL_SELECTOR)),
     onStart: () => {
       if (trashZone.value) showDragTrash(trashZone.value);
@@ -135,6 +160,7 @@ watch(trashZone, (el) => {
   trashCleanup = el ? setupTrashListeners(el) : null;
 });
 
+watch(canDrag, (enabled) => sortable?.option('disabled', !enabled));
 watch(
   () => visibleItems.value.length > 0,
   async () => {
@@ -183,7 +209,7 @@ function toggleExpanded(item: PinnedItemSnapshot): void {
 }
 
 const hasAnyExpanded = computed(() =>
-  visibleItems.value.some((item) => expandedIds.value.has(item.id)),
+  filteredItems.value.some((item) => expandedIds.value.has(item.id)),
 );
 
 function collapseAll(): void {
@@ -278,6 +304,22 @@ function realmLabel(item: PinnedItemSnapshot): string {
           >{{ t('pinnedItem.count', { count: items.length, limit }) }}</span
         >
         <Button
+          :variant="isSearchVisible ? 'default' : 'secondary'"
+          size="icon-sm"
+          class="shrink-0"
+          data-pinned-items-search-toggle
+          :disabled="visibleItems.length === 0 && !isSearchVisible"
+          :title="
+            isSearchVisible ? t('bookmark.search.closeTooltip') : t('pinnedItem.searchTooltip')
+          "
+          :aria-label="
+            isSearchVisible ? t('bookmark.search.closeTooltip') : t('pinnedItem.searchTooltip')
+          "
+          @click="toggleSearch"
+        >
+          <Search />
+        </Button>
+        <Button
           variant="secondary"
           size="icon-sm"
           class="shrink-0"
@@ -291,7 +333,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
         </Button>
         <Button
           variant="secondary"
-          size="sm"
+          size="icon-sm"
           class="shrink-0"
           data-pinned-items-clear
           :disabled="visibleItems.length === 0"
@@ -306,6 +348,31 @@ function realmLabel(item: PinnedItemSnapshot): string {
         </Button>
       </div>
       <Separator class="mb-[var(--pxd-space-md)]" />
+
+      <div v-if="isSearchVisible" class="relative mb-[var(--pxd-space-md)] flex items-center">
+        <Search
+          class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
+        />
+        <Input
+          ref="searchInputRef"
+          v-model="searchQuery"
+          size="sm"
+          :placeholder="t('pinnedItem.searchPlaceholder')"
+          class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))]"
+          data-pinned-items-search
+          @keydown.esc.stop.prevent="closeSearch"
+        />
+        <Button
+          v-if="searchQuery"
+          variant="ghost"
+          size="icon-sm"
+          class="absolute right-[var(--pxd-space-xs)]"
+          :title="t('bookmark.search.clearTooltip')"
+          @click="searchQuery = ''"
+        >
+          <X />
+        </Button>
+      </div>
     </template>
 
     <template #scroll>
@@ -318,129 +385,142 @@ function realmLabel(item: PinnedItemSnapshot): string {
         <template #icon><Pin /></template>
       </SidebarEmptyState>
 
-      <ul
-        v-else
-        ref="listRef"
-        class="m-0 flex list-none flex-col overflow-hidden rounded-md border border-border bg-card p-0"
-        data-pinned-items-list
-      >
-        <li
-          v-for="item in visibleItems"
-          :key="item.id"
-          class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
-          :class="[
-            isExpanded(item) ? 'bg-muted/20' : 'hover:bg-muted/40',
-            { 'opacity-60': states[item.id] === 'sold' },
-          ]"
-          :data-pinned-item-id="item.id"
-          :data-expanded="isExpanded(item) ? '' : undefined"
+      <template v-else>
+        <p
+          v-if="filteredItems.length === 0"
+          class="m-0 py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+          data-pinned-items-no-match
         >
-          <div
-            role="button"
-            tabindex="0"
-            class="flex items-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] py-[var(--pxd-space-md)] cursor-grab active:cursor-grabbing outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            :class="isExpanded(item) ? 'bg-muted/35 border-b border-border/60' : ''"
-            data-pinned-item-toggle
-            :aria-expanded="isExpanded(item)"
-            :title="expandLabel(item)"
-            @click="toggleExpanded(item)"
-            @keydown.enter.prevent="toggleExpanded(item)"
-            @keydown.space.prevent="toggleExpanded(item)"
+          {{ t('pinnedItem.noMatch', { query: searchQuery.trim() }) }}
+        </p>
+
+        <ul
+          v-show="filteredItems.length > 0"
+          ref="listRef"
+          class="m-0 flex list-none flex-col overflow-hidden rounded-md border border-border bg-card p-0"
+          data-pinned-items-list
+        >
+          <li
+            v-for="item in filteredItems"
+            :key="item.id"
+            class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
+            :class="[
+              isExpanded(item) ? 'bg-muted/20' : 'hover:bg-muted/40',
+              { 'opacity-60': states[item.id] === 'sold' },
+            ]"
+            :data-pinned-item-id="item.id"
+            :data-expanded="isExpanded(item) ? '' : undefined"
           >
-            <img
-              v-if="typeof item.item.icon === 'string'"
-              :src="item.item.icon"
-              alt=""
-              class="size-[var(--control-height-default)] shrink-0 object-contain"
-              referrerpolicy="no-referrer"
-              draggable="false"
-            />
-            <div class="flex min-w-0 flex-1 flex-col gap-[2px]">
-              <span
-                class="truncate text-[length:var(--pxd-font-secondary)] font-semibold leading-tight"
-                :style="{ color: rarityColour(item) }"
-                data-pinned-item-name
-              >
-                <span
-                  v-for="(line, index) in nameLines(item)"
-                  :key="index"
-                  class="item-popup__header-line"
-                  :class="{ 'ml-[0.35em]': index > 0 }"
-                  >{{ line }}</span
-                >
-              </span>
-              <span
-                class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
-                data-pinned-item-meta
-                >{{ metaParts(item).join(' · ') }}</span
-              >
-            </div>
-            <div class="flex shrink-0 flex-col items-end">
-              <span
-                class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
-                :class="{ 'line-through': states[item.id] === 'sold' }"
-                data-pinned-item-price
-              >
-                {{ priceAmount(item) }}
-                <img
-                  v-if="item.listing.price?.icon"
-                  :src="item.listing.price.icon"
-                  :alt="item.listing.price.currency"
-                  :title="item.listing.price.currencyName ?? item.listing.price.currency"
-                  class="size-6 object-contain"
-                  referrerpolicy="no-referrer"
-                  draggable="false"
-                  data-pinned-item-currency-icon
-                />
-              </span>
-              <span
-                v-if="states[item.id] === 'sold'"
-                class="text-[length:var(--pxd-font-micro)] text-destructive"
-                >{{ t('pinnedItem.sold') }}</span
-              >
-            </div>
-          </div>
-
-          <!-- 收合時 hover 才浮出的操作（與書籤列相同），蓋在價格上方 -->
-          <PinnedItemActions
-            v-if="!isExpanded(item)"
-            class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) rounded-l-sm pl-[var(--pxd-space-sm)] bg-card group-hover:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
-            :item="item"
-            :state="states[item.id]"
-            :same-realm="sameRealm(item)"
-            :can-copy-pob="canCopyPob(item)"
-            :has-source="!!sourceUrl(item)"
-            :full="false"
-            @travel="travel(item)"
-            @whisper="copyWhisper(item)"
-            @pob="copyPob(item)"
-            @source="openSource(item)"
-            @unpin="unpin(item)"
-          />
-
-          <div v-else class="flex flex-col bg-background">
-            <PinnedItemCardView :snapshot="item" :collapsed="false" />
             <div
-              class="border-t border-border/60 bg-card/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
+              role="button"
+              tabindex="0"
+              class="flex items-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] py-[var(--pxd-space-md)] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              :class="[
+                canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+                isExpanded(item) ? 'bg-muted/35 border-b border-border/60' : '',
+              ]"
+              data-pinned-item-toggle
+              :aria-expanded="isExpanded(item)"
+              :title="expandLabel(item)"
+              @click="toggleExpanded(item)"
+              @keydown.enter.prevent="toggleExpanded(item)"
+              @keydown.space.prevent="toggleExpanded(item)"
             >
-              <PinnedItemActions
-                class="flex-wrap"
-                :item="item"
-                :state="states[item.id]"
-                :same-realm="sameRealm(item)"
-                :can-copy-pob="canCopyPob(item)"
-                :has-source="!!sourceUrl(item)"
-                :full="true"
-                @travel="travel(item)"
-                @whisper="copyWhisper(item)"
-                @pob="copyPob(item)"
-                @source="openSource(item)"
-                @unpin="unpin(item)"
+              <img
+                v-if="typeof item.item.icon === 'string'"
+                :src="item.item.icon"
+                alt=""
+                class="size-[var(--control-height-default)] shrink-0 object-contain"
+                referrerpolicy="no-referrer"
+                draggable="false"
               />
+              <div class="flex min-w-0 flex-1 flex-col gap-[2px]">
+                <span
+                  class="truncate text-[length:var(--pxd-font-secondary)] font-semibold leading-tight"
+                  :style="{ color: rarityColour(item) }"
+                  data-pinned-item-name
+                >
+                  <span
+                    v-for="(line, index) in nameLines(item)"
+                    :key="index"
+                    class="item-popup__header-line"
+                    :class="{ 'ml-[0.35em]': index > 0 }"
+                    >{{ line }}</span
+                  >
+                </span>
+                <span
+                  class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
+                  data-pinned-item-meta
+                  >{{ metaParts(item).join(' · ') }}</span
+                >
+              </div>
+              <div class="flex shrink-0 flex-col items-end">
+                <span
+                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
+                  :class="{ 'line-through': states[item.id] === 'sold' }"
+                  data-pinned-item-price
+                >
+                  {{ priceAmount(item) }}
+                  <img
+                    v-if="item.listing.price?.icon"
+                    :src="item.listing.price.icon"
+                    :alt="item.listing.price.currency"
+                    :title="item.listing.price.currencyName ?? item.listing.price.currency"
+                    class="size-6 object-contain"
+                    referrerpolicy="no-referrer"
+                    draggable="false"
+                    data-pinned-item-currency-icon
+                  />
+                </span>
+                <span
+                  v-if="states[item.id] === 'sold'"
+                  class="text-[length:var(--pxd-font-micro)] text-destructive"
+                  >{{ t('pinnedItem.sold') }}</span
+                >
+              </div>
             </div>
-          </div>
-        </li>
-      </ul>
+
+            <!-- 收合時 hover 才浮出的操作（與書籤列相同），蓋在價格上方 -->
+            <PinnedItemActions
+              v-if="!isExpanded(item)"
+              class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) rounded-l-sm pl-[var(--pxd-space-sm)] bg-card group-hover:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
+              :item="item"
+              :state="states[item.id]"
+              :same-realm="sameRealm(item)"
+              :can-copy-pob="canCopyPob(item)"
+              :has-source="!!sourceUrl(item)"
+              :full="false"
+              @travel="travel(item)"
+              @whisper="copyWhisper(item)"
+              @pob="copyPob(item)"
+              @source="openSource(item)"
+              @unpin="unpin(item)"
+            />
+
+            <div v-else class="flex flex-col bg-background">
+              <PinnedItemCardView :snapshot="item" :collapsed="false" />
+              <div
+                class="border-t border-border/60 bg-card/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
+              >
+                <PinnedItemActions
+                  class="flex-wrap"
+                  :item="item"
+                  :state="states[item.id]"
+                  :same-realm="sameRealm(item)"
+                  :can-copy-pob="canCopyPob(item)"
+                  :has-source="!!sourceUrl(item)"
+                  :full="true"
+                  @travel="travel(item)"
+                  @whisper="copyWhisper(item)"
+                  @pob="copyPob(item)"
+                  @source="openSource(item)"
+                  @unpin="unpin(item)"
+                />
+              </div>
+            </div>
+          </li>
+        </ul>
+      </template>
 
       <DragTrashZone
         :ref="setTrashZoneRef"

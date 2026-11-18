@@ -1265,6 +1265,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pinnedItem.action.whisper': 'Copy whisper',
   'pinnedItem.action.whisperTitle': 'Copy the whisper to the clipboard (it is not sent)',
   'pinnedItem.action.openSource': 'Open the source search in a new tab',
+  'pinnedItem.searchTooltip': 'Search pinned items',
+  'pinnedItem.searchPlaceholder': 'Search name, seller, or mods…',
+  'pinnedItem.noMatch': 'No pinned items matching "{query}"',
   'resultLinks.poedb.button': 'DB',
   'resultLinks.poedb.title': 'View this item on PoEDB',
   'resultLinks.toast.poedbNameMissing':
