@@ -137,10 +137,20 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslation.infoAria': 'Chinese Trade Site info',
   'settings.marketTranslation.tooltip':
     'Show the international English Trade site (interface, filters and results) in Chinese, using the official wording of the Taiwan (Traditional) or China (Simplified) realm according to Language. Display only: searches are unchanged. Reload the page to apply',
-  'settings.marketTranslationBilingual.label': 'Show English alongside',
-  'settings.marketTranslationBilingual.infoAria': 'Show English alongside info',
+  'settings.marketTranslation.bilingualGroup': 'Original English text',
+  'settings.marketTranslationBilingual.label': 'Filter dropdowns',
+  'settings.marketTranslationBilingual.description':
+    'Shows "中文 (English)" so English keywords still match',
+  'settings.marketTranslationBilingual.infoAria': 'Filter dropdowns original English text info',
   'settings.marketTranslationBilingual.tooltip':
     'Stat, currency and item dropdowns show the Chinese text followed by the English original, so either language finds the same entry. Filter names show Chinese only. Reload the page after changing this.',
+  'settings.marketTranslationResultBilingual.label': 'Result mod lines',
+  'settings.marketTranslationResultBilingual.description':
+    'Muted English subtitle below each mod, applies immediately',
+  'settings.marketTranslationResultBilingual.infoAria':
+    'Result mod lines original English text info',
+  'settings.marketTranslationResultBilingual.tooltip':
+    'Show the original English text in muted smaller text below each translated mod line in search results. Takes effect immediately.',
   'settings.marketTranslation.localeHint':
     'Set Language to 繁體中文 or 简体中文 for Chinese Trade Site to take effect',
 
@@ -1292,4 +1302,41 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'onboarding.update.title': 'Updated to {version}',
   'onboarding.update.releaseNotes': 'Release notes',
   'onboarding.update.dismiss': 'Dismiss update notice',
+  'common.promptTitle': 'Input',
+  'common.alertTitle': 'Notice',
+  'affixSelector.dialog.title': 'Affix Selector',
+  'affixSelector.dialog.description': 'Select and configure affix filter conditions',
+  'liveSearch.tempDialog.itemCount': '{count} items',
+  'bookmark.dialog.dragDeleteFolderTitle': 'Delete Folder',
+  'bookmark.dialog.deleteFolderWithSubfoldersConfirm':
+    'Delete folder "{name}" and its {subfolderCount} subfolder(s)?\nThis will also delete {bookmarkCount} bookmark(s) inside.',
+  'bookmark.dialog.deleteFolderWithBookmarksConfirm':
+    'Delete folder "{name}"?\nThis will also delete {bookmarkCount} bookmark(s) inside.',
+  'statGroupTemplate.error.storeNotReady':
+    'Stat group templates are not ready yet. Please try again shortly.',
+  'statGroupTemplate.error.noOverlayCriteria': 'No criteria to overlay',
+  'statGroupTemplate.toast.undone': 'Undid last apply',
+  'statGroupTemplate.error.noSavableGroups': 'No stat groups in the current form to save',
+  'statGroupTemplate.dialog.renamePrompt': 'Enter a new name:',
+  'statGroupTemplate.dialog.renameTitle': 'Rename Stat Group Template',
+  'statGroupTemplate.dialog.deleteTitle': 'Delete Stat Group Template',
+  'statGroupTemplate.dialog.importPrompt': 'Paste the exported stat group templates content:',
+  'statGroupTemplate.dialog.importTitle': 'Import Stat Group Templates',
+  'statGroupTemplate.toast.imported': 'Imported {count} stat group template(s)',
+  'statGroupTemplate.toast.importedWithSkipped':
+    'Imported {count} stat group template(s) ({skipped} invalid skipped)',
+  'statGroupTemplate.dialog.clearConfirm':
+    'Delete all {count} stat group template(s)? This action cannot be undone.',
+  'statGroupTemplate.dialog.clearTitle': 'Clear Stat Group Templates',
+  'statGroupTemplate.toast.cleared': 'Cleared all stat group templates',
+  'statGroupTemplate.error.nameEmpty': 'Stat group template name cannot be empty',
+  'statGroupTemplate.error.nameTooLong': 'Stat group template name can be at most {max} characters',
+  'statGroupTemplate.error.importInvalidFormat':
+    'Invalid import format. Please paste content exported from stat group templates.',
+  'statGroupTemplate.error.importVersionMismatch':
+    'This content is for {sourceVersion} and cannot be imported into {targetVersion} stat group templates.',
+  'statGroupTemplate.error.importEmpty': 'No valid stat group templates found in import content',
+  'criteriaOverlay.session.formStateNotFound': 'Could not find official trade search form state',
+  'bookmark.league.httpFailed': 'Failed to load trade leagues ({status})',
+  'bookmark.league.invalidFormat': 'Invalid trade leagues data format',
 };

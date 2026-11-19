@@ -78,6 +78,7 @@ const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
   'liveSearchSoundEnabled',
   'marketTranslation',
   'marketTranslationBilingual',
+  'marketTranslationResultBilingual',
 ]);
 
 function isValidPreference(name: keyof Preferences, value: unknown) {

@@ -68,10 +68,25 @@ export default defineContentScript({
                 liveEn,
               }),
             )
-            .then((data) => {
-              const translator = createResultTranslator(data);
+            .then(async (data) => {
+              const stored = await chrome.storage.local
+                .get(['marketTranslationResultBilingual'])
+                .catch(() => ({}) as Record<string, unknown>);
+              const translator = createResultTranslator(data, {
+                resultBilingual: stored.marketTranslationResultBilingual === true,
+              });
               translator.observe(document);
               extraRoots.attach((root) => translator.observe(root));
+              chrome.storage.onChanged.addListener(
+                (changes: Record<string, { newValue?: unknown }>, areaName: string) => {
+                  if (areaName !== 'local' || !('marketTranslationResultBilingual' in changes)) {
+                    return;
+                  }
+                  translator.setResultBilingual(
+                    changes.marketTranslationResultBilingual?.newValue === true,
+                  );
+                },
+              );
             })
             .catch((error) => console.warn('[PoeXD] 市集漢化結果列翻譯啟動失敗:', error));
         });

@@ -42,6 +42,7 @@ describe('Preferences module interface', () => {
       liveSearchSoundEnabled: true,
       marketTranslation: false,
       marketTranslationBilingual: true,
+      marketTranslationResultBilingual: false,
       searchEntryClickAction: 'preview',
       sidebarPosition: 'left',
       sidebarSize: 'medium',

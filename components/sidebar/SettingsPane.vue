@@ -99,34 +99,82 @@
         </div>
         <div
           v-if="marketTranslation"
-          class="flex items-center gap-[var(--pxd-space-md)] pl-[var(--pxd-space-lg)]"
+          class="ml-[7px] flex flex-col gap-[var(--pxd-space-sm)] border-l border-border/60 pl-[var(--pxd-space-md)]"
         >
-          <Checkbox
-            id="enable-market-translation-bilingual"
-            v-model="marketTranslationBilingual"
-            @update:model-value="savePreference('marketTranslationBilingual')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-market-translation-bilingual"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.marketTranslationBilingual.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.marketTranslationBilingual.infoAria')"
+          <p
+            class="m-0 text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground select-none"
+          >
+            {{ t('settings.marketTranslation.bilingualGroup') }}
+          </p>
+          <div class="flex items-start gap-[var(--pxd-space-md)]">
+            <Checkbox
+              id="enable-market-translation-bilingual"
+              v-model="marketTranslationBilingual"
+              class="mt-[2px]"
+              @update:model-value="savePreference('marketTranslationBilingual')"
+            />
+            <div class="flex flex-col gap-[2px] min-w-0">
+              <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+                <label
+                  for="enable-market-translation-bilingual"
+                  class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
                 >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.marketTranslationBilingual.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
+                  {{ t('settings.marketTranslationBilingual.label') }}
+                </label>
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <span
+                      class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                      tabindex="-1"
+                      :aria-label="t('settings.marketTranslationBilingual.infoAria')"
+                    >
+                      <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {{ t('settings.marketTranslationBilingual.tooltip') }}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+                {{ t('settings.marketTranslationBilingual.description') }}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-start gap-[var(--pxd-space-md)]">
+            <Checkbox
+              id="enable-market-translation-result-bilingual"
+              v-model="marketTranslationResultBilingual"
+              class="mt-[2px]"
+              @update:model-value="savePreference('marketTranslationResultBilingual')"
+            />
+            <div class="flex flex-col gap-[2px] min-w-0">
+              <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
+                <label
+                  for="enable-market-translation-result-bilingual"
+                  class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+                >
+                  {{ t('settings.marketTranslationResultBilingual.label') }}
+                </label>
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <span
+                      class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
+                      tabindex="-1"
+                      :aria-label="t('settings.marketTranslationResultBilingual.infoAria')"
+                    >
+                      <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {{ t('settings.marketTranslationResultBilingual.tooltip') }}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+                {{ t('settings.marketTranslationResultBilingual.description') }}
+              </p>
+            </div>
           </div>
         </div>
         <p
@@ -915,6 +963,7 @@ export default defineComponent({
       enablePureBackground,
       marketTranslation,
       marketTranslationBilingual,
+      marketTranslationResultBilingual,
       addBookmarkBtnPosition,
       enableBookmarkTooltip,
       searchEntryClickAction,
@@ -1238,6 +1287,7 @@ export default defineComponent({
       enablePureBackground,
       marketTranslation,
       marketTranslationBilingual,
+      marketTranslationResultBilingual,
       marketTranslationLocaleMismatch,
       marketTranslationReloadRequired,
       reloadPage,

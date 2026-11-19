@@ -67,6 +67,21 @@ const TARGET_SELECTOR = [
 const OWN_NODE_SELECTOR = '[class*="poexd"]';
 /** 我們自己插入的節點（價格比較等）不翻譯 */
 const SKIP_SELECTOR = `${STAT_SELECTOR}, ${OWN_NODE_SELECTOR}`;
+const MOD_SUBTITLE_TARGET_SELECTOR = `${STAT_SELECTOR}, ${MOD_SELECTOR}`;
+export const RESULT_MOD_ENGLISH_SUBTITLE_CLASS = 'poexd-result-mod-en';
+const RESULT_MOD_ENGLISH_STYLE_ID = 'poexd-result-mod-en-style';
+const RESULT_MOD_ENGLISH_STYLE_CSS = `
+  .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS} {
+    display: block;
+    font-size: 0.92em;
+    line-height: 1.25;
+    color: oklch(0.76 0.015 260 / 0.72);
+    font-weight: 400;
+    white-space: pre-line !important;
+    margin-top: 1px;
+    margin-bottom: 2px;
+  }
+`;
 /** `stat.<category>.<id>`；id 可能是 `stat_<hash>`、`stat_<hash>|<option>` 或技能代碼 */
 const STAT_FIELD = /^stat\.([a-z_]+\.(\S+))$/;
 const STAT_HASH = /^stat_(\d+)$/;
@@ -148,16 +163,49 @@ export function translateResultItemName(
   return null;
 }
 
+export interface ResultTranslatorOptions {
+  /** 結果列詞綴在譯文下方以淡色副標顯示英文原文 */
+  resultBilingual?: boolean;
+}
+
 export interface ResultTranslator {
   /** 翻譯 root 底下（含 root 本身）所有結果列節點 */
   translate(root: ParentNode): void;
   /** 監看 root 的新增與文字變更；回傳停止函式 */
   observe(root: Node): () => void;
+  /** 即時切換結果列詞綴的英文原文副標 */
+  setResultBilingual(enabled: boolean): void;
 }
 
-export function createResultTranslator(data: ResultTranslatorData): ResultTranslator {
+function ensureSubtitleStyle(element: Element): void {
+  const rootNode = element.getRootNode();
+  const doc = element.ownerDocument;
+  if (typeof ShadowRoot !== 'undefined' && rootNode instanceof ShadowRoot) {
+    if (rootNode.querySelector(`#${RESULT_MOD_ENGLISH_STYLE_ID}`)) return;
+    const style = doc.createElement('style');
+    style.id = RESULT_MOD_ENGLISH_STYLE_ID;
+    style.textContent = RESULT_MOD_ENGLISH_STYLE_CSS;
+    rootNode.appendChild(style);
+    return;
+  }
+  if (doc.getElementById(RESULT_MOD_ENGLISH_STYLE_ID)) return;
+  const style = doc.createElement('style');
+  style.id = RESULT_MOD_ENGLISH_STYLE_ID;
+  style.textContent = RESULT_MOD_ENGLISH_STYLE_CSS;
+  (doc.head || doc.documentElement)?.appendChild(style);
+}
+
+export function createResultTranslator(
+  data: ResultTranslatorData,
+  options: ResultTranslatorOptions = {},
+): ResultTranslator {
   // 我們寫進去的譯文：節點內容仍等於它時代表已翻譯，不同時代表官網換回了英文
   const written = new WeakMap<Text, string>();
+  // 已翻譯詞綴元素 → 英文原文，用於即時切換結果列中英並列副標
+  const originalEnglish = new WeakMap<Element, string>();
+  const subtitles = new WeakMap<Element, HTMLSpanElement>();
+  const observedRoots = new Set<WeakRef<Node>>();
+  let resultBilingual = options.resultBilingual === true;
   const fallbackPairs = new Map<string, ModLinePairs>();
   const lookup = createLabelLookup(data.labels, data.templates, data.items, data.names);
   let skeletonIndex: Map<string, ModLinePairs> | null = null;
@@ -286,28 +334,99 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
     return nodes.map((_, i) => (i === 0 ? translated : ''));
   };
 
+  const removeSubtitle = (element: Element) => {
+    const existing = subtitles.get(element);
+    if (!existing) return;
+    existing.remove();
+    subtitles.delete(element);
+  };
+
+  const syncSubtitle = (element: Element) => {
+    if (!resultBilingual) {
+      removeSubtitle(element);
+      return;
+    }
+    const english = originalEnglish.get(element);
+    if (!english || !element.parentElement) {
+      removeSubtitle(element);
+      return;
+    }
+    ensureSubtitleStyle(element);
+    let subtitle = subtitles.get(element);
+    if (!subtitle) {
+      subtitle = element.ownerDocument.createElement('span');
+      subtitle.className = RESULT_MOD_ENGLISH_SUBTITLE_CLASS;
+      subtitles.set(element, subtitle);
+    }
+    if (subtitle.textContent !== english) subtitle.textContent = english;
+    if (subtitle.previousElementSibling !== element) element.after(subtitle);
+  };
+
   const translateStat = (element: Element) => {
     const field = element.getAttribute('data-field')?.match(STAT_FIELD);
-    if (!field) return;
+    if (!field) {
+      originalEnglish.delete(element);
+      removeSubtitle(element);
+      return;
+    }
     const candidates = pairsFor(field[1], field[2].match(STAT_HASH)?.[1]);
-    if (!candidates.length) return;
+    if (!candidates.length) {
+      originalEnglish.delete(element);
+      removeSubtitle(element);
+      return;
+    }
     const nodes = textNodesOf(element);
-    if (!nodes.length || nodes.every(isCurrent)) return;
+    if (!nodes.length || nodes.every(isCurrent)) {
+      syncSubtitle(element);
+      return;
+    }
     const byLine = element.querySelector('br') !== null;
     const english = nodes.map((node) => node.data).join(byLine ? '\n' : '');
     for (const pairs of candidates) {
       const translated = translateModLine(english, pairs);
       if (translated === null) continue;
       distribute(nodes, translated, byLine).forEach((text, i) => setText(nodes[i], text));
+      const trimmedEnglish = english.trim();
+      if (trimmedEnglish && translated.trim() !== trimmedEnglish) {
+        originalEnglish.set(element, trimmedEnglish);
+        syncSubtitle(element);
+      } else {
+        originalEnglish.delete(element);
+        removeSubtitle(element);
+      }
       return;
     }
+    originalEnglish.delete(element);
+    removeSubtitle(element);
   };
 
   const translateMod = (element: Element) => {
-    for (const node of textNodesOf(element)) {
-      replace(node, (text) =>
-        keepPadding(text, (core) => translateModLine(core, pairsForSentence(core))),
+    const nodes = textNodesOf(element);
+    if (!nodes.length || nodes.every(isCurrent)) {
+      syncSubtitle(element);
+      return;
+    }
+    const byLine = element.querySelector('br') !== null;
+    const english = nodes
+      .map((node) => node.data)
+      .join(byLine ? '\n' : '')
+      .trim();
+    let anyTranslated = false;
+    for (const node of nodes) {
+      if (isCurrent(node)) continue;
+      const translated = keepPadding(node.data, (core) =>
+        translateModLine(core, pairsForSentence(core)),
       );
+      if (translated === null || translated === node.data) continue;
+      setText(node, translated);
+      anyTranslated = true;
+    }
+    if (anyTranslated && english) {
+      originalEnglish.set(element, english);
+      syncSubtitle(element);
+    } else if (!nodes.some(isCurrent)) {
+      originalEnglish.delete(element);
+      removeSubtitle(element);
     }
   };
 
@@ -419,8 +538,11 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
           if (target) pending.add(target);
         } else {
           record.addedNodes.forEach((node) => {
-            if (node instanceof Element) pending.add(node);
-            else node.parentElement && pending.add(node.parentElement);
+            if (node instanceof Element) {
+              if (!node.matches(OWN_NODE_SELECTOR)) pending.add(node);
+            } else if (node.parentElement && !node.parentElement.closest(OWN_NODE_SELECTOR)) {
+              pending.add(node.parentElement.closest(TARGET_SELECTOR) ?? node.parentElement);
+            }
           });
           // 屬性行內部重繪時要整行重比
           const line = (record.target as Element).closest?.(PROPERTY_SELECTOR);
@@ -439,9 +561,50 @@ export function createResultTranslator(data: ResultTranslatorData): ResultTransl
       attributes: true,
       attributeFilter: ['title'],
     });
-    if (root instanceof Element || root instanceof Document) translate(root);
-    return () => observer.disconnect();
+    const rootRef = new WeakRef(root);
+    observedRoots.add(rootRef);
+    if (
+      root instanceof Element ||
+      root instanceof Document ||
+      (typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot)
+    ) {
+      translate(root);
+    }
+    return () => {
+      observer.disconnect();
+      observedRoots.delete(rootRef);
+    };
   };
 
-  return { translate, observe };
+  const setResultBilingual = (enabled: boolean) => {
+    if (enabled === resultBilingual) return;
+    resultBilingual = enabled;
+    for (const ref of Array.from(observedRoots)) {
+      const root = ref.deref();
+      if (!root) {
+        observedRoots.delete(ref);
+        continue;
+      }
+      if (
+        !(
+          root instanceof Element ||
+          root instanceof Document ||
+          (typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot)
+        )
+      ) {
+        continue;
+      }
+      if (enabled) {
+        if (root instanceof Element && root.matches(MOD_SUBTITLE_TARGET_SELECTOR)) {
+          syncSubtitle(root);
+        }
+        root.querySelectorAll(MOD_SUBTITLE_TARGET_SELECTOR).forEach(syncSubtitle);
+      } else {
+        root.querySelectorAll(MOD_SUBTITLE_TARGET_SELECTOR).forEach(removeSubtitle);
+        root.querySelectorAll(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`).forEach((el) => el.remove());
+      }
+    }
+  };
+
+  return { translate, observe, setResultBilingual };
 }

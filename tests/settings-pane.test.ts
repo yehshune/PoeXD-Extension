@@ -1055,6 +1055,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
 
     expect(currentModule?.read().marketTranslationBilingual).toBe(false);
+
+    // 搜尋結果詞綴中英並列：只在市集漢化開啟時出現，預設關閉
+    const resultBilingualCheckbox = container.querySelector(
+      '#enable-market-translation-result-bilingual',
+    ) as HTMLElement;
+    expect(resultBilingualCheckbox).not.toBeNull();
+    expect(currentModule?.read().marketTranslationResultBilingual).toBe(false);
+
+    resultBilingualCheckbox.click();
+    await flushAsync();
+
+    expect(currentModule?.read().marketTranslationResultBilingual).toBe(true);
   });
 
   it('auto-switches non-Chinese displayLocale when enabling marketTranslation, shows locale hint on manual mismatch, and shows reload action on international Trade host', async () => {

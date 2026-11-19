@@ -130,10 +130,17 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslation.infoAria': '市集汉化说明',
   'settings.marketTranslation.tooltip':
     '把国际服英文市集的界面、筛选器与搜索结果显示为中文，依「语言」设置采用台服（繁体）或国服（简体）的官方用语。只改变显示、不影响搜索内容；切换后刷新页面生效',
-  'settings.marketTranslationBilingual.label': '中英并列',
-  'settings.marketTranslationBilingual.infoAria': '中英并列说明',
+  'settings.marketTranslation.bilingualGroup': '英文原文显示',
+  'settings.marketTranslationBilingual.label': '筛选下拉菜单',
+  'settings.marketTranslationBilingual.description': '显示「中文 (English)」，打英文也搜得到',
+  'settings.marketTranslationBilingual.infoAria': '筛选下拉菜单英文原文说明',
   'settings.marketTranslationBilingual.tooltip':
     '词缀、通货与物品的下拉菜单同时显示中文与英文原文（例如「属性需求提高 #% (#% increased Attribute Requirements)」），中英文都搜得到。筛选器名称只显示中文；切换后刷新页面生效',
+  'settings.marketTranslationResultBilingual.label': '搜索结果词缀',
+  'settings.marketTranslationResultBilingual.description': '词缀下方附淡色英文原文，切换立即生效',
+  'settings.marketTranslationResultBilingual.infoAria': '搜索结果词缀英文原文说明',
+  'settings.marketTranslationResultBilingual.tooltip':
+    '在搜索结果的每条词缀下方以淡色小字显示英文原文，方便核对数值与英文用语；切换后立即生效',
   'settings.marketTranslation.localeHint': '需将「语言」设为繁体中文或简体中文，市集汉化才会生效',
 
   'settings.itemNormalizer.label': '符文覆写试算',
@@ -1217,4 +1224,40 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'onboarding.update.title': '已更新至 {version}',
   'onboarding.update.releaseNotes': '查看改版信息',
   'onboarding.update.dismiss': '关闭更新提示',
+  'common.promptTitle': '输入',
+  'common.alertTitle': '提示',
+  'affixSelector.dialog.title': '词缀选择器',
+  'affixSelector.dialog.description': '选择与设置词缀筛选条件',
+  'liveSearch.tempDialog.itemCount': '{count} 项',
+  'bookmark.dialog.dragDeleteFolderTitle': '拖拽删除文件夹',
+  'bookmark.dialog.deleteFolderWithSubfoldersConfirm':
+    '确定要删除文件夹“{name}”及其 {subfolderCount} 个子文件夹吗？\n这将会一并删除其中的 {bookmarkCount} 个书签。',
+  'bookmark.dialog.deleteFolderWithBookmarksConfirm':
+    '确定要删除文件夹“{name}”吗？\n这将会一并删除文件夹内的 {bookmarkCount} 个书签。',
+  'statGroupTemplate.error.storeNotReady': '常用词缀分组尚未就绪，请稍后再试',
+  'statGroupTemplate.error.noOverlayCriteria': '没有可叠加的条件',
+  'statGroupTemplate.toast.undone': '已复原上次应用',
+  'statGroupTemplate.error.noSavableGroups': '当前表单没有可保存的词缀分组',
+  'statGroupTemplate.dialog.renamePrompt': '请输入新的名称：',
+  'statGroupTemplate.dialog.renameTitle': '重命名常用词缀分组',
+  'statGroupTemplate.dialog.deleteTitle': '删除常用词缀分组',
+  'statGroupTemplate.dialog.importPrompt': '请粘贴从常用词缀分组导出的内容：',
+  'statGroupTemplate.dialog.importTitle': '导入常用词缀分组',
+  'statGroupTemplate.toast.imported': '已导入 {count} 条常用词缀分组',
+  'statGroupTemplate.toast.importedWithSkipped':
+    '已导入 {count} 条常用词缀分组（跳过 {skipped} 条无效项）',
+  'statGroupTemplate.dialog.clearConfirm':
+    '确定要删除全部 {count} 条常用词缀分组吗？此操作无法撤销。',
+  'statGroupTemplate.dialog.clearTitle': '清空常用词缀分组',
+  'statGroupTemplate.toast.cleared': '已清空常用词缀分组',
+  'statGroupTemplate.error.nameEmpty': '常用词缀分组名称不能为空',
+  'statGroupTemplate.error.nameTooLong': '常用词缀分组名称最多 {max} 个字符',
+  'statGroupTemplate.error.importInvalidFormat':
+    '导入内容格式不正确，请粘贴从常用词缀分组导出的内容',
+  'statGroupTemplate.error.importVersionMismatch':
+    '这份内容属于 {sourceVersion}，无法导入 {targetVersion} 的常用词缀分组',
+  'statGroupTemplate.error.importEmpty': '导入内容没有可用的常用词缀分组',
+  'criteriaOverlay.session.formStateNotFound': '找不到官方搜索表单状态',
+  'bookmark.league.httpFailed': '集市联赛读取失败 ({status})',
+  'bookmark.league.invalidFormat': '集市联赛数据格式错误',
 };

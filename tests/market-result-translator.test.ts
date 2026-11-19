@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  RESULT_MOD_ENGLISH_SUBTITLE_CLASS,
   createResultTranslator,
   translateResultItemName,
   type ResultTranslatorData,
@@ -415,5 +416,118 @@ describe('createResultTranslator：結果列標籤', () => {
       '<span class="lc"><span>Currently has <span>3</span> Charges</span></span>';
     translator.translate(document.body);
     expect(byId('has').textContent).toBe('目前有 3 充能次數');
+  });
+});
+
+describe('createResultTranslator：結果列詞綴中英並列副標', () => {
+  it('預設不顯示英文副標；開啟後僅在已翻譯詞綴下方顯示淡色英文副標，不影響標題、屬性與未翻譯詞綴', () => {
+    document.body.innerHTML = ROW;
+    createResultTranslator(DATA).translate(document.body);
+    expect(document.querySelectorAll(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)).toHaveLength(0);
+
+    document.body.innerHTML = ROW;
+    createResultTranslator(DATA, { resultBilingual: true }).translate(document.body);
+
+    const subtitles = texts(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`);
+    expect(subtitles).toEqual([
+      '30% reduced Attribute Requirements',
+      'Small Passive Skills in Radius also grant 3% increased Spell Damage',
+    ]);
+    // 詞綴本體仍只包含中文譯文，不混入英文副標
+    expect(
+      document.querySelector('[data-field="stat.explicit.stat_3639275092"]')?.textContent,
+    ).toBe('減少30%能力值需求');
+    // 標題與屬性列不顯示副標
+    expect(
+      document.querySelectorAll(`.item-popup__header .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`),
+    ).toHaveLength(0);
+    expect(
+      document.querySelectorAll(`.item-property .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`),
+    ).toHaveLength(0);
+    // 樣式已注入 document
+    expect(document.getElementById('poexd-result-mod-en-style')).not.toBeNull();
+  });
+
+  it('沒有 data-field 的詞綴行（藥劑、寶石效果）也支援英文副標', () => {
+    document.body.innerHTML = LABEL_ROW;
+    createResultTranslator(LABEL_DATA, { resultBilingual: true }).translate(document.body);
+    expect(document.querySelector('.item-mod--utility .lc')?.textContent).toBe('+40% 冰冷抗性');
+    expect(
+      document.querySelector(`.item-mod--utility .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)
+        ?.textContent,
+    ).toBe('+40% to Cold Resistance');
+  });
+
+  it('setResultBilingual 可在已翻譯的結果列上即時切換顯示與隱藏', () => {
+    document.body.innerHTML = ROW;
+    const translator = createResultTranslator(DATA, { resultBilingual: false });
+    const stop = translator.observe(document.body);
+
+    expect(document.querySelectorAll(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)).toHaveLength(0);
+
+    translator.setResultBilingual(true);
+    expect(texts(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)).toEqual([
+      '30% reduced Attribute Requirements',
+      'Small Passive Skills in Radius also grant 3% increased Spell Damage',
+    ]);
+
+    translator.setResultBilingual(false);
+    expect(document.querySelectorAll(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)).toHaveLength(0);
+    // 中文譯文保持不變
+    expect(
+      document.querySelector('[data-field="stat.explicit.stat_3639275092"]')?.textContent,
+    ).toBe('減少30%能力值需求');
+    stop();
+  });
+
+  it('官網重繪詞綴為新英文或無法翻譯的詞綴時，同步更新或移除英文副標', async () => {
+    document.body.innerHTML = ROW;
+    const translator = createResultTranslator(DATA, { resultBilingual: true });
+    const stop = translator.observe(document.body);
+
+    const stat = document.querySelector('[data-field="stat.explicit.stat_3639275092"]')!;
+    const modLine = stat.parentElement!;
+    expect(modLine.querySelector(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)?.textContent).toBe(
+      '30% reduced Attribute Requirements',
+    );
+
+    // 官網改為另一個可翻譯詞綴
+    stat.querySelector('span')!.textContent = '15% increased Attribute Requirements';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(stat.textContent).toBe('增加15%能力值需求');
+    expect(modLine.querySelector(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)?.textContent).toBe(
+      '15% increased Attribute Requirements',
+    );
+
+    // 官網改為無法翻譯的詞綴時，移除舊的英文副標
+    stat.querySelector('span')!.textContent = 'Completely unknown mod text';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(stat.textContent).toBe('Completely unknown mod text');
+    expect(modLine.querySelector(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)).toBeNull();
+    stop();
+  });
+
+  it('ShadowRoot 內的釘選卡片也能獨立注入副標樣式並即時切換', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    shadow.innerHTML = ROW;
+
+    const translator = createResultTranslator(DATA, { resultBilingual: true });
+    const stop = translator.observe(shadow);
+
+    expect(shadow.querySelector('#poexd-result-mod-en-style')).not.toBeNull();
+    expect(
+      Array.from(shadow.querySelectorAll(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)).map(
+        (el) => el.textContent,
+      ),
+    ).toEqual([
+      '30% reduced Attribute Requirements',
+      'Small Passive Skills in Radius also grant 3% increased Spell Damage',
+    ]);
+
+    translator.setResultBilingual(false);
+    expect(shadow.querySelectorAll(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)).toHaveLength(0);
+    stop();
   });
 });

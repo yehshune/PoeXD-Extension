@@ -128,10 +128,17 @@ export const ZH_TW_MESSAGES = {
   'settings.marketTranslation.infoAria': '市集漢化說明',
   'settings.marketTranslation.tooltip':
     '把國際服英文市集的介面、篩選器與搜尋結果顯示成中文，依「語言」設定採用台服（繁體）或國服（簡體）的官方用語。只改變顯示、不影響搜尋內容；切換後重新整理頁面生效',
-  'settings.marketTranslationBilingual.label': '中英並列',
-  'settings.marketTranslationBilingual.infoAria': '中英並列說明',
+  'settings.marketTranslation.bilingualGroup': '英文原文顯示',
+  'settings.marketTranslationBilingual.label': '篩選下拉選單',
+  'settings.marketTranslationBilingual.description': '顯示「中文 (English)」，打英文也搜得到',
+  'settings.marketTranslationBilingual.infoAria': '篩選下拉選單英文原文說明',
   'settings.marketTranslationBilingual.tooltip':
     '詞綴、通貨與物品的下拉選單同時顯示中文與英文原文（例如「增加#%能力值需求 (#% increased Attribute Requirements)」），中英文都搜得到。篩選器名稱只顯示中文；切換後重新整理頁面生效',
+  'settings.marketTranslationResultBilingual.label': '搜尋結果詞綴',
+  'settings.marketTranslationResultBilingual.description': '詞綴下方附淡色英文原文，切換即時生效',
+  'settings.marketTranslationResultBilingual.infoAria': '搜尋結果詞綴英文原文說明',
+  'settings.marketTranslationResultBilingual.tooltip':
+    '在搜尋結果的每條詞綴下方以淡色小字顯示英文原文，方便核對數值與英文用語；切換後立即生效',
   'settings.marketTranslation.localeHint': '需將「語言」設為繁體中文或簡體中文，市集漢化才會生效',
 
   'settings.itemNormalizer.label': '符文覆寫試算',
@@ -1215,6 +1222,42 @@ export const ZH_TW_MESSAGES = {
   'onboarding.update.title': '已更新至 {version}',
   'onboarding.update.releaseNotes': '查看改版資訊',
   'onboarding.update.dismiss': '關閉更新提示',
+  'common.promptTitle': '輸入',
+  'common.alertTitle': '提示',
+  'affixSelector.dialog.title': '詞綴選擇器',
+  'affixSelector.dialog.description': '選擇與設定詞綴篩選條件',
+  'liveSearch.tempDialog.itemCount': '{count} 項',
+  'bookmark.dialog.dragDeleteFolderTitle': '拖曳刪除資料夾',
+  'bookmark.dialog.deleteFolderWithSubfoldersConfirm':
+    '確定要刪除資料夾「{name}」及其 {subfolderCount} 個子資料夾嗎？\n這將會一併刪除其中的 {bookmarkCount} 個書籤。',
+  'bookmark.dialog.deleteFolderWithBookmarksConfirm':
+    '確定要刪除資料夾「{name}」嗎？\n這將會一併刪除資料夾內的 {bookmarkCount} 個書籤。',
+  'statGroupTemplate.error.storeNotReady': '常用詞綴群組尚未就緒，請稍後再試',
+  'statGroupTemplate.error.noOverlayCriteria': '沒有可疊加的條件',
+  'statGroupTemplate.toast.undone': '已復原上次套用',
+  'statGroupTemplate.error.noSavableGroups': '目前表單沒有可儲存的詞綴群組',
+  'statGroupTemplate.dialog.renamePrompt': '請輸入新的名稱：',
+  'statGroupTemplate.dialog.renameTitle': '重新命名常用詞綴群組',
+  'statGroupTemplate.dialog.deleteTitle': '刪除常用詞綴群組',
+  'statGroupTemplate.dialog.importPrompt': '請貼上從常用詞綴群組匯出的內容：',
+  'statGroupTemplate.dialog.importTitle': '匯入常用詞綴群組',
+  'statGroupTemplate.toast.imported': '已匯入 {count} 筆常用詞綴群組',
+  'statGroupTemplate.toast.importedWithSkipped':
+    '已匯入 {count} 筆常用詞綴群組（略過 {skipped} 筆無效項目）',
+  'statGroupTemplate.dialog.clearConfirm':
+    '確定要刪除全部 {count} 筆常用詞綴群組嗎？此動作無法復原。',
+  'statGroupTemplate.dialog.clearTitle': '清空常用詞綴群組',
+  'statGroupTemplate.toast.cleared': '已清空常用詞綴群組',
+  'statGroupTemplate.error.nameEmpty': '常用詞綴群組名稱不可為空白',
+  'statGroupTemplate.error.nameTooLong': '常用詞綴群組名稱最多 {max} 個字',
+  'statGroupTemplate.error.importInvalidFormat':
+    '匯入內容格式不正確，請貼上從常用詞綴群組匯出的內容',
+  'statGroupTemplate.error.importVersionMismatch':
+    '這份內容屬於 {sourceVersion}，無法匯入 {targetVersion} 的常用詞綴群組',
+  'statGroupTemplate.error.importEmpty': '匯入內容沒有可用的常用詞綴群組',
+  'criteriaOverlay.session.formStateNotFound': '找不到官方搜尋表單狀態',
+  'bookmark.league.httpFailed': '市集聯盟讀取失敗 ({status})',
+  'bookmark.league.invalidFormat': '市集聯盟資料格式錯誤',
 } as const;
 
 export type I18nKey = keyof typeof ZH_TW_MESSAGES;

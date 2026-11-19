@@ -59,6 +59,7 @@ export const GLOBAL_PREFERENCE_NAMES = [
   'displayLocale',
   'marketTranslation',
   'marketTranslationBilingual',
+  'marketTranslationResultBilingual',
 ] as const;
 export type GlobalPreferenceName = (typeof GLOBAL_PREFERENCE_NAMES)[number];
 
@@ -171,6 +172,8 @@ export interface Preferences {
   marketTranslation: boolean;
   /** 市集漢化的下拉選單（詞綴、通貨、物品）顯示成「中文 (English)」，中英文都搜得到 */
   marketTranslationBilingual: boolean;
+  /** 市集漢化的搜尋結果詞綴在譯文下方以淡色副標顯示英文原文 */
+  marketTranslationResultBilingual: boolean;
   searchEntryClickAction: SearchEntryClickAction;
   sidebarPosition: SidebarPosition;
   sidebarSize: SidebarSize;
@@ -208,6 +211,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   liveSearchSoundEnabled: true,
   marketTranslation: false,
   marketTranslationBilingual: true,
+  marketTranslationResultBilingual: false,
   searchEntryClickAction: 'preview',
   sidebarPosition: 'left',
   sidebarSize: 'medium',
