@@ -151,7 +151,7 @@ export function initCriteriaOverlayAdapter(bridge: MainWorldBridge) {
     let error: string | undefined;
     try {
       snapshot = readCriteriaOverlaySnapshot(getVueStore());
-      if (!snapshot) error = '找不到官方搜尋表單狀態';
+      if (!snapshot) error = 'FORM_STATE_NOT_FOUND';
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     }
@@ -172,7 +172,7 @@ export function initCriteriaOverlayAdapter(bridge: MainWorldBridge) {
     let error: string | undefined;
     try {
       const store = getVueStore();
-      if (!store) throw new Error('找不到官方搜尋表單狀態');
+      if (!store) throw new Error('FORM_STATE_NOT_FOUND');
       await executeCriteriaOverlayOps(store, getTradeRootComponent(), request.ops);
       saveAllCategoriesToSessionStorage();
       // 等官方重新渲染後，重新標記詞綴並計算類別綁定

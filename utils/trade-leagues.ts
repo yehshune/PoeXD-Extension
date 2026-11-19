@@ -31,7 +31,9 @@ export async function fetchTradeLeagues(
     payload = await withTimeout(
       (async () => {
         const response = await http(`/api/${routeRoot}/data/leagues`, init);
-        if (!response.ok) throw new Error(`市集聯盟讀取失敗 (${response.status})`);
+        if (!response.ok) {
+          throw new Error(t('bookmark.league.httpFailed', { status: response.status }));
+        }
         return (await response.json()) as unknown;
       })(),
       timeoutMs,
@@ -42,7 +44,7 @@ export async function fetchTradeLeagues(
     throw err;
   }
   if (!isObject(payload) || !Array.isArray(payload.result)) {
-    throw new Error('市集聯盟資料格式錯誤');
+    throw new Error(t('bookmark.league.invalidFormat'));
   }
   const realm = version === 'poe1' ? 'pc' : 'poe2';
   const leagues = payload.result

@@ -157,7 +157,7 @@ export function createCriteriaOverlayManager(
   let starting: Promise<void> | null = null;
 
   const requireStore = (): StatGroupTemplateStore => {
-    if (!store) throw new Error('常用詞綴群組尚未就緒，請稍後再試');
+    if (!store) throw new Error(t('statGroupTemplate.error.storeNotReady'));
     return store;
   };
 
@@ -177,7 +177,7 @@ export function createCriteriaOverlayManager(
     let applied = false;
     await run(async () => {
       if (isEmptyOverlayCriteria(criteria)) {
-        notify('沒有可疊加的條件', 'error');
+        notify(t('statGroupTemplate.error.noOverlayCriteria'), 'error');
         return;
       }
       const report = await session.apply(criteria);
@@ -250,14 +250,14 @@ export function createCriteriaOverlayManager(
 
     undo: () =>
       run(async () => {
-        if (await session.undo()) notify('已復原上次套用', 'success');
+        if (await session.undo()) notify(t('statGroupTemplate.toast.undone'), 'success');
       }),
 
     beginSaveTemplate: () =>
       run(async () => {
         const criteria = await session.capture();
         if (criteria.statGroups.length === 0) {
-          notify('目前表單沒有可儲存的詞綴群組', 'error');
+          notify(t('statGroupTemplate.error.noSavableGroups'), 'error');
           return;
         }
         await loadDictionaries(version);
@@ -273,12 +273,16 @@ export function createCriteriaOverlayManager(
         await requireStore().create(payload.name, picked.statGroups);
         saveDialog.open.value = false;
         captured = null;
-        notify(`已儲存常用詞綴群組「${payload.name}」`, 'success');
+        notify(t('statGroupTemplate.toast.saved', { name: payload.name }), 'success');
       }),
 
     renameTemplate: (template) =>
       run(async () => {
-        const next = await prompt('請輸入新的名稱：', template.name, '重新命名常用詞綴群組');
+        const next = await prompt(
+          t('statGroupTemplate.dialog.renamePrompt'),
+          template.name,
+          t('statGroupTemplate.dialog.renameTitle'),
+        );
         if (next == null || next.trim() === '' || next.trim() === template.name) return;
         await requireStore().rename(template.id, next);
       }),
@@ -296,8 +300,8 @@ export function createCriteriaOverlayManager(
     removeTemplate: (template) =>
       run(async () => {
         const confirmed = await confirm(
-          `確定要刪除常用詞綴群組「${template.name}」嗎？`,
-          '刪除常用詞綴群組',
+          t('statGroupTemplate.dialog.deleteConfirm', { name: template.name }),
+          t('statGroupTemplate.dialog.deleteTitle'),
         );
         if (!confirmed) return;
         await requireStore().remove(template.id);
@@ -309,24 +313,35 @@ export function createCriteriaOverlayManager(
 
     importTemplates: () =>
       run(async () => {
-        const text = await prompt('請貼上從常用詞綴群組匯出的內容：', '', '匯入常用詞綴群組');
+        const text = await prompt(
+          t('statGroupTemplate.dialog.importPrompt'),
+          '',
+          t('statGroupTemplate.dialog.importTitle'),
+        );
         if (text == null || text.trim() === '') return;
         const { entries, skipped } = parseStatGroupTemplateTransfer(text.trim(), version);
         await requireStore().createMany(entries);
-        const suffix = skipped > 0 ? `（略過 ${skipped} 筆無效項目）` : '';
-        notify(`已匯入 ${entries.length} 筆常用詞綴群組${suffix}`, 'success');
+        notify(
+          skipped > 0
+            ? t('statGroupTemplate.toast.importedWithSkipped', {
+                count: entries.length,
+                skipped,
+              })
+            : t('statGroupTemplate.toast.imported', { count: entries.length }),
+          'success',
+        );
       }),
 
     clearTemplates: () =>
       run(async () => {
         if (templates.value.length === 0) return;
         const confirmed = await confirm(
-          `確定要刪除全部 ${templates.value.length} 筆常用詞綴群組嗎？此動作無法復原。`,
-          '清空常用詞綴群組',
+          t('statGroupTemplate.dialog.clearConfirm', { count: templates.value.length }),
+          t('statGroupTemplate.dialog.clearTitle'),
         );
         if (!confirmed) return;
         await requireStore().clear();
-        notify('已清空常用詞綴群組', 'success');
+        notify(t('statGroupTemplate.toast.cleared'), 'success');
       }),
   };
 }

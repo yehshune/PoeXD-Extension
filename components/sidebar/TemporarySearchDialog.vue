@@ -663,7 +663,7 @@ onUnmounted(() => {
                         <span
                           class="text-[length:var(--pxd-font-micro)] text-muted-foreground font-mono"
                         >
-                          {{ group.items.length }} 項
+                          {{ t('liveSearch.tempDialog.itemCount', { count: group.items.length }) }}
                         </span>
                         <ChevronDown
                           class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground transition-transform duration-150"

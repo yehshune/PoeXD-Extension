@@ -1,5 +1,6 @@
 import type { PoeVersion } from '@/utils/trade-context';
 import type { PreferencesModule } from '@/utils/preferences';
+import { t } from '@/utils/i18n';
 import type {
   LiveSearchBatchOutcome,
   LiveSearchSourceController,
@@ -308,7 +309,7 @@ export function createLiveSearchResumeController(
               succeeded: 0,
               skipped: 0,
               failed: resumableSourceIds.length,
-              error: err instanceof Error ? err.message : '自動恢復連線失敗',
+              error: err instanceof Error ? err.message : t('liveSearch.error.autoRestoreFailed'),
               skipReasons: {
                 alreadyActive: 0,
                 pending: 0,

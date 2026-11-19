@@ -1,6 +1,7 @@
 import { parseCurrencyRateSnapshot, type CurrencyRateSnapshot } from './price-comparison';
 import type { PoeVersion } from './trade-context';
 import { extensionMessaging } from './extension-protocol';
+import { localized, type LocalizedMessage, type MessageValue } from './localized-message';
 
 export interface EconomyAdapter {
   fetch(league: string): Promise<CurrencyRateSnapshot>;
@@ -39,15 +40,34 @@ export function createEconomyAdapters(
   };
 }
 
+class EconomyLocalizedError extends Error {
+  readonly localizedMessage: LocalizedMessage;
+
+  constructor(localizedMessage: LocalizedMessage) {
+    super(localizedMessage.key);
+    this.localizedMessage = localizedMessage;
+  }
+}
+
+function toEconomyErrorValue(err: unknown): MessageValue {
+  if (err instanceof EconomyLocalizedError) return err.localizedMessage;
+  if (err instanceof Error && err.message) return err.message;
+  return String(err);
+}
+
 function parseExchangeOverview(value: unknown) {
   const snapshot = parseCurrencyRateSnapshot(value);
-  if (!snapshot) throw new Error('poe.ninja Exchange overview 格式無效');
+  if (!snapshot) throw new EconomyLocalizedError(localized('economy.error.invalidSnapshot'));
   return snapshot;
 }
 
 async function fetchJson(http: EconomyHttpClient, url: string) {
   const response = await http(url);
-  if (!response.ok) throw new Error(`HTTP 狀態碼異常: ${response.status}`);
+  if (!response.ok) {
+    throw new EconomyLocalizedError(
+      localized('economy.error.httpStatus', { status: response.status }),
+    );
+  }
   return response.json();
 }
 
@@ -91,7 +111,7 @@ export interface EconomyMetadataRequest {
 
 export type EconomyRateOutcome =
   | { success: true; data: CurrencyRateSnapshot; metadata?: EconomyRateMetadata }
-  | { success: false; error: string };
+  | { success: false; error: MessageValue };
 
 export interface EconomyChange {
   version: PoeVersion;
@@ -212,7 +232,7 @@ export function createEconomyRateService(
 
     async fetch({ version, league, force }) {
       if (version !== 'poe1' && version !== 'poe2') {
-        return { success: false, error: '不支援的遊戲版本' };
+        return { success: false, error: localized('economy.error.unsupportedVersion') };
       }
 
       const cleanLeague = normalizeEconomyLeague(league || '');
@@ -253,8 +273,7 @@ export function createEconomyRateService(
             if (age < RECENT_ERROR_LIMIT) {
               return {
                 success: false,
-                error:
-                  '上一次請求於 5 分鐘內失敗，暫停自動載入。請稍後或點擊「重試/重新整理」按鈕。',
+                error: localized('economy.error.cooldown'),
               };
             }
           }
@@ -277,8 +296,8 @@ export function createEconomyRateService(
                 isExpired: false,
               },
             };
-          } catch (err: any) {
-            return { success: false, error: err?.message || String(err) };
+          } catch (err: unknown) {
+            return { success: false, error: toEconomyErrorValue(err) };
           }
         }
 
@@ -329,16 +348,16 @@ export function createEconomyRateService(
               isExpired: false,
             },
           };
-        } catch (err: any) {
+        } catch (err: unknown) {
           try {
             await storage.set({ [errKey]: now() });
           } catch {
             // ignore storage write failure on error recording
           }
-          return { success: false, error: err?.message || String(err) };
+          return { success: false, error: toEconomyErrorValue(err) };
         }
-      } catch (err: any) {
-        return { success: false, error: err?.message || String(err) };
+      } catch (err: unknown) {
+        return { success: false, error: toEconomyErrorValue(err) };
       }
     },
   };
@@ -365,7 +384,7 @@ export function registerEconomyBackgroundHandlers(
 
   const unregFetch = messenger.onMessage('economy:fetchCurrencyRates', async (message) => {
     if (message.data.version !== 'poe1' && message.data.version !== 'poe2') {
-      return { success: false, error: '不支援的遊戲版本' };
+      return { success: false, error: localized('economy.error.unsupportedVersion') };
     }
     return await service.fetch(message.data);
   });

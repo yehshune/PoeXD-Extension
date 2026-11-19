@@ -185,7 +185,7 @@ describe('EconomyRateService', () => {
     const res2 = await service.fetch({ version: 'poe1', league: 'Standard' });
     expect(res2.success).toBe(false);
     if (!res2.success) {
-      expect(res2.error).toContain('上一次請求於 5 分鐘內失敗');
+      expect(res2.error).toEqual({ key: 'economy.error.cooldown' });
     }
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
@@ -227,7 +227,7 @@ describe('EconomyRateService', () => {
     const resBlocked = await service.fetch({ version: 'poe1', league: 'Standard' });
     expect(resBlocked.success).toBe(false);
     if (!resBlocked.success) {
-      expect(resBlocked.error).toContain('上一次請求於 5 分鐘內失敗');
+      expect(resBlocked.error).toEqual({ key: 'economy.error.cooldown' });
     }
     expect(fetchMock).toHaveBeenCalledTimes(3);
 
@@ -426,7 +426,10 @@ describe('EconomyRateService', () => {
     });
 
     const res = await service.fetch({ version: 'poe3' as any, league: 'Standard' });
-    expect(res).toEqual({ success: false, error: '不支援的遊戲版本' });
+    expect(res).toEqual({
+      success: false,
+      error: { key: 'economy.error.unsupportedVersion' },
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

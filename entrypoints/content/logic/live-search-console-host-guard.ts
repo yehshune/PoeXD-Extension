@@ -1,4 +1,5 @@
 import { dispatchPoeEvent } from '@/utils/event-contracts';
+import { t } from '@/utils/i18n';
 
 export const OFFICIAL_SEARCH_CONTROL_SELECTORS = [
   '.search-panel .controls button.search-btn',
@@ -63,7 +64,7 @@ const GUARDED_ATTR = 'data-poexd-console-guarded';
 const HIDDEN_ATTR = 'data-poexd-console-hidden';
 export const CONSOLE_RESULT_ONLY_ATTR = 'data-poexd-console-result-only';
 export const CONSOLE_RESULT_ONLY_STYLE_ID = 'poexd-console-result-only-style';
-const GUARDED_TITLE = '線上搜尋主控台已停用官方搜尋操作';
+const getGuardedTitle = () => t('liveSearch.console.guardedTitle');
 
 const CONSOLE_RESULT_ONLY_CSS = `
 html[${CONSOLE_RESULT_ONLY_ATTR}="true"] #statusBar,
@@ -294,8 +295,9 @@ export function createLiveSearchConsoleHostGuard(
     if (el.getAttribute('aria-disabled') !== 'true') {
       el.setAttribute('aria-disabled', 'true');
     }
-    if (el.getAttribute('title') !== GUARDED_TITLE) {
-      el.setAttribute('title', GUARDED_TITLE);
+    const guardedTitle = getGuardedTitle();
+    if (el.getAttribute('title') !== guardedTitle) {
+      el.setAttribute('title', guardedTitle);
     }
     if (el instanceof HTMLButtonElement && !el.disabled) {
       el.disabled = true;

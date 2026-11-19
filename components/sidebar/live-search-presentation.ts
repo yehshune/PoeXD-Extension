@@ -6,7 +6,7 @@ import type {
 import type { LiveSearchEnqueueResponse } from '@/utils/live-search-contract';
 import type { ResumableInspectItem } from './LiveSearchResumeInspectPopover.vue';
 import { formatFolderPath } from '@/utils/bookmark-collection';
-import { t } from '@/utils/i18n';
+import { formatMessage, t } from '@/utils/i18n';
 
 /**
  * Toast 提示資訊介面
@@ -135,7 +135,10 @@ export function resolveSingleEnqueueToast(
   itemName: string,
 ): BatchPresentationToast {
   if (!res.success) {
-    return { message: res.error || t('liveSearch.presentation.enqueueFailed'), tone: 'error' };
+    return {
+      message: formatMessage(res.error, 'liveSearch.presentation.enqueueFailed'),
+      tone: 'error',
+    };
   }
   if (res.created) {
     return {

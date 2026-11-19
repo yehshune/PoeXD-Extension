@@ -4,6 +4,7 @@ import {
   type LiveSearchPrimaryController,
   type LiveSearchPrimaryViewSnapshot,
 } from '@/utils/live-search-contract';
+import { t } from '@/utils/i18n';
 import { getTradeLeague } from '@/utils/trade-context';
 import type { LiveSearchPrimaryRuntime } from './live-search-primary-runtime';
 import { buildFakeTradeResults, buildFallbackDevOwners } from './live-search-dev-fixtures';
@@ -33,14 +34,14 @@ export function createLiveSearchPrimaryController(
       options?: { name?: string; sourceBookmarkId?: string },
     ): Promise<AddSubscriptionOutcome> {
       if (typeof url !== 'string' || !url.trim()) {
-        return { success: false, error: '請提供有效的 Trade 搜尋網址' };
+        return { success: false, error: t('liveSearch.error.invalidUrlRequired') };
       }
 
       const subscription = createLiveSearchSubscriptionFromUrl(url.trim(), options);
       if (!subscription) {
         return {
           success: false,
-          error: '無效的 Trade 搜尋網址，請確認網址格式正確且包含版本、聯盟與搜尋代碼',
+          error: t('liveSearch.error.invalidUrlFormat'),
         };
       }
 
@@ -51,7 +52,7 @@ export function createLiveSearchPrimaryController(
       if (typeof subscriptionId === 'string' && subscriptionId.trim()) {
         return runtime.retrySubscription(subscriptionId.trim());
       }
-      return { success: false, error: '請提供有效的訂閱 ID' };
+      return { success: false, error: t('liveSearch.error.invalidSubscriptionId') };
     },
 
     remove(subscriptionId: string): void {
@@ -76,7 +77,9 @@ export function createLiveSearchPrimaryController(
               (typeof window !== 'undefined' ? getTradeLeague() : undefined) ??
               runtime.getRuntimeLeague() ??
               '';
-            if (!league) return { rendered: 0, failed: 0, error: '無法判斷聯盟' };
+            if (!league) {
+              return { rendered: 0, failed: 0, error: t('liveSearch.error.unableToDetectLeague') };
+            }
             const gameVersion = runtime.getRuntimeGameVersion();
             const resolvedOwners =
               owners && owners.length > 0 ? owners : buildFallbackDevOwners(gameVersion, league);

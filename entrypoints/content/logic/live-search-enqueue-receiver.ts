@@ -4,6 +4,7 @@ import type {
   LiveSearchEnqueueResponse,
 } from '@/utils/live-search-contract';
 import type { PoeVersion } from '@/utils/trade-context';
+import { t } from '@/utils/i18n';
 
 export interface LiveSearchPrimaryEnqueueBridgeOptions {
   version: PoeVersion;
@@ -62,7 +63,7 @@ export function registerLiveSearchPrimaryEnqueueBridge(
           success: false,
           addedCount: 0,
           skippedCount: 0,
-          error: '主控台未就緒',
+          error: t('liveSearch.console.notReady'),
           rejectReason: 'failed',
         };
       }

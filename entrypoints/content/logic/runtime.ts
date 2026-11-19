@@ -12,7 +12,7 @@ import {
   getHydratedModsByGroup,
   markAffixSelectorPrewarmed,
 } from '@/utils/affix-lexicon';
-import { setActiveDisplayLocalePreference } from '@/utils/i18n';
+import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
 import { rememberPageLoadPreferences } from '@/utils/page-load-preferences';
 import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
 import { watchTradePageMode } from '@/utils/trade-page-mode';
@@ -385,7 +385,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
                 success: false,
                 addedCount: 0,
                 skippedCount: 0,
-                error: '主控台未就緒',
+                error: t('liveSearch.console.notReady'),
                 rejectReason: 'failed',
               });
             }

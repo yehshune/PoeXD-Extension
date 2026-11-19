@@ -1,6 +1,7 @@
 import type { BookmarkCollectionView } from '@/utils/bookmark-coordinator';
 import type { BookmarkReadOutcome } from '@/utils/bookmark-coordinator';
 import { buildFolderTree, type FolderTreeNode } from '@/utils/bookmark-collection';
+import { t } from '@/utils/i18n';
 import type { PoeVersion } from '@/utils/trade-context';
 import {
   getTradeSearchCanonicalKey,
@@ -283,7 +284,7 @@ export function evaluateLiveSearchSourceCompatibility(
   if (!parsed) {
     return {
       compatibility: 'invalid-url',
-      compatibilityMessage: '此書籤的網址無法解析為合法的 Trade 搜尋',
+      compatibilityMessage: t('liveSearch.error.bookmarkInvalidUrl'),
     };
   }
 
@@ -292,14 +293,17 @@ export function evaluateLiveSearchSourceCompatibility(
   if (isLegacy) {
     return {
       compatibility: 'invalid-url',
-      compatibilityMessage: '此書籤使用官方已停用的舊式搜尋短碼，請重新搜尋後再加入書籤',
+      compatibilityMessage: t('liveSearch.error.legacyShortCode'),
     };
   }
 
   if (parsed.gameVersion !== primaryContext.gameVersion) {
     return {
       compatibility: 'wrong-version',
-      compatibilityMessage: `此搜尋屬於 ${formatLiveSearchDisplayVersion(parsed.gameVersion)}，目前主控台為 ${formatLiveSearchDisplayVersion(primaryContext.gameVersion)}`,
+      compatibilityMessage: t('liveSearch.error.wrongVersion', {
+        searchVersion: formatLiveSearchDisplayVersion(parsed.gameVersion),
+        consoleVersion: formatLiveSearchDisplayVersion(primaryContext.gameVersion),
+      }),
     };
   }
 
@@ -307,7 +311,10 @@ export function evaluateLiveSearchSourceCompatibility(
   if (lockedLeague && parsed.league.trim().toLowerCase() !== lockedLeague.toLowerCase()) {
     return {
       compatibility: 'wrong-league',
-      compatibilityMessage: `主控台已鎖定 ${formatLiveSearchDisplayLeague(lockedLeague)}，此搜尋屬於 ${formatLiveSearchDisplayLeague(parsed.league)}`,
+      compatibilityMessage: t('liveSearch.error.lockedLeagueMismatch', {
+        consoleLeague: formatLiveSearchDisplayLeague(lockedLeague),
+        searchLeague: formatLiveSearchDisplayLeague(parsed.league),
+      }),
     };
   }
 
@@ -633,7 +640,7 @@ export function createLiveSearchSourceController(
     sessionEntriesByKey.set(meta.canonicalKey, {
       canonicalKey: meta.canonicalKey,
       canonicalIdentity: { ...meta.canonicalIdentity },
-      name: meta.name || existing?.name || '搜尋',
+      name: meta.name || existing?.name || t('liveSearch.defaultSearchName'),
       url: meta.url || existing?.url || '',
       coverImageUrl: meta.coverImageUrl ?? existing?.coverImageUrl,
       sourceBookmarkId: meta.sourceBookmarkId ?? existing?.sourceBookmarkId,
@@ -660,7 +667,7 @@ export function createLiveSearchSourceController(
       registerSessionEntry({
         canonicalKey,
         canonicalIdentity,
-        name: matchingBookmark?.name || sub.name || '搜尋',
+        name: matchingBookmark?.name || sub.name || t('liveSearch.defaultSearchName'),
         url: matchingBookmark?.url || sub.url,
         coverImageUrl: validCover,
         // 書籤集合已載入卻找不到同 canonicalKey 的書籤時，不得沿用過期的 sub.sourceBookmarkId
@@ -1121,7 +1128,7 @@ export function createLiveSearchSourceController(
       }
       if (findActiveSubByCanonicalKey(match.entry.key)) {
         notify();
-        return { kind: 'error', error: '相同搜尋條件已在即時監聽中' };
+        return { kind: 'error', error: t('liveSearch.error.sameCriteriaActive') };
       }
       return { kind: 'source', sourceId: sourceIdForDedupEntry(match.entry, 'session') };
     }
@@ -1235,7 +1242,7 @@ export function createLiveSearchSourceController(
         const compat = evaluateLiveSearchSourceCompatibility(parsed, primaryContext, cleanUrl);
         const knownFolder = folderMap.get(b.groupId);
         const resolvedGroupId = knownFolder ? knownFolder.id : 'default_ungrouped';
-        const resolvedGroupName = knownFolder ? knownFolder.name : '未分類';
+        const resolvedGroupName = knownFolder ? knownFolder.name : t('liveSearch.uncategorized');
         const validCoverUrl =
           b.coverImageUrl && isValidPoeCdnImageUrl(b.coverImageUrl) ? b.coverImageUrl : undefined;
 
@@ -1305,7 +1312,7 @@ export function createLiveSearchSourceController(
       if (defaultGroupItems.length > 0) {
         groups.push({
           id: 'default_ungrouped',
-          name: '未分類',
+          name: t('liveSearch.uncategorized'),
           kind: 'bookmark',
           order: Number.MAX_SAFE_INTEGER,
           depth: 0,
@@ -1353,7 +1360,9 @@ export function createLiveSearchSourceController(
           removable: true,
           provenance: c.provenance,
           provenanceMessage:
-            c.provenance === 'origin-bookmark-removed' ? '來源書籤已移除' : undefined,
+            c.provenance === 'origin-bookmark-removed'
+              ? t('liveSearch.originBookmarkRemoved')
+              : undefined,
         };
         customItemByCanonicalKey.set(c.canonicalKey, item);
         return item;
@@ -1428,7 +1437,10 @@ export function createLiveSearchSourceController(
         sessionConnections.push({
           kind: meta.sourceBookmarkId ? 'bookmark' : 'custom',
           id: meta.sourceBookmarkId || `session_${canonicalKey}`,
-          name: meta.name || activeSub?.name || `搜尋 (${meta.canonicalIdentity.searchId})`,
+          name:
+            meta.name ||
+            activeSub?.name ||
+            t('liveSearch.defaultSearchNameWithId', { id: meta.canonicalIdentity.searchId }),
           url:
             meta.url ||
             activeSub?.url ||
@@ -1514,7 +1526,7 @@ export function createLiveSearchSourceController(
       previousConnections.push({
         kind: 'custom',
         id: `prev_${canonicalKey}`,
-        name: resumeId.name || `搜尋 (${resumeId.searchId})`,
+        name: resumeId.name || t('liveSearch.defaultSearchNameWithId', { id: resumeId.searchId }),
         url: resolvedUrl,
         canonicalIdentity: parsedIdentity,
         canonicalKey,
@@ -1647,7 +1659,7 @@ export function createLiveSearchSourceController(
       if (!existingCustom) {
         customSources.push({
           id: `custom_fallback_${sub.id}`,
-          name: sub.name || '搜尋',
+          name: sub.name || t('liveSearch.defaultSearchName'),
           url: sub.url,
           canonicalIdentity: {
             gameVersion: sub.gameVersion,
@@ -1677,7 +1689,8 @@ export function createLiveSearchSourceController(
           if (hasPendingReload) {
             continue;
           }
-          errorMessage = err instanceof Error ? err.message : '讀取書籤失敗';
+          errorMessage =
+            err instanceof Error ? err.message : t('liveSearch.error.readBookmarksFailed');
           loading = false;
           notify();
           break;
@@ -1856,7 +1869,7 @@ export function createLiveSearchSourceController(
     allowRedirect: boolean,
   ): Promise<AddSubscriptionOutcome> {
     if (disposed) {
-      return { success: false, error: '控制器已釋放' };
+      return { success: false, error: t('liveSearch.error.controllerDisposed') };
     }
 
     if (!isLeagueResolved) {
@@ -1868,18 +1881,18 @@ export function createLiveSearchSourceController(
     }
 
     if (disposed) {
-      return { success: false, error: '控制器已釋放' };
+      return { success: false, error: t('liveSearch.error.controllerDisposed') };
     }
 
     if (isSwitchingLeague) {
-      return { success: false, error: '正在切換聯盟中，請稍候' };
+      return { success: false, error: t('liveSearch.error.switchingLeague') };
     }
 
     const opGeneration = transitionGeneration;
     const opLeague = selectedLeague;
 
     if (!sourceId || typeof sourceId !== 'string') {
-      return { success: false, error: '無效的書籤 ID' };
+      return { success: false, error: t('liveSearch.error.invalidBookmarkId') };
     }
 
     const trimmedId = sourceId.trim();
@@ -1917,7 +1930,9 @@ export function createLiveSearchSourceController(
           };
           existingCustom = {
             id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-            name: resumeEntry.name || `搜尋 (${resumeEntry.searchId})`,
+            name:
+              resumeEntry.name ||
+              t('liveSearch.defaultSearchNameWithId', { id: resumeEntry.searchId }),
             url: resolvedUrl,
             canonicalIdentity: parsed,
             canonicalKey: targetKey,
@@ -1942,22 +1957,25 @@ export function createLiveSearchSourceController(
       if (compat.compatibility !== 'compatible') {
         return {
           success: false,
-          error: compat.compatibilityMessage || '此搜尋與目前主控台不相容',
+          error: compat.compatibilityMessage || t('liveSearch.error.incompatible'),
         };
       }
 
       if (custom.canonicalIdentity.league.trim().toLowerCase() !== opLeague.trim().toLowerCase()) {
         return {
           success: false,
-          error: `此搜尋屬於 ${formatLiveSearchDisplayLeague(custom.canonicalIdentity.league)}，目前主控台選定聯盟為 ${formatLiveSearchDisplayLeague(opLeague)}`,
+          error: t('liveSearch.error.selectedLeagueMismatch', {
+            searchLeague: formatLiveSearchDisplayLeague(custom.canonicalIdentity.league),
+            consoleLeague: formatLiveSearchDisplayLeague(opLeague),
+          }),
         };
       }
 
       if (pendingSearchKeys.has(custom.canonicalKey)) {
-        return { success: false, error: '此搜尋正在啟動中，請稍候' };
+        return { success: false, error: t('liveSearch.error.alreadyStarting') };
       }
       if (findActiveSubByCanonicalKey(custom.canonicalKey)) {
-        return { success: false, error: '此搜尋已在即時監聽中' };
+        return { success: false, error: t('liveSearch.error.alreadyActive') };
       }
 
       if (allowRedirect) {
@@ -1973,10 +1991,10 @@ export function createLiveSearchSourceController(
           if (redirect.entry.name) custom.name = redirect.entry.name;
         }
         if (pendingSearchKeys.has(custom.canonicalKey)) {
-          return { success: false, error: '此搜尋正在啟動中，請稍候' };
+          return { success: false, error: t('liveSearch.error.alreadyStarting') };
         }
         if (findActiveSubByCanonicalKey(custom.canonicalKey)) {
-          return { success: false, error: '此搜尋已在即時監聽中' };
+          return { success: false, error: t('liveSearch.error.alreadyActive') };
         }
       }
 
@@ -1996,7 +2014,7 @@ export function createLiveSearchSourceController(
           isSwitchingLeague ||
           selectedLeague !== opLeague
         ) {
-          return { success: false, error: '主控台聯盟已切換，操作已取消' };
+          return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
         }
         const outcome = await liveController.addFromUrl(custom.url, {
           name: custom.name,
@@ -2014,7 +2032,7 @@ export function createLiveSearchSourceController(
               void liveController.teardownAll();
             }
           }
-          return { success: false, error: '主控台聯盟已切換，操作已取消' };
+          return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
         }
         if (outcome.success && resumeStore) {
           await resumeStore.addIdentities([
@@ -2022,7 +2040,9 @@ export function createLiveSearchSourceController(
               gameVersion: custom.canonicalIdentity.gameVersion,
               league: custom.canonicalIdentity.league,
               searchId: custom.canonicalIdentity.searchId,
-              name: custom.name || `搜尋 (${custom.canonicalIdentity.searchId})`,
+              name:
+                custom.name ||
+                t('liveSearch.defaultSearchNameWithId', { id: custom.canonicalIdentity.searchId }),
               url: custom.url,
               ...(custom.coverImageUrl ? { coverImageUrl: custom.coverImageUrl } : {}),
             },
@@ -2041,20 +2061,20 @@ export function createLiveSearchSourceController(
     }
 
     if (disposed) {
-      return { success: false, error: '控制器已釋放' };
+      return { success: false, error: t('liveSearch.error.controllerDisposed') };
     }
 
     if (transitionGeneration !== opGeneration || isSwitchingLeague || selectedLeague !== opLeague) {
-      return { success: false, error: '主控台聯盟已切換，操作已取消' };
+      return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
     }
 
     if (!currentCollection) {
-      return { success: false, error: '書籤資料尚未就緒' };
+      return { success: false, error: t('liveSearch.error.bookmarksNotReady') };
     }
 
     const bookmark = currentCollection.bookmarks.find((b) => b.id === trimmedId);
     if (!bookmark) {
-      return { success: false, error: '找不到指定書籤' };
+      return { success: false, error: t('liveSearch.error.bookmarkNotFound') };
     }
 
     const bookmarkUrl = stripLiveSuffix(bookmark.url);
@@ -2062,7 +2082,7 @@ export function createLiveSearchSourceController(
     if (!parsed) {
       return {
         success: false,
-        error: '此書籤的網址無法解析為合法的 Trade 搜尋',
+        error: t('liveSearch.error.bookmarkInvalidUrl'),
       };
     }
 
@@ -2070,25 +2090,28 @@ export function createLiveSearchSourceController(
     if (compat.compatibility !== 'compatible') {
       return {
         success: false,
-        error: compat.compatibilityMessage || '此搜尋與目前主控台不相容',
+        error: compat.compatibilityMessage || t('liveSearch.error.incompatible'),
       };
     }
 
     if (parsed.league.trim().toLowerCase() !== opLeague.trim().toLowerCase()) {
       return {
         success: false,
-        error: `此搜尋屬於 ${formatLiveSearchDisplayLeague(parsed.league)}，目前主控台選定聯盟為 ${formatLiveSearchDisplayLeague(opLeague)}`,
+        error: t('liveSearch.error.selectedLeagueMismatch', {
+          searchLeague: formatLiveSearchDisplayLeague(parsed.league),
+          consoleLeague: formatLiveSearchDisplayLeague(opLeague),
+        }),
       };
     }
 
     const searchKey = getTradeSearchCanonicalKey(parsed);
 
     if (pendingSearchKeys.has(searchKey)) {
-      return { success: false, error: '此搜尋正在啟動中，請稍候' };
+      return { success: false, error: t('liveSearch.error.alreadyStarting') };
     }
 
     if (findActiveSubByCanonicalKey(searchKey)) {
-      return { success: false, error: '此搜尋已在即時監聽中' };
+      return { success: false, error: t('liveSearch.error.alreadyActive') };
     }
 
     let validCoverUrl =
@@ -2118,7 +2141,7 @@ export function createLiveSearchSourceController(
         isSwitchingLeague ||
         selectedLeague !== opLeague
       ) {
-        return { success: false, error: '主控台聯盟已切換，操作已取消' };
+        return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
       }
       const outcome = await liveController.addFromUrl(bookmark.url, {
         name: bookmark.name,
@@ -2137,7 +2160,7 @@ export function createLiveSearchSourceController(
             void liveController.teardownAll();
           }
         }
-        return { success: false, error: '主控台聯盟已切換，操作已取消' };
+        return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
       }
       if (outcome.success) {
         registerSessionEntry({
@@ -2178,7 +2201,7 @@ export function createLiveSearchSourceController(
         skipped: 0,
         failed: requested,
         rejectReason: 'disposed',
-        error: '控制器已釋放',
+        error: t('liveSearch.error.controllerDisposed'),
         skipReasons,
         incompatibleBreakdown,
         runtimeFailureCount: 0,
@@ -2214,7 +2237,7 @@ export function createLiveSearchSourceController(
         skipped: 0,
         failed: requested,
         rejectReason: 'disposed',
-        error: '控制器已釋放',
+        error: t('liveSearch.error.controllerDisposed'),
         skipReasons,
         incompatibleBreakdown,
         runtimeFailureCount: 0,
@@ -2229,7 +2252,7 @@ export function createLiveSearchSourceController(
         skipped: 0,
         failed: requested,
         rejectReason: 'not-ready',
-        error: '正在切換聯盟中，請稍候',
+        error: t('liveSearch.error.switchingLeague'),
         skipReasons,
         incompatibleBreakdown,
         runtimeFailureCount: 0,
@@ -2252,7 +2275,7 @@ export function createLiveSearchSourceController(
         skipped: 0,
         failed: requested,
         rejectReason: 'not-ready',
-        error: '書籤資料尚未就緒',
+        error: t('liveSearch.error.bookmarksNotReady'),
         skipReasons,
         incompatibleBreakdown,
         runtimeFailureCount: 0,
@@ -2331,7 +2354,7 @@ export function createLiveSearchSourceController(
       if (distinctBatchLeagues.length > 1) {
         const formattedLeagues = distinctBatchLeagues
           .map(formatLiveSearchDisplayLeague)
-          .join(' 與 ');
+          .join(t('liveSearch.listJoinAnd'));
         return {
           success: false,
           requested,
@@ -2340,7 +2363,7 @@ export function createLiveSearchSourceController(
           failed: requested,
           rejectReason: 'mixed-league',
           involvedLeagues: distinctBatchLeagues,
-          error: `選取項目包含多個聯盟（${formattedLeagues}），請分開啟用`,
+          error: t('liveSearch.error.mixedLeaguesEnable', { leagues: formattedLeagues }),
           skipReasons,
           incompatibleBreakdown,
           runtimeFailureCount: 0,
@@ -2467,7 +2490,9 @@ export function createLiveSearchSourceController(
       }
 
       if (distinctLeagues.length > 1) {
-        const formattedLeagues = distinctLeagues.map(formatLiveSearchDisplayLeague).join(' 與 ');
+        const formattedLeagues = distinctLeagues
+          .map(formatLiveSearchDisplayLeague)
+          .join(t('liveSearch.listJoinAnd'));
         return {
           success: false,
           requested,
@@ -2476,7 +2501,7 @@ export function createLiveSearchSourceController(
           failed: eligibleCandidates.length,
           rejectReason: 'mixed-league',
           involvedLeagues: distinctLeagues,
-          error: `選取項目包含多個聯盟（${formattedLeagues}），請分開啟用`,
+          error: t('liveSearch.error.mixedLeaguesEnable', { leagues: formattedLeagues }),
           skipReasons,
           incompatibleBreakdown,
           runtimeFailureCount: 0,
@@ -2500,7 +2525,7 @@ export function createLiveSearchSourceController(
         selectedLeague !== opLeague
       ) {
         failed += eligibleCandidates.length - succeeded;
-        lastError = '主控台聯盟已切換，中止舊聯盟批次啟用';
+        lastError = t('liveSearch.error.leagueSwitchedBatchAborted');
         break;
       }
       const outcome = await enableSource(candidate.sourceId);
@@ -2510,7 +2535,7 @@ export function createLiveSearchSourceController(
         selectedLeague !== opLeague
       ) {
         failed += eligibleCandidates.length - succeeded;
-        lastError = '主控台聯盟已切換，中止舊聯盟批次啟用';
+        lastError = t('liveSearch.error.leagueSwitchedBatchAborted');
         break;
       }
       if (outcome.success) {
@@ -2548,7 +2573,7 @@ export function createLiveSearchSourceController(
         skipped: 0,
         failed: requested,
         rejectReason: 'disposed',
-        error: '控制器已釋放',
+        error: t('liveSearch.error.controllerDisposed'),
         skipReasons,
         incompatibleBreakdown,
         runtimeFailureCount: 0,
@@ -2712,7 +2737,7 @@ export function createLiveSearchSourceController(
       options?: { name?: string; coverImageUrl?: string },
     ): Promise<AddSubscriptionOutcome> {
       if (disposed) {
-        return { success: false, error: '控制器已釋放' };
+        return { success: false, error: t('liveSearch.error.controllerDisposed') };
       }
 
       if (!isLeagueResolved) {
@@ -2724,15 +2749,15 @@ export function createLiveSearchSourceController(
       }
 
       if (disposed) {
-        return { success: false, error: '控制器已釋放' };
+        return { success: false, error: t('liveSearch.error.controllerDisposed') };
       }
 
       if (isSwitchingLeague) {
-        return { success: false, error: '正在切換聯盟中，請稍候' };
+        return { success: false, error: t('liveSearch.error.switchingLeague') };
       }
 
       if (typeof url !== 'string' || !url.trim()) {
-        return { success: false, error: '請提供有效的 Trade 搜尋網址' };
+        return { success: false, error: t('liveSearch.error.invalidUrlRequired') };
       }
 
       const cleanUrl = stripLiveSuffix(url.trim());
@@ -2740,21 +2765,27 @@ export function createLiveSearchSourceController(
       if (!parsed) {
         return {
           success: false,
-          error: '無效的 Trade 搜尋網址，請確認網址格式正確且包含版本、聯盟與搜尋代碼',
+          error: t('liveSearch.error.invalidUrlFormat'),
         };
       }
 
       if (parsed.gameVersion !== currentGameVersion) {
         return {
           success: false,
-          error: `此搜尋屬於 ${formatLiveSearchDisplayVersion(parsed.gameVersion)}，目前主控台為 ${formatLiveSearchDisplayVersion(currentGameVersion)}`,
+          error: t('liveSearch.error.wrongVersion', {
+            searchVersion: formatLiveSearchDisplayVersion(parsed.gameVersion),
+            consoleVersion: formatLiveSearchDisplayVersion(currentGameVersion),
+          }),
         };
       }
 
       if (parsed.league.trim().toLowerCase() !== selectedLeague.trim().toLowerCase()) {
         return {
           success: false,
-          error: `此搜尋屬於 ${formatLiveSearchDisplayLeague(parsed.league)}，目前主控台聯盟為 ${formatLiveSearchDisplayLeague(selectedLeague)}，請先切換主控台聯盟後再新增`,
+          error: t('liveSearch.error.selectedLeagueMismatchSwitchFirst', {
+            searchLeague: formatLiveSearchDisplayLeague(parsed.league),
+            consoleLeague: formatLiveSearchDisplayLeague(selectedLeague),
+          }),
         };
       }
 
@@ -2788,7 +2819,7 @@ export function createLiveSearchSourceController(
         }
 
         if (findActiveSubByCanonicalKey(canonicalKey)) {
-          return { success: false, error: '此搜尋已在即時監聽中' };
+          return { success: false, error: t('liveSearch.error.alreadyActive') };
         }
 
         return await enableSource(existingBookmark.id);
@@ -2822,7 +2853,7 @@ export function createLiveSearchSourceController(
       registerSessionEntry({
         canonicalKey,
         canonicalIdentity: parsed,
-        name: customRecord.name || `搜尋 (${parsed.searchId})`,
+        name: customRecord.name || t('liveSearch.defaultSearchNameWithId', { id: parsed.searchId }),
         url: cleanUrl,
         coverImageUrl: customRecord.coverImageUrl,
       });
@@ -2836,7 +2867,7 @@ export function createLiveSearchSourceController(
     ): Promise<LiveSearchEnqueueResponse> {
       return runEnqueueIncoming(async () => {
         if (disposed) {
-          return { success: false, error: '主控台已關閉', rejectReason: 'failed' };
+          return { success: false, error: t('liveSearch.console.closed'), rejectReason: 'failed' };
         }
 
         if (!isLeagueResolved) {
@@ -2848,7 +2879,7 @@ export function createLiveSearchSourceController(
         }
 
         if (disposed) {
-          return { success: false, error: '主控台已關閉', rejectReason: 'failed' };
+          return { success: false, error: t('liveSearch.console.closed'), rejectReason: 'failed' };
         }
 
         const rawItems = Array.isArray(items) ? items : [];
@@ -2885,7 +2916,7 @@ export function createLiveSearchSourceController(
         if (parsedCandidates.length === 0) {
           return {
             success: false,
-            error: '無效的 Trade 搜尋網址',
+            error: t('liveSearch.error.invalidUrlShort'),
             rejectReason: 'invalid-url',
           };
         }
@@ -2896,7 +2927,10 @@ export function createLiveSearchSourceController(
         if (wrongVersionItem) {
           return {
             success: false,
-            error: `此搜尋屬於 ${formatLiveSearchDisplayVersion(wrongVersionItem.parsed.gameVersion)}，目前主控台為 ${formatLiveSearchDisplayVersion(currentGameVersion)}`,
+            error: t('liveSearch.error.wrongVersion', {
+              searchVersion: formatLiveSearchDisplayVersion(wrongVersionItem.parsed.gameVersion),
+              consoleVersion: formatLiveSearchDisplayVersion(currentGameVersion),
+            }),
             rejectReason: 'wrong-version',
           };
         }
@@ -2910,10 +2944,12 @@ export function createLiveSearchSourceController(
         }
 
         if (distinctLeagues.length > 1) {
-          const formatted = distinctLeagues.map(formatLiveSearchDisplayLeague).join(' 與 ');
+          const formatted = distinctLeagues
+            .map(formatLiveSearchDisplayLeague)
+            .join(t('liveSearch.listJoinAnd'));
           return {
             success: false,
-            error: `選取項目包含多個聯盟（${formatted}），請分開送入主控台`,
+            error: t('liveSearch.error.mixedLeaguesEnqueue', { leagues: formatted }),
             rejectReason: 'mixed-league',
           };
         }
@@ -2927,7 +2963,10 @@ export function createLiveSearchSourceController(
         ) {
           return {
             success: false,
-            error: `主控台目前正在監聽 ${formatLiveSearchDisplayLeague(primaryContext.runtimeLeague)}，無法直接加入 ${formatLiveSearchDisplayLeague(incomingLeague)} 連線`,
+            error: t('liveSearch.error.activeLeagueConflict', {
+              consoleLeague: formatLiveSearchDisplayLeague(primaryContext.runtimeLeague),
+              incomingLeague: formatLiveSearchDisplayLeague(incomingLeague),
+            }),
             rejectReason: 'wrong-league',
           };
         }
@@ -2940,7 +2979,9 @@ export function createLiveSearchSourceController(
           if (!switched) {
             return {
               success: false,
-              error: `切換主控台聯盟至 ${formatLiveSearchDisplayLeague(incomingLeague)} 失敗`,
+              error: t('liveSearch.error.switchLeagueFailed', {
+                league: formatLiveSearchDisplayLeague(incomingLeague),
+              }),
               rejectReason: 'failed',
             };
           }
@@ -2975,7 +3016,7 @@ export function createLiveSearchSourceController(
           let resolvedName =
             candidate.item.name?.trim() ||
             existingBookmark?.name ||
-            `搜尋 (${candidate.parsed.searchId})`;
+            t('liveSearch.defaultSearchNameWithId', { id: candidate.parsed.searchId });
 
           // 相同搜尋條件只能有一筆：已在本次連線者沿用既有項目；與上次連線相同者有圖片優先
           const redirect = await resolveCriteriaRedirect(
@@ -3078,14 +3119,14 @@ export function createLiveSearchSourceController(
 
     retry(sourceOrSubscriptionId: string): LiveSearchRetryOutcome {
       if (disposed) {
-        return { success: false, error: '控制器已釋放' };
+        return { success: false, error: t('liveSearch.error.controllerDisposed') };
       }
       if (typeof sourceOrSubscriptionId !== 'string' || !sourceOrSubscriptionId.trim()) {
-        return { success: false, error: '請提供有效的搜尋來源或訂閱 ID' };
+        return { success: false, error: t('liveSearch.error.invalidSourceOrSubId') };
       }
       const subId = resolveSubscriptionId(sourceOrSubscriptionId);
       if (!subId) {
-        return { success: false, error: '找不到對應的連線訂閱' };
+        return { success: false, error: t('liveSearch.error.matchingSubNotFound') };
       }
       return liveController.retry(subId);
     },

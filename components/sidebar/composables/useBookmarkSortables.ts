@@ -17,6 +17,7 @@ import {
   getFolderDepth,
   type TreeProjectionResult,
 } from './bookmark-tree-projection';
+import { t } from '@/utils/i18n';
 
 export interface BookmarkSortableOptions {
   bookmarks: Readonly<Ref<readonly Bookmark[]>>;
@@ -957,9 +958,19 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
                   } else {
                     const message =
                       impact.descendantFolderCount > 0
-                        ? `確定要刪除資料夾「${group.name}」及其 ${impact.descendantFolderCount} 個子資料夾嗎？\n這將會一併刪除其中的 ${impact.affectedBookmarkCount} 個書籤。`
-                        : `確定要刪除資料夾「${group.name}」嗎？\n這將會一併刪除資料夾內的 ${impact.affectedBookmarkCount} 個書籤。`;
-                    const confirmed = await (window as any).poexdConfirm(message, '拖曳刪除資料夾');
+                        ? t('bookmark.dialog.deleteFolderWithSubfoldersConfirm', {
+                            name: group.name,
+                            subfolderCount: impact.descendantFolderCount,
+                            bookmarkCount: impact.affectedBookmarkCount,
+                          })
+                        : t('bookmark.dialog.deleteFolderWithBookmarksConfirm', {
+                            name: group.name,
+                            bookmarkCount: impact.affectedBookmarkCount,
+                          });
+                    const confirmed = await (window as any).poexdConfirm(
+                      message,
+                      t('bookmark.dialog.dragDeleteFolderTitle'),
+                    );
                     if (confirmed) {
                       await runSortableTransaction(() =>
                         options.execute({ type: 'delete-group', groupId: folderId }),

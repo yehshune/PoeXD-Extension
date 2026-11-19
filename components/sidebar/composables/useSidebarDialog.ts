@@ -5,6 +5,7 @@ import {
   type DialogButtonSpec,
   type DialogButtonVariant,
 } from '@/utils/event-contracts';
+import { t } from '@/utils/i18n';
 
 export type DialogButton = DialogButtonSpec;
 
@@ -17,7 +18,7 @@ function getActiveElementDeep(): Element | null {
 }
 
 export function installDialogGlobals() {
-  (window as any).poexdConfirm = (message: string, title = '確認') =>
+  (window as any).poexdConfirm = (message: string, title = t('common.confirm')) =>
     new Promise((resolve) => {
       dispatchPoeEvent('poexd-trigger-dialog', {
         type: 'confirm',
@@ -27,7 +28,11 @@ export function installDialogGlobals() {
       });
     });
 
-  (window as any).poexdPrompt = (message: string, defaultValue = '', title = '輸入') =>
+  (window as any).poexdPrompt = (
+    message: string,
+    defaultValue = '',
+    title = t('common.promptTitle'),
+  ) =>
     new Promise((resolve) => {
       dispatchPoeEvent('poexd-trigger-dialog', {
         type: 'prompt',
@@ -38,7 +43,7 @@ export function installDialogGlobals() {
       });
     });
 
-  (window as any).poexdAlert = (message: string, title = '提示') =>
+  (window as any).poexdAlert = (message: string, title = t('common.alertTitle')) =>
     new Promise((resolve) => {
       dispatchPoeEvent('poexd-trigger-dialog', { type: 'alert', title, message, resolve });
     });
@@ -63,7 +68,7 @@ export function useSidebarDialog() {
   const dialogState = ref({
     isOpen: false,
     type: 'confirm' as 'confirm' | 'alert' | 'prompt' | 'custom',
-    title: '確認',
+    title: t('common.confirm'),
     message: '',
     inputValue: '',
     inputPlaceholder: '',
@@ -92,8 +97,12 @@ export function useSidebarDialog() {
 
   const handleDialogDismiss = () => {
     if (dialogState.value.type === 'custom' && dialogState.value.buttons.length > 0) {
+      const cancelText = t('common.cancel').toLowerCase();
       const cancelButton = dialogState.value.buttons.find(
-        (button) => button.value === 'cancel' || button.label.includes('取消'),
+        (button) =>
+          button.value === 'cancel' ||
+          button.label.toLowerCase().includes(cancelText) ||
+          button.label.includes('取消'),
       );
       handleCustomButtonClick(cancelButton?.value ?? dialogState.value.buttons.at(-1)?.value);
     } else {
@@ -140,7 +149,11 @@ export function useSidebarDialog() {
     dialogState.value.type = detail.type;
     dialogState.value.title =
       detail.title ||
-      (detail.type === 'confirm' ? '確認' : detail.type === 'prompt' ? '輸入' : '提示');
+      (detail.type === 'confirm'
+        ? t('common.confirm')
+        : detail.type === 'prompt'
+          ? t('common.promptTitle')
+          : t('common.alertTitle'));
     dialogState.value.message = detail.message || '';
     dialogState.value.inputValue = detail.defaultValue || '';
     dialogState.value.buttons = detail.buttons || [];

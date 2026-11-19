@@ -1,4 +1,5 @@
 import type { PoeVersion } from '@/utils/trade-context';
+import { t } from '@/utils/i18n';
 import {
   getTradeSearchCanonicalKey,
   isSameTradeSearchIdentity,
@@ -521,7 +522,10 @@ export class LiveSearchPrimaryRuntime {
 
     const subCtx = this.subscriptions.get(subscriptionId);
     if (!subCtx) {
-      return { success: false, error: `找不到訂閱項目: ${subscriptionId}` };
+      return {
+        success: false,
+        error: t('liveSearch.error.subscriptionNotFound', { id: subscriptionId }),
+      };
     }
 
     return subCtx.session.retry();

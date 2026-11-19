@@ -2,6 +2,7 @@ import type { PoeVersion } from '@/utils/trade-context';
 import type { SearchRecordOutcome } from '@/utils/search-records';
 import type { SearchRecordClient } from '@/utils/search-record-messaging';
 import { parseTradeSearchUrl } from '@/utils/trade-search-identity';
+import { t } from '@/utils/i18n';
 
 export interface SearchRecordObservation {
   gameVersion: PoeVersion;
@@ -41,7 +42,7 @@ export function createSearchRecordCaptureAdapter(
           url: observation.url,
         },
         entry: {
-          name: observation.name?.trim() || '未命名搜尋',
+          name: observation.name?.trim() || t('injectedControls.unnamedSearch'),
           url: observation.url,
           ...(observation.icon ? { icon: observation.icon } : {}),
         },

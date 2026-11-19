@@ -66,9 +66,11 @@ interface StatGroupTemplateStoreDeps {
 
 export function normalizeStatGroupTemplateName(name: string): string {
   const trimmed = typeof name === 'string' ? name.trim() : '';
-  if (!trimmed) throw new Error('常用詞綴群組名稱不可為空白');
+  if (!trimmed) throw new Error(t('statGroupTemplate.error.nameEmpty'));
   if (trimmed.length > STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH) {
-    throw new Error(`常用詞綴群組名稱最多 ${STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH} 個字`);
+    throw new Error(
+      t('statGroupTemplate.error.nameTooLong', { max: STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH }),
+    );
   }
   return trimmed;
 }

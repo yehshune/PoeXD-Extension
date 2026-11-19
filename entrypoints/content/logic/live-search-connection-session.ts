@@ -1,4 +1,5 @@
 import type { LiveSearchSubscriptionStatus } from '@/utils/live-search-contract';
+import { t } from '@/utils/i18n';
 import type { ILiveSearchOpenScheduler } from './live-search-open-scheduler';
 
 export interface LiveSearchReconnectPolicy {
@@ -121,11 +122,14 @@ export class LiveSearchConnectionSession implements ILiveSearchConnectionSession
 
   public retry(): { success: boolean; error?: string } {
     if (this.disposed || this.stopped) {
-      return { success: false, error: 'Session 已終止，無法重試' };
+      return { success: false, error: t('liveSearch.session.terminated') };
     }
 
     if (this.status !== 'error') {
-      return { success: false, error: `目前狀態 (${this.status}) 不允許手動重試` };
+      return {
+        success: false,
+        error: t('liveSearch.session.retryNotAllowed', { status: this.status }),
+      };
     }
 
     this.clearTimers();
@@ -276,7 +280,10 @@ export class LiveSearchConnectionSession implements ILiveSearchConnectionSession
     // 達到最大重試次數，進入 terminal/error 狀態，停止自動重連
     if (this.failedAttempts > this.policy.maxFailedAttempts) {
       this.setStatus('error', {
-        errorMessage: `連線失敗: ${errorMsg} (已嘗試重連 ${this.policy.maxFailedAttempts} 次)`,
+        errorMessage: t('liveSearch.session.failedMaxAttempts', {
+          error: errorMsg,
+          maxAttempts: this.policy.maxFailedAttempts,
+        }),
         reconnectInSeconds: undefined,
       });
       return;

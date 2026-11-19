@@ -286,7 +286,7 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, computed, watch, provide } from 'vue';
 import { describeBookmarkImportFailure } from '@/utils/bookmark-transfer-messages';
-import { t } from '@/utils/i18n';
+import { formatMessage, t } from '@/utils/i18n';
 import SidebarPane from './layout/SidebarPane.vue';
 import SidebarEmptyState from './layout/SidebarEmptyState.vue';
 import DragTrashZone from './layout/DragTrashZone.vue';
@@ -877,7 +877,7 @@ export default defineComponent({
           { timeoutMessage: t('bookmark.toast.sendToConsoleFailed') },
         );
         if (!res.success) {
-          showToast(res.error || t('bookmark.toast.sendToConsoleFailed'));
+          showToast(formatMessage(res.error, 'bookmark.toast.sendToConsoleFailed'));
         } else if (res.created) {
           showToast(t('bookmark.toast.sentWithCreated', { count: items.length }));
         } else {

@@ -662,7 +662,10 @@ describe('Extension messaging transport wiring', () => {
       league: 'Standard',
     });
 
-    expect(result).toEqual({ success: false, error: '不支援的遊戲版本' });
+    expect(result).toEqual({
+      success: false,
+      error: { key: 'economy.error.unsupportedVersion' },
+    });
     expect(service.fetch).not.toHaveBeenCalled();
   });
 

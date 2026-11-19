@@ -15,6 +15,7 @@ import {
 } from './live-search-contract';
 import { getPoeVersion, type PoeVersion } from './trade-context';
 import { withTimeout } from './promise-timeout';
+import { localized } from './localized-message';
 import {
   DEFAULT_TRADE_ORIGIN,
   getSupportedTradeOrigin,
@@ -458,7 +459,11 @@ export class LiveSearchCoordinator {
       });
 
       if (!newTab || newTab.id === undefined) {
-        throw new Error('無法建立線上搜尋主控台分頁');
+        await this.clearPrimaryOwnership(undefined, effectiveVersion).catch(() => {});
+        return {
+          success: false,
+          error: localized('liveSearch.coordinator.createTabFailed'),
+        };
       }
 
       const storageKey = getLiveSearchPrimaryStorageKey(effectiveVersion);
@@ -538,7 +543,7 @@ export class LiveSearchCoordinator {
     if (validItems.length === 0) {
       return {
         success: false,
-        error: '未提供有效的搜尋網址',
+        error: localized('liveSearch.coordinator.noValidUrl'),
         rejectReason: 'invalid-url',
       };
     }
@@ -587,7 +592,7 @@ export class LiveSearchCoordinator {
       this.pendingEnqueueByVersion.delete(effectiveVersion);
       return {
         success: false,
-        error: openOutcome.error || '無法於背景啟動線上搜尋主控台',
+        error: openOutcome.error || localized('liveSearch.coordinator.backgroundStartFailed'),
         rejectReason: 'failed',
       };
     }

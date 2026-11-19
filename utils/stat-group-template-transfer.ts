@@ -1,4 +1,5 @@
 import { parseCriteriaOverlayStatGroups, type CriteriaOverlayStatGroup } from './criteria-overlay';
+import { t } from './i18n';
 import {
   normalizeStatGroupTemplateName,
   type StatGroupTemplate,
@@ -57,7 +58,7 @@ export function parseStatGroupTemplateTransfer(
   try {
     payload = JSON.parse(text);
   } catch {
-    throw new Error('匯入內容格式不正確，請貼上從常用詞綴群組匯出的內容');
+    throw new Error(t('statGroupTemplate.error.importInvalidFormat'));
   }
   const raw = payload as Record<string, unknown> | null;
   if (
@@ -66,16 +67,19 @@ export function parseStatGroupTemplateTransfer(
     raw.format !== STAT_GROUP_TEMPLATE_TRANSFER_FORMAT ||
     !Array.isArray(raw.templates)
   ) {
-    throw new Error('匯入內容格式不正確，請貼上從常用詞綴群組匯出的內容');
+    throw new Error(t('statGroupTemplate.error.importInvalidFormat'));
   }
   if (raw.gameVersion !== gameVersion) {
     throw new Error(
-      `這份內容屬於 ${String(raw.gameVersion).toUpperCase()}，無法匯入 ${gameVersion.toUpperCase()} 的常用詞綴群組`,
+      t('statGroupTemplate.error.importVersionMismatch', {
+        sourceVersion: String(raw.gameVersion).toUpperCase(),
+        targetVersion: gameVersion.toUpperCase(),
+      }),
     );
   }
   const entries = raw.templates
     .map(parseEntry)
     .filter((entry): entry is StatGroupTemplateEntry => entry !== undefined);
-  if (entries.length === 0) throw new Error('匯入內容沒有可用的常用詞綴群組');
+  if (entries.length === 0) throw new Error(t('statGroupTemplate.error.importEmpty'));
   return { entries, skipped: raw.templates.length - entries.length };
 }

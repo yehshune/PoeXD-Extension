@@ -91,6 +91,15 @@ function awaitReply<T>(
   });
 }
 
+function translateAdapterError(
+  error: string | undefined,
+  fallbackKey: 'criteriaOverlay.session.readFailed' | 'criteriaOverlay.session.commitFailed',
+): string {
+  if (!error) return t(fallbackKey);
+  if (error === 'FORM_STATE_NOT_FOUND') return t('criteriaOverlay.session.formStateNotFound');
+  return error;
+}
+
 /** 透過跨世界事件與 Main World 的 criteria-overlay-adapter 溝通。 */
 export function createPoeEventCriteriaOverlayChannel(
   timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -109,7 +118,9 @@ export function createPoeEventCriteriaOverlayChannel(
           ),
         timeoutMs,
       );
-      if (!reply.snapshot) throw new Error(reply.error ?? t('criteriaOverlay.session.readFailed'));
+      if (!reply.snapshot) {
+        throw new Error(translateAdapterError(reply.error, 'criteriaOverlay.session.readFailed'));
+      }
       return {
         snapshot: reply.snapshot,
         knownStatIds: reply.knownStatIds ? new Set(reply.knownStatIds) : null,
@@ -128,7 +139,9 @@ export function createPoeEventCriteriaOverlayChannel(
           ),
         timeoutMs,
       );
-      if (!reply.success) throw new Error(reply.error ?? t('criteriaOverlay.session.commitFailed'));
+      if (!reply.success) {
+        throw new Error(translateAdapterError(reply.error, 'criteriaOverlay.session.commitFailed'));
+      }
     },
   };
 }

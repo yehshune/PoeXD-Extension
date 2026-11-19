@@ -1,4 +1,5 @@
 import type { PoeVersion } from './trade-context';
+import type { MessageValue } from './localized-message';
 import { parseTradeSearchUrl, stripLiveSuffix } from './trade-search-identity';
 
 /**
@@ -30,7 +31,7 @@ export interface LiveSearchOpenPrimaryResponse {
   success: boolean;
   tabId?: number;
   created?: boolean;
-  error?: string;
+  error?: MessageValue;
 }
 
 export interface LiveSearchGetPageRoleRequest {
@@ -65,7 +66,7 @@ export interface LiveSearchEnqueueResponse {
   created?: boolean;
   addedCount?: number;
   skippedCount?: number;
-  error?: string;
+  error?: MessageValue;
   rejectReason?: 'mixed-league' | 'wrong-league' | 'wrong-version' | 'invalid-url' | 'failed';
 }
 

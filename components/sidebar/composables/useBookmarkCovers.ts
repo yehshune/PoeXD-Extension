@@ -4,6 +4,7 @@ import type { BookmarkMutationIntent } from '../bookmark-model';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { isSameTradeSearchPageUrl, parseTradeSearchUrl } from '@/utils/trade-search-identity';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
+import { t } from '@/utils/i18n';
 
 export interface UseBookmarkCoversOptions {
   executeBookmarkIntent: (intent: BookmarkMutationIntent) => Promise<boolean>;
@@ -49,7 +50,7 @@ export function useBookmarkCovers(options: UseBookmarkCoversOptions) {
   const fetchCurrentTab = async (): Promise<void> => {
     try {
       if (typeof document !== 'undefined') {
-        currentTabInfo.value.title = document.title || '未命名網頁';
+        currentTabInfo.value.title = document.title || t('bookmark.defaultPageTitle');
       }
       if (typeof window !== 'undefined') {
         currentTabInfo.value.url = window.location.href || '';

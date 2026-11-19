@@ -385,9 +385,11 @@
               class="h-[var(--pxd-sidebar-affix-dialog-header-height)] shrink-0 flex-row items-center justify-between gap-0 border-b border-border bg-background px-[var(--pxd-pane-padding)] py-0 text-left"
             >
               <DialogTitle class="text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px]">
-                詞綴選擇器 (Affix Selector)
+                {{ t('affixSelector.dialog.title') }}
               </DialogTitle>
-              <DialogDescription class="sr-only"> 選擇與設定詞綴篩選條件 </DialogDescription>
+              <DialogDescription class="sr-only">
+                {{ t('affixSelector.dialog.description') }}
+              </DialogDescription>
             </DialogHeader>
 
             <div class="flex-1 overflow-visible p-[var(--pxd-pane-padding)] relative">

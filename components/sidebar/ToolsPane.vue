@@ -150,7 +150,7 @@ import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { normalizeEconomyLeague, type EconomyRateMetadata } from '@/utils/economy';
 import { isPriceConversionSupported } from '@/utils/trade-realms';
 import { getTradeRealmLabel } from '@/utils/trade-realm-labels';
-import { t } from '@/utils/i18n';
+import { formatMessage, t } from '@/utils/i18n';
 
 export function formatRelativeTime(timestamp: number, now = Date.now()): string {
   const diffSec = Math.max(0, Math.floor((now - timestamp) / 1000));
@@ -349,9 +349,10 @@ export default defineComponent({
           }
           dispatchPoeEvent('poexd-toast', { message: t('tools.economy.toastUpdated') });
         } else {
-          economyError.value = res.error || t('tools.economy.errorUpdateFailed');
+          const errMsg = formatMessage(res.error, 'tools.economy.errorUpdateFailed');
+          economyError.value = errMsg;
           dispatchPoeEvent('poexd-toast', {
-            message: res.error || t('tools.economy.errorUpdateFailed'),
+            message: errMsg,
           });
         }
       } catch (err: any) {

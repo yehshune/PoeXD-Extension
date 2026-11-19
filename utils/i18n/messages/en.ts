@@ -1339,4 +1339,68 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'criteriaOverlay.session.formStateNotFound': 'Could not find official trade search form state',
   'bookmark.league.httpFailed': 'Failed to load trade leagues ({status})',
   'bookmark.league.invalidFormat': 'Invalid trade leagues data format',
+  'liveSearch.console.guardedTitle': 'Official search controls are disabled in Live Search Console',
+  'liveSearch.console.notReady': 'Console is not ready',
+  'liveSearch.console.closed': 'Console is closed',
+  'liveSearch.session.terminated': 'Session has ended and cannot be retried',
+  'liveSearch.session.retryNotAllowed': 'Manual retry is not allowed in current state ({status})',
+  'liveSearch.session.failedMaxAttempts':
+    'Connection failed: {error} (retried {maxAttempts} times)',
+  'liveSearch.error.invalidUrlRequired': 'Please provide a valid Trade search URL',
+  'liveSearch.error.invalidUrlFormat':
+    'Invalid Trade search URL. Please check that it includes the game version, league, and search ID.',
+  'liveSearch.error.invalidUrlShort': 'Invalid Trade search URL',
+  'liveSearch.error.invalidSubscriptionId': 'Please provide a valid subscription ID',
+  'liveSearch.error.subscriptionNotFound': 'Subscription not found: {id}',
+  'liveSearch.error.unableToDetectLeague': 'Unable to determine league',
+  'liveSearch.error.autoRestoreFailed': 'Failed to auto-restore connections',
+  'liveSearch.error.controllerDisposed': 'Controller has been disposed',
+  'liveSearch.error.switchingLeague': 'Switching league, please wait',
+  'liveSearch.error.leagueSwitchedCancelled': 'Console league changed; operation cancelled',
+  'liveSearch.error.leagueSwitchedBatchAborted':
+    'Console league changed; aborted batch enable for previous league',
+  'liveSearch.error.bookmarksNotReady': 'Bookmarks data is not ready yet',
+  'liveSearch.error.bookmarkNotFound': 'Bookmark not found',
+  'liveSearch.error.invalidBookmarkId': 'Invalid bookmark ID',
+  'liveSearch.error.readBookmarksFailed': 'Failed to read bookmarks',
+  'liveSearch.error.bookmarkInvalidUrl':
+    'This bookmark URL cannot be parsed as a valid Trade search',
+  'liveSearch.error.legacyShortCode':
+    'This bookmark uses a deprecated legacy search code. Please search again and re-bookmark.',
+  'liveSearch.error.wrongVersion':
+    'This search belongs to {searchVersion}, while the console is running {consoleVersion}',
+  'liveSearch.error.lockedLeagueMismatch':
+    'Console is locked to {consoleLeague}, while this search belongs to {searchLeague}',
+  'liveSearch.error.selectedLeagueMismatch':
+    'This search belongs to {searchLeague}, while the console league is set to {consoleLeague}',
+  'liveSearch.error.selectedLeagueMismatchSwitchFirst':
+    'This search belongs to {searchLeague}, while the console league is {consoleLeague}. Please switch the console league first.',
+  'liveSearch.error.incompatible': 'This search is incompatible with the current console',
+  'liveSearch.error.sameCriteriaActive': 'An identical search is already actively listening',
+  'liveSearch.error.alreadyStarting': 'This search is already starting, please wait',
+  'liveSearch.error.alreadyActive': 'This search is already actively listening',
+  'liveSearch.error.mixedLeaguesEnable':
+    'Selected items span multiple leagues ({leagues}). Please enable them separately.',
+  'liveSearch.error.mixedLeaguesEnqueue':
+    'Selected items span multiple leagues ({leagues}). Please send them separately.',
+  'liveSearch.error.activeLeagueConflict':
+    'Console is currently watching {consoleLeague} and cannot add {incomingLeague} connections directly',
+  'liveSearch.error.switchLeagueFailed': 'Failed to switch console league to {league}',
+  'liveSearch.error.invalidSourceOrSubId':
+    'Please provide a valid search source or subscription ID',
+  'liveSearch.error.matchingSubNotFound': 'Matching connection subscription not found',
+  'liveSearch.defaultSearchName': 'Search',
+  'liveSearch.defaultSearchNameWithId': 'Search ({id})',
+  'liveSearch.uncategorized': 'Uncategorized',
+  'liveSearch.originBookmarkRemoved': 'Source bookmark removed',
+  'liveSearch.listJoinAnd': ' and ',
+  'liveSearch.coordinator.noValidUrl': 'No valid search URL provided',
+  'liveSearch.coordinator.backgroundStartFailed':
+    'Failed to start Live Search Console in the background',
+  'liveSearch.coordinator.createTabFailed': 'Failed to create Live Search Console tab',
+  'economy.error.unsupportedVersion': 'Unsupported game version',
+  'economy.error.cooldown':
+    'The previous request failed within the last 5 minutes. Auto-refresh is paused; please wait or click Refresh to retry.',
+  'economy.error.invalidSnapshot': 'Invalid poe.ninja Exchange overview format',
+  'economy.error.httpStatus': 'Unexpected HTTP status: {status}',
 };
