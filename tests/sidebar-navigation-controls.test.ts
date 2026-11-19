@@ -805,4 +805,69 @@ describe('Sidebar Navigation Controls Migration', () => {
       }
     });
   });
+  describe('Sidebar Modules', () => {
+    const keys = createVersionedStorageKeys('poe1');
+    const navTabIds = (root: HTMLElement) =>
+      Array.from(root.querySelectorAll('.sidebar-nav [data-sidebar-tab]')).map((el) =>
+        el.getAttribute('data-sidebar-tab'),
+      );
+
+    it('hides turned-off modules from the navigation bar and keeps fixed tabs', async () => {
+      activeMockPreferences = {
+        ...activeMockPreferences,
+        sidebarModuleHistory: false,
+        sidebarModulePobBuild: false,
+        sidebarModuleLiveSearch: false,
+      };
+      const { container } = await mountSidebar({ [keys.isCollapsed]: false });
+      expect(navTabIds(container)).toEqual([
+        'bookmark',
+        'stat-group-template',
+        'pinned-items',
+        'tools',
+        'settings',
+      ]);
+      expect(container.querySelector('[data-sidebar-action="open-live-search"]')).toBeNull();
+    });
+
+    it('falls back to the first enabled module when the saved tab was turned off', async () => {
+      activeMockPreferences = {
+        ...activeMockPreferences,
+        sidebarModuleBookmarks: false,
+        sidebarModuleHistory: false,
+      };
+      await mountSidebar({ [keys.isCollapsed]: false, [keys.activeTab]: 'history' });
+      const active = container.querySelector('.sidebar-nav [aria-pressed="true"]');
+      expect(active?.getAttribute('data-sidebar-tab')).toBe('stat-group-template');
+    });
+
+    it('falls back to Settings when every module is turned off', async () => {
+      activeMockPreferences = {
+        ...activeMockPreferences,
+        sidebarModuleBookmarks: false,
+        sidebarModuleHistory: false,
+        sidebarModuleStatGroupTemplates: false,
+        sidebarModulePobBuild: false,
+        sidebarModulePinnedItems: false,
+        sidebarModuleLiveSearch: false,
+      };
+      await mountSidebar({ [keys.isCollapsed]: false, [keys.activeTab]: 'bookmark' });
+      expect(navTabIds(container)).toEqual(['tools', 'settings']);
+      const active = container.querySelector('.sidebar-nav [aria-pressed="true"]');
+      expect(active?.getAttribute('data-sidebar-tab')).toBe('settings');
+    });
+
+    it('offers a module settings shortcut in the header that opens the Settings tab', async () => {
+      await mountSidebar({ [keys.isCollapsed]: false, [keys.activeTab]: 'bookmark' });
+      const shortcut = container.querySelector<HTMLElement>(
+        '[data-sidebar-action="module-settings"]',
+      );
+      expect(shortcut).not.toBeNull();
+      shortcut!.click();
+      await nextTick();
+      const active = container.querySelector('.sidebar-nav [aria-pressed="true"]');
+      expect(active?.getAttribute('data-sidebar-tab')).toBe('settings');
+      expect(container.querySelector('[data-sidebar-action="module-settings"]')).toBeNull();
+    });
+  });
 });

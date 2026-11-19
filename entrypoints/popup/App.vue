@@ -20,6 +20,8 @@ import {
   type I18nKey,
 } from '@/utils/i18n';
 import { applyThemeToHost } from '@/lib/theme/theme-runtime';
+import { SIDEBAR_MODULES } from '@/utils/sidebar-modules';
+import { SIDEBAR_MODULE_PRESENTATION } from '@/components/sidebar/sidebar-module-presentation';
 import { syncUiRuntimeTokens } from '@/lib/tokens/ui-contract';
 
 const props = withDefaults(
@@ -98,6 +100,13 @@ const MODULE_ITEMS: readonly ModuleConfigItem[] = [
     descriptionKey: 'popup.module.marketTranslation.description',
   },
 ];
+
+/** 側邊欄模組：與側邊欄設定頁同一組開關，關閉後導覽列與頁面上的對應按鈕都會隱藏 */
+const SIDEBAR_MODULE_ITEMS: readonly ModuleConfigItem[] = SIDEBAR_MODULES.map((module) => ({
+  key: module.preferenceKey,
+  titleKey: SIDEBAR_MODULE_PRESENTATION[module.id].labelKey,
+  descriptionKey: SIDEBAR_MODULE_PRESENTATION[module.id].descriptionKey,
+}));
 
 const containerRef = ref<HTMLElement | null>(null);
 const activeVersion = ref<PoeVersion>(props.initialVersion || 'poe1');
@@ -381,6 +390,12 @@ onUnmounted(() => {
       <Separator class="bg-border/60 my-[var(--pxd-space-xs,4px)]" />
 
       <!-- 模組清單 -->
+      <h2
+        data-popup-group="page"
+        class="m-0 px-[var(--pxd-space-sm,6px)] pt-[var(--pxd-space-xs,4px)] text-[length:var(--pxd-font-caption,11px)] font-semibold text-muted-foreground"
+      >
+        {{ t('popup.group.page') }}
+      </h2>
       <div class="flex flex-col gap-[var(--pxd-space-xs,4px)]">
         <template v-for="item in visibleModules" :key="item.key">
           <div
@@ -427,6 +442,46 @@ onUnmounted(() => {
             </Button>
           </div>
         </template>
+      </div>
+
+      <Separator class="bg-border/60 my-[var(--pxd-space-xs,4px)]" />
+      <h2
+        data-popup-group="sidebar"
+        class="m-0 px-[var(--pxd-space-sm,6px)] text-[length:var(--pxd-font-caption,11px)] font-semibold text-muted-foreground"
+      >
+        {{ t('popup.group.sidebar') }}
+      </h2>
+      <div class="flex flex-col gap-[var(--pxd-space-xs,4px)]">
+        <div
+          v-for="item in SIDEBAR_MODULE_ITEMS"
+          :key="item.key"
+          data-popup-module-row
+          data-popup-sidebar-module
+          :data-module-key="item.key"
+          class="flex items-start justify-between gap-[var(--pxd-space-sm,6px)] p-[var(--pxd-space-sm,6px)] rounded-md hover:bg-muted/40 transition-colors cursor-pointer select-none"
+          @click="updateToggle(item.key, !preferencesState[item.key])"
+        >
+          <div class="flex flex-col min-w-0 pr-1">
+            <span
+              class="text-[length:var(--pxd-font-body,13px)] font-medium text-foreground truncate leading-snug"
+            >
+              {{ t(item.titleKey) }}
+            </span>
+            <span
+              class="text-[length:var(--pxd-font-caption,11px)] text-muted-foreground leading-tight mt-0.5"
+            >
+              {{ t(item.descriptionKey) }}
+            </span>
+          </div>
+          <div class="shrink-0 pt-0.5" @click.stop>
+            <Checkbox
+              :id="item.key"
+              :model-value="Boolean(preferencesState[item.key])"
+              :disabled="loading"
+              @update:model-value="updateToggle(item.key, $event)"
+            />
+          </div>
+        </div>
       </div>
     </template>
   </div>

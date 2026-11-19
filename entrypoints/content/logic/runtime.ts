@@ -223,7 +223,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       modQuickFilter.refreshLocale();
       pobCopy.setEnabled(snapshot.enableResultPobCopy);
       pobCopy.refreshLocale();
-      resultPin.setEnabled(true);
+      resultPin.setEnabled(snapshot.sidebarModulePinnedItems);
       resultPin.refreshLocale();
       externalLinks.setEnabled(snapshot.enableResultExternalLinks);
       externalLinks.refreshLocale();

@@ -1,0 +1,95 @@
+<script setup lang="ts">
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Settings2 } from '@lucide/vue';
+import { t } from '@/utils/i18n';
+import {
+  SIDEBAR_MODULES,
+  type SettingsSectionId,
+  type SidebarModulePreferenceKey,
+} from '@/utils/sidebar-modules';
+import {
+  SIDEBAR_MODULE_PRESENTATION,
+  getSidebarModuleDescription,
+  getSidebarModuleLabel,
+} from '../sidebar-module-presentation';
+import SettingsRow from './SettingsRow.vue';
+
+const props = defineProps<{
+  values: Readonly<Record<SidebarModulePreferenceKey, boolean>>;
+}>();
+
+const emit = defineEmits<{
+  toggle: [key: SidebarModulePreferenceKey, value: boolean];
+  openSection: [section: SettingsSectionId];
+}>();
+
+const controlId = (id: string) => `sidebar-module-${id}`;
+</script>
+
+<template>
+  <div class="flex flex-col gap-[var(--pxd-field-gap)]">
+    <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
+      {{ t('settings.modules.description') }}
+    </p>
+    <ul class="m-0 flex list-none flex-col gap-[var(--pxd-space-xs)] p-0" role="list">
+      <li v-for="module in SIDEBAR_MODULES" :key="module.id" :data-sidebar-module="module.id">
+        <SettingsRow
+          :label="getSidebarModuleLabel(module.id)"
+          :description="getSidebarModuleDescription(module.id)"
+          :control-id="controlId(module.id)"
+          class="rounded-md py-[var(--pxd-space-xs)] transition-opacity"
+          :class="props.values[module.preferenceKey] ? '' : 'opacity-70'"
+        >
+          <template #leading>
+            <span
+              class="mt-[1px] inline-flex size-[calc(var(--control-height-default,2rem)*0.9)] shrink-0 items-center justify-center rounded-md border transition-colors"
+              :class="
+                props.values[module.preferenceKey]
+                  ? 'border-primary/40 bg-primary/10 text-primary'
+                  : 'border-dashed border-border bg-transparent text-muted-foreground'
+              "
+              aria-hidden="true"
+            >
+              <component
+                :is="SIDEBAR_MODULE_PRESENTATION[module.id].icon"
+                class="size-[var(--control-icon-default,16px)]"
+              />
+            </span>
+          </template>
+          <template #default="{ describedBy }">
+            <div class="flex items-center gap-[var(--pxd-space-sm)]">
+              <Button
+                v-if="module.settingsSection && props.values[module.preferenceKey]"
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                :title="t('settings.modules.relatedSettings')"
+                :aria-label="
+                  t('settings.modules.relatedSettingsAria', {
+                    name: getSidebarModuleLabel(module.id),
+                  })
+                "
+                data-sidebar-module-action="related-settings"
+                @click="emit('openSection', module.settingsSection)"
+              >
+                <Settings2 />
+              </Button>
+              <Switch
+                :id="controlId(module.id)"
+                :model-value="props.values[module.preferenceKey]"
+                :aria-describedby="describedBy"
+                @update:model-value="emit('toggle', module.preferenceKey, Boolean($event))"
+              />
+            </div>
+          </template>
+        </SettingsRow>
+      </li>
+    </ul>
+    <p
+      class="m-0 flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+    >
+      {{ t('settings.modules.fixedHint') }}
+    </p>
+  </div>
+</template>

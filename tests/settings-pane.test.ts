@@ -399,13 +399,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const { container } = await mountSettingsPane();
     expect(currentModule).toBeDefined();
 
-    // Verify 4 Separators exist between 5 collapsible sections
-    const separators = container.querySelectorAll('[data-slot="separator"]');
-    expect(separators.length).toBe(4);
-    separators.forEach((sep) => {
-      expect(sep.className).toContain('--pxd-section-gap');
-      expect(sep.className).not.toContain('--poexd-density-scale');
-    });
+    // Sections are spaced with the section-gap token instead of separators
+    expect(container.querySelectorAll('[data-slot="separator"]').length).toBe(0);
+    const sectionStack = container.querySelector('[data-settings-section]')?.parentElement;
+    expect(sectionStack?.className).toContain('--pxd-section-gap');
+    expect(sectionStack?.className).not.toContain('--poexd-density-scale');
 
     // Verify 4 Select triggers for settings (theme, displayLocale, sidebar size, font size)
     const selectTriggers = container.querySelectorAll('[data-slot="select-trigger"]');
@@ -439,20 +437,21 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Verify no RadioGroups remain in SettingsPane
     expect(container.querySelectorAll('[data-slot="radio-group"]').length).toBe(0);
 
-    // Verify Checkbox slots exist (15 settings).
-    const checkboxes = container.querySelectorAll('[data-slot="checkbox"]');
-    expect(checkboxes.length).toBe(15);
-    checkboxes.forEach((cb) => {
-      expect(cb.className).toContain(FORM_INDICATOR_SPECS.checkbox.sizeClass);
+    // On/off settings use Switch (15 settings + 6 Sidebar Modules), sized by the checkbox token
+    expect(container.querySelectorAll('[data-slot="checkbox"]').length).toBe(0);
+    const switches = container.querySelectorAll('[data-slot="switch"]');
+    expect(switches.length).toBe(21);
+    switches.forEach((sw) => {
+      expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });
 
-    // Verify 5 Collapsible sections exist with titles
-    const collapsibles = container.querySelectorAll('[data-slot="collapsible"]');
-    expect(collapsibles.length).toBe(5);
-    const triggers = container.querySelectorAll('[data-slot="collapsible-trigger"]');
-    expect(triggers.length).toBe(5);
+    // Verify 6 sections exist with titles (Sidebar Modules first)
+    expect(container.querySelectorAll('[data-slot="collapsible"]').length).toBe(0);
+    const triggers = container.querySelectorAll('[data-settings-section] > header h3');
+    expect(triggers.length).toBe(6);
     const sectionTitles = Array.from(triggers).map((t) => t.textContent?.trim());
     expect(sectionTitles).toEqual([
+      '側邊欄模組',
       '外觀與介面',
       '側邊欄版面',
       '搜尋欄與快捷鍵',
@@ -486,17 +485,17 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
   it('places Language selector in Appearance section alongside Theme and reactively localizes SettingsPane across zh-TW, zh-CN, en, and fallback locales', async () => {
     const { container } = await mountSettingsPane();
 
-    // Language and translation selectors must be located inside the first Collapsible section (Appearance & Language)
-    const collapsibles = container.querySelectorAll('[data-slot="collapsible"]');
-    const appearanceSection = collapsibles[0];
+    // Language and translation selectors must be located inside the Appearance & Language section
+    const appearanceSection = container.querySelector('[data-settings-section="appearance"]');
     expect(appearanceSection?.textContent).toContain('主題');
     expect(appearanceSection?.textContent).toContain('語言');
     expect(appearanceSection?.textContent).toContain('市集漢化');
     expect(container.textContent).not.toContain('詞綴顯示語系');
 
     // Default zh-TW rendering
-    const sectionTriggers = container.querySelectorAll('[data-slot="collapsible-trigger"]');
+    const sectionTriggers = container.querySelectorAll('[data-settings-section] > header h3');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
+      '側邊欄模組',
       '外觀與介面',
       '側邊欄版面',
       '搜尋欄與快捷鍵',
@@ -509,6 +508,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().displayLocale).toBe('zh-CN');
     expect(storage.inspect()['displayLocale']).toBe('zh-CN');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
+      '侧边栏模块',
       '外观与界面',
       '侧边栏版面',
       '搜索栏与快捷键',
@@ -523,6 +523,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await currentModule!.update({ displayLocale: 'en' });
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
+      'Sidebar modules',
       'Appearance & Language',
       'Sidebar Layout',
       'Search & Filters',
@@ -540,6 +541,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await currentModule!.update({ displayLocale: 'ja' });
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
+      'Sidebar modules',
       'Appearance & Language',
       'Sidebar Layout',
       'Search & Filters',
@@ -674,7 +676,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'input[type="number"][min="80"]',
     ) as HTMLInputElement;
     expect(scaleInput).not.toBeNull();
-    expect(scaleInput.closest('.flex.justify-end')).not.toBeNull();
+    expect(scaleInput.closest('.flex.flex-col.items-end')).not.toBeNull();
     expect(scaleInput.parentElement?.className).toContain('w-[140px]');
 
     scaleInput.value = '150';
@@ -904,7 +906,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     // Font size select must display '自訂'
     const fontSizeTrigger = Array.from(triggers).find((t) =>
-      t.parentElement?.textContent?.includes('介面縮放比例'),
+      t.closest('[data-settings-row]')?.textContent?.includes('介面縮放比例'),
     );
     expect(fontSizeTrigger?.textContent).toContain('自訂');
 
@@ -943,28 +945,95 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(densityCheckbox?.getAttribute('data-state')).toBe('unchecked');
   });
 
-  it('provides collapsible sections that toggle independently without modifying preferences', async () => {
+  it('provides section jump buttons that do not modify preferences', async () => {
     const { container } = await mountSettingsPane();
     const initialPrefs = { ...currentModule?.read() };
 
-    const triggers = container.querySelectorAll<HTMLElement>('[data-slot="collapsible-trigger"]');
-    expect(triggers.length).toBe(5);
+    const jumps = container.querySelectorAll<HTMLElement>('[data-settings-jump]');
+    expect(Array.from(jumps).map((j) => j.getAttribute('data-settings-jump'))).toEqual([
+      'modules',
+      'appearance',
+      'panel',
+      'searchHotkeys',
+      'resultDisplay',
+      'bookmarks',
+    ]);
+    expect(jumps[0].getAttribute('aria-current')).toBe('true');
 
-    // Toggle all 5 sections closed
-    for (const trigger of Array.from(triggers)) {
-      trigger.click();
+    for (const jump of Array.from(jumps)) {
+      jump.click();
       await flushAsync();
+      expect(jump.getAttribute('aria-current')).toBe('true');
     }
 
-    // Preferences must remain completely untouched
     expect(currentModule?.read()).toEqual(initialPrefs);
+  });
 
-    // Toggle all 4 sections open again
-    for (const trigger of Array.from(triggers)) {
-      trigger.click();
-      await flushAsync();
-    }
-    expect(currentModule?.read()).toEqual(initialPrefs);
+  it('filters settings rows by search query and shows an empty state when nothing matches', async () => {
+    const { container } = await mountSettingsPane();
+    const input = container.querySelector<HTMLInputElement>('[data-settings-search]')!;
+    expect(input).not.toBeNull();
+
+    const visibleSections = () =>
+      Array.from(container.querySelectorAll<HTMLElement>('[data-settings-section]'))
+        .filter((el) => el.style.display !== 'none')
+        .map((el) => el.getAttribute('data-settings-section'));
+
+    input.value = '模糊';
+    input.dispatchEvent(new Event('input'));
+    await flushAsync();
+    expect(visibleSections()).toEqual(['searchHotkeys']);
+    const hotkeyRows = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        '[data-settings-section="searchHotkeys"] [data-settings-row]',
+      ),
+    ).filter((el) => el.style.display !== 'none');
+    expect(hotkeyRows.length).toBe(2);
+    expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
+
+    // A section title match keeps every row in that section visible
+    input.value = '書籤與歷史';
+    input.dispatchEvent(new Event('input'));
+    await flushAsync();
+    expect(visibleSections()).toEqual(['bookmarks']);
+
+    input.value = 'zzz-no-such-setting';
+    input.dispatchEvent(new Event('input'));
+    await flushAsync();
+    expect(visibleSections()).toEqual([]);
+    const empty = container.querySelector('[data-settings-search-empty]');
+    expect(empty?.textContent).toContain('zzz-no-such-setting');
+
+    (container.querySelector('[data-settings-search-clear]') as HTMLButtonElement).click();
+    await flushAsync();
+    expect(visibleSections().length).toBe(6);
+    expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
+  });
+
+  it('toggles Sidebar Modules and keeps the enabled count in sync', async () => {
+    const { container } = await mountSettingsPane();
+    const count = () =>
+      container.querySelector('[data-settings-modules-count]')?.textContent?.trim();
+    expect(count()).toBe('已開啟 6 / 6');
+
+    const historySwitch = container.querySelector<HTMLElement>('#sidebar-module-history')!;
+    expect(historySwitch.getAttribute('data-state')).toBe('checked');
+    historySwitch.click();
+    await flushAsync();
+    expect(currentModule?.read().sidebarModuleHistory).toBe(false);
+    expect(storage.inspect()['sidebarModuleHistory_poe1']).toBe(false);
+    expect(historySwitch.getAttribute('data-state')).toBe('unchecked');
+    expect(count()).toBe('已開啟 5 / 6');
+
+    // Related-settings shortcut is offered only for enabled modules with a settings section
+    const bookmarkRow = container.querySelector('[data-sidebar-module="bookmark"]');
+    expect(
+      bookmarkRow?.querySelector('[data-sidebar-module-action="related-settings"]'),
+    ).not.toBeNull();
+    const historyRow = container.querySelector('[data-sidebar-module="history"]');
+    expect(historyRow?.querySelector('[data-sidebar-module-action="related-settings"]')).toBeNull();
+    const pinnedRow = container.querySelector('[data-sidebar-module="pinned-items"]');
+    expect(pinnedRow?.querySelector('[data-sidebar-module-action="related-settings"]')).toBeNull();
   });
 
   it('updates bookmark button position via ToggleGroup and guards against empty value', async () => {

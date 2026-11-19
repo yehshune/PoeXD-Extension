@@ -1,22 +1,100 @@
 <template>
-  <div class="flex flex-col">
-    <!-- 1. 外觀與介面 -->
-    <Collapsible v-model:open="sectionOpen.appearance" class="flex flex-col">
-      <CollapsibleTrigger
-        class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
-      >
-        <span>{{ t('settings.section.appearance') }}</span>
-        <ChevronDown
-          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-200"
-          :class="{ '-rotate-90': !sectionOpen.appearance }"
+  <div class="pxd-settings-pane flex flex-col" data-settings-pane>
+    <!-- 搜尋與區塊跳轉：固定在捲動區頂端 -->
+    <div
+      ref="toolbarRef"
+      data-settings-toolbar
+      class="sticky top-[calc(var(--pxd-pane-padding)*-1)] z-(--pxd-z-sticky) -mx-[var(--pxd-pane-padding)] -mt-[var(--pxd-pane-padding)] mb-[var(--pxd-space-lg)] flex flex-col gap-[var(--pxd-space-sm)] border-b border-border bg-background px-[var(--pxd-pane-padding)] pt-[var(--pxd-pane-padding)] pb-[var(--pxd-space-md)]"
+    >
+      <div class="relative flex items-center">
+        <Search
+          class="pointer-events-none absolute left-[var(--input-padding-x-default,10px)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
+          aria-hidden="true"
         />
-      </CollapsibleTrigger>
-      <CollapsibleContent class="flex flex-col gap-[var(--pxd-field-gap)] pt-[var(--pxd-space-sm)]">
-        <!-- 主題 -->
-        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-          <span class="min-w-0 truncate text-[length:var(--pxd-font-secondary)] text-foreground">{{
-            t('settings.theme.label')
-          }}</span>
+        <Input
+          v-model="searchQuery"
+          type="search"
+          size="default"
+          data-settings-search
+          class="w-full pl-[calc(var(--input-padding-x-default,10px)*2+var(--control-icon-sm,14px))] pr-[var(--control-height-default)] [&::-webkit-search-cancel-button]:appearance-none"
+          :placeholder="t('settings.search.placeholder')"
+          :aria-label="t('settings.search.placeholder')"
+          @keydown.esc.stop="clearSearch"
+        />
+        <Button
+          v-if="searchQuery"
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          class="absolute right-[2px]"
+          data-settings-search-clear
+          :title="t('settings.search.clear')"
+          :aria-label="t('settings.search.clear')"
+          @click="clearSearch"
+        >
+          <X />
+        </Button>
+      </div>
+      <nav
+        v-show="!isSearching"
+        class="pxd-settings-jump -mx-[2px] flex gap-[var(--pxd-space-xs)] overflow-x-auto px-[2px] py-[1px]"
+        :aria-label="t('settings.jump.aria')"
+      >
+        <button
+          v-for="section in SETTINGS_SECTION_IDS"
+          :key="section"
+          type="button"
+          :data-settings-jump="section"
+          :aria-current="activeSection === section ? 'true' : undefined"
+          class="shrink-0 cursor-pointer rounded-full border px-[var(--pxd-space-md)] py-[2px] text-[length:var(--pxd-font-caption)] leading-[1.6] whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          :class="
+            activeSection === section
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-transparent text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+          "
+          @click="scrollToSection(section)"
+        >
+          {{ t(`settings.sectionShort.${section}`) }}
+        </button>
+      </nav>
+    </div>
+
+    <div ref="sectionsRef" class="flex flex-col gap-[calc(var(--pxd-section-gap)*1.6)]">
+      <!-- 0. 側邊欄模組 -->
+      <SettingsSection
+        section-id="modules"
+        :title="t('settings.section.modules')"
+        :icon="LayoutGrid"
+        :highlighted="highlightedSection === 'modules'"
+      >
+        <template #aside>
+          <span
+            data-settings-modules-count
+            class="shrink-0 text-[length:var(--pxd-font-caption)] tabular-nums text-muted-foreground"
+          >
+            {{
+              t('settings.modules.enabledCount', {
+                count: enabledModuleCount,
+                total: SIDEBAR_MODULES.length,
+              })
+            }}
+          </span>
+        </template>
+        <SidebarModuleSettings
+          :values="moduleValues"
+          @toggle="toggleModule"
+          @open-section="scrollToSection"
+        />
+      </SettingsSection>
+
+      <!-- 1. 外觀與介面 -->
+      <SettingsSection
+        section-id="appearance"
+        :title="t('settings.section.appearance')"
+        :icon="Palette"
+        :highlighted="highlightedSection === 'appearance'"
+      >
+        <SettingsRow :label="t('settings.theme.label')">
           <Select v-model="theme" @update:model-value="savePreference('theme')">
             <SelectTrigger size="default" class="w-[140px] shrink-0">
               <SelectValue>{{ THEME_LABELS[theme] }}</SelectValue>
@@ -27,30 +105,12 @@
               </SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </SettingsRow>
 
-        <!-- 語言 -->
-        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <span
-              class="min-w-0 truncate text-[length:var(--pxd-font-secondary)] text-foreground"
-              >{{ t('settings.displayLocale.label') }}</span
-            >
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.displayLocale.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.displayLocale.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
+        <SettingsRow
+          :label="t('settings.displayLocale.label')"
+          :description="t('settings.displayLocale.tooltip')"
+        >
           <Select
             v-model="displayLocale"
             data-test="display-locale"
@@ -65,135 +125,76 @@
               </SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </SettingsRow>
 
-        <!-- 市集漢化 -->
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-market-translation"
-            v-model="marketTranslation"
-            @update:model-value="savePreference('marketTranslation')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-market-translation"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.marketTranslation.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.marketTranslation.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.marketTranslation.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div
-          v-if="marketTranslation"
-          class="ml-[7px] flex flex-col gap-[var(--pxd-space-sm)] border-l border-border/60 pl-[var(--pxd-space-md)]"
+        <SettingsRow
+          :label="t('settings.marketTranslation.label')"
+          :description="t('settings.marketTranslation.tooltip')"
+          control-id="enable-market-translation"
         >
-          <p
-            class="m-0 text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground select-none"
+          <template #default="{ describedBy }">
+            <Switch
+              id="enable-market-translation"
+              v-model="marketTranslation"
+              :aria-describedby="describedBy"
+              @update:model-value="savePreference('marketTranslation')"
+            />
+          </template>
+        </SettingsRow>
+        <template v-if="marketTranslation">
+          <SettingsRow
+            nested
+            :label="t('settings.marketTranslationBilingual.label')"
+            :description="t('settings.marketTranslationBilingual.description')"
+            :keywords="[t('settings.marketTranslation.bilingualGroup')]"
+            control-id="enable-market-translation-bilingual"
           >
-            {{ t('settings.marketTranslation.bilingualGroup') }}
-          </p>
-          <div class="flex items-start gap-[var(--pxd-space-md)]">
-            <Checkbox
-              id="enable-market-translation-bilingual"
-              v-model="marketTranslationBilingual"
-              class="mt-[2px]"
-              @update:model-value="savePreference('marketTranslationBilingual')"
-            />
-            <div class="flex flex-col gap-[2px] min-w-0">
-              <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-                <label
-                  for="enable-market-translation-bilingual"
-                  class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-                >
-                  {{ t('settings.marketTranslationBilingual.label') }}
-                </label>
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <span
-                      class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                      tabindex="-1"
-                      :aria-label="t('settings.marketTranslationBilingual.infoAria')"
-                    >
-                      <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    {{ t('settings.marketTranslationBilingual.tooltip') }}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
-                {{ t('settings.marketTranslationBilingual.description') }}
-              </p>
-            </div>
-          </div>
-          <div class="flex items-start gap-[var(--pxd-space-md)]">
-            <Checkbox
-              id="enable-market-translation-result-bilingual"
-              v-model="marketTranslationResultBilingual"
-              class="mt-[2px]"
-              @update:model-value="savePreference('marketTranslationResultBilingual')"
-            />
-            <div class="flex flex-col gap-[2px] min-w-0">
-              <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-                <label
-                  for="enable-market-translation-result-bilingual"
-                  class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-                >
-                  {{ t('settings.marketTranslationResultBilingual.label') }}
-                </label>
-                <Tooltip>
-                  <TooltipTrigger as-child>
-                    <span
-                      class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                      tabindex="-1"
-                      :aria-label="t('settings.marketTranslationResultBilingual.infoAria')"
-                    >
-                      <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    {{ t('settings.marketTranslationResultBilingual.tooltip') }}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
-                {{ t('settings.marketTranslationResultBilingual.description') }}
-              </p>
-            </div>
-          </div>
-        </div>
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-market-translation-bilingual"
+                v-model="marketTranslationBilingual"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('marketTranslationBilingual')"
+              />
+            </template>
+          </SettingsRow>
+          <SettingsRow
+            nested
+            :label="t('settings.marketTranslationResultBilingual.label')"
+            :description="t('settings.marketTranslationResultBilingual.description')"
+            :keywords="[t('settings.marketTranslation.bilingualGroup')]"
+            control-id="enable-market-translation-result-bilingual"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-market-translation-result-bilingual"
+                v-model="marketTranslationResultBilingual"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('marketTranslationResultBilingual')"
+              />
+            </template>
+          </SettingsRow>
+        </template>
         <p
           v-if="marketTranslationLocaleMismatch"
           data-test="market-translation-locale-hint"
-          class="m-0 pl-[var(--pxd-space-lg)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+          role="status"
+          class="m-0 rounded-md border border-border bg-muted/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
         >
           {{ t('settings.marketTranslation.localeHint') }}
         </p>
         <div
           v-if="marketTranslationReloadRequired"
           data-test="market-translation-reload"
-          class="flex items-center justify-between gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+          role="status"
+          class="flex items-center justify-between gap-[var(--pxd-space-sm)] rounded-md border border-primary/40 bg-primary/10 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-foreground"
         >
           <span>{{ t('onboarding.welcome.reloadHint') }}</span>
           <Button
             type="button"
             variant="outline"
             size="sm"
+            class="shrink-0"
             data-test="market-translation-reload-btn"
             @click="reloadPage"
           >
@@ -201,89 +202,45 @@
           </Button>
         </div>
 
-        <!-- 隱藏官方網頁背景 -->
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-pure-background"
-            v-model="enablePureBackground"
-            @update:model-value="savePreference('enablePureBackground')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-pure-background"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.pureBackground.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.pureBackground.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.pureBackground.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
+        <SettingsRow
+          :label="t('settings.pureBackground.label')"
+          :description="t('settings.pureBackground.tooltip')"
+          control-id="enable-pure-background"
+        >
+          <template #default="{ describedBy }">
+            <Switch
+              id="enable-pure-background"
+              v-model="enablePureBackground"
+              :aria-describedby="describedBy"
+              @update:model-value="savePreference('enablePureBackground')"
+            />
+          </template>
+        </SettingsRow>
 
-        <!-- 使用道具名稱替換網頁標題 -->
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-auto-title"
-            v-model="enableAutoTitle"
-            @update:model-value="savePreference('enableAutoTitle')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-auto-title"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.autoTitle.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.autoTitle.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.autoTitle.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+        <SettingsRow
+          :label="t('settings.autoTitle.label')"
+          :description="t('settings.autoTitle.tooltip')"
+          control-id="enable-auto-title"
+        >
+          <template #default="{ describedBy }">
+            <Switch
+              id="enable-auto-title"
+              v-model="enableAutoTitle"
+              :aria-describedby="describedBy"
+              @update:model-value="savePreference('enableAutoTitle')"
+            />
+          </template>
+        </SettingsRow>
+      </SettingsSection>
 
-    <Separator class="my-[var(--pxd-section-gap)]" />
-
-    <!-- 2. 側邊欄版面 -->
-    <Collapsible v-model:open="sectionOpen.panel" class="flex flex-col">
-      <CollapsibleTrigger
-        class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
+      <!-- 2. 側邊欄版面 -->
+      <SettingsSection
+        section-id="panel"
+        :title="t('settings.section.panel')"
+        :icon="PanelLeft"
+        :highlighted="highlightedSection === 'panel'"
       >
-        <span>{{ t('settings.section.panel') }}</span>
-        <ChevronDown
-          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-200"
-          :class="{ '-rotate-90': !sectionOpen.panel }"
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent class="flex flex-col gap-[var(--pxd-field-gap)] pt-[var(--pxd-space-sm)]">
-        <!-- 面板位置 -->
-        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-          <span class="min-w-0 truncate text-[length:var(--pxd-font-secondary)] text-foreground">{{
-            t('settings.sidebarPosition.label')
-          }}</span>
+        <SettingsRow :label="t('settings.sidebarPosition.label')">
           <ToggleGroup
             type="single"
             variant="outline"
@@ -302,43 +259,28 @@
               {{ opt.label }}
             </ToggleGroupItem>
           </ToggleGroup>
-        </div>
+        </SettingsRow>
 
-        <!-- 選單寬度 -->
-        <div class="flex flex-col gap-[var(--pxd-space-sm)]">
-          <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-            <span
-              class="min-w-0 truncate text-[length:var(--pxd-font-secondary)] text-foreground"
-              >{{ t('settings.sidebarSize.label') }}</span
-            >
-            <Select v-model="sidebarSize" @update:model-value="handleSizeChange">
-              <SelectTrigger size="default" class="w-[140px] shrink-0">
-                <SelectValue>{{ SIDEBAR_SIZE_LABELS[sidebarSize] }}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="opt in SIDEBAR_SIZE_OPTIONS" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div v-if="sidebarSize === 'custom'" class="flex flex-col gap-[var(--pxd-space-sm)]">
-            <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground">{{
-              t('settings.sidebarSize.customHint')
-            }}</span>
-          </div>
-        </div>
+        <SettingsRow
+          :label="t('settings.sidebarSize.label')"
+          :description="sidebarSize === 'custom' ? t('settings.sidebarSize.customHint') : undefined"
+        >
+          <Select v-model="sidebarSize" @update:model-value="handleSizeChange">
+            <SelectTrigger size="default" class="w-[140px] shrink-0">
+              <SelectValue>{{ SIDEBAR_SIZE_LABELS[sidebarSize] }}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="opt in SIDEBAR_SIZE_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </SettingsRow>
 
-        <!-- 介面縮放比例 -->
-        <div class="flex flex-col gap-[var(--pxd-space-sm)]">
-          <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-            <span class="min-w-0 truncate text-[length:var(--pxd-font-secondary)] text-foreground">
-              {{
-                t('settings.fontSize.label', {
-                  percent: Math.round(fontSizeScale * 100),
-                })
-              }}
-            </span>
+        <SettingsRow
+          :label="t('settings.fontSize.label', { percent: Math.round(fontSizeScale * 100) })"
+        >
+          <div class="flex flex-col items-end gap-[var(--pxd-space-sm)]">
             <Select v-model="fontSizeMode" @update:model-value="handleFontSizeModeChange">
               <SelectTrigger size="default" class="w-[140px] shrink-0">
                 <SelectValue>{{ FONT_SIZE_MODE_LABELS[fontSizeMode] }}</SelectValue>
@@ -353,15 +295,17 @@
                 </SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div v-if="fontSizeMode === 'custom'" class="flex justify-end">
-            <div class="relative flex w-[140px] shrink-0 items-center">
+            <div
+              v-if="fontSizeMode === 'custom'"
+              class="relative flex w-[140px] shrink-0 items-center"
+            >
               <Input
                 type="number"
                 v-model="customFontSizePercent"
                 :min="fontSizePercentBounds.min"
                 :max="fontSizePercentBounds.max"
                 size="default"
+                :aria-label="t('settings.fontSize.option.custom')"
                 class="w-full pr-[var(--control-height-default)] [appearance:textfield] [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none text-right"
                 @input="handleCustomFontSizeInput"
                 @blur="handleCustomFontSizeBlur"
@@ -372,403 +316,95 @@
               >
             </div>
           </div>
-        </div>
+        </SettingsRow>
 
-        <!-- 介面緊湊度 -->
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox id="density-compact" v-model="isCompactDensity" />
-          <label
-            for="density-compact"
-            class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-          >
-            {{ t('settings.density.compactLabel') }}
-          </label>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+        <SettingsRow :label="t('settings.density.compactLabel')" control-id="density-compact">
+          <Switch id="density-compact" v-model="isCompactDensity" />
+        </SettingsRow>
+      </SettingsSection>
 
-    <Separator class="my-[var(--pxd-section-gap)]" />
-
-    <!-- 3. 搜尋欄與快捷鍵 -->
-    <Collapsible v-model:open="sectionOpen.searchHotkeys" class="flex flex-col">
-      <CollapsibleTrigger
-        class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
+      <!-- 3. 搜尋欄與快捷鍵 -->
+      <SettingsSection
+        section-id="searchHotkeys"
+        :title="t('settings.section.searchHotkeys')"
+        :icon="Keyboard"
+        :highlighted="highlightedSection === 'searchHotkeys'"
       >
-        <span>{{ t('settings.section.searchHotkeys') }}</span>
-        <ChevronDown
-          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-200"
-          :class="{ '-rotate-90': !sectionOpen.searchHotkeys }"
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent class="flex flex-col gap-[var(--pxd-field-gap)] pt-[var(--pxd-space-sm)]">
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
+        <SettingsRow :label="t('settings.hotkeys.enable')" control-id="enable-hotkeys">
+          <Switch
             id="enable-hotkeys"
             v-model="enableHotkeys"
             @update:model-value="savePreference('enableHotkeys')"
           />
-          <label
-            for="enable-hotkeys"
-            class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-          >
-            {{ t('settings.hotkeys.enable') }}
-          </label>
-        </div>
-        <div
-          v-if="enableHotkeys"
-          class="flex items-center justify-between gap-[var(--pxd-space-lg)]"
+        </SettingsRow>
+        <template v-if="enableHotkeys">
+          <SettingsRow nested :label="t('settings.hotkeys.focusLabel')">
+            <SettingsHotkeyInput
+              v-model="hotkeyFocus"
+              :aria-label="t('settings.hotkeys.focusLabel')"
+              @update:model-value="savePreference('hotkeyFocus')"
+            />
+          </SettingsRow>
+          <SettingsRow nested :label="t('settings.hotkeys.clearLabel')">
+            <SettingsHotkeyInput
+              v-model="hotkeyClear"
+              :aria-label="t('settings.hotkeys.clearLabel')"
+              @update:model-value="savePreference('hotkeyClear')"
+            />
+          </SettingsRow>
+        </template>
+
+        <SettingsRow
+          v-for="row in SEARCH_TOGGLE_ROWS"
+          :key="row.id"
+          :label="t(row.labelKey)"
+          :description="t(row.descriptionKey)"
+          :control-id="row.id"
         >
-          <span class="text-[length:var(--pxd-font-secondary)] text-foreground">{{
-            t('settings.hotkeys.focusLabel')
-          }}</span>
-          <SettingsHotkeyInput
-            v-model="hotkeyFocus"
-            :aria-label="t('settings.hotkeys.focusLabel')"
-            @update:model-value="savePreference('hotkeyFocus')"
-          />
-        </div>
-        <div
-          v-if="enableHotkeys"
-          class="flex items-center justify-between gap-[var(--pxd-space-lg)]"
+          <template #default="{ describedBy }">
+            <Switch
+              :id="row.id"
+              :model-value="preferenceState[row.key]"
+              :aria-describedby="describedBy"
+              @update:model-value="setToggle(row.key, $event)"
+            />
+          </template>
+        </SettingsRow>
+      </SettingsSection>
+
+      <!-- 4. 搜尋結果顯示 -->
+      <SettingsSection
+        section-id="resultDisplay"
+        :title="t('settings.section.resultDisplay')"
+        :icon="ListChecks"
+        :highlighted="highlightedSection === 'resultDisplay'"
+      >
+        <SettingsRow
+          v-for="row in resultToggleRows"
+          :key="row.id"
+          :label="t(row.labelKey)"
+          :description="t(row.descriptionKey)"
+          :control-id="row.id"
         >
-          <span class="text-[length:var(--pxd-font-secondary)] text-foreground">{{
-            t('settings.hotkeys.clearLabel')
-          }}</span>
-          <SettingsHotkeyInput
-            v-model="hotkeyClear"
-            :aria-label="t('settings.hotkeys.clearLabel')"
-            @update:model-value="savePreference('hotkeyClear')"
-          />
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-search-tilde"
-            v-model="enableSearchTilde"
-            @update:model-value="saveTildeSettings"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-search-tilde"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.searchTilde.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.searchTilde.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.searchTilde.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-filter-tilde"
-            v-model="enableFilterTilde"
-            @update:model-value="saveTildeSettings"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-filter-tilde"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.filterTilde.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.filterTilde.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.filterTilde.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-tier-helper"
-            v-model="enableTierHelper"
-            @update:model-value="savePreference('enableTierHelper')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-tier-helper"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.tierHelper.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.tierHelper.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.tierHelper.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-affix-selector"
-            v-model="enableAffixSelector"
-            @update:model-value="savePreference('enableAffixSelector')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-affix-selector"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.affixSelector.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.affixSelector.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.affixSelector.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+          <template #default="{ describedBy }">
+            <Switch
+              :id="row.id"
+              :model-value="preferenceState[row.key]"
+              :aria-describedby="describedBy"
+              @update:model-value="setToggle(row.key, $event)"
+            />
+          </template>
+        </SettingsRow>
+      </SettingsSection>
 
-    <Separator class="my-[var(--pxd-section-gap)]" />
-
-    <!-- 4. 搜尋結果顯示 -->
-    <Collapsible v-model:open="sectionOpen.resultDisplay" class="flex flex-col">
-      <CollapsibleTrigger
-        class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
+      <!-- 5. 書籤與歷史 -->
+      <SettingsSection
+        section-id="bookmarks"
+        :title="t('settings.section.bookmarks')"
+        :icon="Bookmark"
+        :highlighted="highlightedSection === 'bookmarks'"
       >
-        <span>{{ t('settings.section.resultDisplay') }}</span>
-        <ChevronDown
-          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-200"
-          :class="{ '-rotate-90': !sectionOpen.resultDisplay }"
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent class="flex flex-col gap-[var(--pxd-field-gap)] pt-[var(--pxd-space-sm)]">
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-price-comparison"
-            v-model="enablePriceComparison"
-            @update:model-value="savePreference('enablePriceComparison')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-price-comparison"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.priceComparison.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.priceComparison.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.priceComparison.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-result-mod-highlight"
-            v-model="enableResultModHighlight"
-            @update:model-value="savePreference('enableResultModHighlight')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-result-mod-highlight"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.resultModHighlight.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.resultModHighlight.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.resultModHighlight.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-result-mod-quick-filter"
-            v-model="enableResultModQuickFilter"
-            @update:model-value="savePreference('enableResultModQuickFilter')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-result-mod-quick-filter"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.resultModQuickFilter.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.resultModQuickFilter.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.resultModQuickFilter.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-result-pob-copy"
-            v-model="enableResultPobCopy"
-            @update:model-value="savePreference('enableResultPobCopy')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-result-pob-copy"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.resultPobCopy.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.resultPobCopy.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.resultPobCopy.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-result-external-links"
-            v-model="enableResultExternalLinks"
-            @update:model-value="savePreference('enableResultExternalLinks')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-result-external-links"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.resultExternalLinks.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.resultExternalLinks.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.resultExternalLinks.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div v-if="isPoe2" class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
-            id="enable-item-normalizer"
-            v-model="enableItemNormalizer"
-            @update:model-value="savePreference('enableItemNormalizer')"
-          />
-          <div class="inline-flex items-center gap-[var(--pxd-space-xs)] min-w-0">
-            <label
-              for="enable-item-normalizer"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-            >
-              {{ t('settings.itemNormalizer.label') }}
-            </label>
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <span
-                  class="inline-flex items-center text-muted-foreground/60 hover:text-foreground cursor-help"
-                  tabindex="-1"
-                  :aria-label="t('settings.itemNormalizer.infoAria')"
-                >
-                  <Info class="size-[var(--control-icon-sm,14px)] shrink-0" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                {{ t('settings.itemNormalizer.tooltip') }}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-
-    <Separator class="my-[var(--pxd-section-gap)]" />
-
-    <!-- 5. 書籤與歷史 -->
-    <Collapsible v-model:open="sectionOpen.bookmarks" class="flex flex-col">
-      <CollapsibleTrigger
-        class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
-      >
-        <span>{{ t('settings.section.bookmarks') }}</span>
-        <ChevronDown
-          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-200"
-          :class="{ '-rotate-90': !sectionOpen.bookmarks }"
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent class="flex flex-col gap-[var(--pxd-field-gap)] pt-[var(--pxd-space-sm)]">
-        <!-- 加入書籤按鈕位置 -->
-        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-          <span class="min-w-0 truncate text-[length:var(--pxd-font-secondary)] text-foreground">{{
-            t('settings.bookmarkBtnPosition.label')
-          }}</span>
+        <SettingsRow :label="t('settings.bookmarkBtnPosition.label')">
           <ToggleGroup
             type="single"
             variant="outline"
@@ -787,13 +423,9 @@
               {{ opt.label }}
             </ToggleGroupItem>
           </ToggleGroup>
-        </div>
+        </SettingsRow>
 
-        <!-- 左鍵點選書籤／搜尋歷史的行為 -->
-        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-          <span class="min-w-0 truncate text-[length:var(--pxd-font-secondary)] text-foreground">{{
-            t('settings.searchEntryClickAction.label')
-          }}</span>
+        <SettingsRow :label="t('settings.searchEntryClickAction.label')">
           <ToggleGroup
             type="single"
             variant="outline"
@@ -814,28 +446,21 @@
               <span class="truncate block w-full text-center">{{ opt.label }}</span>
             </ToggleGroupItem>
           </ToggleGroup>
-        </div>
+        </SettingsRow>
 
-        <!-- 顯示書籤物品資訊預覽 -->
-        <div class="flex items-center gap-[var(--pxd-space-md)]">
-          <Checkbox
+        <SettingsRow
+          :label="t('settings.bookmarkTooltip.label')"
+          control-id="enable-bookmark-tooltip"
+        >
+          <Switch
             id="enable-bookmark-tooltip"
             v-model="enableBookmarkTooltip"
             @update:model-value="savePreference('enableBookmarkTooltip')"
           />
-          <label
-            for="enable-bookmark-tooltip"
-            class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
-          >
-            {{ t('settings.bookmarkTooltip.label') }}
-          </label>
-        </div>
+        </SettingsRow>
 
         <!-- PoB 分享網址的選用權限（授權只能在擴充頁面進行） -->
-        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-          <span class="min-w-0 text-[length:var(--pxd-font-secondary)] text-foreground">{{
-            t('pobShare.settings.label')
-          }}</span>
+        <SettingsRow :label="t('pobShare.settings.label')">
           <Button
             variant="outline"
             size="sm"
@@ -845,17 +470,58 @@
           >
             {{ t('pobShare.settings.manageBtn') }}
           </Button>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+        </SettingsRow>
+      </SettingsSection>
+
+      <!-- 搜尋無結果 -->
+      <div
+        v-if="isSearching && !hasSearchResults"
+        data-settings-search-empty
+        role="status"
+        class="flex flex-col items-start gap-[var(--pxd-space-xs)] py-[var(--pxd-space-xl)]"
+      >
+        <p class="m-0 text-[length:var(--pxd-font-secondary)] font-medium text-foreground">
+          {{ t('settings.search.empty', { query: searchQuery.trim() }) }}
+        </p>
+        <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+          {{ t('settings.search.emptyHint') }}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          class="mt-[var(--pxd-space-sm)]"
+          @click="clearSearch"
+        >
+          {{ t('settings.search.clear') }}
+        </Button>
+      </div>
+    </div>
   </div>
 </template>
 
+<style scoped>
+.pxd-settings-jump {
+  scrollbar-width: none;
+}
+.pxd-settings-jump::-webkit-scrollbar {
+  display: none;
+}
+</style>
+
 <script lang="ts">
-import { computed, defineComponent, onMounted, onUnmounted, reactive, ref, toRefs } from 'vue';
+import {
+  computed,
+  defineComponent,
+  onMounted,
+  onUnmounted,
+  reactive,
+  ref,
+  toRefs,
+  watch,
+  type PropType,
+} from 'vue';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -864,11 +530,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChevronDown, Info } from '@lucide/vue';
+import {
+  Bookmark,
+  Keyboard,
+  LayoutGrid,
+  ListChecks,
+  Palette,
+  PanelLeft,
+  Search,
+  X,
+} from '@lucide/vue';
 import SettingsHotkeyInput from './settings/SettingsHotkeyInput.vue';
+import SettingsRow from './settings/SettingsRow.vue';
+import SettingsSection from './settings/SettingsSection.vue';
+import SidebarModuleSettings from './settings/SidebarModuleSettings.vue';
+import { provideSettingsSearch } from './settings/settings-search';
+import {
+  RESULT_TOGGLE_ROWS,
+  SEARCH_TOGGLE_ROWS,
+  filterRowsForVersion,
+  type SettingsToggleRow,
+} from './settings/settings-toggle-rows';
+import { useSettingsNavigation } from './settings/useSettingsNavigation';
+import {
+  SETTINGS_SECTION_IDS,
+  SIDEBAR_MODULES,
+  SIDEBAR_MODULE_PREFERENCE_KEYS,
+  countEnabledSidebarModules,
+  type SettingsSectionId,
+  type SidebarModulePreferenceKey,
+} from '@/utils/sidebar-modules';
 import {
   DEFAULT_PREFERENCES,
   FONT_SIZE_PRESETS,
@@ -909,28 +602,36 @@ export default defineComponent({
   name: 'SettingsPane',
   components: {
     Button,
-    Checkbox,
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
     Input,
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-    Separator,
+    Switch,
     SettingsHotkeyInput,
+    SettingsRow,
+    SettingsSection,
+    SidebarModuleSettings,
     ToggleGroup,
     ToggleGroupItem,
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-    ChevronDown,
-    Info,
+    Search,
+    X,
+  },
+  props: {
+    /** 從其他分頁跳轉過來時要捲到的設定區塊 */
+    focusSection: {
+      type: String as PropType<SettingsSectionId | null>,
+      default: null,
+    },
+    /** 每次跳轉遞增，讓重複跳到同一區塊也會觸發 */
+    focusToken: {
+      type: Number,
+      default: 0,
+    },
   },
   emits: ['ready'],
-  setup(_props, { emit }) {
+  setup(props, { emit }) {
     const version = getPoeVersion();
 
     const preferenceState = reactive<Preferences>({
@@ -1133,14 +834,6 @@ export default defineComponent({
       });
     };
 
-    const sectionOpen = reactive({
-      appearance: true,
-      panel: true,
-      searchHotkeys: true,
-      resultDisplay: true,
-      bookmarks: true,
-    });
-
     const handleSidebarPositionChange = (val?: any) => {
       const pos = Array.isArray(val) ? val[0] : val;
       if (pos === 'left' || pos === 'right') {
@@ -1237,6 +930,59 @@ export default defineComponent({
       });
     };
 
+    /** 開關列：模糊搜尋兩個設定沿用一起儲存的舊行為 */
+    const setToggle = (key: SettingsToggleRow['key'], value: boolean | 'indeterminate') => {
+      (preferenceState[key] as boolean) = value === true;
+      if (key === 'enableSearchTilde' || key === 'enableFilterTilde') {
+        saveTildeSettings();
+        return;
+      }
+      savePreference(key);
+    };
+    const resultToggleRows = filterRowsForVersion(RESULT_TOGGLE_ROWS, version);
+
+    // Sidebar Module 開關
+    const moduleValues = computed(
+      () =>
+        Object.fromEntries(
+          SIDEBAR_MODULE_PREFERENCE_KEYS.map((key) => [key, preferenceState[key]]),
+        ) as Record<SidebarModulePreferenceKey, boolean>,
+    );
+    const enabledModuleCount = computed(() => countEnabledSidebarModules(preferenceState));
+    const toggleModule = (key: SidebarModulePreferenceKey, value: boolean) => {
+      preferenceState[key] = value;
+      savePreference(key);
+    };
+
+    // 設定搜尋與區塊跳轉
+    const searchQuery = ref('');
+    const { isSearching, hasResults: hasSearchResults } = provideSettingsSearch(searchQuery);
+    const clearSearch = () => {
+      searchQuery.value = '';
+    };
+    const toolbarRef = ref<HTMLElement | null>(null);
+    const sectionsRef = ref<HTMLElement | null>(null);
+    const navigation = useSettingsNavigation(toolbarRef, sectionsRef);
+    const scrollToSection = (section: SettingsSectionId) => {
+      clearSearch();
+      navigation.scrollToSection(section, { highlight: true });
+    };
+    // 分頁剛從隱藏切回可見，等下一個影格版面就緒再捲動，否則瀏覽器會忽略這次捲動
+    const scrollToFocusSectionNextFrame = () => {
+      window.requestAnimationFrame(() => {
+        if (props.focusSection) scrollToSection(props.focusSection);
+      });
+    };
+    watch(() => props.focusToken, scrollToFocusSectionNextFrame, { flush: 'post' });
+    onMounted(() => {
+      if (props.focusSection && props.focusToken > 0) {
+        // 首次掛載時偏好還在載入，等版面穩定後再捲動
+        window.setTimeout(() => {
+          if (props.focusSection) scrollToSection(props.focusSection);
+        }, 60);
+      }
+    });
+
     const openPobSharePermissionPage = () => {
       void extensionMessaging.sendMessage('pobShare:openPermissionPage').catch((error: unknown) => {
         console.error('[Settings] 無法開啟 PoB 分享網址授權頁:', error);
@@ -1246,7 +992,30 @@ export default defineComponent({
     return {
       t,
       openPobSharePermissionPage,
-      sectionOpen,
+      preferenceState,
+      SEARCH_TOGGLE_ROWS,
+      resultToggleRows,
+      setToggle,
+      SIDEBAR_MODULES,
+      SETTINGS_SECTION_IDS,
+      moduleValues,
+      enabledModuleCount,
+      toggleModule,
+      searchQuery,
+      isSearching,
+      hasSearchResults,
+      clearSearch,
+      toolbarRef,
+      sectionsRef,
+      activeSection: navigation.activeSection,
+      highlightedSection: navigation.highlightedSection,
+      scrollToSection,
+      LayoutGrid,
+      Palette,
+      PanelLeft,
+      Keyboard,
+      ListChecks,
+      Bookmark,
       theme,
       THEME_LABELS,
       THEME_OPTIONS,

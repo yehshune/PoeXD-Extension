@@ -175,6 +175,13 @@ export interface Preferences {
   /** 市集漢化的搜尋結果詞綴在譯文下方以淡色副標顯示英文原文 */
   marketTranslationResultBilingual: boolean;
   searchEntryClickAction: SearchEntryClickAction;
+  /** Sidebar Module 開關（見 utils/sidebar-modules.ts）：關閉後導覽列不顯示，相關頁面注入 UI 也停用 */
+  sidebarModuleBookmarks: boolean;
+  sidebarModuleHistory: boolean;
+  sidebarModuleLiveSearch: boolean;
+  sidebarModulePinnedItems: boolean;
+  sidebarModulePobBuild: boolean;
+  sidebarModuleStatGroupTemplates: boolean;
   sidebarPosition: SidebarPosition;
   sidebarSize: SidebarSize;
   sidebarWidth: number;
@@ -213,6 +220,12 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   marketTranslationBilingual: true,
   marketTranslationResultBilingual: false,
   searchEntryClickAction: 'preview',
+  sidebarModuleBookmarks: true,
+  sidebarModuleHistory: true,
+  sidebarModuleLiveSearch: true,
+  sidebarModulePinnedItems: true,
+  sidebarModulePobBuild: true,
+  sidebarModuleStatGroupTemplates: true,
   sidebarPosition: 'left',
   sidebarSize: 'medium',
   sidebarWidth: 380,

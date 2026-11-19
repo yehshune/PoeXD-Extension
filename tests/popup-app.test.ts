@@ -75,13 +75,17 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
     expect(container.textContent).toContain('PoeXD');
     expect(container.textContent).toContain('模組啟用控制');
 
-    // All 10 PoE1 modules exist
+    // 10 page features + 6 Sidebar Modules on PoE1
     const rows = container.querySelectorAll('[data-popup-module-row]');
-    expect(rows.length).toBe(10);
+    expect(rows.length).toBe(16);
+    expect(container.querySelectorAll('[data-popup-sidebar-module]').length).toBe(6);
+    expect(container.querySelector('[data-popup-group="sidebar"]')?.textContent).toContain(
+      '側邊欄模組',
+    );
 
-    // Checkbox elements exist for all 10 items
+    // Checkbox elements exist for all 16 items
     const checkboxes = container.querySelectorAll('[data-slot="checkbox"]');
-    expect(checkboxes.length).toBe(10);
+    expect(checkboxes.length).toBe(16);
 
     const text = container.textContent || '';
     expect(text).not.toContain('側邊欄主體');
@@ -170,7 +174,7 @@ describe('Popup App Component (Brand Emblem, Theme Token & Auto Detection)', () 
     expect(requestedVersion).toBe('poe2');
     expect(container.textContent).toContain('PoE 2');
     expect(container.querySelector('[data-trade-badge]')).not.toBeNull();
-    expect(container.querySelectorAll('[data-popup-module-row]').length).toBe(11);
+    expect(container.querySelectorAll('[data-popup-module-row]').length).toBe(17);
     expect(container.querySelector('[data-module-key="enableItemNormalizer"]')).not.toBeNull();
   });
 

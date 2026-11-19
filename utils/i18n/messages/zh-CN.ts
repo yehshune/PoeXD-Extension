@@ -164,6 +164,40 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.alert.loadFailedTitle': '加载失败',
   'settings.alert.loadFailedMessage': '设置无法加载：{message}',
 
+  // Settings Pane - Sidebar Modules & navigation
+  'settings.section.modules': '侧边栏模块',
+  'settings.sectionShort.modules': '模块',
+  'settings.sectionShort.appearance': '外观',
+  'settings.sectionShort.panel': '版面',
+  'settings.sectionShort.searchHotkeys': '搜索栏',
+  'settings.sectionShort.resultDisplay': '结果',
+  'settings.sectionShort.bookmarks': '书签',
+  'settings.modules.description':
+    '关闭的模块不会出现在导航栏，页面上对应的按钮也会一并隐藏。数据都会保留，随时可以再开启。',
+  'settings.modules.enabledCount': '已开启 {count} / {total}',
+  'settings.modules.fixedHint': '“工具与信息”与“系统设置”固定显示在导航栏底部。',
+  'settings.modules.relatedSettings': '相关设置',
+  'settings.modules.relatedSettingsAria': '前往{name}的相关设置',
+  'settings.modules.item.live-search.label': '在线搜索控制台入口',
+  'settings.modules.item.bookmark.description': '把常用搜索存成书签，按文件夹与赛季整理。',
+  'settings.modules.item.history.description':
+    '列出最近的搜索，可再次打开或存成书签。关闭时仍会在后台记录。',
+  'settings.modules.item.stat-group-template.description':
+    '保存常用的词缀组；关闭后也会隐藏“新增词缀组”旁的菜单。',
+  'settings.modules.item.pob-build.description': '导入 PoB 配装，把装备整理成购物清单。',
+  'settings.modules.item.pinned-items.description':
+    '在搜索结果上钉选物品以便比较；关闭后也会隐藏结果上的钉选按钮。',
+  'settings.modules.item.live-search.description':
+    '导航栏上打开在线搜索控制台的按钮；已打开的控制台不受影响。',
+  'settings.search.placeholder': '搜索设置',
+  'settings.search.clear': '清除搜索',
+  'settings.search.empty': '没有符合“{query}”的设置',
+  'settings.search.emptyHint': '试试功能名称，例如“书签”、“快捷键”或“汉化”。',
+  'settings.jump.aria': '跳至设置区块',
+  'sidebar.header.moduleSettings': '{name}的设置',
+  'popup.group.page': '页面功能',
+  'popup.group.sidebar': '侧边栏模块',
+
   // Popup
   'popup.documentTitle': 'PoeXD 模块控制',
   'popup.tradeBadge.poe1': 'PoE 1 交易官网',

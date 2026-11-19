@@ -98,7 +98,7 @@
               <div class="nav-divider w-[60%] h-px bg-border"></div>
 
               <Button
-                v-for="tab in tabs.filter((t) => t.id !== 'settings' && t.id !== 'tools')"
+                v-for="tab in navModuleTabs"
                 :key="tab.id"
                 type="button"
                 variant="ghost"
@@ -113,10 +113,14 @@
               </Button>
 
               <!-- 分隔線：區隔主要 pane tabs 與外部 action -->
-              <div class="nav-divider w-[60%] h-px bg-border"></div>
+              <div
+                v-if="navModuleTabs.length > 0 && isModuleEnabled('live-search')"
+                class="nav-divider w-[60%] h-px bg-border"
+              ></div>
 
               <!-- 開啟線上搜尋主控台入口 (Action，非 pane tab) -->
               <Button
+                v-if="isModuleEnabled('live-search')"
                 type="button"
                 variant="outline"
                 size="icon-lg"
@@ -181,6 +185,7 @@
               </Button>
 
               <Button
+                v-if="isModuleEnabled('pinned-items')"
                 type="button"
                 variant="ghost"
                 size="icon-lg"
@@ -254,12 +259,27 @@
                   >{{ appVersion }}</span
                 >
               </div>
-              <span
-                class="active-tab-title text-[length:var(--pxd-font-body)] font-medium text-foreground whitespace-nowrap shrink-0 min-w-0 truncate"
-                :title="activeTabName"
-              >
-                {{ activeTabName }}
-              </span>
+              <div class="flex min-w-0 shrink items-center gap-[var(--pxd-space-xs)]">
+                <span
+                  class="active-tab-title text-[length:var(--pxd-font-body)] font-medium text-foreground whitespace-nowrap shrink-0 min-w-0 truncate"
+                  :title="activeTabName"
+                >
+                  {{ activeTabName }}
+                </span>
+                <Button
+                  v-if="activeModuleSettingsTarget"
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  class="shrink-0 text-muted-foreground"
+                  :title="t('sidebar.header.moduleSettings', { name: activeTabName })"
+                  :aria-label="t('sidebar.header.moduleSettings', { name: activeTabName })"
+                  data-sidebar-action="module-settings"
+                  @click="openSettingsSection(activeModuleSettingsTarget)"
+                >
+                  <Settings2 />
+                </Button>
+              </div>
             </div>
 
             <div
@@ -293,20 +313,26 @@
                   />
                 </div>
                 <!-- 分頁第一次在展開的側邊欄顯示時才掛載，之後以 v-show 保留狀態 -->
-                <BookmarkPane v-if="isTabMounted('bookmark')" v-show="activeTab === 'bookmark'" />
-                <HistoryPane v-if="isTabMounted('history')" v-show="activeTab === 'history'" />
+                <BookmarkPane
+                  v-if="isTabMounted('bookmark') && isTabVisible('bookmark')"
+                  v-show="activeTab === 'bookmark'"
+                />
+                <HistoryPane
+                  v-if="isTabMounted('history') && isTabVisible('history')"
+                  v-show="activeTab === 'history'"
+                />
                 <StatGroupTemplatePane
-                  v-if="isTabMounted('stat-group-template')"
+                  v-if="isTabMounted('stat-group-template') && isTabVisible('stat-group-template')"
                   v-show="activeTab === 'stat-group-template'"
                   :sidebar-position="sidebarPosition"
                 />
                 <PobBuildPane
-                  v-if="isTabMounted('pob-build')"
+                  v-if="isTabMounted('pob-build') && isTabVisible('pob-build')"
                   v-show="activeTab === 'pob-build'"
                   :sidebar-position="sidebarPosition"
                 />
                 <PinnedItemPane
-                  v-if="isTabMounted('pinned-items')"
+                  v-if="isTabMounted('pinned-items') && isTabVisible('pinned-items')"
                   v-show="activeTab === 'pinned-items'"
                   :sidebar-position="sidebarPosition"
                 />
@@ -325,6 +351,8 @@
                     <SettingsPane
                       v-if="isTabMounted('settings')"
                       v-show="activeTab === 'settings'"
+                      :focus-section="settingsFocusSection"
+                      :focus-token="settingsFocusToken"
                       @ready="settingsPaneReady = true"
                     />
                   </ScrollAreaViewport>
@@ -344,7 +372,7 @@
                   @open-add-connection="handleOpenCustomSearch"
                 />
                 <PinnedItemPane
-                  v-if="primaryPinnedMounted"
+                  v-if="primaryPinnedMounted && isModuleEnabled('pinned-items')"
                   v-show="primaryActiveTab === 'pinned-items'"
                   :sidebar-position="sidebarPosition"
                 />
@@ -515,7 +543,7 @@
 
         <!-- Injected UI: 「新增詞綴群組」旁的常用詞綴群組選單，僅一般頁面 -->
         <StatGroupTemplateHost
-          v-if="pageRole === 'normal'"
+          v-if="pageRole === 'normal' && isModuleEnabled('stat-group-template')"
           @manage="openStatGroupTemplateManager"
         />
 
@@ -576,6 +604,17 @@ import {
   type OnboardingState,
 } from '@/utils/onboarding';
 import { createUiRuntimeTokenValues } from '@/lib/tokens';
+import {
+  DEFAULT_SIDEBAR_MODULE_PREFERENCES,
+  SIDEBAR_MODULE_PREFERENCE_KEYS,
+  getSidebarModule,
+  isSidebarModuleEnabled,
+  resolveActivePaneTab,
+  resolveVisiblePaneTabs,
+  type SettingsSectionId,
+  type SidebarModuleId,
+  type SidebarModulePreferenceKey,
+} from '@/utils/sidebar-modules';
 import { installDialogGlobals, useSidebarDialog } from './sidebar/composables/useSidebarDialog';
 import {
   Dialog,
@@ -606,6 +645,7 @@ import {
   SlidersHorizontal,
   ShoppingCart,
   Pin,
+  Settings2,
 } from '@lucide/vue';
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
@@ -704,6 +744,7 @@ export default defineComponent({
     Plus,
     RotateCcw,
     Settings,
+    Settings2,
   },
   setup(props) {
     const portalTarget = computed(() => props.portalTarget);
@@ -730,6 +771,18 @@ export default defineComponent({
       primaryActiveTab.value = tab;
     };
     const isTemporarySearchDialogOpen = ref(false);
+
+    // Sidebar Module 開關：關閉的模組不出現在導覽列，也不掛載對應分頁
+    const modulePrefs = ref<Record<SidebarModulePreferenceKey, boolean>>({
+      ...DEFAULT_SIDEBAR_MODULE_PREFERENCES,
+    });
+    const isModuleEnabled = (id: SidebarModuleId) => isSidebarModuleEnabled(modulePrefs.value, id);
+    const visiblePaneTabs = computed(() => resolveVisiblePaneTabs(modulePrefs.value));
+    const isTabVisible = (id: string) => (visiblePaneTabs.value as readonly string[]).includes(id);
+
+    // 從分頁標題的捷徑跳到設定分頁的指定區塊
+    const settingsFocusSection = ref<SettingsSectionId | null>(null);
+    const settingsFocusToken = ref(0);
     const sidebarStateReady = ref(false);
     const settingsPaneReady = ref(props.pageRole === 'live-search-primary');
     const pageRole = computed(() => props.pageRole);
@@ -1029,6 +1082,37 @@ export default defineComponent({
       return tabs.find((tab) => tab.id === activeTab.value)?.name ?? '';
     });
 
+    const navModuleTabs = computed(() =>
+      tabs.filter((tab) => tab.id !== 'settings' && tab.id !== 'tools' && isTabVisible(tab.id)),
+    );
+
+    // 目前分頁被關閉時，改顯示第一個仍開啟的分頁
+    watch(modulePrefs, (prefs) => {
+      if (!sidebarStateReady.value) return;
+      const next = resolveActivePaneTab(activeTab.value, prefs);
+      if (next !== activeTab.value) activeTab.value = next;
+      if (
+        primaryActiveTab.value === 'pinned-items' &&
+        !isSidebarModuleEnabled(prefs, 'pinned-items')
+      ) {
+        primaryActiveTab.value = 'connections';
+      }
+    });
+
+    /** 一般頁面上模組分頁的設定捷徑：有專屬設定區塊就跳過去，否則跳到模組開關 */
+    const activeModuleSettingsTarget = computed<SettingsSectionId | null>(() => {
+      if (pageRole.value !== 'normal') return null;
+      const tab = activeTab.value;
+      if (tab === 'settings' || tab === 'tools') return null;
+      return getSidebarModule(tab as SidebarModuleId).settingsSection ?? 'modules';
+    });
+
+    const openSettingsSection = (section: SettingsSectionId) => {
+      settingsFocusSection.value = section;
+      settingsFocusToken.value += 1;
+      activeTab.value = 'settings';
+    };
+
     const usesPaneScroll = computed(
       () =>
         activeTab.value === 'history' ||
@@ -1060,6 +1144,16 @@ export default defineComponent({
         densityScale.value = snapshot.densityScale;
         marketTranslation.value = snapshot.marketTranslation === true;
         displayLocale.value = snapshot.displayLocale ?? 'auto';
+        const nextModulePrefs = Object.fromEntries(
+          SIDEBAR_MODULE_PREFERENCE_KEYS.map((key) => [key, snapshot[key] !== false]),
+        ) as Record<SidebarModulePreferenceKey, boolean>;
+        if (
+          SIDEBAR_MODULE_PREFERENCE_KEYS.some(
+            (key) => nextModulePrefs[key] !== modulePrefs.value[key],
+          )
+        ) {
+          modulePrefs.value = nextModulePrefs;
+        }
         if (pageLoadMarketTranslation === null) {
           pageLoadMarketTranslation = marketTranslation.value;
         }
@@ -1081,9 +1175,10 @@ export default defineComponent({
 
       // 讀取 activeTab，先試新 Key，若無則試舊 Key，再不然預設 'bookmark'
       const storedActiveTab = data[activeTabKey] || data.activeTab || 'bookmark';
-      activeTab.value = tabs.some((tab) => tab.id === storedActiveTab)
-        ? storedActiveTab
-        : 'bookmark';
+      activeTab.value = resolveActivePaneTab(
+        tabs.some((tab) => tab.id === storedActiveTab) ? storedActiveTab : 'bookmark',
+        modulePrefs.value,
+      );
       sidebarStateReady.value = true;
 
       // 監聽非 Preference 的收合狀態。
@@ -1329,6 +1424,13 @@ export default defineComponent({
       openStatGroupTemplateManager,
       usesPaneScroll,
       tabs,
+      navModuleTabs,
+      isModuleEnabled,
+      isTabVisible,
+      activeModuleSettingsTarget,
+      openSettingsSection,
+      settingsFocusSection,
+      settingsFocusToken,
       toggleCollapse,
       isModalOpen,
       targetGroupIndex,

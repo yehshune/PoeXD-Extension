@@ -176,6 +176,44 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.alert.loadFailedTitle': 'Load Failed',
   'settings.alert.loadFailedMessage': 'Failed to load settings: {message}',
 
+  // Settings Pane - Sidebar Modules & navigation
+  'settings.section.modules': 'Sidebar modules',
+  'settings.sectionShort.modules': 'Modules',
+  'settings.sectionShort.appearance': 'Look',
+  'settings.sectionShort.panel': 'Layout',
+  'settings.sectionShort.searchHotkeys': 'Search',
+  'settings.sectionShort.resultDisplay': 'Results',
+  'settings.sectionShort.bookmarks': 'Bookmarks',
+  'settings.modules.description':
+    'Turned-off modules leave the navigation bar, and their buttons on the trade page are hidden too. Your data is kept, so you can turn them back on any time.',
+  'settings.modules.enabledCount': '{count} of {total} on',
+  'settings.modules.fixedHint':
+    'Tools & Info and Settings always stay at the bottom of the navigation bar.',
+  'settings.modules.relatedSettings': 'Related settings',
+  'settings.modules.relatedSettingsAria': 'Go to settings for {name}',
+  'settings.modules.item.live-search.label': 'Live search console button',
+  'settings.modules.item.bookmark.description':
+    'Save searches as bookmarks, organized by folder and league.',
+  'settings.modules.item.history.description':
+    'Lists recent searches to reopen or bookmark. Searches are still recorded while it is off.',
+  'settings.modules.item.stat-group-template.description':
+    'Save stat groups you use often. Turning it off also hides the menu next to “Add Stat Group”.',
+  'settings.modules.item.pob-build.description':
+    'Import a PoB build and turn its gear into a shopping list.',
+  'settings.modules.item.pinned-items.description':
+    'Pin items from search results to compare them. Turning it off also hides the pin buttons on results.',
+  'settings.modules.item.live-search.description':
+    'The navigation button that opens the live search console. Consoles that are already open keep running.',
+  'settings.search.placeholder': 'Search settings',
+  'settings.search.clear': 'Clear search',
+  'settings.search.empty': 'No settings match “{query}”',
+  'settings.search.emptyHint':
+    'Try a feature name, such as “bookmark”, “hotkey”, or “translation”.',
+  'settings.jump.aria': 'Jump to settings section',
+  'sidebar.header.moduleSettings': 'Settings for {name}',
+  'popup.group.page': 'Page features',
+  'popup.group.sidebar': 'Sidebar modules',
+
   // Popup
   'popup.documentTitle': 'PoeXD Module Controls',
   'popup.tradeBadge.poe1': 'PoE 1 Official Trade',

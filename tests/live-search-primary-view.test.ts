@@ -2761,7 +2761,9 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           container.querySelector('[data-test="league-selector-trigger"]') as HTMLButtonElement
         ).click();
         await flushAsync();
-        (document.body.querySelector('[data-test="league-option-Hardcore"]') as HTMLElement).click();
+        (
+          document.body.querySelector('[data-test="league-option-Hardcore"]') as HTMLElement
+        ).click();
         await flushAsync();
       };
 

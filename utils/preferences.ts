@@ -79,6 +79,12 @@ const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
   'marketTranslation',
   'marketTranslationBilingual',
   'marketTranslationResultBilingual',
+  'sidebarModuleBookmarks',
+  'sidebarModuleHistory',
+  'sidebarModuleLiveSearch',
+  'sidebarModulePinnedItems',
+  'sidebarModulePobBuild',
+  'sidebarModuleStatGroupTemplates',
 ]);
 
 function isValidPreference(name: keyof Preferences, value: unknown) {

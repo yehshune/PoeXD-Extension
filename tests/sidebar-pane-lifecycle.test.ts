@@ -7,6 +7,10 @@ const settingsSource = readFileSync(
   new URL('../components/sidebar/SettingsPane.vue', import.meta.url),
   'utf8',
 );
+const toggleRowsSource = readFileSync(
+  new URL('../components/sidebar/settings/settings-toggle-rows.ts', import.meta.url),
+  'utf8',
+);
 
 const panes = [
   ['BookmarkPane', 'bookmark'],
@@ -69,7 +73,7 @@ describe('Sidebar pane lifecycle', () => {
     (component, tab) => {
       expect(sidebarSource).toMatch(
         new RegExp(
-          `<${component}\\s+v-if="isTabMounted\\('${tab}'\\)"\\s+v-show="activeTab === '${tab}'"`,
+          `<${component}\\s+v-if="isTabMounted\\('${tab}'\\)(?: && isTabVisible\\('${tab}'\\))?"\\s+v-show="activeTab === '${tab}'"`,
         ),
       );
       // 只會加入、不會移除：顯示過的分頁之後切換都不會重新掛載
@@ -97,12 +101,13 @@ describe('Sidebar pane lifecycle', () => {
   });
 
   it('exposes the price comparison setting', () => {
-    expect(settingsSource).toContain('v-model="enablePriceComparison"');
+    expect(settingsSource).toContain('RESULT_TOGGLE_ROWS');
+    expect(toggleRowsSource).toContain("key: 'enablePriceComparison'");
   });
 
   it('exposes the result modifier highlighting setting', () => {
-    expect(settingsSource).toContain('v-model="enableResultModHighlight"');
-    expect(settingsSource).toContain('v-model="enableResultModQuickFilter"');
+    expect(toggleRowsSource).toContain("key: 'enableResultModHighlight'");
+    expect(toggleRowsSource).toContain("key: 'enableResultModQuickFilter'");
   });
 
   it('exposes left and right sidebar controls', () => {
