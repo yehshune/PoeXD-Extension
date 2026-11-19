@@ -7,157 +7,152 @@
     <ScrollAreaViewport
       class="h-full w-full min-h-0 flex flex-col p-[var(--pxd-pane-padding)] pb-[var(--pxd-pane-scroll-end-space)] box-border"
     >
-      <!-- 結果展示筆數上限 -->
-      <div class="flex flex-col gap-[var(--pxd-space-sm)]">
-        <span class="text-[length:var(--pxd-font-secondary)] font-bold text-foreground">
-          {{ t('liveSearch.settings.maxResultsLabel') }}
-        </span>
-
-        <ToggleGroup
-          type="single"
-          :model-value="String(liveSearchMaxDisplayedResults)"
-          variant="outline"
-          size="sm"
-          data-test="pref-max-results"
-          class="w-full grid grid-cols-4 gap-0"
-          @update:model-value="handleUpdateMaxResults"
+      <div class="flex flex-col gap-[calc(var(--pxd-section-gap)*1.6)]">
+        <!-- 結果展示筆數上限 -->
+        <SettingsSection
+          section-id="live-search-max-results"
+          :title="t('liveSearch.settings.maxResultsLabel')"
+          :icon="ListOrdered"
         >
-          <ToggleGroupItem
-            v-for="option in LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES"
-            :key="option"
-            :value="String(option)"
-            :data-test="`pref-max-results-${option}`"
-            class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
+          <ToggleGroup
+            type="single"
+            :model-value="String(liveSearchMaxDisplayedResults)"
+            variant="outline"
+            size="sm"
+            data-test="pref-max-results"
+            class="w-full grid grid-cols-4 gap-0"
+            :aria-label="t('liveSearch.settings.maxResultsLabel')"
+            @update:model-value="handleUpdateMaxResults"
           >
-            {{ option }}
-          </ToggleGroupItem>
-        </ToggleGroup>
-
-        <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground leading-relaxed">
-          {{ t('liveSearch.settings.maxResultsDesc') }}
-        </span>
-      </div>
-
-      <!-- 通知音效（ADR-0016）：播放官方 <audio>，音效與音量跟隨官方設定 -->
-      <Separator class="my-[var(--pxd-section-gap)]" />
-
-      <div class="flex flex-col gap-[var(--pxd-space-sm)]">
-        <span class="text-[length:var(--pxd-font-secondary)] font-bold text-foreground">
-          {{ t('liveSearch.sound.label') }}
-        </span>
-
-        <div class="flex items-center justify-between gap-[var(--pxd-space-sm)] min-w-0">
-          <div class="flex items-center gap-[var(--pxd-space-md)] min-w-0 flex-1">
-            <Checkbox
-              id="live-search-sound-enabled"
-              :model-value="liveSearchSoundEnabled"
-              data-test="pref-sound-enabled"
-              class="shrink-0"
-              @update:model-value="handleUpdateSoundEnabled"
-            />
-            <label
-              for="live-search-sound-enabled"
-              class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground min-w-0 truncate"
+            <ToggleGroupItem
+              v-for="option in LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES"
+              :key="option"
+              :value="String(option)"
+              :data-test="`pref-max-results-${option}`"
+              class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
             >
-              {{ t('liveSearch.sound.enableLabel') }}
-            </label>
+              {{ option }}
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
+            {{ t('liveSearch.settings.maxResultsDesc') }}
+          </p>
+        </SettingsSection>
+
+        <!-- 通知音效（ADR-0016）：播放官方 <audio>，音效與音量跟隨官方設定 -->
+        <SettingsSection
+          section-id="live-search-sound"
+          :title="t('liveSearch.sound.label')"
+          :icon="Volume2"
+        >
+          <SettingsRow
+            :label="t('liveSearch.sound.enableLabel')"
+            :description="t('liveSearch.sound.desc')"
+            control-id="live-search-sound-enabled"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="live-search-sound-enabled"
+                :model-value="liveSearchSoundEnabled"
+                data-test="pref-sound-enabled"
+                :aria-describedby="describedBy"
+                @update:model-value="handleUpdateSoundEnabled"
+              />
+            </template>
+          </SettingsRow>
+          <div class="flex flex-col items-start gap-[var(--pxd-space-xs)]">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-test="btn-sound-preview"
+              :disabled="!soundNotifier"
+              class="text-[length:var(--pxd-font-caption)]"
+              @click="handlePreviewSound"
+            >
+              <Play aria-hidden="true" />
+              {{ t('liveSearch.sound.previewBtn') }}
+            </Button>
+            <p
+              v-if="previewMessage"
+              data-test="sound-preview-message"
+              role="status"
+              class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-amber-500"
+            >
+              {{ previewMessage }}
+            </p>
           </div>
-          <Button
-            type="button"
+        </SettingsSection>
+
+        <!-- 重新開啟主控台時 (Resume Mode) -->
+        <SettingsSection
+          section-id="live-search-resume"
+          :title="t('liveSearch.settings.reopenConsole')"
+          :icon="RotateCcw"
+        >
+          <ToggleGroup
+            type="single"
+            :model-value="liveSearchResumeMode"
             variant="outline"
             size="sm"
-            data-test="btn-sound-preview"
-            :disabled="!soundNotifier"
-            class="shrink-0 text-[length:var(--pxd-font-caption)]"
-            @click="handlePreviewSound"
+            data-test="pref-resume-mode"
+            class="w-full grid grid-cols-3 gap-0"
+            :aria-label="t('liveSearch.settings.reopenConsole')"
+            @update:model-value="handleUpdateResumeMode"
           >
-            {{ t('liveSearch.sound.previewBtn') }}
-          </Button>
-        </div>
-
-        <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground leading-relaxed">
-          {{ t('liveSearch.sound.desc') }}
-        </span>
-        <span
-          v-if="previewMessage"
-          data-test="sound-preview-message"
-          class="text-[length:var(--pxd-font-caption)] text-amber-500 leading-relaxed"
-        >
-          {{ previewMessage }}
-        </span>
-      </div>
-
-      <!-- 重新開啟主控台時 (Resume Mode) -->
-      <Separator class="my-[var(--pxd-section-gap)]" />
-
-      <div class="flex flex-col gap-[var(--pxd-space-sm)]">
-        <span class="text-[length:var(--pxd-font-secondary)] font-bold text-foreground">
-          {{ t('liveSearch.settings.reopenConsole') }}
-        </span>
-
-        <ToggleGroup
-          type="single"
-          :model-value="liveSearchResumeMode"
-          variant="outline"
-          size="sm"
-          data-test="pref-resume-mode"
-          class="w-full grid grid-cols-3 gap-0"
-          @update:model-value="handleUpdateResumeMode"
-        >
-          <ToggleGroupItem
-            value="off"
-            data-test="pref-resume-mode-off"
-            class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
+            <ToggleGroupItem
+              value="off"
+              data-test="pref-resume-mode-off"
+              class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
+            >
+              {{ t('liveSearch.settings.resumeModeClean') }}
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="prompt"
+              data-test="pref-resume-mode-prompt"
+              class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
+            >
+              {{ t('liveSearch.settings.resumeModeManual') }}
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="auto"
+              data-test="pref-resume-mode-auto"
+              class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
+            >
+              {{ t('liveSearch.settings.resumeModeAutoShort') }}
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <p
+            class="m-0 min-h-[2.5rem] text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground"
           >
-            {{ t('liveSearch.settings.resumeModeClean') }}
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            value="prompt"
-            data-test="pref-resume-mode-prompt"
-            class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
-          >
-            {{ t('liveSearch.settings.resumeModeManual') }}
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            value="auto"
-            data-test="pref-resume-mode-auto"
-            class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
-          >
-            {{ t('liveSearch.settings.resumeModeAutoShort') }}
-          </ToggleGroupItem>
-        </ToggleGroup>
-
-        <div
-          class="text-[length:var(--pxd-font-caption)] text-muted-foreground leading-relaxed pt-0.5 min-h-[2.5rem]"
-        >
-          <span v-if="liveSearchResumeMode === 'off'">{{
-            t('liveSearch.settings.resumeOffDesc')
-          }}</span>
-          <span v-else-if="liveSearchResumeMode === 'prompt'">{{
-            t('liveSearch.settings.resumePromptDesc')
-          }}</span>
-          <span v-else-if="liveSearchResumeMode === 'auto'">{{
-            t('liveSearch.settings.resumeAutoDesc')
-          }}</span>
-        </div>
-
-        <div class="pt-[var(--pxd-space-xs)]">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            data-test="btn-clear-resume-plan"
-            :disabled="!hasPersistedPlan || isClearingPlan"
-            class="text-[length:var(--pxd-font-caption)] text-muted-foreground hover:text-foreground"
-            @click="handleClearResumePlan"
-          >
-            {{
-              isClearingPlan
-                ? t('liveSearch.settings.clearingPlan')
-                : t('liveSearch.settings.clearPlanBtn')
-            }}
-          </Button>
-        </div>
+            <template v-if="liveSearchResumeMode === 'off'">{{
+              t('liveSearch.settings.resumeOffDesc')
+            }}</template>
+            <template v-else-if="liveSearchResumeMode === 'prompt'">{{
+              t('liveSearch.settings.resumePromptDesc')
+            }}</template>
+            <template v-else-if="liveSearchResumeMode === 'auto'">{{
+              t('liveSearch.settings.resumeAutoDesc')
+            }}</template>
+          </p>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-test="btn-clear-resume-plan"
+              :disabled="!hasPersistedPlan || isClearingPlan"
+              class="text-[length:var(--pxd-font-caption)] text-muted-foreground hover:text-foreground"
+              @click="handleClearResumePlan"
+            >
+              {{
+                isClearingPlan
+                  ? t('liveSearch.settings.clearingPlan')
+                  : t('liveSearch.settings.clearPlanBtn')
+              }}
+            </Button>
+          </div>
+        </SettingsSection>
       </div>
     </ScrollAreaViewport>
     <ScrollBar />
@@ -168,9 +163,11 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, type PropType } from 'vue';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { ListOrdered, Play, RotateCcw, Volume2 } from '@lucide/vue';
+import SettingsRow from './settings/SettingsRow.vue';
+import SettingsSection from './settings/SettingsSection.vue';
 import {
   ScrollAreaCorner,
   ScrollAreaRoot,

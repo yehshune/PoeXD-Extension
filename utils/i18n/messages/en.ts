@@ -204,12 +204,17 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Pin items from search results to compare them. Turning it off also hides the pin buttons on results.',
   'settings.modules.item.live-search.description':
     'The navigation button that opens the live search console. Consoles that are already open keep running.',
+  'settings.displayLocale.hint': 'Language for the UI and game data',
+  'settings.searchTilde.hint': 'Typo-tolerant item name search',
+  'settings.filterTilde.hint': 'Typo-tolerant stat filter input',
+  'settings.details.toggleAria': 'More about {label}',
+  'settings.tabs.aria': 'Settings categories',
+  'settings.search.close': 'Close search',
   'settings.search.placeholder': 'Search settings',
   'settings.search.clear': 'Clear search',
   'settings.search.empty': 'No settings match “{query}”',
   'settings.search.emptyHint':
     'Try a feature name, such as “bookmark”, “hotkey”, or “translation”.',
-  'settings.jump.aria': 'Jump to settings section',
   'sidebar.header.moduleSettings': 'Settings for {name}',
   'popup.group.page': 'Page features',
   'popup.group.sidebar': 'Sidebar modules',

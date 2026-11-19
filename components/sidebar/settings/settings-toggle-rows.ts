@@ -11,7 +11,10 @@ export interface SettingsToggleRow {
   id: string;
   key: BooleanPreferenceKey;
   labelKey: I18nKey;
+  /** 一行簡短說明 */
   descriptionKey: I18nKey;
+  /** 點 ⓘ 展開的完整說明 */
+  detailsKey: I18nKey;
   version?: PoeVersion;
 }
 
@@ -20,25 +23,29 @@ export const SEARCH_TOGGLE_ROWS: readonly SettingsToggleRow[] = Object.freeze([
     id: 'enable-search-tilde',
     key: 'enableSearchTilde',
     labelKey: 'settings.searchTilde.label',
-    descriptionKey: 'settings.searchTilde.tooltip',
+    descriptionKey: 'settings.searchTilde.hint',
+    detailsKey: 'settings.searchTilde.tooltip',
   },
   {
     id: 'enable-filter-tilde',
     key: 'enableFilterTilde',
     labelKey: 'settings.filterTilde.label',
-    descriptionKey: 'settings.filterTilde.tooltip',
+    descriptionKey: 'settings.filterTilde.hint',
+    detailsKey: 'settings.filterTilde.tooltip',
   },
   {
     id: 'enable-tier-helper',
     key: 'enableTierHelper',
     labelKey: 'settings.tierHelper.label',
-    descriptionKey: 'settings.tierHelper.tooltip',
+    descriptionKey: 'popup.module.enableTierHelper.description',
+    detailsKey: 'settings.tierHelper.tooltip',
   },
   {
     id: 'enable-affix-selector',
     key: 'enableAffixSelector',
     labelKey: 'settings.affixSelector.label',
-    descriptionKey: 'settings.affixSelector.tooltip',
+    descriptionKey: 'popup.module.enableAffixSelector.description',
+    detailsKey: 'settings.affixSelector.tooltip',
   },
 ]);
 
@@ -47,37 +54,43 @@ export const RESULT_TOGGLE_ROWS: readonly SettingsToggleRow[] = Object.freeze([
     id: 'enable-price-comparison',
     key: 'enablePriceComparison',
     labelKey: 'settings.priceComparison.label',
-    descriptionKey: 'settings.priceComparison.tooltip',
+    descriptionKey: 'popup.module.enablePriceComparison.description',
+    detailsKey: 'settings.priceComparison.tooltip',
   },
   {
     id: 'enable-result-mod-highlight',
     key: 'enableResultModHighlight',
     labelKey: 'settings.resultModHighlight.label',
-    descriptionKey: 'settings.resultModHighlight.tooltip',
+    descriptionKey: 'popup.module.enableResultModHighlight.description',
+    detailsKey: 'settings.resultModHighlight.tooltip',
   },
   {
     id: 'enable-result-mod-quick-filter',
     key: 'enableResultModQuickFilter',
     labelKey: 'settings.resultModQuickFilter.label',
-    descriptionKey: 'settings.resultModQuickFilter.tooltip',
+    descriptionKey: 'popup.module.enableResultModQuickFilter.description',
+    detailsKey: 'settings.resultModQuickFilter.tooltip',
   },
   {
     id: 'enable-result-pob-copy',
     key: 'enableResultPobCopy',
     labelKey: 'settings.resultPobCopy.label',
-    descriptionKey: 'settings.resultPobCopy.tooltip',
+    descriptionKey: 'popup.module.enableResultPobCopy.description',
+    detailsKey: 'settings.resultPobCopy.tooltip',
   },
   {
     id: 'enable-result-external-links',
     key: 'enableResultExternalLinks',
     labelKey: 'settings.resultExternalLinks.label',
-    descriptionKey: 'settings.resultExternalLinks.tooltip',
+    descriptionKey: 'popup.module.enableResultExternalLinks.description',
+    detailsKey: 'settings.resultExternalLinks.tooltip',
   },
   {
     id: 'enable-item-normalizer',
     key: 'enableItemNormalizer',
     labelKey: 'settings.itemNormalizer.label',
-    descriptionKey: 'settings.itemNormalizer.tooltip',
+    descriptionKey: 'popup.module.enableItemNormalizer.description',
+    detailsKey: 'settings.itemNormalizer.tooltip',
     version: 'poe2',
   },
 ]);

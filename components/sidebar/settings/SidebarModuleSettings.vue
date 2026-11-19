@@ -17,6 +17,8 @@ import SettingsRow from './SettingsRow.vue';
 
 const props = defineProps<{
   values: Readonly<Record<SidebarModulePreferenceKey, boolean>>;
+  /** 例如「已開啟 4 / 6」 */
+  summary?: string;
 }>();
 
 const emit = defineEmits<{
@@ -29,9 +31,18 @@ const controlId = (id: string) => `sidebar-module-${id}`;
 
 <template>
   <div class="flex flex-col gap-[var(--pxd-field-gap)]">
-    <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
-      {{ t('settings.modules.description') }}
-    </p>
+    <div class="flex items-start justify-between gap-[var(--pxd-space-md)]">
+      <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
+        {{ t('settings.modules.description') }}
+      </p>
+      <span
+        v-if="props.summary"
+        data-settings-modules-count
+        class="shrink-0 whitespace-nowrap text-[length:var(--pxd-font-caption)] font-medium tabular-nums text-foreground"
+      >
+        {{ props.summary }}
+      </span>
+    </div>
     <ul class="m-0 flex list-none flex-col gap-[var(--pxd-space-xs)] p-0" role="list">
       <li v-for="module in SIDEBAR_MODULES" :key="module.id" :data-sidebar-module="module.id">
         <SettingsRow

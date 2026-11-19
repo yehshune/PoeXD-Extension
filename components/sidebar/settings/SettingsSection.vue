@@ -1,43 +1,42 @@
 <script setup lang="ts">
-import type { Component } from 'vue';
-import type { SettingsSectionId } from '@/utils/sidebar-modules';
+import { computed, type Component } from 'vue';
 import { useSettingsSection } from './settings-search';
 
 const props = withDefaults(
   defineProps<{
-    sectionId: SettingsSectionId;
+    sectionId: string;
     title: string;
     icon: Component;
-    /** 從其他分頁跳轉過來時短暫標示 */
-    highlighted?: boolean;
+    /** 分頁式設定頁：只有目前分頁的區塊為 true；搜尋時改依搜尋結果顯示 */
+    active?: boolean;
+    /** always：一律顯示標題；search：只在搜尋時顯示（分頁本身已標示區塊名） */
+    headerMode?: 'always' | 'search';
   }>(),
-  { highlighted: false },
+  { active: true, headerMode: 'always' },
 );
 
-const { visible } = useSettingsSection(() => props.title);
+const { visible, isSearching } = useSettingsSection(() => props.title);
+const shown = computed(() => (isSearching.value ? visible.value : props.active));
+const showHeader = computed(() => props.headerMode === 'always' || isSearching.value);
 const headingId = `pxd-settings-section-${props.sectionId}`;
 </script>
 
 <template>
   <section
-    v-show="visible"
+    v-show="shown"
     :data-settings-section="sectionId"
     :aria-labelledby="headingId"
-    :class="[
-      'pxd-settings-section relative flex scroll-mt-[var(--pxd-settings-toolbar-offset,88px)] flex-col gap-[var(--pxd-field-gap)] rounded-md',
-      highlighted ? 'pxd-settings-section-highlight' : '',
-    ]"
+    class="flex flex-col gap-[var(--pxd-field-gap)]"
   >
-    <header class="flex min-w-0 items-center gap-[var(--pxd-space-sm)] pb-[2px]">
-      <span
-        class="inline-flex size-[calc(var(--pxd-font-section-title)*1.6)] shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground"
+    <header v-show="showHeader" class="flex min-w-0 items-center gap-[var(--pxd-space-sm)]">
+      <component
+        :is="icon"
+        class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground"
         aria-hidden="true"
-      >
-        <component :is="icon" class="size-[var(--control-icon-sm,14px)]" />
-      </span>
+      />
       <h3
         :id="headingId"
-        class="m-0 min-w-0 flex-1 truncate text-[length:var(--pxd-font-section-title)] font-bold text-foreground"
+        class="m-0 min-w-0 flex-1 truncate text-[length:var(--pxd-font-secondary)] font-bold text-foreground"
       >
         {{ title }}
       </h3>
@@ -46,33 +45,3 @@ const headingId = `pxd-settings-section-${props.sectionId}`;
     <slot />
   </section>
 </template>
-
-<style scoped>
-.pxd-settings-section-highlight::before {
-  content: '';
-  position: absolute;
-  inset: calc(var(--pxd-space-sm) * -1);
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: 0 0 0 1px var(--primary);
-  background: color-mix(in srgb, var(--primary) 7%, transparent);
-  animation: pxd-settings-section-flash 1.6s ease-out forwards;
-}
-
-@keyframes pxd-settings-section-flash {
-  0%,
-  45% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pxd-settings-section-highlight::before {
-    animation-duration: 0.01ms;
-    animation-delay: 1.2s;
-  }
-}
-</style>

@@ -74,7 +74,8 @@ export function useSettingsSection(getTitle: () => string) {
     () => normalizeSettingsQuery(query.value) === '' || titleMatches.value || rows.anyMatches.value,
   );
   search?.register(visible);
-  return { visible, query };
+  const isSearching = computed(() => normalizeSettingsQuery(query.value) !== '');
+  return { visible, query, isSearching };
 }
 
 /** 設定列呼叫：回傳此列在目前查詢下是否顯示，並登記到所屬區塊。 */

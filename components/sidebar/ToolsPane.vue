@@ -1,103 +1,87 @@
 <template>
-  <div class="flex flex-col">
+  <div class="flex flex-col gap-[calc(var(--pxd-section-gap)*1.6)]">
     <!-- 價格換算資料 -->
-    <Collapsible v-model:open="sectionOpen.economy" class="flex flex-col">
-      <CollapsibleTrigger
-        class="flex w-full items-center justify-between py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground hover:text-primary transition-colors select-none"
+    <SettingsSection section-id="tools-economy" :title="t('tools.economy.title')" :icon="Coins">
+      <!-- poe.ninja 只有國際服資料：其他網域不提供價格換算，也不取得或更新資料 -->
+      <p
+        v-if="!priceConversionSupported"
+        class="price-conversion-unsupported m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground"
       >
-        <span>{{ t('tools.economy.title') }}</span>
-        <ChevronDown
-          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-200"
-          :class="{ '-rotate-90': !sectionOpen.economy }"
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent class="flex flex-col gap-[var(--pxd-field-gap)] pt-[var(--pxd-space-sm)]">
-        <!-- poe.ninja 只有國際服資料：其他網域不提供價格換算，也不取得或更新資料 -->
-        <div
-          v-if="!priceConversionSupported"
-          class="price-conversion-unsupported text-[length:var(--pxd-font-caption)] text-muted-foreground"
-        >
-          {{
-            currentRealmLabel
-              ? t('tools.economy.unsupportedRealmWithLabel', { realm: currentRealmLabel })
-              : t('tools.economy.unsupportedRealm', { realm: '' })
-          }}
-        </div>
-        <template v-else>
-          <!-- 資料範圍 -->
-          <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-            <span class="text-[length:var(--pxd-font-secondary)] text-foreground">{{
-              t('tools.economy.dataScopeLabel')
-            }}</span>
-            <span class="font-medium text-[length:var(--pxd-font-caption)] text-foreground">
+        {{
+          currentRealmLabel
+            ? t('tools.economy.unsupportedRealmWithLabel', { realm: currentRealmLabel })
+            : t('tools.economy.unsupportedRealm', { realm: '' })
+        }}
+      </p>
+      <template v-else>
+        <dl data-tools-economy-status class="m-0 flex flex-col gap-[var(--pxd-space-sm)]">
+          <div class="flex min-w-0 items-baseline justify-between gap-[var(--pxd-space-md)]">
+            <dt class="shrink-0 text-[length:var(--pxd-font-secondary)] text-foreground">
+              {{ t('tools.economy.dataScopeLabel') }}
+            </dt>
+            <dd
+              class="m-0 min-w-0 truncate text-right text-[length:var(--pxd-font-caption)] font-medium text-foreground"
+            >
               {{ dataScopeDisplay }}
-            </span>
+            </dd>
           </div>
-
-          <!-- 快取狀態 -->
-          <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-            <span class="text-[length:var(--pxd-font-secondary)] text-foreground">{{
-              t('tools.economy.cacheStatusLabel')
-            }}</span>
-            <span class="font-medium text-[length:var(--pxd-font-caption)] text-foreground">
+          <div class="flex min-w-0 items-baseline justify-between gap-[var(--pxd-space-md)]">
+            <dt class="shrink-0 text-[length:var(--pxd-font-secondary)] text-foreground">
+              {{ t('tools.economy.cacheStatusLabel') }}
+            </dt>
+            <dd
+              class="m-0 min-w-0 text-right text-[length:var(--pxd-font-caption)] font-medium text-foreground"
+            >
               {{ cacheStatusDisplay }}
-            </span>
+            </dd>
           </div>
-
-          <!-- 最後更新 -->
-          <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
-            <span class="text-[length:var(--pxd-font-secondary)] text-foreground">{{
-              t('tools.economy.lastUpdatedLabel')
-            }}</span>
-            <span
-              class="text-[length:var(--pxd-font-caption)] text-foreground"
+          <div class="flex min-w-0 items-baseline justify-between gap-[var(--pxd-space-md)]">
+            <dt class="shrink-0 text-[length:var(--pxd-font-secondary)] text-foreground">
+              {{ t('tools.economy.lastUpdatedLabel') }}
+            </dt>
+            <dd
+              class="m-0 min-w-0 text-right text-[length:var(--pxd-font-caption)] text-foreground"
               :class="{ 'font-mono': Boolean(economyMetadata.updatedAt) }"
             >
               {{ lastUpdateDisplay }}
-            </span>
+            </dd>
           </div>
+        </dl>
 
-          <!-- 手動更新按鈕 -->
-          <div class="flex flex-col gap-[var(--pxd-space-xs)] mt-[var(--pxd-space-xs)]">
-            <Button
-              variant="outline"
-              size="default"
-              class="w-full"
-              :disabled="!currentLeague || isRefreshingEconomy"
-              @click="handleForceRefreshEconomy"
-            >
-              {{
-                isRefreshingEconomy
-                  ? t('tools.economy.updatingBtn')
-                  : t('tools.economy.updateNowBtn')
-              }}
-            </Button>
-            <div v-if="economyError" class="text-[length:var(--pxd-font-caption)] text-destructive">
-              {{ economyError }}
-            </div>
-          </div>
-
-          <!-- 低權重說明 -->
-          <div
-            class="flex flex-col gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+        <div class="flex flex-col gap-[var(--pxd-space-xs)]">
+          <Button
+            variant="outline"
+            size="default"
+            class="w-full"
+            :disabled="!currentLeague || isRefreshingEconomy"
+            @click="handleForceRefreshEconomy"
           >
-            <div>{{ economySourceDescription }}</div>
-            <div>{{ t('tools.economy.autoRefetchHint') }}</div>
-          </div>
-        </template>
-      </CollapsibleContent>
-    </Collapsible>
+            {{
+              isRefreshingEconomy ? t('tools.economy.updatingBtn') : t('tools.economy.updateNowBtn')
+            }}
+          </Button>
+          <p v-if="economyError" class="m-0 text-[length:var(--pxd-font-caption)] text-destructive">
+            {{ economyError }}
+          </p>
+        </div>
 
-    <Separator class="my-[var(--pxd-section-gap)]" />
+        <!-- 低權重說明 -->
+        <div
+          class="flex flex-col gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground"
+        >
+          <p class="m-0">{{ economySourceDescription }}</p>
+          <p class="m-0">{{ t('tools.economy.autoRefetchHint') }}</p>
+        </div>
+      </template>
+    </SettingsSection>
 
     <!-- 改版資訊 -->
-    <section class="flex flex-col gap-[var(--pxd-field-gap)]">
-      <h3
-        class="m-0 py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground"
-      >
-        {{ t('tools.releases.title') }}
-      </h3>
-      <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+    <SettingsSection
+      section-id="tools-releases"
+      :title="t('tools.releases.title')"
+      :icon="Newspaper"
+    >
+      <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
         {{ t('tools.releases.description') }}
       </p>
       <a
@@ -108,19 +92,13 @@
         :class="cn(buttonVariants({ variant: 'outline', size: 'default' }), 'w-full no-underline')"
       >
         {{ t('tools.releases.linkLabel') }}
+        <ExternalLink aria-hidden="true" />
       </a>
-    </section>
-
-    <Separator class="my-[var(--pxd-section-gap)]" />
+    </SettingsSection>
 
     <!-- 支持開發 -->
-    <section class="flex flex-col gap-[var(--pxd-field-gap)]">
-      <h3
-        class="m-0 py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] font-bold text-foreground"
-      >
-        {{ t('tools.support.title') }}
-      </h3>
-      <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+    <SettingsSection section-id="tools-support" :title="t('tools.support.title')" :icon="Heart">
+      <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
         {{ t('tools.support.description') }}
       </p>
       <a
@@ -131,19 +109,19 @@
         :class="cn(buttonVariants({ variant: 'outline', size: 'default' }), 'w-full no-underline')"
       >
         {{ t('tools.support.linkLabel') }}
+        <ExternalLink aria-hidden="true" />
       </a>
-    </section>
+    </SettingsSection>
   </div>
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { computed, defineComponent, onMounted, onUnmounted, ref } from 'vue';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { RELEASES_PAGE_URL, SUPPORT_PAGE_URL } from '@/utils/support-links';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown } from '@lucide/vue';
+import { Coins, ExternalLink, Heart, Newspaper } from '@lucide/vue';
+import SettingsSection from './settings/SettingsSection.vue';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
@@ -215,19 +193,12 @@ export default defineComponent({
   name: 'ToolsPane',
   components: {
     Button,
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-    Separator,
-    ChevronDown,
+    ExternalLink,
+    SettingsSection,
   },
   setup() {
     const version = getPoeVersion();
     const displayVersion = computed(() => (version === 'poe2' ? 'PoE 2' : 'PoE 1'));
-
-    const sectionOpen = reactive({
-      economy: true,
-    });
 
     const priceConversionSupported = isPriceConversionSupported();
     const currentRealmLabel = computed(() =>
@@ -409,7 +380,9 @@ export default defineComponent({
       buttonVariants,
       releasesPageUrl: RELEASES_PAGE_URL,
       supportPageUrl: SUPPORT_PAGE_URL,
-      sectionOpen,
+      Coins,
+      Newspaper,
+      Heart,
       displayVersion,
       priceConversionSupported,
       currentRealmLabel,

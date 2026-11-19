@@ -1,32 +1,60 @@
 <template>
   <div class="pxd-settings-pane flex flex-col" data-settings-pane>
-    <!-- 搜尋與區塊跳轉：固定在捲動區頂端 -->
+    <!-- 分頁與搜尋：固定在捲動區頂端；搜尋展開時取代分頁列，與書籤、釘選分頁相同 -->
     <div
-      ref="toolbarRef"
       data-settings-toolbar
-      class="sticky top-[calc(var(--pxd-pane-padding)*-1)] z-(--pxd-z-sticky) -mx-[var(--pxd-pane-padding)] -mt-[var(--pxd-pane-padding)] mb-[var(--pxd-space-lg)] flex flex-col gap-[var(--pxd-space-sm)] border-b border-border bg-background px-[var(--pxd-pane-padding)] pt-[var(--pxd-pane-padding)] pb-[var(--pxd-space-md)]"
+      class="sticky top-[calc(var(--pxd-pane-padding)*-1)] z-(--pxd-z-sticky) -mx-[var(--pxd-pane-padding)] -mt-[var(--pxd-pane-padding)] mb-[var(--pxd-space-lg)] flex items-center gap-[var(--pxd-space-sm)] border-b border-border bg-background px-[var(--pxd-pane-padding)] pt-[var(--pxd-pane-padding)] pb-[var(--pxd-space-md)]"
     >
-      <div class="relative flex items-center">
+      <div
+        v-if="!isSearchOpen"
+        role="tablist"
+        data-settings-tablist
+        :aria-label="t('settings.tabs.aria')"
+        class="pxd-settings-tabs flex min-w-0 flex-1 gap-[2px] overflow-x-auto rounded-md border border-border p-[2px]"
+        @keydown="handleTabKeydown"
+      >
+        <button
+          v-for="section in SETTINGS_SECTION_IDS"
+          :id="`pxd-settings-tab-${section}`"
+          :key="section"
+          type="button"
+          role="tab"
+          :data-settings-tab="section"
+          :aria-selected="activeSection === section"
+          :tabindex="activeSection === section ? 0 : -1"
+          class="h-[var(--control-height-sm,1.75rem)] min-w-0 flex-1 shrink-0 cursor-pointer whitespace-nowrap rounded-sm border-0 px-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          :class="
+            activeSection === section
+              ? 'bg-primary font-medium text-primary-foreground'
+              : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          "
+          @click="selectSection(section)"
+        >
+          {{ t(`settings.sectionShort.${section}`) }}
+        </button>
+      </div>
+      <div v-else class="relative flex min-w-0 flex-1 items-center">
         <Search
-          class="pointer-events-none absolute left-[var(--input-padding-x-default,10px)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
+          class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
           aria-hidden="true"
         />
         <Input
+          ref="searchInputRef"
           v-model="searchQuery"
           type="search"
-          size="default"
+          size="sm"
           data-settings-search
-          class="w-full pl-[calc(var(--input-padding-x-default,10px)*2+var(--control-icon-sm,14px))] pr-[var(--control-height-default)] [&::-webkit-search-cancel-button]:appearance-none"
+          class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))] [&::-webkit-search-cancel-button]:appearance-none"
           :placeholder="t('settings.search.placeholder')"
           :aria-label="t('settings.search.placeholder')"
-          @keydown.esc.stop="clearSearch"
+          @keydown.esc.stop.prevent="closeSearch"
         />
         <Button
           v-if="searchQuery"
           type="button"
           variant="ghost"
           size="icon-sm"
-          class="absolute right-[2px]"
+          class="absolute right-[var(--pxd-space-xs)]"
           data-settings-search-clear
           :title="t('settings.search.clear')"
           :aria-label="t('settings.search.clear')"
@@ -35,55 +63,45 @@
           <X />
         </Button>
       </div>
-      <nav
-        v-show="!isSearching"
-        class="pxd-settings-jump -mx-[2px] flex gap-[var(--pxd-space-xs)] overflow-x-auto px-[2px] py-[1px]"
-        :aria-label="t('settings.jump.aria')"
+      <Button
+        type="button"
+        :variant="isSearchOpen ? 'default' : 'secondary'"
+        size="icon-sm"
+        class="shrink-0"
+        data-settings-search-toggle
+        :aria-expanded="isSearchOpen"
+        :title="isSearchOpen ? t('settings.search.close') : t('settings.search.placeholder')"
+        :aria-label="isSearchOpen ? t('settings.search.close') : t('settings.search.placeholder')"
+        @click="toggleSearch"
       >
-        <button
-          v-for="section in SETTINGS_SECTION_IDS"
-          :key="section"
-          type="button"
-          :data-settings-jump="section"
-          :aria-current="activeSection === section ? 'true' : undefined"
-          class="shrink-0 cursor-pointer rounded-full border px-[var(--pxd-space-md)] py-[2px] text-[length:var(--pxd-font-caption)] leading-[1.6] whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          :class="
-            activeSection === section
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border bg-transparent text-muted-foreground hover:border-foreground/40 hover:text-foreground'
-          "
-          @click="scrollToSection(section)"
-        >
-          {{ t(`settings.sectionShort.${section}`) }}
-        </button>
-      </nav>
+        <Search />
+      </Button>
     </div>
 
-    <div ref="sectionsRef" class="flex flex-col gap-[calc(var(--pxd-section-gap)*1.6)]">
+    <div
+      ref="sectionsRef"
+      role="tabpanel"
+      :aria-labelledby="isSearching ? undefined : `pxd-settings-tab-${activeSection}`"
+      class="flex flex-col gap-[calc(var(--pxd-section-gap)*1.6)]"
+    >
       <!-- 0. 側邊欄模組 -->
       <SettingsSection
         section-id="modules"
         :title="t('settings.section.modules')"
         :icon="LayoutGrid"
-        :highlighted="highlightedSection === 'modules'"
+        :active="activeSection === 'modules'"
+        header-mode="search"
       >
-        <template #aside>
-          <span
-            data-settings-modules-count
-            class="shrink-0 text-[length:var(--pxd-font-caption)] tabular-nums text-muted-foreground"
-          >
-            {{
-              t('settings.modules.enabledCount', {
-                count: enabledModuleCount,
-                total: SIDEBAR_MODULES.length,
-              })
-            }}
-          </span>
-        </template>
         <SidebarModuleSettings
           :values="moduleValues"
+          :summary="
+            t('settings.modules.enabledCount', {
+              count: enabledModuleCount,
+              total: SIDEBAR_MODULES.length,
+            })
+          "
           @toggle="toggleModule"
-          @open-section="scrollToSection"
+          @open-section="openSection"
         />
       </SettingsSection>
 
@@ -92,7 +110,8 @@
         section-id="appearance"
         :title="t('settings.section.appearance')"
         :icon="Palette"
-        :highlighted="highlightedSection === 'appearance'"
+        :active="activeSection === 'appearance'"
+        header-mode="search"
       >
         <SettingsRow :label="t('settings.theme.label')">
           <Select v-model="theme" @update:model-value="savePreference('theme')">
@@ -109,7 +128,8 @@
 
         <SettingsRow
           :label="t('settings.displayLocale.label')"
-          :description="t('settings.displayLocale.tooltip')"
+          :description="t('settings.displayLocale.hint')"
+          :details="t('settings.displayLocale.tooltip')"
         >
           <Select
             v-model="displayLocale"
@@ -129,7 +149,8 @@
 
         <SettingsRow
           :label="t('settings.marketTranslation.label')"
-          :description="t('settings.marketTranslation.tooltip')"
+          :description="t('popup.module.marketTranslation.description')"
+          :details="t('settings.marketTranslation.tooltip')"
           control-id="enable-market-translation"
         >
           <template #default="{ describedBy }">
@@ -146,6 +167,7 @@
             nested
             :label="t('settings.marketTranslationBilingual.label')"
             :description="t('settings.marketTranslationBilingual.description')"
+            :details="t('settings.marketTranslationBilingual.tooltip')"
             :keywords="[t('settings.marketTranslation.bilingualGroup')]"
             control-id="enable-market-translation-bilingual"
           >
@@ -162,6 +184,7 @@
             nested
             :label="t('settings.marketTranslationResultBilingual.label')"
             :description="t('settings.marketTranslationResultBilingual.description')"
+            :details="t('settings.marketTranslationResultBilingual.tooltip')"
             :keywords="[t('settings.marketTranslation.bilingualGroup')]"
             control-id="enable-market-translation-result-bilingual"
           >
@@ -204,7 +227,8 @@
 
         <SettingsRow
           :label="t('settings.pureBackground.label')"
-          :description="t('settings.pureBackground.tooltip')"
+          :description="t('popup.module.enablePureBackground.description')"
+          :details="t('settings.pureBackground.tooltip')"
           control-id="enable-pure-background"
         >
           <template #default="{ describedBy }">
@@ -219,7 +243,8 @@
 
         <SettingsRow
           :label="t('settings.autoTitle.label')"
-          :description="t('settings.autoTitle.tooltip')"
+          :description="t('popup.module.enableAutoTitle.description')"
+          :details="t('settings.autoTitle.tooltip')"
           control-id="enable-auto-title"
         >
           <template #default="{ describedBy }">
@@ -238,7 +263,8 @@
         section-id="panel"
         :title="t('settings.section.panel')"
         :icon="PanelLeft"
-        :highlighted="highlightedSection === 'panel'"
+        :active="activeSection === 'panel'"
+        header-mode="search"
       >
         <SettingsRow :label="t('settings.sidebarPosition.label')">
           <ToggleGroup
@@ -328,7 +354,8 @@
         section-id="searchHotkeys"
         :title="t('settings.section.searchHotkeys')"
         :icon="Keyboard"
-        :highlighted="highlightedSection === 'searchHotkeys'"
+        :active="activeSection === 'searchHotkeys'"
+        header-mode="search"
       >
         <SettingsRow :label="t('settings.hotkeys.enable')" control-id="enable-hotkeys">
           <Switch
@@ -359,6 +386,7 @@
           :key="row.id"
           :label="t(row.labelKey)"
           :description="t(row.descriptionKey)"
+          :details="t(row.detailsKey)"
           :control-id="row.id"
         >
           <template #default="{ describedBy }">
@@ -377,13 +405,15 @@
         section-id="resultDisplay"
         :title="t('settings.section.resultDisplay')"
         :icon="ListChecks"
-        :highlighted="highlightedSection === 'resultDisplay'"
+        :active="activeSection === 'resultDisplay'"
+        header-mode="search"
       >
         <SettingsRow
           v-for="row in resultToggleRows"
           :key="row.id"
           :label="t(row.labelKey)"
           :description="t(row.descriptionKey)"
+          :details="t(row.detailsKey)"
           :control-id="row.id"
         >
           <template #default="{ describedBy }">
@@ -402,7 +432,8 @@
         section-id="bookmarks"
         :title="t('settings.section.bookmarks')"
         :icon="Bookmark"
-        :highlighted="highlightedSection === 'bookmarks'"
+        :active="activeSection === 'bookmarks'"
+        header-mode="search"
       >
         <SettingsRow :label="t('settings.bookmarkBtnPosition.label')">
           <ToggleGroup
@@ -501,10 +532,10 @@
 </template>
 
 <style scoped>
-.pxd-settings-jump {
+.pxd-settings-tabs {
   scrollbar-width: none;
 }
-.pxd-settings-jump::-webkit-scrollbar {
+.pxd-settings-tabs::-webkit-scrollbar {
   display: none;
 }
 </style>
@@ -513,6 +544,7 @@
 import {
   computed,
   defineComponent,
+  nextTick,
   onMounted,
   onUnmounted,
   reactive,
@@ -553,7 +585,7 @@ import {
   filterRowsForVersion,
   type SettingsToggleRow,
 } from './settings/settings-toggle-rows';
-import { useSettingsNavigation } from './settings/useSettingsNavigation';
+import { useSettingsTabs } from './settings/useSettingsTabs';
 import {
   SETTINGS_SECTION_IDS,
   SIDEBAR_MODULES,
@@ -954,34 +986,48 @@ export default defineComponent({
       savePreference(key);
     };
 
-    // 設定搜尋與區塊跳轉
+    // 設定搜尋：按鈕展開輸入框，搜尋時跨分頁列出符合的設定
     const searchQuery = ref('');
+    const isSearchOpen = ref(false);
+    const searchInputRef = ref<{ $el?: HTMLElement } | HTMLElement | null>(null);
     const { isSearching, hasResults: hasSearchResults } = provideSettingsSearch(searchQuery);
     const clearSearch = () => {
       searchQuery.value = '';
     };
-    const toolbarRef = ref<HTMLElement | null>(null);
-    const sectionsRef = ref<HTMLElement | null>(null);
-    const navigation = useSettingsNavigation(toolbarRef, sectionsRef);
-    const scrollToSection = (section: SettingsSectionId) => {
-      clearSearch();
-      navigation.scrollToSection(section, { highlight: true });
-    };
-    // 分頁剛從隱藏切回可見，等下一個影格版面就緒再捲動，否則瀏覽器會忽略這次捲動
-    const scrollToFocusSectionNextFrame = () => {
-      window.requestAnimationFrame(() => {
-        if (props.focusSection) scrollToSection(props.focusSection);
+    const focusSearchInput = () => {
+      void nextTick(() => {
+        const target = searchInputRef.value;
+        const el = target instanceof HTMLElement ? target : target?.$el;
+        (el instanceof HTMLInputElement ? el : el?.querySelector?.('input'))?.focus();
       });
     };
-    watch(() => props.focusToken, scrollToFocusSectionNextFrame, { flush: 'post' });
-    onMounted(() => {
-      if (props.focusSection && props.focusToken > 0) {
-        // 首次掛載時偏好還在載入，等版面穩定後再捲動
-        window.setTimeout(() => {
-          if (props.focusSection) scrollToSection(props.focusSection);
-        }, 60);
+    const closeSearch = () => {
+      clearSearch();
+      isSearchOpen.value = false;
+    };
+    const toggleSearch = () => {
+      if (isSearchOpen.value) {
+        closeSearch();
+        return;
       }
-    });
+      isSearchOpen.value = true;
+      focusSearchInput();
+    };
+
+    // 分頁：一次顯示一個區塊
+    const sectionsRef = ref<HTMLElement | null>(null);
+    const { activeSection, selectSection, handleTabKeydown } = useSettingsTabs(sectionsRef);
+    const openSection = (section: SettingsSectionId) => {
+      closeSearch();
+      selectSection(section);
+    };
+    watch(
+      () => props.focusToken,
+      () => {
+        if (props.focusSection) openSection(props.focusSection);
+      },
+      { immediate: true },
+    );
 
     const openPobSharePermissionPage = () => {
       void extensionMessaging.sendMessage('pobShare:openPermissionPage').catch((error: unknown) => {
@@ -1005,11 +1051,15 @@ export default defineComponent({
       isSearching,
       hasSearchResults,
       clearSearch,
-      toolbarRef,
       sectionsRef,
-      activeSection: navigation.activeSection,
-      highlightedSection: navigation.highlightedSection,
-      scrollToSection,
+      isSearchOpen,
+      searchInputRef,
+      closeSearch,
+      toggleSearch,
+      activeSection,
+      selectSection,
+      handleTabKeydown,
+      openSection,
       LayoutGrid,
       Palette,
       PanelLeft,

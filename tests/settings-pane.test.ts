@@ -945,12 +945,16 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(densityCheckbox?.getAttribute('data-state')).toBe('unchecked');
   });
 
-  it('provides section jump buttons that do not modify preferences', async () => {
+  it('shows one settings section per tab without modifying preferences', async () => {
     const { container } = await mountSettingsPane();
     const initialPrefs = { ...currentModule?.read() };
+    const visibleSections = () =>
+      Array.from(container.querySelectorAll<HTMLElement>('[data-settings-section]'))
+        .filter((el) => el.style.display !== 'none')
+        .map((el) => el.getAttribute('data-settings-section'));
 
-    const jumps = container.querySelectorAll<HTMLElement>('[data-settings-jump]');
-    expect(Array.from(jumps).map((j) => j.getAttribute('data-settings-jump'))).toEqual([
+    const tabs = container.querySelectorAll<HTMLElement>('[data-settings-tab]');
+    expect(Array.from(tabs).map((tab) => tab.getAttribute('data-settings-tab'))).toEqual([
       'modules',
       'appearance',
       'panel',
@@ -958,19 +962,73 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'resultDisplay',
       'bookmarks',
     ]);
-    expect(jumps[0].getAttribute('aria-current')).toBe('true');
+    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+    expect(visibleSections()).toEqual(['modules']);
 
-    for (const jump of Array.from(jumps)) {
-      jump.click();
+    for (const tab of Array.from(tabs)) {
+      tab.click();
       await flushAsync();
-      expect(jump.getAttribute('aria-current')).toBe('true');
+      const id = tab.getAttribute('data-settings-tab');
+      expect(tab.getAttribute('aria-selected')).toBe('true');
+      expect(tab.getAttribute('tabindex')).toBe('0');
+      expect(visibleSections()).toEqual([id]);
     }
 
     expect(currentModule?.read()).toEqual(initialPrefs);
   });
 
+  it('moves between settings tabs with arrow, Home and End keys', async () => {
+    const { container } = await mountSettingsPane();
+    const tablist = container.querySelector<HTMLElement>('[data-settings-tablist]')!;
+    const selected = () =>
+      container
+        .querySelector('[data-settings-tab][aria-selected="true"]')
+        ?.getAttribute('data-settings-tab');
+    const press = async (key: string) => {
+      tablist.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      await flushAsync();
+    };
+
+    await press('ArrowLeft');
+    expect(selected()).toBe('bookmarks');
+    await press('ArrowRight');
+    expect(selected()).toBe('modules');
+    await press('End');
+    expect(selected()).toBe('bookmarks');
+    await press('Home');
+    expect(selected()).toBe('modules');
+    await press('ArrowRight');
+    expect(selected()).toBe('appearance');
+  });
+
+  it('reveals full setting details only after the info button is pressed', async () => {
+    const { container } = await mountSettingsPane();
+    const row = container
+      .querySelector('#enable-search-tilde')!
+      .closest<HTMLElement>('[data-settings-row]')!;
+    const toggle = row.querySelector<HTMLButtonElement>('[data-settings-details-toggle]')!;
+    const details = row.querySelector<HTMLElement>('[data-settings-details]')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(details.style.display).toBe('none');
+
+    toggle.click();
+    await flushAsync();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(details.style.display).not.toBe('none');
+    expect(toggle.getAttribute('aria-controls')).toBe(details.id);
+  });
+
   it('filters settings rows by search query and shows an empty state when nothing matches', async () => {
     const { container } = await mountSettingsPane();
+    expect(container.querySelector('[data-settings-search]')).toBeNull();
+    const searchToggle = container.querySelector<HTMLButtonElement>(
+      '[data-settings-search-toggle]',
+    )!;
+    expect(searchToggle.getAttribute('aria-expanded')).toBe('false');
+    searchToggle.click();
+    await flushAsync();
+    expect(searchToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(container.querySelector('[data-settings-tablist]')).toBeNull();
     const input = container.querySelector<HTMLInputElement>('[data-settings-search]')!;
     expect(input).not.toBeNull();
 
@@ -1006,8 +1064,19 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     (container.querySelector('[data-settings-search-clear]') as HTMLButtonElement).click();
     await flushAsync();
-    expect(visibleSections().length).toBe(6);
+    // Clearing the query goes back to the active tab only
+    expect(visibleSections()).toEqual(['modules']);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
+
+    // Escape closes the search box and restores the tab list
+    input.value = '模糊';
+    input.dispatchEvent(new Event('input'));
+    await flushAsync();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flushAsync();
+    expect(container.querySelector('[data-settings-search]')).toBeNull();
+    expect(container.querySelector('[data-settings-tablist]')).not.toBeNull();
+    expect(visibleSections()).toEqual(['modules']);
   });
 
   it('toggles Sidebar Modules and keeps the enabled count in sync', async () => {
