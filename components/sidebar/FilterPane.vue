@@ -276,6 +276,7 @@
                             searchQuery,
                             expandedKeys.has(mod.id),
                             isModSelected(mod.id, cat.affinity),
+                            itemLevelRange.max,
                           ]"
                           class="mb-[2px]"
                           :mod="mod"
@@ -285,6 +286,7 @@
                           :is-selected="isModSelected(mod.id, cat.affinity)"
                           :is-tier-selected="isModTierSelected"
                           :get-tier-number="resolveModTierNumber"
+                          :item-level-max="itemLevelRange.max"
                           @toggle-expand="toggleExpand"
                           @toggle-select="toggleModSelection"
                           @toggle-tier-select="handleToggleTierSelection"
@@ -313,6 +315,7 @@
                             searchQuery,
                             expandedKeys.has(mod.id),
                             isModSelected(mod.id, cat.affinity),
+                            itemLevelRange.max,
                           ]"
                           class="mb-[2px]"
                           :mod="mod"
@@ -322,6 +325,7 @@
                           :is-selected="isModSelected(mod.id, cat.affinity)"
                           :is-tier-selected="isModTierSelected"
                           :get-tier-number="resolveModTierNumber"
+                          :item-level-max="itemLevelRange.max"
                           @toggle-expand="toggleExpand"
                           @toggle-select="toggleModSelection"
                           @toggle-tier-select="handleToggleTierSelection"
@@ -353,6 +357,7 @@
                           searchQuery,
                           expandedKeys.has(mod.id),
                           isModSelected(mod.id, cat.affinity),
+                          itemLevelRange.max,
                         ]"
                         class="mb-[2px]"
                         :mod="mod"
@@ -362,6 +367,7 @@
                         :is-selected="isModSelected(mod.id, cat.affinity)"
                         :is-tier-selected="isModTierSelected"
                         :get-tier-number="resolveModTierNumber"
+                        :item-level-max="itemLevelRange.max"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
                         @toggle-tier-select="handleToggleTierSelection"
@@ -392,6 +398,7 @@
                           searchQuery,
                           expandedKeys.has(mod.id),
                           isModSelected(mod.id, cat.affinity),
+                          itemLevelRange.max,
                         ]"
                         class="mb-[2px]"
                         :mod="mod"
@@ -401,6 +408,7 @@
                         :is-selected="isModSelected(mod.id, cat.affinity)"
                         :is-tier-selected="isModTierSelected"
                         :get-tier-number="resolveModTierNumber"
+                        :item-level-max="itemLevelRange.max"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
                         @toggle-tier-select="handleToggleTierSelection"
@@ -432,6 +440,7 @@
                           searchQuery,
                           expandedKeys.has(mod.id),
                           isModSelected(mod.id, cat.affinity),
+                          itemLevelRange.max,
                         ]"
                         class="mb-[2px]"
                         :mod="mod"
@@ -441,6 +450,7 @@
                         :is-selected="isModSelected(mod.id, cat.affinity)"
                         :is-tier-selected="isModTierSelected"
                         :get-tier-number="resolveModTierNumber"
+                        :item-level-max="itemLevelRange.max"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
                         @toggle-tier-select="handleToggleTierSelection"
@@ -1157,7 +1167,9 @@ export default defineComponent({
         });
       }
 
-      filtered = filterModGroupsByItemLevel(filtered, itemLevelRange.value);
+      filtered = filterModGroupsByItemLevel(filtered, itemLevelRange.value, {
+        includeHigherTiersAboveMax: true,
+      });
 
       const categoriesMap: Record<string, CategoryGroup> = {};
       // 每個大類已加入的詞綴 id；用 Set 查重，避免上千筆詞綴時逐一比對成 O(n²)
@@ -1808,6 +1820,7 @@ export default defineComponent({
       searchInputRef,
       itemLevelMin,
       itemLevelMax,
+      itemLevelRange,
       hasItemLevelFilter,
       isInvalidItemLevelRange,
       clearItemLevelFilter,

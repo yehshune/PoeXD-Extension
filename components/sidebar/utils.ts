@@ -119,6 +119,11 @@ export interface ItemLevelRange {
   max: number | null;
 }
 
+export interface FilterModGroupsOptions {
+  /** 保留超出上限 (max) 的更高階詞綴（供介面顯示為物等不足不可勾選） */
+  includeHigherTiersAboveMax?: boolean;
+}
+
 /** 判斷單一階級是否落在指定物品等級區間內 */
 export const isTierEligibleForItemLevel = (
   level: string | number | undefined,
@@ -134,24 +139,49 @@ export const isTierEligibleForItemLevel = (
   return true;
 };
 
+/** 判斷單一階級是否因需求物等高於篩選上限而鎖定 */
+export const isTierLockedByItemLevelMax = (
+  level: string | number | undefined,
+  maxItemLevel: number | null | undefined,
+): boolean => {
+  if (maxItemLevel === null || maxItemLevel === undefined) return false;
+  const tierLevel = parseTierLevel(level);
+  return tierLevel !== null && tierLevel > maxItemLevel;
+};
+
 /** 依物品等級區間篩選可出現的詞綴群組與階級；上下限皆未指定時原樣回傳 */
 export const filterModGroupsByItemLevel = (
   groups: ModGroup[],
   range: ItemLevelRange | number | null,
+  options?: FilterModGroupsOptions,
 ): ModGroup[] => {
   if (range === null) return groups;
   const normalized: ItemLevelRange = typeof range === 'number' ? { min: null, max: range } : range;
   if (normalized.min === null && normalized.max === null) return groups;
+  const keepHigherTiers = Boolean(options?.includeHigherTiersAboveMax && normalized.max !== null);
+
   return groups.reduce<ModGroup[]>((acc, mod) => {
     const eligibleTiers = mod.tiers.filter((tier) =>
       isTierEligibleForItemLevel(tier.level, normalized),
     );
-    if (eligibleTiers.length > 0) {
-      acc.push({
-        ...mod,
-        tiers: eligibleTiers,
-      });
+    if (eligibleTiers.length === 0) {
+      return acc;
     }
+
+    const tiers = keepHigherTiers
+      ? mod.tiers.filter(
+          (tier) =>
+            isTierEligibleForItemLevel(tier.level, normalized) ||
+            (isTierLockedByItemLevelMax(tier.level, normalized.max) &&
+              (normalized.min === null ||
+                (parseTierLevel(tier.level) ?? Infinity) >= normalized.min)),
+        )
+      : eligibleTiers;
+
+    acc.push({
+      ...mod,
+      tiers,
+    });
     return acc;
   }, []);
 };

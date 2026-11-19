@@ -104,9 +104,11 @@
         v-for="(tier, idx) in mod.tiers"
         :key="idx"
         class="tier-row group/tier-row relative flex items-center justify-between gap-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] transition-colors duration-100"
+        :data-item-level-locked="isTierItemLevelLocked(tier) ? 'true' : undefined"
+        :title="isTierItemLevelLocked(tier) ? getTierSelectTitle(tier) : undefined"
         :class="[
-          tierHasOfficialId(tier) ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
-          isTierSelected(idx, mod, affinity)
+          isTierSelectable(tier) ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
+          isTierRowSelected(tier, idx)
             ? 'bg-muted hover:bg-accent'
             : 'bg-transparent hover:bg-accent',
         ]"
@@ -114,19 +116,15 @@
       >
         <!-- Checkbox 勾選框 -->
         <Checkbox
-          :model-value="isTierSelected(idx, mod, affinity)"
-          :disabled="!tierHasOfficialId(tier)"
+          :model-value="isTierRowSelected(tier, idx)"
+          :disabled="!isTierSelectable(tier)"
           :aria-label="
-            tierHasOfficialId(tier) ? t('modItem.selectTier.aria') : t('modItem.select.unsupported')
+            isTierSelectable(tier) ? t('modItem.selectTier.aria') : getTierSelectTitle(tier)
           "
-          :title="
-            tierHasOfficialId(tier)
-              ? t('modItem.selectTier.title')
-              : t('modItem.select.unsupported')
-          "
+          :title="getTierSelectTitle(tier)"
           @click.stop
           @update:model-value="
-            tierHasOfficialId(tier)
+            isTierSelectable(tier)
               ? $emit('toggle-tier-select', mod, tier, idx, affinity)
               : undefined
           "
@@ -158,6 +156,7 @@
           >
         </div>
         <div
+          v-if="!isTierItemLevelLocked(tier)"
           class="tier-action-zone absolute right-0 top-0 bottom-0 flex items-center pl-20 pr-[var(--pxd-space-sm)] bg-gradient-to-l from-accent from-45% via-accent/70 to-transparent pointer-events-none opacity-0 group-hover/tier-row:opacity-100 group-hover/tier-row:pointer-events-auto focus-within/tier-row:opacity-100 focus-within/tier-row:pointer-events-auto transition-opacity z-(--pxd-z-sticky)"
         >
           <Button
@@ -186,6 +185,14 @@
             }}</span>
           </Button>
         </div>
+        <span
+          v-else
+          class="tier-locked-indicator flex items-center text-muted-foreground group-hover/tier-row:text-accent-foreground shrink-0"
+          data-tier-lock-icon="item-level"
+          :title="getTierSelectTitle(tier)"
+        >
+          <Lock class="size-[var(--control-icon-sm,12px)]" />
+        </span>
       </div>
     </div>
   </div>
@@ -197,9 +204,9 @@ import type { ModGroup, ModTier } from './types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from '@lucide/vue';
-import { Search } from '@lucide/vue';
+import { Lock, Search } from '@lucide/vue';
 import { t } from '@/utils/i18n';
-import { parseTierLevel } from './utils';
+import { isTierLockedByItemLevelMax, parseTierLevel } from './utils';
 
 export default defineComponent({
   name: 'ModItem',
@@ -207,6 +214,7 @@ export default defineComponent({
     Checkbox,
     Button,
     ArrowRight,
+    Lock,
     Search,
   },
   props: {
@@ -238,6 +246,10 @@ export default defineComponent({
     getTierNumber: {
       type: Function as PropType<(tier: ModTier, idx: number, mod: ModGroup) => number>,
       default: undefined,
+    },
+    itemLevelMax: {
+      type: Number as PropType<number | null>,
+      default: null,
     },
   },
   emits: ['toggle-select', 'toggle-expand', 'toggle-tier-select', 'add-filter', 'add-tier-filter'],
@@ -319,13 +331,38 @@ export default defineComponent({
       );
     };
 
+    const isTierItemLevelLocked = (tier: ModTier) => {
+      return isTierLockedByItemLevelMax(tier.level, props.itemLevelMax);
+    };
+
+    const isTierSelectable = (tier: ModTier) => {
+      return tierHasOfficialId(tier) && !isTierItemLevelLocked(tier);
+    };
+
+    const isTierRowSelected = (tier: ModTier, idx: number) => {
+      if (isTierItemLevelLocked(tier)) return false;
+      return props.isTierSelected(idx, props.mod, props.affinity);
+    };
+
+    const getTierSelectTitle = (tier: ModTier) => {
+      if (isTierItemLevelLocked(tier)) {
+        return t('modItem.selectTier.itemLevelTooHigh', {
+          level: tier.level,
+          max: props.itemLevelMax ?? '',
+        });
+      }
+      return tierHasOfficialId(tier)
+        ? t('modItem.selectTier.title')
+        : t('modItem.select.unsupported');
+    };
+
     const handleToggleSelect = () => {
       if (!hasOfficialId.value) return;
       emit('toggle-select', props.mod, props.affinity);
     };
 
     const handleToggleTierSelect = (tier: ModTier, idx: number) => {
-      if (!tierHasOfficialId(tier)) return;
+      if (!isTierSelectable(tier)) return;
       emit('toggle-tier-select', props.mod, tier, idx, props.affinity);
     };
 
@@ -344,6 +381,23 @@ export default defineComponent({
       if (levels.length === 0) return '';
       const minLvl = Math.min(...levels);
       const maxLvl = Math.max(...levels);
+      const lockedCount = tiers.filter((tier) => isTierItemLevelLocked(tier)).length;
+      if (lockedCount > 0) {
+        const available = tiers.length - lockedCount;
+        if (minLvl === maxLvl) {
+          return t('modItem.tierSummaryLockedSingle', {
+            available,
+            total: tiers.length,
+            level: minLvl,
+          });
+        }
+        return t('modItem.tierSummaryLockedRange', {
+          available,
+          total: tiers.length,
+          min: minLvl,
+          max: maxLvl,
+        });
+      }
       if (minLvl === maxLvl) {
         return t('modItem.tierSummarySingle', { count: tiers.length, level: minLvl });
       }
@@ -355,6 +409,10 @@ export default defineComponent({
       getHighlightSegments,
       hasOfficialId,
       tierHasOfficialId,
+      isTierItemLevelLocked,
+      isTierSelectable,
+      isTierRowSelected,
+      getTierSelectTitle,
       handleToggleSelect,
       handleToggleTierSelect,
       resolveTierNumber,

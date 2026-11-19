@@ -454,6 +454,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'modItem.select.unsupported': '此词缀无官方ID，不支持批量应用',
   'modItem.selectTier.title': '选取此阶级至待应用清单 (批量应用)',
   'modItem.selectTier.aria': '选取此阶级',
+  'modItem.selectTier.itemLevelTooHigh': '需要物品等级 Lv.{level}（超出当前筛选上限 {max}）',
   'modItem.actions.addNow': '立即加入',
   'modItem.actions.fillSearch': '填入搜索',
   'modItem.actions.addNowTitle': '立即加入此属性',
@@ -464,6 +465,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'modItem.tierHint': '勾选阶级 = 至少此阶（含以上）',
   'modItem.tierSummaryRange': '{count} 阶 · Lv.{min}–{max}',
   'modItem.tierSummarySingle': '{count} 阶 · Lv.{level}',
+  'modItem.tierSummaryLockedRange': '{available}/{total} 阶 · Lv.{min}–{max}',
+  'modItem.tierSummaryLockedSingle': '{available}/{total} 阶 · Lv.{level}',
 
   // In-page Controls & Tier Dropdown
   'injectedControls.selectAffix': '＋ 选择词缀',

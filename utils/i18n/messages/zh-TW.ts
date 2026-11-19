@@ -452,6 +452,7 @@ export const ZH_TW_MESSAGES = {
   'modItem.select.unsupported': '此詞綴無官方ID，不支援批次套用',
   'modItem.selectTier.title': '選取此階級至待套用清單 (批次套用)',
   'modItem.selectTier.aria': '選取此階級',
+  'modItem.selectTier.itemLevelTooHigh': '需要物品等級 Lv.{level}（超出目前篩選上限 {max}）',
   'modItem.actions.addNow': '立即加入',
   'modItem.actions.fillSearch': '填入搜尋',
   'modItem.actions.addNowTitle': '立即加入此屬性',
@@ -462,6 +463,8 @@ export const ZH_TW_MESSAGES = {
   'modItem.tierHint': '勾選階級 = 至少此階（含以上）',
   'modItem.tierSummaryRange': '{count} 階 · Lv.{min}–{max}',
   'modItem.tierSummarySingle': '{count} 階 · Lv.{level}',
+  'modItem.tierSummaryLockedRange': '{available}/{total} 階 · Lv.{min}–{max}',
+  'modItem.tierSummaryLockedSingle': '{available}/{total} 階 · Lv.{level}',
 
   // In-page Controls & Tier Dropdown
   'injectedControls.selectAffix': '＋ 選擇詞綴',

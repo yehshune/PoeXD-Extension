@@ -492,6 +492,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'modItem.select.unsupported': 'No official trade ID, batch apply unsupported',
   'modItem.selectTier.title': 'Select this tier for batch apply',
   'modItem.selectTier.aria': 'Select this tier',
+  'modItem.selectTier.itemLevelTooHigh': 'Requires item level {level} (above max filter {max})',
   'modItem.actions.addNow': 'Add Now',
   'modItem.actions.fillSearch': 'Search Page',
   'modItem.actions.addNowTitle': 'Add this stat immediately',
@@ -502,6 +503,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'modItem.tierHint': 'Checking a tier selects that tier or higher',
   'modItem.tierSummaryRange': '{count}T · Lv.{min}–{max}',
   'modItem.tierSummarySingle': '{count}T · Lv.{level}',
+  'modItem.tierSummaryLockedRange': '{available}/{total}T · Lv.{min}–{max}',
+  'modItem.tierSummaryLockedSingle': '{available}/{total}T · Lv.{level}',
 
   // In-page Controls & Tier Dropdown
   'injectedControls.selectAffix': '+ Select Affix',

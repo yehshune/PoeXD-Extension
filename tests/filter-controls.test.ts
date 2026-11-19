@@ -636,17 +636,34 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
     expect(scrollArea.textContent).not.toContain('混沌抗性');
     expect(ilvlWrapper.querySelector('button')).toBeTruthy();
 
-    // Expand 最大生命 -> only Lv.1 and Lv.44 tiers are displayed, Lv.73 is hidden
+    // Summary shows 2/3 tiers available up to Lv.73
+    expect(appRoot.querySelector('.mod-tier-summary')?.textContent?.trim()).toBe(
+      '2/3 階 · Lv.1–73',
+    );
+
+    // Expand 最大生命 -> Lv.1 and Lv.44 are selectable; higher tier Lv.73 remains visible as locked
     const expandBtn = appRoot.querySelector('[data-mod-action="toggle-expand"]') as HTMLElement;
     expandBtn.click();
     await nextTick();
 
     let tierRows = appRoot.querySelectorAll('.tier-row');
-    expect(tierRows.length).toBe(2);
+    expect(tierRows.length).toBe(3);
     expect(tierRows[0].textContent).toContain('Lv.1');
     expect(tierRows[1].textContent).toContain('Lv.44');
+    expect(tierRows[2].textContent).toContain('Lv.73');
+    expect(tierRows[2].getAttribute('data-item-level-locked')).toBe('true');
+    const lockedTierCheckbox = tierRows[2].querySelector(
+      '[data-slot="checkbox"]',
+    ) as HTMLButtonElement;
+    expect(lockedTierCheckbox.disabled).toBe(true);
+    expect(tierRows[2].querySelector('[data-tier-lock-icon="item-level"]')).toBeTruthy();
 
-    // Enter min 40 + max 60 -> only Lv.44 remains, and canonical tier index (1 -> T2+) is preserved
+    // Clicking locked tier Lv.73 does not select it
+    (tierRows[2] as HTMLElement).click();
+    await nextTick();
+    expect(appRoot.querySelector('.selected-mod-tier')).toBeNull();
+
+    // Enter min 40 + max 60 -> Lv.1 (< min) is hidden; Lv.44 (enabled) and Lv.73 (locked) remain
     minInput.value = '40';
     minInput.dispatchEvent(new Event('input'));
     maxInput.value = '60';
@@ -654,14 +671,31 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
     await nextTick();
 
     tierRows = appRoot.querySelectorAll('.tier-row');
-    expect(tierRows.length).toBe(1);
+    expect(tierRows.length).toBe(2);
     expect(tierRows[0].textContent).toContain('Lv.44');
+    expect(tierRows[0].getAttribute('data-item-level-locked')).toBeNull();
+    expect(tierRows[1].textContent).toContain('Lv.73');
+    expect(tierRows[1].getAttribute('data-item-level-locked')).toBe('true');
 
-    // Clicking the filtered tier Lv.44 selects canonical index 1 (T2+ out of 3 tiers)
+    // Clicking the eligible tier Lv.44 selects canonical index 1 (T2+ out of 3 tiers), while locked Lv.73 stays unchecked
     const tierCheckbox = tierRows[0].querySelector('[data-slot="checkbox"]') as HTMLButtonElement;
     tierCheckbox.click();
     await nextTick();
     expect(tierCheckbox.getAttribute('data-state')).toBe('checked');
+    expect(
+      (tierRows[1].querySelector('[data-slot="checkbox"]') as HTMLButtonElement).getAttribute(
+        'data-state',
+      ),
+    ).toBe('unchecked');
+    expect(appRoot.querySelector('.selected-mod-tier')?.textContent?.trim()).toBe('T2+');
+    expect(appRoot.querySelector('.selected-mod-vals')?.textContent).toContain('≥40');
+
+    // Apply T1 respects max ilvl cap (picks T2+ Lv.44, not locked T1 Lv.73)
+    const applyT1Btn = appRoot.querySelector(
+      '[data-filter-action="apply-t1"]',
+    ) as HTMLButtonElement;
+    applyT1Btn.click();
+    await nextTick();
     expect(appRoot.querySelector('.selected-mod-tier')?.textContent?.trim()).toBe('T2+');
     expect(appRoot.querySelector('.selected-mod-vals')?.textContent).toContain('≥40');
 
@@ -681,9 +715,6 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
     ) as HTMLButtonElement;
     selectAllBtn.click();
     await nextTick();
-    const applyT1Btn = appRoot.querySelector(
-      '[data-filter-action="apply-t1"]',
-    ) as HTMLButtonElement;
     applyT1Btn.click();
     await nextTick();
 
@@ -707,7 +738,9 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
     expect(ilvlWrapper.querySelector('button')).toBeNull();
     expect(scrollArea.textContent).toContain('最大生命');
     expect(scrollArea.textContent).toContain('混沌抗性');
-    expect(appRoot.querySelectorAll('.tier-row').length).toBe(3);
+    const restoredTierRows = appRoot.querySelectorAll('.tier-row');
+    expect(restoredTierRows.length).toBe(3);
+    expect(restoredTierRows[2].getAttribute('data-item-level-locked')).toBeNull();
   });
 
   it('ignores negative item level input without hiding affixes', async () => {

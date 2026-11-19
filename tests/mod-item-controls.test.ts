@@ -610,6 +610,46 @@ describe('ModItem Controls (Unit Runtime Contracts)', () => {
     expect(modActionBtn.className).toContain('text-accent-foreground');
     expect(tierActionBtn.className).toContain('text-accent-foreground');
   });
+
+  it('locks higher tiers above itemLevelMax with disabled checkbox, lock indicator, and available/total summary', async () => {
+    const { host, emitted } = await mountModItem({
+      isExpanded: true,
+      itemLevelMax: 1,
+      isTierSelected: (idx: number) => idx >= 0,
+    });
+
+    const summary = host.querySelector('.mod-tier-summary');
+    expect(summary?.textContent?.trim()).toBe('1/2 階 · Lv.1–2');
+
+    const tierRows = host.querySelectorAll('.tier-row');
+    expect(tierRows.length).toBe(2);
+
+    // Tier Lv.1 (index 0) is within itemLevelMax=1 -> enabled and checked
+    const enabledRow = tierRows[0] as HTMLElement;
+    const enabledCheckbox = enabledRow.querySelector('[data-slot="checkbox"]') as HTMLButtonElement;
+    expect(enabledRow.getAttribute('data-item-level-locked')).toBeNull();
+    expect(enabledCheckbox.disabled || enabledCheckbox.getAttribute('disabled') !== null).toBe(
+      false,
+    );
+    expect(enabledCheckbox.getAttribute('data-state')).toBe('checked');
+    expect(enabledRow.querySelector('.tier-action-zone button')).toBeTruthy();
+
+    // Tier Lv.2 (index 1) exceeds itemLevelMax=1 -> locked, disabled, unchecked, no add button, lock icon shown
+    const lockedRow = tierRows[1] as HTMLElement;
+    const lockedCheckbox = lockedRow.querySelector('[data-slot="checkbox"]') as HTMLButtonElement;
+    expect(lockedRow.getAttribute('data-item-level-locked')).toBe('true');
+    expect(lockedRow.getAttribute('title')).toBe('需要物品等級 Lv.2（超出目前篩選上限 1）');
+    expect(lockedCheckbox.disabled || lockedCheckbox.getAttribute('disabled') !== null).toBe(true);
+    expect(lockedCheckbox.getAttribute('data-state')).toBe('unchecked');
+    expect(lockedRow.querySelector('.tier-action-zone')).toBeNull();
+    expect(lockedRow.querySelector('[data-tier-lock-icon="item-level"]')).toBeTruthy();
+
+    // Clicking locked row or checkbox must not emit toggle-tier-select
+    lockedRow.click();
+    lockedCheckbox.click();
+    await nextTick();
+    expect(emitted['toggle-tier-select'].length).toBe(0);
+  });
 });
 
 describe('FilterPane + ModItem Integration Contracts', () => {
