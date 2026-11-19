@@ -1,5 +1,5 @@
 import { createVersionedStorageKeys, readStorageValue } from './storage-contracts';
-import { detectTradeContextFromUrl, type PoeVersion } from './trade-context';
+import { detectTradeContextFromUrl, type PoeVersion, type TradeUrlContext } from './trade-context';
 
 export const DEFAULT_ACTION_POPUP = 'popup.html';
 
@@ -80,11 +80,24 @@ function pickTabUrl(...candidates: Array<string | undefined>): string | undefine
   return undefined;
 }
 
+function isSidebarTradeUrl(rawUrl?: string): TradeUrlContext {
+  if (!rawUrl) return { isTradePage: false, version: 'poe1' };
+  try {
+    const firstSegment = new URL(rawUrl).pathname.split('/').filter(Boolean)[0];
+    if (firstSegment !== 'trade' && firstSegment !== 'trade2') {
+      return { isTradePage: false, version: 'poe1' };
+    }
+  } catch {
+    return { isTradePage: false, version: 'poe1' };
+  }
+  return detectTradeContextFromUrl(rawUrl);
+}
+
 /**
  * 市集分頁移除 popup（改由 action.onClicked 直接切換側邊欄），非市集分頁保留快速入口 popup。
  */
 export function resolveActionPopupForUrl(url?: string): string {
-  return detectTradeContextFromUrl(url).isTradePage ? '' : DEFAULT_ACTION_POPUP;
+  return isSidebarTradeUrl(url).isTradePage ? '' : DEFAULT_ACTION_POPUP;
 }
 
 export async function syncTabActionPopup(
@@ -163,7 +176,7 @@ export function registerActionSidebarToggle(options: ActionSidebarToggleOptions 
 
   const handleActionClicked = (tab: ActionTabLike) => {
     const url = pickTabUrl(tab?.url, tab?.pendingUrl);
-    const context = detectTradeContextFromUrl(url);
+    const context = isSidebarTradeUrl(url);
     if (!context.isTradePage) {
       void syncTabActionPopup(tab?.id, url, action);
       return;

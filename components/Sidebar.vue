@@ -1214,16 +1214,33 @@ export default defineComponent({
       });
     };
 
+    const readCollapsedTabMetrics = (el: HTMLElement) => {
+      const rect = el.getBoundingClientRect();
+      // 尚未完成排版（height <= 0）時退回目前儲存的位置與預設高度
+      return {
+        top: rect.height > 0 ? rect.top : collapsedTabTop.value,
+        height: rect.height > 0 ? rect.height : 32,
+      };
+    };
+
+    watch(isCollapsed, (collapsed) => {
+      if (collapsed) return;
+      collapsedTabDrag = null;
+      if (isCollapsedTabDragging.value) {
+        isCollapsedTabDragging.value = false;
+        previewCollapsedTabTop(preferencesModule?.read().collapsedTabTop ?? collapsedTabTop.value);
+      }
+    });
+
     const handleCollapsedTabPointerDown = (e: PointerEvent) => {
       if (e.button !== 0 || !e.isPrimary) return;
-      const target = e.currentTarget as HTMLElement;
-      const rect = target.getBoundingClientRect();
+      const { top, height } = readCollapsedTabMetrics(e.currentTarget as HTMLElement);
       // 從實際顯示位置起算：儲存值可能因視窗變小而被 CSS clamp 過
       collapsedTabDrag = {
         pointerId: e.pointerId,
         startY: e.clientY,
-        startTop: rect.height > 0 ? rect.top : collapsedTabTop.value,
-        tabHeight: rect.height > 0 ? rect.height : 32,
+        startTop: top,
+        tabHeight: height,
       };
       suppressCollapsedTabClick = false;
     };
@@ -1279,9 +1296,9 @@ export default defineComponent({
     const handleCollapsedTabKeydown = (e: KeyboardEvent) => {
       if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
       e.preventDefault();
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const currentTop = rect.height > 0 ? rect.top : collapsedTabTop.value;
-      const tabHeight = rect.height > 0 ? rect.height : 32;
+      const { top: currentTop, height: tabHeight } = readCollapsedTabMetrics(
+        e.currentTarget as HTMLElement,
+      );
       const step = e.key === 'ArrowUp' ? -COLLAPSED_TAB_KEYBOARD_STEP : COLLAPSED_TAB_KEYBOARD_STEP;
       commitCollapsedTabTop(clampCollapsedTabTop(currentTop + step, window.innerHeight, tabHeight));
     };

@@ -181,4 +181,25 @@ describe('Sidebar collapsed tab drag', () => {
     await settle();
     expect(updatePreferencesSpy).toHaveBeenCalledWith({ collapsedTabTop: 120 });
   });
+
+  it('resets drag state and uncommitted preview if expanded externally mid-drag', async () => {
+    await mountSidebar();
+    stubRect(100);
+    tab().dispatchEvent(pointer('pointerdown', 110));
+    tab().dispatchEvent(pointer('pointermove', 190));
+    await nextTick();
+    expect(tab().getAttribute('data-dragging')).toBe('true');
+
+    // 模擬外部（例如擴充圖示或跨分頁同步）展開側邊欄
+    await (globalThis as any).chrome.storage.local.set({ isCollapsed_poe2: false });
+    await settle();
+    await (globalThis as any).chrome.storage.local.set({ isCollapsed_poe2: true });
+    await settle();
+
+    expect(tab().getAttribute('data-dragging')).toBeNull();
+    expect(wrapper().style.getPropertyValue('--pxd-collapsed-tab-top')).toContain('100px');
+    expect(updatePreferencesSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ collapsedTabTop: expect.anything() }),
+    );
+  });
 });

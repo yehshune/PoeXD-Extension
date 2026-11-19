@@ -119,6 +119,12 @@ describe('Action Sidebar Toggle', () => {
     expect(resolveActionPopupForUrl('https://www.pathofexile.com/forum')).toBe(
       DEFAULT_ACTION_POPUP,
     );
+    expect(resolveActionPopupForUrl('https://www.pathofexile.com/api/trade2/search/poe2')).toBe(
+      DEFAULT_ACTION_POPUP,
+    );
+    expect(resolveActionPopupForUrl('https://www.pathofexile.com/trademerchant')).toBe(
+      DEFAULT_ACTION_POPUP,
+    );
     expect(resolveActionPopupForUrl('https://google.com')).toBe(DEFAULT_ACTION_POPUP);
   });
 
