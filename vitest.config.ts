@@ -17,6 +17,7 @@ export default defineConfig({
         'components/sidebar/mapping-registry.ts',
         'components/sidebar/utils.ts',
         'utils/storage-contracts.ts',
+        'utils/result-board/**',
       ],
       thresholds: {
         lines: 80,
