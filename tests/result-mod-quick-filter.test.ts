@@ -6,6 +6,7 @@ import {
   RESULT_MOD_QUICK_FILTER_HOST_CLASS,
   ResultModQuickFilter,
 } from '@/entrypoints/content/logic/result-mod-quick-filter';
+import { RESULT_MOD_ENGLISH_SUBTITLE_CLASS } from '@/utils/market-result-translator';
 import type { CriteriaOverlayPageChannel } from '@/entrypoints/content/logic/criteria-overlay-session';
 import { initPoeEventNonce, listenPoeEvent, type PoeToastDetail } from '@/utils/event-contracts';
 import { setActiveDisplayLocalePreference } from '@/utils/i18n';
@@ -103,6 +104,9 @@ describe('ResultModQuickFilter', () => {
     expect(styleEl?.textContent).toContain('pointer-events: none;');
     expect(styleEl?.textContent).toContain(':hover > .lc.l');
     expect(styleEl?.textContent).toContain(':hover > .lc.r');
+    expect(styleEl?.textContent).toContain(
+      `:has(> .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}) > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS}`,
+    );
   });
 
   it('adds stat to AND or NOT via channel commit without bubbling click to official DOM', async () => {

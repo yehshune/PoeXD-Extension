@@ -530,4 +530,42 @@ describe('createResultTranslator：結果列詞綴中英並列副標', () => {
     expect(shadow.querySelectorAll(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)).toHaveLength(0);
     stop();
   });
+
+  it('英文副標會插在官方 .lc.l / .lc.r 前後綴標籤之後、.poexd-result-mod-actions 之前，避免絕對定位 P/S 錯位', async () => {
+    document.body.innerHTML = `
+      <div class="item-mod item-mod--explicit poexd-result-mod-host">
+        <span data-field="stat.explicit.stat_3639275092" class="s lc"><span>30% reduced Attribute Requirements</span></span>
+        <span class="lc l su">S2<span class="d">&nbsp;[-30]</span></span>
+        <span class="lc r su"><span class="d">of the Worthy</span></span>
+        <span class="poexd-result-mod-actions"><button type="button" class="poexd-result-mod-btn">+和</button></span>
+      </div>`;
+
+    const translator = createResultTranslator(DATA, { resultBilingual: true });
+    const stop = translator.observe(document.body);
+    const modLine = document.querySelector('.item-mod')!;
+
+    expect(Array.from(modLine.children).map((el) => el.className)).toEqual([
+      's lc',
+      'lc l su',
+      'lc r su',
+      RESULT_MOD_ENGLISH_SUBTITLE_CLASS,
+      'poexd-result-mod-actions',
+    ]);
+
+    // 官網重繪後再補插新的 .lc.l / .lc.r 時，副標仍維持在它們之後
+    const lateMarker = document.createElement('span');
+    lateMarker.className = 'lc r su extra';
+    modLine.querySelector(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)!.after(lateMarker);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(Array.from(modLine.children).map((el) => el.className)).toEqual([
+      's lc',
+      'lc l su',
+      'lc r su',
+      'lc r su extra',
+      RESULT_MOD_ENGLISH_SUBTITLE_CLASS,
+      'poexd-result-mod-actions',
+    ]);
+    stop();
+  });
 });

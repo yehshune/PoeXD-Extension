@@ -69,6 +69,7 @@ const OWN_NODE_SELECTOR = `[class*="poexd"], [${PAGE_GUIDE_MOCK_ATTR}]`;
 /** 我們自己插入的節點（價格比較等）不翻譯 */
 const SKIP_SELECTOR = `${STAT_SELECTOR}, ${OWN_NODE_SELECTOR}`;
 const MOD_SUBTITLE_TARGET_SELECTOR = `${STAT_SELECTOR}, ${MOD_SELECTOR}`;
+const MOD_MARKER_SELECTOR = '.lc.l, .lc.r';
 export const RESULT_MOD_ENGLISH_SUBTITLE_CLASS = 'poexd-result-mod-en';
 const RESULT_MOD_ENGLISH_STYLE_ID = 'poexd-result-mod-en-style';
 const RESULT_MOD_ENGLISH_STYLE_CSS = `
@@ -176,6 +177,17 @@ export interface ResultTranslator {
   observe(root: Node): () => void;
   /** 即時切換結果列詞綴的英文原文副標 */
   setResultBilingual(enabled: boolean): void;
+}
+
+/** 官方 .lc.l / .lc.r 採 position: absolute 且未設 top，須把 block 副標插在它們之後才不會把 P/S 往下擠 */
+function findSubtitleAnchor(element: Element, subtitle: Element): Element {
+  let anchor = element;
+  for (let next = element.nextElementSibling; next; next = next.nextElementSibling) {
+    if (next === subtitle) continue;
+    if (!next.matches(MOD_MARKER_SELECTOR)) break;
+    anchor = next;
+  }
+  return anchor;
 }
 
 function ensureSubtitleStyle(element: Element): void {
@@ -360,7 +372,8 @@ export function createResultTranslator(
       subtitles.set(element, subtitle);
     }
     if (subtitle.textContent !== english) subtitle.textContent = english;
-    if (subtitle.previousElementSibling !== element) element.after(subtitle);
+    const anchor = findSubtitleAnchor(element, subtitle);
+    if (subtitle.previousElementSibling !== anchor) anchor.after(subtitle);
   };
 
   const translateStat = (element: Element) => {
@@ -542,7 +555,12 @@ export function createResultTranslator(
         } else {
           record.addedNodes.forEach((node) => {
             if (node instanceof Element) {
-              if (!node.matches(OWN_NODE_SELECTOR)) pending.add(node);
+              if (!node.matches(OWN_NODE_SELECTOR)) {
+                pending.add(node);
+                if (node.matches(MOD_MARKER_SELECTOR) && record.target instanceof Element) {
+                  pending.add(record.target);
+                }
+              }
             } else if (node.parentElement && !node.parentElement.closest(OWN_NODE_SELECTOR)) {
               pending.add(node.parentElement.closest(TARGET_SELECTOR) ?? node.parentElement);
             }

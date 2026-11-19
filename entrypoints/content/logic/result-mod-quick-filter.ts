@@ -11,6 +11,7 @@ import {
   type CriteriaOverlayPageChannel,
 } from './criteria-overlay-session';
 import { isTradeSearchFormUrl } from './form-url-sync';
+import { RESULT_MOD_ENGLISH_SUBTITLE_CLASS } from '@/utils/market-result-translator';
 import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-mod-quick-filter-style';
@@ -63,6 +64,19 @@ function buildStyleContent(): string {
     .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:focus-within > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
       opacity: 1 !important;
       pointer-events: auto !important;
+    }
+
+    .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:has(> .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}) > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
+      top: 0 !important;
+      transform: none !important;
+    }
+
+    #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:has(> .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}) > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
+      top: -1px !important;
+    }
+
+    #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:has(> .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}) > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
+      top: 1.5px !important;
     }
 
     #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .lc.l,
