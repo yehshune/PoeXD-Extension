@@ -81,14 +81,6 @@ export const ZH_TW_MESSAGES = {
   'settings.hotkeys.clearTitle': '清除快捷鍵',
   'settings.hotkeys.clearNamedAria': '清除{label}',
 
-  'settings.searchTilde.label': '搜尋道具欄模糊搜尋',
-  'settings.searchTilde.infoAria': '搜尋道具欄模糊搜尋說明',
-  'settings.searchTilde.tooltip': '在道具名稱搜尋框中支援模糊比對（自動加入 ~ 容錯符號）',
-
-  'settings.filterTilde.label': '篩選欄模糊搜尋',
-  'settings.filterTilde.infoAria': '篩選欄模糊搜尋說明',
-  'settings.filterTilde.tooltip': '在詞綴與條件篩選輸入框中支援模糊比對（自動加入 ~ 容錯符號）',
-
   // Settings Pane - Trade Features
   'settings.tierHelper.label': 'T 階快捷按鈕',
   'settings.tierHelper.infoAria': 'T 階快捷按鈕說明',
@@ -131,7 +123,7 @@ export const ZH_TW_MESSAGES = {
   'settings.marketTranslation.infoAria': '市集漢化說明',
   'settings.marketTranslation.tooltip':
     '把國際服英文市集的介面、篩選器與搜尋結果顯示成中文，依「語言」設定採用台服（繁體）或國服（簡體）的官方用語。只改變顯示、不影響搜尋內容；切換後重新整理頁面生效',
-  'settings.marketTranslation.bilingualGroup': '英文原文顯示',
+  'settings.marketTranslation.bilingualGroup': '中英並列',
   'settings.marketTranslationBilingual.label': '篩選下拉選單',
   'settings.marketTranslationBilingual.description': '顯示「中文 (English)」，打英文也搜得到',
   'settings.marketTranslationBilingual.infoAria': '篩選下拉選單英文原文說明',
@@ -182,6 +174,29 @@ export const ZH_TW_MESSAGES = {
   'settings.modules.item.live-search.description':
     '導覽列上開啟線上搜尋主控台的按鈕；已開啟的主控台不受影響。',
   'settings.marketTranslation.keywords': '翻譯 中文化',
+  'settings.fuzzySearch.label': '模糊搜尋',
+  'settings.fuzzySearch.tooltip':
+    '在道具名稱搜尋框與詞綴篩選輸入框自動加入 ~ 容錯符號，打錯字或只打部分文字也找得到',
+  'settings.fuzzySearch.keywords': '容錯 道具名稱 詞綴篩選',
+  'settings.section.backup': '備份與重設',
+  'settings.backup.export.label': '匯出設定',
+  'settings.backup.export.button': '匯出',
+  'settings.backup.export.details':
+    '下載一個包含所有設定的 JSON 檔，換電腦或重新安裝後可以匯入。不包含書籤與搜尋歷史，書籤請從書籤分頁的 ⋮ 選單匯出。',
+  'settings.backup.import.label': '匯入設定',
+  'settings.backup.import.button': '匯入',
+  'settings.backup.import.details': '選擇先前匯出的設定檔，用它覆蓋目前的設定。',
+  'settings.backup.reset.label': '恢復預設值',
+  'settings.backup.reset.button': '恢復預設',
+  'settings.backup.reset.details': '把所有設定改回剛安裝時的狀態，書籤與搜尋歷史不受影響。',
+  'settings.backup.reset.confirm': '確定要把所有設定恢復成預設值嗎？書籤與搜尋歷史不受影響。',
+  'settings.backup.toast.exported': '已匯出設定檔',
+  'settings.backup.toast.imported': '已匯入 {count} 項設定',
+  'settings.backup.toast.importedPartial': '已匯入 {count} 項設定，{skipped} 項無法套用',
+  'settings.backup.toast.reset': '已恢復預設值',
+  'settings.backup.error.invalidJson': '無法讀取這個檔案，請確認是 JSON 格式',
+  'settings.backup.error.wrongFormat': '這不是 PoeXD 的設定檔',
+  'settings.backup.error.failed': '操作失敗：{message}',
   'settings.details.toggleAria': '{label}的詳細說明',
   'settings.search.close': '關閉搜尋',
   'settings.search.placeholder': '搜尋設定',
@@ -974,7 +989,7 @@ export const ZH_TW_MESSAGES = {
   'bookmarkImport.error.fileReadFailed': '無法讀取檔案，請確認檔案未損毀後重試',
   'history.enableLabel': '記錄搜尋歷史',
   'history.clearAllTitle': '清除所有搜尋歷史',
-  'history.clearAllBtn': '清除全部',
+  'history.menuTooltip': '歷史紀錄操作',
   'history.stoppedNotice': '已停止記錄新搜尋，既有歷史仍可查看與清理',
   'history.invalidTooltip': '官方已停用舊式搜尋短碼，此紀錄會開啟空白搜尋。',
   'history.invalidBadge': '已失效',

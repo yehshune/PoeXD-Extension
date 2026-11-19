@@ -36,6 +36,7 @@ export const SETTINGS_SECTION_IDS = [
   'searchHotkeys',
   'resultDisplay',
   'bookmarks',
+  'backup',
 ] as const;
 export type SettingsSectionId = (typeof SETTINGS_SECTION_IDS)[number];
 

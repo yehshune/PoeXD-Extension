@@ -83,16 +83,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.hotkeys.clearTitle': 'Clear hotkey',
   'settings.hotkeys.clearNamedAria': 'Clear {label}',
 
-  'settings.searchTilde.label': 'Fuzzy search in item search box',
-  'settings.searchTilde.infoAria': 'Fuzzy search in item search box info',
-  'settings.searchTilde.tooltip':
-    'Enable fuzzy matching in the item search input (automatically prefixes with ~)',
-
-  'settings.filterTilde.label': 'Fuzzy search in filter inputs',
-  'settings.filterTilde.infoAria': 'Fuzzy search in filter inputs info',
-  'settings.filterTilde.tooltip':
-    'Enable fuzzy matching in affix and filter inputs (automatically prefixes with ~)',
-
   // Settings Pane - Trade Features
   'settings.tierHelper.label': 'Tier Quick Button',
   'settings.tierHelper.infoAria': 'Tier Quick Button info',
@@ -140,7 +130,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslation.infoAria': 'Chinese Trade Site info',
   'settings.marketTranslation.tooltip':
     'Show the international English Trade site (interface, filters and results) in Chinese, using the official wording of the Taiwan (Traditional) or China (Simplified) realm according to Language. Display only: searches are unchanged. Reload the page to apply',
-  'settings.marketTranslation.bilingualGroup': 'Original English text',
+  'settings.marketTranslation.bilingualGroup': 'Show English alongside',
   'settings.marketTranslationBilingual.label': 'Filter dropdowns',
   'settings.marketTranslationBilingual.description':
     'Shows "中文 (English)" so English keywords still match',
@@ -198,6 +188,33 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.modules.item.live-search.description':
     'The navigation button that opens the live search console. Consoles that are already open keep running.',
   'settings.marketTranslation.keywords': 'translate translation Chinese',
+  'settings.fuzzySearch.label': 'Fuzzy search',
+  'settings.fuzzySearch.tooltip':
+    'Adds the ~ tolerance prefix in the item name search and stat filter inputs, so typos and partial words still match',
+  'settings.fuzzySearch.keywords': 'typo tolerant item name stat filter',
+  'settings.section.backup': 'Backup & reset',
+  'settings.backup.export.label': 'Export settings',
+  'settings.backup.export.button': 'Export',
+  'settings.backup.export.details':
+    'Downloads a JSON file with all settings that you can import on another computer or after reinstalling. Bookmarks and search history are not included; export bookmarks from the ⋮ menu in the Bookmarks tab.',
+  'settings.backup.import.label': 'Import settings',
+  'settings.backup.import.button': 'Import',
+  'settings.backup.import.details':
+    'Pick a previously exported settings file to replace your current settings.',
+  'settings.backup.reset.label': 'Restore defaults',
+  'settings.backup.reset.button': 'Restore',
+  'settings.backup.reset.details':
+    'Puts every setting back to how it was after install. Bookmarks and search history are kept.',
+  'settings.backup.reset.confirm':
+    'Restore every setting to its default? Bookmarks and search history are kept.',
+  'settings.backup.toast.exported': 'Settings exported',
+  'settings.backup.toast.imported': 'Imported {count} settings',
+  'settings.backup.toast.importedPartial':
+    'Imported {count} settings; {skipped} could not be applied',
+  'settings.backup.toast.reset': 'Defaults restored',
+  'settings.backup.error.invalidJson': "Couldn't read this file. Make sure it is JSON.",
+  'settings.backup.error.wrongFormat': 'This is not a PoeXD settings file',
+  'settings.backup.error.failed': 'Something went wrong: {message}',
   'settings.details.toggleAria': 'More about {label}',
   'settings.search.close': 'Close search',
   'settings.search.placeholder': 'Search settings',
@@ -1040,7 +1057,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Cannot read file, please ensure it is not corrupted and retry',
   'history.enableLabel': 'Record search history',
   'history.clearAllTitle': 'Clear all search history',
-  'history.clearAllBtn': 'Clear All',
+  'history.menuTooltip': 'History actions',
   'history.stoppedNotice': 'Recording paused; existing history can still be viewed and cleared',
   'history.invalidTooltip':
     'Legacy search hash is deprecated by official trade site. This entry will open an empty search.',

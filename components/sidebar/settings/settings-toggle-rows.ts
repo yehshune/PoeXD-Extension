@@ -20,18 +20,6 @@ export interface SettingsToggleRow {
 
 export const SEARCH_TOGGLE_ROWS: readonly SettingsToggleRow[] = Object.freeze([
   {
-    id: 'enable-search-tilde',
-    key: 'enableSearchTilde',
-    labelKey: 'settings.searchTilde.label',
-    detailsKey: 'settings.searchTilde.tooltip',
-  },
-  {
-    id: 'enable-filter-tilde',
-    key: 'enableFilterTilde',
-    labelKey: 'settings.filterTilde.label',
-    detailsKey: 'settings.filterTilde.tooltip',
-  },
-  {
     id: 'enable-tier-helper',
     key: 'enableTierHelper',
     labelKey: 'settings.tierHelper.label',

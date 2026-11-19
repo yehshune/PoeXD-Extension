@@ -94,9 +94,13 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(historyPaneSource).toContain('--pxd-font-micro');
     });
 
-    it('enforces standard size="sm" for Clear Button and size="icon-sm" for row actions', () => {
-      // Clear all button uses primitive sm without local overrides
-      expect(historyPaneSource).toContain('size="sm"');
+    it('moves Clear All into the ⋮ menu and keeps size="icon-sm" for row actions', () => {
+      // Clear all is a destructive menu item, not a red toolbar button
+      expect(historyPaneSource).toContain('data-history-menu');
+      expect(historyPaneSource).toMatch(
+        /<DropdownMenuItem[\s\S]*?variant="destructive"[\s\S]*?@click="clearAllHistory"/,
+      );
+      expect(historyPaneSource).not.toMatch(/<Button[^>]*variant="destructive"/);
       expect(historyPaneSource).not.toContain('h-auto');
       expect(historyPaneSource).not.toContain('py-0.5');
 
@@ -189,7 +193,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(badgeOf(rows[1])).toBe('已失效');
     });
 
-    it('renders Header with Checkbox and Clear Button aligned to size="sm"', async () => {
+    it('renders Header with Checkbox and a ⋮ menu trigger aligned to size="icon-sm"', async () => {
       app = createApp(HistoryPane);
       app.mount(container);
       await flushPromises();
@@ -200,15 +204,12 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(label).not.toBeNull();
       expect(label?.className).toContain('text-[length:var(--pxd-font-secondary)]');
 
-      // Clear button exists and has primitive sm classes
-      const clearBtn = container.querySelector(
-        'button[title="清除所有搜尋歷史"]',
-      ) as HTMLButtonElement;
-      expect(clearBtn).not.toBeNull();
-      // Button primitive sm classes
-      expect(clearBtn.className).toContain('h-[var(--control-height-sm,1.75rem)]');
-      expect(clearBtn.className).not.toContain('h-auto');
-      expect(clearBtn.className).not.toContain('py-0.5');
+      // Clear All lives behind the ⋮ trigger; no red button in the toolbar
+      expect(container.querySelector('button[title="清除所有搜尋歷史"]')).toBeNull();
+      const menuTrigger = container.querySelector('[data-history-menu]') as HTMLButtonElement;
+      expect(menuTrigger).not.toBeNull();
+      expect(menuTrigger.getAttribute('aria-label')).toBe('歷史紀錄操作');
+      expect(menuTrigger.className).not.toContain('h-auto');
 
       // Separator uses --pxd-space-md
       const separator = container.querySelector('[data-slot="separator"]');
@@ -284,7 +285,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(container.textContent).toContain('已停止記錄新搜尋，既有歷史仍可查看與清理');
     });
 
-    it('retains existing history entries, action buttons, and clear-all button when history is disabled', async () => {
+    it('retains existing history entries, action buttons, and the clear-all menu when history is disabled', async () => {
       historyEnabledMock.value = false;
       // historyEntriesMock has 2 items from beforeEach
       app = createApp(HistoryPane);
@@ -305,11 +306,8 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       );
       expect(itemRows.length).toBe(2);
 
-      // Clear all button remains visible and functional
-      const clearBtn = container.querySelector(
-        'button[title="清除所有搜尋歷史"]',
-      ) as HTMLButtonElement;
-      expect(clearBtn).not.toBeNull();
+      // Clear all menu remains available
+      expect(container.querySelector('[data-history-menu]')).not.toBeNull();
     });
 
     it('deletes single history entry directly without confirmation', async () => {
@@ -337,15 +335,11 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       (window as any).poexdConfirm = confirmSpy;
 
       app = createApp(HistoryPane);
-      app.mount(container);
+      const vm: any = app.mount(container);
       await flushPromises();
       await nextTick();
 
-      const clearBtn = container.querySelector(
-        'button[title="清除所有搜尋歷史"]',
-      ) as HTMLButtonElement;
-      expect(clearBtn).not.toBeNull();
-      clearBtn.click();
+      await vm.clearAllHistory();
       await nextTick();
 
       expect(confirmSpy).toHaveBeenCalledWith(
@@ -355,7 +349,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(historyEntriesMock.value.length).toBe(2);
 
       confirmSpy.mockResolvedValueOnce(true);
-      clearBtn.click();
+      await vm.clearAllHistory();
       await nextTick();
       await nextTick();
 

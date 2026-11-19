@@ -84,13 +84,13 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
   });
 
   describe('4. History and Affix Group Top Controls (Item 3)', () => {
-    it('HistoryPane: constrains top row, truncates label, and equips Clear All button with Trash2 and responsive label', () => {
+    it('HistoryPane: constrains top row, truncates label, and keeps Clear All with Trash2 inside the ⋮ menu', () => {
       expect(historyPaneSource).toMatch(
         /class="flex items-center justify-between gap-\[var\(--pxd-space-sm\)\] pb-\[var\(--pxd-space-md\)\] w-full min-w-0"/,
       );
       expect(historyPaneSource).toMatch(/for="enable-history"[^>]*class="[^"]*min-w-0 truncate"/);
       expect(historyPaneSource).toMatch(
-        /<Trash2 \/>[\s\S]*?<span class="pxd-toolbar-btn-text ml-1\.5 truncate">/,
+        /<DropdownMenuItem[\s\S]*?<Trash2 class="text-destructive" \/>[\s\S]*?<\/DropdownMenuItem>/,
       );
     });
 

@@ -6,7 +6,7 @@
         class="flex items-center gap-[var(--pxd-space-sm)] pb-[var(--pxd-space-md)] w-full max-w-full min-w-0"
       >
         <Button
-          variant="default"
+          variant="outline"
           size="sm"
           class="flex-1 font-bold"
           :title="t('bookmark.action.newFolder')"

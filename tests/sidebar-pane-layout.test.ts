@@ -353,10 +353,11 @@ describe('HistoryPane shadcn migration & runtime integration', () => {
     // Verifies Chaos Orb record is rendered
     expect(container.textContent).toContain('Chaos Orb');
 
-    // Verifies Clear All button is rendered
-    const clearBtn = container.querySelector('button[title="清除所有搜尋歷史"]');
-    expect(clearBtn).not.toBeNull();
-    expect(clearBtn?.textContent).toContain('清除全部');
+    // Clear All lives in the ⋮ menu instead of a red toolbar button
+    expect(container.querySelector('button[title="清除所有搜尋歷史"]')).toBeNull();
+    expect(container.querySelector('button.bg-destructive')).toBeNull();
+    const menuTrigger = container.querySelector('[data-history-menu]');
+    expect(menuTrigger?.getAttribute('title')).toBe('歷史紀錄操作');
 
     // Verifies action buttons (ExternalLink and Delete) exist
     const newTabBtn = container.querySelector('button[title="在新分頁開啟"]');

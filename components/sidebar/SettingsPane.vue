@@ -136,38 +136,45 @@
           </template>
         </SettingsRow>
         <template v-if="marketTranslation">
-          <SettingsRow
-            nested
-            :label="t('settings.marketTranslationBilingual.label')"
-            :details="t('settings.marketTranslationBilingual.tooltip')"
-            :keywords="[t('settings.marketTranslation.bilingualGroup')]"
-            control-id="enable-market-translation-bilingual"
+          <!-- 中英並列：同一個概念套用在篩選下拉與搜尋結果兩處 -->
+          <div
+            data-settings-group="market-translation-bilingual"
+            class="ml-[7px] flex flex-col gap-[var(--pxd-space-md)] border-l border-border/70 pl-[var(--pxd-space-md)]"
           >
-            <template #default="{ describedBy }">
-              <Switch
-                id="enable-market-translation-bilingual"
-                v-model="marketTranslationBilingual"
-                :aria-describedby="describedBy"
-                @update:model-value="savePreference('marketTranslationBilingual')"
-              />
-            </template>
-          </SettingsRow>
-          <SettingsRow
-            nested
-            :label="t('settings.marketTranslationResultBilingual.label')"
-            :details="t('settings.marketTranslationResultBilingual.tooltip')"
-            :keywords="[t('settings.marketTranslation.bilingualGroup')]"
-            control-id="enable-market-translation-result-bilingual"
-          >
-            <template #default="{ describedBy }">
-              <Switch
-                id="enable-market-translation-result-bilingual"
-                v-model="marketTranslationResultBilingual"
-                :aria-describedby="describedBy"
-                @update:model-value="savePreference('marketTranslationResultBilingual')"
-              />
-            </template>
-          </SettingsRow>
+            <p class="m-0 text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground">
+              {{ t('settings.marketTranslation.bilingualGroup') }}
+            </p>
+            <SettingsRow
+              :label="t('settings.marketTranslationBilingual.label')"
+              :details="t('settings.marketTranslationBilingual.tooltip')"
+              :keywords="[t('settings.marketTranslation.bilingualGroup')]"
+              control-id="enable-market-translation-bilingual"
+            >
+              <template #default="{ describedBy }">
+                <Switch
+                  id="enable-market-translation-bilingual"
+                  v-model="marketTranslationBilingual"
+                  :aria-describedby="describedBy"
+                  @update:model-value="savePreference('marketTranslationBilingual')"
+                />
+              </template>
+            </SettingsRow>
+            <SettingsRow
+              :label="t('settings.marketTranslationResultBilingual.label')"
+              :details="t('settings.marketTranslationResultBilingual.tooltip')"
+              :keywords="[t('settings.marketTranslation.bilingualGroup')]"
+              control-id="enable-market-translation-result-bilingual"
+            >
+              <template #default="{ describedBy }">
+                <Switch
+                  id="enable-market-translation-result-bilingual"
+                  v-model="marketTranslationResultBilingual"
+                  :aria-describedby="describedBy"
+                  @update:model-value="savePreference('marketTranslationResultBilingual')"
+                />
+              </template>
+            </SettingsRow>
+          </div>
         </template>
         <p
           v-if="marketTranslationLocaleMismatch"
@@ -359,6 +366,15 @@
         </template>
 
         <SettingsRow
+          :label="t('settings.fuzzySearch.label')"
+          :details="t('settings.fuzzySearch.tooltip')"
+          :keywords="['~', t('settings.fuzzySearch.keywords')]"
+          control-id="enable-fuzzy-search"
+        >
+          <Switch id="enable-fuzzy-search" v-model="fuzzySearchEnabled" />
+        </SettingsRow>
+
+        <SettingsRow
           v-for="row in SEARCH_TOGGLE_ROWS"
           :key="row.id"
           :label="t(row.labelKey)"
@@ -477,6 +493,9 @@
         </SettingsRow>
       </SettingsSection>
 
+      <!-- 6. 備份與重設 -->
+      <SettingsBackupSection />
+
       <!-- 搜尋無結果 -->
       <div
         v-if="isSearching && !hasSearchResults"
@@ -530,6 +549,7 @@ import { Bookmark, Keyboard, LayoutGrid, ListChecks, Palette, Search, X } from '
 import SettingsHotkeyInput from './settings/SettingsHotkeyInput.vue';
 import SettingsRow from './settings/SettingsRow.vue';
 import SettingsSection from './settings/SettingsSection.vue';
+import SettingsBackupSection from './settings/SettingsBackupSection.vue';
 import SidebarModuleSettings from './settings/SidebarModuleSettings.vue';
 import { provideSettingsSearch } from './settings/settings-search';
 import {
@@ -596,6 +616,7 @@ export default defineComponent({
     SettingsHotkeyInput,
     SettingsRow,
     SettingsSection,
+    SettingsBackupSection,
     SidebarModuleSettings,
     ToggleGroup,
     ToggleGroupItem,
@@ -902,20 +923,18 @@ export default defineComponent({
       } as Partial<Preferences>);
     };
 
-    const saveTildeSettings = () => {
-      void updatePreferences({
-        enableSearchTilde: enableSearchTilde.value,
-        enableFilterTilde: enableFilterTilde.value,
-      });
-    };
+    /** 模糊搜尋：道具名稱與詞綴篩選兩處共用一個開關，偏好仍分兩個鍵儲存 */
+    const fuzzySearchEnabled = computed({
+      get: () => enableSearchTilde.value || enableFilterTilde.value,
+      set: (enabled: boolean) => {
+        enableSearchTilde.value = enabled;
+        enableFilterTilde.value = enabled;
+        void updatePreferences({ enableSearchTilde: enabled, enableFilterTilde: enabled });
+      },
+    });
 
-    /** 開關列：模糊搜尋兩個設定沿用一起儲存的舊行為 */
     const setToggle = (key: SettingsToggleRow['key'], value: boolean | 'indeterminate') => {
       (preferenceState[key] as boolean) = value === true;
-      if (key === 'enableSearchTilde' || key === 'enableFilterTilde') {
-        saveTildeSettings();
-        return;
-      }
       savePreference(key);
     };
     const resultToggleRows = filterRowsForVersion(RESULT_TOGGLE_ROWS, version);
@@ -1062,7 +1081,7 @@ export default defineComponent({
       handleCustomFontSizeBlur,
       handleDensityChange,
       isCompactDensity,
-      saveTildeSettings,
+      fuzzySearchEnabled,
     };
   },
 });

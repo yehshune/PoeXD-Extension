@@ -83,14 +83,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.hotkeys.clearTitle': '清除快捷键',
   'settings.hotkeys.clearNamedAria': '清除{label}',
 
-  'settings.searchTilde.label': '搜索物品栏模糊搜索',
-  'settings.searchTilde.infoAria': '搜索物品栏模糊搜索说明',
-  'settings.searchTilde.tooltip': '在物品名称搜索框中支持模糊匹配（自动添加 ~ 容错符号）',
-
-  'settings.filterTilde.label': '筛选栏模糊搜索',
-  'settings.filterTilde.infoAria': '筛选栏模糊搜索说明',
-  'settings.filterTilde.tooltip': '在词缀与条件筛选输入框中支持模糊匹配（自动添加 ~ 容错符号）',
-
   // Settings Pane - Trade Features
   'settings.tierHelper.label': 'T 阶快捷按钮',
   'settings.tierHelper.infoAria': 'T 阶快捷按钮说明',
@@ -133,7 +125,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslation.infoAria': '市集汉化说明',
   'settings.marketTranslation.tooltip':
     '把国际服英文市集的界面、筛选器与搜索结果显示为中文，依「语言」设置采用台服（繁体）或国服（简体）的官方用语。只改变显示、不影响搜索内容；切换后刷新页面生效',
-  'settings.marketTranslation.bilingualGroup': '英文原文显示',
+  'settings.marketTranslation.bilingualGroup': '中英并列',
   'settings.marketTranslationBilingual.label': '筛选下拉菜单',
   'settings.marketTranslationBilingual.description': '显示「中文 (English)」，打英文也搜得到',
   'settings.marketTranslationBilingual.infoAria': '筛选下拉菜单英文原文说明',
@@ -184,6 +176,29 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.modules.item.live-search.description':
     '导航栏上打开在线搜索控制台的按钮；已打开的控制台不受影响。',
   'settings.marketTranslation.keywords': '翻译 中文化',
+  'settings.fuzzySearch.label': '模糊搜索',
+  'settings.fuzzySearch.tooltip':
+    '在道具名称搜索框与词缀筛选输入框自动加入 ~ 容错符号，打错字或只打部分文字也搜得到',
+  'settings.fuzzySearch.keywords': '容错 道具名称 词缀筛选',
+  'settings.section.backup': '备份与重置',
+  'settings.backup.export.label': '导出设置',
+  'settings.backup.export.button': '导出',
+  'settings.backup.export.details':
+    '下载一个包含所有设置的 JSON 文件，换电脑或重新安装后可以导入。不包含书签与搜索历史，书签请从书签页的 ⋮ 菜单导出。',
+  'settings.backup.import.label': '导入设置',
+  'settings.backup.import.button': '导入',
+  'settings.backup.import.details': '选择先前导出的设置文件，用它覆盖当前的设置。',
+  'settings.backup.reset.label': '恢复默认值',
+  'settings.backup.reset.button': '恢复默认',
+  'settings.backup.reset.details': '把所有设置改回刚安装时的状态，书签与搜索历史不受影响。',
+  'settings.backup.reset.confirm': '确定要把所有设置恢复成默认值吗？书签与搜索历史不受影响。',
+  'settings.backup.toast.exported': '已导出设置文件',
+  'settings.backup.toast.imported': '已导入 {count} 项设置',
+  'settings.backup.toast.importedPartial': '已导入 {count} 项设置，{skipped} 项无法应用',
+  'settings.backup.toast.reset': '已恢复默认值',
+  'settings.backup.error.invalidJson': '无法读取这个文件，请确认是 JSON 格式',
+  'settings.backup.error.wrongFormat': '这不是 PoeXD 的设置文件',
+  'settings.backup.error.failed': '操作失败：{message}',
   'settings.details.toggleAria': '{label}的详细说明',
   'settings.search.close': '关闭搜索',
   'settings.search.placeholder': '搜索设置',
@@ -976,7 +991,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'bookmarkImport.error.fileReadFailed': '无法读取档案，请确认档案未损毁后重试',
   'history.enableLabel': '记录搜索历史',
   'history.clearAllTitle': '清除所有搜索历史',
-  'history.clearAllBtn': '清除全部',
+  'history.menuTooltip': '历史记录操作',
   'history.stoppedNotice': '已停止记录新搜索，既有历史仍可查看与清理',
   'history.invalidTooltip': '官方已停用旧式搜索短码，此纪录会开启空白搜索。',
   'history.invalidBadge': '已失效',

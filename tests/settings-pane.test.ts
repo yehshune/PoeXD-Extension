@@ -437,18 +437,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Verify no RadioGroups remain in SettingsPane
     expect(container.querySelectorAll('[data-slot="radio-group"]').length).toBe(0);
 
-    // On/off settings use Switch (15 settings + 6 Sidebar Modules), sized by the checkbox token
+    // On/off settings use Switch (14 settings + 6 Sidebar Modules), sized by the checkbox token
     expect(container.querySelectorAll('[data-slot="checkbox"]').length).toBe(0);
     const switches = container.querySelectorAll('[data-slot="switch"]');
-    expect(switches.length).toBe(21);
+    expect(switches.length).toBe(20);
     switches.forEach((sw) => {
       expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });
 
-    // Verify 5 sections exist with titles (Sidebar Modules first)
+    // Verify 6 sections exist with titles (Sidebar Modules first)
     expect(container.querySelectorAll('[data-slot="collapsible"]').length).toBe(0);
     const triggers = container.querySelectorAll('[data-settings-section] > header h3');
-    expect(triggers.length).toBe(5);
+    expect(triggers.length).toBe(6);
     const sectionTitles = Array.from(triggers).map((t) => t.textContent?.trim());
     expect(sectionTitles).toEqual([
       '側邊欄模組',
@@ -456,6 +456,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       '搜尋欄與快捷鍵',
       '搜尋結果顯示',
       '書籤與歷史',
+      '備份與重設',
     ]);
     expect(sectionTitles).not.toContain('桌面連接器');
     expect(container.textContent).not.toContain('桌面連接器');
@@ -499,6 +500,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       '搜尋欄與快捷鍵',
       '搜尋結果顯示',
       '書籤與歷史',
+      '備份與重設',
     ]);
 
     // Switch displayLocale to zh-CN via Language Select
@@ -511,6 +513,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       '搜索栏与快捷键',
       '搜索结果显示',
       '书签与历史',
+      '备份与重置',
     ]);
     expect(container.textContent).toContain('主题');
     expect(container.textContent).toContain('语言');
@@ -525,6 +528,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'Search & Filters',
       'Search Results',
       'Bookmarks & History',
+      'Backup & reset',
     ]);
     expect(container.textContent).toContain('Theme');
     expect(container.textContent).toContain('Language');
@@ -542,6 +546,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'Search & Filters',
       'Search Results',
       'Bookmarks & History',
+      'Backup & reset',
     ]);
     expect(triggersEn[1].textContent).toContain('日本語');
   });
@@ -953,9 +958,59 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'searchHotkeys',
       'resultDisplay',
       'bookmarks',
+      'backup',
     ]);
     expect(container.querySelector('[data-settings-nav]')).toBeNull();
     expect(container.querySelector('[data-settings-tablist]')).toBeNull();
+  });
+
+  it('merges both fuzzy search preferences into one switch', async () => {
+    const { container } = await mountSettingsPane();
+    expect(container.querySelector('#enable-search-tilde')).toBeNull();
+    expect(container.querySelector('#enable-filter-tilde')).toBeNull();
+    const fuzzy = container.querySelector<HTMLElement>('#enable-fuzzy-search')!;
+    expect(fuzzy.getAttribute('data-state')).toBe('checked');
+
+    fuzzy.click();
+    await flushAsync();
+    expect(currentModule?.read().enableSearchTilde).toBe(false);
+    expect(currentModule?.read().enableFilterTilde).toBe(false);
+
+    fuzzy.click();
+    await flushAsync();
+    expect(currentModule?.read().enableSearchTilde).toBe(true);
+    expect(currentModule?.read().enableFilterTilde).toBe(true);
+  });
+
+  it('groups both market translation bilingual options under one heading', async () => {
+    const { container } = await mountSettingsPane();
+    await currentModule!.update({ marketTranslation: true, displayLocale: 'zh-TW' });
+    await flushAsync();
+    const group = container.querySelector('[data-settings-group="market-translation-bilingual"]');
+    expect(group?.textContent).toContain('中英並列');
+    expect(group?.querySelector('#enable-market-translation-bilingual')).not.toBeNull();
+    expect(group?.querySelector('#enable-market-translation-result-bilingual')).not.toBeNull();
+  });
+
+  it('restores defaults only after confirmation', async () => {
+    const { container } = await mountSettingsPane();
+    await currentModule!.update({ theme: 'caffeine', enableHotkeys: false });
+    await flushAsync();
+    const confirmSpy = vi.fn(async () => false);
+    (window as any).poexdConfirm = confirmSpy;
+    const reset = container.querySelector<HTMLButtonElement>('[data-settings-backup="reset"]')!;
+
+    reset.click();
+    await flushAsync();
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(currentModule?.read().theme).toBe('caffeine');
+
+    confirmSpy.mockResolvedValueOnce(true);
+    reset.click();
+    await flushAsync();
+    expect(currentModule?.read().theme).toBe('modern-dark');
+    expect(currentModule?.read().enableHotkeys).toBe(true);
+    delete (window as any).poexdConfirm;
   });
 
   it('keeps setting rows free of always-visible descriptions', async () => {
@@ -972,7 +1027,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
   it('reveals full setting details only after the info button is pressed', async () => {
     const { container } = await mountSettingsPane();
     const row = container
-      .querySelector('#enable-search-tilde')!
+      .querySelector('#enable-fuzzy-search')!
       .closest<HTMLElement>('[data-settings-row]')!;
     const toggle = row.querySelector<HTMLButtonElement>('[data-settings-details-toggle]')!;
     const details = row.querySelector<HTMLElement>('[data-settings-details]')!;
@@ -1013,7 +1068,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
         '[data-settings-section="searchHotkeys"] [data-settings-row]',
       ),
     ).filter((el) => el.style.display !== 'none');
-    expect(hotkeyRows.length).toBe(2);
+    expect(hotkeyRows.length).toBe(1);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
     // A section title match keeps every row in that section visible
@@ -1038,7 +1093,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     (container.querySelector('[data-settings-search-clear]') as HTMLButtonElement).click();
     await flushAsync();
     // Clearing the query shows every section again
-    expect(visibleSections().length).toBe(5);
+    expect(visibleSections().length).toBe(6);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
     // Escape closes the search box and restores the tab list
@@ -1049,7 +1104,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     expect(container.querySelector('[data-settings-search]')).toBeNull();
     expect(searchToggle.getAttribute('aria-expanded')).toBe('false');
-    expect(visibleSections().length).toBe(5);
+    expect(visibleSections().length).toBe(6);
   });
 
   it('toggles Sidebar Modules and keeps the enabled count in sync', async () => {
@@ -1466,7 +1521,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(content).toContain('const handleCustomFontSizeInput');
     expect(content).toContain('const handleCustomFontSizeBlur');
     expect(content).toContain('const handleDensityChange');
-    expect(content).toContain('const saveTildeSettings');
+    expect(content).toContain('const fuzzySearchEnabled = computed');
   });
 
   it('renders ToggleGroups for sidebarPosition and addBookmarkBtnPosition with outline variant', async () => {

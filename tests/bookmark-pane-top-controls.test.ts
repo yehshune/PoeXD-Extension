@@ -97,9 +97,9 @@ describe('Business Layer Migration Phase 2A — BookmarkPane Top Controls', () =
 
   describe('1. Static Source Contracts: Top Toolbar Buttons', () => {
     it('uses standard size="sm" for text buttons and size="icon-sm" for icon buttons', () => {
-      // 新建資料夾 Button
+      // 新建資料夾 Button：常駐工具列，用 outline 降一級避免視覺過重
       expect(fixedSection).toMatch(
-        /<Button[^>]*variant="default"[^>]*size="sm"[^>]*class="flex-1 font-bold"/,
+        /<Button[^>]*variant="outline"[^>]*size="sm"[^>]*class="flex-1 font-bold"/,
       );
 
       // 全部展開 / 全部收合 Button

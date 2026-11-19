@@ -20,17 +20,33 @@
             {{ t('history.enableLabel') }}
           </label>
         </div>
-        <Button
-          v-if="history.length > 0"
-          variant="destructive"
-          size="sm"
-          class="shrink-0 font-bold"
-          :title="t('history.clearAllTitle')"
-          @click="clearAllHistory"
-        >
-          <Trash2 />
-          <span class="pxd-toolbar-btn-text ml-1.5 truncate">{{ t('history.clearAllBtn') }}</span>
-        </Button>
+        <!-- 破壞性操作收進選單，避免在最顯眼處誤按 -->
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button
+              variant="secondary"
+              size="icon-sm"
+              class="shrink-0"
+              data-history-menu
+              :title="t('history.menuTooltip')"
+              :aria-label="t('history.menuTooltip')"
+            >
+              <MoreVertical />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              variant="destructive"
+              data-history-action="clear-all"
+              :disabled="history.length === 0"
+              :title="t('history.clearAllTitle')"
+              @click="clearAllHistory"
+            >
+              <Trash2 class="text-destructive" />
+              {{ t('history.clearAllTitle') }}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <p
         v-if="!enableHistory"
@@ -158,9 +174,15 @@ import { computed, defineComponent, ref, onMounted, onUnmounted } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import SidebarPane from './layout/SidebarPane.vue';
 import SidebarEmptyState from './layout/SidebarEmptyState.vue';
-import { ArrowRight, ExternalLink, Eye, History, Trash2, X } from '@lucide/vue';
+import { ArrowRight, ExternalLink, Eye, History, MoreVertical, Trash2, X } from '@lucide/vue';
 import { getPoeVersion } from '@/utils/trade-context';
 import { createChromeSearchRecordClient } from '@/utils/search-record-messaging';
 import type { HistoryEntry } from '@/utils/search-records';
@@ -178,6 +200,11 @@ import { t } from '@/utils/i18n';
 export default defineComponent({
   name: 'HistoryPane',
   components: {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    MoreVertical,
     SidebarPane,
     SidebarEmptyState,
     Button,
