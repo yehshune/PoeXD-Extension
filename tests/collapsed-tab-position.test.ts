@@ -30,18 +30,34 @@ describe('Collapsed tab position', () => {
     );
   });
 
-  it('persists collapsedTabTop per game version and repairs invalid stored values', async () => {
-    const storage = createInMemoryPreferencesStorage({ collapsedTabTop_poe2: -5 });
-    const outcome = await createPreferencesModule('poe2', storage);
-    if (!outcome.ok) throw new Error(outcome.error.message);
-    expect(outcome.value.read().collapsedTabTop).toBe(DEFAULT_PREFERENCES.collapsedTabTop);
-    expect(storage.inspect().collapsedTabTop_poe2).toBe(DEFAULT_PREFERENCES.collapsedTabTop);
+  it('persists collapsedTabTop globally across game versions and repairs invalid stored values', async () => {
+    const storage = createInMemoryPreferencesStorage({ collapsedTabTop: -5 });
+    const poe2Outcome = await createPreferencesModule('poe2', storage);
+    const poe1Outcome = await createPreferencesModule('poe1', storage);
+    if (!poe2Outcome.ok || !poe1Outcome.ok) throw new Error('failed to load preferences');
 
-    await expect(outcome.value.update({ collapsedTabTop: 320 })).resolves.toEqual({
+    expect(poe2Outcome.value.read().collapsedTabTop).toBe(DEFAULT_PREFERENCES.collapsedTabTop);
+    expect(storage.inspect().collapsedTabTop).toBe(DEFAULT_PREFERENCES.collapsedTabTop);
+
+    await expect(poe2Outcome.value.update({ collapsedTabTop: 320 })).resolves.toEqual({
       ok: true,
       changed: true,
     });
-    expect(storage.inspect().collapsedTabTop_poe2).toBe(320);
-    expect((await outcome.value.update({ collapsedTabTop: Number.NaN })).ok).toBe(false);
+    expect(storage.inspect().collapsedTabTop).toBe(320);
+    expect(storage.inspect().collapsedTabTop_poe2).toBeUndefined();
+    expect(poe1Outcome.value.read().collapsedTabTop).toBe(320);
+    expect((await poe2Outcome.value.update({ collapsedTabTop: Number.NaN })).ok).toBe(false);
+  });
+
+  it('migrates legacy versioned collapsedTabTop_poe2 to global collapsedTabTop without deleting recovery snapshot', async () => {
+    const storage = createInMemoryPreferencesStorage({ collapsedTabTop_poe2: 260 });
+    const poe1Outcome = await createPreferencesModule('poe1', storage);
+    if (!poe1Outcome.ok) throw new Error(poe1Outcome.error.message);
+
+    expect(poe1Outcome.value.read().collapsedTabTop).toBe(260);
+    expect(storage.inspect()).toEqual({
+      collapsedTabTop: 260,
+      collapsedTabTop_poe2: 260,
+    });
   });
 });

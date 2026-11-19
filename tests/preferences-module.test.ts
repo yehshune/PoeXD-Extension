@@ -58,14 +58,17 @@ describe('Preferences module interface', () => {
     });
   });
 
-  it('reads committed values from the selected game version', async () => {
+  it('reads committed values from the selected game version and shared global keys', async () => {
     const outcome = await createPreferencesModule(
       'poe1',
       createInMemoryPreferencesStorage({
-        sidebarPosition_poe1: 'right',
-        enableAutoTitle_poe1: false,
-        enablePureBackground_poe1: false,
-        sidebarPosition_poe2: 'left',
+        sidebarPosition: 'right',
+        enableAutoTitle: false,
+        enablePureBackground: false,
+        enableTierHelper_poe1: false,
+        enableTierHelper_poe2: true,
+        sidebarModuleBookmarks_poe1: false,
+        sidebarModuleBookmarks_poe2: true,
       }),
     );
 
@@ -74,15 +77,18 @@ describe('Preferences module interface', () => {
       sidebarPosition: 'right',
       enableAutoTitle: false,
       enablePureBackground: false,
+      enableTierHelper: false,
+      sidebarModuleBookmarks: false,
     });
   });
 
   it('repairs invalid committed values to canonical defaults', async () => {
     const storage = createInMemoryPreferencesStorage({
-      sidebarPosition_poe2: 'center',
-      sidebarWidth_poe2: 1200,
-      fontSizeScale_poe2: 'large',
-      enableHotkeys_poe2: 'yes',
+      sidebarPosition: 'center',
+      sidebarWidth: 1200,
+      fontSizeScale: 'large',
+      enableHotkeys: 'yes',
+      enableTierHelper_poe2: 'nope',
     });
     const outcome = await createPreferencesModule('poe2', storage);
 
@@ -96,20 +102,22 @@ describe('Preferences module interface', () => {
         sidebarWidth: 380,
         fontSizeScale: 1,
         enableHotkeys: true,
+        enableTierHelper: true,
       },
       stored: {
-        sidebarPosition_poe2: 'left',
-        sidebarWidth_poe2: 380,
-        fontSizeScale_poe2: 1,
-        enableHotkeys_poe2: true,
+        sidebarPosition: 'left',
+        sidebarWidth: 380,
+        fontSizeScale: 1,
+        enableHotkeys: true,
+        enableTierHelper_poe2: true,
       },
     });
   });
 
-  it('migrates legacy values without deleting the recovery snapshot', async () => {
+  it('migrates legacy unversioned values for versioned preferences without deleting the recovery snapshot', async () => {
     const storage = createInMemoryPreferencesStorage({
-      sidebarPosition: 'right',
-      enableAutoTitle: false,
+      enableTierHelper: false,
+      enablePriceComparison: false,
     });
     const outcome = await createPreferencesModule('poe2', storage);
 
@@ -119,14 +127,14 @@ describe('Preferences module interface', () => {
       stored: storage.inspect(),
     }).toMatchObject({
       snapshot: {
-        sidebarPosition: 'right',
-        enableAutoTitle: false,
+        enableTierHelper: false,
+        enablePriceComparison: false,
       },
       stored: {
-        sidebarPosition: 'right',
-        enableAutoTitle: false,
-        sidebarPosition_poe2: 'right',
-        enableAutoTitle_poe2: false,
+        enableTierHelper: false,
+        enablePriceComparison: false,
+        enableTierHelper_poe2: false,
+        enablePriceComparison_poe2: false,
       },
     });
   });
@@ -134,7 +142,7 @@ describe('Preferences module interface', () => {
   it('delivers the current committed snapshot when a caller subscribes', async () => {
     const outcome = await createPreferencesModule(
       'poe1',
-      createInMemoryPreferencesStorage({ sidebarPosition_poe1: 'right' }),
+      createInMemoryPreferencesStorage({ sidebarPosition: 'right' }),
     );
     if (!outcome.ok) throw new Error(outcome.error.message);
     const positions: string[] = [];
@@ -157,6 +165,7 @@ describe('Preferences module interface', () => {
     const update = await outcome.value.update({
       sidebarSize: 'large',
       sidebarWidth: 420,
+      enableTierHelper: false,
     });
 
     expect({
@@ -166,9 +175,9 @@ describe('Preferences module interface', () => {
       stored: storage.inspect(),
     }).toMatchObject({
       update: { ok: true, changed: true },
-      snapshot: { sidebarSize: 'large', sidebarWidth: 420 },
+      snapshot: { sidebarSize: 'large', sidebarWidth: 420, enableTierHelper: false },
       widths: [380, 420],
-      stored: { sidebarSize_poe2: 'large', sidebarWidth_poe2: 420 },
+      stored: { sidebarSize: 'large', sidebarWidth: 420, enableTierHelper_poe2: false },
     });
   });
 
@@ -204,8 +213,8 @@ describe('Preferences module interface', () => {
     );
 
     await storage.setExternal({
-      sidebarPosition_poe2: 'right',
-      fontSizeScale_poe2: 1.2,
+      sidebarPosition: 'right',
+      fontSizeScale: 1.2,
     });
 
     expect(snapshots).toEqual([
@@ -247,13 +256,13 @@ describe('Preferences module interface', () => {
 
   it('keeps a versioned value when a different legacy value exists', async () => {
     const storage = createInMemoryPreferencesStorage({
-      sidebarPosition: 'left',
-      sidebarPosition_poe2: 'right',
+      enableTierHelper: true,
+      enableTierHelper_poe2: false,
     });
     const outcome = await createPreferencesModule('poe2', storage);
 
     if (!outcome.ok) throw new Error(outcome.error.message);
-    expect(outcome.value.read().sidebarPosition).toBe('right');
+    expect(outcome.value.read().enableTierHelper).toBe(false);
   });
 
   it('isolates a failing subscriber from committed delivery', async () => {
@@ -292,21 +301,23 @@ describe('Preferences module interface', () => {
     const positions: string[] = [];
     outcome.value.subscribe((snapshot) => positions.push(snapshot.sidebarPosition));
 
-    await storage.setExternal({ sidebarPosition_poe2: 'center' });
+    await storage.setExternal({ sidebarPosition: 'center' });
 
     expect({ positions, stored: storage.inspect() }).toMatchObject({
       positions: ['left'],
-      stored: { sidebarPosition_poe2: 'left' },
+      stored: { sidebarPosition: 'left' },
     });
   });
 
   it('normalizes legacy densityScale values to canonical standards', async () => {
-    const storage = createInMemoryPreferencesStorage({
-      densityScale_poe1: 0.85,
-      densityScale_poe2: 1.15,
+    const storage1 = createInMemoryPreferencesStorage({
+      densityScale: 0.85,
     });
-    const poe1Module = await createPreferencesModule('poe1', storage);
-    const poe2Module = await createPreferencesModule('poe2', storage);
+    const storage2 = createInMemoryPreferencesStorage({
+      densityScale: 1.15,
+    });
+    const poe1Module = await createPreferencesModule('poe1', storage1);
+    const poe2Module = await createPreferencesModule('poe2', storage2);
     if (!poe1Module.ok || !poe2Module.ok) throw new Error('failed to load preferences');
 
     expect(poe1Module.value.read().densityScale).toBe(0.8);
@@ -337,16 +348,16 @@ describe('Preferences module interface', () => {
 
   it('repairs invalid committed fontSizeMode to canonical default', async () => {
     const storage = createInMemoryPreferencesStorage({
-      fontSizeMode_poe2: 'huge',
+      fontSizeMode: 'huge',
     });
     const outcome = await createPreferencesModule('poe2', storage);
     if (!outcome.ok) throw new Error(outcome.error.message);
 
     expect(outcome.value.read().fontSizeMode).toBe('medium');
-    expect(storage.inspect().fontSizeMode_poe2).toBe('medium');
+    expect(storage.inspect().fontSizeMode).toBe('medium');
   });
 
-  it('infers fontSizeMode from legacy fontSizeScale and persists to versioned storage', async () => {
+  it('infers fontSizeMode from legacy fontSizeScale and persists to global storage', async () => {
     const cases = [
       { scale: 0.85, expectedMode: 'small' },
       { scale: 1, expectedMode: 'medium' },
@@ -363,7 +374,8 @@ describe('Preferences module interface', () => {
 
       expect(outcome.value.read().fontSizeMode).toBe(expectedMode);
       expect(outcome.value.read().fontSizeScale).toBe(scale);
-      expect(storage.inspect().fontSizeMode_poe2).toBe(expectedMode);
+      expect(storage.inspect().fontSizeMode).toBe(expectedMode);
+      expect(storage.inspect().fontSizeScale).toBe(scale);
       expect(storage.inspect().fontSizeScale_poe2).toBe(scale);
     }
   });
@@ -480,5 +492,111 @@ describe('Preferences module interface', () => {
     if (!outcome3.ok) throw new Error(outcome3.error.message);
     expect(outcome3.value.read().displayLocale).toBe('en');
     expect(storage3.inspect().displayLocale).toBe('en');
+  });
+
+  it('shares layout, hotkey, and bookmark UI preferences globally across poe1 and poe2', async () => {
+    const storage = createInMemoryPreferencesStorage();
+    const poe1Outcome = await createPreferencesModule('poe1', storage);
+    const poe2Outcome = await createPreferencesModule('poe2', storage);
+    if (!poe1Outcome.ok || !poe2Outcome.ok) throw new Error('failed to load preferences');
+
+    const receivedCollapsedTops: number[] = [];
+    poe2Outcome.value.subscribe((snapshot) => receivedCollapsedTops.push(snapshot.collapsedTabTop));
+
+    const updateRes = await poe1Outcome.value.update({
+      collapsedTabTop: 280,
+      sidebarPosition: 'right',
+      sidebarSize: 'custom',
+      sidebarWidth: 480,
+      customSidebarWidth: 480,
+      fontSizeMode: 'custom',
+      fontSizeScale: 1.3,
+      customFontSizeScale: 1.3,
+      densityScale: 0.8,
+      enablePureBackground: false,
+      enableAutoTitle: false,
+      enableHotkeys: false,
+      hotkeyFocus: 'k',
+      hotkeyClear: 'x',
+      enableSearchTilde: false,
+      enableFilterTilde: false,
+      addBookmarkBtnPosition: 'bottom',
+      searchEntryClickAction: 'open',
+      enableBookmarkTooltip: false,
+    });
+
+    expect(updateRes).toEqual({ ok: true, changed: true });
+    expect(receivedCollapsedTops).toEqual([100, 280]);
+    expect(poe2Outcome.value.read()).toMatchObject({
+      collapsedTabTop: 280,
+      sidebarPosition: 'right',
+      sidebarSize: 'custom',
+      sidebarWidth: 480,
+      customSidebarWidth: 480,
+      fontSizeMode: 'custom',
+      fontSizeScale: 1.3,
+      customFontSizeScale: 1.3,
+      densityScale: 0.8,
+      enablePureBackground: false,
+      enableAutoTitle: false,
+      enableHotkeys: false,
+      hotkeyFocus: 'k',
+      hotkeyClear: 'x',
+      enableSearchTilde: false,
+      enableFilterTilde: false,
+      addBookmarkBtnPosition: 'bottom',
+      searchEntryClickAction: 'open',
+      enableBookmarkTooltip: false,
+    });
+    expect(storage.inspect().collapsedTabTop_poe1).toBeUndefined();
+    expect(storage.inspect().collapsedTabTop_poe2).toBeUndefined();
+  });
+
+  it('migrates legacy versioned global preferences without deleting recovery snapshots and keeps coupled font/sidebar groups coherent', async () => {
+    const storage = createInMemoryPreferencesStorage({
+      collapsedTabTop_poe2: 240,
+      hotkeyFocus_poe1: 'f',
+      addBookmarkBtnPosition_poe2: 'bottom',
+      searchEntryClickAction_poe1: 'open',
+      fontSizeScale_poe1: 1.35,
+      fontSizeMode_poe2: 'large',
+      fontSizeScale_poe2: 1.2,
+      sidebarSize_poe1: 'small',
+      sidebarWidth_poe1: 340,
+      sidebarSize_poe2: 'custom',
+      sidebarWidth_poe2: 520,
+      customSidebarWidth_poe2: 520,
+    });
+
+    const poe1Outcome = await createPreferencesModule('poe1', storage);
+    if (!poe1Outcome.ok) throw new Error(poe1Outcome.error.message);
+
+    expect(poe1Outcome.value.read()).toMatchObject({
+      collapsedTabTop: 240,
+      hotkeyFocus: 'f',
+      addBookmarkBtnPosition: 'bottom',
+      searchEntryClickAction: 'open',
+      fontSizeMode: 'custom',
+      fontSizeScale: 1.35,
+      sidebarSize: 'small',
+      sidebarWidth: 340,
+      customSidebarWidth: 520,
+    });
+    expect(storage.inspect()).toMatchObject({
+      collapsedTabTop: 240,
+      collapsedTabTop_poe2: 240,
+      hotkeyFocus: 'f',
+      hotkeyFocus_poe1: 'f',
+      addBookmarkBtnPosition: 'bottom',
+      addBookmarkBtnPosition_poe2: 'bottom',
+      searchEntryClickAction: 'open',
+      searchEntryClickAction_poe1: 'open',
+      fontSizeMode: 'custom',
+      fontSizeScale: 1.35,
+      fontSizeMode_poe2: 'large',
+      sidebarSize: 'small',
+      sidebarWidth: 340,
+      customSidebarWidth: 520,
+    });
   });
 });

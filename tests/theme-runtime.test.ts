@@ -64,17 +64,25 @@ describe('Theme Foundation — Formal Theme System (Modern-Dark, Caffeine & Catp
     it('declares "theme" as a global preference and maps keys correctly', () => {
       expect(GLOBAL_PREFERENCE_NAMES).toContain('theme');
       expect(isGlobalPreference('theme')).toBe(true);
-      expect(isGlobalPreference('sidebarWidth')).toBe(false);
-      expect(isGlobalPreference('densityScale')).toBe(false);
+      expect(isGlobalPreference('sidebarWidth')).toBe(true);
+      expect(isGlobalPreference('densityScale')).toBe(true);
+      expect(isGlobalPreference('liveSearchMaxDisplayedResults')).toBe(false);
+      expect(isGlobalPreference('enableTierHelper')).toBe(false);
 
-      // Theme key is unversioned (global)
+      // Global keys are unversioned
       expect(getPreferenceStorageKey('theme', 'poe1')).toBe('theme');
       expect(getPreferenceStorageKey('theme', 'poe2')).toBe('theme');
+      expect(getPreferenceStorageKey('sidebarWidth', 'poe1')).toBe('sidebarWidth');
+      expect(getPreferenceStorageKey('sidebarWidth', 'poe2')).toBe('sidebarWidth');
+      expect(getPreferenceStorageKey('densityScale', 'poe1')).toBe('densityScale');
 
-      // Other preferences remain versioned
-      expect(getPreferenceStorageKey('sidebarWidth', 'poe1')).toBe('sidebarWidth_poe1');
-      expect(getPreferenceStorageKey('sidebarWidth', 'poe2')).toBe('sidebarWidth_poe2');
-      expect(getPreferenceStorageKey('densityScale', 'poe1')).toBe('densityScale_poe1');
+      // Versioned preferences keep their game-version suffix
+      expect(getPreferenceStorageKey('liveSearchMaxDisplayedResults', 'poe1')).toBe(
+        'liveSearchMaxDisplayedResults_poe1',
+      );
+      expect(getPreferenceStorageKey('liveSearchMaxDisplayedResults', 'poe2')).toBe(
+        'liveSearchMaxDisplayedResults_poe2',
+      );
     });
 
     it('returns { ok: true, changed: false } and performs no storage writes or listener notification on no-op theme update', async () => {
@@ -132,8 +140,8 @@ describe('Theme Foundation — Formal Theme System (Modern-Dark, Caffeine & Catp
     it('shares global "theme" storage key across poe1 and poe2, propagates live updates, and preserves versioned isolation', async () => {
       const sharedStorage = createInMemoryPreferencesStorage({
         theme: 'caffeine',
-        sidebarWidth_poe1: 420,
-        sidebarWidth_poe2: 360,
+        liveSearchMaxDisplayedResults_poe1: 200,
+        liveSearchMaxDisplayedResults_poe2: 500,
       });
 
       const poe1Outcome = await createPreferencesModule('poe1', sharedStorage);
@@ -167,17 +175,17 @@ describe('Theme Foundation — Formal Theme System (Modern-Dark, Caffeine & Catp
       expect(poe2ReceivedTheme).toBe('catppuccin');
 
       // Versioned preferences remain isolated per version
-      expect(poe1.read().sidebarWidth).toBe(420);
-      expect(poe2.read().sidebarWidth).toBe(360);
+      expect(poe1.read().liveSearchMaxDisplayedResults).toBe(200);
+      expect(poe2.read().liveSearchMaxDisplayedResults).toBe(500);
 
       // Updating versioned preference on poe1 only updates poe1's key in shared storage
-      await poe1.update({ sidebarWidth: 460 });
-      expect(poe1.read().sidebarWidth).toBe(460);
-      expect(poe2.read().sidebarWidth).toBe(360);
+      await poe1.update({ liveSearchMaxDisplayedResults: 50 });
+      expect(poe1.read().liveSearchMaxDisplayedResults).toBe(50);
+      expect(poe2.read().liveSearchMaxDisplayedResults).toBe(500);
 
       const inspectData = sharedStorage.inspect();
-      expect(inspectData.sidebarWidth_poe1).toBe(460);
-      expect(inspectData.sidebarWidth_poe2).toBe(360);
+      expect(inspectData.liveSearchMaxDisplayedResults_poe1).toBe(50);
+      expect(inspectData.liveSearchMaxDisplayedResults_poe2).toBe(500);
       expect(inspectData.theme).toBe('catppuccin');
     });
   });

@@ -7,6 +7,7 @@ import {
   DISPLAY_LOCALE_VALUES,
   DEFAULT_PREFERENCES,
   LEGACY_DISPLAY_LOCALE_KEYS,
+  LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES,
   migrateLegacyDisplayLocale,
   FONT_SIZE_MODES,
   FONT_SIZE_PRESETS,
@@ -241,13 +242,62 @@ export function getPreferences(version: PoeVersion): Promise<PreferencesLoadOutc
   return loading;
 }
 
+type LegacyVersionedGlobalPreferenceName =
+  (typeof LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES)[number];
+
+const OTHER_VERSION: Readonly<Record<PoeVersion, PoeVersion>> = {
+  poe1: 'poe2',
+  poe2: 'poe1',
+};
+
+const COUPLED_GLOBAL_MIGRATION_KEYS = new Set<LegacyVersionedGlobalPreferenceName>([
+  'fontSizeMode',
+  'fontSizeScale',
+  'customFontSizeScale',
+  'sidebarSize',
+  'sidebarWidth',
+  'customSidebarWidth',
+]);
+
+function migrateLegacyGlobalField(
+  name: LegacyVersionedGlobalPreferenceName,
+  candidateVersions: readonly PoeVersion[],
+  stored: Readonly<Record<string, unknown>>,
+  loaded: Preferences,
+  repairs: Record<string, unknown>,
+): boolean {
+  if (stored[name] !== undefined) return false;
+  for (const candidateVersion of candidateVersions) {
+    const legacyValue = stored[`${name}_${candidateVersion}`];
+    if (legacyValue === undefined) continue;
+    const normalized = normalizePreference(name, legacyValue);
+    loaded[name] = normalized as never;
+    repairs[name] = normalized;
+    return true;
+  }
+  return false;
+}
+
 export async function createPreferencesModule(
   version: PoeVersion,
   storage: PreferencesStorage,
 ): Promise<PreferencesLoadOutcome> {
   try {
+    const otherVersion = OTHER_VERSION[version];
+    const versionOrder: readonly PoeVersion[] = [version, otherVersion];
     const keys = PREFERENCE_NAMES.map((name) => getPreferenceStorageKey(name, version));
-    const stored = await storage.get([...keys, ...PREFERENCE_NAMES, ...LEGACY_DISPLAY_LOCALE_KEYS]);
+    const legacyVersionedGlobalKeys = LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES.flatMap((name) => [
+      `${name}_${version}`,
+      `${name}_${otherVersion}`,
+    ]);
+    const stored = await storage.get([
+      ...new Set([
+        ...keys,
+        ...PREFERENCE_NAMES,
+        ...LEGACY_DISPLAY_LOCALE_KEYS,
+        ...legacyVersionedGlobalKeys,
+      ]),
+    ]);
     const loaded: Preferences = { ...DEFAULT_PREFERENCES };
     const repairs: Record<string, unknown> = {};
     for (const name of PREFERENCE_NAMES) {
@@ -275,15 +325,73 @@ export async function createPreferencesModule(
         repairs.displayLocale = migrated;
       }
     }
-    const modeKey = `fontSizeMode_${version}`;
-    const scaleKey = `fontSizeScale_${version}`;
-    const hasStoredMode = stored[modeKey] !== undefined || stored.fontSizeMode !== undefined;
-    const hasStoredScale = stored[scaleKey] !== undefined || stored.fontSizeScale !== undefined;
+
+    // 字體與側欄大小相關欄位保持同來源版本遷移，避免跨版本混搭 mode 與 scale/width
+    let migratedFontMode = false;
+    let migratedFontScale = false;
+    if (stored.fontSizeMode === undefined && stored.fontSizeScale === undefined) {
+      const fontSource = versionOrder.find(
+        (v) =>
+          stored[`fontSizeMode_${v}`] !== undefined || stored[`fontSizeScale_${v}`] !== undefined,
+      );
+      if (fontSource) {
+        migratedFontMode = migrateLegacyGlobalField(
+          'fontSizeMode',
+          [fontSource],
+          stored,
+          loaded,
+          repairs,
+        );
+        migratedFontScale = migrateLegacyGlobalField(
+          'fontSizeScale',
+          [fontSource],
+          stored,
+          loaded,
+          repairs,
+        );
+        migrateLegacyGlobalField(
+          'customFontSizeScale',
+          [fontSource, OTHER_VERSION[fontSource]],
+          stored,
+          loaded,
+          repairs,
+        );
+      }
+    } else {
+      migrateLegacyGlobalField('customFontSizeScale', versionOrder, stored, loaded, repairs);
+    }
+
+    const hasStoredMode = stored.fontSizeMode !== undefined || migratedFontMode;
+    const hasStoredScale = stored.fontSizeScale !== undefined || migratedFontScale;
     if (!hasStoredMode && hasStoredScale) {
       const inferredMode = inferFontSizeMode(loaded.fontSizeScale);
       loaded.fontSizeMode = inferredMode;
-      repairs[modeKey] = inferredMode;
+      repairs.fontSizeMode = inferredMode;
     }
+
+    const sidebarSource =
+      stored.sidebarSize === undefined && stored.sidebarWidth === undefined
+        ? versionOrder.find(
+            (v) =>
+              stored[`sidebarSize_${v}`] !== undefined || stored[`sidebarWidth_${v}`] !== undefined,
+          )
+        : undefined;
+    const sidebarCandidates = sidebarSource ? [sidebarSource] : versionOrder;
+    migrateLegacyGlobalField('sidebarSize', sidebarCandidates, stored, loaded, repairs);
+    migrateLegacyGlobalField('sidebarWidth', sidebarCandidates, stored, loaded, repairs);
+    migrateLegacyGlobalField(
+      'customSidebarWidth',
+      sidebarSource ? [sidebarSource, OTHER_VERSION[sidebarSource]] : versionOrder,
+      stored,
+      loaded,
+      repairs,
+    );
+
+    for (const name of LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES) {
+      if (COUPLED_GLOBAL_MIGRATION_KEYS.has(name)) continue;
+      migrateLegacyGlobalField(name, versionOrder, stored, loaded, repairs);
+    }
+
     if (Object.keys(repairs).length > 0) await storage.set(repairs);
     let snapshot = freezePreferences(loaded);
     const listeners = new Set<(snapshot: Readonly<Preferences>) => void>();

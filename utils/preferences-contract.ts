@@ -66,8 +66,50 @@ export const GLOBAL_PREFERENCE_NAMES = [
   'marketTranslation',
   'marketTranslationBilingual',
   'marketTranslationResultBilingual',
+  'collapsedTabTop',
+  'sidebarPosition',
+  'sidebarSize',
+  'sidebarWidth',
+  'customSidebarWidth',
+  'fontSizeMode',
+  'fontSizeScale',
+  'customFontSizeScale',
+  'densityScale',
+  'enablePureBackground',
+  'enableAutoTitle',
+  'enableHotkeys',
+  'hotkeyFocus',
+  'hotkeyClear',
+  'enableSearchTilde',
+  'enableFilterTilde',
+  'addBookmarkBtnPosition',
+  'searchEntryClickAction',
+  'enableBookmarkTooltip',
 ] as const;
 export type GlobalPreferenceName = (typeof GLOBAL_PREFERENCE_NAMES)[number];
+
+/** 曾經依遊戲版本（`${name}_poe1` / `${name}_poe2`）儲存、現已併入全域的偏好名稱 */
+export const LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES = [
+  'collapsedTabTop',
+  'sidebarPosition',
+  'sidebarSize',
+  'sidebarWidth',
+  'customSidebarWidth',
+  'fontSizeMode',
+  'fontSizeScale',
+  'customFontSizeScale',
+  'densityScale',
+  'enablePureBackground',
+  'enableAutoTitle',
+  'enableHotkeys',
+  'hotkeyFocus',
+  'hotkeyClear',
+  'enableSearchTilde',
+  'enableFilterTilde',
+  'addBookmarkBtnPosition',
+  'searchEntryClickAction',
+  'enableBookmarkTooltip',
+] as const satisfies readonly GlobalPreferenceName[];
 
 export function isGlobalPreference(name: string): name is GlobalPreferenceName {
   return (GLOBAL_PREFERENCE_NAMES as readonly string[]).includes(name);

@@ -888,8 +888,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     // 驗證所有值存在既有 Preferences storage，而不是 localStorage
     const storedSnapshot = storage.inspect();
-    expect(storedSnapshot['customSidebarWidth_poe1']).toBe(560);
-    expect(storedSnapshot['customFontSizeScale_poe1']).toBe(1.35);
+    expect(storedSnapshot['customSidebarWidth']).toBe(560);
+    expect(storedSnapshot['customFontSizeScale']).toBe(1.35);
     expect(window.localStorage.getItem('poexd_custom_sidebar_width_poe1')).toBeNull();
     expect(window.localStorage.getItem('poexd_custom_font_size_percent_poe1')).toBeNull();
   });
