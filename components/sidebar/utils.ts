@@ -169,12 +169,8 @@ export const filterModGroupsByItemLevel = (
     }
 
     const tiers = keepHigherTiers
-      ? mod.tiers.filter(
-          (tier) =>
-            isTierEligibleForItemLevel(tier.level, normalized) ||
-            (isTierLockedByItemLevelMax(tier.level, normalized.max) &&
-              (normalized.min === null ||
-                (parseTierLevel(tier.level) ?? Infinity) >= normalized.min)),
+      ? mod.tiers.filter((tier) =>
+          isTierEligibleForItemLevel(tier.level, { min: normalized.min, max: null }),
         )
       : eligibleTiers;
 
