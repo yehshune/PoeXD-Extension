@@ -149,6 +149,36 @@ describe('Sidebar first-install onboarding', () => {
     expect(query('[data-onboarding-hint]')).toBeNull();
   });
 
+  it('clears the hint dot when the sidebar is already open so collapsing never shows it', async () => {
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
+    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toMatchObject({
+      expandHintPending: false,
+      welcomePending: true,
+    });
+
+    query('[data-onboarding-action="dismiss"]')!.click();
+    await settle();
+    query('[data-sidebar-action="collapse"]')!.click();
+    await settle();
+    expect(query('[data-onboarding-hint]')).toBeNull();
+  });
+
+  it('clears the hint dot when expanded from another tab via storage', async () => {
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: true });
+    expect(query('[data-onboarding-hint]')).not.toBeNull();
+
+    await (globalThis as any).chrome.storage.local.set({ isCollapsed_poe2: false });
+    await settle();
+    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toMatchObject({
+      expandHintPending: false,
+      welcomePending: true,
+    });
+
+    query('[data-sidebar-action="collapse"]')!.click();
+    await settle();
+    expect(query('[data-onboarding-hint]')).toBeNull();
+  });
+
   it('shows the welcome card at the top across all tabs and dismisses it permanently', async () => {
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
     const card = query('[data-onboarding-welcome]');
@@ -218,6 +248,14 @@ describe('Sidebar first-install onboarding', () => {
     await (globalThis as any).chrome.storage.local.set({ [ONBOARDING_STORAGE_KEY]: freshInstall });
     await settle();
     expect(query('[data-onboarding-welcome]')).not.toBeNull();
+    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toMatchObject({
+      expandHintPending: false,
+      welcomePending: true,
+    });
+
+    query('[data-sidebar-action="collapse"]')!.click();
+    await settle();
+    expect(query('[data-onboarding-hint]')).toBeNull();
   });
 
   it('offers market translation on the international site and enables it through preferences', async () => {

@@ -792,6 +792,17 @@ export default defineComponent({
         console.error('[PoeXD Sidebar] 無法更新初次引導狀態:', error);
       });
     };
+    // 只要一般頁面的側邊欄處於展開狀態（含初始即展開、手動展開、跨分頁同步或引導狀態晚到），即清除展開提示圓點
+    watchEffect(() => {
+      if (
+        pageRole.value === 'normal' &&
+        sidebarStateReady.value &&
+        !isCollapsed.value &&
+        onboarding.value.expandHintPending
+      ) {
+        updateOnboarding(markExpandHintSeen);
+      }
+    });
     const dismissWelcomeCard = () => updateOnboarding(dismissWelcome);
     const dismissUpdateNotice = () => updateOnboarding(dismissUpdate);
     const setMarketTranslation = async (value: boolean) => {
@@ -1087,9 +1098,6 @@ export default defineComponent({
 
     const toggleCollapse = () => {
       isCollapsed.value = !isCollapsed.value;
-      if (!isCollapsed.value && onboarding.value.expandHintPending) {
-        updateOnboarding(markExpandHintSeen);
-      }
       const collapsedKey = keys.isCollapsed;
       chrome.storage.local.set({ [collapsedKey]: isCollapsed.value });
       dispatchPoeEvent('poexd-sidebar-collapsed-changed', isCollapsed.value);
