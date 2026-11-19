@@ -193,7 +193,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Adds the ~ tolerance prefix in the item name search and stat filter inputs, so typos and partial words still match',
   'settings.fuzzySearch.keywords': 'typo tolerant item name stat filter',
   'settings.section.backup': 'Backup & reset',
-  'settings.backup.export.label': 'Export settings',
+  'settings.backup.export.label': 'Back up settings',
   'settings.backup.export.button': 'Export',
   'settings.backup.export.details':
     'Downloads a JSON file with all settings that you can import on another computer or after reinstalling. Bookmarks and search history are not included; export bookmarks from the ⋮ menu in the Bookmarks tab.',

@@ -445,10 +445,10 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });
 
-    // Verify 6 sections exist with titles (Sidebar Modules first)
+    // Verify 5 sections exist with titles (Sidebar Modules first; Backup/Reset moved to toolbar menu)
     expect(container.querySelectorAll('[data-slot="collapsible"]').length).toBe(0);
     const triggers = container.querySelectorAll('[data-settings-section] > header h3');
-    expect(triggers.length).toBe(6);
+    expect(triggers.length).toBe(5);
     const sectionTitles = Array.from(triggers).map((t) => t.textContent?.trim());
     expect(sectionTitles).toEqual([
       '側邊欄模組',
@@ -456,7 +456,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       '搜尋欄與快捷鍵',
       '搜尋結果顯示',
       '書籤與歷史',
-      '備份與重設',
     ]);
     expect(sectionTitles).not.toContain('桌面連接器');
     expect(container.textContent).not.toContain('桌面連接器');
@@ -500,7 +499,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       '搜尋欄與快捷鍵',
       '搜尋結果顯示',
       '書籤與歷史',
-      '備份與重設',
     ]);
 
     // Switch displayLocale to zh-CN via Language Select
@@ -513,7 +511,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       '搜索栏与快捷键',
       '搜索结果显示',
       '书签与历史',
-      '备份与重置',
     ]);
     expect(container.textContent).toContain('主题');
     expect(container.textContent).toContain('语言');
@@ -528,7 +525,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'Search & Filters',
       'Search Results',
       'Bookmarks & History',
-      'Backup & reset',
     ]);
     expect(container.textContent).toContain('Theme');
     expect(container.textContent).toContain('Language');
@@ -546,7 +542,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'Search & Filters',
       'Search Results',
       'Bookmarks & History',
-      'Backup & reset',
     ]);
     expect(triggersEn[1].textContent).toContain('日本語');
   });
@@ -958,7 +953,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'searchHotkeys',
       'resultDisplay',
       'bookmarks',
-      'backup',
     ]);
     expect(container.querySelector('[data-settings-nav]')).toBeNull();
     expect(container.querySelector('[data-settings-tablist]')).toBeNull();
@@ -992,21 +986,36 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(group?.querySelector('#enable-market-translation-result-bilingual')).not.toBeNull();
   });
 
-  it('restores defaults only after confirmation', async () => {
+  it('exposes backup/import/reset in the top toolbar menu and restores defaults only after confirmation', async () => {
     const { container } = await mountSettingsPane();
     await currentModule!.update({ theme: 'caffeine', enableHotkeys: false });
     await flushAsync();
     const confirmSpy = vi.fn(async () => false);
     (window as any).poexdConfirm = confirmSpy;
-    const reset = container.querySelector<HTMLButtonElement>('[data-settings-backup="reset"]')!;
+
+    const openBackupMenu = async () => {
+      const trigger = container.querySelector<HTMLButtonElement>('[data-settings-backup-menu]')!;
+      expect(trigger).not.toBeNull();
+      trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+      trigger.click();
+      await flushAsync();
+    };
+
+    await openBackupMenu();
+    expect(document.body.querySelector('[data-settings-backup="export"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-settings-backup="import"]')).not.toBeNull();
+    const reset = document.body.querySelector<HTMLElement>('[data-settings-backup="reset"]')!;
+    expect(reset).not.toBeNull();
 
     reset.click();
     await flushAsync();
     expect(confirmSpy).toHaveBeenCalledTimes(1);
     expect(currentModule?.read().theme).toBe('caffeine');
 
+    await openBackupMenu();
+    const resetAgain = document.body.querySelector<HTMLElement>('[data-settings-backup="reset"]')!;
     confirmSpy.mockResolvedValueOnce(true);
-    reset.click();
+    resetAgain.click();
     await flushAsync();
     expect(currentModule?.read().theme).toBe('modern-dark');
     expect(currentModule?.read().enableHotkeys).toBe(true);
@@ -1093,7 +1102,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     (container.querySelector('[data-settings-search-clear]') as HTMLButtonElement).click();
     await flushAsync();
     // Clearing the query shows every section again
-    expect(visibleSections().length).toBe(6);
+    expect(visibleSections().length).toBe(5);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
     // Escape closes the search box and restores the tab list
@@ -1104,7 +1113,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     expect(container.querySelector('[data-settings-search]')).toBeNull();
     expect(searchToggle.getAttribute('aria-expanded')).toBe('false');
-    expect(visibleSections().length).toBe(6);
+    expect(visibleSections().length).toBe(5);
   });
 
   it('toggles Sidebar Modules and keeps the enabled count in sync', async () => {
@@ -1612,5 +1621,44 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     isVisible.value = true;
     await flushAsync();
     expect(rootElement.style.display).toBe('');
+  });
+
+  it('keeps the toolbar fixed above the scroll area, aligns module icons horizontally, and highlights the target section on jump', async () => {
+    const { container } = await mountSettingsPane();
+
+    // 1. Toolbar lives inside fixed pane slot, outside scroll root
+    const fixedSlot = container.querySelector('[data-slot="sidebar-pane-fixed"]');
+    const scrollRoot = container.querySelector('[data-slot="sidebar-pane-scroll-root"]');
+    expect(fixedSlot?.querySelector('[data-settings-toolbar]')).not.toBeNull();
+    expect(fixedSlot?.querySelector('[data-settings-backup-menu]')).not.toBeNull();
+    expect(scrollRoot?.querySelector('[data-settings-toolbar]')).toBeNull();
+    expect(scrollRoot?.querySelector('[data-settings-section="modules"]')).not.toBeNull();
+
+    // 2. Module rows center-align icon box and label horizontally
+    const bookmarkLead = container.querySelector(
+      '[data-sidebar-module="bookmark"] [data-settings-row-lead]',
+    );
+    expect(bookmarkLead?.className).toContain('items-center');
+    expect(bookmarkLead?.className).not.toContain('items-start');
+
+    // 3. Clicking related-settings highlights the target section temporarily
+    vi.useFakeTimers();
+    try {
+      const jumpBtn = container.querySelector<HTMLButtonElement>(
+        '[data-sidebar-module="bookmark"] [data-sidebar-module-action="related-settings"]',
+      )!;
+      expect(jumpBtn).not.toBeNull();
+      jumpBtn.click();
+      await nextTick();
+
+      const bookmarksSection = container.querySelector('[data-settings-section="bookmarks"]');
+      expect(bookmarksSection?.getAttribute('data-settings-section-highlighted')).toBe('true');
+
+      vi.advanceTimersByTime(1700);
+      await nextTick();
+      expect(bookmarksSection?.getAttribute('data-settings-section-highlighted')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -2,11 +2,17 @@
 import type { Component } from 'vue';
 import { useSettingsSection } from './settings-search';
 
-const props = defineProps<{
-  sectionId: string;
-  title: string;
-  icon: Component;
-}>();
+const props = withDefaults(
+  defineProps<{
+    sectionId: string;
+    title: string;
+    icon: Component;
+    highlighted?: boolean;
+  }>(),
+  {
+    highlighted: false,
+  },
+);
 
 const { visible } = useSettingsSection(() => props.title);
 const headingId = `pxd-settings-section-${props.sectionId}`;
@@ -16,8 +22,12 @@ const headingId = `pxd-settings-section-${props.sectionId}`;
   <section
     v-show="visible"
     :data-settings-section="sectionId"
+    :data-settings-section-highlighted="highlighted ? 'true' : undefined"
     :aria-labelledby="headingId"
-    class="flex flex-col gap-[var(--pxd-space-xl)]"
+    :class="[
+      'flex flex-col gap-[var(--pxd-space-xl)] rounded-md border -mx-[var(--pxd-space-sm)] px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] transition-[background-color,border-color] duration-300',
+      highlighted ? 'border-primary/50 bg-primary/10' : 'border-transparent',
+    ]"
   >
     <header
       class="flex min-w-0 items-center gap-[var(--pxd-space-sm)] border-b border-border pb-[var(--pxd-space-md)]"

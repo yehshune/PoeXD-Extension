@@ -25,10 +25,12 @@ const collapsibleContentSource = readFileSync(
 
 describe('Sidebar UI Final Polish Contract & Verification', () => {
   describe('1. Scroll-end spacing contract across main pages', () => {
-    it('SettingsPane root element does not restrict height with h-full, preserving content-body padding-bottom at scroll-end', () => {
-      // Must not contain h-full on root flex container
-      expect(settingsPaneSource).not.toMatch(/<template>\s*<div class="[^"]*h-full/);
-      expect(settingsPaneSource).toMatch(/<template>\s*<div class="pxd-settings-pane flex /);
+    it('SettingsPane uses SidebarPane so the fixed toolbar stays above the scroll viewport with internal scroll-end spacing', () => {
+      expect(settingsPaneSource).toMatch(
+        /<template>\s*<SidebarPane data-pane="settings" class="pxd-settings-pane">/,
+      );
+      expect(settingsPaneSource).toContain('<template #fixed>');
+      expect(settingsPaneSource).toContain('<template #scroll>');
     });
 
     it('BookmarkPane uses native scroll container with pb-[var(--pxd-pane-scroll-end-space)] and zero outer padding', () => {

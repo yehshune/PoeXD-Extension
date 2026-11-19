@@ -1,306 +1,123 @@
 <template>
-  <div class="pxd-settings-pane flex flex-col" data-settings-pane>
-    <!-- 搜尋：固定在捲動區頂端，按下展開輸入框（與書籤、釘選分頁相同） -->
-    <div
-      data-settings-toolbar
-      class="sticky top-[calc(var(--pxd-pane-padding)*-1)] z-(--pxd-z-sticky) -mx-[var(--pxd-pane-padding)] -mt-[var(--pxd-pane-padding)] mb-[var(--pxd-space-xl)] flex items-center justify-end gap-[var(--pxd-space-sm)] bg-background px-[var(--pxd-pane-padding)] pt-[var(--pxd-pane-padding)] pb-[var(--pxd-space-md)]"
-      :class="isSearchOpen ? 'border-b border-border' : ''"
-    >
-      <div v-if="isSearchOpen" class="relative flex min-w-0 flex-1 items-center">
-        <Search
-          class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
-          aria-hidden="true"
-        />
-        <Input
-          ref="searchInputRef"
-          v-model="searchQuery"
-          type="search"
-          size="sm"
-          data-settings-search
-          class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))] [&::-webkit-search-cancel-button]:appearance-none"
-          :placeholder="t('settings.search.placeholder')"
-          :aria-label="t('settings.search.placeholder')"
-          @keydown.esc.stop.prevent="closeSearch"
-        />
-        <Button
-          v-if="searchQuery"
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          class="absolute right-[var(--pxd-space-xs)]"
-          data-settings-search-clear
-          :title="t('settings.search.clear')"
-          :aria-label="t('settings.search.clear')"
-          @click="clearSearch"
-        >
-          <X />
-        </Button>
-      </div>
-      <Button
-        type="button"
-        :variant="isSearchOpen ? 'default' : 'secondary'"
-        size="icon-sm"
-        class="shrink-0"
-        data-settings-search-toggle
-        :aria-expanded="isSearchOpen"
-        :title="isSearchOpen ? t('settings.search.close') : t('settings.search.placeholder')"
-        :aria-label="isSearchOpen ? t('settings.search.close') : t('settings.search.placeholder')"
-        @click="toggleSearch"
+  <SidebarPane data-pane="settings" class="pxd-settings-pane">
+    <template #fixed>
+      <!-- 搜尋與備份選單：固定於捲動區上方（與書籤、歷史、PoB 分頁相同） -->
+      <div
+        data-settings-toolbar
+        class="flex w-full min-w-0 items-center justify-end gap-[var(--pxd-space-sm)] pb-[var(--pxd-space-md)]"
+        :class="isSearchOpen ? 'mb-[var(--pxd-space-md)] border-b border-border' : ''"
       >
-        <Search />
-      </Button>
-    </div>
-
-    <div ref="sectionsRef" class="flex flex-col gap-[calc(var(--pxd-section-gap)*2.4)]">
-      <!-- 0. 側邊欄模組 -->
-      <SettingsSection
-        section-id="modules"
-        :title="t('settings.section.modules')"
-        :icon="LayoutGrid"
-      >
-        <template #aside>
-          <span
-            data-settings-modules-count
-            class="shrink-0 whitespace-nowrap text-[length:var(--pxd-font-caption)] tabular-nums text-muted-foreground"
-          >
-            {{
-              t('settings.modules.enabledCount', {
-                count: enabledModuleCount,
-                total: SIDEBAR_MODULES.length,
-              })
-            }}
-          </span>
-        </template>
-        <SidebarModuleSettings
-          :values="moduleValues"
-          @toggle="toggleModule"
-          @open-section="openSection"
-        />
-      </SettingsSection>
-
-      <!-- 1. 外觀與版面 -->
-      <SettingsSection
-        section-id="appearance"
-        :title="t('settings.section.appearance')"
-        :icon="Palette"
-      >
-        <SettingsRow :label="t('settings.theme.label')">
-          <Select v-model="theme" @update:model-value="savePreference('theme')">
-            <SelectTrigger size="default" class="w-[140px] shrink-0">
-              <SelectValue>{{ THEME_LABELS[theme] }}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="opt in THEME_OPTIONS" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
-
-        <SettingsRow
-          :label="t('settings.displayLocale.label')"
-          :details="t('settings.displayLocale.tooltip')"
-        >
-          <Select
-            v-model="displayLocale"
-            data-test="display-locale"
-            @update:model-value="savePreference('displayLocale')"
-          >
-            <SelectTrigger size="default" class="w-[140px] shrink-0">
-              <SelectValue>{{ DISPLAY_LOCALE_LABELS[displayLocale] }}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="opt in DISPLAY_LOCALE_OPTIONS" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
-
-        <SettingsRow
-          :label="t('settings.marketTranslation.label')"
-          :details="t('settings.marketTranslation.tooltip')"
-          :keywords="[
-            t('popup.module.marketTranslation.description'),
-            t('settings.marketTranslation.keywords'),
-          ]"
-          control-id="enable-market-translation"
-        >
-          <template #default="{ describedBy }">
-            <Switch
-              id="enable-market-translation"
-              v-model="marketTranslation"
-              :aria-describedby="describedBy"
-              @update:model-value="savePreference('marketTranslation')"
-            />
-          </template>
-        </SettingsRow>
-        <template v-if="marketTranslation">
-          <!-- 中英並列：同一個概念套用在篩選下拉與搜尋結果兩處 -->
-          <div
-            data-settings-group="market-translation-bilingual"
-            class="ml-[7px] flex flex-col gap-[var(--pxd-space-md)] border-l border-border/70 pl-[var(--pxd-space-md)]"
-          >
-            <p class="m-0 text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground">
-              {{ t('settings.marketTranslation.bilingualGroup') }}
-            </p>
-            <SettingsRow
-              :label="t('settings.marketTranslationBilingual.label')"
-              :details="t('settings.marketTranslationBilingual.tooltip')"
-              :keywords="[t('settings.marketTranslation.bilingualGroup')]"
-              control-id="enable-market-translation-bilingual"
-            >
-              <template #default="{ describedBy }">
-                <Switch
-                  id="enable-market-translation-bilingual"
-                  v-model="marketTranslationBilingual"
-                  :aria-describedby="describedBy"
-                  @update:model-value="savePreference('marketTranslationBilingual')"
-                />
-              </template>
-            </SettingsRow>
-            <SettingsRow
-              :label="t('settings.marketTranslationResultBilingual.label')"
-              :details="t('settings.marketTranslationResultBilingual.tooltip')"
-              :keywords="[t('settings.marketTranslation.bilingualGroup')]"
-              control-id="enable-market-translation-result-bilingual"
-              guide-target="result-mod-en"
-            >
-              <template #default="{ describedBy }">
-                <Switch
-                  id="enable-market-translation-result-bilingual"
-                  v-model="marketTranslationResultBilingual"
-                  :aria-describedby="describedBy"
-                  @update:model-value="savePreference('marketTranslationResultBilingual')"
-                />
-              </template>
-            </SettingsRow>
-          </div>
-        </template>
-        <p
-          v-if="marketTranslationLocaleMismatch"
-          data-test="market-translation-locale-hint"
-          role="status"
-          class="m-0 rounded-md border border-border bg-muted/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
-        >
-          {{ t('settings.marketTranslation.localeHint') }}
-        </p>
-        <div
-          v-if="marketTranslationReloadRequired"
-          data-test="market-translation-reload"
-          role="status"
-          class="flex items-center justify-between gap-[var(--pxd-space-sm)] rounded-md border border-primary/40 bg-primary/10 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-foreground"
-        >
-          <span>{{ t('common.reloadToApply') }}</span>
-          <Button
-            type="button"
-            variant="outline"
+        <div v-if="isSearchOpen" class="relative flex min-w-0 flex-1 items-center">
+          <Search
+            class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="search"
             size="sm"
-            class="shrink-0"
-            data-test="market-translation-reload-btn"
-            @click="reloadPage"
+            data-settings-search
+            class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))] [&::-webkit-search-cancel-button]:appearance-none"
+            :placeholder="t('settings.search.placeholder')"
+            :aria-label="t('settings.search.placeholder')"
+            @keydown.esc.stop.prevent="closeSearch"
+          />
+          <Button
+            v-if="searchQuery"
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            class="absolute right-[var(--pxd-space-xs)]"
+            data-settings-search-clear
+            :title="t('settings.search.clear')"
+            :aria-label="t('settings.search.clear')"
+            @click="clearSearch"
           >
-            {{ t('common.reload') }}
+            <X />
           </Button>
         </div>
-
-        <SettingsRow
-          :label="t('settings.pureBackground.label')"
-          :details="t('settings.pureBackground.tooltip')"
-          :keywords="[t('popup.module.enablePureBackground.description')]"
-          control-id="enable-pure-background"
+        <Button
+          type="button"
+          :variant="isSearchOpen ? 'default' : 'secondary'"
+          size="icon-sm"
+          class="shrink-0"
+          data-settings-search-toggle
+          :aria-expanded="isSearchOpen"
+          :title="isSearchOpen ? t('settings.search.close') : t('settings.search.placeholder')"
+          :aria-label="isSearchOpen ? t('settings.search.close') : t('settings.search.placeholder')"
+          @click="toggleSearch"
         >
-          <template #default="{ describedBy }">
-            <Switch
-              id="enable-pure-background"
-              v-model="enablePureBackground"
-              :aria-describedby="describedBy"
-              @update:model-value="savePreference('enablePureBackground')"
-            />
-          </template>
-        </SettingsRow>
+          <Search />
+        </Button>
+        <SettingsBackupMenu :preferences="preferences" :version="version" />
+      </div>
+    </template>
 
-        <SettingsRow
-          :label="t('settings.autoTitle.label')"
-          :details="t('settings.autoTitle.tooltip')"
-          :keywords="[t('popup.module.enableAutoTitle.description')]"
-          control-id="enable-auto-title"
+    <template #scroll>
+      <div ref="sectionsRef" class="flex flex-col gap-[calc(var(--pxd-section-gap)*2.4)]">
+        <!-- 0. 側邊欄模組 -->
+        <SettingsSection
+          section-id="modules"
+          :title="t('settings.section.modules')"
+          :icon="LayoutGrid"
+          :highlighted="highlightedSection === 'modules'"
         >
-          <template #default="{ describedBy }">
-            <Switch
-              id="enable-auto-title"
-              v-model="enableAutoTitle"
-              :aria-describedby="describedBy"
-              @update:model-value="savePreference('enableAutoTitle')"
-            />
-          </template>
-        </SettingsRow>
-
-        <SettingsRow :label="t('settings.sidebarPosition.label')">
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            :model-value="sidebarPosition"
-            class="w-[140px] shrink-0"
-            @update:model-value="handleSidebarPositionChange"
-          >
-            <ToggleGroupItem
-              v-for="opt in SIDEBAR_POSITION_OPTIONS"
-              :key="opt.value"
-              :value="opt.value"
-              :aria-label="opt.label"
-              size="sm"
-              class="flex-1"
+          <template #aside>
+            <span
+              data-settings-modules-count
+              class="shrink-0 whitespace-nowrap text-[length:var(--pxd-font-caption)] tabular-nums text-muted-foreground"
             >
-              {{ opt.label }}
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </SettingsRow>
+              {{
+                t('settings.modules.enabledCount', {
+                  count: enabledModuleCount,
+                  total: SIDEBAR_MODULES.length,
+                })
+              }}
+            </span>
+          </template>
+          <SidebarModuleSettings
+            :values="moduleValues"
+            @toggle="toggleModule"
+            @open-section="openSection"
+          />
+        </SettingsSection>
 
-        <SettingsRow
-          :label="t('settings.collapsedTabPosition.label')"
-          :details="t('settings.collapsedTabPosition.tooltip')"
+        <!-- 1. 外觀與版面 -->
+        <SettingsSection
+          section-id="appearance"
+          :title="t('settings.section.appearance')"
+          :icon="Palette"
+          :highlighted="highlightedSection === 'appearance'"
         >
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            class="shrink-0"
-            data-test="reset-collapsed-tab-position"
-            :disabled="isCollapsedTabTopDefault"
-            @click="resetCollapsedTabPosition"
-          >
-            {{ t('settings.collapsedTabPosition.reset') }}
-          </Button>
-        </SettingsRow>
-
-        <SettingsRow
-          :label="t('settings.sidebarSize.label')"
-          :description="sidebarSize === 'custom' ? t('settings.sidebarSize.customHint') : undefined"
-        >
-          <Select v-model="sidebarSize" @update:model-value="handleSizeChange">
-            <SelectTrigger size="default" class="w-[140px] shrink-0">
-              <SelectValue>{{ SIDEBAR_SIZE_LABELS[sidebarSize] }}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="opt in SIDEBAR_SIZE_OPTIONS" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingsRow>
-
-        <SettingsRow
-          :label="t('settings.fontSize.label', { percent: Math.round(fontSizeScale * 100) })"
-        >
-          <div class="flex flex-col items-end gap-[var(--pxd-space-sm)]">
-            <Select v-model="fontSizeMode" @update:model-value="handleFontSizeModeChange">
+          <SettingsRow :label="t('settings.theme.label')">
+            <Select v-model="theme" @update:model-value="savePreference('theme')">
               <SelectTrigger size="default" class="w-[140px] shrink-0">
-                <SelectValue>{{ FONT_SIZE_MODE_LABELS[fontSizeMode] }}</SelectValue>
+                <SelectValue>{{ THEME_LABELS[theme] }}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="opt in THEME_OPTIONS" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+
+          <SettingsRow
+            :label="t('settings.displayLocale.label')"
+            :details="t('settings.displayLocale.tooltip')"
+          >
+            <Select
+              v-model="displayLocale"
+              data-test="display-locale"
+              @update:model-value="savePreference('displayLocale')"
+            >
+              <SelectTrigger size="default" class="w-[140px] shrink-0">
+                <SelectValue>{{ DISPLAY_LOCALE_LABELS[displayLocale] }}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem
-                  v-for="opt in FONT_SIZE_MODE_OPTIONS"
+                  v-for="opt in DISPLAY_LOCALE_OPTIONS"
                   :key="opt.value"
                   :value="opt.value"
                 >
@@ -308,223 +125,421 @@
                 </SelectItem>
               </SelectContent>
             </Select>
-            <div
-              v-if="fontSizeMode === 'custom'"
-              class="relative flex w-[140px] shrink-0 items-center"
-            >
-              <Input
-                type="number"
-                v-model="customFontSizePercent"
-                :min="fontSizePercentBounds.min"
-                :max="fontSizePercentBounds.max"
-                size="default"
-                :aria-label="t('settings.fontSize.option.custom')"
-                class="w-full pr-[var(--control-height-default)] [appearance:textfield] [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none text-right"
-                @input="handleCustomFontSizeInput"
-                @blur="handleCustomFontSizeBlur"
+          </SettingsRow>
+
+          <SettingsRow
+            :label="t('settings.marketTranslation.label')"
+            :details="t('settings.marketTranslation.tooltip')"
+            :keywords="[
+              t('popup.module.marketTranslation.description'),
+              t('settings.marketTranslation.keywords'),
+            ]"
+            control-id="enable-market-translation"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-market-translation"
+                v-model="marketTranslation"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('marketTranslation')"
               />
-              <span
-                class="pointer-events-none absolute right-[var(--input-padding-x-default)] select-none text-[length:var(--pxd-font-caption)] text-muted-foreground"
-                >%</span
+            </template>
+          </SettingsRow>
+          <template v-if="marketTranslation">
+            <!-- 中英並列：同一個概念套用在篩選下拉與搜尋結果兩處 -->
+            <div
+              data-settings-group="market-translation-bilingual"
+              class="ml-[7px] flex flex-col gap-[var(--pxd-space-md)] border-l border-border/70 pl-[var(--pxd-space-md)]"
+            >
+              <p
+                class="m-0 text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground"
               >
+                {{ t('settings.marketTranslation.bilingualGroup') }}
+              </p>
+              <SettingsRow
+                :label="t('settings.marketTranslationBilingual.label')"
+                :details="t('settings.marketTranslationBilingual.tooltip')"
+                :keywords="[t('settings.marketTranslation.bilingualGroup')]"
+                control-id="enable-market-translation-bilingual"
+              >
+                <template #default="{ describedBy }">
+                  <Switch
+                    id="enable-market-translation-bilingual"
+                    v-model="marketTranslationBilingual"
+                    :aria-describedby="describedBy"
+                    @update:model-value="savePreference('marketTranslationBilingual')"
+                  />
+                </template>
+              </SettingsRow>
+              <SettingsRow
+                :label="t('settings.marketTranslationResultBilingual.label')"
+                :details="t('settings.marketTranslationResultBilingual.tooltip')"
+                :keywords="[t('settings.marketTranslation.bilingualGroup')]"
+                control-id="enable-market-translation-result-bilingual"
+                guide-target="result-mod-en"
+              >
+                <template #default="{ describedBy }">
+                  <Switch
+                    id="enable-market-translation-result-bilingual"
+                    v-model="marketTranslationResultBilingual"
+                    :aria-describedby="describedBy"
+                    @update:model-value="savePreference('marketTranslationResultBilingual')"
+                  />
+                </template>
+              </SettingsRow>
             </div>
+          </template>
+          <p
+            v-if="marketTranslationLocaleMismatch"
+            data-test="market-translation-locale-hint"
+            role="status"
+            class="m-0 rounded-md border border-border bg-muted/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+          >
+            {{ t('settings.marketTranslation.localeHint') }}
+          </p>
+          <div
+            v-if="marketTranslationReloadRequired"
+            data-test="market-translation-reload"
+            role="status"
+            class="flex items-center justify-between gap-[var(--pxd-space-sm)] rounded-md border border-primary/40 bg-primary/10 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-foreground"
+          >
+            <span>{{ t('common.reloadToApply') }}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="shrink-0"
+              data-test="market-translation-reload-btn"
+              @click="reloadPage"
+            >
+              {{ t('common.reload') }}
+            </Button>
           </div>
-        </SettingsRow>
 
-        <SettingsRow :label="t('settings.density.compactLabel')" control-id="density-compact">
-          <Switch id="density-compact" v-model="isCompactDensity" />
-        </SettingsRow>
-      </SettingsSection>
+          <SettingsRow
+            :label="t('settings.pureBackground.label')"
+            :details="t('settings.pureBackground.tooltip')"
+            :keywords="[t('popup.module.enablePureBackground.description')]"
+            control-id="enable-pure-background"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-pure-background"
+                v-model="enablePureBackground"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('enablePureBackground')"
+              />
+            </template>
+          </SettingsRow>
 
-      <!-- 3. 搜尋欄與快捷鍵 -->
-      <SettingsSection
-        section-id="searchHotkeys"
-        :title="t('settings.section.searchHotkeys')"
-        :icon="Keyboard"
-      >
-        <SettingsRow :label="t('settings.hotkeys.enable')" control-id="enable-hotkeys">
-          <Switch
-            id="enable-hotkeys"
-            v-model="enableHotkeys"
-            @update:model-value="savePreference('enableHotkeys')"
-          />
-        </SettingsRow>
-        <template v-if="enableHotkeys">
-          <SettingsRow nested :label="t('settings.hotkeys.focusLabel')">
-            <SettingsHotkeyInput
-              v-model="hotkeyFocus"
-              :aria-label="t('settings.hotkeys.focusLabel')"
-              @update:model-value="savePreference('hotkeyFocus')"
+          <SettingsRow
+            :label="t('settings.autoTitle.label')"
+            :details="t('settings.autoTitle.tooltip')"
+            :keywords="[t('popup.module.enableAutoTitle.description')]"
+            control-id="enable-auto-title"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-auto-title"
+                v-model="enableAutoTitle"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('enableAutoTitle')"
+              />
+            </template>
+          </SettingsRow>
+
+          <SettingsRow :label="t('settings.sidebarPosition.label')">
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              :model-value="sidebarPosition"
+              class="w-[140px] shrink-0"
+              @update:model-value="handleSidebarPositionChange"
+            >
+              <ToggleGroupItem
+                v-for="opt in SIDEBAR_POSITION_OPTIONS"
+                :key="opt.value"
+                :value="opt.value"
+                :aria-label="opt.label"
+                size="sm"
+                class="flex-1"
+              >
+                {{ opt.label }}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </SettingsRow>
+
+          <SettingsRow
+            :label="t('settings.collapsedTabPosition.label')"
+            :details="t('settings.collapsedTabPosition.tooltip')"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="shrink-0"
+              data-test="reset-collapsed-tab-position"
+              :disabled="isCollapsedTabTopDefault"
+              @click="resetCollapsedTabPosition"
+            >
+              {{ t('settings.collapsedTabPosition.reset') }}
+            </Button>
+          </SettingsRow>
+
+          <SettingsRow
+            :label="t('settings.sidebarSize.label')"
+            :description="
+              sidebarSize === 'custom' ? t('settings.sidebarSize.customHint') : undefined
+            "
+          >
+            <Select v-model="sidebarSize" @update:model-value="handleSizeChange">
+              <SelectTrigger size="default" class="w-[140px] shrink-0">
+                <SelectValue>{{ SIDEBAR_SIZE_LABELS[sidebarSize] }}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="opt in SIDEBAR_SIZE_OPTIONS" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+
+          <SettingsRow
+            :label="t('settings.fontSize.label', { percent: Math.round(fontSizeScale * 100) })"
+          >
+            <div class="flex flex-col items-end gap-[var(--pxd-space-sm)]">
+              <Select v-model="fontSizeMode" @update:model-value="handleFontSizeModeChange">
+                <SelectTrigger size="default" class="w-[140px] shrink-0">
+                  <SelectValue>{{ FONT_SIZE_MODE_LABELS[fontSizeMode] }}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem
+                    v-for="opt in FONT_SIZE_MODE_OPTIONS"
+                    :key="opt.value"
+                    :value="opt.value"
+                  >
+                    {{ opt.label }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <div
+                v-if="fontSizeMode === 'custom'"
+                class="relative flex w-[140px] shrink-0 items-center"
+              >
+                <Input
+                  type="number"
+                  v-model="customFontSizePercent"
+                  :min="fontSizePercentBounds.min"
+                  :max="fontSizePercentBounds.max"
+                  size="default"
+                  :aria-label="t('settings.fontSize.option.custom')"
+                  class="w-full pr-[var(--control-height-default)] [appearance:textfield] [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none text-right"
+                  @input="handleCustomFontSizeInput"
+                  @blur="handleCustomFontSizeBlur"
+                />
+                <span
+                  class="pointer-events-none absolute right-[var(--input-padding-x-default)] select-none text-[length:var(--pxd-font-caption)] text-muted-foreground"
+                  >%</span
+                >
+              </div>
+            </div>
+          </SettingsRow>
+
+          <SettingsRow :label="t('settings.density.compactLabel')" control-id="density-compact">
+            <Switch id="density-compact" v-model="isCompactDensity" />
+          </SettingsRow>
+        </SettingsSection>
+
+        <!-- 3. 搜尋欄與快捷鍵 -->
+        <SettingsSection
+          section-id="searchHotkeys"
+          :title="t('settings.section.searchHotkeys')"
+          :icon="Keyboard"
+          :highlighted="highlightedSection === 'searchHotkeys'"
+        >
+          <SettingsRow :label="t('settings.hotkeys.enable')" control-id="enable-hotkeys">
+            <Switch
+              id="enable-hotkeys"
+              v-model="enableHotkeys"
+              @update:model-value="savePreference('enableHotkeys')"
             />
           </SettingsRow>
-          <SettingsRow nested :label="t('settings.hotkeys.clearLabel')">
-            <SettingsHotkeyInput
-              v-model="hotkeyClear"
-              :aria-label="t('settings.hotkeys.clearLabel')"
-              @update:model-value="savePreference('hotkeyClear')"
+          <template v-if="enableHotkeys">
+            <SettingsRow nested :label="t('settings.hotkeys.focusLabel')">
+              <SettingsHotkeyInput
+                v-model="hotkeyFocus"
+                :aria-label="t('settings.hotkeys.focusLabel')"
+                @update:model-value="savePreference('hotkeyFocus')"
+              />
+            </SettingsRow>
+            <SettingsRow nested :label="t('settings.hotkeys.clearLabel')">
+              <SettingsHotkeyInput
+                v-model="hotkeyClear"
+                :aria-label="t('settings.hotkeys.clearLabel')"
+                @update:model-value="savePreference('hotkeyClear')"
+              />
+            </SettingsRow>
+          </template>
+
+          <SettingsRow
+            :label="t('settings.fuzzySearch.label')"
+            :details="t('settings.fuzzySearch.tooltip')"
+            :keywords="['~', t('settings.fuzzySearch.keywords')]"
+            control-id="enable-fuzzy-search"
+            guide-target="search-input"
+          >
+            <Switch id="enable-fuzzy-search" v-model="fuzzySearchEnabled" />
+          </SettingsRow>
+
+          <SettingsRow
+            v-for="row in SEARCH_TOGGLE_ROWS"
+            :key="row.id"
+            :label="t(row.labelKey)"
+            :details="t(row.detailsKey)"
+            :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
+            :guide-target="row.guideTarget"
+            :control-id="row.id"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                :id="row.id"
+                :model-value="preferenceState[row.key]"
+                :aria-describedby="describedBy"
+                @update:model-value="setToggle(row.key, $event)"
+              />
+            </template>
+          </SettingsRow>
+        </SettingsSection>
+
+        <!-- 4. 搜尋結果顯示 -->
+        <SettingsSection
+          section-id="resultDisplay"
+          :title="t('settings.section.resultDisplay')"
+          :icon="ListChecks"
+          :highlighted="highlightedSection === 'resultDisplay'"
+        >
+          <SettingsRow
+            v-for="row in resultToggleRows"
+            :key="row.id"
+            :label="t(row.labelKey)"
+            :details="t(row.detailsKey)"
+            :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
+            :guide-target="row.guideTarget"
+            :control-id="row.id"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                :id="row.id"
+                :model-value="preferenceState[row.key]"
+                :aria-describedby="describedBy"
+                @update:model-value="setToggle(row.key, $event)"
+              />
+            </template>
+          </SettingsRow>
+        </SettingsSection>
+
+        <!-- 5. 書籤與歷史 -->
+        <SettingsSection
+          section-id="bookmarks"
+          :title="t('settings.section.bookmarks')"
+          :icon="Bookmark"
+          :highlighted="highlightedSection === 'bookmarks'"
+        >
+          <SettingsRow :label="t('settings.bookmarkBtnPosition.label')">
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              :model-value="addBookmarkBtnPosition"
+              class="w-[140px] shrink-0"
+              @update:model-value="handleAddBookmarkBtnPositionChange"
+            >
+              <ToggleGroupItem
+                v-for="opt in BOOKMARK_BUTTON_POSITION_OPTIONS"
+                :key="opt.value"
+                :value="opt.value"
+                :aria-label="opt.label"
+                size="sm"
+                class="flex-1"
+              >
+                {{ opt.label }}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </SettingsRow>
+
+          <SettingsRow :label="t('settings.searchEntryClickAction.label')">
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              data-test="search-entry-click-action"
+              :model-value="searchEntryClickAction"
+              class="w-[140px] shrink-0"
+              @update:model-value="handleSearchEntryClickActionChange"
+            >
+              <ToggleGroupItem
+                v-for="opt in SEARCH_ENTRY_CLICK_ACTION_OPTIONS"
+                :key="opt.value"
+                :value="opt.value"
+                :aria-label="opt.label"
+                size="sm"
+                class="flex-1 px-1 whitespace-nowrap overflow-hidden"
+                :title="opt.label"
+              >
+                <span class="truncate block w-full text-center">{{ opt.label }}</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </SettingsRow>
+
+          <SettingsRow
+            :label="t('settings.bookmarkTooltip.label')"
+            control-id="enable-bookmark-tooltip"
+          >
+            <Switch
+              id="enable-bookmark-tooltip"
+              v-model="enableBookmarkTooltip"
+              @update:model-value="savePreference('enableBookmarkTooltip')"
             />
           </SettingsRow>
-        </template>
 
-        <SettingsRow
-          :label="t('settings.fuzzySearch.label')"
-          :details="t('settings.fuzzySearch.tooltip')"
-          :keywords="['~', t('settings.fuzzySearch.keywords')]"
-          control-id="enable-fuzzy-search"
-          guide-target="search-input"
-        >
-          <Switch id="enable-fuzzy-search" v-model="fuzzySearchEnabled" />
-        </SettingsRow>
-
-        <SettingsRow
-          v-for="row in SEARCH_TOGGLE_ROWS"
-          :key="row.id"
-          :label="t(row.labelKey)"
-          :details="t(row.detailsKey)"
-          :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
-          :guide-target="row.guideTarget"
-          :control-id="row.id"
-        >
-          <template #default="{ describedBy }">
-            <Switch
-              :id="row.id"
-              :model-value="preferenceState[row.key]"
-              :aria-describedby="describedBy"
-              @update:model-value="setToggle(row.key, $event)"
-            />
-          </template>
-        </SettingsRow>
-      </SettingsSection>
-
-      <!-- 4. 搜尋結果顯示 -->
-      <SettingsSection
-        section-id="resultDisplay"
-        :title="t('settings.section.resultDisplay')"
-        :icon="ListChecks"
-      >
-        <SettingsRow
-          v-for="row in resultToggleRows"
-          :key="row.id"
-          :label="t(row.labelKey)"
-          :details="t(row.detailsKey)"
-          :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
-          :guide-target="row.guideTarget"
-          :control-id="row.id"
-        >
-          <template #default="{ describedBy }">
-            <Switch
-              :id="row.id"
-              :model-value="preferenceState[row.key]"
-              :aria-describedby="describedBy"
-              @update:model-value="setToggle(row.key, $event)"
-            />
-          </template>
-        </SettingsRow>
-      </SettingsSection>
-
-      <!-- 5. 書籤與歷史 -->
-      <SettingsSection
-        section-id="bookmarks"
-        :title="t('settings.section.bookmarks')"
-        :icon="Bookmark"
-      >
-        <SettingsRow :label="t('settings.bookmarkBtnPosition.label')">
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            :model-value="addBookmarkBtnPosition"
-            class="w-[140px] shrink-0"
-            @update:model-value="handleAddBookmarkBtnPositionChange"
-          >
-            <ToggleGroupItem
-              v-for="opt in BOOKMARK_BUTTON_POSITION_OPTIONS"
-              :key="opt.value"
-              :value="opt.value"
-              :aria-label="opt.label"
+          <!-- PoB 分享網址的選用權限（授權只能在擴充頁面進行） -->
+          <SettingsRow :label="t('pobShare.settings.label')">
+            <Button
+              variant="outline"
               size="sm"
-              class="flex-1"
+              class="shrink-0"
+              data-test="pob-share-permission"
+              @click="openPobSharePermissionPage"
             >
-              {{ opt.label }}
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </SettingsRow>
+              {{ t('pobShare.settings.manageBtn') }}
+            </Button>
+          </SettingsRow>
+        </SettingsSection>
 
-        <SettingsRow :label="t('settings.searchEntryClickAction.label')">
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            data-test="search-entry-click-action"
-            :model-value="searchEntryClickAction"
-            class="w-[140px] shrink-0"
-            @update:model-value="handleSearchEntryClickActionChange"
-          >
-            <ToggleGroupItem
-              v-for="opt in SEARCH_ENTRY_CLICK_ACTION_OPTIONS"
-              :key="opt.value"
-              :value="opt.value"
-              :aria-label="opt.label"
-              size="sm"
-              class="flex-1 px-1 whitespace-nowrap overflow-hidden"
-              :title="opt.label"
-            >
-              <span class="truncate block w-full text-center">{{ opt.label }}</span>
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </SettingsRow>
-
-        <SettingsRow
-          :label="t('settings.bookmarkTooltip.label')"
-          control-id="enable-bookmark-tooltip"
+        <!-- 搜尋無結果 -->
+        <div
+          v-if="isSearching && !hasSearchResults"
+          data-settings-search-empty
+          role="status"
+          class="flex flex-col items-start gap-[var(--pxd-space-xs)] py-[var(--pxd-space-xl)]"
         >
-          <Switch
-            id="enable-bookmark-tooltip"
-            v-model="enableBookmarkTooltip"
-            @update:model-value="savePreference('enableBookmarkTooltip')"
-          />
-        </SettingsRow>
-
-        <!-- PoB 分享網址的選用權限（授權只能在擴充頁面進行） -->
-        <SettingsRow :label="t('pobShare.settings.label')">
+          <p class="m-0 text-[length:var(--pxd-font-secondary)] font-medium text-foreground">
+            {{ t('settings.search.empty', { query: searchQuery.trim() }) }}
+          </p>
+          <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+            {{ t('settings.search.emptyHint') }}
+          </p>
           <Button
+            type="button"
             variant="outline"
             size="sm"
-            class="shrink-0"
-            data-test="pob-share-permission"
-            @click="openPobSharePermissionPage"
+            class="mt-[var(--pxd-space-sm)]"
+            @click="clearSearch"
           >
-            {{ t('pobShare.settings.manageBtn') }}
+            {{ t('settings.search.clear') }}
           </Button>
-        </SettingsRow>
-      </SettingsSection>
-
-      <!-- 6. 備份與重設 -->
-      <SettingsBackupSection />
-
-      <!-- 搜尋無結果 -->
-      <div
-        v-if="isSearching && !hasSearchResults"
-        data-settings-search-empty
-        role="status"
-        class="flex flex-col items-start gap-[var(--pxd-space-xs)] py-[var(--pxd-space-xl)]"
-      >
-        <p class="m-0 text-[length:var(--pxd-font-secondary)] font-medium text-foreground">
-          {{ t('settings.search.empty', { query: searchQuery.trim() }) }}
-        </p>
-        <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
-          {{ t('settings.search.emptyHint') }}
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          class="mt-[var(--pxd-space-sm)]"
-          @click="clearSearch"
-        >
-          {{ t('settings.search.clear') }}
-        </Button>
+        </div>
       </div>
-    </div>
-  </div>
+    </template>
+  </SidebarPane>
 </template>
 
 <script lang="ts">
@@ -550,10 +565,11 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Bookmark, Keyboard, LayoutGrid, ListChecks, Palette, Search, X } from '@lucide/vue';
+import SidebarPane from './layout/SidebarPane.vue';
 import SettingsHotkeyInput from './settings/SettingsHotkeyInput.vue';
 import SettingsRow from './settings/SettingsRow.vue';
 import SettingsSection from './settings/SettingsSection.vue';
-import SettingsBackupSection from './settings/SettingsBackupSection.vue';
+import SettingsBackupMenu from './settings/SettingsBackupMenu.vue';
 import SidebarModuleSettings from './settings/SidebarModuleSettings.vue';
 import { provideSettingsSearch } from './settings/settings-search';
 import {
@@ -619,8 +635,9 @@ export default defineComponent({
     SettingsHotkeyInput,
     SettingsRow,
     SettingsSection,
-    SettingsBackupSection,
+    SettingsBackupMenu,
     SidebarModuleSettings,
+    SidebarPane,
     ToggleGroup,
     ToggleGroupItem,
     Search,
@@ -698,7 +715,7 @@ export default defineComponent({
       window.location.reload();
     };
 
-    let preferences: PreferencesModule | undefined;
+    const preferences = ref<PreferencesModule | null>(null);
     let stopPreferences: (() => void) | undefined;
     const applyPreferences = (snapshot: Readonly<Preferences>) => {
       Object.assign(preferenceState, snapshot);
@@ -720,10 +737,10 @@ export default defineComponent({
     };
 
     const updatePreferences = async (changes: Partial<Preferences>) => {
-      if (!preferences) return;
-      const outcome = await preferences.update(changes);
+      if (!preferences.value) return;
+      const outcome = await preferences.value.update(changes);
       if (outcome.ok) return;
-      applyPreferences(preferences.read());
+      applyPreferences(preferences.value.read());
       const alert = (window as any).poexdAlert;
       if (typeof alert === 'function') {
         await alert(
@@ -745,14 +762,15 @@ export default defineComponent({
         }
         return;
       }
-      preferences = outcome.value;
-      stopPreferences = preferences.subscribe(applyPreferences);
+      preferences.value = outcome.value;
+      stopPreferences = outcome.value.subscribe(applyPreferences);
 
       emit('ready');
     });
 
     onUnmounted(() => {
       stopPreferences?.();
+      clearTimeout(highlightTimer);
     });
 
     const handleFontSizeModeChange = (mode?: FontSizeMode | any) => {
@@ -935,14 +953,27 @@ export default defineComponent({
       focusSearchInput();
     };
 
-    // 模組列的「相關設定」：捲到對應區塊
+    // 模組列的「相關設定」：捲到對應區塊並短暫高亮提示
     const sectionsRef = ref<HTMLElement | null>(null);
+    const highlightedSection = ref<SettingsSectionId | null>(null);
+    let highlightTimer: ReturnType<typeof setTimeout> | undefined;
+    const triggerSectionHighlight = (section: SettingsSectionId) => {
+      clearTimeout(highlightTimer);
+      highlightedSection.value = section;
+      highlightTimer = setTimeout(() => {
+        if (highlightedSection.value === section) highlightedSection.value = null;
+      }, 1600);
+    };
     const openSection = (section: SettingsSectionId) => {
       const wasSearching = isSearchOpen.value;
       closeSearch();
+      const scrollAndHighlight = () => {
+        scrollToSettingsSection(sectionsRef.value, section);
+        triggerSectionHighlight(section);
+      };
       // 關閉搜尋會讓所有區塊重新顯示，等版面更新後再捲
-      if (wasSearching) void nextTick(() => scrollToSettingsSection(sectionsRef.value, section));
-      else scrollToSettingsSection(sectionsRef.value, section);
+      if (wasSearching) void nextTick(scrollAndHighlight);
+      else scrollAndHighlight();
     };
 
     const openPobSharePermissionPage = () => {
@@ -953,6 +984,8 @@ export default defineComponent({
 
     return {
       t,
+      version,
+      preferences,
       openPobSharePermissionPage,
       preferenceState,
       SEARCH_TOGGLE_ROWS,
@@ -967,6 +1000,7 @@ export default defineComponent({
       hasSearchResults,
       clearSearch,
       sectionsRef,
+      highlightedSection,
       isSearchOpen,
       searchInputRef,
       closeSearch,

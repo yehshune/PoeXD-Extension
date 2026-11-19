@@ -320,10 +320,16 @@
                   v-show="activeTab === 'pinned-items'"
                   :sidebar-position="sidebarPosition"
                 />
+                <!-- 設定分頁自帶 SidebarPane，確保工具列固定且捲軸只涵蓋下方設定區塊 -->
+                <SettingsPane
+                  v-if="isTabMounted('settings')"
+                  v-show="activeTab === 'settings'"
+                  @ready="settingsPaneReady = true"
+                />
 
-                <!-- Outer-scroll panes: Tools & Settings 由外層 ScrollArea 擁有 scrolling -->
+                <!-- Outer-scroll pane: Tools 由外層 ScrollArea 擁有 scrolling -->
                 <ScrollAreaRoot
-                  v-show="activeTab === 'tools' || activeTab === 'settings'"
+                  v-show="activeTab === 'tools'"
                   data-sidebar-outer-scroll
                   class="relative flex-1 min-h-0 overflow-hidden"
                 >
@@ -331,12 +337,6 @@
                     class="h-full w-full min-h-0 p-[var(--pxd-pane-padding)] pb-[var(--pxd-pane-scroll-end-space)]"
                   >
                     <ToolsPane v-if="isTabMounted('tools')" v-show="activeTab === 'tools'" />
-                    <!-- 設定分頁控制項很多，第一次顯示才掛載；開頁就停在設定分頁時，側邊欄等它讀完偏好（ready）才顯示 -->
-                    <SettingsPane
-                      v-if="isTabMounted('settings')"
-                      v-show="activeTab === 'settings'"
-                      @ready="settingsPaneReady = true"
-                    />
                   </ScrollAreaViewport>
                   <ScrollBar />
                   <ScrollAreaCorner />
@@ -1117,7 +1117,8 @@ export default defineComponent({
         activeTab.value === 'bookmark' ||
         activeTab.value === 'stat-group-template' ||
         activeTab.value === 'pob-build' ||
-        activeTab.value === 'pinned-items',
+        activeTab.value === 'pinned-items' ||
+        activeTab.value === 'settings',
     );
 
     let handleStorageChange: ((changes: any) => void) | null = null;

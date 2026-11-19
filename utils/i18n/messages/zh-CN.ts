@@ -181,7 +181,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
     '在道具名称搜索框与词缀筛选输入框自动加入 ~ 容错符号，打错字或只打部分文字也搜得到',
   'settings.fuzzySearch.keywords': '容错 道具名称 词缀筛选',
   'settings.section.backup': '备份与重置',
-  'settings.backup.export.label': '导出设置',
+  'settings.backup.export.label': '备份设置',
   'settings.backup.export.button': '导出',
   'settings.backup.export.details':
     '下载一个包含所有设置的 JSON 文件，换电脑或重新安装后可以导入。不包含书签与搜索历史，书签请从书签页的 ⋮ 菜单导出。',

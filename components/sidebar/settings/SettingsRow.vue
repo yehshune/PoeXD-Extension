@@ -67,7 +67,13 @@ const describedBy = computed(() => (props.description ? descriptionId : undefine
         layout === 'inline' ? 'items-center justify-between' : 'flex-col items-stretch',
       ]"
     >
-      <div class="flex min-w-0 items-start gap-[var(--pxd-space-md)]">
+      <div
+        data-settings-row-lead
+        :class="[
+          'flex min-w-0 gap-[var(--pxd-space-md)]',
+          description ? 'items-start' : 'items-center',
+        ]"
+      >
         <slot name="leading" />
         <div class="flex min-w-0 flex-col gap-[2px]">
           <div class="flex min-w-0 items-center gap-[2px]">

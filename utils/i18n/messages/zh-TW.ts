@@ -179,7 +179,7 @@ export const ZH_TW_MESSAGES = {
     '在道具名稱搜尋框與詞綴篩選輸入框自動加入 ~ 容錯符號，打錯字或只打部分文字也找得到',
   'settings.fuzzySearch.keywords': '容錯 道具名稱 詞綴篩選',
   'settings.section.backup': '備份與重設',
-  'settings.backup.export.label': '匯出設定',
+  'settings.backup.export.label': '備份設定',
   'settings.backup.export.button': '匯出',
   'settings.backup.export.details':
     '下載一個包含所有設定的 JSON 檔，換電腦或重新安裝後可以匯入。不包含書籤與搜尋歷史，書籤請從書籤分頁的 ⋮ 選單匯出。',

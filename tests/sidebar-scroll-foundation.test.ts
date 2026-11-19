@@ -436,8 +436,8 @@ describe('Sidebar Scrollbar Foundation & Overlay Contract', () => {
     });
   });
 
-  describe('3. Scope 2: Outer Settings / Tools Scroll & Nested Panes Bounded-Height Contract', () => {
-    it('keeps .content-body as a pure bounded flex host and isolates outer ScrollArea for Settings/Tools', () => {
+  describe('3. Scope 2: Outer Tools Scroll & Nested Panes Bounded-Height Contract', () => {
+    it('keeps .content-body as a pure bounded flex host and isolates outer ScrollArea for Tools', () => {
       const sidebarSource = readFileSync('components/Sidebar.vue', 'utf-8');
 
       // .content-body is a flex container directly hosting panes (bounded parent), not wrapping all panes in ScrollAreaViewport
@@ -446,10 +446,10 @@ describe('Sidebar Scrollbar Foundation & Overlay Contract', () => {
       );
       expect(sidebarSource).not.toContain('class="content-body pxd-scrollbar');
 
-      // Outer ScrollAreaRoot is only rendered for the Tools and Settings tabs
+      // Outer ScrollAreaRoot is only rendered for the Tools tab (SettingsPane owns its own SidebarPane)
       expect(sidebarSource).toContain('data-sidebar-outer-scroll');
       expect(sidebarSource).toMatch(
-        /<ScrollAreaRoot[\s\S]*?v-show="activeTab === 'tools' \|\| activeTab === 'settings'"[\s\S]*?data-sidebar-outer-scroll/,
+        /<ScrollAreaRoot[\s\S]*?v-show="activeTab === 'tools'"[\s\S]*?data-sidebar-outer-scroll/,
       );
 
       // Outer viewport retains breathing room token
@@ -660,7 +660,7 @@ describe('Sidebar Scrollbar Foundation & Overlay Contract', () => {
       expect(outerScroll.style.display).toBe('none');
     });
 
-    it('Settings / Tools active: outer ScrollArea is visible, active, and retains breathing room', async () => {
+    it('Tools active uses outer ScrollArea while Settings active uses its own SidebarPane', async () => {
       hostApp = createApp({
         render() {
           return h(Sidebar, { pageRole: 'normal' });
@@ -692,7 +692,7 @@ describe('Sidebar Scrollbar Foundation & Overlay Contract', () => {
       expect(toolsPane).not.toBeNull();
       expect(toolsPane.style.display).not.toBe('none');
 
-      // Switch to settings tab
+      // Switch to settings tab: SettingsPane is direct child of .content-body and outer scroll hides
       const settingsTabBtn = hostContainer.querySelector(
         '[data-sidebar-tab="settings"]',
       ) as HTMLElement;
@@ -701,13 +701,13 @@ describe('Sidebar Scrollbar Foundation & Overlay Contract', () => {
       await nextTick();
       await nextTick();
 
-      expect(outerScroll.style.display).not.toBe('none');
-      const settingsPane = outerViewport?.querySelector(
+      expect(outerScroll.style.display).toBe('none');
+      const settingsPane = hostContainer.querySelector(
         '[data-test="settings-pane"]',
       ) as HTMLElement;
       expect(settingsPane).not.toBeNull();
+      expect(settingsPane.parentElement).toBe(hostContainer.querySelector('.content-body'));
       expect(settingsPane.style.display).not.toBe('none');
-      expect(toolsPane.style.display).toBe('none');
     });
 
     it('LiveSearch panes: direct children of .content-body with bounded-height and no outer scroll wrapper', async () => {

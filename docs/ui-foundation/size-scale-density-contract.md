@@ -154,9 +154,9 @@ PoeXD 的尺寸架構由**四大明確劃分、職責互不混淆**的層級組�
   - **無 DOM Spacer**：禁止新增空的 `<div>` spacer 元件，一律透過實際 scroll owner 的 `pb-[var(--pxd-pane-scroll-end-space)]` 達成。
   - **禁止使用 scroll-padding-bottom**：scroll-padding 僅影響 snap/捲動對齊，無法提供真實內容排版留白。
 - **Scroll Ownership 涵蓋路徑**：
-  1. **History (Internal Scroll)**：由 `SidebarPane` 的 internal scroll-content (`data-slot="sidebar-pane-scroll-content"`) 統一提供 `pb-[var(--pxd-pane-scroll-end-space)]`，使所有 internal scroll 頁面自動繼承。
+  1. **Internal Scroll (`SidebarPane` `scroll-mode="internal"`)**：`HistoryPane`、`StatGroupTemplatePane`、`PobBuildPane`、`PinnedItemPane` 與 `SettingsPane` 由 `SidebarPane` 的 internal scroll-content (`data-slot="sidebar-pane-scroll-content"`) 統一提供 `pb-[var(--pxd-pane-scroll-end-space)]`，使所有 internal scroll 頁面自動繼承且固定工具列不隨列表捲動。
   2. **Bookmark (External Scroll)**：Bookmark 使用 `scroll-mode="external"`，真正的 scroll viewport/content owner 為內部的 `.bookmark-accordion-list`，由其直接套用 `pb-[var(--pxd-pane-scroll-end-space)]`。
-  3. **Settings / Tools (Outer Scroll)**：Settings 與 Tools 未使用 `SidebarPane`，實際 scroll owner 為 `Sidebar.vue` 的 `data-sidebar-outer-scroll` `ScrollAreaRoot` / `ScrollAreaViewport`，直接由該 outer viewport 套用 `pb-[var(--pxd-pane-scroll-end-space)]`；`.content-body` 自身作為 bounded flex container（`overflow-hidden`），不再作為 scroll owner。當切換至 `usesPaneScroll` 頁面時，outer scroll 隱藏且 `content-body` 保持 `p-0`，保證絕無 parent + child double bottom spacing。
+  3. **Tools (Outer Scroll)**：`ToolsPane` 未使用 `SidebarPane`，實際 scroll owner 為 `Sidebar.vue` 的 `data-sidebar-outer-scroll` `ScrollAreaRoot` / `ScrollAreaViewport`，直接由該 outer viewport 套用 `pb-[var(--pxd-pane-scroll-end-space)]`；`.content-body` 自身作為 bounded flex container（`overflow-hidden`），不再作為 scroll owner。當切換至 `usesPaneScroll` 頁面時，outer scroll 隱藏且 `content-body` 保持 `p-0`，保證絕無 parent + child double bottom spacing。
   4. **LiveSearch Primary & Console Settings**：`LiveSearchPrimaryPane` 內部由 `[data-test="search-connections-list"]` ScrollArea 擁有捲動與 breathing room；`LiveSearchConsoleSettingsPane` 則由其根節點自身 `ScrollAreaViewport` 擁有捲動與 breathing room。
 
 ### 2.2 Scrollbar Foundation & Overlay Contract (滾動條覆蓋契約)
@@ -173,8 +173,8 @@ PoeXD 的尺寸架構由**四大明確劃分、職責互不混淆**的層級組�
   - **尺寸**：垂直滾動條固定 4px（`w-[4px]`），Density-invariant 與 Scale-invariant，嚴禁隨 Density 改變抓取寬度。
   - **色彩**：軌道透明（`bg-transparent`），滑塊使用 Theme 語意 token `bg-border`，懸停使用 `hover:bg-muted-foreground`，圓角使用 Theme-owned `rounded-[var(--radius)]`（不受 Scale / Density 干擾）。
 - **ScrollArea Foundation 遷移範圍**：
-  1. `SidebarPane` internal scroll viewport (`ScrollAreaRoot` + `ScrollAreaViewport data-slot="sidebar-pane-scroll"`)
-  2. Normal 模式下的 `ToolsPane` / `SettingsPane`（由 `Sidebar.vue` 外層 `data-sidebar-outer-scroll` 的 `ScrollAreaRoot` 統一擁有 scrolling）
+  1. `SidebarPane` internal scroll viewport (`ScrollAreaRoot` + `ScrollAreaViewport data-slot="sidebar-pane-scroll"`，含 `HistoryPane`、`StatGroupTemplatePane`、`PobBuildPane`、`PinnedItemPane`、`SettingsPane`)
+  2. Normal 模式下的 `ToolsPane`（由 `Sidebar.vue` 外層 `data-sidebar-outer-scroll` 的 `ScrollAreaRoot` 統一擁有 scrolling）
   3. `LiveSearchConsoleSettingsPane`（元件根節點直接擁有 `ScrollAreaRoot` + `ScrollAreaViewport`，作為 `.content-body` 直屬 bounded-height 子節點）
   4. `BookmarkPane`（`.bookmark-accordion-list` 獨立作為 `ScrollAreaViewport`）
   5. `LiveSearchPrimaryPane`（`[data-test="search-connections-list"]` 獨立作為 `ScrollAreaViewport`）
@@ -373,8 +373,9 @@ User-configurable Sidebar workspace width is independent of UI Scale.
 ### 6.3 Ownership 分層與邊界收斂
 
 - **Outer-scroll panes (外層共用捲動持有者)**：
-  - Normal 模式下的 `ToolsPane` 與 `SettingsPane`：由 `Sidebar.vue` 外層 `data-sidebar-outer-scroll` 的 `ScrollAreaRoot` 統一持有捲動，享有完整可視寬度與 breathing room (`pb-[var(--pxd-pane-scroll-end-space)]`)。
+  - Normal 模式下的 `ToolsPane`：由 `Sidebar.vue` 外層 `data-sidebar-outer-scroll` 的 `ScrollAreaRoot` 統一持有捲動，享有完整可視寬度與 breathing room (`pb-[var(--pxd-pane-scroll-end-space)]`)。
 - **Pane-level ScrollArea owners (元件自身持有獨立 ScrollArea Foundation)**：
+  - `SettingsPane`：直接作為 `.content-body` 的直屬子元素並委派 `SidebarPane`，將搜尋與備份工具列置於 `#fixed`，捲動條僅作用於下方 `#scroll` 設定區塊。
   - `LiveSearchConsoleSettingsPane`：直接作為 `.content-body` 的直屬子元素，根節點自身即為 `ScrollAreaRoot`，內部封裝 `ScrollAreaViewport` + `ScrollBar`，保持 bounded-height (`flex-1 min-h-0 h-full`) 與 `v-show` 記憶體常駐。
   - `BookmarkPane`：作為 `.content-body` 直屬子元素，直接繼承 bounded-height，內部主列表 `.bookmark-accordion-list` 獨立作為 `ScrollAreaViewport`。
   - `LiveSearchPrimaryPane`：作為 `.content-body` 直屬子元素，直接繼承 bounded-height，內部搜尋連線清單 `[data-test="search-connections-list"]` 獨立作為 `ScrollAreaViewport`。
