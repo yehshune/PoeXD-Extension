@@ -1,5 +1,21 @@
 <template>
   <div class="flex flex-col gap-[calc(var(--pxd-section-gap)*2.4)]">
+    <!-- 使用導覽：隨時可以重看初始導覽 -->
+    <SettingsSection section-id="tools-tour" :title="t('tools.tour.title')" :icon="Compass">
+      <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
+        {{ t('tools.tour.description') }}
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        data-tools-action="start-tour"
+        class="w-full"
+        @click="startTour"
+      >
+        {{ t('tools.tour.start') }}
+      </Button>
+    </SettingsSection>
+
     <!-- 價格換算資料 -->
     <SettingsSection section-id="tools-economy" :title="t('tools.economy.title')" :icon="Coins">
       <!-- poe.ninja 只有國際服資料：其他網域不提供價格換算，也不取得或更新資料 -->
@@ -120,7 +136,8 @@ import { computed, defineComponent, onMounted, onUnmounted, ref } from 'vue';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RELEASES_PAGE_URL, SUPPORT_PAGE_URL } from '@/utils/support-links';
-import { Coins, ExternalLink, Heart, Newspaper } from '@lucide/vue';
+import { Coins, Compass, ExternalLink, Heart, Newspaper } from '@lucide/vue';
+import { usePageGuide } from './page-guide/usePageGuide';
 import SettingsSection from './settings/SettingsSection.vue';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
 import { extensionMessaging } from '@/utils/extension-protocol';
@@ -381,8 +398,10 @@ export default defineComponent({
       releasesPageUrl: RELEASES_PAGE_URL,
       supportPageUrl: SUPPORT_PAGE_URL,
       Coins,
+      Compass,
       Newspaper,
       Heart,
+      startTour: () => usePageGuide().startTour(),
       displayVersion,
       priceConversionSupported,
       currentRealmLabel,

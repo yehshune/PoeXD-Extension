@@ -47,7 +47,8 @@ type ExpectedMainToContent =
   | 'poexd-equipment-type-changed'
   | 'poexd-livesearch-command-result'
   | 'poexd-criteria-overlay-read-result'
-  | 'poexd-criteria-overlay-commit-result';
+  | 'poexd-criteria-overlay-commit-result'
+  | 'poexd-page-guide-demo-result';
 type _MainToContentExact = Assert<Equal<MainToContentKeys, ExpectedMainToContent>>;
 
 type ExpectedContentToMain =
@@ -63,7 +64,8 @@ type ExpectedContentToMain =
   | 'poexd-livesearch-sync-total'
   | 'poexd-livesearch-console-guard'
   | 'poexd-criteria-overlay-read'
-  | 'poexd-criteria-overlay-commit';
+  | 'poexd-criteria-overlay-commit'
+  | 'poexd-page-guide-demo';
 type _ContentToMainExact = Assert<Equal<ContentToMainKeys, ExpectedContentToMain>>;
 
 type ExpectedInternal =

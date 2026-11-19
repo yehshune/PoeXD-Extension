@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Layers, Radio, SlidersHorizontal, X } from '@lucide/vue';
+import { Compass, Layers, Radio, SlidersHorizontal, X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/utils/i18n';
@@ -14,6 +14,7 @@ defineProps<{
 
 const emit = defineEmits<{
   dismiss: [];
+  startTour: [];
   'update:marketTranslation': [value: boolean];
   reload: [];
 }>();
@@ -60,6 +61,17 @@ const features = [
         <span>{{ t(feature.key) }}</span>
       </li>
     </ul>
+
+    <Button
+      type="button"
+      size="sm"
+      class="self-start"
+      data-onboarding-action="start-tour"
+      @click="emit('startTour')"
+    >
+      <Compass />
+      {{ t('onboarding.welcome.startTour') }}
+    </Button>
 
     <div
       v-if="showMarketTranslation"

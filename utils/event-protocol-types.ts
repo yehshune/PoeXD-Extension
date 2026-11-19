@@ -164,6 +164,24 @@ export interface PoeCriteriaOverlayCommitResultPayload {
   error?: string;
 }
 
+/**
+ * 頁面導覽的示範狀態：暫時展開收起的篩選面板、在官方表單加入一個詞綴篩選，
+ * 讓導覽能指到詞綴選擇器與 T 階按鈕，結束時還原成原本的樣子。
+ * 不呼叫官方 save，因此不改網址、不送出搜尋。
+ */
+export type PoePageGuideDemoAction = 'show-filters' | 'add-stat-filter' | 'restore';
+
+export interface PoePageGuideDemoPayload {
+  requestId: string;
+  action: PoePageGuideDemoAction;
+}
+
+export interface PoePageGuideDemoResultPayload {
+  requestId: string;
+  success: boolean;
+  error?: string;
+}
+
 export interface PoeLiveSearchCommandResultPayload {
   requestId?: string;
   command: 'ensure-container' | 'render-result' | 'reset-unread' | 'sync-total';
@@ -176,7 +194,7 @@ export interface PoeLiveSearchCommandResultPayload {
 // -------------------------------------------------------------
 
 /**
- * Main World -> Content World (10 個事件)
+ * Main World -> Content World (11 個事件)
  * 帶有 JSON 結構之事件在 CustomEvent 傳輸時採用 serialized JSON string 以維持 wire 相容。
  */
 export interface PoeMainToContentEventMap {
@@ -190,10 +208,11 @@ export interface PoeMainToContentEventMap {
   'poexd-livesearch-command-result': string; // Wire format: serialized JSON of PoeLiveSearchCommandResultPayload
   'poexd-criteria-overlay-read-result': string; // Wire format: serialized JSON of PoeCriteriaOverlayReadResultPayload
   'poexd-criteria-overlay-commit-result': string; // Wire format: serialized JSON of PoeCriteriaOverlayCommitResultPayload
+  'poexd-page-guide-demo-result': string; // Wire format: serialized JSON of PoePageGuideDemoResultPayload
 }
 
 /**
- * Content World -> Main World (13 個事件)
+ * Content World -> Main World (14 個事件)
  */
 export interface PoeContentToMainEventMap {
   'poexd-request-known-stats': void;
@@ -209,10 +228,11 @@ export interface PoeContentToMainEventMap {
   'poexd-livesearch-console-guard': PoeLiveSearchConsoleGuardPayload;
   'poexd-criteria-overlay-read': string; // Wire format: serialized JSON of PoeCriteriaOverlayReadPayload
   'poexd-criteria-overlay-commit': string; // Wire format: serialized JSON of PoeCriteriaOverlayCommitPayload
+  'poexd-page-guide-demo': string; // Wire format: serialized JSON of PoePageGuideDemoPayload
 }
 
 /**
- * 23 個跨世界通訊事件合約（Main World <-> Content World）
+ * 25 個跨世界通訊事件合約（Main World <-> Content World）
  */
 export type PoeCrossWorldEventMap = PoeMainToContentEventMap & PoeContentToMainEventMap;
 
@@ -243,6 +263,8 @@ export interface PoeCrossWorldPayloadMap {
   'poexd-criteria-overlay-read-result': PoeCriteriaOverlayReadResultPayload;
   'poexd-criteria-overlay-commit': PoeCriteriaOverlayCommitPayload;
   'poexd-criteria-overlay-commit-result': PoeCriteriaOverlayCommitResultPayload;
+  'poexd-page-guide-demo': PoePageGuideDemoPayload;
+  'poexd-page-guide-demo-result': PoePageGuideDemoResultPayload;
 }
 
 // -------------------------------------------------------------
@@ -659,6 +681,43 @@ export function serializePoeCriteriaOverlayCommitResult(
 export function parsePoeCriteriaOverlayCommitResult(
   detail: unknown,
 ): PoeCriteriaOverlayCommitResultPayload | undefined {
+  const record = parseJsonRecord(detail);
+  const requestId = record && readRequestId(record);
+  if (!record || !requestId || typeof record.success !== 'boolean') return undefined;
+  return {
+    requestId,
+    success: record.success,
+    ...(typeof record.error === 'string' ? { error: record.error } : {}),
+  };
+}
+
+export function serializePoePageGuideDemo(payload: PoePageGuideDemoPayload): string {
+  return JSON.stringify(payload);
+}
+
+const PAGE_GUIDE_DEMO_ACTIONS: readonly PoePageGuideDemoAction[] = [
+  'show-filters',
+  'add-stat-filter',
+  'restore',
+];
+
+export function parsePoePageGuideDemo(detail: unknown): PoePageGuideDemoPayload | undefined {
+  const record = parseJsonRecord(detail);
+  const requestId = record && readRequestId(record);
+  const action = record?.action;
+  if (!requestId || !PAGE_GUIDE_DEMO_ACTIONS.includes(action as PoePageGuideDemoAction)) {
+    return undefined;
+  }
+  return { requestId, action: action as PoePageGuideDemoAction };
+}
+
+export function serializePoePageGuideDemoResult(payload: PoePageGuideDemoResultPayload): string {
+  return JSON.stringify(payload);
+}
+
+export function parsePoePageGuideDemoResult(
+  detail: unknown,
+): PoePageGuideDemoResultPayload | undefined {
   const record = parseJsonRecord(detail);
   const requestId = record && readRequestId(record);
   if (!record || !requestId || typeof record.success !== 'boolean') return undefined;

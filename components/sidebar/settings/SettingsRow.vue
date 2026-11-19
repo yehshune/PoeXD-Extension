@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, useId } from 'vue';
-import { Info } from '@lucide/vue';
+import { Crosshair, Info } from '@lucide/vue';
+import { Button } from '@/components/ui/button';
 import { t } from '@/utils/i18n';
 import { useSettingsRow } from './settings-search';
+import type { PageGuideTargetId } from '../page-guide/page-guide-targets';
+import { usePageGuide } from '../page-guide/usePageGuide';
 
 const props = withDefaults(
   defineProps<{
@@ -19,6 +22,8 @@ const props = withDefaults(
     layout?: 'inline' | 'stack';
     /** 隸屬上一列的子設定 */
     nested?: boolean;
+    /** 有值時，展開的說明裡多一個「在頁面上指出」 */
+    guideTarget?: PageGuideTargetId;
   }>(),
   {
     description: undefined,
@@ -27,6 +32,7 @@ const props = withDefaults(
     keywords: () => [],
     layout: 'inline',
     nested: false,
+    guideTarget: undefined,
   },
 );
 
@@ -40,6 +46,9 @@ const { visible } = useSettingsRow(() => [
   props.details,
   ...props.keywords,
 ]);
+const pointOnPage = () => {
+  if (props.guideTarget) void usePageGuide().pointAt(props.guideTarget, props.label);
+};
 const describedBy = computed(() => (props.description ? descriptionId : undefined));
 </script>
 
@@ -110,5 +119,18 @@ const describedBy = computed(() => (props.description ? descriptionId : undefine
     >
       {{ details }}
     </p>
+    <Button
+      v-if="details && guideTarget"
+      v-show="detailsOpen"
+      type="button"
+      variant="outline"
+      size="sm"
+      data-settings-guide
+      class="self-start"
+      @click="pointOnPage"
+    >
+      <Crosshair />
+      {{ t('pageGuide.point.action') }}
+    </Button>
   </div>
 </template>

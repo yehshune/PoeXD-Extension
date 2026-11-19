@@ -1336,6 +1336,43 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'onboarding.welcome.reloadHint': 'Takes effect after a page reload',
   'onboarding.welcome.reload': 'Reload',
   'onboarding.welcome.dismiss': 'Dismiss welcome message',
+  'onboarding.welcome.startTour': 'Take the tour',
+  'tools.tour.title': 'Guided tour',
+  'tools.tour.description': 'Walks you through what PoeXD adds to the page. About a minute.',
+  'tools.tour.start': 'Take the tour',
+  'pageGuide.point.action': 'Show on page',
+  'pageGuide.point.needsResults': 'Run a search first, then try again',
+  'pageGuide.point.notFound': "This spot isn't on the current page",
+  'pageGuide.nav.skip': 'Skip',
+  'pageGuide.nav.previous': 'Back',
+  'pageGuide.nav.next': 'Next',
+  'pageGuide.nav.done': 'Done',
+  'pageGuide.nav.counter': '{current} / {total}',
+  'pageGuide.nav.aria': 'Guided tour',
+  'pageGuide.mock.caption': 'Preview: after a search, each result gets these buttons',
+  'pageGuide.tour.sidebar.title': 'Side bar',
+  'pageGuide.tour.sidebar.body':
+    'Bookmarks, history, live search and settings live in this row of icons. Click one to switch.',
+  'pageGuide.tour.collapse.title': 'Collapse the side bar',
+  'pageGuide.tour.collapse.body':
+    'Fold it away when you need room. A small handle stays at the edge; click it to bring the side bar back.',
+  'pageGuide.tour.search.title': 'Search for items',
+  'pageGuide.tour.search.body': 'Type an item name to search. Small typos still find a match.',
+  'pageGuide.tour.affixSelector.title': 'Pick stats',
+  'pageGuide.tour.affixSelector.body':
+    'Choose stats from a categorized list instead of typing each one.',
+  'pageGuide.tour.tier.title': 'Fill ranges from tiers',
+  'pageGuide.tour.tier.body':
+    "The T button next to a stat filter lists each tier's values. Click one to fill the minimum. A sample stat was added for this step and is removed when the tour ends.",
+  'pageGuide.tour.results.title': 'Result tools',
+  'pageGuide.tour.results.body':
+    'Each result can be bookmarked, price-compared or copied to PoB, and its stats can be added back as filters.',
+  'pageGuide.tour.bookmarks.title': 'Save as bookmarks',
+  'pageGuide.tour.bookmarks.body':
+    'Save searches you use often, open them in one click and sort them into folders.',
+  'pageGuide.tour.settings.title': 'Settings',
+  'pageGuide.tour.settings.body':
+    'Turn any feature on or off here. To see this tour again, open the Tools tab and choose Take the tour.',
   'onboarding.update.title': 'Updated to {version}',
   'onboarding.update.releaseNotes': 'Release notes',
   'onboarding.update.dismiss': 'Dismiss update notice',

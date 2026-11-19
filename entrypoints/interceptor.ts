@@ -6,6 +6,7 @@ import {
 import { bootstrapBridge, type MainWorldBridge } from './main-world/bridge-bootstrap';
 import { initDomTagger, syncDomTaggerRoute } from './main-world/dom-tagger';
 import { initCriteriaOverlayAdapter } from './main-world/criteria-overlay-adapter';
+import { initPageGuideDemoAdapter } from './main-world/page-guide-demo-adapter';
 import { initNetworkObserver } from './main-world/network-observer';
 import { initOfficialLiveSearchAdapter } from './main-world/official-livesearch-adapter';
 import { initPoeRuntimeMutation } from './main-world/poe-runtime-mutation';
@@ -44,6 +45,7 @@ export function runInterceptorBootstrap(options?: {
   initPoeRuntimeReader(bridge);
   initPoeRuntimeMutation(bridge);
   initCriteriaOverlayAdapter(bridge);
+  initPageGuideDemoAdapter(bridge);
   initOfficialLiveSearchAdapter(bridge);
   initDomTagger(bridge);
 

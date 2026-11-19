@@ -164,6 +164,7 @@
               :details="t('settings.marketTranslationResultBilingual.tooltip')"
               :keywords="[t('settings.marketTranslation.bilingualGroup')]"
               control-id="enable-market-translation-result-bilingual"
+              guide-target="result-mod-en"
             >
               <template #default="{ describedBy }">
                 <Switch
@@ -370,6 +371,7 @@
           :details="t('settings.fuzzySearch.tooltip')"
           :keywords="['~', t('settings.fuzzySearch.keywords')]"
           control-id="enable-fuzzy-search"
+          guide-target="search-input"
         >
           <Switch id="enable-fuzzy-search" v-model="fuzzySearchEnabled" />
         </SettingsRow>
@@ -380,6 +382,7 @@
           :label="t(row.labelKey)"
           :details="t(row.detailsKey)"
           :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
+          :guide-target="row.guideTarget"
           :control-id="row.id"
         >
           <template #default="{ describedBy }">
@@ -405,6 +408,7 @@
           :label="t(row.labelKey)"
           :details="t(row.detailsKey)"
           :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
+          :guide-target="row.guideTarget"
           :control-id="row.id"
         >
           <template #default="{ describedBy }">

@@ -98,8 +98,11 @@ function commitOp(store: HostVuexStore, root: HostTradeRoot | null, op: Criteria
   }
 }
 
-/** 把表單條件欄位整批還原為備份內容（只在 ops 執行失敗時使用）。 */
-function restoreSnapshot(store: HostVuexStore, backup: Record<string, unknown>) {
+/** 把表單條件欄位整批還原為備份內容（ops 執行失敗、頁面導覽結束時使用）。 */
+export function restoreCriteriaOverlaySnapshot(
+  store: HostVuexStore,
+  backup: Record<string, unknown>,
+) {
   const persistent = store.state?.persistent as Record<string, unknown> | undefined;
   if (!persistent) return;
   store._withCommit(() => {
@@ -135,7 +138,7 @@ export function executeCriteriaOverlayOps(
   try {
     ops.forEach((op) => commitOp(store, root, op));
   } catch (error) {
-    if (backup) restoreSnapshot(store, backup);
+    if (backup) restoreCriteriaOverlaySnapshot(store, backup);
     throw error;
   } finally {
     saved = saveForm(store, root);

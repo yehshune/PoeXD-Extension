@@ -298,6 +298,7 @@
                     :market-translation="marketTranslation"
                     :reload-required="marketTranslationReloadRequired"
                     @dismiss="dismissWelcomeCard"
+                    @start-tour="startTourFromWelcome"
                     @update:market-translation="setMarketTranslation"
                     @reload="reloadPage"
                   />
@@ -542,6 +543,9 @@
 
         <!-- Injected UI: 傭兵技能群組選擇器（PoE 1 一般頁面） -->
         <MercenaryPickerHost v-if="pageRole === 'normal' && version === 'poe1'" />
+
+        <!-- 頁面導覽：設定裡的「在頁面上指出」與初始導覽 -->
+        <PageGuideHost v-if="pageRole === 'normal'" :portal-target="portalTarget" />
       </div>
     </TooltipProvider>
   </ConfigProvider>
@@ -574,6 +578,8 @@ import TemporarySearchDialog from './sidebar/TemporarySearchDialog.vue';
 import UpdateNotice from './sidebar/UpdateNotice.vue';
 import WelcomeCard from './sidebar/WelcomeCard.vue';
 import TierDropdownHost from './injected/TierDropdownHost.vue';
+import PageGuideHost from './sidebar/page-guide/PageGuideHost.vue';
+import { usePageGuide } from './sidebar/page-guide/usePageGuide';
 import StatGroupTemplateHost from './injected/StatGroupTemplateHost.vue';
 import MercenaryPickerHost from './injected/mercenary/MercenaryPickerHost.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
@@ -719,6 +725,7 @@ export default defineComponent({
     UpdateNotice,
     WelcomeCard,
     TierDropdownHost,
+    PageGuideHost,
     StatGroupTemplateHost,
     MercenaryPickerHost,
     Dialog,
@@ -851,6 +858,10 @@ export default defineComponent({
       }
     });
     const dismissWelcomeCard = () => updateOnboarding(dismissWelcome);
+    const startTourFromWelcome = () => {
+      dismissWelcomeCard();
+      void usePageGuide().startTour();
+    };
     const dismissUpdateNotice = () => updateOnboarding(dismissUpdate);
     const setMarketTranslation = async (value: boolean) => {
       if (!preferencesModule) return;
@@ -1475,6 +1486,7 @@ export default defineComponent({
       marketTranslation,
       marketTranslationReloadRequired,
       dismissWelcomeCard,
+      startTourFromWelcome,
       dismissUpdateNotice,
       setMarketTranslation,
       reloadPage,
