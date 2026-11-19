@@ -198,7 +198,6 @@ export const ZH_TW_MESSAGES = {
   'settings.backup.error.wrongFormat': '這不是 PoeXD 的設定檔',
   'settings.backup.error.failed': '操作失敗：{message}',
   'settings.details.toggleAria': '{label}的詳細說明',
-  'settings.search.close': '關閉搜尋',
   'settings.search.placeholder': '搜尋設定',
   'settings.search.clear': '清除搜尋',
   'settings.search.empty': '沒有符合「{query}」的設定',

@@ -1130,14 +1130,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
   it('filters settings rows by search query and shows an empty state when nothing matches', async () => {
     const { container } = await mountSettingsPane();
-    expect(container.querySelector('[data-settings-search]')).toBeNull();
-    const searchToggle = container.querySelector<HTMLButtonElement>(
-      '[data-settings-search-toggle]',
-    )!;
-    expect(searchToggle.getAttribute('aria-expanded')).toBe('false');
-    searchToggle.click();
-    await flushAsync();
-    expect(searchToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(container.querySelector('[data-settings-search-toggle]')).toBeNull();
     const input = container.querySelector<HTMLInputElement>('[data-settings-search]')!;
     expect(input).not.toBeNull();
 
@@ -1183,14 +1176,15 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(visibleSections().length).toBe(5);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
-    // Escape closes the search box and restores the tab list
+    // Escape clears the query while keeping the search box visible
     input.value = '模糊';
     input.dispatchEvent(new Event('input'));
     await flushAsync();
+    expect(visibleSections()).toEqual(['searchHotkeys']);
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await flushAsync();
-    expect(container.querySelector('[data-settings-search]')).toBeNull();
-    expect(searchToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(container.querySelector('[data-settings-search]')).not.toBeNull();
+    expect(input.value).toBe('');
     expect(visibleSections().length).toBe(5);
   });
 

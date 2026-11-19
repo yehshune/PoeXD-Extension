@@ -200,7 +200,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.backup.error.wrongFormat': '这不是 PoeXD 的设置文件',
   'settings.backup.error.failed': '操作失败：{message}',
   'settings.details.toggleAria': '{label}的详细说明',
-  'settings.search.close': '关闭搜索',
   'settings.search.placeholder': '搜索设置',
   'settings.search.clear': '清除搜索',
   'settings.search.empty': '没有符合“{query}”的设置',

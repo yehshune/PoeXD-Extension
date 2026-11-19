@@ -1,19 +1,17 @@
 <template>
   <SidebarPane data-pane="settings" class="pxd-settings-pane">
     <template #fixed>
-      <!-- 搜尋與備份選單：固定於捲動區上方（與書籤、歷史、PoB 分頁相同） -->
+      <!-- 搜尋框與備份選單：固定於捲動區上方（與書籤、歷史、PoB 分頁相同） -->
       <div
         data-settings-toolbar
-        class="flex w-full min-w-0 items-center justify-end gap-[var(--pxd-space-sm)] pb-[var(--pxd-space-md)]"
-        :class="isSearchOpen ? 'mb-[var(--pxd-space-md)] border-b border-border' : ''"
+        class="mb-[var(--pxd-space-md)] flex w-full min-w-0 items-center gap-[var(--pxd-space-sm)] border-b border-border pb-[var(--pxd-space-md)]"
       >
-        <div v-if="isSearchOpen" class="relative flex min-w-0 flex-1 items-center">
+        <div class="relative flex min-w-0 flex-1 items-center">
           <Search
             class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
             aria-hidden="true"
           />
           <Input
-            ref="searchInputRef"
             v-model="searchQuery"
             type="search"
             size="sm"
@@ -21,7 +19,7 @@
             class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))] [&::-webkit-search-cancel-button]:appearance-none"
             :placeholder="t('settings.search.placeholder')"
             :aria-label="t('settings.search.placeholder')"
-            @keydown.esc.stop.prevent="closeSearch"
+            @keydown.esc.stop.prevent="clearSearch"
           />
           <Button
             v-if="searchQuery"
@@ -37,19 +35,6 @@
             <X />
           </Button>
         </div>
-        <Button
-          type="button"
-          :variant="isSearchOpen ? 'default' : 'secondary'"
-          size="icon-sm"
-          class="shrink-0"
-          data-settings-search-toggle
-          :aria-expanded="isSearchOpen"
-          :title="isSearchOpen ? t('settings.search.close') : t('settings.search.placeholder')"
-          :aria-label="isSearchOpen ? t('settings.search.close') : t('settings.search.placeholder')"
-          @click="toggleSearch"
-        >
-          <Search />
-        </Button>
         <SettingsBackupMenu :preferences="preferences" :version="version" />
       </div>
     </template>
@@ -925,32 +910,11 @@ export default defineComponent({
       savePreference(key);
     };
 
-    // 設定搜尋：按鈕展開輸入框，搜尋時跨分頁列出符合的設定
+    // 設定搜尋：預設顯示輸入框，搜尋時跨區塊列出符合的設定
     const searchQuery = ref('');
-    const isSearchOpen = ref(false);
-    const searchInputRef = ref<{ $el?: HTMLElement } | HTMLElement | null>(null);
     const { isSearching, hasResults: hasSearchResults } = provideSettingsSearch(searchQuery);
     const clearSearch = () => {
       searchQuery.value = '';
-    };
-    const focusSearchInput = () => {
-      void nextTick(() => {
-        const target = searchInputRef.value;
-        const el = target instanceof HTMLElement ? target : target?.$el;
-        (el instanceof HTMLInputElement ? el : el?.querySelector?.('input'))?.focus();
-      });
-    };
-    const closeSearch = () => {
-      clearSearch();
-      isSearchOpen.value = false;
-    };
-    const toggleSearch = () => {
-      if (isSearchOpen.value) {
-        closeSearch();
-        return;
-      }
-      isSearchOpen.value = true;
-      focusSearchInput();
     };
 
     // 模組列的「相關設定」：捲到對應區塊並短暫高亮提示
@@ -965,13 +929,13 @@ export default defineComponent({
       }, 1600);
     };
     const openSection = (section: SettingsSectionId) => {
-      const wasSearching = isSearchOpen.value;
-      closeSearch();
+      const wasSearching = isSearching.value;
+      clearSearch();
       const scrollAndHighlight = () => {
         scrollToSettingsSection(sectionsRef.value, section);
         triggerSectionHighlight(section);
       };
-      // 關閉搜尋會讓所有區塊重新顯示，等版面更新後再捲
+      // 清除搜尋會讓所有區塊重新顯示，等版面更新後再捲
       if (wasSearching) void nextTick(scrollAndHighlight);
       else scrollAndHighlight();
     };
@@ -1001,10 +965,6 @@ export default defineComponent({
       clearSearch,
       sectionsRef,
       highlightedSection,
-      isSearchOpen,
-      searchInputRef,
-      closeSearch,
-      toggleSearch,
       openSection,
       LayoutGrid,
       Palette,

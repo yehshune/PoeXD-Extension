@@ -216,7 +216,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.backup.error.wrongFormat': 'This is not a PoeXD settings file',
   'settings.backup.error.failed': 'Something went wrong: {message}',
   'settings.details.toggleAria': 'More about {label}',
-  'settings.search.close': 'Close search',
   'settings.search.placeholder': 'Search settings',
   'settings.search.clear': 'Clear search',
   'settings.search.empty': 'No settings match “{query}”',
