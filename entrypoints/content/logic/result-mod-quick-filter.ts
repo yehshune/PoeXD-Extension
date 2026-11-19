@@ -11,7 +11,7 @@ import {
   type CriteriaOverlayPageChannel,
 } from './criteria-overlay-session';
 import { isTradeSearchFormUrl } from './form-url-sync';
-import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-mod-quick-filter-style';
 const RESULTS_CONTAINER_SELECTOR = TRADE_RESULTS_SELECTOR;
@@ -194,8 +194,10 @@ export class ResultModQuickFilter {
   }
 
   private removeStyles(): void {
-    this.styleEl?.remove();
-    this.styleEl = null;
+    removeTradeResultStyle(STYLE_ID);
+    if (typeof document === 'undefined' || !document.getElementById(STYLE_ID)) {
+      this.styleEl = null;
+    }
   }
 
   private syncActiveState(): void {
@@ -255,10 +257,10 @@ export class ResultModQuickFilter {
   private clearAllInjected(): void {
     if (typeof document === 'undefined') return;
     document
-      .querySelectorAll(`.${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS}`)
+      .querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS}`)
       .forEach((el) => el.remove());
     document
-      .querySelectorAll(`.${RESULT_MOD_QUICK_FILTER_HOST_CLASS}`)
+      .querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}`)
       .forEach((el) => el.classList.remove(RESULT_MOD_QUICK_FILTER_HOST_CLASS));
   }
 

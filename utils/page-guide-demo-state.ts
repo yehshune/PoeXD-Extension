@@ -6,8 +6,12 @@ import { ref } from 'vue';
  */
 export const tierMenuDemoSlotKey = ref<string | null>(null);
 
-/** 頁面上第一個 T 階按鈕對應的 slot（導覽外框框住的就是它） */
+/** 優先開啟導覽示範詞綴的 T 階按鈕，找不到示範標記時退回頁面上第一個 */
 export function findFirstTierSlotKey(root: ParentNode = document): string | null {
+  const demoTrigger = root.querySelector<HTMLElement>(
+    '[data-poexd-page-guide-demo="true"] .poexd-tier-trigger[data-tier-slot-key]',
+  );
+  if (demoTrigger?.dataset.tierSlotKey) return demoTrigger.dataset.tierSlotKey;
   const trigger = root.querySelector<HTMLElement>('.poexd-tier-trigger[data-tier-slot-key]');
   return trigger?.dataset.tierSlotKey ?? null;
 }

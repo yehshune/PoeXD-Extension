@@ -10,6 +10,9 @@ import {
 } from '@/components/sidebar/page-guide/page-guide-setup';
 import { usePageGuide } from '@/components/sidebar/page-guide/usePageGuide';
 import { PAGE_GUIDE_TOUR_STEPS } from '@/components/sidebar/page-guide/page-guide-tour';
+import { removeLeftActionsByClass } from '@/entrypoints/content/logic/result-left-actions';
+import { ResultModHighlighter } from '@/entrypoints/content/logic/result-mod-highlighter';
+import { createResultTranslator } from '@/utils/market-result-translator';
 import { resetI18nStateForTests, setActiveDisplayLocalePreference } from '@/utils/i18n';
 
 /** 沒有側欄提供條件時，條件步驟（市集漢化）不會出現 */
@@ -86,6 +89,28 @@ describe('PageGuideHost', () => {
     await usePageGuide().startTour();
     await flush();
     (portal.querySelector('[data-page-guide-action="skip"]') as HTMLElement).click();
+    await flush();
+    expect(usePageGuide().state.mode).toBe('idle');
+  });
+
+  it('does not hijack ArrowLeft/ArrowRight when an input control is focused', async () => {
+    const portal = document.createElement('div');
+    document.body.appendChild(portal);
+    mountComponent(() => h(PageGuideHost, { portalTarget: portal }));
+
+    await usePageGuide().startTour();
+    await flush();
+
+    const range = document.createElement('input');
+    range.type = 'range';
+    portal.appendChild(range);
+    range.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    await flush();
+    expect(portal.querySelector('[data-page-guide-counter]')?.textContent?.trim()).toBe(
+      `1 / ${visibleStepCount}`,
+    );
+
+    range.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await flush();
     expect(usePageGuide().state.mode).toBe('idle');
   });
@@ -183,5 +208,28 @@ describe('PageGuideOfficialResult', () => {
     const mock = document.querySelector<HTMLElement>('[data-poexd-guide-mock]')!;
     expect(mock.querySelector('.poexd-left-actions .poexd-pob-copy-btn')).not.toBeNull();
     expect(mock.querySelectorAll('.poexd-result-mod-actions').length).toBe(3);
+  });
+
+  it('keeps mock nodes, styles, and text untouched when enhancers clean up or translator runs', async () => {
+    mountComponent(() => h(PageGuideOfficialResult, { features: allOn }));
+    await flush();
+
+    removeLeftActionsByClass('poexd-pob-copy-btn');
+    const highlighter = new ResultModHighlighter();
+    highlighter.cleanup();
+
+    const mock = document.querySelector<HTMLElement>('[data-poexd-guide-mock]')!;
+    expect(mock.querySelector('.poexd-pob-copy-btn')).not.toBeNull();
+    expect(mock.querySelector('.poexd-filter-mod-highlight')).not.toBeNull();
+    expect(document.getElementById('poexd-result-left-actions-style')).not.toBeNull();
+    expect(document.getElementById('poexd-filter-mod-highlight-style')).not.toBeNull();
+
+    const translator = createResultTranslator({
+      modLines: {},
+      items: {},
+      labels: { DB: '資料庫' },
+    });
+    translator.translate(document);
+    expect(mock.querySelector('.poexd-result-link-btn')?.textContent?.trim()).toBe('DB');
   });
 });

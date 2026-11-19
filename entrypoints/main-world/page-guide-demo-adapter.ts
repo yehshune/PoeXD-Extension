@@ -3,12 +3,8 @@ import {
   serializePoePageGuideDemoResult,
 } from '@/utils/event-protocol-types';
 import type { MainWorldBridge } from './bridge-bootstrap';
-import {
-  readCriteriaOverlaySnapshot,
-  restoreCriteriaOverlaySnapshot,
-} from './criteria-overlay-adapter';
 import { setFilterCategory } from './category-binding-manager';
-import { tagFilterDomElements } from './dom-tagger';
+import { saveAllCategoriesToSessionStorage, tagFilterDomElements } from './dom-tagger';
 import type { HostFilterGroup, HostVuexStore } from './host-types';
 import { getVueStore, readKnownStatIds } from './poe-runtime-reader';
 
@@ -27,11 +23,11 @@ export function pickDemoStatId(knownStatIds: readonly string[] | null): string |
 }
 
 /**
- * 導覽用的示範狀態。篩選面板收起時先用官方 toggleSearch 展開；加入詞綴前先存下表單快照，
- * 還原時整份寫回並收回面板。都不呼叫官方 save()，網址、搜尋與歷史紀錄不受影響。
+ * 導覽用的示範狀態。篩選面板收起時先用官方 toggleSearch 展開；加入示範詞綴時只記錄推入的群組，
+ * 還原時僅移除示範群組並收回面板（不動使用者既有詞綴與隱藏綁定屬性），也不呼叫官方 save()。
  */
 export function createPageGuideDemo(getStore: () => HostVuexStore | null) {
-  let backup: Record<string, unknown> | null = null;
+  const addedGroups = new Set<HostFilterGroup>();
   let revealedFilters = false;
 
   const requireStore = (): HostVuexStore => {
@@ -52,7 +48,6 @@ export function createPageGuideDemo(getStore: () => HostVuexStore | null) {
     showFilters();
     const statId = pickDemoStatId(readKnownStatIds());
     if (!statId) throw new Error('DEMO_STAT_NOT_FOUND');
-    if (!backup) backup = readCriteriaOverlaySnapshot(store);
     store.commit('pushStatGroup', {
       type: 'and',
       filters: [{ id: statId, value: {}, disabled: false }],
@@ -60,17 +55,41 @@ export function createPageGuideDemo(getStore: () => HostVuexStore | null) {
     const stats = (store.state?.persistent?.stats ?? store.state?.query?.stats) as
       | HostFilterGroup[]
       | undefined;
-    const demoFilter = stats?.[stats.length - 1]?.filters?.[0];
-    if (demoFilter) setFilterCategory(demoFilter, DEMO_STAT_CATEGORY);
+    const pushedGroup = stats?.[stats.length - 1];
+    if (pushedGroup) {
+      addedGroups.add(pushedGroup);
+      const demoFilter = pushedGroup.filters?.[0];
+      if (demoFilter) {
+        Object.defineProperty(demoFilter, 'poexdPageGuideDemo', {
+          value: true,
+          writable: true,
+          enumerable: false,
+          configurable: true,
+        });
+        setFilterCategory(demoFilter, DEMO_STAT_CATEGORY);
+      }
+    }
   };
 
   const restore = () => {
     const store = getStore();
-    if (store && backup) restoreCriteriaOverlaySnapshot(store, backup);
+    if (store && addedGroups.size > 0) {
+      const persistentStats = store.state?.persistent?.stats as HostFilterGroup[] | undefined;
+      if (Array.isArray(persistentStats)) {
+        store._withCommit(() => {
+          for (let i = persistentStats.length - 1; i >= 0; i -= 1) {
+            if (addedGroups.has(persistentStats[i]!)) {
+              persistentStats.splice(i, 1);
+            }
+          }
+        });
+        saveAllCategoriesToSessionStorage();
+      }
+    }
+    addedGroups.clear();
     if (store && revealedFilters && store.state?.transient?.advancedSearchHidden === false) {
       store.commit('toggleSearch', undefined);
     }
-    backup = null;
     revealedFilters = false;
   };
 
@@ -78,7 +97,7 @@ export function createPageGuideDemo(getStore: () => HostVuexStore | null) {
     showFilters,
     addStatFilter,
     restore,
-    isActive: () => backup !== null || revealedFilters,
+    isActive: () => addedGroups.size > 0 || revealedFilters,
   };
 }
 

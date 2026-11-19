@@ -6,6 +6,11 @@ import {
   pickDemoStatId,
 } from '@/entrypoints/main-world/page-guide-demo-adapter';
 import {
+  setFilterCategory,
+  setFilterModGroup,
+} from '@/entrypoints/main-world/category-binding-manager';
+import { findFirstTierSlotKey } from '@/utils/page-guide-demo-state';
+import {
   parsePoePageGuideDemo,
   parsePoePageGuideDemoResult,
   serializePoePageGuideDemo,
@@ -127,6 +132,39 @@ describe('createPageGuideDemo', () => {
     const demo = createPageGuideDemo(() => null);
     expect(() => demo.addStatFilter()).toThrow('FORM_STATE_NOT_FOUND');
     expect(() => demo.restore()).not.toThrow();
+  });
+
+  it('preserves existing filters and their hidden bindings on restore', () => {
+    const store = createStore();
+    const existingFilter = { id: 'explicit.stat_3299347043', value: { min: 50 }, disabled: false };
+    setFilterCategory(existingFilter, 'helmet');
+    setFilterModGroup(existingFilter, 'life');
+    const originalGroup = { type: 'and', filters: [existingFilter] };
+    store.state.persistent.stats.push(originalGroup);
+
+    const demo = createPageGuideDemo(() => store as never);
+    demo.addStatFilter();
+    expect(store.state.persistent.stats).toHaveLength(2);
+    const demoGroup = store.state.persistent.stats[1] as { filters: Record<string, unknown>[] };
+    expect(demoGroup.filters[0]!.poexdPageGuideDemo).toBe(true);
+
+    demo.restore();
+    expect(store.state.persistent.stats).toEqual([originalGroup]);
+    expect(store.state.persistent.stats[0]).toBe(originalGroup);
+    expect(existingFilter).toHaveProperty('poexdCategory', 'helmet');
+    expect(existingFilter).toHaveProperty('poexdModGroup', 'life');
+    expect(typeof (existingFilter as Record<string, unknown>).poexdBindingId).toBe('string');
+  });
+});
+
+describe('findFirstTierSlotKey', () => {
+  it('prefers the page-guide demo tier trigger over an existing filter trigger', () => {
+    document.body.innerHTML = `
+      <div class="filter"><button class="poexd-tier-trigger" data-tier-slot-key="existing"></button></div>
+      <div class="filter" data-poexd-page-guide-demo="true"><button class="poexd-tier-trigger" data-tier-slot-key="demo"></button></div>
+    `;
+    expect(findFirstTierSlotKey()).toBe('demo');
+    document.body.innerHTML = '';
   });
 });
 

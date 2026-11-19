@@ -101,7 +101,7 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
   const element = shallowRef<Element | null>(null);
   const tourContext = shallowRef<PageGuideTourContext>(DEFAULT_TOUR_CONTEXT);
   let sidebarRoot: ParentNode | null = null;
-  let demoActive = false;
+  let activeDemoAction: PageGuideDemoAction | null = null;
   let pointTimer: ReturnType<typeof setTimeout> | undefined;
   let runToken = 0;
 
@@ -113,8 +113,8 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
   const roots = () => ({ page: document, sidebar: sidebarRoot });
 
   const restoreDemo = async () => {
-    if (!demoActive) return;
-    demoActive = false;
+    if (!activeDemoAction) return;
+    activeDemoAction = null;
     await deps.requestDemo('restore');
   };
 
@@ -124,7 +124,11 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     const found = findPageGuideElement(target, roots());
     const demoAction = target.needs ? DEMO_ACTION_BY_NEED[target.needs] : undefined;
     if (found || !demoAction) return found;
-    demoActive = (await deps.requestDemo(demoAction)) || demoActive;
+    if (await deps.requestDemo(demoAction)) {
+      if (demoAction === 'add-stat-filter' || !activeDemoAction) {
+        activeDemoAction = demoAction;
+      }
+    }
     await deps.wait(DEMO_RENDER_WAIT_MS);
     return findPageGuideElement(target, roots());
   };
@@ -173,7 +177,13 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     const step = visibleSteps.value[index];
     if (!step) return;
     const needs = step.targetId ? getPageGuideTarget(step.targetId).needs : undefined;
-    if (!needs || !DEMO_ACTION_BY_NEED[needs]) await restoreDemo();
+    const nextDemoAction = needs ? DEMO_ACTION_BY_NEED[needs] : undefined;
+    if (
+      !nextDemoAction ||
+      (activeDemoAction === 'add-stat-filter' && nextDemoAction !== 'add-stat-filter')
+    ) {
+      await restoreDemo();
+    }
     tourContext.value.stopStepDemo();
     await tourContext.value.prepareStep(step);
     if (token !== runToken) return;

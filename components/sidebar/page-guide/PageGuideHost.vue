@@ -107,6 +107,18 @@ watch(
   },
 );
 
+function isEditableTarget(event: KeyboardEvent): boolean {
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  const target = (path[0] ?? event.target) as EventTarget | null;
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.tagName === 'INPUT' ||
+    target.tagName === 'TEXTAREA' ||
+    target.tagName === 'SELECT' ||
+    target.isContentEditable
+  );
+}
+
 function handleKeydown(event: KeyboardEvent) {
   if (mode.value === 'idle') return;
   if (event.key === 'Escape') {
@@ -115,6 +127,7 @@ function handleKeydown(event: KeyboardEvent) {
     return;
   }
   if (!isTour.value) return;
+  if (event.altKey || event.ctrlKey || event.metaKey || isEditableTarget(event)) return;
   if (event.key === 'ArrowRight') {
     event.preventDefault();
     void guide.nextStep();

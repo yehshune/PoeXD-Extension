@@ -159,6 +159,46 @@ describe('tour', () => {
     expect(guide.currentStep.value?.id).toBe('tier');
   });
 
+  it('restores the demo stat filter when stepping back from tier to affix-selector', async () => {
+    const tourSteps: PageGuideTourStep[] = [
+      {
+        id: 'affix-selector',
+        targetId: 'affix-selector',
+        titleKey: 'pageGuide.tour.affixSelector.title',
+        bodyKey: 'pageGuide.tour.affixSelector.body',
+      },
+      {
+        id: 'tier',
+        targetId: 'tier-trigger',
+        titleKey: 'pageGuide.tour.tier.title',
+        bodyKey: 'pageGuide.tour.tier.body',
+      },
+    ];
+    const requestDemo = vi.fn(async (action: string) => {
+      if (action === 'show-filters') {
+        addElement('<button class="poexd-filter-select-btn"></button>');
+      } else if (action === 'add-stat-filter') {
+        addElement('<span class="poexd-tier-trigger"></span>');
+      } else if (action === 'restore') {
+        document.body.innerHTML = '';
+      }
+      return true;
+    });
+    const guide = createPageGuide(createDeps({ steps: tourSteps, requestDemo }));
+
+    await guide.startTour();
+    expect(guide.currentStep.value?.id).toBe('affix-selector');
+
+    await guide.nextStep();
+    expect(guide.currentStep.value?.id).toBe('tier');
+    expect(requestDemo).toHaveBeenCalledWith('add-stat-filter');
+
+    requestDemo.mockClear();
+    await guide.previousStep();
+    expect(guide.currentStep.value?.id).toBe('affix-selector');
+    expect(requestDemo).toHaveBeenCalledWith('restore');
+  });
+
   it('shows the mock result only for result steps and hides it on stop', async () => {
     const deps = createDeps();
     const guide = createPageGuide(deps);

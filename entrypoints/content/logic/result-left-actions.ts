@@ -3,6 +3,7 @@
  */
 
 import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
+import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-left-actions-style';
 const BUTTON_HOST_SELECTOR = '.left';
@@ -77,18 +78,20 @@ export function mountLeftAction(row: Element, action: HTMLElement): void {
   ensureLeftActionsStyle();
 }
 
-/** 依 class 名稱移除功能節點，並在工具列清空時一併清理容器與樣式 */
+/** 依 class 名稱移除功能節點（略過導覽示意列），並在工具列清空時一併清理容器與樣式 */
 export function removeLeftActionsByClass(className: string): void {
   if (typeof document === 'undefined' || !className) return;
   const escaped =
     typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
       ? CSS.escape(className)
       : className;
-  document.querySelectorAll(`.${escaped}`).forEach((el) => el.remove());
-  document.querySelectorAll(`.${RESULT_LEFT_ACTIONS_CLASS}`).forEach((strip) => {
-    if (strip.children.length === 0) strip.remove();
-  });
+  document.querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${escaped}`).forEach((el) => el.remove());
+  document
+    .querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${RESULT_LEFT_ACTIONS_CLASS}`)
+    .forEach((strip) => {
+      if (strip.children.length === 0) strip.remove();
+    });
   if (document.querySelectorAll(`.${RESULT_LEFT_ACTIONS_CLASS}`).length === 0) {
-    document.getElementById(STYLE_ID)?.remove();
+    removeTradeResultStyle(STYLE_ID);
   }
 }

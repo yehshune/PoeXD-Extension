@@ -23,7 +23,7 @@ import {
 } from './result-left-actions';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
 import { TradeResultCache } from '@/utils/trade-result-cache';
-import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-pob-copy-style';
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
@@ -208,7 +208,7 @@ export class ResultPobCopy {
 
   private removeInjected(): void {
     removeLeftActionsByClass(RESULT_POB_COPY_BUTTON_CLASS);
-    document.getElementById(STYLE_ID)?.remove();
+    removeTradeResultStyle(STYLE_ID);
   }
 }
 

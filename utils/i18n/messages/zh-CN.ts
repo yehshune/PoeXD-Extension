@@ -1277,7 +1277,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pageGuide.setup.collapse.replay': '再看一次示范',
   'pageGuide.tour.resultActions.title': '结果列：物品操作',
   'pageGuide.tour.resultActions.body':
-    '每条结果左侧会有这些按钮：钉选物品（之后在侧边栏比较）、复制到 Path of Building、在 PoEDB 查看。用下面的开关决定要不要显示。',
+    '每条结果左侧会有这些按钮：置顶物品（之后在侧边栏比较）、复制到 Path of Building、在 PoEDB 查看。用下面的开关决定要不要显示。',
   'pageGuide.tour.resultMods.title': '结果列：词缀',
   'pageGuide.tour.resultMods.body':
     '符合筛选的词缀会被框起来，右侧标出阶级。鼠标移到词缀上，按「+和」或「+不」直接加进筛选。用下面的开关决定要不要启用。',

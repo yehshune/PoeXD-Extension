@@ -279,7 +279,9 @@ function resolveResultId(row: Element, comparisons: Record<string, PriceComparis
 
 function removePriceComparisons() {
   if (typeof document === 'undefined') return;
-  document.querySelectorAll('.poexd-price-comparison').forEach((element) => element.remove());
+  document
+    .querySelectorAll(`${TRADE_RESULTS_SELECTOR} .poexd-price-comparison`)
+    .forEach((element) => element.remove());
 }
 
 export function ensurePriceComparisonStyle() {

@@ -1,4 +1,4 @@
-import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 type UnknownRecord = Record<string, any>;
 
 export class ResultModHighlighter {
@@ -46,7 +46,7 @@ export class ResultModHighlighter {
     this.enabled = false;
     this.activeStatIds.clear();
     removeHighlights();
-    document.getElementById('poexd-filter-mod-highlight-style')?.remove();
+    removeTradeResultStyle('poexd-filter-mod-highlight-style');
   }
 }
 
@@ -68,9 +68,12 @@ function normalizeDataFieldId(dataField: string) {
 }
 
 function removeHighlights() {
-  document.querySelectorAll('.poexd-filter-mod-highlight').forEach((element) => {
-    element.classList.remove('poexd-filter-mod-highlight');
-  });
+  document
+    .querySelector(TRADE_RESULTS_SELECTOR)
+    ?.querySelectorAll('.poexd-filter-mod-highlight')
+    .forEach((element) => {
+      element.classList.remove('poexd-filter-mod-highlight');
+    });
 }
 
 export function ensureHighlightStyle() {

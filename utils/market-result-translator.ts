@@ -12,6 +12,7 @@
  * MutationObserver 會再翻一次。
  */
 import { tradeTextToModTemplate, translateModLine, type ModLinePairs } from './market-mod-lines';
+import { PAGE_GUIDE_MOCK_ATTR } from './trade-results-root';
 import {
   createLabelLookup,
   normalizeSpace,
@@ -64,7 +65,7 @@ const TARGET_SELECTOR = [
   TIME_SELECTOR,
   LABEL_SELECTOR,
 ].join(', ');
-const OWN_NODE_SELECTOR = '[class*="poexd"]';
+const OWN_NODE_SELECTOR = `[class*="poexd"], [${PAGE_GUIDE_MOCK_ATTR}]`;
 /** 我們自己插入的節點（價格比較等）不翻譯 */
 const SKIP_SELECTOR = `${STAT_SELECTOR}, ${OWN_NODE_SELECTOR}`;
 const MOD_SUBTITLE_TARGET_SELECTOR = `${STAT_SELECTOR}, ${MOD_SELECTOR}`;
@@ -488,6 +489,7 @@ export function createResultTranslator(
   };
 
   const translateElement = (element: Element) => {
+    if (element.closest(`[${PAGE_GUIDE_MOCK_ATTR}]`)) return;
     if (element.matches(STAT_SELECTOR)) {
       translateStat(element);
     } else if (element.matches(HEADER_SELECTOR)) {
@@ -514,6 +516,7 @@ export function createResultTranslator(
   };
 
   const translate = (root: ParentNode) => {
+    if (root instanceof Element && root.closest(`[${PAGE_GUIDE_MOCK_ATTR}]`)) return;
     if (root instanceof Element && root.matches(TARGET_SELECTOR)) translateElement(root);
     root.querySelectorAll(TARGET_SELECTOR).forEach(translateElement);
   };
@@ -595,10 +598,16 @@ export function createResultTranslator(
         continue;
       }
       if (enabled) {
-        if (root instanceof Element && root.matches(MOD_SUBTITLE_TARGET_SELECTOR)) {
+        if (
+          root instanceof Element &&
+          root.matches(MOD_SUBTITLE_TARGET_SELECTOR) &&
+          !root.closest(`[${PAGE_GUIDE_MOCK_ATTR}]`)
+        ) {
           syncSubtitle(root);
         }
-        root.querySelectorAll(MOD_SUBTITLE_TARGET_SELECTOR).forEach(syncSubtitle);
+        root.querySelectorAll(MOD_SUBTITLE_TARGET_SELECTOR).forEach((el) => {
+          if (!el.closest(`[${PAGE_GUIDE_MOCK_ATTR}]`)) syncSubtitle(el);
+        });
       } else {
         root.querySelectorAll(MOD_SUBTITLE_TARGET_SELECTOR).forEach(removeSubtitle);
         root.querySelectorAll(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`).forEach((el) => el.remove());

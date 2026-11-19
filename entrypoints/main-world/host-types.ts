@@ -11,6 +11,7 @@ export interface HostFilterItem {
   poexdCategory?: string;
   poexdModGroup?: string;
   poexdBindingId?: string;
+  poexdPageGuideDemo?: boolean;
   [key: string]: unknown;
 }
 

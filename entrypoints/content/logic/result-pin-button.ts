@@ -18,7 +18,7 @@ import {
   mountLeftAction,
   removeLeftActionsByClass,
 } from './result-left-actions';
-import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-pin-style';
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
@@ -308,9 +308,9 @@ export class ResultPinButton {
     if (typeof document === 'undefined') return;
     removeLeftActionsByClass(RESULT_PIN_BUTTON_CLASS);
     document
-      .querySelectorAll(`.${RESULT_PINNED_ROW_CLASS}`)
+      .querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${RESULT_PINNED_ROW_CLASS}`)
       .forEach((row) => row.classList.remove(RESULT_PINNED_ROW_CLASS));
-    document.getElementById(STYLE_ID)?.remove();
+    removeTradeResultStyle(STYLE_ID);
   }
 }
 

@@ -59,6 +59,45 @@ describe('findPageGuideElement', () => {
       findPageGuideElement(getPageGuideTarget('result-price'), { page: document, sidebar: null }),
     ).toBeNull();
   });
+
+  it('ignores mock results when resolving real result targets', () => {
+    document.body.innerHTML = `
+      <div class="results" data-poexd-guide-mock>
+        <div class="row" data-id="m1">
+          <div class="poexd-filter-mod-highlight"><span class="poexd-result-mod-en">life</span></div>
+        </div>
+      </div>
+    `;
+    setVisible(document.querySelector('.poexd-filter-mod-highlight')!, true);
+    setVisible(document.querySelector('.poexd-result-mod-en')!, true);
+    expect(
+      findPageGuideElement(getPageGuideTarget('result-mod-highlight'), {
+        page: document,
+        sidebar: null,
+      }),
+    ).toBeNull();
+    expect(
+      findPageGuideElement(getPageGuideTarget('result-mod-en'), {
+        page: document,
+        sidebar: null,
+      }),
+    ).toBeNull();
+  });
+
+  it('prefers the demo tier trigger when multiple triggers exist', () => {
+    document.body.innerHTML = `
+      <div class="filter"><button class="poexd-tier-trigger" id="existing"></button></div>
+      <div class="filter" data-poexd-page-guide-demo="true"><button class="poexd-tier-trigger" id="demo"></button></div>
+    `;
+    setVisible(document.getElementById('existing')!, true);
+    setVisible(document.getElementById('demo')!, true);
+    expect(
+      findPageGuideElement(getPageGuideTarget('tier-trigger'), {
+        page: document,
+        sidebar: null,
+      })?.id,
+    ).toBe('demo');
+  });
 });
 
 describe('page guide tour', () => {

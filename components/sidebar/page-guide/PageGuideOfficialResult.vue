@@ -73,35 +73,34 @@ function measure() {
   void alignRow();
 }
 
+let tradeObserver: ResizeObserver | null = null;
+
 onMounted(() => {
   ensureResultEnhancementStyles();
-  teleportTarget.value = document.getElementById('trade') ?? document.body;
+  const trade = document.getElementById('trade');
+  teleportTarget.value = trade ?? document.body;
   const realResults = document.querySelector(`.results:not([${PAGE_GUIDE_MOCK_ATTR}])`);
   if (realResults) compact.value = realResults.classList.contains('compact');
   measure();
   window.addEventListener('resize', measure);
+  if (trade && typeof ResizeObserver !== 'undefined') {
+    tradeObserver = new ResizeObserver(measure);
+    tradeObserver.observe(trade);
+  }
 });
-
-/** 功能關閉後的清理流程在偏好同步後才跑，晚一點再補一次樣式 */
-const STYLE_RESTORE_DELAY_MS = 250;
-let styleRestoreTimer: ReturnType<typeof setTimeout> | undefined;
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', measure);
-  clearTimeout(styleRestoreTimer);
+  tradeObserver?.disconnect();
+  tradeObserver = null;
 });
 
-/**
- * 各功能關閉時的清理會掃整頁移除按鈕容器與樣式，連示意列裡 Vue 管理的節點也會被拿掉，
- * 之後重新開啟就畫不回來。開關一變就用新的 key 重建示意列，並在清理跑完後補回樣式。
- */
+/** 功能開關變動時確保樣式存在並重建示意列，避免外部狀態殘留影響預覽 */
 const featureKey = computed(() =>
   RESULT_FEATURE_KEYS.map((key) => (props.features[key] ? '1' : '0')).join(''),
 );
 watch(featureKey, () => {
   ensureResultEnhancementStyles();
-  clearTimeout(styleRestoreTimer);
-  styleRestoreTimer = setTimeout(ensureResultEnhancementStyles, STYLE_RESTORE_DELAY_MS);
   void alignRow();
 });
 

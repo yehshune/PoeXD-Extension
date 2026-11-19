@@ -15,7 +15,7 @@ import {
   mountLeftAction,
   removeLeftActionsByClass,
 } from './result-left-actions';
-import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-external-links-style';
 const RESULTS_SELECTOR = TRADE_RESULTS_SELECTOR;
@@ -165,7 +165,7 @@ export class ResultExternalLinks {
 
   private removeInjected(): void {
     removeLeftActionsByClass(RESULT_EXTERNAL_LINKS_CLASS);
-    document.getElementById(STYLE_ID)?.remove();
+    removeTradeResultStyle(STYLE_ID);
   }
 }
 

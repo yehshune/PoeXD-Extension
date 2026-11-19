@@ -1298,7 +1298,7 @@ export const ZH_TW_MESSAGES = {
   'pageGuide.mock.ignore': '忽略玩家',
   'pageGuide.tour.sidebar.title': '側邊欄功能',
   'pageGuide.tour.sidebar.body':
-    '這排圖示切換各個功能：書籤存常用搜尋、歷史紀錄找回剛才的搜尋、線上搜尋主控台同時盯多個搜尋、詞綴群組把常用詞綴一鍵疊加。',
+    '這排圖示切換各個功能：書籤存常用搜尋、歷史紀錄找回剛才的搜尋、線上搜尋主控台同時盯多個搜尋、常用詞綴群組把常用詞綴一鍵疊加。',
   'pageGuide.tour.collapse.title': '收合與拖曳',
   'pageGuide.tour.collapse.body':
     '看示範：點關閉鈕收合側邊欄，邊緣會留一個小把手，按住上下拖曳到順手的位置，點它再展開。也可以按 Alt + ↑ / ↓ 移動。',

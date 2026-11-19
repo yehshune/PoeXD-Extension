@@ -1192,6 +1192,7 @@ export default defineComponent({
       // 監聽非 Preference 的收合狀態。
       handleStorageChange = (changes: any) => {
         if (changes[collapsedKey]) {
+          finishCollapseAnimation();
           isCollapsed.value = changes[collapsedKey].newValue;
           dispatchPoeEvent('poexd-sidebar-collapsed-changed', changes[collapsedKey].newValue);
         }

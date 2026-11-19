@@ -1,3 +1,5 @@
+import { PAGE_GUIDE_MOCK_ATTR, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+
 /**
  * 頁面導覽可以指到的位置。selectors 依序嘗試，取第一個畫面上看得到的元素；
  * 官方頁面改版時只需要更新這份對照表。
@@ -15,9 +17,9 @@ export interface PageGuideTarget {
   needs?: PageGuideNeed;
 }
 
-const RESULT_ROW = '.results .row[data-id]';
+const RESULT_ROW = `${TRADE_RESULTS_SELECTOR} .row[data-id]`;
 /** 導覽的示意結果列（見 utils/trade-results-root.ts） */
-const MOCK_ROW = '[data-poexd-guide-mock] .row';
+const MOCK_ROW = `[${PAGE_GUIDE_MOCK_ATTR}] .row`;
 
 export const PAGE_GUIDE_TARGETS = {
   'sidebar-panel': { scope: 'sidebar', selectors: ['.sidebar-container'] },
@@ -27,7 +29,6 @@ export const PAGE_GUIDE_TARGETS = {
     scope: 'sidebar',
     selectors: ['[data-sidebar-action="collapse"]', '[data-sidebar-action="expand"]'],
   },
-  'sidebar-bookmark-tab': { scope: 'sidebar', selectors: ['[data-sidebar-tab="bookmark"]'] },
   'sidebar-settings-tab': { scope: 'sidebar', selectors: ['[data-sidebar-tab="settings"]'] },
   'search-input': {
     scope: 'page',
@@ -38,7 +39,11 @@ export const PAGE_GUIDE_TARGETS = {
     selectors: ['.poexd-filter-select-btn', '.poexd-category-select-btn'],
     needs: 'filters',
   },
-  'tier-trigger': { scope: 'page', selectors: ['.poexd-tier-trigger'], needs: 'stat-filter' },
+  'tier-trigger': {
+    scope: 'page',
+    selectors: ['[data-poexd-page-guide-demo="true"] .poexd-tier-trigger', '.poexd-tier-trigger'],
+    needs: 'stat-filter',
+  },
   // 導覽的示意結果列（PageGuideOfficialResult），只在結果步驟出現
   'mock-result-actions': {
     scope: 'page',
@@ -64,7 +69,10 @@ export const PAGE_GUIDE_TARGETS = {
   },
   'result-mod-highlight': {
     scope: 'page',
-    selectors: ['.results .poexd-filter-mod-highlight', `${RESULT_ROW} [data-field^="stat."]`],
+    selectors: [
+      `${TRADE_RESULTS_SELECTOR} .poexd-filter-mod-highlight`,
+      `${RESULT_ROW} [data-field^="stat."]`,
+    ],
     needs: 'results',
   },
   'result-mod': {
@@ -89,7 +97,10 @@ export const PAGE_GUIDE_TARGETS = {
   },
   'result-mod-en': {
     scope: 'page',
-    selectors: ['.results .poexd-result-mod-en', `${RESULT_ROW} [data-field^="stat."]`],
+    selectors: [
+      `${TRADE_RESULTS_SELECTOR} .poexd-result-mod-en`,
+      `${RESULT_ROW} [data-field^="stat."]`,
+    ],
     needs: 'results',
   },
 } as const satisfies Record<string, PageGuideTarget>;
