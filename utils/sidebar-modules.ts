@@ -33,7 +33,6 @@ export type SidebarModulePreferenceKey =
 export const SETTINGS_SECTION_IDS = [
   'modules',
   'appearance',
-  'panel',
   'searchHotkeys',
   'resultDisplay',
   'bookmarks',

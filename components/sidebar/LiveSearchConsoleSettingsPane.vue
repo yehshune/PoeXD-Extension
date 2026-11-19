@@ -7,7 +7,7 @@
     <ScrollAreaViewport
       class="h-full w-full min-h-0 flex flex-col p-[var(--pxd-pane-padding)] pb-[var(--pxd-pane-scroll-end-space)] box-border"
     >
-      <div class="flex flex-col gap-[calc(var(--pxd-section-gap)*1.6)]">
+      <div class="flex flex-col gap-[calc(var(--pxd-section-gap)*2.4)]">
         <!-- 結果展示筆數上限 -->
         <SettingsSection
           section-id="live-search-max-results"

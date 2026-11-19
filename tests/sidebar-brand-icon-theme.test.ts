@@ -28,9 +28,7 @@ describe('Sidebar UI Final Polish Contract & Verification', () => {
     it('SettingsPane root element does not restrict height with h-full, preserving content-body padding-bottom at scroll-end', () => {
       // Must not contain h-full on root flex container
       expect(settingsPaneSource).not.toMatch(/<template>\s*<div class="[^"]*h-full/);
-      expect(settingsPaneSource).toMatch(
-        /<template>\s*<div class="pxd-settings-pane flex flex-col"/,
-      );
+      expect(settingsPaneSource).toMatch(/<template>\s*<div class="pxd-settings-pane flex /);
     });
 
     it('BookmarkPane uses native scroll container with pb-[var(--pxd-pane-scroll-end-space)] and zero outer padding', () => {

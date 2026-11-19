@@ -445,15 +445,14 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });
 
-    // Verify 6 sections exist with titles (Sidebar Modules first)
+    // Verify 5 sections exist with titles (Sidebar Modules first)
     expect(container.querySelectorAll('[data-slot="collapsible"]').length).toBe(0);
     const triggers = container.querySelectorAll('[data-settings-section] > header h3');
-    expect(triggers.length).toBe(6);
+    expect(triggers.length).toBe(5);
     const sectionTitles = Array.from(triggers).map((t) => t.textContent?.trim());
     expect(sectionTitles).toEqual([
       '側邊欄模組',
-      '外觀與介面',
-      '側邊欄版面',
+      '外觀與版面',
       '搜尋欄與快捷鍵',
       '搜尋結果顯示',
       '書籤與歷史',
@@ -496,8 +495,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const sectionTriggers = container.querySelectorAll('[data-settings-section] > header h3');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
       '側邊欄模組',
-      '外觀與介面',
-      '側邊欄版面',
+      '外觀與版面',
       '搜尋欄與快捷鍵',
       '搜尋結果顯示',
       '書籤與歷史',
@@ -509,8 +507,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(storage.inspect()['displayLocale']).toBe('zh-CN');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
       '侧边栏模块',
-      '外观与界面',
-      '侧边栏版面',
+      '外观与版面',
       '搜索栏与快捷键',
       '搜索结果显示',
       '书签与历史',
@@ -524,8 +521,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
       'Sidebar modules',
-      'Appearance & Language',
-      'Sidebar Layout',
+      'Appearance & Layout',
       'Search & Filters',
       'Search Results',
       'Bookmarks & History',
@@ -542,8 +538,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
       'Sidebar modules',
-      'Appearance & Language',
-      'Sidebar Layout',
+      'Appearance & Layout',
       'Search & Filters',
       'Search Results',
       'Bookmarks & History',
@@ -945,60 +940,33 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(densityCheckbox?.getAttribute('data-state')).toBe('unchecked');
   });
 
-  it('shows one settings section per tab without modifying preferences', async () => {
+  it('shows every settings section on one page without a side nav', async () => {
     const { container } = await mountSettingsPane();
-    const initialPrefs = { ...currentModule?.read() };
-    const visibleSections = () =>
-      Array.from(container.querySelectorAll<HTMLElement>('[data-settings-section]'))
-        .filter((el) => el.style.display !== 'none')
-        .map((el) => el.getAttribute('data-settings-section'));
-
-    const tabs = container.querySelectorAll<HTMLElement>('[data-settings-tab]');
-    expect(Array.from(tabs).map((tab) => tab.getAttribute('data-settings-tab'))).toEqual([
+    const visibleSections = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-settings-section]'),
+    )
+      .filter((el) => el.style.display !== 'none')
+      .map((el) => el.getAttribute('data-settings-section'));
+    expect(visibleSections).toEqual([
       'modules',
       'appearance',
-      'panel',
       'searchHotkeys',
       'resultDisplay',
       'bookmarks',
     ]);
-    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
-    expect(visibleSections()).toEqual(['modules']);
-
-    for (const tab of Array.from(tabs)) {
-      tab.click();
-      await flushAsync();
-      const id = tab.getAttribute('data-settings-tab');
-      expect(tab.getAttribute('aria-selected')).toBe('true');
-      expect(tab.getAttribute('tabindex')).toBe('0');
-      expect(visibleSections()).toEqual([id]);
-    }
-
-    expect(currentModule?.read()).toEqual(initialPrefs);
+    expect(container.querySelector('[data-settings-nav]')).toBeNull();
+    expect(container.querySelector('[data-settings-tablist]')).toBeNull();
   });
 
-  it('moves between settings tabs with arrow, Home and End keys', async () => {
+  it('keeps setting rows free of always-visible descriptions', async () => {
     const { container } = await mountSettingsPane();
-    const tablist = container.querySelector<HTMLElement>('[data-settings-tablist]')!;
-    const selected = () =>
-      container
-        .querySelector('[data-settings-tab][aria-selected="true"]')
-        ?.getAttribute('data-settings-tab');
-    const press = async (key: string) => {
-      tablist.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-      await flushAsync();
-    };
-
-    await press('ArrowLeft');
-    expect(selected()).toBe('bookmarks');
-    await press('ArrowRight');
-    expect(selected()).toBe('modules');
-    await press('End');
-    expect(selected()).toBe('bookmarks');
-    await press('Home');
-    expect(selected()).toBe('modules');
-    await press('ArrowRight');
-    expect(selected()).toBe('appearance');
+    const rows = container.querySelectorAll<HTMLElement>('[data-settings-row]');
+    expect(rows.length).toBeGreaterThan(0);
+    // Only the custom sidebar size hint may show inline text; everything else lives behind ⓘ
+    expect(
+      container.querySelectorAll('[data-settings-row] p[id^="pxd-setting-desc-"]').length,
+    ).toBe(0);
+    expect(container.querySelectorAll('[data-settings-details-toggle]').length).toBeGreaterThan(10);
   });
 
   it('reveals full setting details only after the info button is pressed', async () => {
@@ -1028,7 +996,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     searchToggle.click();
     await flushAsync();
     expect(searchToggle.getAttribute('aria-expanded')).toBe('true');
-    expect(container.querySelector('[data-settings-tablist]')).toBeNull();
     const input = container.querySelector<HTMLInputElement>('[data-settings-search]')!;
     expect(input).not.toBeNull();
 
@@ -1055,6 +1022,12 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     expect(visibleSections()).toEqual(['bookmarks']);
 
+    // Hidden keywords keep removed descriptions searchable
+    input.value = '翻譯';
+    input.dispatchEvent(new Event('input'));
+    await flushAsync();
+    expect(visibleSections()).toEqual(['appearance']);
+
     input.value = 'zzz-no-such-setting';
     input.dispatchEvent(new Event('input'));
     await flushAsync();
@@ -1064,8 +1037,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     (container.querySelector('[data-settings-search-clear]') as HTMLButtonElement).click();
     await flushAsync();
-    // Clearing the query goes back to the active tab only
-    expect(visibleSections()).toEqual(['modules']);
+    // Clearing the query shows every section again
+    expect(visibleSections().length).toBe(5);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
     // Escape closes the search box and restores the tab list
@@ -1075,8 +1048,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await flushAsync();
     expect(container.querySelector('[data-settings-search]')).toBeNull();
-    expect(container.querySelector('[data-settings-tablist]')).not.toBeNull();
-    expect(visibleSections()).toEqual(['modules']);
+    expect(searchToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(visibleSections().length).toBe(5);
   });
 
   it('toggles Sidebar Modules and keeps the enabled count in sync', async () => {

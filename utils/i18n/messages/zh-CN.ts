@@ -20,8 +20,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
-  'settings.section.appearance': '外观与界面',
-  'settings.section.panel': '侧边栏版面',
+  'settings.section.appearance': '外观与版面',
   'settings.section.searchHotkeys': '搜索栏与快捷键',
   'settings.section.resultDisplay': '搜索结果显示',
   'settings.section.bookmarks': '书签与历史',
@@ -166,16 +165,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
 
   // Settings Pane - Sidebar Modules & navigation
   'settings.section.modules': '侧边栏模块',
-  'settings.sectionShort.modules': '模块',
-  'settings.sectionShort.appearance': '外观',
-  'settings.sectionShort.panel': '版面',
-  'settings.sectionShort.searchHotkeys': '搜索栏',
-  'settings.sectionShort.resultDisplay': '结果',
-  'settings.sectionShort.bookmarks': '书签',
-  'settings.modules.description':
-    '关闭的模块不会出现在导航栏，页面上对应的按钮也会一并隐藏。数据都会保留，随时可以再开启。',
   'settings.modules.enabledCount': '已开启 {count} / {total}',
-  'settings.modules.fixedHint': '“工具与信息”与“系统设置”固定显示在导航栏底部。',
   'settings.modules.relatedSettings': '相关设置',
   'settings.modules.relatedSettingsAria': '前往{name}的相关设置',
   'settings.modules.item.live-search.label': '在线搜索控制台入口',
@@ -189,17 +179,13 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
     '在搜索结果上钉选物品以便比较；关闭后也会隐藏结果上的钉选按钮。',
   'settings.modules.item.live-search.description':
     '导航栏上打开在线搜索控制台的按钮；已打开的控制台不受影响。',
-  'settings.displayLocale.hint': '界面与游戏数据的显示语言',
-  'settings.searchTilde.hint': '道具名称搜索自动容错',
-  'settings.filterTilde.hint': '词缀筛选输入自动容错',
+  'settings.marketTranslation.keywords': '翻译 中文化',
   'settings.details.toggleAria': '{label}的详细说明',
-  'settings.tabs.aria': '设置分类',
   'settings.search.close': '关闭搜索',
   'settings.search.placeholder': '搜索设置',
   'settings.search.clear': '清除搜索',
   'settings.search.empty': '没有符合“{query}”的设置',
   'settings.search.emptyHint': '试试功能名称，例如“书签”、“快捷键”或“汉化”。',
-  'sidebar.header.moduleSettings': '{name}的设置',
   'popup.group.page': '页面功能',
   'popup.group.sidebar': '侧边栏模块',
 

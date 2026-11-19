@@ -20,8 +20,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
-  'settings.section.appearance': 'Appearance & Language',
-  'settings.section.panel': 'Sidebar Layout',
+  'settings.section.appearance': 'Appearance & Layout',
   'settings.section.searchHotkeys': 'Search & Filters',
   'settings.section.resultDisplay': 'Search Results',
   'settings.section.bookmarks': 'Bookmarks & History',
@@ -178,17 +177,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
 
   // Settings Pane - Sidebar Modules & navigation
   'settings.section.modules': 'Sidebar modules',
-  'settings.sectionShort.modules': 'Modules',
-  'settings.sectionShort.appearance': 'Look',
-  'settings.sectionShort.panel': 'Layout',
-  'settings.sectionShort.searchHotkeys': 'Search',
-  'settings.sectionShort.resultDisplay': 'Results',
-  'settings.sectionShort.bookmarks': 'Bookmarks',
-  'settings.modules.description':
-    'Turned-off modules leave the navigation bar, and their buttons on the trade page are hidden too. Your data is kept, so you can turn them back on any time.',
   'settings.modules.enabledCount': '{count} of {total} on',
-  'settings.modules.fixedHint':
-    'Tools & Info and Settings always stay at the bottom of the navigation bar.',
   'settings.modules.relatedSettings': 'Related settings',
   'settings.modules.relatedSettingsAria': 'Go to settings for {name}',
   'settings.modules.item.live-search.label': 'Live search console button',
@@ -204,18 +193,14 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Pin items from search results to compare them. Turning it off also hides the pin buttons on results.',
   'settings.modules.item.live-search.description':
     'The navigation button that opens the live search console. Consoles that are already open keep running.',
-  'settings.displayLocale.hint': 'Language for the UI and game data',
-  'settings.searchTilde.hint': 'Typo-tolerant item name search',
-  'settings.filterTilde.hint': 'Typo-tolerant stat filter input',
+  'settings.marketTranslation.keywords': 'translate translation Chinese',
   'settings.details.toggleAria': 'More about {label}',
-  'settings.tabs.aria': 'Settings categories',
   'settings.search.close': 'Close search',
   'settings.search.placeholder': 'Search settings',
   'settings.search.clear': 'Clear search',
   'settings.search.empty': 'No settings match “{query}”',
   'settings.search.emptyHint':
     'Try a feature name, such as “bookmark”, “hotkey”, or “translation”.',
-  'sidebar.header.moduleSettings': 'Settings for {name}',
   'popup.group.page': 'Page features',
   'popup.group.sidebar': 'Sidebar modules',
 

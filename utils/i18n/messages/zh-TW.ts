@@ -18,8 +18,7 @@ export const ZH_TW_MESSAGES = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
-  'settings.section.appearance': '外觀與介面',
-  'settings.section.panel': '側邊欄版面',
+  'settings.section.appearance': '外觀與版面',
   'settings.section.searchHotkeys': '搜尋欄與快捷鍵',
   'settings.section.resultDisplay': '搜尋結果顯示',
   'settings.section.bookmarks': '書籤與歷史',
@@ -164,16 +163,7 @@ export const ZH_TW_MESSAGES = {
 
   // Settings Pane - Sidebar Modules & navigation
   'settings.section.modules': '側邊欄模組',
-  'settings.sectionShort.modules': '模組',
-  'settings.sectionShort.appearance': '外觀',
-  'settings.sectionShort.panel': '版面',
-  'settings.sectionShort.searchHotkeys': '搜尋欄',
-  'settings.sectionShort.resultDisplay': '結果',
-  'settings.sectionShort.bookmarks': '書籤',
-  'settings.modules.description':
-    '關閉的模組不會出現在導覽列，頁面上對應的按鈕也會一併隱藏。資料都會保留，隨時可以再開啟。',
   'settings.modules.enabledCount': '已開啟 {count} / {total}',
-  'settings.modules.fixedHint': '「工具與資訊」與「系統設定」固定顯示在導覽列底部。',
   'settings.modules.relatedSettings': '相關設定',
   'settings.modules.relatedSettingsAria': '前往{name}的相關設定',
   'settings.modules.item.live-search.label': '線上搜尋主控台入口',
@@ -187,17 +177,13 @@ export const ZH_TW_MESSAGES = {
     '在搜尋結果上釘選物品以便比較；關閉後也會隱藏結果上的釘選按鈕。',
   'settings.modules.item.live-search.description':
     '導覽列上開啟線上搜尋主控台的按鈕；已開啟的主控台不受影響。',
-  'settings.displayLocale.hint': '介面與遊戲資料的顯示語言',
-  'settings.searchTilde.hint': '道具名稱搜尋自動容錯',
-  'settings.filterTilde.hint': '詞綴篩選輸入自動容錯',
+  'settings.marketTranslation.keywords': '翻譯 中文化',
   'settings.details.toggleAria': '{label}的詳細說明',
-  'settings.tabs.aria': '設定分類',
   'settings.search.close': '關閉搜尋',
   'settings.search.placeholder': '搜尋設定',
   'settings.search.clear': '清除搜尋',
   'settings.search.empty': '沒有符合「{query}」的設定',
   'settings.search.emptyHint': '試試功能名稱，例如「書籤」、「快捷鍵」或「漢化」。',
-  'sidebar.header.moduleSettings': '{name}的設定',
   'popup.group.page': '頁面功能',
   'popup.group.sidebar': '側邊欄模組',
 

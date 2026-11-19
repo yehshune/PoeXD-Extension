@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-[calc(var(--pxd-section-gap)*1.6)]">
+  <div class="flex flex-col gap-[calc(var(--pxd-section-gap)*2.4)]">
     <!-- 價格換算資料 -->
     <SettingsSection section-id="tools-economy" :title="t('tools.economy.title')" :icon="Coins">
       <!-- poe.ninja 只有國際服資料：其他網域不提供價格換算，也不取得或更新資料 -->

@@ -857,16 +857,8 @@ describe('Sidebar Navigation Controls Migration', () => {
       expect(active?.getAttribute('data-sidebar-tab')).toBe('settings');
     });
 
-    it('offers a module settings shortcut in the header that opens the Settings tab', async () => {
+    it('does not show a per-tab settings shortcut in the header', async () => {
       await mountSidebar({ [keys.isCollapsed]: false, [keys.activeTab]: 'bookmark' });
-      const shortcut = container.querySelector<HTMLElement>(
-        '[data-sidebar-action="module-settings"]',
-      );
-      expect(shortcut).not.toBeNull();
-      shortcut!.click();
-      await nextTick();
-      const active = container.querySelector('.sidebar-nav [aria-pressed="true"]');
-      expect(active?.getAttribute('data-sidebar-tab')).toBe('settings');
       expect(container.querySelector('[data-sidebar-action="module-settings"]')).toBeNull();
     });
   });

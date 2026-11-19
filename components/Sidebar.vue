@@ -266,19 +266,6 @@
                 >
                   {{ activeTabName }}
                 </span>
-                <Button
-                  v-if="activeModuleSettingsTarget"
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  class="shrink-0 text-muted-foreground"
-                  :title="t('sidebar.header.moduleSettings', { name: activeTabName })"
-                  :aria-label="t('sidebar.header.moduleSettings', { name: activeTabName })"
-                  data-sidebar-action="module-settings"
-                  @click="openSettingsSection(activeModuleSettingsTarget)"
-                >
-                  <Settings2 />
-                </Button>
               </div>
             </div>
 
@@ -351,8 +338,6 @@
                     <SettingsPane
                       v-if="isTabMounted('settings')"
                       v-show="activeTab === 'settings'"
-                      :focus-section="settingsFocusSection"
-                      :focus-token="settingsFocusToken"
                       @ready="settingsPaneReady = true"
                     />
                   </ScrollAreaViewport>
@@ -607,11 +592,9 @@ import { createUiRuntimeTokenValues } from '@/lib/tokens';
 import {
   DEFAULT_SIDEBAR_MODULE_PREFERENCES,
   SIDEBAR_MODULE_PREFERENCE_KEYS,
-  getSidebarModule,
   isSidebarModuleEnabled,
   resolveActivePaneTab,
   resolveVisiblePaneTabs,
-  type SettingsSectionId,
   type SidebarModuleId,
   type SidebarModulePreferenceKey,
 } from '@/utils/sidebar-modules';
@@ -645,7 +628,6 @@ import {
   SlidersHorizontal,
   ShoppingCart,
   Pin,
-  Settings2,
 } from '@lucide/vue';
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
@@ -744,7 +726,6 @@ export default defineComponent({
     Plus,
     RotateCcw,
     Settings,
-    Settings2,
   },
   setup(props) {
     const portalTarget = computed(() => props.portalTarget);
@@ -780,9 +761,6 @@ export default defineComponent({
     const visiblePaneTabs = computed(() => resolveVisiblePaneTabs(modulePrefs.value));
     const isTabVisible = (id: string) => (visiblePaneTabs.value as readonly string[]).includes(id);
 
-    // 從分頁標題的捷徑跳到設定分頁的指定區塊
-    const settingsFocusSection = ref<SettingsSectionId | null>(null);
-    const settingsFocusToken = ref(0);
     const sidebarStateReady = ref(false);
     const settingsPaneReady = ref(props.pageRole === 'live-search-primary');
     const pageRole = computed(() => props.pageRole);
@@ -1099,20 +1077,6 @@ export default defineComponent({
       }
     });
 
-    /** 一般頁面上模組分頁的設定捷徑：有專屬設定區塊就跳過去，否則跳到模組開關 */
-    const activeModuleSettingsTarget = computed<SettingsSectionId | null>(() => {
-      if (pageRole.value !== 'normal') return null;
-      const tab = activeTab.value;
-      if (tab === 'settings' || tab === 'tools') return null;
-      return getSidebarModule(tab as SidebarModuleId).settingsSection ?? 'modules';
-    });
-
-    const openSettingsSection = (section: SettingsSectionId) => {
-      settingsFocusSection.value = section;
-      settingsFocusToken.value += 1;
-      activeTab.value = 'settings';
-    };
-
     const usesPaneScroll = computed(
       () =>
         activeTab.value === 'history' ||
@@ -1427,10 +1391,6 @@ export default defineComponent({
       navModuleTabs,
       isModuleEnabled,
       isTabVisible,
-      activeModuleSettingsTarget,
-      openSettingsSection,
-      settingsFocusSection,
-      settingsFocusToken,
       toggleCollapse,
       isModalOpen,
       targetGroupIndex,

@@ -17,8 +17,6 @@ import SettingsRow from './SettingsRow.vue';
 
 const props = defineProps<{
   values: Readonly<Record<SidebarModulePreferenceKey, boolean>>;
-  /** 例如「已開啟 4 / 6」 */
-  summary?: string;
 }>();
 
 const emit = defineEmits<{
@@ -31,30 +29,18 @@ const controlId = (id: string) => `sidebar-module-${id}`;
 
 <template>
   <div class="flex flex-col gap-[var(--pxd-field-gap)]">
-    <div class="flex items-start justify-between gap-[var(--pxd-space-md)]">
-      <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
-        {{ t('settings.modules.description') }}
-      </p>
-      <span
-        v-if="props.summary"
-        data-settings-modules-count
-        class="shrink-0 whitespace-nowrap text-[length:var(--pxd-font-caption)] font-medium tabular-nums text-foreground"
-      >
-        {{ props.summary }}
-      </span>
-    </div>
     <ul class="m-0 flex list-none flex-col gap-[var(--pxd-space-xs)] p-0" role="list">
       <li v-for="module in SIDEBAR_MODULES" :key="module.id" :data-sidebar-module="module.id">
         <SettingsRow
           :label="getSidebarModuleLabel(module.id)"
-          :description="getSidebarModuleDescription(module.id)"
+          :details="getSidebarModuleDescription(module.id)"
           :control-id="controlId(module.id)"
           class="rounded-md py-[var(--pxd-space-xs)] transition-opacity"
           :class="props.values[module.preferenceKey] ? '' : 'opacity-70'"
         >
           <template #leading>
             <span
-              class="mt-[1px] inline-flex size-[calc(var(--control-height-default,2rem)*0.9)] shrink-0 items-center justify-center rounded-md border transition-colors"
+              class="inline-flex size-[var(--control-height-sm,1.75rem)] shrink-0 items-center justify-center rounded-md border transition-colors"
               :class="
                 props.values[module.preferenceKey]
                   ? 'border-primary/40 bg-primary/10 text-primary'
@@ -97,10 +83,5 @@ const controlId = (id: string) => `sidebar-module-${id}`;
         </SettingsRow>
       </li>
     </ul>
-    <p
-      class="m-0 flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
-    >
-      {{ t('settings.modules.fixedHint') }}
-    </p>
   </div>
 </template>
