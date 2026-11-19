@@ -7,7 +7,7 @@ import {
   createOnboardingStore,
   createUpdateOnboardingState,
   dismissUpdate,
-  dismissWelcome,
+  markTourStarted,
   markExpandHintSeen,
   parseOnboardingState,
   shouldOfferMarketTranslation,
@@ -35,9 +35,9 @@ function createArea(initial: Record<string, unknown> = {}) {
 }
 
 describe('createInstallOnboardingState', () => {
-  it('creates pending welcome and expand hint only for a fresh install', () => {
+  it('creates pending tour and expand hint only for a fresh install', () => {
     expect(createInstallOnboardingState('install', '1.5.0')).toEqual({
-      welcomePending: true,
+      tourPending: true,
       expandHintPending: true,
       lastSeenVersion: '1.5.0',
     });
@@ -60,7 +60,7 @@ describe('createUpdateOnboardingState', () => {
         previousVersion: '1.6.0',
       }),
     ).toEqual({
-      welcomePending: false,
+      tourPending: false,
       expandHintPending: false,
       updatePending: true,
       lastSeenVersion: '1.6.1',
@@ -82,21 +82,21 @@ describe('createUpdateOnboardingState', () => {
       createUpdateOnboardingState({
         reason: 'update',
         version: '1.6.1',
-        current: { welcomePending: false, expandHintPending: false, lastSeenVersion: '1.6.1' },
+        current: { tourPending: false, expandHintPending: false, lastSeenVersion: '1.6.1' },
       }),
     ).toBeNull();
   });
 
-  it('keeps welcomePending without stacking updatePending if user has not dismissed first-install welcome', () => {
+  it('keeps tourPending without stacking updatePending if user has not dismissed first-install tour', () => {
     expect(
       createUpdateOnboardingState({
         reason: 'update',
         version: '1.6.1',
         previousVersion: '1.6.0',
-        current: { welcomePending: true, expandHintPending: true, lastSeenVersion: '1.6.0' },
+        current: { tourPending: true, expandHintPending: true, lastSeenVersion: '1.6.0' },
       }),
     ).toEqual({
-      welcomePending: true,
+      tourPending: true,
       expandHintPending: true,
       lastSeenVersion: '1.6.1',
     });
@@ -106,43 +106,53 @@ describe('createUpdateOnboardingState', () => {
 describe('parseOnboardingState', () => {
   it('treats a missing or malformed record as no onboarding', () => {
     expect(parseOnboardingState(undefined)).toBe(NO_ONBOARDING);
-    expect(parseOnboardingState({ welcomePending: 'yes' })).toBe(NO_ONBOARDING);
+    expect(parseOnboardingState({ tourPending: 'yes' })).toBe(NO_ONBOARDING);
     expect(parseOnboardingState([])).toBe(NO_ONBOARDING);
   });
 
   it('keeps valid flags and an optional version', () => {
     expect(
       parseOnboardingState({
-        welcomePending: false,
+        tourPending: false,
         expandHintPending: true,
         lastSeenVersion: '1',
       }),
-    ).toEqual({ welcomePending: false, expandHintPending: true, lastSeenVersion: '1' });
+    ).toEqual({ tourPending: false, expandHintPending: true, lastSeenVersion: '1' });
     expect(
       parseOnboardingState({
-        welcomePending: false,
+        tourPending: false,
         expandHintPending: false,
         updatePending: true,
         lastSeenVersion: '1.6.1',
       }),
     ).toEqual({
-      welcomePending: false,
+      tourPending: false,
       expandHintPending: false,
       updatePending: true,
       lastSeenVersion: '1.6.1',
     });
+  });
+
+  it('reads the legacy welcomePending flag as tourPending', () => {
+    expect(parseOnboardingState({ welcomePending: true, expandHintPending: false })).toEqual({
+      tourPending: true,
+      expandHintPending: false,
+    });
+    expect(
+      parseOnboardingState({ tourPending: false, welcomePending: true, expandHintPending: false }),
+    ).toEqual({ tourPending: false, expandHintPending: false });
   });
 });
 
 describe('state transitions', () => {
   it('returns new objects without mutating the input', () => {
     const initial = createInstallOnboardingState('install', '1.5.0')!;
-    const dismissed = dismissWelcome(initial);
+    const dismissed = markTourStarted(initial);
     const seen = markExpandHintSeen(initial);
-    expect(initial.welcomePending).toBe(true);
+    expect(initial.tourPending).toBe(true);
     expect(initial.expandHintPending).toBe(true);
-    expect(dismissed).toMatchObject({ welcomePending: false, expandHintPending: true });
-    expect(seen).toMatchObject({ welcomePending: true, expandHintPending: false });
+    expect(dismissed).toMatchObject({ tourPending: false, expandHintPending: true });
+    expect(seen).toMatchObject({ tourPending: true, expandHintPending: false });
 
     const updated = createUpdateOnboardingState({
       reason: 'update',
@@ -151,7 +161,7 @@ describe('state transitions', () => {
     })!;
     expect(updated.updatePending).toBe(true);
     expect(dismissUpdate(updated)).toEqual({
-      welcomePending: false,
+      tourPending: false,
       expandHintPending: false,
       lastSeenVersion: '1.6.1',
     });
@@ -191,9 +201,9 @@ describe('createOnboardingStore', () => {
       [ONBOARDING_STORAGE_KEY]: createInstallOnboardingState('install', '1.5.0'),
     });
     const store = createOnboardingStore(area);
-    await store.update(dismissWelcome);
+    await store.update(markTourStarted);
     expect(area.values[ONBOARDING_STORAGE_KEY]).toMatchObject({
-      welcomePending: false,
+      tourPending: false,
       expandHintPending: true,
       lastSeenVersion: '1.5.0',
     });
@@ -202,16 +212,16 @@ describe('createOnboardingStore', () => {
   it('never creates a record for users without onboarding state', async () => {
     const area = createArea();
     const store = createOnboardingStore(area);
-    await expect(store.update(dismissWelcome)).resolves.toBe(NO_ONBOARDING);
+    await expect(store.update(markTourStarted)).resolves.toBe(NO_ONBOARDING);
     await store.update(markExpandHintSeen);
     expect(area.set).not.toHaveBeenCalled();
   });
 
   it('skips writes when nothing changes', async () => {
     const area = createArea({
-      [ONBOARDING_STORAGE_KEY]: { welcomePending: false, expandHintPending: false },
+      [ONBOARDING_STORAGE_KEY]: { tourPending: false, expandHintPending: false },
     });
-    await createOnboardingStore(area).update(dismissWelcome);
+    await createOnboardingStore(area).update(markTourStarted);
     expect(area.set).not.toHaveBeenCalled();
   });
 
@@ -223,9 +233,9 @@ describe('createOnboardingStore', () => {
     await area.set({ unrelated: 1 });
     expect(listener).not.toHaveBeenCalled();
     await area.set({
-      [ONBOARDING_STORAGE_KEY]: { welcomePending: true, expandHintPending: false },
+      [ONBOARDING_STORAGE_KEY]: { tourPending: true, expandHintPending: false },
     });
-    expect(listener).toHaveBeenCalledWith({ welcomePending: true, expandHintPending: false });
+    expect(listener).toHaveBeenCalledWith({ tourPending: true, expandHintPending: false });
   });
 });
 

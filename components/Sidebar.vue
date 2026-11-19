@@ -18,20 +18,23 @@
         :class="{
           collapsed: isCollapsed,
           'settings-pending invisible': !areSettingsReady,
+          'overflow-hidden': collapseAnimation !== null,
         }"
+        :data-collapse-animation="collapseAnimation ?? undefined"
         :style="{
           right: sidebarPosition === 'right' ? '0' : 'auto',
           left: sidebarPosition === 'left' ? '0' : 'auto',
-          height: isCollapsed ? 'var(--control-height-default)' : '100vh',
-          top: isCollapsed ? 'var(--pxd-collapsed-tab-top, 100px)' : '0',
+          height: showCollapsedTab ? 'var(--control-height-default)' : '100vh',
+          top: showCollapsedTab ? 'var(--pxd-collapsed-tab-top, 100px)' : '0',
           '--pxd-collapsed-tab-top': isCollapsed ? collapsedTabTopStyle : undefined,
           width: isCollapsed ? 'var(--pxd-sidebar-collapsed-width)' : actualWidth + 'px',
+          transition: collapseAnimation !== null ? collapseTransition : undefined,
           ...runtimeTokens,
         }"
       >
         <!-- 收合狀態下的書籤狀小長方形 -->
         <Button
-          v-show="isCollapsed"
+          v-show="showCollapsedTab"
           type="button"
           variant="secondary"
           size="default"
@@ -69,10 +72,22 @@
         </Button>
 
         <!-- 展開狀態下的側邊欄本體 -->
+        <!-- 展開/收合動畫期間面板維持原寬度、貼著頁面內側，外框縮放時看起來是滑入滑出 -->
         <div
-          v-show="!isCollapsed"
+          v-show="!showCollapsedTab"
           class="sidebar-container flex size-full"
-          :style="{ flexDirection: sidebarPosition === 'left' ? 'row-reverse' : 'row' }"
+          :style="{
+            flexDirection: sidebarPosition === 'left' ? 'row-reverse' : 'row',
+            ...(collapseAnimation !== null
+              ? {
+                  position: 'absolute',
+                  top: '0',
+                  width: actualWidth + 'px',
+                  left: sidebarPosition === 'right' ? '0' : 'auto',
+                  right: sidebarPosition === 'left' ? '0' : 'auto',
+                }
+              : {}),
+          }"
         >
           <!-- 窄長功能導覽列 (Sidebar Panel) -->
           <div
@@ -287,26 +302,12 @@
             >
               <!-- Normal 模式：按分頁渲染對應的子元件 -->
               <template v-if="pageRole === 'normal'">
-                <!-- 初次安裝歡迎卡片 / 改版更新提示：顯示於側邊欄頂端（全分頁可見），關閉後永久不再出現 -->
+                <!-- 改版更新提示：顯示於側邊欄頂端（全分頁可見），關閉後永久不再出現 -->
                 <div
-                  v-if="showWelcomeCard || showUpdateNotice"
+                  v-if="showUpdateNotice"
                   class="shrink-0 px-[var(--pxd-pane-padding)] pt-[var(--pxd-pane-padding)]"
                 >
-                  <WelcomeCard
-                    v-if="showWelcomeCard"
-                    :show-market-translation="showMarketTranslationOffer"
-                    :market-translation="marketTranslation"
-                    :reload-required="marketTranslationReloadRequired"
-                    @dismiss="dismissWelcomeCard"
-                    @start-tour="startTourFromWelcome"
-                    @update:market-translation="setMarketTranslation"
-                    @reload="reloadPage"
-                  />
-                  <UpdateNotice
-                    v-else-if="showUpdateNotice"
-                    :version="updateNoticeVersion"
-                    @dismiss="dismissUpdateNotice"
-                  />
+                  <UpdateNotice :version="updateNoticeVersion" @dismiss="dismissUpdateNotice" />
                 </div>
                 <!-- 分頁第一次在展開的側邊欄顯示時才掛載，之後以 v-show 保留狀態 -->
                 <BookmarkPane
@@ -545,7 +546,11 @@
         <MercenaryPickerHost v-if="pageRole === 'normal' && version === 'poe1'" />
 
         <!-- 頁面導覽：設定裡的「在頁面上指出」與初始導覽 -->
-        <PageGuideHost v-if="pageRole === 'normal'" :portal-target="portalTarget" />
+        <PageGuideHost
+          v-if="pageRole === 'normal'"
+          :portal-target="portalTarget"
+          :setup="guideSetup"
+        />
       </div>
     </TooltipProvider>
   </ConfigProvider>
@@ -555,6 +560,7 @@
 import {
   defineComponent,
   ref,
+  shallowRef,
   onMounted,
   onUnmounted,
   watch,
@@ -576,10 +582,24 @@ import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
 import TemporarySearchDialog from './sidebar/TemporarySearchDialog.vue';
 import UpdateNotice from './sidebar/UpdateNotice.vue';
-import WelcomeCard from './sidebar/WelcomeCard.vue';
 import TierDropdownHost from './injected/TierDropdownHost.vue';
 import PageGuideHost from './sidebar/page-guide/PageGuideHost.vue';
 import { usePageGuide } from './sidebar/page-guide/usePageGuide';
+import { getPageGuideTarget } from './sidebar/page-guide/page-guide-targets';
+import type { FontSizeMode } from '@/utils/preferences-contract';
+import {
+  RESULT_FEATURE_KEYS,
+  readResultFeatures,
+  type PageGuideDemoCursor,
+  type PageGuideSetupBindings,
+  type ResultFeatureFlags,
+} from './sidebar/page-guide/page-guide-setup';
+import {
+  planCustomFontSizeScale,
+  planFontSizeModeChange,
+  planSidebarSizeChange,
+} from '@/utils/appearance-preferences';
+import { findFirstTierSlotKey, tierMenuDemoSlotKey } from '@/utils/page-guide-demo-state';
 import StatGroupTemplateHost from './injected/StatGroupTemplateHost.vue';
 import MercenaryPickerHost from './injected/mercenary/MercenaryPickerHost.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
@@ -598,13 +618,17 @@ import {
   collapsedTabTopCss,
 } from '@/utils/collapsed-tab-position';
 import { getPoeVersion } from '@/utils/trade-context';
+import {
+  SIDEBAR_LAYOUT_TRANSITION_EASING,
+  SIDEBAR_LAYOUT_TRANSITION_MS,
+} from '@/utils/sidebar-motion';
 import { detectBrowserLocale } from '@/utils/locale-resolution';
 import {
   NO_ONBOARDING,
   createChromeOnboardingStore,
   dismissUpdate,
-  dismissWelcome,
   markExpandHintSeen,
+  markTourStarted,
   shouldOfferMarketTranslation,
   type OnboardingState,
 } from '@/utils/onboarding';
@@ -723,7 +747,6 @@ export default defineComponent({
     LiveSearchConsoleSettingsPane,
     TemporarySearchDialog,
     UpdateNotice,
-    WelcomeCard,
     TierDropdownHost,
     PageGuideHost,
     StatGroupTemplateHost,
@@ -760,7 +783,10 @@ export default defineComponent({
     const sidebarWidth = ref(DEFAULT_PREFERENCES.sidebarWidth);
     const sidebarSize = ref<Preferences['sidebarSize']>('medium');
     let preferencesModule: PreferencesModule | undefined;
+    const preferencesReady = ref(false);
     const fontSizeScale = ref(1.0);
+    const fontSizeMode = ref<FontSizeMode>(DEFAULT_PREFERENCES.fontSizeMode);
+    const resultFeatures = shallowRef<ResultFeatureFlags>(readResultFeatures(DEFAULT_PREFERENCES));
     const densityScale = ref(1.0);
     const activeTab = ref('bookmark');
     const primaryActiveTab = ref<'connections' | 'pinned-items' | 'console-settings'>(
@@ -821,13 +847,10 @@ export default defineComponent({
     const showExpandHint = computed(
       () => pageRole.value === 'normal' && isCollapsed.value && onboarding.value.expandHintPending,
     );
-    const showWelcomeCard = computed(
-      () => pageRole.value === 'normal' && onboarding.value.welcomePending,
-    );
     const showUpdateNotice = computed(
       () =>
         pageRole.value === 'normal' &&
-        !onboarding.value.welcomePending &&
+        !onboarding.value.tourPending &&
         onboarding.value.updatePending === true,
     );
     const updateNoticeVersion = computed(
@@ -840,11 +863,15 @@ export default defineComponent({
         browserLocale: detectBrowserLocale(),
       }),
     );
+    // 依序寫入：store.update 是「讀取→修改→寫回」，同時送出的兩筆更新會互相蓋掉
+    let onboardingWrite: Promise<unknown> = Promise.resolve();
     const updateOnboarding = (mutate: (state: OnboardingState) => OnboardingState) => {
       onboarding.value = mutate(onboarding.value);
-      void onboardingStore.update(mutate).catch((error) => {
-        console.error('[PoeXD Sidebar] 無法更新初次引導狀態:', error);
-      });
+      onboardingWrite = onboardingWrite
+        .then(() => onboardingStore.update(mutate))
+        .catch((error) => {
+          console.error('[PoeXD Sidebar] 無法更新初次引導狀態:', error);
+        });
     };
     // 只要一般頁面的側邊欄處於展開狀態（含初始即展開、手動展開、跨分頁同步或引導狀態晚到），即清除展開提示圓點
     watchEffect(() => {
@@ -857,19 +884,14 @@ export default defineComponent({
         updateOnboarding(markExpandHintSeen);
       }
     });
-    const dismissWelcomeCard = () => updateOnboarding(dismissWelcome);
-    const startTourFromWelcome = () => {
-      dismissWelcomeCard();
-      void usePageGuide().startTour();
-    };
     const dismissUpdateNotice = () => updateOnboarding(dismissUpdate);
-    const setMarketTranslation = async (value: boolean) => {
+    const updatePreference = async (patch: Partial<Preferences>, label: string) => {
       if (!preferencesModule) return;
-      const outcome = await preferencesModule.update({ marketTranslation: value });
-      if (!outcome.ok) {
-        console.error('[PoeXD Sidebar] 無法更新市集漢化設定:', outcome.error);
-      }
+      const outcome = await preferencesModule.update(patch);
+      if (!outcome.ok) console.error(`[PoeXD Sidebar] 無法更新${label}:`, outcome.error);
     };
+    const setMarketTranslation = (value: boolean) =>
+      updatePreference({ marketTranslation: value }, '市集漢化設定');
     const reloadPage = () => window.location.reload();
 
     const isArrivalActive = ref(false);
@@ -1126,11 +1148,19 @@ export default defineComponent({
       }
       preferencesModule = preferencesOutcome.value;
       stopPreferences = preferencesModule.subscribe((snapshot) => {
+        preferencesReady.value = true;
         sidebarPosition.value = snapshot.sidebarPosition;
         sidebarSize.value = snapshot.sidebarSize;
         sidebarWidth.value = snapshot.sidebarWidth;
         if (!isCollapsedTabDragging.value) collapsedTabTop.value = snapshot.collapsedTabTop;
         fontSizeScale.value = snapshot.fontSizeScale;
+        fontSizeMode.value = snapshot.fontSizeMode;
+        const nextResultFeatures = readResultFeatures(snapshot);
+        if (
+          RESULT_FEATURE_KEYS.some((key) => nextResultFeatures[key] !== resultFeatures.value[key])
+        ) {
+          resultFeatures.value = nextResultFeatures;
+        }
         densityScale.value = snapshot.densityScale;
         marketTranslation.value = snapshot.marketTranslation === true;
         displayLocale.value = snapshot.displayLocale ?? 'auto';
@@ -1183,7 +1213,29 @@ export default defineComponent({
       document.addEventListener('mouseup', clearOverlayMousedown);
     });
 
+    // 展開/收合時外框寬度與官方頁面讓位用同樣的過場；收合期間先保留面板，動畫結束才換成收合標籤
+    const collapseAnimation = ref<'collapsing' | 'expanding' | null>(null);
+    const collapseTransition = `width ${SIDEBAR_LAYOUT_TRANSITION_MS}ms ${SIDEBAR_LAYOUT_TRANSITION_EASING}`;
+    const showCollapsedTab = computed(
+      () => isCollapsed.value && collapseAnimation.value !== 'collapsing',
+    );
+    let collapseAnimationTimer: ReturnType<typeof setTimeout> | undefined;
+    const prefersReducedMotion = () =>
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    const playCollapseAnimation = (collapsing: boolean) => {
+      clearTimeout(collapseAnimationTimer);
+      if (prefersReducedMotion()) {
+        collapseAnimation.value = null;
+        return;
+      }
+      collapseAnimation.value = collapsing ? 'collapsing' : 'expanding';
+      collapseAnimationTimer = setTimeout(() => {
+        collapseAnimation.value = null;
+      }, SIDEBAR_LAYOUT_TRANSITION_MS);
+    };
+
     const toggleCollapse = () => {
+      playCollapseAnimation(!isCollapsed.value);
       isCollapsed.value = !isCollapsed.value;
       const collapsedKey = keys.isCollapsed;
       chrome.storage.local.set({ [collapsedKey]: isCollapsed.value });
@@ -1463,7 +1515,182 @@ export default defineComponent({
       }
     });
 
+    // 初始導覽：前段直接調整語言、漢化、側欄位置與收合把手，設定步驟的值與修改方式由這裡提供
+    const pageGuide = usePageGuide();
+    // 收合示範：模擬滑鼠點關閉鈕收合側欄，再按住收合標籤上下拖曳（只預覽，不改儲存的位置）
+    const demoCursor = ref<PageGuideDemoCursor | null>(null);
+    let collapseDemoRun = 0;
+    let collapseDemoTabTopChanged = false;
+    const DEMO_CURSOR_MOVE_MS = 550;
+    const DEMO_DRAG_DISTANCE = 120;
+    const DEMO_DRAG_MS = 600;
+    const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+    const findSidebarElement = (selector: string): HTMLElement | null => {
+      const root = portalTarget.value?.getRootNode() as ParentNode | undefined;
+      return (root ?? document).querySelector<HTMLElement>(selector);
+    };
+    const centerOf = (el: HTMLElement) => {
+      const rect = el.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    };
+
+    const stopCollapseDemo = () => {
+      collapseDemoRun += 1;
+      demoCursor.value = null;
+      if (collapseDemoTabTopChanged) {
+        collapseDemoTabTopChanged = false;
+        previewCollapsedTabTop(preferencesModule?.read().collapsedTabTop ?? collapsedTabTop.value);
+      }
+    };
+
+    const playCollapseDemo = async () => {
+      stopCollapseDemo();
+      const run = collapseDemoRun;
+      const alive = () => run === collapseDemoRun;
+      if (isCollapsed.value) {
+        toggleCollapse();
+        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 50);
+        if (!alive()) return;
+      }
+      const closeButton = findSidebarElement('[data-sidebar-action="collapse"]');
+      if (!closeButton) return;
+      const close = centerOf(closeButton);
+      const startX = sidebarPosition.value === 'right' ? close.x - 120 : close.x + 120;
+      demoCursor.value = { x: startX, y: close.y + 140, pressed: false };
+      await sleep(50);
+      if (!alive()) return;
+      demoCursor.value = { x: close.x, y: close.y, pressed: false };
+      await sleep(DEMO_CURSOR_MOVE_MS + 150);
+      if (!alive()) return;
+      demoCursor.value = { x: close.x, y: close.y, pressed: true };
+      await sleep(150);
+      if (!alive()) return;
+      demoCursor.value = { x: close.x, y: close.y, pressed: false };
+      if (!isCollapsed.value) toggleCollapse();
+      await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 250);
+      if (!alive()) return;
+
+      const tab = findSidebarElement('[data-sidebar-action="expand"]');
+      if (!tab) return;
+      const grip = centerOf(tab);
+      demoCursor.value = { x: grip.x, y: grip.y, pressed: false };
+      await sleep(DEMO_CURSOR_MOVE_MS + 150);
+      if (!alive()) return;
+      demoCursor.value = { x: grip.x, y: grip.y, pressed: true };
+      await sleep(200);
+      if (!alive()) return;
+      const tabRect = tab.getBoundingClientRect();
+      const tabHeight = tabRect.height || 32;
+      const startTop = tabRect.top;
+      const endTop = clampCollapsedTabTop(
+        startTop + DEMO_DRAG_DISTANCE,
+        window.innerHeight,
+        tabHeight,
+      );
+      // 按住時游標不補間，逐格同步移動標籤與游標
+      const drag = async (from: number, to: number) => {
+        const startedAt = performance.now();
+        for (;;) {
+          if (!alive()) return false;
+          const progress = Math.min(1, (performance.now() - startedAt) / DEMO_DRAG_MS);
+          const eased = progress < 0.5 ? 2 * progress * progress : 1 - (-2 * progress + 2) ** 2 / 2;
+          const top = from + (to - from) * eased;
+          collapseDemoTabTopChanged = true;
+          previewCollapsedTabTop(top);
+          demoCursor.value = { x: grip.x, y: grip.y + (top - startTop), pressed: true };
+          if (progress >= 1) return true;
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+      };
+      if (!(await drag(startTop, endTop))) return;
+      await sleep(300);
+      if (!(await drag(endTop, startTop))) return;
+      demoCursor.value = { x: grip.x, y: grip.y, pressed: false };
+      await sleep(400);
+      if (!alive()) return;
+      stopCollapseDemo();
+    };
+
+    const stopStepDemo = () => {
+      stopCollapseDemo();
+      tierMenuDemoSlotKey.value = null;
+    };
+
+    const guideSetup = computed<PageGuideSetupBindings>(() => ({
+      displayLocale: displayLocale.value,
+      marketTranslation: marketTranslation.value,
+      reloadRequired: marketTranslationReloadRequired.value,
+      sidebarPosition: sidebarPosition.value,
+      sidebarSize: sidebarSize.value,
+      fontSizeMode: fontSizeMode.value,
+      fontSizeScale: fontSizeScale.value,
+      resultFeatures: resultFeatures.value,
+      demoCursor: demoCursor.value,
+      setDisplayLocale: (value) => void updatePreference({ displayLocale: value }, '顯示語言'),
+      setMarketTranslation: (value) => void setMarketTranslation(value),
+      setSidebarPosition: (value) =>
+        void updatePreference({ sidebarPosition: value }, '側邊欄位置'),
+      // 與設定頁共用規則：預設大小套對應寬度，自訂沿用上次的自訂值
+      setSidebarSize: (value) => {
+        if (!preferencesModule) return;
+        void updatePreference(planSidebarSizeChange(value, preferencesModule.read()), '側邊欄大小');
+      },
+      setFontSizeMode: (value) => {
+        if (!preferencesModule) return;
+        void updatePreference(planFontSizeModeChange(value, preferencesModule.read()), '字體大小');
+      },
+      setFontSizeScale: (value) =>
+        void updatePreference(planCustomFontSizeScale(value), '字體大小'),
+      setResultFeature: (key, value) => void updatePreference({ [key]: value }, '結果列功能'),
+      replayCollapseDemo: () => void playCollapseDemo(),
+      reload: reloadPage,
+    }));
+    pageGuide.setTourContext({
+      isConditionMet: (condition) =>
+        condition === 'market-translation-offer' && showMarketTranslationOffer.value,
+      // 指向側欄裡的位置前先展開（例如上一步收合了側欄），等展開動畫結束再量位置
+      async prepareStep(step) {
+        if (!step.targetId || getPageGuideTarget(step.targetId).scope !== 'sidebar') return;
+        if (!isCollapsed.value) return;
+        toggleCollapse();
+        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS);
+      },
+      async runStepDemo(demo) {
+        if (demo === 'collapse') {
+          // 不等示範播完：說明框先出現，外框跟著關閉鈕/收合標籤移動
+          void playCollapseDemo();
+          return;
+        }
+        const key = findFirstTierSlotKey();
+        if (!key) return;
+        tierMenuDemoSlotKey.value = key;
+        await nextTick();
+      },
+      stopStepDemo,
+    });
+
+    // 初次安裝：第一次展開側邊欄時自動開始導覽；開始即視為完成，略過或中途離開都不再自動出現
+    let tourAutoStarted = false;
+    watchEffect(() => {
+      if (
+        tourAutoStarted ||
+        pageRole.value !== 'normal' ||
+        !sidebarStateReady.value ||
+        !preferencesReady.value ||
+        isCollapsed.value ||
+        !onboarding.value.tourPending
+      ) {
+        return;
+      }
+      tourAutoStarted = true;
+      updateOnboarding(markTourStarted);
+      void nextTick(() => pageGuide.startTour());
+    });
+
     onUnmounted(() => {
+      pageGuide.setTourContext(null);
+      stopCollapseDemo();
+      clearTimeout(collapseAnimationTimer);
       clearScrollRestoreTimers();
       if (arrivalTimer) {
         clearTimeout(arrivalTimer);
@@ -1496,17 +1723,10 @@ export default defineComponent({
       appVersion,
       version,
       showExpandHint,
-      showWelcomeCard,
       showUpdateNotice,
       updateNoticeVersion,
-      showMarketTranslationOffer,
-      marketTranslation,
-      marketTranslationReloadRequired,
-      dismissWelcomeCard,
-      startTourFromWelcome,
       dismissUpdateNotice,
-      setMarketTranslation,
-      reloadPage,
+      guideSetup,
       t,
       portalTarget,
       isCollapsed,
@@ -1532,6 +1752,9 @@ export default defineComponent({
       isModuleEnabled,
       isTabVisible,
       toggleCollapse,
+      collapseAnimation,
+      collapseTransition,
+      showCollapsedTab,
       collapsedTabTopStyle,
       isCollapsedTabDragging,
       handleCollapsedTabPointerDown,

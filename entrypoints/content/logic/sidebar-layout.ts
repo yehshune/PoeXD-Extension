@@ -16,6 +16,10 @@ import { syncUiRuntimeTokens } from '@/lib/tokens';
 import { applyThemeToHost } from '@/lib/theme/theme-runtime';
 import { appendShadowHostStyle } from './shadow-host-style';
 import { collapsedTabTopCss } from '@/utils/collapsed-tab-position';
+import {
+  SIDEBAR_LAYOUT_TRANSITION_EASING,
+  SIDEBAR_LAYOUT_TRANSITION_MS,
+} from '@/utils/sidebar-motion';
 
 const POEXD_HOST_Z_INDEX = '2147483647';
 const LAYOUT_STYLE_ID = 'poexd-layout-style';
@@ -33,8 +37,9 @@ function buildPageLayoutCss({ collapsed, position, width, animate }: PageLayoutS
   const pageWidth = collapsed ? '100%' : `calc(100% - ${width}px)`;
   const pageMarginLeft = position === 'left' && !collapsed ? width : 0;
   const pageMarginRight = position === 'right' && !collapsed ? width : 0;
+  const timing = `${SIDEBAR_LAYOUT_TRANSITION_MS / 1000}s ${SIDEBAR_LAYOUT_TRANSITION_EASING}`;
   const transitionProperty = animate
-    ? 'transition: width 0.15s ease, margin-left 0.15s ease, margin-right 0.15s ease !important;'
+    ? `transition: width ${timing}, margin-left ${timing}, margin-right ${timing} !important;`
     : 'transition: none !important;';
   return `
       .content {

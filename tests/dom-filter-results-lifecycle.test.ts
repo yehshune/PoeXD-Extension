@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DomFilter } from '@/entrypoints/content/logic/dom-filter';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -14,14 +15,14 @@ class FakeElement {
   constructor(readonly kind: 'wrapper' | 'results' | 'row' | 'annotation' | 'icon') {}
 
   matches(selector: string) {
-    if (selector === '.results') return this.kind === 'results';
+    if (selector === TRADE_RESULTS_SELECTOR) return this.kind === 'results';
     if (selector === '.row') return this.kind === 'row';
     if (selector === '.poexd-price-comparison') return this.kind === 'annotation';
     return false;
   }
 
   querySelector(selector: string) {
-    if (selector === '.results') return this.resultRoot;
+    if (selector === TRADE_RESULTS_SELECTOR) return this.resultRoot;
     return null;
   }
 
@@ -31,8 +32,9 @@ class FakeElement {
   }
 
   closest(selector: string) {
-    if (selector === '.results .row') return this.kind === 'row' ? this : this.ownerRow;
-    if (selector === '.results' && this.kind === 'row') return this.ownerResults;
+    if (selector === `${TRADE_RESULTS_SELECTOR} .row`)
+      return this.kind === 'row' ? this : this.ownerRow;
+    if (selector === TRADE_RESULTS_SELECTOR && this.kind === 'row') return this.ownerResults;
     if (selector === '.poexd-price-comparison' && this.kind === 'annotation') return this;
     return null;
   }
@@ -67,7 +69,8 @@ function setupDom(currentResults: () => FakeElement | null) {
   vi.stubGlobal('cancelAnimationFrame', vi.fn());
   vi.stubGlobal('document', {
     body,
-    querySelector: (selector: string) => (selector === '.results' ? currentResults() : null),
+    querySelector: (selector: string) =>
+      selector === TRADE_RESULTS_SELECTOR ? currentResults() : null,
   });
   return {
     body,

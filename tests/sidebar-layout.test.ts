@@ -17,8 +17,12 @@ const sidebarSource = readFileSync('components/Sidebar.vue', 'utf8').replace(/\r
 
 describe('Sidebar page layout', () => {
   it('animates the page left when a left sidebar collapses', () => {
+    // 側邊欄本身的寬度動畫共用同一組時間（utils/sidebar-motion.ts）
     expect(layoutSource).toContain(
-      'transition: width 0.15s ease, margin-left 0.15s ease, margin-right 0.15s ease !important;',
+      'transition: width ${timing}, margin-left ${timing}, margin-right ${timing} !important;',
+    );
+    expect(sidebarSource).toContain(
+      'const collapseTransition = `width ${SIDEBAR_LAYOUT_TRANSITION_MS}ms ${SIDEBAR_LAYOUT_TRANSITION_EASING}`;',
     );
     expect(layoutSource).toContain(
       "const pageMarginLeft = position === 'left' && !collapsed ? width : 0;",

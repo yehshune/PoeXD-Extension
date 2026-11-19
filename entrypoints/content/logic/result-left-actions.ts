@@ -2,6 +2,8 @@
  * 結果卡片左上角 hover 工具列（位於官方重整按鈕右側，供 PoB 複製、PoEDB 等按鈕共用）。
  */
 
+import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
+
 const STYLE_ID = 'poexd-result-left-actions-style';
 const BUTTON_HOST_SELECTOR = '.left';
 
@@ -26,6 +28,7 @@ const STYLE_CONTENT = `
   }
 
   .row:hover .${RESULT_LEFT_ACTIONS_CLASS},
+  .row[${PAGE_GUIDE_REVEAL_ATTR}] .${RESULT_LEFT_ACTIONS_CLASS},
   .${RESULT_LEFT_ACTIONS_CLASS}:has(:focus-visible) {
     opacity: 1 !important;
     visibility: visible !important;
@@ -53,7 +56,7 @@ const STYLE_CONTENT = `
   }
 `;
 
-function ensureLeftActionsStyle(): void {
+export function ensureLeftActionsStyle(): void {
   if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;

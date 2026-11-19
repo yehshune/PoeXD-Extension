@@ -30,7 +30,7 @@ const lazyPanes = [
 describe('Sidebar pane lifecycle', () => {
   it('keeps the sidebar hidden until its saved settings are loaded', () => {
     expect(sidebarSource).toMatch(
-      /:class="\{\s*['"]?collapsed['"]?:\s*isCollapsed,\s*'settings-pending invisible':\s*!areSettingsReady,?\s*\}"/,
+      /:class="\{\s*['"]?collapsed['"]?:\s*isCollapsed,\s*'settings-pending invisible':\s*!areSettingsReady,[\s\S]*?\}"/,
     );
     expect(sidebarSource).toContain('@ready="settingsPaneReady = true"');
     expect(sidebarSource).toContain('const areSettingsReady = ref(false);');
@@ -45,9 +45,11 @@ describe('Sidebar pane lifecycle', () => {
 
   it('keeps the expanded sidebar mounted while collapsed', () => {
     expect(sidebarSource).toMatch(
-      /<Button\s+v-show="isCollapsed"[\s\S]*?data-sidebar-action="expand"/,
+      /<Button\s+v-show="showCollapsedTab"[\s\S]*?data-sidebar-action="expand"/,
     );
-    expect(sidebarSource).toMatch(/<div\s+v-show="!isCollapsed"\s+class="sidebar-container[^"]*"/);
+    expect(sidebarSource).toMatch(
+      /<div\s+v-show="!showCollapsedTab"\s+class="sidebar-container[^"]*"/,
+    );
     expect(sidebarSource).not.toContain('v-if="isCollapsed"');
   });
 

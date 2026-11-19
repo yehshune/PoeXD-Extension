@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar.vue';
 import { listenPoeEvent } from '@/utils/event-contracts';
 import { createVersionedStorageKeys } from '@/utils/storage-contracts';
 import { getPoeVersion } from '@/utils/trade-context';
+import { SIDEBAR_LAYOUT_TRANSITION_MS } from '@/utils/sidebar-motion';
 
 const sidebarSource = readFileSync('components/Sidebar.vue', 'utf8');
 
@@ -416,6 +417,11 @@ describe('Sidebar Navigation Controls Migration', () => {
 
       // Now collapse
       collapseBtn?.click();
+      await nextTick();
+      // 收合動畫期間面板仍顯示，動畫結束才換成收合標籤
+      expect(sidebarContainer?.style.display).not.toBe('none');
+      expect(container.querySelector('[data-collapse-animation="collapsing"]')).not.toBeNull();
+      await new Promise((r) => setTimeout(r, SIDEBAR_LAYOUT_TRANSITION_MS + 20));
       await nextTick();
 
       expect(expandBtn?.style.display).not.toBe('none');

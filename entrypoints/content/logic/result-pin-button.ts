@@ -18,6 +18,7 @@ import {
   mountLeftAction,
   removeLeftActionsByClass,
 } from './result-left-actions';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-pin-style';
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
@@ -173,7 +174,7 @@ export class ResultPinButton {
   /** 快取有新結果後，替已在畫面上的結果補上按鈕 */
   refresh(): void {
     if (!this.enabled || typeof document === 'undefined') return;
-    const root = document.querySelector('.results');
+    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
@@ -300,11 +301,7 @@ export class ResultPinButton {
   }
 
   private ensureStyle(): void {
-    if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = STYLE_CONTENT;
-    (document.head ?? document.documentElement).appendChild(style);
+    ensureResultPinStyle();
   }
 
   private removeInjected(): void {
@@ -315,4 +312,13 @@ export class ResultPinButton {
       .forEach((row) => row.classList.remove(RESULT_PINNED_ROW_CLASS));
     document.getElementById(STYLE_ID)?.remove();
   }
+}
+
+/** 注入按鈕樣式；導覽的示意結果列也會呼叫，確保頁面還沒有結果時樣式已存在 */
+export function ensureResultPinStyle(): void {
+  if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = STYLE_CONTENT;
+  (document.head ?? document.documentElement).appendChild(style);
 }

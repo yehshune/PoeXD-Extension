@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { reactive } from 'vue';
+import { reactive, watch } from 'vue';
+import { tierMenuDemoSlotKey } from '@/utils/page-guide-demo-state';
 import { t } from '@/utils/i18n';
 import {
   DropdownMenu,
@@ -24,6 +25,12 @@ interface SlotTuningState {
 
 const slotTuningMap = reactive<Record<string, SlotTuningState>>({});
 const openStateMap = reactive<Record<string, boolean>>({});
+
+// 初始導覽的階級示範：展開指定清單，示範結束時收起
+watch(tierMenuDemoSlotKey, (key, previousKey) => {
+  if (previousKey) openStateMap[previousKey] = false;
+  if (key) openStateMap[key] = true;
+});
 
 function hasTierItems(slot: TierSlotDescriptor): boolean {
   return slot.items.some((i) => i.type === 'tier' && Boolean(i.valMin || i.valMax));

@@ -7,12 +7,18 @@ import {
   readCriteriaOverlaySnapshot,
   restoreCriteriaOverlaySnapshot,
 } from './criteria-overlay-adapter';
+import { setFilterCategory } from './category-binding-manager';
 import { tagFilterDomElements } from './dom-tagger';
-import type { HostVuexStore } from './host-types';
+import type { HostFilterGroup, HostVuexStore } from './host-types';
 import { getVueStore, readKnownStatIds } from './poe-runtime-reader';
 
 /** 「+# 最大生命」：PoE1 與 PoE2 都有、而且一定有 T 階資料的常見詞綴 */
 const PREFERRED_DEMO_STAT_ID = 'explicit.stat_3299347043';
+/**
+ * 示範詞綴綁定的物品類別（胸甲）：沒有類別時 T 階清單只會顯示「選擇物品類別」，看不到各階數值。
+ * 只寫在這條示範詞綴的隱藏屬性上，不改官方的類別篩選，還原時跟著詞綴一起移除。
+ */
+export const DEMO_STAT_CATEGORY = 'body-armour';
 
 export function pickDemoStatId(knownStatIds: readonly string[] | null): string | null {
   if (!knownStatIds || knownStatIds.length === 0) return PREFERRED_DEMO_STAT_ID;
@@ -51,6 +57,11 @@ export function createPageGuideDemo(getStore: () => HostVuexStore | null) {
       type: 'and',
       filters: [{ id: statId, value: {}, disabled: false }],
     });
+    const stats = (store.state?.persistent?.stats ?? store.state?.query?.stats) as
+      | HostFilterGroup[]
+      | undefined;
+    const demoFilter = stats?.[stats.length - 1]?.filters?.[0];
+    if (demoFilter) setFilterCategory(demoFilter, DEMO_STAT_CATEGORY);
   };
 
   const restore = () => {

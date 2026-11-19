@@ -5,6 +5,7 @@ import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { isSameTradeSearchPageUrl, parseTradeSearchUrl } from '@/utils/trade-search-identity';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import { t } from '@/utils/i18n';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 export interface UseBookmarkCoversOptions {
   executeBookmarkIntent: (intent: BookmarkMutationIntent) => Promise<boolean>;
@@ -69,7 +70,7 @@ export function useBookmarkCovers(options: UseBookmarkCoversOptions) {
     const images: string[] = [];
     try {
       if (typeof document === 'undefined') return images;
-      const resultsRoot = document.querySelector('.results');
+      const resultsRoot = document.querySelector(TRADE_RESULTS_SELECTOR);
       if (!resultsRoot) return images;
       const imgElements = resultsRoot.querySelectorAll<HTMLImageElement>('.row .left .icon > img');
       for (const img of imgElements) {

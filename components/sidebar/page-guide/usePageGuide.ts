@@ -1,8 +1,15 @@
-import { computed, reactive, shallowRef } from 'vue';
+import { computed, nextTick, reactive, shallowRef } from 'vue';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import { requestPageGuideDemo, type PageGuideDemoAction } from '@/utils/page-guide-demo-channel';
-import { PAGE_GUIDE_TOUR_STEPS, type PageGuideTourStep } from './page-guide-tour';
+import { clearResultReveal, revealFirstResult } from '@/utils/page-guide-reveal';
+import {
+  PAGE_GUIDE_TOUR_STEPS,
+  type PageGuideDemoFocus,
+  type PageGuideStepCondition,
+  type PageGuideStepDemo,
+  type PageGuideTourStep,
+} from './page-guide-tour';
 import {
   findPageGuideElement,
   getPageGuideTarget,
@@ -29,6 +36,8 @@ export interface PageGuideDeps {
   notify: (message: string) => void;
   wait: (ms: number) => Promise<void>;
   scrollIntoView: (el: Element) => void;
+  /** 固定顯示第一筆結果平常要 hover 才出現的按鈕；enabled=false 時還原 */
+  revealResults: (enabled: boolean) => void;
 }
 
 function prefersReducedMotion(): boolean {
@@ -48,7 +57,32 @@ const defaultDeps: PageGuideDeps = {
       inline: 'nearest',
       behavior: prefersReducedMotion() ? 'auto' : 'smooth',
     }),
+  revealResults: (enabled) => {
+    if (enabled) revealFirstResult();
+    else clearResultReveal();
+  },
 };
+
+/** 側欄提供給導覽的環境：哪些條件步驟要出現、切到某步驟前要先準備什麼（例如展開側欄） */
+export interface PageGuideTourContext {
+  isConditionMet: (condition: PageGuideStepCondition) => boolean;
+  prepareStep: (step: PageGuideTourStep) => Promise<void>;
+  /** 播放步驟的示範；需要等示範畫面出現的（例如展開清單）在出現後才 resolve */
+  runStepDemo: (demo: PageGuideStepDemo) => Promise<void>;
+  /** 離開步驟或結束導覽時停止示範並還原 */
+  stopStepDemo: () => void;
+}
+
+const DEFAULT_TOUR_CONTEXT: PageGuideTourContext = {
+  isConditionMet: () => false,
+  prepareStep: async () => {},
+  runStepDemo: async () => {},
+  stopStepDemo: () => {},
+};
+
+/** 示範畫面出現後，找外框新目標的重試次數與間隔 */
+const DEMO_TARGET_RETRIES = 10;
+const DEMO_TARGET_RETRY_MS = 50;
 
 /**
  * 頁面導覽的共用狀態：設定旁的「在頁面上指出」與初始導覽都走這裡，
@@ -57,14 +91,26 @@ const defaultDeps: PageGuideDeps = {
 export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
   const state = reactive({
     mode: 'idle' as GuideMode,
+    /** 目前步驟在「會出現的步驟」中的位置 */
     stepIndex: 0,
+    stepId: '',
     label: '',
+    /** 結果步驟顯示的示意結果列；null 時不顯示 */
+    demoFocus: null as PageGuideDemoFocus | null,
   });
   const element = shallowRef<Element | null>(null);
+  const tourContext = shallowRef<PageGuideTourContext>(DEFAULT_TOUR_CONTEXT);
   let sidebarRoot: ParentNode | null = null;
   let demoActive = false;
   let pointTimer: ReturnType<typeof setTimeout> | undefined;
   let runToken = 0;
+
+  /** 條件會在導覽中改變（例如第一步換了語言），每次重新計算 */
+  const visibleSteps = computed(() =>
+    deps.steps.filter((step) => !step.when || tourContext.value.isConditionMet(step.when)),
+  );
+
+  const roots = () => ({ page: document, sidebar: sidebarRoot });
 
   const restoreDemo = async () => {
     if (!demoActive) return;
@@ -74,25 +120,29 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
 
   const locate = async (targetId: PageGuideTargetId): Promise<Element | null> => {
     const target = getPageGuideTarget(targetId);
-    const roots = { page: document, sidebar: sidebarRoot };
-    const found = findPageGuideElement(target, roots);
+    deps.revealResults(target.needs === 'results');
+    const found = findPageGuideElement(target, roots());
     const demoAction = target.needs ? DEMO_ACTION_BY_NEED[target.needs] : undefined;
     if (found || !demoAction) return found;
     demoActive = (await deps.requestDemo(demoAction)) || demoActive;
     await deps.wait(DEMO_RENDER_WAIT_MS);
-    return findPageGuideElement(target, roots);
+    return findPageGuideElement(target, roots());
   };
 
   const reset = () => {
     clearTimeout(pointTimer);
+    tourContext.value.stopStepDemo();
+    state.demoFocus = null;
     state.mode = 'idle';
     state.label = '';
+    state.stepId = '';
     element.value = null;
   };
 
   const stop = async () => {
     runToken += 1;
     reset();
+    deps.revealResults(false);
     await restoreDemo();
   };
 
@@ -120,40 +170,100 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
   const showStep = async (index: number) => {
     const token = ++runToken;
     clearTimeout(pointTimer);
-    const step = deps.steps[index];
+    const step = visibleSteps.value[index];
     if (!step) return;
-    const needs = getPageGuideTarget(step.targetId).needs;
+    const needs = step.targetId ? getPageGuideTarget(step.targetId).needs : undefined;
     if (!needs || !DEMO_ACTION_BY_NEED[needs]) await restoreDemo();
-    const found = await locate(step.targetId);
+    tourContext.value.stopStepDemo();
+    await tourContext.value.prepareStep(step);
+    if (token !== runToken) return;
+    // 示意結果列要先畫出來，外框才找得到裡面的按鈕
+    state.demoFocus = step.demoFocus ?? null;
+    if (step.demoFocus) await nextTick();
+    if (!step.targetId) deps.revealResults(false);
+    const found = step.targetId ? await locate(step.targetId) : null;
     if (token !== runToken) return;
     if (found) deps.scrollIntoView(found);
     state.mode = 'tour';
     state.stepIndex = index;
+    state.stepId = step.id;
     state.label = '';
     element.value = found;
+    if (step.demo) await runDemo(step, token);
+  };
+
+  const runDemo = async (step: PageGuideTourStep, token: number) => {
+    if (!step.demo) return;
+    await tourContext.value.runStepDemo(step.demo);
+    if (token !== runToken || !step.demoTargetId) return;
+    const target = getPageGuideTarget(step.demoTargetId);
+    for (let attempt = 0; attempt < DEMO_TARGET_RETRIES; attempt += 1) {
+      const found = findPageGuideElement(target, roots());
+      if (token !== runToken) return;
+      if (found) {
+        element.value = found;
+        return;
+      }
+      await deps.wait(DEMO_TARGET_RETRY_MS);
+    }
+  };
+
+  /** 目前步驟在會出現的步驟中的位置；條件改變後步驟可能前移或消失 */
+  const currentVisibleIndex = () => {
+    const index = visibleSteps.value.findIndex((step) => step.id === state.stepId);
+    return index >= 0 ? index : state.stepIndex;
   };
 
   const startTour = () => showStep(0);
-  const nextStep = () =>
-    state.stepIndex >= deps.steps.length - 1 ? stop() : showStep(state.stepIndex + 1);
-  const previousStep = () => (state.stepIndex > 0 ? showStep(state.stepIndex - 1) : undefined);
+  const nextStep = () => {
+    const index = currentVisibleIndex();
+    return index >= visibleSteps.value.length - 1 ? stop() : showStep(index + 1);
+  };
+  const previousStep = () => {
+    const index = currentVisibleIndex();
+    return index > 0 ? showStep(index - 1) : undefined;
+  };
 
   const currentStep = computed(() =>
-    state.mode === 'tour' ? (deps.steps[state.stepIndex] ?? null) : null,
+    state.mode === 'tour' ? (deps.steps.find((step) => step.id === state.stepId) ?? null) : null,
   );
+  const stepCount = computed(() => visibleSteps.value.length);
+  const stepNumber = computed(() => currentVisibleIndex() + 1);
+
+  /**
+   * 目標被移除或藏起來時（例如導覽中收合側欄）同步改找對照表裡下一個看得到的元素；
+   * 不送示範動作，找不到就維持原樣。
+   */
+  const refreshElement = () => {
+    const step = currentStep.value;
+    if (!step?.targetId) return;
+    const current = element.value;
+    if (current?.isConnected) {
+      const rect = current.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) return;
+    }
+    // 示範的畫面（例如 T 階清單）被關掉後，退回步驟原本的目標
+    const found = findPageGuideElement(getPageGuideTarget(step.targetId), roots());
+    if (found && found !== current) element.value = found;
+  };
 
   return {
     state,
     element,
     currentStep,
-    stepCount: deps.steps.length,
+    stepCount,
+    stepNumber,
     setSidebarRoot: (root: ParentNode | null) => {
       sidebarRoot = root;
+    },
+    setTourContext: (context: PageGuideTourContext | null) => {
+      tourContext.value = context ?? DEFAULT_TOUR_CONTEXT;
     },
     pointAt,
     startTour,
     nextStep,
     previousStep,
+    refreshElement,
     stop,
   };
 }

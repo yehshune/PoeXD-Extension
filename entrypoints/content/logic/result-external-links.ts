@@ -15,9 +15,10 @@ import {
   mountLeftAction,
   removeLeftActionsByClass,
 } from './result-left-actions';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-external-links-style';
-const RESULTS_SELECTOR = '.results';
+const RESULTS_SELECTOR = TRADE_RESULTS_SELECTOR;
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
 const BUTTON_CLASS = 'poexd-result-link-btn';
 
@@ -159,15 +160,20 @@ export class ResultExternalLinks {
   }
 
   private ensureStyle(): void {
-    if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = STYLE_CONTENT;
-    (document.head ?? document.documentElement).appendChild(style);
+    ensureResultExternalLinksStyle();
   }
 
   private removeInjected(): void {
     removeLeftActionsByClass(RESULT_EXTERNAL_LINKS_CLASS);
     document.getElementById(STYLE_ID)?.remove();
   }
+}
+
+/** 注入按鈕樣式；導覽的示意結果列也會呼叫，確保頁面還沒有結果時樣式已存在 */
+export function ensureResultExternalLinksStyle(): void {
+  if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = STYLE_CONTENT;
+  (document.head ?? document.documentElement).appendChild(style);
 }

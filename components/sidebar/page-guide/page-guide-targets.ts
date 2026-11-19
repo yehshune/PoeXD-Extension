@@ -16,10 +16,17 @@ export interface PageGuideTarget {
 }
 
 const RESULT_ROW = '.results .row[data-id]';
+/** 導覽的示意結果列（見 utils/trade-results-root.ts） */
+const MOCK_ROW = '[data-poexd-guide-mock] .row';
 
 export const PAGE_GUIDE_TARGETS = {
+  'sidebar-panel': { scope: 'sidebar', selectors: ['.sidebar-container'] },
   'sidebar-nav': { scope: 'sidebar', selectors: ['.sidebar-nav'] },
-  'sidebar-collapse': { scope: 'sidebar', selectors: ['[data-sidebar-action="collapse"]'] },
+  // 導覽中收合側欄後改指向邊緣的把手，讓使用者接著試拖曳
+  'sidebar-collapse': {
+    scope: 'sidebar',
+    selectors: ['[data-sidebar-action="collapse"]', '[data-sidebar-action="expand"]'],
+  },
   'sidebar-bookmark-tab': { scope: 'sidebar', selectors: ['[data-sidebar-tab="bookmark"]'] },
   'sidebar-settings-tab': { scope: 'sidebar', selectors: ['[data-sidebar-tab="settings"]'] },
   'search-input': {
@@ -32,11 +39,23 @@ export const PAGE_GUIDE_TARGETS = {
     needs: 'filters',
   },
   'tier-trigger': { scope: 'page', selectors: ['.poexd-tier-trigger'], needs: 'stat-filter' },
-  'result-actions': {
+  // 導覽的示意結果列（PageGuideOfficialResult），只在結果步驟出現
+  'mock-result-actions': {
     scope: 'page',
-    // 左側操作列要滑鼠移上去才出現，直接框整筆結果
-    selectors: [RESULT_ROW],
-    needs: 'results',
+    selectors: [`${MOCK_ROW} .poexd-left-actions`, `${MOCK_ROW} .left`],
+  },
+  'mock-result-mods': {
+    scope: 'page',
+    selectors: [`${MOCK_ROW} [data-mock-mod="highlight"]`],
+  },
+  'mock-result-price': {
+    scope: 'page',
+    selectors: [`${MOCK_ROW} .price`],
+  },
+  // 階級步驟自動展開的 T 階清單
+  'tier-menu': {
+    scope: 'sidebar',
+    selectors: ['[data-slot="dropdown-menu-content"][data-state="open"]'],
   },
   'result-price': {
     scope: 'page',

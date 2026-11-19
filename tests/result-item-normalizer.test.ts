@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResultItemNormalizer } from '@/entrypoints/content/logic/result-item-normalizer';
 import { ResultSortController } from '@/entrypoints/content/logic/result-sort-controller';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -79,7 +80,7 @@ describe('Result item normalizer', () => {
       ),
       querySelector: vi.fn((selector: string) => {
         if (selector === '.row.row-total') return rowTotal;
-        if (selector === '.results') return root;
+        if (selector === TRADE_RESULTS_SELECTOR) return root;
         if (selector === '.poexd-total-controls') return injectedControls;
         return null;
       }),
@@ -250,7 +251,7 @@ describe('Result item normalizer', () => {
       createElementNS: vi.fn((_ns: string, tag: string) =>
         (globalThis as any).document.createElement(tag),
       ),
-      querySelector: vi.fn((sel: string) => (sel === '.results' ? root : null)),
+      querySelector: vi.fn((sel: string) => (sel === TRADE_RESULTS_SELECTOR ? root : null)),
       querySelectorAll: vi.fn(() => []),
       getElementById: vi.fn(() => null),
       addEventListener: vi.fn(),
@@ -399,7 +400,7 @@ describe('Result item normalizer', () => {
       createElementNS: vi.fn((_ns: string, tag: string) =>
         (globalThis as any).document.createElement(tag),
       ),
-      querySelector: vi.fn((sel: string) => (sel === '.results' ? root : null)),
+      querySelector: vi.fn((sel: string) => (sel === TRADE_RESULTS_SELECTOR ? root : null)),
       querySelectorAll: vi.fn(() => []),
       getElementById: vi.fn(() => null),
       addEventListener: vi.fn(),
@@ -525,7 +526,7 @@ describe('Result item normalizer', () => {
       createElementNS: vi.fn((_ns: string, tag: string) =>
         (globalThis as any).document.createElement(tag),
       ),
-      querySelector: vi.fn((sel: string) => (sel === '.results' ? root : null)),
+      querySelector: vi.fn((sel: string) => (sel === TRADE_RESULTS_SELECTOR ? root : null)),
       querySelectorAll: vi.fn(() => []),
       getElementById: vi.fn(() => null),
       addEventListener: vi.fn(),
@@ -673,7 +674,7 @@ describe('Result item normalizer', () => {
       createElementNS: vi.fn((_ns: string, tag: string) =>
         (globalThis as any).document.createElement(tag),
       ),
-      querySelector: vi.fn((sel: string) => (sel === '.results' ? root : null)),
+      querySelector: vi.fn((sel: string) => (sel === TRADE_RESULTS_SELECTOR ? root : null)),
       querySelectorAll: vi.fn(() => []),
       getElementById: vi.fn(() => null),
       addEventListener: vi.fn(),
@@ -826,7 +827,7 @@ describe('Result item normalizer', () => {
       ),
       querySelector: vi.fn((sel: string) => {
         if (sel === '.row.row-total') return rowTotal;
-        if (sel === '.results') return root;
+        if (sel === TRADE_RESULTS_SELECTOR) return root;
         return null;
       }),
       querySelectorAll: vi.fn((sel: string) => {
@@ -968,7 +969,7 @@ describe('Result item normalizer', () => {
       ),
       querySelector: vi.fn((sel: string) => {
         if (sel === '.row.row-total') return rowTotal;
-        if (sel === '.results') return root;
+        if (sel === TRADE_RESULTS_SELECTOR) return root;
         if (sel === '.poexd-total-controls') return injectedControls;
         return null;
       }),
@@ -1106,7 +1107,7 @@ describe('Result item normalizer', () => {
       ),
       querySelector: vi.fn((sel: string) => {
         if (sel === '.row.row-total') return rowTotal;
-        if (sel === '.results') return root;
+        if (sel === TRADE_RESULTS_SELECTOR) return root;
         if (sel === '.poexd-total-controls') return injectedControls;
         return null;
       }),
@@ -1236,7 +1237,7 @@ describe('Result item normalizer', () => {
       createElementNS: vi.fn((_ns: string, tag: string) =>
         (globalThis as any).document.createElement(tag),
       ),
-      querySelector: vi.fn((sel: string) => (sel === '.results' ? root : null)),
+      querySelector: vi.fn((sel: string) => (sel === TRADE_RESULTS_SELECTOR ? root : null)),
       querySelectorAll: vi.fn(() => []),
       getElementById: vi.fn(() => null),
       addEventListener: vi.fn(),

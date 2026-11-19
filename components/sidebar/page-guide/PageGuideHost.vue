@@ -2,7 +2,10 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import { t } from '@/utils/i18n';
-import PageGuideMockResult from './PageGuideMockResult.vue';
+import { MousePointer2 } from '@lucide/vue';
+import PageGuideOfficialResult from './PageGuideOfficialResult.vue';
+import PageGuideSetupControls from './PageGuideSetupControls.vue';
+import type { PageGuideSetupBindings } from './page-guide-setup';
 import {
   padGuideRect,
   placeGuideBubble,
@@ -14,6 +17,8 @@ import { usePageGuide } from './usePageGuide';
 const props = defineProps<{
   /** 側欄 shadow root 內的 portal；內容區有 container 查詢會困住 fixed 定位 */
   portalTarget: HTMLElement | null;
+  /** 導覽前段的基礎設定步驟需要側欄的目前值；沒有提供時設定步驟只顯示說明 */
+  setup?: PageGuideSetupBindings | null;
 }>();
 
 const RING_PADDING = 6;
@@ -23,16 +28,19 @@ const anchor = ref<HTMLElement | null>(null);
 const bubble = ref<HTMLElement | null>(null);
 const primaryButton = ref<InstanceType<typeof Button> | null>(null);
 const ringRect = shallowRef<GuideRect | null>(null);
+/** 結果步驟：整個示意結果列保持明亮，外框只標出要介紹的部分，說明框放在示意列旁邊 */
+const spotlightRect = shallowRef<GuideRect | null>(null);
 const bubblePosition = shallowRef<GuideBubblePosition | null>(null);
 let frame = 0;
 
 const mode = computed(() => guide.state.mode);
 const step = computed(() => guide.currentStep.value);
 const isTour = computed(() => mode.value === 'tour');
-const isLastStep = computed(() => guide.state.stepIndex >= guide.stepCount - 1);
-const showMockCard = computed(
-  () => isTour.value && !guide.element.value && step.value?.fallback === 'result-card',
-);
+const isLastStep = computed(() => guide.stepNumber.value >= guide.stepCount.value);
+/** 需要使用者直接操作側欄的步驟不放擋點擊的遮罩，只用外框陰影把其他地方變暗 */
+const isInteractive = computed(() => isTour.value && step.value?.interactive === true);
+const showReload = computed(() => isTour.value && isLastStep.value && props.setup?.reloadRequired);
+const demoCursor = computed(() => (isTour.value ? (props.setup?.demoCursor ?? null) : null));
 
 function sameRect(a: GuideRect | null, b: GuideRect | null): boolean {
   if (!a || !b) return a === b;
@@ -40,13 +48,19 @@ function sameRect(a: GuideRect | null, b: GuideRect | null): boolean {
 }
 
 function measure() {
+  guide.refreshElement();
   const el = guide.element.value;
   const next = el ? padGuideRect(el.getBoundingClientRect(), RING_PADDING) : null;
   if (!sameRect(next, ringRect.value)) ringRect.value = next;
+  const frameEl = guide.state.demoFocus
+    ? document.querySelector('[data-page-guide-mock-frame]')
+    : null;
+  const spotlight = frameEl ? padGuideRect(frameEl.getBoundingClientRect(), RING_PADDING) : null;
+  if (!sameRect(spotlight, spotlightRect.value)) spotlightRect.value = spotlight;
   const box = bubble.value;
   if (box) {
     const position = placeGuideBubble(
-      next,
+      spotlight ?? next,
       { width: box.offsetWidth, height: box.offsetHeight },
       { width: window.innerWidth, height: window.innerHeight },
     );
@@ -74,6 +88,7 @@ watch(
     if (value === 'idle') {
       stopTracking();
       ringRect.value = null;
+      spotlightRect.value = null;
       bubblePosition.value = null;
     } else if (!frame) {
       frame = requestAnimationFrame(track);
@@ -83,7 +98,7 @@ watch(
 );
 
 watch(
-  () => [mode.value, guide.state.stepIndex] as const,
+  () => [mode.value, guide.state.stepId] as const,
   async ([value]) => {
     if (value !== 'tour') return;
     await nextTick();
@@ -133,6 +148,17 @@ const ringStyle = computed(() => {
   };
 });
 
+const spotlightStyle = computed(() => {
+  const rect = spotlightRect.value;
+  if (!rect) return undefined;
+  return {
+    top: `${rect.top}px`,
+    left: `${rect.left}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+  };
+});
+
 const bubbleStyle = computed(() => {
   const position = bubblePosition.value;
   // 第一次量到尺寸前先藏起來，避免閃在左上角
@@ -147,17 +173,24 @@ const bubbleStyle = computed(() => {
     <template v-if="mode !== 'idle'">
       <!-- 導覽中擋住頁面點擊；沒有外框時整片變暗 -->
       <div
-        v-if="isTour"
+        v-if="isTour && !isInteractive"
         data-page-guide-blocker
         class="fixed inset-0 z-(--pxd-z-dialog)"
         :class="ringRect ? 'bg-transparent' : 'bg-black/65'"
       />
 
       <div
+        v-if="isTour && spotlightRect"
+        data-page-guide-spotlight
+        class="pointer-events-none fixed z-(--pxd-z-dialog) rounded-md shadow-[0_0_0_9999px_rgb(0_0_0/0.65)]"
+        :style="spotlightStyle"
+      />
+
+      <div
         v-if="ringRect"
         data-page-guide-ring
         class="pointer-events-none fixed z-(--pxd-z-dialog) rounded-md border-2 border-primary motion-safe:transition-[top,left,width,height] motion-safe:duration-200"
-        :class="isTour ? 'shadow-[0_0_0_9999px_rgb(0_0_0/0.65)]' : ''"
+        :class="isTour && !spotlightRect ? 'shadow-[0_0_0_9999px_rgb(0_0_0/0.65)]' : ''"
         :style="ringStyle"
       >
         <span
@@ -173,7 +206,7 @@ const bubbleStyle = computed(() => {
         role="dialog"
         aria-modal="true"
         :aria-label="t('pageGuide.nav.aria')"
-        class="fixed z-(--pxd-z-dialog-nested) flex w-[min(300px,calc(100vw-16px))] flex-col gap-[var(--pxd-space-sm)] rounded-md border border-border bg-popover p-[var(--pxd-space-md)] text-popover-foreground shadow-lg"
+        class="fixed z-(--pxd-z-dialog-nested) flex flex-col gap-[var(--pxd-space-sm)] rounded-md border border-border bg-popover p-[var(--pxd-space-md)] text-popover-foreground shadow-lg w-[min(300px,calc(100vw-16px))]"
         :style="bubbleStyle"
       >
         <div class="flex items-baseline justify-between gap-[var(--pxd-space-md)]">
@@ -186,8 +219,8 @@ const bubbleStyle = computed(() => {
           >
             {{
               t('pageGuide.nav.counter', {
-                current: guide.state.stepIndex + 1,
-                total: guide.stepCount,
+                current: guide.stepNumber.value,
+                total: guide.stepCount.value,
               })
             }}
           </span>
@@ -195,7 +228,28 @@ const bubbleStyle = computed(() => {
         <p class="m-0 text-[length:var(--pxd-font-secondary)] leading-[1.55] text-muted-foreground">
           {{ t(step.bodyKey) }}
         </p>
-        <PageGuideMockResult v-if="showMockCard" />
+        <PageGuideSetupControls
+          v-if="step.setup && props.setup"
+          :kind="step.setup"
+          :bindings="props.setup"
+          :focus="step.demoFocus"
+        />
+        <div
+          v-if="showReload"
+          data-page-guide-reload
+          class="flex items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm bg-muted/50 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+        >
+          <span>{{ t('common.reloadToApply') }}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-page-guide-action="reload"
+            @click="props.setup?.reload()"
+          >
+            {{ t('common.reload') }}
+          </Button>
+        </div>
         <div class="mt-[var(--pxd-space-xs)] flex items-center gap-[var(--pxd-space-sm)]">
           <Button
             v-if="!isLastStep"
@@ -210,7 +264,7 @@ const bubbleStyle = computed(() => {
           </Button>
           <span v-else class="mr-auto" />
           <Button
-            v-if="guide.state.stepIndex > 0"
+            v-if="guide.stepNumber.value > 1"
             type="button"
             variant="outline"
             size="sm"
@@ -240,6 +294,35 @@ const bubbleStyle = computed(() => {
       >
         {{ guide.state.label }}
       </div>
+
+      <!-- 收合示範的模擬滑鼠：位置變化用 transition 補間，按下時縮小並出現點擊圈 -->
+      <div
+        v-if="demoCursor"
+        data-page-guide-cursor
+        :data-pressed="demoCursor.pressed ? 'true' : undefined"
+        class="pointer-events-none fixed top-0 left-0 z-(--pxd-z-dialog-nested)"
+        :class="
+          demoCursor.pressed
+            ? ''
+            : 'motion-safe:transition-transform motion-safe:duration-500 motion-safe:ease-in-out'
+        "
+        :style="{ transform: `translate(${demoCursor.x}px, ${demoCursor.y}px)` }"
+      >
+        <span
+          v-if="demoCursor.pressed"
+          class="absolute -top-3 -left-3 size-6 rounded-full border-2 border-primary motion-safe:animate-ping"
+        />
+        <MousePointer2
+          class="size-6 fill-foreground text-background drop-shadow-md motion-safe:transition-transform motion-safe:duration-150"
+          :class="demoCursor.pressed ? 'scale-85' : ''"
+        />
+      </div>
     </template>
   </Teleport>
+
+  <!-- 結果步驟的示意結果列：放在官方頁面裡，讓官方樣式套用 -->
+  <PageGuideOfficialResult
+    v-if="guide.state.demoFocus && props.setup"
+    :features="props.setup.resultFeatures"
+  />
 </template>

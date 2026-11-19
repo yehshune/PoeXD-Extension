@@ -1,3 +1,4 @@
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 type UnknownRecord = Record<string, any>;
 
 export class ResultModHighlighter {
@@ -6,7 +7,7 @@ export class ResultModHighlighter {
 
   handleSearchQuery(_searchId: string, criteria: unknown) {
     this.activeStatIds = extractEnabledStatIds(criteria);
-    const root = document.querySelector('.results');
+    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
@@ -16,7 +17,7 @@ export class ResultModHighlighter {
       removeHighlights();
       return;
     }
-    const root = document.querySelector('.results');
+    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
@@ -72,7 +73,7 @@ function removeHighlights() {
   });
 }
 
-function ensureHighlightStyle() {
+export function ensureHighlightStyle() {
   const existing = document.getElementById('poexd-filter-mod-highlight-style');
   if (existing) return;
   const style = document.createElement('style');

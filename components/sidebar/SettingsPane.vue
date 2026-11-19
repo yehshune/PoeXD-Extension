@@ -191,7 +191,7 @@
           role="status"
           class="flex items-center justify-between gap-[var(--pxd-space-sm)] rounded-md border border-primary/40 bg-primary/10 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-foreground"
         >
-          <span>{{ t('onboarding.welcome.reloadHint') }}</span>
+          <span>{{ t('common.reloadToApply') }}</span>
           <Button
             type="button"
             variant="outline"
@@ -200,7 +200,7 @@
             data-test="market-translation-reload-btn"
             @click="reloadPage"
           >
-            {{ t('onboarding.welcome.reload') }}
+            {{ t('common.reload') }}
           </Button>
         </div>
 
@@ -572,9 +572,7 @@ import {
 } from '@/utils/sidebar-modules';
 import {
   DEFAULT_PREFERENCES,
-  FONT_SIZE_PRESETS,
   FONT_SIZE_SCALE_BOUNDS,
-  SIDEBAR_SIZE_PRESETS,
   SIDEBAR_WIDTH_BOUNDS,
   type FontSizePresetMode,
   type FontSizeMode,
@@ -596,6 +594,7 @@ import {
   THEME_OPTIONS,
 } from './settings/settings-ui-metadata';
 import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
+import { planFontSizeModeChange, planSidebarSizeChange } from '@/utils/appearance-preferences';
 import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
 import {
   isMarketTranslationDisplayLocale,
@@ -759,35 +758,11 @@ export default defineComponent({
     const handleFontSizeModeChange = (mode?: FontSizeMode | any) => {
       if (!mode) return;
       fontSizeMode.value = mode as FontSizeMode;
-      if (mode === 'custom') {
-        let scale: number;
-        if (preferenceState.customFontSizeScale === null) {
-          scale = preferenceState.fontSizeScale;
-          customFontSizePercent.value = Math.round(scale * 100);
-          void updatePreferences({
-            fontSizeMode: 'custom',
-            fontSizeScale: scale,
-            customFontSizeScale: scale,
-          });
-        } else {
-          scale = preferenceState.customFontSizeScale;
-          if (scale < FONT_SIZE_SCALE_BOUNDS.min) scale = FONT_SIZE_SCALE_BOUNDS.min;
-          if (scale > FONT_SIZE_SCALE_BOUNDS.max) scale = FONT_SIZE_SCALE_BOUNDS.max;
-          customFontSizePercent.value = Math.round(scale * 100);
-          fontSizeScale.value = scale;
-          void updatePreferences({
-            fontSizeMode: 'custom',
-            fontSizeScale: scale,
-          });
-        }
-      } else {
-        const scale = FONT_SIZE_PRESETS[mode as FontSizePresetMode];
-        fontSizeScale.value = scale;
-        void updatePreferences({
-          fontSizeMode: mode as FontSizeMode,
-          fontSizeScale: scale,
-        });
-      }
+      const patch = planFontSizeModeChange(mode as FontSizeMode, preferenceState);
+      const scale = patch.fontSizeScale ?? preferenceState.fontSizeScale;
+      fontSizeScale.value = scale;
+      if (mode === 'custom') customFontSizePercent.value = Math.round(scale * 100);
+      void updatePreferences(patch);
     };
 
     const handleCustomFontSizeInput = (event?: Event) => {
@@ -881,31 +856,7 @@ export default defineComponent({
       if (val) {
         sidebarSize.value = val as SidebarSize;
       }
-      if (sidebarSize.value === 'custom') {
-        let width: number;
-        if (preferenceState.customSidebarWidth === null) {
-          width = preferenceState.sidebarWidth;
-          void updatePreferences({
-            sidebarSize: 'custom',
-            sidebarWidth: width,
-            customSidebarWidth: width,
-          });
-        } else {
-          width = preferenceState.customSidebarWidth;
-          if (width < SIDEBAR_WIDTH_BOUNDS.min) width = SIDEBAR_WIDTH_BOUNDS.min;
-          if (width > SIDEBAR_WIDTH_BOUNDS.max) width = SIDEBAR_WIDTH_BOUNDS.max;
-          void updatePreferences({
-            sidebarSize: 'custom',
-            sidebarWidth: width,
-          });
-        }
-      } else {
-        const width = SIDEBAR_SIZE_PRESETS[sidebarSize.value];
-        void updatePreferences({
-          sidebarSize: sidebarSize.value,
-          sidebarWidth: width,
-        });
-      }
+      void updatePreferences(planSidebarSizeChange(sidebarSize.value, preferenceState));
     };
 
     const savePreference = (key: keyof Preferences) => {

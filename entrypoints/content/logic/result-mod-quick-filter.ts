@@ -2,6 +2,7 @@ import { type CriteriaOverlayFormSnapshot } from '@/utils/criteria-overlay';
 import { planAddStatToGroupKind, type QuickStatFilterGroupKind } from '@/utils/stat-quick-filter';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
+import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
 import { getKnownStatsRef } from '@/utils/known-stats-store';
 import type { TradePageRole } from '@/utils/live-search-contract';
 import type { TradePageMode } from '@/utils/trade-page-mode';
@@ -10,9 +11,10 @@ import {
   type CriteriaOverlayPageChannel,
 } from './criteria-overlay-session';
 import { isTradeSearchFormUrl } from './form-url-sync';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-mod-quick-filter-style';
-const RESULTS_CONTAINER_SELECTOR = '.results';
+const RESULTS_CONTAINER_SELECTOR = TRADE_RESULTS_SELECTOR;
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
 const ROW_SELECTOR = `${RESULTS_CONTAINER_SELECTOR} .row[data-id], ${RESULTS_CONTAINER_SELECTOR} .row[id]`;
 const MOD_FIELD_SELECTOR = '[data-field^="stat."]';
@@ -57,17 +59,20 @@ function buildStyleContent(): string {
     }
 
     .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS},
+    .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS},
     .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:focus-within > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
       opacity: 1 !important;
       pointer-events: auto !important;
     }
 
     #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .lc.l,
+    #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .lc.l,
     #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:focus-within > .lc.l {
       right: 112px !important;
     }
 
     #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .lc.r,
+    #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .lc.r,
     #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:focus-within > .lc.r {
       right: 112px !important;
     }
@@ -434,4 +439,14 @@ export class ResultModQuickFilter {
       }
     }
   }
+}
+
+/** 注入快篩按鈕樣式；導覽的示意結果列也會呼叫，確保頁面還沒有結果時樣式已存在 */
+export function ensureResultModQuickFilterStyle(): void {
+  if (typeof document === 'undefined' || !document.head) return;
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = buildStyleContent();
+  document.head.appendChild(style);
 }

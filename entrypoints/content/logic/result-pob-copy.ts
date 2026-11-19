@@ -23,6 +23,7 @@ import {
 } from './result-left-actions';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
 import { TradeResultCache } from '@/utils/trade-result-cache';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 const STYLE_ID = 'poexd-result-pob-copy-style';
 const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
@@ -93,7 +94,7 @@ export class ResultPobCopy {
   /** 快取有新結果後，替已在畫面上的結果補上按鈕 */
   refresh(): void {
     if (this.enabled && typeof document !== 'undefined') {
-      const root = document.querySelector('.results');
+      const root = document.querySelector(TRADE_RESULTS_SELECTOR);
       if (root) this.apply(root);
     }
   }
@@ -106,7 +107,7 @@ export class ResultPobCopy {
       this.removeInjected();
       return;
     }
-    const root = document.querySelector('.results');
+    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
@@ -202,15 +203,20 @@ export class ResultPobCopy {
   }
 
   private ensureStyle(): void {
-    if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = STYLE_CONTENT;
-    (document.head ?? document.documentElement).appendChild(style);
+    ensureResultPobCopyStyle();
   }
 
   private removeInjected(): void {
     removeLeftActionsByClass(RESULT_POB_COPY_BUTTON_CLASS);
     document.getElementById(STYLE_ID)?.remove();
   }
+}
+
+/** 注入按鈕樣式；導覽的示意結果列也會呼叫，確保頁面還沒有結果時樣式已存在 */
+export function ensureResultPobCopyStyle(): void {
+  if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = STYLE_CONTENT;
+  (document.head ?? document.documentElement).appendChild(style);
 }

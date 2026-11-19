@@ -9,6 +9,7 @@ import type { ResultModQuickFilter } from './result-mod-quick-filter';
 import type { ResultPobCopy } from './result-pob-copy';
 import type { ResultPinButton } from './result-pin-button';
 import type { ResultExternalLinks } from './result-external-links';
+import { TRADE_RESULTS_SELECTOR, PAGE_GUIDE_MOCK_ATTR } from '@/utils/trade-results-root';
 
 const IGNORED_EXTENSION_SELECTORS = [
   '.poexd-price-comparison',
@@ -17,6 +18,7 @@ const IGNORED_EXTENSION_SELECTORS = [
   '.poexd-left-badges',
   '.poexd-inline-override',
   '.poexd-left-actions',
+  `[${PAGE_GUIDE_MOCK_ATTR}]`,
 ] as const;
 
 function isIgnoredExtensionElement(element: Element): boolean {
@@ -89,14 +91,14 @@ export class DomFilter {
     this.cleanups.push(disconnectObserver);
 
     observer.observe(body, { childList: true, subtree: true });
-    const root = document.querySelector('.results');
+    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.queueRoot(root);
   }
 
   setPageRole(role: TradePageRole) {
     if (role === this.pageRole) return;
     this.pageRole = role;
-    const root = document.querySelector('.results');
+    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
     if (!root) return;
     this.queueRoot(root);
   }
@@ -104,7 +106,7 @@ export class DomFilter {
   setPageMode(mode: TradePageMode) {
     if (mode === this.pageMode) return;
     this.pageMode = mode;
-    const root = document.querySelector('.results');
+    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
     if (!root) return;
     this.queueRoot(root);
   }
@@ -112,19 +114,21 @@ export class DomFilter {
   private collectAddedNode(node: Node) {
     if (!(node instanceof Element)) return;
     if (isIgnoredExtensionElement(node)) return;
-    const root = node.matches('.results') ? node : node.querySelector('.results');
+    const root = node.matches(TRADE_RESULTS_SELECTOR)
+      ? node
+      : node.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) {
       this.queueRoot(root);
       return;
     }
     const ownerRow = node.matches('.row')
-      ? node.closest('.results')
+      ? node.closest(TRADE_RESULTS_SELECTOR)
         ? node
         : null
-      : node.closest('.results .row');
+      : node.closest(`${TRADE_RESULTS_SELECTOR} .row`);
     if (ownerRow) this.queueRow(ownerRow);
     node.querySelectorAll('.row').forEach((row) => {
-      if (row.closest('.results')) this.queueRow(row);
+      if (row.closest(TRADE_RESULTS_SELECTOR)) this.queueRow(row);
     });
   }
 

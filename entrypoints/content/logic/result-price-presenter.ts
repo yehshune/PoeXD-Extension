@@ -15,6 +15,7 @@ import { extensionMessaging } from '@/utils/extension-protocol';
 import { parsePoeFetchResponse } from '@/utils/event-contracts';
 import { isPriceConversionSupported } from '@/utils/trade-realms';
 import { t, getActiveDisplayLocale } from '@/utils/i18n';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 type CurrencyRateLoader = (league: string) => Promise<CurrencyRateSnapshot | undefined>;
 
@@ -170,7 +171,8 @@ export class ResultPricePresenter {
 
   refreshLocale() {
     if (!this.isEnabled() || this.isLiveOrConsole()) return;
-    const root = typeof document !== 'undefined' ? document.querySelector('.results') : null;
+    const root =
+      typeof document !== 'undefined' ? document.querySelector(TRADE_RESULTS_SELECTOR) : null;
     if (root) this.apply(root);
   }
 
@@ -223,7 +225,8 @@ export class ResultPricePresenter {
 
   private applyComparisonsForResults(results: unknown[], snapshot: CurrencyRateSnapshot) {
     Object.assign(this.comparisons, createResultPriceComparisons(this.version, snapshot, results));
-    const root = typeof document !== 'undefined' ? document.querySelector('.results') : null;
+    const root =
+      typeof document !== 'undefined' ? document.querySelector(TRADE_RESULTS_SELECTOR) : null;
     if (root) this.apply(root);
     this.notifyRatesUpdated();
   }
@@ -279,7 +282,7 @@ function removePriceComparisons() {
   document.querySelectorAll('.poexd-price-comparison').forEach((element) => element.remove());
 }
 
-function ensurePriceComparisonStyle() {
+export function ensurePriceComparisonStyle() {
   if (typeof document === 'undefined') return;
   if (document.getElementById('poexd-price-comparison-style')) return;
   const style = document.createElement('style');

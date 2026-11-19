@@ -31,6 +31,11 @@ vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
   }),
 }));
 
+// 沒有官方頁面可回應導覽的示範請求，直接回報沒做
+vi.mock('@/utils/page-guide-demo-channel', () => ({
+  requestPageGuideDemo: vi.fn(async () => false),
+}));
+
 let snapshot: Record<string, unknown> = {};
 const updatePreferencesSpy = vi.fn(async () => ({ ok: true, changed: true }));
 
@@ -50,6 +55,7 @@ vi.mock('@/utils/preferences', () => ({
         return () => {};
       }),
       update: updatePreferencesSpy,
+      read: vi.fn(() => snapshot),
     },
   })),
 }));
@@ -81,6 +87,9 @@ const storageListeners = new Set<(changes: Record<string, any>, area: string) =>
   },
 };
 
+/** 頁面示範後等畫面更新的時間（usePageGuide 的 DEMO_RENDER_WAIT_MS 再多一點） */
+const DEMO_STEP_WAIT_MS = 200;
+
 const settle = async () => {
   await nextTick();
   await new Promise((r) => setTimeout(r, 20));
@@ -99,9 +108,13 @@ describe('Sidebar first-install onboarding', () => {
       sidebarSize: 'medium',
       sidebarWidth: 380,
       fontSizeScale: 1,
+      fontSizeMode: 'medium',
+      customSidebarWidth: null,
+      customFontSizeScale: null,
       densityScale: 1,
       displayLocale: 'zh-TW',
       marketTranslation: false,
+      collapsedTabTop: 100,
     };
     updatePreferencesSpy.mockClear();
     container = document.createElement('div');
@@ -121,49 +134,70 @@ describe('Sidebar first-install onboarding', () => {
     app.mount(container);
     await settle();
   };
-  const freshInstall = { welcomePending: true, expandHintPending: true, lastSeenVersion: '1.5.0' };
+  const freshInstall = { tourPending: true, expandHintPending: true, lastSeenVersion: '1.5.0' };
   const query = (selector: string) => container.querySelector(selector) as HTMLElement | null;
+  /** 導覽說明框 teleport 到 portalTarget（document.body） */
+  const queryDoc = (selector: string) => document.querySelector(selector) as HTMLElement | null;
+  const bubbleTitle = () => queryDoc('[data-page-guide-bubble] h2')?.textContent?.trim();
+  const clickNext = async () => {
+    queryDoc('[data-page-guide-action="next"]')!.click();
+    await settle();
+  };
 
   it('shows nothing for existing users without onboarding state', async () => {
     await mountSidebar();
     expect(query('[data-onboarding-hint]')).toBeNull();
     query('[data-sidebar-action="expand"]')!.click();
     await settle();
-    expect(query('[data-onboarding-welcome]')).toBeNull();
+    expect(queryDoc('[data-page-guide-bubble]')).toBeNull();
     expect(mockStorage[ONBOARDING_STORAGE_KEY]).toBeUndefined();
   });
 
-  it('shows the hint dot while collapsed and clears it on the first expand', async () => {
+  it('shows the hint dot while collapsed and starts the tour on the first expand', async () => {
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall });
     expect(query('[data-onboarding-hint]')).not.toBeNull();
+    expect(queryDoc('[data-page-guide-bubble]')).toBeNull();
 
     query('[data-sidebar-action="expand"]')!.click();
     await settle();
-    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toMatchObject({
+    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toEqual({
       expandHintPending: false,
-      welcomePending: true,
+      tourPending: false,
+      lastSeenVersion: '1.5.0',
     });
-
-    query('[data-sidebar-action="collapse"]')!.click();
-    await settle();
-    expect(query('[data-onboarding-hint]')).toBeNull();
+    expect(bubbleTitle()).toBe('選擇語言');
+    expect(queryDoc('[data-setup-kind="locale"]')).not.toBeNull();
   });
 
-  it('clears the hint dot when the sidebar is already open so collapsing never shows it', async () => {
+  it('never restarts the tour after it was skipped', async () => {
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
-    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toMatchObject({
-      expandHintPending: false,
-      welcomePending: true,
-    });
+    expect(queryDoc('[data-page-guide-bubble]')).not.toBeNull();
 
-    query('[data-onboarding-action="dismiss"]')!.click();
+    queryDoc('[data-page-guide-action="skip"]')!.click();
     await settle();
+    expect(queryDoc('[data-page-guide-bubble]')).toBeNull();
+
     query('[data-sidebar-action="collapse"]')!.click();
     await settle();
     expect(query('[data-onboarding-hint]')).toBeNull();
+    query('[data-sidebar-action="expand"]')!.click();
+    await settle();
+    expect(queryDoc('[data-page-guide-bubble]')).toBeNull();
   });
 
-  it('clears the hint dot when expanded from another tab via storage', async () => {
+  it('reads the legacy welcomePending flag and starts the tour', async () => {
+    await mountSidebar({
+      [ONBOARDING_STORAGE_KEY]: { welcomePending: true, expandHintPending: false },
+      isCollapsed_poe2: false,
+    });
+    expect(bubbleTitle()).toBe('選擇語言');
+    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toEqual({
+      tourPending: false,
+      expandHintPending: false,
+    });
+  });
+
+  it('starts the tour when expanded from another tab via storage', async () => {
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: true });
     expect(query('[data-onboarding-hint]')).not.toBeNull();
 
@@ -171,38 +205,115 @@ describe('Sidebar first-install onboarding', () => {
     await settle();
     expect(mockStorage[ONBOARDING_STORAGE_KEY]).toMatchObject({
       expandHintPending: false,
-      welcomePending: true,
+      tourPending: false,
     });
-
-    query('[data-sidebar-action="collapse"]')!.click();
-    await settle();
-    expect(query('[data-onboarding-hint]')).toBeNull();
+    expect(queryDoc('[data-page-guide-bubble]')).not.toBeNull();
   });
 
-  it('shows the welcome card at the top across all tabs and dismisses it permanently', async () => {
+  it('changes language, market translation and appearance from the setup steps', async () => {
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
-    const card = query('[data-onboarding-welcome]');
-    expect(card).not.toBeNull();
-    expect(card!.compareDocumentPosition(query('[data-test="bookmark-pane"]')!)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
 
-    // Switching tabs keeps the welcome card visible at the top
-    for (const tabId of ['history', 'stat-group-template', 'tools', 'settings']) {
-      query(`[data-sidebar-tab="${tabId}"]`)!.click();
-      await settle();
-      expect(query('[data-onboarding-welcome]')).not.toBeNull();
-    }
-
-    query('[data-onboarding-action="dismiss"]')!.click();
+    queryDoc('[data-setup-locale="zh-CN"]')!.click();
     await settle();
-    expect(query('[data-onboarding-welcome]')).toBeNull();
-    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toMatchObject({ welcomePending: false });
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ displayLocale: 'zh-CN' });
+
+    await clickNext();
+    expect(queryDoc('[data-setup-kind="market-translation"]')).not.toBeNull();
+    queryDoc('[data-setup-action="market-translation"]')!.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ marketTranslation: true });
+
+    await clickNext();
+    expect(queryDoc('[data-setup-kind="appearance"]')).not.toBeNull();
+    queryDoc('[data-setup-position="right"]')!.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ sidebarPosition: 'right' });
+    queryDoc('[data-setup-size="large"]')!.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ sidebarSize: 'large', sidebarWidth: 420 });
+    // 自訂寬度：沿用目前寬度並提示可以直接拖曳邊緣
+    queryDoc('[data-setup-size="custom"]')!.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({
+      sidebarSize: 'custom',
+      sidebarWidth: 380,
+      customSidebarWidth: 380,
+    });
+  });
+
+  it('offers custom width dragging and a font size slider in the appearance step', async () => {
+    snapshot = { ...snapshot, displayLocale: 'en', sidebarSize: 'custom', fontSizeMode: 'custom' };
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
+    await clickNext();
+    expect(queryDoc('[data-setup-hint="custom-width"]')).not.toBeNull();
+    const range = queryDoc('[data-setup-font-range]') as HTMLInputElement;
+    range.value = '120';
+    range.dispatchEvent(new Event('input'));
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({
+      fontSizeMode: 'custom',
+      fontSizeScale: 1.2,
+      customFontSizeScale: 1.2,
+    });
+  });
+
+  it('skips the market translation step for non-Chinese display locales', async () => {
+    snapshot = { ...snapshot, displayLocale: 'en' };
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
+    expect(queryDoc('[data-setup-kind="locale"]')).not.toBeNull();
+    await clickNext();
+    expect(queryDoc('[data-setup-kind="market-translation"]')).toBeNull();
+    expect(queryDoc('[data-setup-kind="appearance"]')).not.toBeNull();
+  });
+
+  it('plays the collapse demo with a simulated cursor and re-expands for side bar steps', async () => {
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
+    // locale → market translation → appearance → sidebar → collapse
+    for (let i = 0; i < 4; i += 1) await clickNext();
+    expect(queryDoc('[data-setup-kind="collapse-drag"]')).not.toBeNull();
+    // 這一步不擋點擊，使用者也可以自己試
+    expect(queryDoc('[data-page-guide-blocker]')).toBeNull();
+    expect(queryDoc('[data-page-guide-cursor]')).not.toBeNull();
+    const replay = queryDoc('[data-setup-action="replay-collapse-demo"]') as HTMLButtonElement;
+    expect(replay.disabled).toBe(true);
+
+    // 游標移到關閉鈕、按下後收合
+    await new Promise((r) => setTimeout(r, 1200));
+    await settle();
+    expect(mockStorage.isCollapsed_poe2).toBe(true);
+
+    // 回到上一步（指向側欄）時停止示範並自動展開
+    queryDoc('[data-page-guide-action="previous"]')!.click();
+    await new Promise((r) => setTimeout(r, 200));
+    await settle();
+    expect(queryDoc('[data-page-guide-cursor]')).toBeNull();
+    expect(mockStorage.isCollapsed_poe2).toBe(false);
+    // 示範只預覽標籤位置，不寫入設定
+    expect(updatePreferencesSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ collapsedTabTop: expect.anything() }),
+    );
+  });
+
+  it('toggles result features from the mock result steps', async () => {
+    snapshot = { ...snapshot, displayLocale: 'en' };
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
+    // locale → appearance → sidebar → collapse → affix → tier → result actions
+    // 詞綴與階級步驟會向頁面要示範並等畫面更新，每步多等一下
+    for (let i = 0; i < 6; i += 1) {
+      await clickNext();
+      await new Promise((r) => setTimeout(r, DEMO_STEP_WAIT_MS));
+    }
+    expect(queryDoc('[data-setup-kind="result-features"]')).not.toBeNull();
+    expect(queryDoc('[data-poexd-guide-mock]')).not.toBeNull();
+
+    queryDoc('[data-setup-feature="enableResultPobCopy"]')!.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ enableResultPobCopy: false });
   });
 
   it('shows the update notice across all tabs without collapsed hint dot and dismisses it once closed', async () => {
     const versionUpdate = {
-      welcomePending: false,
+      tourPending: false,
       expandHintPending: false,
       updatePending: true,
       lastSeenVersion: '1.6.1',
@@ -213,6 +324,7 @@ describe('Sidebar first-install onboarding', () => {
 
     query('[data-sidebar-action="expand"]')!.click();
     await settle();
+    expect(queryDoc('[data-page-guide-bubble]')).toBeNull();
 
     const notice = query('[data-onboarding-update]');
     expect(notice).not.toBeNull();
@@ -236,41 +348,21 @@ describe('Sidebar first-install onboarding', () => {
     await settle();
     expect(query('[data-onboarding-update]')).toBeNull();
     expect(mockStorage[ONBOARDING_STORAGE_KEY]).toEqual({
-      welcomePending: false,
+      tourPending: false,
       expandHintPending: false,
       lastSeenVersion: '1.6.1',
     });
   });
 
-  it('reacts when the install state arrives after the sidebar mounted', async () => {
+  it('starts the tour when the install state arrives after the sidebar mounted', async () => {
     await mountSidebar({ isCollapsed_poe2: false });
-    expect(query('[data-onboarding-welcome]')).toBeNull();
+    expect(queryDoc('[data-page-guide-bubble]')).toBeNull();
     await (globalThis as any).chrome.storage.local.set({ [ONBOARDING_STORAGE_KEY]: freshInstall });
     await settle();
-    expect(query('[data-onboarding-welcome]')).not.toBeNull();
+    expect(queryDoc('[data-page-guide-bubble]')).not.toBeNull();
     expect(mockStorage[ONBOARDING_STORAGE_KEY]).toMatchObject({
       expandHintPending: false,
-      welcomePending: true,
+      tourPending: false,
     });
-
-    query('[data-sidebar-action="collapse"]')!.click();
-    await settle();
-    expect(query('[data-onboarding-hint]')).toBeNull();
-  });
-
-  it('offers market translation on the international site and enables it through preferences', async () => {
-    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
-    const toggle = query('[data-onboarding-action="market-translation"]');
-    expect(toggle).not.toBeNull();
-    toggle!.click();
-    await settle();
-    expect(updatePreferencesSpy).toHaveBeenCalledWith({ marketTranslation: true });
-  });
-
-  it('hides the market translation offer for non-Chinese display locales', async () => {
-    snapshot = { ...snapshot, displayLocale: 'en' };
-    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
-    expect(query('[data-onboarding-welcome]')).not.toBeNull();
-    expect(query('[data-onboarding-action="market-translation"]')).toBeNull();
   });
 });

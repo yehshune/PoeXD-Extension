@@ -64,15 +64,28 @@ describe('findPageGuideElement', () => {
 describe('page guide tour', () => {
   it('only points at known targets', () => {
     for (const step of PAGE_GUIDE_TOUR_STEPS) {
-      expect(PAGE_GUIDE_TARGETS).toHaveProperty(step.targetId);
+      if (step.targetId) expect(PAGE_GUIDE_TARGETS).toHaveProperty(step.targetId);
     }
   });
 
-  it('offers a fallback for every step that needs search results', () => {
-    const resultSteps = PAGE_GUIDE_TOUR_STEPS.filter(
-      (step) => getPageGuideTarget(step.targetId).needs === 'results',
-    );
-    expect(resultSteps.length).toBeGreaterThan(0);
-    expect(resultSteps.every((step) => step.fallback === 'result-card')).toBe(true);
+  it('only leaves setup steps without a target', () => {
+    const untargeted = PAGE_GUIDE_TOUR_STEPS.filter((step) => !step.targetId);
+    expect(untargeted.every((step) => step.setup)).toBe(true);
+  });
+
+  it('starts with the language step so later steps use the chosen language', () => {
+    expect(PAGE_GUIDE_TOUR_STEPS[0]?.setup).toBe('locale');
+  });
+
+  it('teaches result features on the mock row instead of waiting for real results', () => {
+    const resultSteps = PAGE_GUIDE_TOUR_STEPS.filter((step) => step.demoFocus);
+    expect(resultSteps.map((step) => step.demoFocus)).toEqual(['actions', 'mods', 'price']);
+    expect(resultSteps.every((step) => step.targetId?.startsWith('mock-result-'))).toBe(true);
+    expect(resultSteps.every((step) => step.setup === 'result-features')).toBe(true);
+    expect(
+      PAGE_GUIDE_TOUR_STEPS.some(
+        (step) => step.targetId && getPageGuideTarget(step.targetId).needs === 'results',
+      ),
+    ).toBe(false);
   });
 });

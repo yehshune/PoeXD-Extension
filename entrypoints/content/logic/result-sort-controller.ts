@@ -9,6 +9,7 @@ import type { TradePageRole } from '@/utils/live-search-contract';
 import { parsePoeFetchResultBatch } from '@/utils/event-contracts';
 import type { ResultPricePresenter } from './result-price-presenter';
 import { t } from '@/utils/i18n';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 export type SortMode =
   | 'default'
@@ -345,7 +346,7 @@ export class ResultSortController {
 
     const root =
       typeof document !== 'undefined'
-        ? (document.querySelector('.results') as HTMLElement | null)
+        ? (document.querySelector(TRADE_RESULTS_SELECTOR) as HTMLElement | null)
         : null;
     if (root) {
       root.style.display = '';
@@ -367,7 +368,7 @@ export class ResultSortController {
 
   private ensureRowTotalControls() {
     const rowTotal = document.querySelector('.row.row-total');
-    const resultsContainer = document.querySelector('.results');
+    const resultsContainer = document.querySelector(TRADE_RESULTS_SELECTOR);
     const targetParent = rowTotal || resultsContainer;
     if (!targetParent) return;
 
@@ -784,7 +785,7 @@ function resolveRowId(row: Element): string {
 }
 
 export function getResultsRoot(): Element | null {
-  return typeof document !== 'undefined' ? document.querySelector('.results') : null;
+  return typeof document !== 'undefined' ? document.querySelector(TRADE_RESULTS_SELECTOR) : null;
 }
 
 function compareOptionalMetricDesc(a: number | undefined, b: number | undefined): number {

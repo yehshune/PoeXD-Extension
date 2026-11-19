@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createPageGuideDemo,
+  DEMO_STAT_CATEGORY,
   pickDemoStatId,
 } from '@/entrypoints/main-world/page-guide-demo-adapter';
 import {
@@ -61,6 +62,18 @@ describe('pickDemoStatId', () => {
 });
 
 describe('createPageGuideDemo', () => {
+  it('binds the demo stat to body armour so the tier list shows tier values', () => {
+    const store = createStore();
+    const demo = createPageGuideDemo(() => store as never);
+
+    demo.addStatFilter();
+    const group = store.state.persistent.stats[0] as { filters: Record<string, unknown>[] };
+    expect(group.filters[0]!.poexdCategory).toBe(DEMO_STAT_CATEGORY);
+    expect(DEMO_STAT_CATEGORY).toBe('body-armour');
+    // 隱藏屬性不會被官方存進網址或搜尋條件
+    expect(JSON.stringify(group)).not.toContain('body-armour');
+  });
+
   it('pushes one stat group and restores the previous stats without saving', () => {
     const store = createStore();
     const demo = createPageGuideDemo(() => store as never);

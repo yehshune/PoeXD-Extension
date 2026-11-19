@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ref } from 'vue';
 import { createPageGuide, type PageGuideDeps } from '@/components/sidebar/page-guide/usePageGuide';
 import type { PageGuideTourStep } from '@/components/sidebar/page-guide/page-guide-tour';
 
@@ -21,8 +22,8 @@ const steps: PageGuideTourStep[] = [
   {
     id: 'search',
     targetId: 'search-input',
-    titleKey: 'pageGuide.tour.search.title',
-    bodyKey: 'pageGuide.tour.search.body',
+    titleKey: 'pageGuide.tour.affixSelector.title',
+    bodyKey: 'pageGuide.tour.affixSelector.body',
   },
   {
     id: 'tier',
@@ -32,10 +33,10 @@ const steps: PageGuideTourStep[] = [
   },
   {
     id: 'results',
-    targetId: 'result-actions',
-    titleKey: 'pageGuide.tour.results.title',
-    bodyKey: 'pageGuide.tour.results.body',
-    fallback: 'result-card',
+    targetId: 'mock-result-actions',
+    titleKey: 'pageGuide.tour.resultActions.title',
+    bodyKey: 'pageGuide.tour.resultActions.body',
+    demoFocus: 'actions',
   },
 ];
 
@@ -49,6 +50,7 @@ function createDeps(overrides: Partial<PageGuideDeps> = {}): PageGuideDeps {
     notify: vi.fn(),
     wait: async () => {},
     scrollIntoView: vi.fn(),
+    revealResults: vi.fn(),
     ...overrides,
   };
 }
@@ -150,11 +152,40 @@ describe('tour', () => {
     await guide.nextStep();
     expect(guide.currentStep.value?.id).toBe('results');
     expect(deps.requestDemo).toHaveBeenLastCalledWith('restore');
-    // 沒有結果時沒有元素，說明框改用示意卡
+    // 示意結果列由 PageGuideHost 畫出，這裡沒有掛載所以找不到元素
     expect(guide.element.value).toBeNull();
 
     await guide.previousStep();
     expect(guide.currentStep.value?.id).toBe('tier');
+  });
+
+  it('shows the mock result only for result steps and hides it on stop', async () => {
+    const deps = createDeps();
+    const guide = createPageGuide(deps);
+    await guide.startTour();
+    expect(guide.state.demoFocus).toBeNull();
+    await guide.nextStep();
+    await guide.nextStep();
+    expect(guide.currentStep.value?.id).toBe('results');
+    expect(guide.state.demoFocus).toBe('actions');
+    // 示意結果列取代真實結果，不再去展開官方結果的按鈕
+    expect(deps.revealResults).toHaveBeenLastCalledWith(false);
+
+    await guide.previousStep();
+    expect(guide.state.demoFocus).toBeNull();
+    await guide.stop();
+    expect(guide.state.demoFocus).toBeNull();
+  });
+
+  it('frames the mock row once it renders for the result step', async () => {
+    const guide = createPageGuide(createDeps({ steps: [steps[2]!] }));
+    const mock = addElement(
+      '<div data-poexd-guide-mock><div class="row"><div class="poexd-left-actions"></div></div></div>',
+    );
+    visible(mock.querySelector('.poexd-left-actions')!);
+
+    await guide.startTour();
+    expect(guide.element.value).toBe(mock.querySelector('.poexd-left-actions'));
   });
 
   it('ends after the last step and on stop, always restoring the demo', async () => {
@@ -192,5 +223,136 @@ describe('tour', () => {
     release();
     await pending;
     expect(guide.state.mode).toBe('idle');
+  });
+});
+
+describe('tour context', () => {
+  const conditionalSteps: PageGuideTourStep[] = [
+    {
+      id: 'locale',
+      titleKey: 'pageGuide.tour.locale.title',
+      bodyKey: 'pageGuide.tour.locale.body',
+      setup: 'locale',
+    },
+    {
+      id: 'market-translation',
+      titleKey: 'pageGuide.tour.marketTranslation.title',
+      bodyKey: 'pageGuide.tour.marketTranslation.body',
+      setup: 'market-translation',
+      when: 'market-translation-offer',
+    },
+    {
+      id: 'collapse',
+      targetId: 'sidebar-collapse',
+      titleKey: 'pageGuide.tour.collapse.title',
+      bodyKey: 'pageGuide.tour.collapse.body',
+    },
+  ];
+
+  it('re-evaluates conditional steps while the tour runs', async () => {
+    const guide = createPageGuide(createDeps({ steps: conditionalSteps }));
+    const offer = ref(false);
+    guide.setTourContext({
+      isConditionMet: () => offer.value,
+      prepareStep: async () => {},
+      runStepDemo: async () => {},
+      stopStepDemo: () => {},
+    });
+
+    await guide.startTour();
+    expect(guide.currentStep.value?.id).toBe('locale');
+    // 沒有目標的步驟不去找元素
+    expect(guide.element.value).toBeNull();
+    expect(guide.stepCount.value).toBe(2);
+
+    // 例如第一步把語言改成中文，市集漢化步驟隨之出現
+    offer.value = true;
+    expect(guide.stepCount.value).toBe(3);
+    await guide.nextStep();
+    expect(guide.currentStep.value?.id).toBe('market-translation');
+    expect(guide.stepNumber.value).toBe(2);
+  });
+
+  it('prepares each step before locating its target', async () => {
+    const guide = createPageGuide(createDeps({ steps: conditionalSteps }));
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    guide.setSidebarRoot(root);
+    const prepareStep = vi.fn(async (step: PageGuideTourStep) => {
+      if (step.id === 'collapse') {
+        root.innerHTML = '<button data-sidebar-action="collapse"></button>';
+        visible(root.firstElementChild!);
+      }
+    });
+    guide.setTourContext({
+      isConditionMet: () => false,
+      prepareStep,
+      runStepDemo: async () => {},
+      stopStepDemo: () => {},
+    });
+
+    await guide.startTour();
+    await guide.nextStep();
+    expect(prepareStep).toHaveBeenCalledTimes(2);
+    expect(guide.element.value).toBe(root.firstElementChild);
+  });
+
+  it('switches to the next visible selector when the target disappears', async () => {
+    const guide = createPageGuide(createDeps({ steps: [conditionalSteps[2]!] }));
+    const root = document.createElement('div');
+    root.innerHTML =
+      '<button data-sidebar-action="collapse"></button><button data-sidebar-action="expand"></button>';
+    document.body.appendChild(root);
+    guide.setSidebarRoot(root);
+    const [collapse, expand] = Array.from(root.children);
+    visible(collapse!);
+
+    await guide.startTour();
+    expect(guide.element.value).toBe(collapse);
+
+    collapse!.getBoundingClientRect = () =>
+      ({ top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }) as DOMRect;
+    visible(expand!);
+    guide.refreshElement();
+    expect(guide.element.value).toBe(expand);
+  });
+
+  it('runs the step demo and moves the frame to the demo target', async () => {
+    const tierStep: PageGuideTourStep = {
+      id: 'tier',
+      targetId: 'tier-trigger',
+      titleKey: 'pageGuide.tour.tier.title',
+      bodyKey: 'pageGuide.tour.tier.body',
+      demo: 'tier-menu',
+      demoTargetId: 'tier-menu',
+    };
+    const guide = createPageGuide(createDeps({ steps: [tierStep, conditionalSteps[0]!] }));
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    guide.setSidebarRoot(root);
+    const runStepDemo = vi.fn(async () => {
+      root.innerHTML = '<div data-slot="dropdown-menu-content" data-state="open"></div>';
+      visible(root.firstElementChild!);
+    });
+    const stopStepDemo = vi.fn();
+    guide.setTourContext({
+      isConditionMet: () => false,
+      prepareStep: async () => {},
+      runStepDemo,
+      stopStepDemo,
+    });
+
+    await guide.startTour();
+    expect(runStepDemo).toHaveBeenCalledWith('tier-menu');
+    expect(guide.element.value).toBe(root.firstElementChild);
+
+    stopStepDemo.mockClear();
+    await guide.nextStep();
+    expect(stopStepDemo).toHaveBeenCalled();
+    expect(runStepDemo).toHaveBeenCalledTimes(1);
+
+    stopStepDemo.mockClear();
+    await guide.stop();
+    expect(stopStepDemo).toHaveBeenCalled();
   });
 });

@@ -163,9 +163,16 @@ describe('Preferences Domain Contract', () => {
     const content = fs.readFileSync(settingsPanePath, 'utf-8');
 
     expect(content).toContain('DEFAULT_PREFERENCES');
-    expect(content).toContain('SIDEBAR_SIZE_PRESETS');
     expect(content).toContain('SIDEBAR_WIDTH_BOUNDS');
-    expect(content).toContain('FONT_SIZE_PRESETS');
     expect(content).toContain('FONT_SIZE_SCALE_BOUNDS');
+    // 寬度與字體模式切換的預設值改由設定頁與初始導覽共用的規劃函式套用
+    expect(content).toContain('planSidebarSizeChange');
+    expect(content).toContain('planFontSizeModeChange');
+    const planner = fs.readFileSync(
+      path.resolve(__dirname, '../utils/appearance-preferences.ts'),
+      'utf-8',
+    );
+    expect(planner).toContain('SIDEBAR_SIZE_PRESETS');
+    expect(planner).toContain('FONT_SIZE_PRESETS');
   });
 });
