@@ -1129,6 +1129,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.primary.notInitializedHint':
     'Please ensure Live Search Console was opened from a trade search page.',
   'liveSearch.primary.switchLeagueTitle': 'Switch League (Current: {league})',
+  'liveSearch.primary.switchLeagueConfirmTitle': 'Switch League',
+  'liveSearch.primary.switchLeagueConfirm':
+    'Switching to {league} will disconnect {count} active live search(es). Continue?',
   'liveSearch.primary.watching': 'watching',
   'liveSearch.primary.error': 'error',
   'liveSearch.primary.rateToggleTitle': 'Toggle API rate limit details',

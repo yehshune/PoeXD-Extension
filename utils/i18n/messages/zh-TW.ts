@@ -1055,6 +1055,9 @@ export const ZH_TW_MESSAGES = {
   'liveSearch.primary.notInitialized': '線上搜尋主控台尚未完成初始化',
   'liveSearch.primary.notInitializedHint': '請確認目前已於交易頁面啟動線上搜尋主控台。',
   'liveSearch.primary.switchLeagueTitle': '切換聯盟 (目前：{league})',
+  'liveSearch.primary.switchLeagueConfirmTitle': '切換聯盟',
+  'liveSearch.primary.switchLeagueConfirm':
+    '切換至 {league} 將中斷目前 {count} 個監聽中的線上搜尋，確定要繼續嗎？',
   'liveSearch.primary.watching': '監聽',
   'liveSearch.primary.error': '異常',
   'liveSearch.primary.rateToggleTitle': '切換 API 速率限制詳細資訊',

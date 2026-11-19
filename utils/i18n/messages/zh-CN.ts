@@ -1057,6 +1057,9 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.primary.notInitialized': '线上搜索主控台尚未完成初始化',
   'liveSearch.primary.notInitializedHint': '请确认目前已于交易页面启动线上搜索主控台。',
   'liveSearch.primary.switchLeagueTitle': '切换联盟 (目前：{league})',
+  'liveSearch.primary.switchLeagueConfirmTitle': '切换联盟',
+  'liveSearch.primary.switchLeagueConfirm':
+    '切换至 {league} 将断开目前 {count} 个监听中的在线搜索，确定要继续吗？',
   'liveSearch.primary.watching': '监听',
   'liveSearch.primary.error': '异常',
   'liveSearch.primary.rateToggleTitle': '切换 API 速率限制详细信息',

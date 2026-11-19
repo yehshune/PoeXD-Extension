@@ -1087,6 +1087,24 @@ async function handleSwitchLeague(league: string) {
   isLeagueMenuOpen.value = false;
   const sourceCtrl = getActiveSourceController();
   if (!sourceCtrl || isSwitchingLeague.value) return;
+  if (league.toLowerCase() === currentSelectedLeague.value.toLowerCase()) return;
+  const activeCount = activeSubscriptionCount.value;
+  if (activeCount > 0) {
+    const confirm = (
+      window as { poexdConfirm?: (message: string, title?: string) => Promise<boolean> }
+    ).poexdConfirm;
+    if (confirm) {
+      const confirmed = await confirm(
+        t('liveSearch.primary.switchLeagueConfirm', {
+          league: formatLiveSearchDisplayLeague(league),
+          count: activeCount,
+        }),
+        t('liveSearch.primary.switchLeagueConfirmTitle'),
+      );
+      if (!confirmed) return;
+      if (isSwitchingLeague.value) return;
+    }
+  }
   try {
     const success = await sourceCtrl.switchLeague(league);
     if (!success) {

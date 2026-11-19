@@ -2710,6 +2710,76 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
       unmount();
     });
+
+    it('asks for confirmation before switching league when live searches are active, and aborts on cancel', async () => {
+      const controller = createLiveSearchPrimaryController(runtime);
+      const currentSnap: LiveSearchSourceSnapshot = {
+        loading: false,
+        leagueResolved: true,
+        groups: [],
+        selectedLeague: 'Standard',
+        availableLeagues: ['Standard', 'Hardcore'],
+        isSwitchingLeague: false,
+      };
+      const switchLeagueMock = vi.fn(async () => true);
+      const mockSourceController: LiveSearchSourceController = {
+        read: () => currentSnap,
+        subscribe: (listener) => {
+          listener(currentSnap);
+          return () => {};
+        },
+        enable: vi.fn(),
+        add: vi.fn(),
+        enableMany: vi.fn(),
+        stopMany: vi.fn(),
+        addCustom: vi.fn(),
+        removeCustom: vi.fn(),
+        retry: vi.fn(),
+        stop: vi.fn(),
+        switchLeague: switchLeagueMock,
+        getSelectedLeague: () => currentSnap.selectedLeague,
+        getAvailableLeagues: () => currentSnap.availableLeagues,
+        dispose: vi.fn(),
+      };
+      const confirmSpy = vi.fn(async (_message: string, _title?: string) => false);
+      (window as any).poexdConfirm = confirmSpy;
+
+      const { container, unmount } = mountComponent({
+        controller,
+        sourceController: mockSourceController,
+      });
+      await flushAsync();
+
+      await controller.addFromUrl(
+        'https://www.pathofexile.com/trade/search/Standard/H4sImysearch123',
+        { name: '神聖石監聽' },
+      );
+      await flushAsync();
+
+      const clickHardcore = async () => {
+        (
+          container.querySelector('[data-test="league-selector-trigger"]') as HTMLButtonElement
+        ).click();
+        await flushAsync();
+        (document.body.querySelector('[data-test="league-option-Hardcore"]') as HTMLElement).click();
+        await flushAsync();
+      };
+
+      // 取消 → 不切換
+      await clickHardcore();
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(confirmSpy.mock.calls[0][0]).toContain('Hardcore');
+      expect(switchLeagueMock).not.toHaveBeenCalled();
+
+      // 確認 → 切換
+      confirmSpy.mockResolvedValueOnce(true);
+      await clickHardcore();
+      expect(confirmSpy).toHaveBeenCalledTimes(2);
+      expect(switchLeagueMock).toHaveBeenCalledWith('Hardcore');
+
+      delete (window as any).poexdConfirm;
+      unmount();
+    });
   });
 
   describe('10. Bookmark Folder Hierarchy UI, Subtree Collapse, Subtree Batch & Stats, and Hierarchy Filter', () => {
