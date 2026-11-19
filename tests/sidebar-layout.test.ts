@@ -364,4 +364,22 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
     expect(settingsSource).not.toContain('poexd-sidebar-width-preview');
     expect(settingsSource).not.toContain('v-model:model-value="customWidth"');
   });
+
+  it('syncs shadow host --poexd-host-top from collapsedTabTop preference and live preview events', async () => {
+    (globalThis as any).chrome.storage.local.get = vi.fn(async () => ({ isCollapsed_poe1: true }));
+    const mockCtx = createMockCtx();
+    const prefs = createMockPreferences({ collapsedTabTop: 240 });
+
+    const stop = await mountSidebarLayout(mockCtx, 'poe1', prefs);
+    if (stop) layoutCleanups.push(stop);
+
+    expect(mockCtx.shadowHost.style.getPropertyValue('--poexd-host-top')).toBe(
+      'clamp(0px, 240px, calc(100vh - var(--control-height-default)))',
+    );
+
+    dispatchPoeEvent('poexd-sidebar-collapsed-top-preview', 360);
+    expect(mockCtx.shadowHost.style.getPropertyValue('--poexd-host-top')).toBe(
+      'clamp(0px, 360px, calc(100vh - var(--control-height-default)))',
+    );
+  });
 });

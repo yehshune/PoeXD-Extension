@@ -14,6 +14,7 @@ describe('Preferences module interface', () => {
     if (!outcome.ok) throw new Error(outcome.error.message);
     expect(outcome.value.read()).toEqual({
       addBookmarkBtnPosition: 'top',
+      collapsedTabTop: 100,
       customFontSizeScale: null,
       customSidebarWidth: null,
       densityScale: 1,

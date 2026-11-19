@@ -289,7 +289,7 @@ describe('Sidebar Navigation Controls Migration', () => {
       const settingsTab = container.querySelector('[data-sidebar-tab="settings"]');
 
       expect(expandBtn?.getAttribute('aria-label')).toBe('展開面板');
-      expect(expandBtn?.getAttribute('title')).toBe('展開面板');
+      expect(expandBtn?.getAttribute('title')).toBe('展開面板（可上下拖曳調整位置）');
 
       expect(collapseBtn?.getAttribute('aria-label')).toBe('關閉面板');
       expect(collapseBtn?.getAttribute('title')).toBe('關閉面板');

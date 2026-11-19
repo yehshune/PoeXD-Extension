@@ -49,6 +49,10 @@ export const ZH_TW_MESSAGES = {
   'settings.sidebarPosition.label': '面板位置',
   'settings.sidebarPosition.option.left': '左側',
   'settings.sidebarPosition.option.right': '右側',
+  'settings.collapsedTabPosition.label': '收合按鈕位置',
+  'settings.collapsedTabPosition.tooltip':
+    '收合時可直接上下拖曳按鈕調整位置；按鈕取得焦點時也可用 Alt + ↑/↓ 微調。',
+  'settings.collapsedTabPosition.reset': '重設位置',
 
   'settings.sidebarSize.label': '選單寬度',
   'settings.sidebarSize.option.small': '小',
@@ -639,6 +643,7 @@ export const ZH_TW_MESSAGES = {
   'sidebar.nav.openLiveSearch': '開啟線上搜尋主控台',
   'sidebar.header.close': '關閉面板',
   'sidebar.header.expand': '展開面板',
+  'sidebar.header.expandDraggable': '展開面板（可上下拖曳調整位置）',
   'sidebar.header.resetWidth': '重設寬度',
   'sidebar.header.resizeWidth': '拖曳以調整寬度',
   'sidebar.trash.hint': '拖曳至此處刪除',

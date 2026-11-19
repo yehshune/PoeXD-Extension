@@ -25,6 +25,7 @@ describe('Preferences Domain Contract', () => {
     expect(Object.isFrozen(DEFAULT_PREFERENCES)).toBe(true);
     expect(DEFAULT_PREFERENCES).toEqual({
       addBookmarkBtnPosition: 'top',
+      collapsedTabTop: 100,
       customFontSizeScale: null,
       customSidebarWidth: null,
       densityScale: 1,

@@ -33,6 +33,12 @@ export const SIDEBAR_WIDTH_BOUNDS = Object.freeze({
   max: 800,
 });
 
+/** 收合標籤距離視窗頂端的位置（px）；實際顯示時再依視窗高度限制在畫面內 */
+export const COLLAPSED_TAB_TOP_BOUNDS = Object.freeze({
+  min: 0,
+  max: 4000,
+});
+
 export type SidebarPresetSize = Exclude<SidebarSize, 'custom'>;
 
 export const SIDEBAR_SIZE_PRESETS: Readonly<Record<SidebarPresetSize, number>> = Object.freeze({
@@ -141,6 +147,8 @@ export type AffixDisplayLocalePreference = DisplayLocalePreference;
 
 export interface Preferences {
   addBookmarkBtnPosition: BookmarkButtonPosition;
+  /** 收合標籤可沿面板所在側邊上下拖曳，記住距離視窗頂端的位置（px） */
+  collapsedTabTop: number;
   customFontSizeScale: number | null;
   customSidebarWidth: number | null;
   densityScale: number;
@@ -190,6 +198,7 @@ export interface Preferences {
 
 export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   addBookmarkBtnPosition: 'top',
+  collapsedTabTop: 100,
   customFontSizeScale: null,
   customSidebarWidth: null,
   densityScale: 1,

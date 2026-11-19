@@ -51,6 +51,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.sidebarPosition.label': 'Panel Position',
   'settings.sidebarPosition.option.left': 'Left',
   'settings.sidebarPosition.option.right': 'Right',
+  'settings.collapsedTabPosition.label': 'Collapsed Button Position',
+  'settings.collapsedTabPosition.tooltip':
+    'Drag the collapsed button up or down to move it. When focused, Alt + ↑/↓ also moves it.',
+  'settings.collapsedTabPosition.reset': 'Reset',
 
   'settings.sidebarSize.label': 'Panel Width',
   'settings.sidebarSize.option.small': 'Small',
@@ -683,6 +687,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'sidebar.nav.openLiveSearch': 'Open Live Search Console',
   'sidebar.header.close': 'Close panel',
   'sidebar.header.expand': 'Expand panel',
+  'sidebar.header.expandDraggable': 'Expand panel (drag up or down to move)',
   'sidebar.header.resetWidth': 'Reset Width',
   'sidebar.header.resizeWidth': 'Drag to resize width',
   'sidebar.trash.hint': 'Drag here to delete',

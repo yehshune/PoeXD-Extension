@@ -74,6 +74,7 @@ type ExpectedInternal =
   | 'poexd-request-result-images'
   | 'poexd-result-images'
   | 'poexd-sidebar-collapsed-changed'
+  | 'poexd-sidebar-collapsed-top-preview'
   | 'poexd-sidebar-resizing-changed'
   | 'poexd-sidebar-width-preview'
   | 'poexd-toast'

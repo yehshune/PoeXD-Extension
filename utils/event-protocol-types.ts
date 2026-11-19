@@ -261,6 +261,8 @@ export interface PoeContentInternalEventMap {
   'poexd-request-result-images': void;
   'poexd-result-images': { url: string; images: string[] };
   'poexd-sidebar-collapsed-changed': boolean;
+  /** 拖曳收合標籤時即時預覽的 top（px），放開後才寫入 collapsedTabTop 偏好 */
+  'poexd-sidebar-collapsed-top-preview': number;
   'poexd-sidebar-resizing-changed': boolean;
   'poexd-sidebar-width-preview': number;
   'poexd-toast': PoeToastDetail;
@@ -281,6 +283,7 @@ export const POE_CONTENT_INTERNAL_EVENT_TYPES = [
   'poexd-request-result-images',
   'poexd-result-images',
   'poexd-sidebar-collapsed-changed',
+  'poexd-sidebar-collapsed-top-preview',
   'poexd-sidebar-resizing-changed',
   'poexd-sidebar-width-preview',
   'poexd-toast',

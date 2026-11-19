@@ -1,6 +1,7 @@
 import type { PoeVersion } from './trade-context';
 import {
   BOOKMARK_BUTTON_POSITIONS,
+  COLLAPSED_TAB_TOP_BOUNDS,
   SEARCH_ENTRY_CLICK_ACTIONS,
   DENSITY_SCALE_VALUES,
   DISPLAY_LOCALE_VALUES,
@@ -115,6 +116,13 @@ function isValidPreference(name: keyof Preferences, value: unknown) {
       typeof value === 'number' &&
       value >= SIDEBAR_WIDTH_BOUNDS.min &&
       value <= SIDEBAR_WIDTH_BOUNDS.max
+    );
+  if (name === 'collapsedTabTop')
+    return (
+      typeof value === 'number' &&
+      Number.isFinite(value) &&
+      value >= COLLAPSED_TAB_TOP_BOUNDS.min &&
+      value <= COLLAPSED_TAB_TOP_BOUNDS.max
     );
   if (name === 'customFontSizeScale')
     return (

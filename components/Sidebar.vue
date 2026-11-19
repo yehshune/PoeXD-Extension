@@ -23,7 +23,8 @@
           right: sidebarPosition === 'right' ? '0' : 'auto',
           left: sidebarPosition === 'left' ? '0' : 'auto',
           height: isCollapsed ? 'var(--control-height-default)' : '100vh',
-          top: isCollapsed ? '100px' : '0',
+          top: isCollapsed ? 'var(--pxd-collapsed-tab-top, 100px)' : '0',
+          '--pxd-collapsed-tab-top': isCollapsed ? collapsedTabTopStyle : undefined,
           width: isCollapsed ? 'var(--pxd-sidebar-collapsed-width)' : actualWidth + 'px',
           ...runtimeTokens,
         }"
@@ -34,15 +35,22 @@
           type="button"
           variant="secondary"
           size="default"
-          class="relative w-[var(--pxd-sidebar-collapsed-width)] border-x-0 rounded-none px-[var(--pxd-sidebar-collapsed-padding-x)] flex items-center justify-between"
+          class="relative w-[var(--pxd-sidebar-collapsed-width)] border-x-0 rounded-none px-[var(--pxd-sidebar-collapsed-padding-x)] flex items-center justify-between touch-none select-none"
+          :class="isCollapsedTabDragging ? 'cursor-grabbing' : 'cursor-grab'"
           :style="{
             borderRight: sidebarPosition === 'right' ? 'none' : '1px solid var(--border)',
             borderLeft: sidebarPosition === 'left' ? 'none' : '1px solid var(--border)',
           }"
-          :title="t('sidebar.header.expand')"
+          :title="t('sidebar.header.expandDraggable')"
           :aria-label="t('sidebar.header.expand')"
           data-sidebar-action="expand"
-          @click="toggleCollapse"
+          :data-dragging="isCollapsedTabDragging ? 'true' : undefined"
+          @pointerdown="handleCollapsedTabPointerDown"
+          @pointermove="handleCollapsedTabPointerMove"
+          @pointerup="handleCollapsedTabPointerUp"
+          @pointercancel="handleCollapsedTabPointerCancel"
+          @keydown="handleCollapsedTabKeydown"
+          @click="handleCollapsedTabClick"
         >
           <ToolboxIcon
             data-sidebar-brand-placeholder
@@ -577,6 +585,12 @@ import {
   type PreferencesModule,
 } from '@/utils/preferences';
 import { createVersionedStorageKeys, readStorageValue } from '@/utils/storage-contracts';
+import {
+  COLLAPSED_TAB_DRAG_THRESHOLD,
+  COLLAPSED_TAB_KEYBOARD_STEP,
+  clampCollapsedTabTop,
+  collapsedTabTopCss,
+} from '@/utils/collapsed-tab-position';
 import { getPoeVersion } from '@/utils/trade-context';
 import { detectBrowserLocale } from '@/utils/locale-resolution';
 import {
@@ -1104,6 +1118,7 @@ export default defineComponent({
         sidebarPosition.value = snapshot.sidebarPosition;
         sidebarSize.value = snapshot.sidebarSize;
         sidebarWidth.value = snapshot.sidebarWidth;
+        if (!isCollapsedTabDragging.value) collapsedTabTop.value = snapshot.collapsedTabTop;
         fontSizeScale.value = snapshot.fontSizeScale;
         densityScale.value = snapshot.densityScale;
         marketTranslation.value = snapshot.marketTranslation === true;
@@ -1162,6 +1177,102 @@ export default defineComponent({
       const collapsedKey = keys.isCollapsed;
       chrome.storage.local.set({ [collapsedKey]: isCollapsed.value });
       dispatchPoeEvent('poexd-sidebar-collapsed-changed', isCollapsed.value);
+    };
+
+    // 收合標籤：沿面板所在側邊上下拖曳；移動未超過門檻時仍視為點擊展開
+    const collapsedTabTop = ref(DEFAULT_PREFERENCES.collapsedTabTop);
+    const collapsedTabTopStyle = computed(() => collapsedTabTopCss(collapsedTabTop.value));
+    const isCollapsedTabDragging = ref(false);
+    let collapsedTabDrag: {
+      pointerId: number;
+      startY: number;
+      startTop: number;
+      tabHeight: number;
+    } | null = null;
+    let suppressCollapsedTabClick = false;
+
+    const previewCollapsedTabTop = (top: number) => {
+      collapsedTabTop.value = top;
+      dispatchPoeEvent('poexd-sidebar-collapsed-top-preview', top);
+    };
+
+    const commitCollapsedTabTop = (top: number) => {
+      previewCollapsedTabTop(top);
+      void preferencesModule?.update({ collapsedTabTop: top }).then((outcome) => {
+        if (!outcome.ok) console.error('[PoeXD Sidebar] 無法儲存收合標籤位置:', outcome.error);
+      });
+    };
+
+    const handleCollapsedTabPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0 || !e.isPrimary) return;
+      const target = e.currentTarget as HTMLElement;
+      const rect = target.getBoundingClientRect();
+      // 從實際顯示位置起算：儲存值可能因視窗變小而被 CSS clamp 過
+      collapsedTabDrag = {
+        pointerId: e.pointerId,
+        startY: e.clientY,
+        startTop: rect.height > 0 ? rect.top : collapsedTabTop.value,
+        tabHeight: rect.height > 0 ? rect.height : 32,
+      };
+      suppressCollapsedTabClick = false;
+    };
+
+    const handleCollapsedTabPointerMove = (e: PointerEvent) => {
+      const drag = collapsedTabDrag;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const deltaY = e.clientY - drag.startY;
+      if (!isCollapsedTabDragging.value) {
+        if (Math.abs(deltaY) < COLLAPSED_TAB_DRAG_THRESHOLD) return;
+        isCollapsedTabDragging.value = true;
+        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      }
+      previewCollapsedTabTop(
+        clampCollapsedTabTop(drag.startTop + deltaY, window.innerHeight, drag.tabHeight),
+      );
+    };
+
+    const finishCollapsedTabDrag = (e: PointerEvent, commit: boolean) => {
+      const drag = collapsedTabDrag;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      collapsedTabDrag = null;
+      if (!isCollapsedTabDragging.value) return;
+      const target = e.currentTarget as HTMLElement;
+      if (target.hasPointerCapture?.(e.pointerId)) {
+        target.releasePointerCapture?.(e.pointerId);
+      }
+      isCollapsedTabDragging.value = false;
+      if (commit) {
+        // 拖曳結束後瀏覽器仍會送出 click，擋掉這一次避免誤觸展開
+        suppressCollapsedTabClick = true;
+        setTimeout(() => {
+          suppressCollapsedTabClick = false;
+        }, 0);
+        commitCollapsedTabTop(collapsedTabTop.value);
+      } else {
+        previewCollapsedTabTop(preferencesModule?.read().collapsedTabTop ?? drag.startTop);
+      }
+    };
+
+    const handleCollapsedTabPointerUp = (e: PointerEvent) => finishCollapsedTabDrag(e, true);
+    const handleCollapsedTabPointerCancel = (e: PointerEvent) => finishCollapsedTabDrag(e, false);
+
+    const handleCollapsedTabClick = () => {
+      if (suppressCollapsedTabClick) {
+        suppressCollapsedTabClick = false;
+        return;
+      }
+      toggleCollapse();
+    };
+
+    /** Alt + ↑/↓ 以鍵盤調整收合標籤位置 */
+    const handleCollapsedTabKeydown = (e: KeyboardEvent) => {
+      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+      e.preventDefault();
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const currentTop = rect.height > 0 ? rect.top : collapsedTabTop.value;
+      const tabHeight = rect.height > 0 ? rect.height : 32;
+      const step = e.key === 'ArrowUp' ? -COLLAPSED_TAB_KEYBOARD_STEP : COLLAPSED_TAB_KEYBOARD_STEP;
+      commitCollapsedTabTop(clampCollapsedTabTop(currentTop + step, window.innerHeight, tabHeight));
     };
 
     /** 從「新增詞綴群組」旁的選單跳到側邊欄管理分頁。 */
@@ -1392,6 +1503,14 @@ export default defineComponent({
       isModuleEnabled,
       isTabVisible,
       toggleCollapse,
+      collapsedTabTopStyle,
+      isCollapsedTabDragging,
+      handleCollapsedTabPointerDown,
+      handleCollapsedTabPointerMove,
+      handleCollapsedTabPointerUp,
+      handleCollapsedTabPointerCancel,
+      handleCollapsedTabClick,
+      handleCollapsedTabKeydown,
       isModalOpen,
       targetGroupIndex,
       isAffixPaneMounted,

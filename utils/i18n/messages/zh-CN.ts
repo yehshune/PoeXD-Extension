@@ -51,6 +51,10 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.sidebarPosition.label': '面板位置',
   'settings.sidebarPosition.option.left': '左侧',
   'settings.sidebarPosition.option.right': '右侧',
+  'settings.collapsedTabPosition.label': '收起按钮位置',
+  'settings.collapsedTabPosition.tooltip':
+    '收起时可直接上下拖动按钮调整位置；按钮获得焦点时也可用 Alt + ↑/↓ 微调。',
+  'settings.collapsedTabPosition.reset': '重置位置',
 
   'settings.sidebarSize.label': '菜单宽度',
   'settings.sidebarSize.option.small': '小',
@@ -641,6 +645,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'sidebar.nav.openLiveSearch': '开启在线搜索主控台',
   'sidebar.header.close': '关闭面板',
   'sidebar.header.expand': '展开面板',
+  'sidebar.header.expandDraggable': '展开面板（可上下拖动调整位置）',
   'sidebar.header.resetWidth': '重置宽度',
   'sidebar.header.resizeWidth': '拖拽以调整宽度',
   'sidebar.trash.hint': '拖拽至此处删除',

@@ -15,6 +15,7 @@ import type { LiveSearchSoundNotifier } from './live-search-sound-notifier';
 import { syncUiRuntimeTokens } from '@/lib/tokens';
 import { applyThemeToHost } from '@/lib/theme/theme-runtime';
 import { appendShadowHostStyle } from './shadow-host-style';
+import { collapsedTabTopCss } from '@/utils/collapsed-tab-position';
 
 const POEXD_HOST_Z_INDEX = '2147483647';
 const LAYOUT_STYLE_ID = 'poexd-layout-style';
@@ -175,6 +176,8 @@ export async function mountSidebarLayout(
   let currentPosition = initialPreferences.sidebarPosition;
   let width = initialPreferences.sidebarWidth;
   let currentCollapsed = collapsed;
+  let collapsedTop = initialPreferences.collapsedTabTop;
+  let isModalActive = false;
   let currentScale = initialPreferences.fontSizeScale ?? 1;
   let currentDensity = initialPreferences.densityScale ?? 1;
 
@@ -202,7 +205,7 @@ export async function mountSidebarLayout(
     if (currentCollapsed) {
       wrapper.style.setProperty('--poexd-host-width', 'var(--pxd-sidebar-collapsed-width)');
       wrapper.style.setProperty('--poexd-host-height', 'var(--control-height-default)');
-      wrapper.style.setProperty('--poexd-host-top', '100px');
+      wrapper.style.setProperty('--poexd-host-top', collapsedTabTopCss(collapsedTop));
     } else {
       wrapper.style.setProperty('--poexd-host-width', `${width}px`);
       wrapper.style.setProperty('--poexd-host-height', '100vh');
@@ -233,12 +236,17 @@ export async function mountSidebarLayout(
     applyThemeToHost(wrapper, snapshot.theme);
     currentPosition = snapshot.sidebarPosition;
     width = snapshot.sidebarWidth;
+    collapsedTop = snapshot.collapsedTabTop;
     syncUiScalingVariables(snapshot);
     updateLayout();
   });
   listenPoeEvent('poexd-sidebar-collapsed-changed', (detail) => {
     currentCollapsed = detail;
     updateLayout();
+  });
+  listenPoeEvent('poexd-sidebar-collapsed-top-preview', (previewTop) => {
+    collapsedTop = previewTop;
+    if (!isModalActive) updateWrapper();
   });
   listenPoeEvent('poexd-sidebar-resizing-changed', (resizing) => {
     isResizing = resizing;
@@ -250,6 +258,7 @@ export async function mountSidebarLayout(
     updateLayout();
   });
   listenPoeEvent('poexd-modal-active-changed', (active) => {
+    isModalActive = active;
     if (active) {
       wrapper.style.setProperty('--poexd-host-width', '100vw');
       wrapper.style.setProperty('--poexd-host-height', '100vh');

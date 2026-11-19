@@ -250,6 +250,23 @@
         </SettingsRow>
 
         <SettingsRow
+          :label="t('settings.collapsedTabPosition.label')"
+          :details="t('settings.collapsedTabPosition.tooltip')"
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            class="shrink-0"
+            data-test="reset-collapsed-tab-position"
+            :disabled="isCollapsedTabTopDefault"
+            @click="resetCollapsedTabPosition"
+          >
+            {{ t('settings.collapsedTabPosition.reset') }}
+          </Button>
+        </SettingsRow>
+
+        <SettingsRow
           :label="t('settings.sidebarSize.label')"
           :description="sidebarSize === 'custom' ? t('settings.sidebarSize.customHint') : undefined"
         >
@@ -797,6 +814,13 @@ export default defineComponent({
       }
     };
 
+    const isCollapsedTabTopDefault = computed(
+      () => preferenceState.collapsedTabTop === DEFAULT_PREFERENCES.collapsedTabTop,
+    );
+    const resetCollapsedTabPosition = () => {
+      void updatePreferences({ collapsedTabTop: DEFAULT_PREFERENCES.collapsedTabTop });
+    };
+
     const handleAddBookmarkBtnPositionChange = (val?: any) => {
       const pos = Array.isArray(val) ? val[0] : val;
       if (pos === 'top' || pos === 'bottom') {
@@ -1029,6 +1053,8 @@ export default defineComponent({
       SIDEBAR_WIDTH_BOUNDS,
       savePreference,
       handleSidebarPositionChange,
+      isCollapsedTabTopDefault,
+      resetCollapsedTabPosition,
       handleAddBookmarkBtnPositionChange,
       handleSizeChange,
       handleFontSizeModeChange,
