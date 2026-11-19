@@ -1022,6 +1022,84 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     delete (window as any).poexdConfirm;
   });
 
+  it('backs up and imports global, poe1, and poe2 preferences together as schemaVersion 2', async () => {
+    storage = createInMemoryPreferencesStorage({
+      theme: 'caffeine',
+      enableTierHelper_poe1: false,
+      enableItemNormalizer_poe2: false,
+    });
+    const { container } = await mountSettingsPane();
+
+    let exportedBlob: Blob | undefined;
+    let downloadedFilename = '';
+    const createObjectUrlSpy = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockImplementation((obj: Blob | MediaSource) => {
+        exportedBlob = obj as Blob;
+        return 'blob:mock-settings-export';
+      });
+    const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const anchorClickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        downloadedFilename = this.download;
+      });
+
+    try {
+      const trigger = container.querySelector<HTMLButtonElement>('[data-settings-backup-menu]')!;
+      trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+      trigger.click();
+      await flushAsync();
+
+      const exportItem = document.body.querySelector<HTMLElement>(
+        '[data-settings-backup="export"]',
+      )!;
+      exportItem.click();
+      await vi.waitFor(() => expect(exportedBlob).toBeDefined());
+      expect(downloadedFilename).toMatch(/^poexd_settings_\d{4}-\d{2}-\d{2}\.json$/);
+
+      const exportedJson = JSON.parse(await exportedBlob!.text());
+      expect(exportedJson).toMatchObject({
+        format: 'poexd-settings',
+        schemaVersion: 2,
+        global: { theme: 'caffeine' },
+        poe1: { enableTierHelper: false },
+        poe2: { enableItemNormalizer: false },
+      });
+
+      const fileInput = container.querySelector<HTMLInputElement>('[data-settings-backup-file]')!;
+      const importPayload = JSON.stringify({
+        format: 'poexd-settings',
+        schemaVersion: 2,
+        global: { theme: 'catppuccin', collapsedTabTop: 280 },
+        poe1: { enableTierHelper: true, liveSearchMaxDisplayedResults: 50 },
+        poe2: { enableItemNormalizer: true, liveSearchMaxDisplayedResults: 500 },
+      });
+      const mockFile = {
+        text: async () => importPayload,
+      } as unknown as File;
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [mockFile],
+      });
+      fileInput.dispatchEvent(new Event('change'));
+      await vi.waitFor(() => expect(storage.inspect().theme).toBe('catppuccin'));
+
+      expect(storage.inspect()).toMatchObject({
+        theme: 'catppuccin',
+        collapsedTabTop: 280,
+        enableTierHelper_poe1: true,
+        liveSearchMaxDisplayedResults_poe1: 50,
+        enableItemNormalizer_poe2: true,
+        liveSearchMaxDisplayedResults_poe2: 500,
+      });
+    } finally {
+      anchorClickSpy.mockRestore();
+      createObjectUrlSpy.mockRestore();
+      revokeObjectUrlSpy.mockRestore();
+    }
+  });
+
   it('keeps setting rows free of always-visible descriptions', async () => {
     const { container } = await mountSettingsPane();
     const rows = container.querySelectorAll<HTMLElement>('[data-settings-row]');

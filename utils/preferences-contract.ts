@@ -87,6 +87,9 @@ export const GLOBAL_PREFERENCE_NAMES = [
   'enableBookmarkTooltip',
 ] as const;
 export type GlobalPreferenceName = (typeof GLOBAL_PREFERENCE_NAMES)[number];
+export type VersionedPreferenceName = Exclude<keyof Preferences, GlobalPreferenceName>;
+export type GlobalPreferences = Pick<Preferences, GlobalPreferenceName>;
+export type VersionedPreferences = Pick<Preferences, VersionedPreferenceName>;
 
 /** 曾經依遊戲版本（`${name}_poe1` / `${name}_poe2`）儲存、現已併入全域的偏好名稱 */
 export const LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES = [
