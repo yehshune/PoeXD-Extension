@@ -31,8 +31,7 @@ Store versions update automatically and are recommended. Firefox is not availabl
 - Open the [official trade site](https://www.pathofexile.com/trade) (Taiwan and China realms are
   also supported); the PoeXD toolbar appears on the **left** by default (switchable to the right in
   Settings → Panel Position), or collapses down to a single PoeXD badge.
-- Click the PoeXD icon in your browser toolbar to toggle individual modules (tier shortcuts, affix
-  selector, price conversion, Market Translation, etc.).
+- Click the PoeXD icon in your browser toolbar on a trade page to toggle the sidebar directly (or open quick trade links from other pages); individual modules can be toggled in the sidebar Settings.
 
 ## What's new
 
@@ -139,7 +138,7 @@ permission, `pobb.in` share pages are also translated to Chinese.
 ### ⚙️ Settings, hotkeys and FAQ
 
 - Adjustable panel position (left by default, switchable to right), theme, width and UI zoom;
-  toggle feature modules individually from the extension popup.
+  toggle feature modules individually in sidebar Settings.
 - Fuzzy search for item names and filters (auto `~`), customizable focus / clear search hotkeys
   (`Backspace` to clear, `Esc` to cancel), and optional item names in browser tab titles.
 - Extension UI in Traditional Chinese, Simplified Chinese and English; affix data covers all 11

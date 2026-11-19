@@ -1,122 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { getPreferences, type Preferences, type PreferencesModule } from '@/utils/preferences';
 import { DEFAULT_PREFERENCES } from '@/utils/preferences-contract';
-import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
-import {
-  isMarketTranslationDisplayLocale,
-  isMarketTranslationHost,
-} from '@/utils/market-translation';
-import { queryActiveTabTradeContext, type PoeVersion } from '@/utils/trade-context';
+import { type PoeVersion } from '@/utils/trade-context';
 import { buildTradeRootUrl, resolveQuickTradeRealms } from '@/utils/trade-realms';
-import {
-  bindDocumentLocaleMeta,
-  setActiveDisplayLocalePreference,
-  t,
-  type I18nKey,
-} from '@/utils/i18n';
+import { bindDocumentLocaleMeta, setActiveDisplayLocalePreference, t } from '@/utils/i18n';
 import { applyThemeToHost } from '@/lib/theme/theme-runtime';
-import { SIDEBAR_MODULES } from '@/utils/sidebar-modules';
-import { SIDEBAR_MODULE_PRESENTATION } from '@/components/sidebar/sidebar-module-presentation';
 import { syncUiRuntimeTokens } from '@/lib/tokens/ui-contract';
 
-const props = withDefaults(
-  defineProps<{
-    initialVersion?: PoeVersion;
-    initialIsTradePage?: boolean;
-  }>(),
-  {
-    initialVersion: undefined,
-    initialIsTradePage: undefined,
-  },
-);
-
-interface ModuleConfigItem {
-  key: keyof Preferences;
-  titleKey: I18nKey;
-  descriptionKey: I18nKey;
-  version?: PoeVersion;
-}
-
-const MODULE_ITEMS: readonly ModuleConfigItem[] = [
-  {
-    key: 'enableTierHelper',
-    titleKey: 'popup.module.enableTierHelper.title',
-    descriptionKey: 'popup.module.enableTierHelper.description',
-  },
-  {
-    key: 'enableAffixSelector',
-    titleKey: 'popup.module.enableAffixSelector.title',
-    descriptionKey: 'popup.module.enableAffixSelector.description',
-  },
-  {
-    key: 'enablePriceComparison',
-    titleKey: 'popup.module.enablePriceComparison.title',
-    descriptionKey: 'popup.module.enablePriceComparison.description',
-  },
-  {
-    key: 'enableResultModHighlight',
-    titleKey: 'popup.module.enableResultModHighlight.title',
-    descriptionKey: 'popup.module.enableResultModHighlight.description',
-  },
-  {
-    key: 'enableResultModQuickFilter',
-    titleKey: 'popup.module.enableResultModQuickFilter.title',
-    descriptionKey: 'popup.module.enableResultModQuickFilter.description',
-  },
-  {
-    key: 'enableResultPobCopy',
-    titleKey: 'popup.module.enableResultPobCopy.title',
-    descriptionKey: 'popup.module.enableResultPobCopy.description',
-  },
-  {
-    key: 'enableResultExternalLinks',
-    titleKey: 'popup.module.enableResultExternalLinks.title',
-    descriptionKey: 'popup.module.enableResultExternalLinks.description',
-  },
-  {
-    key: 'enableItemNormalizer',
-    titleKey: 'popup.module.enableItemNormalizer.title',
-    descriptionKey: 'popup.module.enableItemNormalizer.description',
-    version: 'poe2',
-  },
-  {
-    key: 'enablePureBackground',
-    titleKey: 'popup.module.enablePureBackground.title',
-    descriptionKey: 'popup.module.enablePureBackground.description',
-  },
-  {
-    key: 'enableAutoTitle',
-    titleKey: 'popup.module.enableAutoTitle.title',
-    descriptionKey: 'popup.module.enableAutoTitle.description',
-  },
-  {
-    key: 'marketTranslation',
-    titleKey: 'popup.module.marketTranslation.title',
-    descriptionKey: 'popup.module.marketTranslation.description',
-  },
-];
-
-/** 側邊欄模組：與側邊欄設定頁同一組開關，關閉後導覽列與頁面上的對應按鈕都會隱藏 */
-const SIDEBAR_MODULE_ITEMS: readonly ModuleConfigItem[] = SIDEBAR_MODULES.map((module) => ({
-  key: module.preferenceKey,
-  titleKey: SIDEBAR_MODULE_PRESENTATION[module.id].labelKey,
-  descriptionKey: SIDEBAR_MODULE_PRESENTATION[module.id].descriptionKey,
-}));
-
 const containerRef = ref<HTMLElement | null>(null);
-const activeVersion = ref<PoeVersion>(props.initialVersion || 'poe1');
-const isTradePage = ref<boolean>(props.initialIsTradePage ?? false);
 const preferencesState = ref<Preferences>({ ...DEFAULT_PREFERENCES });
 const loading = ref(true);
-
-const visibleModules = computed(() =>
-  MODULE_ITEMS.filter((item) => !item.version || item.version === activeVersion.value),
-);
 
 const POE_VERSIONS: readonly PoeVersion[] = ['poe1', 'poe2'];
 
@@ -127,31 +23,6 @@ const visibleRealms = computed(() =>
 let currentModule: PreferencesModule | null = null;
 let stopSubscription: (() => void) | null = null;
 let stopDocumentMeta: (() => void) | null = null;
-let pageLoadMarketTranslation: boolean | null = null;
-const isMarketTranslationTab = ref(true);
-const marketTranslationReloadRequired = ref(false);
-
-function syncReloadRequired(enabled: boolean) {
-  if (!isMarketTranslationTab.value || pageLoadMarketTranslation === null) {
-    marketTranslationReloadRequired.value = false;
-    return;
-  }
-  marketTranslationReloadRequired.value = enabled !== pageLoadMarketTranslation;
-}
-
-async function detectActiveTabMarketHost(): Promise<boolean> {
-  try {
-    if (typeof chrome !== 'undefined' && chrome?.tabs?.query) {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab?.url) {
-        return isMarketTranslationHost(new URL(tab.url).hostname);
-      }
-    }
-  } catch {
-    // 略過錯誤並維持預設值
-  }
-  return true;
-}
 
 function applyThemeAndTokens(snapshot: Readonly<Preferences>) {
   setActiveDisplayLocalePreference(snapshot.displayLocale, { hostname: '' });
@@ -171,28 +42,22 @@ function applyThemeAndTokens(snapshot: Readonly<Preferences>) {
   }
 }
 
-async function loadPreferencesForVersion(version: PoeVersion) {
+async function loadPreferences() {
   loading.value = true;
   stopSubscription?.();
   stopSubscription = null;
 
   try {
-    const outcome = await getPreferences(version);
+    const outcome = await getPreferences('poe1');
     if (outcome.ok) {
       currentModule = outcome.value;
       const snapshot = currentModule.read();
       preferencesState.value = { ...snapshot };
-      pageLoadMarketTranslation = Boolean(snapshot.marketTranslation);
-      syncReloadRequired(pageLoadMarketTranslation);
       await nextTick();
       applyThemeAndTokens(snapshot);
 
       stopSubscription = currentModule.subscribe((newSnapshot) => {
         preferencesState.value = { ...newSnapshot };
-        if (pageLoadMarketTranslation === null) {
-          pageLoadMarketTranslation = Boolean(newSnapshot.marketTranslation);
-        }
-        syncReloadRequired(Boolean(newSnapshot.marketTranslation));
         applyThemeAndTokens(newSnapshot);
       });
     }
@@ -200,69 +65,6 @@ async function loadPreferencesForVersion(version: PoeVersion) {
     console.error('[PoeXD Popup] 載入偏好設定失敗:', err);
   } finally {
     loading.value = false;
-  }
-}
-
-async function updateToggle(key: keyof Preferences, value: boolean | unknown) {
-  if (!currentModule) return;
-  const previousVal = Boolean(preferencesState.value[key]);
-  const previousDisplayLocale = preferencesState.value.displayLocale;
-  const boolVal = Boolean(value);
-  if (previousVal === boolVal) return;
-
-  const patch: Partial<Preferences> = { [key]: boolVal } as Partial<Preferences>;
-  if (
-    key === 'marketTranslation' &&
-    boolVal &&
-    !isMarketTranslationDisplayLocale(preferencesState.value.displayLocale)
-  ) {
-    const fallbackLocale = resolvePreferredChineseLocale();
-    patch.displayLocale = fallbackLocale;
-    preferencesState.value.displayLocale = fallbackLocale;
-  }
-
-  const rollback = () => {
-    preferencesState.value[key] = previousVal as never;
-    preferencesState.value.displayLocale = previousDisplayLocale;
-    if (key === 'marketTranslation') {
-      syncReloadRequired(previousVal);
-    }
-  };
-
-  preferencesState.value[key] = boolVal as never;
-  if (key === 'marketTranslation') {
-    syncReloadRequired(boolVal);
-  }
-  try {
-    const outcome = await currentModule.update(patch);
-    if (!outcome.ok) {
-      rollback();
-      console.error(`[PoeXD Popup] 更新 ${key} 失敗:`, outcome.error);
-    }
-  } catch (err) {
-    rollback();
-    console.error(`[PoeXD Popup] 更新 ${key} 異常:`, err);
-  }
-}
-
-async function reloadActiveTab() {
-  try {
-    if (typeof chrome !== 'undefined' && chrome?.tabs) {
-      if (chrome.tabs.query && chrome.tabs.reload) {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab?.id !== undefined) {
-          await chrome.tabs.reload(tab.id);
-        } else {
-          await chrome.tabs.reload();
-        }
-      } else if (chrome.tabs.reload) {
-        await chrome.tabs.reload();
-      }
-    }
-    pageLoadMarketTranslation = Boolean(preferencesState.value.marketTranslation);
-    marketTranslationReloadRequired.value = false;
-  } catch (err) {
-    console.error('[PoeXD Popup] 重新整理分頁失敗:', err);
   }
 }
 
@@ -277,16 +79,7 @@ function openTradePage(origin: string, version: PoeVersion) {
 
 onMounted(async () => {
   stopDocumentMeta = bindDocumentLocaleMeta(() => t('popup.documentTitle'));
-  if (props.initialVersion === undefined || props.initialIsTradePage === undefined) {
-    const detected = await queryActiveTabTradeContext();
-    activeVersion.value = props.initialVersion ?? detected.version;
-    isTradePage.value = props.initialIsTradePage ?? detected.isTradePage;
-  } else {
-    activeVersion.value = props.initialVersion;
-    isTradePage.value = props.initialIsTradePage;
-  }
-  isMarketTranslationTab.value = await detectActiveTabMarketHost();
-  await loadPreferencesForVersion(activeVersion.value);
+  await loadPreferences();
 });
 
 onUnmounted(() => {
@@ -313,27 +106,18 @@ onUnmounted(() => {
             >
               PoeXD
             </h1>
-            <span
-              v-if="isTradePage"
-              data-trade-badge
-              class="text-[length:var(--pxd-font-micro,10px)] px-1.5 py-0.5 rounded font-semibold border bg-muted/70 text-muted-foreground border-border/80 uppercase leading-none"
-            >
-              {{
-                activeVersion === 'poe2' ? t('popup.tradeBadge.poe2') : t('popup.tradeBadge.poe1')
-              }}
-            </span>
           </div>
           <p
             class="text-[length:var(--pxd-font-caption,11px)] text-muted-foreground mt-1 leading-none"
           >
-            {{ isTradePage ? t('popup.subtitle.trade') : t('popup.subtitle.notTrade') }}
+            {{ t('popup.subtitle.notTrade') }}
           </p>
         </div>
       </div>
     </div>
 
     <!-- 非官網時僅提供前往網站連結 -->
-    <div v-if="!isTradePage && !loading" data-not-trade-view class="flex flex-col gap-2 pt-1">
+    <div v-if="!loading" data-not-trade-view class="flex flex-col gap-2 pt-1">
       <Separator class="bg-border/60 mb-1" />
       <p
         class="text-[length:var(--pxd-font-caption,11px)] text-muted-foreground leading-normal m-0"
@@ -384,105 +168,5 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-
-    <!-- 僅在交易官網顯示設定與分隔線 -->
-    <template v-if="isTradePage">
-      <Separator class="bg-border/60 my-[var(--pxd-space-xs,4px)]" />
-
-      <!-- 模組清單 -->
-      <h2
-        data-popup-group="page"
-        class="m-0 px-[var(--pxd-space-sm,6px)] pt-[var(--pxd-space-xs,4px)] text-[length:var(--pxd-font-caption,11px)] font-semibold text-muted-foreground"
-      >
-        {{ t('popup.group.page') }}
-      </h2>
-      <div class="flex flex-col gap-[var(--pxd-space-xs,4px)]">
-        <template v-for="item in visibleModules" :key="item.key">
-          <div
-            data-popup-module-row
-            :data-module-key="item.key"
-            class="flex items-start justify-between gap-[var(--pxd-space-sm,6px)] p-[var(--pxd-space-sm,6px)] rounded-md hover:bg-muted/40 transition-colors cursor-pointer select-none"
-            @click="updateToggle(item.key, !preferencesState[item.key])"
-          >
-            <div class="flex flex-col min-w-0 pr-1">
-              <span
-                class="text-[length:var(--pxd-font-body,13px)] font-medium text-foreground truncate leading-snug"
-              >
-                {{ t(item.titleKey) }}
-              </span>
-              <span
-                class="text-[length:var(--pxd-font-caption,11px)] text-muted-foreground leading-tight mt-0.5"
-              >
-                {{ t(item.descriptionKey) }}
-              </span>
-            </div>
-            <div class="shrink-0 pt-0.5" @click.stop>
-              <Checkbox
-                :id="item.key"
-                :model-value="Boolean(preferencesState[item.key])"
-                :disabled="loading"
-                @update:model-value="updateToggle(item.key, $event)"
-              />
-            </div>
-          </div>
-          <div
-            v-if="item.key === 'marketTranslation' && marketTranslationReloadRequired"
-            data-test="popup-market-translation-reload"
-            class="flex items-center justify-between gap-[var(--pxd-space-sm,6px)] px-[var(--pxd-space-sm,6px)] pb-[var(--pxd-space-xs,4px)] text-[length:var(--pxd-font-caption,11px)] text-muted-foreground"
-          >
-            <span>{{ t('onboarding.welcome.reloadHint') }}</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              data-test="popup-market-translation-reload-btn"
-              @click="reloadActiveTab"
-            >
-              {{ t('onboarding.welcome.reload') }}
-            </Button>
-          </div>
-        </template>
-      </div>
-
-      <Separator class="bg-border/60 my-[var(--pxd-space-xs,4px)]" />
-      <h2
-        data-popup-group="sidebar"
-        class="m-0 px-[var(--pxd-space-sm,6px)] text-[length:var(--pxd-font-caption,11px)] font-semibold text-muted-foreground"
-      >
-        {{ t('popup.group.sidebar') }}
-      </h2>
-      <div class="flex flex-col gap-[var(--pxd-space-xs,4px)]">
-        <div
-          v-for="item in SIDEBAR_MODULE_ITEMS"
-          :key="item.key"
-          data-popup-module-row
-          data-popup-sidebar-module
-          :data-module-key="item.key"
-          class="flex items-start justify-between gap-[var(--pxd-space-sm,6px)] p-[var(--pxd-space-sm,6px)] rounded-md hover:bg-muted/40 transition-colors cursor-pointer select-none"
-          @click="updateToggle(item.key, !preferencesState[item.key])"
-        >
-          <div class="flex flex-col min-w-0 pr-1">
-            <span
-              class="text-[length:var(--pxd-font-body,13px)] font-medium text-foreground truncate leading-snug"
-            >
-              {{ t(item.titleKey) }}
-            </span>
-            <span
-              class="text-[length:var(--pxd-font-caption,11px)] text-muted-foreground leading-tight mt-0.5"
-            >
-              {{ t(item.descriptionKey) }}
-            </span>
-          </div>
-          <div class="shrink-0 pt-0.5" @click.stop>
-            <Checkbox
-              :id="item.key"
-              :model-value="Boolean(preferencesState[item.key])"
-              :disabled="loading"
-              @update:model-value="updateToggle(item.key, $event)"
-            />
-          </div>
-        </div>
-      </div>
-    </template>
   </div>
 </template>

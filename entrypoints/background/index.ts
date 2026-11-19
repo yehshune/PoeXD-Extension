@@ -27,6 +27,7 @@ import { LiveSearchCoordinator } from '@/utils/live-search-coordinator';
 import { TRADE_PAGE_MATCH_PATTERNS } from '@/utils/trade-realms';
 import { registerLiveSearchBackgroundHandlers } from '@/utils/live-search-messaging';
 import { registerMarketTranslationBackgroundHandlers } from '@/utils/market-translation-live';
+import { registerActionSidebarToggle } from '@/utils/action-sidebar-toggle';
 import {
   createInstallOnboardingState,
   createUpdateOnboardingState,
@@ -133,6 +134,7 @@ export default defineBackground(() => {
   registerLiveSearchBackgroundHandlers({ coordinator: liveSearchCoordinator });
   registerMarketTranslationBackgroundHandlers();
   registerPobShareBackgroundHandlers({ messenger: extensionMessaging });
+  registerActionSidebarToggle();
   const pinnedItemStore = createPinnedItemStore({
     get: (keys) => chrome.storage.local.get([...keys]),
     set: (values) => chrome.storage.local.set(values),

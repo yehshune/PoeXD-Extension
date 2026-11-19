@@ -222,14 +222,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.search.empty': 'No settings match “{query}”',
   'settings.search.emptyHint':
     'Try a feature name, such as “bookmark”, “hotkey”, or “translation”.',
-  'popup.group.page': 'Page features',
-  'popup.group.sidebar': 'Sidebar modules',
 
-  // Popup
-  'popup.documentTitle': 'PoeXD Module Controls',
-  'popup.tradeBadge.poe1': 'PoE 1 Official Trade',
-  'popup.tradeBadge.poe2': 'PoE 2 Official Trade',
-  'popup.subtitle.trade': 'Module Controls',
+  // Popup (quick links on non-Trade pages; Settings search still uses module.*.description keywords)
+  'popup.documentTitle': 'PoeXD Trade Assistant',
   'popup.subtitle.notTrade': 'Path of Exile Trade Assistant',
   'popup.notTrade.notice':
     'This tab is not an official Trade site. Open the official Trade site to use all features:',
@@ -239,36 +234,25 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'popup.notTrade.poe1ShortTitle': 'PoE 1',
   'popup.notTrade.poe2ShortTitle': 'PoE 2',
   'popup.notTrade.openAction': 'Open →',
-  'popup.module.enableTierHelper.title': 'Tier Quick Button',
   'popup.module.enableTierHelper.description':
     'Quick T1–T10 tier menu and range filler next to stat rows',
-  'popup.module.enableAffixSelector.title': 'Affix Selector',
   'popup.module.enableAffixSelector.description':
     'Fast affix search and picker modal next to stat groups',
-  'popup.module.enablePriceComparison.title': 'Price Conversion',
   'popup.module.enablePriceComparison.description':
     'Live currency rate conversion on search result listings',
-  'popup.module.enableResultModHighlight.title': 'Highlight Matched Affixes',
   'popup.module.enableResultModHighlight.description':
     'Highlight affixes on search results matching your filters',
-  'popup.module.enableResultModQuickFilter.title': 'Result Affix Quick Filter',
   'popup.module.enableResultModQuickFilter.description':
     'Hover result affixes to quickly add to AND / NOT filters',
-  'popup.module.enableResultExternalLinks.title': 'PoEDB Link',
   'popup.module.enableResultExternalLinks.description':
     'Open the PoEDB page of an item from search results',
-  'popup.module.enableResultPobCopy.title': 'Copy PoB Item Text',
   'popup.module.enableResultPobCopy.description': 'Copy English PoB item text from search results',
-  'popup.module.enableItemNormalizer.title': 'Rune Override Calculator',
   'popup.module.enableItemNormalizer.description':
     'Custom rune override calculation and normalization bar above results',
-  'popup.module.enablePureBackground.title': 'Hide Official Background',
   'popup.module.enablePureBackground.description':
     'Replace official background artwork with a high-contrast dark background',
-  'popup.module.enableAutoTitle.title': 'Replace Page Title',
   'popup.module.enableAutoTitle.description':
     'Dynamically replace tab title with the searched item name',
-  'popup.module.marketTranslation.title': 'Chinese Trade Site',
   'popup.module.marketTranslation.description':
     'Show the international Trade site in official Taiwan or China realm Chinese',
 

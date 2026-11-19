@@ -5,13 +5,10 @@ import { getPreferences } from '@/utils/preferences';
 import { applyDocumentLocaleMeta, setActiveDisplayLocalePreference, t } from '@/utils/i18n';
 import { applyThemeToHost } from '@/lib/theme/theme-runtime';
 import { syncUiRuntimeTokens } from '@/lib/tokens/ui-contract';
-import { queryActiveTabTradeContext } from '@/utils/trade-context';
 
 async function bootstrap() {
-  const context = await queryActiveTabTradeContext();
-
   try {
-    const outcome = await getPreferences(context.version);
+    const outcome = await getPreferences('poe1');
     if (outcome.ok) {
       const snapshot = outcome.value.read();
       setActiveDisplayLocalePreference(snapshot.displayLocale, { hostname: '' });
@@ -26,10 +23,7 @@ async function bootstrap() {
     console.error('[PoeXD Popup] 預載入主題失敗:', err);
   }
 
-  createApp(App, {
-    initialVersion: context.version,
-    initialIsTradePage: context.isTradePage,
-  }).mount('#app');
+  createApp(App).mount('#app');
 }
 
 void bootstrap();
