@@ -14,11 +14,11 @@
       ></div>
 
       <div
+        ref="sidebarWrapperEl"
         class="pxd-sidebar-wrapper fixed box-border text-[length:var(--pxd-font-secondary)]"
         :class="{
           collapsed: isCollapsed,
           'settings-pending invisible': !areSettingsReady,
-          'overflow-hidden': collapseAnimation !== null,
         }"
         :data-collapse-animation="collapseAnimation ?? undefined"
         :style="{
@@ -27,8 +27,7 @@
           height: showCollapsedTab ? 'var(--control-height-default)' : '100vh',
           top: showCollapsedTab ? 'var(--pxd-collapsed-tab-top, 100px)' : '0',
           '--pxd-collapsed-tab-top': isCollapsed ? collapsedTabTopStyle : undefined,
-          width: isCollapsed ? 'var(--pxd-sidebar-collapsed-width)' : actualWidth + 'px',
-          transition: collapseAnimation !== null ? collapseTransition : undefined,
+          width: showCollapsedTab ? 'var(--pxd-sidebar-collapsed-width)' : actualWidth + 'px',
           ...runtimeTokens,
         }"
       >
@@ -72,22 +71,10 @@
         </Button>
 
         <!-- 展開狀態下的側邊欄本體 -->
-        <!-- 展開/收合動畫期間面板維持原寬度、貼著頁面內側，外框縮放時看起來是滑入滑出 -->
         <div
           v-show="!showCollapsedTab"
           class="sidebar-container flex size-full"
-          :style="{
-            flexDirection: sidebarPosition === 'left' ? 'row-reverse' : 'row',
-            ...(collapseAnimation !== null
-              ? {
-                  position: 'absolute',
-                  top: '0',
-                  width: actualWidth + 'px',
-                  left: sidebarPosition === 'right' ? '0' : 'auto',
-                  right: sidebarPosition === 'left' ? '0' : 'auto',
-                }
-              : {}),
-          }"
+          :style="{ flexDirection: sidebarPosition === 'left' ? 'row-reverse' : 'row' }"
         >
           <!-- 窄長功能導覽列 (Sidebar Panel) -->
           <div
@@ -1214,24 +1201,55 @@ export default defineComponent({
     });
 
     // 展開/收合時外框寬度與官方頁面讓位用同樣的過場；收合期間先保留面板，動畫結束才換成收合標籤
+    /**
+     * 展開/收合動畫：面板維持完整寬度，整個往頁面外側平移（只動 transform，不重排版面），
+     * 與官方頁面讓位用同樣的時間與曲線，而且在同一個畫格起跑，面板內緣剛好貼著頁面邊緣移動。
+     * 用 Web Animations 起跑，不必先畫一格起點；收合時平移結束才換成收合標籤。
+     */
+    const sidebarWrapperEl = ref<HTMLElement | null>(null);
     const collapseAnimation = ref<'collapsing' | 'expanding' | null>(null);
-    const collapseTransition = `width ${SIDEBAR_LAYOUT_TRANSITION_MS}ms ${SIDEBAR_LAYOUT_TRANSITION_EASING}`;
-    const showCollapsedTab = computed(
-      () => isCollapsed.value && collapseAnimation.value !== 'collapsing',
-    );
+    const showCollapsedTab = computed(() => isCollapsed.value && collapseAnimation.value === null);
+    let runningCollapseAnimation: Animation | null = null;
     let collapseAnimationTimer: ReturnType<typeof setTimeout> | undefined;
     const prefersReducedMotion = () =>
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-    const playCollapseAnimation = (collapsing: boolean) => {
+    const finishCollapseAnimation = () => {
       clearTimeout(collapseAnimationTimer);
-      if (prefersReducedMotion()) {
-        collapseAnimation.value = null;
-        return;
-      }
+      const animation = runningCollapseAnimation;
+      runningCollapseAnimation = null;
+      collapseAnimation.value = null;
+      // 收合用 fill: forwards 停在畫面外；和換成收合標籤在同一次渲染移除
+      animation?.cancel();
+    };
+    const playCollapseAnimation = (collapsing: boolean) => {
+      finishCollapseAnimation();
+      if (prefersReducedMotion()) return;
       collapseAnimation.value = collapsing ? 'collapsing' : 'expanding';
-      collapseAnimationTimer = setTimeout(() => {
-        collapseAnimation.value = null;
-      }, SIDEBAR_LAYOUT_TRANSITION_MS);
+      // 沒有 Web Animations（或動畫沒結束事件）時的保險
+      collapseAnimationTimer = setTimeout(
+        finishCollapseAnimation,
+        SIDEBAR_LAYOUT_TRANSITION_MS + 100,
+      );
+      void nextTick(() => {
+        const el = sidebarWrapperEl.value;
+        if (!el || typeof el.animate !== 'function' || collapseAnimation.value === null) return;
+        const offscreen = `translateX(${sidebarPosition.value === 'left' ? '-100%' : '100%'})`;
+        const animation = el.animate(
+          [
+            { transform: collapsing ? 'translateX(0)' : offscreen },
+            { transform: collapsing ? offscreen : 'translateX(0)' },
+          ],
+          {
+            duration: SIDEBAR_LAYOUT_TRANSITION_MS,
+            easing: SIDEBAR_LAYOUT_TRANSITION_EASING,
+            fill: collapsing ? 'forwards' : 'none',
+          },
+        );
+        runningCollapseAnimation = animation;
+        animation.onfinish = () => {
+          if (runningCollapseAnimation === animation) finishCollapseAnimation();
+        };
+      });
     };
 
     const toggleCollapse = () => {
@@ -1549,7 +1567,7 @@ export default defineComponent({
       const alive = () => run === collapseDemoRun;
       if (isCollapsed.value) {
         toggleCollapse();
-        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 50);
+        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 120);
         if (!alive()) return;
       }
       const closeButton = findSidebarElement('[data-sidebar-action="collapse"]');
@@ -1653,7 +1671,7 @@ export default defineComponent({
         if (!step.targetId || getPageGuideTarget(step.targetId).scope !== 'sidebar') return;
         if (!isCollapsed.value) return;
         toggleCollapse();
-        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS);
+        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 80);
       },
       async runStepDemo(demo) {
         if (demo === 'collapse') {
@@ -1690,7 +1708,7 @@ export default defineComponent({
     onUnmounted(() => {
       pageGuide.setTourContext(null);
       stopCollapseDemo();
-      clearTimeout(collapseAnimationTimer);
+      finishCollapseAnimation();
       clearScrollRestoreTimers();
       if (arrivalTimer) {
         clearTimeout(arrivalTimer);
@@ -1753,7 +1771,7 @@ export default defineComponent({
       isTabVisible,
       toggleCollapse,
       collapseAnimation,
-      collapseTransition,
+      sidebarWrapperEl,
       showCollapsedTab,
       collapsedTabTopStyle,
       isCollapsedTabDragging,

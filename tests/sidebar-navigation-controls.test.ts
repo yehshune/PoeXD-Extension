@@ -421,7 +421,7 @@ describe('Sidebar Navigation Controls Migration', () => {
       // 收合動畫期間面板仍顯示，動畫結束才換成收合標籤
       expect(sidebarContainer?.style.display).not.toBe('none');
       expect(container.querySelector('[data-collapse-animation="collapsing"]')).not.toBeNull();
-      await new Promise((r) => setTimeout(r, SIDEBAR_LAYOUT_TRANSITION_MS + 20));
+      await new Promise((r) => setTimeout(r, SIDEBAR_LAYOUT_TRANSITION_MS + 120));
       await nextTick();
 
       expect(expandBtn?.style.display).not.toBe('none');

@@ -21,9 +21,8 @@ describe('Sidebar page layout', () => {
     expect(layoutSource).toContain(
       'transition: width ${timing}, margin-left ${timing}, margin-right ${timing} !important;',
     );
-    expect(sidebarSource).toContain(
-      'const collapseTransition = `width ${SIDEBAR_LAYOUT_TRANSITION_MS}ms ${SIDEBAR_LAYOUT_TRANSITION_EASING}`;',
-    );
+    expect(sidebarSource).toContain('duration: SIDEBAR_LAYOUT_TRANSITION_MS,');
+    expect(sidebarSource).toContain('easing: SIDEBAR_LAYOUT_TRANSITION_EASING,');
     expect(layoutSource).toContain(
       "const pageMarginLeft = position === 'left' && !collapsed ? width : 0;",
     );

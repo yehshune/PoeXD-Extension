@@ -208,7 +208,7 @@ describe('Sidebar UI Final Polish Contract & Verification', () => {
         "wrapper.style.setProperty('--poexd-host-width', 'var(--pxd-sidebar-collapsed-width)');",
       );
       expect(sidebarSource).toContain(
-        "isCollapsed ? 'var(--pxd-sidebar-collapsed-width)' : actualWidth + 'px'",
+        "showCollapsedTab ? 'var(--pxd-sidebar-collapsed-width)' : actualWidth + 'px'",
       );
     });
 

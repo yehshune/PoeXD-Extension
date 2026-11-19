@@ -3,6 +3,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { createApp, defineComponent, h, nextTick, onMounted, onUnmounted } from 'vue';
 import Sidebar from '@/components/Sidebar.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
+import { SIDEBAR_LAYOUT_TRANSITION_MS } from '@/utils/sidebar-motion';
 
 // Spy records for child pane mount persistence
 const paneMountCounts = {
@@ -430,6 +431,9 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
     ) as HTMLButtonElement | null;
     expect(collapseBtn).not.toBeNull();
     collapseBtn?.click();
+    await nextTick();
+    // 收合動畫期間面板保持原寬度平移出去，動畫結束才換成收合標籤
+    await new Promise((r) => setTimeout(r, SIDEBAR_LAYOUT_TRANSITION_MS + 150));
     await nextTick();
 
     expect(wrapper.classList.contains('collapsed')).toBe(true);
