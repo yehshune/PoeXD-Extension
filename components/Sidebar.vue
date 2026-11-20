@@ -1314,6 +1314,11 @@ export default defineComponent({
           },
         );
         runningCollapseAnimation = animation;
+        // finishCollapseAnimation 會刻意 cancel()，依規格 finished 會以 AbortError reject；
+        // 這是預期的結束方式，不是錯誤，接住避免成為未處理的 rejection
+        animation.finished?.catch((error: unknown) => {
+          if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
+        });
         animation.onfinish = () => {
           if (runningCollapseAnimation === animation) finishCollapseAnimation();
         };
