@@ -551,7 +551,11 @@ function expandedListingMeta(item: PinnedItemSnapshot): string {
             v-for="item in filteredItems"
             :key="item.id"
             class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
-            :class="[isExpanded(item) ? 'bg-muted/20' : 'hover:bg-muted/40']"
+            :class="[
+              isExpanded(item)
+                ? 'bg-muted/20'
+                : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40',
+            ]"
             :data-pinned-item-id="item.id"
             :data-expanded="isExpanded(item) ? '' : undefined"
           >
@@ -600,7 +604,9 @@ function expandedListingMeta(item: PinnedItemSnapshot): string {
                     >{{ metaParts(item).join(' · ') }}</span
                   >
                 </div>
-                <div class="flex shrink-0 items-center gap-[var(--pxd-space-sm)]">
+                <div
+                  class="flex shrink-0 items-center gap-[var(--pxd-space-sm)] transition-opacity duration-150 group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
+                >
                   <div class="flex flex-col items-end gap-[2px]">
                     <span
                       class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
@@ -653,9 +659,9 @@ function expandedListingMeta(item: PinnedItemSnapshot): string {
                 </div>
               </div>
 
-              <!-- 收合時 hover 才浮出的操作（左側平滑漸層遮罩過渡） -->
+              <!-- 收合時 hover 才浮出的操作（整列等高實色遮擋＋左側平滑漸層過渡，並淡出右側價格與展開箭頭避免重疊） -->
               <PinnedItemActions
-                class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) py-1 pl-[var(--pxd-space-2xl)] bg-gradient-to-l from-[color-mix(in_srgb,var(--muted)_40%,var(--card))] from-75% to-transparent opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
+                class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center py-1 pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
                 :item="item"
                 :state="isSold(item) ? 'sold' : states[item.id]"
                 :same-realm="sameRealm(item)"

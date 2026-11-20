@@ -9,7 +9,7 @@
     <div
       class="group-header-row group"
       :class="[
-        'relative flex items-center justify-between cursor-pointer select-none border-0 border-solid border-l-2 border-l-primary bg-muted/40 hover:bg-muted/70 py-[var(--pxd-bookmark-folder-header-padding-y)] px-[var(--pxd-space-lg)]',
+        'relative flex items-center justify-between cursor-pointer select-none border-0 border-solid border-l-2 border-l-primary bg-muted/40 hover:bg-muted/70 has-[[data-state=open]]:bg-muted/70 py-[var(--pxd-bookmark-folder-header-padding-y)] px-[var(--pxd-space-lg)]',
         isBodyVisible ? 'rounded-t-md border-b border-border' : 'rounded-md',
         {
           collapsed: ctx.isGroupCollapsed(node.folder.id),
@@ -54,7 +54,7 @@
 
       <div
         v-if="ctx.editingGroupId.value !== node.folder.id && !ctx.isDragging.value"
-        class="group-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) bg-[color-mix(in_srgb,var(--muted)_70%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto flex items-center gap-[var(--pxd-space-sm)]"
+        class="group-actions pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_70%,var(--card))] absolute inset-y-0 right-0 rounded-r-[inherit] z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto flex items-center gap-[var(--pxd-space-sm)]"
       >
         <!-- 新增書籤按鈕 -->
         <Button

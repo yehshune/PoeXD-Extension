@@ -211,13 +211,15 @@ describe('Bookmark Folder Header & Density Ownership Contracts', () => {
     it('enforces absolute overlay positioning for group-actions without focus-within trigger', () => {
       const source = readBookmarkNodeSource();
 
-      // group-actions is absolute overlay with density-aware spacing, local stacking layer, and opaque theme background
+      // group-actions spans full row height flush-right with smooth left-fade opaque theme mask
       expect(source).toContain('group-actions');
       expect(source).toContain('absolute');
-      expect(source).toContain('right-[var(--pxd-space-md)]');
-      expect(source).toContain('top-1/2 -translate-y-1/2');
+      expect(source).toContain('inset-y-0 right-0');
       expect(source).toContain('z-(--pxd-z-raised)');
-      expect(source).toContain('bg-[color-mix(in_srgb,var(--muted)_70%,var(--card))]');
+      expect(source).toContain('pxd-hover-actions-overlay');
+      expect(source).toContain(
+        '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_70%,var(--card))]',
+      );
       expect(source).toContain('group-hover:opacity-100');
       expect(source).toContain('group-hover:pointer-events-auto');
 

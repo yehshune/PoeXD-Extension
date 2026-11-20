@@ -228,12 +228,11 @@ describe('Business Layer Migration Phase 2B — BookmarkPane Group / Bookmark Ro
     it('enforces absolute overlay with opaque Theme background and local z-index for bookmark-item-actions', () => {
       expect(bookmarkFolderNodeSource).toContain('bookmark-item-actions');
       expect(bookmarkFolderNodeSource).toContain('absolute');
-      expect(bookmarkFolderNodeSource).toContain('right-[var(--pxd-space-md)]');
-      expect(bookmarkFolderNodeSource).toContain('top-1/2 -translate-y-1/2');
+      expect(bookmarkFolderNodeSource).toContain('inset-y-0 right-0');
+      expect(bookmarkFolderNodeSource).toContain('pr-[var(--pxd-space-md)]');
+      expect(bookmarkFolderNodeSource).toContain('pl-[var(--pxd-space-2xl)]');
       expect(bookmarkFolderNodeSource).toContain('z-(--pxd-z-raised)');
-      expect(bookmarkFolderNodeSource).toContain(
-        'bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))]',
-      );
+      expect(bookmarkFolderNodeSource).toContain('pxd-hover-actions-overlay');
       expect(bookmarkFolderNodeSource).toContain('group-hover:opacity-100');
       expect(bookmarkFolderNodeSource).toContain('group-hover:pointer-events-auto');
     });

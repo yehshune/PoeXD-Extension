@@ -129,7 +129,7 @@
           data-pob-build
         >
           <header
-            class="group relative flex items-center justify-between cursor-pointer select-none border-0 border-solid border-l-2 border-l-primary bg-muted/40 hover:bg-muted/70 py-[var(--pxd-bookmark-folder-header-padding-y)] px-[var(--pxd-space-lg)]"
+            class="group relative flex items-center justify-between cursor-pointer select-none border-0 border-solid border-l-2 border-l-primary bg-muted/40 hover:bg-muted/70 has-[[data-state=open]]:bg-muted/70 py-[var(--pxd-bookmark-folder-header-padding-y)] px-[var(--pxd-space-lg)]"
             :class="{ 'border-b border-border': !build.collapsed || isFiltering }"
             @click="toggleCollapsed(build.id)"
           >
@@ -171,7 +171,8 @@
                 </span>
 
                 <span
-                  class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums"
+                  class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
+                  :class="{ 'opacity-0': isBuildMenuOpen(build.id) }"
                   data-pob-build-progress
                   :title="
                     t('pobBuild.progress', {
@@ -188,7 +189,7 @@
             <div
               v-if="renamingId !== build.id"
               :class="{ '!opacity-100 !pointer-events-auto': isBuildMenuOpen(build.id) }"
-              class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) bg-[color-mix(in_srgb,var(--muted)_70%,var(--card))] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto flex items-center"
+              class="pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_70%,var(--card))] absolute inset-y-0 right-0 z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto flex items-center"
               @click.stop
             >
               <DropdownMenu
@@ -376,8 +377,8 @@
                   :data-done="row.done ? 'true' : 'false'"
                   :class="
                     isPreviewActive(build.id, row.key)
-                      ? 'bg-primary/12 hover:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
-                      : 'hover:bg-muted/40'
+                      ? 'bg-primary/12 hover:bg-primary/15 has-[[data-state=open]]:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
+                      : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40'
                   "
                   class="group/row relative flex items-center gap-[var(--pxd-space-sm)] border-0 border-b border-dashed border-border px-[var(--pxd-space-md)] py-[var(--pxd-bookmark-row-padding-y)] last:border-b-0 transition-colors"
                 >
@@ -435,7 +436,8 @@
                       />
                     </span>
                     <span
-                      class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+                      class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground transition-opacity duration-150 group-hover/row:opacity-0 group-focus-within/row:opacity-0"
+                      :class="{ 'opacity-0': isMenuOpen(build.id, row.key) }"
                     >
                       <span>{{ rowDetail(row) }}</span>
                     </span>
@@ -464,13 +466,13 @@
                     :class="[
                       row.mods?.length || row.searchOverride
                         ? 'right-[calc(var(--pxd-space-md)+var(--control-height-sm))]'
-                        : 'right-[var(--pxd-space-md)]',
+                        : 'right-0 pr-[var(--pxd-space-md)]',
                       isPreviewActive(build.id, row.key)
-                        ? 'bg-[color-mix(in_srgb,var(--primary)_15%,var(--background))]'
-                        : 'bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))]',
+                        ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--card))]'
+                        : undefined,
                       { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
                     ]"
-                    class="absolute top-1/2 -translate-y-1/2 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pl-[var(--pxd-space-sm)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
+                    class="pxd-hover-actions-overlay absolute inset-y-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
                   >
                     <Button
                       v-if="row.query"

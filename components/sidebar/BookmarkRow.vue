@@ -3,10 +3,10 @@
     class="bookmark-row-item group relative flex items-center justify-between py-[var(--pxd-bookmark-row-padding-y)] px-[var(--pxd-space-md)] gap-[var(--pxd-space-lg)] border-0 border-b border-dashed border-border cursor-grab active:cursor-grabbing last:border-b-0 transition-colors"
     :class="
       isCurrentBookmark
-        ? 'is-current-bookmark bg-primary/12 hover:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
+        ? 'is-current-bookmark bg-primary/12 hover:bg-primary/15 has-[[data-state=open]]:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
         : isPreviewActive
-          ? 'bg-primary/12 hover:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
-          : 'bg-transparent hover:bg-muted/40'
+          ? 'bg-primary/12 hover:bg-primary/15 has-[[data-state=open]]:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
+          : 'bg-transparent hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40'
     "
     :data-id="bm.id"
     :data-current="isCurrentBookmark ? 'true' : undefined"
@@ -62,11 +62,11 @@
     <!-- 操作列採延遲掛載：書籤一多時避免每列都建立選單元件，首次 hover / focus 才建立 -->
     <div
       v-if="showActions"
-      class="bookmark-item-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) pl-[var(--pxd-space-sm)] flex items-center shrink-0 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+      class="bookmark-item-actions pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] flex items-center shrink-0 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
       :class="
         isCurrentBookmark || isPreviewActive
-          ? 'bg-[color-mix(in_srgb,var(--primary)_15%,var(--background))]'
-          : 'bg-[color-mix(in_srgb,var(--muted)_40%,var(--background))]'
+          ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--card))]'
+          : undefined
       "
     >
       <Button

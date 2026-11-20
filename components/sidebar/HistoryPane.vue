@@ -99,12 +99,19 @@
                 :title="t('history.invalidTooltip')"
                 >{{ t('history.invalidBadge') }}</span
               >
-              <span class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground">
+              <span
+                class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
+              >
                 {{ formatTime(h.visitedAt) }}
               </span>
             </div>
             <div
-              class="history-row-actions absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) bg-inherit pl-[var(--pxd-space-sm)] flex items-center gap-[var(--pxd-space-xs)] opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
+              :class="
+                previewHistory?.id === h.id
+                  ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--card))]'
+                  : undefined
+              "
+              class="history-row-actions pxd-hover-actions-overlay absolute inset-y-0 right-0 rounded-r-md z-(--pxd-z-raised) pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] flex items-center gap-[var(--pxd-space-xs)] opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
             >
               <Button
                 v-if="searchEntryClickAction === 'preview'"
