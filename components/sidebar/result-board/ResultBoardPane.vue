@@ -41,6 +41,7 @@ const {
   state,
   loaderState,
   rates,
+  enablePriceComparison,
   isLiveMode,
   view,
   sortMode,
@@ -454,7 +455,7 @@ function setMinSellerCount(value: string | number): void {
         </div>
 
         <p
-          v-if="!conversionAvailable && entries.length > 0"
+          v-if="enablePriceComparison && !conversionAvailable && entries.length > 0"
           class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"
           data-board-no-conversion
         >

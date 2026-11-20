@@ -61,8 +61,11 @@ export function usePinnedItems() {
   const items = shallowRef<PinnedItemSnapshot[]>([]);
   const showAllLeagues = ref(false);
   const states = ref<Record<string, PinnedItemTransientState>>({});
-  const currencyRates = shallowRef<CurrencyRateSnapshot | undefined>(undefined);
+  const loadedCurrencyRates = shallowRef<CurrencyRateSnapshot | undefined>(undefined);
   const enablePriceComparison = ref(true);
+  const currencyRates = computed(() =>
+    enablePriceComparison.value ? loadedCurrencyRates.value : undefined,
+  );
   const currentLeague = getTradeLeague();
   const currentOrigin = window.location.origin;
   let pobCopy: ResultPobCopy | undefined;
@@ -72,13 +75,19 @@ export function usePinnedItems() {
   let ratesLoading = false;
 
   async function ensureCurrencyRates() {
-    if (currencyRates.value || ratesLoading || !currentLeague || !isPriceConversionSupported()) {
+    if (
+      !enablePriceComparison.value ||
+      loadedCurrencyRates.value ||
+      ratesLoading ||
+      !currentLeague ||
+      !isPriceConversionSupported()
+    ) {
       return;
     }
     ratesLoading = true;
     try {
       const rates = await fetchCurrencyRates(version, currentLeague);
-      if (!disposed && rates) currencyRates.value = rates;
+      if (!disposed && rates) loadedCurrencyRates.value = rates;
     } finally {
       ratesLoading = false;
     }

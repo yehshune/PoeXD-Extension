@@ -10,11 +10,27 @@ import { receiveResultTranslationRequests } from '@/utils/market-result-translat
 import { TradeResultCache } from '@/utils/trade-result-cache';
 import { rawResult } from './helpers/result-board-fixtures';
 
-const { runtimeHolder, mockFetchCurrencyRates } = vi.hoisted(() => ({
+const { runtimeHolder, mockFetchCurrencyRates, prefState, prefListeners } = vi.hoisted(() => ({
   runtimeHolder: { current: undefined as ResultBoardRuntime | undefined },
   mockFetchCurrencyRates: vi.fn(async () => ({
     primary: 'chaos',
     rates: { chaos: 1, divine: 200 },
+  })),
+  prefState: { enablePriceComparison: true },
+  prefListeners: new Set<(snapshot: { enablePriceComparison: boolean }) => void>(),
+}));
+
+vi.mock('@/utils/preferences', () => ({
+  getPreferences: vi.fn(async () => ({
+    ok: true,
+    value: {
+      read: () => ({ enablePriceComparison: prefState.enablePriceComparison }),
+      subscribe: (listener: (snapshot: { enablePriceComparison: boolean }) => void) => {
+        prefListeners.add(listener);
+        listener({ enablePriceComparison: prefState.enablePriceComparison });
+        return () => prefListeners.delete(listener);
+      },
+    },
   })),
 }));
 
@@ -57,6 +73,9 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
   };
 
   beforeEach(() => {
+    prefState.enablePriceComparison = true;
+    prefListeners.clear();
+    mockFetchCurrencyRates.mockClear();
     setActiveDisplayLocalePreference('zh-TW');
     storageData = {};
     previousChrome = (globalThis as { chrome?: unknown }).chrome;
@@ -368,5 +387,71 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(writeText).toHaveBeenCalledWith(
       '"Doom Ward|Grim Coat" "Vaal Regalia" "~b/o 2 chaos|~b/o 3 chaos"',
     );
+  });
+
+  it('follows enablePriceComparison for rate fetching, price inputs, summary, sorting and filtering', async () => {
+    ingest([
+      rawResult({ id: 'r1', amount: 1, currency: 'divine' }),
+      rawResult({ id: 'r2', amount: 50, currency: 'chaos' }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    expect(mockFetchCurrencyRates).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[data-board-price-min]')).not.toBeNull();
+    expect(container.querySelector('[data-board-price-max]')).not.toBeNull();
+    expect(container.querySelector('[data-board-price-summary]')).not.toBeNull();
+    expect(container.querySelector('[data-board-no-conversion]')).toBeNull();
+
+    // Filter with min price 100c -> only 1 divine (200c) remains
+    const minInput = container.querySelector<HTMLInputElement>('[data-board-price-min]')!;
+    minInput.value = '100';
+    minInput.dispatchEvent(new Event('input'));
+    await flush();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
+
+    // Disable enablePriceComparison -> inputs, summary & filtering disable, no realm-unavailable notice
+    prefState.enablePriceComparison = false;
+    prefListeners.forEach((fn) => fn({ enablePriceComparison: false }));
+    await flush();
+
+    expect(container.querySelector('[data-board-price-min]')).toBeNull();
+    expect(container.querySelector('[data-board-price-max]')).toBeNull();
+    expect(container.querySelector('[data-board-price-summary]')).toBeNull();
+    expect(container.querySelector('[data-board-no-conversion]')).toBeNull();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
+
+    // Sort menu omits price options when disabled
+    container.querySelector<HTMLElement>('[data-board-sort]')!.click();
+    await flush();
+    expect(document.querySelector('[data-board-sort-mode="price-asc"]')).toBeNull();
+    expect(document.querySelector('[data-board-sort-mode="price-desc"]')).toBeNull();
+
+    // Re-enable -> price inputs, summary & price sort options return
+    prefState.enablePriceComparison = true;
+    prefListeners.forEach((fn) => fn({ enablePriceComparison: true }));
+    await flush();
+
+    expect(container.querySelector('[data-board-price-min]')).not.toBeNull();
+    expect(container.querySelector('[data-board-price-max]')).not.toBeNull();
+    expect(container.querySelector('[data-board-price-summary]')).not.toBeNull();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
+  });
+
+  it('does not fetch currency rates on mount when enablePriceComparison starts disabled', async () => {
+    prefState.enablePriceComparison = false;
+    ingest([rawResult({ id: 'r1', amount: 10, currency: 'chaos' })]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    expect(mockFetchCurrencyRates).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-board-price-min]')).toBeNull();
+    expect(container.querySelector('[data-board-no-conversion]')).toBeNull();
   });
 });

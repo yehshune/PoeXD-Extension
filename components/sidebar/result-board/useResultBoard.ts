@@ -16,6 +16,7 @@ import { t, type I18nKey } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { capturePinnedCardDom } from '@/utils/pinned-card-dom';
 import { createPinnedItemSnapshot, type PinnedItemSnapshot } from '@/utils/pinned-items';
+import { getPreferences } from '@/utils/preferences';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
 import { sumPrices, type PriceTotal } from '@/utils/result-board/board-price';
@@ -62,7 +63,9 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const league = getTradeLeague();
   const state = shallowRef(runtime.session.getState());
   const loaderState = shallowRef(runtime.loader.getState());
-  const rates = shallowRef<CurrencyRateSnapshot | undefined>(undefined);
+  const loadedRates = shallowRef<CurrencyRateSnapshot | undefined>(undefined);
+  const enablePriceComparison = ref(true);
+  const rates = computed(() => (enablePriceComparison.value ? loadedRates.value : undefined));
   const isLiveMode = ref(getTradePageMode() === 'live');
 
   const view = ref<BoardView>('items');
@@ -78,12 +81,26 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const expandedSellers = ref<ReadonlySet<string>>(new Set());
 
   let disposed = false;
+  let ratesLoading = false;
   const cleanups: (() => void)[] = [];
 
   async function ensureRates() {
-    if (rates.value || !league || !isPriceConversionSupported()) return;
-    const loaded = await fetchCurrencyRates(version, league);
-    if (!disposed && loaded) rates.value = loaded;
+    if (
+      !enablePriceComparison.value ||
+      loadedRates.value ||
+      ratesLoading ||
+      !league ||
+      !isPriceConversionSupported()
+    ) {
+      return;
+    }
+    ratesLoading = true;
+    try {
+      const loaded = await fetchCurrencyRates(version, league);
+      if (!disposed && loaded) loadedRates.value = loaded;
+    } finally {
+      ratesLoading = false;
+    }
   }
 
   const entries = computed(() => state.value.ledger.entries);
@@ -283,7 +300,21 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     );
     state.value = runtime.session.getState();
     loaderState.value = runtime.loader.getState();
-    void ensureRates();
+    void getPreferences(version).then((outcome) => {
+      if (disposed) return;
+      if (!outcome.ok) {
+        void ensureRates();
+        return;
+      }
+      cleanups.push(
+        outcome.value.subscribe((snapshot) => {
+          enablePriceComparison.value = snapshot.enablePriceComparison;
+          if (snapshot.enablePriceComparison) {
+            void ensureRates();
+          }
+        }),
+      );
+    });
   });
 
   onUnmounted(() => {
@@ -295,6 +326,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     state,
     loaderState,
     rates,
+    enablePriceComparison,
     isLiveMode,
     view,
     sortMode,

@@ -207,9 +207,16 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
     expect(container.querySelector('[data-pinned-item-price-conversion]')).not.toBeNull();
   });
 
-  it('does not fetch currency rates on mount when enablePriceComparison starts disabled', async () => {
+  it('does not fetch currency rates on mount or sort when enablePriceComparison starts disabled', async () => {
     prefState.enablePriceComparison = false;
-    mockList.mockResolvedValue([makeSnapshot('cmp-off', undefined, 300)]);
+    mockList.mockResolvedValue([
+      makeSnapshot('cmp-div', undefined, 1),
+      makeSnapshot('cmp-chaos', undefined, 300),
+    ]);
+    // Set cmp-div currency to divine (1 div = 200c < 300c)
+    const snapshots = await mockList();
+    snapshots[0].listing.price = { amount: 1, currency: 'divine' };
+    mockList.mockResolvedValue(snapshots);
 
     const app = createApp({ render: () => h(PinnedItemPane) });
     app.mount(container);
@@ -217,6 +224,19 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
     await flush();
 
     expect(mockFetchCurrencyRates).not.toHaveBeenCalled();
+
+    // Selecting price-asc does not fetch rates or convert currencies when disabled (raw 1 < 300)
+    container.querySelector<HTMLElement>('[data-pinned-items-sort]')!.click();
+    await flush();
+    document.querySelector<HTMLElement>('[data-pinned-sort-mode="price-asc"]')!.click();
+    await flush();
+
+    expect(mockFetchCurrencyRates).not.toHaveBeenCalled();
+    const sortedIds = Array.from(
+      container.querySelectorAll<HTMLElement>('.pinned-item-row'),
+      (el) => el.getAttribute('data-pinned-item-id'),
+    );
+    expect(sortedIds).toEqual(['cmp-div', 'cmp-chaos']);
 
     container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
     await flush();
