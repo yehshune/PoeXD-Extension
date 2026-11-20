@@ -309,6 +309,47 @@ describe('PageGuideOfficialResult', () => {
     expect(subtitles).toHaveLength(3);
     expect(subtitles[0]?.textContent).toBe('Adds 20 to 31 Cold Damage');
   });
+
+  it('matches official default vs compact layouts without 2x width overflow and reacts to layout changes', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
+    const trade = document.createElement('div');
+    trade.id = 'trade';
+    trade.getBoundingClientRect = () =>
+      ({ left: 400, top: 0, width: 1000, height: 800, right: 1400, bottom: 800 }) as DOMRect;
+    const realResults = document.createElement('div');
+    realResults.className = 'results';
+    trade.appendChild(realResults);
+    document.body.appendChild(trade);
+
+    mountComponent(() => h(PageGuideOfficialResult, { features: allOn }));
+    await flush();
+
+    const frame = trade.querySelector<HTMLElement>('[data-page-guide-mock-frame]')!;
+    const mock = trade.querySelector<HTMLElement>('[data-poexd-guide-mock]')!;
+    expect(mock.classList.contains('compact')).toBe(false);
+    expect(mock.classList.contains('two')).toBe(false);
+    expect(mock.style.width).toBe('100%');
+    expect(frame.style.width).toBe('840px');
+    expect(frame.style.overflow).toBe('clip');
+
+    realResults.className = 'results compact';
+    await flush();
+    expect(mock.classList.contains('compact')).toBe(true);
+    expect(mock.classList.contains('two')).toBe(false);
+    expect(mock.style.width).toBe('100%');
+    expect(frame.style.width).toBe('620px');
+
+    realResults.className = 'results compact two';
+    await flush();
+    expect(mock.classList.contains('compact')).toBe(true);
+    expect(mock.classList.contains('two')).toBe(false);
+    expect(frame.style.width).toBe('620px');
+
+    realResults.className = 'results';
+    await flush();
+    expect(mock.classList.contains('compact')).toBe(false);
+    expect(frame.style.width).toBe('840px');
+  });
 });
 
 describe('PageGuideSetupControls market translation preview', () => {

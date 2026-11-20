@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { t } from '@/utils/i18n';
 import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
 import { PAGE_GUIDE_MOCK_ATTR, PAGE_GUIDE_MOCK_Z_INDEX } from '@/utils/trade-results-root';
@@ -17,8 +17,10 @@ const props = defineProps<{
   resultBilingual?: boolean;
 }>();
 
-/** 一筆結果的寬度，與官方雙欄版面的一欄差不多 */
-const MOCK_WIDTH = 620;
+/** 精簡與雙欄精簡版面的一筆示意結果寬度 */
+const MOCK_WIDTH_COMPACT = 620;
+/** 官方預設（Default）三欄版面需要至少 ~820px 才能讓 400px 物品彈窗不擠到右側價格欄 */
+const MOCK_WIDTH_DEFAULT = 840;
 const ITEM_ICON =
   'https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9Ud29IYW5kV2VhcG9ucy9Ud29IYW5kTWFjZXMvQmFzZXR5cGVzLzJITWFjZTA5IiwidyI6MiwiaCI6NCwic2NhbGUiOjEsInJlYWxtIjoicG9lMiJ9XQ/74817e8b14/2HMace09.png';
 const EXALTED_ICON =
@@ -58,51 +60,61 @@ const mods = [
 ] as const;
 
 const teleportTarget = ref<HTMLElement | null>(null);
-const position = ref({ left: 0, top: 0, width: MOCK_WIDTH });
+const position = ref({ left: 0, top: 0, width: MOCK_WIDTH_COMPACT });
 /** 官方結果區目前是否為精簡模式；沒有結果區時用精簡模式（官方預設） */
 const compact = ref(true);
 
-const resultsEl = ref<HTMLElement | null>(null);
-const rowEl = ref<HTMLElement | null>(null);
-/** 官方雙欄版面可能把唯一一列排在右欄；量出位移後把內層往左推，讓這列貼齊外框 */
-const rowShift = ref(0);
-
-async function alignRow() {
-  await nextTick();
-  const results = resultsEl.value;
-  const row = rowEl.value;
-  if (!results || !row) return;
-  const shift = Math.round(row.getBoundingClientRect().left - results.getBoundingClientRect().left);
-  if (shift !== rowShift.value) rowShift.value = shift;
+function readCompactMode(): boolean {
+  const realResults = document.querySelector(`.results:not([${PAGE_GUIDE_MOCK_ATTR}])`);
+  return realResults ? realResults.classList.contains('compact') : true;
 }
 
 function measure() {
   const trade = document.getElementById('trade');
   const rect = trade?.getBoundingClientRect();
-  const areaLeft = rect ? rect.left : 0;
-  const areaWidth = rect ? rect.width : window.innerWidth;
-  const width = Math.min(MOCK_WIDTH, Math.max(320, areaWidth - 32));
+  const hasTradeBox = Boolean(rect && rect.width > 0);
+  const areaLeft = hasTradeBox ? rect!.left : 0;
+  const areaWidth = hasTradeBox ? rect!.width : window.innerWidth;
+  const viewportWidth = window.innerWidth;
+  const targetWidth = compact.value ? MOCK_WIDTH_COMPACT : MOCK_WIDTH_DEFAULT;
+  const maxWidth = compact.value
+    ? Math.max(320, areaWidth - 32)
+    : Math.max(320, viewportWidth - 32);
+  const width = Math.min(targetWidth, maxWidth);
+  const centeredLeft = Math.round(areaLeft + (areaWidth - width) / 2);
+  const left = Math.max(16, Math.min(centeredLeft, viewportWidth - width - 16));
   position.value = {
-    left: Math.round(areaLeft + (areaWidth - width) / 2),
+    left,
     top: Math.round(Math.min(160, window.innerHeight * 0.18)),
     width,
   };
-  void alignRow();
+}
+
+function syncCompactMode() {
+  const next = readCompactMode();
+  if (next === compact.value) return;
+  compact.value = next;
+  measure();
 }
 
 let tradeObserver: ResizeObserver | null = null;
+let resultsClassObserver: MutationObserver | null = null;
 
 onMounted(() => {
   ensureResultEnhancementStyles();
   const trade = document.getElementById('trade');
   teleportTarget.value = trade ?? document.body;
-  const realResults = document.querySelector(`.results:not([${PAGE_GUIDE_MOCK_ATTR}])`);
-  if (realResults) compact.value = realResults.classList.contains('compact');
+  compact.value = readCompactMode();
   measure();
   window.addEventListener('resize', measure);
   if (trade && typeof ResizeObserver !== 'undefined') {
     tradeObserver = new ResizeObserver(measure);
     tradeObserver.observe(trade);
+  }
+  const realResults = document.querySelector(`.results:not([${PAGE_GUIDE_MOCK_ATTR}])`);
+  if (realResults && typeof MutationObserver !== 'undefined') {
+    resultsClassObserver = new MutationObserver(syncCompactMode);
+    resultsClassObserver.observe(realResults, { attributes: true, attributeFilter: ['class'] });
   }
 });
 
@@ -110,6 +122,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', measure);
   tradeObserver?.disconnect();
   tradeObserver = null;
+  resultsClassObserver?.disconnect();
+  resultsClassObserver = null;
 });
 
 /** 功能開關變動時確保樣式存在並重建示意列，避免外部狀態殘留影響預覽 */
@@ -118,7 +132,6 @@ const featureKey = computed(() =>
 );
 watch(featureKey, () => {
   ensureResultEnhancementStyles();
-  void alignRow();
 });
 
 const mockAttrs = { [PAGE_GUIDE_MOCK_ATTR]: '' };
@@ -141,23 +154,13 @@ const revealAttrs = { [PAGE_GUIDE_REVEAL_ATTR]: '' };
         background: 'oklch(0.13 0 0)',
         border: '1px solid oklch(0.32 0 0)',
         boxShadow: '0 12px 40px oklch(0 0 0 / 0.6)',
-        overflow: 'hidden',
+        overflow: 'clip',
       }"
     >
-      <!-- 官方雙欄版面每列佔 .results 一半寬，內層放兩倍寬讓唯一一列剛好是一欄的寬度 -->
-      <div
-        v-bind="mockAttrs"
-        class="results two"
-        :class="{ compact }"
-        :style="{
-          width: `${position.width * 2}px`,
-          margin: '0',
-          marginLeft: `${-rowShift}px`,
-        }"
-        ref="resultsEl"
-      >
+      <!-- 不加 .two，讓單一示意列無論官方是預設、精簡或雙欄精簡都維持 width: 100% 貼齊外框 -->
+      <div v-bind="mockAttrs" class="results" :class="{ compact }" style="width: 100%; margin: 0">
         <div :key="featureKey" class="resultset">
-          <div ref="rowEl" class="row" v-bind="revealAttrs">
+          <div class="row" v-bind="revealAttrs">
             <div class="left">
               <button class="refresh" type="button" tabindex="-1"></button>
               <button class="searchBy" type="button" tabindex="-1"></button>
@@ -211,7 +214,10 @@ const revealAttrs = { [PAGE_GUIDE_REVEAL_ATTR]: '' };
             </div>
 
             <div class="middle">
-              <div class="item-popup item-popup--rare item-popup--poe2">
+              <div
+                class="item-popup item-popup--rare item-popup--poe2"
+                :style="compact ? undefined : { minWidth: 'min(400px, 100%)', maxWidth: '100%' }"
+              >
                 <div
                   class="item-popup__header item-popup__header--item item-popup__header--double item-popup__header--rare"
                 >
