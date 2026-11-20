@@ -91,6 +91,7 @@
   --pxd-sidebar-affix-dialog-header-height: 45px;
   --pxd-sidebar-shared-dialog-width: 340px;
   --pxd-sidebar-shared-dialog-max-height: 250px;
+  --pxd-pinned-icon-box-size: 88px;
 
   /* Control Heights (由 TS runtime 計算實際 px 寫入) */
   --control-height-sm: 28px;

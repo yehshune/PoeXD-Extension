@@ -4,6 +4,7 @@
  */
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue';
 import { ResultPobCopy } from '@/entrypoints/content/logic/result-pob-copy';
+import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-price-presenter';
 import { LiveSearchFetchRateGate } from '@/entrypoints/content/logic/live-search-fetch-rate-gate';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t, type I18nKey } from '@/utils/i18n';
@@ -21,7 +22,10 @@ import {
   type PinnedItemSnapshot,
 } from '@/utils/pinned-items';
 import { isPobExportableItem } from '@/utils/pob-item-text';
+import { getPreferences } from '@/utils/preferences';
+import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
+import { isPriceConversionSupported } from '@/utils/trade-realms';
 import { getTradeResultCache } from '@/utils/trade-result-cache';
 
 export type PinnedItemTransientState =
@@ -57,10 +61,28 @@ export function usePinnedItems() {
   const items = shallowRef<PinnedItemSnapshot[]>([]);
   const showAllLeagues = ref(false);
   const states = ref<Record<string, PinnedItemTransientState>>({});
+  const currencyRates = shallowRef<CurrencyRateSnapshot | undefined>(undefined);
+  const enablePriceComparison = ref(true);
   const currentLeague = getTradeLeague();
   const currentOrigin = window.location.origin;
   let pobCopy: ResultPobCopy | undefined;
   let unsubscribe: (() => void) | undefined;
+  let unsubscribePrefs: (() => void) | undefined;
+  let disposed = false;
+  let ratesLoading = false;
+
+  async function ensureCurrencyRates() {
+    if (currencyRates.value || ratesLoading || !currentLeague || !isPriceConversionSupported()) {
+      return;
+    }
+    ratesLoading = true;
+    try {
+      const rates = await fetchCurrencyRates(version, currentLeague);
+      if (!disposed && rates) currencyRates.value = rates;
+    } finally {
+      ratesLoading = false;
+    }
+  }
 
   const visibleItems = computed(() =>
     showAllLeagues.value || !currentLeague
@@ -104,8 +126,25 @@ export function usePinnedItems() {
         reconcileSoldStates(next);
       })
       .catch((error: unknown) => console.warn('[PoeXD] 讀取釘選清單失敗:', error));
+    void getPreferences(version).then((outcome) => {
+      if (disposed) return;
+      if (!outcome.ok) {
+        void ensureCurrencyRates();
+        return;
+      }
+      unsubscribePrefs = outcome.value.subscribe((snapshot) => {
+        enablePriceComparison.value = snapshot.enablePriceComparison;
+        if (snapshot.enablePriceComparison) {
+          void ensureCurrencyRates();
+        }
+      });
+    });
   });
-  onUnmounted(() => unsubscribe?.());
+  onUnmounted(() => {
+    disposed = true;
+    unsubscribe?.();
+    unsubscribePrefs?.();
+  });
 
   const sameRealm = (item: PinnedItemSnapshot) => isSameRealm(item, currentOrigin);
   const canCopyPob = (item: PinnedItemSnapshot) => isPobExportableItem(item.item);
@@ -218,12 +257,16 @@ export function usePinnedItems() {
   }
 
   return {
+    version,
     items,
     visibleItems,
     hiddenCount,
     soldVisibleCount,
     showAllLeagues,
     states,
+    currencyRates,
+    enablePriceComparison,
+    ensureCurrencyRates,
     currentLeague,
     limit: PINNED_ITEM_LIMIT,
     isSold,

@@ -243,7 +243,12 @@ function renderContent(doc: Document, item: Json): HTMLElement {
   return content;
 }
 
-function renderIcon(doc: Document, item: Json): HTMLElement {
+/** 依物品 JSON 繪製 `.left` 圖示節點（無快照時供卡片與展開圖片框共用） */
+export function renderPinnedItemIcon(
+  snapshot: PinnedItemSnapshot,
+  doc: Document = document,
+): HTMLElement {
+  const item = snapshot.item as Json;
   const left = el(doc, 'div', 'left');
   const w = typeof item.w === 'number' && item.w >= 1 && item.w <= 4 ? Math.round(item.w) : 1;
   const h = typeof item.h === 'number' && item.h >= 1 && item.h <= 6 ? Math.round(item.h) : 1;
@@ -277,7 +282,7 @@ export function renderPinnedItemCard(
   const item = snapshot.item as Json;
   const rarity = resolveRarityClass(item);
   const row = el(doc, 'div', 'row');
-  row.appendChild(renderIcon(doc, item));
+  row.appendChild(renderPinnedItemIcon(snapshot, doc));
   const middle = el(doc, 'div', 'middle');
   const popup = el(doc, 'div', `item-popup item-popup--${rarity}`);
   popup.appendChild(renderHeader(doc, item, rarity));

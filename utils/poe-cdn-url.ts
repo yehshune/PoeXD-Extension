@@ -1,5 +1,9 @@
 export const POE_CDN_IMAGE_URL_MAX_LENGTH = 4096;
 
+/** 官方 CDN 上的金幣圖示（即時直購手續費顯示用） */
+export const GOLD_COIN_ICON_URL =
+  'https://web.poecdn.com/image/Art/2DItems/Currency/Ruthless/CoinPileTier2.png';
+
 export const ALLOWED_POE_CDN_HOSTNAMES = Object.freeze([
   'web.poecdn.com',
   'webtw.poecdn.com',

@@ -204,12 +204,23 @@ describe('PinnedItemPane travel feedback', () => {
       rowMenuTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await flush();
 
-      // Expanding the row restores PoB button directly in the expanded action bar
+      // Expanding the row replaces the collapsed summary row with the popup card + two-column footer
+      // (framed icon on the left; price, collapse button, pinnedAt & seller details on the right)
       container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
       await flush();
+      expect(container.querySelector('[data-pinned-item-name]')).toBeNull();
+      expect(container.querySelector('[data-pinned-item-price]')).not.toBeNull();
       expect(container.querySelector('[data-pinned-item-pob]')).not.toBeNull();
+      expect(container.querySelector('[data-pinned-item-icon-frame]')).not.toBeNull();
+      expect(container.querySelector('[data-pinned-item-pinned-at]')?.textContent).toContain(
+        '釘選於',
+      );
+      expect(container.querySelector('[data-pinned-item-listing-meta]')?.textContent).toContain(
+        'Seller#1234',
+      );
       container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
       await flush();
+      expect(container.querySelector('[data-pinned-item-name]')).not.toBeNull();
 
       const trigger = container.querySelector<HTMLElement>('[data-pinned-items-clear]')!;
       trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));

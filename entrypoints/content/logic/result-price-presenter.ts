@@ -1,4 +1,5 @@
 import {
+  PRICE_COMPARISON_CURRENCIES,
   createResultPriceComparisons,
   parseCurrencyRateSnapshot,
   type CurrencyRateSnapshot,
@@ -328,29 +329,16 @@ export function ensurePriceComparisonStyle() {
 }
 
 function renderPriceComparison(annotation: Element, comparison: PriceComparison) {
-  const units: Record<PriceComparison['currency'], { name: string; icon: string }> = {
-    chaos: {
-      name: t('pricePresenter.currency.chaos'),
-      icon: 'https://webtw.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lSZXJvbGxSYXJlIiwic2NhbGUiOjF9XQ/46a2347805/CurrencyRerollRare.png',
-    },
-    divine: {
-      name: t('pricePresenter.currency.divine'),
-      icon: 'https://webtw.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lNb2RWYWx1ZXMiLCJzY2FsZSI6MX1d/ec48896769/CurrencyModValues.png',
-    },
-    exalted: {
-      name: t('pricePresenter.currency.exalted'),
-      icon: 'https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lBZGRNb2RUb1JhcmUiLCJzY2FsZSI6MSwicmVhbG0iOiJwb2UyIn1d/ad7c366789/CurrencyAddModToRare.png',
-    },
-  };
-  const unit = units[comparison.currency];
+  const currencyMeta = PRICE_COMPARISON_CURRENCIES[comparison.currency];
+  const currencyName = t(currencyMeta.labelKey);
   const amount = new Intl.NumberFormat(getActiveDisplayLocale(), {
     maximumSignificantDigits: 4,
   }).format(comparison.amount);
   const icon = document.createElement('img');
   icon.className = 'poexd-price-comparison-icon';
-  icon.src = unit.icon;
-  icon.alt = unit.name;
-  icon.title = unit.name;
-  annotation.setAttribute('title', t('pricePresenter.tooltip', { amount, currency: unit.name }));
+  icon.src = currencyMeta.icon;
+  icon.alt = currencyName;
+  icon.title = currencyName;
+  annotation.setAttribute('title', t('pricePresenter.tooltip', { amount, currency: currencyName }));
   annotation.replaceChildren(document.createTextNode(`≈ ${amount}`), icon);
 }

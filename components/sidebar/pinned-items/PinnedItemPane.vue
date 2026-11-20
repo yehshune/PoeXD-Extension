@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Sortable from 'sortablejs';
-import { ChevronsDownUp, Loader2, Pin, Search, Trash2, X } from '@lucide/vue';
+import {
+  ArrowUpDown,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  ChevronsDownUp,
+  Loader2,
+  Pin,
+  Search,
+  Trash2,
+  X,
+} from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -14,6 +25,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { getActiveUiLocale, t } from '@/utils/i18n';
+import { GOLD_COIN_ICON_URL } from '@/utils/poe-cdn-url';
 import { isSameLeague, type PinnedItemSnapshot } from '@/utils/pinned-items';
 import { getTradeRealm } from '@/utils/trade-realms';
 import SidebarPane from '../layout/SidebarPane.vue';
@@ -32,6 +44,13 @@ import PinnedItemActions from './PinnedItemActions.vue';
 import PinnedItemCardView from './PinnedItemCardView.vue';
 import { resolveRarityClass } from './pinned-item-card';
 import { filterPinnedItems } from './pinned-item-filter';
+import {
+  PINNED_SORT_MODES,
+  resolvePinnedPriceComparison,
+  sortPinnedItems,
+  type PinnedPriceComparison,
+  type PinnedSortMode,
+} from './pinned-item-sort';
 import { usePinnedItems } from './usePinnedItems';
 
 const props = defineProps<{
@@ -43,12 +62,16 @@ const LIST_SCROLL_SELECTOR = '[data-pane="pinned-items"] [data-slot="sidebar-pan
 const ROW_SELECTOR = '[data-pinned-item-id]';
 
 const {
+  version,
   items,
   visibleItems,
   hiddenCount,
   soldVisibleCount,
   showAllLeagues,
   states,
+  currencyRates,
+  enablePriceComparison,
+  ensureCurrencyRates,
   currentLeague,
   limit,
   isSold,
@@ -68,13 +91,24 @@ const {
 const sidebarPosition = computed(() => props.sidebarPosition ?? 'left');
 const listRef = ref<HTMLElement | null>(null);
 const isClearMenuOpen = ref(false);
+const isSortMenuOpen = ref(false);
+const sortMode = ref<PinnedSortMode>('custom');
 const isSearchVisible = ref(false);
 const searchQuery = ref('');
 const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
 
-const filteredItems = computed(() => filterPinnedItems(visibleItems.value, searchQuery.value));
-/** 搜尋中只看得到部分結果，拖曳位置容易誤判，因此停用排序與拖曳刪除。 */
-const canDrag = computed(() => searchQuery.value.trim() === '');
+const filteredItems = computed(() => {
+  const matched = filterPinnedItems(visibleItems.value, searchQuery.value);
+  return sortPinnedItems(matched, sortMode.value, currencyRates.value);
+});
+/** 搜尋中或非自訂排序時停用拖曳，避免錯位或與排序規則衝突。 */
+const canDrag = computed(() => searchQuery.value.trim() === '' && sortMode.value === 'custom');
+
+watch(sortMode, (mode) => {
+  if (mode === 'price-asc' || mode === 'price-desc') {
+    void ensureCurrencyRates();
+  }
+});
 
 async function toggleSearch() {
   if (isSearchVisible.value) {
@@ -291,6 +325,52 @@ function formatAge(iso: string | undefined): string {
 function realmLabel(item: PinnedItemSnapshot): string {
   return t(getTradeRealm(item.realm).labelKey);
 }
+
+const SORT_LABEL_KEYS: Record<
+  PinnedSortMode,
+  | 'pinnedItem.sort.custom'
+  | 'pinnedItem.sort.newest'
+  | 'pinnedItem.sort.priceAsc'
+  | 'pinnedItem.sort.priceDesc'
+> = {
+  custom: 'pinnedItem.sort.custom',
+  newest: 'pinnedItem.sort.newest',
+  'price-asc': 'pinnedItem.sort.priceAsc',
+  'price-desc': 'pinnedItem.sort.priceDesc',
+};
+
+function formatPinnedAt(timestamp: number): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
+  const d = new Date(timestamp);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function priceComparisonOf(item: PinnedItemSnapshot): PinnedPriceComparison | undefined {
+  if (!enablePriceComparison.value) return undefined;
+  return resolvePinnedPriceComparison(item, version, currencyRates.value, getActiveUiLocale(), t);
+}
+
+function formatFee(fee: number | undefined): string {
+  if (typeof fee !== 'number' || !Number.isFinite(fee) || fee <= 0) return '';
+  return new Intl.NumberFormat(getActiveUiLocale()).format(fee);
+}
+
+function expandedListingMeta(item: PinnedItemSnapshot): string {
+  const parts: string[] = [];
+  const age = formatAge(item.listing.indexed);
+  if (age) parts.push(t('pinnedItem.meta.listedAt', { time: age }));
+  if (item.listing.accountName) {
+    parts.push(t('pinnedItem.meta.seller', { name: item.listing.accountName }));
+  }
+  if (showAllLeagues.value || !currentLeague || !isSameLeague(item.league, currentLeague)) {
+    parts.push(item.league);
+  }
+  if (!sameRealm(item)) {
+    parts.push(realmLabel(item));
+  }
+  return parts.join(' · ');
+}
 </script>
 
 <template>
@@ -312,6 +392,36 @@ function realmLabel(item: PinnedItemSnapshot): string {
           data-pinned-items-count
           >{{ t('pinnedItem.count', { count: items.length, limit }) }}</span
         >
+        <DropdownMenu v-model:open="isSortMenuOpen">
+          <DropdownMenuTrigger as-child>
+            <Button
+              :variant="sortMode !== 'custom' ? 'default' : 'secondary'"
+              size="icon-sm"
+              class="shrink-0"
+              data-pinned-items-sort
+              :disabled="visibleItems.length < 2 && sortMode === 'custom'"
+              :title="t('pinnedItem.sort.title')"
+              :aria-label="t('pinnedItem.sort.title')"
+            >
+              <ArrowUpDown />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent v-if="isSortMenuOpen" align="end">
+            <DropdownMenuItem
+              v-for="mode in PINNED_SORT_MODES"
+              :key="mode"
+              :data-pinned-sort-mode="mode"
+              class="justify-between gap-[var(--pxd-space-md)]"
+              @click="sortMode = mode"
+            >
+              <span>{{ t(SORT_LABEL_KEYS[mode]) }}</span>
+              <Check
+                v-if="sortMode === mode"
+                class="size-[var(--control-icon-sm)] shrink-0 text-primary"
+              />
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button
           :variant="isSearchVisible ? 'default' : 'secondary'"
           size="icon-sm"
@@ -441,139 +551,270 @@ function realmLabel(item: PinnedItemSnapshot): string {
             v-for="item in filteredItems"
             :key="item.id"
             class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
-            :class="[
-              isExpanded(item) ? 'bg-muted/20' : 'hover:bg-muted/40',
-              { 'opacity-60': isSold(item) },
-            ]"
+            :class="[isExpanded(item) ? 'bg-muted/20' : 'hover:bg-muted/40']"
             :data-pinned-item-id="item.id"
             :data-expanded="isExpanded(item) ? '' : undefined"
           >
-            <div
-              role="button"
-              tabindex="0"
-              class="flex items-center gap-[var(--pxd-space-md)] px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              :class="[
-                canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
-                isExpanded(item) ? 'bg-muted/35 border-b border-border/60' : '',
-              ]"
-              data-pinned-item-toggle
-              :aria-expanded="isExpanded(item)"
-              :title="expandLabel(item)"
-              @click="toggleExpanded(item)"
-              @keydown.enter.prevent="toggleExpanded(item)"
-              @keydown.space.prevent="toggleExpanded(item)"
-            >
-              <img
-                v-if="typeof item.item.icon === 'string'"
-                :src="item.item.icon"
-                alt=""
-                class="size-[var(--control-height-lg)] shrink-0 object-contain"
-                referrerpolicy="no-referrer"
-                draggable="false"
-              />
-              <div class="flex min-w-0 flex-1 flex-col gap-[var(--pxd-space-xs)]">
-                <span
-                  class="truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight"
-                  :style="{ color: rarityColour(item) }"
-                  data-pinned-item-name
-                >
+            <template v-if="!isExpanded(item)">
+              <div
+                role="button"
+                tabindex="0"
+                class="flex items-center gap-[var(--pxd-space-md)] px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                :class="[
+                  canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+                  isSold(item) ? 'opacity-65' : '',
+                ]"
+                data-pinned-item-toggle
+                :aria-expanded="false"
+                :title="expandLabel(item)"
+                @click="toggleExpanded(item)"
+                @keydown.enter.prevent="toggleExpanded(item)"
+                @keydown.space.prevent="toggleExpanded(item)"
+              >
+                <img
+                  v-if="typeof item.item.icon === 'string'"
+                  :src="item.item.icon"
+                  alt=""
+                  class="size-[var(--control-height-lg)] shrink-0 object-contain"
+                  referrerpolicy="no-referrer"
+                  draggable="false"
+                />
+                <div class="flex min-w-0 flex-1 flex-col gap-[var(--pxd-space-xs)]">
                   <span
-                    v-for="(line, index) in nameLines(item)"
-                    :key="index"
-                    class="item-popup__header-line"
-                    :class="{ 'ml-[0.35em]': index > 0 }"
-                    >{{ line }}</span
+                    class="truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight"
+                    :style="{ color: rarityColour(item) }"
+                    data-pinned-item-name
                   >
-                </span>
-                <span
-                  v-if="metaParts(item).length > 0"
-                  class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
-                  data-pinned-item-meta
-                  >{{ metaParts(item).join(' · ') }}</span
-                >
-              </div>
-              <div class="flex shrink-0 flex-col items-end">
-                <span
-                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
-                  :class="{ 'line-through': isSold(item) }"
-                  data-pinned-item-price
-                >
-                  {{ priceAmount(item) }}
-                  <img
-                    v-if="item.listing.price?.icon"
-                    :src="item.listing.price.icon"
-                    :alt="item.listing.price.currency"
-                    :title="item.listing.price.currencyName ?? item.listing.price.currency"
-                    class="size-[var(--control-icon-lg)] object-contain"
-                    referrerpolicy="no-referrer"
-                    draggable="false"
-                    data-pinned-item-currency-icon
-                  />
-                </span>
-                <span
-                  v-if="isSold(item)"
-                  class="text-[length:var(--pxd-font-micro)] text-destructive"
-                  data-pinned-item-sold
-                  >{{ t('pinnedItem.sold') }}</span
-                >
-                <span
-                  v-else-if="states[item.id] === 'refreshing' || states[item.id] === 'traveling'"
-                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
-                  :class="
-                    states[item.id] === 'refreshing' ? 'text-muted-foreground' : 'text-primary'
-                  "
-                  data-pinned-item-busy
-                >
-                  <Loader2
-                    class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
+                    <span
+                      v-for="(line, index) in nameLines(item)"
+                      :key="index"
+                      class="item-popup__header-line"
+                      :class="{ 'ml-[0.35em]': index > 0 }"
+                      >{{ line }}</span
+                    >
+                  </span>
+                  <span
+                    v-if="metaParts(item).length > 0"
+                    class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
+                    data-pinned-item-meta
+                    >{{ metaParts(item).join(' · ') }}</span
+                  >
+                </div>
+                <div class="flex shrink-0 items-center gap-[var(--pxd-space-sm)]">
+                  <div class="flex flex-col items-end gap-[2px]">
+                    <span
+                      class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
+                      :class="{ 'line-through': isSold(item) }"
+                      data-pinned-item-price
+                    >
+                      {{ priceAmount(item) }}
+                      <img
+                        v-if="item.listing.price?.icon"
+                        :src="item.listing.price.icon"
+                        :alt="item.listing.price.currency"
+                        :title="item.listing.price.currencyName ?? item.listing.price.currency"
+                        class="size-[var(--control-icon-lg)] object-contain"
+                        referrerpolicy="no-referrer"
+                        draggable="false"
+                        data-pinned-item-currency-icon
+                      />
+                    </span>
+                    <span
+                      v-if="isSold(item)"
+                      class="rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-destructive"
+                      data-pinned-item-sold
+                      >{{ t('pinnedItem.sold') }}</span
+                    >
+                    <span
+                      v-else-if="
+                        states[item.id] === 'refreshing' || states[item.id] === 'traveling'
+                      "
+                      class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
+                      :class="
+                        states[item.id] === 'refreshing' ? 'text-muted-foreground' : 'text-primary'
+                      "
+                      data-pinned-item-busy
+                    >
+                      <Loader2
+                        class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
+                        aria-hidden="true"
+                      />
+                      {{
+                        states[item.id] === 'refreshing'
+                          ? t('pinnedItem.action.refreshing')
+                          : t('pinnedItem.action.traveling')
+                      }}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    class="size-[var(--control-icon-sm)] shrink-0 text-muted-foreground/70"
                     aria-hidden="true"
                   />
-                  {{
-                    states[item.id] === 'refreshing'
-                      ? t('pinnedItem.action.refreshing')
-                      : t('pinnedItem.action.traveling')
-                  }}
-                </span>
+                </div>
               </div>
-            </div>
 
-            <!-- 收合時 hover 才浮出的操作（與書籤列相同），蓋在價格上方 -->
-            <PinnedItemActions
-              v-if="!isExpanded(item)"
-              class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) rounded-l-sm pl-[var(--pxd-space-sm)] bg-card group-hover:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
-              :item="item"
-              :state="isSold(item) ? 'sold' : states[item.id]"
-              :same-realm="sameRealm(item)"
-              :can-copy-pob="canCopyPob(item)"
-              :has-source="!!sourceUrl(item)"
-              :full="false"
-              @travel="travel(item)"
-              @whisper="copyWhisper(item)"
-              @pob="copyPob(item)"
-              @source="openSource(item)"
-              @unpin="unpin(item)"
-            />
+              <!-- 收合時 hover 才浮出的操作（左側平滑漸層遮罩過渡） -->
+              <PinnedItemActions
+                class="absolute right-[var(--pxd-space-md)] top-1/2 -translate-y-1/2 z-(--pxd-z-raised) py-1 pl-[var(--pxd-space-2xl)] bg-gradient-to-l from-[color-mix(in_srgb,var(--muted)_40%,var(--card))] from-75% to-transparent opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
+                :item="item"
+                :state="isSold(item) ? 'sold' : states[item.id]"
+                :same-realm="sameRealm(item)"
+                :can-copy-pob="canCopyPob(item)"
+                :has-source="!!sourceUrl(item)"
+                :full="false"
+                @travel="travel(item)"
+                @whisper="copyWhisper(item)"
+                @pob="copyPob(item)"
+                @source="openSource(item)"
+                @unpin="unpin(item)"
+              />
+            </template>
 
             <div v-else class="flex flex-col bg-background">
-              <PinnedItemCardView :snapshot="item" :collapsed="false" />
               <div
-                class="border-t border-border/60 bg-card/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
+                data-pinned-item-expanded-header
+                class="flex items-stretch gap-[var(--pxd-space-md)] border-b border-border/60 bg-card/50 p-[var(--pxd-space-md)]"
               >
-                <PinnedItemActions
-                  class="flex-wrap"
-                  :item="item"
-                  :state="isSold(item) ? 'sold' : states[item.id]"
-                  :same-realm="sameRealm(item)"
-                  :can-copy-pob="canCopyPob(item)"
-                  :has-source="!!sourceUrl(item)"
-                  :full="true"
-                  @travel="travel(item)"
-                  @whisper="copyWhisper(item)"
-                  @pob="copyPob(item)"
-                  @source="openSource(item)"
-                  @unpin="unpin(item)"
-                />
+                <div
+                  data-pinned-item-icon-frame
+                  class="size-[var(--pxd-pinned-icon-box-size,88px)] shrink-0 flex items-center justify-center overflow-hidden rounded-md border border-border/80 bg-black/55 p-[var(--pxd-space-xs)]"
+                >
+                  <PinnedItemCardView :snapshot="item" :collapsed="false" part="icon" />
+                </div>
+                <div class="flex min-w-0 flex-1 flex-col justify-between gap-[var(--pxd-space-sm)]">
+                  <div class="flex min-w-0 items-start justify-between gap-[var(--pxd-space-sm)]">
+                    <div class="flex min-w-0 flex-wrap items-center gap-[var(--pxd-space-xs)]">
+                      <span
+                        class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
+                        :class="{ 'line-through opacity-70': isSold(item) }"
+                        data-pinned-item-price
+                      >
+                        {{ priceAmount(item) }}
+                        <img
+                          v-if="item.listing.price?.icon"
+                          :src="item.listing.price.icon"
+                          :alt="item.listing.price.currency"
+                          :title="item.listing.price.currencyName ?? item.listing.price.currency"
+                          class="block size-[var(--control-icon-lg)] shrink-0 object-contain"
+                          referrerpolicy="no-referrer"
+                          draggable="false"
+                          data-pinned-item-currency-icon
+                        />
+                      </span>
+                      <span
+                        v-if="priceComparisonOf(item)"
+                        data-pinned-item-price-conversion
+                        :title="priceComparisonOf(item)?.tooltip"
+                        class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-micro)] font-medium tabular-nums leading-none text-muted-foreground"
+                      >
+                        <span class="leading-none">≈ {{ priceComparisonOf(item)?.amount }}</span>
+                        <img
+                          :src="priceComparisonOf(item)?.icon"
+                          :alt="priceComparisonOf(item)?.currencyName"
+                          :title="priceComparisonOf(item)?.currencyName"
+                          class="block size-[var(--control-icon-default)] shrink-0 translate-y-[1px] object-contain"
+                          referrerpolicy="no-referrer"
+                          draggable="false"
+                          data-pinned-item-price-conversion-icon
+                        />
+                      </span>
+                      <span
+                        v-if="isSold(item)"
+                        class="rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-destructive"
+                        data-pinned-item-sold
+                        >{{ t('pinnedItem.sold') }}</span
+                      >
+                      <span
+                        v-else-if="
+                          states[item.id] === 'refreshing' || states[item.id] === 'traveling'
+                        "
+                        class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
+                        :class="
+                          states[item.id] === 'refreshing'
+                            ? 'text-muted-foreground'
+                            : 'text-primary'
+                        "
+                        data-pinned-item-busy
+                      >
+                        <Loader2
+                          class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
+                          aria-hidden="true"
+                        />
+                        {{
+                          states[item.id] === 'refreshing'
+                            ? t('pinnedItem.action.refreshing')
+                            : t('pinnedItem.action.traveling')
+                        }}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      class="-mr-[var(--pxd-space-xs)] -mt-[var(--pxd-space-xs)] shrink-0 text-muted-foreground"
+                      data-pinned-item-toggle
+                      :aria-expanded="true"
+                      :title="expandLabel(item)"
+                      :aria-label="expandLabel(item)"
+                      @click="toggleExpanded(item)"
+                    >
+                      <ChevronUp />
+                    </Button>
+                  </div>
+                  <div
+                    data-pinned-item-details
+                    class="flex min-w-0 flex-col gap-[2px] text-[length:var(--pxd-font-micro)] leading-snug text-muted-foreground"
+                  >
+                    <span
+                      v-if="formatFee(item.listing.fee)"
+                      data-pinned-item-fee
+                      :title="`${t('pinnedItem.meta.fee')}${formatFee(item.listing.fee)}`"
+                      class="inline-flex items-center gap-[3px] leading-none tabular-nums text-foreground/85"
+                    >
+                      <span class="leading-none">{{ t('pinnedItem.meta.fee') }}</span>
+                      <img
+                        :src="GOLD_COIN_ICON_URL"
+                        alt="Gold"
+                        class="block size-[var(--control-icon-sm)] shrink-0 object-contain"
+                        referrerpolicy="no-referrer"
+                        draggable="false"
+                        data-pinned-item-fee-icon
+                      />
+                      <span class="leading-none">{{ formatFee(item.listing.fee) }}</span>
+                    </span>
+                    <span
+                      v-if="formatPinnedAt(item.pinnedAt)"
+                      data-pinned-item-pinned-at
+                      class="truncate tabular-nums"
+                    >
+                      {{ t('pinnedItem.meta.pinnedAt', { time: formatPinnedAt(item.pinnedAt) }) }}
+                    </span>
+                    <span
+                      v-if="expandedListingMeta(item)"
+                      data-pinned-item-listing-meta
+                      class="truncate"
+                      :title="expandedListingMeta(item)"
+                    >
+                      {{ expandedListingMeta(item) }}
+                    </span>
+                  </div>
+                  <PinnedItemActions
+                    class="flex-wrap"
+                    :item="item"
+                    :state="isSold(item) ? 'sold' : states[item.id]"
+                    :same-realm="sameRealm(item)"
+                    :can-copy-pob="canCopyPob(item)"
+                    :has-source="!!sourceUrl(item)"
+                    :full="true"
+                    @travel="travel(item)"
+                    @whisper="copyWhisper(item)"
+                    @pob="copyPob(item)"
+                    @source="openSource(item)"
+                    @unpin="unpin(item)"
+                  />
+                </div>
               </div>
+              <PinnedItemCardView :snapshot="item" :collapsed="false" part="popup" />
             </div>
           </li>
         </ul>

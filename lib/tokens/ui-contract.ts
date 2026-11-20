@@ -158,6 +158,9 @@ export const LAYOUT_TOKENS = Object.freeze({
   // Item Preview bound input width (Scale-aware, Density invariant)
   previewBoundInputWidthPx: 52,
   previewBoundInputWidthVar: '--pxd-preview-bound-input-width',
+  // Pinned Item expanded icon frame size (Scale-aware, Density invariant)
+  pinnedIconBoxSizePx: 88,
+  pinnedIconBoxSizeVar: '--pxd-pinned-icon-box-size',
 } as const);
 
 // --- 4. Spacing System (Density & Scale Aware) ---
@@ -620,6 +623,7 @@ export function createUiRuntimeTokenValues(
     [LAYOUT_TOKENS.previewBoundInputWidthVar]: formatPx(
       LAYOUT_TOKENS.previewBoundInputWidthPx * scale,
     ),
+    [LAYOUT_TOKENS.pinnedIconBoxSizeVar]: formatPx(LAYOUT_TOKENS.pinnedIconBoxSizePx * scale),
 
     // 3. Scale-aware Control Heights (直接依照 Scale 縮放，無 floor clamp)
     [LAYOUT_TOKENS.controlHeightSmVar]: formatPx(COMPONENT_SIZE_SPECS.sm.heightPx * scale),

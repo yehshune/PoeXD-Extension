@@ -15,6 +15,32 @@ export interface PriceComparison {
   currency: 'chaos' | 'divine' | 'exalted';
 }
 
+export interface PriceComparisonCurrencyUnit {
+  labelKey:
+    | 'pricePresenter.currency.chaos'
+    | 'pricePresenter.currency.divine'
+    | 'pricePresenter.currency.exalted';
+  icon: string;
+}
+
+/** 換算後顯示的目標通貨名稱鍵與官方 CDN 圖示，供結果列表與釘選物品共用 */
+export const PRICE_COMPARISON_CURRENCIES: Readonly<
+  Record<PriceComparison['currency'], PriceComparisonCurrencyUnit>
+> = Object.freeze({
+  chaos: {
+    labelKey: 'pricePresenter.currency.chaos',
+    icon: 'https://webtw.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lSZXJvbGxSYXJlIiwic2NhbGUiOjF9XQ/46a2347805/CurrencyRerollRare.png',
+  },
+  divine: {
+    labelKey: 'pricePresenter.currency.divine',
+    icon: 'https://webtw.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lNb2RWYWx1ZXMiLCJzY2FsZSI6MX1d/ec48896769/CurrencyModValues.png',
+  },
+  exalted: {
+    labelKey: 'pricePresenter.currency.exalted',
+    icon: 'https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ3VycmVuY3lBZGRNb2RUb1JhcmUiLCJzY2FsZSI6MSwicmVhbG0iOiJwb2UyIn1d/ad7c366789/CurrencyAddModToRare.png',
+  },
+});
+
 export function parseCurrencyRateSnapshot(value: unknown): CurrencyRateSnapshot | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const normalized = value as { primary?: unknown; rates?: unknown };

@@ -3,25 +3,42 @@
  * 官方樣式的釘選物品卡片。卡片放在獨立的 shadow root 裡並載入官方市集 CSS：
  * 官方樣式只作用在卡片內，不會影響 Sidebar 其他介面，Sidebar 的樣式也不會蓋到卡片。
  *
- * 有官方卡片快照（釘選時擷取、清理過的節點樹）時照原樣重建；舊的釘選沒有快照，改以物品 JSON 自繪。
- * 收合以 CSS 切換：只留圖示與物品名稱，不重新渲染。
+ * 支援 `part` 切換：
+ * - `'all'`（預設）：完整顯示圖示與物品框。
+ * - `'popup'`：僅顯示上方 `.item-popup` 詞綴卡。
+ * - `'icon'`：僅顯示正規化縮放後的官方 `.newItemContainer` 圖示（含插槽），放進左側圖片框。
  */
 import { onMounted, ref, watch } from 'vue';
 import { requestResultTranslation } from '@/utils/market-result-translation-request';
 import { buildPinnedCardNode } from '@/utils/pinned-card-dom';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
-import { collectOfficialStylesheetHrefs, renderPinnedItemCard } from './pinned-item-card';
+import {
+  collectOfficialStylesheetHrefs,
+  renderPinnedItemCard,
+  renderPinnedItemIcon,
+} from './pinned-item-card';
 
-const props = defineProps<{ snapshot: PinnedItemSnapshot; collapsed: boolean }>();
+const props = withDefaults(
+  defineProps<{
+    snapshot: PinnedItemSnapshot;
+    collapsed: boolean;
+    part?: 'all' | 'popup' | 'icon';
+  }>(),
+  { part: 'all' },
+);
 
 const host = ref<HTMLElement | null>(null);
 let resultset: HTMLElement | null = null;
 
 // 官方規則以 `#trade` / `.results` 為前綴，是為寬版結果列設計的（例如 `.item-popup` 最小寬度 400px）；
-// 展開在窄側邊欄時改為縱向滿寬排版：圖示置頂（1×1 無插槽小物品直接沿用上方標題列小圖示，不重複佔高），
-// `.item-popup` 撐滿展開區寬度並開放文字選取，並清除官網倉庫格的藍色高亮底色。
+// 展開在窄側邊欄時改為滿寬物品卡 + 下方正規化圖片框：`.item-popup` 撐滿展開區寬度並開放文字選取，
+// 圖片區域依格子尺寸（1×1 至 2×4）等比縮放並清除官網倉庫格的藍色高亮底色。
 const LOCAL_STYLE = `
   :host { display: block; }
+  :host([data-part='icon']) {
+    width: 100%;
+    height: 100%;
+  }
   /* 展開後的物品細節文字允許選取複製；圖片保留不可拖曳 */
   #trade { user-select: text; cursor: auto; }
   #trade img { user-select: none; -webkit-user-drag: none; }
@@ -43,16 +60,36 @@ const LOCAL_STYLE = `
     display: flex; justify-content: center; align-items: center;
     flex: 0 0 auto; width: 100%; min-height: 0; margin: 0; padding: 4px 0;
   }
-  #trade .row[data-single-cell] > .left { display: none; }
+  #trade .row[data-part='icon'] {
+    height: 100%;
+    background: transparent;
+  }
+  #trade .row[data-part='icon'] > .left {
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
+  }
+  :host([data-part='icon']) #trade,
+  :host([data-part='icon']) #trade .results,
+  :host([data-part='icon']) #trade .resultset {
+    width: 100%;
+    height: 100%;
+  }
   /* 清除官網倉庫格的藍色高亮底色，改為透明吃卡片深黑底 */
   #trade .newItemContainer,
   #trade .newItemContainer.itemPlaced {
     background: transparent !important;
     margin: 0 auto;
   }
-  #trade .newItemContainer.iH2 { zoom: 0.78; }
-  #trade .newItemContainer.iH3 { zoom: 0.56; }
-  #trade .newItemContainer.iH4 { zoom: 0.46; }
+  /* 正規化所有官方物品格子尺寸（1x1 ~ 2x4），確保在 88px 圖片框內皆完整置中不裁切插槽 */
+  #trade .row[data-part='icon'] .newItemContainer.iW1.iH1 { zoom: 1.0; }
+  #trade .row[data-part='icon'] .newItemContainer.iW2:not(.iH2):not(.iH3):not(.iH4) { zoom: 0.68; }
+  #trade .row[data-part='icon'] .newItemContainer.iH2 { zoom: 0.68; }
+  #trade .row[data-part='icon'] .newItemContainer.iH3 { zoom: 0.46; }
+  #trade .row[data-part='icon'] .newItemContainer.iH4 { zoom: 0.34; }
+  #trade .row:not([data-part='icon']) .newItemContainer.iH2 { zoom: 0.78; }
+  #trade .row:not([data-part='icon']) .newItemContainer.iH3 { zoom: 0.56; }
+  #trade .row:not([data-part='icon']) .newItemContainer.iH4 { zoom: 0.46; }
 
   #trade .row > .middle {
     flex: 1 1 auto; min-width: 0; width: 100%; margin: 0; padding: 0; overflow: hidden;
@@ -67,6 +104,44 @@ const LOCAL_STYLE = `
   #trade .item-popup__header-line {
     display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   }
+  /* 依官網 Default 樣式把 P/S 階級與數值區間放在詞綴左側；以對稱三欄 Grid 維持詞綴正文置中且避免窄欄重疊 */
+  #trade .item-popup .item-mod {
+    display: grid;
+    grid-template-columns: minmax(auto, 1fr) minmax(0, auto) minmax(auto, 1fr);
+    align-items: baseline;
+    column-gap: 6px;
+    padding: 0 8px;
+  }
+  #trade .item-popup .item-mod > .lc {
+    width: auto;
+    max-width: 100%;
+    padding: 0;
+  }
+  #trade .item-popup .item-mod > .lc:not(.l):not(.r) {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    text-align: center;
+  }
+  #trade .item-popup .item-mod > .lc.l {
+    grid-column: 1;
+    grid-row: 1;
+    position: static;
+    left: auto;
+    right: auto;
+    justify-self: start;
+    text-align: left;
+    font-size: 0.8em;
+    opacity: 0.82;
+  }
+  #trade .item-popup .item-mod > .lc.l .d {
+    display: inline;
+    background: none;
+    padding: 0;
+  }
+  #trade .item-popup .item-mod > .lc.r {
+    display: none;
+  }
   #trade .itemPopupAdditional {
     width: auto; margin: 0; padding: 4px 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -78,6 +153,9 @@ const LOCAL_STYLE = `
   #trade .row[data-fallback] > .left .icon img {
     display: block; width: auto; height: auto; max-width: 140px; max-height: 88px; margin: 0;
   }
+  #trade .row[data-part='icon'][data-fallback] > .left .icon img {
+    max-width: 68px; max-height: 68px; object-fit: contain;
+  }
 
   #trade .row[data-collapsed] .item-popup__content,
   #trade .row[data-collapsed] .itemPopupAdditional,
@@ -88,34 +166,48 @@ const LOCAL_STYLE = `
   #trade .row[data-collapsed][data-fallback] > .left .icon img { max-height: 48px; }
 `;
 
-function markSingleCellWithoutSockets(row: HTMLElement): void {
-  const container = row.querySelector(':scope > .left .newItemContainer');
-  if (!container) return;
-  const hasSockets = Boolean(container.querySelector('.socket'));
-  const isSingleCell = container.classList.contains('iW1') && container.classList.contains('iH1');
-  if (isSingleCell && !hasSockets) {
-    row.setAttribute('data-single-cell', '');
-  }
+function buildIconNode(cardIcon: NonNullable<PinnedItemSnapshot['card']>['icon']): HTMLElement {
+  const left = document.createElement('div');
+  left.className = 'left';
+  if (cardIcon) left.appendChild(buildPinnedCardNode(cardIcon, document));
+  return left;
 }
 
 function buildRow(): HTMLElement {
   const card = props.snapshot.card;
+  if (props.part === 'icon') {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.setAttribute('data-part', 'icon');
+    if (card?.icon) {
+      row.appendChild(buildIconNode(card.icon));
+    } else {
+      row.setAttribute('data-fallback', '');
+      row.appendChild(renderPinnedItemIcon(props.snapshot));
+    }
+    return row;
+  }
+
   if (!card) {
     const fallback = renderPinnedItemCard(props.snapshot);
     fallback.setAttribute('data-fallback', '');
-    markSingleCellWithoutSockets(fallback);
+    fallback.setAttribute('data-part', props.part);
+    if (props.part === 'popup') {
+      fallback.querySelector(':scope > .left')?.remove();
+    }
     return fallback;
   }
+
   const row = document.createElement('div');
   row.className = 'row';
-  const left = document.createElement('div');
-  left.className = 'left';
-  if (card.icon) left.appendChild(buildPinnedCardNode(card.icon, document));
+  row.setAttribute('data-part', props.part);
+  if (props.part === 'all') {
+    row.appendChild(buildIconNode(card.icon));
+  }
   const middle = document.createElement('div');
   middle.className = 'middle';
   card.popup.forEach((node) => middle.appendChild(buildPinnedCardNode(node, document)));
-  row.append(left, middle);
-  markSingleCellWithoutSockets(row);
+  row.appendChild(middle);
   return row;
 }
 
@@ -157,10 +249,10 @@ onMounted(() => {
   requestResultTranslation(resultset);
 });
 
-watch(() => props.snapshot, render);
+watch(() => [props.snapshot, props.part] as const, render);
 watch(() => props.collapsed, applyCollapsed);
 </script>
 
 <template>
-  <div ref="host" data-pinned-item-card></div>
+  <div ref="host" :data-part="props.part" data-pinned-item-card></div>
 </template>
