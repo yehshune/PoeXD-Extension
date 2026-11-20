@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { toBoardEntry } from '@/utils/result-board/board-entry';
-import { appendToLedger, createLedger, ledgerForSearch } from '@/utils/result-board/board-ledger';
+import {
+  appendToLedger,
+  createLedger,
+  ledgerForSearch,
+  skipInLedger,
+} from '@/utils/result-board/board-ledger';
 import { rawResult } from './helpers/result-board-fixtures';
 
 describe('toBoardEntry', () => {
@@ -15,6 +20,7 @@ describe('toBoardEntry', () => {
       name: 'Doom Shell',
       typeLine: 'Vaal Regalia',
       frameType: 2,
+      icon: 'https://web.poecdn.com/x.png',
       price: { amount: 5, currency: 'divine' },
       indexedAt: Date.parse('2026-11-19T10:00:00Z'),
       instantBuyout: true,
@@ -30,6 +36,15 @@ describe('toBoardEntry', () => {
     expect(toBoardEntry(rawResult({ id: 'a', online: 'offline' }), 0)?.seller.presence).toBe(
       'offline',
     );
+  });
+
+  it('drops an icon that is not on the official CDN', () => {
+    const raw = rawResult({ id: 'a' });
+    const entry = toBoardEntry(
+      { ...raw, item: { ...(raw.item as object), icon: 'https://evil.example/x.png' } },
+      0,
+    );
+    expect(entry?.icon).toBeUndefined();
   });
 
   it('strips PoE 2 markup from names', () => {
@@ -112,5 +127,14 @@ describe('ledger', () => {
     const next = ledgerForSearch(ledger, 'search-2');
     expect(next.searchId).toBe('search-2');
     expect(next.entries).toEqual([]);
+  });
+});
+
+describe('skipInLedger', () => {
+  it('adds unknown ids once and keeps the ledger when nothing is new', () => {
+    const ledger = appendToLedger(createLedger('s1'), [rawResult({ id: 'a', searchId: 's1' })]);
+    const skipped = skipInLedger(ledger, ['a', 'b', 'b', '']);
+    expect(skipped.skippedIds).toEqual(['b']);
+    expect(skipInLedger(skipped, ['a', 'b'])).toBe(skipped);
   });
 });

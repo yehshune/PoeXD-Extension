@@ -37,8 +37,11 @@ function readQueryParam(url: string): string | undefined {
   }
 }
 
+export type TradeResultListener = () => void;
+
 export class TradeResultCache {
   private readonly entries = new Map<string, TradeResultEntry>();
+  private readonly listeners = new Set<TradeResultListener>();
 
   constructor(private readonly now: () => number = Date.now) {}
 
@@ -53,6 +56,7 @@ export class TradeResultCache {
     for (const raw of results) {
       added = this.ingestResult(raw, { ...context, sourceSearchId }) || added;
     }
+    if (added) this.notify();
     return added;
   }
 
@@ -88,6 +92,28 @@ export class TradeResultCache {
 
   clear(): void {
     this.entries.clear();
+    this.notify();
+  }
+
+  /** 某個搜尋目前留在快取裡的結果，依收到的順序 */
+  entriesForSearch(searchId: string): TradeResultEntry[] {
+    return Array.from(this.entries.values()).filter((entry) => entry.sourceSearchId === searchId);
+  }
+
+  /** 官方 fetch 回應加入結果、或快取清空時通知；回傳取消訂閱 */
+  subscribe(listener: TradeResultListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private notify(): void {
+    this.listeners.forEach((listener) => {
+      try {
+        listener();
+      } catch (error) {
+        console.error('[PoeXD] 結果快取訂閱者處理失敗:', error);
+      }
+    });
   }
 }
 

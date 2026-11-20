@@ -52,3 +52,11 @@ export function appendToLedger(
     skippedIds: Array.from(skipped),
   };
 }
+
+/** 把不會出現在看板的結果 id 記為已略過（已在帳本裡的不動） */
+export function skipInLedger(ledger: BoardLedger, ids: readonly string[]): BoardLedger {
+  const known = new Set([...ledger.entries.map((entry) => entry.id), ...ledger.skippedIds]);
+  const added = Array.from(new Set(ids.filter((id) => id && !known.has(id))));
+  if (added.length === 0) return ledger;
+  return { ...ledger, skippedIds: [...ledger.skippedIds, ...added] };
+}

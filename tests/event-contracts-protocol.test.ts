@@ -48,7 +48,10 @@ type ExpectedMainToContent =
   | 'poexd-livesearch-command-result'
   | 'poexd-criteria-overlay-read-result'
   | 'poexd-criteria-overlay-commit-result'
-  | 'poexd-page-guide-demo-result';
+  | 'poexd-page-guide-demo-result'
+  | 'poexd-search-result-summary'
+  | 'poexd-fetch-failed'
+  | 'poexd-whisper-outcome';
 type _MainToContentExact = Assert<Equal<MainToContentKeys, ExpectedMainToContent>>;
 
 type ExpectedContentToMain =
@@ -81,7 +84,8 @@ type ExpectedInternal =
   | 'poexd-sidebar-width-preview'
   | 'poexd-toast'
   | 'poexd-trigger-dialog'
-  | 'poexd-trigger-select-type-modal';
+  | 'poexd-trigger-select-type-modal'
+  | 'poexd-open-result-board';
 type _InternalExact = Assert<Equal<ContentInternalKeys, ExpectedInternal>>;
 
 type _CrossNoOverlap = Assert<Equal<MainToContentKeys & ContentToMainKeys, never>>;

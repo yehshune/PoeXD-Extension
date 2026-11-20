@@ -1,0 +1,255 @@
+/**
+ * 搜尋結果看板 pane 的狀態與動作。看板資料來自 `ResultBoardRuntime`（頁面接線），
+ * 篩選、排序、勾選等檢視狀態只存在這個 pane 的記憶體，換搜尋時重設勾選。
+ */
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
+import {
+  findOfficialRow,
+  getResultBoardRuntime,
+  OFFICIAL_RESULT_CAP,
+  type ResultBoardRuntime,
+} from '@/entrypoints/content/logic/result-board-runtime';
+import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-price-presenter';
+import { dispatchPoeEvent } from '@/utils/event-contracts';
+import { t, type I18nKey } from '@/utils/i18n';
+import { resolvePageLocale } from '@/utils/locale-resolution';
+import { capturePinnedCardDom } from '@/utils/pinned-card-dom';
+import { createPinnedItemSnapshot, type PinnedItemSnapshot } from '@/utils/pinned-items';
+import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
+import type { BoardEntry } from '@/utils/result-board/board-entry';
+import { sumPrices, type PriceTotal } from '@/utils/result-board/board-price';
+import { summarizePrices } from '@/utils/result-board/board-price-summary';
+import {
+  availableSortModes,
+  filterEntries,
+  sortEntries,
+  type BoardSortMode,
+} from '@/utils/result-board/board-query';
+import {
+  aggregateSellers,
+  filterSellers,
+  sortSellers,
+  type SellerSummary,
+} from '@/utils/result-board/board-sellers';
+import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
+import { getTradePageMode } from '@/utils/trade-page-mode';
+import { isPriceConversionSupported } from '@/utils/trade-realms';
+import { getTradeResultCache } from '@/utils/trade-result-cache';
+
+export type BoardView = 'items' | 'sellers';
+
+export const DEFAULT_MIN_SELLER_COUNT = 2;
+
+const notify = (key: I18nKey) =>
+  dispatchPoeEvent('poexd-toast', { message: t(key), tone: 'error' });
+
+/** 輸入框的字串 → 數值；空白或不是正數時視為沒有設定 */
+export function parseBound(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRuntime()) {
+  const version = getPoeVersion();
+  const league = getTradeLeague();
+  const state = shallowRef(runtime.session.getState());
+  const loaderState = shallowRef(runtime.loader.getState());
+  const rates = shallowRef<CurrencyRateSnapshot | undefined>(undefined);
+  const isLiveMode = ref(getTradePageMode() === 'live');
+
+  const view = ref<BoardView>('items');
+  const sortMode = ref<BoardSortMode>('official');
+  const instantOnly = ref(false);
+  const keyword = ref('');
+  const priceMinText = ref('');
+  const priceMaxText = ref('');
+  const minSellerCount = ref(DEFAULT_MIN_SELLER_COUNT);
+  /** 使用者取消勾選的結果 id（預設勾選每位賣家的可直購結果） */
+  const unpicked = ref<ReadonlySet<string>>(new Set());
+  const expandedIds = ref<ReadonlySet<string>>(new Set());
+
+  let disposed = false;
+  const cleanups: (() => void)[] = [];
+
+  async function ensureRates() {
+    if (rates.value || !league || !isPriceConversionSupported()) return;
+    const loaded = await fetchCurrencyRates(version, league);
+    if (!disposed && loaded) rates.value = loaded;
+  }
+
+  const entries = computed(() => state.value.ledger.entries);
+  const conversionAvailable = computed(() => rates.value !== undefined);
+  const sortModes = computed(() => availableSortModes(conversionAvailable.value));
+  const listedCount = computed(() => {
+    const summary = state.value.summary;
+    return summary ? Math.min(summary.resultCount, OFFICIAL_RESULT_CAP) : undefined;
+  });
+
+  const filteredEntries = computed(() =>
+    sortEntries(
+      filterEntries(
+        entries.value,
+        {
+          instantBuyoutOnly: instantOnly.value,
+          keyword: keyword.value,
+          hiddenAccounts: state.value.hiddenAccounts,
+          priceMin: parseBound(priceMinText.value),
+          priceMax: parseBound(priceMaxText.value),
+        },
+        rates.value,
+      ),
+      sortMode.value,
+      rates.value,
+    ),
+  );
+
+  const sellers = computed(() => {
+    const term = keyword.value.trim().toLowerCase();
+    const matched = filterSellers(sortSellers(aggregateSellers(entries.value, rates.value)), {
+      minInstantBuyout: minSellerCount.value,
+      hiddenAccounts: state.value.hiddenAccounts,
+    });
+    if (!term) return matched;
+    return matched.filter((seller) =>
+      [seller.account, seller.character ?? ''].some((field) => field.toLowerCase().includes(term)),
+    );
+  });
+
+  const priceSummary = computed(() => summarizePrices(entries.value, rates.value));
+
+  const isPicked = (entry: BoardEntry): boolean =>
+    entry.instantBuyout && !unpicked.value.has(entry.id);
+
+  function togglePicked(entry: BoardEntry): void {
+    if (!entry.instantBuyout) return;
+    const next = new Set(unpicked.value);
+    if (next.has(entry.id)) next.delete(entry.id);
+    else next.add(entry.id);
+    unpicked.value = next;
+  }
+
+  function pickedOf(seller: SellerSummary): BoardEntry[] {
+    return seller.entries.filter(isPicked);
+  }
+
+  function pickedTotal(seller: SellerSummary): PriceTotal {
+    return sumPrices(
+      pickedOf(seller).map((entry) => entry.price),
+      rates.value,
+    );
+  }
+
+  const isExpanded = (id: string): boolean => expandedIds.value.has(id);
+
+  function toggleExpanded(id: string): void {
+    const next = new Set(expandedIds.value);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    expandedIds.value = next;
+  }
+
+  /** 展開時的卡片：用官方結果列擷取的卡片與快取裡的物品資料（與釘選相同的渲染） */
+  function cardSnapshot(id: string): PinnedItemSnapshot | undefined {
+    const entry = getTradeResultCache().get(id);
+    if (!entry || !league) return undefined;
+    const row = findOfficialRow(id);
+    return createPinnedItemSnapshot(
+      entry,
+      {
+        gameVersion: version,
+        origin: window.location.origin,
+        league,
+        sourceSearchId: entry.sourceSearchId,
+        locale: resolvePageLocale(),
+        card: row ? capturePinnedCardDom(row) : undefined,
+      },
+      Date.now(),
+    );
+  }
+
+  const locate = (id: string) => {
+    if (!runtime.locate(id)) notify('resultBoard.locateFailed');
+  };
+  const travel = (id: string) => {
+    if (!runtime.travel(id)) notify('resultBoard.travelUnavailable');
+  };
+  const pin = (id: string) => {
+    if (!runtime.pin(id)) notify('resultBoard.pinUnavailable');
+  };
+
+  watch(
+    () => `${state.value.searchId}:${state.value.startedAt}`,
+    () => {
+      unpicked.value = new Set();
+      expandedIds.value = new Set();
+      isLiveMode.value = getTradePageMode() === 'live';
+    },
+  );
+
+  watch(sortModes, (modes) => {
+    if (!modes.includes(sortMode.value)) sortMode.value = 'official';
+  });
+
+  onMounted(() => {
+    cleanups.push(
+      runtime.session.subscribe((next) => {
+        state.value = next;
+      }),
+      runtime.loader.subscribe((next) => {
+        loaderState.value = next;
+      }),
+    );
+    state.value = runtime.session.getState();
+    loaderState.value = runtime.loader.getState();
+    void ensureRates();
+  });
+
+  onUnmounted(() => {
+    disposed = true;
+    cleanups.forEach((cleanup) => cleanup());
+  });
+
+  return {
+    state,
+    loaderState,
+    rates,
+    isLiveMode,
+    view,
+    sortMode,
+    sortModes,
+    instantOnly,
+    keyword,
+    priceMinText,
+    priceMaxText,
+    minSellerCount,
+    entries,
+    listedCount,
+    conversionAvailable,
+    filteredEntries,
+    sellers,
+    priceSummary,
+    isPicked,
+    togglePicked,
+    pickedOf,
+    pickedTotal,
+    isExpanded,
+    toggleExpanded,
+    cardSnapshot,
+    locate,
+    travel,
+    pin,
+    hideSeller: (account: string) => runtime.session.hideSeller(account),
+    showAllSellers: () => runtime.session.showAllSellers(),
+    loadNext: () => void runtime.loader.loadNext(),
+    loadAll: () => void runtime.loader.loadAll(),
+    stopLoading: () => runtime.loader.stop(),
+    // 不知道官方總數時一律可以按，由載入流程回報「找不到按鈕」；
+    // 依賴看板與載入狀態，讓結果或載入改變時重新判斷
+    canLoadMore: computed(() => {
+      void loaderState.value;
+      return state.value.summary === undefined || !runtime.isComplete();
+    }),
+  };
+}

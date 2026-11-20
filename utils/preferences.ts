@@ -81,6 +81,7 @@ const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
   'sidebarModuleLiveSearch',
   'sidebarModulePinnedItems',
   'sidebarModulePobBuild',
+  'sidebarModuleResultBoard',
   'sidebarModuleStatGroupTemplates',
 ]);
 

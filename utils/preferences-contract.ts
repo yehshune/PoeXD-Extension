@@ -203,6 +203,7 @@ export interface Preferences {
   sidebarModuleLiveSearch: boolean;
   sidebarModulePinnedItems: boolean;
   sidebarModulePobBuild: boolean;
+  sidebarModuleResultBoard: boolean;
   sidebarModuleStatGroupTemplates: boolean;
   sidebarPosition: SidebarPosition;
   sidebarWidth: number;
@@ -244,6 +245,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   sidebarModuleLiveSearch: true,
   sidebarModulePinnedItems: true,
   sidebarModulePobBuild: true,
+  sidebarModuleResultBoard: true,
   sidebarModuleStatGroupTemplates: true,
   sidebarPosition: 'left',
   sidebarWidth: 380,

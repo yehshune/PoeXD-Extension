@@ -320,6 +320,10 @@
                   v-show="activeTab === 'pinned-items'"
                   :sidebar-position="sidebarPosition"
                 />
+                <ResultBoardPane
+                  v-if="isTabMounted('result-board') && isTabVisible('result-board')"
+                  v-show="activeTab === 'result-board'"
+                />
                 <!-- 設定分頁自帶 SidebarPane，確保工具列固定且捲軸只涵蓋下方設定區塊 -->
                 <SettingsPane
                   v-if="isTabMounted('settings')"
@@ -581,6 +585,7 @@ import StatGroupTemplatePane from './sidebar/stat-group-templates/StatGroupTempl
 import ToolsPane from './sidebar/ToolsPane.vue';
 import PobBuildPane from './sidebar/pob-build/PobBuildPane.vue';
 import PinnedItemPane from './sidebar/pinned-items/PinnedItemPane.vue';
+import ResultBoardPane from './sidebar/result-board/ResultBoardPane.vue';
 import SettingsPane from './sidebar/SettingsPane.vue';
 import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
@@ -678,6 +683,7 @@ import {
   SlidersHorizontal,
   ShoppingCart,
   Pin,
+  LayoutList,
 } from '@lucide/vue';
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
@@ -748,6 +754,7 @@ export default defineComponent({
     ToolsPane,
     PobBuildPane,
     PinnedItemPane,
+    ResultBoardPane,
     SettingsPane,
     LiveSearchPrimaryPane,
     LiveSearchConsoleSettingsPane,
@@ -1109,6 +1116,13 @@ export default defineComponent({
         icon: Pin,
       },
       {
+        id: 'result-board',
+        get name() {
+          return t('sidebar.nav.resultBoard');
+        },
+        icon: LayoutList,
+      },
+      {
         id: 'tools',
         get name() {
           return t('sidebar.nav.tools');
@@ -1158,6 +1172,7 @@ export default defineComponent({
         activeTab.value === 'stat-group-template' ||
         activeTab.value === 'pob-build' ||
         activeTab.value === 'pinned-items' ||
+        activeTab.value === 'result-board' ||
         activeTab.value === 'settings',
     );
 
@@ -1489,6 +1504,13 @@ export default defineComponent({
       void nextTick(() => dispatchPoeEvent('poexd-trigger-select-type-modal'));
     });
 
+    // 官方結果數旁的看板捷徑：展開側邊欄並切到搜尋結果看板
+    const removeOpenResultBoardListener = listenPoeEvent('poexd-open-result-board', () => {
+      if (!isTabVisible('result-board')) return;
+      activeTab.value = 'result-board';
+      if (isCollapsed.value) toggleCollapse();
+    });
+
     const isTypeDialogOpen = ref(false);
     const handleTypeDialogOpenChange = (isOpen: boolean) => {
       isTypeDialogOpen.value = isOpen;
@@ -1694,6 +1716,7 @@ export default defineComponent({
       removeCloseAffixModalListener();
       removeOpenAffixModalListener();
       removeSelectTypeModalListener();
+      removeOpenResultBoardListener();
       if (resizeRafId !== null) {
         window.cancelAnimationFrame(resizeRafId);
         resizeRafId = null;

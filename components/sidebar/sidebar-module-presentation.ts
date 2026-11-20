@@ -1,5 +1,13 @@
 import type { Component } from 'vue';
-import { Bookmark, History, Pin, Radio, ShoppingCart, SlidersHorizontal } from '@lucide/vue';
+import {
+  Bookmark,
+  History,
+  LayoutList,
+  Pin,
+  Radio,
+  ShoppingCart,
+  SlidersHorizontal,
+} from '@lucide/vue';
 import { t, type I18nKey } from '@/utils/i18n';
 import type { SidebarModuleId } from '@/utils/sidebar-modules';
 
@@ -37,6 +45,11 @@ export const SIDEBAR_MODULE_PRESENTATION: Readonly<
     icon: Pin,
     labelKey: 'sidebar.nav.pinnedItems',
     descriptionKey: 'settings.modules.item.pinned-items.description',
+  },
+  'result-board': {
+    icon: LayoutList,
+    labelKey: 'sidebar.nav.resultBoard',
+    descriptionKey: 'settings.modules.item.result-board.description',
   },
   'live-search': {
     icon: Radio,

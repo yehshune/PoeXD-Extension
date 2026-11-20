@@ -47,6 +47,7 @@ describe('Preferences module interface', () => {
       sidebarModuleLiveSearch: true,
       sidebarModulePinnedItems: true,
       sidebarModulePobBuild: true,
+      sidebarModuleResultBoard: true,
       sidebarModuleStatGroupTemplates: true,
       sidebarPosition: 'left',
       sidebarWidth: 380,

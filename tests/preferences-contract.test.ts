@@ -55,6 +55,7 @@ describe('Preferences Domain Contract', () => {
       sidebarModuleLiveSearch: true,
       sidebarModulePinnedItems: true,
       sidebarModulePobBuild: true,
+      sidebarModuleResultBoard: true,
       sidebarModuleStatGroupTemplates: true,
       sidebarPosition: 'left',
       sidebarWidth: 380,

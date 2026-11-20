@@ -42,7 +42,7 @@ import { moveTemplateId } from '../stat-group-templates/template-order';
 import { requestResultTranslation } from '@/utils/market-result-translation-request';
 import PinnedItemActions from './PinnedItemActions.vue';
 import PinnedItemCardView from './PinnedItemCardView.vue';
-import { resolveRarityClass } from './pinned-item-card';
+import { RARITY_COLOURS, resolveRarityClass } from './pinned-item-card';
 import { filterPinnedItems } from './pinned-item-filter';
 import {
   PINNED_SORT_MODES,
@@ -261,17 +261,6 @@ function collapseAll(): void {
   if (expandedIds.value.size === 0) return;
   expandedIds.value = new Set();
 }
-
-/** 官方物品名稱的稀有度顏色（以 OKLCH 調和亮度與飽和度，與深色主題及 PoB 購物清單色票協調） */
-const RARITY_COLOURS: Readonly<Record<string, string>> = {
-  normal: 'var(--foreground)',
-  magic: 'oklch(0.68 0.13 258)',
-  rare: 'oklch(0.76 0.13 92)',
-  unique: 'oklch(0.68 0.15 50)',
-  gem: 'oklch(0.7 0.1 190)',
-  currency: 'oklch(0.74 0.06 82)',
-  divination: 'oklch(0.72 0.12 225)',
-};
 
 function rarityColour(item: PinnedItemSnapshot): string {
   return RARITY_COLOURS[resolveRarityClass(item.item)] ?? RARITY_COLOURS.normal!;

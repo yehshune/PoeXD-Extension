@@ -5,6 +5,11 @@ import {
   type LiveStatLabels,
   type LiveTradeFilters,
 } from './live-trade-data';
+import type {
+  FetchFailure,
+  SearchResultSummary,
+  WhisperOutcome,
+} from './result-board/board-events';
 
 export type DialogButtonVariant =
   | 'default'
@@ -194,7 +199,7 @@ export interface PoeLiveSearchCommandResultPayload {
 // -------------------------------------------------------------
 
 /**
- * Main World -> Content World (11 個事件)
+ * Main World -> Content World (14 個事件)
  * 帶有 JSON 結構之事件在 CustomEvent 傳輸時採用 serialized JSON string 以維持 wire 相容。
  */
 export interface PoeMainToContentEventMap {
@@ -209,6 +214,9 @@ export interface PoeMainToContentEventMap {
   'poexd-criteria-overlay-read-result': string; // Wire format: serialized JSON of PoeCriteriaOverlayReadResultPayload
   'poexd-criteria-overlay-commit-result': string; // Wire format: serialized JSON of PoeCriteriaOverlayCommitResultPayload
   'poexd-page-guide-demo-result': string; // Wire format: serialized JSON of PoePageGuideDemoResultPayload
+  'poexd-search-result-summary': string; // Wire format: serialized JSON of SearchResultSummary
+  'poexd-fetch-failed': string; // Wire format: serialized JSON of FetchFailure
+  'poexd-whisper-outcome': string; // Wire format: serialized JSON of WhisperOutcome
 }
 
 /**
@@ -232,7 +240,7 @@ export interface PoeContentToMainEventMap {
 }
 
 /**
- * 25 個跨世界通訊事件合約（Main World <-> Content World）
+ * 28 個跨世界通訊事件合約（Main World <-> Content World）
  */
 export type PoeCrossWorldEventMap = PoeMainToContentEventMap & PoeContentToMainEventMap;
 
@@ -265,14 +273,17 @@ export interface PoeCrossWorldPayloadMap {
   'poexd-criteria-overlay-commit-result': PoeCriteriaOverlayCommitResultPayload;
   'poexd-page-guide-demo': PoePageGuideDemoPayload;
   'poexd-page-guide-demo-result': PoePageGuideDemoResultPayload;
+  'poexd-search-result-summary': SearchResultSummary;
+  'poexd-fetch-failed': FetchFailure;
+  'poexd-whisper-outcome': WhisperOutcome;
 }
 
 // -------------------------------------------------------------
-// Content World Internal Event Map (12 個事件)
+// Content World Internal Event Map (14 個事件)
 // -------------------------------------------------------------
 
 /**
- * 12 個 Content World 內部解耦事件（Content Script <-> Injected Controls / Vue）
+ * 14 個 Content World 內部解耦事件（Content Script <-> Injected Controls / Vue）
  */
 export interface PoeContentInternalEventMap {
   'poexd-close-affix-modal': void;
@@ -290,6 +301,8 @@ export interface PoeContentInternalEventMap {
   'poexd-toast': PoeToastDetail;
   'poexd-trigger-dialog': DialogEventDetail;
   'poexd-trigger-select-type-modal': void;
+  /** 官方結果數旁的捷徑按鈕：展開側邊欄並切到搜尋結果看板 */
+  'poexd-open-result-board': void;
 }
 
 /**
@@ -311,6 +324,7 @@ export const POE_CONTENT_INTERNAL_EVENT_TYPES = [
   'poexd-toast',
   'poexd-trigger-dialog',
   'poexd-trigger-select-type-modal',
+  'poexd-open-result-board',
 ] as const satisfies readonly (keyof PoeContentInternalEventMap)[];
 
 type MissingInternalEventType = Exclude<

@@ -3,6 +3,7 @@
  *
  * 只取看板需要的欄位，不保留 token 或密語字串；缺少賣家帳號或物品名稱的結果無法放進看板。
  */
+import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import type { TradeResultEntry } from '@/utils/trade-result-cache';
 
 export type SellerPresence = 'online' | 'afk' | 'offline';
@@ -26,6 +27,8 @@ export interface BoardEntry {
   name: string;
   typeLine: string;
   frameType?: number;
+  /** 官方 CDN 的物品圖示 */
+  icon?: string;
   price?: BoardPrice;
   /** 刊登時間（epoch ms） */
   indexedAt?: number;
@@ -99,6 +102,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
     name,
     typeLine,
     ...(frameType !== undefined ? { frameType } : {}),
+    ...(isValidPoeCdnImageUrl(item.icon) ? { icon: item.icon } : {}),
     ...(price ? { price } : {}),
     ...(indexedAt !== undefined ? { indexedAt } : {}),
     instantBuyout: typeof hideoutToken === 'string' && hideoutToken.length > 0,

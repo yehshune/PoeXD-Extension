@@ -11,6 +11,7 @@ export const SIDEBAR_MODULE_IDS = [
   'stat-group-template',
   'pob-build',
   'pinned-items',
+  'result-board',
   'live-search',
 ] as const;
 export type SidebarModuleId = (typeof SIDEBAR_MODULE_IDS)[number];
@@ -27,6 +28,7 @@ export type SidebarModulePreferenceKey =
   | 'sidebarModuleStatGroupTemplates'
   | 'sidebarModulePobBuild'
   | 'sidebarModulePinnedItems'
+  | 'sidebarModuleResultBoard'
   | 'sidebarModuleLiveSearch';
 
 /** 設定分頁中的區塊 id；模組可指向與它相關的設定區塊，讓使用者一鍵跳過去。 */
@@ -56,6 +58,7 @@ export const SIDEBAR_MODULES: readonly SidebarModuleDefinition[] = Object.freeze
   },
   { id: 'pob-build', preferenceKey: 'sidebarModulePobBuild', settingsSection: 'bookmarks' },
   { id: 'pinned-items', preferenceKey: 'sidebarModulePinnedItems', settingsSection: null },
+  { id: 'result-board', preferenceKey: 'sidebarModuleResultBoard', settingsSection: null },
   { id: 'live-search', preferenceKey: 'sidebarModuleLiveSearch', settingsSection: null },
 ] satisfies SidebarModuleDefinition[]);
 

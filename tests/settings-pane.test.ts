@@ -433,7 +433,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // On/off settings use Switch (14 settings + 6 Sidebar Modules), sized by the checkbox token
     expect(container.querySelectorAll('[data-slot="checkbox"]').length).toBe(0);
     const switches = container.querySelectorAll('[data-slot="switch"]');
-    expect(switches.length).toBe(20);
+    expect(switches.length).toBe(21);
     switches.forEach((sw) => {
       expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });
@@ -1123,7 +1123,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const { container } = await mountSettingsPane();
     const count = () =>
       container.querySelector('[data-settings-modules-count]')?.textContent?.trim();
-    expect(count()).toBe('已開啟 6 / 6');
+    expect(count()).toBe('已開啟 7 / 7');
 
     const historySwitch = container.querySelector<HTMLElement>('#sidebar-module-history')!;
     expect(historySwitch.getAttribute('data-state')).toBe('checked');
@@ -1132,7 +1132,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().sidebarModuleHistory).toBe(false);
     expect(storage.inspect()['sidebarModuleHistory_poe1']).toBe(false);
     expect(historySwitch.getAttribute('data-state')).toBe('unchecked');
-    expect(count()).toBe('已開啟 5 / 6');
+    expect(count()).toBe('已開啟 6 / 7');
 
     // Related-settings shortcut is offered only for enabled modules with a settings section
     const bookmarkRow = container.querySelector('[data-sidebar-module="bookmark"]');

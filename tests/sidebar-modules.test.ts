@@ -29,6 +29,7 @@ describe('Sidebar Modules domain', () => {
       'stat-group-template',
       'pob-build',
       'pinned-items',
+      'result-board',
       'tools',
       'settings',
     ]);
@@ -43,6 +44,7 @@ describe('Sidebar Modules domain', () => {
       'stat-group-template',
       'pob-build',
       'pinned-items',
+      'result-board',
       'tools',
       'settings',
     ]);

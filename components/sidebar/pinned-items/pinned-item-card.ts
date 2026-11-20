@@ -45,6 +45,17 @@ const RARITY_BY_FRAME_TYPE: Readonly<Record<number, string>> = {
   9: 'unique',
 };
 
+/** 官方物品名稱的稀有度顏色（以 OKLCH 調和亮度與飽和度，與深色主題及 PoB 購物清單色票協調） */
+export const RARITY_COLOURS: Readonly<Record<string, string>> = {
+  normal: 'var(--foreground)',
+  magic: 'oklch(0.68 0.13 258)',
+  rare: 'oklch(0.76 0.13 92)',
+  unique: 'oklch(0.68 0.15 50)',
+  gem: 'oklch(0.7 0.1 190)',
+  currency: 'oklch(0.74 0.06 82)',
+  divination: 'oklch(0.72 0.12 225)',
+};
+
 export function resolveRarityClass(item: Json): string {
   const byName = text(item.rarity).toLowerCase();
   if (['normal', 'magic', 'rare', 'unique'].includes(byName)) return byName;

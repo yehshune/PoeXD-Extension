@@ -2,6 +2,13 @@ import {
   serializePoeFetchResponse,
   serializePoeSearchQueryObserved,
 } from '@/utils/event-protocol-types';
+import {
+  readWhisperErrorCode,
+  serializeFetchFailure,
+  serializeSearchResultSummary,
+  serializeWhisperOutcome,
+  summarizeSearchResponse,
+} from '@/utils/result-board/board-events';
 import type { MainWorldBridge } from './bridge-bootstrap';
 import {
   getVueStore,
@@ -34,6 +41,45 @@ export function isOfficialTradeSearchEndpoint(url?: string): boolean {
 
 function isOfficialTradeFetchEndpoint(url: string): boolean {
   return url.includes('/api/trade/fetch') || url.includes('/api/trade2/fetch');
+}
+
+/** 官方「前往藏身處」：`POST /api/trade/whisper` */
+function isOfficialTradeWhisperEndpoint(url: string): boolean {
+  return url.includes('/api/trade/whisper') || url.includes('/api/trade2/whisper');
+}
+
+function dispatchWhisperResult(bridge: MainWorldBridge, status: number, body: unknown) {
+  const code = readWhisperErrorCode(body);
+  bridge.dispatchEvent(
+    'poexd-whisper-outcome',
+    serializeWhisperOutcome({ status, ...(code !== undefined ? { code } : {}) }),
+  );
+}
+
+async function dispatchWhisperOutcome(bridge: MainWorldBridge, response: Response) {
+  let body: unknown;
+  try {
+    body = await response.clone().json();
+  } catch {
+    body = undefined;
+  }
+  dispatchWhisperResult(bridge, response.status, body);
+}
+
+function dispatchSearchSummary(bridge: MainWorldBridge, data: unknown) {
+  const summary = summarizeSearchResponse(data);
+  if (summary) {
+    bridge.dispatchEvent('poexd-search-result-summary', serializeSearchResultSummary(summary));
+  }
+}
+
+/** XHR 的回應內容（JSON）；解析失敗時為 undefined */
+function readXhrJson(xhr: XMLHttpRequest): unknown {
+  try {
+    return xhr.responseType === 'json' ? xhr.response : JSON.parse(xhr.responseText);
+  } catch {
+    return undefined;
+  }
 }
 
 export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = window) {
@@ -113,7 +159,12 @@ export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = w
 
     try {
       if (url) {
-        if (isResultFetch) {
+        if (isResultFetch && response.ok === false) {
+          bridge.dispatchEvent(
+            'poexd-fetch-failed',
+            serializeFetchFailure({ url, status: response.status }),
+          );
+        } else if (isResultFetch) {
           try {
             const clone = response.clone();
             const data = await clone.json();
@@ -121,11 +172,14 @@ export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = w
           } catch (e) {
             console.error('[PoeXD Inject] 攔截 fetch 解析錯誤:', e);
           }
+        } else if (isOfficialTradeWhisperEndpoint(url)) {
+          await dispatchWhisperOutcome(bridge, response);
         } else if (isSearch) {
           try {
             const clone = response.clone();
             const data = await clone.json();
             const searchId = data.id;
+            dispatchSearchSummary(bridge, data);
             const store = getVueStore();
             const query = store && store.state ? store.state.query || store.state.persistent : null;
             const queryJson = query
@@ -199,6 +253,16 @@ export function installXhrInterceptor(bridge: MainWorldBridge, win: Window = win
 
     let submissionReqId: number | null = null;
 
+    if (isOfficialTradeWhisperEndpoint(url)) {
+      this.addEventListener(
+        'load',
+        function (this: XMLHttpRequest) {
+          dispatchWhisperResult(bridge, this.status, readXhrJson(this));
+        },
+        { once: true },
+      );
+    }
+
     if (isSearch) {
       let requestQuery: any = undefined;
       if (typeof body === 'string') {
@@ -239,9 +303,9 @@ export function installXhrInterceptor(bridge: MainWorldBridge, win: Window = win
           }
 
           try {
-            const data =
-              this.responseType === 'json' ? this.response : JSON.parse(this.responseText);
-            const searchId = data?.id;
+            const data = readXhrJson(this) as { id?: unknown } | undefined;
+            if (isSuccess) dispatchSearchSummary(bridge, data);
+            const searchId = typeof data?.id === 'string' ? data.id : undefined;
             if (searchId && queryJson) {
               bridge.dispatchEvent(
                 'poexd-search-query-observed',

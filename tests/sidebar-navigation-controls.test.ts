@@ -320,7 +320,7 @@ describe('Sidebar Navigation Controls Migration', () => {
       const navButtons = Array.from(
         container.querySelectorAll('.sidebar-nav button[data-sidebar-tab]'),
       );
-      expect(navButtons.length).toBe(7);
+      expect(navButtons.length).toBe(8);
       expect(navButtons[navButtons.length - 1]).toBe(settingsTab);
       expect(navButtons[navButtons.length - 2]).toBe(toolsTab);
 
@@ -815,6 +815,7 @@ describe('Sidebar Navigation Controls Migration', () => {
         'bookmark',
         'stat-group-template',
         'pinned-items',
+        'result-board',
         'tools',
         'settings',
       ]);
@@ -840,6 +841,7 @@ describe('Sidebar Navigation Controls Migration', () => {
         sidebarModuleStatGroupTemplates: false,
         sidebarModulePobBuild: false,
         sidebarModulePinnedItems: false,
+        sidebarModuleResultBoard: false,
         sidebarModuleLiveSearch: false,
       };
       await mountSidebar({ [keys.isCollapsed]: false, [keys.activeTab]: 'bookmark' });

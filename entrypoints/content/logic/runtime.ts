@@ -29,6 +29,7 @@ import { ResultModQuickFilter } from './result-mod-quick-filter';
 import { ResultPobCopy } from './result-pob-copy';
 import { ResultPinButton } from './result-pin-button';
 import { getTradeResultCache, type TradeResultCache } from '@/utils/trade-result-cache';
+import { getResultBoardRuntime } from './result-board-runtime';
 import { createPinnedItemClient } from '@/utils/pinned-item-client';
 import { ResultExternalLinks } from './result-external-links';
 import { isCloudflareChallenge } from '@/utils/trade-interstitial-classifier';
@@ -100,6 +101,9 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   const resultCache = getTradeResultCache();
   const pobCopy = new ResultPobCopy(version, {}, resultCache);
   const resultPin = new ResultPinButton(version, resultCache, createPinnedItemClient(version));
+  // 搜尋結果看板只在一般頁啟用（確定頁面角色後才允許）
+  const resultBoard = getResultBoardRuntime();
+  let resultBoardAllowed = false;
   const externalLinks = new ResultExternalLinks(version, pobCopy);
   const domFilter = new DomFilter(
     version,
@@ -141,6 +145,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     modQuickFilter.cleanup();
     pobCopy.cleanup();
     resultPin.cleanup();
+    resultBoard.cleanup();
     resultCache.clear();
     externalLinks.cleanup();
     modHighlighter.cleanup();
@@ -225,6 +230,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       pobCopy.refreshLocale();
       resultPin.setEnabled(snapshot.sidebarModulePinnedItems);
       resultPin.refreshLocale();
+      resultBoard.setEnabled(resultBoardAllowed && snapshot.sidebarModuleResultBoard);
+      resultBoard.ensureShortcut();
       externalLinks.setEnabled(snapshot.enableResultExternalLinks);
       externalLinks.refreshLocale();
     };
@@ -335,6 +342,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
         return;
       }
       domFilter.setPageRole(pageRole);
+      resultBoardAllowed = pageRole === 'normal';
+      resultBoard.setEnabled(resultBoardAllowed && preferences.read().sidebarModuleResultBoard);
       pricePresenter.setPageRole(pageRole);
       itemNormalizer.setPageRole(pageRole);
       sortController.setPageRole(pageRole);
