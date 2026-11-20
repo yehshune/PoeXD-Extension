@@ -2,7 +2,8 @@
  * 搜尋結果看板在一般頁上的接線（CONTEXT.md「Result Board」、ADR-0018）：
  * - 官方 search / fetch 回應 → 看板狀態（`ResultBoardSession`）
  * - 「載入更多」一律觸發官方自己的按鈕（`ResultBoardLoader`）
- * - 定位、前往藏身處都操作官方結果列，不改動官方列表
+ * - 定位、前往藏身處都操作官方結果列，不改動官方列表；前往藏身處的連結過期時先按官方的
+ *   「重新整理」，等官方按鈕恢復再前往
  * - 官方「前往藏身處」的點擊與 whisper 回應 → 已前往／已售出標記
  * - 官方結果數旁的捷徑按鈕
  *
@@ -34,6 +35,18 @@ const WHISPER_GONE_CODE = 1;
 const LOCATE_HIGHLIGHT_MS = 2_000;
 /** 官方結果列在 fetch 回應後才重繪，稍等再讀通貨圖示 */
 const CURRENCY_SCAN_DELAY_MS = 300;
+/** 等官方重新整理一筆結果、讓「前往藏身處」恢復可用的上限 */
+export const TRAVEL_REFRESH_TIMEOUT_MS = 10_000;
+const TRAVEL_REFRESH_POLL_MS = 100;
+
+/**
+ * 前往藏身處的結果：
+ * - `travelled`：已按下官方按鈕
+ * - `unavailable`：找不到結果列或沒有可用的按鈕（例如需要私訊的刊登）
+ * - `busy`：連結過期、但正在載入更多，重新整理的 fetch 會和載入混在一起，先不處理
+ * - `refresh-failed`：重新整理後按鈕仍未恢復（逾時、結果列消失或已下架）
+ */
+export type TravelOutcome = 'travelled' | 'unavailable' | 'busy' | 'refresh-failed';
 
 const STYLE_ID = 'poexd-result-board-style';
 const SHORTCUT_CLASS = 'poexd-board-shortcut';
@@ -83,6 +96,16 @@ export function readRowCurrency(row: Element): CurrencyDisplay | undefined {
     undefined;
   return { icon, ...(name ? { name: name.slice(0, 64) } : {}) };
 }
+
+const isUsable = (button: HTMLElement | null | undefined): button is HTMLElement =>
+  !!button && !button.hasAttribute('disabled') && !button.classList.contains('disabled');
+
+const findTravelButton = (row: Element | null): HTMLElement | null =>
+  row?.querySelector<HTMLElement>('.direct-btn') ?? null;
+
+/** 官方在連結過期時把按鈕標成 `expired disabled`（提示 "Item must be refreshed"） */
+const isExpired = (button: HTMLElement | null): boolean =>
+  !!button && button.classList.contains('expired');
 
 function findLoadMoreButton(doc: Document): HTMLElement | null {
   const button = doc.querySelector<HTMLElement>('.results .load-more-btn, .load-more-btn');
@@ -161,14 +184,47 @@ export class ResultBoardRuntime {
     return true;
   }
 
-  /** 按下官方結果列的「前往藏身處」；沒有可用的按鈕時回傳 false */
-  travel(id: string): boolean {
-    const button = findOfficialRow(id, this.doc)?.querySelector<HTMLElement>('.direct-btn');
-    if (!button || button.hasAttribute('disabled') || button.classList.contains('disabled')) {
-      return false;
+  /**
+   * 按下官方結果列的「前往藏身處」。連結過期時先按官方的「重新整理」（只重新取得這一筆），
+   * 等按鈕恢復可用再按；`onRefreshing` 在開始等待重新整理時呼叫一次。
+   */
+  async travel(id: string, onRefreshing?: () => void): Promise<TravelOutcome> {
+    const row = findOfficialRow(id, this.doc);
+    const button = findTravelButton(row);
+    if (isUsable(button)) {
+      button.click();
+      return 'travelled';
     }
-    button.click();
-    return true;
+    if (!row || !isExpired(button)) return 'unavailable';
+    if (this.loader.getState().running) return 'busy';
+
+    // 已經在重新整理（例如連按兩次）就只等，不再送一次
+    if (!row.classList.contains('refreshing')) {
+      const refresh = row.querySelector<HTMLElement>('button.refresh');
+      if (!isUsable(refresh)) return 'unavailable';
+      refresh.click();
+    }
+    onRefreshing?.();
+
+    const refreshed = await this.waitForTravelButton(id);
+    if (!refreshed) return 'refresh-failed';
+    refreshed.click();
+    return 'travelled';
+  }
+
+  /** 等官方重新整理完：同一筆結果列的按鈕不再過期且可用；結果列消失或逾時則放棄 */
+  private async waitForTravelButton(id: string): Promise<HTMLElement | undefined> {
+    for (let waited = 0; waited < TRAVEL_REFRESH_TIMEOUT_MS; waited += TRAVEL_REFRESH_POLL_MS) {
+      await new Promise((resolve) => setTimeout(resolve, TRAVEL_REFRESH_POLL_MS));
+      if (!this.enabled) return undefined;
+      const row = findOfficialRow(id, this.doc);
+      if (!row) return undefined;
+      const button = findTravelButton(row);
+      if (!row.classList.contains('refreshing') && !isExpired(button) && isUsable(button)) {
+        return button;
+      }
+    }
+    return undefined;
   }
 
   /** 按下官方結果列上 PoeXD 的釘選按鈕（與在結果列上釘選相同）；沒有按鈕時回傳 false */

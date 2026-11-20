@@ -26,10 +26,14 @@ export interface BoardEntry {
   order: number;
   name: string;
   typeLine: string;
+  /** 基底名稱（魔法物品的 typeLine 含詞綴）；倉庫搜尋 regex 用 */
+  baseType?: string;
   frameType?: number;
   /** 官方 CDN 的物品圖示 */
   icon?: string;
   price?: BoardPrice;
+  /** 遊戲內物品的標價備註，市集寫法（例如 `~b/o 2 chaos`）；倉庫搜尋 regex 用 */
+  note?: string;
   /** 刊登時間（epoch ms） */
   indexedAt?: number;
   /** 可直接前往藏身處購買；否則需要私訊 */
@@ -56,6 +60,23 @@ function readPrice(value: unknown): BoardPrice | undefined {
     return undefined;
   }
   return { amount, currency };
+}
+
+const PRICE_TYPES = new Set(['~b/o', '~price']);
+const NOTE_PATTERN = /^~(?:b\/o|price) \S/;
+
+/**
+ * 物品自己的備註優先（保留賣家寫法，例如 `1/2 divine`）；整個倉庫頁標價的物品沒有備註，
+ * 改用官方標價組回市集寫法
+ */
+function readNote(item: Record<string, unknown>, listingPrice: unknown): string | undefined {
+  const note = text(item.note).replace(/\s+/g, ' ').trim();
+  if (NOTE_PATTERN.test(note)) return note;
+  if (!isRecord(listingPrice)) return undefined;
+  const type = text(listingPrice.type);
+  const price = readPrice(listingPrice);
+  if (!price || !PRICE_TYPES.has(type)) return undefined;
+  return `${type} ${price.amount} ${price.currency}`;
 }
 
 function readIndexedAt(value: unknown): number | undefined {
@@ -86,10 +107,12 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
   if (!isRecord(item) || !isRecord(listing)) return undefined;
   const seller = readSeller(listing.account);
   const name = unwrapMarkup(text(item.name));
-  const typeLine = unwrapMarkup(text(item.typeLine) || text(item.baseType));
+  const baseType = unwrapMarkup(text(item.baseType));
+  const typeLine = unwrapMarkup(text(item.typeLine)) || baseType;
   if (!seller || (!name && !typeLine)) return undefined;
 
   const price = readPrice(listing.price);
+  const note = readNote(item, listing.price);
   const indexedAt = readIndexedAt(listing.indexed);
   const frameType =
     typeof item.frameType === 'number' && Number.isFinite(item.frameType)
@@ -101,9 +124,11 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
     order,
     name,
     typeLine,
+    ...(baseType ? { baseType } : {}),
     ...(frameType !== undefined ? { frameType } : {}),
     ...(isValidPoeCdnImageUrl(item.icon) ? { icon: item.icon } : {}),
     ...(price ? { price } : {}),
+    ...(note ? { note } : {}),
     ...(indexedAt !== undefined ? { indexedAt } : {}),
     instantBuyout: typeof hideoutToken === 'string' && hideoutToken.length > 0,
     seller,

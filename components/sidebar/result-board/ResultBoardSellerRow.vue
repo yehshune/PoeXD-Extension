@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * 看板賣家清單的一位賣家：可直購件數、價格範圍、總價；展開後勾選要買的物品，顯示勾選總價。
+ * 看板賣家清單的一位賣家：可直購件數、價格範圍、總價；展開後勾選要買的物品，顯示勾選總價
+ * 與倉庫搜尋 regex。
  */
 import { computed, ref } from 'vue';
-import { ChevronDown, ChevronUp, EyeOff } from '@lucide/vue';
+import { ChevronDown, ChevronUp, Copy, EyeOff, TriangleAlert } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { t } from '@/utils/i18n';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
@@ -13,6 +14,7 @@ import type { PriceTotal } from '@/utils/result-board/board-price';
 import { sortEntries } from '@/utils/result-board/board-query';
 import type { BoardMark, CurrencyDisplay } from '@/utils/result-board/board-session';
 import type { SellerSummary } from '@/utils/result-board/board-sellers';
+import type { StashRegexResult } from '@/utils/result-board/stash-regex';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
 import { formatPrice, formatTotal } from './result-board-format';
 
@@ -23,6 +25,8 @@ const props = defineProps<{
   marks: Readonly<Record<string, BoardMark>>;
   pickedEntries: readonly BoardEntry[];
   pickedTotal: PriceTotal;
+  /** 展開時才計算 */
+  stashRegex?: StashRegexResult;
   isPicked: (entry: BoardEntry) => boolean;
   isExpanded: (id: string) => boolean;
   cardSnapshot: (id: string) => PinnedItemSnapshot | undefined;
@@ -37,6 +41,7 @@ const emit = defineEmits<{
   locate: [id: string];
   travel: [id: string];
   pin: [id: string];
+  copyRegex: [text: string];
 }>();
 
 const localOpen = ref(false);
@@ -58,6 +63,22 @@ const range = computed(() => {
   const min = formatPrice(value.min);
   const max = formatPrice(value.max);
   return min === max ? min : `${min} – ${max}`;
+});
+
+const regexWarnings = computed(() => {
+  const regex = props.stashRegex;
+  if (!regex) return [];
+  return [
+    regex.ambiguousIds.length > 0
+      ? t('resultBoard.regex.ambiguous', { count: regex.ambiguousIds.length })
+      : '',
+    regex.unpricedIds.length > 0
+      ? t('resultBoard.regex.unpriced', { count: regex.unpricedIds.length })
+      : '',
+    regex.tooLongIds.length > 0
+      ? t('resultBoard.regex.tooLong', { count: regex.tooLongIds.length })
+      : '',
+  ].filter(Boolean);
 });
 
 const visited = computed(() =>
@@ -142,6 +163,63 @@ const visited = computed(() =>
           })
         }}
       </p>
+      <section
+        v-if="stashRegex"
+        class="mx-[var(--pxd-space-md)] mb-[var(--pxd-space-sm)] flex flex-col gap-[var(--pxd-space-xs)] rounded-md border border-border bg-card p-[var(--pxd-space-sm)]"
+        data-board-stash-regex
+      >
+        <span class="text-[length:var(--pxd-font-caption)] font-semibold">{{
+          t('resultBoard.regex.title')
+        }}</span>
+        <p
+          v-if="stashRegex.parts.length === 0"
+          class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"
+          data-board-stash-regex-empty
+        >
+          {{ t('resultBoard.regex.empty') }}
+        </p>
+        <div
+          v-for="(part, index) in stashRegex.parts"
+          :key="index"
+          class="flex items-start gap-[var(--pxd-space-xs)]"
+          data-board-stash-regex-part
+        >
+          <span
+            v-if="stashRegex.parts.length > 1"
+            class="shrink-0 pt-[2px] text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
+            >{{
+              t('resultBoard.regex.part', { index: index + 1, count: stashRegex.parts.length })
+            }}</span
+          >
+          <code
+            class="min-w-0 flex-1 break-all rounded-sm bg-muted/40 px-[var(--pxd-space-xs)] py-[2px] font-mono text-[length:var(--pxd-font-micro)] select-all"
+            >{{ part }}</code
+          >
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="shrink-0"
+            :title="t('resultBoard.regex.copy')"
+            :aria-label="t('resultBoard.regex.copy')"
+            data-board-stash-regex-copy
+            @click="emit('copyRegex', part)"
+          >
+            <Copy />
+          </Button>
+        </div>
+        <p
+          v-for="warning in regexWarnings"
+          :key="warning"
+          class="m-0 flex items-start gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-destructive"
+          data-board-stash-regex-warning
+        >
+          <TriangleAlert class="mt-[1px] size-3 shrink-0" />
+          <span>{{ warning }}</span>
+        </p>
+        <p class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground">
+          {{ t('resultBoard.regex.hint') }}
+        </p>
+      </section>
       <ul class="m-0 list-none p-0">
         <ResultBoardItemRow
           v-for="entry in orderedEntries"

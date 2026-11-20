@@ -8,6 +8,7 @@ import {
   getResultBoardRuntime,
   OFFICIAL_RESULT_CAP,
   type ResultBoardRuntime,
+  type TravelOutcome,
 } from '@/entrypoints/content/logic/result-board-runtime';
 import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-price-presenter';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
@@ -31,6 +32,11 @@ import {
   sortSellers,
   type SellerSummary,
 } from '@/utils/result-board/board-sellers';
+import {
+  buildStashRegex,
+  STASH_SEARCH_MAX_LENGTH,
+  type StashRegexResult,
+} from '@/utils/result-board/stash-regex';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
 import { getTradePageMode } from '@/utils/trade-page-mode';
 import { isPriceConversionSupported } from '@/utils/trade-realms';
@@ -40,8 +46,8 @@ export type BoardView = 'items' | 'sellers';
 
 export const DEFAULT_MIN_SELLER_COUNT = 2;
 
-const notify = (key: I18nKey) =>
-  dispatchPoeEvent('poexd-toast', { message: t(key), tone: 'error' });
+const notify = (key: I18nKey, tone: 'default' | 'success' | 'error' = 'error') =>
+  dispatchPoeEvent('poexd-toast', { message: t(key), tone });
 
 /** 輸入框的字串 → 數值；空白或不是正數時視為沒有設定 */
 export function parseBound(value: string): number | undefined {
@@ -152,6 +158,26 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     );
   }
 
+  /** 勾選物品的倉庫搜尋 regex；只和同賣家其他已載入的結果區分 */
+  function stashRegexOf(seller: SellerSummary): StashRegexResult {
+    const picked = pickedOf(seller);
+    const pickedIds = new Set(picked.map((entry) => entry.id));
+    return buildStashRegex({
+      picked,
+      others: seller.entries.filter((entry) => !pickedIds.has(entry.id)),
+      maxLength: STASH_SEARCH_MAX_LENGTH[version],
+    });
+  }
+
+  async function copyStashRegex(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      notify('resultBoard.regex.copied', 'success');
+    } catch {
+      notify('resultBoard.regex.copyFailed');
+    }
+  }
+
   const isExpanded = (id: string): boolean => expandedIds.value.has(id);
   const isSellerExpanded = (account: string): boolean => expandedSellers.value.has(account);
   const hasAnyExpanded = computed(() =>
@@ -217,8 +243,16 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const locate = (id: string) => {
     if (!runtime.locate(id)) notify('resultBoard.locateFailed');
   };
-  const travel = (id: string) => {
-    if (!runtime.travel(id)) notify('resultBoard.travelUnavailable');
+  const TRAVEL_FAILURE: Readonly<Record<Exclude<TravelOutcome, 'travelled'>, I18nKey>> = {
+    unavailable: 'resultBoard.travelUnavailable',
+    busy: 'resultBoard.travelBusy',
+    'refresh-failed': 'resultBoard.travelRefreshFailed',
+  };
+  const travel = async (id: string) => {
+    const outcome = await runtime.travel(id, () =>
+      notify('resultBoard.travelRefreshing', 'default'),
+    );
+    if (outcome !== 'travelled') notify(TRAVEL_FAILURE[outcome]);
   };
   const pin = (id: string) => {
     if (!runtime.pin(id)) notify('resultBoard.pinUnavailable');
@@ -281,6 +315,8 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     togglePicked,
     pickedOf,
     pickedTotal,
+    stashRegexOf,
+    copyStashRegex,
     isExpanded,
     isSellerExpanded,
     hasAnyExpanded,

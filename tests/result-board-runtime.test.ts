@@ -1,6 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ResultBoardRuntime } from '@/entrypoints/content/logic/result-board-runtime';
+import {
+  ResultBoardRuntime,
+  TRAVEL_REFRESH_TIMEOUT_MS,
+} from '@/entrypoints/content/logic/result-board-runtime';
 import {
   dispatchPoeEvent,
   listenPoeEvent,
@@ -146,13 +149,100 @@ describe('ResultBoardRuntime', () => {
     expect(runtime.locate('missing')).toBe(false);
   });
 
-  it('travels through the official button and marks the result visited', () => {
+  it('travels through the official button and marks the result visited', async () => {
     dispatchPoeEvent('poexd-search-result-summary', summary(20));
-    expect(runtime.travel('a')).toBe(true);
+    await expect(runtime.travel('a')).resolves.toBe('travelled');
     expect(runtime.session.getState().marks).toEqual({ a: 'visited' });
     document.querySelector('[data-id="b"] .direct-btn')!.classList.add('disabled');
-    expect(runtime.travel('b')).toBe(false);
-    expect(runtime.travel('missing')).toBe(false);
+    await expect(runtime.travel('b')).resolves.toBe('unavailable');
+    await expect(runtime.travel('missing')).resolves.toBe('unavailable');
+  });
+
+  /** 比照官方：連結過期時按鈕為 `expired disabled`，結果列上有「重新整理」 */
+  function expire(id: string, onRefresh?: (row: HTMLElement, button: HTMLElement) => void) {
+    const row = document.querySelector<HTMLElement>(`[data-id="${id}"]`)!;
+    const button = row.querySelector<HTMLElement>('.direct-btn')!;
+    button.classList.add('expired', 'disabled');
+    button.setAttribute('disabled', '');
+    const refresh = document.createElement('button');
+    refresh.className = 'refresh';
+    const clicks = vi.fn(() => {
+      row.classList.add('refreshing');
+      onRefresh?.(row, button);
+    });
+    refresh.addEventListener('click', clicks);
+    row.prepend(refresh);
+    return { row, button, refreshClicks: clicks };
+  }
+
+  const restore = (row: HTMLElement, button: HTMLElement) => () => {
+    row.classList.remove('refreshing');
+    button.classList.remove('expired', 'disabled');
+    button.removeAttribute('disabled');
+  };
+
+  it('refreshes an expired result and then travels', async () => {
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    const travelClicks = vi.fn();
+    const { refreshClicks } = expire('a', (row, button) => {
+      button.addEventListener('click', travelClicks);
+      setTimeout(restore(row, button), 350);
+    });
+    const onRefreshing = vi.fn();
+
+    const outcome = runtime.travel('a', onRefreshing);
+    expect(refreshClicks).toHaveBeenCalledTimes(1);
+    expect(onRefreshing).toHaveBeenCalledTimes(1);
+    expect(travelClicks).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(500);
+
+    await expect(outcome).resolves.toBe('travelled');
+    expect(travelClicks).toHaveBeenCalledTimes(1);
+    expect(runtime.session.getState().marks).toEqual({ a: 'visited' });
+  });
+
+  it('waits for a refresh already in progress instead of sending another', async () => {
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    const { row, button, refreshClicks } = expire('a');
+    row.classList.add('refreshing');
+    setTimeout(restore(row, button), 200);
+
+    const outcome = runtime.travel('a');
+    await vi.advanceTimersByTimeAsync(300);
+    await expect(outcome).resolves.toBe('travelled');
+    expect(refreshClicks).not.toHaveBeenCalled();
+  });
+
+  it('gives up when the refresh never restores the button', async () => {
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    expire('a', (row) => setTimeout(() => row.classList.remove('refreshing'), 300));
+
+    const outcome = runtime.travel('a');
+    await vi.advanceTimersByTimeAsync(TRAVEL_REFRESH_TIMEOUT_MS + 200);
+    await expect(outcome).resolves.toBe('refresh-failed');
+    expect(runtime.session.getState().marks).toEqual({});
+  });
+
+  it('gives up when the refreshed row disappears', async () => {
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    expire('a', (row) => setTimeout(() => row.remove(), 300));
+
+    const outcome = runtime.travel('a');
+    await vi.advanceTimersByTimeAsync(500);
+    await expect(outcome).resolves.toBe('refresh-failed');
+  });
+
+  it('does not refresh an expired result while loading more', async () => {
+    officialPage(['a', 'b']);
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    deliverFetch(cache, ['a', 'b']);
+    const { refreshClicks } = expire('a');
+    void runtime.loader.loadAll();
+    expect(runtime.loader.getState().running).toBe(true);
+
+    await expect(runtime.travel('a')).resolves.toBe('busy');
+    expect(refreshClicks).not.toHaveBeenCalled();
+    runtime.loader.stop();
   });
 
   it('marks a result sold when the official whisper says it is gone', () => {

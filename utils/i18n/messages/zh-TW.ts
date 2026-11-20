@@ -1485,12 +1485,26 @@ export const ZH_TW_MESSAGES = {
   'resultBoard.action.hideSeller': '在這次看板中隱藏這位賣家',
   'resultBoard.locateFailed': '官方結果列中找不到這筆結果',
   'resultBoard.travelUnavailable': '這筆結果目前無法直接前往藏身處',
+  'resultBoard.travelRefreshing': '前往藏身處的連結已過期，正在重新整理這筆結果…',
+  'resultBoard.travelRefreshFailed': '重新整理後仍無法前往藏身處，這筆結果可能已下架',
+  'resultBoard.travelBusy': '正在載入更多結果，請等載入完成後再前往這筆過期的結果',
   'resultBoard.pinUnavailable': '這筆結果目前無法釘選',
   'resultBoard.cardUnavailable': '無法顯示這筆結果的卡片',
   'resultBoard.seller.instantCount': '可直購 {count} 件',
   'resultBoard.seller.total': '總價 {total}',
   'resultBoard.seller.picked': '已勾選 {count} 件：{total}',
   'resultBoard.seller.pick': '勾選要買的物品',
+  'resultBoard.regex.title': '倉庫搜尋 regex',
+  'resultBoard.regex.hint':
+    '貼到賣家藏身處的倉庫搜尋，一次標出勾選的物品。只保證和這位賣家已載入的其他物品區分。',
+  'resultBoard.regex.part': '第 {index}/{count} 段',
+  'resultBoard.regex.copy': '複製倉庫搜尋 regex',
+  'resultBoard.regex.copied': '已複製倉庫搜尋 regex',
+  'resultBoard.regex.copyFailed': '無法複製到剪貼簿',
+  'resultBoard.regex.empty': '勾選物品後才能產生 regex',
+  'resultBoard.regex.ambiguous': '另有 {count} 件已載入的物品也會被標出，無法區分',
+  'resultBoard.regex.unpriced': '{count} 件沒有標價，只用名稱比對',
+  'resultBoard.regex.tooLong': '{count} 件名稱過長，放不進 regex',
 } as const;
 
 export type I18nKey = keyof typeof ZH_TW_MESSAGES;

@@ -1581,10 +1581,27 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'resultBoard.action.hideSeller': 'Hide this seller on this board',
   'resultBoard.locateFailed': 'This result is not in the official list',
   'resultBoard.travelUnavailable': 'Travel to hideout is not available for this result',
+  'resultBoard.travelRefreshing': 'The hideout link expired. Refreshing this result…',
+  'resultBoard.travelRefreshFailed':
+    'Still cannot travel after refreshing. The listing may be gone',
+  'resultBoard.travelBusy':
+    'Loading more results. Travel to this expired result once loading finishes',
   'resultBoard.pinUnavailable': 'This result cannot be pinned right now',
   'resultBoard.cardUnavailable': 'The card for this result cannot be shown',
   'resultBoard.seller.instantCount': '{count} instant buyout',
   'resultBoard.seller.total': 'Total {total}',
   'resultBoard.seller.picked': '{count} picked: {total}',
   'resultBoard.seller.pick': 'Pick to buy',
+  'resultBoard.regex.title': 'Stash search regex',
+  'resultBoard.regex.hint':
+    "Paste into the stash search in the seller's hideout to highlight the picked items at once. Only guaranteed to tell them apart from this seller's other loaded results.",
+  'resultBoard.regex.part': 'Part {index}/{count}',
+  'resultBoard.regex.copy': 'Copy stash search regex',
+  'resultBoard.regex.copied': 'Stash search regex copied',
+  'resultBoard.regex.copyFailed': 'Could not copy to clipboard',
+  'resultBoard.regex.empty': 'Pick items to generate a regex',
+  'resultBoard.regex.ambiguous':
+    '{count} other loaded results will also be highlighted and cannot be told apart',
+  'resultBoard.regex.unpriced': '{count} unpriced, matched by name only',
+  'resultBoard.regex.tooLong': '{count} with names too long to fit',
 };

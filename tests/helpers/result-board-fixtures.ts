@@ -13,6 +13,9 @@ export interface RawResultOptions {
   typeLine?: string;
   frameType?: number;
   searchId?: string;
+  note?: string;
+  priceType?: string;
+  baseType?: string;
 }
 
 /** 組出一筆形狀比照官方 `/fetch` 的快取結果 */
@@ -30,6 +33,9 @@ export function rawResult(options: RawResultOptions): TradeResultEntry {
     typeLine = 'Vaal Regalia',
     frameType = 2,
     searchId = 'search-1',
+    note,
+    priceType = '~price',
+    baseType = options.typeLine ?? 'Vaal Regalia',
   } = options;
   const onlineValue =
     online === 'offline'
@@ -41,11 +47,18 @@ export function rawResult(options: RawResultOptions): TradeResultEntry {
     id,
     sourceSearchId: searchId,
     receivedAt: 0,
-    item: { name, typeLine, baseType: typeLine, frameType, icon: 'https://web.poecdn.com/x.png' },
+    item: {
+      name,
+      typeLine,
+      baseType,
+      frameType,
+      icon: 'https://web.poecdn.com/x.png',
+      ...(note !== undefined ? { note } : {}),
+    },
     listing: {
       indexed,
       account: { name: account, lastCharacterName: character, online: onlineValue },
-      price: { type: '~price', amount, currency },
+      price: { type: priceType, amount, currency },
       ...(instantBuyout ? { hideout_token: 'token' } : { whisper: '@x hi' }),
     },
   };

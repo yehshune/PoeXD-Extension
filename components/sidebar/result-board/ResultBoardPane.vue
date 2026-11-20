@@ -519,6 +519,9 @@ function setMinSellerCount(value: string | number): void {
             :marks="state.marks"
             :picked-entries="board.pickedOf(seller)"
             :picked-total="board.pickedTotal(seller)"
+            :stash-regex="
+              board.isSellerExpanded(seller.account) ? board.stashRegexOf(seller) : undefined
+            "
             :is-picked="board.isPicked"
             :is-expanded="board.isExpanded"
             :expanded="board.isSellerExpanded(seller.account)"
@@ -530,6 +533,7 @@ function setMinSellerCount(value: string | number): void {
             @locate="board.locate"
             @travel="board.travel"
             @pin="board.pin"
+            @copy-regex="board.copyStashRegex"
           />
         </ul>
       </template>

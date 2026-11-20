@@ -281,4 +281,47 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
     expect(container.querySelector('[data-board-price-clear]')).toBeNull();
   });
+
+  it('shows and copies the stash search regex for the picked results of an expanded seller', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    ingest([
+      rawResult({ id: 'r1', name: 'Doom Ward', priceType: '~b/o', amount: 2, currency: 'chaos' }),
+      rawResult({ id: 'r2', name: 'Grim Coat', priceType: '~b/o', amount: 3, currency: 'chaos' }),
+      rawResult({ id: 'r3', name: 'Doom Ward', priceType: '~b/o', amount: 3, currency: 'chaos' }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+    await flush();
+    expect(container.querySelector('[data-board-stash-regex]')).toBeNull();
+    container.querySelector<HTMLElement>('[data-board-seller-toggle]')!.click();
+    await flush();
+
+    // 預設全選可直購：名稱與標價交叉後不會誤中其他物品
+    const parts = () =>
+      Array.from(container.querySelectorAll('[data-board-stash-regex-part] code'), (node) =>
+        node.textContent?.trim(),
+      );
+    expect(parts()).toEqual(['"Doom Ward|Grim Coat" "Vaal Regalia" "~b/o 2 chaos|~b/o 3 chaos"']);
+    expect(container.querySelector('[data-board-stash-regex-warning]')).toBeNull();
+
+    // 取消勾選 r3：Doom Ward + 3 chaos 的組合會誤中，明確警告
+    const picks = container.querySelectorAll<HTMLElement>('[data-board-pick]');
+    picks[picks.length - 1].click();
+    await flush();
+    expect(container.querySelector('[data-board-stash-regex-warning]')?.textContent).toContain(
+      '另有 1 件已載入的物品也會被標出',
+    );
+
+    container.querySelector<HTMLElement>('[data-board-stash-regex-copy]')!.click();
+    await flush();
+    expect(writeText).toHaveBeenCalledWith(
+      '"Doom Ward|Grim Coat" "Vaal Regalia" "~b/o 2 chaos|~b/o 3 chaos"',
+    );
+  });
 });
