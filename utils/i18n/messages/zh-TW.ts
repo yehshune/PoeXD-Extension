@@ -1239,8 +1239,6 @@ export const ZH_TW_MESSAGES = {
   'pinnedItem.searchPlaceholder': '搜尋名稱、賣家或詞綴…',
   'pinnedItem.noMatch': '找不到符合「{query}」的釘選物品',
   'pinnedItem.meta.pinnedAt': '釘選於 {time}',
-  'pinnedItem.meta.listedAt': '上架 {time}',
-  'pinnedItem.meta.seller': '賣家：{name}',
   'pinnedItem.meta.fee': '手續費：',
   'pinnedItem.sort.title': '排序方式',
   'pinnedItem.sort.custom': '自訂順序',
@@ -1274,6 +1272,7 @@ export const ZH_TW_MESSAGES = {
   'pageGuide.tour.appearance.title': '外觀：位置、寬度與字體',
   'pageGuide.tour.appearance.body':
     '選側邊欄放哪一側，也可以直接拖曳側邊欄內側邊緣調整寬度。介面縮放比例可按加減或輸入調整，改了馬上套用。',
+  'pageGuide.tour.appearance.resizeCallout': '拖曳這裡調整寬度',
   'pageGuide.setup.marketTranslation.label': '用中文顯示這個市集',
   'pageGuide.setup.marketTranslation.bilingual': '篩選下拉中英並列',
   'pageGuide.setup.marketTranslation.resultBilingual': '結果詞綴附英文原文',

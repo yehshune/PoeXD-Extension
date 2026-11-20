@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import { Button } from '@/components/ui/button';
 import { t, type I18nKey } from '@/utils/i18n';
 import { affixDemoMode } from '@/utils/page-guide-demo-state';
-import { MousePointer2 } from '@lucide/vue';
+import { MousePointer2, MoveHorizontal } from '@lucide/vue';
 import PageGuideOfficialResult from './PageGuideOfficialResult.vue';
 import PageGuideSetupControls from './PageGuideSetupControls.vue';
 import type { PageGuideSetupBindings } from './page-guide-setup';
@@ -38,6 +38,18 @@ interface SidebarCalloutMetrics {
   titleWidth: number;
   cardWidth: number;
   height: number;
+}
+
+interface ResizeHandleIndicator {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  centerX: number;
+  anchorY: number;
+  side: 'left' | 'right';
+  calloutLeft?: number;
+  calloutRight?: number;
 }
 
 const SIDEBAR_CALLOUT_SPECS: readonly {
@@ -109,6 +121,7 @@ const spotlightRect = shallowRef<GuideRect | null>(null);
 const bubblePosition = shallowRef<GuideBubblePosition | null>(null);
 const sidebarCallouts = shallowRef<SidebarCallout[]>([]);
 const calloutMetrics = ref<SidebarCalloutMetrics | null>(null);
+const resizeIndicator = shallowRef<ResizeHandleIndicator | null>(null);
 const interactiveCutout = shallowRef<GuideRect | null>(null);
 const ringTransitioning = ref(false);
 let ringTransitionTimer: ReturnType<typeof setTimeout> | undefined;
@@ -130,9 +143,32 @@ const resultBilingualPreview = computed(() =>
   Boolean(props.setup?.marketTranslation && props.setup?.marketTranslationResultBilingual),
 );
 
+function getSidebarRoot(): ParentNode {
+  const root = anchor.value?.getRootNode();
+  return root instanceof ShadowRoot ? root : document;
+}
+
 function sameRect(a: GuideRect | null, b: GuideRect | null): boolean {
   if (!a || !b) return a === b;
   return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
+}
+
+function sameResizeIndicator(
+  a: ResizeHandleIndicator | null,
+  b: ResizeHandleIndicator | null,
+): boolean {
+  if (!a || !b) return a === b;
+  return (
+    a.top === b.top &&
+    a.left === b.left &&
+    a.width === b.width &&
+    a.height === b.height &&
+    a.centerX === b.centerX &&
+    a.anchorY === b.anchorY &&
+    a.side === b.side &&
+    a.calloutLeft === b.calloutLeft &&
+    a.calloutRight === b.calloutRight
+  );
 }
 
 function sameCallouts(a: readonly SidebarCallout[], b: readonly SidebarCallout[]): boolean {
@@ -155,8 +191,7 @@ function sameCallouts(a: readonly SidebarCallout[], b: readonly SidebarCallout[]
 
 function measureSidebarCallouts(): SidebarCallout[] {
   if (!isTour.value || step.value?.id !== 'sidebar') return [];
-  const root = anchor.value?.getRootNode();
-  const sidebarRoot = root instanceof ShadowRoot ? root : document;
+  const sidebarRoot = getSidebarRoot();
   const nav = sidebarRoot.querySelector('.sidebar-nav');
   if (!nav) return [];
   const navRect = nav.getBoundingClientRect();
@@ -219,8 +254,7 @@ function expandTargetForCallouts(
 
 function measureInteractiveCutout(): GuideRect | null {
   if (!isTour.value || !isInteractive.value) return null;
-  const root = anchor.value?.getRootNode();
-  const sidebarRoot = root instanceof ShadowRoot ? root : document;
+  const sidebarRoot = getSidebarRoot();
   const id = step.value?.id;
   if (id === 'collapse') {
     const expandBtn = sidebarRoot.querySelector<HTMLElement>('[data-sidebar-action="expand"]');
@@ -310,18 +344,92 @@ function syncSidebarCalloutMetrics(callouts: readonly SidebarCallout[]) {
   calloutMetrics.value = { key: layoutKey, titleWidth, cardWidth, height };
 }
 
+function findResizeHandle(): {
+  rect: GuideRect;
+  centerX: number;
+  side: 'left' | 'right';
+} | null {
+  if (!isTour.value || step.value?.id !== 'appearance') return null;
+  const sidebarRoot = getSidebarRoot();
+  const handle = sidebarRoot.querySelector<HTMLElement>('.sidebar-resize-handle');
+  if (!handle) return null;
+  const rect = handle.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  const centerX = rect.left + rect.width / 2;
+  const panel = sidebarRoot.querySelector<HTMLElement>('.sidebar-container');
+  const panelRect = panel?.getBoundingClientRect();
+  const side: 'left' | 'right' =
+    panelRect && panelRect.width > 0
+      ? centerX < panelRect.left + panelRect.width / 2
+        ? 'left'
+        : 'right'
+      : centerX < window.innerWidth / 2
+        ? 'right'
+        : 'left';
+  return {
+    rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+    centerX,
+    side,
+  };
+}
+
+function computeResizeAnchorY(
+  handleRect: GuideRect,
+  bubbleRect: { top: number; height: number } | null,
+  viewportHeight: number,
+): number {
+  const minY = Math.max(28, Math.round(handleRect.top + 28));
+  const maxY = Math.min(viewportHeight - 28, Math.round(handleRect.top + handleRect.height - 28));
+  if (!bubbleRect) {
+    return Math.min(maxY, Math.max(minY, Math.round(handleRect.top + handleRect.height * 0.25)));
+  }
+  const clearance = 36;
+  const aboveY = bubbleRect.top - clearance;
+  if (aboveY >= minY) return aboveY;
+  const belowY = bubbleRect.top + bubbleRect.height + clearance;
+  if (belowY <= maxY) return belowY;
+  return Math.min(maxY, Math.max(minY, Math.round(handleRect.top + handleRect.height * 0.2)));
+}
+
+function buildResizeIndicator(
+  handle: { rect: GuideRect; centerX: number; side: 'left' | 'right' },
+  bubbleRect: { top: number; height: number } | null,
+): ResizeHandleIndicator {
+  const anchorY = computeResizeAnchorY(handle.rect, bubbleRect, window.innerHeight);
+  const centerX = Math.round(handle.centerX);
+  return {
+    top: handle.rect.top,
+    left: handle.rect.left,
+    width: handle.rect.width,
+    height: handle.rect.height,
+    centerX,
+    anchorY,
+    side: handle.side,
+    ...(handle.side === 'right'
+      ? { calloutLeft: centerX + 20 }
+      : { calloutRight: Math.round(window.innerWidth - centerX + 20) }),
+  };
+}
+
 function measure() {
   guide.refreshElement();
   const rects = activeRingElements.value
     .map((el) => el.getBoundingClientRect())
     .filter((r) => r.width > 0 && r.height > 0);
   const union = unionGuideRects(rects);
-  const next = union ? padGuideRect(union, RING_PADDING) : null;
-  if (!sameRect(next, ringRect.value)) ringRect.value = next;
+  const paddedTarget = union ? padGuideRect(union, RING_PADDING) : null;
+  const resizeHandle = findResizeHandle();
+  // 外觀步驟直接改以拖曳把手高亮取代整面側欄外框，避免雙重垂直線條
+  const nextRing = resizeHandle ? null : paddedTarget;
+  if (!sameRect(nextRing, ringRect.value)) ringRect.value = nextRing;
   const frameEl =
     guide.demoSpotlightElement.value ??
     (guide.state.demoFocus ? document.querySelector('[data-page-guide-mock-frame]') : null);
-  const spotlight = frameEl ? padGuideRect(frameEl.getBoundingClientRect(), RING_PADDING) : null;
+  const spotlight = resizeHandle
+    ? paddedTarget
+    : frameEl
+      ? padGuideRect(frameEl.getBoundingClientRect(), RING_PADDING)
+      : null;
   if (!sameRect(spotlight, spotlightRect.value)) spotlightRect.value = spotlight;
   const nextCallouts = measureSidebarCallouts();
   if (!sameCallouts(nextCallouts, sidebarCallouts.value)) sidebarCallouts.value = nextCallouts;
@@ -329,26 +437,41 @@ function measure() {
   const nextCutout = measureInteractiveCutout();
   if (!sameRect(nextCutout, interactiveCutout.value)) interactiveCutout.value = nextCutout;
   const box = bubble.value;
+  let nextBubblePosition: GuideBubblePosition | null = null;
   if (box) {
-    let position: GuideBubblePosition;
     if (affixDemoMode.value) {
-      position = {
+      nextBubblePosition = {
         top: Math.max(8, window.innerHeight - box.offsetHeight - 20),
         left: Math.max(8, window.innerWidth - box.offsetWidth - 20),
         placement: 'bottom',
       };
     } else {
-      const bubbleTarget = expandTargetForCallouts(spotlight ?? next, nextCallouts);
-      position = placeGuideBubble(
+      const bubbleTarget = expandTargetForCallouts(spotlight ?? nextRing, nextCallouts);
+      nextBubblePosition = placeGuideBubble(
         bubbleTarget,
         { width: box.offsetWidth, height: box.offsetHeight },
         { width: window.innerWidth, height: window.innerHeight },
       );
     }
     const current = bubblePosition.value;
-    if (!current || current.top !== position.top || current.left !== position.left) {
-      bubblePosition.value = position;
+    if (
+      !current ||
+      current.top !== nextBubblePosition.top ||
+      current.left !== nextBubblePosition.left
+    ) {
+      bubblePosition.value = nextBubblePosition;
     }
+  }
+  const nextResizeIndicator = resizeHandle
+    ? buildResizeIndicator(
+        resizeHandle,
+        box && nextBubblePosition
+          ? { top: nextBubblePosition.top, height: box.offsetHeight }
+          : null,
+      )
+    : null;
+  if (!sameResizeIndicator(nextResizeIndicator, resizeIndicator.value)) {
+    resizeIndicator.value = nextResizeIndicator;
   }
 }
 
@@ -375,6 +498,7 @@ watch(
       bubblePosition.value = null;
       sidebarCallouts.value = [];
       calloutMetrics.value = null;
+      resizeIndicator.value = null;
       interactiveCutout.value = null;
     } else if (!frame) {
       frame = requestAnimationFrame(track);
@@ -566,6 +690,68 @@ const calloutLayoutStyle = computed(() => {
           class="absolute inset-[-4px] rounded-[inherit] border-2 border-primary/50 motion-safe:animate-pulse"
         />
       </div>
+
+      <!-- 第 3 步：標示可拖曳調整寬度的側欄內側邊緣 -->
+      <template v-if="resizeIndicator">
+        <div
+          data-page-guide-resize-handle
+          aria-hidden="true"
+          class="pointer-events-none fixed z-(--pxd-z-guide-overlay)"
+          :style="{
+            top: `${resizeIndicator.top}px`,
+            left: `${resizeIndicator.left}px`,
+            width: `${resizeIndicator.width}px`,
+            height: `${resizeIndicator.height}px`,
+          }"
+        >
+          <span
+            class="absolute inset-y-0 left-1/2 w-[3px] -translate-x-1/2 bg-primary shadow-[0_0_12px_var(--primary)]"
+          />
+          <span
+            class="absolute inset-y-0 left-1/2 w-[8px] -translate-x-1/2 bg-primary/25 motion-safe:animate-pulse"
+          />
+        </div>
+
+        <div
+          data-page-guide-resize-grip
+          aria-hidden="true"
+          class="pointer-events-none fixed z-(--pxd-z-guide-overlay) flex h-9 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary bg-popover text-primary shadow-md"
+          :style="{
+            top: `${resizeIndicator.anchorY}px`,
+            left: `${resizeIndicator.centerX}px`,
+          }"
+        >
+          <MoveHorizontal class="size-3.5" />
+        </div>
+
+        <div
+          data-page-guide-resize-callout
+          :data-callout-side="resizeIndicator.side"
+          class="pointer-events-none fixed z-(--pxd-z-guide-overlay) flex -translate-y-1/2 items-center gap-[var(--pxd-space-sm)] rounded-md border border-primary/80 bg-popover/95 px-[var(--pxd-space-md)] py-1.5 text-[length:var(--pxd-font-secondary)] font-medium whitespace-nowrap text-popover-foreground shadow-md"
+          :style="{
+            top: `${resizeIndicator.anchorY}px`,
+            ...(resizeIndicator.calloutLeft !== undefined
+              ? { left: `${resizeIndicator.calloutLeft}px` }
+              : {}),
+            ...(resizeIndicator.calloutRight !== undefined
+              ? { right: `${resizeIndicator.calloutRight}px` }
+              : {}),
+          }"
+        >
+          <span
+            aria-hidden="true"
+            class="pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center"
+            :class="
+              resizeIndicator.side === 'right' ? '-left-3 flex-row' : '-right-3 flex-row-reverse'
+            "
+          >
+            <span class="size-1.5 rounded-full bg-primary" />
+            <span class="h-px w-1.5 bg-primary/70" />
+          </span>
+          <MoveHorizontal class="size-3.5 shrink-0 text-primary" />
+          <span>{{ t('pageGuide.tour.appearance.resizeCallout') }}</span>
+        </div>
+      </template>
 
       <!-- 第 4 步：側邊欄各功能圖示旁就地標註 -->
       <div

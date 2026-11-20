@@ -1322,8 +1322,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pinnedItem.searchPlaceholder': 'Search name, seller, or mods…',
   'pinnedItem.noMatch': 'No pinned items matching "{query}"',
   'pinnedItem.meta.pinnedAt': 'Pinned {time}',
-  'pinnedItem.meta.listedAt': 'Listed {time}',
-  'pinnedItem.meta.seller': 'Seller: {name}',
   'pinnedItem.meta.fee': 'Fee: ',
   'pinnedItem.sort.title': 'Sort',
   'pinnedItem.sort.custom': 'Custom order',
@@ -1358,6 +1356,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pageGuide.tour.appearance.title': 'Appearance: side, width and text size',
   'pageGuide.tour.appearance.body':
     'Pick a side, and drag the inner edge of the side bar to resize its width anytime. Adjust UI scale with the buttons or input box too. Changes apply right away.',
+  'pageGuide.tour.appearance.resizeCallout': 'Drag here to resize',
   'pageGuide.setup.marketTranslation.label': 'Show this trade site in Chinese',
   'pageGuide.setup.marketTranslation.bilingual': 'Show English in filter dropdowns',
   'pageGuide.setup.marketTranslation.resultBilingual': 'Show English under result stats',

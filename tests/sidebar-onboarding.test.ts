@@ -420,6 +420,66 @@ describe('Sidebar first-install onboarding', () => {
     expect(callouts[0]!.style.width).not.toBe('');
   });
 
+  it('highlights the draggable resize edge and shows a callout on the appearance step for both sidebar positions', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
+
+    const containerEl = query('.sidebar-container')!;
+    const handleEl = query('.sidebar-resize-handle')!;
+    let currentSide: 'left' | 'right' = 'left';
+    containerEl.getBoundingClientRect = () =>
+      (currentSide === 'left'
+        ? { top: 0, bottom: 900, left: 0, right: 380, width: 380, height: 900 }
+        : { top: 0, bottom: 900, left: 1060, right: 1440, width: 380, height: 900 }) as DOMRect;
+    handleEl.getBoundingClientRect = () =>
+      (currentSide === 'left'
+        ? { top: 0, bottom: 900, left: 377, right: 383, width: 6, height: 900 }
+        : { top: 0, bottom: 900, left: 1057, right: 1063, width: 6, height: 900 }) as DOMRect;
+
+    // locale → market-translation → appearance
+    await clickNext();
+    await clickNext();
+    expect(queryDoc('[data-setup-kind="appearance"]')).not.toBeNull();
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await settle();
+
+    const highlight = document.querySelector<HTMLElement>('[data-page-guide-resize-handle]');
+    const grip = document.querySelector<HTMLElement>('[data-page-guide-resize-grip]');
+    const callout = document.querySelector<HTMLElement>('[data-page-guide-resize-callout]');
+    expect(highlight).not.toBeNull();
+    expect(grip).not.toBeNull();
+    expect(callout).not.toBeNull();
+    expect(highlight!.className).toContain('pointer-events-none');
+    expect(grip!.className).toContain('pointer-events-none');
+    expect(callout!.className).toContain('pointer-events-none');
+    expect(highlight!.style.left).toBe('377px');
+    expect(highlight!.style.width).toBe('6px');
+    expect(callout!.dataset.calloutSide).toBe('right');
+    expect(callout!.style.left).toBe('400px');
+    expect(callout!.textContent).toContain('拖曳這裡調整寬度');
+    expect(document.querySelector('[data-page-guide-spotlight]')).not.toBeNull();
+    expect(document.querySelector('[data-page-guide-ring]')).toBeNull();
+
+    // 切換側欄位置到右側後，高亮與標註應同步換邊
+    currentSide = 'right';
+    queryDoc('[data-setup-position="right"]')!.click();
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await settle();
+
+    expect(highlight!.style.left).toBe('1057px');
+    expect(callout!.dataset.calloutSide).toBe('left');
+    expect(callout!.style.right).toBe('400px');
+
+    // 離開外觀步驟後應清除邊緣標註
+    await clickNext();
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await settle();
+    expect(document.querySelector('[data-page-guide-resize-handle]')).toBeNull();
+    expect(document.querySelector('[data-page-guide-resize-grip]')).toBeNull();
+    expect(document.querySelector('[data-page-guide-resize-callout]')).toBeNull();
+  });
+
   it('shows the update notice across all tabs without collapsed hint dot and dismisses it once closed', async () => {
     const versionUpdate = {
       tourPending: false,

@@ -1241,8 +1241,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pinnedItem.searchPlaceholder': '搜索名称、卖家或词缀…',
   'pinnedItem.noMatch': '找不到符合“{query}”的置顶物品',
   'pinnedItem.meta.pinnedAt': '置顶于 {time}',
-  'pinnedItem.meta.listedAt': '上架 {time}',
-  'pinnedItem.meta.seller': '卖家：{name}',
   'pinnedItem.meta.fee': '手续费：',
   'pinnedItem.sort.title': '排序方式',
   'pinnedItem.sort.custom': '自定义顺序',
@@ -1276,6 +1274,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pageGuide.tour.appearance.title': '外观：位置、宽度与字体',
   'pageGuide.tour.appearance.body':
     '选侧边栏放哪一侧，也可以直接拖动侧边栏内侧边缘调整宽度。界面缩放比例可按加减或输入调整，改了马上应用。',
+  'pageGuide.tour.appearance.resizeCallout': '拖动这里调整宽度',
   'pageGuide.setup.marketTranslation.label': '用中文显示这个市集',
   'pageGuide.setup.marketTranslation.bilingual': '筛选下拉中英并列',
   'pageGuide.setup.marketTranslation.resultBilingual': '结果词缀附英文原文',
