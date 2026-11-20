@@ -1227,6 +1227,29 @@ describe('usePobBuild', () => {
       reopened.dispose();
       expect(emitResultImages).toBeUndefined();
     });
+
+    it('resolveSearchUrl 與 trackPendingSearch 可供 <a href> 中鍵開新分頁並補記圖片擷取', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      const build = first(pob);
+      const rare = rowByLabel(build, 'Rise of the Phoenix');
+
+      const url = pob.resolveSearchUrl(build.id, rare);
+      expect(url).toContain('https://www.pathofexile.com/trade/search/Standard?q=');
+
+      pob.trackPendingSearch(build.id, rare, 'new-tab');
+      expect(savePending).toHaveBeenCalledWith(
+        { buildId: build.id, entryKey: rare.key },
+        'new-tab',
+        url,
+      );
+      expect(navigate).not.toHaveBeenCalled();
+      expect(openUrl).not.toHaveBeenCalled();
+
+      getLeague.mockReturnValue(undefined);
+      expect(pob.resolveSearchUrl(build.id, rare)).toBeUndefined();
+      expect(pob.errorKey.value).toBeNull();
+    });
   });
 });
 

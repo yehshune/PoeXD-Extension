@@ -198,6 +198,10 @@ export interface UsePobBuild {
   resetSearch(buildId: string, key: string): void;
   /** 開啟該項目的市集搜尋；頁面沒有聯盟或項目無法搜尋時回傳 false */
   openSearch(buildId: string, entry: ShoppingEntry, mode: PobSearchOpenMode): boolean;
+  /** 取得該項目對應的市集搜尋網址（供 `<a href>` 右鍵／中鍵原生開啟分頁）；無法搜尋或無聯盟時回傳 undefined */
+  resolveSearchUrl(buildId: string, entry: ShoppingEntry): string | undefined;
+  /** 記錄中鍵從 `<a href>` 原生開啟分頁時的待擷取結果圖片，不重複開分頁 */
+  trackPendingSearch(buildId: string, entry: ShoppingEntry, mode: PobSearchOpenMode): void;
   /** 在新分頁以線上搜尋開啟 */
   openLiveSearch(buildId: string, entry: ShoppingEntry): Promise<boolean>;
   /** 送進線上搜尋主控台，結果以提示訊息告知 */
@@ -680,6 +684,23 @@ export function usePobBuild(
     return buildTradeCodeUrl({ origin: deps.getOrigin(), version, league, code });
   };
 
+  /** 依項目查詢或存回覆寫同步組出市集搜尋網址（供點擊、中鍵 `<a href>` 共用） */
+  const buildEntryUrl = (
+    buildId: string,
+    entry: ShoppingEntry,
+    { reportNoLeague = false }: { reportNoLeague?: boolean } = {},
+  ): string | undefined => {
+    const session = find(buildId);
+    const override = session?.searchOverrides[entry.key];
+    if (!session || (!override && !entry.query)) return undefined;
+    const league = reportNoLeague ? requireLeague() : deps.getLeague();
+    if (!league) return undefined;
+    const origin = deps.getOrigin();
+    return override
+      ? buildTradeCodeUrl({ origin, version, league, code: override })
+      : buildTradeSearchUrl({ origin, version, league, query: entry.query! });
+  };
+
   const iconOf = (buildId: string, key: string): string | undefined => find(buildId)?.icons[key];
 
   const updateOverrides = (
@@ -980,19 +1001,19 @@ export function usePobBuild(
       }
     },
     openSearch(buildId, entry, mode) {
-      const session = find(buildId);
-      const override = session?.searchOverrides[entry.key];
-      if (!session || (!override && !entry.query)) return false;
-      const league = requireLeague();
-      if (!league) return false;
-      const origin = deps.getOrigin();
-      const url = override
-        ? buildTradeCodeUrl({ origin, version, league, code: override })
-        : buildTradeSearchUrl({ origin, version, league, query: entry.query! });
+      const url = buildEntryUrl(buildId, entry, { reportNoLeague: true });
+      if (!url) return false;
       deps.pendingIcon.save({ buildId, entryKey: entry.key }, mode, url);
       if (mode === 'current') deps.navigate(url);
       else deps.openUrl(url);
       return true;
+    },
+    resolveSearchUrl(buildId, entry) {
+      return buildEntryUrl(buildId, entry);
+    },
+    trackPendingSearch(buildId, entry, mode) {
+      const url = buildEntryUrl(buildId, entry);
+      if (url) deps.pendingIcon.save({ buildId, entryKey: entry.key }, mode, url);
     },
     async openLiveSearch(buildId, entry) {
       const url = await resolveCodeUrl(buildId, entry);

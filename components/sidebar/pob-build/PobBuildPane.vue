@@ -399,14 +399,20 @@
                     :class="{ 'opacity-50': row.done }"
                   />
 
-                  <button
-                    type="button"
+                  <component
+                    :is="canSearch(row) ? 'a' : 'button'"
+                    :type="canSearch(row) ? undefined : 'button'"
+                    :disabled="canSearch(row) ? undefined : true"
+                    :href="canSearch(row) ? resolveSearchUrl(build.id, row) : undefined"
+                    :tabindex="canSearch(row) ? 0 : undefined"
+                    :draggable="canSearch(row) ? 'false' : undefined"
                     data-pob-build-search
-                    class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-body)] cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    :class="{ 'line-through opacity-50': row.done, 'opacity-60': !row.query }"
-                    :disabled="!row.query"
-                    :title="row.query ? t('pobBuild.searchTitle') : t('pobBuild.noSearchTitle')"
-                    @click="openSearch(build.id, row, 'current')"
+                    class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-body)] text-foreground no-underline cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    :class="{ 'line-through opacity-50': row.done, 'opacity-60': !canSearch(row) }"
+                    :title="rowTooltip(row)"
+                    @click.prevent="handleEntryPrimaryClick(build.id, row, $event)"
+                    @auxclick="handleEntryAuxClick(build.id, row, $event)"
+                    @keydown.enter.prevent="handleEntryPrimaryClick(build.id, row, $event)"
                     @keydown.space.prevent="toggleDone(build.id, row.key)"
                   >
                     <span class="flex min-w-0 items-baseline gap-[var(--pxd-space-xs)]">
@@ -441,41 +447,47 @@
                     >
                       <span>{{ rowDetail(row) }}</span>
                     </span>
-                  </button>
-
-                  <Button
-                    v-if="row.mods?.length || row.searchOverride"
-                    variant="ghost"
-                    size="icon-sm"
-                    class="-mr-[var(--pxd-space-xs)] shrink-0"
-                    :class="
-                      isPreviewActive(build.id, row.key)
-                        ? 'text-primary bg-primary/15'
-                        : 'text-muted-foreground'
-                    "
-                    data-pob-build-mods-toggle
-                    :aria-expanded="isPreviewActive(build.id, row.key)"
-                    :title="t('pobBuild.toggleModsTitle')"
-                    :aria-label="t('pobBuild.toggleModsTitle')"
-                    @click.stop="togglePreview(build.id, row.key, $event)"
-                  >
-                    <SlidersHorizontal />
-                  </Button>
+                  </component>
 
                   <div
                     :class="[
-                      row.mods?.length || row.searchOverride
-                        ? 'right-[calc(var(--pxd-space-md)+var(--control-height-sm))]'
-                        : 'right-0 pr-[var(--pxd-space-md)]',
                       isPreviewActive(build.id, row.key)
                         ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--card))]'
                         : undefined,
                       { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
                     ]"
-                    class="pxd-hover-actions-overlay absolute inset-y-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
+                    class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
                   >
                     <Button
-                      v-if="row.query"
+                      v-if="searchEntryClickAction === 'preview' && canSearch(row)"
+                      variant="ghost"
+                      size="icon-sm"
+                      data-pob-build-open
+                      :title="t('pobBuild.searchCurrentBtn')"
+                      :aria-label="t('pobBuild.searchCurrentBtn')"
+                      @click.stop="openSearch(build.id, row, 'current')"
+                    >
+                      <ArrowRight />
+                    </Button>
+                    <Button
+                      v-else-if="canPreview(row)"
+                      variant="ghost"
+                      size="icon-sm"
+                      :class="
+                        isPreviewActive(build.id, row.key)
+                          ? 'text-primary bg-primary/15'
+                          : undefined
+                      "
+                      data-pob-build-mods-toggle
+                      :aria-expanded="isPreviewActive(build.id, row.key)"
+                      :title="t('pobBuild.toggleModsTitle')"
+                      :aria-label="t('pobBuild.toggleModsTitle')"
+                      @click.stop="togglePreview(build.id, row.key, $event)"
+                    >
+                      <SlidersHorizontal />
+                    </Button>
+                    <Button
+                      v-if="canSearch(row)"
                       variant="ghost"
                       size="icon-sm"
                       data-pob-build-open-new-tab
@@ -656,6 +668,7 @@ import {
   type PropType,
 } from 'vue';
 import {
+  ArrowRight,
   BookmarkPlus,
   ChevronDown,
   ChevronsUpDown,
@@ -703,6 +716,8 @@ import { rowAnchorFromEvent } from '../composables/usePinnedPreview';
 import { t, type I18nKey } from '@/utils/i18n';
 import { POB_BUILD_NAME_MAX_LENGTH } from '@/utils/pob-build-store';
 import type { ShoppingEntry } from '@/utils/pob-shopping-list';
+import { getPreferences } from '@/utils/preferences';
+import { DEFAULT_PREFERENCES, type SearchEntryClickAction } from '@/utils/preferences-contract';
 import { getPoeVersion } from '@/utils/trade-context';
 import { getFolderItemIndentLevel } from '../bookmark-tree';
 import PobBuildImportDialog from './PobBuildImportDialog.vue';
@@ -736,6 +751,7 @@ export default defineComponent({
     },
   },
   components: {
+    ArrowRight,
     BookmarkPlus,
     Button,
     Checkbox,
@@ -825,8 +841,14 @@ export default defineComponent({
       });
     };
 
+    const searchEntryClickAction = ref<SearchEntryClickAction>(
+      DEFAULT_PREFERENCES.searchEntryClickAction,
+    );
+
     /** 有存回的搜尋或有條件時才能送主控台、加書籤 */
     const canSearch = (row: ShoppingRow) => row.searchOverride || row.query !== null;
+    /** 有詞綴或存回搜尋時才提供預覽／微調彈窗 */
+    const canPreview = (row: ShoppingRow) => Boolean(row.mods?.length || row.searchOverride);
 
     // PoE 2 的技能寶石不在市集交易，清單沒有寶石，技能組也就不必選
     const showSkillSets = (build: BuildView) =>
@@ -919,6 +941,38 @@ export default defineComponent({
       previewAnchorEl.value = anchor;
     };
 
+    const rowTooltip = (row: ShoppingRow) => {
+      if (!canSearch(row)) return t('pobBuild.noSearchTitle');
+      if (searchEntryClickAction.value === 'preview' && canPreview(row)) {
+        return t('pobBuild.toggleModsTitle');
+      }
+      return t('pobBuild.searchTitle');
+    };
+
+    /** 左鍵／Enter 點擊項目：與書籤、歷史一致，依搜尋點擊設定切換預覽或直接前往搜尋 */
+    const handleEntryPrimaryClick = (buildId: string, row: ShoppingRow, event: Event) => {
+      if (!canSearch(row)) return;
+      if (event instanceof MouseEvent && (event.ctrlKey || event.metaKey)) {
+        pob.openSearch(buildId, row, 'new-tab');
+        return;
+      }
+      if (searchEntryClickAction.value === 'preview' && canPreview(row)) {
+        togglePreview(buildId, row.key, event);
+        return;
+      }
+      pob.openSearch(buildId, row, 'current');
+    };
+
+    /** 中鍵點擊 `<a href>`：有有效網址時由瀏覽器原生開新分頁並補記圖片擷取；無聯盟時改走 openSearch 提示錯誤 */
+    const handleEntryAuxClick = (buildId: string, row: ShoppingRow, event: MouseEvent) => {
+      if (event.button !== 1 || !canSearch(row)) return;
+      if (pob.resolveSearchUrl(buildId, row)) {
+        pob.trackPendingSearch(buildId, row, 'new-tab');
+        return;
+      }
+      pob.openSearch(buildId, row, 'new-tab');
+    };
+
     const isAllCollapsed = computed(
       () => pob.builds.value.length > 0 && pob.builds.value.every((build) => build.collapsed),
     );
@@ -988,14 +1042,28 @@ export default defineComponent({
       pob.removeBuild(build.id);
     };
 
+    let stopPreferences: (() => void) | undefined;
+    let disposed = false;
+
     onMounted(async () => {
+      void getPreferences(version).then((outcome) => {
+        if (disposed || !outcome.ok) return;
+        stopPreferences = outcome.value.subscribe((snapshot) => {
+          searchEntryClickAction.value = snapshot.searchEntryClickAction;
+        });
+      });
       try {
         await pob.restore();
       } finally {
         isLoading.value = false;
       }
     });
-    onUnmounted(() => pob.dispose());
+    onUnmounted(() => {
+      disposed = true;
+      stopPreferences?.();
+      stopPreferences = undefined;
+      pob.dispose();
+    });
 
     return {
       t,
@@ -1017,12 +1085,17 @@ export default defineComponent({
       isPreviewActive,
       togglePreview,
       closePreview,
+      searchEntryClickAction,
+      canSearch,
+      canPreview,
+      rowTooltip,
+      handleEntryPrimaryClick,
+      handleEntryAuxClick,
       isBuildMenuOpen,
       setBuildMenuOpen,
       isMenuOpen,
       setMenuOpen,
       bookmarkFolders,
-      canSearch,
       getFolderItemIndentLevel,
       showSkillSets,
       setLabel,
@@ -1050,6 +1123,7 @@ export default defineComponent({
       removeEntry: pob.removeEntry,
       restoreRemoved: pob.restoreRemoved,
       openSearch: pob.openSearch,
+      resolveSearchUrl: pob.resolveSearchUrl,
       saveSelection: pob.saveSelection,
       resetSearch: pob.resetSearch,
       setHideDone: pob.setHideDone,

@@ -7,6 +7,25 @@ import { resetI18nStateForTests } from '@/utils/i18n';
 
 vi.mock('@/utils/trade-context', () => ({ getPoeVersion: () => 'poe1' }));
 
+const { prefState, prefListeners } = vi.hoisted(() => ({
+  prefState: { searchEntryClickAction: 'open' as 'open' | 'preview' },
+  prefListeners: new Set<(snapshot: { searchEntryClickAction: 'open' | 'preview' }) => void>(),
+}));
+
+vi.mock('@/utils/preferences', () => ({
+  getPreferences: vi.fn(async () => ({
+    ok: true,
+    value: {
+      read: () => ({ searchEntryClickAction: prefState.searchEntryClickAction }),
+      subscribe: (listener: (snapshot: { searchEntryClickAction: 'open' | 'preview' }) => void) => {
+        prefListeners.add(listener);
+        listener({ searchEntryClickAction: prefState.searchEntryClickAction });
+        return () => prefListeners.delete(listener);
+      },
+    },
+  })),
+}));
+
 const buildsRef = ref<BuildView[]>([]);
 const errorKey = ref<UsePobBuild['errorKey']['value']>(null);
 const fake = {
@@ -34,6 +53,12 @@ const fake = {
   removeEntry: vi.fn(),
   restoreRemoved: vi.fn(),
   openSearch: vi.fn(() => true),
+  resolveSearchUrl: vi.fn((_buildId: string, entry: { query: unknown; searchOverride?: boolean }) =>
+    entry.query || entry.searchOverride
+      ? 'https://www.pathofexile.com/trade/search/Covens?q=test'
+      : undefined,
+  ),
+  trackPendingSearch: vi.fn(),
   setStatEnabled: vi.fn(),
   setStatBound: vi.fn(),
   setCountMin: vi.fn(),
@@ -239,6 +264,8 @@ describe('PobBuildPane', () => {
 
   beforeEach(() => {
     resetI18nStateForTests('zh-TW');
+    prefState.searchEntryClickAction = 'open';
+    prefListeners.clear();
     buildsRef.value = [];
     errorKey.value = null;
     vi.clearAllMocks();
@@ -978,5 +1005,87 @@ describe('PobBuildPane', () => {
     expect(fake.dispose).toHaveBeenCalledTimes(1);
     app = createApp({ render: () => null });
     app.mount(container);
+  });
+
+  it('對齊書籤與歷史點擊格式：preview 模式左鍵展開預覽、右鍵頭前往搜尋；沒有詞綴的項目直接前往搜尋', async () => {
+    prefState.searchEntryClickAction = 'preview';
+    buildsRef.value = [sampleBuild()];
+    await mount();
+
+    // 有詞綴的項目左鍵點名稱展開預覽，hover 顯示前往搜尋按鈕而非預覽按鈕
+    const rareLink = row(1).querySelector<HTMLAnchorElement>('[data-pob-build-search]')!;
+    expect(rareLink.tagName).toBe('A');
+    expect(rareLink.getAttribute('href')).toBe(
+      'https://www.pathofexile.com/trade/search/Covens?q=test',
+    );
+    expect(row(1).querySelector('[data-pob-build-mods-toggle]')).toBeNull();
+    const goBtn = row(1).querySelector<HTMLButtonElement>('[data-pob-build-open]')!;
+    expect(goBtn).not.toBeNull();
+
+    rareLink.click();
+    await flushAsync();
+    expect(fake.openSearch).not.toHaveBeenCalled();
+    expect(queryBody('[data-pob-build-mods-popover]')).not.toBeNull();
+
+    // 再點一次關閉預覽
+    rareLink.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
+
+    // 點 hover 的前往搜尋鈕直接前往目前頁面
+    goBtn.click();
+    expect(fake.openSearch).toHaveBeenLastCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-rare' }),
+      'current',
+    );
+
+    // 沒有詞綴且無存回搜尋的項目在 preview 模式左鍵仍直接搜尋
+    const uniqueLink = row(0).querySelector<HTMLAnchorElement>('[data-pob-build-search]')!;
+    uniqueLink.click();
+    expect(fake.openSearch).toHaveBeenLastCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-unique' }),
+      'current',
+    );
+  });
+
+  it('購物車可搜尋項目使用 <a href> 支援中鍵原生開新分頁與 Ctrl+點擊開新分頁，無網址時中鍵仍走 openSearch', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+
+    const rareLink = row(1).querySelector<HTMLAnchorElement>('[data-pob-build-search]')!;
+    expect(rareLink.tagName).toBe('A');
+    expect(rareLink.getAttribute('href')).toBe(
+      'https://www.pathofexile.com/trade/search/Covens?q=test',
+    );
+
+    // 中鍵點擊：有 href 時由瀏覽器原生開分頁並透過 trackPendingSearch 記住待擷取圖片，不重複呼叫 openSearch
+    rareLink.dispatchEvent(new MouseEvent('auxclick', { button: 1, bubbles: true }));
+    expect(fake.trackPendingSearch).toHaveBeenCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-rare' }),
+      'new-tab',
+    );
+    expect(fake.openSearch).not.toHaveBeenCalled();
+
+    // Ctrl+左鍵開新分頁
+    rareLink.dispatchEvent(
+      new MouseEvent('click', { button: 0, ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    expect(fake.openSearch).toHaveBeenLastCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-rare' }),
+      'new-tab',
+    );
+
+    // 若頁面無聯盟導致 href 無法組成，中鍵回退呼叫 openSearch('new-tab') 觸發無聯盟提示
+    fake.resolveSearchUrl.mockReturnValueOnce(undefined);
+    rareLink.dispatchEvent(new MouseEvent('auxclick', { button: 1, bubbles: true }));
+    expect(fake.openSearch).toHaveBeenLastCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-rare' }),
+      'new-tab',
+    );
   });
 });
