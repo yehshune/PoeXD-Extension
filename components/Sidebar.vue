@@ -368,7 +368,7 @@
           </div>
         </div>
 
-        <!-- 自訂寬度時的邊界拖曳把手 -->
+        <!-- 側邊欄邊界拖曳調整寬度的把手 -->
         <div
           v-if="isResizable"
           class="sidebar-resize-handle absolute inset-y-0 w-[6px] cursor-col-resize z-(--pxd-z-sidebar-handle) transition-colors duration-150 hover:bg-primary active:bg-primary"
@@ -593,18 +593,14 @@ import {
   usePageGuideDemos,
   type FilterPaneDemoHandle,
 } from './sidebar/page-guide/usePageGuideDemos';
-import type { FontSizeMode } from '@/utils/preferences-contract';
+import { SIDEBAR_WIDTH_BOUNDS, type FontSizeMode } from '@/utils/preferences-contract';
 import {
   RESULT_FEATURE_KEYS,
   readResultFeatures,
   type PageGuideSetupBindings,
   type ResultFeatureFlags,
 } from './sidebar/page-guide/page-guide-setup';
-import {
-  planCustomFontSizeScale,
-  planFontSizeModeChange,
-  planSidebarSizeChange,
-} from '@/utils/appearance-preferences';
+import { planCustomFontSizeScale, planFontSizeModeChange } from '@/utils/appearance-preferences';
 import { affixDemoMode } from '@/utils/page-guide-demo-state';
 import { resolveMarketTranslationLocale } from '@/utils/market-translation';
 import { getPageLoadPreferences } from '@/utils/page-load-preferences';
@@ -789,7 +785,6 @@ export default defineComponent({
     const isCollapsed = ref(true);
     const sidebarPosition = ref<'left' | 'right'>('left');
     const sidebarWidth = ref(DEFAULT_PREFERENCES.sidebarWidth);
-    const sidebarSize = ref<Preferences['sidebarSize']>('medium');
     let preferencesModule: PreferencesModule | undefined;
     const preferencesReady = ref(false);
     const fontSizeScale = ref(1.0);
@@ -1004,7 +999,7 @@ export default defineComponent({
       });
     });
 
-    const isResizable = computed(() => !isCollapsed.value && sidebarSize.value === 'custom');
+    const isResizable = computed(() => !isCollapsed.value);
 
     let isDragging = false;
     let startX = 0;
@@ -1022,8 +1017,8 @@ export default defineComponent({
       const deltaX = e.clientX - startX;
       const diff = sidebarPosition.value === 'left' ? deltaX : -deltaX;
       let visualWidth = Math.round(startVisualWidth + diff);
-      if (visualWidth < 300) visualWidth = 300;
-      if (visualWidth > 800) visualWidth = 800;
+      if (visualWidth < SIDEBAR_WIDTH_BOUNDS.min) visualWidth = SIDEBAR_WIDTH_BOUNDS.min;
+      if (visualWidth > SIDEBAR_WIDTH_BOUNDS.max) visualWidth = SIDEBAR_WIDTH_BOUNDS.max;
 
       pendingVisualWidth = visualWidth;
       if (resizeRafId === null) {
@@ -1054,9 +1049,7 @@ export default defineComponent({
       document.body.style.removeProperty('cursor');
 
       void preferencesModule?.update({
-        sidebarSize: 'custom',
         sidebarWidth: sidebarWidth.value,
-        customSidebarWidth: sidebarWidth.value,
       });
     };
 
@@ -1180,7 +1173,6 @@ export default defineComponent({
       stopPreferences = preferencesModule.subscribe((snapshot) => {
         preferencesReady.value = true;
         sidebarPosition.value = snapshot.sidebarPosition;
-        sidebarSize.value = snapshot.sidebarSize;
         sidebarWidth.value = snapshot.sidebarWidth;
         if (!isCollapsedTabDragging.value) collapsedTabTop.value = snapshot.collapsedTabTop;
         fontSizeScale.value = snapshot.fontSizeScale;
@@ -1622,7 +1614,6 @@ export default defineComponent({
       marketTranslationResultBilingual: marketTranslationResultBilingual.value,
       reloadRequired: marketTranslationReloadRequired.value,
       sidebarPosition: sidebarPosition.value,
-      sidebarSize: sidebarSize.value,
       fontSizeMode: fontSizeMode.value,
       fontSizeScale: fontSizeScale.value,
       resultFeatures: resultFeatures.value,
@@ -1635,11 +1626,6 @@ export default defineComponent({
         void setMarketTranslationResultBilingual(value),
       setSidebarPosition: (value) =>
         void updatePreference({ sidebarPosition: value }, '側邊欄位置'),
-      // 與設定頁共用規則：預設大小套對應寬度，自訂沿用上次的自訂值
-      setSidebarSize: (value) => {
-        if (!preferencesModule) return;
-        void updatePreference(planSidebarSizeChange(value, preferencesModule.read()), '側邊欄大小');
-      },
       setFontSizeMode: (value) => {
         if (!preferencesModule) return;
         void updatePreference(planFontSizeModeChange(value, preferencesModule.read()), '字體大小');

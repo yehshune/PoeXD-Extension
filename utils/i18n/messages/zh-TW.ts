@@ -54,13 +54,6 @@ export const ZH_TW_MESSAGES = {
     '收合時可直接上下拖曳按鈕調整位置；按鈕取得焦點時也可用 Alt + ↑/↓ 微調。',
   'settings.collapsedTabPosition.reset': '重設位置',
 
-  'settings.sidebarSize.label': '選單寬度',
-  'settings.sidebarSize.option.small': '小',
-  'settings.sidebarSize.option.medium': '中',
-  'settings.sidebarSize.option.large': '大',
-  'settings.sidebarSize.option.custom': '自訂',
-  'settings.sidebarSize.customHint': '選擇「自訂」後，可拖曳側邊欄邊緣調整寬度。',
-
   'settings.fontSize.label': '介面縮放比例 ({percent}%)',
   'settings.fontSize.option.small': '小',
   'settings.fontSize.option.medium': '中',
@@ -1277,7 +1270,7 @@ export const ZH_TW_MESSAGES = {
     '這是英文的國際服市集。開啟後，官網上的物品、詞綴與篩選會改用中文顯示。',
   'pageGuide.tour.appearance.title': '外觀：位置、寬度與字體',
   'pageGuide.tour.appearance.body':
-    '選側邊欄放哪一側和寬度；選「自訂」後可以直接拖曳側邊欄內側邊緣調整。字體大小也能用滑桿自訂，改了馬上套用。',
+    '選側邊欄放哪一側，也可以直接拖曳側邊欄內側邊緣調整寬度。字體大小也能用滑桿自訂，改了馬上套用。',
   'pageGuide.setup.marketTranslation.label': '用中文顯示這個市集',
   'pageGuide.setup.marketTranslation.bilingual': '篩選下拉中英並列',
   'pageGuide.setup.marketTranslation.resultBilingual': '結果詞綴附英文原文',

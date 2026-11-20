@@ -17,7 +17,6 @@ import {
   FONT_SIZE_MODES,
   FONT_SIZE_SCALE_BOUNDS,
   SIDEBAR_POSITIONS,
-  SIDEBAR_SIZES,
   type DisplayLocalePreference,
 } from '@/utils/preferences-contract';
 import type { PageGuideDemoFocus, PageGuideSetupKind } from './page-guide-tour';
@@ -225,28 +224,7 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
         </Button>
       </div>
 
-      <span :class="rowLabelClass">{{ t('settings.sidebarSize.label') }}</span>
-      <div
-        role="radiogroup"
-        :aria-label="t('settings.sidebarSize.label')"
-        :class="[segmentClass, 'grid-cols-4']"
-      >
-        <Button
-          v-for="size in SIDEBAR_SIZES"
-          :key="size"
-          type="button"
-          size="sm"
-          role="radio"
-          :variant="bindings.sidebarSize === size ? 'default' : 'outline'"
-          :aria-checked="bindings.sidebarSize === size"
-          :data-setup-size="size"
-          @click="bindings.setSidebarSize(size)"
-        >
-          {{ t(`settings.sidebarSize.option.${size}`) }}
-        </Button>
-      </div>
       <p
-        v-if="bindings.sidebarSize === 'custom'"
         data-setup-hint="custom-width"
         class="m-0 text-[length:var(--pxd-font-caption)] text-primary"
       >

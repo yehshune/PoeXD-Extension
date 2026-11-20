@@ -12,9 +12,6 @@ export { DEFAULT_THEME_ID, THEME_IDS, type ThemeId, isValidThemeId, normalizeThe
 export const SIDEBAR_POSITIONS = ['left', 'right'] as const;
 export type SidebarPosition = (typeof SIDEBAR_POSITIONS)[number];
 
-export const SIDEBAR_SIZES = ['small', 'medium', 'large', 'custom'] as const;
-export type SidebarSize = (typeof SIDEBAR_SIZES)[number];
-
 export const FONT_SIZE_MODES = ['small', 'medium', 'large', 'custom'] as const;
 export type FontSizeMode = (typeof FONT_SIZE_MODES)[number];
 
@@ -39,14 +36,6 @@ export const COLLAPSED_TAB_TOP_BOUNDS = Object.freeze({
   max: 4000,
 });
 
-export type SidebarPresetSize = Exclude<SidebarSize, 'custom'>;
-
-export const SIDEBAR_SIZE_PRESETS: Readonly<Record<SidebarPresetSize, number>> = Object.freeze({
-  small: 340,
-  medium: 380,
-  large: 420,
-});
-
 export const FONT_SIZE_SCALE_BOUNDS = Object.freeze({
   min: 0.8,
   max: 2,
@@ -68,9 +57,7 @@ export const GLOBAL_PREFERENCE_NAMES = [
   'marketTranslationResultBilingual',
   'collapsedTabTop',
   'sidebarPosition',
-  'sidebarSize',
   'sidebarWidth',
-  'customSidebarWidth',
   'fontSizeMode',
   'fontSizeScale',
   'customFontSizeScale',
@@ -95,9 +82,7 @@ export type VersionedPreferences = Pick<Preferences, VersionedPreferenceName>;
 export const LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES = [
   'collapsedTabTop',
   'sidebarPosition',
-  'sidebarSize',
   'sidebarWidth',
-  'customSidebarWidth',
   'fontSizeMode',
   'fontSizeScale',
   'customFontSizeScale',
@@ -195,7 +180,6 @@ export interface Preferences {
   /** 收合標籤可沿面板所在側邊上下拖曳，記住距離視窗頂端的位置（px） */
   collapsedTabTop: number;
   customFontSizeScale: number | null;
-  customSidebarWidth: number | null;
   densityScale: number;
   displayLocale: DisplayLocalePreference;
   enableAffixSelector: boolean;
@@ -236,7 +220,6 @@ export interface Preferences {
   sidebarModulePobBuild: boolean;
   sidebarModuleStatGroupTemplates: boolean;
   sidebarPosition: SidebarPosition;
-  sidebarSize: SidebarSize;
   sidebarWidth: number;
   theme: ThemeId;
 }
@@ -245,7 +228,6 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   addBookmarkBtnPosition: 'top',
   collapsedTabTop: 100,
   customFontSizeScale: null,
-  customSidebarWidth: null,
   densityScale: 1,
   displayLocale: 'auto',
   enableAffixSelector: true,
@@ -281,7 +263,6 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   sidebarModulePobBuild: true,
   sidebarModuleStatGroupTemplates: true,
   sidebarPosition: 'left',
-  sidebarSize: 'medium',
   sidebarWidth: 380,
   theme: DEFAULT_THEME_ID,
 });

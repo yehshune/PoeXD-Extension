@@ -4,7 +4,6 @@ import {
   SEARCH_ENTRY_CLICK_ACTIONS,
   FONT_SIZE_MODES,
   SIDEBAR_POSITIONS,
-  SIDEBAR_SIZES,
   THEME_IDS,
   type AffixDisplayLocalePreference,
   type BookmarkButtonPosition,
@@ -12,7 +11,6 @@ import {
   type SearchEntryClickAction,
   type FontSizeMode,
   type SidebarPosition,
-  type SidebarSize,
   type ThemeId,
 } from '@/utils/preferences-contract';
 import { t, type I18nKey } from '@/utils/i18n';
@@ -67,16 +65,6 @@ export const SIDEBAR_POSITION_LABELS: Readonly<Record<SidebarPosition, string>> 
 
 export const SIDEBAR_POSITION_OPTIONS: readonly SettingsOption<SidebarPosition>[] =
   createReactiveOptions(SIDEBAR_POSITIONS, SIDEBAR_POSITION_LABELS);
-
-export const SIDEBAR_SIZE_LABELS: Readonly<Record<SidebarSize, string>> = createReactiveLabelMap(
-  SIDEBAR_SIZES,
-  (value) => `settings.sidebarSize.option.${value}`,
-);
-
-export const SIDEBAR_SIZE_OPTIONS: readonly SettingsOption<SidebarSize>[] = createReactiveOptions(
-  SIDEBAR_SIZES,
-  SIDEBAR_SIZE_LABELS,
-);
 
 export const FONT_SIZE_MODE_LABELS: Readonly<Record<FontSizeMode, string>> = createReactiveLabelMap(
   FONT_SIZE_MODES,

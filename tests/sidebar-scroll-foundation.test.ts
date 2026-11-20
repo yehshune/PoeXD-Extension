@@ -241,7 +241,6 @@ vi.mock('@/components/sidebar/LiveSearchConsoleSettingsPane.vue', () => ({
 
 let activeMockPreferences: any = {
   sidebarPosition: 'left',
-  sidebarSize: 'medium',
   sidebarWidth: 380,
   fontSizeScale: 1,
   densityScale: 1,
@@ -250,7 +249,6 @@ let activeMockPreferences: any = {
 vi.mock('@/utils/preferences', () => ({
   DEFAULT_PREFERENCES: {
     sidebarPosition: 'left',
-    sidebarSize: 'medium',
     sidebarWidth: 380,
     fontSizeScale: 1,
     densityScale: 1,

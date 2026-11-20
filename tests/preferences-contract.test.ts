@@ -11,8 +11,6 @@ import {
   FONT_SIZE_PRESETS,
   FONT_SIZE_SCALE_BOUNDS,
   SIDEBAR_POSITIONS,
-  SIDEBAR_SIZES,
-  SIDEBAR_SIZE_PRESETS,
   SIDEBAR_WIDTH_BOUNDS,
   SUPPORTED_AFFIX_LOCALES,
   SUPPORTED_LOCALES,
@@ -27,7 +25,6 @@ describe('Preferences Domain Contract', () => {
       addBookmarkBtnPosition: 'top',
       collapsedTabTop: 100,
       customFontSizeScale: null,
-      customSidebarWidth: null,
       densityScale: 1,
       displayLocale: 'auto',
       enableAffixSelector: true,
@@ -63,7 +60,6 @@ describe('Preferences Domain Contract', () => {
       sidebarModulePobBuild: true,
       sidebarModuleStatGroupTemplates: true,
       sidebarPosition: 'left',
-      sidebarSize: 'medium',
       sidebarWidth: 380,
       theme: 'modern-dark',
     });
@@ -72,7 +68,6 @@ describe('Preferences Domain Contract', () => {
 
   it('defines allowed enum value constants and global preference names', () => {
     expect(SIDEBAR_POSITIONS).toEqual(['left', 'right']);
-    expect(SIDEBAR_SIZES).toEqual(['small', 'medium', 'large', 'custom']);
     expect(FONT_SIZE_MODES).toEqual(['small', 'medium', 'large', 'custom']);
     expect(BOOKMARK_BUTTON_POSITIONS).toEqual(['top', 'bottom']);
     expect(DENSITY_SCALE_VALUES).toEqual([1, 0.8]);
@@ -101,9 +96,7 @@ describe('Preferences Domain Contract', () => {
       'marketTranslationResultBilingual',
       'collapsedTabTop',
       'sidebarPosition',
-      'sidebarSize',
       'sidebarWidth',
-      'customSidebarWidth',
       'fontSizeMode',
       'fontSizeScale',
       'customFontSizeScale',
@@ -130,14 +123,6 @@ describe('Preferences Domain Contract', () => {
   });
 
   it('defines frozen preset mappings without custom key', () => {
-    expect(Object.isFrozen(SIDEBAR_SIZE_PRESETS)).toBe(true);
-    expect(SIDEBAR_SIZE_PRESETS).toEqual({
-      small: 340,
-      medium: 380,
-      large: 420,
-    });
-    expect('custom' in SIDEBAR_SIZE_PRESETS).toBe(false);
-
     expect(Object.isFrozen(FONT_SIZE_PRESETS)).toBe(true);
     expect(FONT_SIZE_PRESETS).toEqual({
       small: 0.85,
@@ -149,11 +134,6 @@ describe('Preferences Domain Contract', () => {
 
   it('ensures defaults and presets are consistent with bounds and each other', () => {
     // Defaults match non-custom presets
-    if (DEFAULT_PREFERENCES.sidebarSize !== 'custom') {
-      expect(SIDEBAR_SIZE_PRESETS[DEFAULT_PREFERENCES.sidebarSize]).toBe(
-        DEFAULT_PREFERENCES.sidebarWidth,
-      );
-    }
     if (DEFAULT_PREFERENCES.fontSizeMode !== 'custom') {
       expect(FONT_SIZE_PRESETS[DEFAULT_PREFERENCES.fontSizeMode]).toBe(
         DEFAULT_PREFERENCES.fontSizeScale,
@@ -167,31 +147,29 @@ describe('Preferences Domain Contract', () => {
     expect(DEFAULT_PREFERENCES.fontSizeScale).toBeLessThanOrEqual(FONT_SIZE_SCALE_BOUNDS.max);
 
     // All presets within bounds
-    for (const width of Object.values(SIDEBAR_SIZE_PRESETS)) {
-      expect(width).toBeGreaterThanOrEqual(SIDEBAR_WIDTH_BOUNDS.min);
-      expect(width).toBeLessThanOrEqual(SIDEBAR_WIDTH_BOUNDS.max);
-    }
     for (const scale of Object.values(FONT_SIZE_PRESETS)) {
       expect(scale).toBeGreaterThanOrEqual(FONT_SIZE_SCALE_BOUNDS.min);
       expect(scale).toBeLessThanOrEqual(FONT_SIZE_SCALE_BOUNDS.max);
     }
   });
 
-  it('ensures SettingsPane imports canonical contract symbols rather than hardcoding', () => {
+  it('ensures SettingsPane and Sidebar import canonical contract symbols rather than hardcoding', () => {
     const settingsPanePath = path.resolve(__dirname, '../components/sidebar/SettingsPane.vue');
     const content = fs.readFileSync(settingsPanePath, 'utf-8');
+    const sidebarContent = fs.readFileSync(
+      path.resolve(__dirname, '../components/Sidebar.vue'),
+      'utf-8',
+    );
 
     expect(content).toContain('DEFAULT_PREFERENCES');
-    expect(content).toContain('SIDEBAR_WIDTH_BOUNDS');
+    expect(sidebarContent).toContain('SIDEBAR_WIDTH_BOUNDS');
     expect(content).toContain('FONT_SIZE_SCALE_BOUNDS');
-    // 寬度與字體模式切換的預設值改由設定頁與初始導覽共用的規劃函式套用
-    expect(content).toContain('planSidebarSizeChange');
+    // 字體模式切換的預設值改由設定頁與初始導覽共用的規劃函式套用
     expect(content).toContain('planFontSizeModeChange');
     const planner = fs.readFileSync(
       path.resolve(__dirname, '../utils/appearance-preferences.ts'),
       'utf-8',
     );
-    expect(planner).toContain('SIDEBAR_SIZE_PRESETS');
     expect(planner).toContain('FONT_SIZE_PRESETS');
   });
 });

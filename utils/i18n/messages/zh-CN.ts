@@ -56,13 +56,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
     '收起时可直接上下拖动按钮调整位置；按钮获得焦点时也可用 Alt + ↑/↓ 微调。',
   'settings.collapsedTabPosition.reset': '重置位置',
 
-  'settings.sidebarSize.label': '菜单宽度',
-  'settings.sidebarSize.option.small': '小',
-  'settings.sidebarSize.option.medium': '中',
-  'settings.sidebarSize.option.large': '大',
-  'settings.sidebarSize.option.custom': '自定义',
-  'settings.sidebarSize.customHint': '选择“自定义”后，可拖拽侧边栏边缘调整宽度。',
-
   'settings.fontSize.label': '界面缩放比例 ({percent}%)',
   'settings.fontSize.option.small': '小',
   'settings.fontSize.option.medium': '中',
@@ -1279,7 +1272,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
     '这是英文的国际服市集。开启后，官网上的物品、词缀与筛选会改用中文显示。',
   'pageGuide.tour.appearance.title': '外观：位置、宽度与字体',
   'pageGuide.tour.appearance.body':
-    '选侧边栏放哪一侧和宽度；选「自定义」后可以直接拖动侧边栏内侧边缘调整。字体大小也能用滑块自定义，改了马上应用。',
+    '选侧边栏放哪一侧，也可以直接拖动侧边栏内侧边缘调整宽度。字体大小也能用滑块自定义，改了马上应用。',
   'pageGuide.setup.marketTranslation.label': '用中文显示这个市集',
   'pageGuide.setup.marketTranslation.bilingual': '筛选下拉中英并列',
   'pageGuide.setup.marketTranslation.resultBilingual': '结果词缀附英文原文',

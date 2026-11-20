@@ -3,7 +3,6 @@ import type {
   DisplayLocalePreference,
   FontSizeMode,
   SidebarPosition,
-  SidebarSize,
 } from '@/utils/preferences-contract';
 import type { PageGuideDemoFocus } from './page-guide-tour';
 
@@ -52,7 +51,6 @@ export interface PageGuideSetupBindings {
   /** 本頁開啟後漢化設定有變動，需重新整理才生效 */
   reloadRequired: boolean;
   sidebarPosition: SidebarPosition;
-  sidebarSize: SidebarSize;
   fontSizeMode: FontSizeMode;
   fontSizeScale: number;
   resultFeatures: ResultFeatureFlags;
@@ -65,7 +63,6 @@ export interface PageGuideSetupBindings {
   setMarketTranslationBilingual: (value: boolean) => void;
   setMarketTranslationResultBilingual: (value: boolean) => void;
   setSidebarPosition: (value: SidebarPosition) => void;
-  setSidebarSize: (value: SidebarSize) => void;
   setFontSizeMode: (value: FontSizeMode) => void;
   /** 自訂字體大小（比例，例如 1.1） */
   setFontSizeScale: (value: number) => void;

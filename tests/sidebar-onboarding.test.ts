@@ -42,7 +42,6 @@ const updatePreferencesSpy = vi.fn(async () => ({ ok: true, changed: true }));
 vi.mock('@/utils/preferences', () => ({
   DEFAULT_PREFERENCES: {
     sidebarPosition: 'left',
-    sidebarSize: 'medium',
     sidebarWidth: 380,
     fontSizeScale: 1,
     densityScale: 1,
@@ -105,11 +104,9 @@ describe('Sidebar first-install onboarding', () => {
     storageListeners.clear();
     snapshot = {
       sidebarPosition: 'left',
-      sidebarSize: 'medium',
       sidebarWidth: 380,
       fontSizeScale: 1,
       fontSizeMode: 'medium',
-      customSidebarWidth: null,
       customFontSizeScale: null,
       densityScale: 1,
       displayLocale: 'zh-TW',
@@ -238,17 +235,7 @@ describe('Sidebar first-install onboarding', () => {
     queryDoc('[data-setup-position="right"]')!.click();
     await settle();
     expect(updatePreferencesSpy).toHaveBeenCalledWith({ sidebarPosition: 'right' });
-    queryDoc('[data-setup-size="large"]')!.click();
-    await settle();
-    expect(updatePreferencesSpy).toHaveBeenCalledWith({ sidebarSize: 'large', sidebarWidth: 420 });
-    // 自訂寬度：沿用目前寬度並提示可以直接拖曳邊緣
-    queryDoc('[data-setup-size="custom"]')!.click();
-    await settle();
-    expect(updatePreferencesSpy).toHaveBeenCalledWith({
-      sidebarSize: 'custom',
-      sidebarWidth: 380,
-      customSidebarWidth: 380,
-    });
+    expect(queryDoc('[data-setup-hint="custom-width"]')).not.toBeNull();
   });
 
   it('toggles market translation bilingual options when marketTranslation is enabled', async () => {
@@ -265,7 +252,7 @@ describe('Sidebar first-install onboarding', () => {
   });
 
   it('offers custom width dragging and a font size slider in the appearance step', async () => {
-    snapshot = { ...snapshot, displayLocale: 'en', sidebarSize: 'custom', fontSizeMode: 'custom' };
+    snapshot = { ...snapshot, displayLocale: 'en', fontSizeMode: 'custom' };
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
     await clickNext();
     expect(queryDoc('[data-setup-hint="custom-width"]')).not.toBeNull();

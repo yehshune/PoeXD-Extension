@@ -159,9 +159,7 @@ vi.mock('@/components/sidebar/LiveSearchResumeInspectPopover.vue', () => ({
 
 let activeMockPreferences: any = {
   sidebarPosition: 'left',
-  sidebarSize: 'medium',
   sidebarWidth: 380,
-  customSidebarWidth: 380,
   fontSizeScale: 1,
   densityScale: 1,
 };
@@ -169,7 +167,6 @@ let activeMockPreferences: any = {
 vi.mock('@/utils/preferences', () => ({
   DEFAULT_PREFERENCES: {
     sidebarPosition: 'left',
-    sidebarSize: 'medium',
     sidebarWidth: 380,
     fontSizeScale: 1,
     densityScale: 1,
@@ -405,7 +402,6 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
   });
 
   it('9. 既有 Sidebar layout/theme/scale/density/resize contract 在 Primary 模式下不退化', async () => {
-    activeMockPreferences.sidebarSize = 'custom';
     activeMockPreferences.sidebarWidth = 500;
     activeMockPreferences.fontSizeScale = 1.1;
     activeMockPreferences.densityScale = 1.2;

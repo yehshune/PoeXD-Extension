@@ -7,7 +7,6 @@ import {
   DISPLAY_LOCALE_VALUES,
   FONT_SIZE_MODES,
   SIDEBAR_POSITIONS,
-  SIDEBAR_SIZES,
   THEME_IDS,
 } from '@/utils/preferences-contract';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '@/utils/i18n';
@@ -24,8 +23,6 @@ import {
   SEARCH_ENTRY_CLICK_ACTION_OPTIONS,
   SIDEBAR_POSITION_LABELS,
   SIDEBAR_POSITION_OPTIONS,
-  SIDEBAR_SIZE_LABELS,
-  SIDEBAR_SIZE_OPTIONS,
   THEME_LABELS,
   THEME_OPTIONS,
 } from '@/components/sidebar/settings/settings-ui-metadata';
@@ -42,7 +39,6 @@ describe('Settings UI Metadata', () => {
       ...AFFIX_DISPLAY_LOCALE_VALUES,
     ]);
     expect(SIDEBAR_POSITION_OPTIONS.map((opt) => opt.value)).toEqual([...SIDEBAR_POSITIONS]);
-    expect(SIDEBAR_SIZE_OPTIONS.map((opt) => opt.value)).toEqual([...SIDEBAR_SIZES]);
     expect(FONT_SIZE_MODE_OPTIONS.map((opt) => opt.value)).toEqual([...FONT_SIZE_MODES]);
     expect(BOOKMARK_BUTTON_POSITION_OPTIONS.map((opt) => opt.value)).toEqual([
       ...BOOKMARK_BUTTON_POSITIONS,
@@ -60,13 +56,6 @@ describe('Settings UI Metadata', () => {
     expect(SIDEBAR_POSITION_LABELS).toEqual({
       left: '左側',
       right: '右側',
-    });
-
-    expect(SIDEBAR_SIZE_LABELS).toEqual({
-      small: '小',
-      medium: '中',
-      large: '大',
-      custom: '自訂',
     });
 
     expect(FONT_SIZE_MODE_LABELS).toEqual({
@@ -98,9 +87,6 @@ describe('Settings UI Metadata', () => {
     SIDEBAR_POSITION_OPTIONS.forEach((opt) => {
       expect(opt.label).toBe(SIDEBAR_POSITION_LABELS[opt.value]);
     });
-    SIDEBAR_SIZE_OPTIONS.forEach((opt) => {
-      expect(opt.label).toBe(SIDEBAR_SIZE_LABELS[opt.value]);
-    });
     FONT_SIZE_MODE_OPTIONS.forEach((opt) => {
       expect(opt.label).toBe(FONT_SIZE_MODE_LABELS[opt.value]);
     });
@@ -115,7 +101,6 @@ describe('Settings UI Metadata', () => {
     setActiveDisplayLocale('zh-CN');
     expect(THEME_LABELS['modern-dark']).toBe('现代暗色');
     expect(SIDEBAR_POSITION_LABELS.left).toBe('左侧');
-    expect(SIDEBAR_SIZE_LABELS.custom).toBe('自定义');
     expect(DISPLAY_LOCALE_LABELS.auto).toBe('自动检测');
     expect(DISPLAY_LOCALE_LABELS['zh-CN']).toBe('简体中文');
 
@@ -123,7 +108,6 @@ describe('Settings UI Metadata', () => {
     setActiveDisplayLocale('en');
     expect(THEME_LABELS['modern-dark']).toBe('Modern Dark');
     expect(SIDEBAR_POSITION_LABELS.left).toBe('Left');
-    expect(SIDEBAR_SIZE_LABELS.custom).toBe('Custom');
     expect(DISPLAY_LOCALE_LABELS.auto).toBe('Auto');
     expect(BOOKMARK_BUTTON_POSITION_LABELS.top).toBe('Top');
     expect(SEARCH_ENTRY_CLICK_ACTION_LABELS.open).toBe('Open Search');
@@ -137,9 +121,6 @@ describe('Settings UI Metadata', () => {
 
     expect(Object.isFrozen(SIDEBAR_POSITION_LABELS)).toBe(true);
     expect(Object.isFrozen(SIDEBAR_POSITION_OPTIONS)).toBe(true);
-
-    expect(Object.isFrozen(SIDEBAR_SIZE_LABELS)).toBe(true);
-    expect(Object.isFrozen(SIDEBAR_SIZE_OPTIONS)).toBe(true);
 
     expect(Object.isFrozen(FONT_SIZE_MODE_LABELS)).toBe(true);
     expect(Object.isFrozen(FONT_SIZE_MODE_OPTIONS)).toBe(true);
@@ -155,7 +136,7 @@ describe('Settings UI Metadata', () => {
     // Should consume canonical constants in template
     expect(content).toMatch(/v-for="opt in SIDEBAR_POSITION_OPTIONS"/);
     expect(content).toContain('DISPLAY_LOCALE_OPTIONS');
-    expect(content).toContain('SIDEBAR_SIZE_OPTIONS');
+    expect(content).not.toContain('SIDEBAR_SIZE_OPTIONS');
     expect(content).toContain('FONT_SIZE_MODE_OPTIONS');
     expect(content).not.toContain('DENSITY_OPTIONS');
     expect(content).toContain('BOOKMARK_BUTTON_POSITION_OPTIONS');

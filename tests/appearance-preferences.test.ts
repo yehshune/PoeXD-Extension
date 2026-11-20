@@ -1,38 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  planCustomFontSizeScale,
-  planFontSizeModeChange,
-  planSidebarSizeChange,
-} from '@/utils/appearance-preferences';
-import { FONT_SIZE_PRESETS, SIDEBAR_SIZE_PRESETS } from '@/utils/preferences-contract';
-
-describe('planSidebarSizeChange', () => {
-  it('applies the preset width for preset sizes', () => {
-    expect(planSidebarSizeChange('large', { sidebarWidth: 380, customSidebarWidth: 500 })).toEqual({
-      sidebarSize: 'large',
-      sidebarWidth: SIDEBAR_SIZE_PRESETS.large,
-    });
-  });
-
-  it('starts custom from the current width the first time', () => {
-    expect(
-      planSidebarSizeChange('custom', { sidebarWidth: 412, customSidebarWidth: null }),
-    ).toEqual({ sidebarSize: 'custom', sidebarWidth: 412, customSidebarWidth: 412 });
-  });
-
-  it('restores the last custom width, clamped to the allowed range', () => {
-    expect(
-      planSidebarSizeChange('custom', { sidebarWidth: 380, customSidebarWidth: 99_999 })
-        .sidebarWidth,
-    ).toBeLessThan(99_999);
-    expect(planSidebarSizeChange('custom', { sidebarWidth: 380, customSidebarWidth: 450 })).toEqual(
-      {
-        sidebarSize: 'custom',
-        sidebarWidth: 450,
-      },
-    );
-  });
-});
+import { planCustomFontSizeScale, planFontSizeModeChange } from '@/utils/appearance-preferences';
+import { FONT_SIZE_PRESETS } from '@/utils/preferences-contract';
 
 describe('font size planning', () => {
   it('applies the preset scale for preset modes', () => {

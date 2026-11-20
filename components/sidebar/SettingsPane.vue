@@ -272,24 +272,6 @@
           </SettingsRow>
 
           <SettingsRow
-            :label="t('settings.sidebarSize.label')"
-            :description="
-              sidebarSize === 'custom' ? t('settings.sidebarSize.customHint') : undefined
-            "
-          >
-            <Select v-model="sidebarSize" @update:model-value="handleSizeChange">
-              <SelectTrigger size="default" class="w-[140px] shrink-0">
-                <SelectValue>{{ SIDEBAR_SIZE_LABELS[sidebarSize] }}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="opt in SIDEBAR_SIZE_OPTIONS" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-
-          <SettingsRow
             :label="t('settings.fontSize.label', { percent: Math.round(fontSizeScale * 100) })"
           >
             <div class="flex flex-col items-end gap-[var(--pxd-space-sm)]">
@@ -574,11 +556,9 @@ import {
 import {
   DEFAULT_PREFERENCES,
   FONT_SIZE_SCALE_BOUNDS,
-  SIDEBAR_WIDTH_BOUNDS,
   type FontSizePresetMode,
   type FontSizeMode,
   type Preferences,
-  type SidebarSize,
 } from '@/utils/preferences-contract';
 import {
   BOOKMARK_BUTTON_POSITION_OPTIONS,
@@ -589,13 +569,11 @@ import {
   FONT_SIZE_MODE_LABELS,
   FONT_SIZE_MODE_OPTIONS,
   SIDEBAR_POSITION_OPTIONS,
-  SIDEBAR_SIZE_LABELS,
-  SIDEBAR_SIZE_OPTIONS,
   THEME_LABELS,
   THEME_OPTIONS,
 } from './settings/settings-ui-metadata';
 import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
-import { planFontSizeModeChange, planSidebarSizeChange } from '@/utils/appearance-preferences';
+import { planFontSizeModeChange } from '@/utils/appearance-preferences';
 import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
 import {
   isMarketTranslationDisplayLocale,
@@ -640,7 +618,6 @@ export default defineComponent({
       theme,
       displayLocale,
       sidebarPosition,
-      sidebarSize,
       sidebarWidth,
       fontSizeScale,
       fontSizeMode,
@@ -855,13 +832,6 @@ export default defineComponent({
       },
     });
 
-    const handleSizeChange = (val?: SidebarSize | any) => {
-      if (val) {
-        sidebarSize.value = val as SidebarSize;
-      }
-      void updatePreferences(planSidebarSizeChange(sidebarSize.value, preferenceState));
-    };
-
     const savePreference = (key: keyof Preferences) => {
       if (
         key === 'marketTranslation' &&
@@ -979,9 +949,6 @@ export default defineComponent({
       DISPLAY_LOCALE_OPTIONS,
       sidebarPosition,
       SIDEBAR_POSITION_OPTIONS,
-      sidebarSize,
-      SIDEBAR_SIZE_LABELS,
-      SIDEBAR_SIZE_OPTIONS,
       fontSizeScale,
       fontSizeMode,
       customFontSizePercent,
@@ -1018,13 +985,11 @@ export default defineComponent({
       isPoe2: version === 'poe2',
       addBookmarkBtnPosition,
       enableBookmarkTooltip,
-      SIDEBAR_WIDTH_BOUNDS,
       savePreference,
       handleSidebarPositionChange,
       isCollapsedTabTopDefault,
       resetCollapsedTabPosition,
       handleAddBookmarkBtnPositionChange,
-      handleSizeChange,
       handleFontSizeModeChange,
       handleCustomFontSizeInput,
       handleCustomFontSizeBlur,

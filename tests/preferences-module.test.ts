@@ -16,7 +16,6 @@ describe('Preferences module interface', () => {
       addBookmarkBtnPosition: 'top',
       collapsedTabTop: 100,
       customFontSizeScale: null,
-      customSidebarWidth: null,
       densityScale: 1,
       displayLocale: 'auto',
       enableAffixSelector: true,
@@ -52,7 +51,6 @@ describe('Preferences module interface', () => {
       sidebarModulePobBuild: true,
       sidebarModuleStatGroupTemplates: true,
       sidebarPosition: 'left',
-      sidebarSize: 'medium',
       sidebarWidth: 380,
       theme: 'modern-dark',
     });
@@ -163,7 +161,6 @@ describe('Preferences module interface', () => {
     outcome.value.subscribe((snapshot) => widths.push(snapshot.sidebarWidth));
 
     const update = await outcome.value.update({
-      sidebarSize: 'large',
       sidebarWidth: 420,
       enableTierHelper: false,
     });
@@ -175,9 +172,9 @@ describe('Preferences module interface', () => {
       stored: storage.inspect(),
     }).toMatchObject({
       update: { ok: true, changed: true },
-      snapshot: { sidebarSize: 'large', sidebarWidth: 420, enableTierHelper: false },
+      snapshot: { sidebarWidth: 420, enableTierHelper: false },
       widths: [380, 420],
-      stored: { sidebarSize: 'large', sidebarWidth: 420, enableTierHelper_poe2: false },
+      stored: { sidebarWidth: 420, enableTierHelper_poe2: false },
     });
   });
 
@@ -506,9 +503,7 @@ describe('Preferences module interface', () => {
     const updateRes = await poe1Outcome.value.update({
       collapsedTabTop: 280,
       sidebarPosition: 'right',
-      sidebarSize: 'custom',
       sidebarWidth: 480,
-      customSidebarWidth: 480,
       fontSizeMode: 'custom',
       fontSizeScale: 1.3,
       customFontSizeScale: 1.3,
@@ -530,9 +525,7 @@ describe('Preferences module interface', () => {
     expect(poe2Outcome.value.read()).toMatchObject({
       collapsedTabTop: 280,
       sidebarPosition: 'right',
-      sidebarSize: 'custom',
       sidebarWidth: 480,
-      customSidebarWidth: 480,
       fontSizeMode: 'custom',
       fontSizeScale: 1.3,
       customFontSizeScale: 1.3,
@@ -552,7 +545,7 @@ describe('Preferences module interface', () => {
     expect(storage.inspect().collapsedTabTop_poe2).toBeUndefined();
   });
 
-  it('migrates legacy versioned global preferences without deleting recovery snapshots and keeps coupled font/sidebar groups coherent', async () => {
+  it('migrates legacy versioned global preferences without deleting recovery snapshots and keeps coupled font group coherent', async () => {
     const storage = createInMemoryPreferencesStorage({
       collapsedTabTop_poe2: 240,
       hotkeyFocus_poe1: 'f',
@@ -561,11 +554,8 @@ describe('Preferences module interface', () => {
       fontSizeScale_poe1: 1.35,
       fontSizeMode_poe2: 'large',
       fontSizeScale_poe2: 1.2,
-      sidebarSize_poe1: 'small',
       sidebarWidth_poe1: 340,
-      sidebarSize_poe2: 'custom',
       sidebarWidth_poe2: 520,
-      customSidebarWidth_poe2: 520,
     });
 
     const poe1Outcome = await createPreferencesModule('poe1', storage);
@@ -578,9 +568,7 @@ describe('Preferences module interface', () => {
       searchEntryClickAction: 'open',
       fontSizeMode: 'custom',
       fontSizeScale: 1.35,
-      sidebarSize: 'small',
       sidebarWidth: 340,
-      customSidebarWidth: 520,
     });
     expect(storage.inspect()).toMatchObject({
       collapsedTabTop: 240,
@@ -594,9 +582,7 @@ describe('Preferences module interface', () => {
       fontSizeMode: 'custom',
       fontSizeScale: 1.35,
       fontSizeMode_poe2: 'large',
-      sidebarSize: 'small',
       sidebarWidth: 340,
-      customSidebarWidth: 520,
     });
   });
 });

@@ -56,13 +56,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Drag the collapsed button up or down to move it. When focused, Alt + ↑/↓ also moves it.',
   'settings.collapsedTabPosition.reset': 'Reset',
 
-  'settings.sidebarSize.label': 'Panel Width',
-  'settings.sidebarSize.option.small': 'Small',
-  'settings.sidebarSize.option.medium': 'Medium',
-  'settings.sidebarSize.option.large': 'Large',
-  'settings.sidebarSize.option.custom': 'Custom',
-  'settings.sidebarSize.customHint': 'When set to "Custom", drag the sidebar edge to resize.',
-
   'settings.fontSize.label': 'UI Scale ({percent}%)',
   'settings.fontSize.option.small': 'Small',
   'settings.fontSize.option.medium': 'Medium',
@@ -1361,7 +1354,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'This is the English international trade site. Turn this on to show its items, stats and filters in Chinese.',
   'pageGuide.tour.appearance.title': 'Appearance: side, width and text size',
   'pageGuide.tour.appearance.body':
-    'Pick a side and a width. Choose Custom to drag the inner edge of the side bar to any width. Text size can be set with a slider too. Changes apply right away.',
+    'Pick a side, and drag the inner edge of the side bar to resize its width anytime. Text size can be set with a slider too. Changes apply right away.',
   'pageGuide.setup.marketTranslation.label': 'Show this trade site in Chinese',
   'pageGuide.setup.marketTranslation.bilingual': 'Show English in filter dropdowns',
   'pageGuide.setup.marketTranslation.resultBilingual': 'Show English under result stats',

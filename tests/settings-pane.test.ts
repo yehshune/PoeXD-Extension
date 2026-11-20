@@ -12,7 +12,7 @@ import {
   type PreferencesModule,
 } from '@/utils/preferences';
 import { resetI18nStateForTests } from '@/utils/i18n';
-import { DEFAULT_PREFERENCES, SIDEBAR_SIZE_PRESETS } from '@/utils/preferences-contract';
+import { DEFAULT_PREFERENCES } from '@/utils/preferences-contract';
 import {
   rememberPageLoadPreferences,
   resetPageLoadPreferencesForTests,
@@ -296,17 +296,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
   };
 
-  type SelectControl =
-    | 'theme'
-    | 'displayLocale'
-    | 'sidebarSize'
-    | 'fontSizeMode'
-    | 'addBookmarkBtnPosition';
+  type SelectControl = 'theme' | 'displayLocale' | 'fontSizeMode' | 'addBookmarkBtnPosition';
 
   const SELECT_CONTROL_LABELS: Record<SelectControl, string> = {
     theme: '主題',
     displayLocale: '語言',
-    sidebarSize: '選單寬度',
     fontSizeMode: '介面縮放比例',
     addBookmarkBtnPosition: '加入書籤按鈕位置',
   };
@@ -405,9 +399,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(sectionStack?.className).toContain('--pxd-section-gap');
     expect(sectionStack?.className).not.toContain('--poexd-density-scale');
 
-    // Verify 4 Select triggers for settings (theme, displayLocale, sidebar size, font size)
+    // Verify 3 Select triggers for settings (theme, displayLocale, font size)
     const selectTriggers = container.querySelectorAll('[data-slot="select-trigger"]');
-    expect(selectTriggers.length).toBe(4);
+    expect(selectTriggers.length).toBe(3);
     selectTriggers.forEach((trigger) => {
       expect(trigger.className).toContain('w-[140px]');
       expect(trigger.className).toContain('shrink-0');
@@ -467,7 +461,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const snapshot = currentModule?.read();
     expect(snapshot?.displayLocale).toBe('auto');
     expect(snapshot?.sidebarPosition).toBe('left');
-    expect(snapshot?.sidebarSize).toBe('medium');
     expect(snapshot?.densityScale).toBe(1.0);
     expect(snapshot?.addBookmarkBtnPosition).toBe('top');
     expect(snapshot?.enableHotkeys).toBe(true);
@@ -620,33 +613,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().sidebarPosition).toBe('left');
   });
 
-  it('updates sidebar size and width via Select', async () => {
+  it('does not render sidebar width Select in SettingsPane', async () => {
     const { container } = await mountSettingsPane();
 
-    // Select 'small'
-    await changeSelectValue(container, 'sidebarSize', 'small');
-    expect(currentModule?.read().sidebarSize).toBe('small');
-    expect(currentModule?.read().sidebarWidth).toBe(SIDEBAR_SIZE_PRESETS.small);
-
-    // Select 'large'
-    await changeSelectValue(container, 'sidebarSize', 'large');
-    expect(currentModule?.read().sidebarSize).toBe('large');
-    expect(currentModule?.read().sidebarWidth).toBe(SIDEBAR_SIZE_PRESETS.large);
-  });
-
-  it('does not render custom width numeric Input when custom is selected, showing drag helper text instead', async () => {
-    const { container } = await mountSettingsPane();
-
-    // Select 'custom'
-    await changeSelectValue(container, 'sidebarSize', 'custom');
-
-    // Input for custom width should NOT appear
-    const widthInput = container.querySelector('input[type="number"][min="300"]');
-    expect(widthInput).toBeNull();
-
-    // Helper text must appear
-    expect(container.textContent).toContain('選擇「自訂」後，可拖曳側邊欄邊緣調整寬度。');
-    expect(currentModule?.read().sidebarSize).toBe('custom');
+    expect(container.textContent).not.toContain('選單寬度');
+    expect(container.querySelector('input[type="number"][min="300"]')).toBeNull();
   });
 
   it('updates font size scale and mode via Select and custom input', async () => {
@@ -734,49 +705,12 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().sidebarPosition).toBe('right');
     expect(currentModule?.read().fontSizeMode).toBe('custom');
     expect(currentModule?.read().fontSizeScale).toBe(1.2);
-
-    // Change sidebarSize to custom
-    await changeSelectValue(container, 'sidebarSize', 'custom');
-    expect(currentModule?.read().sidebarSize).toBe('custom');
-    expect(container.querySelector('input[type="number"][min="300"]')).toBeNull();
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
-    expect(currentModule?.read().fontSizeScale).toBe(1.2);
   });
 
-  it('retains custom values for sidebar width and font scale when switching back from preset options', async () => {
+  it('retains custom font scale when switching back from preset options', async () => {
     const { container } = await mountSettingsPane();
 
-    // 1. 設定自訂選單寬度為 560（如透過拖曳已存進 customSidebarWidth）
-    await currentModule!.update({
-      sidebarSize: 'custom',
-      sidebarWidth: 560,
-      customSidebarWidth: 560,
-    });
-    await flushAsync();
-    expect(currentModule?.read().sidebarSize).toBe('custom');
-    expect(currentModule?.read().sidebarWidth).toBe(560);
-    expect(container.querySelector('input[type="number"][min="300"]')).toBeNull();
-    expect(container.textContent).toContain('選擇「自訂」後，可拖曳側邊欄邊緣調整寬度。');
-
-    // 2. 切換為「大」
-    await changeSelectValue(container, 'sidebarSize', 'large');
-    expect(currentModule?.read().sidebarSize).toBe('large');
-    expect(currentModule?.read().sidebarWidth).toBe(SIDEBAR_SIZE_PRESETS.large);
-    expect(container.querySelector('input[type="number"][min="300"]')).toBeNull();
-
-    // 3. 切換為「小」
-    await changeSelectValue(container, 'sidebarSize', 'small');
-    expect(currentModule?.read().sidebarSize).toBe('small');
-    expect(currentModule?.read().sidebarWidth).toBe(SIDEBAR_SIZE_PRESETS.small);
-
-    // 4. 切回「自訂」，驗證保持 560
-    await changeSelectValue(container, 'sidebarSize', 'custom');
-    expect(currentModule?.read().sidebarSize).toBe('custom');
-    expect(currentModule?.read().sidebarWidth).toBe(560);
-    expect(container.querySelector('input[type="number"][min="300"]')).toBeNull();
-    expect(container.textContent).toContain('選擇「自訂」後，可拖曳側邊欄邊緣調整寬度。');
-
-    // 5. 設定自訂縮放比例為 135%
+    // 1. 設定自訂縮放比例為 135%
     await changeSelectValue(container, 'fontSizeMode', 'custom');
     let scaleInput = container.querySelector('input[type="number"][min="80"]') as HTMLInputElement;
     expect(scaleInput).not.toBeNull();
@@ -787,18 +721,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().fontSizeMode).toBe('custom');
     expect(currentModule?.read().fontSizeScale).toBe(1.35);
 
-    // 6. 切換為「小」
+    // 2. 切換為「小」
     await changeSelectValue(container, 'fontSizeMode', 'small');
     expect(currentModule?.read().fontSizeMode).toBe('small');
     expect(currentModule?.read().fontSizeScale).toBe(0.85);
     expect(container.querySelector('input[type="number"][min="80"]')).toBeNull();
 
-    // 7. 切換為「大」
+    // 3. 切換為「大」
     await changeSelectValue(container, 'fontSizeMode', 'large');
     expect(currentModule?.read().fontSizeMode).toBe('large');
     expect(currentModule?.read().fontSizeScale).toBe(1.2);
 
-    // 8. 切回「自訂」，驗證保持 135%
+    // 4. 切回「自訂」，驗證保持 135%
     await changeSelectValue(container, 'fontSizeMode', 'custom');
     expect(currentModule?.read().fontSizeMode).toBe('custom');
     expect(currentModule?.read().fontSizeScale).toBe(1.35);
@@ -807,30 +741,13 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(scaleInput.value).toBe('135');
   });
 
-  it('persists custom width and font scale across unmount/remount via Preferences SSOT without localStorage', async () => {
+  it('persists custom font scale across unmount/remount via Preferences SSOT without localStorage', async () => {
     // 1. Mount first instance
     const first = await mountSettingsPane();
 
-    // 1. 設 custom width = 560
-    await currentModule!.update({
-      sidebarSize: 'custom',
-      sidebarWidth: 560,
-      customSidebarWidth: 560,
-    });
-    await flushAsync();
-    expect(currentModule?.read().sidebarSize).toBe('custom');
-    expect(currentModule?.read().sidebarWidth).toBe(560);
-    expect(currentModule?.read().customSidebarWidth).toBe(560);
-
-    // 2. 切到 small
-    await changeSelectValue(first.container, 'sidebarSize', 'small');
-    expect(currentModule?.read().sidebarSize).toBe('small');
-    expect(currentModule?.read().sidebarWidth).toBe(SIDEBAR_SIZE_PRESETS.small);
-    expect(currentModule?.read().customSidebarWidth).toBe(560);
-
     // 設 custom font scale = 1.35
     await changeSelectValue(first.container, 'fontSizeMode', 'custom');
-    let scaleInput1 = first.container.querySelector(
+    const scaleInput1 = first.container.querySelector(
       'input[type="number"][min="80"]',
     ) as HTMLInputElement;
     scaleInput1.value = '135';
@@ -847,32 +764,21 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().fontSizeScale).toBe(1.2);
     expect(currentModule?.read().customFontSizeScale).toBe(1.35);
 
-    // 3. unmount SettingsPane
+    // 2. unmount SettingsPane
     app.unmount();
     container.innerHTML = '';
 
-    // 4. 使用同一 Preferences storage 重新 mount
+    // 3. 使用同一 Preferences storage 重新 mount
     const second = await mountSettingsPane();
 
-    // 5. 此時 active 仍為 small 與 large
-    expect(currentModule?.read().sidebarSize).toBe('small');
-    expect(currentModule?.read().sidebarWidth).toBe(SIDEBAR_SIZE_PRESETS.small);
+    // 4. 此時 active 仍為 large
     expect(currentModule?.read().fontSizeMode).toBe('large');
     expect(currentModule?.read().fontSizeScale).toBe(1.2);
 
-    // 6. 切回 custom
-    await changeSelectValue(second.container, 'sidebarSize', 'custom');
-
-    // 7. 恢復 560
-    expect(currentModule?.read().sidebarSize).toBe('custom');
-    expect(currentModule?.read().sidebarWidth).toBe(560);
-    expect(second.container.querySelector('input[type="number"][min="300"]')).toBeNull();
-    expect(second.container.textContent).toContain('選擇「自訂」後，可拖曳側邊欄邊緣調整寬度。');
-
-    // 切回 custom font scale
+    // 5. 切回 custom font scale
     await changeSelectValue(second.container, 'fontSizeMode', 'custom');
 
-    // 恢復 1.35
+    // 6. 恢復 1.35
     expect(currentModule?.read().fontSizeMode).toBe('custom');
     expect(currentModule?.read().fontSizeScale).toBe(1.35);
     const scaleInput2 = second.container.querySelector(
@@ -883,9 +789,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     // 驗證所有值存在既有 Preferences storage，而不是 localStorage
     const storedSnapshot = storage.inspect();
-    expect(storedSnapshot['customSidebarWidth']).toBe(560);
     expect(storedSnapshot['customFontSizeScale']).toBe(1.35);
-    expect(window.localStorage.getItem('poexd_custom_sidebar_width_poe1')).toBeNull();
     expect(window.localStorage.getItem('poexd_custom_font_size_percent_poe1')).toBeNull();
   });
 
@@ -1479,7 +1383,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Perform multi-key external update
     const outcome = await currentModule!.update({
       sidebarPosition: 'right',
-      sidebarSize: 'custom',
       enableHotkeys: false,
       densityScale: 0.8,
       fontSizeMode: 'large',
@@ -1495,10 +1398,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(triggers[0].textContent).toContain('現代暗色');
     // Display locale: 'auto' (default unmutated)
     expect(triggers[1].textContent).toContain('自動偵測');
-    // Sidebar size: 'custom'
-    expect(triggers[2].textContent).toContain('自訂');
     // Font size mode: 'large'
-    expect(triggers[3].textContent).toContain('大');
+    expect(triggers[2].textContent).toContain('大');
 
     // Sidebar position in ToggleGroup reflects 'right'
     const rightItem = container.querySelector('[data-slot="toggle-group-item"][value="right"]');
@@ -1512,9 +1413,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const hotkeyCheckbox = container.querySelector('#enable-hotkeys');
     expect(hotkeyCheckbox?.getAttribute('data-state')).toBe('unchecked');
 
-    // 3. Custom width reflects updated sidebarWidth without numeric input, showing drag helper
+    // 3. Updated sidebarWidth is preserved in preferences without SettingsPane width select
     expect(container.querySelector('input[type="number"][min="300"]')).toBeNull();
-    expect(container.textContent).toContain('選擇「自訂」後，可拖曳側邊欄邊緣調整寬度。');
     expect(currentModule?.read().sidebarWidth).toBe(500);
   });
 
@@ -1569,7 +1469,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     // Ensure scattered ref declarations are gone
     expect(content).not.toContain('ref(DEFAULT_PREFERENCES.sidebarPosition)');
-    expect(content).not.toContain('ref(DEFAULT_PREFERENCES.sidebarSize)');
     expect(content).not.toContain('ref(DEFAULT_PREFERENCES.hotkeyFocus)');
     expect(content).not.toContain('ref(DEFAULT_PREFERENCES.enableHotkeys)');
   });
@@ -1594,8 +1493,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(content).not.toContain('const saveBackgroundSettings');
     expect(content).not.toContain('const saveBookmarkBtnPosition');
 
-    // Compound handlers: preserve active ones, eliminate dead custom width ones
-    expect(content).toContain('const handleSizeChange');
+    // Compound handlers: preserve active ones, eliminate dead width handlers
+    expect(content).not.toContain('const handleSizeChange');
     expect(content).not.toContain('const handleCustomWidthInput');
     expect(content).not.toContain('const handleCustomWidthBlur');
     expect(content).toContain('const handleFontSizeModeChange');
@@ -1619,24 +1518,15 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     );
   });
 
-  it('commit updates both sidebarWidth and customSidebarWidth, preventing rollback on preference snapshot', async () => {
-    const { container } = await mountSettingsPane();
+  it('commit updates sidebarWidth without rollback on unrelated preference snapshot', async () => {
+    await mountSettingsPane();
 
-    // Switch to custom mode (380)
-    await changeSelectValue(container, 'sidebarSize', 'custom');
-    expect(container.querySelector('input[type="number"][min="300"]')).toBeNull();
-    expect(container.textContent).toContain('選擇「自訂」後，可拖曳側邊欄邊緣調整寬度。');
-
-    // Formal resize-end commit: both sidebarWidth and customSidebarWidth are 500
     await currentModule!.update({
-      sidebarSize: 'custom',
       sidebarWidth: 500,
-      customSidebarWidth: 500,
     });
     await flushAsync();
 
     expect(currentModule?.read().sidebarWidth).toBe(500);
-    expect(currentModule?.read().customSidebarWidth).toBe(500);
 
     // Unrelated preference update triggers snapshot notification
     await currentModule!.update({
@@ -1644,24 +1534,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     });
     await flushAsync();
 
-    // customSidebarWidth must NOT revert to old 380
     expect(currentModule?.read().sidebarWidth).toBe(500);
-    expect(currentModule?.read().customSidebarWidth).toBe(500);
   });
 
-  it('static guard: Sidebar.vue commits customSidebarWidth on resize-end and SettingsPane eliminates dead preview listener', async () => {
+  it('static guard: Sidebar.vue commits sidebarWidth on resize-end and SettingsPane eliminates dead preview listener', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
 
     const sidebarPath = path.resolve(__dirname, '../components/Sidebar.vue');
     const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
 
-    // handleResizeEnd in Sidebar.vue must commit both sidebarWidth and customSidebarWidth
-    expect(sidebarContent).toMatch(/handleResizeEnd[\s\S]*?sidebarSize:\s*'custom'/);
+    // handleResizeEnd in Sidebar.vue must commit sidebarWidth
     expect(sidebarContent).toMatch(/handleResizeEnd[\s\S]*?sidebarWidth:\s*sidebarWidth\.value/);
-    expect(sidebarContent).toMatch(
-      /handleResizeEnd[\s\S]*?customSidebarWidth:\s*sidebarWidth\.value/,
-    );
 
     const settingsPanePath = path.resolve(__dirname, '../components/sidebar/SettingsPane.vue');
     const settingsContent = fs.readFileSync(settingsPanePath, 'utf-8');

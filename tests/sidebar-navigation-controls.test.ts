@@ -104,9 +104,7 @@ vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
 
 let activeMockPreferences: any = {
   sidebarPosition: 'left',
-  sidebarSize: 'medium',
   sidebarWidth: 380,
-  customSidebarWidth: 380,
   fontSizeScale: 1,
   densityScale: 1,
 };
@@ -115,7 +113,6 @@ const updatePreferencesSpy = vi.fn(async () => {});
 vi.mock('@/utils/preferences', () => ({
   DEFAULT_PREFERENCES: {
     sidebarPosition: 'left',
-    sidebarSize: 'medium',
     sidebarWidth: 380,
     fontSizeScale: 1,
     densityScale: 1,
@@ -170,9 +167,7 @@ describe('Sidebar Navigation Controls Migration', () => {
     mockStorage = {};
     activeMockPreferences = {
       sidebarPosition: 'left',
-      sidebarSize: 'medium',
       sidebarWidth: 380,
-      customSidebarWidth: 380,
       fontSizeScale: 1,
       densityScale: 1,
     };
@@ -684,12 +679,10 @@ describe('Sidebar Navigation Controls Migration', () => {
       expect(paneUnmountCounts.settings).toBe(0);
     });
 
-    it('I. drags resize handle in custom mode and commits sidebarSize, sidebarWidth, and customSidebarWidth', async () => {
+    it('I. drags resize handle when expanded with default width and commits sidebarWidth', async () => {
       activeMockPreferences = {
         sidebarPosition: 'left',
-        sidebarSize: 'custom',
-        sidebarWidth: 420,
-        customSidebarWidth: 420,
+        sidebarWidth: 380,
         fontSizeScale: 1,
         densityScale: 1,
       };
@@ -710,10 +703,10 @@ describe('Sidebar Navigation Controls Migration', () => {
         previewWidths.push(w);
       });
 
-      // Start drag: startVisualWidth = 420, startX = 420
-      resizeHandle?.dispatchEvent(new MouseEvent('mousedown', { clientX: 420, bubbles: true }));
+      // Start drag: startVisualWidth = 380, startX = 380
+      resizeHandle?.dispatchEvent(new MouseEvent('mousedown', { clientX: 380, bubbles: true }));
 
-      // Move: clientX = 500 -> deltaX = +80 -> visualWidth = 500
+      // Move: clientX = 500 -> deltaX = +120 -> visualWidth = 500
       window.dispatchEvent(new MouseEvent('mousemove', { clientX: 500 }));
       await new Promise((r) => setTimeout(r, 50));
       await nextTick();
@@ -726,11 +719,9 @@ describe('Sidebar Navigation Controls Migration', () => {
       // End drag: mouseup on window
       window.dispatchEvent(new MouseEvent('mouseup'));
 
-      // Formal commit must contain sidebarSize, sidebarWidth, and customSidebarWidth
+      // Formal commit must contain sidebarWidth
       expect(updatePreferencesSpy).toHaveBeenCalledWith({
-        sidebarSize: 'custom',
         sidebarWidth: 500,
-        customSidebarWidth: 500,
       });
 
       cleanupPreview();
@@ -739,9 +730,7 @@ describe('Sidebar Navigation Controls Migration', () => {
     it('I2. respects sidebarPosition right diff calculation during drag and limits bounds 300 to 800', async () => {
       activeMockPreferences = {
         sidebarPosition: 'right',
-        sidebarSize: 'custom',
         sidebarWidth: 420,
-        customSidebarWidth: 420,
         fontSizeScale: 1,
         densityScale: 1,
       };
@@ -774,9 +763,7 @@ describe('Sidebar Navigation Controls Migration', () => {
       window.dispatchEvent(new MouseEvent('mouseup'));
 
       expect(updatePreferencesSpy).toHaveBeenCalledWith({
-        sidebarSize: 'custom',
         sidebarWidth: 500,
-        customSidebarWidth: 500,
       });
 
       // Test bounds: drag way beyond 800
@@ -786,9 +773,7 @@ describe('Sidebar Navigation Controls Migration', () => {
       window.dispatchEvent(new MouseEvent('mouseup'));
 
       expect(updatePreferencesSpy).toHaveBeenCalledWith({
-        sidebarSize: 'custom',
         sidebarWidth: 800,
-        customSidebarWidth: 800,
       });
 
       cleanupRightPreview();

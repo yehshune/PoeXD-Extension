@@ -57,7 +57,6 @@ const unsubscribeSpy = vi.fn();
 vi.mock('@/utils/preferences', () => ({
   DEFAULT_PREFERENCES: {
     sidebarPosition: 'left',
-    sidebarSize: 'medium',
     sidebarWidth: 380,
     fontSizeScale: 1,
     densityScale: 1,
@@ -68,7 +67,6 @@ vi.mock('@/utils/preferences', () => ({
       subscribe: vi.fn((cb) => {
         cb({
           sidebarPosition: 'left',
-          sidebarSize: 'medium',
           sidebarWidth: 380,
           fontSizeScale: 1,
           densityScale: 1,
@@ -77,7 +75,6 @@ vi.mock('@/utils/preferences', () => ({
       }),
       getSnapshot: vi.fn(() => ({
         sidebarPosition: 'left',
-        sidebarSize: 'medium',
         sidebarWidth: 380,
         fontSizeScale: 1,
         densityScale: 1,
@@ -223,7 +220,6 @@ describe('Sidebar Teardown Ownership', () => {
           subscribe: vi.fn((cb) => {
             cb({
               sidebarPosition: 'left',
-              sidebarSize: 'custom',
               sidebarWidth: 340,
               fontSizeScale: 1,
               densityScale: 1,
@@ -232,7 +228,6 @@ describe('Sidebar Teardown Ownership', () => {
           }),
           getSnapshot: vi.fn(() => ({
             sidebarPosition: 'left',
-            sidebarSize: 'custom',
             sidebarWidth: 340,
             fontSizeScale: 1,
             densityScale: 1,

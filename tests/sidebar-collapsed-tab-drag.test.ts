@@ -37,7 +37,6 @@ const updatePreferencesSpy = vi.fn(async () => ({ ok: true, changed: true }));
 vi.mock('@/utils/preferences', () => ({
   DEFAULT_PREFERENCES: {
     sidebarPosition: 'left',
-    sidebarSize: 'medium',
     sidebarWidth: 380,
     fontSizeScale: 1,
     densityScale: 1,
@@ -97,7 +96,6 @@ describe('Sidebar collapsed tab drag', () => {
     storageListeners.clear();
     snapshot = {
       sidebarPosition: 'left',
-      sidebarSize: 'medium',
       sidebarWidth: 380,
       fontSizeScale: 1,
       densityScale: 1,

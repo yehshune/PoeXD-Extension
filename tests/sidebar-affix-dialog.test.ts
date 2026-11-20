@@ -66,7 +66,6 @@ vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
 vi.mock('@/utils/preferences', () => ({
   DEFAULT_PREFERENCES: {
     sidebarPosition: 'left',
-    sidebarSize: 'medium',
     sidebarWidth: 340,
     fontSizeScale: 1,
     densityScale: 1,
@@ -77,7 +76,6 @@ vi.mock('@/utils/preferences', () => ({
       subscribe: vi.fn(() => () => {}),
       getSnapshot: vi.fn(() => ({
         sidebarPosition: 'left',
-        sidebarSize: 'medium',
         sidebarWidth: 340,
         fontSizeScale: 1,
         densityScale: 1,

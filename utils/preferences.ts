@@ -15,7 +15,6 @@ import {
   LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES,
   LIVE_SEARCH_RESUME_MODES,
   SIDEBAR_POSITIONS,
-  SIDEBAR_SIZES,
   SIDEBAR_WIDTH_BOUNDS,
   getPreferenceStorageKey,
   isGlobalPreference,
@@ -26,7 +25,6 @@ import {
   type FontSizeMode,
   type Preferences,
   type SidebarPosition,
-  type SidebarSize,
 } from './preferences-contract';
 
 export * from './preferences-contract';
@@ -103,7 +101,6 @@ function isValidPreference(name: keyof Preferences, value: unknown) {
   if (name === 'addBookmarkBtnPosition')
     return (BOOKMARK_BUTTON_POSITIONS as readonly unknown[]).includes(value);
   if (name === 'sidebarPosition') return (SIDEBAR_POSITIONS as readonly unknown[]).includes(value);
-  if (name === 'sidebarSize') return (SIDEBAR_SIZES as readonly unknown[]).includes(value);
   if (name === 'fontSizeMode') return (FONT_SIZE_MODES as readonly unknown[]).includes(value);
   if (name === 'densityScale') return (DENSITY_SCALE_VALUES as readonly unknown[]).includes(value);
   if (name === 'fontSizeScale')
@@ -131,13 +128,6 @@ function isValidPreference(name: keyof Preferences, value: unknown) {
       (typeof value === 'number' &&
         value >= FONT_SIZE_SCALE_BOUNDS.min &&
         value <= FONT_SIZE_SCALE_BOUNDS.max)
-    );
-  if (name === 'customSidebarWidth')
-    return (
-      value === null ||
-      (typeof value === 'number' &&
-        value >= SIDEBAR_WIDTH_BOUNDS.min &&
-        value <= SIDEBAR_WIDTH_BOUNDS.max)
     );
   if (name === 'hotkeyFocus' || name === 'hotkeyClear' || name === 'liveSearchSelectedLeague')
     return typeof value === 'string';
@@ -254,9 +244,6 @@ const COUPLED_GLOBAL_MIGRATION_KEYS = new Set<LegacyVersionedGlobalPreferenceNam
   'fontSizeMode',
   'fontSizeScale',
   'customFontSizeScale',
-  'sidebarSize',
-  'sidebarWidth',
-  'customSidebarWidth',
 ]);
 
 function migrateLegacyGlobalField(
@@ -326,7 +313,7 @@ export async function createPreferencesModule(
       }
     }
 
-    // 字體與側欄大小相關欄位保持同來源版本遷移，避免跨版本混搭 mode 與 scale/width
+    // 字體大小相關欄位保持同來源版本遷移，避免跨版本混搭 mode 與 scale
     let migratedFontMode = false;
     let migratedFontScale = false;
     if (stored.fontSizeMode === undefined && stored.fontSizeScale === undefined) {
@@ -368,24 +355,6 @@ export async function createPreferencesModule(
       loaded.fontSizeMode = inferredMode;
       repairs.fontSizeMode = inferredMode;
     }
-
-    const sidebarSource =
-      stored.sidebarSize === undefined && stored.sidebarWidth === undefined
-        ? versionOrder.find(
-            (v) =>
-              stored[`sidebarSize_${v}`] !== undefined || stored[`sidebarWidth_${v}`] !== undefined,
-          )
-        : undefined;
-    const sidebarCandidates = sidebarSource ? [sidebarSource] : versionOrder;
-    migrateLegacyGlobalField('sidebarSize', sidebarCandidates, stored, loaded, repairs);
-    migrateLegacyGlobalField('sidebarWidth', sidebarCandidates, stored, loaded, repairs);
-    migrateLegacyGlobalField(
-      'customSidebarWidth',
-      sidebarSource ? [sidebarSource, OTHER_VERSION[sidebarSource]] : versionOrder,
-      stored,
-      loaded,
-      repairs,
-    );
 
     for (const name of LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES) {
       if (COUPLED_GLOBAL_MIGRATION_KEYS.has(name)) continue;

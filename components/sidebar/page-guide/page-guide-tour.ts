@@ -66,7 +66,7 @@ export const PAGE_GUIDE_TOUR_STEPS: readonly PageGuideTourStep[] = Object.freeze
     titleKey: 'pageGuide.tour.appearance.title',
     bodyKey: 'pageGuide.tour.appearance.body',
     setup: 'appearance',
-    // 選「自訂」寬度後要能直接拖曳側欄邊緣
+    // 讓使用者能直接拖曳側欄內側邊緣調整寬度
     interactive: true,
   },
   {

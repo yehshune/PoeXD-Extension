@@ -229,9 +229,7 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
   const createMockPreferences = (overrides: any = {}) => {
     const current = {
       sidebarPosition: 'left',
-      sidebarSize: 'custom',
       sidebarWidth: 420,
-      customSidebarWidth: 420,
       theme: 'default',
       fontSizeScale: 1,
       densityScale: 1,
