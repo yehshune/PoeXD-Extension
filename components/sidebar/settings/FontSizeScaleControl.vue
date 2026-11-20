@@ -9,6 +9,7 @@ import {
   FONT_SIZE_PERCENT_BOUNDS,
   clampFontSizePercent,
   clampFontSizeScale,
+  fontSizePercentToScale,
   fontSizeScaleToPercent,
   stepFontSizeScale,
 } from '@/utils/appearance-preferences';
@@ -49,6 +50,14 @@ const draftPercent = ref(String(localPercent.value));
 const isDefault = computed(() => localPercent.value === DEFAULT_FONT_SIZE_PERCENT);
 const atMin = computed(() => localPercent.value <= FONT_SIZE_PERCENT_BOUNDS.min);
 const atMax = computed(() => localPercent.value >= FONT_SIZE_PERCENT_BOUNDS.max);
+const resetButtonAttrs = computed(() => ({
+  type: 'button' as const,
+  variant: 'outline' as const,
+  size: 'icon-sm' as const,
+  disabled: isDefault.value,
+  'aria-label': t('settings.fontSize.resetAria'),
+  title: t('settings.fontSize.resetAria'),
+}));
 
 const isOpen = ref(false);
 const isSliderDragging = ref(false);
@@ -70,11 +79,21 @@ function clearPendingCommit() {
   }
 }
 
+function syncFromPropsScale(scale: number) {
+  const nextPercent = fontSizeScaleToPercent(scale);
+  localPercent.value = nextPercent;
+  draftPercent.value = String(nextPercent);
+}
+
 function setPendingCommit(scale: number) {
   clearPendingCommit();
   pendingCommitScale = scale;
   pendingAckTimer = setTimeout(() => {
     clearPendingCommit();
+    if (!isSliderDragging.value && wheelCommitTimer === null) {
+      syncFromPropsScale(props.scale);
+      setPreview?.(null);
+    }
   }, PENDING_ACK_TIMEOUT_MS);
 }
 
@@ -117,9 +136,7 @@ watch(
         return;
       }
     }
-    const nextPercent = fontSizeScaleToPercent(nextScale);
-    localPercent.value = nextPercent;
-    draftPercent.value = String(nextPercent);
+    syncFromPropsScale(nextScale);
   },
 );
 
@@ -142,9 +159,14 @@ function handlePopoverOpenChange(nextOpen: boolean) {
   if (nextOpen && !isOpen.value) {
     frozenAnchorReference.value = captureFrozenAnchor();
   } else if (!nextOpen) {
+    const wasDraggingSlider = isSliderDragging.value;
     detachWindowSliderListeners();
     isSliderDragging.value = false;
-    flushWheelCommit();
+    if (wasDraggingSlider) {
+      commitScale(fontSizePercentToScale(localPercent.value));
+    } else {
+      flushWheelCommit();
+    }
     frozenAnchorReference.value = undefined;
   }
   isOpen.value = nextOpen;
@@ -178,7 +200,7 @@ function commitScale(nextScale: number) {
 }
 
 function step(deltaSteps: number) {
-  commitScale(stepFontSizeScale(localPercent.value / 100, deltaSteps));
+  commitScale(stepFontSizeScale(fontSizePercentToScale(localPercent.value), deltaSteps));
 }
 
 function reset() {
@@ -196,7 +218,7 @@ function handleSliderPointerDown() {
       sliderReleaseFallbackTimer = null;
       if (!isSliderDragging.value) return;
       isSliderDragging.value = false;
-      commitScale(localPercent.value / 100);
+      commitScale(fontSizePercentToScale(localPercent.value));
     }, 0);
   };
   window.addEventListener('pointerup', onPointerFinish, { once: true });
@@ -213,23 +235,25 @@ function handleSliderInput(event: Event) {
   const clamped = clampFontSizePercent(parsed);
   localPercent.value = clamped;
   draftPercent.value = String(clamped);
-  setPreview?.(clamped / 100);
+  setPreview?.(fontSizePercentToScale(clamped));
 }
 
 function handleSliderChange(event: Event) {
   detachWindowSliderListeners();
   isSliderDragging.value = false;
   const parsed = Number((event.target as HTMLInputElement).value);
-  if (!Number.isFinite(parsed)) {
-    commitScale(localPercent.value / 100);
-    return;
-  }
-  commitScale(clampFontSizePercent(parsed) / 100);
+  const nextScale = Number.isFinite(parsed)
+    ? fontSizePercentToScale(parsed)
+    : fontSizePercentToScale(localPercent.value);
+  commitScale(nextScale);
 }
 
 function handleWheel(event: WheelEvent) {
   if (event.deltaY === 0) return;
-  const nextScale = stepFontSizeScale(localPercent.value / 100, event.deltaY < 0 ? 1 : -1);
+  const nextScale = stepFontSizeScale(
+    fontSizePercentToScale(localPercent.value),
+    event.deltaY < 0 ? 1 : -1,
+  );
   const nextPercent = fontSizeScaleToPercent(nextScale);
   localPercent.value = nextPercent;
   draftPercent.value = String(nextPercent);
@@ -241,14 +265,22 @@ function handleWheel(event: WheelEvent) {
   }, WHEEL_COMMIT_DELAY_MS);
 }
 
-function handleModelUpdate(value: string | number) {
+function handleNumberInput(value: string | number) {
   const raw = String(value);
   draftPercent.value = raw;
-  if (raw.trim() === '') return;
-  const parsed = Number(raw);
+  const trimmed = raw.trim();
+  if (trimmed === '' || trimmed.endsWith('.')) return;
+  const parsed = Number(trimmed);
   if (!Number.isFinite(parsed)) return;
   if (parsed >= FONT_SIZE_PERCENT_BOUNDS.min && parsed <= FONT_SIZE_PERCENT_BOUNDS.max) {
-    commitScale(Math.round(parsed) / 100);
+    if (Number.isInteger(parsed)) {
+      commitScale(fontSizePercentToScale(parsed));
+    } else {
+      // 小數輸入途中只即時預覽並保留使用者輸入字串，待失焦或 Enter 再取整落盤
+      const nextScale = fontSizePercentToScale(parsed);
+      localPercent.value = fontSizeScaleToPercent(nextScale);
+      setPreview?.(nextScale);
+    }
   }
 }
 
@@ -264,8 +296,7 @@ function handleCommit(event?: Event) {
     draftPercent.value = String(localPercent.value);
     return;
   }
-  const clamped = clampFontSizePercent(parsed);
-  commitScale(clamped / 100);
+  commitScale(fontSizePercentToScale(parsed));
 }
 </script>
 
@@ -289,16 +320,7 @@ function handleCommit(event?: Event) {
           <span>{{ localPercent }}%</span>
         </Button>
       </span>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        :disabled="isDefault"
-        :aria-label="t('settings.fontSize.resetAria')"
-        :title="t('settings.fontSize.resetAria')"
-        data-font-scale-action="reset"
-        @click="reset"
-      >
+      <Button v-bind="resetButtonAttrs" data-font-scale-action="reset" @click="reset">
         <RotateCcw />
       </Button>
     </div>
@@ -366,7 +388,7 @@ function handleCommit(event?: Event) {
                 :aria-label="t('settings.fontSize.inputAria')"
                 data-font-scale-input
                 class="m-0 w-[3.6ch] min-w-0 appearance-none border-0 bg-transparent p-0 text-right font-[inherit] text-[length:var(--control-font-sm,12px)] text-foreground tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none"
-                @input="handleModelUpdate(($event.target as HTMLInputElement).value)"
+                @input="handleNumberInput(($event.target as HTMLInputElement).value)"
                 @blur="handleCommit"
                 @keydown.enter="handleCommit"
               />
@@ -389,16 +411,7 @@ function handleCommit(event?: Event) {
               <Plus />
             </Button>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            :disabled="isDefault"
-            :aria-label="t('settings.fontSize.resetAria')"
-            :title="t('settings.fontSize.resetAria')"
-            data-font-scale-popover-reset
-            @click="reset"
-          >
+          <Button v-bind="resetButtonAttrs" data-font-scale-popover-reset @click="reset">
             <RotateCcw />
           </Button>
         </div>

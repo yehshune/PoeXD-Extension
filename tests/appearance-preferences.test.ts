@@ -3,14 +3,18 @@ import {
   FONT_SIZE_PERCENT_BOUNDS,
   clampFontSizePercent,
   clampFontSizeScale,
+  fontSizePercentToScale,
   fontSizeScaleToPercent,
   stepFontSizeScale,
 } from '@/utils/appearance-preferences';
 
 describe('font size scale helpers', () => {
-  it('converts scale to integer percent and clamps percent within bounds', () => {
+  it('converts between scale and clamped percent', () => {
     expect(fontSizeScaleToPercent(1)).toBe(100);
     expect(fontSizeScaleToPercent(1.05)).toBe(105);
+    expect(fontSizePercentToScale(105)).toBe(1.05);
+    expect(fontSizePercentToScale(114.6)).toBe(1.15);
+    expect(fontSizePercentToScale(50)).toBe(0.8);
     expect(clampFontSizePercent(50)).toBe(FONT_SIZE_PERCENT_BOUNDS.min);
     expect(clampFontSizePercent(300)).toBe(FONT_SIZE_PERCENT_BOUNDS.max);
     expect(clampFontSizePercent(114.6)).toBe(115);

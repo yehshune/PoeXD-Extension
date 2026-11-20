@@ -721,6 +721,16 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(scaleInput.value).toBe('142');
     expect(triggerBtn.textContent).toContain('142%');
 
+    // Decimal input preserves draft mid-typing and rounds + commits on blur
+    scaleInput.value = '120.6';
+    scaleInput.dispatchEvent(new Event('input'));
+    await flushAsync();
+    expect(scaleInput.value).toBe('120.6');
+    scaleInput.dispatchEvent(new Event('blur'));
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(1.21);
+    expect(scaleInput.value).toBe('121');
+
     // Direct input -> 150%
     scaleInput.value = '150';
     scaleInput.dispatchEvent(new Event('input'));
@@ -736,14 +746,29 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(scaleInput.value).toBe('200');
     expect(increaseBtn.disabled).toBe(true);
 
-    // Reset back to 100%
+    // Popover reset -> 100%
     popoverResetBtn.click();
     await flushAsync();
     expect(currentModule?.read().fontSizeScale).toBe(1);
     expect(scaleInput.value).toBe('100');
+    expect(popoverResetBtn.disabled).toBe(true);
+
+    // Closing popover mid-slider-drag commits the previewed value cleanly
+    slider.dispatchEvent(new Event('pointerdown'));
+    slider.value = '133';
+    slider.dispatchEvent(new Event('input'));
+    await flushAsync();
+    triggerBtn.click();
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(1.33);
+    expect(triggerBtn.textContent).toContain('133%');
+
+    // Inline reset back to 100%
+    resetBtn.click();
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(1);
     expect(triggerBtn.textContent).toContain('100%');
     expect(resetBtn.disabled).toBe(true);
-    expect(popoverResetBtn.disabled).toBe(true);
   });
 
   it('preserves fontSizeScale when unrelated preferences change', async () => {

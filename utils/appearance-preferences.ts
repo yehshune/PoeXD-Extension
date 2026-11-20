@@ -24,15 +24,19 @@ export function clampFontSizePercent(percent: number): number {
   return Math.min(Math.max(rounded, FONT_SIZE_PERCENT_BOUNDS.min), FONT_SIZE_PERCENT_BOUNDS.max);
 }
 
+/** 將整數或浮點百分比轉成夾範圍後的縮放倍率（例如 105 → 1.05） */
+export function fontSizePercentToScale(percent: number): number {
+  return clampFontSizePercent(percent) / 100;
+}
+
 /** 將縮放倍率夾在允許範圍內並維持 1% 精度 */
 export function clampFontSizeScale(scale: number): number {
   if (!Number.isFinite(scale)) return DEFAULT_PREFERENCES.fontSizeScale;
-  return clampFontSizePercent(scale * 100) / 100;
+  return fontSizePercentToScale(scale * 100);
 }
 
 /** 依步進次數（每次 5%）增減縮放倍率並夾在上下限內 */
 export function stepFontSizeScale(scale: number, deltaSteps: number): number {
   const currentPercent = fontSizeScaleToPercent(scale);
-  const nextPercent = clampFontSizePercent(currentPercent + deltaSteps * FONT_SIZE_PERCENT_STEP);
-  return nextPercent / 100;
+  return fontSizePercentToScale(currentPercent + deltaSteps * FONT_SIZE_PERCENT_STEP);
 }

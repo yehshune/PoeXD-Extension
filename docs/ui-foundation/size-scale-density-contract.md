@@ -290,6 +290,7 @@ PoeXD 控制項分為三大元件 Profile，加上 Layout Spacing 組成四大�
     - `--pxd-mercenary-build-width`: 基準 300px (傭兵技能選擇器的 Build 下拉寬)
     - `--pxd-temporary-search-dialog-width`: 基準 420px (Temporary Search 對話框面寬)
     - `--pxd-temporary-search-dialog-max-height`: 520px (Temporary Search 對話框最大高度)
+    - **UI Scale 控制浮層例外 (`FontSizeScaleControl.vue`)**：調節整體介面縮放比例的 Popover 允許以 `scale: 1, density: 1` 的基準 token 與固定面寬（`264px`）呈現，並在開啟瞬間擷取觸發鈕的靜態 `DOMRect` 錨點；避免在拖曳滑桿或滾動滾輪即時縮放背後側邊欄時，控制浮層自身隨之變形或位移導致游標脫離控制區。
   - **Tooltip & Popover Primitive Padding / Width Ownership**：
     - `TooltipContent` 預設字級由語意排版契約 (`--pxd-font-secondary`) 驅動，預設內距由語意間距契約 (`--pxd-space-lg` 12px, `--pxd-space-sm` 6px) 驅動，隨 Scale 等比縮放且留白依 Density 收斂；預設最大寬度由 `min(var(--pxd-tooltip-max-width,280px),var(--reka-tooltip-content-available-width,calc(100vw-32px)))` 限制並搭配自動換行 (`whitespace-normal break-words`)，專責寬度之浮層（如 `TradeSearchPreviewTooltip`）可透過 `max-w-*` 覆寫為可用視口寬度。
     - `PopoverContent` 預設內距由 Primitive 提供 Scale/Density 驅動之 `--pxd-space-lg` (12px baseline)，Consumer 專注於業務排版，嚴禁在 Consumer 上重複宣告手寫 `p-3` 形成雙重 ownership。
@@ -302,13 +303,10 @@ PoeXD 控制項分為三大元件 Profile，加上 Layout Spacing 組成四大�
 
 User-configurable Sidebar workspace width is independent of UI Scale.
 
-在已有 340 / 380 / 420 / Custom width preference 後，實際工作區寬度由使用者設定直接決定，不得再乘 `fontSizeScale`。
+側邊欄面寬不再提供預設尺寸選項（`sidebarSize`），而是由使用者直接拖曳展開後的側邊欄內側邊緣調整 `sidebarWidth`（`280px–600px`，預設 `380px`），實際工作區寬度由 `sidebarWidth` 直接決定，不得再乘 `fontSizeScale`。
 
 - **使用者設定面寬** (`--pxd-sidebar-width`)：
-  - small = 340px
-  - medium = 380px (預設標準寬度)
-  - large = 420px
-  - custom = 僅由 sidebar resize 拖曳調整的實際 px
+  - 預設寬度 `380px`（`DEFAULT_PREFERENCES.sidebarWidth`），可依 `SIDEBAR_WIDTH_BOUNDS`（`280px–600px`）直接拖曳調整。
   - 渲染寬度維持不變：例如 `sidebarWidth = 380`，在 Scale 85% 為 380px、Scale 100% 為 380px、Scale 120% 為 380px。
 - **Page Layout 一致性**：
   `sidebar-layout.ts` 中 wrapper 的寬度與 page content margin 統一使用使用者設定寬度 `sidebarWidth`，不再計算 `effectiveWidth`。
@@ -342,7 +340,7 @@ User-configurable Sidebar workspace width is independent of UI Scale.
 | **焦點環 (Focus Ring)**                                                        |              ❌ 否              |    ❌ **嚴格禁止**    | 鍵盤導航可存取性 (a11y) 指示環必須清晰可見                                                                                                                                       |
 | **滾動條可操作尺寸**                                                           |              ❌ 否              |    ❌ **嚴格禁止**    | Native/Custom scrollbar 必須維持足夠 thumb 抓取寬度 (4px)                                                                                                                        |
 | **Sidebar 內部控制項幾何 (Sidebar internal/control geometry)**                 |     是 (直接依 Scale 縮放)      |    ❌ **嚴格禁止**    | 包含導覽列寬度、摺疊按鈕、Header 高度、按鈕圖標等，隨 Scale 縮放以容納控制項；Density 嚴禁改變幾何                                                                               |
-| **Sidebar 面寬工作區 (User-configurable Sidebar workspace width)**             |     ❌ 否 (獨立於 UI Scale)     |    ❌ **嚴格禁止**    | User-configurable Sidebar workspace width is independent of UI Scale。寬度由使用者偏好設定 (340/380/420/Custom px) 直接決定；Density 嚴禁壓縮側邊欄面寬                          |
+| **Sidebar 面寬工作區 (User-configurable Sidebar workspace width)**             |     ❌ 否 (獨立於 UI Scale)     |    ❌ **嚴格禁止**    | User-configurable Sidebar workspace width is independent of UI Scale。寬度由使用者直接拖曳設定 (`sidebarWidth` px，預設 380px) 決定；Density 嚴禁壓縮側邊欄面寬                  |
 | **Overlay / Modal 實體定位與圖層 (Positioning Invariant)**                     |              ❌ 否              |    ❌ **嚴格禁止**    | 螢幕固定座標、Portal 傳送策略、Popover/Dialog 浮動定位策略、z-index 屬性與 fixed/absolute 語意，不受 Scale 與 Density 影響                                                       |
 | **Dialog / Modal 視覺幾何 (Visual Geometry)**                                  | 是 (依需求由 Layout Token 驅動) |    ❌ **嚴格禁止**    | 彈窗面寬 (width)、最大寬度、內容留白 (padding) 與排版字級，未來可依 UI Scale 與 Semantic Layout Token 處理；Density 嚴禁縮放                                                     |
 | **圓角形狀 (Radius / Shape)**                                                  |              ❌ 否              |    ❌ **嚴格禁止**    | 形狀屬於 Theme / Primitive 管轄，Scale 與 Density 嚴禁干涉；詳見 [visual-class-reset-contract.md](./visual-class-reset-contract.md)                                              |

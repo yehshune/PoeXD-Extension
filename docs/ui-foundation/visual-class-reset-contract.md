@@ -46,7 +46,7 @@ PoeXD 介面由三個互不越權的維度正交驅動：
 │    計算：Baseline × Scale (由 TS Runtime 注入具體 px)         │
 │    禁忌：嚴禁使用 transform: scale() 污染排版與清晰度          │
 │    注意：使用者設定之側邊欄面寬 (Sidebar workspace width)       │
-│          由獨立 Preferences 管轄 (340/380/420/Custom)，不受 Scale 影響│
+│          由獨立 `sidebarWidth` 管轄 (直接拖曳調整)，不受 Scale 影響│
 ├─────────────────────────────────────────────────────────────┤
 │ 3. Density (排版緊湊維度 - 保持既有產品能力)                    │
 │    管轄：版面間距 (Layout Spacing)、Pane 留白、Section Gap、Row Gap│
@@ -66,7 +66,7 @@ PoeXD 介面由三個互不越權的維度正交驅動：
 >   - Sidebar internal/control geometry（導覽列寬度 `--pxd-sidebar-nav-width`、收合展開按鈕與容器 `--pxd-sidebar-collapsed-width`、Header 高度 `--pxd-sidebar-header-height`、Dialog 語意幾何）
 > - **獨立 Sidebar Width preference 管轄**：
 >   - Sidebar workspace width（工作區實際面寬 `--pxd-sidebar-width`）
->   - 340 (small) / 380 (medium) / 420 (large) / Custom 實際 px
+>   - 預設 `380px`，由使用者直接拖曳側邊欄內側邊緣調整實際 px（`280px–600px`）
 >   - 不受 UI Scale 影響（完全解耦，`actual sidebar width = sidebarWidth`）
 
 系統必須無條件支援下列任意矩陣組合，且三者互不干擾、互不修改彼此所有權：
@@ -88,7 +88,7 @@ PoeXD 介面由三個互不越權的維度正交驅動：
 | **Border Visual (邊框視覺)**                    | **Theme**                       | `border-border` 顏色與視覺能見度 (Visibility)                                             | **嚴格禁止**自訂控制項邊框色彩與通用線條         |
 | **Control Size (控制項幾何)**                   | **Scale (UI Foundation)**       | `COMPONENT_SIZE_SPECS` (Height, Font, Icon, Gap, Padding X)                               | **受保護**（透過 `size="sm"` prop 使用）         |
 | **Sidebar Control Geometry (側邊欄控制項幾何)** | **Scale (UI Foundation)**       | `--pxd-sidebar-nav-width`, `--pxd-sidebar-collapsed-width`, `--pxd-sidebar-header-height` | **受保護**（隨 Scale 縮放以容納控制項）          |
-| **Sidebar Workspace Width (側邊欄工作區寬度)**  | **Preferences (Sidebar Width)** | `--pxd-sidebar-width` (340/380/420/Custom px)                                             | **使用者偏好**（獨立於 UI Scale）                |
+| **Sidebar Workspace Width (側邊欄工作區寬度)**  | **Preferences (Sidebar Width)** | `--pxd-sidebar-width` (直接拖曳調整 px，預設 380px)                                       | **使用者偏好**（獨立於 UI Scale）                |
 | **Layout Spacing (版面間距)**                   | **Density / Scale**             | `--pxd-space-*`, `--pxd-pane-padding`, `--pxd-field-gap`, `--pxd-row-gap`                 | **允許**（管理版面留白節奏）                     |
 | **Geometry & Flow (佈局流向)**                  | **Layout**                      | `flex`, `grid`, `w-full`, `min-w-0`, `relative`, `absolute`, `overflow-y-auto`            | **完全開放**（由業務頁面自主排版）               |
 | **PoE Domain (遊戲領域語意)**                   | **PoE Domain**                  | `.prefix-color`, `.suffix-color`, `#38b0f8`, `#f59e0b`, 詞綴搜尋高亮                      | **完全開放**（Theme 絕對不得覆蓋）               |
@@ -219,7 +219,7 @@ PoE host
     - **非 Theme / Scale / Density 變數**：Dialog stacking 屬於 Overlay infrastructure semantic，非 Theme 色彩或尺寸合約，嚴格禁止建立 CSS 變數（如 `--pxd-z-dialog-*`）。
     - **DOM Order 不是 Visual Priority SSOT**：經實測證明，Vue 3 `<Teleport>` 錨點依組件初始 mount 順序鎖定（深層插槽 FilterPane 比父層 Sidebar 的 Shared Dialog 更晚 mount，實際 DOM 順序為 `Affix → Shared → Type`），且 `:unmount-on-hide="false"` 無法重排錨點。因此視覺優先級（`Shared > Type > Affix`）必須由 semantic layer 承擔，不得以 DOM order 作為 SSOT。
   - **單一 Portal Target SSOT**：DropdownMenu / Select / Tooltip / Popover / Dialog 一律透過根節點 `<ConfigProvider :teleport-to="portalTarget">` 使用同一 `portalRoot`，業務組件不應自行 query DOM 或指定 portal target。不得建立 `systemPortalRoot` 或第二個 portal。
-  - **Generic Floating Positioning SSOT**：Generic floating positioning 完全由 Reka primitive / Popper (Floating UI) 負責；業務層組件或 composable（如 `BookmarkPane`、`useBookmarkPreview`）嚴禁自行計算 Tooltip/Dropdown/Select/Popover 的 viewport geometry（如手寫 `getBoundingClientRect()`、`window.innerHeight`、`position: fixed` 等），碰撞（collision）、翻轉（flip）與位移（shift）完全交給 Reka 處理。
+  - **Generic Floating Positioning SSOT**：Generic floating positioning 完全由 Reka primitive / Popper (Floating UI) 負責；業務層組件或 composable（如 `BookmarkPane`、`useBookmarkPreview`）嚴禁自行計算 Tooltip/Dropdown/Select/Popover 的 viewport geometry（如手寫 `getBoundingClientRect()`、`window.innerHeight`、`position: fixed` 等），碰撞（collision）、翻轉（flip）與位移（shift）完全交給 Reka 處理。（唯一例外：`FontSizeScaleControl` 於開啟時擷取靜態觸發鈕 `DOMRect` 交由 `PopoverAnchor` 定位，防止拖曳／滾輪即時調整 UI Scale 時浮層隨背後版面漂移。）
   - **禁止業務層手寫巨大 Z-index**：業務組件嚴格禁止手寫超大 z-index（如 `z-[10000000]` 或 inline `zIndex: '100000'`）；所有浮層一律透過 Primitive 統一持有合約規定之層級。
   - **浮層通用外觀與 Theme 對齊**：所有浮層容器外觀（如 Bookmark Preview）統一由 `TooltipContent` 等 Foundation primitive 提供 Theme-derived token（`var(--shadow-md)`、`var(--radius)`、`var(--muted)`、`var(--border)`）；業務層僅負責內部內容排版，且在無 typed domain semantic 支撐下，Preview metadata 一律全面使用 Theme semantic（`var(--foreground)`、`var(--muted-foreground)`、`var(--secondary)`、`var(--border)` 等）。
   - **Theme 自然繼承**：不複製 Theme attribute 至 `portalRoot`，浮層自然繼承 `shadowHost` 的 Theme CSS 變數。
