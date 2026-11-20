@@ -202,6 +202,10 @@ function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpe
     slot.onSelect(item, 'both');
   }
 }
+
+function preventIfDemoMenu(slotKey: string, event: Event) {
+  if (isDemoMenu(slotKey)) event.preventDefault();
+}
 </script>
 
 <template>
@@ -239,26 +243,10 @@ function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpe
           isDemoMenu(slot.key) ? 'pointer-events-none select-none' : '',
         ]"
         :style="{ '--pxd-menu-max-height': '420px' }"
-        @interact-outside="
-          (e) => {
-            if (isDemoMenu(slot.key)) e.preventDefault();
-          }
-        "
-        @pointer-down-outside="
-          (e) => {
-            if (isDemoMenu(slot.key)) e.preventDefault();
-          }
-        "
-        @focus-outside="
-          (e) => {
-            if (isDemoMenu(slot.key)) e.preventDefault();
-          }
-        "
-        @escape-key-down="
-          (e) => {
-            if (isDemoMenu(slot.key)) e.preventDefault();
-          }
-        "
+        @interact-outside="preventIfDemoMenu(slot.key, $event)"
+        @pointer-down-outside="preventIfDemoMenu(slot.key, $event)"
+        @focus-outside="preventIfDemoMenu(slot.key, $event)"
+        @escape-key-down="preventIfDemoMenu(slot.key, $event)"
       >
         <!-- 1. 頂部固定控制區：類別切換橫跨上方；單欄時含微調列 -->
         <div class="flex flex-col shrink-0 gap-[var(--pxd-space-xs)]">

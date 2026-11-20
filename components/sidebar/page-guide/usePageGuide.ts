@@ -279,14 +279,12 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
       if (ok) {
         activeDemoAction = 'add-stat-filter';
         await deps.wait(DEMO_RENDER_WAIT_MS);
-        // 官方頁面重新標記與注入 T 階按鈕是非同步的；若示範列已掛上，等它的 T 按鈕出現再繼續
-        if (document.querySelector('[data-poexd-page-guide-demo="true"]')) {
-          for (let attempt = 0; attempt < DEMO_TARGET_RETRIES; attempt += 1) {
-            if (document.querySelector('[data-poexd-page-guide-demo="true"] .poexd-tier-trigger')) {
-              break;
-            }
-            await deps.wait(DEMO_TARGET_RETRY_MS);
+        // 官方頁面重新標記示範列與注入 T 階按鈕皆為非同步，持續等到示範列的 T 按鈕出現再繼續
+        for (let attempt = 0; attempt < DEMO_TARGET_RETRIES; attempt += 1) {
+          if (document.querySelector('[data-poexd-page-guide-demo="true"] .poexd-tier-trigger')) {
+            break;
           }
+          await deps.wait(DEMO_TARGET_RETRY_MS);
         }
       }
       return ok;

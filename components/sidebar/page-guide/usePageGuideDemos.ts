@@ -8,6 +8,7 @@ import {
   tierTriggerDemoSlotKey,
 } from '@/utils/page-guide-demo-state';
 import { SIDEBAR_LAYOUT_TRANSITION_MS } from '@/utils/sidebar-motion';
+import type { DisplayLocalePreference } from '@/utils/preferences-contract';
 import type { PoeVersion } from '@/utils/trade-context';
 import type { PageGuideDemoCursor } from './page-guide-setup';
 import type { PageGuideStepDemo } from './page-guide-tour';
@@ -21,7 +22,6 @@ export interface FilterPaneDemoHandle {
   isLoading: () => boolean;
   getSnapshot: () => FilterPaneSnapshot;
   restoreSnapshot: (snapshot: FilterPaneSnapshot) => void;
-  openTypeDialog: () => void;
   selectTypeForDemo: (type: string) => void;
   setSearchQueryForDemo: (query: string) => void;
   findDemoLifeMod: () => { id: string; label: string } | null;
@@ -44,7 +44,7 @@ export interface PageGuideDemosOptions {
   }) => void;
   ensureDemoStatFilter: () => Promise<boolean>;
   getPoeVersion: () => PoeVersion;
-  getDisplayLocale: () => string;
+  getDisplayLocale: () => DisplayLocalePreference;
 }
 
 const DEMO_CURSOR_MOVE_MS = 550;
@@ -62,7 +62,7 @@ function centerOf(el: Element) {
 
 function resolveDemoSearchText(
   version: PoeVersion,
-  displayLocale: string,
+  displayLocale: DisplayLocalePreference,
   modLabel: string | undefined,
 ): string {
   if (modLabel) {
@@ -114,6 +114,33 @@ export function usePageGuideDemos(options: PageGuideDemosOptions) {
     options.setDemoElements({ ring: null, spotlight: null });
   };
 
+  const moveAndPressCursor = async (
+    target: { x: number; y: number },
+    alive: () => boolean,
+    opts: {
+      startPos?: { x: number; y: number };
+      movePauseMs?: number;
+      pressHoldMs?: number;
+      release?: boolean;
+    } = {},
+  ): Promise<boolean> => {
+    if (opts.startPos) {
+      demoCursor.value = { x: opts.startPos.x, y: opts.startPos.y, pressed: false };
+      await sleep(50);
+      if (!alive()) return false;
+    }
+    demoCursor.value = { x: target.x, y: target.y, pressed: false };
+    await sleep(DEMO_CURSOR_MOVE_MS + (opts.movePauseMs ?? 120));
+    if (!alive()) return false;
+    demoCursor.value = { x: target.x, y: target.y, pressed: true };
+    await sleep(opts.pressHoldMs ?? 150);
+    if (!alive()) return false;
+    if (opts.release !== false) {
+      demoCursor.value = { x: target.x, y: target.y, pressed: false };
+    }
+    return true;
+  };
+
   const playCollapseDemo = async () => {
     stopStepDemo();
     const run = activeRun;
@@ -129,16 +156,15 @@ export function usePageGuideDemos(options: PageGuideDemosOptions) {
       if (!closeButton) return;
       const close = centerOf(closeButton);
       const startX = options.sidebarPosition.value === 'right' ? close.x - 120 : close.x + 120;
-      demoCursor.value = { x: startX, y: close.y + 140, pressed: false };
-      await sleep(50);
-      if (!alive()) return;
-      demoCursor.value = { x: close.x, y: close.y, pressed: false };
-      await sleep(DEMO_CURSOR_MOVE_MS + 150);
-      if (!alive()) return;
-      demoCursor.value = { x: close.x, y: close.y, pressed: true };
-      await sleep(150);
-      if (!alive()) return;
-      demoCursor.value = { x: close.x, y: close.y, pressed: false };
+      if (
+        !(await moveAndPressCursor(close, alive, {
+          startPos: { x: startX, y: close.y + 140 },
+          movePauseMs: 150,
+          pressHoldMs: 150,
+        }))
+      ) {
+        return;
+      }
       if (!options.isCollapsed.value) options.toggleCollapse();
       await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 250);
       if (!alive()) return;
@@ -146,12 +172,15 @@ export function usePageGuideDemos(options: PageGuideDemosOptions) {
       const tab = findSidebarElement('[data-sidebar-action="expand"]');
       if (!tab) return;
       const grip = centerOf(tab);
-      demoCursor.value = { x: grip.x, y: grip.y, pressed: false };
-      await sleep(DEMO_CURSOR_MOVE_MS + 150);
-      if (!alive()) return;
-      demoCursor.value = { x: grip.x, y: grip.y, pressed: true };
-      await sleep(200);
-      if (!alive()) return;
+      if (
+        !(await moveAndPressCursor(grip, alive, {
+          movePauseMs: 150,
+          pressHoldMs: 200,
+          release: false,
+        }))
+      ) {
+        return;
+      }
       const tabRect = tab.getBoundingClientRect();
       const tabHeight = tabRect.height || 32;
       const startTop = tabRect.top;
@@ -199,16 +228,13 @@ export function usePageGuideDemos(options: PageGuideDemosOptions) {
       if (!triggerBtn) return;
 
       const btnCenter = centerOf(triggerBtn);
-      demoCursor.value = { x: btnCenter.x + 110, y: btnCenter.y + 80, pressed: false };
-      await sleep(50);
-      if (!alive()) return;
-      demoCursor.value = { x: btnCenter.x, y: btnCenter.y, pressed: false };
-      await sleep(DEMO_CURSOR_MOVE_MS + 120);
-      if (!alive()) return;
-      demoCursor.value = { x: btnCenter.x, y: btnCenter.y, pressed: true };
-      await sleep(150);
-      if (!alive()) return;
-      demoCursor.value = { x: btnCenter.x, y: btnCenter.y, pressed: false };
+      if (
+        !(await moveAndPressCursor(btnCenter, alive, {
+          startPos: { x: btnCenter.x + 110, y: btnCenter.y + 80 },
+        }))
+      ) {
+        return;
+      }
 
       affixDemoMode.value = true;
       affixOpenedByDemo = true;
@@ -243,13 +269,11 @@ export function usePageGuideDemos(options: PageGuideDemosOptions) {
       options.setDemoElements({ spotlight: affixDialog, ring: searchInput });
 
       const searchCenter = centerOf(searchInput);
-      demoCursor.value = { x: searchCenter.x, y: searchCenter.y, pressed: false };
-      await sleep(DEMO_CURSOR_MOVE_MS + 100);
-      if (!alive()) return;
-      demoCursor.value = { x: searchCenter.x, y: searchCenter.y, pressed: true };
-      await sleep(130);
-      if (!alive()) return;
-      demoCursor.value = { x: searchCenter.x, y: searchCenter.y, pressed: false };
+      if (
+        !(await moveAndPressCursor(searchCenter, alive, { movePauseMs: 100, pressHoldMs: 130 }))
+      ) {
+        return;
+      }
 
       const lifeMod = handle.findDemoLifeMod();
       const searchTerm = resolveDemoSearchText(
@@ -282,13 +306,9 @@ export function usePageGuideDemos(options: PageGuideDemosOptions) {
         const addBtn = modRow.querySelector<HTMLElement>('[data-mod-action="add-now"]');
         const target = addBtn ?? modRow;
         const addCenter = centerOf(target);
-        demoCursor.value = { x: addCenter.x, y: addCenter.y, pressed: false };
-        await sleep(DEMO_CURSOR_MOVE_MS + 120);
-        if (!alive()) return;
-        demoCursor.value = { x: addCenter.x, y: addCenter.y, pressed: true };
-        await sleep(180);
-        if (!alive()) return;
-        demoCursor.value = { x: addCenter.x, y: addCenter.y, pressed: false };
+        if (!(await moveAndPressCursor(addCenter, alive, { pressHoldMs: 180 }))) {
+          return;
+        }
       }
 
       // 透過導覽示範通道真正插入第 7 步會用到的示範詞綴，方便第 7 步沿用與結束時一併清除
@@ -325,24 +345,20 @@ export function usePageGuideDemos(options: PageGuideDemosOptions) {
     stopStepDemo();
     const run = activeRun;
     const alive = () => run === activeRun;
-    const hasDemoFilter = document.querySelector('[data-poexd-page-guide-demo="true"]') !== null;
-    let key = findFirstTierSlotKey(document, { demoOnly: hasDemoFilter });
-    if (!key && hasDemoFilter) {
-      for (let i = 0; i < 12; i += 1) {
+    let key = findFirstTierSlotKey(document, { demoOnly: true });
+    if (!key) {
+      for (let i = 0; i < 15; i += 1) {
         await sleep(40);
         if (!alive()) return;
         key = findFirstTierSlotKey(document, { demoOnly: true });
         if (key) break;
       }
     }
-    key ??= findFirstTierSlotKey();
     if (!key) return;
     tierTriggerDemoSlotKey.value = key;
     tierMenuDemoSlotKey.value = key;
     await nextTick();
-    const triggerSelector = hasDemoFilter
-      ? `[data-poexd-page-guide-demo="true"] .poexd-tier-trigger[data-tier-slot-key="${key}"]`
-      : `.poexd-tier-trigger[data-tier-slot-key="${key}"]`;
+    const triggerSelector = `[data-poexd-page-guide-demo="true"] .poexd-tier-trigger[data-tier-slot-key="${key}"]`;
     const trigger = document.querySelector<HTMLElement>(triggerSelector);
     for (let i = 0; i < 15; i += 1) {
       const menu = findSidebarElement('[data-slot="dropdown-menu-content"][data-state="open"]');

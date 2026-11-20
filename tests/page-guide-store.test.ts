@@ -229,6 +229,35 @@ describe('tour', () => {
     expect(document.querySelector('[data-poexd-page-guide-demo="true"]')).toBeNull();
   });
 
+  it('waits for delayed demo stat filter row before locating tier trigger when other filters exist', async () => {
+    const existing = addElement(
+      '<div class="filter"><button class="poexd-tier-trigger" id="existing"></button></div>',
+    );
+    const existingTrigger = existing.querySelector('#existing')!;
+    let waitCalls = 0;
+    const guide = createPageGuide(
+      createDeps({
+        requestDemo: vi.fn(async () => true),
+        wait: async () => {
+          waitCalls += 1;
+          if (waitCalls === 4) {
+            const demoFilter = addElement(
+              '<div class="filter" data-poexd-page-guide-demo="true"><button class="poexd-tier-trigger" id="delayed-demo"></button></div>',
+            );
+            visible(demoFilter.querySelector('#delayed-demo')!);
+          }
+        },
+      }),
+    );
+
+    await guide.startTour();
+    await guide.nextStep();
+
+    expect(guide.currentStep.value?.id).toBe('tier');
+    expect(guide.element.value).not.toBe(existingTrigger);
+    expect((guide.element.value as HTMLElement)?.id).toBe('delayed-demo');
+  });
+
   it('shows the mock result only for result steps and hides it on stop', async () => {
     const deps = createDeps();
     const guide = createPageGuide(deps);

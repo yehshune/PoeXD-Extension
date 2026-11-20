@@ -370,5 +370,10 @@ describe('PageGuideSetupControls market translation preview', () => {
     expect(container.querySelector('[data-setup-preview-en]')?.textContent?.trim()).toBe(
       'Adds 20 to 31 Cold Damage',
     );
+    expect(preview()).toContain('附加 20 至 31 冰冷傷害');
+
+    state.value = { ...state.value, displayLocale: 'zh-CN' };
+    await flush();
+    expect(preview()).toContain('附加 20 至 31 冰霜伤害');
   });
 });

@@ -639,21 +639,9 @@
             affixDemoMode ? 'pointer-events-none select-none' : '',
           ]"
           @close-auto-focus="(e) => e.preventDefault()"
-          @pointer-down-outside="
-            (e) => {
-              if (affixDemoMode) e.preventDefault();
-            }
-          "
-          @interact-outside="
-            (e) => {
-              if (affixDemoMode) e.preventDefault();
-            }
-          "
-          @escape-key-down="
-            (e) => {
-              if (affixDemoMode) e.preventDefault();
-            }
-          "
+          @pointer-down-outside="preventIfAffixDemo"
+          @interact-outside="preventIfAffixDemo"
+          @escape-key-down="preventIfAffixDemo"
         >
           <DialogHeader
             class="p-[var(--pxd-space-lg)] pr-12 border-b border-border bg-background flex flex-row items-center justify-between space-y-0"
@@ -710,7 +698,6 @@
                       :variant="row.mainOption.key === dialogActiveCategory ? 'accent' : 'outline'"
                       size="sm"
                       class="w-full truncate font-bold"
-                      :data-type-key="row.mainOption.key"
                       :data-selected="
                         row.mainOption.key === dialogActiveCategory ? 'true' : undefined
                       "
@@ -739,7 +726,6 @@
                       :variant="subOpt.key === dialogActiveCategory ? 'accent' : 'outline'"
                       size="sm"
                       class="w-auto min-w-[38px] truncate font-normal"
-                      :data-type-key="subOpt.key"
                       :data-selected="subOpt.key === dialogActiveCategory ? 'true' : undefined"
                       @click="selectTypeOption(subOpt.key)"
                       :title="subOpt.fullLabel"
@@ -762,7 +748,6 @@
                   :variant="opt.key === dialogActiveCategory ? 'accent' : 'outline'"
                   size="sm"
                   class="w-full truncate font-normal"
-                  :data-type-key="opt.key"
                   :data-selected="opt.key === dialogActiveCategory ? 'true' : undefined"
                   @click="selectTypeOption(opt.key)"
                   :title="opt.fullLabel"
@@ -1872,10 +1857,6 @@ export default defineComponent({
         selectedType.value = snapshot.selectedType;
         searchQuery.value = snapshot.searchQuery;
       },
-      openTypeDialog: () => {
-        typeSearchQuery.value = '';
-        isSelectDropdownOpen.value = true;
-      },
       selectTypeForDemo: (type: string) => {
         isSelectDropdownOpen.value = false;
         selectedType.value = type;
@@ -1906,10 +1887,15 @@ export default defineComponent({
       },
     });
 
+    const preventIfAffixDemo = (event: Event) => {
+      if (affixDemoMode.value) event.preventDefault();
+    };
+
     return {
       t,
       affixDemoMode,
       affixDemoHoveredModId,
+      preventIfAffixDemo,
       loading,
       selectedType,
       searchQuery,

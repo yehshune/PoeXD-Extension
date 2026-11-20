@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { t } from '@/utils/i18n';
+import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
 import {
   FONT_SIZE_MODES,
   FONT_SIZE_SCALE_BOUNDS,
@@ -47,24 +48,19 @@ const selectedLocaleLabel = computed(() => {
   const found = PAGE_GUIDE_LOCALE_CHOICES.find((c) => c.value === props.bindings.displayLocale);
   return found?.nativeLabel ?? t('settings.displayLocale.option.auto');
 });
-const isZhCnPreview = computed(() => {
+const previewLocale = computed<'zh-TW' | 'zh-CN'>(() => {
   const loc = props.bindings.displayLocale;
-  if (loc === 'zh-CN') return true;
-  if (loc === 'zh-TW' || loc === 'en') return false;
-  return typeof navigator !== 'undefined' && /^zh[-_](cn|hans|sg)/i.test(navigator.language);
+  if (loc === 'zh-CN' || loc === 'zh-TW') return loc;
+  return resolvePreferredChineseLocale();
 });
 const previewDropdownText = computed(() => {
   const en = t('pageGuide.setup.marketTranslation.previewStatEn');
   if (!props.bindings.marketTranslation) return en;
-  const zh = isZhCnPreview.value
-    ? '+# 最大生命'
-    : t('pageGuide.setup.marketTranslation.previewStatZh');
+  const zh = t('pageGuide.setup.marketTranslation.previewStatZh', undefined, previewLocale.value);
   return props.bindings.marketTranslationBilingual ? `${zh} (${en})` : zh;
 });
 const previewResultZhText = computed(() =>
-  isZhCnPreview.value
-    ? '附加 20 至 31 冰霜伤害'
-    : t('pageGuide.setup.marketTranslation.previewModZh'),
+  t('pageGuide.setup.marketTranslation.previewModZh', undefined, previewLocale.value),
 );
 const previewResultEnText = computed(() => t('pageGuide.setup.marketTranslation.previewModEn'));
 
@@ -102,7 +98,7 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
         >
           <SelectValue>{{ selectedLocaleLabel }}</SelectValue>
         </SelectTrigger>
-        <SelectContent layer="guide">
+        <SelectContent class="z-(--pxd-z-guide-floating)">
           <SelectItem
             v-for="choice in PAGE_GUIDE_LOCALE_CHOICES"
             :key="choice.value"
@@ -134,7 +130,7 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
       <div
         v-if="bindings.marketTranslation"
         data-setup-group="market-translation-bilingual"
-        class="ml-[7px] flex flex-col gap-[var(--pxd-space-xs)] border-l border-border/70 pl-[var(--pxd-space-md)]"
+        class="ml-[var(--pxd-space-sm)] flex flex-col gap-[var(--pxd-space-xs)] border-l border-border/70 pl-[var(--pxd-space-md)]"
       >
         <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
           <label
@@ -197,7 +193,7 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
             <span
               v-if="bindings.marketTranslation && bindings.marketTranslationResultBilingual"
               data-setup-preview-en
-              class="text-[0.9em] leading-tight text-muted-foreground/75"
+              class="text-[length:var(--pxd-font-caption)] leading-tight text-muted-foreground/75"
             >
               {{ previewResultEnText }}
             </span>
