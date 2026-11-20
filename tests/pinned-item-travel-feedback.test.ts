@@ -180,7 +180,7 @@ describe('PinnedItemPane travel feedback', () => {
     expect(btn.getAttribute('aria-label')).toBe('前往藏身處');
   });
 
-  it('omits instant-buyout badge and seller account from row meta, moves PoB copy into row menu when collapsed, and falls back to window.confirm when poexdConfirm is absent', async () => {
+  it('shows the seller and listing age in the row meta like the result board, omits the instant-buyout badge, moves PoB copy into row menu when collapsed, and falls back to window.confirm when poexdConfirm is absent', async () => {
     const previousConfirm = window.confirm;
     const windowConfirmSpy = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
     (window as { confirm?: unknown }).confirm = windowConfirmSpy;
@@ -192,7 +192,7 @@ describe('PinnedItemPane travel feedback', () => {
 
       const meta = container.querySelector('[data-pinned-item-meta]')?.textContent ?? '';
       expect(meta).not.toContain('直購');
-      expect(meta).not.toContain('Seller#1234');
+      expect(meta.trim()).toBe('Seller#1234');
 
       // Collapsed outer hover bar hides PoB button and exposes it inside the ⋯ menu
       expect(container.querySelector('[data-pinned-item-pob]')).toBeNull();
@@ -216,9 +216,11 @@ describe('PinnedItemPane travel feedback', () => {
       expect(container.querySelector('[data-pinned-item-pinned-at]')?.textContent).toContain(
         '釘選於',
       );
-      expect(container.querySelector('[data-pinned-item-listing-meta]')?.textContent).toContain(
+      // 展開後同一行賣家與時間仍在名稱下方，不再另列「上架…・賣家：…」
+      expect(container.querySelector('[data-pinned-item-meta]')?.textContent?.trim()).toBe(
         'Seller#1234',
       );
+      expect(container.querySelector('[data-pinned-item-listing-meta]')).toBeNull();
       container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
       await flush();
       expect(container.querySelector('[data-pinned-item-name]')).not.toBeNull();

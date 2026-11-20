@@ -4,7 +4,7 @@
  * 定位、前往藏身處、釘選都交給官方結果列（ADR-0018）。
  */
 import { computed } from 'vue';
-import { Crosshair, DoorOpen, Pin } from '@lucide/vue';
+import { Home, Pin, ScanSearch } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/utils/i18n';
@@ -187,7 +187,7 @@ const toggleLabel = computed(() =>
             data-board-locate
             @click.stop="emit('locate')"
           >
-            <Crosshair />
+            <ScanSearch />
           </Button>
           <Button
             v-if="entry.instantBuyout"
@@ -199,7 +199,7 @@ const toggleLabel = computed(() =>
             data-board-travel
             @click.stop="emit('travel')"
           >
-            <DoorOpen />
+            <Home />
           </Button>
           <Button
             variant="ghost"

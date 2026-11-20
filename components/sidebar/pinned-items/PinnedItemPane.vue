@@ -283,8 +283,10 @@ function nameLines(item: PinnedItemSnapshot): string[] {
 }
 
 /** 收合列第二行的灰色資訊（省略賣家帳號，僅保留上架時間與跨聯盟／分流提示） */
+/** 與看板相同：賣家 · 刊登多久前；聯盟、伺服器與目前不同時才附上 */
 function metaParts(item: PinnedItemSnapshot): string[] {
   return [
+    item.listing.accountName ?? '',
     formatAge(item.listing.indexed),
     showAllLeagues.value || !currentLeague || !isSameLeague(item.league, currentLeague)
       ? item.league
@@ -342,22 +344,6 @@ function priceComparisonOf(item: PinnedItemSnapshot): PinnedPriceComparison | un
 function formatFee(fee: number | undefined): string {
   if (typeof fee !== 'number' || !Number.isFinite(fee) || fee <= 0) return '';
   return new Intl.NumberFormat(getActiveUiLocale()).format(fee);
-}
-
-function expandedListingMeta(item: PinnedItemSnapshot): string {
-  const parts: string[] = [];
-  const age = formatAge(item.listing.indexed);
-  if (age) parts.push(t('pinnedItem.meta.listedAt', { time: age }));
-  if (item.listing.accountName) {
-    parts.push(t('pinnedItem.meta.seller', { name: item.listing.accountName }));
-  }
-  if (showAllLeagues.value || !currentLeague || !isSameLeague(item.league, currentLeague)) {
-    parts.push(item.league);
-  }
-  if (!sameRealm(item)) {
-    parts.push(realmLabel(item));
-  }
-  return parts.join(' · ');
 }
 </script>
 
@@ -583,19 +569,16 @@ function expandedListingMeta(item: PinnedItemSnapshot): string {
               </template>
               <template #meta>
                 <span
-                  v-if="!isExpanded(item) && metaParts(item).length > 0"
-                  class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
+                  v-if="metaParts(item).length > 0"
+                  class="text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
+                  :class="isExpanded(item) ? 'line-clamp-2 break-words' : 'truncate'"
                   data-pinned-item-meta
                   >{{ metaParts(item).join(' · ') }}</span
                 >
               </template>
               <template #expanded-details>
                 <div
-                  v-if="
-                    formatFee(item.listing.fee) ||
-                    formatPinnedAt(item.pinnedAt) ||
-                    expandedListingMeta(item)
-                  "
+                  v-if="formatFee(item.listing.fee) || formatPinnedAt(item.pinnedAt)"
                   data-pinned-item-details
                   class="flex flex-col gap-[2px] text-[length:var(--pxd-font-micro)] leading-snug text-muted-foreground"
                 >
@@ -622,14 +605,6 @@ function expandedListingMeta(item: PinnedItemSnapshot): string {
                     class="truncate tabular-nums"
                   >
                     {{ t('pinnedItem.meta.pinnedAt', { time: formatPinnedAt(item.pinnedAt) }) }}
-                  </span>
-                  <span
-                    v-if="expandedListingMeta(item)"
-                    data-pinned-item-listing-meta
-                    class="break-words"
-                    :title="expandedListingMeta(item)"
-                  >
-                    {{ expandedListingMeta(item) }}
                   </span>
                 </div>
               </template>

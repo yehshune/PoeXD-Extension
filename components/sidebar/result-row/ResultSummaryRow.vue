@@ -3,7 +3,8 @@
  * 物品結果列（釘選與看板共用）：
  * - 收合時：固定寬度的小圖示、名稱與灰色資訊、右側價格與狀態、展開箭頭。
  * - 展開後：隱藏原始小圖示，左側顯示 `expanded-icon` 大圖示框（如有提供），
- *   右上維持價格／hover 操作與收合箭頭，其餘內容（名稱、資訊、明細）排在圖示與右上之間。
+ *   右上維持價格與收合箭頭，其餘內容（名稱、資訊、明細）排在圖示與右上之間；
+ *   hover 操作浮在上方區域的右下角（與大圖示底部對齊，蓋住下方資訊的右側），不會蓋住價格，也不預留空間。
  *
  * 外層的 `<li>` 由呼叫端提供，需帶 `group`；傳入的屬性（例如 data-*）會放在可點擊的列上。
  */
@@ -76,7 +77,8 @@ const emit = defineEmits<{ toggle: [] }>();
               <slot name="title" />
             </div>
             <div
-              class="flex min-h-[var(--control-height-sm)] shrink-0 flex-col items-end justify-center gap-[2px] group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
+              class="flex min-h-[var(--control-height-sm)] shrink-0 flex-col items-end justify-center gap-[2px]"
+              data-result-row-price
             >
               <slot name="price" />
             </div>
@@ -86,13 +88,6 @@ const emit = defineEmits<{ toggle: [] }>();
                 aria-hidden="true"
               />
             </span>
-            <div
-              v-if="$slots.actions"
-              class="pxd-hover-actions-overlay absolute top-0 right-[calc(var(--control-icon-sm)+var(--pxd-space-sm))] z-(--pxd-z-raised) flex min-h-[var(--control-height-sm)] items-center py-0.5 pr-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
-              style="--pxd-hover-overlay-bg: color-mix(in srgb, var(--muted) 20%, var(--card))"
-            >
-              <slot name="actions" />
-            </div>
           </div>
           <slot name="meta" />
           <slot name="expanded-details" />
@@ -116,7 +111,15 @@ const emit = defineEmits<{ toggle: [] }>();
       </template>
     </div>
     <div
-      v-if="!expanded && $slots.actions"
+      v-if="expanded && $slots.actions"
+      class="pxd-hover-actions-overlay absolute right-[var(--pxd-space-md)] bottom-[var(--pxd-space-md)] z-(--pxd-z-raised) flex min-h-[var(--control-height-sm)] items-center pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
+      style="--pxd-hover-overlay-bg: color-mix(in srgb, var(--muted) 20%, var(--card))"
+      data-result-row-expanded-actions
+    >
+      <slot name="actions" />
+    </div>
+    <div
+      v-else-if="!expanded && $slots.actions"
       class="pxd-hover-actions-overlay absolute inset-y-0 right-[calc(var(--pxd-space-md)+var(--control-icon-sm)+var(--pxd-space-sm))] z-(--pxd-z-raised) flex items-center py-1 pr-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
     >
       <slot name="actions" />

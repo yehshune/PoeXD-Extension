@@ -53,7 +53,7 @@ describe('ResultSummaryRow', () => {
     row.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
     await nextTick();
     expect(toggles).toBe(3);
-    expect(container.querySelector('.pxd-hover-actions-overlay [data-act]')).not.toBeNull();
+    expect(container.querySelector('[data-result-row-expanded-actions] [data-act]')).not.toBeNull();
   });
 
   it('hides the icon box when expanded and renders expanded-icon slot when provided', () => {
@@ -75,8 +75,47 @@ describe('ResultSummaryRow', () => {
     expect(
       container.querySelector('[data-result-row-expanded-icon] [data-big-icon]'),
     ).not.toBeNull();
-    const overlay = container.querySelector<HTMLElement>('.pxd-hover-actions-overlay');
-    expect(overlay?.style.getPropertyValue('--pxd-hover-overlay-bg')).toContain('20%');
+  });
+
+  it('keeps the price visible on hover when expanded and gives the actions their own row', () => {
+    const container = mount(() =>
+      h('ul', [
+        h('li', { class: 'group' }, [
+          h(
+            ResultSummaryRow,
+            { icon: ICON, expanded: true },
+            {
+              price: () => h('span', { 'data-price': '' }, '5'),
+              actions: () => h('button', { 'data-act': '' }),
+            },
+          ),
+        ]),
+      ]),
+    );
+    const price = container.querySelector<HTMLElement>('[data-result-row-price]')!;
+    expect(price.querySelector('[data-price]')).not.toBeNull();
+    expect(price.className).not.toContain('group-hover:opacity-0');
+    // 操作浮在上方區域的右下角：不蓋住價格，也不在版面上預留一列
+    const actions = container.querySelector<HTMLElement>('[data-result-row-expanded-actions]')!;
+    expect(actions.contains(price)).toBe(false);
+    expect(actions.className).toContain('absolute');
+    expect(actions.className).toContain('bottom-[var(--pxd-space-md)]');
+    expect(container.querySelector('[role="button"]')?.contains(actions)).toBe(false);
+    expect(actions.className).toContain('group-hover:opacity-100');
+    expect(actions.style.getPropertyValue('--pxd-hover-overlay-bg')).toContain('20%');
+  });
+
+  it('still overlays the actions on the price when collapsed', () => {
+    const container = mount(() =>
+      h('ul', [
+        h('li', { class: 'group' }, [
+          h(ResultSummaryRow, { icon: ICON }, { actions: () => h('button', { 'data-act': '' }) }),
+        ]),
+      ]),
+    );
+    expect(container.querySelector('.pxd-hover-actions-overlay [data-act]')).not.toBeNull();
+    expect(container.querySelector('[data-result-row-expanded-actions]')).toBeNull();
+    expect(container.querySelector('[data-result-row-price]')).toBeNull();
   });
 
   it('omits the actions overlay when there are no actions', () => {
