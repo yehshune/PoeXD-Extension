@@ -4,7 +4,9 @@
 import { getActiveUiLocale, t, type I18nKey } from '@/utils/i18n';
 import type { BoardEntry, BoardPrice } from '@/utils/result-board/board-entry';
 import type { LoadStopReason } from '@/utils/result-board/board-loader';
+import { PRICE_COMPARISON_CURRENCIES } from '@/utils/price-comparison';
 import type { PriceTotal } from '@/utils/result-board/board-price';
+import type { CurrencyDisplay } from '@/utils/result-board/board-session';
 import { RARITY_COLOURS, resolveRarityClass } from '../pinned-items/pinned-item-card';
 
 export function rarityColour(entry: BoardEntry): string {
@@ -67,4 +69,17 @@ const STOP_MESSAGE_KEYS: Readonly<Record<LoadStopReason, I18nKey>> = {
 
 export function stopMessage(reason: LoadStopReason): string {
   return t(STOP_MESSAGE_KEYS[reason]);
+}
+
+/** 通貨圖示：先用官方結果列上學到的，再退回內建的換算通貨圖示（chaos、divine 等） */
+export function currencyDisplayOf(
+  code: string | undefined,
+  learned: Readonly<Record<string, CurrencyDisplay>>,
+): CurrencyDisplay | undefined {
+  if (!code) return undefined;
+  if (Object.hasOwn(learned, code)) return learned[code];
+  const builtIn = Object.hasOwn(PRICE_COMPARISON_CURRENCIES, code)
+    ? PRICE_COMPARISON_CURRENCIES[code as keyof typeof PRICE_COMPARISON_CURRENCIES]
+    : undefined;
+  return builtIn ? { icon: builtIn.icon, name: t(builtIn.labelKey) } : undefined;
 }

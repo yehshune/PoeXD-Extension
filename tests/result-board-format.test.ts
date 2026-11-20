@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  currencyDisplayOf,
   entryTitle,
   formatAge,
   formatAmount,
@@ -56,5 +57,15 @@ describe('result board format', () => {
 
   it('explains why loading stopped', () => {
     expect(stopMessage('rate-limited')).toContain('rate limit');
+  });
+});
+
+describe('currencyDisplayOf', () => {
+  it('prefers learned icons, falls back to built-in comparison currencies', () => {
+    const learned = { alch: { icon: 'https://web.poecdn.com/alch.png' } };
+    expect(currencyDisplayOf('alch', learned)).toEqual(learned.alch);
+    expect(currencyDisplayOf('chaos', learned)?.icon).toContain('poecdn.com');
+    expect(currencyDisplayOf('mystery', learned)).toBeUndefined();
+    expect(currencyDisplayOf(undefined, learned)).toBeUndefined();
   });
 });

@@ -11,7 +11,7 @@ import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
 import type { PriceTotal } from '@/utils/result-board/board-price';
 import { sortEntries } from '@/utils/result-board/board-query';
-import type { BoardMark } from '@/utils/result-board/board-session';
+import type { BoardMark, CurrencyDisplay } from '@/utils/result-board/board-session';
 import type { SellerSummary } from '@/utils/result-board/board-sellers';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
 import { formatPrice, formatTotal } from './result-board-format';
@@ -19,6 +19,7 @@ import { formatPrice, formatTotal } from './result-board-format';
 const props = defineProps<{
   seller: SellerSummary;
   rates?: CurrencyRateSnapshot;
+  currencies: Readonly<Record<string, CurrencyDisplay>>;
   marks: Readonly<Record<string, BoardMark>>;
   pickedEntries: readonly BoardEntry[];
   pickedTotal: PriceTotal;
@@ -140,6 +141,7 @@ const visited = computed(() =>
           :entry="entry"
           :mark="marks[entry.id]"
           :rates="rates"
+          :currencies="currencies"
           :expanded="isExpanded(entry.id)"
           :snapshot="isExpanded(entry.id) ? cardSnapshot(entry.id) : undefined"
           pickable

@@ -10,6 +10,7 @@
  */
 import { dispatchPoeEvent, listenPoeEvent, parsePoeFetchResponse } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
+import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import {
   parseFetchFailure,
   parseSearchResultSummary,
@@ -17,7 +18,11 @@ import {
   readMissingFetchIds,
 } from '@/utils/result-board/board-events';
 import { ResultBoardLoader, type BatchOutcome } from '@/utils/result-board/board-loader';
-import { ResultBoardSession, type BoardState } from '@/utils/result-board/board-session';
+import {
+  ResultBoardSession,
+  type BoardState,
+  type CurrencyDisplay,
+} from '@/utils/result-board/board-session';
 import { getTradeResultCache, type TradeResultCache } from '@/utils/trade-result-cache';
 
 /** 官方一次 search 最多回傳的結果 id 數 */
@@ -27,6 +32,8 @@ const WHISPER_MATCH_WINDOW_MS = 20_000;
 /** 官方 whisper 錯誤 code 1：物品已不存在（ADR-0017） */
 const WHISPER_GONE_CODE = 1;
 const LOCATE_HIGHLIGHT_MS = 2_000;
+/** 官方結果列在 fetch 回應後才重繪，稍等再讀通貨圖示 */
+const CURRENCY_SCAN_DELAY_MS = 300;
 
 const STYLE_ID = 'poexd-result-board-style';
 const SHORTCUT_CLASS = 'poexd-board-shortcut';
@@ -65,6 +72,18 @@ export function findOfficialRow(id: string, doc: Document = document): HTMLEleme
   return doc.querySelector<HTMLElement>(`${ROW_SELECTOR}[data-id="${CSS.escape(id)}"]`);
 }
 
+/** 官方結果列上的通貨圖示與名稱；網址不是 PoE CDN 時不採用 */
+export function readRowCurrency(row: Element): CurrencyDisplay | undefined {
+  const img = row.querySelector<HTMLImageElement>('.price .currency-image img');
+  const icon = img?.getAttribute('src') ?? undefined;
+  if (!img || !isValidPoeCdnImageUrl(icon)) return undefined;
+  const name =
+    img.closest('.currency-image')?.querySelector(':scope > span')?.textContent?.trim() ||
+    img.getAttribute('title') ||
+    undefined;
+  return { icon, ...(name ? { name: name.slice(0, 64) } : {}) };
+}
+
 function findLoadMoreButton(doc: Document): HTMLElement | null {
   const button = doc.querySelector<HTMLElement>('.results .load-more-btn, .load-more-btn');
   if (!button || button.hasAttribute('disabled') || button.classList.contains('disabled')) {
@@ -86,6 +105,7 @@ export class ResultBoardRuntime {
   private armedBatch: Promise<BatchOutcome> | undefined;
   private cleanups: (() => void)[] = [];
   private readonly highlightTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private currencyScanTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private readonly cache: TradeResultCache = getTradeResultCache(),
@@ -206,6 +226,7 @@ export class ResultBoardRuntime {
       this.cache.subscribe(() => {
         this.session.observeFetch(this.lastFetchSearchId);
         this.ensureShortcut();
+        this.scheduleCurrencyScan();
       }),
       this.session.subscribe((state) => this.handleSearchChange(state)),
     ];
@@ -215,6 +236,26 @@ export class ResultBoardRuntime {
     this.cleanups.push(() => this.doc.removeEventListener('click', this.handleDocumentClick, true));
     this.adoptSearchFromUrl();
     this.ensureShortcut();
+    this.scanCurrencies();
+  }
+
+  private scheduleCurrencyScan(): void {
+    clearTimeout(this.currencyScanTimer);
+    this.currencyScanTimer = setTimeout(() => this.scanCurrencies(), CURRENCY_SCAN_DELAY_MS);
+  }
+
+  /** 看板上還不知道圖示的通貨，從官方結果列讀一次 */
+  private scanCurrencies(): void {
+    const { ledger, currencies } = this.session.getState();
+    const found: Record<string, CurrencyDisplay> = {};
+    for (const entry of ledger.entries) {
+      const code = entry.price?.currency;
+      if (!code || Object.hasOwn(currencies, code) || Object.hasOwn(found, code)) continue;
+      const row = findOfficialRow(entry.id, this.doc);
+      const display = row ? readRowCurrency(row) : undefined;
+      if (display) found[code] = display;
+    }
+    this.session.learnCurrencies(found);
   }
 
   /** 啟用前官方已經搜尋過：以網址上的搜尋 id 接手快取裡已有的結果 */
@@ -256,6 +297,7 @@ export class ResultBoardRuntime {
     this.cleanups = [];
     this.resolveBatch({ kind: 'timeout' });
     this.armedBatch = undefined;
+    clearTimeout(this.currencyScanTimer);
     this.highlightTimers.forEach((timer) => clearTimeout(timer));
     this.highlightTimers.clear();
     this.doc.querySelectorAll(`.${SHORTCUT_CLASS}`).forEach((element) => element.remove());

@@ -250,4 +250,24 @@ describe('ResultBoardRuntime', () => {
     await pending;
     expect(runtime.loader.getState()).toEqual({ running: false });
   });
+
+  it('learns currency icons from the official rows after a fetch', async () => {
+    const icon = 'https://web.poecdn.com/image/Art/chaos.png';
+    document
+      .querySelector('[data-id="a"]')!
+      .insertAdjacentHTML(
+        'beforeend',
+        `<div class="price"><span class="currency-image"><img src="${icon}"><span>Chaos Orb</span></span></div>`,
+      );
+    document
+      .querySelector('[data-id="b"]')!
+      .insertAdjacentHTML(
+        'beforeend',
+        '<div class="price"><span class="currency-image"><img src="https://evil.example/x.png"></span></div>',
+      );
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    deliverFetch(cache, ['a', 'b']);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(runtime.session.getState().currencies).toEqual({ chaos: { icon, name: 'Chaos Orb' } });
+  });
 });

@@ -154,4 +154,15 @@ describe('ResultBoardSession', () => {
     session.setSummary(summary('s1'));
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+  it('learns currency icons once and keeps them across searches', () => {
+    const { session } = setup();
+    const icon = 'https://web.poecdn.com/image/chaos.png';
+    session.learnCurrencies({ chaos: { icon, name: 'Chaos Orb' } });
+    session.learnCurrencies({ chaos: { icon: 'https://web.poecdn.com/other.png' } });
+    session.learnCurrencies({});
+    session.setSummary(summary('s2'));
+    session.observeFetch('s3');
+    expect(session.getState().currencies).toEqual({ chaos: { icon, name: 'Chaos Orb' } });
+  });
 });

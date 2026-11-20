@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
- * 看板的一筆結果：緊湊列（圖示、名稱、賣家與上架時間、價格），點開顯示與釘選相同的卡片。
+ * 看板的一筆結果：與釘選相同的收合列（圖示、名稱、灰色資訊、右側標價），點開顯示與釘選相同的卡片。
  * 定位、前往藏身處、釘選都交給官方結果列（ADR-0018）。
  */
 import { computed } from 'vue';
-import { ChevronDown, ChevronUp, Crosshair, DoorOpen, Pin } from '@lucide/vue';
+import { Crosshair, DoorOpen, Pin } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/utils/i18n';
@@ -12,13 +12,15 @@ import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
 import { convertPrice } from '@/utils/result-board/board-price';
-import type { BoardMark } from '@/utils/result-board/board-session';
+import type { BoardMark, CurrencyDisplay } from '@/utils/result-board/board-session';
 import PinnedItemCardView from '../pinned-items/PinnedItemCardView.vue';
+import ResultPriceLabel from '../result-row/ResultPriceLabel.vue';
+import ResultSummaryRow from '../result-row/ResultSummaryRow.vue';
 import {
+  currencyDisplayOf,
   entryTitle,
   formatAge,
   formatAmount,
-  formatPrice,
   rarityColour,
 } from './result-board-format';
 
@@ -26,6 +28,8 @@ const props = defineProps<{
   entry: BoardEntry;
   mark?: BoardMark;
   rates?: CurrencyRateSnapshot;
+  /** 通貨代碼 → 圖示 */
+  currencies: Readonly<Record<string, CurrencyDisplay>>;
   expanded: boolean;
   /** 展開時才建立的卡片快照 */
   snapshot?: PinnedItemSnapshot;
@@ -42,12 +46,17 @@ const emit = defineEmits<{
   pick: [];
 }>();
 
+const currency = computed(() => currencyDisplayOf(props.entry.price?.currency, props.currencies));
+
+const primaryIcon = computed(() => currencyDisplayOf(props.rates?.primary, props.currencies)?.icon);
+
+/** 換算成主要通貨的價格（本來就是主要通貨時不顯示） */
 const converted = computed(() => {
   const value = convertPrice(props.entry.price, props.rates);
   if (value === undefined || !props.rates || props.entry.price?.currency === props.rates.primary) {
     return '';
   }
-  return `≈ ${formatAmount(value)} ${props.rates.primary}`;
+  return formatAmount(value);
 });
 
 const meta = computed(() => {
@@ -63,124 +72,128 @@ const meta = computed(() => {
   ];
   return parts.filter(Boolean).join(' · ');
 });
+
+const toggleLabel = computed(() =>
+  props.expanded ? t('resultBoard.action.collapse') : t('resultBoard.action.expand'),
+);
 </script>
 
 <template>
   <li
-    class="group relative border-0 border-b border-dashed border-border last:border-b-0"
-    :class="expanded ? 'bg-muted/20' : 'hover:bg-muted/40'"
+    class="group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
+    :class="expanded ? 'bg-muted/20' : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40'"
     :data-board-entry-id="entry.id"
     :data-board-mark="mark"
   >
-    <div
-      class="flex items-center gap-[var(--pxd-space-md)] px-[var(--pxd-space-md)] py-[var(--pxd-space-md)]"
-      :class="mark === 'sold' ? 'opacity-60' : ''"
+    <ResultSummaryRow
+      :icon="entry.icon"
+      :dimmed="mark === 'sold'"
+      :expanded="expanded"
+      :title="toggleLabel"
+      data-board-entry-toggle
+      @toggle="emit('toggle')"
     >
-      <Checkbox
-        v-if="pickable"
-        :model-value="picked"
-        :disabled="!entry.instantBuyout"
-        class="shrink-0"
-        :aria-label="t('resultBoard.seller.pick')"
-        data-board-pick
-        @update:model-value="emit('pick')"
-      />
-      <img
-        v-if="entry.icon"
-        :src="entry.icon"
-        alt=""
-        class="size-[var(--control-height-md)] shrink-0 object-contain"
-        referrerpolicy="no-referrer"
-        draggable="false"
-      />
-      <button
-        type="button"
-        class="flex min-w-0 flex-1 flex-col items-start gap-[2px] border-0 bg-transparent p-0 text-left outline-none cursor-pointer focus-visible:ring-1 focus-visible:ring-ring"
-        :aria-expanded="expanded"
-        :title="expanded ? t('resultBoard.action.collapse') : t('resultBoard.action.expand')"
-        data-board-entry-toggle
-        @click="emit('toggle')"
-      >
+      <template v-if="pickable" #leading>
+        <span class="flex shrink-0" @click.stop @keydown.stop>
+          <Checkbox
+            :model-value="picked"
+            :disabled="!entry.instantBuyout"
+            :aria-label="t('resultBoard.seller.pick')"
+            data-board-pick
+            @update:model-value="emit('pick')"
+          />
+        </span>
+      </template>
+      <template #title>
         <span
-          class="w-full truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight"
+          class="truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight"
           :style="{ color: rarityColour(entry) }"
+          data-board-entry-name
           >{{ entryTitle(entry) }}</span
         >
+      </template>
+      <template #meta>
         <span
           v-if="meta"
-          class="w-full truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
+          class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
+          data-board-entry-meta
           >{{ meta }}</span
         >
-      </button>
-      <div class="flex shrink-0 flex-col items-end gap-[2px] group-hover:hidden">
-        <span
-          class="text-[length:var(--pxd-font-body)] font-bold tabular-nums leading-none"
-          :class="{ 'line-through': mark === 'sold' }"
+      </template>
+      <template #price>
+        <ResultPriceLabel
+          :amount="entry.price ? formatAmount(entry.price.amount) : t('resultBoard.noPrice')"
+          :currency="entry.price?.currency"
+          :icon="currency?.icon"
+          :currency-name="currency?.name"
+          :struck="mark === 'sold'"
           data-board-entry-price
-          >{{ formatPrice(entry.price) }}</span
-        >
+        />
         <span
           v-if="converted"
-          class="text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
-          >{{ converted }}</span
+          class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-micro)] font-medium tabular-nums leading-none text-muted-foreground"
+          data-board-entry-converted
         >
+          ≈ {{ converted }}
+          <img
+            v-if="primaryIcon"
+            :src="primaryIcon"
+            :alt="rates?.primary"
+            class="size-[var(--control-icon-default)] object-contain"
+            referrerpolicy="no-referrer"
+            draggable="false"
+          />
+          <template v-else>{{ rates?.primary }}</template>
+        </span>
         <span
           v-if="mark"
-          class="rounded-sm px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] font-semibold leading-tight"
+          class="rounded-sm border px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight"
           :class="
             mark === 'sold'
-              ? 'border border-destructive/30 bg-destructive/15 text-destructive'
-              : 'border border-primary/30 bg-primary/10 text-primary'
+              ? 'border-destructive/30 bg-destructive/15 text-destructive'
+              : 'border-primary/30 bg-primary/10 text-primary'
           "
           data-board-entry-mark
           >{{ mark === 'sold' ? t('resultBoard.mark.sold') : t('resultBoard.mark.visited') }}</span
         >
-      </div>
-      <div class="hidden shrink-0 items-center gap-[var(--pxd-space-xs)] group-hover:flex">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          :title="t('resultBoard.action.locate')"
-          :aria-label="t('resultBoard.action.locate')"
-          data-board-locate
-          @click="emit('locate')"
-        >
-          <Crosshair />
-        </Button>
-        <Button
-          v-if="entry.instantBuyout"
-          variant="ghost"
-          size="icon-sm"
-          :disabled="mark === 'sold'"
-          :title="t('resultBoard.action.travel')"
-          :aria-label="t('resultBoard.action.travel')"
-          data-board-travel
-          @click="emit('travel')"
-        >
-          <DoorOpen />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          :title="t('resultBoard.action.pin')"
-          :aria-label="t('resultBoard.action.pin')"
-          data-board-pin
-          @click="emit('pin')"
-        >
-          <Pin />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          :title="expanded ? t('resultBoard.action.collapse') : t('resultBoard.action.expand')"
-          :aria-label="expanded ? t('resultBoard.action.collapse') : t('resultBoard.action.expand')"
-          @click="emit('toggle')"
-        >
-          <ChevronUp v-if="expanded" />
-          <ChevronDown v-else />
-        </Button>
-      </div>
-    </div>
+      </template>
+      <template #actions>
+        <div class="flex items-center gap-[var(--pxd-space-xs)]">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            :title="t('resultBoard.action.locate')"
+            :aria-label="t('resultBoard.action.locate')"
+            data-board-locate
+            @click.stop="emit('locate')"
+          >
+            <Crosshair />
+          </Button>
+          <Button
+            v-if="entry.instantBuyout"
+            variant="ghost"
+            size="icon-sm"
+            :disabled="mark === 'sold'"
+            :title="t('resultBoard.action.travel')"
+            :aria-label="t('resultBoard.action.travel')"
+            data-board-travel
+            @click.stop="emit('travel')"
+          >
+            <DoorOpen />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            :title="t('resultBoard.action.pin')"
+            :aria-label="t('resultBoard.action.pin')"
+            data-board-pin
+            @click.stop="emit('pin')"
+          >
+            <Pin />
+          </Button>
+        </div>
+      </template>
+    </ResultSummaryRow>
     <div v-if="expanded" class="px-[var(--pxd-space-md)] pb-[var(--pxd-space-md)]">
       <PinnedItemCardView
         v-if="snapshot"

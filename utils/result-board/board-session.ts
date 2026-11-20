@@ -10,6 +10,12 @@ import { appendToLedger, createLedger, skipInLedger, type BoardLedger } from './
 
 export type BoardMark = 'visited' | 'sold';
 
+/** 官方結果列上的通貨顯示（官方 fetch 回應沒有通貨圖示） */
+export interface CurrencyDisplay {
+  icon: string;
+  name?: string;
+}
+
 export interface BoardState {
   /** 目前的搜尋；還沒看到任何搜尋時為空字串 */
   searchId: string;
@@ -24,20 +30,27 @@ export interface BoardState {
    * 快取裡上一輪的結果不能混進來。從 fetch 接手的搜尋為 0（不知道何時開始）。
    */
   startedAt: number;
+  /** 通貨代碼 → 圖示；從官方結果列學到，換搜尋時保留 */
+  currencies: Readonly<Record<string, CurrencyDisplay>>;
 }
 
 export type BoardEntrySource = (searchId: string) => readonly TradeResultEntry[];
 
-const emptyState = (searchId: string, startedAt = 0): BoardState => ({
+const emptyState = (
+  searchId: string,
+  startedAt: number,
+  currencies: BoardState['currencies'],
+): BoardState => ({
   searchId,
   ledger: createLedger(searchId),
   hiddenAccounts: new Set(),
   marks: {},
   startedAt,
+  currencies,
 });
 
 export class ResultBoardSession {
-  private state: BoardState = emptyState('');
+  private state: BoardState = emptyState('', 0, {});
   private readonly listeners = new Set<(state: BoardState) => void>();
 
   constructor(
@@ -56,7 +69,10 @@ export class ResultBoardSession {
 
   /** 官方 search 回應：每次都是新的一次搜尋（即使搜尋 id 相同），看板重來 */
   setSummary(summary: SearchResultSummary): void {
-    this.commit({ ...emptyState(summary.searchId, this.now()), summary });
+    this.commit({
+      ...emptyState(summary.searchId, this.now(), this.state.currencies),
+      summary,
+    });
   }
 
   /**
@@ -66,7 +82,10 @@ export class ResultBoardSession {
    */
   observeFetch(searchId: string | undefined): void {
     if (!searchId || this.isStale(searchId)) return;
-    const base = searchId === this.state.searchId ? this.state : emptyState(searchId);
+    const base =
+      searchId === this.state.searchId
+        ? this.state
+        : emptyState(searchId, 0, this.state.currencies);
     this.commit(this.withCacheEntries(base));
   }
 
@@ -80,6 +99,18 @@ export class ResultBoardSession {
     if (ids.length === 0 || searchId !== this.state.searchId) return;
     const ledger = skipInLedger(this.state.ledger, ids);
     if (ledger !== this.state.ledger) this.commit({ ...this.state, ledger });
+  }
+
+  /** 記下新看到的通貨圖示（已知的不覆蓋） */
+  learnCurrencies(found: Readonly<Record<string, CurrencyDisplay>>): void {
+    const added = Object.entries(found).filter(
+      ([code]) => !Object.hasOwn(this.state.currencies, code),
+    );
+    if (added.length === 0) return;
+    this.commit({
+      ...this.state,
+      currencies: { ...this.state.currencies, ...Object.fromEntries(added) },
+    });
   }
 
   hideSeller(account: string): void {
