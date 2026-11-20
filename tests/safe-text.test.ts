@@ -18,7 +18,8 @@ describe('Shadow DOM anti-translation & BookmarkPane clean template', () => {
     expect(bookmarkPaneSource).not.toContain('SafeText');
     expect(bookmarkNodeSource).not.toContain("import SafeText from './SafeText.vue'");
     expect(bookmarkNodeSource).not.toContain('SafeText');
-    expect(bookmarkNodeSource).toContain('{{ node.folder.name }}');
+    // 格式化工具可能把插值拆成多行
+    expect(bookmarkNodeSource).toMatch(/\{\{\s*node\.folder\.name\s*\}\}/);
     expect(bookmarkNodeSource).toContain('{{ bm.name }}');
   });
 

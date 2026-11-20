@@ -129,7 +129,8 @@ const LOCAL_STYLE = `
     left: 8px;
     top: 0;
     right: auto;
-    z-index: 1;
+    /* 卡片在側欄 shadow root 內的巢狀 shadow root，繼承側欄的疊層 token */
+    z-index: var(--pxd-z-raised, 1);
     text-align: left;
     font-size: 1em;
     opacity: 0.82;

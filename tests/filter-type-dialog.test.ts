@@ -86,7 +86,8 @@ describe('FilterPane Item Type Selector & Dialog (Static Contracts)', () => {
   it('preserves generic Dialog default dialog z-index token and provides overlayClass override API', () => {
     expect(dialogContentSource).toContain('z-(--pxd-z-dialog)');
     expect(dialogContentSource).toContain("overlayClass?: HTMLAttributes['class']");
-    expect(dialogContentSource).toContain("reactiveOmit(props, 'class', 'overlayClass')");
+    // 之後可能再多排除其他屬性（例如 inert），只要求 class 與 overlayClass 不往下傳
+    expect(dialogContentSource).toMatch(/reactiveOmit\(props, 'class', 'overlayClass'[,)]/);
     expect(dialogContentSource).toContain('props.overlayClass');
   });
 

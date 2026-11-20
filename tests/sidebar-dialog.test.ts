@@ -88,7 +88,8 @@ describe('Sidebar Shared Dialog Migration (Static Contracts)', () => {
   it('verifies Affix Selector Modal uses controlled Dialog with persistence', () => {
     expect(sidebarSource).toContain(':open="isModalOpen"');
     expect(sidebarSource).toContain(':unmount-on-hide="false"');
-    expect(sidebarSource).toContain('@update:open="setAffixDialogOpen"');
+    // 導覽示範模式下不讓對話框自行關閉，其餘情況交給 setAffixDialogOpen
+    expect(sidebarSource).toMatch(/@update:open="[^"]*setAffixDialogOpen\(open\)[^"]*"/);
     expect(sidebarSource).toContain('<FilterPane');
     expect(sidebarSource).toContain(':target-group-index="targetGroupIndex"');
     expect(sidebarSource).toContain(':is-open="isModalOpen"');
