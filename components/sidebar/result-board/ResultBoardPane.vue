@@ -34,7 +34,7 @@ import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
 import ResultBoardSellerRow from './ResultBoardSellerRow.vue';
 import { currencyDisplayOf, formatAmount, stopMessage } from './result-board-format';
-import { useResultBoard } from './useResultBoard';
+import { useResultBoard, type BoardView } from './useResultBoard';
 
 const board = useResultBoard();
 const {
@@ -71,20 +71,38 @@ const isSearchVisible = ref(false);
 const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
 const itemsListRef = ref<HTMLElement | null>(null);
 const sellersListRef = ref<HTMLElement | null>(null);
-const searchStorageKey = createVersionedStorageKeys(getPoeVersion()).resultBoardSearchVisible;
+const storageKeys = createVersionedStorageKeys(getPoeVersion());
+const searchStorageKey = storageKeys.resultBoardSearchVisible;
+const viewStorageKey = storageKeys.resultBoardView;
 let searchUserToggled = false;
+let viewUserToggled = false;
+
+/** 儲存的值不可信：只接受已知的檢視 */
+const isBoardView = (value: unknown): value is BoardView =>
+  value === 'items' || value === 'sellers';
 
 onMounted(() => {
   const storage = typeof chrome !== 'undefined' ? chrome.storage?.local : undefined;
   if (!storage?.get) return;
   void storage
-    .get([searchStorageKey])
+    .get([searchStorageKey, viewStorageKey])
     .then((data: Record<string, unknown>) => {
-      if (searchUserToggled) return;
-      isSearchVisible.value = data?.[searchStorageKey] === true;
+      if (!searchUserToggled) isSearchVisible.value = data?.[searchStorageKey] === true;
+      const savedView = data?.[viewStorageKey];
+      if (!viewUserToggled && isBoardView(savedView)) view.value = savedView;
     })
     .catch(() => {});
 });
+
+/** 切換物品／賣家清單，並記住選擇（依遊戲版本分開保存） */
+function selectView(next: BoardView): void {
+  viewUserToggled = true;
+  if (view.value === next) return;
+  view.value = next;
+  const storage = typeof chrome !== 'undefined' ? chrome.storage?.local : undefined;
+  if (!storage?.set) return;
+  void storage.set({ [viewStorageKey]: next }).catch(() => {});
+}
 
 watch(itemsListRef, (list) => {
   if (list) requestResultTranslation(list);
@@ -249,7 +267,7 @@ function setMinSellerCount(value: string | number): void {
               role="tab"
               :aria-selected="view === option"
               :data-board-view="option"
-              @click="view = option"
+              @click="selectView(option)"
             >
               {{ option === 'items' ? t('resultBoard.view.items') : t('resultBoard.view.sellers') }}
             </Button>

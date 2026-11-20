@@ -221,6 +221,51 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(storageData.resultBoardSearchVisible_poe1).toBe(false);
   });
 
+  it('remembers the items / sellers view across mounts', async () => {
+    ingest([rawResult({ id: 'r1', name: 'Alpha' })]);
+    const mountPane = async () => {
+      unmount?.();
+      const app = createApp({ render: () => h(ResultBoardPane) });
+      app.mount(container);
+      unmount = () => app.unmount();
+      await flush();
+    };
+    const selected = () =>
+      container
+        .querySelector('[data-board-view][aria-selected="true"]')
+        ?.getAttribute('data-board-view');
+
+    await mountPane();
+    expect(selected()).toBe('items');
+
+    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+    await flush();
+    expect(selected()).toBe('sellers');
+    expect(storageData.resultBoardView_poe1).toBe('sellers');
+
+    await mountPane();
+    expect(selected()).toBe('sellers');
+    expect(container.querySelector('[data-board-no-seller-match]')).not.toBeNull();
+
+    container.querySelector<HTMLElement>('[data-board-view="items"]')!.click();
+    await flush();
+    expect(storageData.resultBoardView_poe1).toBe('items');
+  });
+
+  it('ignores an unknown stored view', async () => {
+    storageData.resultBoardView_poe1 = 'constructor';
+    ingest([rawResult({ id: 'r1', name: 'Alpha' })]);
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+    expect(
+      container
+        .querySelector('[data-board-view][aria-selected="true"]')
+        ?.getAttribute('data-board-view'),
+    ).toBe('items');
+  });
+
   it('toggles expand-all and collapse-all and clears price range bounds', async () => {
     ingest([
       rawResult({ id: 'r1', amount: 10, currency: 'chaos' }),
