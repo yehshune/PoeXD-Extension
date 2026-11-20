@@ -165,7 +165,7 @@ describe('Sidebar first-install onboarding', () => {
       tourPending: false,
       lastSeenVersion: '1.5.0',
     });
-    expect(bubbleTitle()).toBe('選擇語言');
+    expect(bubbleTitle()).toBe('歡迎使用 PoeXD');
     expect(queryDoc('[data-setup-kind="locale"]')).not.toBeNull();
   });
 
@@ -190,7 +190,7 @@ describe('Sidebar first-install onboarding', () => {
       [ONBOARDING_STORAGE_KEY]: { welcomePending: true, expandHintPending: false },
       isCollapsed_poe2: false,
     });
-    expect(bubbleTitle()).toBe('選擇語言');
+    expect(bubbleTitle()).toBe('歡迎使用 PoeXD');
     expect(mockStorage[ONBOARDING_STORAGE_KEY]).toEqual({
       tourPending: false,
       expandHintPending: false,
@@ -213,7 +213,17 @@ describe('Sidebar first-install onboarding', () => {
   it('changes language, market translation and appearance from the setup steps', async () => {
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
 
-    queryDoc('[data-setup-locale="zh-CN"]')!.click();
+    const trigger = queryDoc('[data-setup-locale-trigger]')!;
+    const EventCtor = typeof PointerEvent !== 'undefined' ? PointerEvent : MouseEvent;
+    trigger.dispatchEvent(new EventCtor('pointerdown', { bubbles: true, cancelable: true }));
+    trigger.click();
+    await settle();
+    const zhCnItem = queryDoc('[data-setup-locale="zh-CN"]')!;
+    zhCnItem.focus?.();
+    zhCnItem.dispatchEvent(new EventCtor('pointerdown', { bubbles: true, cancelable: true }));
+    zhCnItem.dispatchEvent(new EventCtor('pointerup', { bubbles: true, cancelable: true }));
+    zhCnItem.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    zhCnItem.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await settle();
     expect(updatePreferencesSpy).toHaveBeenCalledWith({ displayLocale: 'zh-CN' });
 
@@ -239,6 +249,19 @@ describe('Sidebar first-install onboarding', () => {
       sidebarWidth: 380,
       customSidebarWidth: 380,
     });
+  });
+
+  it('toggles market translation bilingual options when marketTranslation is enabled', async () => {
+    snapshot = { ...snapshot, marketTranslation: true, marketTranslationBilingual: true };
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
+    await clickNext();
+    expect(queryDoc('[data-setup-group="market-translation-bilingual"]')).not.toBeNull();
+    queryDoc('[data-setup-action="market-translation-bilingual"]')!.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ marketTranslationBilingual: false });
+    queryDoc('[data-setup-action="market-translation-result-bilingual"]')!.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ marketTranslationResultBilingual: true });
   });
 
   it('offers custom width dragging and a font size slider in the appearance step', async () => {
@@ -271,8 +294,9 @@ describe('Sidebar first-install onboarding', () => {
     // locale → market translation → appearance → sidebar → collapse
     for (let i = 0; i < 4; i += 1) await clickNext();
     expect(queryDoc('[data-setup-kind="collapse-drag"]')).not.toBeNull();
-    // 這一步不擋點擊，使用者也可以自己試
+    // 這一步允許點擊側欄收合鈕，但以挖空遮罩擋住背後官方頁面
     expect(queryDoc('[data-page-guide-blocker]')).toBeNull();
+    expect(queryDoc('[data-page-guide-page-blocker]')).not.toBeNull();
     expect(queryDoc('[data-page-guide-cursor]')).not.toBeNull();
     const replay = queryDoc('[data-setup-action="replay-collapse-demo"]') as HTMLButtonElement;
     expect(replay.disabled).toBe(true);
@@ -309,6 +333,33 @@ describe('Sidebar first-install onboarding', () => {
     queryDoc('[data-setup-feature="enableResultPobCopy"]')!.click();
     await settle();
     expect(updatePreferencesSpy).toHaveBeenCalledWith({ enableResultPobCopy: false });
+  });
+
+  it('shows per-icon callouts beside each sidebar nav button on the sidebar step', async () => {
+    await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
+    const nav = query('.sidebar-nav')!;
+    nav.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 800, left: 320, right: 368, width: 48, height: 800 }) as DOMRect;
+    nav.querySelectorAll('button').forEach((btn, idx) => {
+      const top = 20 + idx * 48;
+      (btn as HTMLElement).getBoundingClientRect = () =>
+        ({ top, bottom: top + 36, left: 326, right: 362, width: 36, height: 36 }) as DOMRect;
+    });
+
+    // locale → market-translation → appearance → sidebar
+    for (let i = 0; i < 3; i += 1) await clickNext();
+    expect(bubbleTitle()).toBe('側邊欄功能');
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await settle();
+
+    const callouts = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-page-guide-callout]'),
+    );
+    expect(callouts.length).toBeGreaterThanOrEqual(6);
+    expect(callouts.map((el) => el.dataset.calloutId)).toContain('bookmark');
+    expect(callouts.map((el) => el.dataset.calloutId)).toContain('pob-build');
+    expect(callouts.map((el) => el.dataset.calloutId)).toContain('live-search');
+    expect(callouts[0]!.style.left).toBe('380px');
   });
 
   it('shows the update notice across all tabs without collapsed hint dot and dismisses it once closed', async () => {

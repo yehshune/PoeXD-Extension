@@ -176,6 +176,10 @@
   --pxd-z-dialog-nested: 110;
   --pxd-z-dialog-system: 120;
   --pxd-z-floating: 200; /* 浮動選單，永遠在對話框之上 */
+  --pxd-z-guide-ring: 205; /* 導覽高亮外框（高於浮動選單與對話框，使其保持明亮） */
+  --pxd-z-guide-blocker: 210; /* 導覽互動阻擋層（擋住示範面板與浮動選單點擊） */
+  --pxd-z-guide-overlay: 220; /* 導覽說明框、圖示標註與模擬游標 */
+  --pxd-z-guide-floating: 230; /* 導覽氣泡內的下拉選單，需高於導覽說明框與阻擋層 */
   --pxd-z-toast: 2147483647;
 
   /* 詞綴來源網域語意色彩（對齊官方市集 .mutate-type-* 色系，供 PoB 與書籤／歷史搜尋預覽共用） */

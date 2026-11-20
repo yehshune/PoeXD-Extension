@@ -199,6 +199,36 @@ describe('tour', () => {
     expect(requestDemo).toHaveBeenCalledWith('restore');
   });
 
+  it('always inserts and selects the dedicated demo stat filter on the tier step even when another filter already exists', async () => {
+    const existing = addElement(
+      '<div class="filter"><button class="poexd-tier-trigger" id="existing"></button></div>',
+    );
+    const existingTrigger = existing.querySelector('#existing')!;
+    const requestDemo = vi.fn(async (action: string) => {
+      if (action === 'add-stat-filter') {
+        const demoFilter = addElement(
+          '<div class="filter" data-poexd-page-guide-demo="true"><button class="poexd-tier-trigger" id="demo"></button></div>',
+        );
+        visible(demoFilter.querySelector('#demo')!);
+      } else if (action === 'restore') {
+        document.querySelector('[data-poexd-page-guide-demo="true"]')?.remove();
+      }
+      return true;
+    });
+    const guide = createPageGuide(createDeps({ requestDemo }));
+
+    await guide.startTour();
+    await guide.nextStep();
+
+    expect(guide.currentStep.value?.id).toBe('tier');
+    expect(requestDemo).toHaveBeenCalledWith('add-stat-filter');
+    expect(guide.element.value).not.toBe(existingTrigger);
+    expect((guide.element.value as HTMLElement)?.id).toBe('demo');
+
+    await guide.stop();
+    expect(document.querySelector('[data-poexd-page-guide-demo="true"]')).toBeNull();
+  });
+
   it('shows the mock result only for result steps and hides it on stop', async () => {
     const deps = createDeps();
     const guide = createPageGuide(deps);

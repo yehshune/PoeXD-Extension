@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   padGuideRect,
   placeGuideBubble,
+  unionGuideRects,
 } from '@/components/sidebar/page-guide/page-guide-geometry';
 
 const viewport = { width: 1000, height: 800 };
@@ -52,5 +53,22 @@ describe('placeGuideBubble', () => {
   it('keeps the bubble inside the viewport horizontally', () => {
     const target = { top: 100, left: 0, width: 20, height: 20 };
     expect(placeGuideBubble(target, bubble, viewport).left).toBe(8);
+  });
+});
+
+describe('unionGuideRects', () => {
+  it('merges multiple rects into one bounding rect and returns null for empty input', () => {
+    expect(unionGuideRects([])).toBeNull();
+    expect(
+      unionGuideRects([
+        { top: 100, left: 200, width: 30, height: 28 },
+        { top: 132, left: 100, width: 220, height: 300 },
+      ]),
+    ).toEqual({
+      top: 100,
+      left: 100,
+      width: 220,
+      height: 332,
+    });
   });
 });

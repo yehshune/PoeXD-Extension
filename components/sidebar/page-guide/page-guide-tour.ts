@@ -10,13 +10,15 @@ export type PageGuideSetupKind =
   | 'market-translation'
   | 'appearance'
   | 'collapse-drag'
+  | 'demo-replay'
   | 'result-features';
 
 /**
  * 步驟顯示後自動播放的示範：collapse 由側欄播放滑鼠點擊收合與拖曳把手；
- * tier-menu 自動展開 T 階清單，外框改框住清單。
+ * affix-selector 示範開啟詞綴面板挑選胸甲與生命詞綴；
+ * tier-menu 示範點擊 T 按鈕並展開清單，外框改框住清單。
  */
-export type PageGuideStepDemo = 'collapse' | 'tier-menu';
+export type PageGuideStepDemo = 'collapse' | 'affix-selector' | 'tier-menu';
 
 /** 只在特定條件下出現的步驟；條件由側欄提供（見 usePageGuide 的 setTourContext） */
 export type PageGuideStepCondition = 'market-translation-offer';
@@ -87,6 +89,8 @@ export const PAGE_GUIDE_TOUR_STEPS: readonly PageGuideTourStep[] = Object.freeze
     targetId: 'affix-selector',
     titleKey: 'pageGuide.tour.affixSelector.title',
     bodyKey: 'pageGuide.tour.affixSelector.body',
+    setup: 'demo-replay',
+    demo: 'affix-selector',
   },
   {
     id: 'tier',

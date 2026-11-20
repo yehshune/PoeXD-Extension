@@ -47,6 +47,8 @@ export interface PageGuideDemoCursor {
 export interface PageGuideSetupBindings {
   displayLocale: DisplayLocalePreference;
   marketTranslation: boolean;
+  marketTranslationBilingual: boolean;
+  marketTranslationResultBilingual: boolean;
   /** 本頁開啟後漢化設定有變動，需重新整理才生效 */
   reloadRequired: boolean;
   sidebarPosition: SidebarPosition;
@@ -54,10 +56,14 @@ export interface PageGuideSetupBindings {
   fontSizeMode: FontSizeMode;
   fontSizeScale: number;
   resultFeatures: ResultFeatureFlags;
-  /** 收合示範播放中的游標；沒有播放時為 null */
+  /** 步驟示範播放中（供「再看一次示範」禁用與游標顯示） */
+  demoPlaying?: boolean;
+  /** 收合／詞綴／階級示範播放中的游標；沒有播放時為 null */
   demoCursor: PageGuideDemoCursor | null;
   setDisplayLocale: (value: DisplayLocalePreference) => void;
   setMarketTranslation: (value: boolean) => void;
+  setMarketTranslationBilingual: (value: boolean) => void;
+  setMarketTranslationResultBilingual: (value: boolean) => void;
   setSidebarPosition: (value: SidebarPosition) => void;
   setSidebarSize: (value: SidebarSize) => void;
   setFontSizeMode: (value: FontSizeMode) => void;
@@ -65,6 +71,7 @@ export interface PageGuideSetupBindings {
   setFontSizeScale: (value: number) => void;
   setResultFeature: (key: ResultFeatureKey, value: boolean) => void;
   replayCollapseDemo: () => void;
+  replayStepDemo?: (stepId: string) => void;
   reload: () => void;
 }
 

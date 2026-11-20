@@ -99,9 +99,12 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     demoFocus: null as PageGuideDemoFocus | null,
   });
   const element = shallowRef<Element | null>(null);
+  const demoRingElements = shallowRef<readonly Element[]>([]);
+  const demoSpotlightElement = shallowRef<Element | null>(null);
   const tourContext = shallowRef<PageGuideTourContext>(DEFAULT_TOUR_CONTEXT);
   let sidebarRoot: ParentNode | null = null;
   let activeDemoAction: PageGuideDemoAction | null = null;
+  let pendingDemoStatFilter: Promise<boolean> | null = null;
   let pointTimer: ReturnType<typeof setTimeout> | undefined;
   let runToken = 0;
 
@@ -113,6 +116,7 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
   const roots = () => ({ page: document, sidebar: sidebarRoot });
 
   const restoreDemo = async () => {
+    pendingDemoStatFilter = null;
     if (!activeDemoAction) return;
     activeDemoAction = null;
     await deps.requestDemo('restore');
@@ -135,6 +139,8 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
 
   const reset = () => {
     clearTimeout(pointTimer);
+    demoRingElements.value = [];
+    demoSpotlightElement.value = null;
     tourContext.value.stopStepDemo();
     state.demoFocus = null;
     state.mode = 'idle';
@@ -184,6 +190,8 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     ) {
       await restoreDemo();
     }
+    demoRingElements.value = [];
+    demoSpotlightElement.value = null;
     tourContext.value.stopStepDemo();
     await tourContext.value.prepareStep(step);
     if (token !== runToken) return;
@@ -191,6 +199,11 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     state.demoFocus = step.demoFocus ?? null;
     if (step.demoFocus) await nextTick();
     if (!step.targetId) deps.revealResults(false);
+    // 導覽的階級步驟一律優先確保專用示範詞綴存在，避免在尚未等第 6 步播完就跳步時誤抓到頁面原本的其他詞綴
+    if (nextDemoAction === 'add-stat-filter') {
+      await ensureDemoStatFilter();
+      if (token !== runToken) return;
+    }
     const found = step.targetId ? await locate(step.targetId) : null;
     if (token !== runToken) return;
     if (found) deps.scrollIntoView(found);
@@ -257,9 +270,52 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     if (found && found !== current) element.value = found;
   };
 
+  /** 供第 6 步／第 7 步確保專用示範詞綴已插入，避免頁面上原有其他詞綴干擾第 7 步目標 */
+  const ensureDemoStatFilter = async (): Promise<boolean> => {
+    if (activeDemoAction === 'add-stat-filter') return true;
+    if (pendingDemoStatFilter) return pendingDemoStatFilter;
+    const run = (async () => {
+      const ok = await deps.requestDemo('add-stat-filter');
+      if (ok) {
+        activeDemoAction = 'add-stat-filter';
+        await deps.wait(DEMO_RENDER_WAIT_MS);
+        // 官方頁面重新標記與注入 T 階按鈕是非同步的；若示範列已掛上，等它的 T 按鈕出現再繼續
+        if (document.querySelector('[data-poexd-page-guide-demo="true"]')) {
+          for (let attempt = 0; attempt < DEMO_TARGET_RETRIES; attempt += 1) {
+            if (document.querySelector('[data-poexd-page-guide-demo="true"] .poexd-tier-trigger')) {
+              break;
+            }
+            await deps.wait(DEMO_TARGET_RETRY_MS);
+          }
+        }
+      }
+      return ok;
+    })();
+    pendingDemoStatFilter = run;
+    try {
+      return await run;
+    } finally {
+      if (pendingDemoStatFilter === run) pendingDemoStatFilter = null;
+    }
+  };
+
+  /** 切換進度為 demo 播放後的自訂焦點（例如詞綴面板中的步驟目標，或同時框住 T 按鈕與選單） */
+  const setDemoElements = (targets: {
+    ring?: Element | readonly Element[] | null;
+    spotlight?: Element | null;
+  }) => {
+    if ('ring' in targets) {
+      if (!targets.ring) demoRingElements.value = [];
+      else demoRingElements.value = Array.isArray(targets.ring) ? targets.ring : [targets.ring];
+    }
+    if ('spotlight' in targets) demoSpotlightElement.value = targets.spotlight ?? null;
+  };
+
   return {
     state,
     element,
+    demoRingElements,
+    demoSpotlightElement,
     currentStep,
     stepCount,
     stepNumber,
@@ -269,6 +325,8 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     setTourContext: (context: PageGuideTourContext | null) => {
       tourContext.value = context ?? DEFAULT_TOUR_CONTEXT;
     },
+    setDemoElements,
+    ensureDemoStatFilter,
     pointAt,
     startTour,
     nextStep,

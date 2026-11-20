@@ -2,11 +2,19 @@
   <div
     class="mod-item-container border-b border-border bg-transparent"
     :id="'mod_container_' + mod.id"
+    :data-mod-id="mod.id"
+    :data-mod-official-id="mod.officialId || mod.ids?.[0] || undefined"
   >
     <!-- 最上層詞綴行 -->
     <div
       class="mod-row group/mod-row relative flex items-stretch justify-between p-0 box-border transition-colors duration-100"
-      :class="isSelected ? 'bg-muted hover:bg-accent' : 'bg-transparent hover:bg-accent'"
+      :class="
+        demoHighlighted
+          ? 'bg-accent'
+          : isSelected
+            ? 'bg-muted hover:bg-accent'
+            : 'bg-transparent hover:bg-accent'
+      "
     >
       <!-- 左側選取區 -->
       <div
@@ -65,12 +73,18 @@
 
       <!-- 右側浮動加入按鈕區 (形式 A: 行內文字連結 + 長距平滑漸層，無硬切線且極致輕量) -->
       <div
-        class="mod-action-zone absolute right-0 top-0 bottom-0 flex items-center pl-20 pr-[var(--pxd-space-sm)] bg-gradient-to-l from-accent from-45% via-accent/70 to-transparent pointer-events-none opacity-0 group-hover/mod-row:opacity-100 group-hover/mod-row:pointer-events-auto focus-within/mod-row:opacity-100 focus-within/mod-row:pointer-events-auto transition-opacity z-(--pxd-z-sticky)"
+        class="mod-action-zone absolute right-0 top-0 bottom-0 flex items-center pl-20 pr-[var(--pxd-space-sm)] bg-gradient-to-l from-accent from-45% via-accent/70 to-transparent transition-opacity z-(--pxd-z-sticky)"
+        :class="
+          demoHighlighted
+            ? 'opacity-100 pointer-events-auto'
+            : 'pointer-events-none opacity-0 group-hover/mod-row:opacity-100 group-hover/mod-row:pointer-events-auto focus-within/mod-row:opacity-100 focus-within/mod-row:pointer-events-auto'
+        "
       >
         <Button
           type="button"
           variant="link"
           size="sm"
+          data-mod-action="add-now"
           class="h-full p-0 border-0 shadow-none text-[length:var(--pxd-font-micro)] text-accent-foreground hover:text-accent-foreground/85 font-medium gap-0.5 shrink-0 transition-colors"
           :aria-label="
             hasOfficialId ? t('modItem.actions.addNowTitle') : t('modItem.actions.fillSearchTitle')
@@ -250,6 +264,10 @@ export default defineComponent({
     itemLevelMax: {
       type: Number as PropType<number | null>,
       default: null,
+    },
+    demoHighlighted: {
+      type: Boolean,
+      default: false,
     },
   },
   emits: ['toggle-select', 'toggle-expand', 'toggle-tier-select', 'add-filter', 'add-tier-filter'],

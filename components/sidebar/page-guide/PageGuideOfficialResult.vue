@@ -13,6 +13,8 @@ import { RESULT_FEATURE_KEYS, type ResultFeatureFlags } from './page-guide-setup
  */
 const props = defineProps<{
   features: ResultFeatureFlags;
+  /** 是否在譯文下方附上英文原文副標（對應導覽步驟二的結果中英並列選項） */
+  resultBilingual?: boolean;
 }>();
 
 /** 一筆結果的寬度，與官方雙欄版面的一欄差不多 */
@@ -31,13 +33,28 @@ const PIN_PATHS = [
 const mods = [
   {
     key: 'pageGuide.mock.mod1',
+    enKey: 'pageGuide.mock.mod1En',
     tier: 'P7',
     range: '[16—23 to 25—35]',
     kind: 'pr',
     highlight: true,
   },
-  { key: 'pageGuide.mock.mod2', tier: 'P6', range: '[34—47]', kind: 'pr', highlight: false },
-  { key: 'pageGuide.mock.mod3', tier: 'S3', range: '[17—19]', kind: 'su', highlight: false },
+  {
+    key: 'pageGuide.mock.mod2',
+    enKey: 'pageGuide.mock.mod2En',
+    tier: 'P6',
+    range: '[34—47]',
+    kind: 'pr',
+    highlight: false,
+  },
+  {
+    key: 'pageGuide.mock.mod3',
+    enKey: 'pageGuide.mock.mod3En',
+    tier: 'S3',
+    range: '[17—19]',
+    kind: 'su',
+    highlight: false,
+  },
 ] as const;
 
 const teleportTarget = ref<HTMLElement | null>(null);
@@ -244,7 +261,13 @@ const revealAttrs = { [PAGE_GUIDE_REVEAL_ATTR]: '' };
                     v-bind="mod.highlight ? revealAttrs : {}"
                     :data-mock-mod="mod.highlight ? 'highlight' : undefined"
                   >
-                    <span class="s lc"><span>{{ t(mod.key) }}</span></span
+                    <span class="s lc"
+                      ><span>{{ t(mod.key) }}</span
+                      ><span
+                        v-if="resultBilingual && t(mod.key) !== t(mod.enKey)"
+                        class="poexd-result-mod-en"
+                        >{{ t(mod.enKey) }}</span
+                      ></span
                     ><span class="lc l" :class="mod.kind"
                       >{{ mod.tier }}<span class="d">&nbsp;{{ mod.range }}</span></span
                     ><span

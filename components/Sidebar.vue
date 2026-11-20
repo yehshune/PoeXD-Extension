@@ -378,11 +378,26 @@
         ></div>
 
         <!-- 全域詞綴選擇器 Modal -->
-        <Dialog :open="isModalOpen" :unmount-on-hide="false" @update:open="setAffixDialogOpen">
+        <Dialog
+          :open="isModalOpen"
+          :modal="!affixDemoMode"
+          :unmount-on-hide="false"
+          @update:open="
+            (open) => {
+              if (!affixDemoMode) setAffixDialogOpen(open);
+            }
+          "
+        >
           <DialogContent
             placement="inset"
             data-sidebar-dialog="affix"
-            class="inset-x-[5vw] inset-y-[5vh] flex h-auto max-h-none w-auto max-w-none flex-col gap-0 p-0"
+            :data-guide-demo="affixDemoMode ? 'true' : undefined"
+            :inert="affixDemoMode || undefined"
+            :overlay-class="affixDemoMode ? 'pointer-events-none' : undefined"
+            :class="[
+              'inset-x-[5vw] inset-y-[5vh] flex h-auto max-h-none w-auto max-w-none flex-col gap-0 p-0',
+              affixDemoMode ? 'pointer-events-none select-none' : '',
+            ]"
             :overlay-mousedown="handleOverlayMousedown"
             :overlay-mouseup="handleOverlayMouseup"
             close-class="right-[var(--pxd-pane-padding)] top-[11px]"
@@ -406,6 +421,7 @@
               <!-- 詞綴選擇器很重（數百個詞綴列與詞綴字典）：第一次用到才掛載，之後關閉也保留狀態 -->
               <FilterPane
                 v-if="isAffixPaneMounted"
+                ref="filterPaneRef"
                 :target-group-index="targetGroupIndex"
                 :is-open="isModalOpen"
                 @type-dialog-open-changed="handleTypeDialogOpenChange"
@@ -573,11 +589,14 @@ import TierDropdownHost from './injected/TierDropdownHost.vue';
 import PageGuideHost from './sidebar/page-guide/PageGuideHost.vue';
 import { usePageGuide } from './sidebar/page-guide/usePageGuide';
 import { getPageGuideTarget } from './sidebar/page-guide/page-guide-targets';
+import {
+  usePageGuideDemos,
+  type FilterPaneDemoHandle,
+} from './sidebar/page-guide/usePageGuideDemos';
 import type { FontSizeMode } from '@/utils/preferences-contract';
 import {
   RESULT_FEATURE_KEYS,
   readResultFeatures,
-  type PageGuideDemoCursor,
   type PageGuideSetupBindings,
   type ResultFeatureFlags,
 } from './sidebar/page-guide/page-guide-setup';
@@ -586,7 +605,9 @@ import {
   planFontSizeModeChange,
   planSidebarSizeChange,
 } from '@/utils/appearance-preferences';
-import { findFirstTierSlotKey, tierMenuDemoSlotKey } from '@/utils/page-guide-demo-state';
+import { affixDemoMode } from '@/utils/page-guide-demo-state';
+import { resolveMarketTranslationLocale } from '@/utils/market-translation';
+import { getPageLoadPreferences } from '@/utils/page-load-preferences';
 import StatGroupTemplateHost from './injected/StatGroupTemplateHost.vue';
 import MercenaryPickerHost from './injected/mercenary/MercenaryPickerHost.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
@@ -827,10 +848,27 @@ export default defineComponent({
     const onboarding = ref<OnboardingState>(NO_ONBOARDING);
     let stopOnboarding: (() => void) | undefined;
     const marketTranslation = ref(false);
+    const marketTranslationBilingual = ref<boolean>(DEFAULT_PREFERENCES.marketTranslationBilingual);
+    const marketTranslationResultBilingual = ref<boolean>(
+      DEFAULT_PREFERENCES.marketTranslationResultBilingual,
+    );
     const displayLocale = ref<Preferences['displayLocale']>('auto');
-    /** 本頁載入時的漢化狀態；之後變動需重新整理才會套用到官網頁面 */
-    let pageLoadMarketTranslation: boolean | null = null;
+    /** 本頁載入時的漢化狀態（語系與下拉中英並列）；之後變動需重新整理才會套用到官網頁面 */
+    let pageLoadMarketState: { locale: string | null; bilingual: boolean } | null = null;
     const marketTranslationReloadRequired = ref(false);
+    const computeEffectiveMarketState = (snapshot: Readonly<Preferences>) => {
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+      const locale = resolveMarketTranslationLocale({
+        enabled: snapshot.marketTranslation === true,
+        displayLocale: snapshot.displayLocale ?? 'auto',
+        hostname,
+        browserLocale: detectBrowserLocale(),
+      });
+      return {
+        locale,
+        bilingual: locale !== null && snapshot.marketTranslationBilingual !== false,
+      };
+    };
     const showExpandHint = computed(
       () => pageRole.value === 'normal' && isCollapsed.value && onboarding.value.expandHintPending,
     );
@@ -879,6 +917,10 @@ export default defineComponent({
     };
     const setMarketTranslation = (value: boolean) =>
       updatePreference({ marketTranslation: value }, '市集漢化設定');
+    const setMarketTranslationBilingual = (value: boolean) =>
+      updatePreference({ marketTranslationBilingual: value }, '市集下拉中英並列');
+    const setMarketTranslationResultBilingual = (value: boolean) =>
+      updatePreference({ marketTranslationResultBilingual: value }, '市集結果中英並列');
     const reloadPage = () => window.location.reload();
 
     const isArrivalActive = ref(false);
@@ -1151,6 +1193,8 @@ export default defineComponent({
         }
         densityScale.value = snapshot.densityScale;
         marketTranslation.value = snapshot.marketTranslation === true;
+        marketTranslationBilingual.value = snapshot.marketTranslationBilingual !== false;
+        marketTranslationResultBilingual.value = snapshot.marketTranslationResultBilingual === true;
         displayLocale.value = snapshot.displayLocale ?? 'auto';
         const nextModulePrefs = Object.fromEntries(
           SIDEBAR_MODULE_PREFERENCE_KEYS.map((key) => [key, snapshot[key] !== false]),
@@ -1162,11 +1206,16 @@ export default defineComponent({
         ) {
           modulePrefs.value = nextModulePrefs;
         }
-        if (pageLoadMarketTranslation === null) {
-          pageLoadMarketTranslation = marketTranslation.value;
+        const currentMarketState = computeEffectiveMarketState(snapshot);
+        if (pageLoadMarketState === null) {
+          const pageLoad = getPageLoadPreferences();
+          pageLoadMarketState = pageLoad
+            ? computeEffectiveMarketState(pageLoad)
+            : currentMarketState;
         }
         marketTranslationReloadRequired.value =
-          marketTranslation.value !== pageLoadMarketTranslation;
+          currentMarketState.locale !== pageLoadMarketState.locale ||
+          currentMarketState.bilingual !== pageLoadMarketState.bilingual;
       });
 
       stopOnboarding = onboardingStore.subscribe((state) => {
@@ -1383,25 +1432,29 @@ export default defineComponent({
 
     const isModalOpen = ref(false);
     const targetGroupIndex = ref(0);
+    const filterPaneRef = ref<FilterPaneDemoHandle | null>(null);
 
     const closeModal = () => {
       isModalOpen.value = false;
     };
     const setAffixDialogOpen = (open: boolean) => {
-      if (open) return;
+      if (open || affixDemoMode.value) return;
 
       if (isModalOpen.value) {
         closeModal();
       }
     };
-    const removeCloseAffixModalListener = listenPoeEvent('poexd-close-affix-modal', closeModal);
+    const removeCloseAffixModalListener = listenPoeEvent('poexd-close-affix-modal', () => {
+      if (!affixDemoMode.value) closeModal();
+    });
 
     const isMouseDownOnOverlay = ref(false);
     const handleOverlayMousedown = () => {
+      if (affixDemoMode.value) return;
       isMouseDownOnOverlay.value = true;
     };
     const handleOverlayMouseup = () => {
-      if (isMouseDownOnOverlay.value) {
+      if (!affixDemoMode.value && isMouseDownOnOverlay.value) {
         closeModal();
       }
       isMouseDownOnOverlay.value = false;
@@ -1421,6 +1474,7 @@ export default defineComponent({
 
     // 監聽來自 content.ts (注入按鈕點擊) 的打開 Modal 事件
     const removeOpenAffixModalListener = listenPoeEvent('poexd-open-affix-modal', (detail) => {
+      if (affixDemoMode.value) return;
       isAffixPaneMounted.value = true;
       targetGroupIndex.value = detail.groupIndex;
       isModalOpen.value = true;
@@ -1428,7 +1482,7 @@ export default defineComponent({
 
     // 類別選擇窗由 FilterPane 自己監聽；它還沒掛載時先掛載，再把事件補送給它
     const removeSelectTypeModalListener = listenPoeEvent('poexd-trigger-select-type-modal', () => {
-      if (isAffixPaneMounted.value) return;
+      if (affixDemoMode.value || isAffixPaneMounted.value) return;
       isAffixPaneMounted.value = true;
       void nextTick(() => dispatchPoeEvent('poexd-trigger-select-type-modal'));
     });
@@ -1440,6 +1494,7 @@ export default defineComponent({
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (
+        !affixDemoMode.value &&
         e.key === 'Escape' &&
         isModalOpen.value &&
         !dialogState.value.isOpen &&
@@ -1537,117 +1592,47 @@ export default defineComponent({
 
     // 初始導覽：前段直接調整語言、漢化、側欄位置與收合把手，設定步驟的值與修改方式由這裡提供
     const pageGuide = usePageGuide();
-    // 收合示範：模擬滑鼠點關閉鈕收合側欄，再按住收合標籤上下拖曳（只預覽，不改儲存的位置）
-    const demoCursor = ref<PageGuideDemoCursor | null>(null);
-    let collapseDemoRun = 0;
-    let collapseDemoTabTopChanged = false;
-    const DEMO_CURSOR_MOVE_MS = 550;
-    const DEMO_DRAG_DISTANCE = 120;
-    const DEMO_DRAG_MS = 600;
     const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-    const findSidebarElement = (selector: string): HTMLElement | null => {
-      const root = portalTarget.value?.getRootNode() as ParentNode | undefined;
-      return (root ?? document).querySelector<HTMLElement>(selector);
-    };
-    const centerOf = (el: HTMLElement) => {
-      const rect = el.getBoundingClientRect();
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    };
-
-    const stopCollapseDemo = () => {
-      collapseDemoRun += 1;
-      demoCursor.value = null;
-      if (collapseDemoTabTopChanged) {
-        collapseDemoTabTopChanged = false;
-        previewCollapsedTabTop(preferencesModule?.read().collapsedTabTop ?? collapsedTabTop.value);
-      }
-    };
-
-    const playCollapseDemo = async () => {
-      stopCollapseDemo();
-      const run = collapseDemoRun;
-      const alive = () => run === collapseDemoRun;
-      if (isCollapsed.value) {
-        toggleCollapse();
-        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 120);
-        if (!alive()) return;
-      }
-      const closeButton = findSidebarElement('[data-sidebar-action="collapse"]');
-      if (!closeButton) return;
-      const close = centerOf(closeButton);
-      const startX = sidebarPosition.value === 'right' ? close.x - 120 : close.x + 120;
-      demoCursor.value = { x: startX, y: close.y + 140, pressed: false };
-      await sleep(50);
-      if (!alive()) return;
-      demoCursor.value = { x: close.x, y: close.y, pressed: false };
-      await sleep(DEMO_CURSOR_MOVE_MS + 150);
-      if (!alive()) return;
-      demoCursor.value = { x: close.x, y: close.y, pressed: true };
-      await sleep(150);
-      if (!alive()) return;
-      demoCursor.value = { x: close.x, y: close.y, pressed: false };
-      if (!isCollapsed.value) toggleCollapse();
-      await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 250);
-      if (!alive()) return;
-
-      const tab = findSidebarElement('[data-sidebar-action="expand"]');
-      if (!tab) return;
-      const grip = centerOf(tab);
-      demoCursor.value = { x: grip.x, y: grip.y, pressed: false };
-      await sleep(DEMO_CURSOR_MOVE_MS + 150);
-      if (!alive()) return;
-      demoCursor.value = { x: grip.x, y: grip.y, pressed: true };
-      await sleep(200);
-      if (!alive()) return;
-      const tabRect = tab.getBoundingClientRect();
-      const tabHeight = tabRect.height || 32;
-      const startTop = tabRect.top;
-      const endTop = clampCollapsedTabTop(
-        startTop + DEMO_DRAG_DISTANCE,
-        window.innerHeight,
-        tabHeight,
-      );
-      // 按住時游標不補間，逐格同步移動標籤與游標
-      const drag = async (from: number, to: number) => {
-        const startedAt = performance.now();
-        for (;;) {
-          if (!alive()) return false;
-          const progress = Math.min(1, (performance.now() - startedAt) / DEMO_DRAG_MS);
-          const eased = progress < 0.5 ? 2 * progress * progress : 1 - (-2 * progress + 2) ** 2 / 2;
-          const top = from + (to - from) * eased;
-          collapseDemoTabTopChanged = true;
-          previewCollapsedTabTop(top);
-          demoCursor.value = { x: grip.x, y: grip.y + (top - startTop), pressed: true };
-          if (progress >= 1) return true;
-          await new Promise((resolve) => requestAnimationFrame(resolve));
-        }
-      };
-      if (!(await drag(startTop, endTop))) return;
-      await sleep(300);
-      if (!(await drag(endTop, startTop))) return;
-      demoCursor.value = { x: grip.x, y: grip.y, pressed: false };
-      await sleep(400);
-      if (!alive()) return;
-      stopCollapseDemo();
-    };
-
-    const stopStepDemo = () => {
-      stopCollapseDemo();
-      tierMenuDemoSlotKey.value = null;
-    };
+    const { demoCursor, demoPlaying, playCollapseDemo, replayStepDemo, runStepDemo, stopStepDemo } =
+      usePageGuideDemos({
+        portalTarget,
+        isCollapsed,
+        sidebarPosition,
+        collapsedTabTop,
+        toggleCollapse,
+        previewCollapsedTabTop,
+        readStoredCollapsedTabTop: () => preferencesModule?.read().collapsedTabTop,
+        openAffixModalForDemo: () => {
+          isAffixPaneMounted.value = true;
+          targetGroupIndex.value = 0;
+          isModalOpen.value = true;
+        },
+        closeAffixModalForDemo: closeModal,
+        getFilterPaneHandle: () => filterPaneRef.value,
+        setDemoElements: pageGuide.setDemoElements,
+        ensureDemoStatFilter: pageGuide.ensureDemoStatFilter,
+        getPoeVersion: () => version,
+        getDisplayLocale: () => displayLocale.value,
+      });
 
     const guideSetup = computed<PageGuideSetupBindings>(() => ({
       displayLocale: displayLocale.value,
       marketTranslation: marketTranslation.value,
+      marketTranslationBilingual: marketTranslationBilingual.value,
+      marketTranslationResultBilingual: marketTranslationResultBilingual.value,
       reloadRequired: marketTranslationReloadRequired.value,
       sidebarPosition: sidebarPosition.value,
       sidebarSize: sidebarSize.value,
       fontSizeMode: fontSizeMode.value,
       fontSizeScale: fontSizeScale.value,
       resultFeatures: resultFeatures.value,
+      demoPlaying: demoPlaying.value,
       demoCursor: demoCursor.value,
       setDisplayLocale: (value) => void updatePreference({ displayLocale: value }, '顯示語言'),
       setMarketTranslation: (value) => void setMarketTranslation(value),
+      setMarketTranslationBilingual: (value) => void setMarketTranslationBilingual(value),
+      setMarketTranslationResultBilingual: (value) =>
+        void setMarketTranslationResultBilingual(value),
       setSidebarPosition: (value) =>
         void updatePreference({ sidebarPosition: value }, '側邊欄位置'),
       // 與設定頁共用規則：預設大小套對應寬度，自訂沿用上次的自訂值
@@ -1663,6 +1648,7 @@ export default defineComponent({
         void updatePreference(planCustomFontSizeScale(value), '字體大小'),
       setResultFeature: (key, value) => void updatePreference({ [key]: value }, '結果列功能'),
       replayCollapseDemo: () => void playCollapseDemo(),
+      replayStepDemo,
       reload: reloadPage,
     }));
     pageGuide.setTourContext({
@@ -1675,17 +1661,7 @@ export default defineComponent({
         toggleCollapse();
         await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 80);
       },
-      async runStepDemo(demo) {
-        if (demo === 'collapse') {
-          // 不等示範播完：說明框先出現，外框跟著關閉鈕/收合標籤移動
-          void playCollapseDemo();
-          return;
-        }
-        const key = findFirstTierSlotKey();
-        if (!key) return;
-        tierMenuDemoSlotKey.value = key;
-        await nextTick();
-      },
+      runStepDemo,
       stopStepDemo,
     });
 
@@ -1709,7 +1685,7 @@ export default defineComponent({
 
     onUnmounted(() => {
       pageGuide.setTourContext(null);
-      stopCollapseDemo();
+      stopStepDemo();
       finishCollapseAnimation();
       clearScrollRestoreTimers();
       if (arrivalTimer) {
@@ -1785,6 +1761,8 @@ export default defineComponent({
       handleCollapsedTabKeydown,
       isModalOpen,
       targetGroupIndex,
+      filterPaneRef,
+      affixDemoMode,
       isAffixPaneMounted,
       closeModal,
       setAffixDialogOpen,

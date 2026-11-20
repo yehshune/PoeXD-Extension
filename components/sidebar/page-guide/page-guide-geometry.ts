@@ -34,6 +34,22 @@ export function padGuideRect(rect: GuideRect, padding: number): GuideRect {
   };
 }
 
+/** 合併多個元素的矩形外框（例如同時框住 T 按鈕與展開的選單）。 */
+export function unionGuideRects(rects: readonly GuideRect[]): GuideRect | null {
+  if (rects.length === 0) return null;
+  let top = Infinity;
+  let left = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const r of rects) {
+    top = Math.min(top, r.top);
+    left = Math.min(left, r.left);
+    right = Math.max(right, r.left + r.width);
+    bottom = Math.max(bottom, r.top + r.height);
+  }
+  return { top, left, width: right - left, height: bottom - top };
+}
+
 /**
  * 說明框擺在目標下方，放不下就上方，再不行就左右（例如側欄的直立導覽列）；
  * 沒有目標時置中。結果一律夾在視窗內。

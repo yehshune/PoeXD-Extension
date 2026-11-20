@@ -3,6 +3,13 @@ import { PanelLeft, PanelRight, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { t } from '@/utils/i18n';
 import {
@@ -10,6 +17,7 @@ import {
   FONT_SIZE_SCALE_BOUNDS,
   SIDEBAR_POSITIONS,
   SIDEBAR_SIZES,
+  type DisplayLocalePreference,
 } from '@/utils/preferences-contract';
 import type { PageGuideDemoFocus, PageGuideSetupKind } from './page-guide-tour';
 import {
@@ -21,6 +29,8 @@ import {
 const props = defineProps<{
   kind: PageGuideSetupKind;
   bindings: PageGuideSetupBindings;
+  /** 目前步驟 ID（供 demo-replay 重播對應步驟示範） */
+  stepId?: string;
   /** result-features 步驟要列出哪一組開關 */
   focus?: PageGuideDemoFocus;
 }>();
@@ -33,6 +43,30 @@ const FONT_PERCENT = {
 
 const fontPercent = computed(() => Math.round(props.bindings.fontSizeScale * 100));
 const featureToggles = computed(() => (props.focus ? RESULT_FEATURE_TOGGLES[props.focus] : []));
+const selectedLocaleLabel = computed(() => {
+  const found = PAGE_GUIDE_LOCALE_CHOICES.find((c) => c.value === props.bindings.displayLocale);
+  return found?.nativeLabel ?? t('settings.displayLocale.option.auto');
+});
+const isZhCnPreview = computed(() => {
+  const loc = props.bindings.displayLocale;
+  if (loc === 'zh-CN') return true;
+  if (loc === 'zh-TW' || loc === 'en') return false;
+  return typeof navigator !== 'undefined' && /^zh[-_](cn|hans|sg)/i.test(navigator.language);
+});
+const previewDropdownText = computed(() => {
+  const en = t('pageGuide.setup.marketTranslation.previewStatEn');
+  if (!props.bindings.marketTranslation) return en;
+  const zh = isZhCnPreview.value
+    ? '+# 最大生命'
+    : t('pageGuide.setup.marketTranslation.previewStatZh');
+  return props.bindings.marketTranslationBilingual ? `${zh} (${en})` : zh;
+});
+const previewResultZhText = computed(() =>
+  isZhCnPreview.value
+    ? '附加 20 至 31 冰霜伤害'
+    : t('pageGuide.setup.marketTranslation.previewModZh'),
+);
+const previewResultEnText = computed(() => t('pageGuide.setup.marketTranslation.previewModEn'));
 
 function onFontRange(event: Event) {
   const value = Number((event.target as HTMLInputElement).value);
@@ -40,7 +74,7 @@ function onFontRange(event: Event) {
 }
 
 const segmentClass = 'grid gap-[var(--pxd-space-xs)]';
-const rowLabelClass = 'text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground';
+const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-muted-foreground';
 </script>
 
 <template>
@@ -51,41 +85,125 @@ const rowLabelClass = 'text-[length:var(--pxd-font-caption)] font-medium text-mu
   >
     <div
       v-if="kind === 'locale'"
-      role="radiogroup"
-      :aria-label="t('pageGuide.tour.locale.title')"
-      :class="[segmentClass, 'grid-cols-2']"
+      class="flex items-center justify-between gap-[var(--pxd-space-md)]"
     >
-      <Button
-        v-for="choice in PAGE_GUIDE_LOCALE_CHOICES"
-        :key="choice.value"
-        type="button"
-        size="sm"
-        role="radio"
-        :variant="bindings.displayLocale === choice.value ? 'default' : 'outline'"
-        :aria-checked="bindings.displayLocale === choice.value"
-        :data-setup-locale="choice.value"
-        @click="bindings.setDisplayLocale(choice.value)"
+      <span class="text-[length:var(--pxd-font-secondary)] font-medium text-foreground">
+        {{ t('settings.displayLocale.label') }}
+      </span>
+      <Select
+        :model-value="bindings.displayLocale"
+        @update:model-value="(value) => bindings.setDisplayLocale(value as DisplayLocalePreference)"
       >
-        {{ choice.nativeLabel ?? t('settings.displayLocale.option.auto') }}
-      </Button>
+        <SelectTrigger
+          size="default"
+          class="w-[164px] shrink-0"
+          :aria-label="t('settings.displayLocale.label')"
+          data-setup-locale-trigger
+        >
+          <SelectValue>{{ selectedLocaleLabel }}</SelectValue>
+        </SelectTrigger>
+        <SelectContent layer="guide">
+          <SelectItem
+            v-for="choice in PAGE_GUIDE_LOCALE_CHOICES"
+            :key="choice.value"
+            :value="choice.value"
+            :data-setup-locale="choice.value"
+          >
+            {{ choice.nativeLabel ?? t('settings.displayLocale.option.auto') }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
     </div>
 
-    <div
-      v-else-if="kind === 'market-translation'"
-      class="flex items-center gap-[var(--pxd-space-md)]"
-    >
-      <Checkbox
-        id="page-guide-market-translation"
-        :model-value="bindings.marketTranslation"
-        data-setup-action="market-translation"
-        @update:model-value="(value) => bindings.setMarketTranslation(value === true)"
-      />
-      <label
-        for="page-guide-market-translation"
-        class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+    <div v-else-if="kind === 'market-translation'" class="flex flex-col gap-[var(--pxd-space-sm)]">
+      <div class="flex items-center gap-[var(--pxd-space-md)]">
+        <Checkbox
+          id="page-guide-market-translation"
+          :model-value="bindings.marketTranslation"
+          data-setup-action="market-translation"
+          @update:model-value="(value) => bindings.setMarketTranslation(value === true)"
+        />
+        <label
+          for="page-guide-market-translation"
+          class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+        >
+          {{ t('pageGuide.setup.marketTranslation.label') }}
+        </label>
+      </div>
+
+      <div
+        v-if="bindings.marketTranslation"
+        data-setup-group="market-translation-bilingual"
+        class="ml-[7px] flex flex-col gap-[var(--pxd-space-xs)] border-l border-border/70 pl-[var(--pxd-space-md)]"
       >
-        {{ t('pageGuide.setup.marketTranslation.label') }}
-      </label>
+        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
+          <label
+            for="page-guide-market-bilingual"
+            class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+          >
+            {{ t('pageGuide.setup.marketTranslation.bilingual') }}
+          </label>
+          <Switch
+            id="page-guide-market-bilingual"
+            :model-value="bindings.marketTranslationBilingual"
+            data-setup-action="market-translation-bilingual"
+            @update:model-value="(value: boolean) => bindings.setMarketTranslationBilingual(value)"
+          />
+        </div>
+        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
+          <label
+            for="page-guide-market-result-bilingual"
+            class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+          >
+            {{ t('pageGuide.setup.marketTranslation.resultBilingual') }}
+          </label>
+          <Switch
+            id="page-guide-market-result-bilingual"
+            :model-value="bindings.marketTranslationResultBilingual"
+            data-setup-action="market-translation-result-bilingual"
+            @update:model-value="
+              (value: boolean) => bindings.setMarketTranslationResultBilingual(value)
+            "
+          />
+        </div>
+      </div>
+
+      <!-- 即時效果預覽：依開關組合顯示篩選下拉與結果列詞綴 -->
+      <div
+        data-setup-preview="market-translation"
+        class="mt-[var(--pxd-space-xs)] flex flex-col gap-[var(--pxd-space-xs)] rounded-sm border border-border/80 bg-muted/40 p-[var(--pxd-space-md)] text-[length:var(--pxd-font-secondary)]"
+      >
+        <span class="font-medium text-muted-foreground">
+          {{ t('pageGuide.setup.marketTranslation.previewLabel') }}
+        </span>
+        <div class="flex items-baseline gap-[var(--pxd-space-xs)]">
+          <span
+            class="shrink-0 rounded bg-background px-1 py-0.5 text-[length:var(--pxd-font-micro)] text-muted-foreground"
+          >
+            {{ t('pageGuide.setup.marketTranslation.previewDropdownTag') }}
+          </span>
+          <span class="min-w-0 break-words text-foreground">{{ previewDropdownText }}</span>
+        </div>
+        <div class="flex items-start gap-[var(--pxd-space-xs)]">
+          <span
+            class="mt-0.5 shrink-0 rounded bg-background px-1 py-0.5 text-[length:var(--pxd-font-micro)] text-muted-foreground"
+          >
+            {{ t('pageGuide.setup.marketTranslation.previewResultTag') }}
+          </span>
+          <div class="flex min-w-0 flex-col">
+            <span class="text-foreground">
+              {{ bindings.marketTranslation ? previewResultZhText : previewResultEnText }}
+            </span>
+            <span
+              v-if="bindings.marketTranslation && bindings.marketTranslationResultBilingual"
+              data-setup-preview-en
+              class="text-[0.9em] leading-tight text-muted-foreground/75"
+            >
+              {{ previewResultEnText }}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <template v-else-if="kind === 'appearance'">
@@ -176,14 +294,18 @@ const rowLabelClass = 'text-[length:var(--pxd-font-caption)] font-medium text-mu
     </template>
 
     <Button
-      v-else-if="kind === 'collapse-drag'"
+      v-else-if="kind === 'collapse-drag' || kind === 'demo-replay'"
       type="button"
       size="sm"
       variant="outline"
       class="self-start"
-      data-setup-action="replay-collapse-demo"
-      :disabled="bindings.demoCursor !== null"
-      @click="bindings.replayCollapseDemo()"
+      :data-setup-action="kind === 'collapse-drag' ? 'replay-collapse-demo' : 'replay-step-demo'"
+      :disabled="Boolean(bindings.demoPlaying || bindings.demoCursor !== null)"
+      @click="
+        kind === 'collapse-drag'
+          ? bindings.replayCollapseDemo()
+          : bindings.replayStepDemo?.(stepId ?? '')
+      "
     >
       <RotateCcw />
       {{ t('pageGuide.setup.collapse.replay') }}

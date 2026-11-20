@@ -2,10 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, h, nextTick, ref, type App } from 'vue';
 import PageGuideHost from '@/components/sidebar/page-guide/PageGuideHost.vue';
+import PageGuideSetupControls from '@/components/sidebar/page-guide/PageGuideSetupControls.vue';
 import SettingsRow from '@/components/sidebar/settings/SettingsRow.vue';
 import PageGuideOfficialResult from '@/components/sidebar/page-guide/PageGuideOfficialResult.vue';
 import {
   RESULT_FEATURE_KEYS,
+  type PageGuideSetupBindings,
   type ResultFeatureFlags,
 } from '@/components/sidebar/page-guide/page-guide-setup';
 import { usePageGuide } from '@/components/sidebar/page-guide/usePageGuide';
@@ -63,7 +65,10 @@ describe('PageGuideHost', () => {
     await flush();
 
     const bubble = portal.querySelector('[data-page-guide-bubble]');
-    expect(bubble?.textContent).toContain('選擇語言');
+    expect(bubble?.textContent).toContain('歡迎使用 PoeXD');
+    const shortcuts = portal.querySelector('[data-page-guide-shortcuts]');
+    expect(shortcuts?.textContent).toContain('←');
+    expect(shortcuts?.textContent).toContain('→');
     expect(portal.querySelector('[data-page-guide-counter]')?.textContent?.trim()).toBe(
       `1 / ${visibleStepCount}`,
     );
@@ -76,6 +81,68 @@ describe('PageGuideHost', () => {
       `2 / ${visibleStepCount}`,
     );
 
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await flush();
+    expect(portal.querySelector('[data-page-guide-bubble]')).toBeNull();
+  });
+
+  it('blocks official page pointer events around the collapse target while keeping the cutout interactive', async () => {
+    const portal = document.createElement('div');
+    document.body.appendChild(portal);
+
+    const collapseBtn = document.createElement('button');
+    collapseBtn.dataset.sidebarAction = 'collapse';
+    collapseBtn.getBoundingClientRect = () =>
+      ({
+        top: 100,
+        left: 340,
+        width: 28,
+        height: 28,
+        right: 368,
+        bottom: 128,
+        x: 340,
+        y: 100,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    document.body.appendChild(collapseBtn);
+
+    mountComponent(() => h(PageGuideHost, { portalTarget: portal }));
+
+    await usePageGuide().startTour();
+    await flush();
+    while (usePageGuide().state.stepId !== 'collapse') {
+      await usePageGuide().nextStep();
+    }
+    await flush();
+    await new Promise((r) => setTimeout(r, 30));
+    await flush();
+
+    expect(portal.querySelector('[data-page-guide-blocker]')).toBeNull();
+    const pageBlocker = portal.querySelector<HTMLElement>('[data-page-guide-page-blocker]');
+    expect(pageBlocker).not.toBeNull();
+    expect(pageBlocker?.getAttribute('style')).toContain('clip-path');
+
+    collapseBtn.remove();
+  });
+
+  it('does not stop the tour on Escape when a select dropdown is open', async () => {
+    const portal = document.createElement('div');
+    document.body.appendChild(portal);
+    mountComponent(() => h(PageGuideHost, { portalTarget: portal }));
+
+    await usePageGuide().startTour();
+    await flush();
+
+    const openSelect = document.createElement('div');
+    openSelect.setAttribute('data-slot', 'select-content');
+    openSelect.setAttribute('data-state', 'open');
+    portal.appendChild(openSelect);
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await flush();
+    expect(portal.querySelector('[data-page-guide-bubble]')).not.toBeNull();
+
+    openSelect.remove();
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     await flush();
     expect(portal.querySelector('[data-page-guide-bubble]')).toBeNull();
@@ -231,5 +298,77 @@ describe('PageGuideOfficialResult', () => {
     });
     translator.translate(document);
     expect(mock.querySelector('.poexd-result-link-btn')?.textContent?.trim()).toBe('DB');
+  });
+
+  it('renders English mod subtitles in the mock row when resultBilingual is enabled', async () => {
+    mountComponent(() => h(PageGuideOfficialResult, { features: allOn, resultBilingual: true }));
+    await flush();
+
+    const mock = document.querySelector<HTMLElement>('[data-poexd-guide-mock]')!;
+    const subtitles = mock.querySelectorAll('.poexd-result-mod-en');
+    expect(subtitles).toHaveLength(3);
+    expect(subtitles[0]?.textContent).toBe('Adds 20 to 31 Cold Damage');
+  });
+});
+
+describe('PageGuideSetupControls market translation preview', () => {
+  it('shows bilingual toggles when enabled and updates the live preview', async () => {
+    const state = ref<PageGuideSetupBindings>({
+      displayLocale: 'zh-TW',
+      marketTranslation: false,
+      marketTranslationBilingual: true,
+      marketTranslationResultBilingual: false,
+      reloadRequired: false,
+      sidebarPosition: 'left',
+      sidebarSize: 'medium',
+      fontSizeMode: 'medium',
+      fontSizeScale: 1,
+      resultFeatures: Object.fromEntries(
+        RESULT_FEATURE_KEYS.map((k) => [k, true]),
+      ) as ResultFeatureFlags,
+      demoCursor: null,
+      setDisplayLocale: vi.fn(),
+      setMarketTranslation: (v) => {
+        state.value = { ...state.value, marketTranslation: v };
+      },
+      setMarketTranslationBilingual: (v) => {
+        state.value = { ...state.value, marketTranslationBilingual: v };
+      },
+      setMarketTranslationResultBilingual: (v) => {
+        state.value = { ...state.value, marketTranslationResultBilingual: v };
+      },
+      setSidebarPosition: vi.fn(),
+      setSidebarSize: vi.fn(),
+      setFontSizeMode: vi.fn(),
+      setFontSizeScale: vi.fn(),
+      setResultFeature: vi.fn(),
+      replayCollapseDemo: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    mountComponent(() =>
+      h(PageGuideSetupControls, { kind: 'market-translation', bindings: state.value }),
+    );
+    await flush();
+
+    expect(container.querySelector('[data-setup-group="market-translation-bilingual"]')).toBeNull();
+    const preview = () =>
+      container.querySelector('[data-setup-preview="market-translation"]')?.textContent ?? '';
+    expect(preview()).toContain('+# to maximum Life');
+    expect(preview()).toContain('Adds 20 to 31 Cold Damage');
+
+    state.value.setMarketTranslation(true);
+    await flush();
+    expect(
+      container.querySelector('[data-setup-group="market-translation-bilingual"]'),
+    ).not.toBeNull();
+    expect(preview()).toContain('+# 最大生命 (+# to maximum Life)');
+    expect(container.querySelector('[data-setup-preview-en]')).toBeNull();
+
+    state.value.setMarketTranslationResultBilingual(true);
+    await flush();
+    expect(container.querySelector('[data-setup-preview-en]')?.textContent?.trim()).toBe(
+      'Adds 20 to 31 Cold Damage',
+    );
   });
 });

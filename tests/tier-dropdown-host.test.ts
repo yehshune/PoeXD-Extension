@@ -17,6 +17,7 @@ import {
 } from '@/utils/tier-slot-registry';
 import { createFilterDomEnhancements } from '@/entrypoints/content/logic/common';
 import { setAffixLexiconMockData } from '@/utils/affix-lexicon';
+import { tierMenuDemoSlotKey, tierTriggerDemoSlotKey } from '@/utils/page-guide-demo-state';
 import {
   removeTierSlotArtifacts,
   cleanAllTierSlotArtifacts,
@@ -1706,5 +1707,55 @@ describe('Chromium Regressions (Native Reka + Vue Teleport Phase 3)', () => {
     expect(affinityBadges).toHaveLength(2);
     expect(affinityBadges![0].textContent?.trim()).toBe('異界尊師');
     expect(affinityBadges![1].textContent?.trim()).toBe('救贖者');
+  });
+
+  it('locks the T trigger and dropdown menu against interaction and outside dismissal during tour demo', async () => {
+    const items: TierDropdownItemSpec[] = [
+      { id: 't1', type: 'tier', label: 'T1 (10 ~ 20)', valMin: '10', valMax: '20', isRange: true },
+    ];
+    const onSelect = vi.fn();
+
+    syncTierSlots([{ key: 'slot-1', targetEl: slotEl1, items, onSelect }]);
+    await nextTick();
+
+    tierTriggerDemoSlotKey.value = 'slot-1';
+    await nextTick();
+
+    const trigger = slotEl1.querySelector<HTMLButtonElement>('button.poexd-tier-trigger')!;
+    expect(trigger.hasAttribute('inert')).toBe(true);
+    expect(trigger.tabIndex).toBe(-1);
+    expect(trigger.style.pointerEvents).toBe('none');
+
+    tierMenuDemoSlotKey.value = 'slot-1';
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 50));
+
+    const content = portalRoot.querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]');
+    expect(content).not.toBeNull();
+    expect(content?.hasAttribute('inert')).toBe(true);
+    expect(content?.className).toContain('pointer-events-none');
+
+    const EventCtor = typeof PointerEvent !== 'undefined' ? PointerEvent : MouseEvent;
+    document.dispatchEvent(new EventCtor('pointerdown', { bubbles: true, cancelable: true }));
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(portalRoot.querySelector('[data-slot="dropdown-menu-content"]')).not.toBeNull();
+
+    tierMenuDemoSlotKey.value = null;
+    tierTriggerDemoSlotKey.value = null;
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(portalRoot.querySelector('[data-slot="dropdown-menu-content"]')).toBeNull();
+    expect(trigger.hasAttribute('inert')).toBe(false);
   });
 });

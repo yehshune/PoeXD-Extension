@@ -56,6 +56,7 @@
                 type="button"
                 variant="outline"
                 size="sm"
+                data-filter-action="open-type-dialog"
                 class="w-full justify-between font-normal"
                 @click="toggleSelectDropdown"
               >
@@ -73,6 +74,7 @@
                 v-model="searchQuery"
                 type="text"
                 size="sm"
+                data-filter-search
                 :placeholder="t('filterPane.search.placeholder')"
                 class="w-full pr-7"
               />
@@ -277,6 +279,7 @@
                             expandedKeys.has(mod.id),
                             isModSelected(mod.id, cat.affinity),
                             itemLevelRange.max,
+                            affixDemoHoveredModId === mod.id,
                           ]"
                           class="mb-[2px]"
                           :mod="mod"
@@ -287,6 +290,7 @@
                           :is-tier-selected="isModTierSelected"
                           :get-tier-number="resolveModTierNumber"
                           :item-level-max="itemLevelRange.max"
+                          :demo-highlighted="affixDemoHoveredModId === mod.id"
                           @toggle-expand="toggleExpand"
                           @toggle-select="toggleModSelection"
                           @toggle-tier-select="handleToggleTierSelection"
@@ -316,6 +320,7 @@
                             expandedKeys.has(mod.id),
                             isModSelected(mod.id, cat.affinity),
                             itemLevelRange.max,
+                            affixDemoHoveredModId === mod.id,
                           ]"
                           class="mb-[2px]"
                           :mod="mod"
@@ -326,6 +331,7 @@
                           :is-tier-selected="isModTierSelected"
                           :get-tier-number="resolveModTierNumber"
                           :item-level-max="itemLevelRange.max"
+                          :demo-highlighted="affixDemoHoveredModId === mod.id"
                           @toggle-expand="toggleExpand"
                           @toggle-select="toggleModSelection"
                           @toggle-tier-select="handleToggleTierSelection"
@@ -358,6 +364,7 @@
                           expandedKeys.has(mod.id),
                           isModSelected(mod.id, cat.affinity),
                           itemLevelRange.max,
+                          affixDemoHoveredModId === mod.id,
                         ]"
                         class="mb-[2px]"
                         :mod="mod"
@@ -368,6 +375,7 @@
                         :is-tier-selected="isModTierSelected"
                         :get-tier-number="resolveModTierNumber"
                         :item-level-max="itemLevelRange.max"
+                        :demo-highlighted="affixDemoHoveredModId === mod.id"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
                         @toggle-tier-select="handleToggleTierSelection"
@@ -399,6 +407,7 @@
                           expandedKeys.has(mod.id),
                           isModSelected(mod.id, cat.affinity),
                           itemLevelRange.max,
+                          affixDemoHoveredModId === mod.id,
                         ]"
                         class="mb-[2px]"
                         :mod="mod"
@@ -409,6 +418,7 @@
                         :is-tier-selected="isModTierSelected"
                         :get-tier-number="resolveModTierNumber"
                         :item-level-max="itemLevelRange.max"
+                        :demo-highlighted="affixDemoHoveredModId === mod.id"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
                         @toggle-tier-select="handleToggleTierSelection"
@@ -441,6 +451,7 @@
                           expandedKeys.has(mod.id),
                           isModSelected(mod.id, cat.affinity),
                           itemLevelRange.max,
+                          affixDemoHoveredModId === mod.id,
                         ]"
                         class="mb-[2px]"
                         :mod="mod"
@@ -451,6 +462,7 @@
                         :is-tier-selected="isModTierSelected"
                         :get-tier-number="resolveModTierNumber"
                         :item-level-max="itemLevelRange.max"
+                        :demo-highlighted="affixDemoHoveredModId === mod.id"
                         @toggle-expand="toggleExpand"
                         @toggle-select="toggleModSelection"
                         @toggle-tier-select="handleToggleTierSelection"
@@ -608,11 +620,40 @@
       </div>
 
       <!-- 物品類別選擇 Dialog -->
-      <Dialog :open="isSelectDropdownOpen" @update:open="setSelectDialogOpen">
+      <Dialog
+        :open="isSelectDropdownOpen"
+        :modal="!affixDemoMode"
+        @update:open="
+          (open) => {
+            if (!affixDemoMode) setSelectDialogOpen(open);
+          }
+        "
+      >
         <DialogContent
           layer="nested"
-          class="flex h-auto max-h-[72vh] w-[calc(100vw-32px)] max-w-[720px] flex-col gap-0 overflow-hidden p-0"
+          data-sidebar-dialog="affix-type"
+          :inert="affixDemoMode || undefined"
+          :overlay-class="affixDemoMode ? 'pointer-events-none' : undefined"
+          :class="[
+            'flex h-auto max-h-[72vh] w-[calc(100vw-32px)] max-w-[720px] flex-col gap-0 overflow-hidden p-0',
+            affixDemoMode ? 'pointer-events-none select-none' : '',
+          ]"
           @close-auto-focus="(e) => e.preventDefault()"
+          @pointer-down-outside="
+            (e) => {
+              if (affixDemoMode) e.preventDefault();
+            }
+          "
+          @interact-outside="
+            (e) => {
+              if (affixDemoMode) e.preventDefault();
+            }
+          "
+          @escape-key-down="
+            (e) => {
+              if (affixDemoMode) e.preventDefault();
+            }
+          "
         >
           <DialogHeader
             class="p-[var(--pxd-space-lg)] pr-12 border-b border-border bg-background flex flex-row items-center justify-between space-y-0"
@@ -669,6 +710,7 @@
                       :variant="row.mainOption.key === dialogActiveCategory ? 'accent' : 'outline'"
                       size="sm"
                       class="w-full truncate font-bold"
+                      :data-type-key="row.mainOption.key"
                       :data-selected="
                         row.mainOption.key === dialogActiveCategory ? 'true' : undefined
                       "
@@ -697,6 +739,7 @@
                       :variant="subOpt.key === dialogActiveCategory ? 'accent' : 'outline'"
                       size="sm"
                       class="w-auto min-w-[38px] truncate font-normal"
+                      :data-type-key="subOpt.key"
                       :data-selected="subOpt.key === dialogActiveCategory ? 'true' : undefined"
                       @click="selectTypeOption(subOpt.key)"
                       :title="subOpt.fullLabel"
@@ -719,6 +762,7 @@
                   :variant="opt.key === dialogActiveCategory ? 'accent' : 'outline'"
                   size="sm"
                   class="w-full truncate font-normal"
+                  :data-type-key="opt.key"
                   :data-selected="opt.key === dialogActiveCategory ? 'true' : undefined"
                   @click="selectTypeOption(opt.key)"
                   :title="opt.fullLabel"
@@ -784,6 +828,7 @@ import { getAffinityProfile, resolveScopedModGroupId } from '@/utils/affinity-re
 import { useFilterData } from './composables/useFilterData';
 import { useFilterNavigation } from './composables/useFilterNavigation';
 import { t, getActiveDisplayLocale, getActiveUiLocale } from '@/utils/i18n';
+import { affixDemoHoveredModId, affixDemoMode } from '@/utils/page-guide-demo-state';
 
 export default defineComponent({
   name: 'FilterPane',
@@ -814,7 +859,7 @@ export default defineComponent({
     },
   },
   emits: ['type-dialog-open-changed'],
-  setup(props, { emit }) {
+  setup(props, { emit, expose }) {
     const version = getPoeVersion();
     const tradeMapping = getTradeMapping(version);
 
@@ -1062,6 +1107,7 @@ export default defineComponent({
       emit('type-dialog-open-changed', isOpen);
       if (isOpen) {
         poexdSelectingTarget.value = (window as any).__poexd_selecting_target__ || null;
+        if (affixDemoMode.value) return;
         setTimeout(() => {
           const target = typeSearchInputRef.value;
           const inputEl = target instanceof HTMLInputElement ? target : target?.$el;
@@ -1690,6 +1736,7 @@ export default defineComponent({
     let pendingDetectedType: string | null | undefined = undefined;
 
     const applyEquipmentType = (detectedType: string | null) => {
+      if (affixDemoMode.value) return;
       if (availableTypes.value.length === 0) {
         pendingDetectedType = detectedType;
         return;
@@ -1755,7 +1802,7 @@ export default defineComponent({
     watch(
       () => props.isOpen,
       (isOpen, wasOpen) => {
-        if (isOpen && !wasOpen) {
+        if (isOpen && !wasOpen && !affixDemoMode.value) {
           dispatchPoeEvent('poexd-request-official-category');
         }
       },
@@ -1766,7 +1813,7 @@ export default defineComponent({
       ([isOpen, isLoading], prev) => {
         if (isOpen && !isLoading) {
           const wasOpenAndLoaded = prev ? prev[0] && !prev[1] : false;
-          if (!wasOpenAndLoaded) {
+          if (!wasOpenAndLoaded && !affixDemoMode.value) {
             setTimeout(() => {
               const input = getSearchInputElement();
               input?.focus();
@@ -1783,7 +1830,9 @@ export default defineComponent({
     watch(
       selectedType,
       () => {
-        selectedModsMap.value = new Map();
+        if (!affixDemoMode.value) {
+          selectedModsMap.value = new Map();
+        }
         expandedCategories.value.clear();
       },
       { flush: 'sync' },
@@ -1812,8 +1861,55 @@ export default defineComponent({
       }
     };
 
+    expose({
+      isLoading: () => loading.value,
+      getSnapshot: () => ({
+        selectedType: selectedType.value,
+        searchQuery: searchQuery.value,
+      }),
+      restoreSnapshot: (snapshot: { selectedType: string; searchQuery: string }) => {
+        isSelectDropdownOpen.value = false;
+        selectedType.value = snapshot.selectedType;
+        searchQuery.value = snapshot.searchQuery;
+      },
+      openTypeDialog: () => {
+        typeSearchQuery.value = '';
+        isSelectDropdownOpen.value = true;
+      },
+      selectTypeForDemo: (type: string) => {
+        isSelectDropdownOpen.value = false;
+        selectedType.value = type;
+      },
+      setSearchQueryForDemo: (query: string) => {
+        searchQuery.value = query;
+      },
+      findDemoLifeMod: () => {
+        const isPureLife = (m: ModGroup) =>
+          (m.officialId === 'explicit.stat_3299347043' ||
+            m.ids?.includes('explicit.stat_3299347043')) &&
+          !m.key.includes('|||||');
+        const found =
+          currentTypeGroups.value.find(
+            (m) => isPureLife(m) && (m.affinities?.includes('normal') ?? true),
+          ) ??
+          currentTypeGroups.value.find(isPureLife) ??
+          currentTypeGroups.value.find(
+            (m) =>
+              m.officialId === 'explicit.stat_3299347043' ||
+              m.ids?.includes('explicit.stat_3299347043'),
+          );
+        if (!found) return null;
+        return {
+          id: found.id,
+          label: found.displayTemplate || found.displayKey || found.key,
+        };
+      },
+    });
+
     return {
       t,
+      affixDemoMode,
+      affixDemoHoveredModId,
       loading,
       selectedType,
       searchQuery,

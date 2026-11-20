@@ -5,15 +5,17 @@ import { reactiveOmit } from '@vueuse/core';
 import { DropdownMenuContent, DropdownMenuPortal, useForwardPropsEmits } from 'reka-ui';
 import { cn } from '@/lib/utils';
 
+defineOptions({ inheritAttrs: false });
+
 const props = withDefaults(
-  defineProps<DropdownMenuContentProps & { class?: HTMLAttributes['class'] }>(),
+  defineProps<DropdownMenuContentProps & { class?: HTMLAttributes['class']; inert?: boolean }>(),
   {
     sideOffset: 4,
   },
 );
 const emits = defineEmits<DropdownMenuContentEmits>();
 
-const delegatedProps = reactiveOmit(props, 'class');
+const delegatedProps = reactiveOmit(props, 'class', 'inert');
 
 const forwarded = useForwardPropsEmits(delegatedProps, emits);
 
@@ -65,7 +67,8 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>) {
   <DropdownMenuPortal>
     <DropdownMenuContent
       data-slot="dropdown-menu-content"
-      v-bind="forwarded"
+      v-bind="{ ...$attrs, ...forwarded }"
+      :inert="props.inert || undefined"
       :class="
         cn(
           'z-(--pxd-z-floating) min-w-[min(var(--pxd-menu-min-width,128px),var(--reka-dropdown-menu-content-available-width,calc(100vw-32px)))] max-w-[var(--reka-dropdown-menu-content-available-width,calc(100vw-32px))] max-h-[min(var(--pxd-menu-max-height,240px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))] overflow-y-auto overflow-x-hidden pxd-scrollbar box-border rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',

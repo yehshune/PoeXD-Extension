@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue';
-import { tierMenuDemoSlotKey } from '@/utils/page-guide-demo-state';
+import { tierMenuDemoSlotKey, tierTriggerDemoSlotKey } from '@/utils/page-guide-demo-state';
 import { t } from '@/utils/i18n';
 import {
   DropdownMenu,
@@ -31,6 +31,19 @@ watch(tierMenuDemoSlotKey, (key, previousKey) => {
   if (previousKey) openStateMap[previousKey] = false;
   if (key) openStateMap[key] = true;
 });
+
+function isDemoTrigger(slotKey: string): boolean {
+  return tierTriggerDemoSlotKey.value === slotKey || tierMenuDemoSlotKey.value === slotKey;
+}
+
+function isDemoMenu(slotKey: string): boolean {
+  return tierMenuDemoSlotKey.value === slotKey;
+}
+
+function handleOpenChange(slotKey: string, open: boolean) {
+  if (isDemoMenu(slotKey) || isDemoTrigger(slotKey)) return;
+  openStateMap[slotKey] = open;
+}
 
 function hasTierItems(slot: TierSlotDescriptor): boolean {
   return slot.items.some((i) => i.type === 'tier' && Boolean(i.valMin || i.valMax));
@@ -195,7 +208,8 @@ function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpe
   <template v-for="slot in activeTierSlots" :key="slot.key">
     <DropdownMenu
       v-if="slot.targetEl && slot.targetEl.isConnected"
-      v-model:open="openStateMap[slot.key]"
+      :open="openStateMap[slot.key]"
+      @update:open="(open) => handleOpenChange(slot.key, open)"
     >
       <Teleport :to="slot.targetEl">
         <DropdownMenuTrigger as-child>
@@ -204,6 +218,9 @@ function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpe
             class="btn poexd-tier-trigger"
             :data-tier-slot-key="slot.key"
             :title="t('tierDropdown.triggerTitle')"
+            :tabindex="isDemoTrigger(slot.key) ? -1 : undefined"
+            :inert="isDemoTrigger(slot.key) || undefined"
+            :style="isDemoTrigger(slot.key) ? { pointerEvents: 'none' } : undefined"
           >
             T
           </button>
@@ -216,8 +233,32 @@ function toggleTierSelection(slot: TierSlotDescriptor, item: TierDropdownItemSpe
         :side-offset="4"
         :collision-padding="8"
         :hide-when-detached="true"
-        class="overflow-hidden flex flex-col gap-[var(--pxd-space-xs)] max-h-[min(var(--pxd-tier-menu-max-height,420px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))]"
+        :inert="isDemoMenu(slot.key) || undefined"
+        :class="[
+          'overflow-hidden flex flex-col gap-[var(--pxd-space-xs)] max-h-[min(var(--pxd-tier-menu-max-height,420px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))]',
+          isDemoMenu(slot.key) ? 'pointer-events-none select-none' : '',
+        ]"
         :style="{ '--pxd-menu-max-height': '420px' }"
+        @interact-outside="
+          (e) => {
+            if (isDemoMenu(slot.key)) e.preventDefault();
+          }
+        "
+        @pointer-down-outside="
+          (e) => {
+            if (isDemoMenu(slot.key)) e.preventDefault();
+          }
+        "
+        @focus-outside="
+          (e) => {
+            if (isDemoMenu(slot.key)) e.preventDefault();
+          }
+        "
+        @escape-key-down="
+          (e) => {
+            if (isDemoMenu(slot.key)) e.preventDefault();
+          }
+        "
       >
         <!-- 1. 頂部固定控制區：類別切換橫跨上方；單欄時含微調列 -->
         <div class="flex flex-col shrink-0 gap-[var(--pxd-space-xs)]">

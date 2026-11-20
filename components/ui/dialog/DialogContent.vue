@@ -7,6 +7,8 @@ import { DialogContent, DialogOverlay, DialogPortal, useForwardPropsEmits } from
 import DialogClose from './DialogClose.vue';
 import { cn } from '@/lib/utils';
 
+defineOptions({ inheritAttrs: false });
+
 export type DialogLayer = 'base' | 'nested' | 'system';
 
 const LAYER_CLASSES: Record<DialogLayer, string> = {
@@ -25,6 +27,7 @@ const props = withDefaults(
       overlayMousedown?: (event: MouseEvent) => void;
       overlayMouseup?: (event: MouseEvent) => void;
       closeClass?: HTMLAttributes['class'];
+      inert?: boolean;
     }
   >(),
   {
@@ -34,7 +37,7 @@ const props = withDefaults(
 );
 const emits = defineEmits<DialogContentEmits>();
 
-const baseDelegated = reactiveOmit(props, 'class', 'overlayClass');
+const baseDelegated = reactiveOmit(props, 'class', 'overlayClass', 'inert');
 const delegatedProps = reactiveOmit(
   baseDelegated,
   'layer',
@@ -119,7 +122,8 @@ const handleCloseAutoFocus = (event: DialogContentEmits['closeAutoFocus'][0]) =>
     />
     <DialogContent
       data-slot="dialog-content"
-      v-bind="forwarded"
+      v-bind="{ ...$attrs, ...forwarded }"
+      :inert="props.inert || undefined"
       :class="
         cn(
           'fixed grid gap-4 box-border border border-border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 rounded-lg',
