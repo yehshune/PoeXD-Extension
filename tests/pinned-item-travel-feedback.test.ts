@@ -106,12 +106,12 @@ describe('PinnedItemPane travel feedback', () => {
     unmount = () => app.unmount();
     await flush();
 
-    // Expand the item so the full action button is rendered
+    // Expand the item; hover actions remain in the top-right bar
     container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
     await flush();
 
     const btn = container.querySelector<HTMLButtonElement>('[data-pinned-item-travel]')!;
-    expect(btn.textContent).toContain('前往藏身處');
+    expect(btn.getAttribute('aria-label')).toBe('前往藏身處');
     expect(btn.disabled).toBe(false);
     expect(btn.querySelector('.animate-spin')).toBeNull();
 
@@ -121,7 +121,7 @@ describe('PinnedItemPane travel feedback', () => {
 
     expect(btn.disabled).toBe(true);
     expect(btn.getAttribute('aria-busy')).toBe('true');
-    expect(btn.textContent).toContain('更新物品中…');
+    expect(btn.getAttribute('aria-label')).toBe('更新物品中…');
     expect(btn.querySelector('.animate-spin')).not.toBeNull();
     expect(container.querySelector('[data-pinned-item-busy]')?.textContent).toContain(
       '更新物品中…',
@@ -133,7 +133,7 @@ describe('PinnedItemPane travel feedback', () => {
 
     expect(btn.disabled).toBe(true);
     expect(btn.getAttribute('aria-busy')).toBe('true');
-    expect(btn.textContent).toContain('傳送中…');
+    expect(btn.getAttribute('aria-label')).toBe('傳送中…');
     expect(container.querySelector('[data-pinned-item-busy]')?.textContent).toContain('傳送中…');
 
     resolveTravel?.({ status: 'teleporting' });
@@ -141,7 +141,7 @@ describe('PinnedItemPane travel feedback', () => {
 
     expect(btn.disabled).toBe(false);
     expect(btn.getAttribute('aria-busy')).toBeNull();
-    expect(btn.textContent).toContain('已傳送');
+    expect(btn.getAttribute('aria-label')).toBe('已傳送');
     expect(btn.querySelector('.animate-spin')).toBeNull();
     expect(container.querySelector('[data-pinned-item-busy]')).toBeNull();
   });
@@ -165,7 +165,7 @@ describe('PinnedItemPane travel feedback', () => {
     expect(mockMarkSold).toHaveBeenCalledWith('p1');
     expect(container.querySelector('[data-pinned-item-sold]')).not.toBeNull();
     expect(btn.disabled).toBe(true);
-    expect(btn.textContent).toContain('已售出');
+    expect(btn.getAttribute('aria-label')).toBe('已售出');
 
     // Subsequent clicks do not re-trigger travel once marked sold
     btn.click();
@@ -177,7 +177,7 @@ describe('PinnedItemPane travel feedback', () => {
     await flush();
     expect(container.querySelector('[data-pinned-item-sold]')).toBeNull();
     expect(btn.disabled).toBe(false);
-    expect(btn.textContent).toContain('前往藏身處');
+    expect(btn.getAttribute('aria-label')).toBe('前往藏身處');
   });
 
   it('omits instant-buyout badge and seller account from row meta, moves PoB copy into row menu when collapsed, and falls back to window.confirm when poexdConfirm is absent', async () => {
@@ -204,14 +204,15 @@ describe('PinnedItemPane travel feedback', () => {
       rowMenuTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await flush();
 
-      // Expanding the row replaces the collapsed summary row with the popup card + two-column footer
-      // (framed icon on the left; price, collapse button, pinnedAt & seller details on the right)
+      // Expanding keeps the top summary row (without the small icon) with left framed large icon,
+      // middle details, hover controls in the top-right, and popup card below
       container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
       await flush();
-      expect(container.querySelector('[data-pinned-item-name]')).toBeNull();
+      expect(container.querySelector('[data-pinned-item-name]')).not.toBeNull();
       expect(container.querySelector('[data-pinned-item-price]')).not.toBeNull();
-      expect(container.querySelector('[data-pinned-item-pob]')).not.toBeNull();
-      expect(container.querySelector('[data-pinned-item-icon-frame]')).not.toBeNull();
+      expect(container.querySelector('[data-result-row-icon]')).toBeNull();
+      expect(container.querySelector('[data-result-row-expanded-icon]')).not.toBeNull();
+      expect(container.querySelector('[data-pinned-item-pob]')).toBeNull();
       expect(container.querySelector('[data-pinned-item-pinned-at]')?.textContent).toContain(
         '釘選於',
       );
@@ -221,6 +222,8 @@ describe('PinnedItemPane travel feedback', () => {
       container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
       await flush();
       expect(container.querySelector('[data-pinned-item-name]')).not.toBeNull();
+      expect(container.querySelector('[data-result-row-icon]')).not.toBeNull();
+      expect(container.querySelector('[data-result-row-expanded-icon]')).toBeNull();
 
       const trigger = container.querySelector<HTMLElement>('[data-pinned-items-clear]')!;
       trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));

@@ -7,6 +7,7 @@ export function createVersionedStorageKeys(version: PoeVersion) {
     activeTab: key('activeTab'),
     bookmarkCollapsedGroups: key('bookmarkCollapsedGroups'),
     isCollapsed: key('isCollapsed'),
+    resultBoardSearchVisible: key('resultBoardSearchVisible'),
   } as const;
 }
 

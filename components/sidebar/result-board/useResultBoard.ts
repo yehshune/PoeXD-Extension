@@ -69,6 +69,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   /** 使用者取消勾選的結果 id（預設勾選每位賣家的可直購結果） */
   const unpicked = ref<ReadonlySet<string>>(new Set());
   const expandedIds = ref<ReadonlySet<string>>(new Set());
+  const expandedSellers = ref<ReadonlySet<string>>(new Set());
 
   let disposed = false;
   const cleanups: (() => void)[] = [];
@@ -80,6 +81,16 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   }
 
   const entries = computed(() => state.value.ledger.entries);
+  const hasMixedInstantBuyout = computed(() => {
+    let hasInstant = false;
+    let hasWhisperOnly = false;
+    for (const entry of entries.value) {
+      if (entry.instantBuyout) hasInstant = true;
+      else hasWhisperOnly = true;
+      if (hasInstant && hasWhisperOnly) return true;
+    }
+    return false;
+  });
   const conversionAvailable = computed(() => rates.value !== undefined);
   const sortModes = computed(() => availableSortModes(conversionAvailable.value));
   const listedCount = computed(() => {
@@ -92,7 +103,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       filterEntries(
         entries.value,
         {
-          instantBuyoutOnly: instantOnly.value,
+          instantBuyoutOnly: hasMixedInstantBuyout.value && instantOnly.value,
           keyword: keyword.value,
           hiddenAccounts: state.value.hiddenAccounts,
           priceMin: parseBound(priceMinText.value),
@@ -142,12 +153,46 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   }
 
   const isExpanded = (id: string): boolean => expandedIds.value.has(id);
+  const isSellerExpanded = (account: string): boolean => expandedSellers.value.has(account);
+  const hasAnyExpanded = computed(() =>
+    view.value === 'items'
+      ? filteredEntries.value.some((entry) => expandedIds.value.has(entry.id))
+      : sellers.value.some((seller) => expandedSellers.value.has(seller.account)) ||
+        expandedIds.value.size > 0,
+  );
+  const canToggleExpandAll = computed(
+    () =>
+      hasAnyExpanded.value ||
+      (view.value === 'items' ? filteredEntries.value.length > 0 : sellers.value.length > 0),
+  );
 
   function toggleExpanded(id: string): void {
     const next = new Set(expandedIds.value);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     expandedIds.value = next;
+  }
+
+  function toggleSellerExpanded(account: string): void {
+    const next = new Set(expandedSellers.value);
+    if (next.has(account)) next.delete(account);
+    else next.add(account);
+    expandedSellers.value = next;
+  }
+
+  function toggleExpandAll(): void {
+    if (hasAnyExpanded.value) {
+      expandedIds.value = new Set();
+      if (view.value === 'sellers') expandedSellers.value = new Set();
+      return;
+    }
+    if (view.value === 'items') {
+      if (filteredEntries.value.length === 0) return;
+      expandedIds.value = new Set(filteredEntries.value.map((entry) => entry.id));
+      return;
+    }
+    if (sellers.value.length === 0) return;
+    expandedSellers.value = new Set(sellers.value.map((seller) => seller.account));
   }
 
   /** 展開時的卡片：用官方結果列擷取的卡片與快取裡的物品資料（與釘選相同的渲染） */
@@ -184,6 +229,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     () => {
       unpicked.value = new Set();
       expandedIds.value = new Set();
+      expandedSellers.value = new Set();
       isLiveMode.value = getTradePageMode() === 'live';
     },
   );
@@ -225,6 +271,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     priceMaxText,
     minSellerCount,
     entries,
+    hasMixedInstantBuyout,
     listedCount,
     conversionAvailable,
     filteredEntries,
@@ -235,7 +282,12 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     pickedOf,
     pickedTotal,
     isExpanded,
+    isSellerExpanded,
+    hasAnyExpanded,
+    canToggleExpandAll,
     toggleExpanded,
+    toggleSellerExpanded,
+    toggleExpandAll,
     cardSnapshot,
     locate,
     travel,

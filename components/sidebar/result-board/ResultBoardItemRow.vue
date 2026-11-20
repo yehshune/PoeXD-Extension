@@ -18,7 +18,7 @@ import ResultPriceLabel from '../result-row/ResultPriceLabel.vue';
 import ResultSummaryRow from '../result-row/ResultSummaryRow.vue';
 import {
   currencyDisplayOf,
-  entryTitle,
+  entryNameLines,
   formatAge,
   formatAmount,
   rarityColour,
@@ -104,18 +104,38 @@ const toggleLabel = computed(() =>
           />
         </span>
       </template>
+      <template #expanded-icon>
+        <PinnedItemCardView v-if="snapshot" :snapshot="snapshot" :collapsed="false" part="icon" />
+        <img
+          v-else-if="entry.icon"
+          :src="entry.icon"
+          alt=""
+          class="max-h-[68px] max-w-[68px] object-contain"
+          referrerpolicy="no-referrer"
+          draggable="false"
+        />
+      </template>
       <template #title>
         <span
-          class="truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight"
+          class="text-[length:var(--pxd-font-body)] font-semibold leading-tight"
+          :class="expanded ? 'line-clamp-2 break-words' : 'truncate'"
           :style="{ color: rarityColour(entry) }"
           data-board-entry-name
-          >{{ entryTitle(entry) }}</span
         >
+          <span
+            v-for="(line, index) in entryNameLines(entry)"
+            :key="index"
+            class="item-popup__header-line"
+            :class="{ 'ml-[0.35em]': index > 0 }"
+            >{{ line }}</span
+          >
+        </span>
       </template>
       <template #meta>
         <span
           v-if="meta"
-          class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
+          class="text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
+          :class="expanded ? 'line-clamp-2 break-words' : 'truncate'"
           data-board-entry-meta
           >{{ meta }}</span
         >
@@ -199,6 +219,7 @@ const toggleLabel = computed(() =>
         v-if="snapshot"
         :snapshot="snapshot"
         :collapsed="false"
+        part="popup"
         data-board-entry-card
       />
       <p

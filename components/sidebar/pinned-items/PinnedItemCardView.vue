@@ -46,8 +46,13 @@ const LOCAL_STYLE = `
   #trade .item-popup__header,
   #trade .itemPopupAdditional { user-select: text; cursor: text; }
 
+  /* 官方頁面 body 為 13px（.item-popup 設 110% → 14.3px），不能繼承側邊欄的 --pxd-font-secondary（12px） */
   #trade {
-    width: auto; min-width: 0; min-height: 0; margin: 0; padding: 0; background: none;
+    container-type: inline-size;
+    width: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; background: none;
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    line-height: 1.3;
   }
   #trade .results { width: auto; min-width: 0; margin: 0; padding: 0; border: 0; }
   #trade .resultset { margin: 0; padding: 0; }
@@ -94,7 +99,7 @@ const LOCAL_STYLE = `
   #trade .row > .middle {
     flex: 1 1 auto; min-width: 0; width: 100%; margin: 0; padding: 0; overflow: hidden;
   }
-  #trade .item-popup { width: 100%; min-width: 0; max-width: none; margin: 0; }
+  #trade .item-popup { width: 100%; min-width: 0; max-width: none; margin: 0; pointer-events: auto; }
   /* 適度收斂左右飾條留白，讓雙語／長物品名稱更完整 */
   #trade .item-popup__header--item { padding-left: 24px; padding-right: 24px; }
   #trade .item-popup__header--double { padding-left: 34px; padding-right: 34px; }
@@ -104,12 +109,9 @@ const LOCAL_STYLE = `
   #trade .item-popup__header-line {
     display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   }
-  /* 依官網 Default 樣式把 P/S 階級與數值區間放在詞綴左側；以對稱三欄 Grid 維持詞綴正文置中且避免窄欄重疊 */
+  /* 左側 P/S 階級與數值區間與官方同字級；寬度足夠時顯示階級，窄欄預設隱藏，hover 詞綴時疊加在左側不擠壓正文 */
   #trade .item-popup .item-mod {
-    display: grid;
-    grid-template-columns: minmax(auto, 1fr) minmax(0, auto) minmax(auto, 1fr);
-    align-items: baseline;
-    column-gap: 6px;
+    position: relative;
     padding: 0 8px;
   }
   #trade .item-popup .item-mod > .lc {
@@ -118,26 +120,44 @@ const LOCAL_STYLE = `
     padding: 0;
   }
   #trade .item-popup .item-mod > .lc:not(.l):not(.r) {
-    grid-column: 2;
-    grid-row: 1;
-    min-width: 0;
+    display: block;
     text-align: center;
+    padding: 0 36px;
   }
   #trade .item-popup .item-mod > .lc.l {
-    grid-column: 1;
-    grid-row: 1;
-    position: static;
-    left: auto;
+    position: absolute;
+    left: 8px;
+    top: 0;
     right: auto;
-    justify-self: start;
+    z-index: 1;
     text-align: left;
-    font-size: 0.8em;
+    font-size: 1em;
     opacity: 0.82;
   }
   #trade .item-popup .item-mod > .lc.l .d {
+    display: none;
+    background: rgba(0, 0, 0, 0.95);
+    padding: 0 4px 0 0;
+  }
+  #trade .item-popup .item-mod:hover > .lc.l {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.95);
+    padding-right: 4px;
+  }
+  #trade .item-popup .item-mod:hover > .lc.l .d {
     display: inline;
-    background: none;
-    padding: 0;
+  }
+  @container (max-width: 460px) {
+    #trade .item-popup .item-mod > .lc:not(.l):not(.r) {
+      padding: 0;
+    }
+    #trade .item-popup .item-mod > .lc.l {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #trade .item-popup .item-mod:hover > .lc.l {
+      opacity: 1;
+    }
   }
   #trade .item-popup .item-mod > .lc.r {
     display: none;

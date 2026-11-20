@@ -56,6 +56,29 @@ describe('ResultSummaryRow', () => {
     expect(container.querySelector('.pxd-hover-actions-overlay [data-act]')).not.toBeNull();
   });
 
+  it('hides the icon box when expanded and renders expanded-icon slot when provided', () => {
+    const container = mount(() =>
+      h('ul', [
+        h('li', { class: 'group' }, [
+          h(
+            ResultSummaryRow,
+            { icon: ICON, expanded: true },
+            {
+              'expanded-icon': () => h('div', { 'data-big-icon': '' }),
+              actions: () => h('button', 'x'),
+            },
+          ),
+        ]),
+      ]),
+    );
+    expect(container.querySelector('[data-result-row-icon]')).toBeNull();
+    expect(
+      container.querySelector('[data-result-row-expanded-icon] [data-big-icon]'),
+    ).not.toBeNull();
+    const overlay = container.querySelector<HTMLElement>('.pxd-hover-actions-overlay');
+    expect(overlay?.style.getPropertyValue('--pxd-hover-overlay-bg')).toContain('20%');
+  });
+
   it('omits the actions overlay when there are no actions', () => {
     const container = mount(() => h(ResultSummaryRow, {}));
     expect(container.querySelector('.pxd-hover-actions-overlay')).toBeNull();

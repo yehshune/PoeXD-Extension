@@ -20,6 +20,11 @@ export function entryTitle(entry: BoardEntry): string {
   return [entry.name, entry.typeLine].filter(Boolean).join(' ');
 }
 
+/** 名稱與基底拆成獨立行，供市集漢化（.item-popup__header-line）比對單行／雙行標題 */
+export function entryNameLines(entry: BoardEntry): string[] {
+  return [entry.name, entry.typeLine].filter(Boolean);
+}
+
 const RELATIVE_UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
   ['day', 86_400_000],
   ['hour', 3_600_000],

@@ -3,8 +3,17 @@
  * 搜尋結果看板（CONTEXT.md「Result Board」）：這次搜尋已取得的結果，以物品清單或賣家清單檢視。
  * 不改動官方結果列；載入更多透過官方按鈕（ADR-0018）。
  */
-import { ref } from 'vue';
-import { ArrowUpDown, Check, LayoutList, Loader2, Search, X } from '@lucide/vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import {
+  ArrowUpDown,
+  Check,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  LayoutList,
+  Loader2,
+  Search,
+  X,
+} from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -16,12 +25,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { t, type I18nKey } from '@/utils/i18n';
+import { requestResultTranslation } from '@/utils/market-result-translation-request';
 import type { BoardSortMode } from '@/utils/result-board/board-query';
+import { createVersionedStorageKeys } from '@/utils/storage-contracts';
+import { getPoeVersion } from '@/utils/trade-context';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
 import ResultBoardSellerRow from './ResultBoardSellerRow.vue';
-import { formatAmount, stopMessage } from './result-board-format';
+import { currencyDisplayOf, formatAmount, stopMessage } from './result-board-format';
 import { useResultBoard } from './useResultBoard';
 
 const board = useResultBoard();
@@ -39,15 +51,72 @@ const {
   priceMaxText,
   minSellerCount,
   entries,
+  hasMixedInstantBuyout,
   listedCount,
   conversionAvailable,
   filteredEntries,
   sellers,
   priceSummary,
+  hasAnyExpanded,
+  canToggleExpandAll,
   canLoadMore,
 } = board;
 
+const primaryCurrency = computed(() =>
+  currencyDisplayOf(rates.value?.primary, state.value.currencies),
+);
+
 const isSortMenuOpen = ref(false);
+const isSearchVisible = ref(false);
+const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
+const itemsListRef = ref<HTMLElement | null>(null);
+const sellersListRef = ref<HTMLElement | null>(null);
+const searchStorageKey = createVersionedStorageKeys(getPoeVersion()).resultBoardSearchVisible;
+let searchUserToggled = false;
+
+onMounted(() => {
+  const storage = typeof chrome !== 'undefined' ? chrome.storage?.local : undefined;
+  if (!storage?.get) return;
+  void storage
+    .get([searchStorageKey])
+    .then((data: Record<string, unknown>) => {
+      if (searchUserToggled) return;
+      isSearchVisible.value = data?.[searchStorageKey] === true;
+    })
+    .catch(() => {});
+});
+
+watch(itemsListRef, (list) => {
+  if (list) requestResultTranslation(list);
+});
+watch(sellersListRef, (list) => {
+  if (list) requestResultTranslation(list);
+});
+
+function persistSearchVisible(visible: boolean): void {
+  const storage = typeof chrome !== 'undefined' ? chrome.storage?.local : undefined;
+  if (!storage?.set) return;
+  void storage.set({ [searchStorageKey]: visible }).catch(() => {});
+}
+
+async function toggleSearch(): Promise<void> {
+  searchUserToggled = true;
+  if (isSearchVisible.value) {
+    closeSearch();
+    return;
+  }
+  isSearchVisible.value = true;
+  persistSearchVisible(true);
+  await nextTick();
+  (searchInputRef.value?.$el as HTMLInputElement | undefined)?.focus?.();
+}
+
+function closeSearch(): void {
+  searchUserToggled = true;
+  isSearchVisible.value = false;
+  keyword.value = '';
+  persistSearchVisible(false);
+}
 
 const SORT_LABEL_KEYS: Readonly<Record<BoardSortMode, I18nKey>> = {
   official: 'resultBoard.sort.official',
@@ -89,8 +158,13 @@ function setMinSellerCount(value: string | number): void {
 <template>
   <SidebarPane data-pane="result-board" class="result-board-pane">
     <template #fixed>
-      <div class="flex flex-col gap-[var(--pxd-space-sm)] pb-[var(--pxd-space-md)]">
-        <div class="flex items-center gap-[var(--pxd-space-sm)] min-w-0">
+      <div
+        v-if="entries.length > 0 || state.searchId || loaderState.running"
+        class="flex flex-col gap-[var(--pxd-space-xs)] pb-[var(--pxd-space-sm)]"
+      >
+        <div
+          class="flex min-h-[var(--control-height-sm)] items-center gap-[var(--pxd-space-sm)] min-w-0"
+        >
           <span
             class="flex-1 truncate text-[length:var(--pxd-font-body)] text-foreground tabular-nums"
             data-board-status
@@ -102,62 +176,76 @@ function setMinSellerCount(value: string | number): void {
               {{ t('resultBoard.load.stop') }}
             </Button>
           </template>
-          <template v-else>
-            <Button
-              variant="secondary"
-              size="sm"
-              :disabled="!canLoadMore || !state.searchId"
-              data-board-load-next
-              @click="board.loadNext"
-            >
+          <template v-else-if="canLoadMore && state.searchId">
+            <Button variant="secondary" size="sm" data-board-load-next @click="board.loadNext">
               {{ t('resultBoard.load.next') }}
             </Button>
-            <Button
-              size="sm"
-              :disabled="!canLoadMore || !state.searchId"
-              data-board-load-all
-              @click="board.loadAll"
-            >
+            <Button size="sm" data-board-load-all @click="board.loadAll">
               {{ t('resultBoard.load.all') }}
             </Button>
           </template>
+          <span
+            v-else-if="
+              entries.length > 0 && (!loaderState.lastStop || loaderState.lastStop === 'complete')
+            "
+            class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"
+            data-board-stop-reason
+          >
+            {{ stopMessage('complete') }}
+          </span>
         </div>
-        <p
-          v-if="!loaderState.running && loaderState.lastStop"
-          class="m-0 text-[length:var(--pxd-font-micro)]"
-          :class="
-            loaderState.lastStop === 'complete' || loaderState.lastStop === 'stopped'
-              ? 'text-muted-foreground'
-              : 'text-destructive'
+        <div
+          v-if="
+            (!loaderState.running && loaderState.lastStop && loaderState.lastStop !== 'complete') ||
+            matchedText() ||
+            summaryText()
           "
-          data-board-stop-reason
+          class="flex flex-col gap-[2px]"
         >
-          {{ stopMessage(loaderState.lastStop) }}
-        </p>
-        <p
-          v-if="matchedText()"
-          class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"
-        >
-          {{ matchedText() }}
-        </p>
-        <p
-          v-if="summaryText()"
-          class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
-          data-board-price-summary
-        >
-          {{ summaryText() }}
-        </p>
+          <p
+            v-if="
+              !loaderState.running && loaderState.lastStop && loaderState.lastStop !== 'complete'
+            "
+            class="m-0 text-[length:var(--pxd-font-micro)]"
+            :class="
+              loaderState.lastStop === 'stopped' ? 'text-muted-foreground' : 'text-destructive'
+            "
+            data-board-stop-reason
+          >
+            {{ stopMessage(loaderState.lastStop) }}
+          </p>
+          <p
+            v-if="matchedText()"
+            class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"
+          >
+            {{ matchedText() }}
+          </p>
+          <p
+            v-if="summaryText()"
+            class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
+            data-board-price-summary
+          >
+            {{ summaryText() }}
+          </p>
+        </div>
       </div>
-      <Separator class="mb-[var(--pxd-space-md)]" />
+      <Separator
+        v-if="entries.length > 0 || state.searchId || loaderState.running"
+        class="mb-[var(--pxd-space-sm)]"
+      />
 
       <div class="flex flex-col gap-[var(--pxd-space-sm)] pb-[var(--pxd-space-md)]">
         <div class="flex items-center gap-[var(--pxd-space-sm)]">
-          <div class="flex rounded-md border border-border p-[2px]" role="tablist">
+          <div
+            class="flex h-[var(--control-height-sm)] items-center rounded-md border border-border p-[2px]"
+            role="tablist"
+          >
             <Button
               v-for="option in ['items', 'sellers'] as const"
               :key="option"
               :variant="view === option ? 'default' : 'ghost'"
               size="sm"
+              class="h-full px-[var(--pxd-space-sm)]"
               role="tab"
               :aria-selected="view === option"
               :data-board-view="option"
@@ -195,18 +283,54 @@ function setMinSellerCount(value: string | number): void {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            :variant="isSearchVisible ? 'default' : 'secondary'"
+            size="icon-sm"
+            class="shrink-0"
+            data-board-search-toggle
+            :aria-expanded="isSearchVisible"
+            :title="
+              isSearchVisible ? t('bookmark.search.closeTooltip') : t('resultBoard.filter.keyword')
+            "
+            :aria-label="
+              isSearchVisible ? t('bookmark.search.closeTooltip') : t('resultBoard.filter.keyword')
+            "
+            @click="toggleSearch"
+          >
+            <Search />
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            class="shrink-0"
+            data-board-expand-toggle
+            :disabled="!canToggleExpandAll"
+            :aria-pressed="hasAnyExpanded"
+            :title="
+              hasAnyExpanded ? t('bookmark.action.collapseAll') : t('bookmark.action.expandAll')
+            "
+            :aria-label="
+              hasAnyExpanded ? t('bookmark.action.collapseAll') : t('bookmark.action.expandAll')
+            "
+            @click="board.toggleExpandAll"
+          >
+            <ChevronsDownUp v-if="hasAnyExpanded" />
+            <ChevronsUpDown v-else />
+          </Button>
         </div>
 
-        <div class="relative flex items-center">
+        <div v-if="isSearchVisible" class="relative flex items-center">
           <Search
             class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
           />
           <Input
+            ref="searchInputRef"
             v-model="keyword"
             size="sm"
             :placeholder="t('resultBoard.filter.keyword')"
-            class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))]"
+            class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))]"
             data-board-keyword
+            @keydown.esc.stop.prevent="closeSearch"
           />
           <Button
             v-if="keyword"
@@ -220,19 +344,26 @@ function setMinSellerCount(value: string | number): void {
           </Button>
         </div>
 
-        <div v-if="view === 'items'" class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]">
+        <div
+          v-if="view === 'items' && (hasMixedInstantBuyout || conversionAvailable)"
+          class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]"
+        >
           <label
+            v-if="hasMixedInstantBuyout"
             class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] cursor-pointer select-none"
           >
             <Checkbox v-model="instantOnly" data-board-instant-only />
             {{ t('resultBoard.filter.instantOnly') }}
           </label>
-          <template v-if="conversionAvailable">
+          <div
+            v-if="conversionAvailable"
+            class="inline-flex items-center gap-[var(--pxd-space-xs)]"
+          >
             <Input
               v-model="priceMinText"
               size="sm"
               inputmode="decimal"
-              class="w-[5.5em]"
+              class="w-[5.2em] tabular-nums"
               :placeholder="t('resultBoard.filter.priceMin')"
               data-board-price-min
             />
@@ -241,31 +372,68 @@ function setMinSellerCount(value: string | number): void {
               v-model="priceMaxText"
               size="sm"
               inputmode="decimal"
-              class="w-[5.5em]"
+              class="w-[5.2em] tabular-nums"
               :placeholder="t('resultBoard.filter.priceMax')"
               data-board-price-max
             />
-            <span class="text-[length:var(--pxd-font-micro)] text-muted-foreground">{{
+            <img
+              v-if="primaryCurrency?.icon"
+              :src="primaryCurrency.icon"
+              :alt="rates?.primary"
+              :title="primaryCurrency.name ?? rates?.primary"
+              class="size-[var(--control-icon-default)] shrink-0 object-contain"
+              referrerpolicy="no-referrer"
+              draggable="false"
+            />
+            <span v-else class="text-[length:var(--pxd-font-micro)] text-muted-foreground">{{
               rates?.primary
             }}</span>
-          </template>
+            <Button
+              v-if="priceMinText || priceMaxText"
+              variant="ghost"
+              size="icon-sm"
+              :aria-label="t('bookmark.search.clearTooltip')"
+              :title="t('bookmark.search.clearTooltip')"
+              data-board-price-clear
+              @click="
+                priceMinText = '';
+                priceMaxText = '';
+              "
+            >
+              <X />
+            </Button>
+          </div>
         </div>
-        <label
-          v-else
-          class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)]"
+        <div
+          v-else-if="view === 'sellers'"
+          class="flex flex-wrap items-center justify-between gap-[var(--pxd-space-sm)]"
         >
-          {{ t('resultBoard.filter.minCount') }}
-          <Input
-            :model-value="String(minSellerCount)"
+          <label
+            class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)]"
+          >
+            {{ t('resultBoard.filter.minCount') }}
+            <Input
+              :model-value="String(minSellerCount)"
+              size="sm"
+              type="number"
+              min="0"
+              class="w-[4em] tabular-nums"
+              data-board-min-count
+              @update:model-value="setMinSellerCount"
+            />
+            {{ t('resultBoard.filter.minCountUnit') }}
+          </label>
+          <Button
+            v-if="state.hiddenAccounts.size > 0"
+            variant="link"
             size="sm"
-            type="number"
-            min="0"
-            class="w-[4em]"
-            data-board-min-count
-            @update:model-value="setMinSellerCount"
-          />
-          {{ t('resultBoard.filter.minCountUnit') }}
-        </label>
+            class="h-auto p-0"
+            data-board-show-hidden
+            @click="board.showAllSellers"
+          >
+            {{ t('resultBoard.hidden.restore', { count: state.hiddenAccounts.size }) }}
+          </Button>
+        </div>
 
         <p
           v-if="!conversionAvailable && entries.length > 0"
@@ -275,10 +443,10 @@ function setMinSellerCount(value: string | number): void {
           {{ t('resultBoard.conversionUnavailable') }}
         </p>
         <Button
-          v-if="state.hiddenAccounts.size > 0"
+          v-if="view === 'items' && state.hiddenAccounts.size > 0"
           variant="link"
           size="sm"
-          class="self-start px-0"
+          class="h-auto self-start p-0"
           data-board-show-hidden
           @click="board.showAllSellers"
         >
@@ -307,6 +475,7 @@ function setMinSellerCount(value: string | number): void {
         </p>
         <ul
           v-else
+          ref="itemsListRef"
           class="m-0 list-none overflow-hidden rounded-md border border-border bg-card p-0"
           data-board-items
         >
@@ -337,6 +506,7 @@ function setMinSellerCount(value: string | number): void {
         </p>
         <ul
           v-else
+          ref="sellersListRef"
           class="m-0 list-none overflow-hidden rounded-md border border-border bg-card p-0"
           data-board-sellers
         >
@@ -351,9 +521,11 @@ function setMinSellerCount(value: string | number): void {
             :picked-total="board.pickedTotal(seller)"
             :is-picked="board.isPicked"
             :is-expanded="board.isExpanded"
+            :expanded="board.isSellerExpanded(seller.account)"
             :card-snapshot="board.cardSnapshot"
             @hide="board.hideSeller(seller.account)"
             @pick="board.togglePicked"
+            @toggle-seller="board.toggleSellerExpanded(seller.account)"
             @toggle="board.toggleExpanded"
             @locate="board.locate"
             @travel="board.travel"

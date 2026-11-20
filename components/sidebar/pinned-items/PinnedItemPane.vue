@@ -4,8 +4,8 @@ import Sortable from 'sortablejs';
 import {
   ArrowUpDown,
   Check,
-  ChevronUp,
   ChevronsDownUp,
+  ChevronsUpDown,
   Loader2,
   Pin,
   Search,
@@ -234,7 +234,7 @@ watch(listRef, (list) => {
 });
 
 /**
- * 收合時是一行精簡列（圖示、名稱、價格），點一下展開官方卡片快照與完整按鈕列。
+ * 收合時是一行精簡列（圖示、名稱、價格），展開後保留上方列（隱藏原始小圖示，控制按鍵維持在右上角 hover）並在下方顯示細節與官方卡片快照。
  * 展開狀態是這次瀏覽的暫時狀態，不保存。拖曳由 Sortable 判斷：按住移動才算拖曳，單純點擊會展開。
  */
 const expandedIds = ref<ReadonlySet<string>>(new Set());
@@ -257,10 +257,15 @@ function toggleExpanded(item: PinnedItemSnapshot): void {
 const hasAnyExpanded = computed(() =>
   filteredItems.value.some((item) => expandedIds.value.has(item.id)),
 );
+const canToggleExpandAll = computed(() => hasAnyExpanded.value || filteredItems.value.length > 0);
 
-function collapseAll(): void {
-  if (expandedIds.value.size === 0) return;
-  expandedIds.value = new Set();
+function toggleExpandAll(): void {
+  if (hasAnyExpanded.value) {
+    expandedIds.value = new Set();
+    return;
+  }
+  if (filteredItems.value.length === 0) return;
+  expandedIds.value = new Set(filteredItems.value.map((item) => item.id));
 }
 
 function rarityColour(item: PinnedItemSnapshot): string {
@@ -275,13 +280,6 @@ function nameLines(item: PinnedItemSnapshot): string[] {
   const name = unwrap(textOf(item.item.name));
   const typeLine = unwrap(textOf(item.item.typeLine) || textOf(item.item.baseType));
   return [name, typeLine].filter(Boolean);
-}
-
-/** 價格只顯示數量（官方的 `~b/o` / `~price` 前綴不顯示）；沒有通貨圖示時改顯示通貨代碼 */
-function priceAmount(item: PinnedItemSnapshot): string {
-  const price = item.listing.price;
-  if (!price) return t('pinnedItem.noPrice');
-  return price.icon ? `${price.amount}` : `${price.amount} ${price.currency}`;
 }
 
 /** 收合列第二行的灰色資訊（省略賣家帳號，僅保留上架時間與跨聯盟／分流提示） */
@@ -432,13 +430,19 @@ function expandedListingMeta(item: PinnedItemSnapshot): string {
           variant="secondary"
           size="icon-sm"
           class="shrink-0"
-          data-pinned-items-collapse-all
-          :disabled="!hasAnyExpanded"
-          :title="t('bookmark.action.collapseAll')"
-          :aria-label="t('bookmark.action.collapseAll')"
-          @click="collapseAll"
+          data-pinned-items-expand-toggle
+          :disabled="!canToggleExpandAll"
+          :aria-pressed="hasAnyExpanded"
+          :title="
+            hasAnyExpanded ? t('bookmark.action.collapseAll') : t('bookmark.action.expandAll')
+          "
+          :aria-label="
+            hasAnyExpanded ? t('bookmark.action.collapseAll') : t('bookmark.action.expandAll')
+          "
+          @click="toggleExpandAll"
         >
-          <ChevronsDownUp />
+          <ChevronsDownUp v-if="hasAnyExpanded" />
+          <ChevronsUpDown v-else />
         </Button>
         <DropdownMenu v-model:open="isClearMenuOpen">
           <DropdownMenuTrigger as-child>
@@ -549,236 +553,156 @@ function expandedListingMeta(item: PinnedItemSnapshot): string {
             :data-pinned-item-id="item.id"
             :data-expanded="isExpanded(item) ? '' : undefined"
           >
-            <template v-if="!isExpanded(item)">
-              <ResultSummaryRow
-                :icon="typeof item.item.icon === 'string' ? item.item.icon : undefined"
-                :dimmed="isSold(item)"
-                :draggable="canDrag"
-                data-pinned-item-toggle
-                :title="expandLabel(item)"
-                @toggle="toggleExpanded(item)"
-              >
-                <template #title>
-                  <span
-                    class="truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight"
-                    :style="{ color: rarityColour(item) }"
-                    data-pinned-item-name
-                  >
-                    <span
-                      v-for="(line, index) in nameLines(item)"
-                      :key="index"
-                      class="item-popup__header-line"
-                      :class="{ 'ml-[0.35em]': index > 0 }"
-                      >{{ line }}</span
-                    >
-                  </span>
-                </template>
-                <template #meta>
-                  <span
-                    v-if="metaParts(item).length > 0"
-                    class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
-                    data-pinned-item-meta
-                    >{{ metaParts(item).join(' · ') }}</span
-                  >
-                </template>
-                <template #price>
-                  <ResultPriceLabel
-                    :amount="
-                      item.listing.price ? `${item.listing.price.amount}` : t('pinnedItem.noPrice')
-                    "
-                    :currency="item.listing.price?.currency"
-                    :icon="item.listing.price?.icon"
-                    :currency-name="item.listing.price?.currencyName"
-                    :struck="isSold(item)"
-                    data-pinned-item-price
-                  />
-                  <span
-                    v-if="isSold(item)"
-                    class="rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-destructive"
-                    data-pinned-item-sold
-                    >{{ t('pinnedItem.sold') }}</span
-                  >
-                  <span
-                    v-else-if="states[item.id] === 'refreshing' || states[item.id] === 'traveling'"
-                    class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
-                    :class="
-                      states[item.id] === 'refreshing' ? 'text-muted-foreground' : 'text-primary'
-                    "
-                    data-pinned-item-busy
-                  >
-                    <Loader2
-                      class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
-                      aria-hidden="true"
-                    />
-                    {{
-                      states[item.id] === 'refreshing'
-                        ? t('pinnedItem.action.refreshing')
-                        : t('pinnedItem.action.traveling')
-                    }}
-                  </span>
-                </template>
-                <template #actions>
-                  <PinnedItemActions
-                    :item="item"
-                    :state="isSold(item) ? 'sold' : states[item.id]"
-                    :same-realm="sameRealm(item)"
-                    :can-copy-pob="canCopyPob(item)"
-                    :has-source="!!sourceUrl(item)"
-                    :full="false"
-                    @travel="travel(item)"
-                    @whisper="copyWhisper(item)"
-                    @pob="copyPob(item)"
-                    @source="openSource(item)"
-                    @unpin="unpin(item)"
-                  />
-                </template>
-              </ResultSummaryRow>
-            </template>
-
-            <div v-else class="flex flex-col bg-background">
-              <div
-                data-pinned-item-expanded-header
-                class="flex items-stretch gap-[var(--pxd-space-md)] border-b border-border/60 bg-card/50 p-[var(--pxd-space-md)]"
-              >
-                <div
-                  data-pinned-item-icon-frame
-                  class="size-[var(--pxd-pinned-icon-box-size,88px)] shrink-0 flex items-center justify-center overflow-hidden rounded-md border border-border/80 bg-black/55 p-[var(--pxd-space-xs)]"
+            <ResultSummaryRow
+              :icon="typeof item.item.icon === 'string' ? item.item.icon : undefined"
+              :dimmed="isSold(item)"
+              :draggable="canDrag"
+              :expanded="isExpanded(item)"
+              data-pinned-item-toggle
+              :title="expandLabel(item)"
+              @toggle="toggleExpanded(item)"
+            >
+              <template #expanded-icon>
+                <PinnedItemCardView :snapshot="item" :collapsed="false" part="icon" />
+              </template>
+              <template #title>
+                <span
+                  class="text-[length:var(--pxd-font-body)] font-semibold leading-tight"
+                  :class="isExpanded(item) ? 'line-clamp-2 break-words' : 'truncate'"
+                  :style="{ color: rarityColour(item) }"
+                  data-pinned-item-name
                 >
-                  <PinnedItemCardView :snapshot="item" :collapsed="false" part="icon" />
-                </div>
-                <div class="flex min-w-0 flex-1 flex-col justify-between gap-[var(--pxd-space-sm)]">
-                  <div class="flex min-w-0 items-start justify-between gap-[var(--pxd-space-sm)]">
-                    <div class="flex min-w-0 flex-wrap items-center gap-[var(--pxd-space-xs)]">
-                      <span
-                        class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
-                        :class="{ 'line-through opacity-70': isSold(item) }"
-                        data-pinned-item-price
-                      >
-                        {{ priceAmount(item) }}
-                        <img
-                          v-if="item.listing.price?.icon"
-                          :src="item.listing.price.icon"
-                          :alt="item.listing.price.currency"
-                          :title="item.listing.price.currencyName ?? item.listing.price.currency"
-                          class="block size-[var(--control-icon-lg)] shrink-0 object-contain"
-                          referrerpolicy="no-referrer"
-                          draggable="false"
-                          data-pinned-item-currency-icon
-                        />
-                      </span>
-                      <span
-                        v-if="priceComparisonOf(item)"
-                        data-pinned-item-price-conversion
-                        :title="priceComparisonOf(item)?.tooltip"
-                        class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-micro)] font-medium tabular-nums leading-none text-muted-foreground"
-                      >
-                        <span class="leading-none">≈ {{ priceComparisonOf(item)?.amount }}</span>
-                        <img
-                          :src="priceComparisonOf(item)?.icon"
-                          :alt="priceComparisonOf(item)?.currencyName"
-                          :title="priceComparisonOf(item)?.currencyName"
-                          class="block size-[var(--control-icon-default)] shrink-0 translate-y-[1px] object-contain"
-                          referrerpolicy="no-referrer"
-                          draggable="false"
-                          data-pinned-item-price-conversion-icon
-                        />
-                      </span>
-                      <span
-                        v-if="isSold(item)"
-                        class="rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-destructive"
-                        data-pinned-item-sold
-                        >{{ t('pinnedItem.sold') }}</span
-                      >
-                      <span
-                        v-else-if="
-                          states[item.id] === 'refreshing' || states[item.id] === 'traveling'
-                        "
-                        class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
-                        :class="
-                          states[item.id] === 'refreshing'
-                            ? 'text-muted-foreground'
-                            : 'text-primary'
-                        "
-                        data-pinned-item-busy
-                      >
-                        <Loader2
-                          class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
-                          aria-hidden="true"
-                        />
-                        {{
-                          states[item.id] === 'refreshing'
-                            ? t('pinnedItem.action.refreshing')
-                            : t('pinnedItem.action.traveling')
-                        }}
-                      </span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      class="-mr-[var(--pxd-space-xs)] -mt-[var(--pxd-space-xs)] shrink-0 text-muted-foreground"
-                      data-pinned-item-toggle
-                      :aria-expanded="true"
-                      :title="expandLabel(item)"
-                      :aria-label="expandLabel(item)"
-                      @click="toggleExpanded(item)"
-                    >
-                      <ChevronUp />
-                    </Button>
-                  </div>
-                  <div
-                    data-pinned-item-details
-                    class="flex min-w-0 flex-col gap-[2px] text-[length:var(--pxd-font-micro)] leading-snug text-muted-foreground"
+                  <span
+                    v-for="(line, index) in nameLines(item)"
+                    :key="index"
+                    class="item-popup__header-line"
+                    :class="{ 'ml-[0.35em]': index > 0 }"
+                    >{{ line }}</span
                   >
-                    <span
-                      v-if="formatFee(item.listing.fee)"
-                      data-pinned-item-fee
-                      :title="`${t('pinnedItem.meta.fee')}${formatFee(item.listing.fee)}`"
-                      class="inline-flex items-center gap-[3px] leading-none tabular-nums text-foreground/85"
-                    >
-                      <span class="leading-none">{{ t('pinnedItem.meta.fee') }}</span>
-                      <img
-                        :src="GOLD_COIN_ICON_URL"
-                        alt="Gold"
-                        class="block size-[var(--control-icon-sm)] shrink-0 object-contain"
-                        referrerpolicy="no-referrer"
-                        draggable="false"
-                        data-pinned-item-fee-icon
-                      />
-                      <span class="leading-none">{{ formatFee(item.listing.fee) }}</span>
-                    </span>
-                    <span
-                      v-if="formatPinnedAt(item.pinnedAt)"
-                      data-pinned-item-pinned-at
-                      class="truncate tabular-nums"
-                    >
-                      {{ t('pinnedItem.meta.pinnedAt', { time: formatPinnedAt(item.pinnedAt) }) }}
-                    </span>
-                    <span
-                      v-if="expandedListingMeta(item)"
-                      data-pinned-item-listing-meta
-                      class="truncate"
-                      :title="expandedListingMeta(item)"
-                    >
-                      {{ expandedListingMeta(item) }}
-                    </span>
-                  </div>
-                  <PinnedItemActions
-                    class="flex-wrap"
-                    :item="item"
-                    :state="isSold(item) ? 'sold' : states[item.id]"
-                    :same-realm="sameRealm(item)"
-                    :can-copy-pob="canCopyPob(item)"
-                    :has-source="!!sourceUrl(item)"
-                    :full="true"
-                    @travel="travel(item)"
-                    @whisper="copyWhisper(item)"
-                    @pob="copyPob(item)"
-                    @source="openSource(item)"
-                    @unpin="unpin(item)"
-                  />
+                </span>
+              </template>
+              <template #meta>
+                <span
+                  v-if="!isExpanded(item) && metaParts(item).length > 0"
+                  class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
+                  data-pinned-item-meta
+                  >{{ metaParts(item).join(' · ') }}</span
+                >
+              </template>
+              <template #expanded-details>
+                <div
+                  v-if="
+                    formatFee(item.listing.fee) ||
+                    formatPinnedAt(item.pinnedAt) ||
+                    expandedListingMeta(item)
+                  "
+                  data-pinned-item-details
+                  class="flex flex-col gap-[2px] text-[length:var(--pxd-font-micro)] leading-snug text-muted-foreground"
+                >
+                  <span
+                    v-if="formatFee(item.listing.fee)"
+                    data-pinned-item-fee
+                    :title="`${t('pinnedItem.meta.fee')}${formatFee(item.listing.fee)}`"
+                    class="inline-flex items-center gap-[3px] leading-none tabular-nums text-foreground/85"
+                  >
+                    <span class="leading-none">{{ t('pinnedItem.meta.fee') }}</span>
+                    <img
+                      :src="GOLD_COIN_ICON_URL"
+                      alt="Gold"
+                      class="block size-[var(--control-icon-sm)] shrink-0 object-contain"
+                      referrerpolicy="no-referrer"
+                      draggable="false"
+                      data-pinned-item-fee-icon
+                    />
+                    <span class="leading-none">{{ formatFee(item.listing.fee) }}</span>
+                  </span>
+                  <span
+                    v-if="formatPinnedAt(item.pinnedAt)"
+                    data-pinned-item-pinned-at
+                    class="truncate tabular-nums"
+                  >
+                    {{ t('pinnedItem.meta.pinnedAt', { time: formatPinnedAt(item.pinnedAt) }) }}
+                  </span>
+                  <span
+                    v-if="expandedListingMeta(item)"
+                    data-pinned-item-listing-meta
+                    class="break-words"
+                    :title="expandedListingMeta(item)"
+                  >
+                    {{ expandedListingMeta(item) }}
+                  </span>
                 </div>
-              </div>
+              </template>
+              <template #price>
+                <ResultPriceLabel
+                  :amount="
+                    item.listing.price ? `${item.listing.price.amount}` : t('pinnedItem.noPrice')
+                  "
+                  :currency="item.listing.price?.currency"
+                  :icon="item.listing.price?.icon"
+                  :currency-name="item.listing.price?.currencyName"
+                  :struck="isSold(item)"
+                  data-pinned-item-price
+                />
+                <span
+                  v-if="priceComparisonOf(item)"
+                  data-pinned-item-price-conversion
+                  :title="priceComparisonOf(item)?.tooltip"
+                  class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-micro)] font-medium tabular-nums leading-none text-muted-foreground"
+                >
+                  <span class="leading-none">≈ {{ priceComparisonOf(item)?.amount }}</span>
+                  <img
+                    :src="priceComparisonOf(item)?.icon"
+                    :alt="priceComparisonOf(item)?.currencyName"
+                    :title="priceComparisonOf(item)?.currencyName"
+                    class="block size-[var(--control-icon-default)] shrink-0 object-contain"
+                    referrerpolicy="no-referrer"
+                    draggable="false"
+                    data-pinned-item-price-conversion-icon
+                  />
+                </span>
+                <span
+                  v-if="isSold(item)"
+                  class="rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-destructive"
+                  data-pinned-item-sold
+                  >{{ t('pinnedItem.sold') }}</span
+                >
+                <span
+                  v-else-if="states[item.id] === 'refreshing' || states[item.id] === 'traveling'"
+                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
+                  :class="
+                    states[item.id] === 'refreshing' ? 'text-muted-foreground' : 'text-primary'
+                  "
+                  data-pinned-item-busy
+                >
+                  <Loader2
+                    class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
+                    aria-hidden="true"
+                  />
+                  {{
+                    states[item.id] === 'refreshing'
+                      ? t('pinnedItem.action.refreshing')
+                      : t('pinnedItem.action.traveling')
+                  }}
+                </span>
+              </template>
+              <template #actions>
+                <PinnedItemActions
+                  :item="item"
+                  :state="isSold(item) ? 'sold' : states[item.id]"
+                  :same-realm="sameRealm(item)"
+                  :can-copy-pob="canCopyPob(item)"
+                  :has-source="!!sourceUrl(item)"
+                  :full="false"
+                  @travel="travel(item)"
+                  @whisper="copyWhisper(item)"
+                  @pob="copyPob(item)"
+                  @source="openSource(item)"
+                  @unpin="unpin(item)"
+                />
+              </template>
+            </ResultSummaryRow>
+            <div v-if="isExpanded(item)" class="px-[var(--pxd-space-md)] pb-[var(--pxd-space-md)]">
               <PinnedItemCardView :snapshot="item" :collapsed="false" part="popup" />
             </div>
           </li>

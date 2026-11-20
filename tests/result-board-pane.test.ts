@@ -1,0 +1,284 @@
+// @vitest-environment happy-dom
+// @vitest-environment-options { "url": "https://www.pathofexile.com/trade/search/Covens" }
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createApp, h, nextTick } from 'vue';
+import ResultBoardPane from '@/components/sidebar/result-board/ResultBoardPane.vue';
+import { ResultBoardRuntime } from '@/entrypoints/content/logic/result-board-runtime';
+import { setActiveDisplayLocalePreference } from '@/utils/i18n';
+import { createResultTranslator } from '@/utils/market-result-translator';
+import { receiveResultTranslationRequests } from '@/utils/market-result-translation-request';
+import { TradeResultCache } from '@/utils/trade-result-cache';
+import { rawResult } from './helpers/result-board-fixtures';
+
+const { runtimeHolder, mockFetchCurrencyRates } = vi.hoisted(() => ({
+  runtimeHolder: { current: undefined as ResultBoardRuntime | undefined },
+  mockFetchCurrencyRates: vi.fn(async () => ({
+    primary: 'chaos',
+    rates: { chaos: 1, divine: 200 },
+  })),
+}));
+
+vi.mock('@/entrypoints/content/logic/result-board-runtime', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/entrypoints/content/logic/result-board-runtime')>();
+  return {
+    ...actual,
+    getResultBoardRuntime: () => runtimeHolder.current!,
+  };
+});
+
+vi.mock('@/entrypoints/content/logic/result-price-presenter', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/entrypoints/content/logic/result-price-presenter')>();
+  return {
+    ...actual,
+    fetchCurrencyRates: mockFetchCurrencyRates,
+  };
+});
+
+vi.mock('@/utils/trade-context', () => ({
+  getPoeVersion: () => 'poe1',
+  getTradeLeague: () => 'Covens',
+}));
+
+describe('ResultBoardPane interactions, translation, instant-only filter & persistent search', () => {
+  let container: HTMLElement;
+  let unmount: (() => void) | undefined;
+  let cache: TradeResultCache;
+  let runtime: ResultBoardRuntime;
+  let storageData: Record<string, unknown>;
+  let previousChrome: unknown;
+
+  const flush = async () => {
+    for (let i = 0; i < 4; i += 1) {
+      await nextTick();
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  };
+
+  beforeEach(() => {
+    setActiveDisplayLocalePreference('zh-TW');
+    storageData = {};
+    previousChrome = (globalThis as { chrome?: unknown }).chrome;
+    (globalThis as { chrome?: unknown }).chrome = {
+      storage: {
+        local: {
+          get: vi.fn(async (keys: string[]) => {
+            const out: Record<string, unknown> = {};
+            for (const key of keys) {
+              if (key in storageData) out[key] = storageData[key];
+            }
+            return out;
+          }),
+          set: vi.fn(async (patch: Record<string, unknown>) => {
+            Object.assign(storageData, patch);
+          }),
+        },
+      },
+    };
+    cache = new TradeResultCache();
+    runtime = new ResultBoardRuntime(cache, document);
+    runtimeHolder.current = runtime;
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    unmount?.();
+    unmount = undefined;
+    runtime.cleanup();
+    container.remove();
+    (globalThis as { chrome?: unknown }).chrome = previousChrome;
+  });
+
+  function ingest(entries: ReturnType<typeof rawResult>[], searchId = 'search-1') {
+    runtime.session.setSummary({
+      searchId,
+      resultCount: entries.length,
+      total: entries.length,
+      inexact: false,
+    });
+    for (const entry of entries) {
+      cache.ingestResult(
+        { ...entry, sourceSearchId: searchId },
+        { sourceSearchId: searchId, league: 'Covens' },
+      );
+    }
+    runtime.session.observeFetch(searchId);
+  }
+
+  it('translates result item names via .item-popup__header-line and requestResultTranslation', async () => {
+    const translator = createResultTranslator({
+      modLines: {},
+      items: { 'vaal regalia': '瓦爾法衣', 'heavy belt': '重革腰帶' },
+      labels: {},
+    });
+    const receiver = receiveResultTranslationRequests(document);
+    receiver.attach((root) => translator.translate(root));
+
+    try {
+      ingest([
+        rawResult({ id: 'r1', name: 'Doom Shell', typeLine: 'Vaal Regalia', frameType: 2 }),
+        rawResult({ id: 'r2', name: '', typeLine: 'Heavy Belt', frameType: 0 }),
+      ]);
+
+      const app = createApp({ render: () => h(ResultBoardPane) });
+      app.mount(container);
+      unmount = () => app.unmount();
+      await flush();
+
+      const names = Array.from(container.querySelectorAll('[data-board-entry-name]')).map((el) =>
+        el.textContent?.trim(),
+      );
+      expect(names).toEqual(['Doom Shell瓦爾法衣', '重革腰帶']);
+    } finally {
+      receiver.dispose();
+    }
+  });
+
+  it('shows instant-only checkbox only when results mix instant buyout and whisper-only listings', async () => {
+    ingest([
+      rawResult({ id: 'r1', instantBuyout: true }),
+      rawResult({ id: 'r2', instantBuyout: true }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    // All instant buyout -> checkbox hidden
+    expect(container.querySelector('[data-board-instant-only]')).toBeNull();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
+
+    // Mixed -> checkbox appears and filters
+    ingest([
+      rawResult({ id: 'r1', instantBuyout: true }),
+      rawResult({ id: 'r2', instantBuyout: true }),
+      rawResult({ id: 'r3', instantBuyout: false }),
+    ]);
+    await flush();
+
+    const checkbox = container.querySelector<HTMLElement>('[data-board-instant-only]');
+    expect(checkbox).not.toBeNull();
+    checkbox!.click();
+    await flush();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
+
+    // Next search is all whisper-only -> checkbox hides and does NOT trap user with empty filtered list
+    cache.clear();
+    ingest([rawResult({ id: 'w1', instantBuyout: false, searchId: 'search-2' })], 'search-2');
+    await flush();
+    expect(container.querySelector('[data-board-instant-only]')).toBeNull();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
+  });
+
+  it('toggles search input from a persistent button and restores state across mounts', async () => {
+    ingest([
+      rawResult({ id: 'r1', name: 'Alpha', typeLine: 'Ring' }),
+      rawResult({ id: 'r2', name: 'Beta', typeLine: 'Belt' }),
+    ]);
+
+    const app1 = createApp({ render: () => h(ResultBoardPane) });
+    app1.mount(container);
+    unmount = () => app1.unmount();
+    await flush();
+
+    // Hidden by default
+    expect(container.querySelector('[data-board-keyword]')).toBeNull();
+    const toggle = container.querySelector<HTMLElement>('[data-board-search-toggle]')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+    // Click to open -> shows search input & persists true
+    toggle.click();
+    await flush();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    const input = container.querySelector<HTMLInputElement>('[data-board-keyword]');
+    expect(input).not.toBeNull();
+    expect(storageData.resultBoardSearchVisible_poe1).toBe(true);
+
+    // Remount -> restores open search box
+    app1.unmount();
+    unmount = undefined;
+    const app2 = createApp({ render: () => h(ResultBoardPane) });
+    app2.mount(container);
+    unmount = () => app2.unmount();
+    await flush();
+
+    expect(container.querySelector('[data-board-keyword]')).not.toBeNull();
+
+    // Filter then press Esc -> clears keyword, closes box, persists false
+    const input2 = container.querySelector<HTMLInputElement>('[data-board-keyword]')!;
+    input2.value = 'Alpha';
+    input2.dispatchEvent(new Event('input'));
+    await flush();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
+
+    input2.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flush();
+    expect(container.querySelector('[data-board-keyword]')).toBeNull();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
+    expect(storageData.resultBoardSearchVisible_poe1).toBe(false);
+  });
+
+  it('toggles expand-all and collapse-all and clears price range bounds', async () => {
+    ingest([
+      rawResult({ id: 'r1', amount: 10, currency: 'chaos' }),
+      rawResult({ id: 'r2', amount: 50, currency: 'chaos' }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    // Complete state shown inline when all results are retrieved
+    expect(container.querySelector('[data-board-load-next]')).toBeNull();
+    expect(container.querySelector('[data-board-stop-reason]')?.textContent).toContain(
+      '已取得全部結果',
+    );
+
+    const expandToggleBtn = container.querySelector<HTMLButtonElement>(
+      '[data-board-expand-toggle]',
+    )!;
+    expect(expandToggleBtn.disabled).toBe(false);
+    expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('false');
+
+    // Click when all collapsed -> expands all items
+    expandToggleBtn.click();
+    await flush();
+    expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelectorAll('[data-board-entry-card-missing]')).toHaveLength(2);
+
+    // Click when expanded -> collapses all items
+    expandToggleBtn.click();
+    await flush();
+    expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('false');
+    expect(container.querySelectorAll('[data-board-entry-card-missing]')).toHaveLength(0);
+
+    // Expand one item -> clicking toggles back to collapse all
+    container.querySelector<HTMLElement>('[data-board-entry-toggle]')!.click();
+    await flush();
+    expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelectorAll('[data-board-entry-card-missing]')).toHaveLength(1);
+
+    expandToggleBtn.click();
+    await flush();
+    expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('false');
+    expect(container.querySelectorAll('[data-board-entry-card-missing]')).toHaveLength(0);
+
+    // Enter min price -> clear button appears and resets filter
+    expect(container.querySelector('[data-board-price-clear]')).toBeNull();
+    const minInput = container.querySelector<HTMLInputElement>('[data-board-price-min]')!;
+    minInput.value = '20';
+    minInput.dispatchEvent(new Event('input'));
+    await flush();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
+
+    const clearBtn = container.querySelector<HTMLButtonElement>('[data-board-price-clear]')!;
+    clearBtn.click();
+    await flush();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
+    expect(container.querySelector('[data-board-price-clear]')).toBeNull();
+  });
+});

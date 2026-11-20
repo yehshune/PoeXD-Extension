@@ -26,18 +26,26 @@ const props = defineProps<{
   isPicked: (entry: BoardEntry) => boolean;
   isExpanded: (id: string) => boolean;
   cardSnapshot: (id: string) => PinnedItemSnapshot | undefined;
+  expanded?: boolean;
 }>();
 
 const emit = defineEmits<{
   hide: [];
   pick: [entry: BoardEntry];
+  toggleSeller: [];
   toggle: [id: string];
   locate: [id: string];
   travel: [id: string];
   pin: [id: string];
 }>();
 
-const open = ref(false);
+const localOpen = ref(false);
+const open = computed(() => props.expanded ?? localOpen.value);
+
+function toggleOpen(): void {
+  if (props.expanded !== undefined) emit('toggleSeller');
+  else localOpen.value = !localOpen.value;
+}
 
 /** 展開後依價格由低到高（無法比較時維持官方順序） */
 const orderedEntries = computed(() =>
@@ -71,7 +79,7 @@ const visited = computed(() =>
         class="flex min-w-0 flex-1 flex-col items-start gap-[2px] border-0 bg-transparent p-0 text-left outline-none cursor-pointer focus-visible:ring-1 focus-visible:ring-ring"
         :aria-expanded="open"
         data-board-seller-toggle
-        @click="open = !open"
+        @click="toggleOpen"
       >
         <span class="flex w-full items-center gap-[var(--pxd-space-sm)] min-w-0">
           <span class="truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight">{{
@@ -116,7 +124,7 @@ const visited = computed(() =>
         size="icon-sm"
         class="shrink-0"
         :aria-label="open ? t('resultBoard.action.collapse') : t('resultBoard.action.expand')"
-        @click="open = !open"
+        @click="toggleOpen"
       >
         <ChevronUp v-if="open" />
         <ChevronDown v-else />

@@ -116,10 +116,16 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
     rows[1].querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
     await flush();
 
-    const expandedWrapper = rows[0].firstElementChild!;
+    const toggle = rows[0].querySelector<HTMLElement>('[data-pinned-item-toggle]')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(rows[0].querySelector('[data-result-row-icon]')).toBeNull();
     expect(
-      expandedWrapper.firstElementChild?.hasAttribute('data-pinned-item-expanded-header'),
-    ).toBe(true);
+      rows[0]
+        .querySelector('[data-result-row-expanded-icon] [data-pinned-item-card]')
+        ?.getAttribute('data-part'),
+    ).toBe('icon');
+    expect(rows[0].querySelector('[data-pinned-item-details]')).not.toBeNull();
+    expect(rows[0].querySelector('[data-pinned-item-card][data-part="popup"]')).not.toBeNull();
 
     const feeEl = rows[0].querySelector<HTMLElement>('[data-pinned-item-fee]');
     const feeIcon = rows[0].querySelector<HTMLImageElement>('[data-pinned-item-fee-icon]');
@@ -184,7 +190,7 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
     expect(container.querySelector('[data-pinned-item-price-conversion]')).toBeNull();
   });
 
-  it('reveals .lc.l and .d mod numerical ranges inline in PinnedItemCardView shadow DOM', async () => {
+  it('overlays official-sized .lc.l and .d mod numerical ranges on hover without squeezing mod text', async () => {
     const snap = makeSnapshot('mod-range');
     snap.card = {
       icon: { t: 'div', c: 'newItemContainer' },
@@ -231,16 +237,54 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
     const hostEl = container.firstElementChild as HTMLElement;
     const shadow = hostEl.shadowRoot!;
     const styleText = shadow.querySelector('style')?.textContent ?? '';
+    expect(styleText).toContain('font-size: 13px');
+    expect(styleText).toContain('container-type: inline-size');
     expect(styleText).toContain('#trade .item-popup .item-mod > .lc.l .d');
-    expect(styleText).toContain(
-      'grid-template-columns: minmax(auto, 1fr) minmax(0, auto) minmax(auto, 1fr)',
-    );
-    expect(styleText).toContain('grid-column: 1');
-    expect(styleText).toContain('grid-column: 2');
+    expect(styleText).toContain('font-size: 1em');
+    expect(styleText).toContain('@container (max-width: 460px)');
+    expect(styleText).toContain('#trade .item-popup .item-mod:hover > .lc.l');
     expect(styleText).toContain('display: inline');
-    expect(styleText).toContain('position: static');
+    expect(styleText).toContain('position: absolute');
 
     const rangeNode = shadow.querySelector('.item-mod .lc.l .d');
     expect(rangeNode?.textContent).toContain('[9—12]');
+  });
+
+  it('toggles expand-all and collapse-all in PinnedItemPane', async () => {
+    mockList.mockResolvedValue([makeSnapshot('p1'), makeSnapshot('p2')]);
+
+    const app = createApp({ render: () => h(PinnedItemPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    const toggleBtn = container.querySelector<HTMLButtonElement>(
+      '[data-pinned-items-expand-toggle]',
+    )!;
+    expect(toggleBtn.disabled).toBe(false);
+    expect(toggleBtn.getAttribute('aria-pressed')).toBe('false');
+
+    // Expand all
+    toggleBtn.click();
+    await flush();
+    expect(toggleBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelectorAll('.pinned-item-row[data-expanded]')).toHaveLength(2);
+
+    // Collapse all
+    toggleBtn.click();
+    await flush();
+    expect(toggleBtn.getAttribute('aria-pressed')).toBe('false');
+    expect(container.querySelectorAll('.pinned-item-row[data-expanded]')).toHaveLength(0);
+
+    // Expand one -> button toggles to collapse all
+    container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
+    await flush();
+    expect(toggleBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelectorAll('.pinned-item-row[data-expanded]')).toHaveLength(1);
+
+    toggleBtn.click();
+    await flush();
+    expect(toggleBtn.getAttribute('aria-pressed')).toBe('false');
+    expect(container.querySelectorAll('.pinned-item-row[data-expanded]')).toHaveLength(0);
   });
 });
