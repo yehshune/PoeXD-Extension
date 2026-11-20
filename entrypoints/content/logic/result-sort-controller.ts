@@ -97,6 +97,9 @@ const SORT_SVG: SvgIconSpec = {
 
 const STYLE_ID = 'poexd-result-sort-controls-style';
 
+/** 官方結果列上可點擊排序的欄位（詞綴、報價、物品等級等），點下去官方會帶新的 sort 重新查詢 */
+const OFFICIAL_SORT_FIELD_SELECTOR = `${TRADE_RESULTS_SELECTOR} .row .s[data-field]`;
+
 function getSortModeOptions(includeStatModes: boolean): Array<{
   key: SortMode;
   label: string;
@@ -410,17 +413,32 @@ export class ResultSortController {
     }
   };
 
+  /**
+   * 使用者點官方排序欄位代表要改用官方排序：擴充排序退回 default，
+   * 並清空原始順序，讓官方重新查詢後的 fetch 順序成為新的基準（searchId 可能不變）。
+   */
+  private readonly officialSortClickHandler = (e: MouseEvent) => {
+    if (this.sortMode === 'default' || !this.isFeatureActive()) return;
+    const target = e.target as Element | null;
+    if (!target?.closest?.(OFFICIAL_SORT_FIELD_SELECTOR)) return;
+    this.sortMode = 'default';
+    this.originalOrder = [];
+    this.updateControlsState();
+  };
+
   private registerGlobalClick() {
     if (this.hasRegisteredGlobalClick) return;
     if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return;
     this.hasRegisteredGlobalClick = true;
     document.addEventListener('click', this.globalClickHandler);
+    document.addEventListener('click', this.officialSortClickHandler, true);
   }
 
   private unregisterGlobalClick() {
     if (!this.hasRegisteredGlobalClick) return;
     if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
       document.removeEventListener('click', this.globalClickHandler);
+      document.removeEventListener('click', this.officialSortClickHandler, true);
     }
     this.hasRegisteredGlobalClick = false;
   }

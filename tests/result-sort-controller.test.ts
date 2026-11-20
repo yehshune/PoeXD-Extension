@@ -278,4 +278,44 @@ describe('ResultSortController', () => {
 
     controller.cleanup();
   });
+
+  it('點官方結果列上的可排序欄位（詞綴/報價）時，擴充排序退回 default，讓官方重新查詢的順序生效', () => {
+    const { happyWin, rowTotal, resultSet, addRow } = createHappyTradeDom(
+      'https://www.pathofexile.com/trade/search/Standard/official-sort',
+    );
+    const prices: Record<string, number> = { a: 300, b: 100, c: 200 };
+    const mockPricePresenter = {
+      isEnabled: () => true,
+      getPrimaryPrice: (id: string) => prices[id],
+    };
+    const controller = new ResultSortController('poe1', mockPricePresenter as any);
+    const fetchDetail = (ids: string[], searchId: string) =>
+      JSON.stringify({
+        url: `/api/trade/fetch/${ids.join(',')}?query=${searchId}`,
+        data: { result: ids.map((id) => ({ id, listing: {}, item: {} })) },
+      });
+
+    const rA = addRow('a');
+    const rB = addRow('b');
+    const rC = addRow('c');
+    const mod = happyWin.document.createElement('span');
+    mod.className = 's lc';
+    mod.setAttribute('data-field', 'stat.explicit.stat_1');
+    rA.appendChild(mod);
+
+    controller.handleFetchResponse(fetchDetail(['a', 'b', 'c'], 'q1'));
+    controller.setSortMode('price_asc');
+    expect(Array.from(resultSet.children)).toEqual([rB, rC, rA] as any);
+
+    mod.dispatchEvent(new happyWin.MouseEvent('click', { bubbles: true }) as any);
+    const selected = rowTotal.querySelector('.poexd-sort-popover .poexd-selected');
+    expect(selected?.getAttribute('data-value')).toBe('default');
+
+    // 官方以詞綴排序重新查詢：同一批物品、官方新順序 c, a, b（searchId 可能不變）
+    resultSet.replaceChildren(rC as any, rA as any, rB as any);
+    controller.handleFetchResponse(fetchDetail(['c', 'a', 'b'], 'q1'));
+    expect(Array.from(resultSet.children)).toEqual([rC, rA, rB] as any);
+
+    controller.cleanup();
+  });
 });
