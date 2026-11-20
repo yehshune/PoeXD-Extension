@@ -605,63 +605,59 @@ function expandedListingMeta(item: PinnedItemSnapshot): string {
                   >
                 </div>
                 <div
-                  class="flex shrink-0 items-center gap-[var(--pxd-space-sm)] transition-opacity duration-150 group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
+                  class="flex shrink-0 flex-col items-end gap-[2px] group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
                 >
-                  <div class="flex flex-col items-end gap-[2px]">
-                    <span
-                      class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
-                      :class="{ 'line-through': isSold(item) }"
-                      data-pinned-item-price
-                    >
-                      {{ priceAmount(item) }}
-                      <img
-                        v-if="item.listing.price?.icon"
-                        :src="item.listing.price.icon"
-                        :alt="item.listing.price.currency"
-                        :title="item.listing.price.currencyName ?? item.listing.price.currency"
-                        class="size-[var(--control-icon-lg)] object-contain"
-                        referrerpolicy="no-referrer"
-                        draggable="false"
-                        data-pinned-item-currency-icon
-                      />
-                    </span>
-                    <span
-                      v-if="isSold(item)"
-                      class="rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-destructive"
-                      data-pinned-item-sold
-                      >{{ t('pinnedItem.sold') }}</span
-                    >
-                    <span
-                      v-else-if="
-                        states[item.id] === 'refreshing' || states[item.id] === 'traveling'
-                      "
-                      class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
-                      :class="
-                        states[item.id] === 'refreshing' ? 'text-muted-foreground' : 'text-primary'
-                      "
-                      data-pinned-item-busy
-                    >
-                      <Loader2
-                        class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
-                        aria-hidden="true"
-                      />
-                      {{
-                        states[item.id] === 'refreshing'
-                          ? t('pinnedItem.action.refreshing')
-                          : t('pinnedItem.action.traveling')
-                      }}
-                    </span>
-                  </div>
-                  <ChevronDown
-                    class="size-[var(--control-icon-sm)] shrink-0 text-muted-foreground/70"
-                    aria-hidden="true"
-                  />
+                  <span
+                    class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-bold tabular-nums leading-none text-foreground"
+                    :class="{ 'line-through': isSold(item) }"
+                    data-pinned-item-price
+                  >
+                    {{ priceAmount(item) }}
+                    <img
+                      v-if="item.listing.price?.icon"
+                      :src="item.listing.price.icon"
+                      :alt="item.listing.price.currency"
+                      :title="item.listing.price.currencyName ?? item.listing.price.currency"
+                      class="size-[var(--control-icon-lg)] object-contain"
+                      referrerpolicy="no-referrer"
+                      draggable="false"
+                      data-pinned-item-currency-icon
+                    />
+                  </span>
+                  <span
+                    v-if="isSold(item)"
+                    class="rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-destructive"
+                    data-pinned-item-sold
+                    >{{ t('pinnedItem.sold') }}</span
+                  >
+                  <span
+                    v-else-if="states[item.id] === 'refreshing' || states[item.id] === 'traveling'"
+                    class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
+                    :class="
+                      states[item.id] === 'refreshing' ? 'text-muted-foreground' : 'text-primary'
+                    "
+                    data-pinned-item-busy
+                  >
+                    <Loader2
+                      class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
+                      aria-hidden="true"
+                    />
+                    {{
+                      states[item.id] === 'refreshing'
+                        ? t('pinnedItem.action.refreshing')
+                        : t('pinnedItem.action.traveling')
+                    }}
+                  </span>
                 </div>
+                <ChevronDown
+                  class="size-[var(--control-icon-sm)] shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground"
+                  aria-hidden="true"
+                />
               </div>
 
-              <!-- 收合時 hover 才浮出的操作（整列等高實色遮擋＋左側平滑漸層過渡，並淡出右側價格與展開箭頭避免重疊） -->
+              <!-- 收合時 hover 才浮出的操作（停在右側展開箭頭左側、整列等高實色遮擋＋左側漸層淡出，並即時隱藏右側標價） -->
               <PinnedItemActions
-                class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center py-1 pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
+                class="pxd-hover-actions-overlay absolute inset-y-0 right-[calc(var(--pxd-space-md)+var(--control-icon-sm)+var(--pxd-space-sm))] z-(--pxd-z-raised) flex items-center py-1 pr-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
                 :item="item"
                 :state="isSold(item) ? 'sold' : states[item.id]"
                 :same-realm="sameRealm(item)"

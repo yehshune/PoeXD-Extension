@@ -100,7 +100,7 @@
                 >{{ t('history.invalidBadge') }}</span
               >
               <span
-                class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
+                class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0"
               >
                 {{ formatTime(h.visitedAt) }}
               </span>

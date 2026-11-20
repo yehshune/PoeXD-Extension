@@ -171,7 +171,7 @@
                 </span>
 
                 <span
-                  class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0"
+                  class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums group-hover:opacity-0 group-focus-within:opacity-0"
                   :class="{ 'opacity-0': isBuildMenuOpen(build.id) }"
                   data-pob-build-progress
                   :title="
@@ -436,7 +436,7 @@
                       />
                     </span>
                     <span
-                      class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground transition-opacity duration-150 group-hover/row:opacity-0 group-focus-within/row:opacity-0"
+                      class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground group-hover/row:opacity-0 group-focus-within/row:opacity-0"
                       :class="{ 'opacity-0': isMenuOpen(build.id, row.key) }"
                     >
                       <span>{{ rowDetail(row) }}</span>
