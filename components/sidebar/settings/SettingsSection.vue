@@ -39,7 +39,7 @@ const headingId = `pxd-settings-section-${props.sectionId}`;
       />
       <h3
         :id="headingId"
-        class="m-0 min-w-0 flex-1 truncate text-[length:var(--pxd-font-body)] font-bold text-foreground"
+        class="m-0 min-w-0 flex-1 truncate text-[length:var(--pxd-font-section-title)] font-bold text-foreground"
       >
         {{ title }}
       </h3>

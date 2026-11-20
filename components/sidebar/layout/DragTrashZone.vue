@@ -25,7 +25,9 @@ defineProps<{
     <Trash2 class="trash-icon-svg size-[20px] text-destructive shrink-0" />
     <template v-if="overTrash">
       <slot>
-        <div class="text-center text-xs font-bold leading-snug select-none">
+        <div
+          class="text-center text-[length:var(--pxd-font-secondary)] font-bold leading-snug select-none"
+        >
           {{ t('sidebar.trash.releaseHint') }}
         </div>
       </slot>

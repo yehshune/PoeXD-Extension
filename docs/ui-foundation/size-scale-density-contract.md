@@ -88,16 +88,16 @@ PoeXD 的尺寸架構由**四大明確劃分、職責互不混淆**的層級組�
 ### 1.1 Semantic Typography Contract (語意排版契約)
 
 - **設計原則**：不隨意為每個 legacy 像素新增 token，而是收斂為語意角色，100% Scale 基準如下：
-  - **micro** = 10px (`--pxd-font-micro`，微型標籤、統計數字)
-  - **caption** = 11px (`--pxd-font-caption`，表單次要標籤、說明文字、選單項目)
+  - **micro** = 11px (`--pxd-font-micro`，微型標籤、統計數字、時間戳與次要角標)
+  - **caption** = 12px (`--pxd-font-caption`，表單次要標籤、輔助說明文字、選單與狀態次要值)
   - **secondary** = 12px (`--pxd-font-secondary`，次要內文、小按鈕文字)
-  - **body** = 13px (`--pxd-font-body`，一般內文文字)
+  - **body** = 13px (`--pxd-font-body`，一般內文文字、主要列表列與設定列標籤)
   - **control** = 13px (`--pxd-font-control`，主要輸入框、預設按鈕文字)
-  - **section-title** = 14px (`--pxd-font-section-title`，區塊標題、大控制項文字)
+  - **section-title** = 14px (`--pxd-font-section-title`，區塊標題、分頁標題、大控制項文字)
   - **heading** = 16px (`--pxd-font-heading`，主要面板標題)
 - **Scale 行為**：`final px = baseline * scale`，由 TS Runtime 集中計算，零 CSS arithmetic。
-- **Legacy 小數字級規則 (10.5px / 11.5px)**：不建立專屬 token，後續 migration 依語意 normalize 到 secondary (12px) 或 body/control (13px)。
-- **9px 的處理**：不納入正式全域 scale；優先提升至 micro (10px)，極端情況視為 feature-specific exception。
+- **緊湊／非緊湊不變性**：字體級距嚴格受 `NON_DENSITY_INVARIANTS`（`font-readability`）保護，在緊湊（`0.8`）與非緊湊（`1.0`）模式下維持相同清晰字級，僅由排版留白與間距控制緊湊度。
+- **Legacy 小數字級規則 (10px / 10.5px / 11.5px)**：不在正式全域 scale 使用低於 11px 的字級或 Tailwind `rem` 字級類別（避免受宿主 `html { font-size: 10px }` 影響），統一依語意收斂至 `--pxd-font-*` token。
 
 ---
 

@@ -112,7 +112,7 @@ describe('Tailwind v4 Preflight Integration Contracts', () => {
 
           // Typography scales with Scale only
           const expectedBodyFont = `${Number((13 * scale).toFixed(2))}px`;
-          const expectedMicroFont = `${Number((10 * scale).toFixed(2))}px`;
+          const expectedMicroFont = `${Number((11 * scale).toFixed(2))}px`;
           expect(tokens['--pxd-font-body']).toBe(expectedBodyFont);
           expect(tokens['--pxd-font-micro']).toBe(expectedMicroFont);
 

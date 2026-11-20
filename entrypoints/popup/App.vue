@@ -108,7 +108,7 @@ onUnmounted(() => {
             </h1>
           </div>
           <p
-            class="text-[length:var(--pxd-font-caption,11px)] text-muted-foreground mt-1 leading-none"
+            class="text-[length:var(--pxd-font-caption,12px)] text-muted-foreground mt-1 leading-none"
           >
             {{ t('popup.subtitle.notTrade') }}
           </p>
@@ -120,7 +120,7 @@ onUnmounted(() => {
     <div v-if="!loading" data-not-trade-view class="flex flex-col gap-2 pt-1">
       <Separator class="bg-border/60 mb-1" />
       <p
-        class="text-[length:var(--pxd-font-caption,11px)] text-muted-foreground leading-normal m-0"
+        class="text-[length:var(--pxd-font-caption,12px)] text-muted-foreground leading-normal m-0"
       >
         {{ t('popup.notTrade.notice') }}
       </p>
@@ -132,10 +132,10 @@ onUnmounted(() => {
           class="flex flex-col gap-1.5"
         >
           <div class="flex items-center justify-between gap-2 px-0.5">
-            <span class="text-[length:var(--pxd-font-caption,11px)] font-semibold text-foreground">
+            <span class="text-[length:var(--pxd-font-caption,12px)] font-semibold text-foreground">
               {{ t(realm.labelKey) }}
             </span>
-            <span class="text-[length:var(--pxd-font-micro,10px)] text-muted-foreground font-mono">
+            <span class="text-[length:var(--pxd-font-micro,11px)] text-muted-foreground font-mono">
               {{ realm.hostLabel }}
             </span>
           </div>
@@ -160,7 +160,7 @@ onUnmounted(() => {
                 }}
               </span>
               <span
-                class="text-[length:var(--pxd-font-caption,11px)] text-primary font-medium shrink-0"
+                class="text-[length:var(--pxd-font-caption,12px)] text-primary font-medium shrink-0"
                 >{{ t('popup.notTrade.openAction') }}</span
               >
             </button>

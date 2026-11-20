@@ -401,7 +401,7 @@
                   <button
                     type="button"
                     data-pob-build-search
-                    class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-secondary)] cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-body)] cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     :class="{ 'line-through opacity-50': row.done, 'opacity-60': !row.query }"
                     :disabled="!row.query"
                     :title="row.query ? t('pobBuild.searchTitle') : t('pobBuild.noSearchTitle')"

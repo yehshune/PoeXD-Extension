@@ -248,26 +248,31 @@
           class="flex flex-col items-center justify-center text-center leading-tight gap-1 select-none"
         >
           <!-- 放開以刪除 -->
-          <span class="text-xs font-bold leading-normal">{{ t('sidebar.trash.releaseHint') }}</span>
+          <span class="text-[length:var(--pxd-font-secondary)] font-bold leading-normal">{{
+            t('sidebar.trash.releaseHint')
+          }}</span>
           <!-- 個資料夾 -->
-          <span class="text-[11px] font-semibold opacity-90 leading-tight">
+          <span class="text-[length:var(--pxd-font-micro)] font-semibold opacity-90 leading-tight">
             {{ liveFolderDeleteImpact.totalFolderCount }} {{ t('bookmarkImport.unit.folders') }}
           </span>
           <!-- 個書籤 -->
-          <span class="text-[11px] font-semibold opacity-90 leading-tight">
+          <span class="text-[length:var(--pxd-font-micro)] font-semibold opacity-90 leading-tight">
             {{ liveFolderDeleteImpact.affectedBookmarkCount }}
             {{ t('bookmarkImport.unit.bookmarks') }}
           </span>
         </div>
         <div
           v-else-if="activeDragEntity?.kind === 'bookmark'"
-          class="text-center text-xs font-bold leading-snug select-none"
+          class="text-center text-[length:var(--pxd-font-secondary)] font-bold leading-snug select-none"
         >
           <!-- 放開以刪除書籤 -->
           {{ t('bookmark.row.delete') }}
         </div>
         <!-- 放開以刪除 -->
-        <div v-else class="text-center text-xs font-bold leading-snug select-none">
+        <div
+          v-else
+          class="text-center text-[length:var(--pxd-font-secondary)] font-bold leading-snug select-none"
+        >
           {{ t('sidebar.trash.releaseHint') }}
         </div>
       </DragTrashZone>

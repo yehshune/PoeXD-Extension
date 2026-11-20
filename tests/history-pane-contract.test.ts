@@ -90,7 +90,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       // Separator generic spacing
       expect(historyPaneSource).toContain('--pxd-space-md');
       // Typography tokens
-      expect(historyPaneSource).toContain('--pxd-font-secondary');
+      expect(historyPaneSource).toContain('--pxd-font-body');
       expect(historyPaneSource).toContain('--pxd-font-micro');
     });
 
@@ -199,10 +199,10 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       await flushPromises();
       await nextTick();
 
-      // Checkbox label uses secondary font token
+      // Checkbox label uses body font token
       const label = container.querySelector('label[for="enable-history"]');
       expect(label).not.toBeNull();
-      expect(label?.className).toContain('text-[length:var(--pxd-font-secondary)]');
+      expect(label?.className).toContain('text-[length:var(--pxd-font-body)]');
 
       // Clear All lives behind the ⋮ trigger; no red button in the toolbar
       expect(container.querySelector('button[title="清除所有搜尋歷史"]')).toBeNull();
@@ -217,7 +217,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(separator?.className).toContain('mb-[var(--pxd-space-md)]');
     });
 
-    it('renders History Items with secondary typography, micro timestamp, and icon-sm actions', async () => {
+    it('renders History Items with body typography, micro timestamp, and icon-sm actions', async () => {
       app = createApp(HistoryPane);
       app.mount(container);
       await flushPromises();
@@ -232,10 +232,10 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       const thumb = itemRows[0].querySelector('.size-\\[var\\(--control-height-sm\\)\\]');
       expect(thumb).not.toBeNull();
 
-      // Title has secondary font
+      // Title has body font
       const titleLink = itemRows[0].querySelector('a');
       expect(titleLink?.textContent?.trim()).toBe('獵首 皮革腰帶');
-      expect(titleLink?.className).toContain('text-[length:var(--pxd-font-secondary)]');
+      expect(titleLink?.className).toContain('text-[length:var(--pxd-font-body)]');
 
       // Timestamp has micro font
       const timestamp = itemRows[0].querySelector(
@@ -253,7 +253,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       });
     });
 
-    it('renders empty state with secondary font token when history is empty', async () => {
+    it('renders empty state with body font token when history is empty', async () => {
       historyEntriesMock.value = [];
       app = createApp(HistoryPane);
       app.mount(container);
@@ -264,10 +264,10 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(emptyDiv).not.toBeNull();
       expect(emptyDiv?.textContent?.trim()).toBe('尚無歷史搜尋紀錄');
       expect(emptyDiv?.className).toContain('py-[var(--pxd-space-2xl)]');
-      expect(emptyDiv?.className).toContain('text-[length:var(--pxd-font-secondary)]');
+      expect(emptyDiv?.className).toContain('text-[length:var(--pxd-font-body)]');
     });
 
-    it('renders subtle empty state with secondary font token when history is disabled and empty', async () => {
+    it('renders subtle empty state with body font token when history is disabled and empty', async () => {
       historyEnabledMock.value = false;
       historyEntriesMock.value = [];
       app = createApp(HistoryPane);
@@ -279,7 +279,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(disabledDiv).not.toBeNull();
       expect(disabledDiv?.textContent?.trim()).toBe('尚無歷史搜尋紀錄（已停止記錄）');
       expect(disabledDiv?.className).toContain('py-[var(--pxd-space-2xl)]');
-      expect(disabledDiv?.className).toContain('text-[length:var(--pxd-font-secondary)]');
+      expect(disabledDiv?.className).toContain('text-[length:var(--pxd-font-body)]');
 
       // Status notice is shown without hiding anything
       expect(container.textContent).toContain('已停止記錄新搜尋，既有歷史仍可查看與清理');

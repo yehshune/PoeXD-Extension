@@ -180,7 +180,7 @@ describe('PinnedItemPane travel feedback', () => {
     expect(btn.textContent).toContain('前往藏身處');
   });
 
-  it('omits instant-buyout badge from row meta and falls back to window.confirm when poexdConfirm is absent', async () => {
+  it('omits instant-buyout badge and seller account from row meta, moves PoB copy into row menu when collapsed, and falls back to window.confirm when poexdConfirm is absent', async () => {
     const previousConfirm = window.confirm;
     const windowConfirmSpy = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
     (window as { confirm?: unknown }).confirm = windowConfirmSpy;
@@ -192,7 +192,24 @@ describe('PinnedItemPane travel feedback', () => {
 
       const meta = container.querySelector('[data-pinned-item-meta]')?.textContent ?? '';
       expect(meta).not.toContain('直購');
-      expect(meta).toContain('Seller#1234');
+      expect(meta).not.toContain('Seller#1234');
+
+      // Collapsed outer hover bar hides PoB button and exposes it inside the ⋯ menu
+      expect(container.querySelector('[data-pinned-item-pob]')).toBeNull();
+      const rowMenuTrigger = container.querySelector<HTMLElement>('[data-pinned-item-menu]')!;
+      rowMenuTrigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+      rowMenuTrigger.click();
+      await flush();
+      expect(document.body.querySelector('[data-pinned-item-pob]')).not.toBeNull();
+      rowMenuTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await flush();
+
+      // Expanding the row restores PoB button directly in the expanded action bar
+      container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
+      await flush();
+      expect(container.querySelector('[data-pinned-item-pob]')).not.toBeNull();
+      container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
+      await flush();
 
       const trigger = container.querySelector<HTMLElement>('[data-pinned-items-clear]')!;
       trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));

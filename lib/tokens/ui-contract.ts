@@ -76,9 +76,9 @@ export const SEMANTIC_TYPOGRAPHY_ROLES = [
 export type SemanticTypographyRole = (typeof SEMANTIC_TYPOGRAPHY_ROLES)[number];
 
 export const SEMANTIC_TYPOGRAPHY_TOKENS = Object.freeze({
-  microPx: 10,
+  microPx: 11,
   microVar: '--pxd-font-micro',
-  captionPx: 11,
+  captionPx: 12,
   captionVar: '--pxd-font-caption',
   secondaryPx: 12,
   secondaryVar: '--pxd-font-secondary',

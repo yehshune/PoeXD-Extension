@@ -25,7 +25,7 @@
       />
       <span
         v-else
-        class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center text-[length:var(--pxd-font-secondary)] leading-none text-muted-foreground"
+        class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center text-[length:var(--pxd-font-body)] leading-none text-muted-foreground"
         >•</span
       >
       <Input
@@ -45,7 +45,7 @@
         :href="bm.url"
         :aria-current="isCurrentBookmark ? 'page' : undefined"
         @click.prevent="handlePrimaryClick"
-        class="bookmark-link block w-full min-w-0 truncate text-[length:var(--pxd-font-secondary)] no-underline hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        class="bookmark-link block w-full min-w-0 truncate text-[length:var(--pxd-font-body)] no-underline hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         :class="isCurrentBookmark ? 'text-primary font-semibold' : 'text-foreground'"
         draggable="false"
       >

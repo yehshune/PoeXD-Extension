@@ -260,10 +260,9 @@ function priceAmount(item: PinnedItemSnapshot): string {
   return price.icon ? `${price.amount}` : `${price.amount} ${price.currency}`;
 }
 
-/** 收合列第二行的灰色資訊 */
+/** 收合列第二行的灰色資訊（省略賣家帳號，僅保留上架時間與跨聯盟／分流提示） */
 function metaParts(item: PinnedItemSnapshot): string[] {
   return [
-    item.listing.accountName ?? '',
     formatAge(item.listing.indexed),
     showAllLeagues.value || !currentLeague || !isSameLeague(item.league, currentLeague)
       ? item.league
@@ -302,7 +301,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
       >
         <label
           v-if="currentLeague"
-          class="flex items-center gap-[var(--pxd-space-md)] min-w-0 flex-1 text-[length:var(--pxd-font-secondary)] text-foreground cursor-pointer select-none"
+          class="flex items-center gap-[var(--pxd-space-md)] min-w-0 flex-1 text-[length:var(--pxd-font-body)] text-foreground cursor-pointer select-none"
         >
           <Checkbox v-model="showAllLeagues" class="shrink-0" data-pinned-items-show-all />
           <span class="truncate">{{ t('pinnedItem.showAllLeagues') }}</span>
@@ -452,7 +451,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
             <div
               role="button"
               tabindex="0"
-              class="flex items-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] py-[var(--pxd-space-md)] outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              class="flex items-center gap-[var(--pxd-space-md)] px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] outline-none focus-visible:ring-1 focus-visible:ring-ring"
               :class="[
                 canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
                 isExpanded(item) ? 'bg-muted/35 border-b border-border/60' : '',
@@ -468,13 +467,13 @@ function realmLabel(item: PinnedItemSnapshot): string {
                 v-if="typeof item.item.icon === 'string'"
                 :src="item.item.icon"
                 alt=""
-                class="size-[var(--control-height-default)] shrink-0 object-contain"
+                class="size-[var(--control-height-lg)] shrink-0 object-contain"
                 referrerpolicy="no-referrer"
                 draggable="false"
               />
               <div class="flex min-w-0 flex-1 flex-col gap-[var(--pxd-space-xs)]">
                 <span
-                  class="truncate text-[length:var(--pxd-font-secondary)] font-semibold leading-tight"
+                  class="truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight"
                   :style="{ color: rarityColour(item) }"
                   data-pinned-item-name
                 >
@@ -487,6 +486,7 @@ function realmLabel(item: PinnedItemSnapshot): string {
                   >
                 </span>
                 <span
+                  v-if="metaParts(item).length > 0"
                   class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
                   data-pinned-item-meta
                   >{{ metaParts(item).join(' · ') }}</span
@@ -586,7 +586,9 @@ function realmLabel(item: PinnedItemSnapshot): string {
         :sidebar-position="sidebarPosition"
         :style="trashStyle"
       >
-        <div class="text-center text-xs font-bold leading-snug select-none">
+        <div
+          class="text-center text-[length:var(--pxd-font-secondary)] font-bold leading-snug select-none"
+        >
           {{ t('pinnedItem.trash.release') }}
         </div>
       </DragTrashZone>

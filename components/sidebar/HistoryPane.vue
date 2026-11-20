@@ -14,7 +14,7 @@
           />
           <label
             for="enable-history"
-            class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground min-w-0 truncate"
+            class="cursor-pointer select-none text-[length:var(--pxd-font-body)] text-foreground min-w-0 truncate"
             :title="t('history.enableLabel')"
           >
             {{ t('history.enableLabel') }}
@@ -88,7 +88,7 @@
               <a
                 :href="h.url"
                 @click.prevent="handleHistoryPrimaryClick(h, $event)"
-                class="min-w-0 flex-1 truncate text-[length:var(--pxd-font-secondary)] text-foreground hover:text-primary no-underline"
+                class="min-w-0 flex-1 truncate text-[length:var(--pxd-font-body)] text-foreground hover:text-primary no-underline"
                 :title="getHistoryName(h)"
               >
                 {{ getHistoryName(h) }}

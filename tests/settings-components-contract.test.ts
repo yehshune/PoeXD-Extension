@@ -418,9 +418,9 @@ describe('Phase 1A: Settings Components UI Contract & Regression', () => {
       expect(relaxed['--control-font-default']).toBe('13px');
 
       // Caption typography invariant against density
-      expect(standard['--pxd-font-caption']).toBe('11px');
-      expect(compact['--pxd-font-caption']).toBe('11px');
-      expect(relaxed['--pxd-font-caption']).toBe('11px');
+      expect(standard['--pxd-font-caption']).toBe('12px');
+      expect(compact['--pxd-font-caption']).toBe('12px');
+      expect(relaxed['--pxd-font-caption']).toBe('12px');
 
       // Layout spacing (Field Gap & Row Gap) correctly scales with density
       expect(standard['--pxd-field-gap']).toBe('15px');
@@ -437,7 +437,7 @@ describe('Phase 1A: Settings Components UI Contract & Regression', () => {
 
       expect(scaled['--control-height-default']).toBe('38.4px'); // 32 * 1.2
       expect(scaled['--control-font-default']).toBe('15.6px'); // 13 * 1.2
-      expect(scaled['--pxd-font-caption']).toBe('13.2px'); // 11 * 1.2
+      expect(scaled['--pxd-font-caption']).toBe('14.4px'); // 12 * 1.2
       expect(scaled['--pxd-field-gap']).toBe('18px'); // 15 * 1.2
       expect(scaled['--pxd-row-gap']).toBe('9.6px'); // 8 * 1.2
     });

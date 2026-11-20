@@ -807,9 +807,9 @@ describe('ModItem Scale & Density Integration Contracts', () => {
     expect(tScale12['--checkbox-indicator-size']).toBe('14.4px');
     // Tier level width: 38 * 1.2 = 45.6px
     expect(tScale12['--pxd-mod-tier-level-width']).toBe('45.6px');
-    // Typography: micro 10 * 1.2 = 12px, caption 11 * 1.2 = 13.2px, secondary 12 * 1.2 = 14.4px, body 13 * 1.2 = 15.6px
-    expect(tScale12['--pxd-font-micro']).toBe('12px');
-    expect(tScale12['--pxd-font-caption']).toBe('13.2px');
+    // Typography: micro 11 * 1.2 = 13.2px, caption 12 * 1.2 = 14.4px, secondary 12 * 1.2 = 14.4px, body 13 * 1.2 = 15.6px
+    expect(tScale12['--pxd-font-micro']).toBe('13.2px');
+    expect(tScale12['--pxd-font-caption']).toBe('14.4px');
     expect(tScale12['--pxd-font-secondary']).toBe('14.4px');
     expect(tScale12['--pxd-font-body']).toBe('15.6px');
 
@@ -832,10 +832,10 @@ describe('ModItem Scale & Density Integration Contracts', () => {
     expect(tComfortable['--pxd-mod-tier-level-width']).toBe('45.6px');
 
     // Typography invariant
-    expect(tCompact['--pxd-font-micro']).toBe('12px');
-    expect(tComfortable['--pxd-font-micro']).toBe('12px');
-    expect(tCompact['--pxd-font-caption']).toBe('13.2px');
-    expect(tComfortable['--pxd-font-caption']).toBe('13.2px');
+    expect(tCompact['--pxd-font-micro']).toBe('13.2px');
+    expect(tComfortable['--pxd-font-micro']).toBe('13.2px');
+    expect(tCompact['--pxd-font-caption']).toBe('14.4px');
+    expect(tComfortable['--pxd-font-caption']).toBe('14.4px');
     expect(tCompact['--pxd-font-secondary']).toBe('14.4px');
     expect(tComfortable['--pxd-font-secondary']).toBe('14.4px');
     expect(tCompact['--pxd-font-body']).toBe('15.6px');

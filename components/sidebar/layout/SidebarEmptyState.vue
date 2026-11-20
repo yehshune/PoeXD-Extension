@@ -7,7 +7,7 @@ defineProps<{
 
 <template>
   <div
-    class="flex flex-col items-center justify-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] py-[var(--pxd-space-2xl)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+    class="flex flex-col items-center justify-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] py-[var(--pxd-space-2xl)] text-center text-[length:var(--pxd-font-body)] text-muted-foreground"
   >
     <div v-if="$slots.icon" class="shrink-0 opacity-50 [&>svg]:size-6" aria-hidden="true">
       <slot name="icon" />

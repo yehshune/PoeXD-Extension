@@ -75,17 +75,17 @@ const describedBy = computed(() => (props.description ? descriptionId : undefine
         ]"
       >
         <slot name="leading" />
-        <div class="flex min-w-0 flex-col gap-[2px]">
-          <div class="flex min-w-0 items-center gap-[2px]">
+        <div class="flex min-w-0 flex-col gap-[var(--pxd-space-xs)]">
+          <div class="flex min-w-0 items-center gap-[var(--pxd-space-xs)]">
             <label
               v-if="controlId"
               :for="controlId"
-              class="min-w-0 cursor-pointer select-none text-[length:var(--pxd-font-secondary)] leading-snug text-foreground"
+              class="min-w-0 cursor-pointer select-none text-[length:var(--pxd-font-body)] leading-snug text-foreground"
               >{{ label }}</label
             >
             <span
               v-else
-              class="min-w-0 select-none text-[length:var(--pxd-font-secondary)] leading-snug text-foreground"
+              class="min-w-0 select-none text-[length:var(--pxd-font-body)] leading-snug text-foreground"
               >{{ label }}</span
             >
             <button

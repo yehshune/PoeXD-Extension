@@ -43,10 +43,9 @@
           />
         </template>
         <template v-else>
-          <span
-            class="truncate text-[length:var(--pxd-font-secondary)] font-bold text-foreground"
-            >{{ node.folder.name }}</span
-          >
+          <span class="truncate text-[length:var(--pxd-font-body)] font-bold text-foreground">{{
+            node.folder.name
+          }}</span>
           <span class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"
             >({{ directBookmarks.length }})</span
           >

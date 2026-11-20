@@ -260,14 +260,12 @@ onUnmounted(() => {
         >
           <button
             type="button"
-            class="flex min-w-0 flex-1 cursor-pointer flex-col border-0 bg-transparent p-0 text-left text-inherit"
+            class="flex min-w-0 flex-1 cursor-pointer flex-col gap-[var(--pxd-space-xs)] border-0 bg-transparent p-0 text-left text-inherit"
             :aria-expanded="preview.activeItem.value?.id === template.id"
             data-test="stat-group-template-toggle"
             @click="togglePreview(template, $event)"
           >
-            <span
-              class="truncate text-[length:var(--pxd-font-secondary)] font-medium text-foreground"
-            >
+            <span class="truncate text-[length:var(--pxd-font-body)] font-medium text-foreground">
               {{ template.name }}
             </span>
             <span class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground">
@@ -340,7 +338,9 @@ onUnmounted(() => {
         :sidebar-position="sidebarPosition"
         :style="trashStyle"
       >
-        <div class="text-center text-xs font-bold leading-snug select-none">
+        <div
+          class="text-center text-[length:var(--pxd-font-secondary)] font-bold leading-snug select-none"
+        >
           {{ t('statGroupTemplate.trash.release') }}
         </div>
       </DragTrashZone>

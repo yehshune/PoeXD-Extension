@@ -271,7 +271,7 @@
               </div>
               <div class="flex min-w-0 shrink items-center gap-[var(--pxd-space-xs)]">
                 <span
-                  class="active-tab-title text-[length:var(--pxd-font-body)] font-medium text-foreground whitespace-nowrap shrink-0 min-w-0 truncate"
+                  class="active-tab-title text-[length:var(--pxd-font-section-title)] font-medium text-foreground whitespace-nowrap shrink-0 min-w-0 truncate"
                   :title="activeTabName"
                 >
                   {{ activeTabName }}
