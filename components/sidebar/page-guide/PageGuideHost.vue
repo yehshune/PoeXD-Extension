@@ -33,6 +33,13 @@ interface SidebarCallout {
   descKey: I18nKey;
 }
 
+interface SidebarCalloutMetrics {
+  key: string;
+  titleWidth: number;
+  cardWidth: number;
+  height: number;
+}
+
 const SIDEBAR_CALLOUT_SPECS: readonly {
   id: string;
   selector: string;
@@ -101,6 +108,7 @@ const ringRect = shallowRef<GuideRect | null>(null);
 const spotlightRect = shallowRef<GuideRect | null>(null);
 const bubblePosition = shallowRef<GuideBubblePosition | null>(null);
 const sidebarCallouts = shallowRef<SidebarCallout[]>([]);
+const calloutMetrics = ref<SidebarCalloutMetrics | null>(null);
 const interactiveCutout = shallowRef<GuideRect | null>(null);
 const ringTransitioning = ref(false);
 let ringTransitionTimer: ReturnType<typeof setTimeout> | undefined;
@@ -255,6 +263,53 @@ function measureInteractiveCutout(): GuideRect | null {
   return null;
 }
 
+function syncSidebarCalloutMetrics(callouts: readonly SidebarCallout[]) {
+  if (callouts.length === 0) {
+    if (calloutMetrics.value) calloutMetrics.value = null;
+    return;
+  }
+  const first = callouts[0]!;
+  const layoutKey = [
+    t(first.titleKey),
+    callouts.map((c) => c.id).join(','),
+    props.setup?.fontSizeScale ?? 1,
+    window.innerWidth,
+    first.side,
+  ].join('|');
+  if (calloutMetrics.value) {
+    if (calloutMetrics.value.key !== layoutKey) {
+      calloutMetrics.value = null;
+    }
+    return;
+  }
+  const container = props.portalTarget ?? document;
+  const cards = Array.from(container.querySelectorAll<HTMLElement>('[data-page-guide-callout]'));
+  if (cards.length !== callouts.length) return;
+  const titleWidths = cards.map(
+    (card) =>
+      card.querySelector<HTMLElement>('[data-callout-title]')?.getBoundingClientRect().width ?? 0,
+  );
+  const descWidths = cards.map(
+    (card) =>
+      card.querySelector<HTMLElement>('[data-callout-desc]')?.getBoundingClientRect().width ?? 0,
+  );
+  const maxTitle = Math.ceil(Math.max(0, ...titleWidths));
+  const maxDesc = Math.ceil(Math.max(0, ...descWidths));
+  if (maxTitle <= 0 || maxDesc <= 0) return;
+
+  const firstCardWidth = cards[0]!.getBoundingClientRect().width;
+  const chrome = Math.max(0, Math.ceil(firstCardWidth - titleWidths[0]! - descWidths[0]!));
+  const edgeOffset = first.side === 'right' ? (first.left ?? 0) : (first.right ?? 0);
+  const available = Math.max(220, window.innerWidth - edgeOffset - 16);
+  const cardWidth = Math.min(maxTitle + maxDesc + chrome + 2, available);
+  const titleWidth = Math.min(maxTitle, Math.floor(cardWidth * 0.45));
+  const height = Math.ceil(
+    Math.max(34, ...cards.map((card) => card.getBoundingClientRect().height)),
+  );
+
+  calloutMetrics.value = { key: layoutKey, titleWidth, cardWidth, height };
+}
+
 function measure() {
   guide.refreshElement();
   const rects = activeRingElements.value
@@ -270,6 +325,7 @@ function measure() {
   if (!sameRect(spotlight, spotlightRect.value)) spotlightRect.value = spotlight;
   const nextCallouts = measureSidebarCallouts();
   if (!sameCallouts(nextCallouts, sidebarCallouts.value)) sidebarCallouts.value = nextCallouts;
+  syncSidebarCalloutMetrics(nextCallouts);
   const nextCutout = measureInteractiveCutout();
   if (!sameRect(nextCutout, interactiveCutout.value)) interactiveCutout.value = nextCutout;
   const box = bubble.value;
@@ -318,6 +374,7 @@ watch(
       spotlightRect.value = null;
       bubblePosition.value = null;
       sidebarCallouts.value = [];
+      calloutMetrics.value = null;
       interactiveCutout.value = null;
     } else if (!frame) {
       frame = requestAnimationFrame(track);
@@ -448,6 +505,21 @@ const pageBlockerStyle = computed(() => {
     clipPath: `polygon(evenodd, 0px 0px, ${vw}px 0px, ${vw}px ${vh}px, 0px ${vh}px, 0px 0px, ${L}px ${T}px, ${L}px ${B}px, ${R}px ${B}px, ${R}px ${T}px, ${L}px ${T}px)`,
   };
 });
+
+const calloutLayoutStyle = computed(() => {
+  const m = calloutMetrics.value;
+  if (!m) {
+    return {
+      gridTemplateColumns: 'auto 1px auto',
+      minHeight: '34px',
+    };
+  }
+  return {
+    gridTemplateColumns: `${m.titleWidth}px 1px minmax(0, 1fr)`,
+    width: `${m.cardWidth}px`,
+    minHeight: `${m.height}px`,
+  };
+});
 </script>
 
 <template>
@@ -500,15 +572,29 @@ const pageBlockerStyle = computed(() => {
         :key="callout.id"
         data-page-guide-callout
         :data-callout-id="callout.id"
-        class="pointer-events-none fixed z-(--pxd-z-guide-overlay) flex -translate-y-1/2 items-center gap-[var(--pxd-space-sm)] whitespace-nowrap rounded-md border border-border bg-popover/95 px-[var(--pxd-space-md)] py-1.5 text-[length:var(--pxd-font-secondary)] text-popover-foreground shadow-md"
+        class="pointer-events-none fixed z-(--pxd-z-guide-overlay) grid -translate-y-1/2 items-center gap-x-[var(--pxd-space-md)] rounded-md border border-border/90 bg-popover/95 px-[var(--pxd-space-lg)] py-1.5 text-[length:var(--pxd-font-secondary)] leading-snug text-popover-foreground shadow-md"
         :style="{
           top: `${callout.top}px`,
           ...(callout.left !== undefined ? { left: `${callout.left}px` } : {}),
           ...(callout.right !== undefined ? { right: `${callout.right}px` } : {}),
+          ...calloutLayoutStyle,
         }"
       >
-        <span class="font-semibold text-foreground">{{ t(callout.titleKey) }}</span>
-        <span class="text-muted-foreground">{{ t(callout.descKey) }}</span>
+        <span
+          aria-hidden="true"
+          class="pointer-events-none absolute top-1/2 flex -translate-y-1/2 items-center"
+          :class="callout.side === 'right' ? '-left-3 flex-row' : '-right-3 flex-row-reverse'"
+        >
+          <span class="size-1.5 rounded-full bg-primary" />
+          <span class="h-px w-1.5 bg-primary/70" />
+        </span>
+        <span data-callout-title class="whitespace-nowrap font-semibold text-foreground">
+          {{ t(callout.titleKey) }}
+        </span>
+        <span class="h-3.5 w-px bg-border" aria-hidden="true" />
+        <span data-callout-desc class="text-muted-foreground">
+          {{ t(callout.descKey) }}
+        </span>
       </div>
 
       <section

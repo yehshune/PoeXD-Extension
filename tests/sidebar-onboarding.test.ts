@@ -360,6 +360,38 @@ describe('Sidebar first-install onboarding', () => {
     expect(callouts.map((el) => el.dataset.calloutId)).toContain('pob-build');
     expect(callouts.map((el) => el.dataset.calloutId)).toContain('live-search');
     expect(callouts[0]!.style.left).toBe('380px');
+
+    // 模擬不同字長的分頁標註：量測後應統一為相同寬度、標題欄寬與高度
+    callouts.forEach((el, idx) => {
+      const titleW = 50 + idx * 10;
+      const descW = 100 + idx * 12;
+      const cardW = titleW + descW + 32;
+      el.getBoundingClientRect = () =>
+        ({
+          top: 0,
+          bottom: 32,
+          left: 380,
+          right: 380 + cardW,
+          width: cardW,
+          height: 32,
+        }) as DOMRect;
+      const titleEl = el.querySelector<HTMLElement>('[data-callout-title]')!;
+      const descEl = el.querySelector<HTMLElement>('[data-callout-desc]')!;
+      titleEl.getBoundingClientRect = () =>
+        ({ top: 0, bottom: 18, left: 0, right: titleW, width: titleW, height: 18 }) as DOMRect;
+      descEl.getBoundingClientRect = () =>
+        ({ top: 0, bottom: 18, left: 0, right: descW, width: descW, height: 18 }) as DOMRect;
+    });
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await settle();
+
+    const widths = new Set(callouts.map((el) => el.style.width));
+    const cols = new Set(callouts.map((el) => el.style.gridTemplateColumns));
+    const heights = new Set(callouts.map((el) => el.style.minHeight));
+    expect(widths.size).toBe(1);
+    expect(cols.size).toBe(1);
+    expect(heights.size).toBe(1);
+    expect(callouts[0]!.style.width).not.toBe('');
   });
 
   it('shows the update notice across all tabs without collapsed hint dot and dismisses it once closed', async () => {
