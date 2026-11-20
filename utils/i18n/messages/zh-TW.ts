@@ -54,11 +54,14 @@ export const ZH_TW_MESSAGES = {
     '收合時可直接上下拖曳按鈕調整位置；按鈕取得焦點時也可用 Alt + ↑/↓ 微調。',
   'settings.collapsedTabPosition.reset': '重設位置',
 
-  'settings.fontSize.label': '介面縮放比例 ({percent}%)',
-  'settings.fontSize.option.small': '小',
-  'settings.fontSize.option.medium': '中',
-  'settings.fontSize.option.large': '大',
-  'settings.fontSize.option.custom': '自訂',
+  'settings.fontSize.label': '介面縮放比例',
+  'settings.fontSize.triggerAria': '開啟介面縮放比例調整面板',
+  'settings.fontSize.sliderAria': '介面縮放比例滑桿',
+  'settings.fontSize.inputAria': '介面縮放比例百分比',
+  'settings.fontSize.decreaseAria': '減少 5%',
+  'settings.fontSize.increaseAria': '增加 5%',
+  'settings.fontSize.resetAria': '恢復預設 (100%)',
+  'settings.fontSize.wheelHint': '可拖曳滑桿、滾動滾輪或直接輸入數值',
 
   'settings.density.compactLabel': '使用緊湊介面',
 
@@ -1270,7 +1273,7 @@ export const ZH_TW_MESSAGES = {
     '這是英文的國際服市集。開啟後，官網上的物品、詞綴與篩選會改用中文顯示。',
   'pageGuide.tour.appearance.title': '外觀：位置、寬度與字體',
   'pageGuide.tour.appearance.body':
-    '選側邊欄放哪一側，也可以直接拖曳側邊欄內側邊緣調整寬度。字體大小也能用滑桿自訂，改了馬上套用。',
+    '選側邊欄放哪一側，也可以直接拖曳側邊欄內側邊緣調整寬度。介面縮放比例可按加減或輸入調整，改了馬上套用。',
   'pageGuide.setup.marketTranslation.label': '用中文顯示這個市集',
   'pageGuide.setup.marketTranslation.bilingual': '篩選下拉中英並列',
   'pageGuide.setup.marketTranslation.resultBilingual': '結果詞綴附英文原文',

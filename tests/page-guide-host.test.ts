@@ -361,7 +361,6 @@ describe('PageGuideSetupControls market translation preview', () => {
       marketTranslationResultBilingual: false,
       reloadRequired: false,
       sidebarPosition: 'left',
-      fontSizeMode: 'medium',
       fontSizeScale: 1,
       resultFeatures: Object.fromEntries(
         RESULT_FEATURE_KEYS.map((k) => [k, true]),
@@ -378,7 +377,6 @@ describe('PageGuideSetupControls market translation preview', () => {
         state.value = { ...state.value, marketTranslationResultBilingual: v };
       },
       setSidebarPosition: vi.fn(),
-      setFontSizeMode: vi.fn(),
       setFontSizeScale: vi.fn(),
       setResultFeature: vi.fn(),
       replayCollapseDemo: vi.fn(),

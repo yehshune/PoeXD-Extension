@@ -562,6 +562,7 @@
 <script lang="ts">
 import {
   defineComponent,
+  provide,
   ref,
   shallowRef,
   onMounted,
@@ -593,14 +594,15 @@ import {
   usePageGuideDemos,
   type FilterPaneDemoHandle,
 } from './sidebar/page-guide/usePageGuideDemos';
-import { SIDEBAR_WIDTH_BOUNDS, type FontSizeMode } from '@/utils/preferences-contract';
+import { SIDEBAR_WIDTH_BOUNDS } from '@/utils/preferences-contract';
 import {
   RESULT_FEATURE_KEYS,
   readResultFeatures,
   type PageGuideSetupBindings,
   type ResultFeatureFlags,
 } from './sidebar/page-guide/page-guide-setup';
-import { planCustomFontSizeScale, planFontSizeModeChange } from '@/utils/appearance-preferences';
+import { clampFontSizeScale } from '@/utils/appearance-preferences';
+import { FONT_SIZE_SCALE_PREVIEW_KEY } from './sidebar/settings/font-size-preview';
 import { affixDemoMode } from '@/utils/page-guide-demo-state';
 import { resolveMarketTranslationLocale } from '@/utils/market-translation';
 import { getPageLoadPreferences } from '@/utils/page-load-preferences';
@@ -788,7 +790,10 @@ export default defineComponent({
     let preferencesModule: PreferencesModule | undefined;
     const preferencesReady = ref(false);
     const fontSizeScale = ref(1.0);
-    const fontSizeMode = ref<FontSizeMode>(DEFAULT_PREFERENCES.fontSizeMode);
+    const previewFontSizeScale = ref<number | null>(null);
+    provide(FONT_SIZE_SCALE_PREVIEW_KEY, (scale) => {
+      previewFontSizeScale.value = scale === null ? null : clampFontSizeScale(scale);
+    });
     const resultFeatures = shallowRef<ResultFeatureFlags>(readResultFeatures(DEFAULT_PREFERENCES));
     const densityScale = ref(1.0);
     const activeTab = ref('bookmark');
@@ -993,7 +998,7 @@ export default defineComponent({
 
     const runtimeTokens = computed(() => {
       return createUiRuntimeTokenValues({
-        scale: fontSizeScale.value,
+        scale: previewFontSizeScale.value ?? fontSizeScale.value,
         density: densityScale.value,
         sidebarWidth: sidebarWidth.value,
       });
@@ -1176,7 +1181,12 @@ export default defineComponent({
         sidebarWidth.value = snapshot.sidebarWidth;
         if (!isCollapsedTabDragging.value) collapsedTabTop.value = snapshot.collapsedTabTop;
         fontSizeScale.value = snapshot.fontSizeScale;
-        fontSizeMode.value = snapshot.fontSizeMode;
+        if (
+          previewFontSizeScale.value !== null &&
+          Math.abs(snapshot.fontSizeScale - previewFontSizeScale.value) <= 0.0001
+        ) {
+          previewFontSizeScale.value = null;
+        }
         const nextResultFeatures = readResultFeatures(snapshot);
         if (
           RESULT_FEATURE_KEYS.some((key) => nextResultFeatures[key] !== resultFeatures.value[key])
@@ -1614,7 +1624,6 @@ export default defineComponent({
       marketTranslationResultBilingual: marketTranslationResultBilingual.value,
       reloadRequired: marketTranslationReloadRequired.value,
       sidebarPosition: sidebarPosition.value,
-      fontSizeMode: fontSizeMode.value,
       fontSizeScale: fontSizeScale.value,
       resultFeatures: resultFeatures.value,
       demoPlaying: demoPlaying.value,
@@ -1626,12 +1635,8 @@ export default defineComponent({
         void setMarketTranslationResultBilingual(value),
       setSidebarPosition: (value) =>
         void updatePreference({ sidebarPosition: value }, '側邊欄位置'),
-      setFontSizeMode: (value) => {
-        if (!preferencesModule) return;
-        void updatePreference(planFontSizeModeChange(value, preferencesModule.read()), '字體大小');
-      },
       setFontSizeScale: (value) =>
-        void updatePreference(planCustomFontSizeScale(value), '字體大小'),
+        void updatePreference({ fontSizeScale: clampFontSizeScale(value) }, '字體大小'),
       setResultFeature: (key, value) => void updatePreference({ [key]: value }, '結果列功能'),
       replayCollapseDemo: () => void playCollapseDemo(),
       replayStepDemo,

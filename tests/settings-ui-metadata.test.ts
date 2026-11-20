@@ -5,7 +5,6 @@ import {
   AFFIX_DISPLAY_LOCALE_VALUES,
   BOOKMARK_BUTTON_POSITIONS,
   DISPLAY_LOCALE_VALUES,
-  FONT_SIZE_MODES,
   SIDEBAR_POSITIONS,
   THEME_IDS,
 } from '@/utils/preferences-contract';
@@ -17,8 +16,6 @@ import {
   BOOKMARK_BUTTON_POSITION_OPTIONS,
   DISPLAY_LOCALE_LABELS,
   DISPLAY_LOCALE_OPTIONS,
-  FONT_SIZE_MODE_LABELS,
-  FONT_SIZE_MODE_OPTIONS,
   SEARCH_ENTRY_CLICK_ACTION_LABELS,
   SEARCH_ENTRY_CLICK_ACTION_OPTIONS,
   SIDEBAR_POSITION_LABELS,
@@ -39,7 +36,6 @@ describe('Settings UI Metadata', () => {
       ...AFFIX_DISPLAY_LOCALE_VALUES,
     ]);
     expect(SIDEBAR_POSITION_OPTIONS.map((opt) => opt.value)).toEqual([...SIDEBAR_POSITIONS]);
-    expect(FONT_SIZE_MODE_OPTIONS.map((opt) => opt.value)).toEqual([...FONT_SIZE_MODES]);
     expect(BOOKMARK_BUTTON_POSITION_OPTIONS.map((opt) => opt.value)).toEqual([
       ...BOOKMARK_BUTTON_POSITIONS,
     ]);
@@ -56,13 +52,6 @@ describe('Settings UI Metadata', () => {
     expect(SIDEBAR_POSITION_LABELS).toEqual({
       left: '左側',
       right: '右側',
-    });
-
-    expect(FONT_SIZE_MODE_LABELS).toEqual({
-      small: '小',
-      medium: '中',
-      large: '大',
-      custom: '自訂',
     });
 
     expect(BOOKMARK_BUTTON_POSITION_LABELS).toEqual({
@@ -86,9 +75,6 @@ describe('Settings UI Metadata', () => {
     });
     SIDEBAR_POSITION_OPTIONS.forEach((opt) => {
       expect(opt.label).toBe(SIDEBAR_POSITION_LABELS[opt.value]);
-    });
-    FONT_SIZE_MODE_OPTIONS.forEach((opt) => {
-      expect(opt.label).toBe(FONT_SIZE_MODE_LABELS[opt.value]);
     });
     BOOKMARK_BUTTON_POSITION_OPTIONS.forEach((opt) => {
       expect(opt.label).toBe(BOOKMARK_BUTTON_POSITION_LABELS[opt.value]);
@@ -122,9 +108,6 @@ describe('Settings UI Metadata', () => {
     expect(Object.isFrozen(SIDEBAR_POSITION_LABELS)).toBe(true);
     expect(Object.isFrozen(SIDEBAR_POSITION_OPTIONS)).toBe(true);
 
-    expect(Object.isFrozen(FONT_SIZE_MODE_LABELS)).toBe(true);
-    expect(Object.isFrozen(FONT_SIZE_MODE_OPTIONS)).toBe(true);
-
     expect(Object.isFrozen(BOOKMARK_BUTTON_POSITION_LABELS)).toBe(true);
     expect(Object.isFrozen(BOOKMARK_BUTTON_POSITION_OPTIONS)).toBe(true);
   });
@@ -137,7 +120,7 @@ describe('Settings UI Metadata', () => {
     expect(content).toMatch(/v-for="opt in SIDEBAR_POSITION_OPTIONS"/);
     expect(content).toContain('DISPLAY_LOCALE_OPTIONS');
     expect(content).not.toContain('SIDEBAR_SIZE_OPTIONS');
-    expect(content).toContain('FONT_SIZE_MODE_OPTIONS');
+    expect(content).not.toContain('FONT_SIZE_MODE_OPTIONS');
     expect(content).not.toContain('DENSITY_OPTIONS');
     expect(content).toContain('BOOKMARK_BUTTON_POSITION_OPTIONS');
 

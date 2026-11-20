@@ -296,12 +296,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
   };
 
-  type SelectControl = 'theme' | 'displayLocale' | 'fontSizeMode' | 'addBookmarkBtnPosition';
+  type SelectControl = 'theme' | 'displayLocale' | 'addBookmarkBtnPosition';
 
   const SELECT_CONTROL_LABELS: Record<SelectControl, string> = {
     theme: '主題',
     displayLocale: '語言',
-    fontSizeMode: '介面縮放比例',
     addBookmarkBtnPosition: '加入書籤按鈕位置',
   };
 
@@ -399,9 +398,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(sectionStack?.className).toContain('--pxd-section-gap');
     expect(sectionStack?.className).not.toContain('--poexd-density-scale');
 
-    // Verify 3 Select triggers for settings (theme, displayLocale, font size)
+    // Verify 2 Select triggers for settings (theme, displayLocale)
     const selectTriggers = container.querySelectorAll('[data-slot="select-trigger"]');
-    expect(selectTriggers.length).toBe(3);
+    expect(selectTriggers.length).toBe(2);
     selectTriggers.forEach((trigger) => {
       expect(trigger.className).toContain('w-[140px]');
       expect(trigger.className).toContain('shrink-0');
@@ -620,76 +619,145 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(container.querySelector('input[type="number"][min="300"]')).toBeNull();
   });
 
-  it('updates font size scale and mode via Select and custom input', async () => {
+  async function openFontScalePopover(container: HTMLElement) {
+    const triggerBtn = container.querySelector('[data-font-scale-trigger]') as HTMLButtonElement;
+    expect(triggerBtn).not.toBeNull();
+    triggerBtn.click();
+    await flushAsync();
+
+    const popover = document.body.querySelector('[data-font-scale-popover]') as HTMLElement;
+    expect(popover).not.toBeNull();
+    return {
+      triggerBtn,
+      popover,
+      slider: popover.querySelector('[data-font-scale-slider]') as HTMLInputElement,
+      decreaseBtn: popover.querySelector(
+        '[data-font-scale-action="decrease"]',
+      ) as HTMLButtonElement,
+      increaseBtn: popover.querySelector(
+        '[data-font-scale-action="increase"]',
+      ) as HTMLButtonElement,
+      popoverResetBtn: popover.querySelector(
+        '[data-font-scale-popover-reset]',
+      ) as HTMLButtonElement,
+      scaleInput: popover.querySelector('[data-font-scale-input]') as HTMLInputElement,
+    };
+  }
+
+  it('opens fixed non-scaling font scale popover and updates via slider, wheel, 5% stepper, input, and reset', async () => {
     const { container } = await mountSettingsPane();
 
-    // Select 'small' (fontSizeMode, scale: 0.85)
-    await changeSelectValue(container, 'fontSizeMode', 'small');
-    expect(currentModule?.read().fontSizeMode).toBe('small');
-    expect(currentModule?.read().fontSizeScale).toBe(0.85);
+    const triggerBtn = container.querySelector('[data-font-scale-trigger]') as HTMLButtonElement;
+    const resetBtn = container.querySelector(
+      '[data-font-scale-action="reset"]',
+    ) as HTMLButtonElement;
 
-    // Select 'large' (scale: 1.2)
-    await changeSelectValue(container, 'fontSizeMode', 'large');
-    expect(currentModule?.read().fontSizeMode).toBe('large');
-    expect(currentModule?.read().fontSizeScale).toBe(1.2);
+    expect(triggerBtn).not.toBeNull();
+    expect(resetBtn).not.toBeNull();
+    expect(triggerBtn.textContent).toContain('100%');
+    expect(resetBtn.disabled).toBe(true);
+    expect(document.body.querySelector('[data-font-scale-popover]')).toBeNull();
 
-    // Select 'custom'
-    await changeSelectValue(container, 'fontSizeMode', 'custom');
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
-    expect(currentModule?.read().fontSizeScale).toBe(1.2);
+    const { popover, slider, decreaseBtn, increaseBtn, popoverResetBtn, scaleInput } =
+      await openFontScalePopover(container);
 
-    const scaleInput = container.querySelector(
-      'input[type="number"][min="80"]',
-    ) as HTMLInputElement;
+    expect(slider).not.toBeNull();
+    expect(decreaseBtn).not.toBeNull();
+    expect(increaseBtn).not.toBeNull();
+    expect(popoverResetBtn).not.toBeNull();
     expect(scaleInput).not.toBeNull();
-    expect(scaleInput.closest('.flex.flex-col.items-end')).not.toBeNull();
-    expect(scaleInput.parentElement?.className).toContain('w-[140px]');
+    expect(scaleInput.value).toBe('100');
+    expect(slider.value).toBe('100');
+    expect(popoverResetBtn.disabled).toBe(true);
+    // 浮層鎖在 1.0x 基準 token，不隨背後側邊欄縮放而變形
+    expect(popover.style.getPropertyValue('--control-height-sm')).toBe('28px');
+    expect(popover.style.getPropertyValue('--control-font-sm')).toBe('12px');
 
+    // +5% twice -> 110%
+    increaseBtn.click();
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(1.05);
+    expect(triggerBtn.textContent).toContain('105%');
+    expect(scaleInput.value).toBe('105');
+    expect(slider.value).toBe('105');
+    expect(resetBtn.disabled).toBe(false);
+    expect(popoverResetBtn.disabled).toBe(false);
+    expect(popover.style.getPropertyValue('--control-height-sm')).toBe('28px');
+
+    increaseBtn.click();
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(1.1);
+
+    // -5% once -> 105%
+    decreaseBtn.click();
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(1.05);
+
+    // Wheel scroll up (+5% twice -> 115%) and down (-5% once -> 110%) inside popover without storage bounce
+    const wheelArea = popover.firstElementChild as HTMLElement;
+    wheelArea.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true }));
+    wheelArea.dispatchEvent(new WheelEvent('wheel', { deltaY: -100, bubbles: true }));
+    await flushAsync();
+    expect(scaleInput.value).toBe('115');
+    wheelArea.dispatchEvent(new WheelEvent('wheel', { deltaY: 100, bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 110));
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(1.1);
+
+    // Continuous slider drag previews locally during input without premature storage write, then commits on change
+    slider.dispatchEvent(new Event('pointerdown'));
+    slider.value = '128';
+    slider.dispatchEvent(new Event('input'));
+    await flushAsync();
+    expect(scaleInput.value).toBe('128');
+    expect(triggerBtn.textContent).toContain('128%');
+    expect(currentModule?.read().fontSizeScale).toBe(1.1);
+
+    slider.value = '142';
+    slider.dispatchEvent(new Event('input'));
+    slider.dispatchEvent(new Event('change'));
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(1.42);
+    expect(scaleInput.value).toBe('142');
+    expect(triggerBtn.textContent).toContain('142%');
+
+    // Direct input -> 150%
     scaleInput.value = '150';
     scaleInput.dispatchEvent(new Event('input'));
-    scaleInput.dispatchEvent(new Event('blur'));
     await flushAsync();
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
     expect(currentModule?.read().fontSizeScale).toBe(1.5);
+
+    // Blur clamps out-of-range high value -> 200%
+    scaleInput.value = '999';
+    scaleInput.dispatchEvent(new Event('input'));
+    scaleInput.dispatchEvent(new Event('blur'));
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(2);
+    expect(scaleInput.value).toBe('200');
+    expect(increaseBtn.disabled).toBe(true);
+
+    // Reset back to 100%
+    popoverResetBtn.click();
+    await flushAsync();
+    expect(currentModule?.read().fontSizeScale).toBe(1);
+    expect(scaleInput.value).toBe('100');
+    expect(triggerBtn.textContent).toContain('100%');
+    expect(resetBtn.disabled).toBe(true);
+    expect(popoverResetBtn.disabled).toBe(true);
   });
 
-  it('permanently distinguishes Large 120% from Custom 120%', async () => {
+  it('preserves fontSizeScale when unrelated preferences change', async () => {
     const { container } = await mountSettingsPane();
 
-    // 1. Select Large -> mode = large, scale = 1.2
-    await changeSelectValue(container, 'fontSizeMode', 'large');
-    expect(currentModule?.read().fontSizeMode).toBe('large');
-    expect(currentModule?.read().fontSizeScale).toBe(1.2);
-
-    // 2. Select Custom and input 120 -> mode = custom, scale = 1.2
-    await changeSelectValue(container, 'fontSizeMode', 'custom');
-    const scaleInput = container.querySelector(
-      'input[type="number"][min="80"]',
-    ) as HTMLInputElement;
-    expect(scaleInput).not.toBeNull();
+    const { scaleInput, triggerBtn } = await openFontScalePopover(container);
     scaleInput.value = '120';
     scaleInput.dispatchEvent(new Event('input'));
     scaleInput.dispatchEvent(new Event('blur'));
     await flushAsync();
-
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
-    expect(currentModule?.read().fontSizeScale).toBe(1.2);
-  });
-
-  it('preserves fontSizeMode = custom when unrelated preferences change', async () => {
-    const { container } = await mountSettingsPane();
-
-    // Set Custom 120%
-    await changeSelectValue(container, 'fontSizeMode', 'custom');
-    const scaleInput = container.querySelector(
-      'input[type="number"][min="80"]',
-    ) as HTMLInputElement;
-    scaleInput.value = '120';
-    scaleInput.dispatchEvent(new Event('input'));
-    scaleInput.dispatchEvent(new Event('blur'));
+    // Toggle popover closed before interacting with other controls
+    triggerBtn.click();
     await flushAsync();
 
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
     expect(currentModule?.read().fontSizeScale).toBe(1.2);
 
     // Change enableHotkeys
@@ -697,72 +765,24 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     hotkeyCheckbox.click();
     await flushAsync();
     expect(currentModule?.read().enableHotkeys).toBe(false);
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
     expect(currentModule?.read().fontSizeScale).toBe(1.2);
 
     // Change sidebarPosition to right
     await changeToggleGroupValue(container, 'right');
     expect(currentModule?.read().sidebarPosition).toBe('right');
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
     expect(currentModule?.read().fontSizeScale).toBe(1.2);
   });
 
-  it('retains custom font scale when switching back from preset options', async () => {
-    const { container } = await mountSettingsPane();
-
-    // 1. 設定自訂縮放比例為 135%
-    await changeSelectValue(container, 'fontSizeMode', 'custom');
-    let scaleInput = container.querySelector('input[type="number"][min="80"]') as HTMLInputElement;
-    expect(scaleInput).not.toBeNull();
-    scaleInput.value = '135';
-    scaleInput.dispatchEvent(new Event('input'));
-    scaleInput.dispatchEvent(new Event('blur'));
-    await flushAsync();
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
-    expect(currentModule?.read().fontSizeScale).toBe(1.35);
-
-    // 2. 切換為「小」
-    await changeSelectValue(container, 'fontSizeMode', 'small');
-    expect(currentModule?.read().fontSizeMode).toBe('small');
-    expect(currentModule?.read().fontSizeScale).toBe(0.85);
-    expect(container.querySelector('input[type="number"][min="80"]')).toBeNull();
-
-    // 3. 切換為「大」
-    await changeSelectValue(container, 'fontSizeMode', 'large');
-    expect(currentModule?.read().fontSizeMode).toBe('large');
-    expect(currentModule?.read().fontSizeScale).toBe(1.2);
-
-    // 4. 切回「自訂」，驗證保持 135%
-    await changeSelectValue(container, 'fontSizeMode', 'custom');
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
-    expect(currentModule?.read().fontSizeScale).toBe(1.35);
-    scaleInput = container.querySelector('input[type="number"][min="80"]') as HTMLInputElement;
-    expect(scaleInput).not.toBeNull();
-    expect(scaleInput.value).toBe('135');
-  });
-
-  it('persists custom font scale across unmount/remount via Preferences SSOT without localStorage', async () => {
+  it('persists font scale across unmount/remount via Preferences SSOT without localStorage', async () => {
     // 1. Mount first instance
     const first = await mountSettingsPane();
 
-    // 設 custom font scale = 1.35
-    await changeSelectValue(first.container, 'fontSizeMode', 'custom');
-    const scaleInput1 = first.container.querySelector(
-      'input[type="number"][min="80"]',
-    ) as HTMLInputElement;
+    const { scaleInput: scaleInput1 } = await openFontScalePopover(first.container);
     scaleInput1.value = '135';
     scaleInput1.dispatchEvent(new Event('input'));
     scaleInput1.dispatchEvent(new Event('blur'));
     await flushAsync();
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
     expect(currentModule?.read().fontSizeScale).toBe(1.35);
-    expect(currentModule?.read().customFontSizeScale).toBe(1.35);
-
-    // 切到 large
-    await changeSelectValue(first.container, 'fontSizeMode', 'large');
-    expect(currentModule?.read().fontSizeMode).toBe('large');
-    expect(currentModule?.read().fontSizeScale).toBe(1.2);
-    expect(currentModule?.read().customFontSizeScale).toBe(1.35);
 
     // 2. unmount SettingsPane
     app.unmount();
@@ -771,53 +791,35 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // 3. 使用同一 Preferences storage 重新 mount
     const second = await mountSettingsPane();
 
-    // 4. 此時 active 仍為 large
-    expect(currentModule?.read().fontSizeMode).toBe('large');
-    expect(currentModule?.read().fontSizeScale).toBe(1.2);
-
-    // 5. 切回 custom font scale
-    await changeSelectValue(second.container, 'fontSizeMode', 'custom');
-
-    // 6. 恢復 1.35
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
+    // 4. 恢復 1.35
     expect(currentModule?.read().fontSizeScale).toBe(1.35);
-    const scaleInput2 = second.container.querySelector(
-      'input[type="number"][min="80"]',
-    ) as HTMLInputElement;
-    expect(scaleInput2).not.toBeNull();
+    const triggerBtn2 = second.container.querySelector(
+      '[data-font-scale-trigger]',
+    ) as HTMLButtonElement;
+    expect(triggerBtn2.textContent).toContain('135%');
+    const { scaleInput: scaleInput2 } = await openFontScalePopover(second.container);
     expect(scaleInput2.value).toBe('135');
 
     // 驗證所有值存在既有 Preferences storage，而不是 localStorage
     const storedSnapshot = storage.inspect();
-    expect(storedSnapshot['customFontSizeScale']).toBe(1.35);
+    expect(storedSnapshot['fontSizeScale']).toBe(1.35);
     expect(window.localStorage.getItem('poexd_custom_font_size_percent_poe1')).toBeNull();
   });
 
-  it('restores custom font size mode and 120% input on reload without showing large', async () => {
+  it('restores legacy fontSizeScale_poe2 on reload into scale trigger and popover input', async () => {
     window.location.pathname = '/trade2/search/Standard';
     storage = createInMemoryPreferencesStorage({
-      fontSizeMode_poe2: 'custom',
       fontSizeScale_poe2: 1.2,
     });
 
     const { container } = await mountSettingsPane();
-    const triggers = container.querySelectorAll('[data-slot="select-trigger"]');
-
-    // Font size select must display '自訂'
-    const fontSizeTrigger = Array.from(triggers).find((t) =>
-      t.closest('[data-settings-row]')?.textContent?.includes('介面縮放比例'),
-    );
-    expect(fontSizeTrigger?.textContent).toContain('自訂');
-
-    // Custom input must exist and display 120
-    const scaleInput = container.querySelector(
-      'input[type="number"][min="80"]',
-    ) as HTMLInputElement;
-    expect(scaleInput).not.toBeNull();
-    expect(scaleInput.value).toBe('120');
-
-    expect(currentModule?.read().fontSizeMode).toBe('custom');
+    const triggerBtn = container.querySelector('[data-font-scale-trigger]') as HTMLButtonElement;
+    expect(triggerBtn).not.toBeNull();
+    expect(triggerBtn.textContent).toContain('120%');
     expect(currentModule?.read().fontSizeScale).toBe(1.2);
+
+    const { scaleInput } = await openFontScalePopover(container);
+    expect(scaleInput.value).toBe('120');
   });
 
   it('updates density scale via density Checkbox and does not use density Select', async () => {
@@ -1385,7 +1387,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       sidebarPosition: 'right',
       enableHotkeys: false,
       densityScale: 0.8,
-      fontSizeMode: 'large',
       fontSizeScale: 1.2,
       sidebarWidth: 500,
     });
@@ -1398,8 +1399,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(triggers[0].textContent).toContain('現代暗色');
     // Display locale: 'auto' (default unmutated)
     expect(triggers[1].textContent).toContain('自動偵測');
-    // Font size mode: 'large'
-    expect(triggers[2].textContent).toContain('大');
+    // Font size trigger reflects 120%
+    const scaleTrigger = container.querySelector('[data-font-scale-trigger]') as HTMLButtonElement;
+    expect(scaleTrigger.textContent).toContain('120%');
 
     // Sidebar position in ToggleGroup reflects 'right'
     const rightItem = container.querySelector('[data-slot="toggle-group-item"][value="right"]');
@@ -1493,13 +1495,14 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(content).not.toContain('const saveBackgroundSettings');
     expect(content).not.toContain('const saveBookmarkBtnPosition');
 
-    // Compound handlers: preserve active ones, eliminate dead width handlers
+    // Compound handlers: preserve active ones, eliminate dead width/mode handlers
     expect(content).not.toContain('const handleSizeChange');
     expect(content).not.toContain('const handleCustomWidthInput');
     expect(content).not.toContain('const handleCustomWidthBlur');
-    expect(content).toContain('const handleFontSizeModeChange');
-    expect(content).toContain('const handleCustomFontSizeInput');
-    expect(content).toContain('const handleCustomFontSizeBlur');
+    expect(content).not.toContain('const handleFontSizeModeChange');
+    expect(content).not.toContain('const handleCustomFontSizeInput');
+    expect(content).not.toContain('const handleCustomFontSizeBlur');
+    expect(content).toContain('const handleFontSizeScaleChange');
     expect(content).toContain('const handleDensityChange');
     expect(content).toContain('const fuzzySearchEnabled = computed');
   });

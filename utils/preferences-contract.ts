@@ -12,9 +12,6 @@ export { DEFAULT_THEME_ID, THEME_IDS, type ThemeId, isValidThemeId, normalizeThe
 export const SIDEBAR_POSITIONS = ['left', 'right'] as const;
 export type SidebarPosition = (typeof SIDEBAR_POSITIONS)[number];
 
-export const FONT_SIZE_MODES = ['small', 'medium', 'large', 'custom'] as const;
-export type FontSizeMode = (typeof FONT_SIZE_MODES)[number];
-
 export const BOOKMARK_BUTTON_POSITIONS = ['top', 'bottom'] as const;
 export type BookmarkButtonPosition = (typeof BOOKMARK_BUTTON_POSITIONS)[number];
 
@@ -41,13 +38,7 @@ export const FONT_SIZE_SCALE_BOUNDS = Object.freeze({
   max: 2,
 });
 
-export type FontSizePresetMode = Exclude<FontSizeMode, 'custom'>;
-
-export const FONT_SIZE_PRESETS: Readonly<Record<FontSizePresetMode, number>> = Object.freeze({
-  small: 0.85,
-  medium: 1,
-  large: 1.2,
-});
+export const FONT_SIZE_PERCENT_STEP = 5;
 
 export const GLOBAL_PREFERENCE_NAMES = [
   'theme',
@@ -58,9 +49,7 @@ export const GLOBAL_PREFERENCE_NAMES = [
   'collapsedTabTop',
   'sidebarPosition',
   'sidebarWidth',
-  'fontSizeMode',
   'fontSizeScale',
-  'customFontSizeScale',
   'densityScale',
   'enablePureBackground',
   'enableAutoTitle',
@@ -83,9 +72,7 @@ export const LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES = [
   'collapsedTabTop',
   'sidebarPosition',
   'sidebarWidth',
-  'fontSizeMode',
   'fontSizeScale',
-  'customFontSizeScale',
   'densityScale',
   'enablePureBackground',
   'enableAutoTitle',
@@ -179,7 +166,6 @@ export interface Preferences {
   addBookmarkBtnPosition: BookmarkButtonPosition;
   /** 收合標籤可沿面板所在側邊上下拖曳，記住距離視窗頂端的位置（px） */
   collapsedTabTop: number;
-  customFontSizeScale: number | null;
   densityScale: number;
   displayLocale: DisplayLocalePreference;
   enableAffixSelector: boolean;
@@ -196,7 +182,6 @@ export interface Preferences {
   enableResultPobCopy: boolean;
   enableSearchTilde: boolean;
   enableTierHelper: boolean;
-  fontSizeMode: FontSizeMode;
   fontSizeScale: number;
   hotkeyClear: string;
   hotkeyFocus: string;
@@ -227,7 +212,6 @@ export interface Preferences {
 export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   addBookmarkBtnPosition: 'top',
   collapsedTabTop: 100,
-  customFontSizeScale: null,
   densityScale: 1,
   displayLocale: 'auto',
   enableAffixSelector: true,
@@ -244,7 +228,6 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   enableResultPobCopy: true,
   enableSearchTilde: true,
   enableTierHelper: true,
-  fontSizeMode: 'medium',
   fontSizeScale: 1,
   hotkeyClear: '\\',
   hotkeyFocus: '/',

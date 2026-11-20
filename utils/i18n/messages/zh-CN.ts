@@ -56,11 +56,14 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
     '收起时可直接上下拖动按钮调整位置；按钮获得焦点时也可用 Alt + ↑/↓ 微调。',
   'settings.collapsedTabPosition.reset': '重置位置',
 
-  'settings.fontSize.label': '界面缩放比例 ({percent}%)',
-  'settings.fontSize.option.small': '小',
-  'settings.fontSize.option.medium': '中',
-  'settings.fontSize.option.large': '大',
-  'settings.fontSize.option.custom': '自定义',
+  'settings.fontSize.label': '界面缩放比例',
+  'settings.fontSize.triggerAria': '打开界面缩放比例调整面板',
+  'settings.fontSize.sliderAria': '界面缩放比例滑块',
+  'settings.fontSize.inputAria': '界面缩放比例百分比',
+  'settings.fontSize.decreaseAria': '减少 5%',
+  'settings.fontSize.increaseAria': '增加 5%',
+  'settings.fontSize.resetAria': '恢复默认 (100%)',
+  'settings.fontSize.wheelHint': '可拖动滑块、滚动滚轮或直接输入数值',
 
   'settings.density.compactLabel': '使用紧凑界面',
 
@@ -1272,7 +1275,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
     '这是英文的国际服市集。开启后，官网上的物品、词缀与筛选会改用中文显示。',
   'pageGuide.tour.appearance.title': '外观：位置、宽度与字体',
   'pageGuide.tour.appearance.body':
-    '选侧边栏放哪一侧，也可以直接拖动侧边栏内侧边缘调整宽度。字体大小也能用滑块自定义，改了马上应用。',
+    '选侧边栏放哪一侧，也可以直接拖动侧边栏内侧边缘调整宽度。界面缩放比例可按加减或输入调整，改了马上应用。',
   'pageGuide.setup.marketTranslation.label': '用中文显示这个市集',
   'pageGuide.setup.marketTranslation.bilingual': '筛选下拉中英并列',
   'pageGuide.setup.marketTranslation.resultBilingual': '结果词缀附英文原文',

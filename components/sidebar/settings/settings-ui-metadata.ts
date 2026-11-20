@@ -2,14 +2,12 @@ import {
   BOOKMARK_BUTTON_POSITIONS,
   DISPLAY_LOCALE_VALUES,
   SEARCH_ENTRY_CLICK_ACTIONS,
-  FONT_SIZE_MODES,
   SIDEBAR_POSITIONS,
   THEME_IDS,
   type AffixDisplayLocalePreference,
   type BookmarkButtonPosition,
   type DisplayLocalePreference,
   type SearchEntryClickAction,
-  type FontSizeMode,
   type SidebarPosition,
   type ThemeId,
 } from '@/utils/preferences-contract';
@@ -65,14 +63,6 @@ export const SIDEBAR_POSITION_LABELS: Readonly<Record<SidebarPosition, string>> 
 
 export const SIDEBAR_POSITION_OPTIONS: readonly SettingsOption<SidebarPosition>[] =
   createReactiveOptions(SIDEBAR_POSITIONS, SIDEBAR_POSITION_LABELS);
-
-export const FONT_SIZE_MODE_LABELS: Readonly<Record<FontSizeMode, string>> = createReactiveLabelMap(
-  FONT_SIZE_MODES,
-  (value) => `settings.fontSize.option.${value}`,
-);
-
-export const FONT_SIZE_MODE_OPTIONS: readonly SettingsOption<FontSizeMode>[] =
-  createReactiveOptions(FONT_SIZE_MODES, FONT_SIZE_MODE_LABELS);
 
 export const BOOKMARK_BUTTON_POSITION_LABELS: Readonly<Record<BookmarkButtonPosition, string>> =
   createReactiveLabelMap(

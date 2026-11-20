@@ -7,8 +7,7 @@ import {
   DEFAULT_PREFERENCES,
   DENSITY_SCALE_VALUES,
   DISPLAY_LOCALE_VALUES,
-  FONT_SIZE_MODES,
-  FONT_SIZE_PRESETS,
+  FONT_SIZE_PERCENT_STEP,
   FONT_SIZE_SCALE_BOUNDS,
   SIDEBAR_POSITIONS,
   SIDEBAR_WIDTH_BOUNDS,
@@ -24,7 +23,6 @@ describe('Preferences Domain Contract', () => {
     expect(DEFAULT_PREFERENCES).toEqual({
       addBookmarkBtnPosition: 'top',
       collapsedTabTop: 100,
-      customFontSizeScale: null,
       densityScale: 1,
       displayLocale: 'auto',
       enableAffixSelector: true,
@@ -41,7 +39,6 @@ describe('Preferences Domain Contract', () => {
       enableResultPobCopy: true,
       enableSearchTilde: true,
       enableTierHelper: true,
-      fontSizeMode: 'medium',
       fontSizeScale: 1,
       hotkeyClear: '\\',
       hotkeyFocus: '/',
@@ -68,7 +65,6 @@ describe('Preferences Domain Contract', () => {
 
   it('defines allowed enum value constants and global preference names', () => {
     expect(SIDEBAR_POSITIONS).toEqual(['left', 'right']);
-    expect(FONT_SIZE_MODES).toEqual(['small', 'medium', 'large', 'custom']);
     expect(BOOKMARK_BUTTON_POSITIONS).toEqual(['top', 'bottom']);
     expect(DENSITY_SCALE_VALUES).toEqual([1, 0.8]);
     expect(SUPPORTED_LOCALES).toEqual([
@@ -97,9 +93,7 @@ describe('Preferences Domain Contract', () => {
       'collapsedTabTop',
       'sidebarPosition',
       'sidebarWidth',
-      'fontSizeMode',
       'fontSizeScale',
-      'customFontSizeScale',
       'densityScale',
       'enablePureBackground',
       'enableAutoTitle',
@@ -120,56 +114,36 @@ describe('Preferences Domain Contract', () => {
 
     expect(Object.isFrozen(FONT_SIZE_SCALE_BOUNDS)).toBe(true);
     expect(FONT_SIZE_SCALE_BOUNDS).toEqual({ min: 0.8, max: 2 });
+    expect(FONT_SIZE_PERCENT_STEP).toBe(5);
   });
 
-  it('defines frozen preset mappings without custom key', () => {
-    expect(Object.isFrozen(FONT_SIZE_PRESETS)).toBe(true);
-    expect(FONT_SIZE_PRESETS).toEqual({
-      small: 0.85,
-      medium: 1,
-      large: 1.2,
-    });
-    expect('custom' in FONT_SIZE_PRESETS).toBe(false);
-  });
-
-  it('ensures defaults and presets are consistent with bounds and each other', () => {
-    // Defaults match non-custom presets
-    if (DEFAULT_PREFERENCES.fontSizeMode !== 'custom') {
-      expect(FONT_SIZE_PRESETS[DEFAULT_PREFERENCES.fontSizeMode]).toBe(
-        DEFAULT_PREFERENCES.fontSizeScale,
-      );
-    }
-
-    // Default values within bounds
+  it('ensures defaults are consistent with bounds', () => {
     expect(DEFAULT_PREFERENCES.sidebarWidth).toBeGreaterThanOrEqual(SIDEBAR_WIDTH_BOUNDS.min);
     expect(DEFAULT_PREFERENCES.sidebarWidth).toBeLessThanOrEqual(SIDEBAR_WIDTH_BOUNDS.max);
     expect(DEFAULT_PREFERENCES.fontSizeScale).toBeGreaterThanOrEqual(FONT_SIZE_SCALE_BOUNDS.min);
     expect(DEFAULT_PREFERENCES.fontSizeScale).toBeLessThanOrEqual(FONT_SIZE_SCALE_BOUNDS.max);
-
-    // All presets within bounds
-    for (const scale of Object.values(FONT_SIZE_PRESETS)) {
-      expect(scale).toBeGreaterThanOrEqual(FONT_SIZE_SCALE_BOUNDS.min);
-      expect(scale).toBeLessThanOrEqual(FONT_SIZE_SCALE_BOUNDS.max);
-    }
   });
 
-  it('ensures SettingsPane and Sidebar import canonical contract symbols rather than hardcoding', () => {
+  it('ensures SettingsPane, FontSizeScaleControl, and Sidebar import canonical contract symbols rather than hardcoding', () => {
     const settingsPanePath = path.resolve(__dirname, '../components/sidebar/SettingsPane.vue');
     const content = fs.readFileSync(settingsPanePath, 'utf-8');
     const sidebarContent = fs.readFileSync(
       path.resolve(__dirname, '../components/Sidebar.vue'),
       'utf-8',
     );
+    const fontScaleControlContent = fs.readFileSync(
+      path.resolve(__dirname, '../components/sidebar/settings/FontSizeScaleControl.vue'),
+      'utf-8',
+    );
 
     expect(content).toContain('DEFAULT_PREFERENCES');
     expect(sidebarContent).toContain('SIDEBAR_WIDTH_BOUNDS');
-    expect(content).toContain('FONT_SIZE_SCALE_BOUNDS');
-    // 字體模式切換的預設值改由設定頁與初始導覽共用的規劃函式套用
-    expect(content).toContain('planFontSizeModeChange');
+    expect(fontScaleControlContent).toContain('FONT_SIZE_PERCENT_STEP');
+    expect(fontScaleControlContent).toContain('stepFontSizeScale');
     const planner = fs.readFileSync(
       path.resolve(__dirname, '../utils/appearance-preferences.ts'),
       'utf-8',
     );
-    expect(planner).toContain('FONT_SIZE_PRESETS');
+    expect(planner).toContain('FONT_SIZE_SCALE_BOUNDS');
   });
 });

@@ -9,8 +9,6 @@ import {
   LEGACY_DISPLAY_LOCALE_KEYS,
   LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES,
   migrateLegacyDisplayLocale,
-  FONT_SIZE_MODES,
-  FONT_SIZE_PRESETS,
   FONT_SIZE_SCALE_BOUNDS,
   LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES,
   LIVE_SEARCH_RESUME_MODES,
@@ -22,7 +20,6 @@ import {
   normalizeThemeId,
   type BookmarkButtonPosition,
   type DisplayLocalePreference,
-  type FontSizeMode,
   type Preferences,
   type SidebarPosition,
 } from './preferences-contract';
@@ -101,7 +98,6 @@ function isValidPreference(name: keyof Preferences, value: unknown) {
   if (name === 'addBookmarkBtnPosition')
     return (BOOKMARK_BUTTON_POSITIONS as readonly unknown[]).includes(value);
   if (name === 'sidebarPosition') return (SIDEBAR_POSITIONS as readonly unknown[]).includes(value);
-  if (name === 'fontSizeMode') return (FONT_SIZE_MODES as readonly unknown[]).includes(value);
   if (name === 'densityScale') return (DENSITY_SCALE_VALUES as readonly unknown[]).includes(value);
   if (name === 'fontSizeScale')
     return (
@@ -122,23 +118,9 @@ function isValidPreference(name: keyof Preferences, value: unknown) {
       value >= COLLAPSED_TAB_TOP_BOUNDS.min &&
       value <= COLLAPSED_TAB_TOP_BOUNDS.max
     );
-  if (name === 'customFontSizeScale')
-    return (
-      value === null ||
-      (typeof value === 'number' &&
-        value >= FONT_SIZE_SCALE_BOUNDS.min &&
-        value <= FONT_SIZE_SCALE_BOUNDS.max)
-    );
   if (name === 'hotkeyFocus' || name === 'hotkeyClear' || name === 'liveSearchSelectedLeague')
     return typeof value === 'string';
   return typeof value === 'string' && value.length > 0;
-}
-
-function inferFontSizeMode(scale: number): FontSizeMode {
-  if (Math.abs(scale - FONT_SIZE_PRESETS.small) < 0.001) return 'small';
-  if (Math.abs(scale - FONT_SIZE_PRESETS.medium) < 0.001) return 'medium';
-  if (Math.abs(scale - FONT_SIZE_PRESETS.large) < 0.001) return 'large';
-  return 'custom';
 }
 
 function normalizePreference(name: keyof Preferences, value: unknown) {
@@ -240,12 +222,6 @@ const OTHER_VERSION: Readonly<Record<PoeVersion, PoeVersion>> = {
   poe2: 'poe1',
 };
 
-const COUPLED_GLOBAL_MIGRATION_KEYS = new Set<LegacyVersionedGlobalPreferenceName>([
-  'fontSizeMode',
-  'fontSizeScale',
-  'customFontSizeScale',
-]);
-
 function migrateLegacyGlobalField(
   name: LegacyVersionedGlobalPreferenceName,
   candidateVersions: readonly PoeVersion[],
@@ -313,51 +289,7 @@ export async function createPreferencesModule(
       }
     }
 
-    // 字體大小相關欄位保持同來源版本遷移，避免跨版本混搭 mode 與 scale
-    let migratedFontMode = false;
-    let migratedFontScale = false;
-    if (stored.fontSizeMode === undefined && stored.fontSizeScale === undefined) {
-      const fontSource = versionOrder.find(
-        (v) =>
-          stored[`fontSizeMode_${v}`] !== undefined || stored[`fontSizeScale_${v}`] !== undefined,
-      );
-      if (fontSource) {
-        migratedFontMode = migrateLegacyGlobalField(
-          'fontSizeMode',
-          [fontSource],
-          stored,
-          loaded,
-          repairs,
-        );
-        migratedFontScale = migrateLegacyGlobalField(
-          'fontSizeScale',
-          [fontSource],
-          stored,
-          loaded,
-          repairs,
-        );
-        migrateLegacyGlobalField(
-          'customFontSizeScale',
-          [fontSource, OTHER_VERSION[fontSource]],
-          stored,
-          loaded,
-          repairs,
-        );
-      }
-    } else {
-      migrateLegacyGlobalField('customFontSizeScale', versionOrder, stored, loaded, repairs);
-    }
-
-    const hasStoredMode = stored.fontSizeMode !== undefined || migratedFontMode;
-    const hasStoredScale = stored.fontSizeScale !== undefined || migratedFontScale;
-    if (!hasStoredMode && hasStoredScale) {
-      const inferredMode = inferFontSizeMode(loaded.fontSizeScale);
-      loaded.fontSizeMode = inferredMode;
-      repairs.fontSizeMode = inferredMode;
-    }
-
     for (const name of LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES) {
-      if (COUPLED_GLOBAL_MIGRATION_KEYS.has(name)) continue;
       migrateLegacyGlobalField(name, versionOrder, stored, loaded, repairs);
     }
 

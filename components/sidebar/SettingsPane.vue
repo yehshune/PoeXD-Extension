@@ -271,45 +271,11 @@
             </Button>
           </SettingsRow>
 
-          <SettingsRow
-            :label="t('settings.fontSize.label', { percent: Math.round(fontSizeScale * 100) })"
-          >
-            <div class="flex flex-col items-end gap-[var(--pxd-space-sm)]">
-              <Select v-model="fontSizeMode" @update:model-value="handleFontSizeModeChange">
-                <SelectTrigger size="default" class="w-[140px] shrink-0">
-                  <SelectValue>{{ FONT_SIZE_MODE_LABELS[fontSizeMode] }}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem
-                    v-for="opt in FONT_SIZE_MODE_OPTIONS"
-                    :key="opt.value"
-                    :value="opt.value"
-                  >
-                    {{ opt.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <div
-                v-if="fontSizeMode === 'custom'"
-                class="relative flex w-[140px] shrink-0 items-center"
-              >
-                <Input
-                  type="number"
-                  v-model="customFontSizePercent"
-                  :min="fontSizePercentBounds.min"
-                  :max="fontSizePercentBounds.max"
-                  size="default"
-                  :aria-label="t('settings.fontSize.option.custom')"
-                  class="w-full pr-[var(--control-height-default)] [appearance:textfield] [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none text-right"
-                  @input="handleCustomFontSizeInput"
-                  @blur="handleCustomFontSizeBlur"
-                />
-                <span
-                  class="pointer-events-none absolute right-[var(--input-padding-x-default)] select-none text-[length:var(--pxd-font-caption)] text-muted-foreground"
-                  >%</span
-                >
-              </div>
-            </div>
+          <SettingsRow :label="t('settings.fontSize.label')">
+            <FontSizeScaleControl
+              :scale="fontSizeScale"
+              @update:scale="handleFontSizeScaleChange"
+            />
           </SettingsRow>
 
           <SettingsRow :label="t('settings.density.compactLabel')" control-id="density-compact">
@@ -534,6 +500,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Bookmark, Keyboard, LayoutGrid, ListChecks, Palette, Search, X } from '@lucide/vue';
 import SidebarPane from './layout/SidebarPane.vue';
 import SettingsHotkeyInput from './settings/SettingsHotkeyInput.vue';
+import FontSizeScaleControl from './settings/FontSizeScaleControl.vue';
 import SettingsRow from './settings/SettingsRow.vue';
 import SettingsSection from './settings/SettingsSection.vue';
 import SettingsBackupMenu from './settings/SettingsBackupMenu.vue';
@@ -553,27 +520,19 @@ import {
   type SettingsSectionId,
   type SidebarModulePreferenceKey,
 } from '@/utils/sidebar-modules';
-import {
-  DEFAULT_PREFERENCES,
-  FONT_SIZE_SCALE_BOUNDS,
-  type FontSizePresetMode,
-  type FontSizeMode,
-  type Preferences,
-} from '@/utils/preferences-contract';
+import { DEFAULT_PREFERENCES, type Preferences } from '@/utils/preferences-contract';
 import {
   BOOKMARK_BUTTON_POSITION_OPTIONS,
   DISPLAY_LOCALE_LABELS,
   DISPLAY_LOCALE_OPTIONS,
   SEARCH_ENTRY_CLICK_ACTION_LABELS,
   SEARCH_ENTRY_CLICK_ACTION_OPTIONS,
-  FONT_SIZE_MODE_LABELS,
-  FONT_SIZE_MODE_OPTIONS,
   SIDEBAR_POSITION_OPTIONS,
   THEME_LABELS,
   THEME_OPTIONS,
 } from './settings/settings-ui-metadata';
 import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
-import { planFontSizeModeChange } from '@/utils/appearance-preferences';
+import { clampFontSizeScale } from '@/utils/appearance-preferences';
 import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
 import {
   isMarketTranslationDisplayLocale,
@@ -596,6 +555,7 @@ export default defineComponent({
     SelectValue,
     Switch,
     SettingsHotkeyInput,
+    FontSizeScaleControl,
     SettingsRow,
     SettingsSection,
     SettingsBackupMenu,
@@ -620,7 +580,6 @@ export default defineComponent({
       sidebarPosition,
       sidebarWidth,
       fontSizeScale,
-      fontSizeMode,
       densityScale,
       hotkeyFocus,
       hotkeyClear,
@@ -645,14 +604,6 @@ export default defineComponent({
       searchEntryClickAction,
     } = toRefs(preferenceState);
 
-    const fontSizePercentBounds = {
-      min: Math.round(FONT_SIZE_SCALE_BOUNDS.min * 100),
-      max: Math.round(FONT_SIZE_SCALE_BOUNDS.max * 100),
-    };
-
-    const customFontSizePercent = ref<number>(
-      Math.round((preferenceState.customFontSizeScale ?? preferenceState.fontSizeScale) * 100),
-    );
     const marketTranslationLocaleMismatch = computed(
       () => marketTranslation.value && !isMarketTranslationDisplayLocale(displayLocale.value),
     );
@@ -691,11 +642,6 @@ export default defineComponent({
       marketTranslationReloadRequired.value =
         currentMarketState.locale !== pageLoadMarketState.locale ||
         currentMarketState.bilingual !== pageLoadMarketState.bilingual;
-      if (snapshot.customFontSizeScale !== null) {
-        customFontSizePercent.value = Math.round(snapshot.customFontSizeScale * 100);
-      } else if (snapshot.fontSizeMode === 'custom') {
-        customFontSizePercent.value = Math.round(snapshot.fontSizeScale * 100);
-      }
     };
 
     const updatePreferences = async (changes: Partial<Preferences>) => {
@@ -735,55 +681,10 @@ export default defineComponent({
       clearTimeout(highlightTimer);
     });
 
-    const handleFontSizeModeChange = (mode?: FontSizeMode | any) => {
-      if (!mode) return;
-      fontSizeMode.value = mode as FontSizeMode;
-      const patch = planFontSizeModeChange(mode as FontSizeMode, preferenceState);
-      const scale = patch.fontSizeScale ?? preferenceState.fontSizeScale;
-      fontSizeScale.value = scale;
-      if (mode === 'custom') customFontSizePercent.value = Math.round(scale * 100);
-      void updatePreferences(patch);
-    };
-
-    const handleCustomFontSizeInput = (event?: Event) => {
-      const targetVal = event?.target ? (event.target as HTMLInputElement).value : undefined;
-      const raw =
-        targetVal !== undefined && targetVal !== '' ? targetVal : customFontSizePercent.value;
-      let pct = Number(raw);
-      if (isNaN(pct)) return;
-
-      if (pct >= fontSizePercentBounds.min && pct <= fontSizePercentBounds.max) {
-        customFontSizePercent.value = pct;
-        const scale = pct / 100;
-        fontSizeScale.value = scale;
-        fontSizeMode.value = 'custom';
-        void updatePreferences({
-          fontSizeMode: 'custom',
-          fontSizeScale: scale,
-          customFontSizeScale: scale,
-        });
-      }
-    };
-
-    const handleCustomFontSizeBlur = (event?: Event) => {
-      const targetVal = event?.target ? (event.target as HTMLInputElement).value : undefined;
-      const raw =
-        targetVal !== undefined && targetVal !== '' ? targetVal : customFontSizePercent.value;
-      let pct = Number(raw);
-      if (isNaN(pct) || pct < fontSizePercentBounds.min) {
-        pct = fontSizePercentBounds.min;
-      } else if (pct > fontSizePercentBounds.max) {
-        pct = fontSizePercentBounds.max;
-      }
-      customFontSizePercent.value = pct;
-      const scale = pct / 100;
-      fontSizeScale.value = scale;
-      fontSizeMode.value = 'custom';
-      void updatePreferences({
-        fontSizeMode: 'custom',
-        fontSizeScale: scale,
-        customFontSizeScale: scale,
-      });
+    const handleFontSizeScaleChange = (scale: number) => {
+      const clamped = clampFontSizeScale(scale);
+      fontSizeScale.value = clamped;
+      void updatePreferences({ fontSizeScale: clamped });
     };
 
     const handleSidebarPositionChange = (val?: any) => {
@@ -950,11 +851,6 @@ export default defineComponent({
       sidebarPosition,
       SIDEBAR_POSITION_OPTIONS,
       fontSizeScale,
-      fontSizeMode,
-      customFontSizePercent,
-      fontSizePercentBounds,
-      FONT_SIZE_MODE_LABELS,
-      FONT_SIZE_MODE_OPTIONS,
       densityScale,
       BOOKMARK_BUTTON_POSITION_OPTIONS,
       SEARCH_ENTRY_CLICK_ACTION_LABELS,
@@ -990,9 +886,7 @@ export default defineComponent({
       isCollapsedTabTopDefault,
       resetCollapsedTabPosition,
       handleAddBookmarkBtnPositionChange,
-      handleFontSizeModeChange,
-      handleCustomFontSizeInput,
-      handleCustomFontSizeBlur,
+      handleFontSizeScaleChange,
       handleDensityChange,
       isCompactDensity,
       fuzzySearchEnabled,

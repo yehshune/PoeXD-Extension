@@ -56,11 +56,14 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Drag the collapsed button up or down to move it. When focused, Alt + ↑/↓ also moves it.',
   'settings.collapsedTabPosition.reset': 'Reset',
 
-  'settings.fontSize.label': 'UI Scale ({percent}%)',
-  'settings.fontSize.option.small': 'Small',
-  'settings.fontSize.option.medium': 'Medium',
-  'settings.fontSize.option.large': 'Large',
-  'settings.fontSize.option.custom': 'Custom',
+  'settings.fontSize.label': 'UI Scale',
+  'settings.fontSize.triggerAria': 'Open UI scale adjustment panel',
+  'settings.fontSize.sliderAria': 'UI scale slider',
+  'settings.fontSize.inputAria': 'UI scale percentage',
+  'settings.fontSize.decreaseAria': 'Decrease by 5%',
+  'settings.fontSize.increaseAria': 'Increase by 5%',
+  'settings.fontSize.resetAria': 'Reset to 100%',
+  'settings.fontSize.wheelHint': 'Drag slider, scroll wheel, or type a value',
 
   'settings.density.compactLabel': 'Use compact density',
 
@@ -1354,7 +1357,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'This is the English international trade site. Turn this on to show its items, stats and filters in Chinese.',
   'pageGuide.tour.appearance.title': 'Appearance: side, width and text size',
   'pageGuide.tour.appearance.body':
-    'Pick a side, and drag the inner edge of the side bar to resize its width anytime. Text size can be set with a slider too. Changes apply right away.',
+    'Pick a side, and drag the inner edge of the side bar to resize its width anytime. Adjust UI scale with the buttons or input box too. Changes apply right away.',
   'pageGuide.setup.marketTranslation.label': 'Show this trade site in Chinese',
   'pageGuide.setup.marketTranslation.bilingual': 'Show English in filter dropdowns',
   'pageGuide.setup.marketTranslation.resultBilingual': 'Show English under result stats',

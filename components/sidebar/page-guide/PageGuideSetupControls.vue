@@ -11,14 +11,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import FontSizeScaleControl from '@/components/sidebar/settings/FontSizeScaleControl.vue';
 import { t } from '@/utils/i18n';
 import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
-import {
-  FONT_SIZE_MODES,
-  FONT_SIZE_SCALE_BOUNDS,
-  SIDEBAR_POSITIONS,
-  type DisplayLocalePreference,
-} from '@/utils/preferences-contract';
+import { SIDEBAR_POSITIONS, type DisplayLocalePreference } from '@/utils/preferences-contract';
 import type { PageGuideDemoFocus, PageGuideSetupKind } from './page-guide-tour';
 import {
   PAGE_GUIDE_LOCALE_CHOICES,
@@ -36,12 +32,7 @@ const props = defineProps<{
 }>();
 
 const POSITION_ICONS = { left: PanelLeft, right: PanelRight } as const;
-const FONT_PERCENT = {
-  min: Math.round(FONT_SIZE_SCALE_BOUNDS.min * 100),
-  max: Math.round(FONT_SIZE_SCALE_BOUNDS.max * 100),
-};
 
-const fontPercent = computed(() => Math.round(props.bindings.fontSizeScale * 100));
 const featureToggles = computed(() => (props.focus ? RESULT_FEATURE_TOGGLES[props.focus] : []));
 const selectedLocaleLabel = computed(() => {
   const found = PAGE_GUIDE_LOCALE_CHOICES.find((c) => c.value === props.bindings.displayLocale);
@@ -62,11 +53,6 @@ const previewResultZhText = computed(() =>
   t('pageGuide.setup.marketTranslation.previewModZh', undefined, previewLocale.value),
 );
 const previewResultEnText = computed(() => t('pageGuide.setup.marketTranslation.previewModEn'));
-
-function onFontRange(event: Event) {
-  const value = Number((event.target as HTMLInputElement).value);
-  if (Number.isFinite(value)) props.bindings.setFontSizeScale(value / 100);
-}
 
 const segmentClass = 'grid gap-[var(--pxd-space-xs)]';
 const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-muted-foreground';
@@ -231,40 +217,14 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
         {{ t('pageGuide.setup.customWidthHint') }}
       </p>
 
-      <span :class="rowLabelClass">
-        {{ t('settings.fontSize.label', { percent: fontPercent }) }}
-      </span>
-      <div
-        role="radiogroup"
-        :aria-label="t('settings.fontSize.label', { percent: fontPercent })"
-        :class="[segmentClass, 'grid-cols-4']"
-      >
-        <Button
-          v-for="mode in FONT_SIZE_MODES"
-          :key="mode"
-          type="button"
-          size="sm"
-          role="radio"
-          :variant="bindings.fontSizeMode === mode ? 'default' : 'outline'"
-          :aria-checked="bindings.fontSizeMode === mode"
-          :data-setup-font="mode"
-          @click="bindings.setFontSizeMode(mode)"
-        >
-          {{ t(`settings.fontSize.option.${mode}`) }}
-        </Button>
+      <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
+        <span :class="rowLabelClass">{{ t('settings.fontSize.label') }}</span>
+        <FontSizeScaleControl
+          :scale="bindings.fontSizeScale"
+          in-guide
+          @update:scale="bindings.setFontSizeScale"
+        />
       </div>
-      <input
-        v-if="bindings.fontSizeMode === 'custom'"
-        type="range"
-        data-setup-font-range
-        class="w-full accent-primary"
-        :min="FONT_PERCENT.min"
-        :max="FONT_PERCENT.max"
-        step="5"
-        :value="fontPercent"
-        :aria-label="t('settings.fontSize.option.custom')"
-        @input="onFontRange"
-      />
     </template>
 
     <Button

@@ -1,27 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { planCustomFontSizeScale, planFontSizeModeChange } from '@/utils/appearance-preferences';
-import { FONT_SIZE_PRESETS } from '@/utils/preferences-contract';
+import {
+  FONT_SIZE_PERCENT_BOUNDS,
+  clampFontSizePercent,
+  clampFontSizeScale,
+  fontSizeScaleToPercent,
+  stepFontSizeScale,
+} from '@/utils/appearance-preferences';
 
-describe('font size planning', () => {
-  it('applies the preset scale for preset modes', () => {
-    expect(planFontSizeModeChange('small', { fontSizeScale: 1, customFontSizeScale: 1.3 })).toEqual(
-      {
-        fontSizeMode: 'small',
-        fontSizeScale: FONT_SIZE_PRESETS.small,
-      },
-    );
+describe('font size scale helpers', () => {
+  it('converts scale to integer percent and clamps percent within bounds', () => {
+    expect(fontSizeScaleToPercent(1)).toBe(100);
+    expect(fontSizeScaleToPercent(1.05)).toBe(105);
+    expect(clampFontSizePercent(50)).toBe(FONT_SIZE_PERCENT_BOUNDS.min);
+    expect(clampFontSizePercent(300)).toBe(FONT_SIZE_PERCENT_BOUNDS.max);
+    expect(clampFontSizePercent(114.6)).toBe(115);
   });
 
-  it('starts custom from the current scale the first time', () => {
-    expect(
-      planFontSizeModeChange('custom', { fontSizeScale: 1.1, customFontSizeScale: null }),
-    ).toEqual({ fontSizeMode: 'custom', fontSizeScale: 1.1, customFontSizeScale: 1.1 });
+  it('clamps scale cleanly to 1% increments', () => {
+    expect(clampFontSizeScale(0.2)).toBe(0.8);
+    expect(clampFontSizeScale(10)).toBe(2);
+    expect(clampFontSizeScale(1.15)).toBe(1.15);
   });
 
-  it('clamps a custom scale and remembers it', () => {
-    const plan = planCustomFontSizeScale(10);
-    expect(plan.fontSizeMode).toBe('custom');
-    expect(plan.fontSizeScale).toBe(plan.customFontSizeScale);
-    expect(plan.fontSizeScale).toBeLessThan(10);
+  it('steps scale by 5% per increment without floating-point drift and respects bounds', () => {
+    expect(stepFontSizeScale(1, 1)).toBe(1.05);
+    expect(stepFontSizeScale(1, -1)).toBe(0.95);
+    expect(stepFontSizeScale(0.85, 1)).toBe(0.9);
+    expect(stepFontSizeScale(0.8, -1)).toBe(0.8);
+    expect(stepFontSizeScale(2, 1)).toBe(2);
   });
 });

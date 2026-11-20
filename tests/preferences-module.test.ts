@@ -15,7 +15,6 @@ describe('Preferences module interface', () => {
     expect(outcome.value.read()).toEqual({
       addBookmarkBtnPosition: 'top',
       collapsedTabTop: 100,
-      customFontSizeScale: null,
       densityScale: 1,
       displayLocale: 'auto',
       enableAffixSelector: true,
@@ -32,7 +31,6 @@ describe('Preferences module interface', () => {
       enableResultPobCopy: true,
       enableSearchTilde: true,
       enableTierHelper: true,
-      fontSizeMode: 'medium',
       fontSizeScale: 1,
       hotkeyClear: '\\',
       hotkeyFocus: '/',
@@ -325,53 +323,48 @@ describe('Preferences module interface', () => {
     expect(poe2Module.value.read().densityScale).toBe(0.8);
   });
 
-  it('accepts valid fontSizeMode values and rejects invalid values', async () => {
+  it('accepts valid fontSizeScale values and rejects out-of-range values', async () => {
     const storage = createInMemoryPreferencesStorage();
     const outcome = await createPreferencesModule('poe2', storage);
     if (!outcome.ok) throw new Error(outcome.error.message);
 
-    for (const mode of ['small', 'medium', 'large', 'custom'] as const) {
-      const update = await outcome.value.update({ fontSizeMode: mode });
+    for (const scale of [0.8, 0.85, 1, 1.2, 1.35, 2] as const) {
+      const update = await outcome.value.update({ fontSizeScale: scale });
       expect(update).toEqual({ ok: true, changed: true });
-      expect(outcome.value.read().fontSizeMode).toBe(mode);
+      expect(outcome.value.read().fontSizeScale).toBe(scale);
     }
 
-    const invalidUpdate = await outcome.value.update({ fontSizeMode: 'huge' as any });
-    expect(invalidUpdate).toEqual({
-      ok: false,
-      error: { code: 'invalid', message: 'Invalid Preference: fontSizeMode' },
-    });
+    for (const invalidScale of [0.75, 2.05, Number.NaN, '1.2' as any]) {
+      const invalidUpdate = await outcome.value.update({ fontSizeScale: invalidScale });
+      expect(invalidUpdate).toEqual({
+        ok: false,
+        error: { code: 'invalid', message: 'Invalid Preference: fontSizeScale' },
+      });
+    }
   });
 
-  it('repairs invalid committed fontSizeMode to canonical default', async () => {
+  it('repairs invalid committed fontSizeScale to canonical default', async () => {
     const storage = createInMemoryPreferencesStorage({
-      fontSizeMode: 'huge',
+      fontSizeScale: 99,
     });
     const outcome = await createPreferencesModule('poe2', storage);
     if (!outcome.ok) throw new Error(outcome.error.message);
 
-    expect(outcome.value.read().fontSizeMode).toBe('medium');
-    expect(storage.inspect().fontSizeMode).toBe('medium');
+    expect(outcome.value.read().fontSizeScale).toBe(1);
+    expect(storage.inspect().fontSizeScale).toBe(1);
   });
 
-  it('infers fontSizeMode from legacy fontSizeScale and persists to global storage', async () => {
-    const cases = [
-      { scale: 0.85, expectedMode: 'small' },
-      { scale: 1, expectedMode: 'medium' },
-      { scale: 1.2, expectedMode: 'large' },
-      { scale: 1.35, expectedMode: 'custom' },
-    ] as const;
+  it('migrates legacy fontSizeScale_poe2 to global storage', async () => {
+    const cases = [0.85, 1, 1.2, 1.35] as const;
 
-    for (const { scale, expectedMode } of cases) {
+    for (const scale of cases) {
       const storage = createInMemoryPreferencesStorage({
         fontSizeScale_poe2: scale,
       });
       const outcome = await createPreferencesModule('poe2', storage);
       if (!outcome.ok) throw new Error(outcome.error.message);
 
-      expect(outcome.value.read().fontSizeMode).toBe(expectedMode);
       expect(outcome.value.read().fontSizeScale).toBe(scale);
-      expect(storage.inspect().fontSizeMode).toBe(expectedMode);
       expect(storage.inspect().fontSizeScale).toBe(scale);
       expect(storage.inspect().fontSizeScale_poe2).toBe(scale);
     }
@@ -504,9 +497,7 @@ describe('Preferences module interface', () => {
       collapsedTabTop: 280,
       sidebarPosition: 'right',
       sidebarWidth: 480,
-      fontSizeMode: 'custom',
       fontSizeScale: 1.3,
-      customFontSizeScale: 1.3,
       densityScale: 0.8,
       enablePureBackground: false,
       enableAutoTitle: false,
@@ -526,9 +517,7 @@ describe('Preferences module interface', () => {
       collapsedTabTop: 280,
       sidebarPosition: 'right',
       sidebarWidth: 480,
-      fontSizeMode: 'custom',
       fontSizeScale: 1.3,
-      customFontSizeScale: 1.3,
       densityScale: 0.8,
       enablePureBackground: false,
       enableAutoTitle: false,
@@ -545,14 +534,13 @@ describe('Preferences module interface', () => {
     expect(storage.inspect().collapsedTabTop_poe2).toBeUndefined();
   });
 
-  it('migrates legacy versioned global preferences without deleting recovery snapshots and keeps coupled font group coherent', async () => {
+  it('migrates legacy versioned global preferences without deleting recovery snapshots', async () => {
     const storage = createInMemoryPreferencesStorage({
       collapsedTabTop_poe2: 240,
       hotkeyFocus_poe1: 'f',
       addBookmarkBtnPosition_poe2: 'bottom',
       searchEntryClickAction_poe1: 'open',
       fontSizeScale_poe1: 1.35,
-      fontSizeMode_poe2: 'large',
       fontSizeScale_poe2: 1.2,
       sidebarWidth_poe1: 340,
       sidebarWidth_poe2: 520,
@@ -566,7 +554,6 @@ describe('Preferences module interface', () => {
       hotkeyFocus: 'f',
       addBookmarkBtnPosition: 'bottom',
       searchEntryClickAction: 'open',
-      fontSizeMode: 'custom',
       fontSizeScale: 1.35,
       sidebarWidth: 340,
     });
@@ -579,9 +566,7 @@ describe('Preferences module interface', () => {
       addBookmarkBtnPosition_poe2: 'bottom',
       searchEntryClickAction: 'open',
       searchEntryClickAction_poe1: 'open',
-      fontSizeMode: 'custom',
       fontSizeScale: 1.35,
-      fontSizeMode_poe2: 'large',
       sidebarWidth: 340,
     });
   });

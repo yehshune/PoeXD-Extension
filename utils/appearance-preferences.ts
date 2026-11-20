@@ -1,38 +1,38 @@
 import {
-  FONT_SIZE_PRESETS,
+  DEFAULT_PREFERENCES,
+  FONT_SIZE_PERCENT_STEP,
   FONT_SIZE_SCALE_BOUNDS,
-  type FontSizeMode,
-  type Preferences,
 } from './preferences-contract';
 
-const clamp = (value: number, bounds: { min: number; max: number }) =>
-  Math.min(Math.max(value, bounds.min), bounds.max);
+export const FONT_SIZE_PERCENT_BOUNDS = Object.freeze({
+  min: Math.round(FONT_SIZE_SCALE_BOUNDS.min * 100),
+  max: Math.round(FONT_SIZE_SCALE_BOUNDS.max * 100),
+});
 
-/**
- * 切換字體大小模式要寫入的偏好：預設大小直接套對應比例；
- * 自訂沿用上次的自訂比例，第一次切到自訂時以目前比例作為自訂比例。
- * 設定頁與初始導覽共用。
- */
-export function planFontSizeModeChange(
-  mode: FontSizeMode,
-  current: Pick<Preferences, 'fontSizeScale' | 'customFontSizeScale'>,
-): Partial<Preferences> {
-  if (mode !== 'custom') return { fontSizeMode: mode, fontSizeScale: FONT_SIZE_PRESETS[mode] };
-  if (current.customFontSizeScale === null) {
-    return {
-      fontSizeMode: 'custom',
-      fontSizeScale: current.fontSizeScale,
-      customFontSizeScale: current.fontSizeScale,
-    };
-  }
-  return {
-    fontSizeMode: 'custom',
-    fontSizeScale: clamp(current.customFontSizeScale, FONT_SIZE_SCALE_BOUNDS),
-  };
+export const DEFAULT_FONT_SIZE_PERCENT = Math.round(DEFAULT_PREFERENCES.fontSizeScale * 100);
+
+/** 將縮放倍率轉成整數百分比（例如 1.05 → 105） */
+export function fontSizeScaleToPercent(scale: number): number {
+  if (!Number.isFinite(scale)) return DEFAULT_FONT_SIZE_PERCENT;
+  return Math.round(scale * 100);
 }
 
-/** 設定自訂字體比例；超出範圍時夾到上下限 */
-export function planCustomFontSizeScale(scale: number): Partial<Preferences> {
-  const clamped = clamp(scale, FONT_SIZE_SCALE_BOUNDS);
-  return { fontSizeMode: 'custom', fontSizeScale: clamped, customFontSizeScale: clamped };
+/** 將百分比夾在允許的縮放範圍內並取整數 */
+export function clampFontSizePercent(percent: number): number {
+  if (!Number.isFinite(percent)) return DEFAULT_FONT_SIZE_PERCENT;
+  const rounded = Math.round(percent);
+  return Math.min(Math.max(rounded, FONT_SIZE_PERCENT_BOUNDS.min), FONT_SIZE_PERCENT_BOUNDS.max);
+}
+
+/** 將縮放倍率夾在允許範圍內並維持 1% 精度 */
+export function clampFontSizeScale(scale: number): number {
+  if (!Number.isFinite(scale)) return DEFAULT_PREFERENCES.fontSizeScale;
+  return clampFontSizePercent(scale * 100) / 100;
+}
+
+/** 依步進次數（每次 5%）增減縮放倍率並夾在上下限內 */
+export function stepFontSizeScale(scale: number, deltaSteps: number): number {
+  const currentPercent = fontSizeScaleToPercent(scale);
+  const nextPercent = clampFontSizePercent(currentPercent + deltaSteps * FONT_SIZE_PERCENT_STEP);
+  return nextPercent / 100;
 }

@@ -1,9 +1,5 @@
 import type { I18nKey } from '@/utils/i18n';
-import type {
-  DisplayLocalePreference,
-  FontSizeMode,
-  SidebarPosition,
-} from '@/utils/preferences-contract';
+import type { DisplayLocalePreference, SidebarPosition } from '@/utils/preferences-contract';
 import type { PageGuideDemoFocus } from './page-guide-tour';
 
 /** 結果列示意裡可以直接開關的功能（偏好設定 key） */
@@ -51,7 +47,6 @@ export interface PageGuideSetupBindings {
   /** 本頁開啟後漢化設定有變動，需重新整理才生效 */
   reloadRequired: boolean;
   sidebarPosition: SidebarPosition;
-  fontSizeMode: FontSizeMode;
   fontSizeScale: number;
   resultFeatures: ResultFeatureFlags;
   /** 步驟示範播放中（供「再看一次示範」禁用與游標顯示） */
@@ -63,8 +58,7 @@ export interface PageGuideSetupBindings {
   setMarketTranslationBilingual: (value: boolean) => void;
   setMarketTranslationResultBilingual: (value: boolean) => void;
   setSidebarPosition: (value: SidebarPosition) => void;
-  setFontSizeMode: (value: FontSizeMode) => void;
-  /** 自訂字體大小（比例，例如 1.1） */
+  /** 設定縮放比例（例如 1.05） */
   setFontSizeScale: (value: number) => void;
   setResultFeature: (key: ResultFeatureKey, value: boolean) => void;
   replayCollapseDemo: () => void;

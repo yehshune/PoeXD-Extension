@@ -106,8 +106,6 @@ describe('Sidebar first-install onboarding', () => {
       sidebarPosition: 'left',
       sidebarWidth: 380,
       fontSizeScale: 1,
-      fontSizeMode: 'medium',
-      customFontSizeScale: null,
       densityScale: 1,
       displayLocale: 'zh-TW',
       marketTranslation: false,
@@ -251,20 +249,61 @@ describe('Sidebar first-install onboarding', () => {
     expect(updatePreferencesSpy).toHaveBeenCalledWith({ marketTranslationResultBilingual: true });
   });
 
-  it('offers custom width dragging and a font size slider in the appearance step', async () => {
-    snapshot = { ...snapshot, displayLocale: 'en', fontSizeMode: 'custom' };
+  it('offers custom width dragging and font scale stepper/input/reset in the appearance step', async () => {
+    snapshot = { ...snapshot, displayLocale: 'en', fontSizeScale: 1 };
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
     await clickNext();
     expect(queryDoc('[data-setup-hint="custom-width"]')).not.toBeNull();
-    const range = queryDoc('[data-setup-font-range]') as HTMLInputElement;
-    range.value = '120';
-    range.dispatchEvent(new Event('input'));
+
+    const triggerBtn = queryDoc('[data-font-scale-trigger]') as HTMLButtonElement;
+    const resetBtn = queryDoc('[data-font-scale-action="reset"]') as HTMLButtonElement;
+    expect(triggerBtn.textContent).toContain('100%');
+    expect(resetBtn.disabled).toBe(true);
+
+    triggerBtn.click();
     await settle();
-    expect(updatePreferencesSpy).toHaveBeenCalledWith({
-      fontSizeMode: 'custom',
-      fontSizeScale: 1.2,
-      customFontSizeScale: 1.2,
-    });
+
+    const popover = queryDoc('[data-font-scale-popover]') as HTMLElement;
+    expect(popover).not.toBeNull();
+    const increaseBtn = popover.querySelector(
+      '[data-font-scale-action="increase"]',
+    ) as HTMLButtonElement;
+    const decreaseBtn = popover.querySelector(
+      '[data-font-scale-action="decrease"]',
+    ) as HTMLButtonElement;
+    const slider = popover.querySelector('[data-font-scale-slider]') as HTMLInputElement;
+    const scaleInput = popover.querySelector('[data-font-scale-input]') as HTMLInputElement;
+
+    increaseBtn.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ fontSizeScale: 1.05 });
+
+    decreaseBtn.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ fontSizeScale: 1 });
+
+    decreaseBtn.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ fontSizeScale: 0.95 });
+
+    slider.dispatchEvent(new Event('pointerdown'));
+    slider.value = '115';
+    slider.dispatchEvent(new Event('input'));
+    slider.dispatchEvent(new Event('change'));
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ fontSizeScale: 1.15 });
+
+    scaleInput.value = '120';
+    scaleInput.dispatchEvent(new Event('input'));
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ fontSizeScale: 1.2 });
+
+    // 設為 120% 後 reset 按鈕啟用，點擊恢復 100%
+    snapshot = { ...snapshot, fontSizeScale: 1.2 };
+    await (globalThis as any).chrome.storage.local.set({ _noop: Date.now() });
+    scaleInput.value = '120';
+    scaleInput.dispatchEvent(new Event('blur'));
+    await settle();
   });
 
   it('skips the market translation step for non-Chinese display locales', async () => {

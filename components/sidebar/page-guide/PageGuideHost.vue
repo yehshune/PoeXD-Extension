@@ -427,12 +427,13 @@ function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     const portalRoot = props.portalTarget ?? document;
     const sidebarRoot = anchor.value?.getRootNode();
-    const hasOpenSelect = Boolean(
-      portalRoot.querySelector('[data-slot="select-content"][data-state="open"]') ||
-      (sidebarRoot instanceof ShadowRoot &&
-        sidebarRoot.querySelector('[data-slot="select-content"][data-state="open"]')),
+    const floatingSelectors =
+      '[data-slot="select-content"][data-state="open"], [data-slot="popover-content"][data-state="open"]';
+    const hasOpenFloating = Boolean(
+      portalRoot.querySelector(floatingSelectors) ||
+      (sidebarRoot instanceof ShadowRoot && sidebarRoot.querySelector(floatingSelectors)),
     );
-    if (hasOpenSelect) return;
+    if (hasOpenFloating) return;
     event.preventDefault();
     void guide.stop();
     return;
