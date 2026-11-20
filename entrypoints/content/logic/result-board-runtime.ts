@@ -52,19 +52,51 @@ const STYLE_ID = 'poexd-result-board-style';
 const SHORTCUT_CLASS = 'poexd-board-shortcut';
 const LOCATE_CLASS = 'poexd-board-locate';
 const ROW_SELECTOR = '.resultset .row[data-id]';
+const NATIVE_LAYOUT_BTN_SELECTOR = '.layout-btn';
+const NATIVE_LAYOUT_GAP_PX = 8;
+const NATIVE_LAYOUT_PITCH_PX = 38;
 
+// 顏色一律用 oklch()（主題契約不允許原始 hex 色碼）
 const STYLE_CONTENT = `
   .row.row-total > .${SHORTCUT_CLASS} {
-    margin-left: 8px;
-    padding: 2px 8px;
-    border: 1px solid oklch(0.58 0.08 82.8);
-    background: transparent;
+    position: absolute;
+    top: var(--poexd-native-btn-top, 0px);
+    right: var(--poexd-board-shortcut-right, 8px);
+    box-sizing: border-box;
+    height: var(--poexd-native-btn-size, 30px);
+    padding: 0 12px;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid oklch(0.387 0 0);
+    border-radius: 0;
+    background: oklch(0.245 0.006 250 / 0.96);
     color: oklch(0.858 0.068 82.8);
-    font-size: 12px;
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.05);
+    font-family: FontinSmallcaps, Verdana, Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    line-height: 1;
+    white-space: nowrap;
     cursor: pointer;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
   }
   .row.row-total > .${SHORTCUT_CLASS}:hover {
-    background: oklch(0.58 0.08 82.8 / 0.2);
+    background: oklch(0.295 0.006 250);
+    border-color: oklch(0.52 0.04 76);
+    color: oklch(0.95 0.025 82);
+  }
+  .row.row-total > .${SHORTCUT_CLASS}:active {
+    background: oklch(0.19 0.005 250);
+  }
+  .row.row-total > .${SHORTCUT_CLASS}:focus-visible {
+    outline: 1px solid oklch(0.858 0.068 82.8);
+    outline-offset: 1px;
+  }
+  @media (max-width: 639px) {
+    .row.row-total:has(> .${SHORTCUT_CLASS}) {
+      padding-top: 38px;
+    }
   }
   .resultset .row.${LOCATE_CLASS} {
     outline: 2px solid oklch(0.858 0.068 82.8);
@@ -72,6 +104,32 @@ const STYLE_CONTENT = `
     transition: outline-color 0.3s;
   }
 `;
+
+/** 依官方 `.layout-btn` 尺寸與位置避開右排切換鈕；未排版或測試環境則依按鈕數推算右距 */
+function syncShortcutLayout(button: HTMLButtonElement, rowTotal: Element): void {
+  const layoutButtons = Array.from(
+    rowTotal.querySelectorAll<HTMLElement>(NATIVE_LAYOUT_BTN_SELECTOR),
+  );
+  const measuredButtons = layoutButtons.filter(
+    (btn) => Number.isFinite(btn.offsetHeight) && btn.offsetHeight >= 16 && btn.offsetHeight <= 64,
+  );
+  const rowWidth = (rowTotal as HTMLElement).clientWidth;
+  if (measuredButtons.length > 0 && Number.isFinite(rowWidth) && rowWidth > 0) {
+    const first = measuredButtons[0];
+    const top = Number.isFinite(first.offsetTop) ? first.offsetTop : 0;
+    const minLeft = Math.min(...measuredButtons.map((btn) => btn.offsetLeft));
+    const right = Math.max(NATIVE_LAYOUT_GAP_PX, rowWidth - minLeft + NATIVE_LAYOUT_GAP_PX);
+    button.style.setProperty('--poexd-native-btn-size', `${first.offsetHeight}px`);
+    button.style.setProperty('--poexd-native-btn-top', `${top}px`);
+    button.style.setProperty('--poexd-board-shortcut-right', `${right}px`);
+    return;
+  }
+  const fallbackRight =
+    layoutButtons.length > 0
+      ? NATIVE_LAYOUT_GAP_PX + layoutButtons.length * NATIVE_LAYOUT_PITCH_PX
+      : NATIVE_LAYOUT_GAP_PX;
+  button.style.setProperty('--poexd-board-shortcut-right', `${fallbackRight}px`);
+}
 
 const fetchSearchId = (url: string): string | undefined => {
   try {
@@ -235,7 +293,7 @@ export class ResultBoardRuntime {
     return true;
   }
 
-  /** 官方結果數旁的捷徑按鈕；結果列重繪後重新放回去 */
+  /** 官方結果數列的捷徑按鈕；結果列重繪後重新放回去並避開官方 layout-btn */
   ensureShortcut(): void {
     if (!this.enabled) return;
     const rowTotal = this.doc.querySelector('.row.row-total');
@@ -244,6 +302,7 @@ export class ResultBoardRuntime {
     const label = t('resultBoard.shortcut');
     if (existing) {
       if (existing.textContent !== label) existing.textContent = label;
+      syncShortcutLayout(existing, rowTotal);
       return;
     }
     const button = this.doc.createElement('button');
@@ -255,6 +314,7 @@ export class ResultBoardRuntime {
       dispatchPoeEvent('poexd-open-result-board');
     });
     rowTotal.appendChild(button);
+    syncShortcutLayout(button, rowTotal);
   }
 
   cleanup(): void {

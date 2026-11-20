@@ -268,11 +268,42 @@ describe('ResultBoardRuntime', () => {
     const stop = listenPoeEvent('poexd-open-result-board', opened);
     const shortcut = document.querySelector<HTMLButtonElement>('.row-total .poexd-board-shortcut');
     expect(shortcut).not.toBeNull();
+    expect(shortcut!.style.getPropertyValue('--poexd-board-shortcut-right')).toBe('8px');
     runtime.ensureShortcut();
     expect(document.querySelectorAll('.poexd-board-shortcut')).toHaveLength(1);
     shortcut!.click();
     expect(opened).toHaveBeenCalledTimes(1);
     stop();
+  });
+
+  it('offsets the shortcut to the left of official layout buttons and syncs native button metrics', () => {
+    const rowTotal = document.querySelector<HTMLElement>('.row.row-total')!;
+    const shortcut = rowTotal.querySelector<HTMLButtonElement>('.poexd-board-shortcut')!;
+    const offsets = [1039, 1077, 1115];
+    for (const left of offsets) {
+      const btn = document.createElement('button');
+      btn.className = 'layout-btn';
+      Object.defineProperty(btn, 'offsetHeight', { value: 30, configurable: true });
+      Object.defineProperty(btn, 'offsetTop', { value: 2, configurable: true });
+      Object.defineProperty(btn, 'offsetLeft', { value: left, configurable: true });
+      rowTotal.appendChild(btn);
+    }
+
+    // 未排版（clientWidth === 0）時依按鈕數量推算右距：8 + 3 * 38 = 122px
+    runtime.ensureShortcut();
+    expect(shortcut.style.getPropertyValue('--poexd-board-shortcut-right')).toBe('122px');
+
+    // 有實際寬度時以最左顆 layout-btn 的位置與高度同步
+    Object.defineProperty(rowTotal, 'clientWidth', { value: 1153, configurable: true });
+    runtime.ensureShortcut();
+    expect(shortcut.style.getPropertyValue('--poexd-native-btn-size')).toBe('30px');
+    expect(shortcut.style.getPropertyValue('--poexd-native-btn-top')).toBe('2px');
+    expect(shortcut.style.getPropertyValue('--poexd-board-shortcut-right')).toBe('122px');
+
+    const styleText = document.getElementById('poexd-result-board-style')?.textContent ?? '';
+    expect(styleText).toContain('position: absolute;');
+    expect(styleText).toContain('FontinSmallcaps');
+    expect(styleText).toContain('border-radius: 0;');
   });
 
   it('removes everything it added when disabled and stops listening', () => {
