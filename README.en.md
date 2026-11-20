@@ -35,6 +35,22 @@ Store versions update automatically and are recommended. Firefox is not availabl
 
 ## What's new
 
+- **v1.11.0 Result Board & settings redesign**:
+  - **Result Board**: gathers the results of the current search in the sidebar so you can filter,
+    sort, or switch to the seller list to find sellers holding several instant-buyout results, then
+    generate a **stash search regex** that highlights all of them in their stash at once. Load all
+    results (up to 100) through the official "load more", and expired hideout links are refreshed
+    automatically before travelling.
+  - **Settings & first run**: a single searchable settings page with per-module toggles, backup and
+    restore covering both PoE 1 and PoE 2, and "Show on page" guides; UI scale is now a fixed-step
+    menu and the sidebar is resized by dragging its edge. A tour starts automatically after the
+    first install, and the toolbar icon toggles the sidebar on trade pages. Layout, hotkey and
+    bookmark UI preferences are now shared between PoE 1 and PoE 2.
+  - **Other improvements**: pinned items gain sorting, gold fees and mod ranges, and show
+    "seller · listed age" like the Result Board; Market Translation can show English under result
+    mods; higher tiers are shown disabled when filtering by item level; price sorting yields to the
+    official sort when a result field is clicked; switching leagues with active live searches now
+    asks first.
 - **v1.10.0 pinned items & faster affix selector**:
   - **Pinned items**: pin a result from its hover toolbar and review it later as an official-style
     card in the sidebar; works on search pages, live search and the LiveSearch Console. Filter,
@@ -45,14 +61,6 @@ Store versions update automatically and are recommended. Firefox is not availabl
   - **Other fixes**: Market Translation now covers magic and Foulborn item names, the PoB shopping
     list shows a loading state while restoring builds, and dropdowns and sidebar panes share a
     consistent theme.
-- **v1.9.1 performance & stability fixes**:
-  - **Faster trade page startup**: mounts the sidebar immediately while reserving layout space
-    upfront to prevent shifts, lazy-mounts secondary tabs on first open, defers affix lexicon,
-    runtime trade data and result-translator loading until initial results / idle time, delivers
-    Market Translation payloads over `MessageChannel`, and shares read-only extension JSON caches.
-  - **Console & bookmark fixes**: keyed LiveSearch Console result batches by `itemData.id` so the
-    official refresh button and sold state work properly; fixed cross-league bookmark resume and
-    appending new/moved bookmarks to the end of folders; synced the latest `poexd-data` batch.
 
 See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
 
@@ -109,6 +117,22 @@ and the LiveSearch Console. Filter, drag to reorder or drag out to unpin; sold i
 sold, and instant-buyout items can travel to the seller's hideout. Up to 50 pins per game version,
 stored locally in your browser.
 
+### 🧾 Result Board
+
+Gathers the results the current search has already retrieved on a normal search page into the
+sidebar (open it from the sidebar or the "Board" button next to the official result count) without
+changing the official result list.
+
+- **Item list**: filter and sort by price or listing time; click a result to scroll to and
+  highlight the official row, travel to the hideout or pin it.
+- **Seller list**: sellers ordered by instant-buyout count and converted total, to buy several
+  results in one hideout visit. Pick the items to buy to see a subtotal and a **stash search regex**
+  that highlights them in the seller's stash (only guaranteed to tell them apart from that seller's
+  other loaded results; you are warned when it cannot).
+- **Load more**: always goes through the official "load more" button, one batch or all at once (the
+  official cap is 100); visited and sold results are marked. The board keeps nothing once you start
+  another search; pin results you want to keep.
+
 ### 🧩 PoB shopping list
 
 Paste Path of Building export codes or `poe.ninja`, `pobb.in` and `pastebin` share links (the latter
@@ -132,13 +156,17 @@ LiveSearch Console.
 Display the international trade site UI, filters and search results in Chinese (Traditional Chinese
 for Taiwan-realm terminology or Simplified Chinese for China-realm terminology) without altering the
 underlying search query. Enable **Bilingual** mode to show Chinese and English together in affix,
-currency and item dropdowns so you can search in either language. When enabled alongside `pobb.in`
+currency and item dropdowns so you can search in either language, and optionally show English under
+result mods. When enabled alongside `pobb.in`
 permission, `pobb.in` share pages are also translated to Chinese.
 
 ### ⚙️ Settings, hotkeys and FAQ
 
-- Adjustable panel position (left by default, switchable to right), theme, width and UI zoom;
-  toggle feature modules individually in sidebar Settings.
+- Adjustable panel position (left by default, switchable to right), theme and UI zoom; resize the
+  sidebar by dragging its edge. Settings can be searched, feature modules toggled individually, and
+  preferences backed up, restored or reset for both PoE 1 and PoE 2.
+- A guided tour starts after the first install and can be replayed with "Take the tour" in Tools & Info;
+  settings offer "Show on page" to point at the control they affect.
 - Fuzzy search for item names and filters (auto `~`), customizable focus / clear search hotkeys
   (`Backspace` to clear, `Esc` to cancel), and optional item names in browser tab titles.
 - Extension UI in Traditional Chinese, Simplified Chinese and English; affix data covers all 11
