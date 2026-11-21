@@ -3308,23 +3308,29 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
   describe('Bookmark Cover Thumbnail & Shared TradeSearchPreviewTooltip Presentation Tests', () => {
     it('enforces shared preview architecture, avoids duplicate composables, and confines tooltip trigger surface', () => {
       const panePath = resolve(__dirname, '../components/sidebar/LiveSearchPrimaryPane.vue');
+      const rowPath = resolve(
+        __dirname,
+        '../components/sidebar/live-search/LiveSearchSourceRow.vue',
+      );
       const paneSource = readFileSync(panePath, 'utf-8');
+      const rowSource = readFileSync(rowPath, 'utf-8');
+      const combinedSource = `${paneSource}\n${rowSource}`;
 
       // Direct reuse of TradeSearchPreviewTooltip and useTradeSearchPreview
-      expect(paneSource).toContain(
-        "import TradeSearchPreviewTooltip from './search-preview/TradeSearchPreviewTooltip.vue'",
+      expect(rowSource).toContain(
+        "import TradeSearchPreviewTooltip from '../search-preview/TradeSearchPreviewTooltip.vue'",
       );
       expect(paneSource).toContain(
         "import { useTradeSearchPreview } from './composables/useTradeSearchPreview'",
       );
 
       // Forbids importing BookmarkPane-specific wrappers or cover discovery composables
-      expect(paneSource).not.toContain('useBookmarkPreview');
-      expect(paneSource).not.toContain('useBookmarkCovers');
-      expect(paneSource).not.toContain('LiveSearchPreviewTooltip');
+      expect(combinedSource).not.toContain('useBookmarkPreview');
+      expect(combinedSource).not.toContain('useBookmarkCovers');
+      expect(combinedSource).not.toContain('LiveSearchPreviewTooltip');
 
       // Tooltip trigger wraps only connection-item-identity, excluding right-side controls
-      expect(paneSource).toMatch(
+      expect(rowSource).toMatch(
         /<TradeSearchPreviewTooltip[\s\S]*?<div[\s\S]*?data-test="connection-item-identity"/,
       );
     });

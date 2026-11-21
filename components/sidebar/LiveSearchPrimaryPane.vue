@@ -27,174 +27,18 @@
         data-test="primary-fixed-area"
         class="shrink-0 flex flex-col gap-[var(--pxd-space-sm)] p-[var(--pxd-pane-padding)] pb-[var(--pxd-space-sm)]"
       >
-        <!-- Compact Console Status Header -->
-        <div
-          data-test="runtime-summary"
-          class="flex items-center justify-between gap-[var(--pxd-space-xs)] px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)] rounded-md bg-muted/40 border border-border text-[length:var(--pxd-font-caption)]"
-        >
-          <div class="flex items-center gap-[var(--pxd-space-xs)] min-w-0 flex-1 overflow-hidden">
-            <!-- League Selector (Compact Status Header) -->
-            <DropdownMenu
-              :open="isLeagueMenuOpen"
-              @update:open="(open) => (isLeagueMenuOpen = open)"
-            >
-              <DropdownMenuTrigger as-child>
-                <button
-                  type="button"
-                  data-test="league-selector-trigger"
-                  class="inline-flex items-center gap-1 font-semibold text-foreground hover:bg-muted/70 px-1.5 py-0.5 rounded-sm cursor-pointer transition-colors max-w-[150px] truncate shrink-0"
-                  :disabled="isSwitchingLeague || isBatchRunning"
-                  :title="
-                    t('liveSearch.primary.switchLeagueTitle', { league: selectedLeagueDisplay })
-                  "
-                >
-                  <span data-test="summary-league" class="truncate">
-                    {{ selectedLeagueDisplay }}
-                  </span>
-                  <Loader2
-                    v-if="isSwitchingLeague"
-                    class="size-[var(--control-icon-sm,14px)] animate-spin shrink-0 text-muted-foreground"
-                  />
-                  <ChevronDown
-                    v-else
-                    class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground transition-transform duration-150"
-                    :class="{ 'rotate-180': isLeagueMenuOpen }"
-                  />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem
-                  v-for="league in availableLeagues"
-                  :key="league"
-                  :data-test="`league-option-${league}`"
-                  :disabled="isSwitchingLeague"
-                  class="cursor-pointer flex items-center justify-between gap-2"
-                  @click="handleSwitchLeague(league)"
-                >
-                  <span>{{ formatLiveSearchDisplayLeague(league) }}</span>
-                  <Check
-                    v-if="league.toLowerCase() === currentSelectedLeague.toLowerCase()"
-                    class="size-[var(--control-icon-sm,14px)] text-primary"
-                  />
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <span class="text-muted-foreground shrink-0">·</span>
-
-            <span data-test="summary-count" class="font-medium text-foreground shrink-0 font-mono">
-              {{ activeSubscriptionCount }} {{ t('liveSearch.primary.watching') }}
-            </span>
-
-            <template v-if="errorSubscriptionCount > 0">
-              <span class="text-muted-foreground shrink-0">·</span>
-              <span
-                data-test="summary-error-count"
-                class="font-medium text-destructive shrink-0 font-mono"
-              >
-                {{ errorSubscriptionCount }} {{ t('liveSearch.primary.error') }}
-              </span>
-            </template>
-          </div>
-
-          <!-- Compact API Rate Status Trigger -->
-          <button
-            type="button"
-            data-test="btn-toggle-rate-details"
-            class="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-sm hover:bg-muted transition-colors cursor-pointer"
-            :aria-expanded="isRateDetailsOpen"
-            :title="t('liveSearch.primary.rateToggleTitle')"
-            @click="isRateDetailsOpen = !isRateDetailsOpen"
-          >
-            <span
-              data-test="rate-limit-status"
-              class="font-medium font-mono"
-              :class="isRateWaiting ? 'text-amber-500' : 'text-emerald-500'"
-            >
-              {{
-                isRateWaiting
-                  ? t('liveSearch.primary.rateWaiting', { seconds: remainingWaitSeconds })
-                  : t('liveSearch.primary.rateNormal')
-              }}
-            </span>
-            <ChevronDown
-              class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-150"
-              :class="{ 'rotate-180': isRateDetailsOpen }"
-            />
-          </button>
-        </div>
-
-        <!-- 通知音效被瀏覽器擋下（ADR-0016）：點一下即可解除並試聽。
-             用 pointerdown 而非 click：解除監聽在 pointerdown 就會讓提示消失，click 會落空 -->
-        <button
-          v-if="isSoundBlocked"
-          type="button"
-          data-test="sound-blocked-notice"
-          class="flex items-center gap-[var(--pxd-space-xs)] px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)] rounded-md border border-amber-500/25 bg-amber-500/10 text-left text-[length:var(--pxd-font-caption)] text-foreground cursor-pointer hover:bg-amber-500/15 transition-colors"
-          :title="t('liveSearch.sound.blockedTitle')"
-          @pointerdown="handleEnableSound"
-          @keydown.enter.space.prevent="handleEnableSound"
-        >
-          <VolumeX class="size-[var(--control-icon-sm,14px)] shrink-0 text-amber-500" />
-          <span class="min-w-0 flex-1">{{ t('liveSearch.sound.blockedNotice') }}</span>
-        </button>
-
-        <!-- 展開式 API Rate Limit Details (Session UI State) -->
-        <div
-          v-show="isRateDetailsOpen"
-          data-test="rate-limit-details"
-          class="flex flex-col gap-[var(--pxd-space-xs)] p-[var(--pxd-space-sm)] rounded-md border border-border bg-card/60 text-[length:var(--pxd-font-caption)]"
-        >
-          <div
-            class="flex items-center justify-between gap-[var(--pxd-space-sm)] text-muted-foreground"
-          >
-            <span class="truncate"> {{ t('liveSearch.primary.rateStatusTitle') }} </span>
-            <span data-test="rate-limit-next-allowed" class="shrink-0 font-mono">
-              {{
-                t('liveSearch.primary.rateNextRequest', {
-                  time:
-                    remainingWaitSeconds > 0
-                      ? t('liveSearch.primary.rateSeconds', { seconds: remainingWaitSeconds })
-                      : t('liveSearch.primary.rateImmediate'),
-                })
-              }}
-            </span>
-          </div>
-
-          <div
-            v-if="rateRuleEntries.length === 0"
-            data-test="rate-limit-empty"
-            class="text-muted-foreground text-center py-[var(--pxd-space-xs)] border-t border-border/60"
-          >
-            {{ t('liveSearch.primary.noRateData') }}
-          </div>
-          <div
-            v-for="[ruleName, windows] in rateRuleEntries"
-            :key="ruleName"
-            data-test="rate-limit-rule"
-            :data-rule="ruleName"
-            class="flex flex-col gap-[var(--pxd-space-xs)] p-[var(--pxd-space-xs)] rounded-sm bg-background/60 border border-border/50"
-          >
-            <span data-test="rate-limit-rule-name" class="font-semibold text-foreground">
-              {{ formatRuleName(ruleName) }}
-            </span>
-            <div
-              v-for="(win, idx) in windows"
-              :key="idx"
-              data-test="rate-limit-window"
-              class="grid grid-cols-2 gap-x-[var(--pxd-space-xs)] gap-y-0.5 font-mono text-muted-foreground"
-            >
-              <span class="text-foreground font-semibold">{{
-                t('liveSearch.rateLimit.used', { used: win.used, limit: win.limit })
-              }}</span>
-              <span>{{ t('liveSearch.rateLimit.window', { seconds: win.window }) }}</span>
-              <span>{{ t('liveSearch.rateLimit.windowLeft', { seconds: win.windowLeft }) }}</span>
-              <span>{{ t('liveSearch.rateLimit.cooldown', { seconds: win.cooldown }) }}</span>
-              <span class="col-span-2">{{
-                t('liveSearch.rateLimit.cooldownLeft', { seconds: win.cooldownLeft })
-              }}</span>
-            </div>
-          </div>
-        </div>
+        <LiveSearchStatusHeader
+          :current-selected-league="currentSelectedLeague"
+          :available-leagues="availableLeagues"
+          :is-switching-league="isSwitchingLeague"
+          :is-batch-running="isBatchRunning"
+          :active-subscription-count="activeSubscriptionCount"
+          :error-subscription-count="errorSubscriptionCount"
+          :is-sound-blocked="isSoundBlocked"
+          :rate-limit="snapshot?.rateLimit"
+          @switch-league="handleSwitchLeague"
+          @enable-sound="handleEnableSound"
+        />
 
         <!-- 搜尋與狀態篩選固定主要工具列 -->
         <div data-test="search-connections-toolbar" class="flex flex-col gap-[var(--pxd-space-sm)]">
@@ -405,451 +249,45 @@
             </SidebarEmptyState>
 
             <template v-else>
-              <div
+              <LiveSearchGroupSection
                 v-for="group in visibleGroups"
                 :key="group.id"
-                :data-group-id="group.id"
-                :data-group-kind="group.kind"
-                :data-parent-id="group.parentId"
-                :data-depth="group.depth ?? 0"
-                :style="getGroupIndentStyle(group)"
-                data-test="connection-group"
-                class="group-container flex flex-col rounded-md border border-border bg-card overflow-hidden shrink-0"
-              >
-                <!-- 可收合 Group Header + 群組批次選單 [⋯] -->
-                <div
-                  class="group-header-row group relative flex items-center justify-between cursor-pointer select-none border-0 border-solid border-l-2 bg-muted/40 hover:bg-muted/70 px-[var(--pxd-space-md)] py-[var(--pxd-bookmark-row-padding-y)]"
-                  :class="{
-                    'border-l-primary': group.id !== PREVIOUS_CONNECTIONS_GROUP_ID,
-                    'border-l-muted-foreground/60': group.id === PREVIOUS_CONNECTIONS_GROUP_ID,
-                    'border-b border-border': !isGroupCollapsed(group.id) && group.items.length > 0,
-                  }"
-                >
-                  <button
-                    type="button"
-                    data-test="connection-group-header"
-                    :data-group-toggle="group.id"
-                    :aria-expanded="!isGroupCollapsed(group.id)"
-                    class="flex flex-1 min-w-0 items-center justify-between gap-[var(--pxd-space-sm)] text-left cursor-pointer select-none"
-                    @click="toggleGroupCollapse(group.id)"
-                  >
-                    <div class="flex items-center gap-[var(--pxd-space-md)] min-w-0 flex-1">
-                      <Radio
-                        v-if="group.id === SESSION_CONNECTIONS_GROUP_ID"
-                        class="size-[var(--control-icon-sm,14px)] shrink-0 text-primary"
-                      />
-                      <RotateCcw
-                        v-else-if="group.id === PREVIOUS_CONNECTIONS_GROUP_ID"
-                        class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground"
-                      />
-                      <Folder
-                        v-else
-                        class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground"
-                      />
-                      <span
-                        data-test="connection-group-name"
-                        class="truncate text-[length:var(--pxd-font-secondary)] font-bold text-foreground"
-                        :title="group.name"
-                      >
-                        {{ group.name }}
-                      </span>
-                    </div>
-
-                    <div
-                      data-test="connection-group-count"
-                      class="shrink-0 flex items-center gap-1 text-[length:var(--pxd-font-caption)] font-mono text-muted-foreground"
-                    >
-                      <span>
-                        {{ getGroupStats(group.id).enabledCount }} /
-                        {{ getGroupStats(group.id).totalCount }}
-                      </span>
-                      <template v-if="getGroupStats(group.id).errorCount > 0">
-                        <span>·</span>
-                        <span
-                          data-test="connection-group-error-count"
-                          class="text-destructive font-medium"
-                        >
-                          {{ getGroupStats(group.id).errorCount }}
-                          {{ t('liveSearch.primary.error') }}
-                        </span>
-                      </template>
-                      <ChevronDown
-                        class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground transition-transform duration-150 ml-0.5"
-                        :class="{ '-rotate-90': isGroupCollapsed(group.id) }"
-                      />
-                    </div>
-                  </button>
-
-                  <!-- 本次連線標題列快捷 [＋ 新增搜尋連線] -->
-                  <Button
-                    v-if="group.id === SESSION_CONNECTIONS_GROUP_ID"
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    data-test="btn-group-add-connection"
-                    :title="t('liveSearch.primary.addNewConnection')"
-                    :aria-label="t('liveSearch.primary.addNewConnection')"
-                    class="shrink-0 text-muted-foreground hover:text-foreground ml-1"
-                    @click.stop="handleOpenAddConnection"
-                  >
-                    <Plus />
-                  </Button>
-
-                  <!-- 群組快捷啟用操作：若群組或其子樹內存在尚未啟用的項目，直接提供低干擾的快捷啟用操作 -->
-                  <Button
-                    v-if="hasEnableableSourcesInGroup(group.id)"
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    :data-test="`btn-group-quick-enable-${group.id}`"
-                    :title="
-                      group.id === PREVIOUS_CONNECTIONS_GROUP_ID
-                        ? t('liveSearch.primary.restoreAll')
-                        : group.id === SESSION_CONNECTIONS_GROUP_ID
-                          ? t('liveSearch.primary.enableAll')
-                          : t('liveSearch.primary.enableGroup')
-                    "
-                    :aria-label="
-                      group.id === PREVIOUS_CONNECTIONS_GROUP_ID
-                        ? t('liveSearch.primary.restoreAll')
-                        : group.id === SESSION_CONNECTIONS_GROUP_ID
-                          ? t('liveSearch.primary.enableAll')
-                          : t('liveSearch.primary.enableGroup')
-                    "
-                    class="shrink-0 text-primary hover:text-primary hover:bg-primary/10 ml-1"
-                    :disabled="isBatchRunning"
-                    @click.stop="handleBatchEnableGroup(group.id)"
-                  >
-                    <Play />
-                  </Button>
-
-                  <DropdownMenu
-                    :open="activeGroupMenuId === group.id"
-                    @update:open="(open) => setGroupMenuOpen(group.id, open)"
-                  >
-                    <DropdownMenuTrigger as-child>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        :data-test="`btn-group-menu-${group.id}`"
-                        :title="t('liveSearch.primary.groupBatchAction')"
-                        :aria-label="t('liveSearch.primary.groupBatchAction')"
-                        class="shrink-0 text-muted-foreground hover:text-foreground ml-1"
-                        :disabled="isBatchRunning"
-                        @pointerdown.capture="handleGroupTriggerPointerDown(group.id, $event)"
-                        @click.capture="handleMenuTriggerClickCapture"
-                        @click.stop="handleGroupTriggerClick(group.id)"
-                      >
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-
-                    <DropdownMenuContent align="end">
-                      <template v-if="group.id === PREVIOUS_CONNECTIONS_GROUP_ID">
-                        <DropdownMenuItem
-                          :data-test="`btn-group-enable-all-${group.id}`"
-                          :disabled="isBatchRunning"
-                          @click="handleBatchEnableGroup(group.id)"
-                        >
-                          {{ t('liveSearch.primary.restoreAll') }}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          :data-test="`btn-group-clear-${group.id}`"
-                          :disabled="isBatchRunning"
-                          class="text-destructive focus:text-destructive"
-                          @click="handleClearPreviousConnections"
-                        >
-                          {{ t('liveSearch.primary.clearPreviousRecords') }}
-                        </DropdownMenuItem>
-                      </template>
-                      <template v-else-if="group.id === SESSION_CONNECTIONS_GROUP_ID">
-                        <DropdownMenuItem
-                          :data-test="`btn-group-enable-all-${group.id}`"
-                          :disabled="isBatchRunning"
-                          @click="handleBatchEnableGroup(group.id)"
-                        >
-                          {{ t('liveSearch.primary.enableAll') }}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          :data-test="`btn-group-stop-all-${group.id}`"
-                          :disabled="isBatchRunning"
-                          @click="handleBatchStopGroup(group.id)"
-                        >
-                          {{ t('liveSearch.primary.stopAll') }}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          :data-test="`btn-group-clear-stopped-${group.id}`"
-                          :disabled="isBatchRunning || !hasStoppedSourcesInGroup(group.id)"
-                          class="text-destructive focus:text-destructive"
-                          @click="handleClearStoppedSessionConnections"
-                        >
-                          {{ t('liveSearch.console.removeStopped') }}
-                        </DropdownMenuItem>
-                      </template>
-                      <template v-else>
-                        <DropdownMenuItem
-                          :data-test="`btn-group-enable-all-${group.id}`"
-                          :disabled="isBatchRunning"
-                          @click="handleBatchEnableGroup(group.id)"
-                        >
-                          {{
-                            group.kind === 'custom'
-                              ? t('liveSearch.primary.enableAllInGroup')
-                              : t('liveSearch.primary.enableAllInFolder')
-                          }}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          :data-test="`btn-group-stop-all-${group.id}`"
-                          :disabled="isBatchRunning"
-                          @click="handleBatchStopGroup(group.id)"
-                        >
-                          {{
-                            group.kind === 'custom'
-                              ? t('liveSearch.primary.stopAllInGroup')
-                              : t('liveSearch.primary.stopAllInFolder')
-                          }}
-                        </DropdownMenuItem>
-                      </template>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <!-- Group Items (收合時隱藏；若該層無 direct items 亦不渲染空區塊) -->
-                <div
-                  v-if="!isGroupCollapsed(group.id) && group.items.length > 0"
-                  data-test="connection-group-items"
-                  class="flex flex-col gap-[var(--pxd-space-xs)] px-[var(--pxd-space-xs)] py-[var(--pxd-bookmark-folder-body-padding-y)] bg-background"
-                >
-                  <div
-                    v-for="item in group.items"
-                    :key="item.id"
-                    :data-source-id="item.id"
-                    :data-source-kind="item.kind"
-                    :data-source-compatibility="item.compatibility"
-                    data-test="connection-item"
-                    :draggable="item.removable ? 'true' : undefined"
-                    class="flex flex-col gap-[var(--pxd-space-xs)] py-[var(--pxd-bookmark-row-padding-y)] px-[var(--pxd-space-sm)] rounded-sm transition-colors"
-                    :class="getConnectionRowClasses(item)"
-                    @dragstart="handleConnectionDragStart(item, group.id, $event)"
-                    @dragend="handleConnectionDragEnd"
-                  >
-                    <div
-                      class="flex items-center justify-between gap-[var(--pxd-space-xs)] min-w-0"
-                    >
-                      <TradeSearchPreviewTooltip
-                        :open="activeEntityKey === getPreviewEntityKey(item)"
-                        :disabled="item.compatibility === 'invalid-url'"
-                        :side="tooltipSide"
-                        :source-name="item.name"
-                        :boundary-anchor="paneRootRef"
-                        :preview-data="
-                          activeEntityKey === getPreviewEntityKey(item) ? activePreviewData : null
-                        "
-                        @update:open="(open) => handlePreviewOpenChange(item, open)"
-                      >
-                        <div
-                          data-test="connection-item-identity"
-                          class="flex items-center gap-[var(--pxd-space-sm)] min-w-0 flex-1 outline-none"
-                          :class="
-                            isResultFilterable(item, group) ? 'cursor-pointer' : 'cursor-default'
-                          "
-                          :data-result-filter-active="
-                            isResultFilterTarget(item) ? 'true' : undefined
-                          "
-                          @click="handleToggleResultFilter(item, group)"
-                        >
-                          <img
-                            v-if="item.coverImageUrl"
-                            :key="item.coverImageUrl"
-                            :src="item.coverImageUrl"
-                            data-test="connection-item-thumbnail"
-                            class="size-[var(--control-height-sm)] shrink-0 object-contain"
-                            alt=""
-                            draggable="false"
-                            @error="handleCoverImageError"
-                          />
-                          <span
-                            v-else-if="item.kind === 'bookmark'"
-                            data-test="connection-item-placeholder"
-                            class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center text-[length:var(--pxd-font-secondary)] leading-none text-muted-foreground select-none"
-                            >•</span
-                          >
-                          <span
-                            data-test="connection-item-name"
-                            :data-folder="getItemFolderBadge(item, group) || undefined"
-                            class="text-[length:var(--pxd-font-secondary)] truncate min-w-0 flex-1"
-                            :class="
-                              isItemActive(item.status)
-                                ? 'font-semibold text-foreground'
-                                : 'font-medium text-foreground'
-                            "
-                          >
-                            {{ item.name }}
-                          </span>
-                        </div>
-                      </TradeSearchPreviewTooltip>
-
-                      <div class="flex items-center gap-[var(--pxd-space-xs)] shrink-0">
-                        <!-- 不相容且未處於 active/error：顯示單一精簡不相容原因標籤/Tooltip，禁止啟用 -->
-                        <template
-                          v-if="!isItemCompatible(item) && !isItemActiveOrError(item.status)"
-                        >
-                          <Tooltip>
-                            <TooltipTrigger as-child>
-                              <span
-                                :data-test="`compatibility-${item.id}`"
-                                :aria-label="item.compatibilityMessage"
-                                class="px-1.5 py-0.5 rounded-sm text-[length:var(--pxd-font-caption)] font-medium whitespace-nowrap text-muted-foreground border border-border/50 bg-background/50 cursor-help"
-                              >
-                                {{ getIncompatibleLabel(item.compatibility) }}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent v-if="item.compatibilityMessage" side="top">
-                              {{ item.compatibilityMessage }}
-                            </TooltipContent>
-                          </Tooltip>
-                        </template>
-
-                        <template v-else>
-                          <!-- 單一狀態與操作合一按鈕：依連線狀態切換圖示、色彩與可點擊性 -->
-                          <!-- 1. 排隊 / 連線中 / 重連中：轉換為旋轉圖示且不可按 -->
-                          <Button
-                            v-if="isItemConnectingOrPending(item)"
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            :data-test="
-                              item.pending ? `btn-enable-${item.id}` : `btn-connecting-${item.id}`
-                            "
-                            :data-status="getItemStatusText(item)"
-                            :title="getItemConnectingTitle(item)"
-                            :aria-label="getItemConnectingTitle(item)"
-                            class="shrink-0 text-amber-500 disabled:opacity-100"
-                            disabled
-                          >
-                            <Loader2 class="animate-spin text-amber-500" />
-                          </Button>
-
-                          <!-- 2. 監聽中 (active)：點擊暫停 -->
-                          <Button
-                            v-else-if="item.status === 'active'"
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            :data-test="`btn-stop-${item.id}`"
-                            data-status="監聽中"
-                            :title="t('liveSearch.primary.pauseTooltip')"
-                            :aria-label="t('liveSearch.primary.pause')"
-                            class="shrink-0 text-emerald-500 hover:text-foreground hover:bg-muted/60"
-                            :disabled="isBatchRunning"
-                            @click="handleStopSource(item)"
-                          >
-                            <Pause />
-                          </Button>
-
-                          <!-- 3. 異常已停止 (error)：左側紅條 + 警示色重啟按鈕 -->
-                          <Button
-                            v-else-if="item.status === 'error'"
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            :data-test="`btn-retry-${item.id}`"
-                            data-status="異常"
-                            :title="
-                              item.errorMessage
-                                ? t('liveSearch.primary.errorRetryTooltip', {
-                                    error: item.errorMessage,
-                                  })
-                                : t('liveSearch.primary.retryTooltip')
-                            "
-                            :aria-label="t('liveSearch.primary.retry')"
-                            class="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            :disabled="isBatchRunning"
-                            @click="handleRetrySource(item)"
-                          >
-                            <RotateCcw />
-                          </Button>
-
-                          <!-- 4. 未啟用 / 已暫停 (idle / closed)：點擊啟用 -->
-                          <Button
-                            v-else
-                            type="button"
-                            variant="secondary"
-                            size="icon-sm"
-                            :data-test="`btn-enable-${item.id}`"
-                            data-status="未啟用"
-                            :title="t('liveSearch.primary.enable')"
-                            :aria-label="t('liveSearch.primary.enable')"
-                            class="shrink-0"
-                            :disabled="isBatchRunning"
-                            @click="handleEnableSource(item.id)"
-                          >
-                            <Play />
-                          </Button>
-                        </template>
-
-                        <!-- 次要操作選單 [⋯]：連線中取消或移除連線 -->
-                        <DropdownMenu
-                          v-if="hasItemSecondaryActions(item)"
-                          :open="activeItemMenuId === item.id"
-                          @update:open="(open) => setItemMenuOpen(item.id, open)"
-                        >
-                          <DropdownMenuTrigger as-child>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              :data-test="`btn-item-menu-${item.id}`"
-                              :title="t('liveSearch.primary.moreActions')"
-                              :aria-label="t('liveSearch.primary.moreActions')"
-                              class="text-muted-foreground hover:text-foreground shrink-0"
-                              @pointerdown.capture="handleItemTriggerPointerDown(item.id, $event)"
-                              @click.capture="handleMenuTriggerClickCapture"
-                              @click.stop="handleItemTriggerClick(item.id)"
-                            >
-                              <MoreHorizontal />
-                            </Button>
-                          </DropdownMenuTrigger>
-
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              v-if="item.status === 'connecting' || item.status === 'reconnecting'"
-                              :data-test="`btn-stop-${item.id}`"
-                              @click="handleStopSource(item)"
-                            >
-                              {{ t('liveSearch.primary.stopConnection') }}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              v-if="item.removable"
-                              :data-test="`btn-remove-${item.id}`"
-                              class="text-destructive focus:text-destructive"
-                              @click="handleRemoveSource(item, group.id)"
-                            >
-                              {{
-                                group.id === PREVIOUS_CONNECTIONS_GROUP_ID
-                                  ? t('liveSearch.primary.removePreviousRecord')
-                                  : group.id === SESSION_CONNECTIONS_GROUP_ID
-                                    ? t('liveSearch.primary.removeFromSession')
-                                    : t('liveSearch.primary.removeTempSearch')
-                              }}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-
-                    <!-- 錯誤訊息 (若適用) -->
-                    <div
-                      v-if="item.errorMessage"
-                      :data-test="`error-${item.id}`"
-                      class="text-[length:var(--pxd-font-caption)] text-destructive leading-tight break-words"
-                    >
-                      {{ item.errorMessage }}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                :group="group"
+                :stats="getGroupStats(group.id)"
+                :is-collapsed="isGroupCollapsed(group.id)"
+                :has-enableable-sources="hasEnableableSourcesInGroup(group.id)"
+                :has-stopped-sources="hasStoppedSourcesInGroup(group.id)"
+                :is-batch-running="isBatchRunning"
+                :is-group-menu-open="activeGroupMenuId === group.id"
+                :active-item-menu-id="activeItemMenuId"
+                :tooltip-side="tooltipSide"
+                :boundary-anchor="paneRootRef"
+                :active-entity-key="activeEntityKey"
+                :active-preview-data="activePreviewData"
+                :is-item-result-filterable="isResultFilterable"
+                :is-item-result-filter-target="isResultFilterTarget"
+                @toggle-collapse="toggleGroupCollapse"
+                @open-add-connection="handleOpenAddConnection"
+                @batch-enable-group="handleBatchEnableGroup"
+                @batch-stop-group="handleBatchStopGroup"
+                @clear-previous-connections="handleClearPreviousConnections"
+                @clear-stopped-session-connections="handleClearStoppedSessionConnections"
+                @group-menu-open-change="setGroupMenuOpen"
+                @group-menu-trigger-pointerdown="handleGroupTriggerPointerDown"
+                @group-menu-trigger-click="handleGroupTriggerClick"
+                @menu-trigger-click-capture="handleMenuTriggerClickCapture"
+                @connection-dragstart="handleConnectionDragStart"
+                @connection-dragend="handleConnectionDragEnd"
+                @preview-open-change="handlePreviewOpenChange"
+                @toggle-result-filter="handleToggleResultFilter"
+                @enable-source="handleEnableSource"
+                @stop-source="handleStopSource"
+                @retry-source="handleRetrySource"
+                @remove-source="handleRemoveSource"
+                @item-menu-open-change="setItemMenuOpen"
+                @item-menu-trigger-pointerdown="handleItemTriggerPointerDown"
+                @item-menu-trigger-click="handleItemTriggerClick"
+              />
             </template>
           </ScrollAreaViewport>
           <ScrollBar />
@@ -878,22 +316,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted, type PropType } from 'vue';
-import {
-  Check,
-  ChevronDown,
-  Folder,
-  Loader2,
-  MoreHorizontal,
-  Pause,
-  Play,
-  Plus,
-  Radio,
-  RotateCcw,
-  Search,
-  VolumeX,
-  X,
-} from '@lucide/vue';
+import { ref, computed, watch, onMounted, onUnmounted, type PropType } from 'vue';
+import { ChevronDown, Plus, Radio, Search, X } from '@lucide/vue';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -904,7 +328,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   ScrollAreaCorner,
   ScrollAreaRoot,
@@ -913,11 +337,13 @@ import {
 } from '@/components/ui/scroll-area';
 import DragTrashZone from './layout/DragTrashZone.vue';
 import SidebarEmptyState from './layout/SidebarEmptyState.vue';
-import TradeSearchPreviewTooltip from './search-preview/TradeSearchPreviewTooltip.vue';
+import LiveSearchStatusHeader from './live-search/LiveSearchStatusHeader.vue';
+import LiveSearchGroupSection from './live-search/LiveSearchGroupSection.vue';
+import { useLiveSearchMenuState } from './live-search/useLiveSearchMenuState';
+import { isItemStoppedInSession, useLiveSearchGroups } from './live-search/useLiveSearchGroups';
 import { resolveBatchEnableToast, resolveBatchStopToast } from './live-search-presentation';
 import { hideDragTrash, showDragTrash, useDragTrash } from './composables/useDragTrash';
 import { useTradeSearchPreview } from './composables/useTradeSearchPreview';
-import { getFolderAncestors, getFolderDepth } from '@/utils/bookmark-collection';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import {
   DEFAULT_PREFERENCES,
@@ -930,20 +356,15 @@ import { t } from '@/utils/i18n';
 import type {
   LiveSearchPrimaryController,
   LiveSearchPrimaryViewSnapshot,
-  LiveSearchSubscriptionStatus,
-  TradeRateLimitWindow,
 } from '@/utils/live-search-contract';
 import {
   PREVIOUS_CONNECTIONS_GROUP_ID,
   SESSION_CONNECTIONS_GROUP_ID,
   createLiveSearchSourceController,
-  filterLiveSearchSourceGroups,
   formatLiveSearchDisplayLeague,
   getLiveSearchGroupSubtreeItems,
   getLiveSearchGroupSubtreeSourceIds,
-  matchesLiveSearchSourceStatusFilter,
   type LiveSearchBatchOutcome,
-  type LiveSearchSourceCompatibility,
   type LiveSearchSourceController,
   type LiveSearchSourceGroup,
   type LiveSearchSourceItem,
@@ -1050,29 +471,46 @@ watch(activeEntityKey, (key) => {
   }
 });
 
-function handleCoverImageError(event: Event) {
-  (event.currentTarget as HTMLImageElement).style.visibility = 'hidden';
-}
-
 const isBatchRunning = ref(false);
 
-const searchQuery = ref('');
-const statusFilter = ref<LiveSearchSourceStatusFilter>('all');
+const {
+  isFilteredBatchMenuOpen,
+  activeGroupMenuId,
+  activeItemMenuId,
+  closeAllMenus,
+  handleMenuTriggerClickCapture,
+  setFilteredBatchMenuOpen,
+  handleFilteredTriggerPointerDown,
+  handleFilteredTriggerClick,
+  setGroupMenuOpen,
+  handleGroupTriggerPointerDown,
+  handleGroupTriggerClick,
+  setItemMenuOpen,
+  handleItemTriggerPointerDown,
+  handleItemTriggerClick,
+} = useLiveSearchMenuState();
 
-function handleStatusFilterChange(val: unknown) {
-  if (typeof val === 'string' && val.trim()) {
-    statusFilter.value = val as LiveSearchSourceStatusFilter;
-  }
-}
-const isRateDetailsOpen = ref(false);
-const isLeagueMenuOpen = ref(false);
+const {
+  searchQuery,
+  statusFilter,
+  collapsedGroupIds,
+  isFilteredBatchBarVisible,
+  handleStatusFilterChange,
+  clearSearch,
+  normalizedGroups,
+  getGroupStats,
+  isGroupCollapsed,
+  toggleGroupCollapse,
+  hasAnySources,
+  filteredGroups,
+  visibleGroups,
+  filteredSourceIds,
+  hasEnableableSourcesInGroup,
+  hasStoppedSourcesInGroup,
+} = useLiveSearchGroups(sourceSnapshot);
 
 const currentSelectedLeague = computed(() => {
   return sourceSnapshot.value?.selectedLeague || snapshot.value?.runtimeLeague || 'Standard';
-});
-
-const selectedLeagueDisplay = computed(() => {
-  return formatLiveSearchDisplayLeague(currentSelectedLeague.value);
 });
 
 const availableLeagues = computed(() => {
@@ -1084,7 +522,6 @@ const isSwitchingLeague = computed(() => {
 });
 
 async function handleSwitchLeague(league: string) {
-  isLeagueMenuOpen.value = false;
   const sourceCtrl = getActiveSourceController();
   if (!sourceCtrl || isSwitchingLeague.value) return;
   if (league.toLowerCase() === currentSelectedLeague.value.toLowerCase()) return;
@@ -1117,25 +554,11 @@ async function handleSwitchLeague(league: string) {
     );
   }
 }
-const collapsedGroupIds = ref<Set<string>>(new Set());
-const isFilteredBatchMenuOpen = ref(false);
-const activeGroupMenuId = ref<string | null>(null);
-const activeItemMenuId = ref<string | null>(null);
-const nowMs = ref(Date.now());
-
-const isFilteredBatchBarVisible = computed(() => {
-  return Boolean(searchQuery.value.trim()) || statusFilter.value !== 'all';
-});
-
-let ignoreNextMenuClick = false;
-let menuClickResetTimer: ReturnType<typeof setTimeout> | null = null;
-let pointerDownToggledMenu = false;
 
 let unsubscribe: (() => void) | null = null;
 let unsubSource: (() => void) | null = null;
 let stopPreferences: (() => void) | null = null;
 let fallbackSourceController: LiveSearchSourceController | null = null;
-let countdownTimer: ReturnType<typeof setInterval> | null = null;
 let stopResumeSub: (() => void) | null = null;
 const resumeSnapshot = ref<LiveSearchResumeSnapshot | null>(null);
 let lastHandledAutoOutcome: LiveSearchBatchOutcome | null = null;
@@ -1171,140 +594,6 @@ function showToast(message: string, tone: 'default' | 'error' = 'default') {
     tone,
     durationMs: 3000,
   });
-}
-
-function setIgnoreNextMenuClick() {
-  ignoreNextMenuClick = true;
-  if (menuClickResetTimer) clearTimeout(menuClickResetTimer);
-  menuClickResetTimer = setTimeout(() => {
-    ignoreNextMenuClick = false;
-    menuClickResetTimer = null;
-  }, 400);
-}
-
-function handleMenuTriggerClickCapture(event: MouseEvent) {
-  if (ignoreNextMenuClick) {
-    event.preventDefault();
-    event.stopPropagation();
-    ignoreNextMenuClick = false;
-    if (menuClickResetTimer) {
-      clearTimeout(menuClickResetTimer);
-      menuClickResetTimer = null;
-    }
-  }
-}
-
-function setFilteredBatchMenuOpen(open: boolean) {
-  pointerDownToggledMenu = true;
-  if (open) {
-    activeGroupMenuId.value = null;
-    activeItemMenuId.value = null;
-  }
-  isFilteredBatchMenuOpen.value = open;
-}
-
-function handleFilteredTriggerPointerDown(event: PointerEvent | MouseEvent) {
-  pointerDownToggledMenu = false;
-  if (isFilteredBatchMenuOpen.value) {
-    event.preventDefault();
-    event.stopPropagation();
-    setIgnoreNextMenuClick();
-    isFilteredBatchMenuOpen.value = false;
-    pointerDownToggledMenu = true;
-  }
-}
-
-function handleFilteredTriggerClick() {
-  if (pointerDownToggledMenu) {
-    pointerDownToggledMenu = false;
-    return;
-  }
-  const next = !isFilteredBatchMenuOpen.value;
-  if (next) {
-    activeGroupMenuId.value = null;
-    activeItemMenuId.value = null;
-  }
-  isFilteredBatchMenuOpen.value = next;
-}
-
-function setGroupMenuOpen(groupId: string, open: boolean) {
-  pointerDownToggledMenu = true;
-  if (open) {
-    isFilteredBatchMenuOpen.value = false;
-    activeItemMenuId.value = null;
-    activeGroupMenuId.value = groupId;
-    return;
-  }
-  if (activeGroupMenuId.value === groupId) {
-    activeGroupMenuId.value = null;
-  }
-}
-
-function handleGroupTriggerPointerDown(groupId: string, event: PointerEvent | MouseEvent) {
-  pointerDownToggledMenu = false;
-  if (activeGroupMenuId.value === groupId) {
-    event.preventDefault();
-    event.stopPropagation();
-    setIgnoreNextMenuClick();
-    activeGroupMenuId.value = null;
-    pointerDownToggledMenu = true;
-  }
-}
-
-function handleGroupTriggerClick(groupId: string) {
-  if (pointerDownToggledMenu) {
-    pointerDownToggledMenu = false;
-    return;
-  }
-  if (activeGroupMenuId.value === groupId) {
-    activeGroupMenuId.value = null;
-  } else {
-    isFilteredBatchMenuOpen.value = false;
-    activeItemMenuId.value = null;
-    activeGroupMenuId.value = groupId;
-  }
-}
-
-function hasItemSecondaryActions(item: LiveSearchSourceItem): boolean {
-  return Boolean(item.removable || item.status === 'connecting' || item.status === 'reconnecting');
-}
-
-function setItemMenuOpen(itemId: string, open: boolean) {
-  pointerDownToggledMenu = true;
-  if (open) {
-    isFilteredBatchMenuOpen.value = false;
-    activeGroupMenuId.value = null;
-    activeItemMenuId.value = itemId;
-    return;
-  }
-  if (activeItemMenuId.value === itemId) {
-    activeItemMenuId.value = null;
-  }
-}
-
-function handleItemTriggerPointerDown(itemId: string, event: PointerEvent | MouseEvent) {
-  pointerDownToggledMenu = false;
-  if (activeItemMenuId.value === itemId) {
-    event.preventDefault();
-    event.stopPropagation();
-    setIgnoreNextMenuClick();
-    activeItemMenuId.value = null;
-    pointerDownToggledMenu = true;
-  }
-}
-
-function handleItemTriggerClick(itemId: string) {
-  if (pointerDownToggledMenu) {
-    pointerDownToggledMenu = false;
-    return;
-  }
-  if (activeItemMenuId.value === itemId) {
-    activeItemMenuId.value = null;
-  } else {
-    isFilteredBatchMenuOpen.value = false;
-    activeGroupMenuId.value = null;
-    activeItemMenuId.value = itemId;
-  }
 }
 
 function applyPreferencesSnapshot(prefSnapshot: Readonly<Preferences>) {
@@ -1366,271 +655,6 @@ const errorSubscriptionCount = computed(() => {
   return count;
 });
 
-function clearCountdownTimer() {
-  if (countdownTimer !== null) {
-    clearInterval(countdownTimer);
-    countdownTimer = null;
-  }
-}
-
-function computeRateCountdownEndAtMs(
-  rateLimit: Readonly<LiveSearchPrimaryViewSnapshot['rateLimit']> | undefined,
-): number {
-  if (!rateLimit) return 0;
-  let endAtMs = rateLimit.nextAllowedAtMs ?? 0;
-  const observedAtMs = rateLimit.observedAtMs;
-  if (typeof observedAtMs === 'number' && observedAtMs > 0 && rateLimit.rules) {
-    let maxWindowOrCooldownSec = 0;
-    for (const windows of Object.values(rateLimit.rules)) {
-      if (!Array.isArray(windows)) continue;
-      for (const win of windows) {
-        if (win.windowLeft > maxWindowOrCooldownSec) {
-          maxWindowOrCooldownSec = win.windowLeft;
-        }
-        if (win.cooldownLeft > maxWindowOrCooldownSec) {
-          maxWindowOrCooldownSec = win.cooldownLeft;
-        }
-      }
-    }
-    if (maxWindowOrCooldownSec > 0) {
-      endAtMs = Math.max(endAtMs, observedAtMs + maxWindowOrCooldownSec * 1000);
-    }
-  }
-  return endAtMs;
-}
-
-function syncCountdownTimer(
-  rateLimit: Readonly<LiveSearchPrimaryViewSnapshot['rateLimit']> | undefined,
-) {
-  nowMs.value = Date.now();
-  const targetEndAtMs = computeRateCountdownEndAtMs(rateLimit);
-  if (targetEndAtMs > nowMs.value) {
-    if (countdownTimer === null) {
-      countdownTimer = setInterval(() => {
-        nowMs.value = Date.now();
-        if (nowMs.value >= computeRateCountdownEndAtMs(snapshot.value?.rateLimit)) {
-          clearCountdownTimer();
-        }
-      }, 250);
-    }
-  } else {
-    clearCountdownTimer();
-  }
-}
-
-const remainingWaitSeconds = computed(() => {
-  const nextAllowedAtMs = snapshot.value?.rateLimit?.nextAllowedAtMs ?? 0;
-  if (nextAllowedAtMs <= 0) return 0;
-  const diffMs = nextAllowedAtMs - nowMs.value;
-  return diffMs > 0 ? Math.ceil(diffMs / 1000) : 0;
-});
-
-const rateRuleEntries = computed<Array<[string, TradeRateLimitWindow[]]>>(() => {
-  const rateLimit = snapshot.value?.rateLimit;
-  const rules = rateLimit?.rules;
-  if (!rules) return [];
-  const observedAtMs = rateLimit?.observedAtMs;
-  const elapsedSeconds =
-    typeof observedAtMs === 'number' && observedAtMs > 0
-      ? Math.floor(Math.max(0, nowMs.value - observedAtMs) / 1000)
-      : 0;
-  return Object.entries(rules)
-    .filter(([, windows]) => Array.isArray(windows) && windows.length > 0)
-    .map(([ruleName, windows]) => [
-      ruleName,
-      windows.map((win) => ({
-        ...win,
-        windowLeft: Math.max(0, win.windowLeft - elapsedSeconds),
-        cooldownLeft: Math.max(0, win.cooldownLeft - elapsedSeconds),
-      })),
-    ]);
-});
-
-const isRateWaiting = computed(() => {
-  return remainingWaitSeconds.value > 0;
-});
-
-function formatRuleName(rule: string): string {
-  const lower = rule.toLowerCase();
-  if (lower === 'account') return t('liveSearch.primary.rateAccount');
-  if (lower === 'ip') return 'IP';
-  if (lower === 'client') return t('liveSearch.primary.rateClient');
-  return rule;
-}
-
-function clearSearch() {
-  searchQuery.value = '';
-}
-
-function normalizeGroups(
-  rawGroups: readonly LiveSearchSourceGroup[] | undefined,
-): LiveSearchSourceGroup[] {
-  if (!rawGroups) return [];
-  const bookmarkRawGroups = rawGroups.filter((g) => (g.kind ?? 'bookmark') !== 'custom');
-  return rawGroups.map((g, index) => {
-    const groupKind = g.kind ?? 'bookmark';
-    const rawItems = g.items ?? g.bookmarks ?? [];
-    const normalizedItems: LiveSearchSourceItem[] = rawItems.map((item) => {
-      const status = item.status ?? item.liveSearchStatus;
-      const kind = item.kind ?? 'bookmark';
-      return {
-        ...item,
-        kind,
-        groupId: item.groupId ?? g.id,
-        groupName: item.groupName ?? g.name,
-        status,
-        liveSearchStatus: status,
-        canonicalIdentity: item.canonicalIdentity ?? null,
-        canonicalKey: item.canonicalKey ?? null,
-        compatibility: item.compatibility,
-        compatibilityMessage: item.compatibilityMessage,
-        removable: item.removable ?? kind === 'custom',
-        coverImageUrl: item.coverImageUrl,
-      };
-    });
-    const resolvedDepth =
-      typeof g.depth === 'number'
-        ? g.depth
-        : groupKind === 'custom'
-          ? 0
-          : getFolderDepth(bookmarkRawGroups, g.id);
-    return {
-      ...g,
-      kind: groupKind,
-      order: typeof g.order === 'number' ? g.order : index,
-      depth: resolvedDepth,
-      items: normalizedItems,
-      bookmarks: normalizedItems,
-    };
-  });
-}
-
-const rawConsoleGroups = computed<readonly LiveSearchSourceGroup[] | undefined>(() => {
-  const snap = sourceSnapshot.value;
-  if (!snap) return undefined;
-  if (Array.isArray(snap.sessionConnections) || Array.isArray(snap.previousConnections)) {
-    const result: LiveSearchSourceGroup[] = [];
-    const sessionItems = snap.sessionConnections ?? [];
-    const previousItems = snap.previousConnections ?? [];
-    if (sessionItems.length > 0) {
-      result.push({
-        id: SESSION_CONNECTIONS_GROUP_ID,
-        name: t('liveSearch.primary.sessionGroupName'),
-        kind: 'custom',
-        order: 0,
-        depth: 0,
-        items: sessionItems,
-        bookmarks: sessionItems,
-      });
-    }
-    if (previousItems.length > 0) {
-      result.push({
-        id: PREVIOUS_CONNECTIONS_GROUP_ID,
-        name: t('liveSearch.primary.previousGroupName'),
-        kind: 'custom',
-        order: 1,
-        depth: 0,
-        items: previousItems,
-        bookmarks: previousItems,
-      });
-    }
-    return result;
-  }
-  return snap.groups;
-});
-
-const normalizedGroups = computed(() => normalizeGroups(rawConsoleGroups.value));
-
-const groupStatsMap = computed(() => {
-  const map = new Map<string, { enabledCount: number; totalCount: number; errorCount: number }>();
-  for (const group of normalizedGroups.value) {
-    const subtreeItems = getLiveSearchGroupSubtreeItems(normalizedGroups.value, group.id);
-    let enabledCount = 0;
-    let errorCount = 0;
-    for (const item of subtreeItems) {
-      if (matchesLiveSearchSourceStatusFilter(item.status, 'enabled')) {
-        enabledCount += 1;
-      } else if (item.status === 'error') {
-        errorCount += 1;
-      }
-    }
-    map.set(group.id, {
-      enabledCount,
-      totalCount: subtreeItems.length,
-      errorCount,
-    });
-  }
-  return map;
-});
-
-function getGroupStats(groupId: string) {
-  return (
-    groupStatsMap.value.get(groupId) ?? {
-      enabledCount: 0,
-      totalCount: 0,
-      errorCount: 0,
-    }
-  );
-}
-
-function getGroupIndentStyle(group: LiveSearchSourceGroup): Record<string, string> {
-  const depth = group.depth ?? 0;
-  if (depth <= 0) return {};
-  const step = '(var(--pxd-space-lg) + var(--pxd-space-md))';
-  const sum = Array.from({ length: depth }, () => step).join(' + ');
-  return {
-    marginLeft: `calc(${sum})`,
-  };
-}
-
-function isGroupCollapsed(groupId: string): boolean {
-  if (isFilteredBatchBarVisible.value) return false;
-  return collapsedGroupIds.value.has(groupId);
-}
-
-function toggleGroupCollapse(groupId: string) {
-  const next = new Set(collapsedGroupIds.value);
-  if (next.has(groupId)) {
-    next.delete(groupId);
-  } else {
-    next.add(groupId);
-  }
-  collapsedGroupIds.value = next;
-}
-
-const hasAnySources = computed(() => {
-  return normalizedGroups.value.some((g) => g.items.length > 0);
-});
-
-const filteredGroups = computed(() => {
-  return filterLiveSearchSourceGroups(normalizedGroups.value, {
-    query: searchQuery.value,
-    statusFilter: statusFilter.value,
-  });
-});
-
-const visibleGroups = computed<LiveSearchSourceGroup[]>(() => {
-  if (isFilteredBatchBarVisible.value || collapsedGroupIds.value.size === 0) {
-    return filteredGroups.value;
-  }
-  const bookmarkGroups = filteredGroups.value.filter((g) => (g.kind ?? 'bookmark') !== 'custom');
-  return filteredGroups.value.filter((group) => {
-    if (group.kind === 'custom') return true;
-    const ancestors = getFolderAncestors(bookmarkGroups, group.id);
-    return !ancestors.some((ancestor) => collapsedGroupIds.value.has(ancestor.id));
-  });
-});
-
-const filteredSourceIds = computed<string[]>(() => {
-  const ids: string[] = [];
-  for (const group of filteredGroups.value) {
-    for (const item of group.items) {
-      ids.push(item.id);
-    }
-  }
-  return ids;
-});
-
 watch([visibleGroups, collapsedGroupIds, isSwitchingLeague], () => {
   if (!activeEntityKey.value) return;
   if (isSwitchingLeague.value) {
@@ -1682,11 +706,9 @@ watch(
     if (newController) {
       unsubscribe = newController.subscribe((newSnapshot) => {
         snapshot.value = newSnapshot;
-        syncCountdownTimer(newSnapshot.rateLimit);
       });
     } else {
       snapshot.value = null;
-      clearCountdownTimer();
     }
 
     const externalSourceCtrl = newSourceCtrl ?? newBookmarkCtrl;
@@ -1739,9 +761,7 @@ function handleConnectionDragStart(item: LiveSearchSourceItem, groupId: string, 
     return;
   }
   clearScopedActivePreview();
-  activeItemMenuId.value = null;
-  activeGroupMenuId.value = null;
-  isFilteredBatchMenuOpen.value = false;
+  closeAllMenus();
 
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move';
@@ -1828,11 +848,6 @@ onUnmounted(() => {
   stopResumeSub = null;
   stopSoundSub?.();
   stopSoundSub = null;
-  clearCountdownTimer();
-  if (menuClickResetTimer) {
-    clearTimeout(menuClickResetTimer);
-    menuClickResetTimer = null;
-  }
   if (stopPreferences) {
     stopPreferences();
     stopPreferences = null;
@@ -1881,9 +896,7 @@ async function runBatchEnable(sourceIds: readonly string[]) {
   const sourceCtrl = getActiveSourceController();
   if (!sourceCtrl || isBatchRunning.value || sourceIds.length === 0) return;
 
-  activeGroupMenuId.value = null;
-  activeItemMenuId.value = null;
-  isFilteredBatchMenuOpen.value = false;
+  closeAllMenus();
   isBatchRunning.value = true;
   try {
     if (typeof sourceCtrl.enableMany === 'function') {
@@ -1902,9 +915,7 @@ function runBatchStop(sourceIds: readonly string[]) {
   const sourceCtrl = getActiveSourceController();
   if (!sourceCtrl || isBatchRunning.value || sourceIds.length === 0) return;
 
-  activeGroupMenuId.value = null;
-  activeItemMenuId.value = null;
-  isFilteredBatchMenuOpen.value = false;
+  closeAllMenus();
   if (typeof sourceCtrl.stopMany === 'function') {
     const outcome = sourceCtrl.stopMany(sourceIds);
     presentBatchStopOutcome(outcome);
@@ -1916,9 +927,7 @@ async function handleBatchEnableGroup(groupId: string) {
     const sourceCtrl = getActiveSourceController();
     if (sourceCtrl && typeof sourceCtrl.restoreAllPreviousConnections === 'function') {
       if (isBatchRunning.value) return;
-      activeGroupMenuId.value = null;
-      activeItemMenuId.value = null;
-      isFilteredBatchMenuOpen.value = false;
+      closeAllMenus();
       isBatchRunning.value = true;
       try {
         const outcome = await sourceCtrl.restoreAllPreviousConnections();
@@ -1945,15 +954,6 @@ async function handleClearPreviousConnections() {
   if (typeof sourceCtrl.clearPreviousConnections === 'function') {
     await sourceCtrl.clearPreviousConnections();
   }
-}
-
-function isItemStoppedInSession(item: LiveSearchSourceItem): boolean {
-  return !item.pending && !isItemActiveOrError(item.status);
-}
-
-function hasStoppedSourcesInGroup(groupId: string): boolean {
-  const subtreeItems = getLiveSearchGroupSubtreeItems(normalizedGroups.value, groupId);
-  return subtreeItems.some(isItemStoppedInSession);
 }
 
 function handleClearStoppedSessionConnections() {
@@ -2032,73 +1032,6 @@ function handleRemoveSource(item: LiveSearchSourceItem, groupId: string) {
   }
 }
 
-function isItemCompatible(item: LiveSearchSourceItem): boolean {
-  return item.compatibility === 'compatible';
-}
-
-function getIncompatibleLabel(compatibility?: LiveSearchSourceCompatibility): string {
-  switch (compatibility) {
-    case 'wrong-version':
-      return t('liveSearch.primary.diffVersion');
-    case 'wrong-league':
-      return t('liveSearch.primary.diffLeague');
-    case 'invalid-url':
-      return t('liveSearch.primary.invalidUrl');
-    default:
-      return '';
-  }
-}
-
-function isItemActive(status?: LiveSearchSubscriptionStatus): boolean {
-  return status === 'connecting' || status === 'active' || status === 'reconnecting';
-}
-
-function isItemActiveOrError(status?: LiveSearchSubscriptionStatus): boolean {
-  return (
-    status === 'connecting' ||
-    status === 'active' ||
-    status === 'reconnecting' ||
-    status === 'error'
-  );
-}
-
-function isItemConnectingOrPending(item: LiveSearchSourceItem): boolean {
-  return Boolean(item.pending) || item.status === 'connecting' || item.status === 'reconnecting';
-}
-
-function getItemConnectingTitle(item: LiveSearchSourceItem): string {
-  if (item.pending && (!item.status || item.status === 'idle' || item.status === 'closed')) {
-    return t('liveSearch.tempDialog.starting');
-  }
-  return getItemStatusText(item);
-}
-
-function isItemEnableable(item: LiveSearchSourceItem): boolean {
-  return isItemCompatible(item) && !item.pending && !isItemActiveOrError(item.status);
-}
-
-function hasEnableableSourcesInGroup(groupId: string): boolean {
-  const subtreeItems = getLiveSearchGroupSubtreeItems(normalizedGroups.value, groupId);
-  return subtreeItems.some(isItemEnableable);
-}
-
-function getConnectionRowClasses(item: LiveSearchSourceItem): Record<string, boolean> {
-  const isActive = item.status === 'active';
-  const isPendingOrConnecting =
-    item.status === 'connecting' || item.status === 'reconnecting' || Boolean(item.pending);
-  const isError = item.status === 'error';
-  return {
-    'border-l-2 border-l-emerald-500 bg-muted/30 border border-border/40': isActive,
-    'border-l-2 border-l-amber-500 bg-muted/20 border border-border/40':
-      !isActive && isPendingOrConnecting,
-    'border-l-2 border-l-destructive bg-destructive/5 border border-destructive/30': isError,
-    'bg-background/60 hover:bg-muted/40': !isActive && !isPendingOrConnecting && !isError,
-    'opacity-60': !isItemCompatible(item) && !isItemActiveOrError(item.status),
-    'cursor-grab active:cursor-grabbing': Boolean(item.removable),
-    'ring-1 ring-primary/60': isResultFilterTarget(item),
-  };
-}
-
 const isDevBuild = import.meta.env.DEV;
 const DEV_INJECT_COUNTS = [50, 200, 600] as const;
 const isDevInjecting = ref(false);
@@ -2160,49 +1093,5 @@ async function handleDevInject(count: number) {
   } finally {
     isDevInjecting.value = false;
   }
-}
-
-function getItemFolderBadge(item: LiveSearchSourceItem, group: LiveSearchSourceGroup): string {
-  if (item.kind !== 'bookmark') return '';
-  const folder = item.groupName?.trim() ?? '';
-  if (
-    !folder ||
-    folder === '本次連線' ||
-    folder === '上次連線' ||
-    folder === '暫時搜尋' ||
-    folder === t('liveSearch.primary.sessionGroupName') ||
-    folder === t('liveSearch.primary.previousGroupName') ||
-    folder === t('liveSearch.console.temporarySource') ||
-    folder === group.name
-  ) {
-    return '';
-  }
-  return folder;
-}
-
-function getItemStatusText(item: LiveSearchSourceItem): string {
-  const status = item.status;
-  if (!status || status === 'idle' || status === 'closed') {
-    if (item.pending) {
-      return t('liveSearch.primary.pendingStart');
-    }
-    return t('liveSearch.primary.statusIdle');
-  }
-  if (status === 'connecting') {
-    return t('liveSearch.primary.statusConnecting');
-  }
-  if (status === 'active') {
-    return t('liveSearch.primary.statusActive');
-  }
-  if (status === 'reconnecting') {
-    if (typeof item.reconnectInSeconds === 'number' && item.reconnectInSeconds > 0) {
-      return t('liveSearch.primary.reconnectingIn', { seconds: item.reconnectInSeconds });
-    }
-    return t('liveSearch.primary.reconnecting');
-  }
-  if (status === 'error') {
-    return t('liveSearch.primary.statusError');
-  }
-  return status;
 }
 </script>
