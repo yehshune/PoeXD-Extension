@@ -378,46 +378,61 @@
                   </div>
                 </template>
 
-                <!-- 單欄排版 (僅有前綴命中) -->
+                <!-- 單欄／左欄排版 (僅有前綴命中：全部模式維持左側前綴欄，前綴篩選模式展全寬) -->
                 <template v-else-if="cat.hasOnlyPrefix">
-                  <div class="category-single-column w-full">
+                  <div
+                    :class="
+                      generationFilter === 'all'
+                        ? 'category-columns flex flex-row flex-wrap gap-[var(--pxd-space-lg)] w-full'
+                        : 'category-single-column w-full'
+                    "
+                  >
                     <div
-                      class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
+                      :class="generationFilter === 'all' ? 'column-left flex-1 min-w-[280px]' : ''"
                     >
-                      {{ t('filterPane.column.prefixes', { count: cat.totals.prefixes }) }}
+                      <div
+                        class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
+                      >
+                        {{ t('filterPane.column.prefixes', { count: cat.totals.prefixes }) }}
+                      </div>
+                      <div
+                        class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
+                      >
+                        <ModItem
+                          v-for="mod in cat.prefixes"
+                          :key="mod.id"
+                          v-memo="[
+                            mod,
+                            cat.affinity,
+                            searchQuery,
+                            expandedKeys.has(mod.id),
+                            isModSelected(mod.id, cat.affinity),
+                            itemLevelRange.max,
+                            affixDemoHoveredModId === mod.id,
+                          ]"
+                          class="mb-[2px]"
+                          :mod="mod"
+                          :affinity="cat.affinity"
+                          :search-query="searchQuery"
+                          :is-expanded="expandedKeys.has(mod.id)"
+                          :is-selected="isModSelected(mod.id, cat.affinity)"
+                          :is-tier-selected="isModTierSelected"
+                          :get-tier-number="resolveModTierNumber"
+                          :item-level-max="itemLevelRange.max"
+                          :demo-highlighted="affixDemoHoveredModId === mod.id"
+                          @toggle-expand="toggleExpand"
+                          @toggle-select="toggleModSelection"
+                          @toggle-tier-select="handleToggleTierSelection"
+                          @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
+                          @add-tier-filter="addTierFilter"
+                        />
+                      </div>
                     </div>
                     <div
-                      class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
-                    >
-                      <ModItem
-                        v-for="mod in cat.prefixes"
-                        :key="mod.id"
-                        v-memo="[
-                          mod,
-                          cat.affinity,
-                          searchQuery,
-                          expandedKeys.has(mod.id),
-                          isModSelected(mod.id, cat.affinity),
-                          itemLevelRange.max,
-                          affixDemoHoveredModId === mod.id,
-                        ]"
-                        class="mb-[2px]"
-                        :mod="mod"
-                        :affinity="cat.affinity"
-                        :search-query="searchQuery"
-                        :is-expanded="expandedKeys.has(mod.id)"
-                        :is-selected="isModSelected(mod.id, cat.affinity)"
-                        :is-tier-selected="isModTierSelected"
-                        :get-tier-number="resolveModTierNumber"
-                        :item-level-max="itemLevelRange.max"
-                        :demo-highlighted="affixDemoHoveredModId === mod.id"
-                        @toggle-expand="toggleExpand"
-                        @toggle-select="toggleModSelection"
-                        @toggle-tier-select="handleToggleTierSelection"
-                        @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
-                        @add-tier-filter="addTierFilter"
-                      />
-                    </div>
+                      v-if="generationFilter === 'all'"
+                      class="column-right flex-1 min-w-[280px]"
+                      aria-hidden="true"
+                    />
                   </div>
                 </template>
 
