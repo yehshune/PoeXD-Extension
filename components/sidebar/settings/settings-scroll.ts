@@ -1,4 +1,4 @@
-function findScrollParent(el: HTMLElement | null): HTMLElement | null {
+export function findSettingsScrollParent(el: HTMLElement | null): HTMLElement | null {
   let node = el?.parentElement ?? null;
   while (node) {
     const { overflowY } = getComputedStyle(node);
@@ -18,7 +18,7 @@ function prefersReducedMotion(): boolean {
 export function scrollToSettingsSection(root: HTMLElement | null, sectionId: string): void {
   const el = root?.querySelector<HTMLElement>(`[data-settings-section="${sectionId}"]`);
   if (!el || el.offsetParent === null) return;
-  const scrollParent = findScrollParent(el);
+  const scrollParent = findSettingsScrollParent(el);
   if (!scrollParent) return;
   const paddingTop = parseFloat(getComputedStyle(scrollParent).paddingTop) || 0;
   const offset =

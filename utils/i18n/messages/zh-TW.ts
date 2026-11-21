@@ -18,10 +18,18 @@ export const ZH_TW_MESSAGES = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
+  'settings.section.localization': '語言與市集漢化',
   'settings.section.appearance': '外觀與版面',
   'settings.section.searchHotkeys': '搜尋欄與快捷鍵',
   'settings.section.resultDisplay': '搜尋結果顯示',
   'settings.section.bookmarks': '書籤與歷史',
+  'settings.nav.ariaLabel': '設定分類導覽',
+  'settings.nav.localization': '漢化',
+  'settings.nav.searchHotkeys': '搜尋',
+  'settings.nav.resultDisplay': '結果',
+  'settings.nav.bookmarks': '書籤',
+  'settings.nav.appearance': '外觀',
+  'settings.nav.modules': '模組',
 
   // Settings Pane - Appearance & Panel
   'settings.theme.label': '主題',
@@ -131,6 +139,13 @@ export const ZH_TW_MESSAGES = {
   'settings.marketTranslationResultBilingual.tooltip':
     '在搜尋結果的每條詞綴下方以淡色小字顯示英文原文，方便核對數值與英文用語；切換後立即生效',
   'settings.marketTranslation.localeHint': '需將「語言」設為繁體中文或簡體中文，市集漢化才會生效',
+  'settings.marketTranslation.refresh.label': '漢化資料快取',
+  'settings.marketTranslation.refresh.tooltip':
+    '平常每 6 小時會自動向官方市集更新最新詞綴與通貨譯文；新賽季或遊戲改版時可手動立即抓取，完成後重新整理頁面生效',
+  'settings.marketTranslation.refresh.button': '立即更新',
+  'settings.marketTranslation.refresh.refreshing': '更新中…',
+  'settings.marketTranslation.refresh.updated': '已取得最新漢化資料，重新整理頁面後生效',
+  'settings.marketTranslation.refresh.failed': '無法取得官方漢化資料，仍保留既有快取',
 
   'settings.itemNormalizer.label': '符文覆寫試算',
   'settings.itemNormalizer.infoAria': '符文覆寫試算說明',

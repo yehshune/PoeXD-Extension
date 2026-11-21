@@ -58,12 +58,12 @@ const describedBy = computed(() => (props.description ? descriptionId : undefine
     data-settings-row
     :class="[
       'flex min-w-0 flex-col gap-[var(--pxd-space-xs)]',
-      nested ? 'ml-[7px] border-l border-border/70 pl-[var(--pxd-space-md)]' : '',
+      nested ? 'pl-[var(--pxd-space-lg)]' : '',
     ]"
   >
     <div
       :class="[
-        'flex min-w-0 gap-x-[var(--pxd-space-lg)] gap-y-[var(--pxd-space-sm)]',
+        'flex min-h-[var(--control-height-default,34px)] min-w-0 gap-x-[var(--pxd-space-lg)] gap-y-[var(--pxd-space-sm)]',
         layout === 'inline' ? 'items-center justify-between' : 'flex-col items-stretch',
       ]"
     >

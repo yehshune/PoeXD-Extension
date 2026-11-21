@@ -18,6 +18,7 @@ import {
   resetPageLoadPreferencesForTests,
 } from '@/utils/page-load-preferences';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
+import { extensionMessaging } from '@/utils/extension-protocol';
 
 let storage = createInMemoryPreferencesStorage();
 let currentModule: PreferencesModule | undefined;
@@ -438,17 +439,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });
 
-    // Verify 5 sections exist with titles (Sidebar Modules first; Backup/Reset moved to toolbar menu)
+    // Verify 6 sections exist in priority order (Localization first; Backup/Reset in toolbar menu)
     expect(container.querySelectorAll('[data-slot="collapsible"]').length).toBe(0);
     const triggers = container.querySelectorAll('[data-settings-section] > header h3');
-    expect(triggers.length).toBe(5);
+    expect(triggers.length).toBe(6);
     const sectionTitles = Array.from(triggers).map((t) => t.textContent?.trim());
     expect(sectionTitles).toEqual([
-      '側邊欄模組',
-      '外觀與版面',
+      '語言與市集漢化',
       '搜尋欄與快捷鍵',
       '搜尋結果顯示',
       '書籤與歷史',
+      '外觀與版面',
+      '側邊欄模組',
     ]);
     expect(sectionTitles).not.toContain('桌面連接器');
     expect(container.textContent).not.toContain('桌面連接器');
@@ -473,24 +475,26 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(snapshot?.marketTranslation).toBe(false);
   });
 
-  it('places Language selector in Appearance section alongside Theme and reactively localizes SettingsPane across zh-TW, zh-CN, en, and fallback locales', async () => {
+  it('places Language and Market Translation in top Localization section and reactively localizes SettingsPane across zh-TW, zh-CN, en, and fallback locales', async () => {
     const { container } = await mountSettingsPane();
 
-    // Language and translation selectors must be located inside the Appearance & Language section
+    // Language and market translation live in the top Localization section; Theme stays in Appearance
+    const localizationSection = container.querySelector('[data-settings-section="localization"]');
     const appearanceSection = container.querySelector('[data-settings-section="appearance"]');
+    expect(localizationSection?.textContent).toContain('語言');
+    expect(localizationSection?.textContent).toContain('市集漢化');
     expect(appearanceSection?.textContent).toContain('主題');
-    expect(appearanceSection?.textContent).toContain('語言');
-    expect(appearanceSection?.textContent).toContain('市集漢化');
     expect(container.textContent).not.toContain('詞綴顯示語系');
 
     // Default zh-TW rendering
     const sectionTriggers = container.querySelectorAll('[data-settings-section] > header h3');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
-      '側邊欄模組',
-      '外觀與版面',
+      '語言與市集漢化',
       '搜尋欄與快捷鍵',
       '搜尋結果顯示',
       '書籤與歷史',
+      '外觀與版面',
+      '側邊欄模組',
     ]);
 
     // Switch displayLocale to zh-CN via Language Select
@@ -498,11 +502,12 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().displayLocale).toBe('zh-CN');
     expect(storage.inspect()['displayLocale']).toBe('zh-CN');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
-      '侧边栏模块',
-      '外观与版面',
+      '语言与市集汉化',
       '搜索栏与快捷键',
       '搜索结果显示',
       '书签与历史',
+      '外观与版面',
+      '侧边栏模块',
     ]);
     expect(container.textContent).toContain('主题');
     expect(container.textContent).toContain('语言');
@@ -512,30 +517,32 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await currentModule!.update({ displayLocale: 'en' });
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
-      'Sidebar modules',
-      'Appearance & Layout',
+      'Language & Translation',
       'Search & Filters',
       'Search Results',
       'Bookmarks & History',
+      'Appearance & Layout',
+      'Sidebar modules',
     ]);
     expect(container.textContent).toContain('Theme');
     expect(container.textContent).toContain('Language');
     expect(container.textContent).toContain('Enable page hotkeys');
     const triggersEn = container.querySelectorAll('[data-slot="select-trigger"]');
-    expect(triggersEn[0].textContent).toContain('Modern Dark');
-    expect(triggersEn[1].textContent).toContain('English');
+    expect(triggersEn[0].textContent).toContain('English');
+    expect(triggersEn[1].textContent).toContain('Modern Dark');
 
     // Switch displayLocale to 'ja' (non-Chinese affix locale -> UI falls back to 'en')
     await currentModule!.update({ displayLocale: 'ja' });
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
-      'Sidebar modules',
-      'Appearance & Layout',
+      'Language & Translation',
       'Search & Filters',
       'Search Results',
       'Bookmarks & History',
+      'Appearance & Layout',
+      'Sidebar modules',
     ]);
-    expect(triggersEn[1].textContent).toContain('日本語');
+    expect(triggersEn[0].textContent).toContain('日本語');
   });
 
   it('switches theme live across modern-dark, caffeine, and catppuccin and updates preferences', async () => {
@@ -560,9 +567,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().sidebarPosition).toBe('left');
 
     // Verify ToggleGroup dynamically renders canonical SIDEBAR_POSITION_OPTIONS
-    const positionToggleGroup = container.querySelectorAll<HTMLElement>(
-      '[data-slot="toggle-group"]',
-    )[0];
+    const positionToggleGroup = container.querySelector<HTMLElement>(
+      '[data-settings-section="appearance"] [data-slot="toggle-group"]',
+    )!;
     const toggleItems = positionToggleGroup.querySelectorAll<HTMLElement>(
       '[data-slot="toggle-group-item"]',
     );
@@ -871,7 +878,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(densityCheckbox?.getAttribute('data-state')).toBe('unchecked');
   });
 
-  it('shows every settings section on one page without a side nav', async () => {
+  it('shows every settings section in priority order with quick-jump section pills and collapsible headers', async () => {
     const { container } = await mountSettingsPane();
     const visibleSections = Array.from(
       container.querySelectorAll<HTMLElement>('[data-settings-section]'),
@@ -879,14 +886,42 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       .filter((el) => el.style.display !== 'none')
       .map((el) => el.getAttribute('data-settings-section'));
     expect(visibleSections).toEqual([
-      'modules',
-      'appearance',
+      'localization',
       'searchHotkeys',
       'resultDisplay',
       'bookmarks',
+      'appearance',
+      'modules',
     ]);
-    expect(container.querySelector('[data-settings-nav]')).toBeNull();
+    const navButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('[data-settings-nav-target]'),
+    ).map((btn) => btn.getAttribute('data-settings-nav-target'));
+    expect(navButtons).toEqual(visibleSections);
     expect(container.querySelector('[data-settings-tablist]')).toBeNull();
+
+    // Localization starts expanded while the other 5 sections start collapsed like a clean directory
+    const localizationSection = container.querySelector<HTMLElement>(
+      '[data-settings-section="localization"]',
+    )!;
+    const appearanceSection = container.querySelector<HTMLElement>(
+      '[data-settings-section="appearance"]',
+    )!;
+    expect(localizationSection.getAttribute('data-settings-section-collapsed')).toBeNull();
+    expect(appearanceSection.getAttribute('data-settings-section-collapsed')).toBe('true');
+
+    // Clicking a collapsed section's quick-jump pill expands and highlights it
+    const appearancePill = container.querySelector<HTMLButtonElement>(
+      '[data-settings-nav-target="appearance"]',
+    )!;
+    appearancePill.click();
+    await flushAsync();
+    expect(appearanceSection.getAttribute('data-settings-section-collapsed')).toBeNull();
+    expect(appearanceSection.getAttribute('data-settings-section-highlighted')).toBe('true');
+
+    // Clicking its header toggles it back to collapsed
+    appearanceSection.querySelector<HTMLElement>('header')!.click();
+    await nextTick();
+    expect(appearanceSection.getAttribute('data-settings-section-collapsed')).toBe('true');
   });
 
   it('merges both fuzzy search preferences into one switch', async () => {
@@ -1092,7 +1127,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     input.value = '翻譯';
     input.dispatchEvent(new Event('input'));
     await flushAsync();
-    expect(visibleSections()).toEqual(['appearance']);
+    expect(visibleSections()).toEqual(['localization']);
 
     input.value = 'zzz-no-such-setting';
     input.dispatchEvent(new Event('input'));
@@ -1104,7 +1139,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     (container.querySelector('[data-settings-search-clear]') as HTMLButtonElement).click();
     await flushAsync();
     // Clearing the query shows every section again
-    expect(visibleSections().length).toBe(5);
+    expect(visibleSections().length).toBe(6);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
     // Escape clears the query while keeping the search box visible
@@ -1116,7 +1151,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     expect(container.querySelector('[data-settings-search]')).not.toBeNull();
     expect(input.value).toBe('');
-    expect(visibleSections().length).toBe(5);
+    expect(visibleSections().length).toBe(6);
   });
 
   it('toggles Sidebar Modules and keeps the enabled count in sync', async () => {
@@ -1420,10 +1455,10 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     // 1. Select triggers reflect updated values
     const triggers = container.querySelectorAll('[data-slot="select-trigger"]');
-    // Theme: 'modern-dark' (default unmutated)
-    expect(triggers[0].textContent).toContain('現代暗色');
-    // Display locale: 'auto' (default unmutated)
-    expect(triggers[1].textContent).toContain('自動偵測');
+    // Display locale: 'auto' (default unmutated, in top Localization section)
+    expect(triggers[0].textContent).toContain('自動偵測');
+    // Theme: 'modern-dark' (default unmutated, in Appearance section)
+    expect(triggers[1].textContent).toContain('現代暗色');
     // Font size trigger reflects 120%
     const scaleTrigger = container.querySelector('[data-font-scale-trigger]') as HTMLButtonElement;
     expect(scaleTrigger.textContent).toContain('120%');
@@ -1643,6 +1678,50 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       expect(bookmarksSection?.getAttribute('data-settings-section-highlighted')).toBeNull();
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it('triggers force market translation refresh from SettingsPane and prompts reload on success or shows error on failure', async () => {
+    await storage.set({
+      ...DEFAULT_PREFERENCES,
+      displayLocale: 'zh-CN',
+      marketTranslation: true,
+    });
+    const sendSpy = vi
+      .spyOn(extensionMessaging, 'sendMessage')
+      .mockResolvedValueOnce({ ok: true, updated: true, sources: ['stats', 'static'] })
+      .mockResolvedValueOnce({ ok: false, error: 'network error' });
+
+    try {
+      const { container } = await mountSettingsPane();
+
+      const refreshBtn = container.querySelector<HTMLButtonElement>(
+        '[data-test="market-translation-refresh-btn"]',
+      );
+      expect(refreshBtn).not.toBeNull();
+      expect(container.querySelector('[data-test="market-translation-reload"]')).toBeNull();
+
+      // 1. Success: sends force: true and reveals reload prompt
+      refreshBtn!.click();
+      await flushAsync();
+
+      expect(sendSpy).toHaveBeenCalledWith('marketTranslation:refresh', {
+        version: 'poe1',
+        locale: 'zh-CN',
+        force: true,
+      });
+      expect(container.querySelector('[data-test="market-translation-reload"]')).not.toBeNull();
+      expect(container.querySelector('[data-test="market-translation-refresh-error"]')).toBeNull();
+
+      // 2. Failure: shows inline error message
+      refreshBtn!.click();
+      await flushAsync();
+
+      expect(
+        container.querySelector('[data-test="market-translation-refresh-error"]'),
+      ).not.toBeNull();
+    } finally {
+      sendSpy.mockRestore();
     }
   });
 });

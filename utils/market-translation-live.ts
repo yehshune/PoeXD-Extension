@@ -110,6 +110,27 @@ export const getMarketLiveEnglishCacheKey = (
 export const getMarketLiveErrorCacheKey = (version: PoeVersion, locale: MarketTranslationLocale) =>
   `poexd_market_live_error_${version}_${locale}`;
 
+const MARKET_LIVE_VERSIONS: readonly PoeVersion[] = ['poe1', 'poe2'];
+const MARKET_LIVE_LOCALES: readonly MarketTranslationLocale[] = ['zh-TW', 'zh-CN'];
+
+export const MARKET_LIVE_ALL_CACHE_KEYS: readonly string[] = Object.freeze([
+  ...MARKET_LIVE_LOCALES.map((locale) => getMarketLiveUiCacheKey(locale)),
+  ...MARKET_LIVE_VERSIONS.flatMap((version) =>
+    MARKET_LIVE_LOCALES.flatMap((locale) => [
+      getMarketLiveDataCacheKey(version, locale),
+      getMarketLiveEnglishCacheKey(version, locale),
+      getMarketLiveErrorCacheKey(version, locale),
+    ]),
+  ),
+]);
+
+/** 清除所有市集漢化即時快取（例如擴充升級時，避免舊版快取覆蓋新版內建分片） */
+export async function clearMarketTranslationLiveCache(
+  area: { remove(keys: string | string[]): Promise<void> } = chrome.storage.local,
+): Promise<void> {
+  await area.remove([...MARKET_LIVE_ALL_CACHE_KEYS]);
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 

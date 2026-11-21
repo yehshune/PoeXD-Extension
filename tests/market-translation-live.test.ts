@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  MARKET_LIVE_ALL_CACHE_KEYS,
   MARKET_LIVE_ERROR_COOLDOWN_MS,
   MARKET_LIVE_TTL_MS,
   alignLiveStatsWithEnglish,
   alignLiveTradeItemsWithEnglish,
+  clearMarketTranslationLiveCache,
   createMarketTranslationLiveService,
   getMarketLiveDataCacheKey,
   getMarketLiveEnglishCacheKey,
@@ -730,5 +732,26 @@ describe('createMarketTranslationLiveService', () => {
       },
       discSuffixes: { legacy: ' (舊版)' },
     });
+  });
+
+  it('clears all live market translation cache keys without touching unrelated storage keys', async () => {
+    const store: Record<string, unknown> = {
+      [getMarketLiveUiCacheKey('zh-TW')]: { updatedAt: 1 },
+      [getMarketLiveDataCacheKey('poe1', 'zh-CN')]: { updatedAt: 1 },
+      [getMarketLiveEnglishCacheKey('poe2', 'zh-TW')]: { enStats: {} },
+      [getMarketLiveErrorCacheKey('poe1', 'zh-TW')]: { failedAt: 1 },
+      unrelatedUserPref: 'keep-me',
+    };
+    const remove = vi.fn(async (keys: string | string[]) => {
+      for (const key of Array.isArray(keys) ? keys : [keys]) {
+        delete store[key];
+      }
+    });
+
+    await clearMarketTranslationLiveCache({ remove });
+
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledWith([...MARKET_LIVE_ALL_CACHE_KEYS]);
+    expect(store).toEqual({ unrelatedUserPref: 'keep-me' });
   });
 });

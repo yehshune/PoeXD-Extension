@@ -20,10 +20,18 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
+  'settings.section.localization': 'Language & Translation',
   'settings.section.appearance': 'Appearance & Layout',
   'settings.section.searchHotkeys': 'Search & Filters',
   'settings.section.resultDisplay': 'Search Results',
   'settings.section.bookmarks': 'Bookmarks & History',
+  'settings.nav.ariaLabel': 'Settings sections',
+  'settings.nav.localization': 'Language',
+  'settings.nav.searchHotkeys': 'Search',
+  'settings.nav.resultDisplay': 'Results',
+  'settings.nav.bookmarks': 'Bookmarks',
+  'settings.nav.appearance': 'Appearance',
+  'settings.nav.modules': 'Modules',
 
   // Settings Pane - Appearance & Panel
   'settings.theme.label': 'Theme',
@@ -142,6 +150,14 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Show the original English text in muted smaller text below each translated mod line in search results. Takes effect immediately.',
   'settings.marketTranslation.localeHint':
     'Set Language to 繁體中文 or 简体中文 for Chinese Trade Site to take effect',
+  'settings.marketTranslation.refresh.label': 'Translation cache',
+  'settings.marketTranslation.refresh.tooltip':
+    'Official stat and currency translations normally refresh every 6 hours. Fetch the latest data immediately after a patch or new league, then reload the page to apply',
+  'settings.marketTranslation.refresh.button': 'Update now',
+  'settings.marketTranslation.refresh.refreshing': 'Updating…',
+  'settings.marketTranslation.refresh.updated': 'Latest translation data fetched — reload to apply',
+  'settings.marketTranslation.refresh.failed':
+    'Could not fetch official translation data; keeping existing cache',
 
   'settings.itemNormalizer.label': 'Rune Override Calculator',
   'settings.itemNormalizer.infoAria': 'Rune Override Calculator info',

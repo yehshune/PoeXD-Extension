@@ -26,7 +26,10 @@ import { createPinnedItemStore } from '@/utils/pinned-items';
 import { LiveSearchCoordinator } from '@/utils/live-search-coordinator';
 import { TRADE_PAGE_MATCH_PATTERNS } from '@/utils/trade-realms';
 import { registerLiveSearchBackgroundHandlers } from '@/utils/live-search-messaging';
-import { registerMarketTranslationBackgroundHandlers } from '@/utils/market-translation-live';
+import {
+  clearMarketTranslationLiveCache,
+  registerMarketTranslationBackgroundHandlers,
+} from '@/utils/market-translation-live';
 import { registerActionSidebarToggle } from '@/utils/action-sidebar-toggle';
 import {
   createInstallOnboardingState,
@@ -53,6 +56,10 @@ export default defineBackground(() => {
       return;
     }
     if (reason === 'update') {
+      // 擴充升級時清掉舊版即時翻譯快取，避免過時快取覆蓋新版內建分片
+      void clearMarketTranslationLiveCache(browser.storage.local).catch((error: unknown) =>
+        console.error('[MarketTranslation] 無法清除舊版即時翻譯快取:', error),
+      );
       void browser.storage.local
         .get([ONBOARDING_STORAGE_KEY])
         .then((stored) => {

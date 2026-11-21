@@ -33,11 +33,12 @@ export type SidebarModulePreferenceKey =
 
 /** 設定分頁中的區塊 id；模組可指向與它相關的設定區塊，讓使用者一鍵跳過去。 */
 export const SETTINGS_SECTION_IDS = [
-  'modules',
-  'appearance',
+  'localization',
   'searchHotkeys',
   'resultDisplay',
   'bookmarks',
+  'appearance',
+  'modules',
 ] as const;
 export type SettingsSectionId = (typeof SETTINGS_SECTION_IDS)[number];
 
