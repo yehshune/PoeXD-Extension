@@ -77,7 +77,7 @@
         :class="
           demoHighlighted
             ? 'opacity-100 pointer-events-auto'
-            : 'pointer-events-none opacity-0 group-hover/mod-row:opacity-100 group-hover/mod-row:pointer-events-auto focus-within/mod-row:opacity-100 focus-within/mod-row:pointer-events-auto'
+            : 'pointer-events-none opacity-0 group-hover/mod-row:opacity-100 group-hover/mod-row:pointer-events-auto'
         "
       >
         <Button
@@ -171,7 +171,7 @@
         </div>
         <div
           v-if="!isTierItemLevelLocked(tier)"
-          class="tier-action-zone pxd-hover-actions-overlay [--pxd-hover-overlay-bg:var(--accent)] absolute right-0 top-0 bottom-0 flex items-center pl-[var(--pxd-space-2xl)] pr-[var(--pxd-space-sm)] pointer-events-none opacity-0 group-hover/tier-row:opacity-100 group-hover/tier-row:pointer-events-auto focus-within/tier-row:opacity-100 focus-within/tier-row:pointer-events-auto transition-opacity z-(--pxd-z-sticky)"
+          class="tier-action-zone pxd-hover-actions-overlay [--pxd-hover-overlay-bg:var(--accent)] absolute right-0 top-0 bottom-0 flex items-center pl-[var(--pxd-space-2xl)] pr-[var(--pxd-space-sm)] pointer-events-none opacity-0 group-hover/tier-row:opacity-100 group-hover/tier-row:pointer-events-auto transition-opacity z-(--pxd-z-sticky)"
         >
           <Button
             type="button"

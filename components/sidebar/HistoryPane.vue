@@ -100,7 +100,7 @@
                 >{{ t('history.invalidBadge') }}</span
               >
               <span
-                class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0 group-focus-within:opacity-0"
+                class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0"
               >
                 {{ formatTime(h.visitedAt) }}
               </span>
@@ -111,7 +111,7 @@
                   ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--card))]'
                   : undefined
               "
-              class="history-row-actions pxd-hover-actions-overlay absolute inset-y-0 right-0 rounded-r-md z-(--pxd-z-raised) pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] flex items-center gap-[var(--pxd-space-xs)] opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto"
+              class="history-row-actions pxd-hover-actions-overlay absolute inset-y-0 right-0 rounded-r-md z-(--pxd-z-raised) pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] flex items-center gap-[var(--pxd-space-xs)] opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:opacity-100 group-hover:pointer-events-auto"
             >
               <Button
                 v-if="searchEntryClickAction === 'preview'"

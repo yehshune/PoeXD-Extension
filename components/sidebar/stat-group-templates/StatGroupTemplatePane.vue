@@ -363,7 +363,7 @@ onUnmounted(() => {
 
           <span
             v-if="editingTemplateId !== template.id"
-            class="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            class="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100"
           >
             <Button
               variant="ghost"

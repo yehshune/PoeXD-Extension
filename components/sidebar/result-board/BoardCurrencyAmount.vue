@@ -21,7 +21,7 @@ const display = computed(() => currencyDisplayOf(props.currency, props.currencie
       :src="display.icon"
       :alt="currency"
       :title="display.name ?? currency"
-      class="size-[var(--control-icon-sm)] shrink-0 object-contain"
+      class="size-[var(--control-icon-default)] shrink-0 object-contain"
       referrerpolicy="no-referrer"
       draggable="false"
       data-board-currency-icon

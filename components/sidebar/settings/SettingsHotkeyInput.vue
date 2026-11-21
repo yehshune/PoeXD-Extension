@@ -125,7 +125,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
           : t('settings.hotkeys.clearTitle')
       "
       data-settings-hotkey-action="clear"
-      class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto transition-opacity"
+      class="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity"
       @click.stop="clear"
     >
       <X />

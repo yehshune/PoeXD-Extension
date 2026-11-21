@@ -35,7 +35,7 @@ export interface ResultModQuickFilterOptions {
 
 function buildStyleContent(): string {
   // Use oklch() exclusively (theme contract forbids raw hex colors).
-  // Hover/focus-within reveals actions on the right and shifts official .lc.l / .lc.r markers aside.
+  // Hover reveals actions on the right and shifts official .lc.l / .lc.r markers aside.
   return `
     .${RESULT_MOD_QUICK_FILTER_HOST_CLASS} {
       position: relative !important;
@@ -60,8 +60,7 @@ function buildStyleContent(): string {
     }
 
     .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS},
-    .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS},
-    .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:focus-within > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
+    .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
       opacity: 1 !important;
       pointer-events: auto !important;
     }
@@ -80,14 +79,12 @@ function buildStyleContent(): string {
     }
 
     #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .lc.l,
-    #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .lc.l,
-    #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:focus-within > .lc.l {
+    #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .lc.l {
       right: 112px !important;
     }
 
     #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .lc.r,
-    #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .lc.r,
-    #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:focus-within > .lc.r {
+    #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .lc.r {
       right: 112px !important;
     }
 

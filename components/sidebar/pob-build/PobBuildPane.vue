@@ -171,7 +171,7 @@
                 </span>
 
                 <span
-                  class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums group-hover:opacity-0 group-focus-within:opacity-0"
+                  class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums group-hover:opacity-0"
                   :class="{ 'opacity-0': isBuildMenuOpen(build.id) }"
                   data-pob-build-progress
                   :title="
@@ -189,7 +189,7 @@
             <div
               v-if="renamingId !== build.id"
               :class="{ '!opacity-100 !pointer-events-auto': isBuildMenuOpen(build.id) }"
-              class="pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_70%,var(--card))] absolute inset-y-0 right-0 z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto flex items-center"
+              class="pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_70%,var(--card))] absolute inset-y-0 right-0 z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto flex items-center"
               @click.stop
             >
               <DropdownMenu
@@ -508,7 +508,7 @@
                         />
                       </span>
                       <span
-                        class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground group-hover/row:opacity-0 group-focus-within/row:opacity-0"
+                        class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground group-hover/row:opacity-0"
                         :class="{ 'opacity-0': isMenuOpen(build.id, row.key) }"
                       >
                         <span>{{ rowDetail(row) }}</span>
@@ -522,7 +522,7 @@
                           : '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_40%,var(--background))]',
                         { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
                       ]"
-                      class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
+                      class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto"
                     >
                       <Button
                         v-if="searchEntryClickAction === 'preview' && canSearch(row)"

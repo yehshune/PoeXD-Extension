@@ -112,7 +112,7 @@ const emit = defineEmits<{ toggle: [] }>();
     </div>
     <div
       v-if="expanded && $slots.actions"
-      class="pxd-hover-actions-overlay absolute right-[var(--pxd-space-md)] bottom-[var(--pxd-space-md)] z-(--pxd-z-raised) flex min-h-[var(--control-height-sm)] items-center pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
+      class="pxd-hover-actions-overlay absolute right-[var(--pxd-space-md)] bottom-[var(--pxd-space-md)] z-(--pxd-z-raised) flex min-h-[var(--control-height-sm)] items-center pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
       style="--pxd-hover-overlay-bg: color-mix(in srgb, var(--muted) 20%, var(--card))"
       data-result-row-expanded-actions
     >

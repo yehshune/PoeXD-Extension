@@ -182,36 +182,37 @@ const allSold = computed(
     :data-board-seller-sold="allSold ? '' : undefined"
   >
     <div
-      class="group/header relative flex items-center gap-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] transition-colors hover:bg-muted/40 focus-within:bg-muted/40"
+      class="group/header relative flex items-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] py-[var(--pxd-space-md)] transition-colors hover:bg-muted/40"
       :class="open ? 'bg-muted/20' : ''"
     >
       <button
         type="button"
-        class="flex min-w-0 flex-1 flex-col items-start gap-[2px] border-0 bg-transparent px-[var(--pxd-space-xs)] py-0 text-left outline-none cursor-pointer focus-visible:ring-1 focus-visible:ring-ring"
+        class="flex min-w-0 flex-1 flex-col items-start gap-[var(--pxd-space-xs)] border-0 bg-transparent px-[var(--pxd-space-xs)] py-0 text-left outline-none cursor-pointer focus-visible:ring-1 focus-visible:ring-ring"
         :aria-expanded="open"
         data-board-seller-toggle
         @click="toggleOpen"
       >
         <span class="flex w-full items-center gap-[var(--pxd-space-xs)] min-w-0">
-          <span class="truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight">{{
-            seller.character ?? seller.account
-          }}</span>
+          <span
+            class="truncate text-[length:var(--pxd-font-section-title)] font-semibold leading-snug"
+            >{{ seller.character ?? seller.account }}</span
+          >
           <span
             v-if="allSold"
-            class="shrink-0 rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-destructive"
+            class="shrink-0 rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-caption)] leading-tight text-destructive"
             data-board-seller-mark
             >{{ t('resultBoard.mark.sold') }}</span
           >
           <span
             v-else-if="visited"
-            class="shrink-0 rounded-sm border border-primary/30 bg-primary/10 px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-primary"
+            class="shrink-0 rounded-sm border border-primary/30 bg-primary/10 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-caption)] leading-tight text-primary"
             data-board-seller-mark
             >{{ t('resultBoard.mark.visited') }}</span
           >
         </span>
         <span
           v-if="hasSubtitle"
-          class="flex w-full min-w-0 items-center gap-[4px] truncate text-[length:var(--pxd-font-micro)] text-muted-foreground"
+          class="flex w-full min-w-0 items-center gap-[4px] truncate text-[length:var(--pxd-font-caption)] text-muted-foreground"
         >
           <span v-if="distinctAccount" class="truncate">{{ distinctAccount }}</span>
           <span v-if="distinctAccount && seller.priceRange" aria-hidden="true">·</span>
@@ -254,15 +255,15 @@ const allSold = computed(
         </span>
       </button>
       <div
-        class="flex shrink-0 flex-col items-end gap-[2px] transition-opacity duration-150 group-hover/header:opacity-0 group-focus-within/header:opacity-0"
+        class="flex shrink-0 flex-col items-end gap-[var(--pxd-space-xs)] transition-opacity duration-150 group-hover/header:opacity-0"
       >
         <span
-          class="rounded-sm bg-muted/60 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-caption)] font-bold tabular-nums leading-tight"
+          class="rounded-sm bg-muted/60 px-[var(--pxd-space-sm)] py-[2px] text-[length:var(--pxd-font-body)] font-bold tabular-nums leading-tight"
           data-board-seller-count
           >{{ t('resultBoard.seller.instantCount', { count: seller.instantBuyoutCount }) }}</span
         >
         <span
-          class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
+          class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-caption)] font-medium text-foreground/85 tabular-nums"
           data-board-seller-total
         >
           <span>{{ totalPrefix }}</span>
@@ -270,7 +271,7 @@ const allSold = computed(
         </span>
       </div>
       <div
-        class="pxd-hover-actions-overlay absolute inset-y-0 right-[calc(var(--pxd-space-sm)+var(--control-height-sm))] z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/header:opacity-100 group-hover/header:pointer-events-auto group-focus-within/header:opacity-100 group-focus-within/header:pointer-events-auto"
+        class="pxd-hover-actions-overlay absolute inset-y-0 right-[calc(var(--pxd-space-md)+var(--control-height-sm))] z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/header:opacity-100 group-hover/header:pointer-events-auto"
       >
         <Button
           variant="ghost"
@@ -310,13 +311,13 @@ const allSold = computed(
     </div>
     <div
       v-if="open"
-      class="flex flex-col gap-[var(--pxd-space-sm)] border-t border-border bg-muted/15 px-[var(--pxd-space-xs)] py-[var(--pxd-space-sm)]"
+      class="flex flex-col gap-[var(--pxd-space-sm)] border-t border-border bg-muted/15 px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)]"
     >
       <div
-        class="flex items-center justify-between gap-[var(--pxd-space-sm)] px-[var(--pxd-space-xs)]"
+        class="flex items-center justify-between gap-[var(--pxd-space-sm)] px-[var(--pxd-space-xs)] py-[var(--pxd-space-xs)]"
       >
         <p
-          class="m-0 inline-flex flex-wrap items-center gap-[4px] text-[length:var(--pxd-font-caption)] font-medium text-foreground tabular-nums"
+          class="m-0 inline-flex flex-wrap items-center gap-[4px] text-[length:var(--pxd-font-body)] font-medium text-foreground tabular-nums"
           data-board-seller-picked
         >
           <span>{{ pickedPrefix }}</span>
@@ -344,7 +345,7 @@ const allSold = computed(
         :data-board-stash-name="group.stashName ?? ''"
       >
         <div
-          class="flex items-center justify-between gap-[var(--pxd-space-xs)] border-b border-border/60 bg-muted/35 px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)]"
+          class="flex items-center justify-between gap-[var(--pxd-space-xs)] border-b border-border/60 bg-muted/35 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
         >
           <div class="flex min-w-0 items-center gap-[var(--pxd-space-sm)]">
             <Checkbox
@@ -354,10 +355,8 @@ const allSold = computed(
               data-board-stash-pick
               @update:model-value="emit('pickGroup', group.entries)"
             />
-            <Archive class="size-3.5 shrink-0 text-muted-foreground" />
-            <span
-              class="truncate text-[length:var(--pxd-font-caption)] font-semibold text-foreground"
-            >
+            <Archive class="size-[var(--control-icon-sm)] shrink-0 text-muted-foreground" />
+            <span class="truncate text-[length:var(--pxd-font-body)] font-semibold text-foreground">
               {{
                 group.stashName
                   ? t('resultBoard.stash.tab', { name: group.stashName })
@@ -366,7 +365,7 @@ const allSold = computed(
             </span>
           </div>
           <div class="flex shrink-0 items-center gap-[var(--pxd-space-xs)]">
-            <span class="text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums">
+            <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums">
               ({{ group.entries.length }})
             </span>
             <span
@@ -375,18 +374,18 @@ const allSold = computed(
               :title="t('resultBoard.regex.hint')"
               :aria-label="t('resultBoard.regex.hint')"
             >
-              <CircleHelp class="size-3" />
+              <CircleHelp class="size-[var(--control-icon-sm)]" />
             </span>
           </div>
         </div>
         <section
           v-if="group.regex"
-          class="flex flex-col gap-[var(--pxd-space-xs)] border-b border-border/60 bg-card/70 px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)]"
+          class="flex flex-col gap-[var(--pxd-space-xs)] border-b border-border/60 bg-card/70 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
           data-board-stash-regex
         >
           <p
             v-if="group.regex.parts.length === 0"
-            class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"
+            class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground"
             data-board-stash-regex-empty
           >
             {{ t('resultBoard.regex.empty') }}
@@ -399,13 +398,13 @@ const allSold = computed(
           >
             <span
               v-if="group.regex.parts.length > 1"
-              class="shrink-0 pt-[2px] text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
+              class="shrink-0 pt-[2px] text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums"
               >{{
                 t('resultBoard.regex.part', { index: index + 1, count: group.regex.parts.length })
               }}</span
             >
             <code
-              class="pxd-scrollbar max-h-[4.8em] min-w-0 flex-1 overflow-y-auto break-words rounded-sm bg-muted/40 px-[var(--pxd-space-xs)] py-[2px] font-mono text-[length:var(--pxd-font-micro)] select-all"
+              class="pxd-scrollbar max-h-[4.8em] min-w-0 flex-1 overflow-y-auto break-words rounded-sm bg-muted/40 px-[var(--pxd-space-xs)] py-[2px] font-mono text-[length:var(--pxd-font-caption)] select-all"
               >{{ part }}</code
             >
             <Button
