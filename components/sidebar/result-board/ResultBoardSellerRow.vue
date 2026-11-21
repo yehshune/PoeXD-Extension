@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * 看板賣家清單的一位賣家：以獨立卡片呈現，展開後依倉庫分頁分區顯示可直購／私訊物品，
- * 並為每個倉庫分頁各自產生勾選總價與倉庫搜尋 regex。
+ * 看板賣家清單的一位賣家：以獨立卡片呈現，提供一鍵前往藏身處；展開後依倉庫分頁分區顯示，
+ * 支援分頁整頁勾選，並為每個倉庫分頁各自產生精簡的倉庫搜尋 regex。
  */
 import { computed, ref } from 'vue';
 import {
@@ -11,9 +11,11 @@ import {
   CircleHelp,
   Copy,
   EyeOff,
+  Home,
   TriangleAlert,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/utils/i18n';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
@@ -42,7 +44,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   hide: [];
+  travelSeller: [];
   pick: [entry: BoardEntry];
+  pickGroup: [entries: readonly BoardEntry[]];
   toggleSeller: [];
   toggle: [id: string];
   locate: [id: string];
@@ -59,17 +63,38 @@ function toggleOpen(): void {
   else localOpen.value = !localOpen.value;
 }
 
-/** 展開後依價格由低到高（無法比較時維持官方順序），再依倉庫分頁分區 */
+const soldIds = computed(() => {
+  const ids = new Set<string>();
+  for (const entry of props.seller.entries) {
+    if (props.marks[entry.id] === 'sold') ids.add(entry.id);
+  }
+  return ids;
+});
+
+/** 展開後依價格由低到高（無法比較時維持官方順序），再依倉庫分頁分區且把已售出沉底 */
 const orderedEntries = computed(() =>
   sortEntries(props.seller.entries, props.rates ? 'price-asc' : 'official', props.rates),
 );
 
 const stashSections = computed(() => {
   if (!open.value) return [];
-  return groupSellerEntriesByStash(orderedEntries.value).map((group) => ({
-    ...group,
-    regex: group.instantBuyoutCount > 0 ? props.stashRegexFor(group.entries) : undefined,
-  }));
+  return groupSellerEntriesByStash(orderedEntries.value, soldIds.value).map((group) => {
+    const buyable = group.entries.filter(
+      (entry) => entry.instantBuyout && !soldIds.value.has(entry.id),
+    );
+    const pickedCount = buyable.filter((entry) => props.isPicked(entry)).length;
+    const pickState: boolean | 'indeterminate' =
+      buyable.length === 0 || pickedCount === 0
+        ? false
+        : pickedCount === buyable.length
+          ? true
+          : 'indeterminate';
+    return {
+      ...group,
+      pickState,
+      regex: group.instantBuyoutCount > 0 ? props.stashRegexFor(group.entries) : undefined,
+    };
+  });
 });
 
 const range = computed(() => {
@@ -78,6 +103,22 @@ const range = computed(() => {
   const min = formatPrice(value.min);
   const max = formatPrice(value.max);
   return min === max ? min : `${min} – ${max}`;
+});
+
+const subtitle = computed(() => {
+  const hasDistinctCharacter =
+    Boolean(props.seller.character) && props.seller.character !== props.seller.account;
+  const parts = [
+    hasDistinctCharacter ? props.seller.account : '',
+    range.value,
+    props.seller.stashTabCount > 1
+      ? t('resultBoard.seller.stashTabs', { count: props.seller.stashTabCount })
+      : '',
+    props.seller.soldCount > 0 && !props.seller.allSold
+      ? t('resultBoard.seller.soldCount', { count: props.seller.soldCount })
+      : '',
+  ];
+  return parts.filter(Boolean).join(' · ');
 });
 
 function warningsOf(regex: StashRegexResult | undefined): string[] {
@@ -101,30 +142,35 @@ const visited = computed(() =>
 
 const allSold = computed(
   () =>
-    props.seller.entries.length > 0 &&
-    props.seller.entries.every((entry) => props.marks[entry.id] === 'sold'),
+    props.seller.allSold ||
+    (props.seller.entries.length > 0 &&
+      props.seller.entries.every((entry) => props.marks[entry.id] === 'sold')),
 );
 </script>
 
 <template>
   <li
     class="overflow-hidden rounded-md border bg-card transition-colors"
-    :class="open ? 'border-primary/40 shadow-sm' : 'border-border hover:border-border/80'"
+    :class="[
+      open ? 'border-primary/40 shadow-sm' : 'border-border hover:border-border/80',
+      allSold ? 'opacity-60' : '',
+    ]"
     :data-board-seller="seller.account"
     :data-board-seller-visited="visited ? '' : undefined"
+    :data-board-seller-sold="allSold ? '' : undefined"
   >
     <div
-      class="group flex items-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] transition-colors"
-      :class="open ? 'border-b border-border bg-muted/20' : 'hover:bg-muted/40'"
+      class="group/header relative flex items-center gap-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] transition-colors hover:bg-muted/40 focus-within:bg-muted/40"
+      :class="open ? 'border-b border-border bg-muted/20' : ''"
     >
       <button
         type="button"
-        class="flex min-w-0 flex-1 flex-col items-start gap-[2px] border-0 bg-transparent p-0 text-left outline-none cursor-pointer focus-visible:ring-1 focus-visible:ring-ring"
+        class="flex min-w-0 flex-1 flex-col items-start gap-[2px] border-0 bg-transparent px-[var(--pxd-space-xs)] py-0 text-left outline-none cursor-pointer focus-visible:ring-1 focus-visible:ring-ring"
         :aria-expanded="open"
         data-board-seller-toggle
         @click="toggleOpen"
       >
-        <span class="flex w-full items-center gap-[var(--pxd-space-sm)] min-w-0">
+        <span class="flex w-full items-center gap-[var(--pxd-space-xs)] min-w-0">
           <span class="truncate text-[length:var(--pxd-font-body)] font-semibold leading-tight">{{
             seller.character ?? seller.account
           }}</span>
@@ -141,12 +187,16 @@ const allSold = computed(
             >{{ t('resultBoard.mark.visited') }}</span
           >
         </span>
-        <span class="w-full truncate text-[length:var(--pxd-font-micro)] text-muted-foreground">
-          {{ seller.account }}
-          <template v-if="range"> · {{ range }}</template>
+        <span
+          v-if="subtitle"
+          class="w-full truncate text-[length:var(--pxd-font-micro)] text-muted-foreground"
+        >
+          {{ subtitle }}
         </span>
       </button>
-      <div class="flex shrink-0 flex-col items-end gap-[2px]">
+      <div
+        class="flex shrink-0 flex-col items-end gap-[2px] transition-opacity duration-150 group-hover/header:opacity-0 group-focus-within/header:opacity-0"
+      >
         <span
           class="rounded-sm bg-muted/60 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-caption)] font-bold tabular-nums leading-tight"
           data-board-seller-count
@@ -158,17 +208,33 @@ const allSold = computed(
           >{{ t('resultBoard.seller.total', { total: formatTotal(seller.total) }) }}</span
         >
       </div>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        class="shrink-0 text-muted-foreground hover:text-foreground"
-        :title="t('resultBoard.action.hideSeller')"
-        :aria-label="t('resultBoard.action.hideSeller')"
-        data-board-seller-hide
-        @click="emit('hide')"
+      <div
+        class="pxd-hover-actions-overlay absolute inset-y-0 right-[calc(var(--pxd-space-sm)+var(--control-height-sm))] z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/header:opacity-100 group-hover/header:pointer-events-auto group-focus-within/header:opacity-100 group-focus-within/header:pointer-events-auto"
       >
-        <EyeOff />
-      </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          class="shrink-0 text-muted-foreground hover:text-foreground"
+          :title="t('resultBoard.action.hideSeller')"
+          :aria-label="t('resultBoard.action.hideSeller')"
+          data-board-seller-hide
+          @click="emit('hide')"
+        >
+          <EyeOff />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          class="shrink-0"
+          :disabled="seller.instantBuyoutCount === 0"
+          :title="t('resultBoard.action.travel')"
+          :aria-label="t('resultBoard.action.travel')"
+          data-board-seller-travel
+          @click="emit('travelSeller')"
+        >
+          <Home />
+        </Button>
+      </div>
       <Button
         variant="ghost"
         size="icon-sm"
@@ -182,7 +248,7 @@ const allSold = computed(
     </div>
     <div
       v-if="open"
-      class="flex flex-col gap-[var(--pxd-space-sm)] bg-muted/15 p-[var(--pxd-space-sm)]"
+      class="flex flex-col gap-[var(--pxd-space-sm)] bg-muted/15 px-[var(--pxd-space-xs)] py-[var(--pxd-space-sm)]"
     >
       <p
         class="m-0 px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-medium text-foreground tabular-nums"
@@ -198,39 +264,39 @@ const allSold = computed(
       <div
         v-for="group in stashSections"
         :key="group.key"
-        class="overflow-hidden rounded-md border border-border/80 bg-background/70"
+        class="overflow-hidden rounded-md border border-border/80 bg-card"
+        :class="group.allSold ? 'opacity-65' : ''"
         data-board-stash-group
         :data-board-stash-name="group.stashName ?? ''"
       >
         <div
-          class="flex items-center justify-between gap-[var(--pxd-space-sm)] border-b border-border/60 bg-muted/35 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)]"
+          class="flex items-center justify-between gap-[var(--pxd-space-xs)] border-b border-border/60 bg-muted/35 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)]"
         >
-          <span
-            class="flex min-w-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold text-foreground"
-          >
+          <div class="flex min-w-0 items-center gap-[var(--pxd-space-xs)]">
+            <Checkbox
+              v-if="group.instantBuyoutCount > 0"
+              :model-value="group.pickState"
+              :aria-label="t('resultBoard.stash.toggleAll')"
+              data-board-stash-pick
+              @update:model-value="emit('pickGroup', group.entries)"
+            />
             <Archive class="size-3.5 shrink-0 text-muted-foreground" />
-            <span class="truncate">{{
-              group.stashName
-                ? t('resultBoard.stash.tab', { name: group.stashName })
-                : t('resultBoard.stash.unknown')
-            }}</span>
-          </span>
-          <span
-            class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
-          >
-            ({{ group.entries.length }})
-          </span>
-        </div>
-        <section
-          v-if="group.regex"
-          class="flex flex-col gap-[var(--pxd-space-xs)] border-b border-border/60 bg-card/70 p-[var(--pxd-space-sm)]"
-          data-board-stash-regex
-        >
-          <div class="flex items-center gap-[var(--pxd-space-xs)]">
-            <span class="text-[length:var(--pxd-font-micro)] font-semibold text-muted-foreground">{{
-              t('resultBoard.regex.title')
-            }}</span>
             <span
+              class="truncate text-[length:var(--pxd-font-caption)] font-semibold text-foreground"
+            >
+              {{
+                group.stashName
+                  ? t('resultBoard.stash.tab', { name: group.stashName })
+                  : t('resultBoard.stash.unknown')
+              }}
+            </span>
+          </div>
+          <div class="flex shrink-0 items-center gap-[var(--pxd-space-xs)]">
+            <span class="text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums">
+              ({{ group.entries.length }})
+            </span>
+            <span
+              v-if="group.regex"
               class="inline-flex text-muted-foreground/80"
               :title="t('resultBoard.regex.hint')"
               :aria-label="t('resultBoard.regex.hint')"
@@ -238,6 +304,12 @@ const allSold = computed(
               <CircleHelp class="size-3" />
             </span>
           </div>
+        </div>
+        <section
+          v-if="group.regex"
+          class="flex flex-col gap-[var(--pxd-space-xs)] border-b border-border/60 bg-card/70 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)]"
+          data-board-stash-regex
+        >
           <p
             v-if="group.regex.parts.length === 0"
             class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"

@@ -1495,9 +1495,12 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'resultBoard.seller.total': '总价 {total}',
   'resultBoard.seller.picked': '已勾选 {count} 件：{total}',
   'resultBoard.seller.pick': '勾选要买的物品',
+  'resultBoard.seller.stashTabs': '{count} 个仓库',
+  'resultBoard.seller.soldCount': '{count} 件已售出',
   'resultBoard.stash.tab': '仓库“{name}”',
   'resultBoard.stash.unknown': '未标注仓库',
   'resultBoard.stash.coords': '格位 ({x}, {y})',
+  'resultBoard.stash.toggleAll': '全选或取消此仓库的物品',
   'resultBoard.regex.title': '仓库搜索 regex',
   'resultBoard.regex.hint':
     '粘贴到卖家藏身处的仓库搜索，一次标出勾选的物品。只保证和这位卖家已载入的其他物品区分。',

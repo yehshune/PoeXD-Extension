@@ -19,8 +19,17 @@ export interface SellerSummary {
   presence: SellerPresence;
   /** 依官方順序 */
   entries: readonly BoardEntry[];
+  /** 尚未售出的可直購件數 */
   instantBuyoutCount: number;
-  /** 可直購結果的總價 */
+  /** 包含已售出在內的總可直購件數（用於篩選門檻，避免賣掉一件就讓正在看的卡片突然消失） */
+  totalInstantBuyoutCount: number;
+  /** 已標記為售出的件數 */
+  soldCount: number;
+  /** 該賣家所有結果皆已售出 */
+  allSold: boolean;
+  /** 尚可購買（或全部已售出時所有結果）涵蓋的倉庫分頁數 */
+  stashTabCount: number;
+  /** 尚未售出的可直購結果總價 */
   total: PriceTotal;
   /** 無法比較價格（沒有匯率且混用幣種，或沒有標價）時為 undefined */
   priceRange?: PriceRange;
@@ -74,22 +83,36 @@ function priceRangeOf(
   return currencies.size === 1 ? rangeBy(prices, (price) => price.amount) : undefined;
 }
 
+function stashTabCountOf(entries: readonly BoardEntry[]): number {
+  const keys = new Set(entries.map((entry) => entry.stash?.name ?? ''));
+  return keys.size;
+}
+
 function summarize(
   account: string,
   entries: readonly BoardEntry[],
   rates: CurrencyRateSnapshot | undefined,
+  soldIds: ReadonlySet<string>,
 ): SellerSummary {
-  const buyable = entries.filter((entry) => entry.instantBuyout);
+  const soldCount = entries.reduce((count, entry) => count + (soldIds.has(entry.id) ? 1 : 0), 0);
+  const allSold = entries.length > 0 && soldCount === entries.length;
+  const activeEntries = allSold ? entries : entries.filter((entry) => !soldIds.has(entry.id));
+  const totalBuyable = entries.filter((entry) => entry.instantBuyout);
+  const availableBuyable = totalBuyable.filter((entry) => !soldIds.has(entry.id));
   const character = latestCharacter(entries);
-  const priceRange = priceRangeOf(entries, rates);
+  const priceRange = priceRangeOf(activeEntries, rates);
   return {
     account,
     ...(character ? { character } : {}),
     presence: bestPresence(entries),
     entries,
-    instantBuyoutCount: buyable.length,
+    instantBuyoutCount: availableBuyable.length,
+    totalInstantBuyoutCount: totalBuyable.length,
+    soldCount,
+    allSold,
+    stashTabCount: stashTabCountOf(activeEntries),
     total: sumPrices(
-      buyable.map((entry) => entry.price),
+      availableBuyable.map((entry) => entry.price),
       rates,
     ),
     ...(priceRange ? { priceRange } : {}),
@@ -97,17 +120,20 @@ function summarize(
   };
 }
 
-/** 依賣家第一次出現的順序回傳 */
+const EMPTY_SOLD_IDS: ReadonlySet<string> = new Set();
+
+/** 依賣家第一次出現的順序回傳；若提供 `soldIds`，件數與總價會排除已售出項目 */
 export function aggregateSellers(
   entries: readonly BoardEntry[],
   rates: CurrencyRateSnapshot | undefined,
+  soldIds: ReadonlySet<string> = EMPTY_SOLD_IDS,
 ): SellerSummary[] {
   const groups = new Map<string, BoardEntry[]>();
   for (const entry of entries) {
     const group = groups.get(entry.seller.account);
     groups.set(entry.seller.account, group ? [...group, entry] : [entry]);
   }
-  return Array.from(groups, ([account, group]) => summarize(account, group, rates));
+  return Array.from(groups, ([account, group]) => summarize(account, group, rates, soldIds));
 }
 
 /** 只有每件都換算得出來的總價才能拿來比較 */
@@ -117,11 +143,12 @@ const convertedTotal = (seller: SellerSummary): number | undefined =>
     : undefined;
 
 /**
- * 可直購件數多→少；同件數時換算總價低→高，總價不完整的排在完整的後面；
- * 無法比較時維持官方順序
+ * 全部已售出的賣家沉底；其餘依尚可直購件數多→少、同件數時換算總價低→高，
+ * 總價不完整的排在完整的後面；無法比較時維持官方順序
  */
 export function sortSellers(sellers: readonly SellerSummary[]): SellerSummary[] {
   return [...sellers].sort((a, b) => {
+    if (a.allSold !== b.allSold) return a.allSold ? 1 : -1;
     if (a.instantBuyoutCount !== b.instantBuyoutCount) {
       return b.instantBuyoutCount - a.instantBuyoutCount;
     }
@@ -139,7 +166,7 @@ export function filterSellers(
 ): SellerSummary[] {
   return sellers.filter(
     (seller) =>
-      seller.instantBuyoutCount >= filter.minInstantBuyout &&
+      seller.totalInstantBuyoutCount >= filter.minInstantBuyout &&
       !filter.hiddenAccounts.has(seller.account),
   );
 }
@@ -149,14 +176,19 @@ export interface SellerStashGroup {
   /** 倉庫分頁名稱；官方結果未提供時為 undefined */
   stashName?: string;
   entries: readonly BoardEntry[];
+  /** 該分頁中尚未售出的可直購件數 */
   instantBuyoutCount: number;
+  allSold: boolean;
 }
 
 /**
  * 依倉庫分頁名稱將同一位賣家的物品分區，維持分頁與各分頁內既有的排序。
- * 沒有分頁名稱的物品集中到同一區。
+ * 已售出的物品沉到該分頁最底；全部已售出的分頁沉到賣家展開區最底。
  */
-export function groupSellerEntriesByStash(entries: readonly BoardEntry[]): SellerStashGroup[] {
+export function groupSellerEntriesByStash(
+  entries: readonly BoardEntry[],
+  soldIds: ReadonlySet<string> = EMPTY_SOLD_IDS,
+): SellerStashGroup[] {
   const groups = new Map<string, { stashName?: string; entries: BoardEntry[] }>();
   for (const entry of entries) {
     const stashName = entry.stash?.name;
@@ -168,10 +200,17 @@ export function groupSellerEntriesByStash(entries: readonly BoardEntry[]): Selle
       groups.set(key, { stashName, entries: [entry] });
     }
   }
-  return Array.from(groups, ([key, group]) => ({
-    key,
-    ...(group.stashName !== undefined ? { stashName: group.stashName } : {}),
-    entries: group.entries,
-    instantBuyoutCount: group.entries.filter((entry) => entry.instantBuyout).length,
-  }));
+  const built = Array.from(groups, ([key, group]) => {
+    const active = group.entries.filter((entry) => !soldIds.has(entry.id));
+    const sold = group.entries.filter((entry) => soldIds.has(entry.id));
+    const ordered = [...active, ...sold];
+    return {
+      key,
+      ...(group.stashName !== undefined ? { stashName: group.stashName } : {}),
+      entries: ordered,
+      instantBuyoutCount: active.filter((entry) => entry.instantBuyout).length,
+      allSold: ordered.length > 0 && active.length === 0,
+    };
+  });
+  return [...built.filter((g) => !g.allSold), ...built.filter((g) => g.allSold)];
 }

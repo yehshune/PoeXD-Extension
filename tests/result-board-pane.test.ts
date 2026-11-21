@@ -617,4 +617,117 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(sellerRow.hasAttribute('data-board-seller-visited')).toBe(false);
     expect(sellerRow.querySelector('[data-board-seller-mark]')?.textContent).toBe('已售出');
   });
+
+  it('excludes sold items from picked total and regex, supports per-stash toggle and seller travel', async () => {
+    const travelSpy = vi.spyOn(runtime, 'travel').mockResolvedValue('travelled');
+    ingest([
+      rawResult({
+        id: 'a1',
+        account: 'SellerA#1',
+        name: 'Alpha',
+        priceType: '~b/o',
+        amount: 10,
+        currency: 'chaos',
+        stash: { name: 'Tab1' },
+      }),
+      rawResult({
+        id: 'a2',
+        account: 'SellerA#1',
+        name: 'Beta',
+        priceType: '~b/o',
+        amount: 20,
+        currency: 'chaos',
+        stash: { name: 'Tab1' },
+      }),
+      rawResult({
+        id: 'a3',
+        account: 'SellerA#1',
+        name: 'Gamma',
+        priceType: '~b/o',
+        amount: 30,
+        currency: 'chaos',
+        stash: { name: 'Tab2' },
+      }),
+      rawResult({
+        id: 'b1',
+        account: 'SellerB#2',
+        character: '',
+        name: 'Delta',
+        priceType: '~b/o',
+        amount: 5,
+        currency: 'chaos',
+        stash: { name: 'S1' },
+      }),
+      rawResult({
+        id: 'b2',
+        account: 'SellerB#2',
+        character: '',
+        name: 'Epsilon',
+        priceType: '~b/o',
+        amount: 5,
+        currency: 'chaos',
+        stash: { name: 'S1' },
+      }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+    await flush();
+
+    // 標記 a1 已售出：SellerA 剩餘 2 件可直購，總價扣掉 10c 剩 50c
+    runtime.session.markSold('a1');
+    await flush();
+
+    const sellerA = container.querySelector('[data-board-seller="SellerA#1"]')!;
+    expect(sellerA.querySelector('[data-board-seller-count]')?.textContent).toContain('2');
+    expect(sellerA.querySelector('[data-board-seller-total]')?.textContent).toContain('50');
+
+    // 當角色名與帳號相同（或無獨立角色名）時，副標不重複顯示帳號
+    const sellerWithAccountOnly = container.querySelector('[data-board-seller="SellerB#2"]')!;
+    const headerLines = Array.from(
+      sellerWithAccountOnly.querySelectorAll('[data-board-seller-toggle] > span'),
+    ).map((el) => el.textContent?.trim());
+    expect(headerLines).toEqual(['SellerB#2', '5 chaos']);
+
+    // 展開 SellerA：a1 不在 Tab1 的 regex 裡，且勾選框禁用
+    sellerA.querySelector<HTMLElement>('[data-board-seller-toggle]')!.click();
+    await flush();
+    const tab1 = sellerA.querySelector('[data-board-stash-name="Tab1"]')!;
+    expect(tab1.querySelector('[data-board-stash-regex-part] code')?.textContent?.trim()).toBe(
+      '"Beta" "Vaal Regalia" "~b/o 20 chaos"',
+    );
+    expect(
+      tab1.querySelector<HTMLButtonElement>('[data-board-entry-id="a1"] [data-board-pick]')
+        ?.disabled,
+    ).toBe(true);
+
+    // 點擊 Tab1 倉庫勾選框：一次取消勾選 Tab1（剩 Tab2 的 30c）
+    tab1.querySelector<HTMLElement>('[data-board-stash-pick]')!.click();
+    await flush();
+    expect(sellerA.querySelector('[data-board-seller-picked]')?.textContent).toContain('1');
+    expect(sellerA.querySelector('[data-board-seller-picked]')?.textContent).toContain('30');
+
+    // 點擊賣家標頭的一鍵前往藏身處：挑已勾選且未售出的 a3
+    sellerA.querySelector<HTMLElement>('[data-board-seller-travel]')!.click();
+    await flush();
+    expect(travelSpy).toHaveBeenCalledWith('a3', expect.any(Function));
+
+    // SellerB 全部已售出時沉到清單底部並禁用一鍵前往
+    runtime.session.markSold('b1');
+    runtime.session.markSold('b2');
+    await flush();
+    const order = Array.from(container.querySelectorAll('[data-board-seller]')).map((el) =>
+      el.getAttribute('data-board-seller'),
+    );
+    expect(order).toEqual(['SellerA#1', 'SellerB#2']);
+    expect(
+      container.querySelector<HTMLButtonElement>(
+        '[data-board-seller="SellerB#2"] [data-board-seller-travel]',
+      )?.disabled,
+    ).toBe(true);
+  });
 });

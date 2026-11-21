@@ -102,7 +102,7 @@ const toggleLabel = computed(() =>
         <span class="flex shrink-0" @click.stop @keydown.stop>
           <Checkbox
             :model-value="picked"
-            :disabled="!entry.instantBuyout"
+            :disabled="!entry.instantBuyout || mark === 'sold'"
             :aria-label="t('resultBoard.seller.pick')"
             data-board-pick
             @update:model-value="emit('pick')"

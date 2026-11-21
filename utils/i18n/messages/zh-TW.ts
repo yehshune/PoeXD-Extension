@@ -1493,9 +1493,12 @@ export const ZH_TW_MESSAGES = {
   'resultBoard.seller.total': '總價 {total}',
   'resultBoard.seller.picked': '已勾選 {count} 件：{total}',
   'resultBoard.seller.pick': '勾選要買的物品',
+  'resultBoard.seller.stashTabs': '{count} 個倉庫',
+  'resultBoard.seller.soldCount': '{count} 件已售出',
   'resultBoard.stash.tab': '倉庫「{name}」',
   'resultBoard.stash.unknown': '未標示倉庫',
   'resultBoard.stash.coords': '格位 ({x}, {y})',
+  'resultBoard.stash.toggleAll': '全選或取消此倉庫的物品',
   'resultBoard.regex.title': '倉庫搜尋 regex',
   'resultBoard.regex.hint':
     '貼到賣家藏身處的倉庫搜尋，一次標出勾選的物品。只保證和這位賣家已載入的其他物品區分。',

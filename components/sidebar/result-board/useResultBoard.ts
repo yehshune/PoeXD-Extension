@@ -168,12 +168,23 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     ),
   );
 
+  const soldIds = computed(() => {
+    const ids = new Set<string>();
+    for (const [id, mark] of Object.entries(state.value.marks)) {
+      if (mark === 'sold') ids.add(id);
+    }
+    return ids;
+  });
+
   const sellers = computed(() => {
     const term = keyword.value.trim().toLowerCase();
-    const matched = filterSellers(sortSellers(aggregateSellers(entries.value, rates.value)), {
-      minInstantBuyout: minSellerCount.value,
-      hiddenAccounts: state.value.hiddenAccounts,
-    });
+    const matched = filterSellers(
+      sortSellers(aggregateSellers(entries.value, rates.value, soldIds.value)),
+      {
+        minInstantBuyout: minSellerCount.value,
+        hiddenAccounts: state.value.hiddenAccounts,
+      },
+    );
     if (!term) return matched;
     return matched.filter((seller) =>
       [seller.account, seller.character ?? ''].some((field) => field.toLowerCase().includes(term)),
@@ -183,13 +194,28 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const priceSummary = computed(() => summarizePrices(entries.value, rates.value));
 
   const isPicked = (entry: BoardEntry): boolean =>
-    entry.instantBuyout && !unpicked.value.has(entry.id);
+    entry.instantBuyout && state.value.marks[entry.id] !== 'sold' && !unpicked.value.has(entry.id);
 
   function togglePicked(entry: BoardEntry): void {
-    if (!entry.instantBuyout) return;
+    if (!entry.instantBuyout || state.value.marks[entry.id] === 'sold') return;
     const next = new Set(unpicked.value);
     if (next.has(entry.id)) next.delete(entry.id);
     else next.add(entry.id);
+    unpicked.value = next;
+  }
+
+  /** 切換同一個倉庫分頁內所有可直購且未售出物品的勾選狀態 */
+  function toggleGroupPicked(groupEntries: readonly BoardEntry[]): void {
+    const buyable = groupEntries.filter(
+      (entry) => entry.instantBuyout && state.value.marks[entry.id] !== 'sold',
+    );
+    if (buyable.length === 0) return;
+    const allPicked = buyable.every((entry) => !unpicked.value.has(entry.id));
+    const next = new Set(unpicked.value);
+    for (const entry of buyable) {
+      if (allPicked) next.add(entry.id);
+      else next.delete(entry.id);
+    }
     unpicked.value = next;
   }
 
@@ -204,13 +230,14 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     );
   }
 
-  /** 勾選物品的倉庫搜尋 regex；只和同一群組（賣家／倉庫分頁）其他已載入的結果區分 */
+  /** 勾選物品的倉庫搜尋 regex；排除已售出，只和同一群組其他未售出的已載入結果區分 */
   function stashRegexForEntries(groupEntries: readonly BoardEntry[]): StashRegexResult {
-    const picked = groupEntries.filter(isPicked);
+    const active = groupEntries.filter((entry) => state.value.marks[entry.id] !== 'sold');
+    const picked = active.filter(isPicked);
     const pickedIds = new Set(picked.map((entry) => entry.id));
     return buildStashRegex({
       picked,
-      others: groupEntries.filter((entry) => !pickedIds.has(entry.id)),
+      others: active.filter((entry) => !pickedIds.has(entry.id)),
       maxLength: STASH_SEARCH_MAX_LENGTH[version],
     });
   }
@@ -305,6 +332,16 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     );
     if (outcome !== 'travelled') notify(TRAVEL_FAILURE[outcome]);
   };
+  const travelSeller = async (seller: SellerSummary) => {
+    const target =
+      pickedOf(seller)[0] ??
+      seller.entries.find((entry) => entry.instantBuyout && state.value.marks[entry.id] !== 'sold');
+    if (!target) {
+      notify('resultBoard.travelUnavailable');
+      return;
+    }
+    await travel(target.id);
+  };
   const pin = (id: string) => {
     if (!runtime.pin(id)) notify('resultBoard.pinUnavailable');
   };
@@ -387,6 +424,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     priceSummary,
     isPicked,
     togglePicked,
+    toggleGroupPicked,
     pickedOf,
     pickedTotal,
     stashRegexOf,
@@ -402,6 +440,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     cardSnapshot,
     locate,
     travel,
+    travelSeller,
     pin,
     hideSeller: (account: string) => runtime.session.hideSeller(account),
     showAllSellers: () => runtime.session.showAllSellers(),

@@ -205,4 +205,58 @@ describe('groupSellerEntriesByStash', () => {
       { stashName: undefined, ids: ['d'], instantBuyoutCount: 1 },
     ]);
   });
+
+  it('sinks sold entries within a stash group and sinks all-sold groups to the bottom', () => {
+    const list = entries([
+      { id: 'a', stash: { name: 'SoldTab' }, instantBuyout: true },
+      { id: 'b', stash: { name: 'MixTab' }, instantBuyout: true },
+      { id: 'c', stash: { name: 'MixTab' }, instantBuyout: true },
+    ]);
+    const groups = groupSellerEntriesByStash(list, new Set(['a', 'b']));
+    expect(
+      groups.map((g) => ({
+        stashName: g.stashName,
+        ids: g.entries.map((e) => e.id),
+        instantBuyoutCount: g.instantBuyoutCount,
+        allSold: g.allSold,
+      })),
+    ).toEqual([
+      { stashName: 'MixTab', ids: ['c', 'b'], instantBuyoutCount: 1, allSold: false },
+      { stashName: 'SoldTab', ids: ['a'], instantBuyoutCount: 0, allSold: true },
+    ]);
+  });
+});
+
+describe('sold-item seller aggregation, sorting and filtering', () => {
+  it('excludes sold items from available count and total, keeps card under min filter, and sinks all-sold sellers', () => {
+    const list = entries([
+      { id: 'a1', account: 'SoldOut#1', amount: 5, stash: { name: '1' } },
+      { id: 'a2', account: 'SoldOut#1', amount: 5, stash: { name: '1' } },
+      { id: 'b1', account: 'Partial#2', amount: 10, stash: { name: 'A' } },
+      { id: 'b2', account: 'Partial#2', amount: 20, stash: { name: 'B' } },
+    ]);
+    const sellers = aggregateSellers(list, rates, new Set(['a1', 'a2', 'b1']));
+    const sorted = sortSellers(sellers);
+    expect(sorted.map((s) => s.account)).toEqual(['Partial#2', 'SoldOut#1']);
+    expect(sorted[0]).toMatchObject({
+      instantBuyoutCount: 1,
+      totalInstantBuyoutCount: 2,
+      soldCount: 1,
+      allSold: false,
+      stashTabCount: 1,
+      total: { kind: 'converted', currency: 'chaos', amount: 20, unconverted: 0 },
+    });
+    expect(sorted[1]).toMatchObject({
+      instantBuyoutCount: 0,
+      totalInstantBuyoutCount: 2,
+      soldCount: 2,
+      allSold: true,
+    });
+    // 篩選門檻依 totalInstantBuyoutCount 判斷，不因賣掉一件而讓正在看的卡片突然消失
+    expect(
+      filterSellers(sorted, { minInstantBuyout: 2, hiddenAccounts: new Set() }).map(
+        (s) => s.account,
+      ),
+    ).toEqual(['Partial#2', 'SoldOut#1']);
+  });
 });
