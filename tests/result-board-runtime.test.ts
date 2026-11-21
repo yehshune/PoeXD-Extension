@@ -149,9 +149,14 @@ describe('ResultBoardRuntime', () => {
     expect(runtime.locate('missing')).toBe(false);
   });
 
-  it('travels through the official button and marks the result visited', async () => {
+  it('travels through the official button and marks visited only after whisper succeeds', async () => {
     dispatchPoeEvent('poexd-search-result-summary', summary(20));
     await expect(runtime.travel('a')).resolves.toBe('travelled');
+    expect(runtime.session.getState().marks).toEqual({});
+    dispatchPoeEvent(
+      'poexd-whisper-outcome',
+      serializeWhisperOutcome({ status: 200, success: true }),
+    );
     expect(runtime.session.getState().marks).toEqual({ a: 'visited' });
     document.querySelector('[data-id="b"] .direct-btn')!.classList.add('disabled');
     await expect(runtime.travel('b')).resolves.toBe('unavailable');
@@ -198,6 +203,11 @@ describe('ResultBoardRuntime', () => {
 
     await expect(outcome).resolves.toBe('travelled');
     expect(travelClicks).toHaveBeenCalledTimes(1);
+    expect(runtime.session.getState().marks).toEqual({});
+    dispatchPoeEvent(
+      'poexd-whisper-outcome',
+      serializeWhisperOutcome({ status: 200, success: true }),
+    );
     expect(runtime.session.getState().marks).toEqual({ a: 'visited' });
   });
 
@@ -252,15 +262,47 @@ describe('ResultBoardRuntime', () => {
     expect(runtime.session.getState().marks).toEqual({ a: 'sold' });
   });
 
-  it('ignores whisper outcomes that are late, unrelated or successful', () => {
+  it('does not mark visited when whisper fails (e.g. not in game, rate-limited, or in-demand)', () => {
     dispatchPoeEvent('poexd-search-result-summary', summary(20));
-    dispatchPoeEvent('poexd-whisper-outcome', serializeWhisperOutcome({ status: 404, code: 1 }));
+    // 人物不在遊戲內（HTTP 400 code 2）
     document.querySelector<HTMLElement>('[data-id="a"] .direct-btn')!.click();
-    now = 30_000;
-    dispatchPoeEvent('poexd-whisper-outcome', serializeWhisperOutcome({ status: 404, code: 1 }));
+    dispatchPoeEvent('poexd-whisper-outcome', serializeWhisperOutcome({ status: 400, code: 2 }));
+    expect(runtime.session.getState().marks).toEqual({});
+
+    // 有人搶先（success: false）尚未傳送，再按一次成功後才標記 visited
+    document.querySelector<HTMLElement>('[data-id="a"] .direct-btn')!.click();
+    dispatchPoeEvent(
+      'poexd-whisper-outcome',
+      serializeWhisperOutcome({ status: 200, success: false }),
+    );
+    expect(runtime.session.getState().marks).toEqual({});
+    document.querySelector<HTMLElement>('[data-id="a"] .direct-btn')!.click();
+    dispatchPoeEvent(
+      'poexd-whisper-outcome',
+      serializeWhisperOutcome({ status: 200, success: true }),
+    );
+    expect(runtime.session.getState().marks).toEqual({ a: 'visited' });
+
+    // 逾時才收到的回應或無法點擊的按鈕不標記
     document.querySelector<HTMLElement>('[data-id="b"] .direct-btn')!.click();
-    dispatchPoeEvent('poexd-whisper-outcome', serializeWhisperOutcome({ status: 200 }));
-    expect(runtime.session.getState().marks).toEqual({ a: 'visited', b: 'visited' });
+    now = 30_000;
+    dispatchPoeEvent(
+      'poexd-whisper-outcome',
+      serializeWhisperOutcome({ status: 200, success: true }),
+    );
+    expect(runtime.session.getState().marks).toEqual({ a: 'visited' });
+  });
+
+  it('ignores clicks on disabled or expired travel buttons', () => {
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    const btnA = document.querySelector<HTMLElement>('[data-id="a"] .direct-btn')!;
+    btnA.classList.add('expired', 'disabled');
+    btnA.click();
+    dispatchPoeEvent(
+      'poexd-whisper-outcome',
+      serializeWhisperOutcome({ status: 200, success: true }),
+    );
+    expect(runtime.session.getState().marks).toEqual({});
   });
 
   it('adds a shortcut beside the result count that opens the board', () => {
@@ -328,14 +370,21 @@ describe('ResultBoardRuntime', () => {
     document.querySelector<HTMLElement>('[data-id="a"] .direct-btn')!.click();
     document.querySelector<HTMLElement>('[data-id="b"] .direct-btn')!.click();
     dispatchPoeEvent('poexd-whisper-outcome', serializeWhisperOutcome({ status: 404, code: 1 }));
+    expect(runtime.session.getState().marks).toEqual({ a: 'sold' });
+    dispatchPoeEvent(
+      'poexd-whisper-outcome',
+      serializeWhisperOutcome({ status: 200, success: true }),
+    );
     expect(runtime.session.getState().marks).toEqual({ a: 'sold', b: 'visited' });
-    dispatchPoeEvent('poexd-whisper-outcome', serializeWhisperOutcome({ status: 404, code: 1 }));
-    expect(runtime.session.getState().marks).toEqual({ a: 'sold', b: 'sold' });
   });
 
   it('ignores a late fetch from a previous search', () => {
     dispatchPoeEvent('poexd-search-result-summary', summary(20, 's2'));
     document.querySelector<HTMLElement>('[data-id="a"] .direct-btn')!.click();
+    dispatchPoeEvent(
+      'poexd-whisper-outcome',
+      serializeWhisperOutcome({ status: 200, success: true }),
+    );
     deliverFetch(cache, ['old'], SEARCH);
     const state = runtime.session.getState();
     expect(state.searchId).toBe('s2');
@@ -390,5 +439,49 @@ describe('ResultBoardRuntime', () => {
     deliverFetch(cache, ['a', 'b']);
     await vi.advanceTimersByTimeAsync(300);
     expect(runtime.session.getState().currencies).toEqual({ chaos: { icon, name: 'Chaos Orb' } });
+  });
+
+  it('marks existing results sold when fetch reports gone: true or null on refresh', () => {
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    deliverFetch(cache, ['a', 'b']);
+
+    const goneDetail = serializePoeFetchResponse({
+      url: `https://www.pathofexile.com/api/trade/fetch/a?query=${SEARCH}`,
+      data: {
+        result: [
+          {
+            id: 'a',
+            gone: true,
+            item: { typeLine: 'Ring', frameType: 2 },
+            listing: { account: { name: 'Seller#1' } },
+          },
+        ],
+      },
+    });
+    dispatchPoeEvent('poexd-fetch-response', goneDetail);
+    expect(runtime.session.getState().marks).toEqual({ a: 'sold' });
+
+    const missingRefreshDetail = serializePoeFetchResponse({
+      url: `https://www.pathofexile.com/api/trade/fetch/b?query=${SEARCH}`,
+      data: { result: [null] },
+    });
+    dispatchPoeEvent('poexd-fetch-response', missingRefreshDetail);
+    expect(runtime.session.getState().marks).toEqual({ a: 'sold', b: 'sold' });
+  });
+
+  it('syncs .row.gone class updates and existing gone rows from the official DOM', async () => {
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    deliverFetch(cache, ['a', 'b']);
+
+    // 官方 DOM 將既有結果標成 .row.gone（"Item no longer available"）
+    document.querySelector('[data-id="a"]')!.classList.add('gone');
+    await Promise.resolve();
+    expect(runtime.session.getState().marks).toEqual({ a: 'sold' });
+
+    // 重新啟用時會先掃描頁面上既有的 .row.gone
+    document.querySelector('[data-id="b"]')!.classList.add('gone');
+    runtime.setEnabled(false);
+    runtime.setEnabled(true);
+    expect(runtime.session.getState().marks).toEqual({ a: 'sold', b: 'sold' });
   });
 });

@@ -3,8 +3,10 @@ import {
   parseFetchFailure,
   parseSearchResultSummary,
   parseWhisperOutcome,
+  readGoneFetchIds,
   readMissingFetchIds,
   readWhisperErrorCode,
+  readWhisperSuccess,
   serializeFetchFailure,
   serializeSearchResultSummary,
   serializeWhisperOutcome,
@@ -52,22 +54,33 @@ describe('wire round trips', () => {
     expect(parseFetchFailure('{"url":"x","status":99999}')).toBeUndefined();
   });
 
-  it('round-trips a whisper outcome and drops an invalid code', () => {
+  it('round-trips a whisper outcome and drops invalid fields', () => {
     expect(parseWhisperOutcome(serializeWhisperOutcome({ status: 404, code: 1 }))).toEqual({
       status: 404,
       code: 1,
     });
-    expect(parseWhisperOutcome('{"status":200,"code":"1"}')).toEqual({ status: 200 });
+    expect(parseWhisperOutcome(serializeWhisperOutcome({ status: 200, success: true }))).toEqual({
+      status: 200,
+      success: true,
+    });
+    expect(parseWhisperOutcome('{"status":200,"code":"1","success":"true"}')).toEqual({
+      status: 200,
+    });
     expect(parseWhisperOutcome('{"code":1}')).toBeUndefined();
   });
 });
 
-describe('readWhisperErrorCode', () => {
-  it('reads the official error code', () => {
+describe('readWhisperErrorCode and readWhisperSuccess', () => {
+  it('reads the official error code and success flag', () => {
     expect(readWhisperErrorCode({ error: { code: 1, message: 'gone' } })).toBe(1);
     expect(readWhisperErrorCode({ success: true })).toBeUndefined();
     expect(readWhisperErrorCode({ error: { code: 'x' } })).toBeUndefined();
     expect(readWhisperErrorCode(undefined)).toBeUndefined();
+
+    expect(readWhisperSuccess({ success: true })).toBe(true);
+    expect(readWhisperSuccess({ success: false })).toBe(false);
+    expect(readWhisperSuccess({ success: 'true' })).toBeUndefined();
+    expect(readWhisperSuccess(undefined)).toBeUndefined();
   });
 });
 
@@ -83,5 +96,16 @@ describe('readMissingFetchIds', () => {
     expect(readMissingFetchIds(url, { result: 'nope' })).toEqual([]);
     expect(readMissingFetchIds(url, null)).toEqual([]);
     expect(readMissingFetchIds('http://[bad', { result: [] })).toEqual([]);
+  });
+});
+
+describe('readGoneFetchIds', () => {
+  it('lists ids marked with gone: true in a fetch response', () => {
+    expect(
+      readGoneFetchIds({
+        result: [{ id: 'a', gone: true }, { id: 'b', gone: false }, null, { id: 'c' }],
+      }),
+    ).toEqual(['a']);
+    expect(readGoneFetchIds(null)).toEqual([]);
   });
 });

@@ -204,15 +204,19 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     );
   }
 
-  /** 勾選物品的倉庫搜尋 regex；只和同賣家其他已載入的結果區分 */
-  function stashRegexOf(seller: SellerSummary): StashRegexResult {
-    const picked = pickedOf(seller);
+  /** 勾選物品的倉庫搜尋 regex；只和同一群組（賣家／倉庫分頁）其他已載入的結果區分 */
+  function stashRegexForEntries(groupEntries: readonly BoardEntry[]): StashRegexResult {
+    const picked = groupEntries.filter(isPicked);
     const pickedIds = new Set(picked.map((entry) => entry.id));
     return buildStashRegex({
       picked,
-      others: seller.entries.filter((entry) => !pickedIds.has(entry.id)),
+      others: groupEntries.filter((entry) => !pickedIds.has(entry.id)),
       maxLength: STASH_SEARCH_MAX_LENGTH[version],
     });
+  }
+
+  function stashRegexOf(seller: SellerSummary): StashRegexResult {
+    return stashRegexForEntries(seller.entries);
   }
 
   async function copyStashRegex(text: string): Promise<void> {
@@ -386,6 +390,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     pickedOf,
     pickedTotal,
     stashRegexOf,
+    stashRegexForEntries,
     copyStashRegex,
     isExpanded,
     isSellerExpanded,

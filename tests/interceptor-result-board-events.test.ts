@@ -80,13 +80,22 @@ describe('fetch interceptor result board events', () => {
     expect(payloadOf('poexd-whisper-outcome')).toEqual({ status: 404, code: 1 });
   });
 
-  it('dispatches a successful whisper outcome without a code', async () => {
+  it('dispatches a successful whisper outcome with success: true and without a code', async () => {
     const win = install(fakeResponse({ success: true }));
     await win.fetch('https://www.pathofexile.com/api/trade2/whisper', {
       method: 'POST',
       body: '{}',
     });
-    expect(payloadOf('poexd-whisper-outcome')).toEqual({ status: 200 });
+    expect(payloadOf('poexd-whisper-outcome')).toEqual({ status: 200, success: true });
+  });
+
+  it('forwards success: false when the item is in demand', async () => {
+    const win = install(fakeResponse({ success: false }));
+    await win.fetch('https://www.pathofexile.com/api/trade/whisper', {
+      method: 'POST',
+      body: '{}',
+    });
+    expect(payloadOf('poexd-whisper-outcome')).toEqual({ status: 200, success: false });
   });
 
   it('still reports the whisper status when the body is not JSON', async () => {

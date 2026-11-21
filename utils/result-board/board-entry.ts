@@ -20,6 +20,13 @@ export interface BoardPrice {
   currency: string;
 }
 
+/** 物品所在的倉庫分頁名稱與格位座標（官方 0-based） */
+export interface BoardStash {
+  name?: string;
+  x?: number;
+  y?: number;
+}
+
 export interface BoardEntry {
   id: string;
   /** 官方結果順序（從 0 開始） */
@@ -32,6 +39,7 @@ export interface BoardEntry {
   /** 官方 CDN 的物品圖示 */
   icon?: string;
   price?: BoardPrice;
+  stash?: BoardStash;
   /** 遊戲內物品的標價備註，市集寫法（例如 `~b/o 2 chaos`）；倉庫搜尋 regex 用 */
   note?: string;
   /** 刊登時間（epoch ms） */
@@ -79,6 +87,21 @@ function readNote(item: Record<string, unknown>, listingPrice: unknown): string 
   return `${type} ${price.amount} ${price.currency}`;
 }
 
+function readStash(value: unknown): BoardStash | undefined {
+  if (!isRecord(value)) return undefined;
+  const name = text(value.name).trim();
+  const x =
+    typeof value.x === 'number' && Number.isInteger(value.x) && value.x >= 0 ? value.x : undefined;
+  const y =
+    typeof value.y === 'number' && Number.isInteger(value.y) && value.y >= 0 ? value.y : undefined;
+  if (!name && x === undefined && y === undefined) return undefined;
+  return {
+    ...(name ? { name } : {}),
+    ...(x !== undefined ? { x } : {}),
+    ...(y !== undefined ? { y } : {}),
+  };
+}
+
 function readIndexedAt(value: unknown): number | undefined {
   const parsed = Date.parse(text(value));
   return Number.isNaN(parsed) ? undefined : parsed;
@@ -112,6 +135,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
   if (!seller || (!name && !typeLine)) return undefined;
 
   const price = readPrice(listing.price);
+  const stash = readStash(listing.stash);
   const note = readNote(item, listing.price);
   const indexedAt = readIndexedAt(listing.indexed);
   const frameType =
@@ -128,6 +152,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
     ...(frameType !== undefined ? { frameType } : {}),
     ...(isValidPoeCdnImageUrl(item.icon) ? { icon: item.icon } : {}),
     ...(price ? { price } : {}),
+    ...(stash ? { stash } : {}),
     ...(note ? { note } : {}),
     ...(indexedAt !== undefined ? { indexedAt } : {}),
     instantBuyout: typeof hideoutToken === 'string' && hideoutToken.length > 0,

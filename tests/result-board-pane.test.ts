@@ -524,4 +524,97 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
 
     expect(mockFetchCurrencyRates).toHaveBeenCalledWith('poe1', 'Standard');
   });
+
+  it('groups seller items by stash tab, computes per-stash regex, and displays stash coordinates', async () => {
+    ingest([
+      rawResult({
+        id: 'r1',
+        name: 'Doom Ward',
+        priceType: '~b/o',
+        amount: 2,
+        currency: 'chaos',
+        stash: { name: '24', x: 1, y: 9 },
+      }),
+      rawResult({
+        id: 'r2',
+        name: 'Grim Coat',
+        priceType: '~b/o',
+        amount: 3,
+        currency: 'chaos',
+        stash: { name: '24', x: 2, y: 9 },
+      }),
+      rawResult({
+        id: 'r3',
+        name: 'Doom Ward',
+        priceType: '~b/o',
+        amount: 3,
+        currency: 'chaos',
+        stash: { name: '24', x: 4, y: 1 },
+      }),
+      rawResult({
+        id: 'r4',
+        name: 'Solar Edge',
+        priceType: '~b/o',
+        amount: 5,
+        currency: 'chaos',
+        stash: { name: 'Uniques', x: 0, y: 2 },
+      }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+    await flush();
+    container.querySelector<HTMLElement>('[data-board-seller-toggle]')!.click();
+    await flush();
+
+    const groups = Array.from(container.querySelectorAll('[data-board-stash-group]'));
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.getAttribute('data-board-stash-name'))).toEqual(['24', 'Uniques']);
+
+    // 各分區各自產生 regex，不把別的倉庫頁混進去
+    expect(groups[0].querySelector('[data-board-stash-regex-part] code')?.textContent?.trim()).toBe(
+      '"Doom Ward|Grim Coat" "Vaal Regalia" "~b/o 2 chaos|~b/o 3 chaos"',
+    );
+    expect(groups[1].querySelector('[data-board-stash-regex-part] code')?.textContent?.trim()).toBe(
+      '"Solar Edge" "Vaal Regalia" "~b/o 5 chaos"',
+    );
+
+    // 物品列顯示 1-based 倉庫格位座標
+    const metas = Array.from(groups[0].querySelectorAll('[data-board-entry-meta]')).map((el) =>
+      el.textContent?.trim(),
+    );
+    expect(metas[0]).toContain('格位 (2, 10)');
+  });
+
+  it('does not show visited on seller header when items are only marked sold', async () => {
+    ingest([
+      rawResult({ id: 'r1', account: 'Seller#1' }),
+      rawResult({ id: 'r2', account: 'Seller#1' }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+    await flush();
+
+    // 其中一件下架／已售出：賣家不應顯示「已前往」
+    runtime.session.markSold('r1');
+    await flush();
+    const sellerRow = container.querySelector('[data-board-seller="Seller#1"]')!;
+    expect(sellerRow.hasAttribute('data-board-seller-visited')).toBe(false);
+    expect(sellerRow.querySelector('[data-board-seller-mark]')).toBeNull();
+
+    // 全部已售出時改顯示「已售出」，仍非「已前往」
+    runtime.session.markSold('r2');
+    await flush();
+    expect(sellerRow.hasAttribute('data-board-seller-visited')).toBe(false);
+    expect(sellerRow.querySelector('[data-board-seller-mark]')?.textContent).toBe('已售出');
+  });
 });

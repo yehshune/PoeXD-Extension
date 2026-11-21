@@ -23,6 +23,8 @@ export interface FetchFailure {
 export interface WhisperOutcome {
   status: number;
   code?: number;
+  /** 官方回應 `success === true` 才代表實際觸發傳送（`false` 為有人搶先等尚未傳送） */
+  success?: boolean;
 }
 
 const MAX_URL_LENGTH = 4096;
@@ -95,6 +97,7 @@ export function parseWhisperOutcome(detail: unknown): WhisperOutcome | undefined
   return {
     status: raw.status,
     ...(isStatus(raw.code) ? { code: raw.code } : {}),
+    ...(typeof raw.success === 'boolean' ? { success: raw.success } : {}),
   };
 }
 
@@ -102,6 +105,12 @@ export function parseWhisperOutcome(detail: unknown): WhisperOutcome | undefined
 export function readWhisperErrorCode(body: unknown): number | undefined {
   if (!isRecord(body) || !isRecord(body.error)) return undefined;
   return isStatus(body.error.code) ? body.error.code : undefined;
+}
+
+/** 從官方 whisper 回應 body 取出 `success` 旗標 */
+export function readWhisperSuccess(body: unknown): boolean | undefined {
+  if (!isRecord(body)) return undefined;
+  return typeof body.success === 'boolean' ? body.success : undefined;
 }
 
 /**
@@ -123,4 +132,12 @@ export function readMissingFetchIds(url: string, data: unknown): string[] {
     data.result.flatMap((raw) => (isRecord(raw) && typeof raw.id === 'string' ? [raw.id] : [])),
   );
   return requested.filter((id) => !present.has(id));
+}
+
+/** 官方 `/fetch` 回應中帶有 `gone: true` 的已下架結果 id */
+export function readGoneFetchIds(data: unknown): string[] {
+  if (!isRecord(data) || !Array.isArray(data.result)) return [];
+  return data.result.flatMap((raw) =>
+    isRecord(raw) && raw.gone === true && typeof raw.id === 'string' && raw.id ? [raw.id] : [],
+  );
 }

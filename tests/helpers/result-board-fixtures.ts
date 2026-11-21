@@ -16,6 +16,7 @@ export interface RawResultOptions {
   note?: string;
   priceType?: string;
   baseType?: string;
+  stash?: { name?: string; x?: number; y?: number };
 }
 
 /** 組出一筆形狀比照官方 `/fetch` 的快取結果 */
@@ -36,6 +37,7 @@ export function rawResult(options: RawResultOptions): TradeResultEntry {
     note,
     priceType = '~price',
     baseType = options.typeLine ?? 'Vaal Regalia',
+    stash,
   } = options;
   const onlineValue =
     online === 'offline'
@@ -59,6 +61,7 @@ export function rawResult(options: RawResultOptions): TradeResultEntry {
       indexed,
       account: { name: account, lastCharacterName: character, online: onlineValue },
       price: { type: priceType, amount, currency },
+      ...(stash ? { stash } : {}),
       ...(instantBuyout ? { hideout_token: 'token' } : { whisper: '@x hi' }),
     },
   };

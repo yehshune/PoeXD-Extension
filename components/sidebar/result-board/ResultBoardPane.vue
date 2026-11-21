@@ -526,7 +526,7 @@ function setMinSellerCount(value: string | number): void {
         <ul
           v-else
           ref="sellersListRef"
-          class="m-0 list-none overflow-hidden rounded-md border border-border bg-card p-0"
+          class="m-0 flex list-none flex-col gap-[var(--pxd-space-sm)] p-0"
           data-board-sellers
         >
           <ResultBoardSellerRow
@@ -538,9 +538,7 @@ function setMinSellerCount(value: string | number): void {
             :marks="state.marks"
             :picked-entries="board.pickedOf(seller)"
             :picked-total="board.pickedTotal(seller)"
-            :stash-regex="
-              board.isSellerExpanded(seller.account) ? board.stashRegexOf(seller) : undefined
-            "
+            :stash-regex-for="board.stashRegexForEntries"
             :is-picked="board.isPicked"
             :is-expanded="board.isExpanded"
             :expanded="board.isSellerExpanded(seller.account)"

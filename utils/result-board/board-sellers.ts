@@ -143,3 +143,35 @@ export function filterSellers(
       !filter.hiddenAccounts.has(seller.account),
   );
 }
+
+export interface SellerStashGroup {
+  key: string;
+  /** 倉庫分頁名稱；官方結果未提供時為 undefined */
+  stashName?: string;
+  entries: readonly BoardEntry[];
+  instantBuyoutCount: number;
+}
+
+/**
+ * 依倉庫分頁名稱將同一位賣家的物品分區，維持分頁與各分頁內既有的排序。
+ * 沒有分頁名稱的物品集中到同一區。
+ */
+export function groupSellerEntriesByStash(entries: readonly BoardEntry[]): SellerStashGroup[] {
+  const groups = new Map<string, { stashName?: string; entries: BoardEntry[] }>();
+  for (const entry of entries) {
+    const stashName = entry.stash?.name;
+    const key = stashName !== undefined ? `tab:${stashName}` : 'unknown';
+    const existing = groups.get(key);
+    if (existing) {
+      existing.entries.push(entry);
+    } else {
+      groups.set(key, { stashName, entries: [entry] });
+    }
+  }
+  return Array.from(groups, ([key, group]) => ({
+    key,
+    ...(group.stashName !== undefined ? { stashName: group.stashName } : {}),
+    entries: group.entries,
+    instantBuyoutCount: group.entries.filter((entry) => entry.instantBuyout).length,
+  }));
+}

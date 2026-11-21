@@ -4,6 +4,7 @@ import {
 } from '@/utils/event-protocol-types';
 import {
   readWhisperErrorCode,
+  readWhisperSuccess,
   serializeFetchFailure,
   serializeSearchResultSummary,
   serializeWhisperOutcome,
@@ -50,9 +51,14 @@ function isOfficialTradeWhisperEndpoint(url: string): boolean {
 
 function dispatchWhisperResult(bridge: MainWorldBridge, status: number, body: unknown) {
   const code = readWhisperErrorCode(body);
+  const success = readWhisperSuccess(body);
   bridge.dispatchEvent(
     'poexd-whisper-outcome',
-    serializeWhisperOutcome({ status, ...(code !== undefined ? { code } : {}) }),
+    serializeWhisperOutcome({
+      status,
+      ...(code !== undefined ? { code } : {}),
+      ...(success !== undefined ? { success } : {}),
+    }),
   );
 }
 
@@ -107,6 +113,7 @@ export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = w
     }
 
     const isResultFetch = isOfficialTradeFetchEndpoint(url);
+    const isWhisper = isOfficialTradeWhisperEndpoint(url);
     const endTradeRequest =
       isSearch || isResultFetch ? trackTradeRequest(isSearch ? 'search' : 'fetch') : null;
 
@@ -153,6 +160,9 @@ export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = w
       if (isSearch && submissionReqId !== null) {
         cancelPendingSearchSubmission(submissionReqId);
       }
+      if (isWhisper) {
+        dispatchWhisperResult(bridge, 0, undefined);
+      }
       endTradeRequest?.('failed');
       throw err;
     }
@@ -172,7 +182,7 @@ export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = w
           } catch (e) {
             console.error('[PoeXD Inject] 攔截 fetch 解析錯誤:', e);
           }
-        } else if (isOfficialTradeWhisperEndpoint(url)) {
+        } else if (isWhisper) {
           await dispatchWhisperOutcome(bridge, response);
         } else if (isSearch) {
           try {
@@ -261,6 +271,9 @@ export function installXhrInterceptor(bridge: MainWorldBridge, win: Window = win
         },
         { once: true },
       );
+      const dispatchFailedWhisper = () => dispatchWhisperResult(bridge, 0, undefined);
+      this.addEventListener('error', dispatchFailedWhisper, { once: true });
+      this.addEventListener('abort', dispatchFailedWhisper, { once: true });
     }
 
     if (isSearch) {

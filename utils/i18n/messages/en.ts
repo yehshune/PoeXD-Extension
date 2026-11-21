@@ -1591,6 +1591,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'resultBoard.seller.total': 'Total {total}',
   'resultBoard.seller.picked': '{count} picked: {total}',
   'resultBoard.seller.pick': 'Pick to buy',
+  'resultBoard.stash.tab': 'Stash "{name}"',
+  'resultBoard.stash.unknown': 'Unspecified stash',
+  'resultBoard.stash.coords': 'Slot ({x}, {y})',
   'resultBoard.regex.title': 'Stash search regex',
   'resultBoard.regex.hint':
     "Paste into the stash search in the seller's hideout to highlight the picked items at once. Only guaranteed to tell them apart from this seller's other loaded results.",

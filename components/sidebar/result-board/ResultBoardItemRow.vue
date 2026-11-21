@@ -60,9 +60,14 @@ const converted = computed(() => {
 });
 
 const meta = computed(() => {
-  const { seller } = props.entry;
+  const { seller, stash } = props.entry;
+  const coords =
+    props.pickable && stash?.x !== undefined && stash?.y !== undefined
+      ? t('resultBoard.stash.coords', { x: stash.x + 1, y: stash.y + 1 })
+      : '';
   const parts = [
     props.pickable ? '' : (seller.character ?? seller.account),
+    coords,
     formatAge(props.entry.indexedAt),
     props.entry.instantBuyout ? '' : t('resultBoard.whisperOnly'),
     !props.entry.instantBuyout && seller.presence === 'afk' ? t('resultBoard.presence.afk') : '',

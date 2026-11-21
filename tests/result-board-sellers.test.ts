@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { toBoardEntry, type BoardEntry } from '@/utils/result-board/board-entry';
-import { aggregateSellers, filterSellers, sortSellers } from '@/utils/result-board/board-sellers';
+import {
+  aggregateSellers,
+  filterSellers,
+  groupSellerEntriesByStash,
+  sortSellers,
+} from '@/utils/result-board/board-sellers';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import { rawResult, type RawResultOptions } from './helpers/result-board-fixtures';
 
@@ -175,5 +180,29 @@ describe('filterSellers', () => {
     expect(filterSellers(sellers, { minInstantBuyout: 0, hiddenAccounts: new Set() })).toHaveLength(
       4,
     );
+  });
+});
+
+describe('groupSellerEntriesByStash', () => {
+  it('groups seller entries by stash tab name and keeps entry order', () => {
+    const list = entries([
+      { id: 'a', stash: { name: '24', x: 1, y: 9 }, instantBuyout: true },
+      { id: 'b', stash: { name: 'Uniques', x: 3, y: 5 }, instantBuyout: false },
+      { id: 'c', stash: { name: '24', x: 2, y: 9 }, instantBuyout: true },
+      { id: 'd', stash: { x: 0, y: 0 }, instantBuyout: true },
+    ]);
+    expect(list[0].stash).toEqual({ name: '24', x: 1, y: 9 });
+    const groups = groupSellerEntriesByStash(list);
+    expect(
+      groups.map((g) => ({
+        stashName: g.stashName,
+        ids: g.entries.map((e) => e.id),
+        instantBuyoutCount: g.instantBuyoutCount,
+      })),
+    ).toEqual([
+      { stashName: '24', ids: ['a', 'c'], instantBuyoutCount: 2 },
+      { stashName: 'Uniques', ids: ['b'], instantBuyoutCount: 0 },
+      { stashName: undefined, ids: ['d'], instantBuyoutCount: 1 },
+    ]);
   });
 });

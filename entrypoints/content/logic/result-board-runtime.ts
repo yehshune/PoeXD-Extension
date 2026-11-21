@@ -16,7 +16,9 @@ import {
   parseFetchFailure,
   parseSearchResultSummary,
   parseWhisperOutcome,
+  readGoneFetchIds,
   readMissingFetchIds,
+  type WhisperOutcome,
 } from '@/utils/result-board/board-events';
 import { ResultBoardLoader, type BatchOutcome } from '@/utils/result-board/board-loader';
 import {
@@ -52,6 +54,7 @@ const STYLE_ID = 'poexd-result-board-style';
 const SHORTCUT_CLASS = 'poexd-board-shortcut';
 const LOCATE_CLASS = 'poexd-board-locate';
 const ROW_SELECTOR = '.resultset .row[data-id]';
+const GONE_ROW_SELECTOR = '.row[data-id].gone';
 const NATIVE_LAYOUT_BTN_SELECTOR = '.layout-btn';
 const NATIVE_LAYOUT_GAP_PX = 8;
 const NATIVE_LAYOUT_PITCH_PX = 38;
@@ -187,6 +190,8 @@ export class ResultBoardRuntime {
   private cleanups: (() => void)[] = [];
   private readonly highlightTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private currencyScanTimer: ReturnType<typeof setTimeout> | undefined;
+  private goneObserver: MutationObserver | undefined;
+  private observedResultset: Element | null = null;
 
   constructor(
     private readonly cache: TradeResultCache = getTradeResultCache(),
@@ -329,6 +334,7 @@ export class ResultBoardRuntime {
         if (!summary) return;
         this.session.setSummary(summary);
         this.ensureShortcut();
+        this.ensureGoneObserver();
       }),
       listenPoeEvent('poexd-fetch-response', (detail) => this.handleFetchResponse(detail)),
       listenPoeEvent('poexd-fetch-failed', (detail) => {
@@ -337,11 +343,12 @@ export class ResultBoardRuntime {
       }),
       listenPoeEvent('poexd-whisper-outcome', (detail) => {
         const outcome = parseWhisperOutcome(detail);
-        if (outcome) this.handleWhisperOutcome(outcome.code);
+        if (outcome) this.handleWhisperOutcome(outcome);
       }),
       this.cache.subscribe(() => {
         this.session.observeFetch(this.lastFetchSearchId);
         this.ensureShortcut();
+        this.ensureGoneObserver();
         this.scheduleCurrencyScan();
       }),
       this.session.subscribe((state) => this.handleSearchChange(state)),
@@ -352,6 +359,7 @@ export class ResultBoardRuntime {
     this.cleanups.push(() => this.doc.removeEventListener('click', this.handleDocumentClick, true));
     this.adoptSearchFromUrl();
     this.ensureShortcut();
+    this.ensureGoneObserver();
     this.scanCurrencies();
   }
 
@@ -394,8 +402,82 @@ export class ResultBoardRuntime {
     if (!payload || !searchId || this.session.isStale(searchId)) return;
     this.lastFetchSearchId = searchId;
     this.session.observeFetch(searchId);
-    this.session.skipMissing(searchId, readMissingFetchIds(payload.url, payload.data));
+    const missingIds = readMissingFetchIds(payload.url, payload.data);
+    this.session.skipMissing(searchId, missingIds);
+    const knownIds = new Set(this.session.getState().ledger.entries.map((entry) => entry.id));
+    for (const id of readGoneFetchIds(payload.data)) {
+      this.session.markSold(id);
+    }
+    for (const id of missingIds) {
+      if (knownIds.has(id)) this.session.markSold(id);
+    }
+    this.ensureGoneObserver();
     this.resolveBatch({ kind: 'loaded' });
+  }
+
+  /** 只觀察 `.resultset` 的 `.row` 新增與 `class` 變更，同步官方「Item no longer available」(.gone) */
+  private ensureGoneObserver(): void {
+    if (!this.enabled) return;
+    const resultset = this.doc.querySelector('.resultset');
+    if (!resultset) {
+      this.disconnectGoneObserver();
+      return;
+    }
+    if (resultset === this.observedResultset) return;
+    this.disconnectGoneObserver();
+    this.observedResultset = resultset;
+    const Observer = this.doc.defaultView?.MutationObserver ?? globalThis.MutationObserver;
+    if (typeof Observer === 'function') {
+      this.goneObserver = new Observer((mutations) => this.handleResultsetMutations(mutations));
+      this.goneObserver.observe(resultset, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class'],
+      });
+    }
+    this.scanGoneRows(resultset);
+  }
+
+  private disconnectGoneObserver(): void {
+    this.goneObserver?.disconnect();
+    this.goneObserver = undefined;
+    this.observedResultset = null;
+  }
+
+  private handleResultsetMutations(mutations: readonly MutationRecord[]): void {
+    for (const mutation of mutations) {
+      if (mutation.type === 'attributes') {
+        const target = mutation.target;
+        if (target.nodeType === 1) {
+          const el = target as Element;
+          if (el.classList.contains('row') && el.classList.contains('gone')) {
+            const id = el.getAttribute('data-id');
+            if (id) this.session.markSold(id);
+          }
+        }
+        continue;
+      }
+      if (mutation.type === 'childList') {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          const el = node as Element;
+          if (el.classList.contains('row') && el.classList.contains('gone')) {
+            const id = el.getAttribute('data-id');
+            if (id) this.session.markSold(id);
+          } else {
+            this.scanGoneRows(el);
+          }
+        }
+      }
+    }
+  }
+
+  private scanGoneRows(root: Element): void {
+    for (const row of root.querySelectorAll(GONE_ROW_SELECTOR)) {
+      const id = row.getAttribute('data-id');
+      if (id) this.session.markSold(id);
+    }
   }
 
   /** 換搜尋時停下進行中的載入、清掉上一次的停止原因與等待中的前往藏身處 */
@@ -409,6 +491,7 @@ export class ResultBoardRuntime {
 
   private detach(): void {
     this.loader.reset();
+    this.disconnectGoneObserver();
     this.cleanups.forEach((cleanup) => cleanup());
     this.cleanups = [];
     this.resolveBatch({ kind: 'timeout' });
@@ -462,25 +545,32 @@ export class ResultBoardRuntime {
     waiter?.(outcome);
   }
 
-  /** 官方「前往藏身處」按鈕（直購刊登）：標記已前往，並等待 whisper 回應判斷是否已售出 */
+  /** 官方「前往藏身處」按鈕（直購刊登）：記下待確認請求，等 whisper 回應成功才標記已前往／已售出 */
   private readonly handleDocumentClick = (event: MouseEvent): void => {
     const target = event.target as Element | null;
-    const button = target?.closest?.('.direct-btn');
-    const row = button?.closest?.(ROW_SELECTOR);
+    const button = target?.closest?.('.direct-btn') as HTMLElement | null;
+    if (!isUsable(button) || isExpired(button)) return;
+    const row = button.closest?.(ROW_SELECTOR);
     const id = row?.getAttribute('data-id');
     if (!id) return;
-    this.session.markVisited(id);
     this.pendingTravels = [...this.pendingTravels, { id, at: this.now() }];
   };
 
   /** whisper 回應依序對應最早按下、且還在時限內的那一次「前往藏身處」 */
-  private handleWhisperOutcome(code: number | undefined): void {
+  private handleWhisperOutcome(outcome: WhisperOutcome): void {
     const now = this.now();
     const [pending, ...rest] = this.pendingTravels.filter(
       (entry) => now - entry.at <= WHISPER_MATCH_WINDOW_MS,
     );
     this.pendingTravels = rest;
-    if (pending && code === WHISPER_GONE_CODE) this.session.markSold(pending.id);
+    if (!pending) return;
+    if (outcome.code === WHISPER_GONE_CODE) {
+      this.session.markSold(pending.id);
+      return;
+    }
+    if (outcome.status >= 200 && outcome.status < 300 && outcome.success === true) {
+      this.session.markVisited(pending.id);
+    }
   }
 }
 
