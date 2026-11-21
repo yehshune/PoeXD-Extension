@@ -452,8 +452,8 @@
                   <div
                     :class="[
                       isPreviewActive(build.id, row.key)
-                        ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--card))]'
-                        : undefined,
+                        ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--background))]'
+                        : '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_40%,var(--background))]',
                       { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
                     ]"
                     class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
