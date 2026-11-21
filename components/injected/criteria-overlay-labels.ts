@@ -77,9 +77,42 @@ const STATUS_LABELS_BY_LOCALE: Record<SupportedUiLocale, Record<string, string>>
   },
 };
 
+const STAT_GROUP_TYPE_SHORT_LABELS_BY_LOCALE: Record<
+  SupportedUiLocale,
+  Record<StatGroupType, string>
+> = {
+  'zh-TW': {
+    and: '且',
+    not: '非',
+    if: '若',
+    count: '計數',
+    weight: '加權',
+    weight2: '加權v2',
+  },
+  'zh-CN': {
+    and: '且',
+    not: '非',
+    if: '若',
+    count: '计数',
+    weight: '加权',
+    weight2: '加权v2',
+  },
+  en: {
+    and: 'AND',
+    not: 'NOT',
+    if: 'IF',
+    count: 'COUNT',
+    weight: 'WEIGHT',
+    weight2: 'WEIGHT v2',
+  },
+};
+
 export const STAT_GROUP_TYPE_LABELS: Record<string, string> = createActiveUiLocaleProxy<
   Record<string, string>
 >(STAT_GROUP_TYPE_LABELS_BY_LOCALE);
+export const STAT_GROUP_TYPE_SHORT_LABELS: Record<string, string> = createActiveUiLocaleProxy<
+  Record<string, string>
+>(STAT_GROUP_TYPE_SHORT_LABELS_BY_LOCALE);
 export const STATUS_LABELS: Record<string, string> =
   createActiveUiLocaleProxy<Record<string, string>>(STATUS_LABELS_BY_LOCALE);
 
@@ -213,4 +246,28 @@ export function summarizeOverlayCriteria(criteria: OverlayCriteria): string {
     criteria.status ? t('criteriaOverlay.label.status') : '',
   ].filter(Boolean);
   return parts.join(' · ');
+}
+
+/** 格式化單一詞綴群組的精簡標籤，例如「且(3)」、「計數≥2(4)」。 */
+export function formatCompactStatGroupChip(group: CriteriaOverlayStatGroup): string {
+  const shortType = STAT_GROUP_TYPE_SHORT_LABELS[group.type] ?? group.type.toUpperCase();
+  const range = rangeText(group.value).replace(/\s+/g, '');
+  const count = group.filters?.length ?? 0;
+  return `${shortType}${range}(${count})`;
+}
+
+/** 產生常用詞綴群組的懸停完整預覽文字（群組標題 + 各條詞綴文字）。 */
+export function describeStatGroupsTooltip(
+  statGroups: readonly CriteriaOverlayStatGroup[],
+  version: PoeVersion,
+): string {
+  return statGroups
+    .map((group) => {
+      const typeLabel = STAT_GROUP_TYPE_LABELS[group.type] ?? group.type;
+      const range = rangeText(group.value);
+      const header = `[${typeLabel}${range ? ` ${range}` : ''}]`;
+      const detail = describeStatGroup(group, version);
+      return detail ? `${header}\n${detail}` : header;
+    })
+    .join('\n\n');
 }

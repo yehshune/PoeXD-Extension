@@ -23,8 +23,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { downloadTextFile } from '@/utils/download-file';
+import type { StatGroupTemplateEntry } from '@/utils/stat-group-template-transfer';
 import { t } from '@/utils/i18n';
 import type { CriteriaOverlayManager } from '@/components/injected/criteria-overlay-manager';
+import StatGroupTemplateImportDialog from './StatGroupTemplateImportDialog.vue';
 
 /**
  * 常用詞綴群組分頁的頂部控制列，排法對齊書籤頁：主要動作、次要動作、搜尋、⋮ 選單。
@@ -40,7 +42,19 @@ const query = defineModel<string>('query', { default: '' });
 const { templates, canUndo, busy } = props.manager;
 const isSearchVisible = ref(false);
 const isMenuOpen = ref(false);
+const isImportDialogOpen = ref(false);
 const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
+
+function openImportDialog() {
+  isMenuOpen.value = false;
+  isImportDialogOpen.value = true;
+}
+
+async function handleImport(payload: { entries: StatGroupTemplateEntry[]; skipped: number }) {
+  if (props.manager.importTemplateEntries) {
+    await props.manager.importTemplateEntries(payload.entries, payload.skipped);
+  }
+}
 
 function notify(message: string, tone: 'success' | 'error') {
   dispatchPoeEvent('poexd-toast', { message, tone });
@@ -145,7 +159,11 @@ function downloadBackup() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent v-if="isMenuOpen" align="end">
-        <DropdownMenuItem :disabled="busy" @click="manager.importTemplates()">
+        <DropdownMenuItem
+          data-test="stat-group-template-open-import"
+          :disabled="busy"
+          @click="openImportDialog"
+        >
           <Upload class="text-muted-foreground" />
           {{ t('statGroupTemplate.toolbar.import') }}
         </DropdownMenuItem>
@@ -197,4 +215,11 @@ function downloadBackup() {
       <X />
     </Button>
   </div>
+
+  <StatGroupTemplateImportDialog
+    v-model:open="isImportDialogOpen"
+    :version="manager.version"
+    :busy="busy"
+    @import="handleImport"
+  />
 </template>

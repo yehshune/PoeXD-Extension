@@ -1026,6 +1026,16 @@ export const ZH_TW_MESSAGES = {
   'statGroupTemplate.host.saveCurrent': '將目前詞綴群組存為常用…',
   'statGroupTemplate.dialog.description':
     '勾選要一起存成這個常用類別的詞綴群組。使用時會把它們新增到目前搜尋。',
+  'statGroupTemplate.dialog.selectAll': '全選',
+  'statGroupTemplate.dialog.clearAll': '取消全選',
+  'statGroupTemplate.import.description':
+    '貼上匯出內容、從剪貼簿讀取，或選擇／拖曳備份 JSON 檔，勾選要匯入的常用詞綴群組。',
+  'statGroupTemplate.import.placeholder': '貼上常用詞綴群組匯出 JSON，或將備份檔拖曳至此視窗…',
+  'statGroupTemplate.import.chooseFile': '選擇備份檔',
+  'statGroupTemplate.import.selectedSummary': '已勾選 {selected} / {total} 筆',
+  'statGroupTemplate.import.skippedNotice': '（已略過 {skipped} 筆無效項目）',
+  'statGroupTemplate.import.confirmBtn': '匯入 ({count})',
+  'statGroupTemplate.host.searchPlaceholder': '篩選常用詞綴群組…',
   'statGroupTemplate.unit.groups': '組',
   'statGroupTemplate.unit.affixes': '條詞綴',
   'liveSearch.presentation.enabledCount': '已啟用 {count} 項',

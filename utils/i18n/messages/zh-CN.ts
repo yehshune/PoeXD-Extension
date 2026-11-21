@@ -1028,6 +1028,16 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'statGroupTemplate.host.saveCurrent': '将当前词缀分组存为常用…',
   'statGroupTemplate.dialog.description':
     '勾选要一起存成这个常用类别的词缀分组。使用时会把它们新增到当前搜索。',
+  'statGroupTemplate.dialog.selectAll': '全选',
+  'statGroupTemplate.dialog.clearAll': '取消全选',
+  'statGroupTemplate.import.description':
+    '粘贴导出内容、从剪贴板读取，或选择／拖拽备份 JSON 档，勾选要导入的常用词缀分组。',
+  'statGroupTemplate.import.placeholder': '粘贴常用词缀分组导出 JSON，或将备份档拖拽至此窗口…',
+  'statGroupTemplate.import.chooseFile': '选择备份档',
+  'statGroupTemplate.import.selectedSummary': '已勾选 {selected} / {total} 笔',
+  'statGroupTemplate.import.skippedNotice': '（已跳过 {skipped} 笔无效项）',
+  'statGroupTemplate.import.confirmBtn': '导入 ({count})',
+  'statGroupTemplate.host.searchPlaceholder': '筛选常用词缀分组…',
   'statGroupTemplate.unit.groups': '组',
   'statGroupTemplate.unit.affixes': '条词缀',
   'liveSearch.presentation.enabledCount': '已启用 {count} 项',

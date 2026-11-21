@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import Sortable from 'sortablejs';
-import { Eye, Pencil, SlidersHorizontal } from '@lucide/vue';
+import { Eye, Pencil, SlidersHorizontal, Trash2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
-import type { StatGroupTemplate } from '@/utils/stat-group-template-store';
+import {
+  STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH,
+  type StatGroupTemplate,
+} from '@/utils/stat-group-template-store';
 import { isTradeSearchFormUrl } from '@/entrypoints/content/logic/form-url-sync';
 import { criteriaFromTradeQuery } from '@/utils/criteria-overlay';
 import SidebarPane from '../layout/SidebarPane.vue';
@@ -25,7 +29,11 @@ import {
   useCriteriaOverlayManager,
   type CriteriaOverlayManager,
 } from '@/components/injected/criteria-overlay-manager';
-import { summarizeOverlayCriteria } from '@/components/injected/criteria-overlay-labels';
+import {
+  describeStatGroupsTooltip,
+  formatCompactStatGroupChip,
+  summarizeOverlayCriteria,
+} from '@/components/injected/criteria-overlay-labels';
 import { moveTemplateId } from './template-order';
 import { t } from '@/utils/i18n';
 import StatGroupTemplateToolbar from './StatGroupTemplateToolbar.vue';
@@ -51,9 +59,15 @@ const listRef = ref<HTMLElement | null>(null);
 const pageHasForm = ref(isTradeSearchFormUrl(readUrl()));
 const sidebarPosition = computed(() => props.sidebarPosition ?? 'left');
 
-const visibleTemplates = computed(() => filterTemplatesByName(templates.value, query.value));
-/** 搜尋中只看得到部分結果，拖曳位置容易誤判，因此停用排序與拖曳刪除。 */
-const canDrag = computed(() => query.value.trim() === '');
+const editingTemplateId = ref<string | null>(null);
+const editingTemplateName = ref('');
+const renameInputRef = ref<InstanceType<typeof Input>[] | InstanceType<typeof Input> | null>(null);
+
+const visibleTemplates = computed(() =>
+  filterTemplatesByName(templates.value, query.value, manager.version),
+);
+/** 搜尋中或行內編輯名稱時停用排序與拖曳刪除，避免誤觸與錯位。 */
+const canDrag = computed(() => query.value.trim() === '' && editingTemplateId.value === null);
 
 const {
   trashZone,
@@ -99,7 +113,58 @@ async function saveBackPreview(modifiedQuery: Record<string, unknown>): Promise<
 
 function summaryOf(template: StatGroupTemplate): string {
   const filters = template.statGroups.reduce((sum, g) => sum + g.filters.length, 0);
-  return `${summarizeOverlayCriteria(criteriaOf(template))} · ${filters} ${t('statGroupTemplate.unit.affixes')}`;
+  const chips = template.statGroups.map(formatCompactStatGroupChip).join(' ');
+  const base = `${summarizeOverlayCriteria(criteriaOf(template))} · ${filters} ${t('statGroupTemplate.unit.affixes')}`;
+  return chips ? `${base} · ${chips}` : base;
+}
+
+function tooltipOf(template: StatGroupTemplate): string {
+  return describeStatGroupsTooltip(template.statGroups, manager.version);
+}
+
+async function startRename(template: StatGroupTemplate) {
+  editingTemplateId.value = template.id;
+  editingTemplateName.value = template.name;
+  await nextTick();
+  const rawRef = Array.isArray(renameInputRef.value)
+    ? renameInputRef.value[0]
+    : renameInputRef.value;
+  const inputEl =
+    (rawRef?.$el instanceof HTMLInputElement
+      ? rawRef.$el
+      : (rawRef?.$el as HTMLElement | undefined)?.querySelector?.('input')) ??
+    listRef.value?.querySelector<HTMLInputElement>(
+      '[data-test="stat-group-template-rename-input"]',
+    );
+  inputEl?.focus();
+  inputEl?.select();
+}
+
+let isCancellingRename = false;
+
+function cancelRename() {
+  isCancellingRename = true;
+  editingTemplateId.value = null;
+  editingTemplateName.value = '';
+  void nextTick(() => {
+    isCancellingRename = false;
+  });
+}
+
+async function commitRename(template: StatGroupTemplate, event?: Event) {
+  if (isCancellingRename || editingTemplateId.value !== template.id) return;
+  const targetInput =
+    event?.target instanceof HTMLInputElement
+      ? event.target
+      : listRef.value?.querySelector<HTMLInputElement>(
+          '[data-test="stat-group-template-rename-input"]',
+        );
+  const rawName = targetInput ? targetInput.value : editingTemplateName.value;
+  const nextName = rawName.trim();
+  editingTemplateId.value = null;
+  editingTemplateName.value = '';
+  if (!nextName || nextName === template.name) return;
+  await manager.renameTemplate(template, nextName);
 }
 
 /** 官方頁面是 SPA，路由可能在側邊欄開著時改變，因此在互動時重新判斷。 */
@@ -258,10 +323,34 @@ onUnmounted(() => {
               : 'hover:bg-muted/40',
           ]"
         >
+          <div
+            v-if="editingTemplateId === template.id"
+            class="flex min-w-0 flex-1 flex-col gap-[var(--pxd-space-xs)]"
+            @click.stop
+          >
+            <Input
+              ref="renameInputRef"
+              v-model="editingTemplateName"
+              size="sm"
+              class="w-full min-w-0"
+              data-test="stat-group-template-rename-input"
+              :maxlength="STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH"
+              @keyup.enter.stop.prevent="commitRename(template, $event)"
+              @keyup.escape.stop.prevent="cancelRename"
+              @keydown.enter.stop.prevent="commitRename(template, $event)"
+              @keydown.esc.stop.prevent="cancelRename"
+              @blur="commitRename(template, $event)"
+            />
+            <span class="truncate text-[length:var(--pxd-font-micro)] text-muted-foreground">
+              {{ summaryOf(template) }}
+            </span>
+          </div>
           <button
+            v-else
             type="button"
             class="flex min-w-0 flex-1 cursor-pointer flex-col gap-[var(--pxd-space-xs)] border-0 bg-transparent p-0 text-left text-inherit"
             :aria-expanded="preview.activeItem.value?.id === template.id"
+            :title="tooltipOf(template)"
             data-test="stat-group-template-toggle"
             @click="togglePreview(template, $event)"
           >
@@ -274,6 +363,7 @@ onUnmounted(() => {
           </button>
 
           <span
+            v-if="editingTemplateId !== template.id"
             class="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
           >
             <Button
@@ -288,12 +378,24 @@ onUnmounted(() => {
             <Button
               variant="ghost"
               size="icon-sm"
+              data-test="stat-group-template-rename"
               :title="t('statGroupTemplate.action.rename')"
               :aria-label="t('statGroupTemplate.action.rename')"
               :disabled="busy"
-              @click.stop="manager.renameTemplate(template)"
+              @click.stop="startRename(template)"
             >
               <Pencil />
+            </Button>
+            <Button
+              variant="ghost-destructive"
+              size="icon-sm"
+              data-test="stat-group-template-delete"
+              :title="t('statGroupTemplate.action.delete')"
+              :aria-label="t('statGroupTemplate.action.delete')"
+              :disabled="busy"
+              @click.stop="manager.removeTemplate(template)"
+            >
+              <Trash2 />
             </Button>
           </span>
 

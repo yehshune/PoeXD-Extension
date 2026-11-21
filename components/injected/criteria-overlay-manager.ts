@@ -20,7 +20,7 @@ import {
 } from '@/utils/stat-group-template-transfer';
 import { getPoeVersion, type PoeVersion } from '@/utils/trade-context';
 import { t } from '@/utils/i18n';
-import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
+import { loadTradeDictionaries, translateStatLines } from '@/utils/trade-stat-dictionary';
 import {
   createCriteriaOverlaySession,
   describeCriteriaOverlayReport,
@@ -82,7 +82,7 @@ export interface CriteriaOverlayManager {
   undo(): Promise<void>;
   beginSaveTemplate(): Promise<void>;
   saveTemplate(payload: { name: string; keys: readonly string[] }): Promise<void>;
-  renameTemplate(template: StatGroupTemplate): Promise<void>;
+  renameTemplate(template: StatGroupTemplate, newName?: string): Promise<void>;
   /** 把預覽中微調後的詞綴群組存回範本；成功回傳 true。 */
   updateTemplateStatGroups(
     template: StatGroupTemplate,
@@ -92,20 +92,39 @@ export interface CriteriaOverlayManager {
   reorderTemplates(orderedIds: readonly string[]): Promise<void>;
   /** 目前清單的匯出內容（見 stat-group-template-transfer）。 */
   exportTemplates(): string;
-  /** 請使用者貼上匯出內容後附加匯入。 */
-  importTemplates(): Promise<void>;
+  /** 請使用者貼上匯出內容後附加匯入（若已傳入 rawText 則直接解析匯入）。 */
+  importTemplates(rawText?: string): Promise<void>;
+  /** 直接附加匯入已解析的常用詞綴群組項目。 */
+  importTemplateEntries(
+    entries: readonly { name: string; statGroups: readonly CriteriaOverlayStatGroup[] }[],
+    skipped?: number,
+  ): Promise<boolean>;
   /** 確認後清空目前版本的所有常用詞綴群組。 */
   clearTemplates(): Promise<void>;
 }
 
-/** 依名稱篩選（不分大小寫）；空白查詢回傳原陣列。 */
+/** 依名稱或群組內詞綴文字篩選（不分大小寫）；空白查詢回傳原陣列。 */
 export function filterTemplatesByName(
   templates: readonly StatGroupTemplate[],
   query: string,
+  version?: PoeVersion,
 ): readonly StatGroupTemplate[] {
   const needle = query.trim().toLowerCase();
   if (!needle) return templates;
-  return templates.filter((t) => t.name.toLowerCase().includes(needle));
+  return templates.filter((t) => {
+    if (t.name.toLowerCase().includes(needle)) return true;
+    const groups = t.statGroups;
+    if (!Array.isArray(groups)) return false;
+    return groups.some((group) =>
+      group.filters?.some((filter) => {
+        if (!filter?.id) return false;
+        if (filter.id.toLowerCase().includes(needle)) return true;
+        return translateStatLines(filter.id, version).some((line) =>
+          line.toLowerCase().includes(needle),
+        );
+      }),
+    );
+  });
 }
 
 function errorMessage(error: unknown): string {
@@ -276,13 +295,16 @@ export function createCriteriaOverlayManager(
         notify(t('statGroupTemplate.toast.saved', { name: payload.name }), 'success');
       }),
 
-    renameTemplate: (template) =>
+    renameTemplate: (template, newName) =>
       run(async () => {
-        const next = await prompt(
-          t('statGroupTemplate.dialog.renamePrompt'),
-          template.name,
-          t('statGroupTemplate.dialog.renameTitle'),
-        );
+        const next =
+          newName !== undefined
+            ? newName
+            : await prompt(
+                t('statGroupTemplate.dialog.renamePrompt'),
+                template.name,
+                t('statGroupTemplate.dialog.renameTitle'),
+              );
         if (next == null || next.trim() === '' || next.trim() === template.name) return;
         await requireStore().rename(template.id, next);
       }),
@@ -311,13 +333,35 @@ export function createCriteriaOverlayManager(
 
     exportTemplates: () => serializeStatGroupTemplates(version, templates.value),
 
-    importTemplates: () =>
-      run(async () => {
-        const text = await prompt(
-          t('statGroupTemplate.dialog.importPrompt'),
-          '',
-          t('statGroupTemplate.dialog.importTitle'),
+    importTemplateEntries: async (entries, skipped = 0) => {
+      let imported = false;
+      await run(async () => {
+        if (entries.length === 0) return;
+        await requireStore().createMany(entries);
+        notify(
+          skipped > 0
+            ? t('statGroupTemplate.toast.importedWithSkipped', {
+                count: entries.length,
+                skipped,
+              })
+            : t('statGroupTemplate.toast.imported', { count: entries.length }),
+          'success',
         );
+        imported = true;
+      });
+      return imported;
+    },
+
+    importTemplates: (rawText) =>
+      run(async () => {
+        const text =
+          rawText !== undefined
+            ? rawText
+            : await prompt(
+                t('statGroupTemplate.dialog.importPrompt'),
+                '',
+                t('statGroupTemplate.dialog.importTitle'),
+              );
         if (text == null || text.trim() === '') return;
         const { entries, skipped } = parseStatGroupTemplateTransfer(text.trim(), version);
         await requireStore().createMany(entries);

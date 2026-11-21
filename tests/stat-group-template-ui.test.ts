@@ -209,6 +209,18 @@ describe('StatGroupTemplateSaveDialog', () => {
     nameInput.dispatchEvent(new Event('input'));
     await nextTick();
 
+    const toggleAllBtn = dialog.querySelector<HTMLButtonElement>(
+      '[data-test="stat-group-template-toggle-all"]',
+    )!;
+    expect(toggleAllBtn).not.toBeNull();
+    toggleAllBtn.click(); // 取消全選
+    await nextTick();
+    expect(saveButton.disabled).toBe(true);
+
+    toggleAllBtn.click(); // 全選
+    await nextTick();
+    expect(saveButton.disabled).toBe(false);
+
     const statusCheckbox = dialog.querySelector<HTMLElement>(
       '[data-part-key="stat:1"] [data-slot="checkbox"]',
     )!;

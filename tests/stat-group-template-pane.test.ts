@@ -85,10 +85,10 @@ const items = (root: HTMLElement) =>
   Array.from(root.querySelectorAll<HTMLElement>('[data-test="stat-group-template-item"]'));
 
 describe('StatGroupTemplatePane', () => {
-  it('lists templates in stored order with a summary, filterable by name', async () => {
+  it('lists templates in stored order with a summary, filterable by name and stat text', async () => {
     const { container } = await mountPane();
     expect(items(container).map((el) => el.dataset.templateId)).toEqual(['t1', 't2']);
-    expect(items(container)[0].textContent).toContain('2 個詞綴群組 · 3 條詞綴');
+    expect(items(container)[0].textContent).toContain('2 個詞綴群組 · 3 條詞綴 · 且(1) 計數≥1(2)');
 
     expect(container.querySelector('[data-test="stat-group-template-search"]')).toBeNull();
     container
@@ -102,6 +102,80 @@ describe('StatGroupTemplatePane', () => {
     input.dispatchEvent(new Event('input'));
     await flush();
     expect(items(container).map((el) => el.dataset.templateId)).toEqual(['t2']);
+
+    // 支援依群組內詞綴篩選
+    input.value = 'explicit.b';
+    input.dispatchEvent(new Event('input'));
+    await flush();
+    expect(items(container).map((el) => el.dataset.templateId)).toEqual(['t1']);
+  });
+
+  it('supports inline rename and single-row delete button', async () => {
+    const { container, store } = await mountPane();
+    const firstRow = () => items(container)[0];
+    firstRow()
+      .querySelector<HTMLButtonElement>('[data-test="stat-group-template-rename"]')!
+      .click();
+    await flush();
+
+    const renameInput = firstRow().querySelector<HTMLInputElement>(
+      '[data-test="stat-group-template-rename-input"]',
+    )!;
+    expect(renameInput).not.toBeNull();
+    expect(renameInput.value).toBe('生命抗性');
+
+    renameInput.value = '三抗血量';
+    renameInput.dispatchEvent(new Event('input'));
+    renameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flush();
+
+    expect((await store.list())[0].name).toBe('三抗血量');
+    expect(firstRow().textContent).toContain('三抗血量');
+
+    firstRow()
+      .querySelector<HTMLButtonElement>('[data-test="stat-group-template-delete"]')!
+      .click();
+    await flush();
+    expect((await store.list()).map((t) => t.id)).toEqual(['t2']);
+  });
+
+  it('opens the import dialog from the toolbar menu and imports selected entries', async () => {
+    const { container, manager, store } = await mountPane();
+    const exported = manager.exportTemplates();
+    container.querySelector<HTMLButtonElement>('[data-test="stat-group-template-menu"]')!.click();
+    await flush();
+
+    document.body
+      .querySelector<HTMLElement>('[data-test="stat-group-template-open-import"]')!
+      .click();
+    await flush();
+
+    const dialog = document.body.querySelector<HTMLElement>(
+      '[data-test="stat-group-template-import-dialog"]',
+    )!;
+    expect(dialog).not.toBeNull();
+
+    const input = dialog.querySelector<HTMLInputElement>(
+      '[data-test="stat-group-template-import-input"]',
+    )!;
+    input.value = exported;
+    input.dispatchEvent(new Event('input'));
+    await flush();
+
+    const importItems = dialog.querySelectorAll('[data-test="stat-group-template-import-item"]');
+    expect(importItems).toHaveLength(2);
+
+    dialog
+      .querySelector<HTMLButtonElement>('[data-test="stat-group-template-import-confirm"]')!
+      .click();
+    await flush();
+
+    expect((await store.list()).map((t) => t.name)).toEqual([
+      '生命抗性',
+      '移速',
+      '生命抗性',
+      '移速',
+    ]);
   });
 
   it('overlays every group of a template', async () => {

@@ -89,10 +89,14 @@ async function setup(options: { prompt?: string | null; capture?: OverlayCriteri
 const names = (templates: readonly StatGroupTemplate[]) => templates.map((t) => t.name);
 
 describe('filterTemplatesByName', () => {
-  it('matches case-insensitively and returns everything for a blank query', () => {
-    const templates = [{ name: 'Life Res' }, { name: '移速' }] as StatGroupTemplate[];
+  it('matches name and stat lines case-insensitively and returns everything for a blank query', () => {
+    const templates = [
+      { name: 'Life Res', statGroups: [{ type: 'and', filters: [{ id: 'explicit.stat_life' }] }] },
+      { name: '移速', statGroups: [{ type: 'and', filters: [{ id: 'explicit.stat_ms' }] }] },
+    ] as StatGroupTemplate[];
     expect(filterTemplatesByName(templates, '  ')).toBe(templates);
     expect(names(filterTemplatesByName(templates, 'res'))).toEqual(['Life Res']);
+    expect(names(filterTemplatesByName(templates, 'stat_ms'))).toEqual(['移速']);
   });
 });
 

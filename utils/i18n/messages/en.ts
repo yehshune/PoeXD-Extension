@@ -1099,6 +1099,17 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'statGroupTemplate.host.saveCurrent': 'Save current groups as template…',
   'statGroupTemplate.dialog.description':
     'Select stat groups to save as template. Applying will add them to current search.',
+  'statGroupTemplate.dialog.selectAll': 'Select All',
+  'statGroupTemplate.dialog.clearAll': 'Clear All',
+  'statGroupTemplate.import.description':
+    'Paste exported JSON, read from clipboard, or choose/drop a backup file, then select templates to import.',
+  'statGroupTemplate.import.placeholder':
+    'Paste exported stat group templates JSON, or drag a backup file here…',
+  'statGroupTemplate.import.chooseFile': 'Choose Backup File',
+  'statGroupTemplate.import.selectedSummary': 'Selected {selected} / {total}',
+  'statGroupTemplate.import.skippedNotice': '({skipped} invalid skipped)',
+  'statGroupTemplate.import.confirmBtn': 'Import ({count})',
+  'statGroupTemplate.host.searchPlaceholder': 'Filter stat templates…',
   'statGroupTemplate.unit.groups': 'groups',
   'statGroupTemplate.unit.affixes': 'affixes',
   'liveSearch.presentation.enabledCount': 'Enabled {count}',
