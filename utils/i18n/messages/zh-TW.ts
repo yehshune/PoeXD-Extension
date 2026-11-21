@@ -283,6 +283,7 @@ export const ZH_TW_MESSAGES = {
   'tools.economy.autoRefetchHint': '到期後，下一次需要價格資料時自動重新取得。',
   'tools.economy.toastUpdated': '價格換算資料已成功更新',
   'tools.economy.errorUpdateFailed': '更新價格資料失敗',
+  'tools.about.title': '關於與資源',
   'tools.support.title': '支持開發',
   'tools.support.description': 'PoeXD 免費且開源。如果它幫你省下時間，歡迎贊助支持後續開發。',
   'tools.support.linkLabel': '前往贊助頁',

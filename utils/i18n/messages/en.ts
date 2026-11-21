@@ -315,6 +315,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Once expired, rates are automatically refetched the next time price data is needed.',
   'tools.economy.toastUpdated': 'Price conversion rates updated',
   'tools.economy.errorUpdateFailed': 'Failed to update price conversion rates',
+  'tools.about.title': 'About & Links',
   'tools.support.title': 'Support Development',
   'tools.support.description':
     'PoeXD is free and open source. If it saves you time, you can support its development.',

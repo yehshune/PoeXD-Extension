@@ -10,10 +10,14 @@ const props = withDefaults(
     icon: Component;
     highlighted?: boolean;
     collapsed?: boolean;
+    collapsible?: boolean;
+    divided?: boolean;
   }>(),
   {
     highlighted: false,
     collapsed: false,
+    collapsible: true,
+    divided: true,
   },
 );
 
@@ -23,8 +27,13 @@ const emit = defineEmits<{
 
 const { visible, query } = useSettingsSection(() => props.title);
 const isSearching = computed(() => normalizeSettingsQuery(query.value) !== '');
-const isExpanded = computed(() => isSearching.value || !props.collapsed);
+const isExpanded = computed(() => !props.collapsible || isSearching.value || !props.collapsed);
 const headingId = `pxd-settings-section-${props.sectionId}`;
+
+function handleToggleCollapse() {
+  if (!props.collapsible) return;
+  emit('toggle-collapse');
+}
 </script>
 
 <template>
@@ -32,7 +41,7 @@ const headingId = `pxd-settings-section-${props.sectionId}`;
     v-show="visible"
     :data-settings-section="sectionId"
     :data-settings-section-highlighted="highlighted ? 'true' : undefined"
-    :data-settings-section-collapsed="isExpanded ? undefined : 'true'"
+    :data-settings-section-collapsed="collapsible && !isExpanded ? 'true' : undefined"
     :aria-labelledby="headingId"
     :class="[
       'flex flex-col rounded-lg border px-[var(--pxd-space-lg)] py-[var(--pxd-space-md)] transition-[background-color,border-color] duration-300',
@@ -41,15 +50,16 @@ const headingId = `pxd-settings-section-${props.sectionId}`;
   >
     <header
       :class="[
-        'flex min-h-[32px] min-w-0 cursor-pointer select-none items-center gap-[var(--pxd-space-sm)]',
+        'flex min-h-[32px] min-w-0 items-center gap-[var(--pxd-space-sm)]',
+        collapsible ? 'cursor-pointer select-none' : '',
         isExpanded ? 'border-b border-border/70 pb-[var(--pxd-space-md)]' : '',
       ]"
-      :aria-expanded="isExpanded"
-      role="button"
-      tabindex="0"
-      @click="emit('toggle-collapse')"
-      @keydown.enter.prevent="emit('toggle-collapse')"
-      @keydown.space.prevent="emit('toggle-collapse')"
+      :aria-expanded="collapsible ? isExpanded : undefined"
+      :role="collapsible ? 'button' : undefined"
+      :tabindex="collapsible ? 0 : undefined"
+      @click="handleToggleCollapse"
+      @keydown.enter.prevent="handleToggleCollapse"
+      @keydown.space.prevent="handleToggleCollapse"
     >
       <component
         :is="icon"
@@ -64,6 +74,7 @@ const headingId = `pxd-settings-section-${props.sectionId}`;
       </h3>
       <slot name="aside" />
       <ChevronDown
+        v-if="collapsible"
         :class="[
           'size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground transition-transform duration-200',
           isExpanded ? '' : '-rotate-90',
@@ -73,7 +84,11 @@ const headingId = `pxd-settings-section-${props.sectionId}`;
     </header>
     <div
       v-show="isExpanded"
-      class="mt-[var(--pxd-space-sm)] flex flex-col divide-y divide-border/35 [&>*]:py-[var(--pxd-space-md)] [&>*:last-child]:pb-[var(--pxd-space-xs)]"
+      :class="
+        divided
+          ? 'mt-[var(--pxd-space-sm)] flex flex-col divide-y divide-border/35 [&>*]:py-[var(--pxd-space-md)] [&>*:last-child]:pb-[var(--pxd-space-xs)]'
+          : 'mt-[var(--pxd-space-md)] flex flex-col gap-[var(--pxd-space-md)] pb-[var(--pxd-space-xs)]'
+      "
     >
       <slot />
     </div>

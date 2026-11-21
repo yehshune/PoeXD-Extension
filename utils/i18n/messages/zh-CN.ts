@@ -285,6 +285,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'tools.economy.autoRefetchHint': '到期后，下一次需要价格数据时自动重新获取。',
   'tools.economy.toastUpdated': '价格换算数据已成功更新',
   'tools.economy.errorUpdateFailed': '更新价格数据失败',
+  'tools.about.title': '关于与资源',
   'tools.support.title': '支持开发',
   'tools.support.description': 'PoeXD 免费且开源。如果它帮你节省了时间，欢迎赞助支持后续开发。',
   'tools.support.linkLabel': '前往赞助页',

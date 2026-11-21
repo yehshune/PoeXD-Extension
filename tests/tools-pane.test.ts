@@ -739,5 +739,57 @@ describe('ToolsPane & time formatters', () => {
       expect(container.textContent).toContain('Price Conversion Data');
       expect(container.textContent).toContain('5m ago');
     });
+
+    it('renders non-collapsible section headers without interactive button semantics', async () => {
+      (extensionMessaging.sendMessage as any).mockImplementation(async () => ({}));
+
+      app = createApp(ToolsPane);
+      app.mount(container);
+      await nextTick();
+
+      const headers = container.querySelectorAll('[data-settings-section^="tools-"] > header');
+      expect(headers.length).toBeGreaterThanOrEqual(3);
+      for (const header of headers) {
+        expect(header.getAttribute('role')).toBeNull();
+        expect(header.getAttribute('aria-expanded')).toBeNull();
+        expect(header.getAttribute('tabindex')).toBeNull();
+      }
+    });
+
+    it('exposes semantic cache state and absolute timestamp tooltip on last updated', async () => {
+      delete (window as any).location;
+      (window as any).location = {
+        hostname: 'www.pathofexile.com',
+        pathname: '/trade/search/Settlers',
+        href: 'https://www.pathofexile.com/trade/search/Settlers',
+      };
+
+      const now = Date.now();
+      const updatedAt = now - 10 * 60 * 1000;
+      (extensionMessaging.sendMessage as any).mockImplementation(async (type: string) => {
+        if (type === 'economy:getRateMetadata') {
+          return {
+            updatedAt,
+            source: 'cache' as const,
+            ttl: 60 * 60 * 1000,
+            hasData: true,
+            isExpired: false,
+          };
+        }
+        return {};
+      });
+
+      app = createApp(ToolsPane);
+      app.mount(container);
+      await nextTick();
+      await nextTick();
+
+      const cacheEl = container.querySelector('[data-cache-state]');
+      expect(cacheEl?.getAttribute('data-cache-state')).toBe('valid');
+
+      const dds = container.querySelectorAll('[data-tools-economy-status] dd');
+      const lastUpdateEl = dds[2];
+      expect(lastUpdateEl?.getAttribute('title')).toBe(formatAbsoluteTime(updatedAt));
+    });
   });
 });

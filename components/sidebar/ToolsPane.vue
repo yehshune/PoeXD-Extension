@@ -1,7 +1,13 @@
 <template>
-  <div class="flex flex-col gap-[calc(var(--pxd-section-gap)*2.4)]">
+  <div class="flex flex-col gap-[var(--pxd-section-gap)]">
     <!-- 使用導覽：隨時可以重看初始導覽 -->
-    <SettingsSection section-id="tools-tour" :title="t('tools.tour.title')" :icon="Compass">
+    <SettingsSection
+      section-id="tools-tour"
+      :title="t('tools.tour.title')"
+      :icon="Compass"
+      :collapsible="false"
+      :divided="false"
+    >
       <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
         {{ t('tools.tour.description') }}
       </p>
@@ -12,16 +18,23 @@
         class="w-full"
         @click="startTour"
       >
+        <Play aria-hidden="true" />
         {{ t('tools.tour.start') }}
       </Button>
     </SettingsSection>
 
     <!-- 價格換算資料 -->
-    <SettingsSection section-id="tools-economy" :title="t('tools.economy.title')" :icon="Coins">
+    <SettingsSection
+      section-id="tools-economy"
+      :title="t('tools.economy.title')"
+      :icon="Coins"
+      :collapsible="false"
+      :divided="false"
+    >
       <!-- poe.ninja 只有國際服資料：其他網域不提供價格換算，也不取得或更新資料 -->
       <p
         v-if="!priceConversionSupported"
-        class="price-conversion-unsupported m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground"
+        class="price-conversion-unsupported m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground"
       >
         {{
           currentRealmLabel
@@ -32,7 +45,7 @@
       <template v-else>
         <dl data-tools-economy-status class="m-0 flex flex-col gap-[var(--pxd-space-sm)]">
           <div class="flex min-w-0 items-baseline justify-between gap-[var(--pxd-space-md)]">
-            <dt class="shrink-0 text-[length:var(--pxd-font-secondary)] text-foreground">
+            <dt class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
               {{ t('tools.economy.dataScopeLabel') }}
             </dt>
             <dd
@@ -42,22 +55,30 @@
             </dd>
           </div>
           <div class="flex min-w-0 items-baseline justify-between gap-[var(--pxd-space-md)]">
-            <dt class="shrink-0 text-[length:var(--pxd-font-secondary)] text-foreground">
+            <dt class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
               {{ t('tools.economy.cacheStatusLabel') }}
             </dt>
             <dd
-              class="m-0 min-w-0 text-right text-[length:var(--pxd-font-caption)] font-medium text-foreground"
+              :data-cache-state="cacheStatusState"
+              class="m-0 flex min-w-0 items-center justify-end gap-1.5 text-right text-[length:var(--pxd-font-caption)] font-medium tabular-nums"
+              :class="cacheStatusTextClass"
             >
-              {{ cacheStatusDisplay }}
+              <span
+                class="size-2 shrink-0 rounded-full"
+                :class="cacheStatusDotClass"
+                aria-hidden="true"
+              ></span>
+              <span class="min-w-0 truncate">{{ cacheStatusDisplay }}</span>
             </dd>
           </div>
           <div class="flex min-w-0 items-baseline justify-between gap-[var(--pxd-space-md)]">
-            <dt class="shrink-0 text-[length:var(--pxd-font-secondary)] text-foreground">
+            <dt class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
               {{ t('tools.economy.lastUpdatedLabel') }}
             </dt>
             <dd
-              class="m-0 min-w-0 text-right text-[length:var(--pxd-font-caption)] text-foreground"
-              :class="{ 'font-mono': Boolean(economyMetadata.updatedAt) }"
+              :title="lastUpdateTooltip"
+              class="m-0 min-w-0 text-right text-[length:var(--pxd-font-caption)] font-medium tabular-nums"
+              :class="economyMetadata.updatedAt ? 'text-foreground' : 'text-muted-foreground'"
             >
               {{ lastUpdateDisplay }}
             </dd>
@@ -72,6 +93,7 @@
             :disabled="!currentLeague || isRefreshingEconomy"
             @click="handleForceRefreshEconomy"
           >
+            <RefreshCw :class="{ 'animate-spin': isRefreshingEconomy }" aria-hidden="true" />
             {{
               isRefreshingEconomy ? t('tools.economy.updatingBtn') : t('tools.economy.updateNowBtn')
             }}
@@ -83,7 +105,7 @@
 
         <!-- 低權重說明 -->
         <div
-          class="flex flex-col gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground"
+          class="flex flex-col gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground/80"
         >
           <p class="m-0">{{ economySourceDescription }}</p>
           <p class="m-0">{{ t('tools.economy.autoRefetchHint') }}</p>
@@ -91,42 +113,89 @@
       </template>
     </SettingsSection>
 
-    <!-- 改版資訊 -->
+    <!-- 關於與資源：整合改版資訊與支持開發 -->
     <SettingsSection
-      section-id="tools-releases"
-      :title="t('tools.releases.title')"
-      :icon="Newspaper"
+      section-id="tools-about"
+      :title="t('tools.about.title')"
+      :icon="Info"
+      :collapsible="false"
+      :divided="true"
     >
-      <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
-        {{ t('tools.releases.description') }}
-      </p>
-      <a
-        :href="releasesPageUrl"
-        data-releases-link="github-releases"
-        target="_blank"
-        rel="noopener noreferrer"
-        :class="cn(buttonVariants({ variant: 'outline', size: 'default' }), 'w-full no-underline')"
-      >
-        {{ t('tools.releases.linkLabel') }}
-        <ExternalLink aria-hidden="true" />
-      </a>
-    </SettingsSection>
+      <template v-if="appVersion" #aside>
+        <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums">
+          {{ appVersion }}
+        </span>
+      </template>
 
-    <!-- 支持開發 -->
-    <SettingsSection section-id="tools-support" :title="t('tools.support.title')" :icon="Heart">
-      <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
-        {{ t('tools.support.description') }}
-      </p>
-      <a
-        :href="supportPageUrl"
-        data-support-link="support-page"
-        target="_blank"
-        rel="noopener noreferrer"
-        :class="cn(buttonVariants({ variant: 'outline', size: 'default' }), 'w-full no-underline')"
-      >
-        {{ t('tools.support.linkLabel') }}
-        <ExternalLink aria-hidden="true" />
-      </a>
+      <!-- 改版資訊 -->
+      <div class="flex flex-col gap-[var(--pxd-space-xs)]">
+        <div
+          class="flex flex-wrap items-center justify-between gap-x-[var(--pxd-space-sm)] gap-y-[var(--pxd-space-xs)]"
+        >
+          <span
+            class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] font-medium text-foreground"
+          >
+            <Newspaper
+              class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            {{ t('tools.releases.title') }}
+          </span>
+          <a
+            :href="releasesPageUrl"
+            data-releases-link="github-releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            :class="
+              cn(
+                buttonVariants({ variant: 'link', size: 'sm' }),
+                'h-auto px-0 py-0 text-[length:var(--pxd-font-caption)]',
+              )
+            "
+          >
+            {{ t('tools.releases.linkLabel') }}
+            <ExternalLink class="size-3.5" aria-hidden="true" />
+          </a>
+        </div>
+        <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
+          {{ t('tools.releases.description') }}
+        </p>
+      </div>
+
+      <!-- 支持開發 -->
+      <div class="flex flex-col gap-[var(--pxd-space-xs)]">
+        <div
+          class="flex flex-wrap items-center justify-between gap-x-[var(--pxd-space-sm)] gap-y-[var(--pxd-space-xs)]"
+        >
+          <span
+            class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] font-medium text-foreground"
+          >
+            <Heart
+              class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            {{ t('tools.support.title') }}
+          </span>
+          <a
+            :href="supportPageUrl"
+            data-support-link="support-page"
+            target="_blank"
+            rel="noopener noreferrer"
+            :class="
+              cn(
+                buttonVariants({ variant: 'link', size: 'sm' }),
+                'h-auto px-0 py-0 text-[length:var(--pxd-font-caption)]',
+              )
+            "
+          >
+            {{ t('tools.support.linkLabel') }}
+            <ExternalLink class="size-3.5" aria-hidden="true" />
+          </a>
+        </div>
+        <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
+          {{ t('tools.support.description') }}
+        </p>
+      </div>
     </SettingsSection>
   </div>
 </template>
@@ -136,7 +205,7 @@ import { computed, defineComponent, onMounted, onUnmounted, ref } from 'vue';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RELEASES_PAGE_URL, SUPPORT_PAGE_URL } from '@/utils/support-links';
-import { Coins, Compass, ExternalLink, Heart, Newspaper } from '@lucide/vue';
+import { Coins, Compass, ExternalLink, Heart, Info, Newspaper, Play, RefreshCw } from '@lucide/vue';
 import { usePageGuide } from './page-guide/usePageGuide';
 import SettingsSection from './settings/SettingsSection.vue';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
@@ -211,11 +280,26 @@ export default defineComponent({
   components: {
     Button,
     ExternalLink,
+    Heart,
+    Newspaper,
+    Play,
+    RefreshCw,
     SettingsSection,
   },
   setup() {
     const version = getPoeVersion();
     const displayVersion = computed(() => (version === 'poe2' ? 'PoE 2' : 'PoE 1'));
+    const appVersion = computed(() => {
+      try {
+        const raw =
+          typeof chrome !== 'undefined' && chrome.runtime?.getManifest
+            ? chrome.runtime.getManifest().version
+            : '';
+        return raw ? `v${raw}` : '';
+      } catch {
+        return '';
+      }
+    });
 
     const priceConversionSupported = isPriceConversionSupported();
     const currentRealmLabel = computed(() =>
@@ -244,12 +328,35 @@ export default defineComponent({
       return `${displayVersion.value} · ${leagueText}`;
     });
 
-    const cacheStatusDisplay = computed(() => {
+    const cacheStatusState = computed<'valid' | 'expired' | 'empty'>(() => {
       if (!economyMetadata.value.hasData || !economyMetadata.value.updatedAt) {
-        return t('tools.economy.cacheNoData');
+        return 'empty';
       }
       const expireTimestamp = economyMetadata.value.updatedAt + economyMetadata.value.ttl;
       if (economyMetadata.value.isExpired || nowTimestamp.value >= expireTimestamp) {
+        return 'expired';
+      }
+      return 'valid';
+    });
+
+    const cacheStatusDotClass = computed(() => {
+      if (cacheStatusState.value === 'valid') return 'bg-emerald-500';
+      if (cacheStatusState.value === 'expired') return 'bg-amber-500';
+      return 'bg-muted-foreground/50';
+    });
+
+    const cacheStatusTextClass = computed(() => {
+      if (cacheStatusState.value === 'valid') return 'text-foreground';
+      if (cacheStatusState.value === 'expired') return 'text-amber-500';
+      return 'text-muted-foreground';
+    });
+
+    const cacheStatusDisplay = computed(() => {
+      if (cacheStatusState.value === 'empty' || !economyMetadata.value.updatedAt) {
+        return t('tools.economy.cacheNoData');
+      }
+      const expireTimestamp = economyMetadata.value.updatedAt + economyMetadata.value.ttl;
+      if (cacheStatusState.value === 'expired') {
         return t('tools.economy.cacheExpired');
       }
       const relativeTime = formatFutureRelativeTime(expireTimestamp, nowTimestamp.value);
@@ -267,6 +374,13 @@ export default defineComponent({
       );
       const relativeStr = formatRelativeTime(economyMetadata.value.updatedAt, nowTimestamp.value);
       return t('tools.economy.timeWithRelative', { time: timeStr, relative: relativeStr });
+    });
+
+    const lastUpdateTooltip = computed(() => {
+      if (!economyMetadata.value.updatedAt) {
+        return undefined;
+      }
+      return formatAbsoluteTime(economyMetadata.value.updatedAt);
     });
 
     const economySourceDescription = computed(() => {
@@ -399,10 +513,12 @@ export default defineComponent({
       supportPageUrl: SUPPORT_PAGE_URL,
       Coins,
       Compass,
+      Info,
       Newspaper,
       Heart,
       startTour: () => usePageGuide().startTour(),
       displayVersion,
+      appVersion,
       priceConversionSupported,
       currentRealmLabel,
       currentLeague,
@@ -410,8 +526,12 @@ export default defineComponent({
       isRefreshingEconomy,
       economyError,
       dataScopeDisplay,
+      cacheStatusState,
+      cacheStatusDotClass,
+      cacheStatusTextClass,
       cacheStatusDisplay,
       lastUpdateDisplay,
+      lastUpdateTooltip,
       economySourceDescription,
       handleForceRefreshEconomy,
       refreshEconomyMetadata,
