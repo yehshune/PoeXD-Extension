@@ -5,8 +5,6 @@ export const THEME_IDS = [...PRESET_THEME_IDS, 'custom'] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 
 export const DEFAULT_THEME_ID: ThemeId = 'modern-dark';
-
-/** 玩家自選色的主題：由種子色與圓角推導完整語意色 */
 export const CUSTOM_THEME_ID = 'custom' satisfies ThemeId;
 
 export const THEME_ATTRIBUTE = 'data-poexd-theme';
@@ -15,11 +13,15 @@ export function isValidThemeId(value: unknown): value is ThemeId {
   return typeof value === 'string' && (THEME_IDS as readonly unknown[]).includes(value);
 }
 
+export function isPresetThemeId(value: unknown): value is PresetThemeId {
+  return typeof value === 'string' && (PRESET_THEME_IDS as readonly unknown[]).includes(value);
+}
+
 export function normalizeThemeId(value: unknown): ThemeId {
   return isValidThemeId(value) ? value : DEFAULT_THEME_ID;
 }
 
-/** 自訂主題的圓角段位（0px / 4px / 6px / 8px） */
+/** 主題圓角段位（0px / 4px / 6px / 8px） */
 export const THEME_CUSTOM_RADIUS_VALUES = ['0rem', '0.25rem', '0.375rem', '0.5rem'] as const;
 export type ThemeCustomRadius = (typeof THEME_CUSTOM_RADIUS_VALUES)[number];
 
@@ -31,11 +33,7 @@ export function isValidThemeCustomRadius(value: unknown): value is ThemeCustomRa
   );
 }
 
-export function normalizeThemeCustomRadius(value: unknown): ThemeCustomRadius {
-  return isValidThemeCustomRadius(value) ? value : DEFAULT_THEME_CUSTOM_RADIUS;
-}
-
-/** 自訂主題的五個種子色，皆為 `#rrggbb` */
+/** 主題五個核心色，皆為 `#rrggbb` */
 export interface ThemeCustomColors {
   background: string;
   card: string;
@@ -44,9 +42,11 @@ export interface ThemeCustomColors {
   destructive: string;
 }
 
-export interface ThemeCustomPreset extends ThemeCustomColors {
+export interface ThemePresetValues extends ThemeCustomColors {
   radius: ThemeCustomRadius;
 }
+
+export type ThemeOverride = Partial<ThemePresetValues>;
 
 export const THEME_CUSTOM_COLOR_KEYS = [
   'background',
@@ -57,8 +57,10 @@ export const THEME_CUSTOM_COLOR_KEYS = [
 ] as const;
 export type ThemeCustomColorKey = (typeof THEME_CUSTOM_COLOR_KEYS)[number];
 
-/** 各內建預設主題對應的自訂起始值，方便玩家一鍵帶入後微調 */
-export const THEME_CUSTOM_PRESETS: Readonly<Record<PresetThemeId, Readonly<ThemeCustomPreset>>> =
+export const DEFAULT_THEME_OVERRIDES_JSON = '{}';
+
+/** 三個內建主題的原廠色票與圓角（供顯示與作為進入自訂時的起點） */
+export const THEME_PRESETS: Readonly<Record<PresetThemeId, Readonly<ThemePresetValues>>> =
   Object.freeze({
     'modern-dark': Object.freeze({
       background: '#171717',
@@ -86,26 +88,8 @@ export const THEME_CUSTOM_PRESETS: Readonly<Record<PresetThemeId, Readonly<Theme
     }),
   });
 
-/** 預設值取自 modern-dark 的對應色，切到自訂時畫面不會突然變色 */
-export const DEFAULT_THEME_CUSTOM_COLORS: Readonly<ThemeCustomColors> = Object.freeze({
-  background: THEME_CUSTOM_PRESETS['modern-dark'].background,
-  card: THEME_CUSTOM_PRESETS['modern-dark'].card,
-  foreground: THEME_CUSTOM_PRESETS['modern-dark'].foreground,
-  primary: THEME_CUSTOM_PRESETS['modern-dark'].primary,
-  destructive: THEME_CUSTOM_PRESETS['modern-dark'].destructive,
-});
-
-/** 寫在 host inline style 上、供 main.css 的 custom 區塊讀取的種子變數 */
-export const THEME_SEED_VARIABLES = Object.freeze({
-  background: '--pxd-seed-background',
-  card: '--pxd-seed-card',
-  foreground: '--pxd-seed-foreground',
-  primary: '--pxd-seed-primary',
-  primaryForeground: '--pxd-seed-primary-foreground',
-  destructive: '--pxd-seed-destructive',
-  destructiveForeground: '--pxd-seed-destructive-foreground',
-  radius: '--pxd-seed-radius',
-} as const);
+export const DEFAULT_CUSTOM_THEME_VALUES: Readonly<ThemePresetValues> =
+  THEME_PRESETS['modern-dark'];
 
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
@@ -113,20 +97,73 @@ export function isValidHexColor(value: unknown): value is string {
   return typeof value === 'string' && HEX_COLOR_PATTERN.test(value);
 }
 
-export function normalizeHexColor(value: unknown, fallback: string): string {
-  return isValidHexColor(value) ? value.toLowerCase() : fallback;
+export function normalizeCustomThemeOverride(raw: unknown): ThemeOverride {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const record = raw as Record<string, unknown>;
+  const out: ThemeOverride = {};
+
+  for (const key of THEME_CUSTOM_COLOR_KEYS) {
+    const val = record[key];
+    if (!isValidHexColor(val)) continue;
+    const hex = val.toLowerCase();
+    if (hex !== DEFAULT_CUSTOM_THEME_VALUES[key]) out[key] = hex;
+  }
+  if (
+    isValidThemeCustomRadius(record.radius) &&
+    record.radius !== DEFAULT_CUSTOM_THEME_VALUES.radius
+  ) {
+    out.radius = record.radius;
+  }
+  return out;
 }
 
-export function normalizeThemeCustomColors(
-  value: Partial<Record<ThemeCustomColorKey, unknown>> | null | undefined,
-): ThemeCustomColors {
+export function parseCustomThemeOverride(raw: unknown): ThemeOverride {
+  if (typeof raw !== 'string') return normalizeCustomThemeOverride(raw);
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === '{}') return {};
+  try {
+    return normalizeCustomThemeOverride(JSON.parse(trimmed));
+  } catch {
+    return {};
+  }
+}
+
+export function serializeCustomThemeOverride(override: ThemeOverride): string {
+  const normalized = normalizeCustomThemeOverride(override);
+  return Object.keys(normalized).length === 0
+    ? DEFAULT_THEME_OVERRIDES_JSON
+    : JSON.stringify(normalized);
+}
+
+export function isValidThemeOverridesJson(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed);
+  } catch {
+    return false;
+  }
+}
+
+export function normalizeThemeOverridesJson(value: unknown): string {
+  return serializeCustomThemeOverride(parseCustomThemeOverride(value));
+}
+
+export function parseCustomThemeValues(raw: unknown): ThemePresetValues {
   return {
-    background: normalizeHexColor(value?.background, DEFAULT_THEME_CUSTOM_COLORS.background),
-    card: normalizeHexColor(value?.card, DEFAULT_THEME_CUSTOM_COLORS.card),
-    foreground: normalizeHexColor(value?.foreground, DEFAULT_THEME_CUSTOM_COLORS.foreground),
-    primary: normalizeHexColor(value?.primary, DEFAULT_THEME_CUSTOM_COLORS.primary),
-    destructive: normalizeHexColor(value?.destructive, DEFAULT_THEME_CUSTOM_COLORS.destructive),
+    ...DEFAULT_CUSTOM_THEME_VALUES,
+    ...parseCustomThemeOverride(raw),
   };
+}
+
+export function resolveThemeEffectiveValues(
+  themeId: ThemeId,
+  customRaw: unknown,
+): ThemePresetValues {
+  if (isPresetThemeId(themeId)) {
+    return { ...THEME_PRESETS[themeId] };
+  }
+  return parseCustomThemeValues(customRaw);
 }
 
 function srgbChannelToLinear(channel: number): number {
@@ -136,7 +173,7 @@ function srgbChannelToLinear(channel: number): number {
 
 /** OKLab 感知亮度（0–1），用來決定主色與危險色上的文字該用黑或白 */
 export function getOklabLightness(hex: string): number {
-  const normalized = normalizeHexColor(hex, '#000000');
+  const normalized = isValidHexColor(hex) ? hex.toLowerCase() : '#000000';
   const r = srgbChannelToLinear(Number.parseInt(normalized.slice(1, 3), 16));
   const g = srgbChannelToLinear(Number.parseInt(normalized.slice(3, 5), 16));
   const b = srgbChannelToLinear(Number.parseInt(normalized.slice(5, 7), 16));

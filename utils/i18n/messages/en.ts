@@ -39,7 +39,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.theme.option.caffeine': 'Caffeine',
   'settings.theme.option.catppuccin': 'Catppuccin',
   'settings.theme.option.custom': 'Custom',
-  'settings.theme.custom.preset': 'Load preset',
   'settings.theme.custom.background': 'Background',
   'settings.theme.custom.card': 'Surface',
   'settings.theme.custom.foreground': 'Text',
@@ -51,7 +50,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.theme.custom.radius.0.375rem': 'Default',
   'settings.theme.custom.radius.0.5rem': 'Rounded',
   'settings.theme.custom.hint':
-    'Other semantic colors are derived automatically; load a preset to start from it',
+    'Editing any color or corner switches to Custom; switching presets never overwrites your Custom slot',
   'settings.theme.custom.reset': 'Reset custom theme',
 
   'settings.displayLocale.label': 'Language',

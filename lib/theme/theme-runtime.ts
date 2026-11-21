@@ -1,76 +1,161 @@
 import {
   CUSTOM_THEME_ID,
   THEME_ATTRIBUTE,
-  THEME_SEED_VARIABLES,
-  normalizeThemeCustomColors,
-  normalizeThemeCustomRadius,
   normalizeThemeId,
+  parseCustomThemeValues,
   pickContrastForeground,
-  type ThemeCustomColorKey,
+  type ThemeOverride,
 } from './theme-contract';
-import { registerThemeHost, syncPageThemeBridge } from './page-theme-bridge';
+import {
+  registerThemeHost,
+  runWithoutPageThemeBridgeSync,
+  syncPageThemeBridge,
+} from './page-theme-bridge';
 
-export type ThemeCustomColorsInput = Partial<Record<ThemeCustomColorKey | 'radius', unknown>>;
+/** 自訂主題寫入 host inline style 的語意變數清單 */
+export const THEME_OVERRIDE_CSS_VARIABLES = [
+  '--background',
+  '--foreground',
+  '--card',
+  '--card-foreground',
+  '--popover',
+  '--popover-foreground',
+  '--primary',
+  '--primary-foreground',
+  '--secondary',
+  '--secondary-foreground',
+  '--muted',
+  '--muted-foreground',
+  '--accent',
+  '--accent-foreground',
+  '--destructive',
+  '--destructive-foreground',
+  '--border',
+  '--input',
+  '--ring',
+  '--radius',
+] as const;
 
-/** 偏好快照中與自訂主題相關的欄位 */
-export interface ThemeCustomColorPreferences {
-  themeCustomBackground?: unknown;
-  themeCustomCard?: unknown;
-  themeCustomForeground?: unknown;
-  themeCustomPrimary?: unknown;
-  themeCustomDestructive?: unknown;
-  themeCustomRadius?: unknown;
+export type ThemeOverridesInput = string | ThemeOverride | null | undefined;
+
+/** 偏好快照中與主題及自訂槽位相關的欄位 */
+export interface ThemeRuntimePreferences {
+  theme?: unknown;
+  themeCustomOverrides?: unknown;
 }
 
-export function readThemeCustomColors(
-  prefs: ThemeCustomColorPreferences | null | undefined,
-): ThemeCustomColorsInput {
-  return {
-    background: prefs?.themeCustomBackground,
-    card: prefs?.themeCustomCard,
-    foreground: prefs?.themeCustomForeground,
-    primary: prefs?.themeCustomPrimary,
-    destructive: prefs?.themeCustomDestructive,
-    radius: prefs?.themeCustomRadius,
-  };
-}
-
-function applySeedVariables(host: HTMLElement, customColors: ThemeCustomColorsInput | undefined) {
-  const colors = normalizeThemeCustomColors(customColors);
-  const radius = normalizeThemeCustomRadius(customColors?.radius);
-  host.style.setProperty(THEME_SEED_VARIABLES.background, colors.background);
-  host.style.setProperty(THEME_SEED_VARIABLES.card, colors.card);
-  host.style.setProperty(THEME_SEED_VARIABLES.foreground, colors.foreground);
-  host.style.setProperty(THEME_SEED_VARIABLES.primary, colors.primary);
-  host.style.setProperty(
-    THEME_SEED_VARIABLES.primaryForeground,
-    pickContrastForeground(colors.primary),
-  );
-  host.style.setProperty(THEME_SEED_VARIABLES.destructive, colors.destructive);
-  host.style.setProperty(
-    THEME_SEED_VARIABLES.destructiveForeground,
-    pickContrastForeground(colors.destructive),
-  );
-  host.style.setProperty(THEME_SEED_VARIABLES.radius, radius);
-}
-
-function clearSeedVariables(host: HTMLElement) {
-  for (const name of Object.values(THEME_SEED_VARIABLES)) {
+function clearThemeOverrideVariables(host: HTMLElement) {
+  for (const name of THEME_OVERRIDE_CSS_VARIABLES) {
     host.style.removeProperty(name);
   }
+}
+
+function applyThemeOverrideVariables(host: HTMLElement, override: ThemeOverride) {
+  const { background, card, foreground, primary, destructive, radius } = override;
+
+  if (background) {
+    host.style.setProperty('--background', background);
+    host.style.setProperty(
+      '--muted',
+      'color-mix(in oklch, var(--background), var(--foreground) 4%)',
+    );
+    host.style.setProperty(
+      '--border',
+      'color-mix(in oklch, var(--background), var(--foreground) 15%)',
+    );
+    host.style.setProperty(
+      '--input',
+      'color-mix(in oklch, var(--background), var(--foreground) 15%)',
+    );
+    host.style.setProperty(
+      '--muted-foreground',
+      'color-mix(in oklch, var(--foreground), var(--background) 30%)',
+    );
+    host.style.setProperty(
+      '--accent',
+      'color-mix(in oklch, var(--background), var(--primary) 25%)',
+    );
+  }
+
+  if (card) {
+    host.style.setProperty('--card', card);
+    host.style.setProperty('--popover', 'var(--card)');
+    host.style.setProperty('--secondary', 'var(--card)');
+  }
+
+  if (foreground) {
+    host.style.setProperty('--foreground', foreground);
+    host.style.setProperty('--card-foreground', 'var(--foreground)');
+    host.style.setProperty('--popover-foreground', 'var(--foreground)');
+    host.style.setProperty('--secondary-foreground', 'var(--foreground)');
+    host.style.setProperty('--accent-foreground', 'var(--foreground)');
+    host.style.setProperty(
+      '--muted-foreground',
+      'color-mix(in oklch, var(--foreground), var(--background) 30%)',
+    );
+  }
+
+  if (primary) {
+    host.style.setProperty('--primary', primary);
+    host.style.setProperty('--primary-foreground', pickContrastForeground(primary));
+    host.style.setProperty('--ring', 'var(--primary)');
+    host.style.setProperty(
+      '--accent',
+      'color-mix(in oklch, var(--background), var(--primary) 25%)',
+    );
+  }
+
+  if (destructive) {
+    host.style.setProperty('--destructive', destructive);
+    host.style.setProperty('--destructive-foreground', pickContrastForeground(destructive));
+  }
+
+  if (radius) {
+    host.style.setProperty('--radius', radius);
+  }
+}
+
+/**
+ * 拖動調色盤時的輕量即時預覽：僅更新 ShadowHost 的 CSS 變數與 custom 屬性，
+ * 不改寫宿主頁面的 <style> bridge，避免全頁 CSS 重算造成卡頓。
+ */
+export function previewThemeOverrideOnHost(
+  host: HTMLElement | null | undefined,
+  override: ThemeOverride,
+): void {
+  if (!host) return;
+  runWithoutPageThemeBridgeSync(() => {
+    if (host.getAttribute(THEME_ATTRIBUTE) !== CUSTOM_THEME_ID) {
+      host.setAttribute(THEME_ATTRIBUTE, CUSTOM_THEME_ID);
+    }
+    applyThemeOverrideVariables(host, override);
+  });
 }
 
 export function applyThemeToHost(
   host: HTMLElement | null | undefined,
   theme: unknown,
-  customColors?: ThemeCustomColorsInput,
+  customOverrides?: ThemeOverridesInput,
 ): void {
   if (!host) return;
   const normalized = normalizeThemeId(theme);
-  if (normalized === CUSTOM_THEME_ID) applySeedVariables(host, customColors);
-  else clearSeedVariables(host);
-  host.setAttribute(THEME_ATTRIBUTE, normalized);
+  runWithoutPageThemeBridgeSync(() => {
+    clearThemeOverrideVariables(host);
+    if (normalized === CUSTOM_THEME_ID) {
+      applyThemeOverrideVariables(host, parseCustomThemeValues(customOverrides));
+    }
+    if (host.getAttribute(THEME_ATTRIBUTE) !== normalized) {
+      host.setAttribute(THEME_ATTRIBUTE, normalized);
+    }
+  });
   registerThemeHost(host);
-  // 只改自訂色或圓角時主題屬性不變，需主動重新同步頁面注入控制項的配色
-  if (normalized === CUSTOM_THEME_ID) syncPageThemeBridge(host);
+  syncPageThemeBridge(host);
+}
+
+/** 直接從偏好快照讀取 theme 與自訂槽位並套用到 host */
+export function applyThemeFromPreferences(
+  host: HTMLElement | null | undefined,
+  prefs: ThemeRuntimePreferences | null | undefined,
+): void {
+  applyThemeToHost(host, prefs?.theme, prefs?.themeCustomOverrides as ThemeOverridesInput);
 }

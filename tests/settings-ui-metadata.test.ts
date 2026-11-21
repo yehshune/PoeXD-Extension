@@ -87,7 +87,6 @@ describe('Settings UI Metadata', () => {
     // Switch to zh-CN
     setActiveDisplayLocale('zh-CN');
     expect(THEME_LABELS['modern-dark']).toBe('现代暗色');
-    expect(THEME_LABELS.custom).toBe('自定义');
     expect(SIDEBAR_POSITION_LABELS.left).toBe('左侧');
     expect(DISPLAY_LOCALE_LABELS.auto).toBe('自动检测');
     expect(DISPLAY_LOCALE_LABELS['zh-CN']).toBe('简体中文');
@@ -95,7 +94,6 @@ describe('Settings UI Metadata', () => {
     // Switch to en
     setActiveDisplayLocale('en');
     expect(THEME_LABELS['modern-dark']).toBe('Modern Dark');
-    expect(THEME_LABELS.custom).toBe('Custom');
     expect(SIDEBAR_POSITION_LABELS.left).toBe('Left');
     expect(DISPLAY_LOCALE_LABELS.auto).toBe('Auto');
     expect(BOOKMARK_BUTTON_POSITION_LABELS.top).toBe('Top');

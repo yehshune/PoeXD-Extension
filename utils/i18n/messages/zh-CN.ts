@@ -39,7 +39,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.theme.option.caffeine': '咖啡因',
   'settings.theme.option.catppuccin': '猫布奇诺',
   'settings.theme.option.custom': '自定义',
-  'settings.theme.custom.preset': '套用预设',
   'settings.theme.custom.background': '背景色',
   'settings.theme.custom.card': '表面色',
   'settings.theme.custom.foreground': '文字色',
@@ -50,7 +49,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.theme.custom.radius.0.25rem': '微圆',
   'settings.theme.custom.radius.0.375rem': '标准',
   'settings.theme.custom.radius.0.5rem': '圆润',
-  'settings.theme.custom.hint': '其余语义色会自动推导，可先套用内置预设再微调',
+  'settings.theme.custom.hint':
+    '调整任一颜色或圆角会自动套用至「自定义」，切换内置主题不会覆盖你的自定义配色',
   'settings.theme.custom.reset': '重置自定义外观',
 
   'settings.displayLocale.label': '语言',

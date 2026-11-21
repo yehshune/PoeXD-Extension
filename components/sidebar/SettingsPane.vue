@@ -414,31 +414,20 @@
           <SettingsRow :label="t('settings.theme.label')" layout="stack">
             <div class="flex flex-wrap gap-[var(--pxd-space-xs)]" data-test="theme-preset-group">
               <Button
-                v-for="presetId in PRESET_THEME_IDS"
-                :key="presetId"
+                v-for="themeId in THEME_IDS"
+                :key="themeId"
                 type="button"
-                :variant="theme === presetId ? 'default' : 'outline'"
+                :variant="theme === themeId ? 'default' : 'outline'"
                 size="sm"
-                :aria-pressed="theme === presetId"
-                :data-custom-preset="presetId"
-                @click="selectThemePreset(presetId)"
+                :aria-pressed="theme === themeId"
+                :data-custom-preset="themeId"
+                @click="selectThemePreset(themeId)"
               >
-                {{ THEME_LABELS[presetId] }}
-              </Button>
-              <Button
-                type="button"
-                :variant="theme === 'custom' ? 'default' : 'outline'"
-                size="sm"
-                :aria-expanded="customThemeOpen"
-                data-test="theme-custom-toggle"
-                @click="customThemeOpen = !customThemeOpen"
-              >
-                {{ THEME_LABELS.custom }}
+                {{ THEME_LABELS[themeId] }}
               </Button>
             </div>
           </SettingsRow>
           <div
-            v-if="customThemeOpen"
             data-settings-group="theme-custom-colors"
             class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
           >
@@ -456,12 +445,12 @@
                 <label
                   class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-muted-foreground font-mono uppercase cursor-pointer"
                 >
-                  {{ preferenceState[row.key] }}
+                  {{ previewColors[row.key] ?? activeThemeValues[row.key] }}
                   <input
                     :id="`theme-custom-${row.key}`"
                     type="color"
                     class="size-[var(--control-height-sm)] shrink-0 cursor-pointer rounded-[var(--radius-sm)] border border-border bg-transparent p-0"
-                    :value="preferenceState[row.key]"
+                    :value="previewColors[row.key] ?? activeThemeValues[row.key]"
                     :aria-describedby="describedBy"
                     @input="handleThemeCustomColorInput(row.key, $event)"
                     @change="handleThemeCustomColorChange(row.key, $event)"
@@ -474,25 +463,25 @@
               :keywords="[t('settings.theme.label')]"
               layout="stack"
             >
-              <ToggleGroup
-                type="single"
-                variant="outline"
+              <div
+                role="group"
                 data-test="theme-custom-radius"
-                :model-value="preferenceState.themeCustomRadius"
-                class="w-full"
-                @update:model-value="handleThemeCustomRadiusChange"
+                class="flex flex-wrap gap-[var(--pxd-space-xs)]"
               >
-                <ToggleGroupItem
+                <Button
                   v-for="radius in THEME_CUSTOM_RADIUS_VALUES"
                   :key="radius"
-                  :value="radius"
-                  :aria-label="t(`settings.theme.custom.radius.${radius}`)"
+                  type="button"
+                  :variant="activeThemeValues.radius === radius ? 'default' : 'outline'"
                   size="sm"
+                  :aria-pressed="activeThemeValues.radius === radius"
+                  :data-custom-radius="radius"
                   class="flex-1"
+                  @click="handleThemeCustomRadiusChange(radius)"
                 >
                   {{ t(`settings.theme.custom.radius.${radius}`) }}
-                </ToggleGroupItem>
-              </ToggleGroup>
+                </Button>
+              </div>
             </SettingsRow>
             <div class="flex justify-end">
               <Button
@@ -500,8 +489,8 @@
                 variant="ghost"
                 size="sm"
                 data-test="theme-custom-reset"
-                :disabled="isThemeCustomColorsDefault"
-                @click="resetThemeCustomColors"
+                :disabled="!hasActiveThemeOverride"
+                @click="resetActiveThemeOverrides"
               >
                 {{ t('settings.theme.custom.reset') }}
               </Button>
@@ -703,19 +692,24 @@ import {
 } from '@/utils/sidebar-modules';
 import {
   DEFAULT_PREFERENCES,
-  THEME_CUSTOM_COLOR_PREFERENCE_NAMES,
   THEME_CUSTOM_RADIUS_VALUES,
+  THEME_IDS,
   isValidHexColor,
   isValidThemeCustomRadius,
   type Preferences,
-  type ThemeCustomColorPreferenceName,
+  type ThemeCustomRadius,
+  type ThemeId,
 } from '@/utils/preferences-contract';
 import {
-  PRESET_THEME_IDS,
-  THEME_CUSTOM_PRESETS,
-  type PresetThemeId,
+  DEFAULT_THEME_OVERRIDES_JSON,
+  parseCustomThemeOverride,
+  parseCustomThemeValues,
+  resolveThemeEffectiveValues,
+  serializeCustomThemeOverride,
+  type ThemeCustomColorKey,
+  type ThemeOverride,
 } from '@/lib/theme/theme-contract';
-import { applyThemeToHost, readThemeCustomColors } from '@/lib/theme/theme-runtime';
+import { previewThemeOverrideOnHost } from '@/lib/theme/theme-runtime';
 import { findThemeHost } from '@/lib/theme/page-theme-bridge';
 import {
   BOOKMARK_BUTTON_POSITION_OPTIONS,
@@ -861,20 +855,65 @@ export default defineComponent({
       window.location.reload();
     };
 
-    const customThemeOpen = ref(false);
-    let pendingColorSaveTimer: ReturnType<typeof setTimeout> | undefined;
-    const clearPendingColorSave = () => {
-      if (pendingColorSaveTimer !== undefined) {
-        clearTimeout(pendingColorSaveTimer);
-        pendingColorSaveTimer = undefined;
+    // 拖動調色盤時的輕量預覽狀態：避免每幀反序列化 JSON、重繪整個設定頁與重寫宿主頁 <style>
+    const previewColors = reactive<Partial<Record<ThemeCustomColorKey, string>>>({});
+    let pendingPreviewPatch: ThemeOverride = {};
+    let queuedRafPatch: ThemeOverride = {};
+    let previewRafId: number | undefined;
+    let pendingOverridesSaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const clearPreviewColors = () => {
+      for (const key of Object.keys(previewColors) as ThemeCustomColorKey[]) {
+        delete previewColors[key];
       }
+    };
+
+    const cancelPreviewRaf = () => {
+      if (previewRafId !== undefined && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(previewRafId);
+      }
+      previewRafId = undefined;
+      queuedRafPatch = {};
+    };
+
+    const clearPendingColorSave = () => {
+      if (pendingOverridesSaveTimer !== undefined) {
+        clearTimeout(pendingOverridesSaveTimer);
+        pendingOverridesSaveTimer = undefined;
+      }
+      cancelPreviewRaf();
+      pendingPreviewPatch = {};
+      clearPreviewColors();
+    };
+
+    const commitThemeOverridePatch = (patch: ThemeOverride) => {
+      const base =
+        theme.value === 'custom'
+          ? parseCustomThemeValues(preferenceState.themeCustomOverrides)
+          : resolveThemeEffectiveValues(theme.value, preferenceState.themeCustomOverrides);
+      const serialized = serializeCustomThemeOverride({ ...base, ...patch });
+      preferenceState.theme = 'custom';
+      preferenceState.themeCustomOverrides = serialized;
+      void updatePreferences({ theme: 'custom', themeCustomOverrides: serialized });
+    };
+
+    const flushPendingColorSave = () => {
+      if (pendingOverridesSaveTimer !== undefined) {
+        clearTimeout(pendingOverridesSaveTimer);
+        pendingOverridesSaveTimer = undefined;
+      }
+      cancelPreviewRaf();
+      if (Object.keys(pendingPreviewPatch).length === 0) return;
+      const patch = pendingPreviewPatch;
+      pendingPreviewPatch = {};
+      clearPreviewColors();
+      commitThemeOverridePatch(patch);
     };
 
     const preferences = ref<PreferencesModule | null>(null);
     let stopPreferences: (() => void) | undefined;
     const applyPreferences = (snapshot: Readonly<Preferences>) => {
       Object.assign(preferenceState, snapshot);
-      if (snapshot.theme === 'custom') customThemeOpen.value = true;
       setActiveDisplayLocalePreference(snapshot.displayLocale);
       const currentMarketState = computeEffectiveMarketState(snapshot);
       if (pageLoadMarketState === null) {
@@ -986,76 +1025,103 @@ export default defineComponent({
       },
     });
 
-    // 自訂主題：五個種子色與圓角段位，其餘語意色由 main.css 推導
+    // 每個主題皆可獨立微調五個核心色與圓角段位，其餘語意色依此自動推導
     const themeCustomColorRows = [
-      { key: 'themeCustomBackground', labelKey: 'settings.theme.custom.background' },
-      { key: 'themeCustomCard', labelKey: 'settings.theme.custom.card' },
-      { key: 'themeCustomForeground', labelKey: 'settings.theme.custom.foreground' },
-      { key: 'themeCustomPrimary', labelKey: 'settings.theme.custom.primary' },
-      { key: 'themeCustomDestructive', labelKey: 'settings.theme.custom.destructive' },
-    ] as const satisfies ReadonlyArray<{ key: ThemeCustomColorPreferenceName; labelKey: string }>;
+      { key: 'background', labelKey: 'settings.theme.custom.background' },
+      { key: 'card', labelKey: 'settings.theme.custom.card' },
+      { key: 'foreground', labelKey: 'settings.theme.custom.foreground' },
+      { key: 'primary', labelKey: 'settings.theme.custom.primary' },
+      { key: 'destructive', labelKey: 'settings.theme.custom.destructive' },
+    ] as const satisfies ReadonlyArray<{ key: ThemeCustomColorKey; labelKey: string }>;
 
-    const handleThemeCustomColorInput = (key: ThemeCustomColorPreferenceName, event: Event) => {
-      const value = (event.target as HTMLInputElement | null)?.value;
-      if (!isValidHexColor(value)) return;
-      const hex = value.toLowerCase();
-      preferenceState[key] = hex;
-      preferenceState.theme = 'custom';
-      // 拖動色盤時僅直接更新 host CSS 變數做即時預覽，不每幀寫入 storage
-      applyThemeToHost(findThemeHost(), 'custom', readThemeCustomColors(preferenceState));
-      clearPendingColorSave();
-      pendingColorSaveTimer = setTimeout(() => {
-        pendingColorSaveTimer = undefined;
-        void updatePreferences({ theme: 'custom', [key]: hex });
-      }, 250);
-    };
-
-    const handleThemeCustomColorChange = (key: ThemeCustomColorPreferenceName, event: Event) => {
-      const value = (event.target as HTMLInputElement | null)?.value;
-      if (!isValidHexColor(value)) return;
-      const hex = value.toLowerCase();
-      clearPendingColorSave();
-      preferenceState[key] = hex;
-      preferenceState.theme = 'custom';
-      void updatePreferences({ theme: 'custom', [key]: hex });
-    };
-
-    const handleThemeCustomRadiusChange = (val?: unknown) => {
-      const radius = Array.isArray(val) ? val[0] : val;
-      if (!isValidThemeCustomRadius(radius)) return;
-      clearPendingColorSave();
-      preferenceState.themeCustomRadius = radius;
-      preferenceState.theme = 'custom';
-      void updatePreferences({ theme: 'custom', themeCustomRadius: radius });
-    };
-
-    const selectThemePreset = (presetId: PresetThemeId) => {
-      clearPendingColorSave();
-      const preset = THEME_CUSTOM_PRESETS[presetId];
-      const next: Partial<Preferences> = {
-        theme: presetId,
-        themeCustomBackground: preset.background,
-        themeCustomCard: preset.card,
-        themeCustomForeground: preset.foreground,
-        themeCustomPrimary: preset.primary,
-        themeCustomDestructive: preset.destructive,
-        themeCustomRadius: preset.radius,
-      };
-      Object.assign(preferenceState, next);
-      void updatePreferences(next);
-    };
-
-    const isThemeCustomColorsDefault = computed(
+    const activeThemeValues = computed(() =>
+      resolveThemeEffectiveValues(theme.value, preferenceState.themeCustomOverrides),
+    );
+    const hasActiveThemeOverride = computed(
       () =>
-        theme.value === 'modern-dark' &&
-        THEME_CUSTOM_COLOR_PREFERENCE_NAMES.every(
-          (key) => preferenceState[key].toLowerCase() === DEFAULT_PREFERENCES[key],
-        ) &&
-        preferenceState.themeCustomRadius === DEFAULT_PREFERENCES.themeCustomRadius,
+        theme.value === 'custom' &&
+        Object.keys(parseCustomThemeOverride(preferenceState.themeCustomOverrides)).length > 0,
     );
 
-    const resetThemeCustomColors = () => {
-      selectThemePreset('modern-dark');
+    // 優先取設定頁所在的 ShadowRoot host，避免 toast-host 覆蓋 activeThemeHost 導致拖動色盤預覽打錯目標
+    const resolveSettingsThemeHost = (): HTMLElement | null => {
+      const root = sectionsRef.value?.getRootNode?.();
+      if (typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot && root.host) {
+        return root.host as HTMLElement;
+      }
+      return findThemeHost();
+    };
+
+    const applyPreviewPatchFrame = (patch: ThemeOverride) => {
+      Object.assign(previewColors, patch);
+      previewThemeOverrideOnHost(resolveSettingsThemeHost(), patch);
+    };
+
+    const schedulePreviewPatch = (patch: ThemeOverride) => {
+      // 從內建主題開始拖動時，先把該內建主題色票當成自訂底色一併寫入，避免畫面跳色
+      const firstFramePatch =
+        theme.value !== 'custom' ? { ...activeThemeValues.value, ...patch } : patch;
+      if (theme.value !== 'custom') {
+        preferenceState.theme = 'custom';
+      }
+      if (typeof requestAnimationFrame !== 'function') {
+        applyPreviewPatchFrame(firstFramePatch);
+        return;
+      }
+      if (previewRafId === undefined) {
+        // 首幀立即套用，同一 16ms 幀內的後續拖動合併到下一幀
+        applyPreviewPatchFrame(firstFramePatch);
+        previewRafId = requestAnimationFrame(() => {
+          previewRafId = undefined;
+          if (Object.keys(queuedRafPatch).length > 0) {
+            const next = queuedRafPatch;
+            queuedRafPatch = {};
+            applyPreviewPatchFrame(next);
+          }
+        });
+      } else {
+        queuedRafPatch = { ...queuedRafPatch, ...firstFramePatch };
+      }
+    };
+
+    const handleThemeCustomColorInput = (key: ThemeCustomColorKey, event: Event) => {
+      const value = (event.target as HTMLInputElement | null)?.value;
+      if (!isValidHexColor(value)) return;
+      const hex = value.toLowerCase();
+      // 若尚未進入 custom，將起點色票一併納入 pendingPreviewPatch，確保提交時完整保存
+      if (theme.value !== 'custom' && Object.keys(pendingPreviewPatch).length === 0) {
+        pendingPreviewPatch = { ...activeThemeValues.value, [key]: hex };
+      } else {
+        pendingPreviewPatch = { ...pendingPreviewPatch, [key]: hex };
+      }
+      schedulePreviewPatch({ [key]: hex });
+      if (pendingOverridesSaveTimer !== undefined) clearTimeout(pendingOverridesSaveTimer);
+      pendingOverridesSaveTimer = setTimeout(flushPendingColorSave, 250);
+    };
+
+    const handleThemeCustomColorChange = (key: ThemeCustomColorKey, event: Event) => {
+      const value = (event.target as HTMLInputElement | null)?.value;
+      if (!isValidHexColor(value)) return;
+      pendingPreviewPatch = { ...pendingPreviewPatch, [key]: value.toLowerCase() };
+      flushPendingColorSave();
+    };
+
+    const handleThemeCustomRadiusChange = (radius: ThemeCustomRadius) => {
+      if (!isValidThemeCustomRadius(radius)) return;
+      pendingPreviewPatch = { ...pendingPreviewPatch, radius };
+      flushPendingColorSave();
+    };
+
+    const selectThemePreset = (themeId: ThemeId) => {
+      flushPendingColorSave();
+      preferenceState.theme = themeId;
+      void updatePreferences({ theme: themeId });
+    };
+
+    const resetActiveThemeOverrides = () => {
+      clearPendingColorSave();
+      preferenceState.themeCustomOverrides = DEFAULT_THEME_OVERRIDES_JSON;
+      void updatePreferences({ themeCustomOverrides: DEFAULT_THEME_OVERRIDES_JSON });
     };
 
     const savePreference = (key: keyof Preferences) => {
@@ -1229,17 +1295,18 @@ export default defineComponent({
       ListChecks,
       Bookmark,
       theme,
+      THEME_IDS,
       THEME_LABELS,
-      PRESET_THEME_IDS,
       THEME_CUSTOM_RADIUS_VALUES,
-      customThemeOpen,
       themeCustomColorRows,
+      previewColors,
+      activeThemeValues,
+      hasActiveThemeOverride,
       handleThemeCustomColorInput,
       handleThemeCustomColorChange,
       handleThemeCustomRadiusChange,
       selectThemePreset,
-      isThemeCustomColorsDefault,
-      resetThemeCustomColors,
+      resetActiveThemeOverrides,
       displayLocale,
       DISPLAY_LOCALE_LABELS,
       DISPLAY_LOCALE_OPTIONS,

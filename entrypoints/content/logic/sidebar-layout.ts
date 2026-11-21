@@ -13,7 +13,7 @@ import type { LiveSearchBookmarkController } from './live-search-bookmark-contro
 import type { LiveSearchResumeController } from './live-search-resume-controller';
 import type { LiveSearchSoundNotifier } from './live-search-sound-notifier';
 import { syncUiRuntimeTokens } from '@/lib/tokens';
-import { applyThemeToHost, readThemeCustomColors } from '@/lib/theme/theme-runtime';
+import { applyThemeFromPreferences } from '@/lib/theme/theme-runtime';
 import { appendShadowHostStyle } from './shadow-host-style';
 import { collapsedTabTopCss } from '@/utils/collapsed-tab-position';
 import {
@@ -233,12 +233,12 @@ export async function mountSidebarLayout(
     updatePageLayout();
   };
 
-  applyThemeToHost(wrapper, initialPreferences.theme, readThemeCustomColors(initialPreferences));
+  applyThemeFromPreferences(wrapper, initialPreferences);
   syncUiScalingVariables(initialPreferences);
   updateLayout();
   ui.mount();
   const stopPreferences = preferences.subscribe((snapshot) => {
-    applyThemeToHost(wrapper, snapshot.theme, readThemeCustomColors(snapshot));
+    applyThemeFromPreferences(wrapper, snapshot);
     currentPosition = snapshot.sidebarPosition;
     width = snapshot.sidebarWidth;
     collapsedTop = snapshot.collapsedTabTop;

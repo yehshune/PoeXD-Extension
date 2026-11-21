@@ -3,15 +3,10 @@ import ToastHost from '@/components/ToastHost.vue';
 import { listenPoeEvent, type PoeToastDetail } from '@/utils/event-contracts';
 import {
   applyThemeToHost,
-  readThemeCustomColors,
-  type ThemeCustomColorPreferences,
-  type ThemeCustomColorsInput,
+  type ThemeOverridesInput,
+  type ThemeRuntimePreferences,
 } from '@/lib/theme/theme-runtime';
-import {
-  DEFAULT_THEME_ID,
-  THEME_ATTRIBUTE,
-  THEME_CUSTOM_COLOR_KEYS,
-} from '@/lib/theme/theme-contract';
+import { DEFAULT_THEME_ID, THEME_ATTRIBUTE } from '@/lib/theme/theme-contract';
 import { findThemeHost } from '@/lib/theme/page-theme-bridge';
 import { syncUiRuntimeTokens } from '@/lib/tokens';
 import { appendShadowHostStyle } from './shadow-host-style';
@@ -24,7 +19,7 @@ export interface ToastHostState {
   visible: boolean;
 }
 
-export interface ToastPreferencesSnapshot extends ThemeCustomColorPreferences {
+export interface ToastPreferencesSnapshot extends ThemeRuntimePreferences {
   theme?: unknown;
   fontSizeScale?: number;
   densityScale?: number;
@@ -35,7 +30,7 @@ let activeToastShadowRoot: ShadowRoot | null = null;
 let shadowHost: HTMLElement | null = null;
 
 let currentTheme: unknown = DEFAULT_THEME_ID;
-let currentCustomColors: ThemeCustomColorsInput = {};
+let currentThemeOverrides: ThemeOverridesInput = undefined;
 let currentScale = 1;
 let currentDensity = 1;
 
@@ -47,11 +42,8 @@ export function syncToastPreferences(prefs: ToastPreferencesSnapshot): void {
   if (prefs.theme !== undefined) {
     currentTheme = prefs.theme;
   }
-  const customColors = readThemeCustomColors(prefs);
-  for (const key of [...THEME_CUSTOM_COLOR_KEYS, 'radius'] as const) {
-    if (customColors[key] !== undefined) {
-      currentCustomColors = { ...currentCustomColors, [key]: customColors[key] };
-    }
+  if (prefs.themeCustomOverrides !== undefined) {
+    currentThemeOverrides = prefs.themeCustomOverrides as ThemeOverridesInput;
   }
   if (prefs.fontSizeScale !== undefined) {
     currentScale = prefs.fontSizeScale;
@@ -61,7 +53,7 @@ export function syncToastPreferences(prefs: ToastPreferencesSnapshot): void {
   }
 
   if (shadowHost) {
-    applyThemeToHost(shadowHost, currentTheme, currentCustomColors);
+    applyThemeToHost(shadowHost, currentTheme, currentThemeOverrides);
     syncUiRuntimeTokens(shadowHost, {
       scale: currentScale,
       density: currentDensity,
@@ -173,7 +165,7 @@ export function initToastHost(
       shadowHost = host;
       const initialTheme =
         currentTheme ?? findThemeHost()?.getAttribute(THEME_ATTRIBUTE) ?? DEFAULT_THEME_ID;
-      applyThemeToHost(host, initialTheme, currentCustomColors);
+      applyThemeToHost(host, initialTheme, currentThemeOverrides);
       syncUiRuntimeTokens(host, {
         scale: currentScale,
         density: currentDensity,
@@ -183,7 +175,7 @@ export function initToastHost(
         themeObserver = new MutationObserver(() => {
           const docTheme = findThemeHost()?.getAttribute(THEME_ATTRIBUTE);
           if (docTheme && host.getAttribute(THEME_ATTRIBUTE) !== docTheme) {
-            applyThemeToHost(host, docTheme, currentCustomColors);
+            applyThemeToHost(host, docTheme, currentThemeOverrides);
           }
         });
         themeObserver.observe(document.documentElement, {

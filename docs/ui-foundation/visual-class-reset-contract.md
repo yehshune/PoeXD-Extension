@@ -176,7 +176,8 @@ Theme 唯一使用 shadcn / Tailwind 現有的語意基礎設施：
   ThemeId
   ├─ modern-dark (default / dark)
   ├─ caffeine    (dark)
-  └─ catppuccin  (dark)
+  ├─ catppuccin  (dark)
+  └─ custom      (dark, standalone custom slot saved in themeCustomOverrides)
   ```
 - **Theme 架構準則 (Theme Architecture Rules)**：
   - `Theme = semantic values`：主題僅定義與覆寫語意變數（顏色、基本 radius、shadow），不為各主題發明第二套命名。
@@ -184,7 +185,7 @@ Theme 唯一使用 shadcn / Tailwind 現有的語意基礎設施：
   - `Primitive class 保持穩定`：基礎組件（Button、Input、Select、Dialog 等）class 與 API 完全保持通用。
   - `Theme 完全不影響 Scale / Density / Geometry`：UI Scale、Density、各類 Pane 與控制項高度、間距等完全獨立於 Theme。
   - `Page Theme Bridge 跟隨 active Theme`：宿主頁注入 UI 透過 Bridge 自動從 shadowHost 讀取計算後語意數值，無須為各主題建立第二套注入樣式。
-- **唯一 DOM Owner**：WXT `ui.shadowHost`（`wrapper`），設定屬性 `data-poexd-theme="modern-dark"`、`data-poexd-theme="caffeine"` 或 `data-poexd-theme="catppuccin"`。絕對不污染 `document.documentElement`、`document.body` 或 PoE 官方網站 DOM。
+- **唯一 DOM Owner**：WXT `ui.shadowHost`（`wrapper`），設定屬性 `data-poexd-theme="modern-dark"`、`data-poexd-theme="caffeine"`、`data-poexd-theme="catppuccin"` 或 `data-poexd-theme="custom"`（`custom` 模式於同節點 inline 覆寫語意變數）。絕對不污染 `document.documentElement`、`document.body` 或 PoE 官方網站 DOM。
 - **唯一 Theme 屬性**：`data-poexd-theme`。
 - **自然繼承架構**：`appRoot` 與 `portalRoot` 不各自持有 theme attribute，完全自 `shadowHost` 自然繼承 CSS 變數。Dialog、DropdownMenu、Tooltip 等 Teleport 到 `portalRoot` 的浮層元件自然繼承相同主題。
 - **無 FOUC 時序保證**：在 `ui.mount()` 執行前即透過 `applyThemeToHost` 套用主題，避免初始渲染樣式閃爍。偏好變更時直接更新 host 屬性，不 remount Vue、不重新載入頁面。
@@ -260,7 +261,7 @@ PoeXD 有少數 UI 直接注入 PoE 官方 document DOM，無法透過 Shadow DO
 - **host-page placement / geometry / stacking 屬 integration concern**：注入宿主頁面的定位（`position: fixed`、`getBoundingClientRect()` 錨定等）與 host-page stacking（如 `zIndex = '999999'`）屬於官方網頁 DOM 整合邊界，不等同 Shadow DOM 內部 `portalRoot` 的 Dialog semantic stacking contract。
 - **絕非第二個 Theme system**：Page Theme Bridge 僅是向官方宿主 DOM 投影 ShadowHost 主題變數的唯讀橋樑，宿主注入 UI 本身也是純粹的 Theme 消費者。
 - **嚴禁輸出 Scale / Density tokens**：Page Theme Bridge 僅向 Light DOM 投影色彩、陰影與邊框可見度等 Theme 語意變數，絕不得輸出 `--control-height-*`、`--control-font-*` 或 `--pxd-space-*`（維持 Host-integrated buttons 之 Scale/Density Invariant 契約）。
-- **純 DOM Enhancement 與獨立例外**：純標記或背景裝飾（如 `body.poexd-pure-bg` 獨立色值 `#060607`、`.content` 佈局讓位）以及 §2.2 所列 **Result-Native PoE Controls**（`.poexd-result-mod-btn`、符文覆寫試算 `.poexd-total-controls` / `.poexd-stat-badges`、結果列左上角工具列 `.poexd-left-actions` / `.poexd-left-actions-btn`）為原生融入例外，不透過 Theme Bridge 處理。
+- **純 DOM Enhancement 與獨立例外**：純標記或背景裝飾（如 `body.poexd-pure-bg` 獨立色值 `#060607`、`.content` 佈局讓位）以及 §2.2 所列 **Result-Native PoE Controls**（`.poexd-result-mod-btn`、符文覆寫試算 `.poexd-total-controls` / `.poexd-stat-badges`、結果列左上角工具列 `.poexd-left-actions` / `.poexd-left-actions-btn`、結果列價格換算 `.poexd-price-comparison`）為原生融入例外，不透過 Theme Bridge 處理。
 
 **目前 Page Theme Bridge Consumers 清單 (Light DOM)**：
 
@@ -269,7 +270,6 @@ PoeXD 有少數 UI 直接注入 PoE 官方 document DOM，無法透過 Shadow DO
 3. **Send to Console button** (`.poexd-send-to-console-btn`，僅用於 `--ring` focus ring)
 4. **Sortable drag feedback** (`.poexd-sortable-ghost`, `.poexd-sortable-drag`)
 5. **Result mod highlight** (`.poexd-filter-mod-highlight`)
-6. **Price comparison** (`.poexd-price-comparison`)
 
 > [!NOTE]
 >

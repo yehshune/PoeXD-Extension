@@ -1732,21 +1732,15 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     }
   });
 
-  it('shows custom theme controls when expanded, loads presets, live-previews on input, persists on change, and resets to defaults', async () => {
+  it('auto-switches to standalone custom slot on edit, preserves custom slot across preset switches, and resets custom slot cleanly', async () => {
     const host = document.createElement('div');
     host.setAttribute('data-poexd-theme', 'modern-dark');
     document.body.appendChild(host);
 
     const { container } = await mountSettingsPane();
 
-    // Default theme ('modern-dark') starts with custom panel collapsed
-    expect(container.querySelector('[data-settings-group="theme-custom-colors"]')).toBeNull();
-
-    // Expand custom controls via toggle button (without switching theme yet)
-    container.querySelector<HTMLButtonElement>('[data-test="theme-custom-toggle"]')!.click();
-    await flushAsync();
-    expect(currentModule!.read().theme).toBe('modern-dark');
-
+    // Four theme buttons (3 presets + custom) and controls are always visible
+    expect(container.querySelectorAll('[data-custom-preset]')).toHaveLength(4);
     const group = container.querySelector('[data-settings-group="theme-custom-colors"]');
     expect(group).not.toBeNull();
 
@@ -1754,51 +1748,53 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       group!.querySelectorAll<HTMLInputElement>('input[type="color"]'),
     );
     expect(colorInputs).toHaveLength(5);
-    expect(colorInputs.map((el) => el.id)).toEqual([
-      'theme-custom-themeCustomBackground',
-      'theme-custom-themeCustomCard',
-      'theme-custom-themeCustomForeground',
-      'theme-custom-themeCustomPrimary',
-      'theme-custom-themeCustomDestructive',
-    ]);
-
-    // Reset button is disabled while on modern-dark defaults
+    const primaryInput = colorInputs[3]!;
     const resetBtn = group!.querySelector<HTMLButtonElement>('[data-test="theme-custom-reset"]')!;
     expect(resetBtn.disabled).toBe(true);
 
-    // Clicking a preset switches theme and syncs custom seed values
+    // Switch to caffeine first, then drag primary -> starts from caffeine palette & auto-switches to custom
     container.querySelector<HTMLButtonElement>('[data-custom-preset="caffeine"]')!.click();
     await flushAsync();
-
     expect(currentModule!.read().theme).toBe('caffeine');
-    expect(currentModule!.read().themeCustomBackground).toBe('#111111');
-    expect(currentModule!.read().themeCustomCard).toBe('#191919');
-    expect(currentModule!.read().themeCustomPrimary).toBe('#f0d1b4');
-    expect(currentModule!.read().themeCustomRadius).toBe('0.5rem');
-    expect(resetBtn.disabled).toBe(false);
+    expect(primaryInput.value).toBe('#f0d1b4');
 
-    // Dragging (input event) immediately previews on host without writing storage yet
-    const primaryInput = colorInputs[3]!;
     primaryInput.value = '#ff8800';
     primaryInput.dispatchEvent(new Event('input', { bubbles: true }));
     expect(host.getAttribute('data-poexd-theme')).toBe('custom');
-    expect(host.style.getPropertyValue('--pxd-seed-primary')).toBe('#ff8800');
+    expect(host.style.getPropertyValue('--background')).toBe('#111111');
+    expect(host.style.getPropertyValue('--primary')).toBe('#ff8800');
 
-    // Committing (change event) persists theme='custom' and color to preferences
     primaryInput.dispatchEvent(new Event('change', { bubbles: true }));
     await flushAsync();
-
     expect(currentModule!.read().theme).toBe('custom');
-    expect(currentModule!.read().themeCustomPrimary).toBe('#ff8800');
+    expect(JSON.parse(currentModule!.read().themeCustomOverrides)).toEqual({
+      background: '#111111',
+      card: '#191919',
+      foreground: '#eeeeee',
+      primary: '#ff8800',
+      destructive: '#e54d2e',
+      radius: '0.5rem',
+    });
+    expect(resetBtn.disabled).toBe(false);
 
-    // Clicking reset restores modern-dark defaults
+    // Switching to catppuccin does NOT overwrite custom slot
+    container.querySelector<HTMLButtonElement>('[data-custom-preset="catppuccin"]')!.click();
+    await flushAsync();
+    expect(currentModule!.read().theme).toBe('catppuccin');
+    expect(primaryInput.value).toBe('#cba6f7');
+    expect(resetBtn.disabled).toBe(true);
+
+    // Clicking custom restores our saved custom slot intact
+    container.querySelector<HTMLButtonElement>('[data-custom-preset="custom"]')!.click();
+    await flushAsync();
+    expect(currentModule!.read().theme).toBe('custom');
+    expect(primaryInput.value).toBe('#ff8800');
+    expect(resetBtn.disabled).toBe(false);
+
+    // Reset clears custom slot back to '{}'
     resetBtn.click();
     await flushAsync();
-
-    expect(currentModule!.read().theme).toBe('modern-dark');
-    expect(currentModule!.read().themeCustomPrimary).toBe(DEFAULT_PREFERENCES.themeCustomPrimary);
-    expect(currentModule!.read().themeCustomCard).toBe(DEFAULT_PREFERENCES.themeCustomCard);
-    expect(currentModule!.read().themeCustomRadius).toBe(DEFAULT_PREFERENCES.themeCustomRadius);
+    expect(currentModule!.read().themeCustomOverrides).toBe('{}');
     expect(resetBtn.disabled).toBe(true);
 
     host.remove();

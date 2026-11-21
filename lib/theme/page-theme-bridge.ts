@@ -120,8 +120,19 @@ export function syncPageThemeBridge(host?: HTMLElement | null): boolean {
     (document.head || document.documentElement).appendChild(styleEl);
   }
 
-  styleEl.textContent = css;
+  if (styleEl.textContent !== css) {
+    styleEl.textContent = css;
+  }
   return true;
+}
+
+/** 執行 DOM 樣式更新並清空已排隊的 MutationObserver 紀錄，避免拖動調色盤預覽時觸發全頁樣式重算 */
+export function runWithoutPageThemeBridgeSync(fn: () => void): void {
+  try {
+    fn();
+  } finally {
+    hostMutationObserver?.takeRecords();
+  }
 }
 
 export function registerThemeHost(host: HTMLElement | null | undefined): void {

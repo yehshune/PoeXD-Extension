@@ -37,7 +37,6 @@ export const ZH_TW_MESSAGES = {
   'settings.theme.option.caffeine': '咖啡因',
   'settings.theme.option.catppuccin': '貓布奇諾',
   'settings.theme.option.custom': '自訂',
-  'settings.theme.custom.preset': '套用預設',
   'settings.theme.custom.background': '背景色',
   'settings.theme.custom.card': '表面色',
   'settings.theme.custom.foreground': '文字色',
@@ -48,7 +47,8 @@ export const ZH_TW_MESSAGES = {
   'settings.theme.custom.radius.0.25rem': '微圓',
   'settings.theme.custom.radius.0.375rem': '標準',
   'settings.theme.custom.radius.0.5rem': '圓潤',
-  'settings.theme.custom.hint': '其餘語意色會自動推導，可先套用內建預設再微調',
+  'settings.theme.custom.hint':
+    '調整任一顏色或圓角會自動套用至「自訂」，切換內建主題不會覆蓋你的自訂配色',
   'settings.theme.custom.reset': '重設自訂外觀',
 
   'settings.displayLocale.label': '語言',

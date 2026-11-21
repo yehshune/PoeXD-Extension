@@ -16,11 +16,10 @@ import {
   SIDEBAR_WIDTH_BOUNDS,
   getPreferenceStorageKey,
   isGlobalPreference,
-  isValidHexColor,
-  isValidThemeCustomRadius,
   isValidThemeId,
+  isValidThemeOverridesJson,
   normalizeThemeId,
-  THEME_CUSTOM_COLOR_PREFERENCE_NAMES,
+  normalizeThemeOverridesJson,
   type BookmarkButtonPosition,
   type DisplayLocalePreference,
   type Preferences,
@@ -91,9 +90,7 @@ const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
 function isValidPreference(name: keyof Preferences, value: unknown) {
   if (BOOLEAN_PREFERENCES.has(name)) return typeof value === 'boolean';
   if (name === 'theme') return isValidThemeId(value);
-  if ((THEME_CUSTOM_COLOR_PREFERENCE_NAMES as readonly string[]).includes(name))
-    return isValidHexColor(value);
-  if (name === 'themeCustomRadius') return isValidThemeCustomRadius(value);
+  if (name === 'themeCustomOverrides') return isValidThemeOverridesJson(value);
   if (name === 'displayLocale')
     return (DISPLAY_LOCALE_VALUES as readonly unknown[]).includes(value);
   if (name === 'liveSearchMaxDisplayedResults')
@@ -132,6 +129,7 @@ function isValidPreference(name: keyof Preferences, value: unknown) {
 
 function normalizePreference(name: keyof Preferences, value: unknown) {
   if (name === 'theme') return normalizeThemeId(value);
+  if (name === 'themeCustomOverrides') return normalizeThemeOverridesJson(value);
   if (name === 'densityScale') {
     if ((DENSITY_SCALE_VALUES as readonly unknown[]).includes(value)) return value;
     if (value === 0.7 || value === 0.85) return 0.8;
