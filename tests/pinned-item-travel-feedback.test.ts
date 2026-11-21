@@ -5,6 +5,7 @@ import { createApp, h, nextTick } from 'vue';
 import PinnedItemPane from '@/components/sidebar/pinned-items/PinnedItemPane.vue';
 import { createPinnedItemSnapshot } from '@/utils/pinned-items';
 import type { HideoutTravelOutcome, HideoutTravelPhase } from '@/utils/pinned-item-actions';
+import { initPoeEventNonce, listenPoeEvent, type PoeToastDetail } from '@/utils/event-contracts';
 
 let resolveTravel: ((outcome: HideoutTravelOutcome) => void) | undefined;
 let emitPhase: ((phase: HideoutTravelPhase) => void) | undefined;
@@ -309,5 +310,35 @@ describe('PinnedItemPane travel feedback', () => {
     await flush();
 
     expect(mockClear).toHaveBeenCalledWith('Covens');
+  });
+
+  it('localizes backend Trade API error messages in pinned travel failure toast', async () => {
+    initPoeEventNonce('pinned-travel-toast-test');
+    const toasts: PoeToastDetail[] = [];
+    const unlisten = listenPoeEvent('poexd-toast', (detail) => toasts.push(detail));
+    try {
+      const app = createApp({ render: () => h(PinnedItemPane) });
+      app.mount(container);
+      unmount = () => app.unmount();
+      await flush();
+
+      container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
+      await flush();
+
+      container.querySelector<HTMLButtonElement>('[data-pinned-item-travel]')!.click();
+      await flush();
+
+      resolveTravel?.({
+        status: 'error',
+        message: 'Your account must be in-game to use this feature.',
+      });
+      await flush();
+
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].tone).toBe('error');
+      expect(toasts[0].message).toContain('您的帳號必須在遊戲中才能使用此功能。');
+    } finally {
+      unlisten();
+    }
   });
 });

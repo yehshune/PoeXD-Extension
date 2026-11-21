@@ -7,7 +7,8 @@ import { ResultPobCopy } from '@/entrypoints/content/logic/result-pob-copy';
 import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-price-presenter';
 import { LiveSearchFetchRateGate } from '@/entrypoints/content/logic/live-search-fetch-rate-gate';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
-import { t, type I18nKey } from '@/utils/i18n';
+import { getActiveUiLocale, t, type I18nKey } from '@/utils/i18n';
+import { translateTradeApiMessage } from '@/utils/trade-toast-translation';
 import {
   buildPinnedItemSourceUrl,
   isSameRealm,
@@ -208,9 +209,16 @@ export function usePinnedItems() {
       void client.markSold(item.id);
     }
     const message = t(TRAVEL_MESSAGES[outcome.status]);
-    // 錯誤訊息只帶官方回應的說明文字，不含 token
+    const uiLocale = getActiveUiLocale();
+    const detail =
+      outcome.status === 'error'
+        ? uiLocale === 'en'
+          ? outcome.message
+          : translateTradeApiMessage(outcome.message, uiLocale)
+        : '';
+    // 錯誤訊息只帶官方回應的說明文字（並套用共用中文化），不含 token
     notify(
-      outcome.status === 'error' ? `${message} ${outcome.message}` : message,
+      outcome.status === 'error' ? `${message} ${detail}` : message,
       outcome.status === 'teleporting' ? 'success' : 'error',
     );
   }

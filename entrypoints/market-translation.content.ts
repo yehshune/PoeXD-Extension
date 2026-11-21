@@ -11,6 +11,10 @@ import {
 } from '@/utils/market-translation-protocol';
 import { markMarketTranslationActive } from '@/utils/market-translation';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
+import {
+  observeOfficialTradeToasts,
+  setTradeToastUiDictionary,
+} from '@/utils/trade-toast-translation';
 
 /** 等主執行緒閒置最多多久就照樣執行，避免頁面一直忙碌時結果列永遠不翻譯 */
 const RESULT_TRANSLATOR_IDLE_TIMEOUT_MS = 2000;
@@ -54,6 +58,12 @@ export default defineContentScript({
       // 第 4 階段：結果列（詞綴、物品名、屬性標籤）在 isolated world 直接改 DOM 文字
       onPayload: (payload, version, loadLiveEn) => {
         markMarketTranslationActive(document, payload);
+        setTradeToastUiDictionary(payload.ui);
+        observeOfficialTradeToasts(document, {
+          locale: payload.locale,
+          ui: payload.ui,
+          bilingual: payload.bilingual,
+        });
         // 結果列翻譯資料約 3 MB，只有結果列用得到；官網此時正在載入、執行自己的腳本，
         // 等主執行緒閒置（通常是官方 search / fetch 的網路等待期間）再解析，
         // observe() 啟動時會補翻已出現的結果列
