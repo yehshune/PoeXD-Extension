@@ -426,7 +426,7 @@
               </DialogTitle>
               <div
                 ref="affixHeaderSlotRef"
-                class="flex items-center gap-[var(--pxd-space-sm)] min-w-0 flex-1 ml-[var(--pxd-space-sm)] mr-8"
+                class="flex items-center gap-[var(--pxd-space-sm)] min-w-0 flex-1 ml-[var(--pxd-space-sm)] pr-[calc(var(--control-height-sm,28px)+var(--pxd-space-xl))]"
               />
               <DialogDescription class="sr-only">
                 {{ t('affixSelector.dialog.description') }}
