@@ -462,6 +462,9 @@ const ROW_DEFS: ReadonlyArray<{
       ...Object.fromEntries(
         attributesFor(slot.prefix).map((a) => [`${slot.prefix}_${a.suffix}`, a.short]),
       ),
+      ...(slot.main === 'helmet' ? { helmets_ward: L('保護', '结界', 'Ward') } : {}),
+      ...(slot.main === 'gloves' ? { gloves_ward: L('保護', '结界', 'Ward') } : {}),
+      ...(slot.main === 'boots' ? { boots_ward: L('保護', '结界', 'Ward') } : {}),
       ...(slot.main === 'shield' ? { shields_minion: L('召喚', '召唤', 'Minion') } : {}),
     },
   })),

@@ -22,24 +22,35 @@
       >
         <!-- 內嵌一體化左側快速跳轉導覽列 -->
         <div
-          class="modal-nav-anchors-inline pxd-scrollbar w-[var(--pxd-filter-nav-width)] shrink-0 flex flex-col gap-[var(--pxd-space-xs)] bg-background border-r border-border pt-[var(--pxd-space-md)] pr-[var(--pxd-space-xs)] pb-[var(--pxd-space-md)] pl-0 overflow-y-auto min-h-0 box-border"
+          class="modal-nav-anchors-inline pxd-scrollbar w-[var(--pxd-filter-nav-width)] shrink-0 flex flex-col gap-[2px] bg-background border-r border-border pt-[var(--pxd-space-sm)] pr-[var(--pxd-space-xs)] pb-[var(--pxd-space-sm)] pl-0 overflow-y-auto min-h-0 box-border"
           ref="navAnchorsRef"
           v-if="groupedAffixes.length > 0"
         >
-          <div
-            v-for="cat in groupedAffixes"
-            :key="cat.label"
-            class="anchor-btn-inline shrink-0 flex items-center justify-center min-h-[var(--pxd-filter-anchor-min-height)] border border-transparent border-l-[3px] py-[var(--pxd-space-md)] px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-center cursor-pointer break-all whitespace-normal leading-[1.25] rounded-[var(--radius)] transition-colors select-none box-border"
-            :class="
-              currentActiveCategory === cat.label
-                ? 'active bg-primary/12 text-foreground border-l-primary font-semibold'
-                : 'bg-transparent text-muted-foreground border-l-transparent hover:bg-accent hover:text-accent-foreground'
-            "
-            @click="scrollToCategory(cat.label)"
-            :title="t('filterPane.nav.jumpTo', { category: cat.label })"
-          >
-            <span class="anchor-text-inline">{{ cat.label }}</span>
-          </div>
+          <template v-for="(cat, idx) in groupedAffixes" :key="cat.label">
+            <div
+              v-if="shouldShowNavDivider(idx)"
+              class="my-[var(--pxd-space-xs)] mx-[var(--pxd-space-xs)] border-t border-border/60 shrink-0"
+              aria-hidden="true"
+            />
+            <div
+              class="anchor-btn-inline shrink-0 flex items-center justify-center gap-1 min-h-[28px] border border-transparent border-l-[3px] py-[var(--pxd-space-xs)] px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-center cursor-pointer break-all whitespace-normal leading-[1.2] rounded-[var(--radius)] transition-colors select-none box-border"
+              :class="
+                currentActiveCategory === cat.label
+                  ? 'active bg-primary/12 text-foreground border-l-primary font-semibold'
+                  : 'bg-transparent text-muted-foreground border-l-transparent hover:bg-accent hover:text-accent-foreground'
+              "
+              @click="scrollToCategory(cat.label)"
+              :title="t('filterPane.nav.jumpTo', { category: cat.label })"
+            >
+              <span class="anchor-text-inline">{{ cat.label }}</span>
+              <span
+                v-if="selectedCountByAffinity[cat.affinity]"
+                class="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-primary/20 text-primary text-[10px] font-bold tabular-nums leading-none shrink-0"
+              >
+                {{ selectedCountByAffinity[cat.affinity] }}
+              </span>
+            </div>
+          </template>
         </div>
 
         <!-- 左側主要區域 (包含 controls-row 與 mods-scroll-container) -->
@@ -48,21 +59,52 @@
           <div
             class="controls-row flex flex-wrap gap-[var(--pxd-space-sm)] mb-[var(--pxd-row-gap)] items-center"
           >
-            <!-- 物品類別選擇器 (自訂搜尋下拉) -->
+            <!-- 物品類別選擇器 (下方展開 Popover 面板) -->
             <div
               class="control-item item-type custom-select-container flex flex-col flex-[1_1_104px] min-w-0 relative w-full select-none"
             >
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                data-filter-action="open-type-dialog"
-                class="w-full justify-between font-normal"
-                @click="toggleSelectDropdown"
-              >
-                <span class="truncate text-left flex-1">{{ getTypeName(selectedType) }}</span>
-                <ChevronDown class="text-muted-foreground shrink-0" />
-              </Button>
+              <Popover :open="isTypePopoverOpen" @update:open="handleTypePopoverOpenChange">
+                <PopoverTrigger as-child>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    data-filter-action="open-type-dialog"
+                    class="w-full justify-between font-normal"
+                  >
+                    <span class="truncate text-left flex-1">{{ getTypeName(selectedType) }}</span>
+                    <ChevronDown
+                      class="text-muted-foreground shrink-0 transition-transform duration-150"
+                      :class="isTypePopoverOpen ? 'rotate-180' : ''"
+                    />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  side="bottom"
+                  :side-offset="6"
+                  data-sidebar-dialog="affix-type"
+                  :inert="affixDemoMode || undefined"
+                  :class="[
+                    'flex max-h-[min(78vh,680px)] w-[min(740px,calc(100vw-48px))] flex-col gap-0 overflow-hidden p-0 shadow-xl',
+                    affixDemoMode ? 'pointer-events-none select-none' : '',
+                  ]"
+                  @close-auto-focus="(e) => e.preventDefault()"
+                  @pointer-down-outside="preventIfAffixDemo"
+                  @interact-outside="preventIfAffixDemo"
+                  @escape-key-down="preventIfAffixDemo"
+                >
+                  <ItemTypeSelectorPanel
+                    ref="typePopoverPanelRef"
+                    :search-query="typeSearchQuery"
+                    :active-category="dialogActiveCategory"
+                    :grouped-available-types="groupedAvailableTypes"
+                    :recent-options="recentTypeOptions"
+                    @update:search-query="(val) => (typeSearchQuery = val)"
+                    @select="selectTypeOption"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <!-- 關鍵字搜尋輸入框 (帶有一鍵清空打叉按鈕) -->
@@ -185,8 +227,11 @@
               </ToggleGroupItem>
             </ToggleGroup>
 
-            <!-- 全選與取消全選 -->
-            <div class="ml-auto flex shrink-0 items-center gap-[var(--pxd-space-sm)]">
+            <!-- 僅在搜尋篩選時顯示全選符合按鈕（避免無搜尋時誤選數百條詞綴；清空已由右側「清空待選」承擔） -->
+            <div
+              v-if="searchQuery.trim() && filteredModTotalCount > 0"
+              class="ml-auto flex shrink-0 items-center gap-[var(--pxd-space-sm)]"
+            >
               <Button
                 type="button"
                 variant="outline"
@@ -195,17 +240,7 @@
                 :title="t('filterPane.actions.selectAllTitle')"
                 @click="selectAllCurrent"
               >
-                {{ t('filterPane.actions.selectAll') }}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                class="font-normal"
-                :title="t('filterPane.actions.clearAllTitle')"
-                @click="clearAllSelection"
-              >
-                {{ t('filterPane.actions.clearAll') }}
+                {{ t('filterPane.actions.selectAllFiltered', { count: filteredModTotalCount }) }}
               </Button>
             </div>
           </div>
@@ -451,7 +486,11 @@
                       v-if="cat.hasSplit"
                       class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
                     >
-                      {{ t('filterPane.column.others', { count: cat.totals.all }) }}
+                      {{
+                        cat.affinity === 'normal'
+                          ? t('filterPane.column.implicits', { count: cat.totals.all })
+                          : t('filterPane.column.others', { count: cat.totals.all })
+                      }}
                     </div>
                     <div
                       class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
@@ -559,12 +598,12 @@
                       {{ t('modItem.badge.noOfficialId') }}
                     </span>
                     <span
-                      class="selected-mod-vals vals-limit-trigger text-muted-foreground text-[length:var(--pxd-font-caption)] ml-[var(--pxd-space-xs)] cursor-pointer border-b border-dotted border-muted-foreground transition-colors hover:text-foreground hover:border-foreground"
+                      class="selected-mod-vals vals-limit-trigger inline-flex items-center px-1.5 py-[1px] rounded-[var(--radius-sm)] border border-border/70 bg-muted/50 text-muted-foreground text-[length:var(--pxd-font-caption)] ml-[var(--pxd-space-xs)] cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground hover:border-border align-middle"
                       v-if="info.mins || info.maxs"
                       @click.stop="toggleMaxLimit(key)"
                       :title="t('filterPane.selected.toggleMaxTitle')"
                     >
-                      ({{ getDisplayValues(info) }})
+                      {{ getDisplayValues(info) }}
                     </span>
                   </div>
                   <Button
@@ -583,9 +622,14 @@
             </div>
             <div
               v-if="selectedModsMap.size === 0"
-              class="no-selected-placeholder text-muted-foreground text-[length:var(--pxd-font-secondary)] text-center mt-[var(--pxd-space-2xl)] italic"
+              class="no-selected-placeholder text-muted-foreground text-center mt-[var(--pxd-space-2xl)] px-[var(--pxd-space-md)] flex flex-col gap-[var(--pxd-space-xs)]"
             >
-              {{ t('filterPane.selected.empty') }}
+              <span class="text-[length:var(--pxd-font-secondary)] italic">{{
+                t('filterPane.selected.empty')
+              }}</span>
+              <span class="text-[length:var(--pxd-font-caption)] opacity-75 leading-relaxed">{{
+                t('filterPane.selected.emptyHint')
+              }}</span>
             </div>
           </div>
 
@@ -634,9 +678,9 @@
         </div>
       </div>
 
-      <!-- 物品類別選擇 Dialog -->
+      <!-- 外部觸發（例如市集 T 階下拉切換物品類別）時的置中 Dialog -->
       <Dialog
-        :open="isSelectDropdownOpen"
+        :open="isTypeDialogOpen"
         :modal="!affixDemoMode"
         @update:open="
           (open) => {
@@ -650,7 +694,7 @@
           :inert="affixDemoMode || undefined"
           :overlay-class="affixDemoMode ? 'pointer-events-none' : undefined"
           :class="[
-            'flex h-auto max-h-[72vh] w-[calc(100vw-32px)] max-w-[720px] flex-col gap-0 overflow-hidden p-0',
+            'flex h-auto max-h-[82vh] w-[calc(100vw-32px)] max-w-[740px] flex-col gap-0 overflow-hidden p-0',
             affixDemoMode ? 'pointer-events-none select-none' : '',
           ]"
           @close-auto-focus="(e) => e.preventDefault()"
@@ -659,7 +703,7 @@
           @escape-key-down="preventIfAffixDemo"
         >
           <DialogHeader
-            class="p-[var(--pxd-space-lg)] pr-12 border-b border-border bg-background flex flex-row items-center justify-between space-y-0"
+            class="p-[var(--pxd-space-md)] pr-12 border-b border-border bg-background flex flex-row items-center justify-between space-y-0"
           >
             <DialogTitle class="text-[length:var(--pxd-font-section-title)] font-bold">
               {{ t('filterPane.dialog.title') }}
@@ -669,115 +713,15 @@
             }}</DialogDescription>
           </DialogHeader>
 
-          <div class="p-[var(--pxd-space-sm)] bg-background border-b border-border">
-            <Input
-              ref="typeSearchInputRef"
-              v-model="typeSearchQuery"
-              type="text"
-              size="default"
-              :placeholder="t('filterPane.dialog.searchPlaceholder')"
-              class="w-full"
-            />
-          </div>
-
-          <div
-            ref="typeOptionsRootRef"
-            class="flex-1 min-h-0 overflow-y-auto p-[var(--pxd-space-lg)] pxd-scrollbar pxd-scrollbar-selection"
-          >
-            <div
-              v-for="group in groupedAvailableTypes"
-              :key="group.groupLabel"
-              class="type-group-section mb-[var(--pxd-space-xl)]"
-            >
-              <div
-                class="type-group-title text-[length:var(--pxd-font-secondary)] font-bold text-foreground mb-[var(--pxd-space-md)] border-l-2 border-primary pl-[var(--pxd-space-sm)] uppercase"
-              >
-                {{ group.groupLabel }}
-              </div>
-
-              <!-- 橫向排列的多屬性類別行 (例如胸甲、手套等) -->
-              <div
-                v-if="group.rows && group.rows.length > 0"
-                class="type-rows-container flex flex-col gap-[var(--pxd-space-sm)] mb-[var(--pxd-row-gap)]"
-              >
-                <div
-                  v-for="(row, rIdx) in group.rows"
-                  :key="rIdx"
-                  class="type-row-item flex items-center gap-[var(--pxd-space-md)] py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] bg-card border border-border"
-                >
-                  <!-- 主按鈕 (如: 胸甲) -->
-                  <div class="main-option-wrapper shrink-0 w-[95px]">
-                    <Button
-                      v-if="row.mainOption"
-                      type="button"
-                      :variant="row.mainOption.key === dialogActiveCategory ? 'accent' : 'outline'"
-                      size="sm"
-                      class="w-full truncate font-bold"
-                      :data-selected="
-                        row.mainOption.key === dialogActiveCategory ? 'true' : undefined
-                      "
-                      @click="selectTypeOption(row.mainOption.key)"
-                      :title="row.mainOption.fullLabel"
-                    >
-                      {{ row.mainOption.label }}
-                    </Button>
-                    <span
-                      v-else
-                      class="type-row-fallback-label inline-flex items-center justify-center w-full min-h-[var(--control-height-sm)] text-muted-foreground text-[length:var(--pxd-font-caption)] font-bold border border-dashed border-border box-border bg-muted text-center select-none rounded-[var(--radius)]"
-                    >
-                      {{ row.rowLabel }}
-                    </span>
-                  </div>
-
-                  <!-- 子屬性按鈕列表 (如: 力, 敏, 智) -->
-                  <div
-                    v-if="row.subOptions && row.subOptions.length > 0"
-                    class="sub-options-wrapper flex flex-wrap gap-[var(--pxd-space-xs)] flex-1"
-                  >
-                    <Button
-                      v-for="subOpt in row.subOptions"
-                      :key="subOpt.key"
-                      type="button"
-                      :variant="subOpt.key === dialogActiveCategory ? 'accent' : 'outline'"
-                      size="sm"
-                      class="w-auto min-w-[38px] truncate font-normal"
-                      :data-selected="subOpt.key === dialogActiveCategory ? 'true' : undefined"
-                      @click="selectTypeOption(subOpt.key)"
-                      :title="subOpt.fullLabel"
-                    >
-                      {{ subOpt.label }}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 單一按鈕的格點排列 (原本非多類別的按鈕) -->
-              <div
-                v-if="group.singleOptions && group.singleOptions.length > 0"
-                class="type-buttons-grid grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-[var(--pxd-space-sm)]"
-              >
-                <Button
-                  v-for="opt in group.singleOptions"
-                  :key="opt.key"
-                  type="button"
-                  :variant="opt.key === dialogActiveCategory ? 'accent' : 'outline'"
-                  size="sm"
-                  class="w-full truncate font-normal"
-                  :data-selected="opt.key === dialogActiveCategory ? 'true' : undefined"
-                  @click="selectTypeOption(opt.key)"
-                  :title="opt.fullLabel"
-                >
-                  {{ opt.label }}
-                </Button>
-              </div>
-            </div>
-            <div
-              v-if="groupedAvailableTypes.length === 0"
-              class="no-options-found p-[var(--pxd-space-md)] text-[length:var(--pxd-font-body)] text-muted-foreground text-center"
-            >
-              {{ t('filterPane.dialog.empty') }}
-            </div>
-          </div>
+          <ItemTypeSelectorPanel
+            ref="typeDialogPanelRef"
+            :search-query="typeSearchQuery"
+            :active-category="dialogActiveCategory"
+            :grouped-available-types="groupedAvailableTypes"
+            :recent-options="recentTypeOptions"
+            @update:search-query="(val) => (typeSearchQuery = val)"
+            @select="selectTypeOption"
+          />
         </DialogContent>
       </Dialog>
     </div>
@@ -800,6 +744,7 @@ import type {
   StatFilterModPayload,
 } from './types';
 import ModItem from './ModItem.vue';
+import ItemTypeSelectorPanel from './ItemTypeSelectorPanel.vue';
 import { useProgressiveAffixRender } from './composables/useProgressiveAffixRender';
 import {
   Dialog,
@@ -808,6 +753,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -834,11 +780,15 @@ export default defineComponent({
   name: 'FilterPane',
   components: {
     ModItem,
+    ItemTypeSelectorPanel,
     Dialog,
     DialogContent,
     DialogDescription,
     DialogHeader,
     DialogTitle,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
     Input,
     Button,
     ToggleGroup,
@@ -1084,21 +1034,45 @@ export default defineComponent({
 
     const setSelectDialogOpen = (open: boolean) => {
       if (open) {
+        typeSearchQuery.value = '';
         isSelectDropdownOpen.value = true;
         return;
       }
       closeSelectDropdown();
     };
 
-    // 自訂類別下拉選單狀態
+    const handleTypePopoverOpenChange = (open: boolean) => {
+      if (affixDemoMode.value) return;
+      setSelectDialogOpen(open);
+    };
+
+    // 自訂類別選擇器狀態（詞綴選擇器內用 Popover 展開於下方；外部由 T 階下拉觸發或主彈窗未開時改用置中 Dialog）
     const isSelectDropdownOpen = ref(false);
     const typeSearchQuery = ref('');
-    const typeSearchInputRef = ref<HTMLInputElement | { $el?: HTMLInputElement } | null>(null);
-    const typeOptionsRootRef = ref<HTMLElement | null>(null);
+    const typePopoverPanelRef = ref<InstanceType<typeof ItemTypeSelectorPanel> | null>(null);
+    const typeDialogPanelRef = ref<InstanceType<typeof ItemTypeSelectorPanel> | null>(null);
     const poexdSelectingTarget = ref<any>(null);
+    const forceCenteredTypeDialog = ref(false);
+    const recentTypes = ref<string[]>([]);
+
+    const useCenteredTypeDialog = computed(
+      () => forceCenteredTypeDialog.value || Boolean(poexdSelectingTarget.value) || !props.isOpen,
+    );
+    const isTypePopoverOpen = computed(
+      () => isSelectDropdownOpen.value && !useCenteredTypeDialog.value,
+    );
+    const isTypeDialogOpen = computed(
+      () => isSelectDropdownOpen.value && useCenteredTypeDialog.value,
+    );
+
+    const recordRecentType = (type: string) => {
+      if (!type) return;
+      recentTypes.value = [type, ...recentTypes.value.filter((t) => t !== type)].slice(0, 6);
+    };
 
     const closeSelectDropdown = () => {
       isSelectDropdownOpen.value = false;
+      forceCenteredTypeDialog.value = false;
       poexdSelectingTarget.value = null;
       (window as any).__poexd_selecting_target__ = null;
     };
@@ -1109,16 +1083,11 @@ export default defineComponent({
         poexdSelectingTarget.value = (window as any).__poexd_selecting_target__ || null;
         if (affixDemoMode.value) return;
         setTimeout(() => {
-          const target = typeSearchInputRef.value;
-          const inputEl = target instanceof HTMLInputElement ? target : target?.$el;
-          inputEl?.focus?.();
-          // 尋找已選取的類別按鈕並滾動定位
-          const selectedEl = typeOptionsRootRef.value?.querySelector(
-            '[data-selected="true"]',
-          ) as HTMLElement | null;
-          if (selectedEl) {
-            selectedEl.scrollIntoView({ block: 'nearest', behavior: 'auto' });
-          }
+          const panel = useCenteredTypeDialog.value
+            ? typeDialogPanelRef.value
+            : typePopoverPanelRef.value;
+          panel?.focusSearchInput();
+          panel?.scrollToSelected();
         }, 100);
       } else {
         poexdSelectingTarget.value = null;
@@ -1505,8 +1474,57 @@ export default defineComponent({
           await refreshAndReopenTierSlot(slotKey);
         }
       } else {
+        recordRecentType(type);
         selectedType.value = type;
       }
+    };
+
+    const recentTypeOptions = computed(() => {
+      const availableSet = new Set(availableTypes.value);
+      return recentTypes.value
+        .filter((key) => availableSet.has(key))
+        .map((key) => ({
+          key,
+          label: getTypeName(key),
+          fullLabel: typeNames[key] || getTypeName(key),
+        }));
+    });
+
+    const selectedCountByAffinity = computed<Record<string, number>>(() => {
+      const counts: Record<string, number> = {};
+      selectedModsMap.value.forEach((info) => {
+        const aff = info.affinities?.[0] || 'normal';
+        counts[aff] = (counts[aff] || 0) + 1;
+      });
+      return counts;
+    });
+
+    const filteredModTotalCount = computed(() =>
+      groupedAffixes.value.reduce(
+        (sum, cat) => sum + cat.prefixes.length + cat.suffixes.length + cat.all.length,
+        0,
+      ),
+    );
+
+    const resolveNavTier = (affinity: string): number => {
+      if (affinity === 'normal' || affinity === 'cluster') return 0;
+      if (
+        ['searing', 'eater', 'shaper', 'elder', 'crusader', 'redeemer', 'hunter', 'warlord'].includes(
+          affinity,
+        )
+      ) {
+        return 1;
+      }
+      if (['corrupted', 'enchant', 'heist'].includes(affinity)) return 3;
+      return 2;
+    };
+
+    const shouldShowNavDivider = (index: number): boolean => {
+      if (index <= 0) return false;
+      const prev = groupedAffixes.value[index - 1];
+      const curr = groupedAffixes.value[index];
+      if (!prev || !curr) return false;
+      return resolveNavTier(prev.affinity) !== resolveNavTier(curr.affinity);
     };
 
     // 格式化顯示詞綴文字
@@ -1745,6 +1763,8 @@ export default defineComponent({
     );
 
     const handleTriggerSelectTypeModal = () => {
+      forceCenteredTypeDialog.value = true;
+      typeSearchQuery.value = '';
       isSelectDropdownOpen.value = true;
     };
 
@@ -1907,10 +1927,17 @@ export default defineComponent({
       clearSearchQuery,
       isEmpty,
       isSelectDropdownOpen,
+      isTypePopoverOpen,
+      isTypeDialogOpen,
+      handleTypePopoverOpenChange,
       setSelectDialogOpen,
       typeSearchQuery,
-      typeSearchInputRef,
-      typeOptionsRootRef,
+      typePopoverPanelRef,
+      typeDialogPanelRef,
+      recentTypeOptions,
+      selectedCountByAffinity,
+      filteredModTotalCount,
+      shouldShowNavDivider,
       closeSelectDropdown,
       groupedAvailableTypes,
       dialogActiveCategory,

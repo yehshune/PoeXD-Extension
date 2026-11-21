@@ -139,8 +139,6 @@ describe('Seam 1: Affix Selector (`FilterPane.vue` and `ModItem.vue`) & Bilingua
     expect(genTexts).toContain('全部');
     expect(genTexts).toContain('前綴');
     expect(genTexts).toContain('後綴');
-    expect(genTexts).toContain('全選');
-    expect(genTexts).toContain('取消全選');
 
     // Check search placeholder & item level label/placeholders
     const searchInput = appRoot.querySelector<HTMLInputElement>('.item-search input');
@@ -165,8 +163,6 @@ describe('Seam 1: Affix Selector (`FilterPane.vue` and `ModItem.vue`) & Bilingua
     expect(enGenTexts).toContain('All');
     expect(enGenTexts).toContain('Prefix');
     expect(enGenTexts).toContain('Suffix');
-    expect(enGenTexts).toContain('Select All');
-    expect(enGenTexts).toContain('Deselect All');
     expect(searchInput?.placeholder).toBe('Search affix keywords...');
     expect(itemLevelLabel?.textContent?.trim()).toBe('iLvl');
     expect(itemLevelMinInput?.placeholder).toBe('Min');
@@ -181,8 +177,6 @@ describe('Seam 1: Affix Selector (`FilterPane.vue` and `ModItem.vue`) & Bilingua
     expect(cnGenTexts).toContain('全部');
     expect(cnGenTexts).toContain('前缀');
     expect(cnGenTexts).toContain('后缀');
-    expect(cnGenTexts).toContain('全选');
-    expect(cnGenTexts).toContain('取消全选');
     expect(searchInput?.placeholder).toBe('搜索词缀关键词...');
     expect(itemLevelLabel?.textContent?.trim()).toBe('物等');
     expect(itemLevelMinInput?.placeholder).toBe('下限');

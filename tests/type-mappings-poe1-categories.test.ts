@@ -12,13 +12,12 @@ describe('PoE 1 item categories', () => {
     resetI18nStateForTests();
   });
 
-  it('treats ward armour as standalone bases outside the slot categories', () => {
+  it('places ward armour as sub-options on helmet, gloves, and boots rows', () => {
     setActiveDisplayLocale('zh-TW');
     expect(poe1.typeMap.body_armours_ward).toBeUndefined();
     for (const slot of ['helmet', 'gloves', 'boots']) {
-      expect(Object.keys(rowOf(slot)?.subKeys ?? {})).not.toContain(
-        `${slot === 'helmet' ? 'helmets' : slot}_ward`,
-      );
+      const wardKey = `${slot === 'helmet' ? 'helmets' : slot}_ward`;
+      expect(rowOf(slot)?.subKeys[wardKey]).toBe('保護');
     }
     expect(groupOf('helmets_ward')).toBe('防具');
     expect(poe1.typeNames.helmets_ward).toBe('保護頭盔');

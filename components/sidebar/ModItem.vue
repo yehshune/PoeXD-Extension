@@ -18,7 +18,7 @@
     >
       <!-- 左側選取區 -->
       <div
-        class="mod-select-zone flex items-center justify-center py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] shrink-0"
+        class="mod-select-zone flex items-center justify-center py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] border-r border-border/40 shrink-0"
         :class="hasOfficialId ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
         :title="hasOfficialId ? t('modItem.select.title') : t('modItem.select.unsupported')"
         @click="handleToggleSelect"
@@ -36,7 +36,7 @@
       <!-- 中央詞綴標題展開區 -->
       <button
         type="button"
-        class="mod-content-action mod-name-section appearance-none box-border border-0 bg-transparent m-0 p-0 [font:inherit] text-inherit cursor-pointer flex flex-1 items-center min-w-0 text-left gap-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] pr-[var(--pxd-space-sm)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        class="mod-content-action mod-name-section appearance-none box-border border-0 bg-transparent m-0 p-0 [font:inherit] text-inherit cursor-pointer flex flex-1 items-center min-w-0 text-left gap-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] pl-[var(--pxd-space-sm)] pr-[var(--pxd-space-sm)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         data-mod-action="toggle-expand"
         :aria-expanded="isExpanded"
         @click.stop="$emit('toggle-expand', mod.id)"

@@ -101,8 +101,8 @@ describe('FilterPane Controls Row (Static Contracts)', () => {
   });
 
   it('conforms top controls to Foundation Button and Input primitives with size="sm" and "icon-sm"', () => {
-    // Item Type button
-    expect(source).toMatch(/<Button[^>]*size="sm"[^>]*@click="toggleSelectDropdown"/);
+    // Item Type button (inside PopoverTrigger)
+    expect(source).toMatch(/<Button[^>]*size="sm"[^>]*data-filter-action="open-type-dialog"/);
     // Search Input
     expect(source).toMatch(/<Input[^>]*ref="searchInputRef"[^>]*size="sm"/);
     // Clear search button
@@ -336,14 +336,23 @@ describe('FilterPane Controls Row (Runtime Contracts)', () => {
     expect(allItem.getAttribute('data-state')).toBe('on');
   });
 
-  it('H. selects all currently filtered mods when clicking 全選 Button', async () => {
+  it('H. shows 全選符合 Button only while searching and selects all filtered mods on click', async () => {
     await mountFilterPane();
+
+    // Hidden when search query is empty
+    expect(appRoot.querySelector('button[title="全選目前篩選出來的詞綴"]')).toBeNull();
+
+    // Enter a search keyword matching 1 mod
+    const searchInput = appRoot.querySelector('.item-search input') as HTMLInputElement;
+    searchInput.value = '生命';
+    searchInput.dispatchEvent(new Event('input'));
+    await nextTick();
 
     const selectAllBtn = appRoot.querySelector(
       'button[title="全選目前篩選出來的詞綴"]',
     ) as HTMLButtonElement;
     expect(selectAllBtn).toBeTruthy();
-    expect(selectAllBtn.textContent?.trim()).toBe('全選');
+    expect(selectAllBtn.textContent?.trim()).toBe('全選符合 (1)');
 
     const confirmBtn = appRoot.querySelector(
       '[data-filter-action="confirm-selected"]',
@@ -354,29 +363,36 @@ describe('FilterPane Controls Row (Runtime Contracts)', () => {
       '尚未選擇任何詞綴',
     );
 
-    // Click select all
+    // Click select all filtered
     selectAllBtn.click();
     await nextTick();
 
-    expect(confirmBtn.textContent).toContain('(2 筆)');
+    expect(confirmBtn.textContent).toContain('(1 筆)');
     expect(confirmBtn.disabled).toBe(false);
-    expect(appRoot.querySelectorAll('.selected-mod-item').length).toBe(2);
+    expect(appRoot.querySelectorAll('.selected-mod-item').length).toBe(1);
   });
 
-  it('I. clears all selected mods when clicking 取消全選 Button', async () => {
+  it('I. clears all selected mods when clicking 清空待選 Button', async () => {
     await mountFilterPane();
+
+    const searchInput = appRoot.querySelector('.item-search input') as HTMLInputElement;
+    searchInput.value = '最大';
+    searchInput.dispatchEvent(new Event('input'));
+    await nextTick();
 
     const selectAllBtn = appRoot.querySelector(
       'button[title="全選目前篩選出來的詞綴"]',
     ) as HTMLButtonElement;
-    const clearAllBtn = appRoot.querySelector('button[title="取消所有勾選"]') as HTMLButtonElement;
+    const clearAllBtn = appRoot.querySelector(
+      '[data-filter-action="clear-selected"]',
+    ) as HTMLButtonElement;
     const confirmBtn = appRoot.querySelector(
       '[data-filter-action="confirm-selected"]',
     ) as HTMLButtonElement;
 
     selectAllBtn.click();
     await nextTick();
-    expect(confirmBtn.textContent).toContain('(2 筆)');
+    expect(confirmBtn.textContent).toContain('(1 筆)');
     expect(confirmBtn.disabled).toBe(false);
 
     clearAllBtn.click();
@@ -710,10 +726,9 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
     expect(scrollArea.textContent).toContain('混沌抗性');
 
     // Apply T1 respects range (selects 混沌抗性 first and checks T1+)
-    const selectAllBtn = appRoot.querySelector(
-      'button[title="全選目前篩選出來的詞綴"]',
-    ) as HTMLButtonElement;
-    selectAllBtn.click();
+    const chaosSelectZone = appRoot.querySelector('.mod-select-zone') as HTMLElement;
+    expect(chaosSelectZone).toBeTruthy();
+    chaosSelectZone.click();
     await nextTick();
     applyT1Btn.click();
     await nextTick();
@@ -817,7 +832,7 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
 
     const scrollArea = appRoot.querySelector('.mods-scroll-container') as HTMLElement;
     expect(appRoot.querySelector('.group-count')?.textContent?.trim()).toBe('3');
-    expect(scrollArea.textContent).toContain('其他 (1)');
+    expect(scrollArea.textContent).toContain('固定詞 (1)');
     expect(scrollArea.textContent).toContain('移動速度');
 
     // Switch to prefix only -> other mod should not appear

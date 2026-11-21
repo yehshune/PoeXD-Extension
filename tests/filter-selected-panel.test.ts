@@ -293,10 +293,7 @@ describe('FilterPane Selected Mods Panel (Runtime Contracts)', () => {
   it('E. clears all selections when clicking clear-selected button', async () => {
     await mountFilterPane();
 
-    const selectAllBtn = appRoot.querySelector(
-      'button[title="全選目前篩選出來的詞綴"]',
-    ) as HTMLButtonElement;
-    selectAllBtn.click();
+    appRoot.querySelectorAll('.mod-select-zone').forEach((zone) => (zone as HTMLElement).click());
     await nextTick();
 
     expect(appRoot.querySelectorAll('.selected-mod-item').length).toBe(2);
@@ -388,10 +385,7 @@ describe('FilterPane Selected Mods Panel (Runtime Contracts)', () => {
   it('I. executes batch confirm workflow: dispatches poexd-add-stat-filter and poexd-close-affix-modal exactly once', async () => {
     await mountFilterPane();
 
-    const selectAllBtn = appRoot.querySelector(
-      'button[title="全選目前篩選出來的詞綴"]',
-    ) as HTMLButtonElement;
-    selectAllBtn.click();
+    appRoot.querySelectorAll('.mod-select-zone').forEach((zone) => (zone as HTMLElement).click());
     await nextTick();
 
     let closeCount = 0;

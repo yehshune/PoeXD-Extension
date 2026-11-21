@@ -9,6 +9,7 @@ import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { registerTierSlotRefresher } from '@/utils/tier-slot-registry';
 
 const source = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
+const panelSource = readFileSync('components/sidebar/ItemTypeSelectorPanel.vue', 'utf8');
 const dialogContentSource = readFileSync('components/ui/dialog/DialogContent.vue', 'utf8');
 
 // Mock chrome extension APIs
@@ -75,9 +76,9 @@ describe('FilterPane Item Type Selector & Dialog (Static Contracts)', () => {
     expect(source).not.toContain('.sub-type-btn');
   });
 
-  it('L. uses typeOptionsRootRef for scroll lookup instead of filterPaneRoot or document', () => {
-    expect(source).toContain('typeOptionsRootRef');
-    expect(source).toContain('typeOptionsRootRef.value?.querySelector');
+  it('L. uses optionsRootRef in ItemTypeSelectorPanel for scroll lookup instead of document', () => {
+    expect(panelSource).toContain('optionsRootRef');
+    expect(panelSource).toContain('optionsRootRef.value?.querySelector');
     expect(source).not.toContain("filterPaneRoot.value?.querySelector('.type-btn.selected')");
     expect(source).not.toContain("filterPaneRoot.value?.querySelector('.type-btn')");
     expect(source).not.toContain("document.querySelector('.type-btn.selected')");
@@ -103,42 +104,44 @@ describe('FilterPane Item Type Selector & Dialog (Static Contracts)', () => {
     expect(source).toContain("'type-dialog-open-changed'");
   });
 
-  it('configures Type Dialog as a medium centered dialog with bounded scroll ownership', () => {
+  it('configures Type Selector as Popover inside FilterPane and centered Dialog for external trigger', () => {
     // Retains centered placement without placement="inset"
     expect(source).not.toContain('placement="inset"');
-    // Bounded medium geometry
-    expect(source).toContain('max-h-[72vh]');
-    expect(source).toContain('max-w-[720px]');
-    // Decoupled from density-aware layout spacing
-    expect(source).not.toContain('calc(100vw-2*var(--pxd-pane-padding))');
+    // Popover anchored below trigger inside FilterPane
+    expect(source).toContain('<PopoverContent');
+    expect(source).toContain('align="start"');
+    expect(source).toContain('side="bottom"');
+    // Bounded medium geometry for external Dialog
+    expect(source).toContain('max-h-[82vh]');
+    expect(source).toContain('max-w-[740px]');
     expect(source).toContain('w-[calc(100vw-32px)]');
-    // Options root holds vertical scroll ownership
-    expect(source).toContain('ref="typeOptionsRootRef"');
-    expect(source).toMatch(/ref="typeOptionsRootRef"[^>]*overflow-y-auto/);
+    // Options root holds vertical scroll ownership in panel
+    expect(panelSource).toContain('ref="optionsRootRef"');
+    expect(panelSource).toMatch(/ref="optionsRootRef"[^>]*overflow-y-auto/);
   });
 
-  it('ensures typeSearchInputRef has type-safe ref and does not use as any', () => {
-    expect(source).not.toContain('typeSearchInputRef.value as any');
-    expect(source).not.toContain('typeSearchInputRef.value as');
-    expect(source).toContain('ref<HTMLInputElement | { $el?: HTMLInputElement } | null>');
+  it('ensures searchInputRef has type-safe ref and does not use as any', () => {
+    expect(panelSource).not.toContain('searchInputRef.value as any');
+    expect(panelSource).not.toContain('searchInputRef.value as');
+    expect(panelSource).toContain('ref<HTMLInputElement | { $el?: HTMLInputElement } | null>');
   });
 
-  it('conforms Dialog controls and typography to Foundation primitives and semantic tokens', () => {
+  it('conforms Selector controls and typography to Foundation primitives and semantic tokens', () => {
     // DialogTitle uses semantic section-title typography
     expect(source).toContain('text-[length:var(--pxd-font-section-title)]');
     expect(source).not.toContain('text-[calc(13px*var(--poexd-font-size-scale');
 
-    // Dialog Search Input uses size="default"
-    expect(source).toMatch(/<Input[^>]*ref="typeSearchInputRef"[^>]*size="default"/);
-    expect(source).not.toContain('h-8');
+    // Search Input uses size="default"
+    expect(panelSource).toMatch(/<Input[^>]*ref="searchInputRef"[^>]*size="default"/);
+    expect(panelSource).not.toContain('h-8');
 
     // All option buttons use size="sm" without h-auto
-    expect(source).toMatch(/<Button[^>]*v-if="row\.mainOption"[^>]*size="sm"/);
-    expect(source).toMatch(/<Button[^>]*v-for="subOpt in row\.subOptions"[^>]*size="sm"/);
-    expect(source).toMatch(/<Button[^>]*v-for="opt in group\.singleOptions"[^>]*size="sm"/);
+    expect(panelSource).toMatch(/<Button[^>]*v-if="row\.mainOption"[^>]*size="sm"/);
+    expect(panelSource).toMatch(/<Button[^>]*v-for="subOpt in row\.subOptions"[^>]*size="sm"/);
+    expect(panelSource).toMatch(/<Button[^>]*v-for="opt in group\.singleOptions"[^>]*size="sm"/);
 
     // Fallback label aligns with size="sm" control height
-    expect(source).toContain('min-h-[var(--control-height-sm)]');
+    expect(panelSource).toContain('min-h-[var(--control-height-sm)]');
   });
 });
 
@@ -192,7 +195,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     vi.restoreAllMocks();
   });
 
-  it('A. opens Dialog when clicking item-type trigger button and displays 選擇物品類別', async () => {
+  it('A. opens Popover below item-type trigger button without modal overlay', async () => {
     await mountFilterPane();
 
     const triggerBtn = appRoot.querySelector(
@@ -200,25 +203,20 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     ) as HTMLButtonElement;
     expect(triggerBtn).toBeTruthy();
 
-    expect(portalRoot.querySelector('[data-slot="dialog-content"]')).toBeNull();
+    expect(portalRoot.querySelector('[data-sidebar-dialog="affix-type"]')).toBeNull();
 
     triggerBtn.click();
     await nextTick();
     await new Promise((r) => setTimeout(r, 20));
 
-    const content = portalRoot.querySelector('[data-slot="dialog-content"]');
+    const content = portalRoot.querySelector('[data-slot="popover-content"][data-sidebar-dialog="affix-type"]');
     expect(content).toBeTruthy();
-    expect(content?.textContent).toContain('選擇物品類別');
-    expect(content?.className).toContain('-translate-x-1/2');
-    expect(content?.className).toContain('max-h-[72vh]');
-    expect(content?.className).toContain('max-w-[720px]');
-    expect(content?.className).toContain('w-[calc(100vw-32px)]');
-    expect(content?.className).not.toContain('--pxd-pane-padding');
+    expect(portalRoot.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
+    expect(content?.className).toContain('z-(--pxd-z-floating)');
     expect(content?.className).toContain('data-[state=open]:zoom-in-95');
-    expect(content?.className).not.toContain('inset-x-[5vw]');
   });
 
-  it('B. enforces Shadow Root portal contract: Dialog content mounts into portalRoot, not outside host', async () => {
+  it('B. enforces Shadow Root portal contract: Popover content mounts into portalRoot, not outside host', async () => {
     await mountFilterPane();
 
     const triggerBtn = appRoot.querySelector(
@@ -229,16 +227,16 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     await new Promise((r) => setTimeout(r, 20));
 
     // Content in portalRoot
-    const portalContent = portalRoot.querySelector('[data-slot="dialog-content"]');
+    const portalContent = portalRoot.querySelector('[data-slot="popover-content"]');
     expect(portalContent).toBeTruthy();
 
     // Not inside FilterPane subtree
-    const appContent = appRoot.querySelector('[data-slot="dialog-content"]');
+    const appContent = appRoot.querySelector('[data-slot="popover-content"]');
     expect(appContent).toBeNull();
 
     // Not in global document.body outside shadow host
     const directBodyContent = Array.from(document.body.children).find(
-      (el) => el !== host && el.querySelector?.('[data-slot="dialog-content"]'),
+      (el) => el !== host && el.querySelector?.('[data-slot="popover-content"]'),
     );
     expect(directBodyContent).toBeUndefined();
   });
@@ -482,13 +480,25 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     removeListener();
   });
 
-  it('enforces runtime stacking: Overlay and Content mount into portalRoot with nested dialog layer token', async () => {
+  it('enforces runtime stacking: external Type Dialog mounts with nested dialog layer token, while Popover uses floating token', async () => {
     await mountFilterPane();
 
+    // Inside FilterPane: Popover uses floating layer
     const triggerBtn = appRoot.querySelector(
       '.custom-select-container button',
     ) as HTMLButtonElement;
     triggerBtn.click();
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 20));
+
+    const popoverContent = portalRoot.querySelector('[data-slot="popover-content"]') as HTMLElement;
+    expect(popoverContent).toBeTruthy();
+    expect(popoverContent.className).toContain('z-(--pxd-z-floating)');
+
+    // Close Popover, then trigger external centered Dialog
+    triggerBtn.click();
+    await nextTick();
+    dispatchPoeEvent('poexd-trigger-select-type-modal');
     await nextTick();
     await new Promise((r) => setTimeout(r, 20));
 
