@@ -775,8 +775,6 @@ export default defineComponent({
       filteredModTotalCount,
       canSelectAllFiltered,
       expandedCategories,
-      shouldAutoExpandCategories,
-      expandCategories,
       toggleCategory,
       hasAnyExpandedCategory,
       toggleAllCategories,
@@ -808,13 +806,10 @@ export default defineComponent({
       revealMod,
     });
 
-    // 當搜尋時或剛載入時，自動展開所有匹配結果的區塊
+    // 初次載入大類時預設將第一個大類設為目前導覽焦點
     watch(
-      () => groupedAffixes.value,
+      groupedAffixes,
       (newGroups) => {
-        if (shouldAutoExpandCategories()) {
-          expandCategories(newGroups);
-        }
         if (newGroups.length > 0 && !currentActiveCategory.value) {
           currentActiveCategory.value = newGroups[0].label;
         }

@@ -182,7 +182,7 @@ PoeXD 的尺寸架構由**四大明確劃分、職責互不混淆**的層級組�
 - **保留 Native `.pxd-scrollbar` 的對象（嚴格限定，其餘嚴禁使用）**：
   目前僅允許以下元件保留原生 styled `.pxd-scrollbar`（與 production code 完全一致）：
   1. `components/injected/TierDropdownHost.vue`：注入於宿主交易頁面的詞綴層級下拉清單容器。
-  2. `components/sidebar/FilterPane.vue`：內部滾動區（`modal-nav-anchors-inline` 類別導覽、`mods-scroll-container` 詞綴與 category/type 篩選清單、`selected-mods-list` 已選清單、selection list）。
+  2. `components/sidebar/FilterPane.vue` 與 `components/sidebar/FilterSelectedPanel.vue`：內部滾動區（`modal-nav-anchors-inline` 類別導覽、`mods-scroll-container` 詞綴與 category/type 篩選清單、`selected-mods-list` 已選清單、selection list）。
   3. `components/sidebar/BookmarkPane.vue` 內的浮層集合（`DropdownMenuSubContent` 聯盟/資料夾選單、`cover-image-grid` 封面圖示選擇網格）。
   4. `components/sidebar/search-preview/TradeSearchPreviewTooltip.vue`：Bookmark / History 共用的 Trade Search Preview 懸停浮層（依 Reka available-height 自適應高度並支援 hoverable 完整預覽滾動）。
 
@@ -383,7 +383,7 @@ User-configurable Sidebar workspace width is independent of UI Scale.
 - **合法 Native `.pxd-scrollbar` 白名單（嚴格限定，其餘嚴禁使用）**：
   目前僅允許以下元件保留原生 styled `.pxd-scrollbar`（與 production code 完全一致）：
   1. `components/injected/TierDropdownHost.vue`：注入於宿主交易頁面的詞綴層級下拉清單容器。
-  2. `components/sidebar/FilterPane.vue`：內部滾動區（`modal-nav-anchors-inline` 類別導覽、`mods-scroll-container` 詞綴與 category/type 篩選清單、`selected-mods-list` 已選清單、selection list）。
+  2. `components/sidebar/FilterPane.vue` 與 `components/sidebar/FilterSelectedPanel.vue`：內部滾動區（`modal-nav-anchors-inline` 類別導覽、`mods-scroll-container` 詞綴與 category/type 篩選清單、`selected-mods-list` 已選清單、selection list）。
   3. `components/sidebar/BookmarkPane.vue` 內的浮層集合（`DropdownMenuSubContent` 聯盟/資料夾選單、`cover-image-grid` 封面圖示選擇網格）。
   4. `components/sidebar/search-preview/TradeSearchPreviewTooltip.vue`：Bookmark / History 共用的 Trade Search Preview 懸停浮層（依 Reka available-height 自適應高度並支援 hoverable 完整預覽滾動）。
   - 任何一般側邊欄 Pane、主版面或常駐容器**嚴禁**新增 native `.pxd-scrollbar`。

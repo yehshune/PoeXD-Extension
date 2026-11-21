@@ -185,19 +185,28 @@ export function useAffixFilter({
     () => Boolean(searchQuery.value.trim()) && filteredModTotalCount.value > 0,
   );
 
-  /** 是否應自動展開所有命中的大類：搜尋中、有等級區間，或尚未有任何展開狀態（剛載入／切換類別） */
-  const shouldAutoExpandCategories = () =>
-    Boolean(searchQuery.value.trim()) ||
-    hasActiveItemLevelRange.value ||
-    expandedCategories.value.size === 0;
-
   const expandedCategories = ref<Set<string>>(new Set());
 
-  const expandCategories = (groups: CategoryGroup[]) => {
+  const expandAll = (groups: CategoryGroup[]) => {
     groups.forEach((g) => {
       expandedCategories.value.add(g.label);
     });
   };
+
+  // 搜尋中、有等級區間或尚未有任何展開狀態（剛載入／切換類別）時，自動展開所有命中的大類
+  watch(
+    groupedAffixes,
+    (newGroups) => {
+      if (
+        searchQuery.value.trim() ||
+        hasActiveItemLevelRange.value ||
+        expandedCategories.value.size === 0
+      ) {
+        expandAll(newGroups);
+      }
+    },
+    { immediate: true },
+  );
 
   const toggleCategory = (label: string) => {
     if (expandedCategories.value.has(label)) {
@@ -215,7 +224,7 @@ export function useAffixFilter({
     if (hasAnyExpandedCategory.value) {
       expandedCategories.value.clear();
     } else {
-      expandCategories(groupedAffixes.value);
+      expandAll(groupedAffixes.value);
     }
   };
 
@@ -234,8 +243,6 @@ export function useAffixFilter({
     filteredModTotalCount,
     canSelectAllFiltered,
     expandedCategories,
-    shouldAutoExpandCategories,
-    expandCategories,
     toggleCategory,
     hasAnyExpandedCategory,
     toggleAllCategories,
