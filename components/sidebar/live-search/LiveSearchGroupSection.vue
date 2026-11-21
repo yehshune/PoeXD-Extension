@@ -205,7 +205,7 @@
         :group="group"
         :tooltip-side="tooltipSide"
         :boundary-anchor="boundaryAnchor"
-        :is-preview-open="activeEntityKey === `${item.kind}:${item.id}`"
+        :is-preview-open="activeEntityKey === getPreviewEntityKey(item)"
         :active-preview-data="activePreviewData"
         :is-result-filterable="isItemResultFilterable(item, group)"
         :is-result-filter-target="isItemResultFilterTarget(item)"
@@ -241,7 +241,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import LiveSearchSourceRow from './LiveSearchSourceRow.vue';
-import type { LiveSearchGroupStats } from './useLiveSearchGroups';
+import { getPreviewEntityKey, type LiveSearchGroupStats } from './useLiveSearchGroups';
 import type { TradeSearchPreviewData } from '../composables/useTradeSearchPreview';
 import { t } from '@/utils/i18n';
 import {

@@ -227,6 +227,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import TradeSearchPreviewTooltip from '../search-preview/TradeSearchPreviewTooltip.vue';
 import type { TradeSearchPreviewData } from '../composables/useTradeSearchPreview';
+import { isItemActiveOrError } from './useLiveSearchGroups';
 import { t } from '@/utils/i18n';
 import type { LiveSearchSubscriptionStatus } from '@/utils/live-search-contract';
 import {
@@ -318,15 +319,6 @@ function getIncompatibleLabel(compatibility?: LiveSearchSourceCompatibility): st
 
 function isItemActive(status?: LiveSearchSubscriptionStatus): boolean {
   return status === 'connecting' || status === 'active' || status === 'reconnecting';
-}
-
-function isItemActiveOrError(status?: LiveSearchSubscriptionStatus): boolean {
-  return (
-    status === 'connecting' ||
-    status === 'active' ||
-    status === 'reconnecting' ||
-    status === 'error'
-  );
 }
 
 function isItemConnectingOrPending(item: LiveSearchSourceItem): boolean {

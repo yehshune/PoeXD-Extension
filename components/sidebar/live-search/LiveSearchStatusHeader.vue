@@ -289,7 +289,7 @@ watch(
   (newRateLimit) => {
     syncCountdownTimer(newRateLimit);
   },
-  { immediate: true },
+  { immediate: true, flush: 'sync' },
 );
 
 onUnmounted(() => {

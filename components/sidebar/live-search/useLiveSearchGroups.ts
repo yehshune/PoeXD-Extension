@@ -20,7 +20,11 @@ export interface LiveSearchGroupStats {
   errorCount: number;
 }
 
-function isItemActiveOrError(status?: LiveSearchSubscriptionStatus): boolean {
+export function getPreviewEntityKey(item: { kind: string; id: string }): string {
+  return `${item.kind}:${item.id}`;
+}
+
+export function isItemActiveOrError(status?: LiveSearchSubscriptionStatus): boolean {
   return (
     status === 'connecting' ||
     status === 'active' ||

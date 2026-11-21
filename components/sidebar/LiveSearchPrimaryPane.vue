@@ -340,7 +340,11 @@ import SidebarEmptyState from './layout/SidebarEmptyState.vue';
 import LiveSearchStatusHeader from './live-search/LiveSearchStatusHeader.vue';
 import LiveSearchGroupSection from './live-search/LiveSearchGroupSection.vue';
 import { useLiveSearchMenuState } from './live-search/useLiveSearchMenuState';
-import { isItemStoppedInSession, useLiveSearchGroups } from './live-search/useLiveSearchGroups';
+import {
+  getPreviewEntityKey,
+  isItemStoppedInSession,
+  useLiveSearchGroups,
+} from './live-search/useLiveSearchGroups';
 import { resolveBatchEnableToast, resolveBatchStopToast } from './live-search-presentation';
 import { hideDragTrash, showDragTrash, useDragTrash } from './composables/useDragTrash';
 import { useTradeSearchPreview } from './composables/useTradeSearchPreview';
@@ -439,10 +443,6 @@ const { activeEntityKey, activePreviewData, loadPreview, clearActivePreview } =
   });
 
 const activePreviewUrl = ref<string | null>(null);
-
-function getPreviewEntityKey(item: { kind: string; id: string }): string {
-  return `${item.kind}:${item.id}`;
-}
 
 function clearScopedActivePreview(entityKey?: string) {
   if (!entityKey || activeEntityKey.value === entityKey) {
