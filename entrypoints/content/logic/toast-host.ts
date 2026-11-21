@@ -133,8 +133,9 @@ export function initToastHost(
       display: block !important;
       position: fixed !important;
       top: 0 !important;
-      left: 0 !important;
-      width: 100vw !important;
+      left: var(--poexd-toast-inset-left, 0px) !important;
+      right: var(--poexd-toast-inset-right, 0px) !important;
+      width: auto !important;
       height: 0 !important;
       overflow: visible !important;
       z-index: 2147483647 !important;
@@ -219,6 +220,7 @@ export function initToastHost(
       const host = document.createElement('poexd-toast-container');
       const shadow = host.attachShadow({ mode: 'open' });
       activeToastShadowRoot = shadow;
+      appendShadowHostStyle(shadow, hostCss);
       const container = document.createElement('div');
       shadow.appendChild(container);
       shadowHost = host;

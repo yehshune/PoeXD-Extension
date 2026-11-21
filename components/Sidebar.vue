@@ -24,7 +24,7 @@
         :style="{
           right: sidebarPosition === 'right' ? '0' : 'auto',
           left: sidebarPosition === 'left' ? '0' : 'auto',
-          height: showCollapsedTab ? 'var(--control-height-default)' : '100vh',
+          height: showCollapsedTab ? 'var(--control-height-default)' : '100%',
           top: showCollapsedTab ? 'var(--pxd-collapsed-tab-top, 100px)' : '0',
           '--pxd-collapsed-tab-top': isCollapsed ? collapsedTabTopStyle : undefined,
           width: showCollapsedTab ? 'var(--pxd-sidebar-collapsed-width)' : actualWidth + 'px',

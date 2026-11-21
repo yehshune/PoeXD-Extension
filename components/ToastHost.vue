@@ -34,7 +34,7 @@ const toneClass = computed(() => {
     role="status"
     aria-live="polite"
     :class="[
-      'fixed top-[20px] left-1/2 -translate-x-1/2 max-w-[calc(100vw-32px)] z-(--pxd-z-toast) box-border py-[var(--pxd-space-md)] px-[var(--pxd-space-xl)] rounded-[var(--radius)] shadow-lg text-[length:var(--pxd-font-section-title)] leading-normal whitespace-pre-line text-center pointer-events-auto transition-all duration-200 border',
+      'absolute top-[20px] left-1/2 -translate-x-1/2 w-max max-w-[min(560px,calc(100%-32px))] break-words z-(--pxd-z-toast) box-border py-[var(--pxd-space-md)] px-[var(--pxd-space-xl)] rounded-[var(--radius)] shadow-lg text-[length:var(--pxd-font-section-title)] leading-normal whitespace-pre-line text-center pointer-events-auto transition-all duration-200 border',
       toneClass,
     ]"
   >

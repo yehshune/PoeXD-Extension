@@ -65,7 +65,7 @@ describe('Sidebar page layout', () => {
   });
 
   it('establishes shadowHost CSS layout contract overriding WXT reset, and drives dynamic geometry via private custom properties bridge', () => {
-    expect(layoutSource).toContain("const POEXD_HOST_Z_INDEX = '2147483647';");
+    expect(layoutSource).toContain("const POEXD_HOST_Z_INDEX = '2147483646';");
 
     // 1. Host CSS in createShadowRootUi overrides WXT reset with !important
     expect(layoutSource).toContain('display: block !important;');
@@ -76,7 +76,7 @@ describe('Sidebar page layout', () => {
     expect(layoutSource).toContain('left: var(--poexd-host-left, auto) !important;');
     expect(layoutSource).toContain('right: var(--poexd-host-right, auto) !important;');
     expect(layoutSource).toContain('width: var(--poexd-host-width, 380px) !important;');
-    expect(layoutSource).toContain('height: var(--poexd-host-height, 100vh) !important;');
+    expect(layoutSource).toContain('height: var(--poexd-host-height, 100%) !important;');
 
     // 2. No ordinary inline geometry properties assigned on wrapper.style
     expect(layoutSource).not.toMatch(/wrapper\.style\.width\s*=/);
@@ -320,14 +320,19 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
     expect(layoutStyle).not.toBeNull();
 
     // Baseline layout for left sidebar at 420px
+    expect(layoutStyle.textContent).toContain('--poexd-toast-inset-left: 420px;');
+    expect(layoutStyle.textContent).toContain('--poexd-toast-inset-right: 0px;');
     expect(layoutStyle.textContent).toContain('width: calc(100% - 420px) !important;');
     expect(layoutStyle.textContent).toContain('margin-left: 420px !important;');
     expect(layoutStyle.textContent).toContain('margin-right: 0px !important;');
     expect(mockCtx.shadowHost.style.getPropertyValue('--poexd-host-width')).toBe('420px');
+    expect(mockCtx.shadowHost.style.getPropertyValue('--poexd-host-height')).toBe('100%');
 
     // Transient preview event triggers real-time contract update to 500px
     dispatchPoeEvent('poexd-sidebar-width-preview', 500);
 
+    expect(layoutStyle.textContent).toContain('--poexd-toast-inset-left: 500px;');
+    expect(layoutStyle.textContent).toContain('--poexd-toast-inset-right: 0px;');
     expect(layoutStyle.textContent).toContain('width: calc(100% - 500px) !important;');
     expect(layoutStyle.textContent).toContain('margin-left: 500px !important;');
     expect(layoutStyle.textContent).toContain('margin-right: 0px !important;');
@@ -345,6 +350,8 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
     expect(layoutStyle).not.toBeNull();
 
     // Baseline layout for right sidebar at 420px
+    expect(layoutStyle.textContent).toContain('--poexd-toast-inset-left: 0px;');
+    expect(layoutStyle.textContent).toContain('--poexd-toast-inset-right: 420px;');
     expect(layoutStyle.textContent).toContain('width: calc(100% - 420px) !important;');
     expect(layoutStyle.textContent).toContain('margin-left: 0px !important;');
     expect(layoutStyle.textContent).toContain('margin-right: 420px !important;');
@@ -353,6 +360,8 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
     // Transient preview event triggers real-time contract update to 500px on right margin
     dispatchPoeEvent('poexd-sidebar-width-preview', 500);
 
+    expect(layoutStyle.textContent).toContain('--poexd-toast-inset-left: 0px;');
+    expect(layoutStyle.textContent).toContain('--poexd-toast-inset-right: 500px;');
     expect(layoutStyle.textContent).toContain('width: calc(100% - 500px) !important;');
     expect(layoutStyle.textContent).toContain('margin-left: 0px !important;');
     expect(layoutStyle.textContent).toContain('margin-right: 500px !important;');

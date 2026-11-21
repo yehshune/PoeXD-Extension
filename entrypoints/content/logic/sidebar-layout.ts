@@ -21,7 +21,7 @@ import {
   SIDEBAR_LAYOUT_TRANSITION_MS,
 } from '@/utils/sidebar-motion';
 
-const POEXD_HOST_Z_INDEX = '2147483647';
+const POEXD_HOST_Z_INDEX = '2147483646';
 const LAYOUT_STYLE_ID = 'poexd-layout-style';
 
 interface PageLayoutState {
@@ -42,6 +42,10 @@ function buildPageLayoutCss({ collapsed, position, width, animate }: PageLayoutS
     ? `transition: width ${timing}, margin-left ${timing}, margin-right ${timing} !important;`
     : 'transition: none !important;';
   return `
+      :root {
+        --poexd-toast-inset-left: ${pageMarginLeft}px;
+        --poexd-toast-inset-right: ${pageMarginRight}px;
+      }
       .content {
         ${transitionProperty}
         width: ${pageWidth} !important;
@@ -122,7 +126,7 @@ export async function mountSidebarLayout(
         left: var(--poexd-host-left, auto) !important;
         right: var(--poexd-host-right, auto) !important;
         width: var(--poexd-host-width, 380px) !important;
-        height: var(--poexd-host-height, 100vh) !important;
+        height: var(--poexd-host-height, 100%) !important;
       }
     `;
 
@@ -213,7 +217,7 @@ export async function mountSidebarLayout(
       wrapper.style.setProperty('--poexd-host-top', collapsedTabTopCss(collapsedTop));
     } else {
       wrapper.style.setProperty('--poexd-host-width', `${width}px`);
-      wrapper.style.setProperty('--poexd-host-height', '100vh');
+      wrapper.style.setProperty('--poexd-host-height', '100%');
       wrapper.style.setProperty('--poexd-host-top', '0px');
     }
     wrapper.style.setProperty('--poexd-host-left', currentPosition === 'left' ? '0px' : 'auto');
@@ -265,8 +269,8 @@ export async function mountSidebarLayout(
   listenPoeEvent('poexd-modal-active-changed', (active) => {
     isModalActive = active;
     if (active) {
-      wrapper.style.setProperty('--poexd-host-width', '100vw');
-      wrapper.style.setProperty('--poexd-host-height', '100vh');
+      wrapper.style.setProperty('--poexd-host-width', '100%');
+      wrapper.style.setProperty('--poexd-host-height', '100%');
       wrapper.style.setProperty('--poexd-host-top', '0px');
       wrapper.style.setProperty('--poexd-host-left', '0px');
       wrapper.style.setProperty('--poexd-host-right', '0px');

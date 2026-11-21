@@ -247,9 +247,9 @@ describe('Injected Controls Theme Audit & Contract Tests', () => {
       expect(toastVueContent).toContain('var(--radius)');
       expect(toastVueContent).toContain('shadow-lg');
 
-      // 斷言固定 viewport top-center 定位與唯一 hook (Scale & Density invariant)
+      // 斷言固定 host 內 top-center 定位與唯一 hook (Scale & Density invariant)
       expect(toastVueContent).toContain('data-poexd-toast');
-      expect(toastVueContent).toContain('fixed');
+      expect(toastVueContent).toContain('absolute');
       expect(toastVueContent).toContain('top-[20px]');
       expect(toastVueContent).toContain('left-1/2');
       expect(toastVueContent).toContain('-translate-x-1/2');

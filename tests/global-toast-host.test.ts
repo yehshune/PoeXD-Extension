@@ -59,13 +59,21 @@ describe('Global Toast Host Contract', () => {
       expect(toastEl.getAttribute('role')).toBe('status');
       expect(toastEl.getAttribute('aria-live')).toBe('polite');
 
-      // Invariant top-center viewport positioning classes (Scale & Density invariant)
-      expect(toastEl.className).toContain('fixed');
+      // Invariant top-center positioning classes within sidebar-aware fixed host
+      expect(toastEl.className).toContain('absolute');
       expect(toastEl.className).toContain('top-[20px]');
       expect(toastEl.className).toContain('left-1/2');
       expect(toastEl.className).toContain('-translate-x-1/2');
-      expect(toastEl.className).toContain('max-w-[calc(100vw-32px)]');
+      expect(toastEl.className).toContain('w-max');
+      expect(toastEl.className).toContain('max-w-[min(560px,calc(100%-32px))]');
+      expect(toastEl.className).toContain('break-words');
       expect(toastEl.className).toContain('z-(--pxd-z-toast)');
+
+      const hostStyle =
+        getToastShadowRoot()?.querySelector('style[data-poexd-host-style]')?.textContent ?? '';
+      expect(hostStyle).toContain('left: var(--poexd-toast-inset-left, 0px) !important;');
+      expect(hostStyle).toContain('right: var(--poexd-toast-inset-right, 0px) !important;');
+      expect(hostStyle).toContain('z-index: 2147483647 !important;');
 
       // Canonical UI Foundation typography and layout spacing tokens
       expect(toastEl.className).toContain('text-[length:var(--pxd-font-section-title)]');
