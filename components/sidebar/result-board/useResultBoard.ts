@@ -15,6 +15,7 @@ import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t, type I18nKey } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { capturePinnedCardDom } from '@/utils/pinned-card-dom';
+import { createPinnedItemClient } from '@/utils/pinned-item-client';
 import { createPinnedItemSnapshot, type PinnedItemSnapshot } from '@/utils/pinned-items';
 import { getPreferences } from '@/utils/preferences';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
@@ -70,6 +71,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const view = ref<BoardView>('items');
   const sortMode = ref<BoardSortMode>('official');
   const instantOnly = ref(false);
+  const hideSold = ref(false);
   const keyword = ref('');
   const priceMinText = ref('');
   const priceMaxText = ref('');
@@ -78,6 +80,11 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const unpicked = ref<ReadonlySet<string>>(new Set());
   const expandedIds = ref<ReadonlySet<string>>(new Set());
   const expandedSellers = ref<ReadonlySet<string>>(new Set());
+  /** 釘選清單同步來的已釘選 id，用來在看板上高亮 Pin 按鈕 */
+  const pinnedIds = ref<ReadonlySet<string>>(new Set());
+  /** 正在重新整理或前往藏身處中的結果 id */
+  const travelStates = ref<Readonly<Record<string, 'refreshing' | 'traveling'>>>({});
+  const travelTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   let disposed = false;
   let ratesLoading = false;
@@ -150,10 +157,23 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     return summary ? Math.min(summary.resultCount, OFFICIAL_RESULT_CAP) : undefined;
   });
 
-  const filteredEntries = computed(() =>
-    sortEntries(
+  const soldIds = computed(() => {
+    const ids = new Set<string>();
+    for (const [id, mark] of Object.entries(state.value.marks)) {
+      if (mark === 'sold') ids.add(id);
+    }
+    return ids;
+  });
+  const hasSoldEntries = computed(() => soldIds.value.size > 0);
+
+  const filteredEntries = computed(() => {
+    const base =
+      hasSoldEntries.value && hideSold.value
+        ? entries.value.filter((entry) => !soldIds.value.has(entry.id))
+        : entries.value;
+    return sortEntries(
       filterEntries(
-        entries.value,
+        base,
         {
           instantBuyoutOnly: hasMixedInstantBuyout.value && instantOnly.value,
           keyword: keyword.value,
@@ -165,15 +185,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       ),
       sortMode.value,
       rates.value,
-    ),
-  );
-
-  const soldIds = computed(() => {
-    const ids = new Set<string>();
-    for (const [id, mark] of Object.entries(state.value.marks)) {
-      if (mark === 'sold') ids.add(id);
-    }
-    return ids;
+    );
   });
 
   const sellers = computed(() => {
@@ -298,13 +310,18 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     expandedSellers.value = new Set(sellers.value.map((seller) => seller.account));
   }
 
+  /** 展開時的卡片快取：同一次搜尋內每個 id 只擷取一次 DOM，避免大筆數展開時重複重建 shadow root */
+  const snapshotCache = new Map<string, PinnedItemSnapshot>();
+
   /** 展開時的卡片：用官方結果列擷取的卡片與快取裡的物品資料（與釘選相同的渲染） */
   function cardSnapshot(id: string): PinnedItemSnapshot | undefined {
+    const cached = snapshotCache.get(id);
+    if (cached) return cached;
     const entry = getTradeResultCache().get(id);
     const currentLeague = resolveLeague(entry?.league);
     if (!entry || !currentLeague) return undefined;
     const row = findOfficialRow(id);
-    return createPinnedItemSnapshot(
+    const snapshot = createPinnedItemSnapshot(
       entry,
       {
         gameVersion: version,
@@ -316,6 +333,8 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       },
       Date.now(),
     );
+    if (snapshot) snapshotCache.set(id, snapshot);
+    return snapshot;
   }
 
   const locate = (id: string) => {
@@ -326,11 +345,30 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     busy: 'resultBoard.travelBusy',
     'refresh-failed': 'resultBoard.travelRefreshFailed',
   };
+  const setTravelState = (id: string, next: 'refreshing' | 'traveling' | undefined) => {
+    clearTimeout(travelTimers.get(id));
+    travelTimers.delete(id);
+    const { [id]: _removed, ...rest } = travelStates.value;
+    travelStates.value = next ? { ...rest, [id]: next } : rest;
+  };
+
   const travel = async (id: string) => {
-    const outcome = await runtime.travel(id, () =>
-      notify('resultBoard.travelRefreshing', 'default'),
+    if (travelStates.value[id]) return;
+    setTravelState(id, 'traveling');
+    const outcome = await runtime.travel(id, () => {
+      setTravelState(id, 'refreshing');
+      notify('resultBoard.travelRefreshing', 'default');
+    });
+    if (outcome !== 'travelled') {
+      setTravelState(id, undefined);
+      notify(TRAVEL_FAILURE[outcome]);
+      return;
+    }
+    setTravelState(id, 'traveling');
+    travelTimers.set(
+      id,
+      setTimeout(() => setTravelState(id, undefined), 1_200),
     );
-    if (outcome !== 'travelled') notify(TRAVEL_FAILURE[outcome]);
   };
   const travelSeller = async (seller: SellerSummary) => {
     const target =
@@ -347,11 +385,24 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   };
 
   watch(
+    () => state.value.marks,
+    (marks) => {
+      for (const id of Object.keys(travelStates.value)) {
+        if (marks[id]) setTravelState(id, undefined);
+      }
+    },
+  );
+
+  watch(
     () => `${state.value.searchId}:${state.value.startedAt}`,
     () => {
       unpicked.value = new Set();
       expandedIds.value = new Set();
       expandedSellers.value = new Set();
+      snapshotCache.clear();
+      travelTimers.forEach((timer) => clearTimeout(timer));
+      travelTimers.clear();
+      travelStates.value = {};
       isLiveMode.value = getTradePageMode() === 'live';
       void ensureRates();
     },
@@ -379,6 +430,22 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     );
     state.value = runtime.session.getState();
     loaderState.value = runtime.loader.getState();
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      const pinnedClient = createPinnedItemClient(version);
+      if (chrome.storage.onChanged?.addListener) {
+        cleanups.push(
+          pinnedClient.subscribe((items) => {
+            if (!disposed) pinnedIds.value = new Set(items.map((item) => item.id));
+          }),
+        );
+      }
+      void pinnedClient
+        .list()
+        .then((items) => {
+          if (!disposed) pinnedIds.value = new Set(items.map((item) => item.id));
+        })
+        .catch(() => {});
+    }
     void getPreferences(version).then((outcome) => {
       if (disposed) return;
       if (!outcome.ok) {
@@ -398,8 +465,13 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
 
   onUnmounted(() => {
     disposed = true;
+    snapshotCache.clear();
+    travelTimers.forEach((timer) => clearTimeout(timer));
+    travelTimers.clear();
     cleanups.forEach((cleanup) => cleanup());
   });
+
+  const isPinned = (id: string): boolean => pinnedIds.value.has(id);
 
   return {
     state,
@@ -411,6 +483,8 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     sortMode,
     sortModes,
     instantOnly,
+    hideSold,
+    hasSoldEntries,
     keyword,
     priceMinText,
     priceMaxText,
@@ -423,6 +497,8 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     sellers,
     priceSummary,
     isPicked,
+    isPinned,
+    travelStates,
     togglePicked,
     toggleGroupPicked,
     pickedOf,
@@ -445,6 +521,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     hideSeller: (account: string) => runtime.session.hideSeller(account),
     showAllSellers: () => runtime.session.showAllSellers(),
     loadNext: () => void runtime.loader.loadNext(),
+    loadBatches: (batches: number) => void runtime.loader.loadBatches(batches),
     loadAll: () => void runtime.loader.loadAll(),
     stopLoading: () => runtime.loader.stop(),
     // 不知道官方總數時一律可以按，由載入流程回報「找不到按鈕」；

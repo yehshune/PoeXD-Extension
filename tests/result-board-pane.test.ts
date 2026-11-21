@@ -686,12 +686,15 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(sellerA.querySelector('[data-board-seller-count]')?.textContent).toContain('2');
     expect(sellerA.querySelector('[data-board-seller-total]')?.textContent).toContain('50');
 
-    // 當角色名與帳號相同（或無獨立角色名）時，副標不重複顯示帳號
+    // 當角色名與帳號相同（或無獨立角色名）時，副標不重複顯示帳號，且價格顯示通貨圖示
     const sellerWithAccountOnly = container.querySelector('[data-board-seller="SellerB#2"]')!;
     const headerLines = Array.from(
       sellerWithAccountOnly.querySelectorAll('[data-board-seller-toggle] > span'),
     ).map((el) => el.textContent?.trim());
-    expect(headerLines).toEqual(['SellerB#2', '5 chaos']);
+    expect(headerLines).toEqual(['SellerB#2', '5']);
+    expect(
+      sellerWithAccountOnly.querySelector('[data-board-currency-icon]')?.getAttribute('alt'),
+    ).toBe('chaos');
 
     // 展開 SellerA：a1 不在 Tab1 的 regex 裡，且勾選框禁用
     sellerA.querySelector<HTMLElement>('[data-board-seller-toggle]')!.click();
@@ -729,5 +732,137 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
         '[data-board-seller="SellerB#2"] [data-board-seller-travel]',
       )?.disabled,
     ).toBe(true);
+  });
+
+  it('supports hide-sold filter, shows gold fee when expanded, and syncs pinned state', async () => {
+    storageData.poexdPinnedItemsV1_poe1 = [
+      {
+        id: 'r1',
+        gameVersion: 'poe1',
+        realm: 'international',
+        origin: 'https://www.pathofexile.com',
+        league: 'Covens',
+        pinnedAt: 1,
+        item: { typeLine: 'Vaal Regalia' },
+        listing: { instantBuyout: true },
+      },
+    ];
+    ingest([
+      rawResult({ id: 'r1', amount: 10, currency: 'chaos', fee: 2000 }),
+      rawResult({ id: 'r2', amount: 20, currency: 'chaos' }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    // 已釘選的項目按鈕亮起
+    const pinBtn1 = container.querySelector('[data-board-entry-id="r1"] [data-board-pin]')!;
+    const pinBtn2 = container.querySelector('[data-board-entry-id="r2"] [data-board-pin]')!;
+    expect(pinBtn1.hasAttribute('data-board-pinned')).toBe(true);
+    expect(pinBtn2.hasAttribute('data-board-pinned')).toBe(false);
+
+    // 展開後顯示金幣手續費
+    container
+      .querySelector<HTMLElement>('[data-board-entry-id="r1"] [data-board-entry-toggle]')!
+      .click();
+    await flush();
+    expect(container.querySelector('[data-board-entry-fee]')?.textContent).toContain('2,000');
+
+    // 無已售出時不顯示「隱藏已售出」；出現已售出後顯示、可過濾且會持久化記憶
+    expect(container.querySelector('[data-board-hide-sold]')).toBeNull();
+    runtime.session.markSold('r2');
+    await flush();
+    const hideSold = container.querySelector<HTMLElement>('[data-board-hide-sold]');
+    expect(hideSold).not.toBeNull();
+    hideSold!.click();
+    await flush();
+    expect(storageData.resultBoardHideSold_poe1).toBe(true);
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
+    expect(container.querySelector('[data-board-entry-id="r2"]')).toBeNull();
+
+    // 重新掛載後自動恢復「隱藏已售出」
+    unmount();
+    unmount = undefined;
+    const app2 = createApp({ render: () => h(ResultBoardPane) });
+    app2.mount(container);
+    unmount = () => app2.unmount();
+    await flush();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
+    expect(container.querySelector('[data-board-entry-id="r2"]')).toBeNull();
+  });
+
+  it('remembers custom load batch preset and supports themed min-seller stepper', async () => {
+    const loadBatchesSpy = vi.spyOn(runtime.loader, 'loadBatches').mockResolvedValue(undefined);
+    const loadAllSpy = vi.spyOn(runtime.loader, 'loadAll').mockResolvedValue(undefined);
+    runtime.session.setSummary({
+      searchId: 'search-big',
+      resultCount: 100,
+      total: 100,
+      inexact: false,
+    });
+    cache.ingestResult(
+      { ...rawResult({ id: 'r1', account: 'Seller#1' }), sourceSearchId: 'search-big' },
+      { sourceSearchId: 'search-big', league: 'Covens' },
+    );
+    cache.ingestResult(
+      { ...rawResult({ id: 'r2', account: 'Seller#1' }), sourceSearchId: 'search-big' },
+      { sourceSearchId: 'search-big', league: 'Covens' },
+    );
+    runtime.session.observeFetch('search-big');
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    // 預設為「下 10 筆」
+    const actionBtn = container.querySelector<HTMLButtonElement>('[data-board-load-action]')!;
+    expect(actionBtn.textContent?.trim()).toBe('下 10 筆');
+    actionBtn.click();
+    expect(loadBatchesSpy).toHaveBeenCalledWith(1);
+
+    // 切換為「下 30 筆」並記住
+    container.querySelector<HTMLElement>('[data-board-load-preset]')!.click();
+    await flush();
+    document.querySelector<HTMLElement>('[data-board-load-option="30"]')!.click();
+    await flush();
+    expect(storageData.resultBoardLoadPreset_poe1).toBe(30);
+    expect(loadBatchesSpy).toHaveBeenCalledWith(3);
+    expect(actionBtn.textContent?.trim()).toBe('下 30 筆');
+
+    // 重新掛載後恢復記憶的預設「下 30 筆」
+    unmount();
+    unmount = undefined;
+    const app2 = createApp({ render: () => h(ResultBoardPane) });
+    app2.mount(container);
+    unmount = () => app2.unmount();
+    await flush();
+    expect(
+      container.querySelector<HTMLButtonElement>('[data-board-load-action]')?.textContent?.trim(),
+    ).toBe('下 30 筆');
+
+    // 切換為「載入全部」
+    container.querySelector<HTMLElement>('[data-board-load-preset]')!.click();
+    await flush();
+    document.querySelector<HTMLElement>('[data-board-load-option="all"]')!.click();
+    await flush();
+    expect(storageData.resultBoardLoadPreset_poe1).toBe('all');
+    expect(loadAllSpy).toHaveBeenCalledTimes(1);
+
+    // 賣家檢視「至少可直購」主題加減按鈕
+    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+    await flush();
+    const minInput = container.querySelector<HTMLInputElement>('[data-board-min-count]')!;
+    expect(minInput.value).toBe('2');
+    container.querySelector<HTMLElement>('[data-board-min-count-inc]')!.click();
+    await flush();
+    expect(minInput.value).toBe('3');
+    expect(container.querySelector('[data-board-no-seller-match]')).not.toBeNull();
+    container.querySelector<HTMLElement>('[data-board-min-count-dec]')!.click();
+    await flush();
+    expect(minInput.value).toBe('2');
+    expect(container.querySelectorAll('[data-board-seller]')).toHaveLength(1);
   });
 });

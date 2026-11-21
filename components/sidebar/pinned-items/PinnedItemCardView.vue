@@ -242,6 +242,24 @@ function render() {
   applyCollapsed();
 }
 
+let sharedLocalSheet: CSSStyleSheet | null | undefined;
+
+function getSharedLocalSheet(): CSSStyleSheet | null {
+  if (sharedLocalSheet !== undefined) return sharedLocalSheet;
+  try {
+    if (typeof CSSStyleSheet === 'function' && 'replaceSync' in CSSStyleSheet.prototype) {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(LOCAL_STYLE);
+      sharedLocalSheet = sheet;
+      return sheet;
+    }
+  } catch {
+    // 測試環境或舊瀏覽器不支援 constructable stylesheet 時回退為 <style>
+  }
+  sharedLocalSheet = null;
+  return null;
+}
+
 onMounted(() => {
   if (!host.value) return;
   const root = host.value.attachShadow({ mode: 'open' });
@@ -251,9 +269,14 @@ onMounted(() => {
     link.href = href;
     root.appendChild(link);
   }
-  const style = document.createElement('style');
-  style.textContent = LOCAL_STYLE;
-  root.appendChild(style);
+  const sheet = getSharedLocalSheet();
+  if (sheet && Array.isArray(root.adoptedStyleSheets)) {
+    root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+  } else {
+    const style = document.createElement('style');
+    style.textContent = LOCAL_STYLE;
+    root.appendChild(style);
+  }
 
   const trade = document.createElement('div');
   trade.id = 'trade';
@@ -266,8 +289,10 @@ onMounted(() => {
   trade.appendChild(results);
   root.appendChild(trade);
   render();
-  // 市集漢化啟用時，翻譯器會翻譯並持續監看這張卡片（英文快照與自繪卡片都會被翻譯）
-  requestResultTranslation(resultset);
+  // 圖示不含需翻譯文字，略過翻譯監聽以降低大筆數展開開銷
+  if (props.part !== 'icon') {
+    requestResultTranslation(resultset);
+  }
 });
 
 watch(() => [props.snapshot, props.part] as const, render);

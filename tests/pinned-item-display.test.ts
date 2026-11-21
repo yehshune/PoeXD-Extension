@@ -290,7 +290,10 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
 
     const hostEl = container.firstElementChild as HTMLElement;
     const shadow = hostEl.shadowRoot!;
-    const styleText = shadow.querySelector('style')?.textContent ?? '';
+    const adoptedCss = (shadow.adoptedStyleSheets ?? [])
+      .flatMap((sheet) => Array.from(sheet.cssRules, (rule) => rule.cssText))
+      .join('\n');
+    const styleText = shadow.querySelector('style')?.textContent || adoptedCss;
     expect(styleText).toContain('font-size: 13px');
     expect(styleText).toContain('container-type: inline-size');
     expect(styleText).toContain('#trade .item-popup .item-mod > .lc.l .d');

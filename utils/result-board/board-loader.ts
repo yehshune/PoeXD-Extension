@@ -59,9 +59,16 @@ export class ResultBoardLoader {
     return () => this.listeners.delete(listener);
   }
 
-  /** 載入下一批 */
+  /** 載入下一批（預設 1 批 = 10 筆） */
   loadNext(): Promise<LoadStopReason | undefined> {
     return this.run(1);
+  }
+
+  /** 依序載入指定批數（每批 10 筆） */
+  loadBatches(batches: number): Promise<LoadStopReason | undefined> {
+    const count = Math.floor(batches);
+    if (!Number.isFinite(count) || count <= 0) return Promise.resolve(undefined);
+    return this.run(count);
   }
 
   /** 依序載入到全部取得或停止為止 */

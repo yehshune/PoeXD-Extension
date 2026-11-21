@@ -7,10 +7,13 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import {
   ArrowUpDown,
   Check,
+  ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
   LayoutList,
   Loader2,
+  Minus,
+  Plus,
   Search,
   X,
 } from '@lucide/vue';
@@ -31,9 +34,10 @@ import { createVersionedStorageKeys } from '@/utils/storage-contracts';
 import { getPoeVersion } from '@/utils/trade-context';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
+import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
 import ResultBoardSellerRow from './ResultBoardSellerRow.vue';
-import { currencyDisplayOf, formatAmount, stopMessage } from './result-board-format';
+import { currencyDisplayOf, stopMessage } from './result-board-format';
 import { useResultBoard, type BoardView } from './useResultBoard';
 
 const board = useResultBoard();
@@ -47,6 +51,8 @@ const {
   sortMode,
   sortModes,
   instantOnly,
+  hideSold,
+  hasSoldEntries,
   keyword,
   priceMinText,
   priceMaxText,
@@ -58,6 +64,7 @@ const {
   filteredEntries,
   sellers,
   priceSummary,
+  travelStates,
   hasAnyExpanded,
   canToggleExpandAll,
   canLoadMore,
@@ -67,7 +74,13 @@ const primaryCurrency = computed(() =>
   currencyDisplayOf(rates.value?.primary, state.value.currencies),
 );
 
+const LOAD_PRESETS = [10, 20, 30, 50, 'all'] as const;
+type BoardLoadPreset = (typeof LOAD_PRESETS)[number];
+const ITEMS_PER_BATCH = 10;
+
 const isSortMenuOpen = ref(false);
+const isLoadMenuOpen = ref(false);
+const loadPreset = ref<BoardLoadPreset>(10);
 const isSearchVisible = ref(false);
 const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
 const itemsListRef = ref<HTMLElement | null>(null);
@@ -75,22 +88,41 @@ const sellersListRef = ref<HTMLElement | null>(null);
 const storageKeys = createVersionedStorageKeys(getPoeVersion());
 const searchStorageKey = storageKeys.resultBoardSearchVisible;
 const viewStorageKey = storageKeys.resultBoardView;
+const hideSoldStorageKey = storageKeys.resultBoardHideSold;
+const loadPresetStorageKey = storageKeys.resultBoardLoadPreset;
 let searchUserToggled = false;
 let viewUserToggled = false;
+let hideSoldUserToggled = false;
+let loadPresetUserSelected = false;
 
-/** 儲存的值不可信：只接受已知的檢視 */
+/** 儲存的值不可信：只接受已知的檢視與載入預設 */
 const isBoardView = (value: unknown): value is BoardView =>
   value === 'items' || value === 'sellers';
+const isBoardLoadPreset = (value: unknown): value is BoardLoadPreset =>
+  (LOAD_PRESETS as readonly unknown[]).includes(value);
+
+function persistLocal(key: string, value: unknown): void {
+  const storage = typeof chrome !== 'undefined' ? chrome.storage?.local : undefined;
+  if (!storage?.set) return;
+  void storage.set({ [key]: value }).catch(() => {});
+}
 
 onMounted(() => {
   const storage = typeof chrome !== 'undefined' ? chrome.storage?.local : undefined;
   if (!storage?.get) return;
   void storage
-    .get([searchStorageKey, viewStorageKey])
+    .get([searchStorageKey, viewStorageKey, hideSoldStorageKey, loadPresetStorageKey])
     .then((data: Record<string, unknown>) => {
       if (!searchUserToggled) isSearchVisible.value = data?.[searchStorageKey] === true;
       const savedView = data?.[viewStorageKey];
       if (!viewUserToggled && isBoardView(savedView)) view.value = savedView;
+      if (!hideSoldUserToggled && typeof data?.[hideSoldStorageKey] === 'boolean') {
+        hideSold.value = data[hideSoldStorageKey];
+      }
+      const savedPreset = data?.[loadPresetStorageKey];
+      if (!loadPresetUserSelected && isBoardLoadPreset(savedPreset)) {
+        loadPreset.value = savedPreset;
+      }
     })
     .catch(() => {});
 });
@@ -100,9 +132,32 @@ function selectView(next: BoardView): void {
   viewUserToggled = true;
   if (view.value === next) return;
   view.value = next;
-  const storage = typeof chrome !== 'undefined' ? chrome.storage?.local : undefined;
-  if (!storage?.set) return;
-  void storage.set({ [viewStorageKey]: next }).catch(() => {});
+  persistLocal(viewStorageKey, next);
+}
+
+function setHideSold(next: boolean | 'indeterminate'): void {
+  hideSoldUserToggled = true;
+  const value = next === true;
+  hideSold.value = value;
+  persistLocal(hideSoldStorageKey, value);
+}
+
+function loadPresetLabel(preset: BoardLoadPreset): string {
+  return preset === 'all'
+    ? t('resultBoard.load.all')
+    : t('resultBoard.load.batch', { count: preset });
+}
+
+function triggerLoad(preset: BoardLoadPreset = loadPreset.value): void {
+  if (preset === 'all') board.loadAll();
+  else board.loadBatches(preset / ITEMS_PER_BATCH);
+}
+
+function selectLoadPreset(preset: BoardLoadPreset): void {
+  loadPresetUserSelected = true;
+  loadPreset.value = preset;
+  persistLocal(loadPresetStorageKey, preset);
+  triggerLoad(preset);
 }
 
 watch(itemsListRef, (list) => {
@@ -152,21 +207,9 @@ function statusText(): string {
     : t('resultBoard.status.retrieved', { count, listed: listedCount.value });
 }
 
-function matchedText(): string {
-  const summary = state.value.summary;
-  if (!summary || summary.total <= (listedCount.value ?? 0)) return '';
-  const total = `${formatAmount(summary.total)}${summary.inexact ? '+' : ''}`;
-  return t('resultBoard.status.matched', { total });
-}
-
-function summaryText(): string {
-  const summary = priceSummary.value;
-  if (!summary) return '';
-  return t('resultBoard.summary.price', {
-    min: `${formatAmount(summary.min)} ${summary.currency}`,
-    median: `${formatAmount(summary.median)} ${summary.currency}`,
-  });
-}
+const summaryTokens = computed(() =>
+  t('resultBoard.summary.price', { min: '\0min\0', median: '\0median\0' }).split('\0'),
+);
 
 function setMinSellerCount(value: string | number): void {
   const parsed = Math.floor(Number(value));
@@ -196,12 +239,47 @@ function setMinSellerCount(value: string | number): void {
             </Button>
           </template>
           <template v-else-if="canLoadMore && state.searchId">
-            <Button variant="secondary" size="sm" data-board-load-next @click="board.loadNext">
-              {{ t('resultBoard.load.next') }}
-            </Button>
-            <Button size="sm" data-board-load-all @click="board.loadAll">
-              {{ t('resultBoard.load.all') }}
-            </Button>
+            <div
+              class="inline-flex h-[var(--control-height-sm)] shrink-0 items-stretch overflow-hidden rounded-md border border-border bg-primary shadow-sm"
+            >
+              <Button
+                size="sm"
+                class="h-full rounded-none border-0 shadow-none"
+                data-board-load-action
+                @click="triggerLoad()"
+              >
+                {{ loadPresetLabel(loadPreset) }}
+              </Button>
+              <span class="w-px self-stretch bg-primary-foreground/20" aria-hidden="true" />
+              <DropdownMenu v-model:open="isLoadMenuOpen">
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    size="icon-sm"
+                    class="h-full w-[calc(var(--control-height-sm)-4px)] rounded-none border-0 shadow-none"
+                    :title="t('resultBoard.load.choosePreset')"
+                    :aria-label="t('resultBoard.load.choosePreset')"
+                    data-board-load-preset
+                  >
+                    <ChevronDown />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent v-if="isLoadMenuOpen" align="end">
+                  <DropdownMenuItem
+                    v-for="preset in LOAD_PRESETS"
+                    :key="String(preset)"
+                    :data-board-load-option="String(preset)"
+                    class="justify-between gap-[var(--pxd-space-md)]"
+                    @click="selectLoadPreset(preset)"
+                  >
+                    <span>{{ loadPresetLabel(preset) }}</span>
+                    <Check
+                      v-if="loadPreset === preset"
+                      class="size-[var(--control-icon-sm)] text-primary"
+                    />
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </template>
           <span
             v-else-if="
@@ -216,8 +294,7 @@ function setMinSellerCount(value: string | number): void {
         <div
           v-if="
             (!loaderState.running && loaderState.lastStop && loaderState.lastStop !== 'complete') ||
-            matchedText() ||
-            summaryText()
+            priceSummary
           "
           class="flex flex-col gap-[2px]"
         >
@@ -234,17 +311,25 @@ function setMinSellerCount(value: string | number): void {
             {{ stopMessage(loaderState.lastStop) }}
           </p>
           <p
-            v-if="matchedText()"
-            class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"
-          >
-            {{ matchedText() }}
-          </p>
-          <p
-            v-if="summaryText()"
-            class="m-0 text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
+            v-if="priceSummary"
+            class="m-0 flex flex-wrap items-center gap-[3px] text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
             data-board-price-summary
           >
-            {{ summaryText() }}
+            <template v-for="(token, index) in summaryTokens" :key="index">
+              <BoardCurrencyAmount
+                v-if="token === 'min'"
+                :amount="priceSummary.min"
+                :currency="priceSummary.currency"
+                :currencies="state.currencies"
+              />
+              <BoardCurrencyAmount
+                v-else-if="token === 'median'"
+                :amount="priceSummary.median"
+                :currency="priceSummary.currency"
+                :currencies="state.currencies"
+              />
+              <span v-else-if="token">{{ token }}</span>
+            </template>
           </p>
         </div>
       </div>
@@ -253,7 +338,7 @@ function setMinSellerCount(value: string | number): void {
         class="mb-[var(--pxd-space-sm)]"
       />
 
-      <div class="flex flex-col gap-[var(--pxd-space-sm)] pb-[var(--pxd-space-md)]">
+      <div class="flex flex-col gap-[var(--pxd-space-sm)] pb-[var(--pxd-space-sm)]">
         <div class="flex items-center gap-[var(--pxd-space-sm)]">
           <div
             class="flex h-[var(--control-height-sm)] items-center rounded-md border border-border p-[2px]"
@@ -364,7 +449,9 @@ function setMinSellerCount(value: string | number): void {
         </div>
 
         <div
-          v-if="view === 'items' && (hasMixedInstantBuyout || conversionAvailable)"
+          v-if="
+            view === 'items' && (hasMixedInstantBuyout || hasSoldEntries || conversionAvailable)
+          "
           class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]"
         >
           <label
@@ -373,6 +460,17 @@ function setMinSellerCount(value: string | number): void {
           >
             <Checkbox v-model="instantOnly" data-board-instant-only />
             {{ t('resultBoard.filter.instantOnly') }}
+          </label>
+          <label
+            v-if="hasSoldEntries"
+            class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] cursor-pointer select-none"
+          >
+            <Checkbox
+              :model-value="hideSold"
+              data-board-hide-sold
+              @update:model-value="setHideSold"
+            />
+            {{ t('resultBoard.filter.hideSold') }}
           </label>
           <div
             v-if="conversionAvailable"
@@ -427,21 +525,49 @@ function setMinSellerCount(value: string | number): void {
           v-else-if="view === 'sellers'"
           class="flex flex-wrap items-center justify-between gap-[var(--pxd-space-sm)]"
         >
-          <label
+          <div
             class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)]"
           >
-            {{ t('resultBoard.filter.minCount') }}
-            <Input
-              :model-value="String(minSellerCount)"
-              size="sm"
-              type="number"
-              min="0"
-              class="w-[4em] tabular-nums"
-              data-board-min-count
-              @update:model-value="setMinSellerCount"
-            />
-            {{ t('resultBoard.filter.minCountUnit') }}
-          </label>
+            <span>{{ t('resultBoard.filter.minCount') }}</span>
+            <div
+              class="inline-flex h-[var(--control-height-sm)] items-center overflow-hidden rounded-md border border-input bg-background"
+            >
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="h-full w-[calc(var(--control-height-sm)-4px)] rounded-none border-r border-border/60 text-muted-foreground hover:text-foreground"
+                :disabled="minSellerCount <= 0"
+                :aria-label="t('resultBoard.filter.decreaseMinCount')"
+                data-board-min-count-dec
+                @click="setMinSellerCount(minSellerCount - 1)"
+              >
+                <Minus />
+              </Button>
+              <Input
+                :model-value="String(minSellerCount)"
+                size="sm"
+                type="text"
+                inputmode="numeric"
+                class="h-full w-[2.8em] rounded-none border-0 bg-transparent px-[var(--pxd-space-xs)] text-center tabular-nums shadow-none focus-visible:ring-0"
+                :aria-label="t('resultBoard.filter.minCount')"
+                data-board-min-count
+                @update:model-value="setMinSellerCount"
+                @keydown.up.prevent="setMinSellerCount(minSellerCount + 1)"
+                @keydown.down.prevent="setMinSellerCount(minSellerCount - 1)"
+              />
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="h-full w-[calc(var(--control-height-sm)-4px)] rounded-none border-l border-border/60 text-muted-foreground hover:text-foreground"
+                :aria-label="t('resultBoard.filter.increaseMinCount')"
+                data-board-min-count-inc
+                @click="setMinSellerCount(minSellerCount + 1)"
+              >
+                <Plus />
+              </Button>
+            </div>
+            <span>{{ t('resultBoard.filter.minCountUnit') }}</span>
+          </div>
           <Button
             v-if="state.hiddenAccounts.size > 0"
             variant="link"
@@ -506,7 +632,9 @@ function setMinSellerCount(value: string | number): void {
             :rates="rates"
             :currencies="state.currencies"
             :expanded="board.isExpanded(entry.id)"
-            :snapshot="board.isExpanded(entry.id) ? board.cardSnapshot(entry.id) : undefined"
+            :card-snapshot="board.cardSnapshot"
+            :pinned="board.isPinned(entry.id)"
+            :travel-state="travelStates[entry.id]"
             @toggle="board.toggleExpanded(entry.id)"
             @locate="board.locate(entry.id)"
             @travel="board.travel(entry.id)"
@@ -540,6 +668,8 @@ function setMinSellerCount(value: string | number): void {
             :picked-total="board.pickedTotal(seller)"
             :stash-regex-for="board.stashRegexForEntries"
             :is-picked="board.isPicked"
+            :is-pinned="board.isPinned"
+            :travel-states="travelStates"
             :is-expanded="board.isExpanded"
             :expanded="board.isSellerExpanded(seller.account)"
             :card-snapshot="board.cardSnapshot"

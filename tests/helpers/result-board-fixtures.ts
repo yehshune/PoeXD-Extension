@@ -16,6 +16,7 @@ export interface RawResultOptions {
   note?: string;
   priceType?: string;
   baseType?: string;
+  fee?: number;
   stash?: { name?: string; x?: number; y?: number };
 }
 
@@ -37,6 +38,7 @@ export function rawResult(options: RawResultOptions): TradeResultEntry {
     note,
     priceType = '~price',
     baseType = options.typeLine ?? 'Vaal Regalia',
+    fee,
     stash,
   } = options;
   const onlineValue =
@@ -61,6 +63,7 @@ export function rawResult(options: RawResultOptions): TradeResultEntry {
       indexed,
       account: { name: account, lastCharacterName: character, online: onlineValue },
       price: { type: priceType, amount, currency },
+      ...(fee !== undefined ? { fee } : {}),
       ...(stash ? { stash } : {}),
       ...(instantBuyout ? { hideout_token: 'token' } : { whisper: '@x hi' }),
     },

@@ -9,6 +9,8 @@ export function createVersionedStorageKeys(version: PoeVersion) {
     isCollapsed: key('isCollapsed'),
     resultBoardSearchVisible: key('resultBoardSearchVisible'),
     resultBoardView: key('resultBoardView'),
+    resultBoardHideSold: key('resultBoardHideSold'),
+    resultBoardLoadPreset: key('resultBoardLoadPreset'),
   } as const;
 }
 

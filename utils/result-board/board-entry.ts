@@ -39,6 +39,8 @@ export interface BoardEntry {
   /** 官方 CDN 的物品圖示 */
   icon?: string;
   price?: BoardPrice;
+  /** 直購金幣手續費（官方 `listing.fee`） */
+  fee?: number;
   stash?: BoardStash;
   /** 遊戲內物品的標價備註，市集寫法（例如 `~b/o 2 chaos`）；倉庫搜尋 regex 用 */
   note?: string;
@@ -135,6 +137,10 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
   if (!seller || (!name && !typeLine)) return undefined;
 
   const price = readPrice(listing.price);
+  const fee =
+    typeof listing.fee === 'number' && Number.isFinite(listing.fee) && listing.fee > 0
+      ? listing.fee
+      : undefined;
   const stash = readStash(listing.stash);
   const note = readNote(item, listing.price);
   const indexedAt = readIndexedAt(listing.indexed);
@@ -152,6 +158,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
     ...(frameType !== undefined ? { frameType } : {}),
     ...(isValidPoeCdnImageUrl(item.icon) ? { icon: item.icon } : {}),
     ...(price ? { price } : {}),
+    ...(fee !== undefined ? { fee } : {}),
     ...(stash ? { stash } : {}),
     ...(note ? { note } : {}),
     ...(indexedAt !== undefined ? { indexedAt } : {}),

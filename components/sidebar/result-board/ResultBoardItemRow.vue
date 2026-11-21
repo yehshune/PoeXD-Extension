@@ -3,11 +3,12 @@
  * 看板的一筆結果：與釘選相同的收合列（圖示、名稱、灰色資訊、右側標價），點開顯示與釘選相同的卡片。
  * 定位、前往藏身處、釘選都交給官方結果列（ADR-0018）。
  */
-import { computed } from 'vue';
-import { Home, Pin, ScanSearch } from '@lucide/vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { Home, Loader2, Pin, ScanSearch } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/utils/i18n';
+import { GOLD_COIN_ICON_URL } from '@/utils/poe-cdn-url';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
@@ -31,11 +32,17 @@ const props = defineProps<{
   /** 通貨代碼 → 圖示 */
   currencies: Readonly<Record<string, CurrencyDisplay>>;
   expanded: boolean;
-  /** 展開時才建立的卡片快照 */
+  /** 展開時才建立的卡片快照（也可改傳 `cardSnapshot` 延後到接近視窗時才擷取） */
   snapshot?: PinnedItemSnapshot;
+  /** 惰性擷取卡片快照：僅在展開且接近視窗時呼叫，避免 100 筆「全部展開」同步擷取全部官方 DOM */
+  cardSnapshot?: (id: string) => PinnedItemSnapshot | undefined;
   /** 賣家清單中顯示勾選框；物品清單中顯示賣家 */
   pickable?: boolean;
   picked?: boolean;
+  /** 是否已存在於釘選清單 */
+  pinned?: boolean;
+  /** 正在重新整理或前往藏身處中 */
+  travelState?: 'refreshing' | 'traveling';
 }>();
 
 const emit = defineEmits<{
@@ -81,10 +88,69 @@ const meta = computed(() => {
 const toggleLabel = computed(() =>
   props.expanded ? t('resultBoard.action.collapse') : t('resultBoard.action.expand'),
 );
+
+const feeText = computed(() =>
+  typeof props.entry.fee === 'number' && props.entry.fee > 0
+    ? props.entry.fee.toLocaleString()
+    : '',
+);
+
+/**
+ * 展開大量卡片（例如 100 筆「全部展開」）時，只為視窗附近（前後 400px）的列建立
+ * 巢狀 Shadow DOM 與官方樣式表，避免單次點擊同步建立數百個 shadow root 造成卡頓。
+ */
+const rowEl = ref<HTMLElement | null>(null);
+const isNearViewport = ref(false);
+let visibilityObserver: IntersectionObserver | undefined;
+
+function stopObserving(): void {
+  visibilityObserver?.disconnect();
+  visibilityObserver = undefined;
+}
+
+watch(
+  [() => props.expanded, rowEl],
+  ([expanded, el]) => {
+    stopObserving();
+    if (!expanded) {
+      isNearViewport.value = false;
+      return;
+    }
+    if (isNearViewport.value) return;
+    if (
+      !el ||
+      typeof IntersectionObserver !== 'function' ||
+      el.getBoundingClientRect().height === 0
+    ) {
+      isNearViewport.value = true;
+      return;
+    }
+    const scrollRoot = el.closest('[data-slot="sidebar-pane-scroll"]');
+    visibilityObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((item) => item.isIntersecting)) {
+          isNearViewport.value = true;
+          stopObserving();
+        }
+      },
+      { root: scrollRoot, rootMargin: '300px 0px' },
+    );
+    visibilityObserver.observe(el);
+  },
+  { immediate: true },
+);
+
+const resolvedSnapshot = computed(() => {
+  if (!props.expanded || !isNearViewport.value) return undefined;
+  return props.snapshot ?? props.cardSnapshot?.(props.entry.id);
+});
+
+onBeforeUnmount(stopObserving);
 </script>
 
 <template>
   <li
+    ref="rowEl"
     class="group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
     :class="expanded ? 'bg-muted/20' : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40'"
     :data-board-entry-id="entry.id"
@@ -110,7 +176,12 @@ const toggleLabel = computed(() =>
         </span>
       </template>
       <template #expanded-icon>
-        <PinnedItemCardView v-if="snapshot" :snapshot="snapshot" :collapsed="false" part="icon" />
+        <PinnedItemCardView
+          v-if="resolvedSnapshot"
+          :snapshot="resolvedSnapshot"
+          :collapsed="false"
+          part="icon"
+        />
         <img
           v-else-if="entry.icon"
           :src="entry.icon"
@@ -145,6 +216,28 @@ const toggleLabel = computed(() =>
           >{{ meta }}</span
         >
       </template>
+      <template #expanded-details>
+        <div
+          v-if="feeText"
+          data-board-entry-fee
+          class="flex flex-col gap-[2px] text-[length:var(--pxd-font-micro)] leading-snug text-muted-foreground"
+        >
+          <span
+            :title="`${t('pinnedItem.meta.fee')}${feeText}`"
+            class="inline-flex items-center gap-[3px] leading-none tabular-nums text-foreground/85"
+          >
+            <span class="leading-none">{{ t('pinnedItem.meta.fee') }}</span>
+            <img
+              :src="GOLD_COIN_ICON_URL"
+              alt="Gold"
+              class="block size-[var(--control-icon-sm)] shrink-0 object-contain"
+              referrerpolicy="no-referrer"
+              draggable="false"
+            />
+            <span class="leading-none">{{ feeText }}</span>
+          </span>
+        </div>
+      </template>
       <template #price>
         <ResultPriceLabel
           :amount="entry.price ? formatAmount(entry.price.amount) : t('resultBoard.noPrice')"
@@ -171,7 +264,20 @@ const toggleLabel = computed(() =>
           <template v-else>{{ rates?.primary }}</template>
         </span>
         <span
-          v-if="mark"
+          v-if="travelState"
+          class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
+          :class="travelState === 'refreshing' ? 'text-muted-foreground' : 'text-primary'"
+          data-board-entry-busy
+        >
+          <Loader2 class="size-[var(--control-icon-sm)] shrink-0 animate-spin" aria-hidden="true" />
+          {{
+            travelState === 'refreshing'
+              ? t('pinnedItem.action.refreshing')
+              : t('pinnedItem.action.traveling')
+          }}
+        </span>
+        <span
+          v-else-if="mark"
           class="rounded-sm border px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight"
           :class="
             mark === 'sold'
@@ -198,31 +304,40 @@ const toggleLabel = computed(() =>
             v-if="entry.instantBuyout"
             variant="ghost"
             size="icon-sm"
-            :disabled="mark === 'sold'"
+            :disabled="mark === 'sold' || Boolean(travelState)"
             :title="t('resultBoard.action.travel')"
             :aria-label="t('resultBoard.action.travel')"
             data-board-travel
             @click.stop="emit('travel')"
           >
-            <Home />
+            <Loader2 v-if="travelState" class="animate-spin" />
+            <Home v-else />
           </Button>
           <Button
             variant="ghost"
             size="icon-sm"
-            :title="t('resultBoard.action.pin')"
-            :aria-label="t('resultBoard.action.pin')"
+            :class="pinned ? 'text-primary hover:text-primary' : ''"
+            :aria-pressed="pinned === true"
+            :data-board-pinned="pinned ? '' : undefined"
+            :title="pinned ? t('resultBoard.action.unpin') : t('resultBoard.action.pin')"
+            :aria-label="pinned ? t('resultBoard.action.unpin') : t('resultBoard.action.pin')"
             data-board-pin
             @click.stop="emit('pin')"
           >
-            <Pin />
+            <Pin :class="pinned ? 'fill-current' : ''" />
           </Button>
         </div>
       </template>
     </ResultSummaryRow>
     <div v-if="expanded" class="px-[var(--pxd-space-md)] pb-[var(--pxd-space-md)]">
+      <div
+        v-if="!isNearViewport"
+        class="min-h-[140px] rounded-sm border border-border/50 bg-black/40"
+        aria-hidden="true"
+      />
       <PinnedItemCardView
-        v-if="snapshot"
-        :snapshot="snapshot"
+        v-else-if="resolvedSnapshot"
+        :snapshot="resolvedSnapshot"
         :collapsed="false"
         part="popup"
         data-board-entry-card

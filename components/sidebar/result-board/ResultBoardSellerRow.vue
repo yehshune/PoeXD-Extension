@@ -12,6 +12,7 @@ import {
   Copy,
   EyeOff,
   Home,
+  Loader2,
   TriangleAlert,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
@@ -25,8 +26,10 @@ import { sortEntries } from '@/utils/result-board/board-query';
 import type { BoardMark, CurrencyDisplay } from '@/utils/result-board/board-session';
 import { groupSellerEntriesByStash, type SellerSummary } from '@/utils/result-board/board-sellers';
 import type { StashRegexResult } from '@/utils/result-board/stash-regex';
+import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
+import BoardTotalAmount from './BoardTotalAmount.vue';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
-import { formatPrice, formatTotal } from './result-board-format';
+import { formatAmount } from './result-board-format';
 
 const props = defineProps<{
   seller: SellerSummary;
@@ -37,6 +40,8 @@ const props = defineProps<{
   pickedTotal: PriceTotal;
   stashRegexFor: (entries: readonly BoardEntry[]) => StashRegexResult;
   isPicked: (entry: BoardEntry) => boolean;
+  isPinned: (id: string) => boolean;
+  travelStates: Readonly<Record<string, 'refreshing' | 'traveling'>>;
   isExpanded: (id: string) => boolean;
   cardSnapshot: (id: string) => PinnedItemSnapshot | undefined;
   expanded?: boolean;
@@ -97,29 +102,46 @@ const stashSections = computed(() => {
   });
 });
 
-const range = computed(() => {
-  const value = props.seller.priceRange;
-  if (!value) return '';
-  const min = formatPrice(value.min);
-  const max = formatPrice(value.max);
-  return min === max ? min : `${min} – ${max}`;
-});
+const distinctAccount = computed(() =>
+  props.seller.character && props.seller.character !== props.seller.account
+    ? props.seller.account
+    : '',
+);
 
-const subtitle = computed(() => {
-  const hasDistinctCharacter =
-    Boolean(props.seller.character) && props.seller.character !== props.seller.account;
-  const parts = [
-    hasDistinctCharacter ? props.seller.account : '',
-    range.value,
+const extraMeta = computed(() =>
+  [
     props.seller.stashTabCount > 1
       ? t('resultBoard.seller.stashTabs', { count: props.seller.stashTabCount })
       : '',
     props.seller.soldCount > 0 && !props.seller.allSold
       ? t('resultBoard.seller.soldCount', { count: props.seller.soldCount })
       : '',
-  ];
-  return parts.filter(Boolean).join(' · ');
+  ].filter(Boolean),
+);
+
+const hasSubtitle = computed(
+  () =>
+    Boolean(distinctAccount.value) ||
+    props.seller.priceRange !== undefined ||
+    extraMeta.value.length > 0,
+);
+
+const isSameRangeValue = computed(() => {
+  const value = props.seller.priceRange;
+  return (
+    value !== undefined &&
+    value.min.currency === value.max.currency &&
+    formatAmount(value.min.amount) === formatAmount(value.max.amount)
+  );
 });
+
+const totalPrefix = computed(() => t('resultBoard.seller.total', { total: '' }).trim());
+const pickedPrefix = computed(() =>
+  t('resultBoard.seller.picked', { count: props.pickedEntries.length, total: '' }).trim(),
+);
+const sellerBusy = computed(() =>
+  props.seller.entries.some((entry) => Boolean(props.travelStates[entry.id])),
+);
 
 function warningsOf(regex: StashRegexResult | undefined): string[] {
   if (!regex) return [];
@@ -150,7 +172,7 @@ const allSold = computed(
 
 <template>
   <li
-    class="overflow-hidden rounded-md border bg-card transition-colors"
+    class="overflow-hidden rounded-md border bg-card"
     :class="[
       open ? 'border-primary/40 shadow-sm' : 'border-border hover:border-border/80',
       allSold ? 'opacity-60' : '',
@@ -161,7 +183,7 @@ const allSold = computed(
   >
     <div
       class="group/header relative flex items-center gap-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] transition-colors hover:bg-muted/40 focus-within:bg-muted/40"
-      :class="open ? 'border-b border-border bg-muted/20' : ''"
+      :class="open ? 'bg-muted/20' : ''"
     >
       <button
         type="button"
@@ -188,10 +210,47 @@ const allSold = computed(
           >
         </span>
         <span
-          v-if="subtitle"
-          class="w-full truncate text-[length:var(--pxd-font-micro)] text-muted-foreground"
+          v-if="hasSubtitle"
+          class="flex w-full min-w-0 items-center gap-[4px] truncate text-[length:var(--pxd-font-micro)] text-muted-foreground"
         >
-          {{ subtitle }}
+          <span v-if="distinctAccount" class="truncate">{{ distinctAccount }}</span>
+          <span v-if="distinctAccount && seller.priceRange" aria-hidden="true">·</span>
+          <span
+            v-if="seller.priceRange"
+            class="inline-flex shrink-0 items-center gap-[3px] tabular-nums"
+          >
+            <BoardCurrencyAmount
+              v-if="isSameRangeValue"
+              :amount="seller.priceRange.min.amount"
+              :currency="seller.priceRange.min.currency"
+              :currencies="currencies"
+            />
+            <template v-else-if="seller.priceRange.min.currency === seller.priceRange.max.currency">
+              <span>{{ formatAmount(seller.priceRange.min.amount) }} –</span>
+              <BoardCurrencyAmount
+                :amount="seller.priceRange.max.amount"
+                :currency="seller.priceRange.max.currency"
+                :currencies="currencies"
+              />
+            </template>
+            <template v-else>
+              <BoardCurrencyAmount
+                :amount="seller.priceRange.min.amount"
+                :currency="seller.priceRange.min.currency"
+                :currencies="currencies"
+              />
+              <span>–</span>
+              <BoardCurrencyAmount
+                :amount="seller.priceRange.max.amount"
+                :currency="seller.priceRange.max.currency"
+                :currencies="currencies"
+              />
+            </template>
+          </span>
+          <template v-for="part in extraMeta" :key="part">
+            <span v-if="distinctAccount || seller.priceRange" aria-hidden="true">·</span>
+            <span class="shrink-0">{{ part }}</span>
+          </template>
         </span>
       </button>
       <div
@@ -203,10 +262,12 @@ const allSold = computed(
           >{{ t('resultBoard.seller.instantCount', { count: seller.instantBuyoutCount }) }}</span
         >
         <span
-          class="text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
+          class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-micro)] text-muted-foreground tabular-nums"
           data-board-seller-total
-          >{{ t('resultBoard.seller.total', { total: formatTotal(seller.total) }) }}</span
         >
+          <span>{{ totalPrefix }}</span>
+          <BoardTotalAmount :total="seller.total" :currencies="currencies" />
+        </span>
       </div>
       <div
         class="pxd-hover-actions-overlay absolute inset-y-0 right-[calc(var(--pxd-space-sm)+var(--control-height-sm))] z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/header:opacity-100 group-hover/header:pointer-events-auto group-focus-within/header:opacity-100 group-focus-within/header:pointer-events-auto"
@@ -226,13 +287,14 @@ const allSold = computed(
           variant="ghost"
           size="icon-sm"
           class="shrink-0"
-          :disabled="seller.instantBuyoutCount === 0"
+          :disabled="seller.instantBuyoutCount === 0 || sellerBusy"
           :title="t('resultBoard.action.travel')"
           :aria-label="t('resultBoard.action.travel')"
           data-board-seller-travel
           @click="emit('travelSeller')"
         >
-          <Home />
+          <Loader2 v-if="sellerBusy" class="animate-spin" />
+          <Home v-else />
         </Button>
       </div>
       <Button
@@ -248,19 +310,31 @@ const allSold = computed(
     </div>
     <div
       v-if="open"
-      class="flex flex-col gap-[var(--pxd-space-sm)] bg-muted/15 px-[var(--pxd-space-xs)] py-[var(--pxd-space-sm)]"
+      class="flex flex-col gap-[var(--pxd-space-sm)] border-t border-border bg-muted/15 px-[var(--pxd-space-xs)] py-[var(--pxd-space-sm)]"
     >
-      <p
-        class="m-0 px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-medium text-foreground tabular-nums"
-        data-board-seller-picked
+      <div
+        class="flex items-center justify-between gap-[var(--pxd-space-sm)] px-[var(--pxd-space-xs)]"
       >
-        {{
-          t('resultBoard.seller.picked', {
-            count: pickedEntries.length,
-            total: formatTotal(pickedTotal),
-          })
-        }}
-      </p>
+        <p
+          class="m-0 inline-flex flex-wrap items-center gap-[4px] text-[length:var(--pxd-font-caption)] font-medium text-foreground tabular-nums"
+          data-board-seller-picked
+        >
+          <span>{{ pickedPrefix }}</span>
+          <BoardTotalAmount :total="pickedTotal" :currencies="currencies" />
+        </p>
+        <Button
+          variant="secondary"
+          size="sm"
+          class="shrink-0"
+          :disabled="seller.instantBuyoutCount === 0 || sellerBusy"
+          data-board-seller-expanded-travel
+          @click="emit('travelSeller')"
+        >
+          <Loader2 v-if="sellerBusy" class="animate-spin" />
+          <Home v-else />
+          {{ t('resultBoard.action.travel') }}
+        </Button>
+      </div>
       <div
         v-for="group in stashSections"
         :key="group.key"
@@ -270,9 +344,9 @@ const allSold = computed(
         :data-board-stash-name="group.stashName ?? ''"
       >
         <div
-          class="flex items-center justify-between gap-[var(--pxd-space-xs)] border-b border-border/60 bg-muted/35 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)]"
+          class="flex items-center justify-between gap-[var(--pxd-space-xs)] border-b border-border/60 bg-muted/35 px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)]"
         >
-          <div class="flex min-w-0 items-center gap-[var(--pxd-space-xs)]">
+          <div class="flex min-w-0 items-center gap-[var(--pxd-space-sm)]">
             <Checkbox
               v-if="group.instantBuyoutCount > 0"
               :model-value="group.pickState"
@@ -307,7 +381,7 @@ const allSold = computed(
         </div>
         <section
           v-if="group.regex"
-          class="flex flex-col gap-[var(--pxd-space-xs)] border-b border-border/60 bg-card/70 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)]"
+          class="flex flex-col gap-[var(--pxd-space-xs)] border-b border-border/60 bg-card/70 px-[var(--pxd-space-md)] py-[var(--pxd-space-xs)]"
           data-board-stash-regex
         >
           <p
@@ -331,7 +405,7 @@ const allSold = computed(
               }}</span
             >
             <code
-              class="min-w-0 flex-1 break-all rounded-sm bg-muted/40 px-[var(--pxd-space-xs)] py-[2px] font-mono text-[length:var(--pxd-font-micro)] select-all"
+              class="pxd-scrollbar max-h-[4.8em] min-w-0 flex-1 overflow-y-auto break-words rounded-sm bg-muted/40 px-[var(--pxd-space-xs)] py-[2px] font-mono text-[length:var(--pxd-font-micro)] select-all"
               >{{ part }}</code
             >
             <Button
@@ -365,9 +439,11 @@ const allSold = computed(
             :rates="rates"
             :currencies="currencies"
             :expanded="isExpanded(entry.id)"
-            :snapshot="isExpanded(entry.id) ? cardSnapshot(entry.id) : undefined"
+            :card-snapshot="cardSnapshot"
             pickable
             :picked="isPicked(entry)"
+            :pinned="isPinned(entry.id)"
+            :travel-state="travelStates[entry.id]"
             @pick="emit('pick', entry)"
             @toggle="emit('toggle', entry.id)"
             @locate="emit('locate', entry.id)"
