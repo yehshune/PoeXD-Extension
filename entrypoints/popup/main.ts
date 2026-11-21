@@ -3,7 +3,7 @@ import '@/assets/main.css';
 import App from './App.vue';
 import { getPreferences } from '@/utils/preferences';
 import { applyDocumentLocaleMeta, setActiveDisplayLocalePreference, t } from '@/utils/i18n';
-import { applyThemeToHost } from '@/lib/theme/theme-runtime';
+import { applyThemeToHost, readThemeCustomColors } from '@/lib/theme/theme-runtime';
 import { syncUiRuntimeTokens } from '@/lib/tokens/ui-contract';
 
 async function bootstrap() {
@@ -13,7 +13,7 @@ async function bootstrap() {
       const snapshot = outcome.value.read();
       setActiveDisplayLocalePreference(snapshot.displayLocale, { hostname: '' });
       applyDocumentLocaleMeta(t('popup.documentTitle'));
-      applyThemeToHost(document.documentElement, snapshot.theme);
+      applyThemeToHost(document.documentElement, snapshot.theme, readThemeCustomColors(snapshot));
       syncUiRuntimeTokens(document.documentElement, {
         scale: snapshot.fontSizeScale,
         density: snapshot.densityScale,

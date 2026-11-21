@@ -1,13 +1,41 @@
 import {
+  DEFAULT_THEME_CUSTOM_COLORS,
+  DEFAULT_THEME_CUSTOM_RADIUS,
   DEFAULT_THEME_ID,
+  THEME_CUSTOM_RADIUS_VALUES,
   THEME_IDS,
+  type ThemeCustomRadius,
   type ThemeId,
+  isValidHexColor,
+  isValidThemeCustomRadius,
   isValidThemeId,
   normalizeThemeId,
 } from '@/lib/theme/theme-contract';
 import type { PoeVersion } from './trade-context';
 
-export { DEFAULT_THEME_ID, THEME_IDS, type ThemeId, isValidThemeId, normalizeThemeId };
+export {
+  DEFAULT_THEME_CUSTOM_COLORS,
+  DEFAULT_THEME_CUSTOM_RADIUS,
+  DEFAULT_THEME_ID,
+  THEME_CUSTOM_RADIUS_VALUES,
+  THEME_IDS,
+  type ThemeCustomRadius,
+  type ThemeId,
+  isValidHexColor,
+  isValidThemeCustomRadius,
+  isValidThemeId,
+  normalizeThemeId,
+};
+
+/** custom 主題五個種子色的偏好名稱（`#rrggbb` 字串） */
+export const THEME_CUSTOM_COLOR_PREFERENCE_NAMES = [
+  'themeCustomBackground',
+  'themeCustomCard',
+  'themeCustomForeground',
+  'themeCustomPrimary',
+  'themeCustomDestructive',
+] as const;
+export type ThemeCustomColorPreferenceName = (typeof THEME_CUSTOM_COLOR_PREFERENCE_NAMES)[number];
 
 export const SIDEBAR_POSITIONS = ['left', 'right'] as const;
 export type SidebarPosition = (typeof SIDEBAR_POSITIONS)[number];
@@ -42,6 +70,12 @@ export const FONT_SIZE_PERCENT_STEP = 5;
 
 export const GLOBAL_PREFERENCE_NAMES = [
   'theme',
+  'themeCustomBackground',
+  'themeCustomCard',
+  'themeCustomForeground',
+  'themeCustomPrimary',
+  'themeCustomDestructive',
+  'themeCustomRadius',
   'displayLocale',
   'marketTranslation',
   'marketTranslationBilingual',
@@ -208,6 +242,13 @@ export interface Preferences {
   sidebarPosition: SidebarPosition;
   sidebarWidth: number;
   theme: ThemeId;
+  /** custom 主題（theme = 'custom'）的種子色（`#rrggbb`）與圓角段位 */
+  themeCustomBackground: string;
+  themeCustomCard: string;
+  themeCustomForeground: string;
+  themeCustomPrimary: string;
+  themeCustomDestructive: string;
+  themeCustomRadius: ThemeCustomRadius;
 }
 
 export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
@@ -250,4 +291,10 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   sidebarPosition: 'left',
   sidebarWidth: 380,
   theme: DEFAULT_THEME_ID,
+  themeCustomBackground: DEFAULT_THEME_CUSTOM_COLORS.background,
+  themeCustomCard: DEFAULT_THEME_CUSTOM_COLORS.card,
+  themeCustomForeground: DEFAULT_THEME_CUSTOM_COLORS.foreground,
+  themeCustomPrimary: DEFAULT_THEME_CUSTOM_COLORS.primary,
+  themeCustomDestructive: DEFAULT_THEME_CUSTOM_COLORS.destructive,
+  themeCustomRadius: DEFAULT_THEME_CUSTOM_RADIUS,
 });

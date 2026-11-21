@@ -22,16 +22,17 @@ describe('Theme Foundation — Formal Theme System (Modern-Dark, Caffeine & Catp
   // 1. Theme Contract SSOT & Normalization
   // ---------------------------------------------------------------------------
   describe('1. Theme Contract SSOT & Normalization', () => {
-    it('defines canonical THEME_IDS as ["modern-dark", "caffeine", "catppuccin"] and DEFAULT_THEME_ID as "modern-dark"', () => {
-      expect(THEME_IDS).toEqual(['modern-dark', 'caffeine', 'catppuccin']);
+    it('defines canonical THEME_IDS as ["modern-dark", "caffeine", "catppuccin", "custom"] and DEFAULT_THEME_ID as "modern-dark"', () => {
+      expect(THEME_IDS).toEqual(['modern-dark', 'caffeine', 'catppuccin', 'custom']);
       expect(DEFAULT_THEME_ID).toBe('modern-dark');
       expect(THEME_ATTRIBUTE).toBe('data-poexd-theme');
     });
 
-    it('strictly validates ThemeId allowing only "modern-dark", "caffeine", and "catppuccin"', () => {
+    it('strictly validates ThemeId allowing only "modern-dark", "caffeine", "catppuccin", and "custom"', () => {
       expect(isValidThemeId('modern-dark')).toBe(true);
       expect(isValidThemeId('caffeine')).toBe(true);
       expect(isValidThemeId('catppuccin')).toBe(true);
+      expect(isValidThemeId('custom')).toBe(true);
       expect(isValidThemeId('poexd-dark')).toBe(false);
       expect(isValidThemeId('light')).toBe(false);
       expect(isValidThemeId('dark')).toBe(false);

@@ -399,9 +399,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(sectionStack?.className).toContain('--pxd-section-gap');
     expect(sectionStack?.className).not.toContain('--poexd-density-scale');
 
-    // Verify 2 Select triggers for settings (theme, displayLocale)
+    // Verify 1 Select trigger for settings (displayLocale; theme uses preset buttons)
     const selectTriggers = container.querySelectorAll('[data-slot="select-trigger"]');
-    expect(selectTriggers.length).toBe(2);
+    expect(selectTriggers.length).toBe(1);
     selectTriggers.forEach((trigger) => {
       expect(trigger.className).toContain('w-[140px]');
       expect(trigger.className).toContain('shrink-0');
@@ -529,7 +529,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(container.textContent).toContain('Enable page hotkeys');
     const triggersEn = container.querySelectorAll('[data-slot="select-trigger"]');
     expect(triggersEn[0].textContent).toContain('English');
-    expect(triggersEn[1].textContent).toContain('Modern Dark');
+    expect(container.querySelector('[data-custom-preset="modern-dark"]')?.textContent).toContain(
+      'Modern Dark',
+    );
 
     // Switch displayLocale to 'ja' (non-Chinese affix locale -> UI falls back to 'en')
     await currentModule!.update({ displayLocale: 'ja' });
@@ -550,15 +552,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().theme).toBe('modern-dark');
 
     // Select 'caffeine'
-    await changeSelectValue(container, 'theme', 'caffeine');
+    container.querySelector<HTMLButtonElement>('[data-custom-preset="caffeine"]')!.click();
+    await flushAsync();
     expect(currentModule?.read().theme).toBe('caffeine');
 
     // Select 'catppuccin'
-    await changeSelectValue(container, 'theme', 'catppuccin');
+    container.querySelector<HTMLButtonElement>('[data-custom-preset="catppuccin"]')!.click();
+    await flushAsync();
     expect(currentModule?.read().theme).toBe('catppuccin');
 
     // Switch back to modern-dark
-    await changeSelectValue(container, 'theme', 'modern-dark');
+    container.querySelector<HTMLButtonElement>('[data-custom-preset="modern-dark"]')!.click();
+    await flushAsync();
     expect(currentModule?.read().theme).toBe('modern-dark');
   });
 
@@ -1457,8 +1462,10 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const triggers = container.querySelectorAll('[data-slot="select-trigger"]');
     // Display locale: 'auto' (default unmutated, in top Localization section)
     expect(triggers[0].textContent).toContain('自動偵測');
-    // Theme: 'modern-dark' (default unmutated, in Appearance section)
-    expect(triggers[1].textContent).toContain('現代暗色');
+    // Theme: 'modern-dark' preset button remains active (in Appearance section)
+    const modernDarkBtn = container.querySelector('[data-custom-preset="modern-dark"]');
+    expect(modernDarkBtn?.textContent).toContain('現代暗色');
+    expect(modernDarkBtn?.getAttribute('aria-pressed')).toBe('true');
     // Font size trigger reflects 120%
     const scaleTrigger = container.querySelector('[data-font-scale-trigger]') as HTMLButtonElement;
     expect(scaleTrigger.textContent).toContain('120%');
@@ -1723,5 +1730,77 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     } finally {
       sendSpy.mockRestore();
     }
+  });
+
+  it('shows custom theme controls when expanded, loads presets, live-previews on input, persists on change, and resets to defaults', async () => {
+    const host = document.createElement('div');
+    host.setAttribute('data-poexd-theme', 'modern-dark');
+    document.body.appendChild(host);
+
+    const { container } = await mountSettingsPane();
+
+    // Default theme ('modern-dark') starts with custom panel collapsed
+    expect(container.querySelector('[data-settings-group="theme-custom-colors"]')).toBeNull();
+
+    // Expand custom controls via toggle button (without switching theme yet)
+    container.querySelector<HTMLButtonElement>('[data-test="theme-custom-toggle"]')!.click();
+    await flushAsync();
+    expect(currentModule!.read().theme).toBe('modern-dark');
+
+    const group = container.querySelector('[data-settings-group="theme-custom-colors"]');
+    expect(group).not.toBeNull();
+
+    const colorInputs = Array.from(
+      group!.querySelectorAll<HTMLInputElement>('input[type="color"]'),
+    );
+    expect(colorInputs).toHaveLength(5);
+    expect(colorInputs.map((el) => el.id)).toEqual([
+      'theme-custom-themeCustomBackground',
+      'theme-custom-themeCustomCard',
+      'theme-custom-themeCustomForeground',
+      'theme-custom-themeCustomPrimary',
+      'theme-custom-themeCustomDestructive',
+    ]);
+
+    // Reset button is disabled while on modern-dark defaults
+    const resetBtn = group!.querySelector<HTMLButtonElement>('[data-test="theme-custom-reset"]')!;
+    expect(resetBtn.disabled).toBe(true);
+
+    // Clicking a preset switches theme and syncs custom seed values
+    container.querySelector<HTMLButtonElement>('[data-custom-preset="caffeine"]')!.click();
+    await flushAsync();
+
+    expect(currentModule!.read().theme).toBe('caffeine');
+    expect(currentModule!.read().themeCustomBackground).toBe('#111111');
+    expect(currentModule!.read().themeCustomCard).toBe('#191919');
+    expect(currentModule!.read().themeCustomPrimary).toBe('#f0d1b4');
+    expect(currentModule!.read().themeCustomRadius).toBe('0.5rem');
+    expect(resetBtn.disabled).toBe(false);
+
+    // Dragging (input event) immediately previews on host without writing storage yet
+    const primaryInput = colorInputs[3]!;
+    primaryInput.value = '#ff8800';
+    primaryInput.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(host.getAttribute('data-poexd-theme')).toBe('custom');
+    expect(host.style.getPropertyValue('--pxd-seed-primary')).toBe('#ff8800');
+
+    // Committing (change event) persists theme='custom' and color to preferences
+    primaryInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await flushAsync();
+
+    expect(currentModule!.read().theme).toBe('custom');
+    expect(currentModule!.read().themeCustomPrimary).toBe('#ff8800');
+
+    // Clicking reset restores modern-dark defaults
+    resetBtn.click();
+    await flushAsync();
+
+    expect(currentModule!.read().theme).toBe('modern-dark');
+    expect(currentModule!.read().themeCustomPrimary).toBe(DEFAULT_PREFERENCES.themeCustomPrimary);
+    expect(currentModule!.read().themeCustomCard).toBe(DEFAULT_PREFERENCES.themeCustomCard);
+    expect(currentModule!.read().themeCustomRadius).toBe(DEFAULT_PREFERENCES.themeCustomRadius);
+    expect(resetBtn.disabled).toBe(true);
+
+    host.remove();
   });
 });

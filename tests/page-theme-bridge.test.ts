@@ -135,7 +135,8 @@ describe('Page UI Theme Bridge Contract Tests', () => {
       expect(PAGE_INJECTED_SELECTORS).toContain('.poexd-sortable-ghost');
       expect(PAGE_INJECTED_SELECTORS).toContain('.poexd-sortable-drag');
       expect(PAGE_INJECTED_SELECTORS).toContain('.poexd-filter-mod-highlight');
-      expect(PAGE_INJECTED_SELECTORS).toContain('.poexd-price-comparison');
+      // 結果列價格換算不套用主題，維持原本預設外觀
+      expect(PAGE_INJECTED_SELECTORS).not.toContain('.poexd-price-comparison');
 
       // 絕不可包含 :root, html, body, 或 PoE 官方容器
       expect(css).not.toMatch(/(^|\s|,):root(\s|,|\{)/);
@@ -174,6 +175,24 @@ describe('Page UI Theme Bridge Contract Tests', () => {
 
       expect(styleEl.textContent).toContain('--background: #333;');
       expect(styleEl.textContent).toContain('--border: #444;');
+    });
+
+    it('automatically updates the bridge style tag when host inline style changes (custom theme colors)', async () => {
+      const host = document.createElement('div');
+      host.setAttribute(THEME_ATTRIBUTE, 'custom');
+      host.style.setProperty('--background', '#101010');
+      document.body.appendChild(host);
+
+      registerThemeHost(host);
+
+      const styleEl = document.getElementById(PAGE_THEME_BRIDGE_STYLE_ID) as HTMLStyleElement;
+      expect(styleEl).toBeTruthy();
+      expect(styleEl.textContent).toContain('--background: #101010;');
+
+      host.style.setProperty('--background', '#252525');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(styleEl.textContent).toContain('--background: #252525;');
     });
 
     it('cleans up observer and style element cleanly on cleanupPageThemeBridge', () => {

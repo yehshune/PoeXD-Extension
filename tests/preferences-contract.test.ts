@@ -60,6 +60,12 @@ describe('Preferences Domain Contract', () => {
       sidebarPosition: 'left',
       sidebarWidth: 380,
       theme: 'modern-dark',
+      themeCustomBackground: '#171717',
+      themeCustomCard: '#262626',
+      themeCustomForeground: '#e5e5e5',
+      themeCustomPrimary: '#3b82f6',
+      themeCustomDestructive: '#ef4444',
+      themeCustomRadius: '0.375rem',
     });
     expect('affixDisplayLocale' in DEFAULT_PREFERENCES).toBe(false);
   });
@@ -87,6 +93,12 @@ describe('Preferences Domain Contract', () => {
     expect(AFFIX_DISPLAY_LOCALE_VALUES).toEqual(DISPLAY_LOCALE_VALUES);
     expect(GLOBAL_PREFERENCE_NAMES).toEqual([
       'theme',
+      'themeCustomBackground',
+      'themeCustomCard',
+      'themeCustomForeground',
+      'themeCustomPrimary',
+      'themeCustomDestructive',
+      'themeCustomRadius',
       'displayLocale',
       'marketTranslation',
       'marketTranslationBilingual',

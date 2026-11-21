@@ -7,7 +7,7 @@ import { DEFAULT_PREFERENCES } from '@/utils/preferences-contract';
 import { type PoeVersion } from '@/utils/trade-context';
 import { buildTradeRootUrl, resolveQuickTradeRealms } from '@/utils/trade-realms';
 import { bindDocumentLocaleMeta, setActiveDisplayLocalePreference, t } from '@/utils/i18n';
-import { applyThemeToHost } from '@/lib/theme/theme-runtime';
+import { applyThemeToHost, readThemeCustomColors } from '@/lib/theme/theme-runtime';
 import { syncUiRuntimeTokens } from '@/lib/tokens/ui-contract';
 
 const containerRef = ref<HTMLElement | null>(null);
@@ -26,15 +26,16 @@ let stopDocumentMeta: (() => void) | null = null;
 
 function applyThemeAndTokens(snapshot: Readonly<Preferences>) {
   setActiveDisplayLocalePreference(snapshot.displayLocale, { hostname: '' });
+  const customColors = readThemeCustomColors(snapshot);
   if (containerRef.value) {
-    applyThemeToHost(containerRef.value, snapshot.theme);
+    applyThemeToHost(containerRef.value, snapshot.theme, customColors);
     syncUiRuntimeTokens(containerRef.value, {
       scale: snapshot.fontSizeScale,
       density: snapshot.densityScale,
     });
   }
   if (typeof document !== 'undefined' && document.documentElement) {
-    applyThemeToHost(document.documentElement, snapshot.theme);
+    applyThemeToHost(document.documentElement, snapshot.theme, customColors);
     syncUiRuntimeTokens(document.documentElement, {
       scale: snapshot.fontSizeScale,
       density: snapshot.densityScale,

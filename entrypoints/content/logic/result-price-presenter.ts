@@ -298,8 +298,9 @@ export function ensurePriceComparisonStyle() {
       gap: 6px !important;
       padding: 5px 10px !important;
       margin: 4px 0 !important;
-      background-color: var(--muted);
-      border: 1px solid var(--border);
+      /* 結果列價格換算維持原本預設外觀，不隨擴充主題變色 */
+      background-color: oklch(0.2393 0 0);
+      border: 1px solid oklch(0.3715 0 0);
       font-size: 14px !important;
       line-height: 1.25 !important;
       white-space: nowrap;

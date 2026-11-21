@@ -297,6 +297,45 @@
   --shadow-2xl: 0 4px 6px 0 hsl(240 30% 25% / 0.3);
 }
 
+/*
+ * 自訂主題：玩家設定背景、表面、文字、主色、危險色與圓角（由 theme-runtime 寫入 host inline style），
+ * 其餘語意色以 color-mix 推導；shadow 沿用 :root 基準。
+ */
+:host([data-poexd-theme='custom']),
+[data-poexd-theme='custom'] {
+  color-scheme: dark;
+
+  --background: var(--pxd-seed-background, oklch(0.2046 0 0));
+  --foreground: var(--pxd-seed-foreground, oklch(0.9219 0 0));
+
+  --card: var(--pxd-seed-card, color-mix(in oklch, var(--background), var(--foreground) 6%));
+  --card-foreground: var(--foreground);
+
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+
+  --primary: var(--pxd-seed-primary, oklch(0.6231 0.188 259.8145));
+  --primary-foreground: var(--pxd-seed-primary-foreground, oklch(1 0 0));
+
+  --secondary: var(--card);
+  --secondary-foreground: var(--foreground);
+
+  --muted: color-mix(in oklch, var(--background), var(--foreground) 4%);
+  --muted-foreground: color-mix(in oklch, var(--foreground), var(--background) 30%);
+
+  --accent: color-mix(in oklch, var(--background), var(--primary) 25%);
+  --accent-foreground: var(--foreground);
+
+  --destructive: var(--pxd-seed-destructive, oklch(0.6368 0.2078 25.3313));
+  --destructive-foreground: var(--pxd-seed-destructive-foreground, oklch(1 0 0));
+
+  --border: color-mix(in oklch, var(--background), var(--foreground) 15%);
+  --input: color-mix(in oklch, var(--background), var(--foreground) 15%);
+  --ring: var(--primary);
+
+  --radius: var(--pxd-seed-radius, 0.375rem);
+}
+
 /* PoeXD 統一自訂 Native Scrollbar: Chromium 使用 ::-webkit-scrollbar-* 完整控制（不設 scrollbar-width/color 避免 Chromium 忽略 webkit 滾動條而顯示 Windows 箭頭） */
 .pxd-scrollbar {
   scrollbar-gutter: stable;

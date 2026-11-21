@@ -46,7 +46,6 @@ export const PAGE_INJECTED_SELECTORS = [
   '.poexd-sortable-ghost',
   '.poexd-sortable-drag',
   '.poexd-filter-mod-highlight',
-  '.poexd-price-comparison',
 ] as const;
 
 let activeThemeHost: HTMLElement | null = null;
@@ -138,15 +137,19 @@ export function registerThemeHost(host: HTMLElement | null | undefined): void {
   if (typeof MutationObserver !== 'undefined') {
     hostMutationObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
-        if (m.type === 'attributes' && m.attributeName === THEME_ATTRIBUTE) {
+        if (
+          m.type === 'attributes' &&
+          (m.attributeName === THEME_ATTRIBUTE || m.attributeName === 'style')
+        ) {
           syncPageThemeBridge(activeThemeHost);
+          break;
         }
       }
     });
 
     hostMutationObserver.observe(host, {
       attributes: true,
-      attributeFilter: [THEME_ATTRIBUTE],
+      attributeFilter: [THEME_ATTRIBUTE, 'style'],
     });
   }
 

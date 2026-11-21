@@ -411,18 +411,102 @@
           :collapsed="collapsedSections.has('appearance')"
           @toggle-collapse="toggleSectionCollapse('appearance')"
         >
-          <SettingsRow :label="t('settings.theme.label')">
-            <Select v-model="theme" @update:model-value="savePreference('theme')">
-              <SelectTrigger size="default" class="w-[140px] shrink-0">
-                <SelectValue>{{ THEME_LABELS[theme] }}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="opt in THEME_OPTIONS" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+          <SettingsRow :label="t('settings.theme.label')" layout="stack">
+            <div class="flex flex-wrap gap-[var(--pxd-space-xs)]" data-test="theme-preset-group">
+              <Button
+                v-for="presetId in PRESET_THEME_IDS"
+                :key="presetId"
+                type="button"
+                :variant="theme === presetId ? 'default' : 'outline'"
+                size="sm"
+                :aria-pressed="theme === presetId"
+                :data-custom-preset="presetId"
+                @click="selectThemePreset(presetId)"
+              >
+                {{ THEME_LABELS[presetId] }}
+              </Button>
+              <Button
+                type="button"
+                :variant="theme === 'custom' ? 'default' : 'outline'"
+                size="sm"
+                :aria-expanded="customThemeOpen"
+                data-test="theme-custom-toggle"
+                @click="customThemeOpen = !customThemeOpen"
+              >
+                {{ THEME_LABELS.custom }}
+              </Button>
+            </div>
           </SettingsRow>
+          <div
+            v-if="customThemeOpen"
+            data-settings-group="theme-custom-colors"
+            class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
+          >
+            <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+              {{ t('settings.theme.custom.hint') }}
+            </p>
+            <SettingsRow
+              v-for="row in themeCustomColorRows"
+              :key="row.key"
+              :label="t(row.labelKey)"
+              :keywords="[t('settings.theme.label')]"
+              :control-id="`theme-custom-${row.key}`"
+            >
+              <template #default="{ describedBy }">
+                <label
+                  class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-muted-foreground font-mono uppercase cursor-pointer"
+                >
+                  {{ preferenceState[row.key] }}
+                  <input
+                    :id="`theme-custom-${row.key}`"
+                    type="color"
+                    class="size-[var(--control-height-sm)] shrink-0 cursor-pointer rounded-[var(--radius-sm)] border border-border bg-transparent p-0"
+                    :value="preferenceState[row.key]"
+                    :aria-describedby="describedBy"
+                    @input="handleThemeCustomColorInput(row.key, $event)"
+                    @change="handleThemeCustomColorChange(row.key, $event)"
+                  />
+                </label>
+              </template>
+            </SettingsRow>
+            <SettingsRow
+              :label="t('settings.theme.custom.radius')"
+              :keywords="[t('settings.theme.label')]"
+              layout="stack"
+            >
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                data-test="theme-custom-radius"
+                :model-value="preferenceState.themeCustomRadius"
+                class="w-full"
+                @update:model-value="handleThemeCustomRadiusChange"
+              >
+                <ToggleGroupItem
+                  v-for="radius in THEME_CUSTOM_RADIUS_VALUES"
+                  :key="radius"
+                  :value="radius"
+                  :aria-label="t(`settings.theme.custom.radius.${radius}`)"
+                  size="sm"
+                  class="flex-1"
+                >
+                  {{ t(`settings.theme.custom.radius.${radius}`) }}
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </SettingsRow>
+            <div class="flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                data-test="theme-custom-reset"
+                :disabled="isThemeCustomColorsDefault"
+                @click="resetThemeCustomColors"
+              >
+                {{ t('settings.theme.custom.reset') }}
+              </Button>
+            </div>
+          </div>
 
           <SettingsRow
             :label="t('settings.pureBackground.label')"
@@ -617,7 +701,22 @@ import {
   type SettingsSectionId,
   type SidebarModulePreferenceKey,
 } from '@/utils/sidebar-modules';
-import { DEFAULT_PREFERENCES, type Preferences } from '@/utils/preferences-contract';
+import {
+  DEFAULT_PREFERENCES,
+  THEME_CUSTOM_COLOR_PREFERENCE_NAMES,
+  THEME_CUSTOM_RADIUS_VALUES,
+  isValidHexColor,
+  isValidThemeCustomRadius,
+  type Preferences,
+  type ThemeCustomColorPreferenceName,
+} from '@/utils/preferences-contract';
+import {
+  PRESET_THEME_IDS,
+  THEME_CUSTOM_PRESETS,
+  type PresetThemeId,
+} from '@/lib/theme/theme-contract';
+import { applyThemeToHost, readThemeCustomColors } from '@/lib/theme/theme-runtime';
+import { findThemeHost } from '@/lib/theme/page-theme-bridge';
 import {
   BOOKMARK_BUTTON_POSITION_OPTIONS,
   DISPLAY_LOCALE_LABELS,
@@ -626,7 +725,6 @@ import {
   SEARCH_ENTRY_CLICK_ACTION_OPTIONS,
   SIDEBAR_POSITION_OPTIONS,
   THEME_LABELS,
-  THEME_OPTIONS,
 } from './settings/settings-ui-metadata';
 import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
 import { clampFontSizeScale } from '@/utils/appearance-preferences';
@@ -763,10 +861,20 @@ export default defineComponent({
       window.location.reload();
     };
 
+    const customThemeOpen = ref(false);
+    let pendingColorSaveTimer: ReturnType<typeof setTimeout> | undefined;
+    const clearPendingColorSave = () => {
+      if (pendingColorSaveTimer !== undefined) {
+        clearTimeout(pendingColorSaveTimer);
+        pendingColorSaveTimer = undefined;
+      }
+    };
+
     const preferences = ref<PreferencesModule | null>(null);
     let stopPreferences: (() => void) | undefined;
     const applyPreferences = (snapshot: Readonly<Preferences>) => {
       Object.assign(preferenceState, snapshot);
+      if (snapshot.theme === 'custom') customThemeOpen.value = true;
       setActiveDisplayLocalePreference(snapshot.displayLocale);
       const currentMarketState = computeEffectiveMarketState(snapshot);
       if (pageLoadMarketState === null) {
@@ -823,6 +931,7 @@ export default defineComponent({
       stopPreferences?.();
       stopScrollSpy?.();
       clearTimeout(highlightTimer);
+      clearPendingColorSave();
     });
 
     const handleFontSizeScaleChange = (scale: number) => {
@@ -876,6 +985,78 @@ export default defineComponent({
         handleDensityChange(checked ? 0.8 : 1);
       },
     });
+
+    // 自訂主題：五個種子色與圓角段位，其餘語意色由 main.css 推導
+    const themeCustomColorRows = [
+      { key: 'themeCustomBackground', labelKey: 'settings.theme.custom.background' },
+      { key: 'themeCustomCard', labelKey: 'settings.theme.custom.card' },
+      { key: 'themeCustomForeground', labelKey: 'settings.theme.custom.foreground' },
+      { key: 'themeCustomPrimary', labelKey: 'settings.theme.custom.primary' },
+      { key: 'themeCustomDestructive', labelKey: 'settings.theme.custom.destructive' },
+    ] as const satisfies ReadonlyArray<{ key: ThemeCustomColorPreferenceName; labelKey: string }>;
+
+    const handleThemeCustomColorInput = (key: ThemeCustomColorPreferenceName, event: Event) => {
+      const value = (event.target as HTMLInputElement | null)?.value;
+      if (!isValidHexColor(value)) return;
+      const hex = value.toLowerCase();
+      preferenceState[key] = hex;
+      preferenceState.theme = 'custom';
+      // 拖動色盤時僅直接更新 host CSS 變數做即時預覽，不每幀寫入 storage
+      applyThemeToHost(findThemeHost(), 'custom', readThemeCustomColors(preferenceState));
+      clearPendingColorSave();
+      pendingColorSaveTimer = setTimeout(() => {
+        pendingColorSaveTimer = undefined;
+        void updatePreferences({ theme: 'custom', [key]: hex });
+      }, 250);
+    };
+
+    const handleThemeCustomColorChange = (key: ThemeCustomColorPreferenceName, event: Event) => {
+      const value = (event.target as HTMLInputElement | null)?.value;
+      if (!isValidHexColor(value)) return;
+      const hex = value.toLowerCase();
+      clearPendingColorSave();
+      preferenceState[key] = hex;
+      preferenceState.theme = 'custom';
+      void updatePreferences({ theme: 'custom', [key]: hex });
+    };
+
+    const handleThemeCustomRadiusChange = (val?: unknown) => {
+      const radius = Array.isArray(val) ? val[0] : val;
+      if (!isValidThemeCustomRadius(radius)) return;
+      clearPendingColorSave();
+      preferenceState.themeCustomRadius = radius;
+      preferenceState.theme = 'custom';
+      void updatePreferences({ theme: 'custom', themeCustomRadius: radius });
+    };
+
+    const selectThemePreset = (presetId: PresetThemeId) => {
+      clearPendingColorSave();
+      const preset = THEME_CUSTOM_PRESETS[presetId];
+      const next: Partial<Preferences> = {
+        theme: presetId,
+        themeCustomBackground: preset.background,
+        themeCustomCard: preset.card,
+        themeCustomForeground: preset.foreground,
+        themeCustomPrimary: preset.primary,
+        themeCustomDestructive: preset.destructive,
+        themeCustomRadius: preset.radius,
+      };
+      Object.assign(preferenceState, next);
+      void updatePreferences(next);
+    };
+
+    const isThemeCustomColorsDefault = computed(
+      () =>
+        theme.value === 'modern-dark' &&
+        THEME_CUSTOM_COLOR_PREFERENCE_NAMES.every(
+          (key) => preferenceState[key].toLowerCase() === DEFAULT_PREFERENCES[key],
+        ) &&
+        preferenceState.themeCustomRadius === DEFAULT_PREFERENCES.themeCustomRadius,
+    );
+
+    const resetThemeCustomColors = () => {
+      selectThemePreset('modern-dark');
+    };
 
     const savePreference = (key: keyof Preferences) => {
       if (
@@ -1049,7 +1230,16 @@ export default defineComponent({
       Bookmark,
       theme,
       THEME_LABELS,
-      THEME_OPTIONS,
+      PRESET_THEME_IDS,
+      THEME_CUSTOM_RADIUS_VALUES,
+      customThemeOpen,
+      themeCustomColorRows,
+      handleThemeCustomColorInput,
+      handleThemeCustomColorChange,
+      handleThemeCustomRadiusChange,
+      selectThemePreset,
+      isThemeCustomColorsDefault,
+      resetThemeCustomColors,
       displayLocale,
       DISPLAY_LOCALE_LABELS,
       DISPLAY_LOCALE_OPTIONS,

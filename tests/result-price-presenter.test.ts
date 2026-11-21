@@ -71,8 +71,10 @@ describe('Result price presenter', () => {
 
     expect(loadRates).toHaveBeenCalledWith('Allflame');
     expect(priceField.insertAdjacentElement).toHaveBeenCalledWith('afterend', span);
-    expect(style.textContent).toContain('background-color: var(--muted)');
-    expect(style.textContent).toContain('border: 1px solid var(--border)');
+    expect(style.textContent).toContain('background-color: oklch(0.2393 0 0)');
+    expect(style.textContent).toContain('border: 1px solid oklch(0.3715 0 0)');
+    expect(style.textContent).not.toContain('var(--muted)');
+    expect(style.textContent).not.toContain('var(--border)');
     expect(style.textContent).not.toContain('color: var(--primary)');
     expect(style.textContent).not.toMatch(/#[0-9a-fA-F]{3,8}/);
     expect(renderedChildren[0].textContent).toBe('≈ 1');

@@ -52,6 +52,12 @@ describe('Preferences module interface', () => {
       sidebarPosition: 'left',
       sidebarWidth: 380,
       theme: 'modern-dark',
+      themeCustomBackground: '#171717',
+      themeCustomCard: '#262626',
+      themeCustomForeground: '#e5e5e5',
+      themeCustomPrimary: '#3b82f6',
+      themeCustomDestructive: '#ef4444',
+      themeCustomRadius: '0.375rem',
     });
   });
 

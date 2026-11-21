@@ -16,8 +16,11 @@ import {
   SIDEBAR_WIDTH_BOUNDS,
   getPreferenceStorageKey,
   isGlobalPreference,
+  isValidHexColor,
+  isValidThemeCustomRadius,
   isValidThemeId,
   normalizeThemeId,
+  THEME_CUSTOM_COLOR_PREFERENCE_NAMES,
   type BookmarkButtonPosition,
   type DisplayLocalePreference,
   type Preferences,
@@ -88,6 +91,9 @@ const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
 function isValidPreference(name: keyof Preferences, value: unknown) {
   if (BOOLEAN_PREFERENCES.has(name)) return typeof value === 'boolean';
   if (name === 'theme') return isValidThemeId(value);
+  if ((THEME_CUSTOM_COLOR_PREFERENCE_NAMES as readonly string[]).includes(name))
+    return isValidHexColor(value);
+  if (name === 'themeCustomRadius') return isValidThemeCustomRadius(value);
   if (name === 'displayLocale')
     return (DISPLAY_LOCALE_VALUES as readonly unknown[]).includes(value);
   if (name === 'liveSearchMaxDisplayedResults')
