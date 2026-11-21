@@ -226,6 +226,7 @@ export interface PoeContentToMainEventMap {
   'poexd-request-known-stats': void;
   'poexd-request-live-trade-data': void;
   'poexd-request-official-category': void;
+  'poexd-set-official-category': { option: string };
   'poexd-add-stat-filter': PoeAddStatFilterPayload;
   'poexd-update-stat-category': PoeUpdateStatCategoryPayload;
   'poexd-move-stat-filter': string; // Wire format: serialized JSON of PoeMoveStatFilterPayload
@@ -259,6 +260,7 @@ export interface PoeCrossWorldPayloadMap {
   'poexd-request-known-stats': void;
   'poexd-request-live-trade-data': void;
   'poexd-request-official-category': void;
+  'poexd-set-official-category': { option: string };
   'poexd-add-stat-filter': PoeAddStatFilterPayload;
   'poexd-update-stat-category': PoeUpdateStatCategoryPayload;
   'poexd-move-stat-filter': PoeMoveStatFilterPayload;

@@ -525,6 +525,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'filterPane.dialog.searchPlaceholder': 'Search categories...',
   'filterPane.dialog.recent': 'Recent',
   'filterPane.dialog.empty': 'No matching item categories found',
+  'filterPane.header.syncCategory': 'Sync to Trade ({category})',
+  'filterPane.header.syncCategoryTitle': 'Set official trade item category to "{category}"',
+  'filterPane.header.syncCategoryToast': 'Trade item category set to: {category}',
+  'filterPane.header.targetGroup': 'Group #{index}',
   'filterPane.badge.noOfficialIdBatchTitle':
     'No exact official trade ID, will attempt filling search input on batch apply',
 

@@ -88,3 +88,42 @@ export function resolveOfficialTierCategory(
 
   return { status: 'known_category', category: internalCategory };
 }
+
+const SPECIAL_SUBTYPE_TO_MAIN: Readonly<Record<string, string>> = {
+  wands_minion: 'wand',
+  rings_minion: 'ring',
+  unset_ring: 'ring',
+};
+
+/**
+ * 將 PoeXD 內部類別鍵（含子屬性基底，如 body_armours_str_dex、helmets_ward）
+ * 反查為官方市集 `type_filters.filters.category.option` 代碼與對應主類別鍵。
+ */
+export function resolveOfficialCategoryOption(
+  version: PoeVersion,
+  internalCategory: string,
+): { option: string; mainCategory: string } | null {
+  if (!internalCategory) return null;
+  const mapping = getTradeMapping(version);
+  if (!mapping) return null;
+
+  let mainCategory = SPECIAL_SUBTYPE_TO_MAIN[internalCategory] ?? internalCategory;
+  if (mainCategory === internalCategory) {
+    const parentRow = mapping.typeRowConfigs.find((row) =>
+      Object.prototype.hasOwnProperty.call(row.subKeys, internalCategory),
+    );
+    if (parentRow) {
+      mainCategory = parentRow.mainKey;
+    }
+  }
+
+  const lookup = mapping.machineOptionLookup;
+  for (const candidate of [internalCategory, mainCategory]) {
+    const found = Object.entries(lookup).find(([, mapped]) => mapped === candidate);
+    if (found) {
+      return { option: found[0], mainCategory: candidate };
+    }
+  }
+
+  return null;
+}

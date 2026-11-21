@@ -486,6 +486,10 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'filterPane.dialog.searchPlaceholder': '搜索种类...',
   'filterPane.dialog.recent': '最近使用',
   'filterPane.dialog.empty': '找不到相符的物品类别',
+  'filterPane.header.syncCategory': '同步至市集 ({category})',
+  'filterPane.header.syncCategoryTitle': '将官方市集的物品种类设为「{category}」',
+  'filterPane.header.syncCategoryToast': '已将市集物品种类设为：{category}',
+  'filterPane.header.targetGroup': '目标群组 #{index}',
   'filterPane.badge.noOfficialIdBatchTitle': '此词缀尚无官方精确 ID，批量应用时将尝试填入搜索框',
 
   'modItem.select.title': '选取此词缀至待应用清单 (批量应用)',

@@ -59,53 +59,95 @@
           <div
             class="controls-row flex flex-wrap gap-[var(--pxd-space-sm)] mb-[var(--pxd-row-gap)] items-center"
           >
-            <!-- 物品類別選擇器 (下方展開 Popover 面板) -->
-            <div
-              class="control-item item-type custom-select-container flex flex-col flex-[1_1_104px] min-w-0 relative w-full select-none"
-            >
-              <Popover :open="isTypePopoverOpen" @update:open="handleTypePopoverOpenChange">
-                <PopoverTrigger as-child>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    data-filter-action="open-type-dialog"
-                    class="w-full justify-between font-normal"
-                  >
-                    <span class="truncate text-left flex-1">{{ getTypeName(selectedType) }}</span>
-                    <ChevronDown
-                      class="text-muted-foreground shrink-0 transition-transform duration-150"
-                      :class="isTypePopoverOpen ? 'rotate-180' : ''"
-                    />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  side="bottom"
-                  :side-offset="6"
-                  data-sidebar-dialog="affix-type"
-                  :inert="affixDemoMode || undefined"
-                  :class="[
-                    'flex max-h-[min(78vh,680px)] w-[min(740px,calc(100vw-48px))] flex-col gap-0 overflow-hidden p-0 shadow-xl',
-                    affixDemoMode ? 'pointer-events-none select-none' : '',
-                  ]"
-                  @close-auto-focus="(e) => e.preventDefault()"
-                  @pointer-down-outside="preventIfAffixDemo"
-                  @interact-outside="preventIfAffixDemo"
-                  @escape-key-down="preventIfAffixDemo"
+            <!-- 物品類別選擇器（掛載於 Sidebar 時 Teleport 至頂部標題列；單獨掛載時留在控制列內） -->
+            <Teleport :to="headerPortalTarget || 'body'" :disabled="!headerPortalTarget">
+              <div
+                class="control-item item-type custom-select-container flex items-center gap-[var(--pxd-space-sm)] min-w-0 select-none"
+                :class="headerPortalTarget ? 'flex-1' : 'flex-[1_1_104px] relative w-full'"
+              >
+                <span
+                  v-if="headerPortalTarget"
+                  class="text-muted-foreground/60 text-[length:var(--pxd-font-body)] select-none shrink-0"
+                  aria-hidden="true"
                 >
-                  <ItemTypeSelectorPanel
-                    ref="typePopoverPanelRef"
-                    :search-query="typeSearchQuery"
-                    :active-category="dialogActiveCategory"
-                    :grouped-available-types="groupedAvailableTypes"
-                    :recent-options="recentTypeOptions"
-                    @update:search-query="(val) => (typeSearchQuery = val)"
-                    @select="selectTypeOption"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+                  /
+                </span>
+                <Popover :open="isTypePopoverOpen" @update:open="handleTypePopoverOpenChange">
+                  <PopoverTrigger as-child>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      data-filter-action="open-type-dialog"
+                      class="justify-between font-normal"
+                      :class="
+                        headerPortalTarget ? 'min-w-[110px] max-w-[190px] shrink-0' : 'w-full'
+                      "
+                    >
+                      <span class="truncate text-left flex-1">{{ getTypeName(selectedType) }}</span>
+                      <ChevronDown
+                        class="text-muted-foreground shrink-0 transition-transform duration-150"
+                        :class="isTypePopoverOpen ? 'rotate-180' : ''"
+                      />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    side="bottom"
+                    :side-offset="6"
+                    data-sidebar-dialog="affix-type"
+                    :inert="affixDemoMode || undefined"
+                    :class="[
+                      'flex max-h-[min(78vh,680px)] w-[min(740px,calc(100vw-48px))] flex-col gap-0 overflow-hidden p-0 shadow-xl',
+                      affixDemoMode ? 'pointer-events-none select-none' : '',
+                    ]"
+                    @close-auto-focus="(e) => e.preventDefault()"
+                    @pointer-down-outside="preventIfAffixDemo"
+                    @interact-outside="preventIfAffixDemo"
+                    @escape-key-down="preventIfAffixDemo"
+                  >
+                    <ItemTypeSelectorPanel
+                      ref="typePopoverPanelRef"
+                      :search-query="typeSearchQuery"
+                      :active-category="dialogActiveCategory"
+                      :grouped-available-types="groupedAvailableTypes"
+                      :recent-options="recentTypeOptions"
+                      @update:search-query="(val) => (typeSearchQuery = val)"
+                      @select="selectTypeOption"
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <Button
+                  v-if="headerPortalTarget && syncableOfficialCategory"
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  data-filter-action="sync-official-category"
+                  class="shrink-0 font-normal text-muted-foreground hover:text-foreground gap-1"
+                  :title="
+                    t('filterPane.header.syncCategoryTitle', {
+                      category: syncableOfficialCategory.label,
+                    })
+                  "
+                  @click="syncOfficialCategory"
+                >
+                  <ArrowUpRight class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                  <span class="truncate">{{
+                    t('filterPane.header.syncCategory', {
+                      category: syncableOfficialCategory.label,
+                    })
+                  }}</span>
+                </Button>
+
+                <span
+                  v-if="headerPortalTarget && targetGroupIndex > 0"
+                  class="ml-auto inline-flex items-center px-2 py-0.5 rounded-[var(--radius-sm)] bg-muted border border-border text-[length:var(--pxd-font-caption)] text-muted-foreground font-medium shrink-0 select-none"
+                >
+                  {{ t('filterPane.header.targetGroup', { index: targetGroupIndex + 1 }) }}
+                </span>
+              </div>
+            </Teleport>
 
             <!-- 關鍵字搜尋輸入框 (帶有一鍵清空打叉按鈕) -->
             <div
@@ -773,9 +815,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronDown, X } from '@lucide/vue';
-import { Plus, Minus } from '@lucide/vue';
+import { ArrowUpRight, Plus, Minus } from '@lucide/vue';
 import { useModSelection } from './composables/useModSelection';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
+import { resolveOfficialCategoryOption } from '@/utils/official-category-resolver';
 import { refreshAndReopenTierSlot } from '@/utils/tier-slot-registry';
 import { getPoeVersion } from '@/utils/trade-context';
 import {
@@ -808,6 +851,7 @@ export default defineComponent({
     Button,
     ToggleGroup,
     ToggleGroupItem,
+    ArrowUpRight,
     ChevronDown,
     Plus,
     Minus,
@@ -821,6 +865,10 @@ export default defineComponent({
     isOpen: {
       type: Boolean,
       default: false,
+    },
+    headerPortalTarget: {
+      type: Object as () => HTMLElement | null,
+      default: null,
     },
   },
   emits: ['type-dialog-open-changed'],
@@ -1739,6 +1787,26 @@ export default defineComponent({
 
     let lastDetectedType: string | null | undefined = undefined;
     let pendingDetectedType: string | null | undefined = undefined;
+    const officialCategory = ref<string | null>(null);
+
+    const syncableOfficialCategory = computed(() => {
+      const resolved = resolveOfficialCategoryOption(version, selectedType.value);
+      if (!resolved) return null;
+      if (officialCategory.value === resolved.mainCategory) return null;
+      return {
+        option: resolved.option,
+        mainCategory: resolved.mainCategory,
+        label: getTypeName(resolved.mainCategory),
+      };
+    });
+
+    const syncOfficialCategory = () => {
+      const target = syncableOfficialCategory.value;
+      if (!target) return;
+      dispatchPoeEvent('poexd-set-official-category', { option: target.option });
+      officialCategory.value = target.mainCategory;
+      showToast(t('filterPane.header.syncCategoryToast', { category: target.label }));
+    };
 
     const applyEquipmentType = (detectedType: string | null) => {
       if (affixDemoMode.value) return;
@@ -1763,6 +1831,7 @@ export default defineComponent({
     };
 
     const handleEquipmentTypeChange = (detail: { type: string | null }) => {
+      officialCategory.value = detail.type ?? null;
       applyEquipmentType(detail.type);
     };
 
@@ -1958,6 +2027,8 @@ export default defineComponent({
       dialogActiveCategory,
       toggleSelectDropdown,
       selectTypeOption,
+      syncableOfficialCategory,
+      syncOfficialCategory,
       getTypeName,
       formatModText,
       addStatFilter,

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveOfficialTierCategory } from '@/utils/official-category-resolver';
+import {
+  resolveOfficialCategoryOption,
+  resolveOfficialTierCategory,
+} from '@/utils/official-category-resolver';
 
 describe('official category structured query resolver', () => {
   it('resolves canonical PoE2 buckler and talisman and PoE1 weapon sub-types', () => {
@@ -309,5 +312,29 @@ describe('official category structured query resolver', () => {
         status: 'unavailable',
       });
     }
+  });
+
+  it('reverse-maps internal categories and attribute subtypes to official trade category options', () => {
+    expect(resolveOfficialCategoryOption('poe1', 'body-armour')).toEqual({
+      option: 'armour.chest',
+      mainCategory: 'body-armour',
+    });
+    expect(resolveOfficialCategoryOption('poe1', 'body_armours_str_dex')).toEqual({
+      option: 'armour.chest',
+      mainCategory: 'body-armour',
+    });
+    expect(resolveOfficialCategoryOption('poe1', 'helmets_ward')).toEqual({
+      option: 'armour.helmet',
+      mainCategory: 'helmet',
+    });
+    expect(resolveOfficialCategoryOption('poe1', 'rings_minion')).toEqual({
+      option: 'accessory.ring',
+      mainCategory: 'ring',
+    });
+    expect(resolveOfficialCategoryOption('poe1', 'heist_gear')).toEqual({
+      option: 'heistequipment.heistweapon',
+      mainCategory: 'heist_gear',
+    });
+    expect(resolveOfficialCategoryOption('poe1', 'nonexistent_type')).toBeNull();
   });
 });

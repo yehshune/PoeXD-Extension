@@ -58,6 +58,7 @@ type ExpectedContentToMain =
   | 'poexd-request-known-stats'
   | 'poexd-request-live-trade-data'
   | 'poexd-request-official-category'
+  | 'poexd-set-official-category'
   | 'poexd-add-stat-filter'
   | 'poexd-update-stat-category'
   | 'poexd-move-stat-filter'

@@ -484,6 +484,10 @@ export const ZH_TW_MESSAGES = {
   'filterPane.dialog.searchPlaceholder': '搜尋種類...',
   'filterPane.dialog.recent': '最近使用',
   'filterPane.dialog.empty': '找不到相符的物品類別',
+  'filterPane.header.syncCategory': '同步至市集 ({category})',
+  'filterPane.header.syncCategoryTitle': '將官方市集的物品種類設為「{category}」',
+  'filterPane.header.syncCategoryToast': '已將市集物品種類設為：{category}',
+  'filterPane.header.targetGroup': '目標群組 #{index}',
   'filterPane.badge.noOfficialIdBatchTitle': '此詞綴尚無官方精確 ID，批次套用時將嘗試填入搜尋框',
 
   'modItem.select.title': '選取此詞綴至待套用清單 (批次套用)',

@@ -417,11 +417,17 @@
             @close-auto-focus="(e) => e.preventDefault()"
           >
             <DialogHeader
-              class="h-[var(--pxd-sidebar-affix-dialog-header-height)] shrink-0 flex-row items-center justify-between gap-0 border-b border-border bg-background px-[var(--pxd-pane-padding)] py-0 text-left"
+              class="h-[var(--pxd-sidebar-affix-dialog-header-height)] shrink-0 flex-row items-center justify-start gap-0 border-b border-border bg-background px-[var(--pxd-pane-padding)] py-0 text-left"
             >
-              <DialogTitle class="text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px]">
+              <DialogTitle
+                class="text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px] shrink-0"
+              >
                 {{ t('affixSelector.dialog.title') }}
               </DialogTitle>
+              <div
+                ref="affixHeaderSlotRef"
+                class="flex items-center gap-[var(--pxd-space-sm)] min-w-0 flex-1 ml-[var(--pxd-space-sm)] mr-8"
+              />
               <DialogDescription class="sr-only">
                 {{ t('affixSelector.dialog.description') }}
               </DialogDescription>
@@ -434,6 +440,7 @@
                 ref="filterPaneRef"
                 :target-group-index="targetGroupIndex"
                 :is-open="isModalOpen"
+                :header-portal-target="affixHeaderSlotRef"
                 @type-dialog-open-changed="handleTypeDialogOpenChange"
               />
             </div>
@@ -1462,6 +1469,7 @@ export default defineComponent({
     const isModalOpen = ref(false);
     const targetGroupIndex = ref(0);
     const filterPaneRef = ref<FilterPaneDemoHandle | null>(null);
+    const affixHeaderSlotRef = ref<HTMLElement | null>(null);
 
     const closeModal = () => {
       isModalOpen.value = false;
@@ -1843,6 +1851,7 @@ export default defineComponent({
       isModalOpen,
       targetGroupIndex,
       filterPaneRef,
+      affixHeaderSlotRef,
       affixDemoMode,
       isAffixPaneMounted,
       closeModal,

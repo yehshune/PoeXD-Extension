@@ -21,6 +21,7 @@ import type { PoeVersion } from '@/utils/trade-context';
 
 let activeBridge: MainWorldBridge | null = null;
 let unlistenCategoryRequest: (() => void) | null = null;
+let unlistenSetOfficialCategory: (() => void) | null = null;
 let storeUnsubscribe: (() => void) | null = null;
 let subscribedStore: HostVuexStore | null = null;
 let hasEstablishedBaseline = false;
@@ -37,6 +38,10 @@ export function setDomTaggerBridge(bridge: MainWorldBridge | null): void {
     unlistenCategoryRequest();
     unlistenCategoryRequest = null;
   }
+  if (unlistenSetOfficialCategory) {
+    unlistenSetOfficialCategory();
+    unlistenSetOfficialCategory = null;
+  }
   activeBridge = bridge;
   if (bridge && typeof bridge.addListener === 'function') {
     unlistenCategoryRequest = bridge.addListener('poexd-request-official-category', () => {
@@ -47,6 +52,18 @@ export function setDomTaggerBridge(bridge: MainWorldBridge | null): void {
           type: getOfficialCategorySnapshot(),
         });
       }
+    });
+    unlistenSetOfficialCategory = bridge.addListener('poexd-set-official-category', (detail) => {
+      const option = typeof detail?.option === 'string' ? detail.option.trim() : '';
+      if (!option) return;
+      const store = getVueStore();
+      if (!store || typeof store.commit !== 'function') return;
+      store.commit('setPropertyFilter', {
+        group: 'type_filters',
+        index: 'category',
+        value: { option },
+      });
+      syncOfficialCategoryWithStatus();
     });
   }
 }
