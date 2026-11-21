@@ -237,18 +237,6 @@
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-
-            <div
-              v-if="build.progress.total > 0"
-              aria-hidden="true"
-              data-pob-build-progress-bar
-              class="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-border/40"
-            >
-              <div
-                class="h-full bg-primary transition-[width] duration-200"
-                :style="{ width: progressPercent(build) }"
-              />
-            </div>
           </header>
 
           <template v-if="!build.collapsed || isFiltering">
@@ -1003,11 +991,6 @@ export default defineComponent({
       collapsedGroups.value = next;
     };
 
-    const progressPercent = (build: BuildView): string =>
-      build.progress.total > 0
-        ? `${Math.min(100, Math.round((build.progress.done / build.progress.total) * 100))}%`
-        : '0%';
-
     const groupDoneCount = (group: ShoppingGroup): number =>
       group.rows.filter((row) => row.done).length;
 
@@ -1264,7 +1247,6 @@ export default defineComponent({
       showSkillSets,
       setLabel,
       activeSetLabel,
-      progressPercent,
       buildCategories,
       activeCategory,
       setActiveCategory,

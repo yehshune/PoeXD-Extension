@@ -1089,12 +1089,11 @@ describe('PobBuildPane', () => {
     );
   });
 
-  it('顯示進度條與分組進度；點擊分組標題可收合／展開，搜尋時自動展開', async () => {
+  it('顯示分組進度；點擊分組標題可收合／展開，搜尋時自動展開', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
 
-    const progressBar = query<HTMLElement>('[data-pob-build-progress-bar] > div')!;
-    expect(progressBar.style.width).toBe('25%');
+    expect(query('[data-pob-build-progress-bar]')).toBeNull();
 
     const groupCounts = queryAll('[data-pob-build-group-count]').map((el) =>
       el.textContent?.trim(),
