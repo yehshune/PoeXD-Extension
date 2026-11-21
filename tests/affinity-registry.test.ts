@@ -40,6 +40,7 @@ describe('Affinity Registry & Version Profiles', () => {
       expect(poe1AffinityProfile.resolveTargetAffinities('implicit.stat_1234')).toEqual([
         'normal',
         'corrupted',
+        'synthesis',
       ]);
     });
 
@@ -81,7 +82,9 @@ describe('Affinity Registry & Version Profiles', () => {
 
       expect(poe2AffinityProfile.categoryNames.bonded).toBe('命定詞綴');
       expect(poe2AffinityProfile.categoryNames.liquid).toBe('液態情感');
+      expect(poe2AffinityProfile.categoryNames.sanctum).toBe('聖域');
       expect(poe2AffinityProfile.categoryNames.master).toBeUndefined();
+      expect(poe2AffinityProfile.resolveTargetAffinities('sanctum.stat_1234')).toEqual(['sanctum']);
     });
   });
 

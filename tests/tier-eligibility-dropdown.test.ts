@@ -576,6 +576,7 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       expect(resolveTargetAffinitiesByStatId('implicit.stat_1658498488')).toEqual([
         'normal',
         'corrupted',
+        'synthesis',
       ]);
       expect(resolveTargetAffinitiesByStatId('explicit.stat_12345')).toEqual(['normal']);
       expect(resolveTargetAffinitiesByStatId('fractured.stat_12345')).toEqual(['normal']);

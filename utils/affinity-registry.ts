@@ -120,6 +120,7 @@ const POE2_AFFINITY_NAMES_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<s
     breach_caster: '裂痕 (施法者)',
     corrupted: '已汙染',
     enchant: '附魔',
+    sanctum: '聖域',
   },
   'zh-CN': {
     normal: '一般',
@@ -140,6 +141,7 @@ const POE2_AFFINITY_NAMES_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<s
     breach_caster: '裂隙 (施法者)',
     corrupted: '已腐化',
     enchant: '附魔',
+    sanctum: '圣域',
   },
   en: {
     normal: 'Normal',
@@ -160,6 +162,7 @@ const POE2_AFFINITY_NAMES_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<s
     breach_caster: 'Breach (Caster)',
     corrupted: 'Corrupted',
     enchant: 'Enchant',
+    sanctum: 'Sanctum',
   },
 };
 
@@ -180,7 +183,7 @@ export const poe1AffinityProfile: AffinityProfile = {
       return ['veiled'];
     }
     if (statId.startsWith('implicit.')) {
-      return ['normal', 'corrupted'];
+      return ['normal', 'corrupted', 'synthesis'];
     }
     return ['normal'];
   },
@@ -194,6 +197,8 @@ export const poe1AffinityProfile: AffinityProfile = {
     'bestiary',
     'infamous',
     'delve',
+    'incursion',
+    'haunted',
     'essence',
     'sentinel',
     'sanctum',
@@ -235,6 +240,9 @@ export const poe2AffinityProfile: AffinityProfile = {
   version: 'poe2',
   resolveTargetAffinities(statId?: string | null): string[] {
     if (!statId) return ['normal'];
+    if (statId.startsWith('sanctum.')) {
+      return ['sanctum'];
+    }
     if (statId.startsWith('enchant.')) {
       return ['corrupted', 'enchant'];
     }
@@ -259,6 +267,7 @@ export const poe2AffinityProfile: AffinityProfile = {
     'liquid',
     'essence',
     'perfect_essence',
+    'sanctum',
   ]),
   categoryNames: createActiveUiLocaleProxy(POE2_AFFINITY_NAMES_BY_LOCALE),
   categoryPriorities: {
@@ -267,6 +276,7 @@ export const poe2AffinityProfile: AffinityProfile = {
     perfect_essence: 11,
     bonded: 20,
     socketable: 21,
+    sanctum: 25,
     desecrated: 30,
     destruction: 31,
     berserking: 32,
@@ -300,6 +310,9 @@ export interface CommonAffinityProfile {
 export const commonAffinityProfile: CommonAffinityProfile = {
   resolveTargetAffinities(statId?: string | null): string[] {
     if (!statId) return ['normal'];
+    if (statId.startsWith('sanctum.')) {
+      return ['sanctum'];
+    }
     if (statId.startsWith('enchant.')) {
       return ['corrupted', 'enchant'];
     }
@@ -316,7 +329,7 @@ export const commonAffinityProfile: CommonAffinityProfile = {
       return ['veiled'];
     }
     if (statId.startsWith('implicit.')) {
-      return ['normal', 'corrupted'];
+      return ['normal', 'corrupted', 'synthesis'];
     }
     return ['normal'];
   },
