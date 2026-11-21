@@ -7,18 +7,20 @@ import { ResultBoardRuntime } from '@/entrypoints/content/logic/result-board-run
 import { setActiveDisplayLocalePreference } from '@/utils/i18n';
 import { createResultTranslator } from '@/utils/market-result-translator';
 import { receiveResultTranslationRequests } from '@/utils/market-result-translation-request';
-import { TradeResultCache } from '@/utils/trade-result-cache';
+import { getTradeResultCache, TradeResultCache } from '@/utils/trade-result-cache';
 import { rawResult } from './helpers/result-board-fixtures';
 
-const { runtimeHolder, mockFetchCurrencyRates, prefState, prefListeners } = vi.hoisted(() => ({
-  runtimeHolder: { current: undefined as ResultBoardRuntime | undefined },
-  mockFetchCurrencyRates: vi.fn(async () => ({
-    primary: 'chaos',
-    rates: { chaos: 1, divine: 200 },
-  })),
-  prefState: { enablePriceComparison: true },
-  prefListeners: new Set<(snapshot: { enablePriceComparison: boolean }) => void>(),
-}));
+const { runtimeHolder, mockFetchCurrencyRates, prefState, prefListeners, tradeContextState } =
+  vi.hoisted(() => ({
+    runtimeHolder: { current: undefined as ResultBoardRuntime | undefined },
+    mockFetchCurrencyRates: vi.fn(async () => ({
+      primary: 'chaos',
+      rates: { chaos: 1, divine: 200 },
+    })),
+    prefState: { enablePriceComparison: true },
+    prefListeners: new Set<(snapshot: { enablePriceComparison: boolean }) => void>(),
+    tradeContextState: { league: 'Covens' as string | undefined },
+  }));
 
 vi.mock('@/utils/preferences', () => ({
   getPreferences: vi.fn(async () => ({
@@ -54,7 +56,7 @@ vi.mock('@/entrypoints/content/logic/result-price-presenter', async (importOrigi
 
 vi.mock('@/utils/trade-context', () => ({
   getPoeVersion: () => 'poe1',
-  getTradeLeague: () => 'Covens',
+  getTradeLeague: () => tradeContextState.league,
 }));
 
 describe('ResultBoardPane interactions, translation, instant-only filter & persistent search', () => {
@@ -73,6 +75,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
   };
 
   beforeEach(() => {
+    tradeContextState.league = 'Covens';
     prefState.enablePriceComparison = true;
     prefListeners.clear();
     mockFetchCurrencyRates.mockClear();
@@ -453,5 +456,72 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(mockFetchCurrencyRates).not.toHaveBeenCalled();
     expect(container.querySelector('[data-board-price-min]')).toBeNull();
     expect(container.querySelector('[data-board-no-conversion]')).toBeNull();
+  });
+
+  it('resolves league and loads card details and currency rates after searching from a new page without league in URL', async () => {
+    const sharedCache = getTradeResultCache();
+    sharedCache.clear();
+    runtime.cleanup();
+    runtime = new ResultBoardRuntime(sharedCache, document);
+    runtimeHolder.current = runtime;
+
+    // 模擬剛開啟新頁面 `/trade`（網址尚無聯盟），此時看板就已掛載
+    tradeContextState.league = undefined;
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => {
+      app.unmount();
+      sharedCache.clear();
+    };
+    await flush();
+
+    expect(mockFetchCurrencyRates).not.toHaveBeenCalled();
+
+    // 執行搜尋後，SPA 路由切換至帶聯盟的搜尋網址並收到結果
+    tradeContextState.league = 'Covens';
+    runtime.session.setSummary({
+      searchId: 'search-new',
+      resultCount: 2,
+      total: 2,
+      inexact: false,
+    });
+    sharedCache.ingestResult(
+      { ...rawResult({ id: 'r1', amount: 1, currency: 'divine' }), sourceSearchId: 'search-new' },
+      { sourceSearchId: 'search-new', league: 'Covens' },
+    );
+    sharedCache.ingestResult(
+      { ...rawResult({ id: 'r2', amount: 50, currency: 'chaos' }), sourceSearchId: 'search-new' },
+      { sourceSearchId: 'search-new', league: 'Covens' },
+    );
+    runtime.session.observeFetch('search-new');
+    await flush();
+
+    expect(mockFetchCurrencyRates).toHaveBeenCalledWith('poe1', 'Covens');
+    expect(container.querySelector('[data-board-no-conversion]')).toBeNull();
+    expect(container.querySelector('[data-board-price-min]')).not.toBeNull();
+    expect(container.querySelector('[data-board-price-summary]')).not.toBeNull();
+
+    // 展開第一筆結果應正常顯示物品卡片而非「無法顯示這筆結果的卡片」
+    container.querySelector<HTMLElement>('[data-board-entry-toggle]')!.click();
+    await flush();
+    expect(container.querySelector('[data-board-entry-card]')).not.toBeNull();
+    expect(container.querySelector('[data-board-entry-card-missing]')).toBeNull();
+
+    // 同一頁切換聯盟再搜尋時，應依新聯盟重新載入匯率
+    tradeContextState.league = 'Standard';
+    runtime.session.setSummary({
+      searchId: 'search-std',
+      resultCount: 1,
+      total: 1,
+      inexact: false,
+    });
+    sharedCache.ingestResult(
+      { ...rawResult({ id: 'r3', amount: 10, currency: 'chaos' }), sourceSearchId: 'search-std' },
+      { sourceSearchId: 'search-std', league: 'Standard' },
+    );
+    runtime.session.observeFetch('search-std');
+    await flush();
+
+    expect(mockFetchCurrencyRates).toHaveBeenCalledWith('poe1', 'Standard');
   });
 });

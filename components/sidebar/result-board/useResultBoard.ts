@@ -60,7 +60,6 @@ export function parseBound(value: string): number | undefined {
 
 export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRuntime()) {
   const version = getPoeVersion();
-  const league = getTradeLeague();
   const state = shallowRef(runtime.session.getState());
   const loaderState = shallowRef(runtime.loader.getState());
   const loadedRates = shallowRef<CurrencyRateSnapshot | undefined>(undefined);
@@ -82,24 +81,54 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
 
   let disposed = false;
   let ratesLoading = false;
+  let loadedRatesLeague: string | undefined;
+  let loadingRatesLeague: string | undefined;
+  let ratesRequestId = 0;
   const cleanups: (() => void)[] = [];
 
+  /** 新頁面（`/trade`）掛載時網址尚無聯盟，搜尋後才透過 SPA 路由補上，每次使用時動態讀取 */
+  function resolveLeague(entryLeague?: string): string | undefined {
+    const fromUrl = getTradeLeague();
+    if (fromUrl) return fromUrl;
+    if (entryLeague) return entryLeague;
+    const resultCache = getTradeResultCache();
+    for (const entry of state.value.ledger.entries) {
+      const cached = resultCache.get(entry.id)?.league;
+      if (cached) return cached;
+    }
+    return undefined;
+  }
+
   async function ensureRates() {
-    if (
-      !enablePriceComparison.value ||
-      loadedRates.value ||
-      ratesLoading ||
-      !league ||
-      !isPriceConversionSupported()
-    ) {
+    const currentLeague = resolveLeague();
+    if (!enablePriceComparison.value || !currentLeague || !isPriceConversionSupported()) {
       return;
     }
+    if (loadedRates.value && loadedRatesLeague === currentLeague) return;
+    if (ratesLoading && loadingRatesLeague === currentLeague) return;
+    if (loadedRatesLeague && loadedRatesLeague !== currentLeague) {
+      loadedRates.value = undefined;
+      loadedRatesLeague = undefined;
+    }
+    const requestId = ++ratesRequestId;
     ratesLoading = true;
+    loadingRatesLeague = currentLeague;
     try {
-      const loaded = await fetchCurrencyRates(version, league);
-      if (!disposed && loaded) loadedRates.value = loaded;
+      const loaded = await fetchCurrencyRates(version, currentLeague);
+      if (
+        !disposed &&
+        requestId === ratesRequestId &&
+        loaded &&
+        resolveLeague() === currentLeague
+      ) {
+        loadedRates.value = loaded;
+        loadedRatesLeague = currentLeague;
+      }
     } finally {
-      ratesLoading = false;
+      if (requestId === ratesRequestId) {
+        ratesLoading = false;
+        loadingRatesLeague = undefined;
+      }
     }
   }
 
@@ -241,14 +270,15 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   /** 展開時的卡片：用官方結果列擷取的卡片與快取裡的物品資料（與釘選相同的渲染） */
   function cardSnapshot(id: string): PinnedItemSnapshot | undefined {
     const entry = getTradeResultCache().get(id);
-    if (!entry || !league) return undefined;
+    const currentLeague = resolveLeague(entry?.league);
+    if (!entry || !currentLeague) return undefined;
     const row = findOfficialRow(id);
     return createPinnedItemSnapshot(
       entry,
       {
         gameVersion: version,
         origin: window.location.origin,
-        league,
+        league: currentLeague,
         sourceSearchId: entry.sourceSearchId,
         locale: resolvePageLocale(),
         card: row ? capturePinnedCardDom(row) : undefined,
@@ -282,6 +312,14 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       expandedIds.value = new Set();
       expandedSellers.value = new Set();
       isLiveMode.value = getTradePageMode() === 'live';
+      void ensureRates();
+    },
+  );
+
+  watch(
+    () => entries.value.length,
+    () => {
+      void ensureRates();
     },
   );
 
