@@ -27,7 +27,11 @@
         >
           <GripVertical class="size-[var(--control-icon-sm,14px)] shrink-0" />
         </button>
-        <Folder class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground" />
+        <FolderOpen
+          v-if="!isCollapsed"
+          class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground"
+        />
+        <Folder v-else class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground" />
 
         <template v-if="ctx.editingGroupId.value === node.folder.id">
           <Input
@@ -43,11 +47,13 @@
           />
         </template>
         <template v-else>
-          <span class="truncate text-[length:var(--pxd-font-body)] font-bold text-foreground">{{
-            node.folder.name
-          }}</span>
+          <span
+            class="truncate text-[length:var(--pxd-font-body)] font-bold text-foreground"
+            :title="node.folder.name"
+            >{{ node.folder.name }}</span
+          >
           <span class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground"
-            >({{ directBookmarks.length }})</span
+            >({{ folderCountDisplay }})</span
           >
         </template>
       </div>
@@ -67,7 +73,7 @@
           "
           @click.stop="ctx.addBookmarkToGroup(node.folder.id)"
         >
-          +
+          <Plus />
         </Button>
 
         <!-- 可展開操作按鈕 -->
@@ -331,6 +337,7 @@ import {
   FolderRoot,
   GripVertical,
   MoreVertical,
+  Plus,
   Radio,
   Pencil,
   FolderInput,
@@ -338,7 +345,7 @@ import {
   Copy,
   RefreshCw,
 } from '@lucide/vue';
-import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection';
+import { BOOKMARK_NAME_MAX_LENGTH, getFolderSubtreeIds } from '@/utils/bookmark-collection';
 import BookmarkRow from './BookmarkRow.vue';
 import { t } from '@/utils/i18n';
 import type { BookmarkGroup } from './bookmark-types';
@@ -370,6 +377,7 @@ export default defineComponent({
     FolderClosed,
     FolderRoot,
     MoreVertical,
+    Plus,
     Radio,
     Pencil,
     FolderInput,
@@ -412,9 +420,24 @@ export default defineComponent({
       ctx.getFilteredGroupBookmarks ? ctx.getFilteredGroupBookmarks(props.node.folder.id) : [],
     );
 
+    const isCollapsed = computed(() => ctx.isGroupCollapsed(props.node.folder.id));
+
     const hasChildFolders = computed(
       () => ctx.groups.value?.some((g) => g.parentId === props.node.folder.id) ?? false,
     );
+
+    const folderCountDisplay = computed(() => {
+      const directCount = directBookmarks.value.length;
+      if (!isCollapsed.value || !hasChildFolders.value || !ctx.groups.value) {
+        return directCount;
+      }
+      const subtreeIds = getFolderSubtreeIds(ctx.groups.value, props.node.folder.id);
+      let total = 0;
+      for (const folderId of subtreeIds) {
+        total += ctx.getFilteredGroupBookmarks ? ctx.getFilteredGroupBookmarks(folderId).length : 0;
+      }
+      return total;
+    });
 
     const isParentWithoutBookmarks = computed(
       () => hasChildFolders.value && directBookmarks.value.length === 0,
@@ -488,6 +511,8 @@ export default defineComponent({
       handleMoveToRoot,
       BOOKMARK_NAME_MAX_LENGTH,
       directBookmarks,
+      isCollapsed,
+      folderCountDisplay,
       hasChildFolders,
       isParentWithoutBookmarks,
       shouldShowHeaderAdd,

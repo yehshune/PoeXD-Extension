@@ -43,6 +43,7 @@
       <a
         v-else
         :href="bm.url"
+        :title="bm.name"
         :aria-current="isCurrentBookmark ? 'page' : undefined"
         @click.prevent="handlePrimaryClick"
         class="bookmark-link block w-full min-w-0 truncate text-[length:var(--pxd-font-body)] no-underline hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -51,6 +52,13 @@
       >
         {{ bm.name }}
       </a>
+      <span
+        v-if="!isEditing && pinnedLeagueLabel"
+        data-test="bookmark-pinned-league"
+        class="shrink-0 rounded-sm bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground"
+        :title="t('bookmark.row.pinnedLeague', { league: pinnedLeagueLabel })"
+        >{{ pinnedLeagueLabel }}</span
+      >
       <span
         v-if="isLegacyUrl"
         class="legacy-search-badge shrink-0 text-[length:var(--pxd-font-micro)] text-destructive"
@@ -298,7 +306,11 @@ import {
   Trash2,
 } from '@lucide/vue';
 import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection';
-import { isLegacyTradeSearchUrl, isSameTradeSearchPageUrl } from '@/utils/trade-search-identity';
+import {
+  isLegacyTradeSearchUrl,
+  isSameTradeSearchPageUrl,
+  parseTradeSearchUrl,
+} from '@/utils/trade-search-identity';
 import { t } from '@/utils/i18n';
 import type { Bookmark } from './bookmark-types';
 import {
@@ -371,6 +383,10 @@ export default defineComponent({
       const currentUrl = ctx.currentPageUrl?.value;
       return currentUrl ? isSameTradeSearchPageUrl(currentUrl, props.bookmark.url) : false;
     });
+    const pinnedLeagueLabel = computed(() => {
+      if (!props.bookmark.leaguePinned) return '';
+      return parseTradeSearchUrl(props.bookmark.canonicalUrl ?? props.bookmark.url)?.league ?? '';
+    });
     const isPreviewActive = computed(() => ctx.activeBookmarkId?.value === props.bookmark.id);
     const actionsActivated = ref(false);
 
@@ -402,6 +418,7 @@ export default defineComponent({
       isMenuOpen,
       isLegacyUrl,
       isCurrentBookmark,
+      pinnedLeagueLabel,
       isPreviewActive,
       showActions,
       moveTargetFolders,

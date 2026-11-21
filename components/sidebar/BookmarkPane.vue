@@ -197,6 +197,14 @@
                 </Button>
               </template>
             </SidebarEmptyState>
+            <p
+              v-else-if="visibleFolderNodes.length === 0"
+              data-test="bookmark-search-empty"
+              class="m-0 py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+              key="no-match"
+            >
+              {{ t('bookmark.empty.noMatch') }}
+            </p>
             <template v-else key="groups-content">
               <div
                 :key="listRenderKey"
@@ -355,7 +363,12 @@ import {
   toLiveUrl,
   withTradeSearchId,
 } from '@/utils/trade-search-identity';
-import { encodeQueryToGzipBase64Url } from '@/utils/trade-url-codec';
+import {
+  decodeTradeSearchUrl,
+  encodeQueryToGzipBase64Url,
+  extractQueryMetadata,
+} from '@/utils/trade-url-codec';
+import { loadTradeDictionaries, translateStatLines } from '@/utils/trade-stat-dictionary';
 import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
 import { syncFormToUrl } from '@/entrypoints/content/logic/form-url-sync';
 import {
@@ -381,7 +394,7 @@ import {
 } from '@/utils/preferences-contract';
 import { getPreferences } from '@/utils/preferences';
 import { createVersionedStorageKeys } from '@/utils/storage-contracts';
-import { getPoeVersion } from '@/utils/trade-context';
+import { getPoeVersion, getTradeVersionProfile } from '@/utils/trade-context';
 import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
 import {
   createBookmarkTransferWorkflow,
@@ -923,6 +936,9 @@ export default defineComponent({
         collapsedGroupIds.value.delete(resolvedParentId);
         await saveCollapsedGroups();
       }
+      if (groups.value.some((g) => g.id === newGrp.id)) {
+        startRenameGroup(newGrp);
+      }
     };
 
     const addChildGroup = (parentFolderId: string) => addGroup(parentFolderId);
@@ -992,6 +1008,41 @@ export default defineComponent({
     const getFolderPath = (folderId: string) =>
       formatFolderPath(groups.value as BookmarkGroup[], folderId);
 
+    const isGenericPageTitle = (rawTitle: string): boolean => {
+      const trimmed = rawTitle.trim();
+      if (!trimmed) return true;
+      const defaultPageTitle = t('bookmark.defaultPageTitle');
+      const unnamedSearch = t('injectedControls.unnamedSearch');
+      const officialDefault = getTradeVersionProfile(version).defaultTitle;
+      return (
+        trimmed === defaultPageTitle ||
+        trimmed === unnamedSearch ||
+        trimmed === officialDefault ||
+        trimmed === 'Path of Exile - Trade' ||
+        trimmed === 'Trade - Path of Exile'
+      );
+    };
+
+    const deriveSearchTitleFromUrl = async (url: string): Promise<string> => {
+      try {
+        const decoded = await decodeTradeSearchUrl(url);
+        if (!decoded) return '';
+        await loadTradeDictionaries(decoded.gameVersion);
+        const meta = extractQueryMetadata(decoded.query, decoded.gameVersion);
+        if (meta.suggestedName?.trim()) return meta.suggestedName.trim();
+        if (meta.stats.length > 0) {
+          const statNames = meta.stats
+            .slice(0, 2)
+            .map((s) => translateStatLines(s.id, decoded.gameVersion)[0] ?? s.id)
+            .filter(Boolean);
+          if (statNames.length > 0) return statNames.join(' · ');
+        }
+      } catch {
+        // Best-effort title derivation
+      }
+      return '';
+    };
+
     const captureCurrentSearchSnapshot = async (): Promise<{
       url: string;
       title: string;
@@ -1010,10 +1061,12 @@ export default defineComponent({
       await fetchCurrentTab();
       syncCurrentPageRoute();
       const url = stripLiveSuffix(syncedUrl);
-      const title = sanitizeBookmarkName(
-        currentTabInfo.value.title,
-        t('bookmark.defaultPageTitle'),
-      );
+      let rawTitle = currentTabInfo.value.title;
+      if (isGenericPageTitle(rawTitle)) {
+        const derived = await deriveSearchTitleFromUrl(url);
+        if (derived) rawTitle = derived;
+      }
+      const title = sanitizeBookmarkName(rawTitle, t('bookmark.defaultPageTitle'));
       if (!url) {
         await (window as any).poexdAlert(
           t('bookmark.dialog.cannotGetUrl'),
@@ -1047,6 +1100,8 @@ export default defineComponent({
 
       const saved = await executeBookmarkIntent({ type: 'add-bookmark', bookmark: newBm });
       if (!saved) return;
+
+      showToast(t('bookmark.toast.added', { name: newBm.name }));
 
       // 自動展開該資料夾，確保能看到新書籤
       collapsedGroupIds.value.delete(groupId);

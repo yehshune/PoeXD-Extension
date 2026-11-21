@@ -693,5 +693,53 @@ describe('Bookmark Tree UI & Hierarchy Semantics', () => {
       testApp.unmount();
       container.remove();
     });
+
+    it('11. shows search no-match empty state when searchQuery matches nothing, and shows subtree bookmark count when parent folder is collapsed', async () => {
+      // Collapse 'g-equip' (has 1 direct bookmark + 1 bookmark in grandchild 'g-bow' = 2 total)
+      const equipEl = appRoot.querySelector('[data-group-id="g-equip"]')!;
+      const equipHeader = equipEl.querySelector('.group-header-row') as HTMLElement;
+      expect(equipHeader.textContent).toContain('(1)');
+
+      equipHeader.click();
+      await nextTick();
+      await new Promise((r) => setTimeout(r, 30));
+      expect(equipHeader.textContent).toContain('(2)');
+
+      // Open search and type a non-matching query
+      const searchToggleBtn = appRoot.querySelector<HTMLButtonElement>('button[title="搜尋書籤"]')!;
+      searchToggleBtn.click();
+      await nextTick();
+
+      const searchInput = appRoot.querySelector<HTMLInputElement>(
+        'input[placeholder*="搜尋書籤"]',
+      )!;
+      searchInput.value = 'completely_non_existent_query_xyz';
+      searchInput.dispatchEvent(new Event('input'));
+      await nextTick();
+
+      const emptyMsg = appRoot.querySelector('[data-test="bookmark-search-empty"]');
+      expect(emptyMsg).not.toBeNull();
+      expect(emptyMsg?.textContent).toContain('找不到相符的書籤');
+    });
+
+    it('12. automatically starts inline rename on the newly created folder when persisted in collection', async () => {
+      const topAddBtn = Array.from(appRoot.querySelectorAll<HTMLButtonElement>('button')).find(
+        (b) => b.textContent?.includes('新建資料夾'),
+      )!;
+      // Make putGroup persist the new folder into mockCollection.groups so reconcile retains it
+      executeOutcomeSpy.mockImplementationOnce((op: string, group: any) => {
+        if (op === 'putGroup') {
+          mockCollection.groups.push(group);
+        }
+      });
+
+      topAddBtn.click();
+      await nextTick();
+      await new Promise((r) => setTimeout(r, 60));
+
+      const renameInput = appRoot.querySelector<HTMLInputElement>('.group-header-row input');
+      expect(renameInput).not.toBeNull();
+      expect(renameInput?.value).toBe('新資料夾');
+    });
   });
 });
