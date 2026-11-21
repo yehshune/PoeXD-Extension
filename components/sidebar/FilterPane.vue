@@ -316,298 +316,25 @@
             class="mods-scroll-container pxd-scrollbar flex-1 overflow-y-auto min-h-0 pr-[2px]"
             @scroll="handleScroll"
           >
-            <div
+            <FilterAffixSection
               v-for="cat in renderedCategories"
               :key="cat.label"
-              class="mods-group mb-[var(--pxd-space-md)] [&+&]:pt-[var(--pxd-section-gap)]"
-            >
-              <!-- 區塊標題（包含展開收合狀態及 Toggle 功能） -->
-              <div
-                :id="'category_' + cat.label"
-                class="group-header group/header flex items-center justify-between rounded-md cursor-pointer select-none transition-colors mb-[var(--pxd-space-sm)] px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-section-title)] font-semibold text-foreground hover:bg-accent hover:text-accent-foreground"
-                :class="expandedCategories.has(cat.label) ? 'bg-muted' : 'bg-transparent'"
-                :aria-expanded="expandedCategories.has(cat.label)"
-                @click="toggleCategory(cat.label)"
-              >
-                <div class="flex items-center gap-[var(--pxd-space-sm)] min-w-0">
-                  <span class="group-title font-semibold text-current min-w-0 truncate">
-                    {{ cat.label }}
-                  </span>
-                  <span
-                    class="group-count text-[length:var(--pxd-font-caption)] text-muted-foreground group-hover/header:text-accent-foreground shrink-0 select-none"
-                  >
-                    {{ cat.totals.prefixes + cat.totals.suffixes + cat.totals.all }}
-                  </span>
-                </div>
-                <Minus
-                  v-if="expandedCategories.has(cat.label)"
-                  class="size-[var(--control-icon-sm,14px)] text-muted-foreground group-hover/header:text-accent-foreground shrink-0"
-                />
-                <Plus
-                  v-else
-                  class="size-[var(--control-icon-sm,14px)] text-muted-foreground group-hover/header:text-accent-foreground shrink-0"
-                />
-              </div>
-
-              <!-- 展開狀態下顯示內容 -->
-              <div
-                v-if="expandedCategories.has(cat.label)"
-                class="group-content mb-[var(--pxd-space-lg)]"
-              >
-                <!-- 雙欄排版 (前綴與後綴皆有項目) -->
-                <template v-if="cat.hasBothSplit">
-                  <div
-                    class="category-columns flex flex-row flex-wrap gap-[var(--pxd-space-lg)] w-full"
-                  >
-                    <!-- 左側前綴欄 -->
-                    <div class="column-left flex-1 min-w-[280px]">
-                      <div
-                        class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
-                      >
-                        {{ t('filterPane.column.prefixes', { count: cat.totals.prefixes }) }}
-                      </div>
-                      <div
-                        class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
-                      >
-                        <ModItem
-                          v-for="mod in cat.prefixes"
-                          :key="mod.id"
-                          v-memo="[
-                            mod,
-                            cat.affinity,
-                            searchQuery,
-                            expandedKeys.has(mod.id),
-                            isModSelected(mod.id, cat.affinity),
-                            itemLevelRange.max,
-                            affixDemoHoveredModId === mod.id,
-                          ]"
-                          class="mb-[2px]"
-                          :mod="mod"
-                          :affinity="cat.affinity"
-                          :search-query="searchQuery"
-                          :is-expanded="expandedKeys.has(mod.id)"
-                          :is-selected="isModSelected(mod.id, cat.affinity)"
-                          :is-tier-selected="isModTierSelected"
-                          :get-tier-number="resolveModTierNumber"
-                          :item-level-max="itemLevelRange.max"
-                          :demo-highlighted="affixDemoHoveredModId === mod.id"
-                          @toggle-expand="toggleExpand"
-                          @toggle-select="toggleModSelection"
-                          @toggle-tier-select="handleToggleTierSelection"
-                          @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
-                          @add-tier-filter="addTierFilter"
-                        />
-                      </div>
-                    </div>
-
-                    <!-- 右側後綴欄 -->
-                    <div class="column-right flex-1 min-w-[280px]">
-                      <div
-                        class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
-                      >
-                        {{ t('filterPane.column.suffixes', { count: cat.totals.suffixes }) }}
-                      </div>
-                      <div
-                        class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
-                      >
-                        <ModItem
-                          v-for="mod in cat.suffixes"
-                          :key="mod.id"
-                          v-memo="[
-                            mod,
-                            cat.affinity,
-                            searchQuery,
-                            expandedKeys.has(mod.id),
-                            isModSelected(mod.id, cat.affinity),
-                            itemLevelRange.max,
-                            affixDemoHoveredModId === mod.id,
-                          ]"
-                          class="mb-[2px]"
-                          :mod="mod"
-                          :affinity="cat.affinity"
-                          :search-query="searchQuery"
-                          :is-expanded="expandedKeys.has(mod.id)"
-                          :is-selected="isModSelected(mod.id, cat.affinity)"
-                          :is-tier-selected="isModTierSelected"
-                          :get-tier-number="resolveModTierNumber"
-                          :item-level-max="itemLevelRange.max"
-                          :demo-highlighted="affixDemoHoveredModId === mod.id"
-                          @toggle-expand="toggleExpand"
-                          @toggle-select="toggleModSelection"
-                          @toggle-tier-select="handleToggleTierSelection"
-                          @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
-                          @add-tier-filter="addTierFilter"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </template>
-
-                <!-- 單欄／左欄排版 (僅有前綴命中：全部模式維持左側前綴欄，前綴篩選模式展全寬) -->
-                <template v-else-if="cat.hasOnlyPrefix">
-                  <div
-                    :class="
-                      generationFilter === 'all'
-                        ? 'category-columns flex flex-row flex-wrap gap-[var(--pxd-space-lg)] w-full'
-                        : 'category-single-column w-full'
-                    "
-                  >
-                    <div
-                      :class="generationFilter === 'all' ? 'column-left flex-1 min-w-[280px]' : ''"
-                    >
-                      <div
-                        class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
-                      >
-                        {{ t('filterPane.column.prefixes', { count: cat.totals.prefixes }) }}
-                      </div>
-                      <div
-                        class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
-                      >
-                        <ModItem
-                          v-for="mod in cat.prefixes"
-                          :key="mod.id"
-                          v-memo="[
-                            mod,
-                            cat.affinity,
-                            searchQuery,
-                            expandedKeys.has(mod.id),
-                            isModSelected(mod.id, cat.affinity),
-                            itemLevelRange.max,
-                            affixDemoHoveredModId === mod.id,
-                          ]"
-                          class="mb-[2px]"
-                          :mod="mod"
-                          :affinity="cat.affinity"
-                          :search-query="searchQuery"
-                          :is-expanded="expandedKeys.has(mod.id)"
-                          :is-selected="isModSelected(mod.id, cat.affinity)"
-                          :is-tier-selected="isModTierSelected"
-                          :get-tier-number="resolveModTierNumber"
-                          :item-level-max="itemLevelRange.max"
-                          :demo-highlighted="affixDemoHoveredModId === mod.id"
-                          @toggle-expand="toggleExpand"
-                          @toggle-select="toggleModSelection"
-                          @toggle-tier-select="handleToggleTierSelection"
-                          @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
-                          @add-tier-filter="addTierFilter"
-                        />
-                      </div>
-                    </div>
-                    <div
-                      v-if="generationFilter === 'all'"
-                      class="column-right flex-1 min-w-[280px]"
-                      aria-hidden="true"
-                    />
-                  </div>
-                </template>
-
-                <!-- 單欄／右欄排版 (僅有後綴命中：全部模式對齊右側後綴欄，後綴篩選模式展全寬) -->
-                <template v-else-if="cat.hasOnlySuffix">
-                  <div
-                    :class="
-                      generationFilter === 'all'
-                        ? 'category-columns flex flex-row flex-wrap gap-[var(--pxd-space-lg)] w-full'
-                        : 'category-single-column w-full'
-                    "
-                  >
-                    <div
-                      v-if="generationFilter === 'all'"
-                      class="column-left flex-1 min-w-[280px]"
-                      aria-hidden="true"
-                    />
-                    <div
-                      :class="generationFilter === 'all' ? 'column-right flex-1 min-w-[280px]' : ''"
-                    >
-                      <div
-                        class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
-                      >
-                        {{ t('filterPane.column.suffixes', { count: cat.totals.suffixes }) }}
-                      </div>
-                      <div
-                        class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
-                      >
-                        <ModItem
-                          v-for="mod in cat.suffixes"
-                          :key="mod.id"
-                          v-memo="[
-                            mod,
-                            cat.affinity,
-                            searchQuery,
-                            expandedKeys.has(mod.id),
-                            isModSelected(mod.id, cat.affinity),
-                            itemLevelRange.max,
-                            affixDemoHoveredModId === mod.id,
-                          ]"
-                          class="mb-[2px]"
-                          :mod="mod"
-                          :affinity="cat.affinity"
-                          :search-query="searchQuery"
-                          :is-expanded="expandedKeys.has(mod.id)"
-                          :is-selected="isModSelected(mod.id, cat.affinity)"
-                          :is-tier-selected="isModTierSelected"
-                          :get-tier-number="resolveModTierNumber"
-                          :item-level-max="itemLevelRange.max"
-                          :demo-highlighted="affixDemoHoveredModId === mod.id"
-                          @toggle-expand="toggleExpand"
-                          @toggle-select="toggleModSelection"
-                          @toggle-tier-select="handleToggleTierSelection"
-                          @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
-                          @add-tier-filter="addTierFilter"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </template>
-
-                <!-- 單欄網格排版 (不分世代類別或特殊分類，亦包含分割大類中的其他世代詞綴) -->
-                <template v-if="cat.all.length > 0">
-                  <div :class="cat.hasSplit ? 'mt-[var(--pxd-space-md)] w-full' : 'w-full'">
-                    <div
-                      v-if="cat.hasSplit"
-                      class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
-                    >
-                      {{
-                        cat.affinity === 'normal'
-                          ? t('filterPane.column.implicits', { count: cat.totals.all })
-                          : t('filterPane.column.others', { count: cat.totals.all })
-                      }}
-                    </div>
-                    <div
-                      class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
-                    >
-                      <ModItem
-                        v-for="mod in cat.all"
-                        :key="mod.id"
-                        v-memo="[
-                          mod,
-                          cat.affinity,
-                          searchQuery,
-                          expandedKeys.has(mod.id),
-                          isModSelected(mod.id, cat.affinity),
-                          itemLevelRange.max,
-                          affixDemoHoveredModId === mod.id,
-                        ]"
-                        class="mb-[2px]"
-                        :mod="mod"
-                        :affinity="cat.affinity"
-                        :search-query="searchQuery"
-                        :is-expanded="expandedKeys.has(mod.id)"
-                        :is-selected="isModSelected(mod.id, cat.affinity)"
-                        :is-tier-selected="isModTierSelected"
-                        :get-tier-number="resolveModTierNumber"
-                        :item-level-max="itemLevelRange.max"
-                        :demo-highlighted="affixDemoHoveredModId === mod.id"
-                        @toggle-expand="toggleExpand"
-                        @toggle-select="toggleModSelection"
-                        @toggle-tier-select="handleToggleTierSelection"
-                        @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
-                        @add-tier-filter="addTierFilter"
-                      />
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </div>
+              :category="cat"
+              :expanded="expandedCategories.has(cat.label)"
+              :generation-filter="generationFilter"
+              :search-query="searchQuery"
+              :expanded-keys="expandedKeys"
+              :item-level-max="itemLevelRange.max"
+              :is-mod-selected="isModSelected"
+              :is-tier-selected="isModTierSelected"
+              :get-tier-number="resolveModTierNumber"
+              @toggle-category="toggleCategory"
+              @toggle-expand="toggleExpand"
+              @toggle-select="toggleModSelection"
+              @toggle-tier-select="handleToggleTierSelection"
+              @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
+              @add-tier-filter="addTierFilter"
+            />
 
             <div
               v-if="isEmpty"
@@ -622,140 +349,17 @@
           </div>
         </div>
 
-        <!-- 右側已選展示與操作面板 -->
-        <div
-          class="split-right-panel flex-[2.8] border-l border-border pl-[var(--pxd-space-xl)] flex flex-col min-h-0 bg-background"
-        >
-          <div
-            class="panel-header pb-[var(--pxd-space-md)] border-b border-border mb-[var(--pxd-space-md)]"
-          >
-            <span
-              class="panel-title text-[length:var(--pxd-font-section-title)] font-bold text-foreground tracking-[0.5px]"
-              >{{ t('filterPane.selected.title', { count: selectedModsMap.size }) }}</span
-            >
-          </div>
-
-          <div
-            class="selected-mods-list pxd-scrollbar flex-1 overflow-y-auto pr-[var(--pxd-space-xs)] mb-[var(--pxd-space-lg)] flex flex-col gap-[var(--pxd-space-sm)]"
-          >
-            <div
-              v-for="group in groupedSelectedMods"
-              :key="group.label"
-              class="selected-group-section mb-[var(--pxd-space-lg)]"
-            >
-              <!-- 小區隔大類標題 -->
-              <div
-                class="selected-group-header text-[length:var(--pxd-font-caption)] font-bold text-muted-foreground py-[2px] px-[var(--pxd-space-sm)] bg-background border-b border-border mb-[var(--pxd-space-xs)] uppercase tracking-[0.5px]"
-              >
-                {{ group.label }}
-              </div>
-              <div class="selected-group-items flex flex-col gap-[var(--pxd-space-xs)]">
-                <div
-                  v-for="[key, info] in group.items"
-                  :key="key"
-                  class="selected-mod-item flex justify-between items-start bg-card border border-border rounded-[var(--radius)] py-[var(--pxd-space-sm)] px-[var(--pxd-space-md)] gap-[var(--pxd-space-md)]"
-                >
-                  <div
-                    class="selected-mod-text text-[length:var(--pxd-font-secondary)] text-foreground leading-[1.35] break-all flex-1 cursor-pointer"
-                    @click="scrollToMod(info.id, info.affinities[0])"
-                    :title="t('filterPane.selected.jumpToMod')"
-                  >
-                    <span
-                      class="selected-mod-tier bg-primary text-primary-foreground text-[length:var(--pxd-font-micro)] font-bold py-[1px] px-[4px] mr-[4px] inline-block align-middle"
-                      v-if="info.selectedTierIndex !== undefined"
-                    >
-                      T{{ getDisplayTier(info.id, info.selectedTierIndex) }}+
-                    </span>
-                    <span class="selected-mod-name">
-                      {{ formatModText(getPendingModLabel(info)) }}
-                    </span>
-                    <span
-                      v-if="!info.officialId && (!info.ids || info.ids.length === 0)"
-                      class="no-official-id-badge ml-[var(--pxd-space-xs)] inline-flex items-center px-1.5 py-0.5 rounded-[var(--radius-sm)] text-[length:var(--pxd-font-micro)] text-amber-500 bg-amber-500/10 border border-amber-500/25 shrink-0 select-none align-middle"
-                      :title="t('filterPane.badge.noOfficialIdBatchTitle')"
-                      data-badge="no-official-id"
-                    >
-                      {{ t('modItem.badge.noOfficialId') }}
-                    </span>
-                    <span
-                      class="selected-mod-vals vals-limit-trigger inline-flex items-center px-1.5 py-[1px] rounded-[var(--radius-sm)] border border-border/70 bg-muted/50 text-muted-foreground text-[length:var(--pxd-font-caption)] ml-[var(--pxd-space-xs)] cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground hover:border-border align-middle"
-                      v-if="info.mins || info.maxs"
-                      @click.stop="toggleMaxLimit(key)"
-                      :title="t('filterPane.selected.toggleMaxTitle')"
-                    >
-                      {{ getDisplayValues(info) }}
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost-destructive"
-                    size="icon-sm"
-                    class="shrink-0"
-                    :title="t('filterPane.selected.removeTitle')"
-                    data-filter-action="remove-selected"
-                    @click="removeSingleSelection(key)"
-                  >
-                    <X />
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <div
-              v-if="selectedModsMap.size === 0"
-              class="no-selected-placeholder text-muted-foreground text-center mt-[var(--pxd-space-2xl)] px-[var(--pxd-space-md)] flex flex-col gap-[var(--pxd-space-xs)]"
-            >
-              <span class="text-[length:var(--pxd-font-secondary)] italic">{{
-                t('filterPane.selected.empty')
-              }}</span>
-              <span class="text-[length:var(--pxd-font-caption)] opacity-75 leading-relaxed">{{
-                t('filterPane.selected.emptyHint')
-              }}</span>
-            </div>
-          </div>
-
-          <!-- 操作按鈕區 -->
-          <div
-            class="panel-actions flex flex-col gap-[var(--pxd-space-md)] pt-[var(--pxd-space-md)] border-t border-border"
-          >
-            <Button
-              type="button"
-              variant="default"
-              size="default"
-              class="w-full font-bold"
-              :disabled="selectedModsMap.size === 0"
-              data-filter-action="confirm-selected"
-              @click="confirmBatchSelection"
-            >
-              {{ t('filterPane.actions.applyBatch', { count: selectedModsMap.size }) }}
-            </Button>
-            <div class="flex w-full gap-[var(--pxd-space-sm)]">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                class="flex-1 truncate font-medium"
-                :disabled="selectedModsMap.size === 0"
-                :title="t('filterPane.actions.applyT1Title')"
-                data-filter-action="apply-t1"
-                @click="applyT1ToSelected"
-              >
-                {{ t('filterPane.actions.applyT1') }}
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                class="flex-1 truncate font-medium"
-                :disabled="selectedModsMap.size === 0"
-                :title="t('filterPane.actions.clearSelectedTitle')"
-                data-filter-action="clear-selected"
-                @click="clearAllSelection"
-              >
-                {{ t('filterPane.actions.clearSelected') }}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <FilterSelectedPanel
+          :selected-count="selectedModsMap.size"
+          :grouped-selected-mods="groupedSelectedMods"
+          :current-type-groups="currentTypeGroups"
+          @scroll-to-mod="scrollToMod"
+          @toggle-max-limit="toggleMaxLimit"
+          @remove="removeSingleSelection"
+          @confirm="confirmBatchSelection"
+          @apply-t1="applyT1ToSelected"
+          @clear="clearAllSelection"
+        />
       </div>
 
       <!-- 外部觸發（例如市集 T 階下拉切換物品類別）時的置中 Dialog -->
@@ -810,22 +414,13 @@
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import {
-  filterModGroupsByItemLevel,
-  getTierFilterBounds,
-  isTradeStatId,
-  parseItemLevelFilter,
-} from './utils';
-import type {
-  ModTier,
-  ModGroup,
-  CategoryGroup,
-  SelectedModInfo,
-  StatFilterModPayload,
-} from './types';
-import ModItem from './ModItem.vue';
+import { filterModGroupsByItemLevel, getTierFilterBounds, isTradeStatId } from './utils';
+import type { ModTier, ModGroup, SelectedModInfo, StatFilterModPayload } from './types';
+import FilterAffixSection from './FilterAffixSection.vue';
+import FilterSelectedPanel from './FilterSelectedPanel.vue';
 import ItemTypeSelectorPanel from './ItemTypeSelectorPanel.vue';
 import { useProgressiveAffixRender } from './composables/useProgressiveAffixRender';
+import { useAffixFilter } from './composables/useAffixFilter';
 import {
   Dialog,
   DialogContent,
@@ -838,7 +433,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronDown, X } from '@lucide/vue';
-import { ArrowUpRight, ChevronsDownUp, ChevronsUpDown, Plus, Minus } from '@lucide/vue';
+import { ArrowUpRight, ChevronsDownUp, ChevronsUpDown } from '@lucide/vue';
 import { useModSelection } from './composables/useModSelection';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { resolveOfficialCategoryOption } from '@/utils/official-category-resolver';
@@ -854,13 +449,14 @@ import { getTradeMapping } from './mapping-registry';
 import { getAffinityProfile, resolveScopedModGroupId } from '@/utils/affinity-registry';
 import { useFilterData } from './composables/useFilterData';
 import { useFilterNavigation } from './composables/useFilterNavigation';
-import { t, getActiveDisplayLocale, getActiveUiLocale } from '@/utils/i18n';
-import { affixDemoHoveredModId, affixDemoMode } from '@/utils/page-guide-demo-state';
+import { t } from '@/utils/i18n';
+import { affixDemoMode } from '@/utils/page-guide-demo-state';
 
 export default defineComponent({
   name: 'FilterPane',
   components: {
-    ModItem,
+    FilterAffixSection,
+    FilterSelectedPanel,
     ItemTypeSelectorPanel,
     Dialog,
     DialogContent,
@@ -878,8 +474,6 @@ export default defineComponent({
     ChevronDown,
     ChevronsDownUp,
     ChevronsUpDown,
-    Plus,
-    Minus,
     X,
   },
   props: {
@@ -919,52 +513,6 @@ export default defineComponent({
       } else {
         expandedKeys.value.add(key);
       }
-    };
-
-    const getDisplayTier = (modId: string, tierIndex: number) => {
-      const modObj = currentTypeGroups.value.find((m) => m.id === modId);
-      if (modObj && modObj.tiers) {
-        return modObj.tiers.length - tierIndex;
-      }
-      return tierIndex + 1;
-    };
-
-    const getDisplayValues = (info: SelectedModInfo) => {
-      const count = Math.max(info.mins?.length ?? 0, info.maxs?.length ?? 0);
-      if (count > 0) {
-        const parts: string[] = [];
-        for (let i = 0; i < count; i++) {
-          const minVal = info.mins?.[i];
-          const maxVal = info.maxs?.[i];
-          if (minVal && maxVal) {
-            parts.push(`${minVal}~${maxVal}`);
-          } else if (minVal) {
-            parts.push(`≥${minVal}`);
-          } else if (maxVal) {
-            parts.push(`≤${maxVal}`);
-          }
-        }
-        return parts.join(', ');
-      }
-      return '';
-    };
-
-    const getPendingModLabel = (info: SelectedModInfo) => {
-      const isEnglish = getActiveUiLocale() === 'en';
-      const modObj = info.id ? currentTypeGroups.value.find((m) => m.id === info.id) : undefined;
-
-      if (isEnglish) {
-        return modObj?.key || info.key || '';
-      }
-      return (
-        modObj?.displayTemplate ||
-        modObj?.displayKey ||
-        modObj?.key ||
-        info.displayTemplate ||
-        info.displayKey ||
-        info.key ||
-        ''
-      );
     };
 
     const removeSingleSelection = (key: string) => {
@@ -1078,32 +626,7 @@ export default defineComponent({
     });
 
     const selectedType = ref('body-armour');
-    const searchQuery = ref('');
     const searchInputRef = ref<HTMLInputElement | { $el?: HTMLInputElement } | null>(null);
-    const itemLevelMin = ref('');
-    const itemLevelMax = ref('');
-    const itemLevelRange = computed(() => ({
-      min: parseItemLevelFilter(itemLevelMin.value),
-      max: parseItemLevelFilter(itemLevelMax.value),
-    }));
-    const hasItemLevelFilter = computed(
-      () =>
-        String(itemLevelMin.value ?? '').trim() !== '' ||
-        String(itemLevelMax.value ?? '').trim() !== '',
-    );
-    const hasActiveItemLevelRange = computed(
-      () => itemLevelRange.value.min !== null || itemLevelRange.value.max !== null,
-    );
-    const isInvalidItemLevelRange = computed(
-      () =>
-        itemLevelRange.value.min !== null &&
-        itemLevelRange.value.max !== null &&
-        itemLevelRange.value.min > itemLevelRange.value.max,
-    );
-    const clearItemLevelFilter = () => {
-      itemLevelMin.value = '';
-      itemLevelMax.value = '';
-    };
 
     const getSearchInputElement = (): HTMLInputElement | undefined => {
       const target = searchInputRef.value;
@@ -1112,13 +635,6 @@ export default defineComponent({
       if ('$el' in target && target.$el instanceof HTMLInputElement) return target.$el;
       return undefined;
     };
-
-    const generationFilter = ref<'all' | 'prefix' | 'suffix'>('all');
-    watch(generationFilter, (val, oldVal) => {
-      if (!val && oldVal) {
-        generationFilter.value = oldVal;
-      }
-    });
 
     const setSelectDialogOpen = (open: boolean) => {
       if (open) {
@@ -1244,119 +760,32 @@ export default defineComponent({
       return categoryNames[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
     };
 
-    // 依據目前選取種類進行大類分組與排序，並套用搜尋篩選
-    const groupedAffixes = computed(() => {
-      if (!rawModsData.value || Object.keys(rawModsData.value).length === 0) return [];
-
-      const allGroups = currentTypeGroups.value;
-
-      let filtered = allGroups;
-      if (searchQuery.value.trim()) {
-        const queries = searchQuery.value.toLowerCase().split(/\s+/).filter(Boolean);
-        const displayLocale = getActiveDisplayLocale();
-        const includeEnglishKey =
-          displayLocale === 'zh-TW' || displayLocale === 'zh-CN' || displayLocale === 'en';
-        filtered = allGroups.filter((m) => {
-          return queries.every((q) => {
-            const matchesDisplay =
-              Boolean(m.displayKey && m.displayKey.toLowerCase().includes(q)) ||
-              Boolean(m.displayTemplate && m.displayTemplate.toLowerCase().includes(q));
-            if (matchesDisplay) return true;
-            if (includeEnglishKey || (!m.displayKey && !m.displayTemplate)) {
-              return m.key.toLowerCase().includes(q);
-            }
-            return false;
-          });
-        });
-      }
-
-      filtered = filterModGroupsByItemLevel(filtered, itemLevelRange.value, {
-        includeHigherTiersAboveMax: true,
-      });
-
-      const categoriesMap: Record<string, CategoryGroup> = {};
-      // 每個大類已加入的詞綴 id；用 Set 查重，避免上千筆詞綴時逐一比對成 O(n²)
-      const seenIdsByAffinity = new Map<string, Set<string>>();
-
-      filtered.forEach((mod) => {
-        const affinities =
-          mod.affinities && mod.affinities.length > 0 ? mod.affinities : ['normal'];
-
-        affinities.forEach((affKey) => {
-          const label = getCategoryLabel(affKey);
-          const priority = getCategoryPriority(affKey);
-
-          if (!categoriesMap[affKey]) {
-            categoriesMap[affKey] = {
-              affinity: affKey,
-              label,
-              prefixes: [],
-              suffixes: [],
-              all: [],
-              hasSplit: false,
-              priority,
-            };
-          }
-
-          const cat = categoriesMap[affKey];
-          let seenIds = seenIdsByAffinity.get(affKey);
-          if (!seenIds) {
-            seenIds = new Set();
-            seenIdsByAffinity.set(affKey, seenIds);
-          }
-
-          if (!seenIds.has(mod.id)) {
-            seenIds.add(mod.id);
-            if (String(mod.generation_type) === '1') {
-              cat.prefixes.push(mod);
-            } else if (String(mod.generation_type) === '2') {
-              cat.suffixes.push(mod);
-            } else {
-              cat.all.push(mod);
-            }
-          }
-        });
-      });
-
-      // 只要該類別含有前綴 (generation_type === '1') 或後綴 (generation_type === '2') 就顯示前／後綴分欄；
-      // 固定詞上綴、腐化、附魔等非前後綴世代則維持不分前後綴的單欄顯示。
-      for (const key in categoriesMap) {
-        const cat = categoriesMap[key];
-
-        // 依據世代類型篩選 Tab 過濾
-        if (generationFilter.value === 'prefix') {
-          cat.suffixes = [];
-          cat.all = [];
-        } else if (generationFilter.value === 'suffix') {
-          cat.prefixes = [];
-          cat.all = [];
-        }
-
-        const hasPrefix = cat.prefixes.length > 0;
-        const hasSuffix = cat.suffixes.length > 0;
-
-        if (hasPrefix || hasSuffix) {
-          cat.hasBothSplit = hasPrefix && hasSuffix;
-          cat.hasOnlyPrefix = hasPrefix && !hasSuffix;
-          cat.hasOnlySuffix = !hasPrefix && hasSuffix;
-          cat.hasSplit = true;
-        } else {
-          cat.all = [...cat.prefixes, ...cat.suffixes, ...cat.all];
-          cat.prefixes = [];
-          cat.suffixes = [];
-          cat.hasBothSplit = false;
-          cat.hasOnlyPrefix = false;
-          cat.hasOnlySuffix = false;
-          cat.hasSplit = false;
-        }
-      }
-
-      return Object.values(categoriesMap)
-        .filter((c) => c.prefixes.length > 0 || c.suffixes.length > 0 || c.all.length > 0)
-        .sort((a, b) => a.priority - b.priority);
+    const {
+      searchQuery,
+      clearSearchQuery,
+      itemLevelMin,
+      itemLevelMax,
+      itemLevelRange,
+      hasItemLevelFilter,
+      isInvalidItemLevelRange,
+      clearItemLevelFilter,
+      generationFilter,
+      groupedAffixes,
+      isEmpty,
+      filteredModTotalCount,
+      canSelectAllFiltered,
+      expandedCategories,
+      shouldAutoExpandCategories,
+      expandCategories,
+      toggleCategory,
+      hasAnyExpandedCategory,
+      toggleAllCategories,
+    } = useAffixFilter({
+      rawModsData,
+      currentTypeGroups,
+      getCategoryLabel,
+      getCategoryPriority,
     });
-
-    const expandedCategories = ref<Set<string>>(new Set());
 
     // 詞綴多的類別一次掛載上千個 ModItem 會卡住切換，改為分批渲染
     const { renderedCategories, revealMod } = useProgressiveAffixRender({
@@ -1383,14 +812,8 @@ export default defineComponent({
     watch(
       () => groupedAffixes.value,
       (newGroups) => {
-        if (
-          searchQuery.value.trim() ||
-          hasActiveItemLevelRange.value ||
-          expandedCategories.value.size === 0
-        ) {
-          newGroups.forEach((g) => {
-            expandedCategories.value.add(g.label);
-          });
+        if (shouldAutoExpandCategories()) {
+          expandCategories(newGroups);
         }
         if (newGroups.length > 0 && !currentActiveCategory.value) {
           currentActiveCategory.value = newGroups[0].label;
@@ -1398,36 +821,6 @@ export default defineComponent({
       },
       { immediate: true },
     );
-
-    const toggleCategory = (label: string) => {
-      if (expandedCategories.value.has(label)) {
-        expandedCategories.value.delete(label);
-      } else {
-        expandedCategories.value.add(label);
-      }
-    };
-
-    const hasAnyExpandedCategory = computed(() =>
-      groupedAffixes.value.some((g) => expandedCategories.value.has(g.label)),
-    );
-
-    const toggleAllCategories = () => {
-      if (hasAnyExpandedCategory.value) {
-        expandedCategories.value.clear();
-      } else {
-        groupedAffixes.value.forEach((g) => {
-          expandedCategories.value.add(g.label);
-        });
-      }
-    };
-
-    const clearSearchQuery = () => {
-      searchQuery.value = '';
-    };
-
-    const isEmpty = computed(() => {
-      return groupedAffixes.value.length === 0;
-    });
 
     interface TypeOption {
       key: string;
@@ -1601,16 +994,6 @@ export default defineComponent({
       return counts;
     });
 
-    const filteredModTotalCount = computed(() =>
-      groupedAffixes.value.reduce(
-        (sum, cat) => sum + cat.prefixes.length + cat.suffixes.length + cat.all.length,
-        0,
-      ),
-    );
-    const canSelectAllFiltered = computed(
-      () => Boolean(searchQuery.value.trim()) && filteredModTotalCount.value > 0,
-    );
-
     const resolveNavTier = (affinity: string): number => {
       if (affinity === 'normal' || affinity === 'cluster') return 0;
       if (
@@ -1630,12 +1013,6 @@ export default defineComponent({
       const curr = groupedAffixes.value[index];
       if (!prev || !curr) return false;
       return resolveNavTier(prev.affinity) !== resolveNavTier(curr.affinity);
-    };
-
-    // 格式化顯示詞綴文字
-    const formatModText = (text: string) => {
-      if (!text) return '';
-      return text.replace(/\|\|\|\|\|/g, '\n');
     };
 
     const resolveModGroupKey = (
@@ -2027,10 +1404,10 @@ export default defineComponent({
     return {
       t,
       affixDemoMode,
-      affixDemoHoveredModId,
       preventIfAffixDemo,
       loading,
       selectedType,
+      currentTypeGroups,
       searchQuery,
       searchInputRef,
       itemLevelMin,
@@ -2039,11 +1416,9 @@ export default defineComponent({
       hasItemLevelFilter,
       isInvalidItemLevelRange,
       clearItemLevelFilter,
-      isFilteredTierSelected,
       isModTierSelected,
       resolveModTierNumber,
       handleToggleTierSelection,
-      getFilteredTierNumber,
       generationFilter,
       availableTypes,
       groupedAffixes,
@@ -2075,7 +1450,6 @@ export default defineComponent({
       syncableOfficialCategory,
       syncOfficialCategory,
       getTypeName,
-      formatModText,
       addStatFilter,
       addTierFilter,
       expandedKeys,
@@ -2085,9 +1459,7 @@ export default defineComponent({
       navAnchorsRef,
       scrollContainerRef,
       isModSelected,
-      isTierSelected,
       toggleModSelection,
-      toggleTierSelection,
       selectAllCurrent,
       clearAllSelection,
       applyT1ToSelected: handleApplyT1ToSelected,
@@ -2096,9 +1468,6 @@ export default defineComponent({
       groupedSelectedMods,
       scrollToMod,
       currentActiveCategory,
-      getDisplayTier,
-      getDisplayValues,
-      getPendingModLabel,
       removeSingleSelection,
       handleScroll,
     };

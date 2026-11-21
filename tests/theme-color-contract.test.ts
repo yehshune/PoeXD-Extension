@@ -370,13 +370,16 @@ describe('Theme Foundation Phase 2D — Theme Color Contract Tests', () => {
       );
     });
 
-    it('pairs group-header hover with text-accent-foreground in FilterPane', () => {
-      const filterPanePath = path.resolve(__dirname, '../components/sidebar/FilterPane.vue');
-      const filterPaneSource = readFileSync(filterPanePath, 'utf-8');
-      expect(filterPaneSource).toMatch(
+    it('pairs group-header hover with text-accent-foreground in FilterAffixSection', () => {
+      const affixSectionPath = path.resolve(
+        __dirname,
+        '../components/sidebar/FilterAffixSection.vue',
+      );
+      const affixSectionSource = readFileSync(affixSectionPath, 'utf-8');
+      expect(affixSectionSource).toMatch(
         /group-header[^"]*hover:bg-accent hover:text-accent-foreground/,
       );
-      expect(filterPaneSource).toContain('group-hover/header:text-accent-foreground');
+      expect(affixSectionSource).toContain('group-hover/header:text-accent-foreground');
     });
 
     it('preserves domain hierarchy in normal state and switches to accent-foreground on hover in ModItem', () => {

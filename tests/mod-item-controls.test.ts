@@ -71,11 +71,13 @@ describe('ModItem Controls (Static Contracts)', () => {
     expect(filterPaneSource).not.toContain('.poe-btn-batch {');
   });
 
-  it('preserves 2px bottom geometry on FilterPane ModItem render paths via class="mb-[2px]"', () => {
+  it('preserves 2px bottom geometry on FilterAffixSection ModItem render path via class="mb-[2px]"', () => {
+    const affixSectionSource = readFileSync('components/sidebar/FilterAffixSection.vue', 'utf8');
     expect(filterPaneSource).not.toContain('.mod-item-container {');
-    const modItemMatches = filterPaneSource.match(/<ModItem[\s\S]*?\/>/g);
+    expect(affixSectionSource).not.toContain('.mod-item-container {');
+    const modItemMatches = affixSectionSource.match(/<ModItem[\s\S]*?\/>/g);
     expect(modItemMatches).toBeTruthy();
-    expect(modItemMatches!.length).toBe(5);
+    expect(modItemMatches!.length).toBe(1);
     modItemMatches!.forEach((chunk) => {
       expect(chunk).toContain('class="mb-[2px]"');
     });

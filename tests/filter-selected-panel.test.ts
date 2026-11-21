@@ -9,6 +9,7 @@ import { listenPoeEvent } from '@/utils/event-contracts';
 import { setKnownStats } from '@/utils/known-stats-store';
 
 const source = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
+const selectedPanelSource = readFileSync('components/sidebar/FilterSelectedPanel.vue', 'utf8');
 
 // Mock chrome extension APIs
 (globalThis as any).chrome = {
@@ -110,37 +111,47 @@ beforeEach(() => mockModsData(sampleModsData));
 
 describe('FilterPane Selected Mods Panel (Static Contracts)', () => {
   it('eliminates legacy panel action buttons classes and duplicate CSS selectors', () => {
-    expect(source).not.toContain('remove-selected-btn');
-    expect(source).not.toContain('poe-btn-confirm');
-    expect(source).not.toContain('panel-action-btn');
-    expect(source).not.toContain('hero-confirm-btn');
-    expect(source).not.toContain('secondary-actions-row');
-    expect(source).not.toContain('secondary-action-btn');
-    expect(source).not.toContain('clear-btn-action');
-    expect(source).not.toContain('poe-btn-batch');
-    expect(source).not.toContain('.hero-confirm-btn');
-    expect(source).not.toContain('.secondary-action-btn');
-    expect(source).not.toContain('.poe-btn-batch');
+    for (const s of [source, selectedPanelSource]) {
+      expect(s).not.toContain('remove-selected-btn');
+      expect(s).not.toContain('poe-btn-confirm');
+      expect(s).not.toContain('panel-action-btn');
+      expect(s).not.toContain('hero-confirm-btn');
+      expect(s).not.toContain('secondary-actions-row');
+      expect(s).not.toContain('secondary-action-btn');
+      expect(s).not.toContain('clear-btn-action');
+      expect(s).not.toContain('poe-btn-batch');
+      expect(s).not.toContain('.hero-confirm-btn');
+      expect(s).not.toContain('.secondary-action-btn');
+      expect(s).not.toContain('.poe-btn-batch');
+    }
   });
 
   it('preserves .panel-actions container and uses semantic data-filter-action attributes', () => {
-    expect(source).toContain('class="panel-actions');
-    expect(source).toContain('data-filter-action="confirm-selected"');
-    expect(source).toContain('data-filter-action="apply-t1"');
-    expect(source).toContain('data-filter-action="clear-selected"');
-    expect(source).toContain('data-filter-action="remove-selected"');
+    expect(selectedPanelSource).toContain('class="panel-actions');
+    expect(selectedPanelSource).toContain('data-filter-action="confirm-selected"');
+    expect(selectedPanelSource).toContain('data-filter-action="apply-t1"');
+    expect(selectedPanelSource).toContain('data-filter-action="clear-selected"');
+    expect(selectedPanelSource).toContain('data-filter-action="remove-selected"');
   });
 
   it('conforms selected panel action buttons to Foundation Button primitive with proper sizes', () => {
-    expect(source).toMatch(/<Button[^>]*size="default"[^>]*data-filter-action="confirm-selected"/);
-    expect(source).toMatch(/<Button[^>]*size="sm"[^>]*data-filter-action="apply-t1"/);
-    expect(source).toMatch(/<Button[^>]*size="sm"[^>]*data-filter-action="clear-selected"/);
-    expect(source).toMatch(/<Button[^>]*size="icon-sm"[^>]*data-filter-action="remove-selected"/);
+    expect(selectedPanelSource).toMatch(
+      /<Button[^>]*size="default"[^>]*data-filter-action="confirm-selected"/,
+    );
+    expect(selectedPanelSource).toMatch(/<Button[^>]*size="sm"[^>]*data-filter-action="apply-t1"/);
+    expect(selectedPanelSource).toMatch(
+      /<Button[^>]*size="sm"[^>]*data-filter-action="clear-selected"/,
+    );
+    expect(selectedPanelSource).toMatch(
+      /<Button[^>]*size="icon-sm"[^>]*data-filter-action="remove-selected"/,
+    );
 
     // No consumer disabled geometry/opacity overrides or rounded-[2px] on Button
-    expect(source).not.toContain('rounded-[2px]');
-    expect(source).not.toContain('disabled:opacity');
-    expect(source).not.toContain('disabled:cursor');
+    for (const s of [source, selectedPanelSource]) {
+      expect(s).not.toContain('rounded-[2px]');
+      expect(s).not.toContain('disabled:opacity');
+      expect(s).not.toContain('disabled:cursor');
+    }
   });
 });
 

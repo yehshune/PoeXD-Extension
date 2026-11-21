@@ -8,6 +8,8 @@ import FilterPane from '@/components/sidebar/FilterPane.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 
 const source = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
+const affixSectionSource = readFileSync('components/sidebar/FilterAffixSection.vue', 'utf8');
+const selectedPanelSource = readFileSync('components/sidebar/FilterSelectedPanel.vue', 'utf8');
 
 // Mock chrome extension APIs
 (globalThis as any).chrome = {
@@ -113,7 +115,9 @@ describe('FilterPane Controls Row (Static Contracts)', () => {
     expect(source).toMatch(/<Button[^>]*size="icon-sm"[^>]*@click="clearItemLevelFilter"/);
     // Select all & clear all
     expect(source).toMatch(/<Button[^>]*size="sm"[^>]*@click="selectAllCurrent"/);
-    expect(source).toMatch(/<Button[^>]*size="sm"[^>]*@click="clearAllSelection"/);
+    expect(selectedPanelSource).toMatch(
+      /<Button[^>]*size="sm"[^>]*data-filter-action="clear-selected"/,
+    );
 
     // No geometry overrides or focus suppression in top controls
     expect(source).not.toContain('size-5');
@@ -474,17 +478,19 @@ describe('FilterPane Category Group Header Presentation & Contract', () => {
   });
 
   it('verifies static DOM contracts and removes obsolete expand-arrow and after horizontal rule', () => {
-    // Contract elements remain
-    expect(source).toContain(':id="\'category_\' + cat.label"');
-    expect(source).toContain('@click="toggleCategory(cat.label)"');
-    expect(source).toContain(':aria-expanded="expandedCategories.has(cat.label)"');
-    expect(source).toContain('group-header');
+    // Contract elements remain (in FilterAffixSection.vue)
+    expect(affixSectionSource).toContain(":id=\"'category_' + category.label\"");
+    expect(affixSectionSource).toContain('@click="emit(\'toggle-category\', category.label)"');
+    expect(affixSectionSource).toContain(':aria-expanded="expanded"');
+    expect(affixSectionSource).toContain('group-header');
 
-    // Obsolete presentation elements removed from FilterPane header
-    expect(source).not.toContain('after:h-px');
-    expect(source).not.toContain('after:bg-border');
-    expect(source).not.toContain('after:flex-1');
-    expect(source).not.toMatch(/class="[^"]*expand-arrow[^"]*">▶/);
+    // Obsolete presentation elements removed from category header
+    for (const s of [source, affixSectionSource]) {
+      expect(s).not.toContain('after:h-px');
+      expect(s).not.toContain('after:bg-border');
+      expect(s).not.toContain('after:flex-1');
+      expect(s).not.toMatch(/class="[^"]*expand-arrow[^"]*">▶/);
+    }
   });
 
   it('renders compact section header with separated title, count, and toggles Plus/Minus on click', async () => {
