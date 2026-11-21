@@ -269,12 +269,10 @@
               </ToggleGroupItem>
             </ToggleGroup>
 
-            <!-- 僅在搜尋篩選時顯示全選符合按鈕（避免無搜尋時誤選數百條詞綴；清空已由右側「清空待選」承擔） -->
-            <div
-              v-if="searchQuery.trim() && filteredModTotalCount > 0"
-              class="ml-auto flex shrink-0 items-center gap-[var(--pxd-space-sm)]"
-            >
+            <!-- 右側輔助操作：搜尋時顯示全選符合；一律提供全部收合／全部展開 -->
+            <div class="ml-auto flex shrink-0 items-center gap-[var(--pxd-space-xs)]">
               <Button
+                v-if="canSelectAllFiltered"
                 type="button"
                 variant="outline"
                 size="sm"
@@ -283,6 +281,31 @@
                 @click="selectAllCurrent"
               >
                 {{ t('filterPane.actions.selectAllFiltered', { count: filteredModTotalCount }) }}
+              </Button>
+              <Button
+                v-if="!isEmpty"
+                type="button"
+                variant="outline"
+                size="sm"
+                data-filter-action="toggle-all-categories"
+                class="font-normal gap-1"
+                :title="
+                  hasAnyExpandedCategory
+                    ? t('filterPane.actions.collapseAllTitle')
+                    : t('filterPane.actions.expandAllTitle')
+                "
+                @click="toggleAllCategories"
+              >
+                <ChevronsDownUp
+                  v-if="hasAnyExpandedCategory"
+                  class="size-[var(--control-icon-sm,14px)] shrink-0"
+                />
+                <ChevronsUpDown v-else class="size-[var(--control-icon-sm,14px)] shrink-0" />
+                <span>{{
+                  hasAnyExpandedCategory
+                    ? t('filterPane.actions.collapseAll')
+                    : t('filterPane.actions.expandAll')
+                }}</span>
               </Button>
             </div>
           </div>
@@ -815,7 +838,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronDown, X } from '@lucide/vue';
-import { ArrowUpRight, Plus, Minus } from '@lucide/vue';
+import { ArrowUpRight, ChevronsDownUp, ChevronsUpDown, Plus, Minus } from '@lucide/vue';
 import { useModSelection } from './composables/useModSelection';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { resolveOfficialCategoryOption } from '@/utils/official-category-resolver';
@@ -853,6 +876,8 @@ export default defineComponent({
     ToggleGroupItem,
     ArrowUpRight,
     ChevronDown,
+    ChevronsDownUp,
+    ChevronsUpDown,
     Plus,
     Minus,
     X,
@@ -1382,6 +1407,20 @@ export default defineComponent({
       }
     };
 
+    const hasAnyExpandedCategory = computed(() =>
+      groupedAffixes.value.some((g) => expandedCategories.value.has(g.label)),
+    );
+
+    const toggleAllCategories = () => {
+      if (hasAnyExpandedCategory.value) {
+        expandedCategories.value.clear();
+      } else {
+        groupedAffixes.value.forEach((g) => {
+          expandedCategories.value.add(g.label);
+        });
+      }
+    };
+
     const clearSearchQuery = () => {
       searchQuery.value = '';
     };
@@ -1567,6 +1606,9 @@ export default defineComponent({
         (sum, cat) => sum + cat.prefixes.length + cat.suffixes.length + cat.all.length,
         0,
       ),
+    );
+    const canSelectAllFiltered = computed(
+      () => Boolean(searchQuery.value.trim()) && filteredModTotalCount.value > 0,
     );
 
     const resolveNavTier = (affinity: string): number => {
@@ -2008,6 +2050,8 @@ export default defineComponent({
       renderedCategories,
       expandedCategories,
       toggleCategory,
+      hasAnyExpandedCategory,
+      toggleAllCategories,
       clearSearchQuery,
       isEmpty,
       isSelectDropdownOpen,
@@ -2021,6 +2065,7 @@ export default defineComponent({
       recentTypeOptions,
       selectedCountByAffinity,
       filteredModTotalCount,
+      canSelectAllFiltered,
       shouldShowNavDivider,
       closeSelectDropdown,
       groupedAvailableTypes,
