@@ -386,45 +386,60 @@
                   </div>
                 </template>
 
-                <!-- 單欄排版 (僅有後綴命中) -->
+                <!-- 單欄／右欄排版 (僅有後綴命中：全部模式對齊右側後綴欄，後綴篩選模式展全寬) -->
                 <template v-else-if="cat.hasOnlySuffix">
-                  <div class="category-single-column w-full">
+                  <div
+                    :class="
+                      generationFilter === 'all'
+                        ? 'category-columns flex flex-row flex-wrap gap-[var(--pxd-space-lg)] w-full'
+                        : 'category-single-column w-full'
+                    "
+                  >
                     <div
-                      class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
-                    >
-                      {{ t('filterPane.column.suffixes', { count: cat.totals.suffixes }) }}
-                    </div>
+                      v-if="generationFilter === 'all'"
+                      class="column-left flex-1 min-w-[280px]"
+                      aria-hidden="true"
+                    />
                     <div
-                      class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
+                      :class="generationFilter === 'all' ? 'column-right flex-1 min-w-[280px]' : ''"
                     >
-                      <ModItem
-                        v-for="mod in cat.suffixes"
-                        :key="mod.id"
-                        v-memo="[
-                          mod,
-                          cat.affinity,
-                          searchQuery,
-                          expandedKeys.has(mod.id),
-                          isModSelected(mod.id, cat.affinity),
-                          itemLevelRange.max,
-                          affixDemoHoveredModId === mod.id,
-                        ]"
-                        class="mb-[2px]"
-                        :mod="mod"
-                        :affinity="cat.affinity"
-                        :search-query="searchQuery"
-                        :is-expanded="expandedKeys.has(mod.id)"
-                        :is-selected="isModSelected(mod.id, cat.affinity)"
-                        :is-tier-selected="isModTierSelected"
-                        :get-tier-number="resolveModTierNumber"
-                        :item-level-max="itemLevelRange.max"
-                        :demo-highlighted="affixDemoHoveredModId === mod.id"
-                        @toggle-expand="toggleExpand"
-                        @toggle-select="toggleModSelection"
-                        @toggle-tier-select="handleToggleTierSelection"
-                        @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
-                        @add-tier-filter="addTierFilter"
-                      />
+                      <div
+                        class="column-title text-[length:var(--pxd-font-secondary)] font-semibold text-muted-foreground py-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] mb-[var(--pxd-space-sm)] bg-transparent border-b border-border uppercase tracking-[0.5px]"
+                      >
+                        {{ t('filterPane.column.suffixes', { count: cat.totals.suffixes }) }}
+                      </div>
+                      <div
+                        class="mods-list-grid grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--pxd-space-sm)] items-start"
+                      >
+                        <ModItem
+                          v-for="mod in cat.suffixes"
+                          :key="mod.id"
+                          v-memo="[
+                            mod,
+                            cat.affinity,
+                            searchQuery,
+                            expandedKeys.has(mod.id),
+                            isModSelected(mod.id, cat.affinity),
+                            itemLevelRange.max,
+                            affixDemoHoveredModId === mod.id,
+                          ]"
+                          class="mb-[2px]"
+                          :mod="mod"
+                          :affinity="cat.affinity"
+                          :search-query="searchQuery"
+                          :is-expanded="expandedKeys.has(mod.id)"
+                          :is-selected="isModSelected(mod.id, cat.affinity)"
+                          :is-tier-selected="isModTierSelected"
+                          :get-tier-number="resolveModTierNumber"
+                          :item-level-max="itemLevelRange.max"
+                          :demo-highlighted="affixDemoHoveredModId === mod.id"
+                          @toggle-expand="toggleExpand"
+                          @toggle-select="toggleModSelection"
+                          @toggle-tier-select="handleToggleTierSelection"
+                          @add-filter="(m, aff) => addStatFilter({ ...m, affinities: [aff] })"
+                          @add-tier-filter="addTierFilter"
+                        />
+                      </div>
                     </div>
                   </div>
                 </template>
@@ -1246,33 +1261,8 @@ export default defineComponent({
         });
       });
 
-      // 判斷哪些大類支援前綴/後綴分割（包含一般、精髓、褻瀆、影響力與特殊大類）
-      const splitAffinityKeys = [
-        'normal',
-        'essence',
-        'perfect_essence',
-        'desecrated',
-        'destruction',
-        'berserking',
-        'soul',
-        'breach_otherworldly',
-        'breach_minion',
-        'breach_caster',
-        'shaper',
-        'elder',
-        'crusader',
-        'redeemer',
-        'hunter',
-        'warlord',
-        'delve',
-        'incursion',
-        'veiled',
-        'searing',
-        'eater',
-        'synthesis',
-        'sentinel',
-      ];
-
+      // 只要該類別含有前綴 (generation_type === '1') 或後綴 (generation_type === '2') 就顯示前／後綴分欄；
+      // 固定詞上綴、腐化、附魔等非前後綴世代則維持不分前後綴的單欄顯示。
       for (const key in categoriesMap) {
         const cat = categoriesMap[key];
 
@@ -1285,13 +1275,10 @@ export default defineComponent({
           cat.all = [];
         }
 
-        const isCandidateForSplit =
-          splitAffinityKeys.includes(key) || (cat.prefixes.length > 0 && cat.suffixes.length > 0);
-
         const hasPrefix = cat.prefixes.length > 0;
         const hasSuffix = cat.suffixes.length > 0;
 
-        if (isCandidateForSplit && (hasPrefix || hasSuffix)) {
+        if (hasPrefix || hasSuffix) {
           cat.hasBothSplit = hasPrefix && hasSuffix;
           cat.hasOnlyPrefix = hasPrefix && !hasSuffix;
           cat.hasOnlySuffix = !hasPrefix && hasSuffix;
