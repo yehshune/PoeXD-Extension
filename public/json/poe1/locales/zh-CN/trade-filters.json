@@ -9,7 +9,7 @@
     "armour_filters": "护甲过滤",
     "socket_filters": "插槽过滤",
     "req_filters": "需求",
-    "map_filters": "Map/Chart Filters",
+    "map_filters": "地图过滤器",
     "heist_filters": "夺宝玩法过滤",
     "sanctum_filters": "禁域过滤",
     "ultimatum_filters": "致命贪婪过滤器",
@@ -42,14 +42,12 @@
     "map_packsize": "提高怪物群大小",
     "map_iiq": "物品掉落数量增加",
     "map_iir": "物品稀有度增加",
-    "map_gold": "Chart Gold",
-    "chart_sulphur": "Chart Sulphur",
-    "chart_shape": "Chart Shape",
+    "map_bonus": "异界图鉴掉落",
     "area_level": "区域等级",
-    "map_series": "地图系列",
     "map_blighted": "菌潮地图",
     "map_uberblighted": "菌潮灭绝地图",
     "map_completion_reward": "地图完成奖励",
+    "map_series": "地图系列",
     "heist_wings": "发现的侧厅",
     "heist_max_wings": "总侧厅",
     "heist_escape_routes": "发现逃亡路线",
@@ -80,13 +78,16 @@
     "gem_level_progress": "宝石经验 %",
     "gem_transfigured": "改造宝石",
     "gem_vaal": "瓦尔宝石",
-    "fractured_item": "分裂之物",
     "gem_imbued": "灌注宝石",
+    "fractured_item": "分裂之物",
     "synthesised_item": "忆境物品",
     "searing_item": "焚界者物品",
     "tangled_item": "灭界者物品",
     "identified": "已鉴定",
+    "unidentified_tier": "未鉴定品阶",
+    "fated": "命运",
     "corrupted": "已腐化",
+    "twice_corrupted": "双倍腐化",
     "mirrored": "已复制",
     "split": "分裂",
     "crafted": "工艺的",
@@ -189,6 +190,11 @@
       "wombgift": "任何孕育之礼",
       "enshrouded": "任意雾隐物品",
       "chart": "任意海图",
+      "viscera": "任意脏器",
+      "viscera.head": "头部脏器",
+      "viscera.arm": "手臂脏器",
+      "viscera.body": "躯干脏器",
+      "viscera.leg": "腿部脏器",
       "currency": "任何通货",
       "currency.piece": "任何碎片",
       "currency.resonator": "共振器",
@@ -216,12 +222,13 @@
       "templar": "圣堂武僧",
       "shadow": "暗影刺客"
     },
-    "chart_shape": {
-      "1": "结束",
-      "2": "Corner",
-      "3": "Straight",
-      "4": "Junction",
-      "5": "Crossing"
+    "map_blighted": {
+      "true": "是",
+      "false": "否"
+    },
+    "map_uberblighted": {
+      "true": "是",
+      "false": "否"
     },
     "map_series": {
       "current": "当前",
@@ -252,14 +259,6 @@
       "theawakening": "大觉醒",
       "original": "遗产"
     },
-    "map_blighted": {
-      "true": "是",
-      "false": "否"
-    },
-    "map_uberblighted": {
-      "true": "是",
-      "false": "否"
-    },
     "heist_objective_value": {
       "moderate": "价值中等",
       "high": "价值很高",
@@ -286,11 +285,11 @@
       "true": "是",
       "false": "否"
     },
-    "fractured_item": {
+    "gem_imbued": {
       "true": "是",
       "false": "否"
     },
-    "gem_imbued": {
+    "fractured_item": {
       "true": "是",
       "false": "否"
     },
@@ -310,7 +309,15 @@
       "true": "是",
       "false": "否"
     },
+    "fated": {
+      "true": "是",
+      "false": "否"
+    },
     "corrupted": {
+      "true": "是",
+      "false": "否"
+    },
+    "twice_corrupted": {
       "true": "是",
       "false": "否"
     },
@@ -479,31 +486,31 @@
     "pseudo.pseudo_increased_burning_damage": "#% 燃烧伤害提高",
     "pseudo.pseudo_total_life_regen": "# 每秒生命回复",
     "pseudo.pseudo_percent_life_regen": "#% 每秒生命回复",
-    "pseudo.pseudo_physical_attack_damage_leeched_as_life": "#% 物理伤害转换为生命偷取",
-    "pseudo.pseudo_physical_attack_damage_leeched_as_mana": "#%物理伤害转换为魔力偷取",
+    "pseudo.pseudo_physical_attack_damage_leeched_as_life": "#% 物理攻击伤害转换为生命偷取",
+    "pseudo.pseudo_physical_attack_damage_leeched_as_mana": "#% 物理攻击伤害转换为魔力偷取",
     "pseudo.pseudo_increased_mana_regen": "#%魔力回复率提高",
-    "pseudo.pseudo_total_additional_gem_levels": "+#宝石等级",
-    "pseudo.pseudo_total_additional_elemental_gem_levels": "+#元素技能宝石等级",
-    "pseudo.pseudo_total_additional_fire_gem_levels": "+#火焰技能宝石等级",
-    "pseudo.pseudo_total_additional_cold_gem_levels": "+#冰霜技能宝石等级",
-    "pseudo.pseudo_total_additional_lightning_gem_levels": "+#闪电技能宝石等级",
-    "pseudo.pseudo_total_additional_chaos_gem_levels": "+#混沌技能宝石等级",
-    "pseudo.pseudo_total_additional_spell_gem_levels": "+#主动技能宝石等级",
-    "pseudo.pseudo_total_additional_projectile_gem_levels": "+#投射物技能宝石等级",
-    "pseudo.pseudo_total_additional_bow_gem_levels": "+#弓技能宝石等级",
-    "pseudo.pseudo_total_additional_melee_gem_levels": "+#近战技能宝石等级",
-    "pseudo.pseudo_total_additional_minion_gem_levels": "+#召唤物技能宝石等级",
-    "pseudo.pseudo_total_additional_strength_gem_levels": "+#力量技能宝石等级",
-    "pseudo.pseudo_total_additional_dexterity_gem_levels": "+#敏捷技能宝石等级",
-    "pseudo.pseudo_total_additional_intelligence_gem_levels": "+#智慧技能宝石等级",
-    "pseudo.pseudo_total_additional_aura_gem_levels": "+#光环技能宝石等级",
-    "pseudo.pseudo_total_additional_movement_gem_levels": "+#移动技能宝石等级",
-    "pseudo.pseudo_total_additional_curse_gem_levels": "+#诅咒技能宝石等级",
-    "pseudo.pseudo_total_additional_vaal_gem_levels": "+#瓦尔技能宝石等级",
-    "pseudo.pseudo_total_additional_support_gem_levels": "+#辅助技能宝石等级",
-    "pseudo.pseudo_total_additional_skill_gem_levels": "+#技能宝石等级",
-    "pseudo.pseudo_total_additional_warcry_gem_levels": "+#战吼技能宝石等级",
-    "pseudo.pseudo_total_additional_golem_gem_levels": "+#魔像技能宝石等级",
+    "pseudo.pseudo_total_additional_gem_levels": "+#插入的宝石等级",
+    "pseudo.pseudo_total_additional_elemental_gem_levels": "+#插入的元素技能宝石等级",
+    "pseudo.pseudo_total_additional_fire_gem_levels": "+#插入的火焰技能宝石等级",
+    "pseudo.pseudo_total_additional_cold_gem_levels": "+#插入的冰霜技能宝石等级",
+    "pseudo.pseudo_total_additional_lightning_gem_levels": "+#插入的闪电技能宝石等级",
+    "pseudo.pseudo_total_additional_chaos_gem_levels": "+#插入的混沌技能宝石等级",
+    "pseudo.pseudo_total_additional_spell_gem_levels": "+#插入的主动技能宝石等级",
+    "pseudo.pseudo_total_additional_projectile_gem_levels": "+#插入的投射物技能宝石等级",
+    "pseudo.pseudo_total_additional_bow_gem_levels": "+#插入的弓技能宝石等级",
+    "pseudo.pseudo_total_additional_melee_gem_levels": "+#插入的近战技能宝石等级",
+    "pseudo.pseudo_total_additional_minion_gem_levels": "+#插入的召唤物技能宝石等级",
+    "pseudo.pseudo_total_additional_strength_gem_levels": "+#插入的力量技能宝石等级",
+    "pseudo.pseudo_total_additional_dexterity_gem_levels": "+#插入的敏捷技能宝石等级",
+    "pseudo.pseudo_total_additional_intelligence_gem_levels": "+#插入的智慧技能宝石等级",
+    "pseudo.pseudo_total_additional_aura_gem_levels": "+#插入的光环技能宝石等级",
+    "pseudo.pseudo_total_additional_movement_gem_levels": "+#插入的移动技能宝石等级",
+    "pseudo.pseudo_total_additional_curse_gem_levels": "+#插入的诅咒技能宝石等级",
+    "pseudo.pseudo_total_additional_vaal_gem_levels": "+#插入的瓦尔技能宝石等级",
+    "pseudo.pseudo_total_additional_support_gem_levels": "+#插入的辅助技能宝石等级",
+    "pseudo.pseudo_total_additional_skill_gem_levels": "+#插入的技能宝石等级",
+    "pseudo.pseudo_total_additional_warcry_gem_levels": "+#插入的战吼技能宝石等级",
+    "pseudo.pseudo_total_additional_golem_gem_levels": "+#插入的魔像技能宝石等级",
     "pseudo.pseudo_number_of_enchant_mods": "#附魔词缀",
     "pseudo.pseudo_number_of_implicit_mods": "# 固有词缀",
     "pseudo.pseudo_searing_implicit_tier": "焚界者基底词缀（#）",
@@ -564,7 +571,7 @@
     "pseudo.pseudo_temple_storm_room_1": "内有房间：风雷之间（1 阶）",
     "pseudo.pseudo_temple_trap_room_1": "内有房间：陷阱工坊（1 阶）",
     "pseudo.pseudo_temple_cartography_room_1": "内有房间：勘查员的学习室（1 阶）",
-    "pseudo.pseudo_temple_queens_chambers_1": "内有房间：皇家会议厅（1 阶）",
+    "pseudo.pseudo_temple_queens_chambers_1": "内有房间：创生摇篮（1 阶）",
     "pseudo.pseudo_temple_chests_1": "内有房间：储藏屋（1 阶）",
     "pseudo.pseudo_temple_corruption_room_1": "内有房间：腐化之间（1 阶）",
     "pseudo.pseudo_temple_explosives_room_1": "内有房间：爆炸物制造间（1 阶）",
@@ -586,7 +593,7 @@
     "pseudo.pseudo_temple_storm_room_2": "内有房间：飓风引擎（2 阶）",
     "pseudo.pseudo_temple_trap_room_2": "内有房间：神庙防御工坊（2 阶）",
     "pseudo.pseudo_temple_cartography_room_2": "内有房间：绘图室（2 阶）",
-    "pseudo.pseudo_temple_queens_chambers_2": "内有房间：领主大厅（2 阶）",
+    "pseudo.pseudo_temple_queens_chambers_2": "内有房间：创生摇篮（2 阶）",
     "pseudo.pseudo_temple_chests_2": "内有房间：仓库（2 阶）",
     "pseudo.pseudo_temple_corruption_room_2": "内有房间：腐化演变室（2 阶）",
     "pseudo.pseudo_temple_explosives_room_2": "内有房间：毁灭实验室（2 阶）",
@@ -608,7 +615,7 @@
     "pseudo.pseudo_temple_storm_room_3": "内有房间：腐化风暴（3 阶）",
     "pseudo.pseudo_temple_trap_room_3": "内有房间：防御研究实验室（3 阶）",
     "pseudo.pseudo_temple_cartography_room_3": "内有房间：异界图鉴（3 阶）",
-    "pseudo.pseudo_temple_queens_chambers_3": "内有房间：阿兹里的王座（3 阶）",
+    "pseudo.pseudo_temple_queens_chambers_3": "内有房间：创生摇篮（3 阶）",
     "pseudo.pseudo_temple_chests_3": "内有房间：神器博物馆（3 阶）",
     "pseudo.pseudo_temple_corruption_room_3": "内有房间：腐化蝗群（3 阶）",
     "pseudo.pseudo_temple_explosives_room_3": "内有房间：解构神殿（3 阶）",
