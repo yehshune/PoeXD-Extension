@@ -1,0 +1,243 @@
+import type { BookmarkCollectionView, BookmarkReadOutcome } from '@/utils/bookmark-coordinator';
+import type { PoeVersion } from '@/utils/trade-context';
+import type { ParsedTradeSearchIdentity } from '@/utils/trade-search-identity';
+import type {
+  AddSubscriptionOutcome,
+  LiveSearchEnqueueItem,
+  LiveSearchEnqueueResponse,
+  LiveSearchRetryOutcome,
+  LiveSearchSubscriptionStatus,
+} from '@/utils/live-search-contract';
+import type { LiveSearchResumeStore } from '@/utils/live-search-resume-store';
+import type { TradeLeague } from '@/utils/trade-leagues';
+import type { PreferencesModule } from '@/utils/preferences';
+import type { TradeSearchCriteriaKeyResolver } from '@/utils/trade-search-criteria-key';
+import type { DedupEntry } from './live-search-connection-dedup';
+
+export interface LiveSearchSourceControllerOptions {
+  resumeStore?: LiveSearchResumeStore | null;
+  preferences?: PreferencesModule | null;
+  fetchLeagues?: (version: PoeVersion) => Promise<TradeLeague[]>;
+  initialLeague?: string;
+  /** 搜尋條件鍵解析器（相同搜尋條件去重用），預設以解碼 search ID 取得 */
+  criteriaKeyResolver?: TradeSearchCriteriaKeyResolver;
+}
+
+/**
+ * 最小唯讀 Bookmark Port 介面
+ * 避免依賴肥大的 BookmarkModel，由 createChromeBookmarkClient 結構性滿足
+ */
+export interface LiveSearchBookmarkSourcePort {
+  readCollection(): Promise<BookmarkReadOutcome<BookmarkCollectionView>>;
+  subscribe(listener: () => void): () => void;
+}
+
+export type LiveSearchSourceKind = 'bookmark' | 'custom';
+
+export type LiveSearchSourceStatusFilter = 'all' | 'enabled' | 'disabled' | 'error';
+
+export type LiveSearchSourceCompatibility =
+  | 'compatible'
+  | 'invalid-url'
+  | 'wrong-version'
+  | 'wrong-league';
+
+export type LiveSearchBatchRejectReason = 'disposed' | 'not-ready' | 'mixed-league';
+
+export interface LiveSearchBatchSkipCounts {
+  alreadyActive: number;
+  pending: number;
+  incompatible: number;
+  duplicateInBatch: number;
+  notFound: number;
+  inactive: number;
+}
+
+export interface LiveSearchBatchIncompatibleBreakdown {
+  invalidUrl: number;
+  wrongVersion: number;
+  wrongLeague: number;
+}
+
+export interface LiveSearchBatchOutcome {
+  success: boolean;
+  requested: number;
+  succeeded: number;
+  skipped: number;
+  failed: number;
+  rejectReason?: LiveSearchBatchRejectReason;
+  involvedLeagues?: string[];
+  error?: string;
+  skipReasons: LiveSearchBatchSkipCounts;
+  incompatibleBreakdown: LiveSearchBatchIncompatibleBreakdown;
+  runtimeFailureCount: number;
+}
+
+export const TEMPORARY_SOURCE_GROUP_ID = 'custom_sources';
+export const TEMPORARY_SOURCE_GROUP_NAME = '暫時搜尋';
+export const CUSTOM_SOURCE_GROUP_ID = TEMPORARY_SOURCE_GROUP_ID;
+export const CUSTOM_SOURCE_GROUP_NAME = TEMPORARY_SOURCE_GROUP_NAME;
+export const SESSION_CONNECTIONS_GROUP_ID = 'session_connections';
+export const SESSION_CONNECTIONS_GROUP_NAME = '本次連線';
+export const PREVIOUS_CONNECTIONS_GROUP_ID = 'previous_connections';
+export const PREVIOUS_CONNECTIONS_GROUP_NAME = '上次連線';
+
+export type LiveSearchSourceProvenance = 'origin-bookmark-removed';
+
+export interface LiveSearchSourceItem {
+  kind: LiveSearchSourceKind;
+  id: string;
+  name: string;
+  url: string;
+  canonicalIdentity: ParsedTradeSearchIdentity | null;
+  canonicalKey: string | null;
+  compatibility: LiveSearchSourceCompatibility;
+  compatibilityMessage?: string;
+  groupId: string;
+  groupName: string;
+  status?: LiveSearchSubscriptionStatus;
+  /** 相容既有存取欄位名稱 */
+  liveSearchStatus?: LiveSearchSubscriptionStatus;
+  pending: boolean;
+  subscriptionId?: string;
+  errorMessage?: string;
+  reconnectInSeconds?: number;
+  removable: boolean;
+  provenance?: LiveSearchSourceProvenance;
+  provenanceMessage?: string;
+  coverImageUrl?: string;
+}
+
+export interface LiveSearchSourceGroup {
+  id: string;
+  name: string;
+  kind: LiveSearchSourceKind;
+  parentId?: string;
+  order?: number;
+  depth?: number;
+  items: LiveSearchSourceItem[];
+  /** 相容既有存取欄位名稱 */
+  bookmarks: LiveSearchSourceItem[];
+}
+
+export interface LiveSearchSourceSnapshot {
+  loading: boolean;
+  error?: string;
+  groups: LiveSearchSourceGroup[];
+  sessionConnections?: LiveSearchSourceItem[];
+  previousConnections?: LiveSearchSourceItem[];
+  selectedLeague: string;
+  availableLeagues: readonly string[];
+  isSwitchingLeague: boolean;
+  leagueResolved: boolean;
+}
+
+export interface LiveSearchSourceController {
+  read(): Readonly<LiveSearchSourceSnapshot>;
+  subscribe(listener: (snapshot: Readonly<LiveSearchSourceSnapshot>) => void): () => void;
+  /**
+   * 啟用指定搜尋來源 (Bookmark、本次連線、上次連線或 Custom Source)
+   */
+  enable(sourceId: string): Promise<AddSubscriptionOutcome>;
+  /**
+   * enable(sourceId) 之相容別名
+   */
+  add(sourceId: string): Promise<AddSubscriptionOutcome>;
+  /**
+   * 批次啟用多筆搜尋來源（含相容性 preflight、canonical dedup 與未鎖聯盟 mixed-league 原子拒絕）
+   */
+  enableMany(sourceIds: readonly string[]): Promise<LiveSearchBatchOutcome>;
+  /**
+   * 批次停止多筆搜尋來源之 Runtime 連線（保留於本次連線為已暫停，並維持已鎖定聯盟）
+   */
+  stopMany(sourceIds: readonly string[]): LiveSearchBatchOutcome;
+  /**
+   * 建立自訂 URL 搜尋來源並立即加入本次連線與啟用
+   */
+  addCustom(
+    url: string,
+    options?: { name?: string; coverImageUrl?: string },
+  ): Promise<AddSubscriptionOutcome>;
+  /**
+   * 接收由一般頁面背景派送的搜尋連線清單，加入本次連線並啟動監聽
+   */
+  enqueueIncomingConnections?(
+    items: readonly LiveSearchEnqueueItem[],
+  ): Promise<LiveSearchEnqueueResponse>;
+  /**
+   * 停止指定來源或訂閱之 Runtime 連線（保留於本次連線中顯示為已暫停）
+   */
+  stop(sourceOrSubscriptionId: string): void;
+  /**
+   * 重試處於 error 狀態的來源連線
+   */
+  retry(sourceOrSubscriptionId: string): LiveSearchRetryOutcome;
+  /**
+   * 移除自訂 URL 來源；若移除時仍 active，先安全停止其 Runtime subscription 再移除來源
+   */
+  removeCustom(sourceId: string): boolean;
+  /**
+   * 從「本次連線」移除項目；若仍在監聽中則先安全停止 WebSocket
+   */
+  removeSessionConnection?(sourceOrSubscriptionId: string): boolean;
+  /**
+   * 從「上次連線」移除單筆紀錄
+   */
+  removePreviousConnection?(sourceIdOrCanonicalKey: string): Promise<boolean>;
+  /**
+   * 一鍵恢復目前聯盟所有「上次連線」至「本次連線」
+   */
+  restoreAllPreviousConnections?(): Promise<LiveSearchBatchOutcome>;
+  /**
+   * 清空「上次連線」紀錄
+   */
+  clearPreviousConnections?(): Promise<boolean>;
+  /**
+   * 系統性切換工作區聯盟（teardown 目前連線、解鎖 runtimeLeague、保留 Resume Intent 並切換 context）
+   */
+  switchLeague(targetLeague: string): Promise<boolean>;
+  getSelectedLeague(): string;
+  getAvailableLeagues(): readonly string[];
+  readonly resumeStore?: LiveSearchResumeStore | null;
+  dispose(): void;
+}
+
+export type LiveSearchBookmarkItem = LiveSearchSourceItem;
+export type LiveSearchBookmarkGroup = LiveSearchSourceGroup;
+export type LiveSearchBookmarkSnapshot = LiveSearchSourceSnapshot;
+export type LiveSearchBookmarkController = LiveSearchSourceController;
+
+export interface LiveSearchSourceFilterOptions {
+  query?: string;
+  statusFilter?: LiveSearchSourceStatusFilter;
+}
+
+export interface LiveSearchPrimaryContext {
+  gameVersion: PoeVersion;
+  runtimeLeague: string | null;
+}
+
+export interface CustomSourceRecord {
+  id: string;
+  name: string;
+  url: string;
+  canonicalIdentity: ParsedTradeSearchIdentity;
+  canonicalKey: string;
+  createdAt: number;
+  provenance?: LiveSearchSourceProvenance;
+  coverImageUrl?: string;
+}
+
+export interface SessionConnectionMeta {
+  canonicalKey: string;
+  canonicalIdentity: ParsedTradeSearchIdentity;
+  name: string;
+  url: string;
+  coverImageUrl?: string;
+  sourceBookmarkId?: string;
+}
+
+export type CriteriaRedirect =
+  | { kind: 'error'; error: string }
+  | { kind: 'source'; sourceId: string }
+  | { kind: 'adopt-meta'; entry: DedupEntry };
