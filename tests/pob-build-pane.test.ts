@@ -1088,4 +1088,155 @@ describe('PobBuildPane', () => {
       'new-tab',
     );
   });
+
+  it('顯示進度條與分組進度；點擊分組標題可收合／展開，搜尋時自動展開', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+
+    const progressBar = query<HTMLElement>('[data-pob-build-progress-bar] > div')!;
+    expect(progressBar.style.width).toBe('25%');
+
+    const groupCounts = queryAll('[data-pob-build-group-count]').map((el) =>
+      el.textContent?.trim(),
+    );
+    expect(groupCounts).toEqual(['1/3', '1']);
+
+    // 點擊裝備分組標題收合，僅剩寶石分組的 1 列
+    const toggles = queryAll('[data-pob-build-group-toggle]') as HTMLElement[];
+    expect(toggles[0].getAttribute('aria-expanded')).toBe('true');
+    toggles[0].click();
+    await nextTick();
+    expect(toggles[0].getAttribute('aria-expanded')).toBe('false');
+    expect(queryAll('[data-pob-build-row]')).toHaveLength(1);
+
+    // 展開搜尋並篩選裝備名稱時，已收合的分組會自動展開顯示結果
+    query<HTMLButtonElement>('[data-pob-build-search-toggle]')!.click();
+    await nextTick();
+    const filterInput = query<HTMLInputElement>('[data-pob-build-filter]')!;
+    filterInput.value = 'Leviathan';
+    filterInput.dispatchEvent(new Event('input'));
+    await nextTick();
+    expect(queryAll('[data-pob-build-row]')).toHaveLength(1);
+    expect(row(0).textContent).toContain('Leviathan Gauntlets');
+  });
+
+  it('快速分類篩選可依裝備／藥劑／珠寶／寶石切換', async () => {
+    const base = sampleBuild();
+    const equipGroup = base.groups[0];
+    buildsRef.value = [
+      {
+        ...base,
+        groups: [
+          {
+            ...equipGroup,
+            rows: [
+              ...equipGroup.rows,
+              {
+                ...equipGroup.rows[0],
+                key: 'k-flask',
+                label: 'Quicksilver Flask',
+                englishName: 'Quicksilver Flask',
+                slot: 'Flask 1',
+                done: false,
+              },
+              {
+                ...equipGroup.rows[0],
+                key: 'k-jewel',
+                label: 'Watcher Eye',
+                englishName: 'Watcher Eye',
+                slot: 'Jewel 1',
+                done: false,
+              },
+            ],
+          },
+          base.groups[1],
+        ],
+      },
+    ];
+    await mount();
+
+    const cats = queryAll('[data-pob-build-category]').map((el) =>
+      el.getAttribute('data-pob-build-category'),
+    );
+    expect(cats).toEqual(['all', 'gear', 'flask', 'jewel', 'gem']);
+
+    query<HTMLButtonElement>('[data-pob-build-category="flask"]')!.click();
+    await nextTick();
+    expect(queryAll('[data-pob-build-row]')).toHaveLength(1);
+    expect(row(0).textContent).toContain('Quicksilver Flask');
+
+    query<HTMLButtonElement>('[data-pob-build-category="jewel"]')!.click();
+    await nextTick();
+    expect(queryAll('[data-pob-build-row]')).toHaveLength(1);
+    expect(row(0).textContent).toContain('Watcher Eye');
+
+    query<HTMLButtonElement>('[data-pob-build-category="gem"]')!.click();
+    await nextTick();
+    expect(queryAll('[data-pob-build-row]')).toHaveLength(1);
+    expect(row(0).textContent).toContain('Punishment');
+  });
+
+  it('已完成項目沉底時於第一筆已完成列加上分隔線標記', async () => {
+    const base = sampleBuild();
+    const equip = base.groups[0];
+    // 模擬真實順序：未完成在前、已完成在後
+    buildsRef.value = [
+      {
+        ...base,
+        groups: [
+          {
+            ...equip,
+            rows: [equip.rows[1], equip.rows[2], equip.rows[0]],
+          },
+        ],
+      },
+    ];
+    await mount();
+
+    expect(row(0).getAttribute('data-done-divider')).toBeNull();
+    expect(row(1).getAttribute('data-done-divider')).toBeNull();
+    expect(row(2).getAttribute('data-done-divider')).toBe('true');
+  });
+
+  it('詞綴 Popover 支援一鍵放寬 -10%、清除數值，且關閉再開啟時保留未儲存草稿', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+
+    const bounds = () =>
+      queryAllBody('[data-pob-build-mods] [data-stat-bound]') as HTMLInputElement[];
+
+    // 點擊 -10%：已勾選的生命下限 80 → 72；未勾選的力量需求維持 -8 不受影響
+    queryBody<HTMLButtonElement>('[data-pob-build-relax-bounds]')!.click();
+    await nextTick();
+    expect(bounds()[0].value).toBe('72');
+    expect(bounds()[3].value).toBe('-8');
+    expect(queryBody('[data-pob-build-save-selection]')).not.toBeNull();
+
+    // 關閉 Popover 後重新開啟同一項，未儲存草稿仍保留
+    queryBody<HTMLButtonElement>(
+      '[data-pob-build-mods-popover] [data-test="preview-close"]',
+    )!.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
+
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+    expect(bounds()[0].value).toBe('72');
+    expect(bounds()[3].value).toBe('-8');
+    expect(queryBody('[data-pob-build-save-selection]')).not.toBeNull();
+
+    // 點擊「清除數值」清空已勾選詞綴的上下限（未勾選詞綴維持原值）
+    queryBody<HTMLButtonElement>('[data-pob-build-clear-bounds]')!.click();
+    await nextTick();
+    expect(bounds()[0].value).toBe('');
+    expect(bounds()[1].value).toBe('');
+    expect(bounds()[3].value).toBe('-8');
+
+    // 按下「還原」清空草稿，重開後回到原始狀態
+    queryBody<HTMLButtonElement>('[data-pob-build-discard-draft]')!.click();
+    await nextTick();
+    expect(bounds()[0].value).toBe('80');
+  });
 });

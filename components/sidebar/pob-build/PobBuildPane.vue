@@ -237,6 +237,18 @@
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+
+            <div
+              v-if="build.progress.total > 0"
+              aria-hidden="true"
+              data-pob-build-progress-bar
+              class="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-border/40"
+            >
+              <div
+                class="h-full bg-primary transition-[width] duration-200"
+                :style="{ width: progressPercent(build) }"
+              />
+            </div>
           </header>
 
           <template v-if="!build.collapsed || isFiltering">
@@ -247,7 +259,8 @@
                   showSkillSets(build) ||
                   build.removedCount > 0 ||
                   build.progress.done > 0 ||
-                  build.hideDone)
+                  build.hideDone ||
+                  buildCategories(build).length > 1)
               "
               class="flex flex-col gap-[var(--pxd-space-sm)] border-b border-border bg-muted/20 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
             >
@@ -340,10 +353,33 @@
                   {{ t('pobBuild.restoreRemoved', { count: build.removedCount }) }}
                 </Button>
               </div>
+
+              <div
+                v-if="buildCategories(build).length > 1"
+                data-pob-build-category-filter
+                class="flex flex-wrap items-center gap-[var(--pxd-space-xs)]"
+              >
+                <button
+                  v-for="cat in ['all', ...buildCategories(build)] as const"
+                  :key="cat"
+                  type="button"
+                  :data-pob-build-category="cat"
+                  :aria-pressed="activeCategory(build) === cat"
+                  class="inline-flex cursor-pointer items-center rounded-sm border px-[var(--pxd-space-sm)] py-[1px] text-[length:var(--pxd-font-caption)] font-medium transition-colors"
+                  :class="
+                    activeCategory(build) === cat
+                      ? 'border-primary/50 bg-primary/15 text-primary'
+                      : 'border-border bg-background/60 text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                  "
+                  @click="setActiveCategory(build.id, cat)"
+                >
+                  {{ categoryLabel(cat) }}
+                </button>
+              </div>
             </div>
 
             <p
-              v-if="build.groups.length === 0"
+              v-if="filteredGroups(build).length === 0"
               class="m-0 bg-background px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
               data-pob-build-empty
             >
@@ -355,261 +391,292 @@
             </p>
 
             <section
-              v-for="group in build.groups"
+              v-for="group in filteredGroups(build)"
               :key="group.id"
               class="flex flex-col bg-background border-b border-border last:border-b-0"
               :data-pob-build-group="group.kind"
               :data-pob-build-group-id="group.id"
             >
               <h4
-                class="m-0 flex items-center justify-between gap-[var(--pxd-space-sm)] border-b border-border bg-muted/35 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-body)] font-bold text-foreground select-none"
+                role="button"
+                tabindex="0"
+                data-pob-build-group-toggle
+                :aria-expanded="!isGroupCollapsed(build, group.id)"
+                :aria-label="t('pobBuild.toggleGroupAria', { name: groupTitle(group) })"
+                :class="{ 'border-b border-border': !isGroupCollapsed(build, group.id) }"
+                class="m-0 flex cursor-pointer items-center justify-between gap-[var(--pxd-space-sm)] bg-muted/35 hover:bg-muted/55 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-body)] font-bold text-foreground select-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                @click="toggleGroupCollapsed(build.id, group.id)"
+                @keydown.enter.prevent="toggleGroupCollapsed(build.id, group.id)"
+                @keydown.space.prevent="toggleGroupCollapsed(build.id, group.id)"
               >
                 <span class="min-w-0 truncate">{{ groupTitle(group) }}</span>
                 <span
-                  class="shrink-0 text-[length:var(--pxd-font-caption)] font-semibold text-muted-foreground tabular-nums"
-                  >{{ group.rows.length }}</span
+                  class="inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-semibold tabular-nums"
+                  :class="isGroupAllDone(group) ? 'text-primary' : 'text-muted-foreground'"
+                  data-pob-build-group-count
                 >
+                  <span>{{ groupCountLabel(group) }}</span>
+                  <ChevronDown
+                    class="size-[var(--control-icon-sm,14px)] transition-transform duration-150"
+                    :class="{ '-rotate-90': isGroupCollapsed(build, group.id) }"
+                    aria-hidden="true"
+                  />
+                </span>
               </h4>
 
-              <template v-for="row in group.rows" :key="row.key">
-                <div
-                  data-pob-build-row
-                  :data-done="row.done ? 'true' : 'false'"
-                  :class="
-                    isPreviewActive(build.id, row.key)
-                      ? 'bg-primary/12 hover:bg-primary/15 has-[[data-state=open]]:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
-                      : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40'
-                  "
-                  class="group/row relative flex items-center gap-[var(--pxd-space-sm)] border-0 border-b border-dashed border-border px-[var(--pxd-space-md)] py-[var(--pxd-bookmark-row-padding-y)] last:border-b-0 transition-colors"
-                >
-                  <Checkbox
-                    :model-value="row.done"
-                    :aria-label="t('pobBuild.doneAria', { name: row.label })"
-                    data-pob-build-done
-                    @update:model-value="toggleDone(build.id, row.key)"
-                  />
-
-                  <img
-                    v-if="row.icon"
-                    :src="row.icon"
-                    alt=""
-                    loading="lazy"
-                    data-pob-build-icon
-                    class="size-[var(--control-height-sm)] shrink-0 object-contain"
-                    :class="{ 'opacity-50': row.done }"
-                  />
-
-                  <component
-                    :is="canSearch(row) ? 'a' : 'button'"
-                    :type="canSearch(row) ? undefined : 'button'"
-                    :disabled="canSearch(row) ? undefined : true"
-                    :href="canSearch(row) ? resolveSearchUrl(build.id, row) : undefined"
-                    :tabindex="canSearch(row) ? 0 : undefined"
-                    :draggable="canSearch(row) ? 'false' : undefined"
-                    data-pob-build-search
-                    class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-body)] text-foreground no-underline cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    :class="{ 'line-through opacity-50': row.done, 'opacity-60': !canSearch(row) }"
-                    :title="rowTooltip(row)"
-                    @click.prevent="handleEntryPrimaryClick(build.id, row, $event)"
-                    @auxclick="handleEntryAuxClick(build.id, row, $event)"
-                    @keydown.enter.prevent="handleEntryPrimaryClick(build.id, row, $event)"
-                    @keydown.space.prevent="toggleDone(build.id, row.key)"
-                  >
-                    <span class="flex min-w-0 items-baseline gap-[var(--pxd-space-xs)]">
-                      <span class="min-w-0 truncate font-medium" :class="nameClass(row)">{{
-                        row.label
-                      }}</span>
-                      <span
-                        v-if="row.suffix"
-                        data-pob-build-suffix
-                        class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums"
-                        >{{ row.suffix }}</span
-                      >
-                      <span
-                        v-if="row.count > 1"
-                        data-pob-build-count
-                        class="shrink-0 rounded-sm bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-bold text-foreground tabular-nums"
-                        :title="t('pobBuild.countTitle', { count: row.count })"
-                        >×{{ row.count }}</span
-                      >
-                      <span
-                        v-if="row.searchCustomized"
-                        data-pob-build-customized
-                        role="img"
-                        class="size-[6px] shrink-0 self-center rounded-full bg-primary"
-                        :title="t('pobBuild.customizedTitle')"
-                        :aria-label="t('pobBuild.customizedTitle')"
-                      />
-                    </span>
-                    <span
-                      class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground group-hover/row:opacity-0 group-focus-within/row:opacity-0"
-                      :class="{ 'opacity-0': isMenuOpen(build.id, row.key) }"
-                    >
-                      <span>{{ rowDetail(row) }}</span>
-                    </span>
-                  </component>
-
+              <template v-if="!isGroupCollapsed(build, group.id)">
+                <template v-for="(row, rowIndex) in group.rows" :key="row.key">
                   <div
+                    data-pob-build-row
+                    :data-done="row.done ? 'true' : 'false'"
+                    :data-done-divider="isFirstDoneRow(group.rows, rowIndex) ? 'true' : undefined"
                     :class="[
                       isPreviewActive(build.id, row.key)
-                        ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--background))]'
-                        : '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_40%,var(--background))]',
-                      { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
+                        ? 'bg-primary/12 hover:bg-primary/15 has-[[data-state=open]]:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
+                        : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40',
+                      isFirstDoneRow(group.rows, rowIndex)
+                        ? 'border-t border-solid border-t-border'
+                        : '',
                     ]"
-                    class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
+                    class="group/row relative flex items-center gap-[var(--pxd-space-sm)] border-0 border-b border-dashed border-border px-[var(--pxd-space-md)] py-[var(--pxd-bookmark-row-padding-y)] last:border-b-0 transition-colors"
                   >
-                    <Button
-                      v-if="searchEntryClickAction === 'preview' && canSearch(row)"
-                      variant="ghost"
-                      size="icon-sm"
-                      data-pob-build-open
-                      :title="t('pobBuild.searchCurrentBtn')"
-                      :aria-label="t('pobBuild.searchCurrentBtn')"
-                      @click.stop="openSearch(build.id, row, 'current')"
+                    <Checkbox
+                      :model-value="row.done"
+                      :aria-label="t('pobBuild.doneAria', { name: row.label })"
+                      data-pob-build-done
+                      @update:model-value="toggleDone(build.id, row.key)"
+                    />
+
+                    <img
+                      v-if="row.icon"
+                      :src="row.icon"
+                      alt=""
+                      loading="lazy"
+                      data-pob-build-icon
+                      class="size-[var(--control-height-sm)] shrink-0 object-contain"
+                      :class="{ 'opacity-50': row.done }"
+                    />
+                    <span
+                      v-else-if="groupHasIcons(group)"
+                      aria-hidden="true"
+                      class="size-[var(--control-height-sm)] shrink-0"
+                    />
+
+                    <component
+                      :is="canSearch(row) ? 'a' : 'button'"
+                      :type="canSearch(row) ? undefined : 'button'"
+                      :disabled="canSearch(row) ? undefined : true"
+                      :href="canSearch(row) ? resolveSearchUrl(build.id, row) : undefined"
+                      :tabindex="canSearch(row) ? 0 : undefined"
+                      :draggable="canSearch(row) ? 'false' : undefined"
+                      data-pob-build-search
+                      class="flex min-h-[var(--control-height-sm)] min-w-0 flex-1 items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-body)] text-foreground no-underline cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      :class="{
+                        'line-through opacity-50': row.done,
+                        'opacity-60': !canSearch(row),
+                      }"
+                      :title="rowTooltip(row)"
+                      @click.prevent="handleEntryPrimaryClick(build.id, row, $event)"
+                      @auxclick="handleEntryAuxClick(build.id, row, $event)"
+                      @keydown.enter.prevent="handleEntryPrimaryClick(build.id, row, $event)"
+                      @keydown.space.prevent="toggleDone(build.id, row.key)"
                     >
-                      <ArrowRight />
-                    </Button>
-                    <Button
-                      v-else-if="canPreview(row)"
-                      variant="ghost"
-                      size="icon-sm"
-                      :class="
-                        isPreviewActive(build.id, row.key)
-                          ? 'text-primary bg-primary/15'
-                          : undefined
-                      "
-                      data-pob-build-mods-toggle
-                      :aria-expanded="isPreviewActive(build.id, row.key)"
-                      :title="t('pobBuild.toggleModsTitle')"
-                      :aria-label="t('pobBuild.toggleModsTitle')"
-                      @click.stop="togglePreview(build.id, row.key, $event)"
-                    >
-                      <SlidersHorizontal />
-                    </Button>
-                    <Button
-                      v-if="canSearch(row)"
-                      variant="ghost"
-                      size="icon-sm"
-                      data-pob-build-open-new-tab
-                      :title="t('pobBuild.openNewTabTitle')"
-                      :aria-label="t('pobBuild.openNewTabTitle')"
-                      @click.stop="openSearch(build.id, row, 'new-tab')"
-                    >
-                      <ExternalLink />
-                    </Button>
-                    <DropdownMenu
-                      :open="isMenuOpen(build.id, row.key)"
-                      @update:open="(open) => setMenuOpen(build.id, row.key, open)"
-                    >
-                      <DropdownMenuTrigger as-child>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          data-pob-build-more
-                          :title="t('pobBuild.moreActionsTitle')"
-                          :aria-label="t('pobBuild.moreActionsTitle')"
-                          @click.stop
+                      <span class="flex min-w-0 items-baseline gap-[var(--pxd-space-xs)]">
+                        <span class="min-w-0 truncate font-medium" :class="nameClass(row)">{{
+                          row.label
+                        }}</span>
+                        <span
+                          v-if="row.suffix"
+                          data-pob-build-suffix
+                          class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums"
+                          >{{ row.suffix }}</span
                         >
-                          <Ellipsis />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        v-if="isMenuOpen(build.id, row.key)"
-                        align="end"
-                        class="max-h-[min(calc(var(--pxd-menu-max-height,240px)_*_1.5),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))]"
-                      >
-                        <DropdownMenuItem
-                          :disabled="!canSearch(row)"
-                          data-pob-build-send-console
-                          @click="sendToLiveSearch(build.id, row)"
+                        <span
+                          v-if="row.count > 1"
+                          data-pob-build-count
+                          class="shrink-0 rounded-sm bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-bold text-foreground tabular-nums"
+                          :title="t('pobBuild.countTitle', { count: row.count })"
+                          >×{{ row.count }}</span
                         >
-                          <Send class="text-muted-foreground" />
-                          {{ t('pobBuild.sendToConsole') }}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          :disabled="!canSearch(row)"
-                          data-pob-build-open-live
-                          @click="openLiveSearch(build.id, row)"
-                        >
-                          <Radio class="text-muted-foreground" />
-                          {{ t('pobBuild.openLiveSearch') }}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          data-pob-build-save-current
-                          @click="saveCurrentSearch(build.id, row)"
-                        >
-                          <Save class="text-muted-foreground" />
-                          {{ t('pobBuild.saveCurrentSearch') }}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
+                        <span
                           v-if="row.searchCustomized"
-                          data-pob-build-menu-reset
-                          @click="resetSearch(build.id, row.key)"
+                          data-pob-build-customized
+                          role="img"
+                          class="size-[6px] shrink-0 self-center rounded-full bg-primary"
+                          :title="t('pobBuild.customizedTitle')"
+                          :aria-label="t('pobBuild.customizedTitle')"
+                        />
+                      </span>
+                      <span
+                        class="flex shrink-0 items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] text-muted-foreground group-hover/row:opacity-0 group-focus-within/row:opacity-0"
+                        :class="{ 'opacity-0': isMenuOpen(build.id, row.key) }"
+                      >
+                        <span>{{ rowDetail(row) }}</span>
+                      </span>
+                    </component>
+
+                    <div
+                      :class="[
+                        isPreviewActive(build.id, row.key)
+                          ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--background))]'
+                          : '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_40%,var(--background))]',
+                        { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
+                      ]"
+                      class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto group-focus-within/row:opacity-100 group-focus-within/row:pointer-events-auto"
+                    >
+                      <Button
+                        v-if="searchEntryClickAction === 'preview' && canSearch(row)"
+                        variant="ghost"
+                        size="icon-sm"
+                        data-pob-build-open
+                        :title="t('pobBuild.searchCurrentBtn')"
+                        :aria-label="t('pobBuild.searchCurrentBtn')"
+                        @click.stop="openSearch(build.id, row, 'current')"
+                      >
+                        <ArrowRight />
+                      </Button>
+                      <Button
+                        v-else-if="canPreview(row)"
+                        variant="ghost"
+                        size="icon-sm"
+                        :class="
+                          isPreviewActive(build.id, row.key)
+                            ? 'text-primary bg-primary/15'
+                            : undefined
+                        "
+                        data-pob-build-mods-toggle
+                        :aria-expanded="isPreviewActive(build.id, row.key)"
+                        :title="t('pobBuild.toggleModsTitle')"
+                        :aria-label="t('pobBuild.toggleModsTitle')"
+                        @click.stop="togglePreview(build.id, row.key, $event)"
+                      >
+                        <SlidersHorizontal />
+                      </Button>
+                      <Button
+                        v-if="canSearch(row)"
+                        variant="ghost"
+                        size="icon-sm"
+                        data-pob-build-open-new-tab
+                        :title="t('pobBuild.openNewTabTitle')"
+                        :aria-label="t('pobBuild.openNewTabTitle')"
+                        @click.stop="openSearch(build.id, row, 'new-tab')"
+                      >
+                        <ExternalLink />
+                      </Button>
+                      <DropdownMenu
+                        :open="isMenuOpen(build.id, row.key)"
+                        @update:open="(open) => setMenuOpen(build.id, row.key, open)"
+                      >
+                        <DropdownMenuTrigger as-child>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            data-pob-build-more
+                            :title="t('pobBuild.moreActionsTitle')"
+                            :aria-label="t('pobBuild.moreActionsTitle')"
+                            @click.stop
+                          >
+                            <Ellipsis />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          v-if="isMenuOpen(build.id, row.key)"
+                          align="end"
+                          class="max-h-[min(calc(var(--pxd-menu-max-height,240px)_*_1.5),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))]"
                         >
-                          <RotateCcw class="text-muted-foreground" />
-                          {{ t('pobBuild.mods.reset') }}
-                        </DropdownMenuItem>
-                        <DropdownMenuSub>
-                          <DropdownMenuSubTrigger
+                          <DropdownMenuItem
                             :disabled="!canSearch(row)"
-                            data-pob-build-add-bookmark
+                            data-pob-build-send-console
+                            @click="sendToLiveSearch(build.id, row)"
                           >
-                            <BookmarkPlus class="text-muted-foreground" />
-                            {{ t('pobBuild.addToBookmarks') }}
-                          </DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent
-                            class="w-[var(--pxd-menu-sub-width,192px)] max-h-[min(var(--pxd-menu-sub-max-height,180px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))] overflow-y-auto pxd-scrollbar"
+                            <Send class="text-muted-foreground" />
+                            {{ t('pobBuild.sendToConsole') }}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            :disabled="!canSearch(row)"
+                            data-pob-build-open-live
+                            @click="openLiveSearch(build.id, row)"
                           >
-                            <DropdownMenuItem
-                              v-if="bookmarkFolders === null"
-                              disabled
-                              class="text-muted-foreground"
+                            <Radio class="text-muted-foreground" />
+                            {{ t('pobBuild.openLiveSearch') }}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            data-pob-build-save-current
+                            @click="saveCurrentSearch(build.id, row)"
+                          >
+                            <Save class="text-muted-foreground" />
+                            {{ t('pobBuild.saveCurrentSearch') }}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            v-if="row.searchCustomized"
+                            data-pob-build-menu-reset
+                            @click="resetSearch(build.id, row.key)"
+                          >
+                            <RotateCcw class="text-muted-foreground" />
+                            {{ t('pobBuild.mods.reset') }}
+                          </DropdownMenuItem>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger
+                              :disabled="!canSearch(row)"
+                              data-pob-build-add-bookmark
                             >
-                              {{ t('pobBuild.loadingFolders') }}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              v-else-if="bookmarkFolders.length === 0"
-                              disabled
-                              class="text-muted-foreground"
+                              <BookmarkPlus class="text-muted-foreground" />
+                              {{ t('pobBuild.addToBookmarks') }}
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent
+                              class="w-[var(--pxd-menu-sub-width,192px)] max-h-[min(var(--pxd-menu-sub-max-height,180px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))] overflow-y-auto pxd-scrollbar"
                             >
-                              {{ t('pobBuild.noFolders') }}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              v-for="folder in bookmarkFolders ?? []"
-                              :key="folder.id"
-                              data-pob-build-bookmark-folder
-                              @click="addToBookmarks(build.id, row, folder.id)"
-                            >
-                              <span
-                                v-if="getFolderItemIndentLevel(folder.depth) > 0"
-                                class="flex shrink-0 items-center -mr-[var(--control-gap-sm)]"
-                                aria-hidden="true"
+                              <DropdownMenuItem
+                                v-if="bookmarkFolders === null"
+                                disabled
+                                class="text-muted-foreground"
+                              >
+                                {{ t('pobBuild.loadingFolders') }}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                v-else-if="bookmarkFolders.length === 0"
+                                disabled
+                                class="text-muted-foreground"
+                              >
+                                {{ t('pobBuild.noFolders') }}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                v-for="folder in bookmarkFolders ?? []"
+                                :key="folder.id"
+                                data-pob-build-bookmark-folder
+                                @click="addToBookmarks(build.id, row, folder.id)"
                               >
                                 <span
-                                  v-for="step in getFolderItemIndentLevel(folder.depth)"
-                                  :key="step"
-                                  class="w-[var(--pxd-space-md)] shrink-0"
-                                />
-                              </span>
-                              <Folder class="shrink-0 text-muted-foreground" />
-                              <span class="min-w-0 flex-1 truncate">{{ folder.name }}</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          data-pob-build-remove
-                          @click="removeEntry(build.id, row.key)"
-                        >
-                          <Trash2 class="text-destructive" />
-                          {{ t('pobBuild.removeTitle') }}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                                  v-if="getFolderItemIndentLevel(folder.depth) > 0"
+                                  class="flex shrink-0 items-center -mr-[var(--control-gap-sm)]"
+                                  aria-hidden="true"
+                                >
+                                  <span
+                                    v-for="step in getFolderItemIndentLevel(folder.depth)"
+                                    :key="step"
+                                    class="w-[var(--pxd-space-md)] shrink-0"
+                                  />
+                                </span>
+                                <Folder class="shrink-0 text-muted-foreground" />
+                                <span class="min-w-0 flex-1 truncate">{{ folder.name }}</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            data-pob-build-remove
+                            @click="removeEntry(build.id, row.key)"
+                          >
+                            <Trash2 class="text-destructive" />
+                            {{ t('pobBuild.removeTitle') }}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                </div>
+                </template>
               </template>
             </section>
           </template>
@@ -862,6 +929,102 @@ export default defineComponent({
       return found ? setLabel(found) : '';
     };
 
+    /** 群組收合狀態（key = `${buildId}\0${groupId}`）；只在這個工作階段內記憶 */
+    const collapsedGroups = ref<ReadonlySet<string>>(new Set());
+    type ShoppingCategory = 'all' | 'gear' | 'flask' | 'jewel' | 'gem';
+    const CATEGORY_ORDER: readonly Exclude<ShoppingCategory, 'all'>[] = [
+      'gear',
+      'flask',
+      'jewel',
+      'gem',
+    ];
+    const activeCategoryByBuild = ref<Record<string, ShoppingCategory>>({});
+
+    const entryCategory = (entry: ShoppingEntry): Exclude<ShoppingCategory, 'all'> => {
+      if (entry.kind === 'gem') return 'gem';
+      const slot = entry.slot ?? '';
+      if (slot.startsWith('Flask')) return 'flask';
+      if (slot.includes('Jewel') || slot.includes('Abyssal Socket')) return 'jewel';
+      return 'gear';
+    };
+
+    const buildCategories = (build: BuildView): Exclude<ShoppingCategory, 'all'>[] => {
+      const present = new Set<Exclude<ShoppingCategory, 'all'>>();
+      for (const group of build.groups) {
+        for (const row of group.rows) present.add(entryCategory(row));
+      }
+      return CATEGORY_ORDER.filter((cat) => present.has(cat));
+    };
+
+    const activeCategory = (build: BuildView): ShoppingCategory => {
+      const selected = activeCategoryByBuild.value[build.id] ?? 'all';
+      if (selected === 'all') return 'all';
+      return buildCategories(build).includes(selected) ? selected : 'all';
+    };
+
+    const setActiveCategory = (buildId: string, category: ShoppingCategory) => {
+      activeCategoryByBuild.value = { ...activeCategoryByBuild.value, [buildId]: category };
+    };
+
+    const categoryLabel = (category: ShoppingCategory): string => {
+      const keys: Record<ShoppingCategory, I18nKey> = {
+        all: 'pobBuild.category.all',
+        gear: 'pobBuild.category.gear',
+        flask: 'pobBuild.category.flask',
+        jewel: 'pobBuild.category.jewel',
+        gem: 'pobBuild.category.gem',
+      };
+      return t(keys[category]);
+    };
+
+    const filteredGroups = (build: BuildView): ShoppingGroup[] => {
+      if (isFiltering.value) return build.groups;
+      const category = activeCategory(build);
+      if (category === 'all') return build.groups;
+      return build.groups
+        .map((group) => ({
+          ...group,
+          rows: group.rows.filter((row) => entryCategory(row) === category),
+        }))
+        .filter((group) => group.rows.length > 0);
+    };
+
+    const groupKey = (buildId: string, groupId: string) => `${buildId}\u0000${groupId}`;
+    const isGroupCollapsed = (build: BuildView, groupId: string) =>
+      !isFiltering.value &&
+      activeCategory(build) === 'all' &&
+      collapsedGroups.value.has(groupKey(build.id, groupId));
+
+    const toggleGroupCollapsed = (buildId: string, groupId: string) => {
+      const key = groupKey(buildId, groupId);
+      const next = new Set(collapsedGroups.value);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      collapsedGroups.value = next;
+    };
+
+    const progressPercent = (build: BuildView): string =>
+      build.progress.total > 0
+        ? `${Math.min(100, Math.round((build.progress.done / build.progress.total) * 100))}%`
+        : '0%';
+
+    const groupDoneCount = (group: ShoppingGroup): number =>
+      group.rows.filter((row) => row.done).length;
+
+    const groupCountLabel = (group: ShoppingGroup): string => {
+      const done = groupDoneCount(group);
+      return done > 0 ? `${done}/${group.rows.length}` : String(group.rows.length);
+    };
+
+    const isGroupAllDone = (group: ShoppingGroup): boolean =>
+      group.rows.length > 0 && groupDoneCount(group) === group.rows.length;
+
+    const groupHasIcons = (group: ShoppingGroup): boolean =>
+      group.rows.some((row) => Boolean(row.icon));
+
+    const isFirstDoneRow = (rows: readonly ShoppingRow[], index: number): boolean =>
+      Boolean(rows[index]?.done && index > 0 && !rows[index - 1]?.done);
+
     const groupTitle = (group: ShoppingGroup): string => {
       if (group.kind === 'equipment') return t('pobBuild.group.equipment');
       return group.slot
@@ -907,7 +1070,8 @@ export default defineComponent({
       if (!target) return null;
       const build = visibleBuilds.value.find((entry) => entry.id === target.buildId);
       if (!build || (build.collapsed && !isFiltering.value)) return null;
-      for (const group of build.groups) {
+      for (const group of filteredGroups(build)) {
+        if (isGroupCollapsed(build, group.id)) continue;
         const found = group.rows.find((entry) => entry.key === target.key);
         if (found) return { buildId: build.id, row: found };
       }
@@ -1100,6 +1264,18 @@ export default defineComponent({
       showSkillSets,
       setLabel,
       activeSetLabel,
+      progressPercent,
+      buildCategories,
+      activeCategory,
+      setActiveCategory,
+      categoryLabel,
+      filteredGroups,
+      isGroupCollapsed,
+      toggleGroupCollapsed,
+      groupCountLabel,
+      isGroupAllDone,
+      groupHasIcons,
+      isFirstDoneRow,
       groupTitle,
       rowDetail,
       nameClass,

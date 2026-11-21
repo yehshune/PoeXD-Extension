@@ -117,6 +117,8 @@
                 :aria-label="tab.name"
                 :aria-pressed="activeTab === tab.id"
                 :data-sidebar-tab="tab.id"
+                @mouseenter="handleNavTabIntent(tab.id)"
+                @focus="handleNavTabIntent(tab.id)"
                 @click="activeTab = tab.id"
               >
                 <component :is="tab.icon" class="w-5 h-5" />
@@ -154,6 +156,8 @@
                 :aria-label="tab.name"
                 :aria-pressed="activeTab === tab.id"
                 :data-sidebar-tab="tab.id"
+                @mouseenter="handleNavTabIntent(tab.id)"
+                @focus="handleNavTabIntent(tab.id)"
                 @click="activeTab = tab.id"
               >
                 <component :is="tab.icon" class="w-5 h-5" />
@@ -170,6 +174,8 @@
                 :aria-label="tab.name"
                 :aria-pressed="activeTab === tab.id"
                 :data-sidebar-tab="tab.id"
+                @mouseenter="handleNavTabIntent(tab.id)"
+                @focus="handleNavTabIntent(tab.id)"
                 @click="activeTab = tab.id"
               >
                 <component :is="tab.icon" class="w-5 h-5" />
@@ -584,6 +590,7 @@ import HistoryPane from './sidebar/HistoryPane.vue';
 import StatGroupTemplatePane from './sidebar/stat-group-templates/StatGroupTemplatePane.vue';
 import ToolsPane from './sidebar/ToolsPane.vue';
 import PobBuildPane from './sidebar/pob-build/PobBuildPane.vue';
+import { capturePendingPobIconInBackground, prewarmPobData } from './sidebar/pob-build/pob-prewarm';
 import PinnedItemPane from './sidebar/pinned-items/PinnedItemPane.vue';
 import ResultBoardPane from './sidebar/result-board/ResultBoardPane.vue';
 import SettingsPane from './sidebar/SettingsPane.vue';
@@ -1701,7 +1708,61 @@ export default defineComponent({
       void nextTick(() => pageGuide.startTour());
     });
 
+    let pobPrewarmScheduled = false;
+    let cancelPobIdlePrewarm: (() => void) | undefined;
+    let pobIconCaptureStarted = false;
+    let stopPobIconCapture: (() => void) | undefined;
+
+    const triggerPobPrewarm = () => {
+      if (
+        pageRole.value !== 'normal' ||
+        !isModuleEnabled('pob-build') ||
+        isTabMounted('pob-build')
+      ) {
+        return;
+      }
+      cancelPobIdlePrewarm?.();
+      cancelPobIdlePrewarm = undefined;
+      void prewarmPobData(version);
+    };
+
+    const handleNavTabIntent = (tabId: string) => {
+      if (tabId === 'pob-build') triggerPobPrewarm();
+    };
+
+    watchEffect(() => {
+      if (
+        pageRole.value !== 'normal' ||
+        !sidebarStateReady.value ||
+        !isModuleEnabled('pob-build')
+      ) {
+        return;
+      }
+      if (!pobIconCaptureStarted) {
+        pobIconCaptureStarted = true;
+        stopPobIconCapture = capturePendingPobIconInBackground(version);
+      }
+      if (pobPrewarmScheduled || isTabMounted('pob-build')) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      pobPrewarmScheduled = true;
+      const run = () => {
+        cancelPobIdlePrewarm = undefined;
+        triggerPobPrewarm();
+      };
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        const idleId = window.requestIdleCallback(run, { timeout: 2000 });
+        cancelPobIdlePrewarm = () => window.cancelIdleCallback?.(idleId);
+      } else {
+        const timerId = setTimeout(run, 1500);
+        cancelPobIdlePrewarm = () => clearTimeout(timerId);
+      }
+    });
+
     onUnmounted(() => {
+      cancelPobIdlePrewarm?.();
+      cancelPobIdlePrewarm = undefined;
+      stopPobIconCapture?.();
+      stopPobIconCapture = undefined;
       pageGuide.setTourContext(null);
       stopStepDemo();
       finishCollapseAnimation();
@@ -1755,6 +1816,7 @@ export default defineComponent({
       runtimeTokens,
       activeTab,
       isTabMounted,
+      handleNavTabIntent,
       primaryActiveTab,
       primaryPinnedMounted,
       openPrimaryTab,

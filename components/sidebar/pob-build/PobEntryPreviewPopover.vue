@@ -76,12 +76,21 @@ const emit = defineEmits<{
   (e: 'open-search', mode: 'current' | 'new-tab', row: ShoppingRow): void;
 }>();
 
-/** Popover 內的暫存微調草稿；未微調為 null，關閉或切換項目時清空，不自動寫入儲存。 */
+/** Popover 內的暫存微調草稿；未微調為 null，依項目暫存於工作階段，避免誤關視窗遺失調整。 */
+const draftsByTarget = new Map<string, EntrySearchSelection>();
 const draftSelection = ref<EntrySearchSelection | null>(null);
 
-watch([() => props.open, () => props.buildId, () => props.row?.key], () => {
-  draftSelection.value = null;
-});
+const currentTargetKey = () => (props.row ? `${props.buildId}\u0000${props.row.key}` : '');
+
+watch(
+  [() => props.open, () => props.buildId, () => props.row?.key],
+  () => {
+    const key = currentTargetKey();
+    const saved = key ? draftsByTarget.get(key) : undefined;
+    draftSelection.value = saved ? cloneEntrySearchSelection(saved) : null;
+  },
+  { immediate: true },
+);
 
 const effectiveRow = computed<ShoppingRow | null>(() => {
   const row = props.row;
@@ -178,6 +187,19 @@ const hasPseudo = computed(
   () => effectiveRow.value?.mods?.some((mod) => mod.stat?.pseudo) ?? false,
 );
 
+const hasEnabledNumericBounds = computed(() =>
+  Boolean(
+    effectiveRow.value &&
+    !effectiveRow.value.searchOverride &&
+    effectiveRow.value.filters.some(
+      (filter) =>
+        filter.enabled &&
+        filter.value !== undefined &&
+        (filter.min !== undefined || filter.max !== undefined),
+    ),
+  ),
+);
+
 function controlId(name: string): string {
   const raw = `${props.buildId}\u0000${props.row?.key ?? ''}`;
   return `pob-popover-${name}-${Array.from(raw, (char) => char.charCodeAt(0).toString(36)).join('')}`;
@@ -193,7 +215,10 @@ function mutateDraft(update: (draft: EntrySearchSelection) => EntrySearchSelecti
   const current = draftSelection.value
     ? cloneEntrySearchSelection(draftSelection.value)
     : selectionFromRowState(row);
-  draftSelection.value = update(current);
+  const next = update(current);
+  draftSelection.value = next;
+  const key = currentTargetKey();
+  if (key) draftsByTarget.set(key, cloneEntrySearchSelection(next));
 }
 
 function setStatEnabled(statId: string, enabled: boolean): void {
@@ -235,15 +260,71 @@ function setPseudo(on: boolean): void {
   mutateDraft(({ pseudo: _previous, ...draft }) => (on ? { ...draft, pseudo: true } : draft));
 }
 
+function relaxBounds(): void {
+  const row = effectiveRow.value;
+  if (!row || row.searchOverride) return;
+  mutateDraft((draft) => {
+    const nextStats = { ...draft.stats };
+    for (const filter of row.filters) {
+      if (!filter.enabled || filter.value === undefined) continue;
+      if (filter.min === undefined && filter.max === undefined) continue;
+      const entry = { ...nextStats[filter.key] };
+      if (filter.min !== undefined) {
+        entry.min =
+          filter.min > 0
+            ? Math.floor(filter.min * 0.9)
+            : filter.min < 0
+              ? Math.floor(filter.min * 1.1)
+              : 0;
+      }
+      if (filter.max !== undefined) {
+        entry.max =
+          filter.max < 0
+            ? Math.ceil(filter.max * 0.9)
+            : filter.max > 0
+              ? Math.ceil(filter.max * 1.1)
+              : 0;
+      }
+      nextStats[filter.key] = entry;
+    }
+    return { ...draft, stats: nextStats };
+  });
+}
+
+function clearBounds(): void {
+  const row = effectiveRow.value;
+  if (!row || row.searchOverride) return;
+  mutateDraft((draft) => {
+    const nextStats = { ...draft.stats };
+    for (const filter of row.filters) {
+      if (!filter.enabled || filter.value === undefined) continue;
+      if (filter.min === undefined && filter.max === undefined) continue;
+      nextStats[filter.key] = { ...nextStats[filter.key], min: null, max: null };
+    }
+    return { ...draft, stats: nextStats };
+  });
+}
+
 function saveDraft(): void {
   if (!props.row || !draftSelection.value) return;
   const normalized = normalizeSelectionForEntry(props.row, draftSelection.value);
+  const key = currentTargetKey();
+  if (key) draftsByTarget.delete(key);
   draftSelection.value = null;
   emit('save-selection', normalized);
 }
 
 function discardDraft(): void {
+  const key = currentTargetKey();
+  if (key) draftsByTarget.delete(key);
   draftSelection.value = null;
+}
+
+function handleResetSearch(): void {
+  const key = currentTargetKey();
+  if (key) draftsByTarget.delete(key);
+  draftSelection.value = null;
+  emit('reset-search');
 }
 </script>
 
@@ -332,7 +413,7 @@ function discardDraft(): void {
           size="sm"
           class="ml-auto px-[var(--pxd-space-sm)]"
           data-pob-build-reset-search
-          @click="emit('reset-search')"
+          @click="handleResetSearch"
         >
           <RotateCcw aria-hidden="true" />
           {{ t('pobBuild.mods.reset') }}
@@ -406,6 +487,31 @@ function discardDraft(): void {
             <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums">
               ({{ searchedModCount }}/{{ effectiveRow.mods.length }})
             </span>
+            <div
+              v-if="hasEnabledNumericBounds"
+              class="ml-auto flex items-center gap-[var(--pxd-space-xs)]"
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                class="h-auto px-[var(--pxd-space-xs)] py-[2px] text-[length:var(--pxd-font-caption)] text-muted-foreground hover:text-foreground"
+                data-pob-build-relax-bounds
+                :title="t('pobBuild.mods.relaxBoundsTitle')"
+                @click="relaxBounds"
+              >
+                {{ t('pobBuild.mods.relaxBounds') }}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                class="h-auto px-[var(--pxd-space-xs)] py-[2px] text-[length:var(--pxd-font-caption)] text-muted-foreground hover:text-foreground"
+                data-pob-build-clear-bounds
+                :title="t('pobBuild.mods.clearBoundsTitle')"
+                @click="clearBounds"
+              >
+                {{ t('pobBuild.mods.clearBounds') }}
+              </Button>
+            </div>
           </div>
 
           <div :class="[PREVIEW_CARD_CLASS, { 'opacity-60': effectiveRow.searchOverride }]">

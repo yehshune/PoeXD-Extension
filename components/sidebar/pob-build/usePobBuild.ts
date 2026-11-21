@@ -59,6 +59,7 @@ import {
   type PobBookmarkBridge,
   type PobBookmarkFolder,
 } from './pob-bookmark-bridge';
+import { decodePobBuildCached, loadPobReferenceData } from './pob-prewarm';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
 
 export interface UsePobBuildDeps {
@@ -383,12 +384,27 @@ export function usePobBuild(
   /** 每次開始同步遞增；同步算完時不是最新一次就捨棄結果 */
   let syncGeneration = 0;
 
+  const hasLoaderOverrides =
+    'loadCatalog' in overrides ||
+    'loadMatcher' in overrides ||
+    'loadVisceraMods' in overrides ||
+    'loadModTranslator' in overrides;
+
   /**
    * 名稱資料必要（載不到就無法搜尋）。詞綴對應與翻譯載不到時仍可用，只是稀有裝少了詞綴條件、
-   * 詞綴維持英文。
+   * 詞綴維持英文。使用預設載入器時與背景預熱共用快取，切進分頁時直接命中。
    */
   const ensureData = async (): Promise<void> => {
     if (catalog.value) return;
+    if (!hasLoaderOverrides) {
+      const loaded = await loadPobReferenceData(version, deps);
+      displayNames.value = loaded.displayNames;
+      catalog.value = loaded.catalog;
+      matcher.value = loaded.matcher;
+      visceraMods.value = loaded.visceraMods;
+      modTranslator.value = loaded.modTranslator;
+      return;
+    }
     const pageLocale = deps.getPageLocale();
     const displayLocale = deps.getDisplayLocale();
     const [loadedCatalog, loadedMatcher, loadedTranslator, loadedDisplayNames, loadedParts] =
@@ -572,7 +588,9 @@ export function usePobBuild(
 
   /** 解開代碼並確認遊戲版本與目前頁面相同 */
   const decodeBuild = async (code: string): Promise<PobBuild> => {
-    const build = parsePobBuildXml(await decodePobBuildCode(code));
+    const build = hasLoaderOverrides
+      ? parsePobBuildXml(await decodePobBuildCode(code))
+      : await decodePobBuildCached(code);
     if (build.gameVersion !== version) throw new VersionMismatchError();
     return build;
   };
