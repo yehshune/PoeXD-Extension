@@ -2,9 +2,12 @@ import { parseTradeSearchUrl, type ParsedTradeSearchIdentity } from './trade-sea
 import {
   extractFilterOptionValue,
   formatFilterValue,
+  loadTradeDictionaries,
   translateItemName,
+  translateStatLines,
 } from './trade-stat-dictionary';
-import type { PoeVersion } from './trade-context';
+import { getTradeVersionProfile, type PoeVersion } from './trade-context';
+import { t } from './i18n';
 
 /**
  * 檢查 Base64URL 字串是否為合法的 Gzip 格式（包含 0x1f, 0x8b, 0x08 magic header）
@@ -262,4 +265,56 @@ export function extractQueryMetadata(
     stats: statsList,
     filters: filtersList,
   };
+}
+
+/**
+ * 判斷網頁標題是否為官方預設或未命名的通用標題。
+ */
+const GENERIC_OFFICIAL_TITLES = new Set([
+  'Path of Exile - Trade',
+  'Trade - Path of Exile',
+  '流亡黯道 - 交易',
+  '交易 - 流亡黯道',
+  '流亡黯道 - 交易市集',
+  '流亡黯道2 - 交易',
+  '交易 - 流亡黯道2',
+]);
+
+export function isGenericTradePageTitle(rawTitle: string, version: PoeVersion = 'poe1'): boolean {
+  const trimmed = rawTitle.trim();
+  if (!trimmed) return true;
+  if (GENERIC_OFFICIAL_TITLES.has(trimmed)) return true;
+  const defaultPageTitle = t('bookmark.defaultPageTitle');
+  const unnamedSearch = t('injectedControls.unnamedSearch');
+  const officialDefault = getTradeVersionProfile(version).defaultTitle;
+  return trimmed === defaultPageTitle || trimmed === unnamedSearch || trimmed === officialDefault;
+}
+
+/**
+ * 當網頁標題為通用預設值時，嘗試從市集搜尋 URL 解碼並推導可讀的書籤標題：
+ * 1. 優先使用 extractQueryMetadata 的 suggestedName（傳奇名／基底／分類／稀有度）
+ * 2. 若僅有詞綴條件，取前 2 條詞綴的翻譯名稱拼裝
+ */
+export async function deriveSearchTitleFromUrl(url: string): Promise<string> {
+  try {
+    const decoded = await decodeTradeSearchUrl(url);
+    if (!decoded) return '';
+    try {
+      await loadTradeDictionaries(decoded.gameVersion);
+    } catch {
+      // 字典載入失敗時仍可退回未翻譯或 ID
+    }
+    const meta = extractQueryMetadata(decoded.query, decoded.gameVersion);
+    if (meta.suggestedName?.trim()) return meta.suggestedName.trim();
+    if (meta.stats.length > 0) {
+      const statNames = meta.stats
+        .slice(0, 2)
+        .map((s) => translateStatLines(s.id, decoded.gameVersion)[0] ?? s.id)
+        .filter(Boolean);
+      if (statNames.length > 0) return statNames.join(' · ');
+    }
+  } catch {
+    // Best-effort title derivation
+  }
+  return '';
 }

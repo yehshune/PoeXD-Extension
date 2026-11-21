@@ -92,8 +92,8 @@ export interface CriteriaOverlayManager {
   reorderTemplates(orderedIds: readonly string[]): Promise<void>;
   /** 目前清單的匯出內容（見 stat-group-template-transfer）。 */
   exportTemplates(): string;
-  /** 請使用者貼上匯出內容後附加匯入（若已傳入 rawText 則直接解析匯入）。 */
-  importTemplates(rawText?: string): Promise<void>;
+  /** 請使用者貼上匯出內容後附加匯入。 */
+  importTemplates(): Promise<void>;
   /** 直接附加匯入已解析的常用詞綴群組項目。 */
   importTemplateEntries(
     entries: readonly { name: string; statGroups: readonly CriteriaOverlayStatGroup[] }[],
@@ -103,8 +103,8 @@ export interface CriteriaOverlayManager {
   clearTemplates(): Promise<void>;
 }
 
-/** 依名稱或群組內詞綴文字篩選（不分大小寫）；空白查詢回傳原陣列。 */
-export function filterTemplatesByName(
+/** 依名稱、詞綴 ID 或群組內詞綴文字篩選（不分大小寫）；空白查詢回傳原陣列。 */
+export function filterTemplates(
   templates: readonly StatGroupTemplate[],
   query: string,
   version?: PoeVersion,
@@ -126,6 +126,8 @@ export function filterTemplatesByName(
     );
   });
 }
+
+export const filterTemplatesByName = filterTemplates;
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -352,16 +354,13 @@ export function createCriteriaOverlayManager(
       return imported;
     },
 
-    importTemplates: (rawText) =>
+    importTemplates: () =>
       run(async () => {
-        const text =
-          rawText !== undefined
-            ? rawText
-            : await prompt(
-                t('statGroupTemplate.dialog.importPrompt'),
-                '',
-                t('statGroupTemplate.dialog.importTitle'),
-              );
+        const text = await prompt(
+          t('statGroupTemplate.dialog.importPrompt'),
+          '',
+          t('statGroupTemplate.dialog.importTitle'),
+        );
         if (text == null || text.trim() === '') return;
         const { entries, skipped } = parseStatGroupTemplateTransfer(text.trim(), version);
         await requireStore().createMany(entries);

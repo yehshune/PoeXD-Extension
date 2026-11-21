@@ -164,7 +164,7 @@ function handleSubmit() {
   if (!canConfirm.value) return;
   emit('import', {
     entries: selectedEntries.value,
-    skipped: skippedCount.value,
+    skipped: 0,
   });
   emit('update:open', false);
 }

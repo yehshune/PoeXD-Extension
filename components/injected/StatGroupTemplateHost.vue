@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/scroll-area';
 import type { StatGroupTemplate } from '@/utils/stat-group-template-store';
 import { activeStatGroupTemplateSlots } from '@/utils/stat-group-template-slot-registry';
+import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
 import { t } from '@/utils/i18n';
-import { filterTemplatesByName, useCriteriaOverlayManager } from './criteria-overlay-manager';
+import { filterTemplates, useCriteriaOverlayManager } from './criteria-overlay-manager';
 import { describeStatGroupsTooltip, formatCompactStatGroupChip } from './criteria-overlay-labels';
 import StatGroupTemplateSaveDialog from './StatGroupTemplateSaveDialog.vue';
 
@@ -33,14 +34,24 @@ const saveDialogOpen = saveDialog.open;
 const saveParts = saveDialog.parts;
 const openStateMap = reactive<Record<number, boolean>>({});
 const menuFilterQuery = ref('');
+const dictReadyTick = ref(0);
 
-const filteredTemplates = computed(() =>
-  filterTemplatesByName(templates.value, menuFilterQuery.value, manager.version),
-);
+const filteredTemplates = computed(() => {
+  void dictReadyTick.value;
+  return filterTemplates(templates.value, menuFilterQuery.value, manager.version);
+});
 
 function handleOpenChange(slotIndex: number, open: boolean) {
   openStateMap[slotIndex] = open;
-  if (!open) menuFilterQuery.value = '';
+  if (open) {
+    void loadTradeDictionaries(manager.version)
+      .then(() => {
+        dictReadyTick.value += 1;
+      })
+      .catch(() => {});
+  } else {
+    menuFilterQuery.value = '';
+  }
 }
 
 function closeMenus() {
@@ -55,6 +66,7 @@ function menuItemBadge(template: StatGroupTemplate): string {
 }
 
 function menuItemTooltip(template: StatGroupTemplate): string {
+  void dictReadyTick.value;
   return describeStatGroupsTooltip(template.statGroups, manager.version);
 }
 

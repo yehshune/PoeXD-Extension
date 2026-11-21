@@ -126,6 +126,15 @@ describe('StatGroupTemplatePane', () => {
 
     renameInput.value = '三抗血量';
     renameInput.dispatchEvent(new Event('input'));
+    // 中文輸入法組字中 (isComposing: true) 按 Enter 不應提早送出
+    renameInput.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true }),
+    );
+    await flush();
+    expect(
+      firstRow().querySelector('[data-test="stat-group-template-rename-input"]'),
+    ).not.toBeNull();
+
     renameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await flush();
 

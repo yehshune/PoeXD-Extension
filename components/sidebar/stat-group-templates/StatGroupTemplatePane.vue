@@ -25,7 +25,7 @@ import {
 } from '../composables/useDragTrash';
 import { createSidebarDragScrollOptions } from '../composables/sidebar-drag-scroll';
 import {
-  filterTemplatesByName,
+  filterTemplates,
   useCriteriaOverlayManager,
   type CriteriaOverlayManager,
 } from '@/components/injected/criteria-overlay-manager';
@@ -64,7 +64,7 @@ const editingTemplateName = ref('');
 const renameInputRef = ref<InstanceType<typeof Input>[] | InstanceType<typeof Input> | null>(null);
 
 const visibleTemplates = computed(() =>
-  filterTemplatesByName(templates.value, query.value, manager.version),
+  filterTemplates(templates.value, query.value, manager.version),
 );
 /** 搜尋中或行內編輯名稱時停用排序與拖曳刪除，避免誤觸與錯位。 */
 const canDrag = computed(() => query.value.trim() === '' && editingTemplateId.value === null);
@@ -152,6 +152,7 @@ function cancelRename() {
 }
 
 async function commitRename(template: StatGroupTemplate, event?: Event) {
+  if (event instanceof KeyboardEvent && event.isComposing) return;
   if (isCancellingRename || editingTemplateId.value !== template.id) return;
   const targetInput =
     event?.target instanceof HTMLInputElement
@@ -335,8 +336,6 @@ onUnmounted(() => {
               class="w-full min-w-0"
               data-test="stat-group-template-rename-input"
               :maxlength="STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH"
-              @keyup.enter.stop.prevent="commitRename(template, $event)"
-              @keyup.escape.stop.prevent="cancelRename"
               @keydown.enter.stop.prevent="commitRename(template, $event)"
               @keydown.esc.stop.prevent="cancelRename"
               @blur="commitRename(template, $event)"

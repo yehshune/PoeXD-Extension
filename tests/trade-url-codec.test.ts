@@ -4,8 +4,10 @@ import {
   isGzipHash,
   decodeGzipBase64UrlToQuery,
   decodeTradeSearchUrl,
+  deriveSearchTitleFromUrl,
   encodeQueryToGzipBase64Url,
   extractQueryMetadata,
+  isGenericTradePageTitle,
 } from '../utils/trade-url-codec';
 
 describe('trade-url-codec (extension)', () => {
@@ -661,5 +663,44 @@ describe('trade-url-codec (extension)', () => {
     expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(isGzipHash(code)).toBe(true);
     expect(await decodeGzipBase64UrlToQuery(code)).toEqual(query);
+  });
+
+  describe('isGenericTradePageTitle & deriveSearchTitleFromUrl', () => {
+    it('識別空白、官方預設標題與未命名網頁為通用標題，自訂標題則回傳 false', () => {
+      expect(isGenericTradePageTitle('')).toBe(true);
+      expect(isGenericTradePageTitle('   ')).toBe(true);
+      expect(isGenericTradePageTitle('未命名網頁')).toBe(true);
+      expect(isGenericTradePageTitle('未命名搜尋')).toBe(true);
+      expect(isGenericTradePageTitle('Path of Exile - Trade')).toBe(true);
+      expect(isGenericTradePageTitle('流亡黯道 - 交易市集', 'poe1')).toBe(true);
+      expect(isGenericTradePageTitle('我的閃電箭配置')).toBe(false);
+    });
+
+    it('從 Gzip 搜尋網址推導 suggestedName 或前 2 條詞綴作為預設書籤名稱', async () => {
+      const hashWithItem = createGzipHash(sampleQuery);
+      const urlWithItem = `https://www.pathofexile.com/trade/search/Standard/${hashWithItem}`;
+      expect(await deriveSearchTitleFromUrl(urlWithItem)).toBe('魔血 (重型腰帶)');
+
+      const statsOnlyHash = createGzipHash({
+        query: {
+          stats: [
+            {
+              type: 'and',
+              filters: [
+                { id: 'explicit.stat_1', value: { min: 10 } },
+                { id: 'explicit.stat_2', value: { min: 20 } },
+                { id: 'explicit.stat_3', value: { min: 30 } },
+              ],
+            },
+          ],
+        },
+      });
+      const statsOnlyUrl = `https://www.pathofexile.com/trade/search/Standard/${statsOnlyHash}`;
+      expect(await deriveSearchTitleFromUrl(statsOnlyUrl)).toBe('stat_1 · stat_2');
+
+      expect(
+        await deriveSearchTitleFromUrl('https://www.pathofexile.com/trade/search/Standard/X8QWk6'),
+      ).toBe('');
+    });
   });
 });

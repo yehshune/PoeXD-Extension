@@ -365,10 +365,11 @@ import {
 } from '@/utils/trade-search-identity';
 import {
   decodeTradeSearchUrl,
+  deriveSearchTitleFromUrl,
   encodeQueryToGzipBase64Url,
   extractQueryMetadata,
+  isGenericTradePageTitle,
 } from '@/utils/trade-url-codec';
-import { loadTradeDictionaries, translateStatLines } from '@/utils/trade-stat-dictionary';
 import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
 import { syncFormToUrl } from '@/entrypoints/content/logic/form-url-sync';
 import {
@@ -394,7 +395,7 @@ import {
 } from '@/utils/preferences-contract';
 import { getPreferences } from '@/utils/preferences';
 import { createVersionedStorageKeys } from '@/utils/storage-contracts';
-import { getPoeVersion, getTradeVersionProfile } from '@/utils/trade-context';
+import { getPoeVersion } from '@/utils/trade-context';
 import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
 import {
   createBookmarkTransferWorkflow,
@@ -1008,41 +1009,6 @@ export default defineComponent({
     const getFolderPath = (folderId: string) =>
       formatFolderPath(groups.value as BookmarkGroup[], folderId);
 
-    const isGenericPageTitle = (rawTitle: string): boolean => {
-      const trimmed = rawTitle.trim();
-      if (!trimmed) return true;
-      const defaultPageTitle = t('bookmark.defaultPageTitle');
-      const unnamedSearch = t('injectedControls.unnamedSearch');
-      const officialDefault = getTradeVersionProfile(version).defaultTitle;
-      return (
-        trimmed === defaultPageTitle ||
-        trimmed === unnamedSearch ||
-        trimmed === officialDefault ||
-        trimmed === 'Path of Exile - Trade' ||
-        trimmed === 'Trade - Path of Exile'
-      );
-    };
-
-    const deriveSearchTitleFromUrl = async (url: string): Promise<string> => {
-      try {
-        const decoded = await decodeTradeSearchUrl(url);
-        if (!decoded) return '';
-        await loadTradeDictionaries(decoded.gameVersion);
-        const meta = extractQueryMetadata(decoded.query, decoded.gameVersion);
-        if (meta.suggestedName?.trim()) return meta.suggestedName.trim();
-        if (meta.stats.length > 0) {
-          const statNames = meta.stats
-            .slice(0, 2)
-            .map((s) => translateStatLines(s.id, decoded.gameVersion)[0] ?? s.id)
-            .filter(Boolean);
-          if (statNames.length > 0) return statNames.join(' · ');
-        }
-      } catch {
-        // Best-effort title derivation
-      }
-      return '';
-    };
-
     const captureCurrentSearchSnapshot = async (): Promise<{
       url: string;
       title: string;
@@ -1062,7 +1028,7 @@ export default defineComponent({
       syncCurrentPageRoute();
       const url = stripLiveSuffix(syncedUrl);
       let rawTitle = currentTabInfo.value.title;
-      if (isGenericPageTitle(rawTitle)) {
+      if (isGenericTradePageTitle(rawTitle, version)) {
         const derived = await deriveSearchTitleFromUrl(url);
         if (derived) rawTitle = derived;
       }
