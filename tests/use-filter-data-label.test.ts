@@ -57,10 +57,17 @@ describe('選擇器的詞綴標籤', () => {
   });
 
   it('複合詞綴維持完整的遊戲寫法', () => {
-    setTradeLabelTestData({ version: 'poe2', officialStats: { 'zh-TW': { stats: {
-      'explicit.stat_a': '增加#%護甲值',
-      'explicit.stat_b': '增加#%暈眩恢復',
-    } } } });
+    setTradeLabelTestData({
+      version: 'poe2',
+      officialStats: {
+        'zh-TW': {
+          stats: {
+            'explicit.stat_a': '增加#%護甲值',
+            'explicit.stat_b': '增加#%暈眩恢復',
+          },
+        },
+      },
+    });
     const [group] = groupsFor({
       hybrid: [
         tier({

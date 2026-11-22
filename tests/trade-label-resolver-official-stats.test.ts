@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computed } from 'vue';
 import {
   getOfficialStatDomainLabel,
+  getOfficialStatDomains,
   getOfficialStatLabel,
   resetTradeLabelsForTests,
   setTradeLabelTestData,
@@ -31,10 +32,17 @@ describe('official stat text (官方市集詞綴文字)', () => {
   });
 
   it('依詞綴代碼回傳該語系市集的寫法，正負向跟官方一致', () => {
-    setTradeLabelTestData({ version: 'poe2', officialStats: { 'zh-TW': { stats: {
-      'explicit.stat_3639275092': '增加#%能力值需求',
-      'explicit.stat_2160282525': '減少#%你身上的冰凍持續時間',
-    } } } });
+    setTradeLabelTestData({
+      version: 'poe2',
+      officialStats: {
+        'zh-TW': {
+          stats: {
+            'explicit.stat_3639275092': '增加#%能力值需求',
+            'explicit.stat_2160282525': '減少#%你身上的冰凍持續時間',
+          },
+        },
+      },
+    });
     expect(getOfficialStatLabel('explicit.stat_3639275092', 'poe2', 'zh-TW')).toBe(
       '增加#%能力值需求',
     );
@@ -44,10 +52,17 @@ describe('official stat text (官方市集詞綴文字)', () => {
   });
 
   it('英文跟詞綴字典一致：轉小寫並去掉開頭的 +', () => {
-    setTradeLabelTestData({ version: 'poe1', officialStats: { 'en': { stats: {
-      'explicit.stat_3299347043': '+# to maximum Life',
-      'explicit.stat_474294393': '#% reduced Mana Cost of Skills',
-    } } } });
+    setTradeLabelTestData({
+      version: 'poe1',
+      officialStats: {
+        en: {
+          stats: {
+            'explicit.stat_3299347043': '+# to maximum Life',
+            'explicit.stat_474294393': '#% reduced Mana Cost of Skills',
+          },
+        },
+      },
+    });
     expect(getOfficialStatLabel('explicit.stat_3299347043', 'poe1', 'en')).toBe(
       '# to maximum life',
     );
@@ -57,9 +72,16 @@ describe('official stat text (官方市集詞綴文字)', () => {
   });
 
   it('同一代碼有多種寫法時取第一個', () => {
-    setTradeLabelTestData({ version: 'poe1', officialStats: { 'zh-TW': { stats: {
-      'explicit.stat_1': ['區域內有 #% 機率', '地圖內有 #% 機率'],
-    } } } });
+    setTradeLabelTestData({
+      version: 'poe1',
+      officialStats: {
+        'zh-TW': {
+          stats: {
+            'explicit.stat_1': ['區域內有 #% 機率', '地圖內有 #% 機率'],
+          },
+        },
+      },
+    });
     expect(getOfficialStatLabel('explicit.stat_1', 'poe1', 'zh-TW')).toBe('區域內有 #% 機率');
   });
 
@@ -120,6 +142,21 @@ describe('official stat text (官方市集詞綴文字)', () => {
     expect(getOfficialStatLabel('explicit.stat_1', 'poe1', 'zh-TW')).toBeNull();
     await new Promise((done) => setTimeout(done, 0));
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('擴充 context 失效、取得資產網址時同步丟錯，讀取者不會跟著丟錯', async () => {
+    vi.stubGlobal('chrome', {
+      runtime: {
+        getURL: () => {
+          throw new Error('Extension context invalidated.');
+        },
+      },
+    });
+    const label = computed(() => getOfficialStatLabel('explicit.stat_1', 'poe1', 'zh-TW'));
+    expect(label.value).toBeNull();
+    expect(getOfficialStatDomains('explicit.stat_1', 'poe1')).toEqual([]);
+    await new Promise((done) => setTimeout(done, 0));
+    expect(label.value).toBeNull();
   });
 
   it('載入分片時同時保存並查詢官方 labels（stat 網域標籤）', async () => {

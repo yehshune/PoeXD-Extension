@@ -34,7 +34,9 @@ describe('trade filters store (per display locale)', () => {
     vi.stubGlobal('fetch', fetchSpy);
     setActiveDisplayLocale('zh-CN');
     expect(translateFilterGroup('type_filters', 'poe1')).toBe('类型过滤器');
-    await preloadTradeLabels('poe1', ['zh-TW', 'zh-CN']);
+    setActiveDisplayLocale('zh-TW');
+    await preloadTradeLabels('poe1');
+    expect(translateFilterGroup('type_filters', 'poe1')).toBe('類別過濾');
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -61,11 +63,27 @@ describe('trade filters store (per display locale)', () => {
     vi.stubGlobal('fetch', fetchSpy);
     setActiveDisplayLocale('ko');
 
-    await preloadTradeLabels('poe1', ['ko']);
+    await preloadTradeLabels('poe1');
+    // ko 不存在：退回 UI 語系（ko 對應 UI 語系為 en），且不再請求
     expect(translateFilterGroup('type_filters', 'poe1')).toBe('Type Filters');
-    translateFilterKey('trade_filters.price', 'poe1');
+    expect(translateFilterKey('misc_filters.ilvl', 'poe1')).toBe('Item Level');
+    await preloadTradeLabels('poe1');
     await flush();
     await new Promise((done) => setTimeout(done, 0));
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('擴充 context 失效、取得資產網址時同步丟錯，讀取者不會跟著丟錯', async () => {
+    vi.stubGlobal('chrome', {
+      runtime: {
+        getURL: () => {
+          throw new Error('Extension context invalidated.');
+        },
+      },
+    });
+    setActiveDisplayLocale('ja');
+    const label = computed(() => translateFilterGroup('type_filters', 'poe1'));
+    expect(label.value).toBe('Type Filters');
+    await expect(preloadTradeLabels('poe1')).resolves.toBeUndefined();
   });
 });

@@ -5,7 +5,8 @@
  * - 即時市集資料（ADR-0014）：頁面自己載入的資料，只在顯示語系等於頁面語系時採用；
  *   國際服顯示中文時改用市集漢化的目標服快取（ADR-0012），頁面資料一律不用。
  * - 打包分片（ADR-0011）：官方 `trade-stats.json`、`trade-filters.json`，顯示語系 → UI 語系 → en。
- * - 詞綴的後備鏈（ADR-0015）：市集寫法 → 詞綴字典 → pseudo → 傭兵詞綴 → 去掉前綴的 id。
+ * - 詞綴的後備鏈（GLOSSARY「Trade Wording vs Game Wording」）：市集寫法 → 詞綴字典 → pseudo
+ *   → 傭兵詞綴 → 去掉前綴的 id。
  *
  * 只換顯示文字，不產生 id，也不影響送給 Trade API 的值。即時資料只存在記憶體，
  * 不轉成深層 reactive（stats 有上萬筆）；分片與即時資料各自有 reactive 訊號，
@@ -184,20 +185,33 @@ function ensureStatShardLoaded(version: PoeVersion, locale: string): Promise<boo
   const inflight = state.pending.get(locale);
   if (inflight) return inflight;
 
-  const promise = loadExtensionJson(getLocaleTradeStatsAssetPath(version, locale))
-    .then(parseStatShard, () => null)
-    .then((shard) => {
-      state.pending.delete(locale);
-      if (!shard) {
-        state.unavailable.add(locale);
-        return false;
-      }
-      state.shards.set(locale, shard);
-      statShardRevision.value += 1;
-      return true;
-    });
+  const promise = fetchStatShard(version, locale).then((shard) => {
+    state.pending.delete(locale);
+    if (!shard) {
+      state.unavailable.add(locale);
+      return false;
+    }
+    state.shards.set(locale, shard);
+    statShardRevision.value += 1;
+    return true;
+  });
   state.pending.set(locale, promise);
   return promise;
+}
+
+/**
+ * 讀取並驗證分片；任何失敗（含擴充 context 失效時同步丟出的錯誤）都回傳 null，
+ * 該語系視為沒有官方資料，由詞綴字典接手。這支在 computed / render 中被觸發，不能讓錯誤往外拋。
+ */
+async function fetchStatShard(
+  version: PoeVersion,
+  locale: OfficialStatTextLocale,
+): Promise<StatShard | null> {
+  try {
+    return parseStatShard(await loadExtensionJson(getLocaleTradeStatsAssetPath(version, locale)));
+  } catch {
+    return null;
+  }
 }
 
 /** 讀取已載入的分片；尚未載入時在背景載入並回傳 undefined，載入後讀取者會重新計算 */
@@ -275,22 +289,30 @@ function ensureFilterShardLoaded(version: PoeVersion, locale: SupportedLocale): 
   const inflight = state.pending.get(locale);
   if (inflight) return inflight;
 
-  const promise = loadExtensionJson(getLocaleTradeFiltersAssetPath(version, locale))
-    .then(
-      (json: unknown) => (isTradeFiltersData(json) ? json : null),
-      () => null,
-    )
-    .then((shard) => {
-      state.pending.delete(locale);
-      if (!shard) {
-        state.unavailable.add(locale);
-        return;
-      }
-      state.shards.set(locale, shard);
-      filterShardRevision.value += 1;
-    });
+  const promise = fetchFilterShard(version, locale).then((shard) => {
+    state.pending.delete(locale);
+    if (!shard) {
+      state.unavailable.add(locale);
+      return;
+    }
+    state.shards.set(locale, shard);
+    filterShardRevision.value += 1;
+  });
   state.pending.set(locale, promise);
   return promise;
+}
+
+/** 同 fetchStatShard：任何失敗都回傳 null（例如尚未產生的語系），由下一個來源接手 */
+async function fetchFilterShard(
+  version: PoeVersion,
+  locale: SupportedLocale,
+): Promise<TradeFiltersData | null> {
+  try {
+    const json: unknown = await loadExtensionJson(getLocaleTradeFiltersAssetPath(version, locale));
+    return isTradeFiltersData(json) ? json : null;
+  } catch {
+    return null;
+  }
 }
 
 /** 同一份即時快照只轉一次，讓讀取者拿到穩定的物件 */
@@ -337,14 +359,10 @@ function filterSources(version: PoeVersion): TradeFiltersData[] {
   return sources;
 }
 
-/** 預先載入指定語系（預設為顯示語系與 UI 語系）的篩選翻譯；失敗的語系之後不再請求 */
-export async function preloadTradeLabels(
-  version: PoeVersion,
-  locales: Iterable<SupportedLocale> = [getActiveDisplayLocale(), getActiveUiLocale()],
-): Promise<void> {
-  await Promise.all(
-    [...new Set(locales)].map((locale) => ensureFilterShardLoaded(version, locale)),
-  );
+/** 預先載入顯示語系與 UI 語系的篩選翻譯；失敗的語系之後不再請求 */
+export async function preloadTradeLabels(version: PoeVersion): Promise<void> {
+  const locales = new Set<SupportedLocale>([getActiveDisplayLocale(), getActiveUiLocale()]);
+  await Promise.all([...locales].map((locale) => ensureFilterShardLoaded(version, locale)));
 }
 
 // ───────────────────────────── 市集寫法 ─────────────────────────────
