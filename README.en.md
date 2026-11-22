@@ -35,6 +35,25 @@ Store versions update automatically and are recommended. Firefox is not availabl
 
 ## What's new
 
+- **v1.12.0 themes & LiveSearch Console upgrades**:
+  - **Themes**: 11 built-in themes (including light ones), plus a "Custom" theme where you can tune
+    background, surface, text, primary and destructive colors and the corner radius with a live
+    preview, and share it as JSON; sidebar cards and toolbars now share one consistent style. The
+    update notice can jump straight to the settings section of each new feature.
+  - **LiveSearch Console**: edit the official notification sound and volume (including a custom
+    sound file) from the console settings, and get desktop notifications while the console is in
+    the background (one card per live search, bursts are merged). Result cards show which
+    connection they came from and can be clicked to filter, connection rows show hit counts, and
+    the results area can be cleared without stopping the live searches.
+  - **Affix selector & tiers**: the item category moves into the selector header and can be synced
+    to the official item category; recently used affixes and expand/collapse all are new. The tier
+    menu lets you select a tier range and click a value to fill it in, and now covers PoE 1
+    Synthesis, Incursion and Haunted mods and PoE 2 Sanctum mods.
+  - **Other improvements**: the Result Board can hide sold items, lets you choose how many results
+    to load per batch and groups the seller list by stash tab; the PoB shopping list is split into
+    gear / flasks / jewels / gems and can switch to pseudo totals or relax values by 10% in one
+    click; stat group templates support inline rename and an import preview; Market Translation
+    data can be refreshed manually from settings; official trade site toasts are translated too.
 - **v1.11.0 Result Board & settings redesign**:
   - **Result Board**: gathers the results of the current search in the sidebar so you can filter,
     sort, or switch to the seller list to find sellers holding several instant-buyout results, then
@@ -51,16 +70,6 @@ Store versions update automatically and are recommended. Firefox is not availabl
     mods; higher tiers are shown disabled when filtering by item level; price sorting yields to the
     official sort when a result field is clicked; switching leagues with active live searches now
     asks first.
-- **v1.10.0 pinned items & faster affix selector**:
-  - **Pinned items**: pin a result from its hover toolbar and review it later as an official-style
-    card in the sidebar; works on search pages, live search and the LiveSearch Console. Filter,
-    drag to reorder or drag out to unpin; sold items are marked as sold, and instant-buyout items
-    can travel to the seller's hideout.
-  - **Smoother affix selector**: categories with many affixes (e.g. PoE 1 helmets and maps) now
-    render progressively instead of freezing for almost a second.
-  - **Other fixes**: Market Translation now covers magic and Foulborn item names, the PoB shopping
-    list shows a loading state while restoring builds, and dropdowns and sidebar panes share a
-    consistent theme.
 
 See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
 
@@ -70,11 +79,12 @@ See the [User Guide (zh-TW)](https://yehshune.github.io/poexd/) for step-by-step
 
 ### ⚡ Live search console
 
-Watch multiple live searches from a single tab with automatic reconnects, real-time result cards and
-optional notification sounds. Add searches from bookmarks or paste trade URLs directly, group by
-bookmark folder, start or stop in batches, switch to a results-only view, filter by connection,
-monitor live API rate status, protect the console tab from browser auto-discard, and resume your
-previous session after restarting the browser.
+Watch multiple live searches from a single tab with automatic reconnects, real-time result cards,
+in-console official sound & volume controls, and background desktop notifications. Add searches from
+bookmarks or paste trade URLs directly, group by bookmark folder, start or stop in batches, switch
+to a results-only view, filter by connection or result source badge, monitor live API rate status,
+protect the console tab from browser auto-discard, and resume your previous session after restarting
+the browser.
 
 <p align="center"><img src="./docs/store/images/en/screenshot-4.jpg" width="80%" alt="Live search console"></p>
 
@@ -162,9 +172,10 @@ permission, `pobb.in` share pages are also translated to Chinese.
 
 ### ⚙️ Settings, hotkeys and FAQ
 
-- Adjustable panel position (left by default, switchable to right), theme and UI zoom; resize the
-  sidebar by dragging its edge. Settings can be searched, feature modules toggled individually, and
-  preferences backed up, restored or reset for both PoE 1 and PoE 2.
+- Adjustable panel position (left by default, switchable to right), theme (11 built-in presets and
+  custom color/radius editor) and UI zoom; resize the sidebar by dragging its edge. Settings can be
+  searched, feature modules toggled individually, and preferences backed up, restored or reset for
+  both PoE 1 and PoE 2.
 - A guided tour starts after the first install and can be replayed with "Take the tour" in Tools & Info;
   settings offer "Show on page" to point at the control they affect.
 - Fuzzy search for item names and filters (auto `~`), customizable focus / clear search hotkeys

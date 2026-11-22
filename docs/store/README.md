@@ -53,13 +53,13 @@ FEATURES
 • Search preview – check and tune the filters of a bookmark or history entry before opening it.
 • Search history – every search you run is recorded so you can find it again.
 • Stat group templates – save frequently used stat filter groups and overlay them onto any search.
-• Live Search Console – watch several live searches side by side in one tab with auto-reconnect and sound alerts.
+• Live Search Console – watch several live searches side by side in one tab with auto-reconnect, sound & desktop notifications.
 • PoB shopping list – import Path of Building codes or poe.ninja / pobb.in / pastebin share links to track gear and gems, tune mod filters and search the trade site in one click.
 • Trade page enhancements – tier quick buttons, affix selector, poe.ninja price conversion & sorting, PoB item copy, PoEDB links, matched-affix highlighting and PoE2 rune previews.
 • Result Board – gather a search's results in the sidebar, find sellers holding several instant-buyout items and copy a stash search regex that highlights them all in their hideout.
 • Pinned items – pin trade results and compare them later as official-style cards; sold items are marked.
 • Market Translation – show the international trade site and pobb.in pages in Traditional or Simplified Chinese with each official realm's wording (optional bilingual mode).
-• Themes, panel position, UI scale and keyboard shortcuts.
+• 11 built-in themes + custom theme editor, panel position, UI scale and keyboard shortcuts.
 • Interface in English, Traditional Chinese and Simplified Chinese.
 
 PRIVACY
@@ -90,14 +90,14 @@ PoeXD 是專為《流亡黯道》（Path of Exile / PoE 1 & PoE2）官方交易�
 • POE 市集漢化（國際服中文化）：以台服或國服官方用語顯示國際服市集的介面、篩選器、下拉選單與搜尋結果，支援繁體中文與簡體中文；開啟「中英並列」模式後，輸入中文或英文都搜得到。
 • pobb.in 分享頁翻譯：授權存取並開啟市集漢化後，pobb.in 配裝分享頁也會自動顯示中文裝備與天賦詞綴。
 • PoB 購物清單：貼上 Path of Building 代碼或 poe.ninja、pobb.in、pastebin 分享網址，依部位整理裝備與技能寶石清單、微調詞綴條件並一鍵前往官方市集搜尋。
-• 線上搜尋主控台（Live Search）：在同一個分頁同時監聽多組即時搜尋，斷線自動重連，並支援通知提示音、書籤分組與防止分頁自動休眠。
+• 線上搜尋主控台（Live Search）：在同一個分頁同時監聽多組即時搜尋，斷線自動重連，並支援官方通知音效／桌面通知、書籤分組與防止分頁自動休眠。
 • 詞綴篩選與 T 階工具：篩選欄旁提供 T 階快捷按鈕與詞綴選擇器（支援物等區間與 PoE2 碑牌／換界石／珠寶），可直接帶入數值範圍並拖曳排序。
 • 搜尋結果強化：整合 poe.ninja 匯率價格換算與排序（國際服）、結果詞綴高亮與「+和／+不」快速加入篩選、一鍵複製英文 PoB 裝備文字、PoEDB 連結，以及 PoE2 符文覆寫試算。
 • 搜尋結果看板：把這次搜尋的結果集中到側邊欄篩選排序，找出能在同一個藏身處一次直購多件的賣家，並複製倉庫搜尋 regex 一次標出要買的物品。
 • 釘選物品：釘選搜尋結果，之後以官方樣式卡片回頭比價，賣出的物品會標示已售出。
 • 常用詞綴群組與搜尋預覽：儲存常用詞綴範本隨時疊加到目前搜尋；開啟書籤或歷史紀錄前可先預覽並微調篩選條件。
 • 書籤資料夾與 TFT 互通：多層資料夾收納交易搜尋、拖曳排序、自動記錄搜尋歷史，並支援與 TFT Trade Extension 互相匯入匯出書籤。
-• 個人化設定：可調整主題、面板左右位置、介面縮放比例與快捷鍵；擴充介面支援繁體中文、简体中文與 English。
+• 個人化設定：11 款內建主題與自訂配色／圓角、面板左右位置、介面縮放比例與快捷鍵；擴充介面支援繁體中文、简体中文與 English。
 
 隱私與授權
 • 免註冊帳號、無後端伺服器、無追蹤分析或廣告，所有書籤與設定皆保存在你的瀏覽器本機。
@@ -126,14 +126,14 @@ PoeXD 是专为《流放之路》（Path of Exile / PoE 1 & PoE2）官方交易�
 • POE 市集汉化（国际服中文化）：以国服或台服官方用语显示国际服市集的界面、筛选器、下拉菜单与搜索结果，支持简体中文与繁体中文；开启「中英对照」模式后，输入中文或英文都能搜到。
 • pobb.in 分享页翻译：授权访问并开启市集汉化后，pobb.in 配装分享页也会自动显示中文装备与天赋词缀。
 • PoB 购物清单：粘贴 Path of Building 代码或 poe.ninja、pobb.in、pastebin 分享链接，按部位整理装备与技能宝石清单、微调词缀条件并一键前往官方市集搜索。
-• 线上搜索主控台（Live Search）：在同一个标签页同时监听多组实时搜索，断线自动重连，并支持通知提示音、书签分组与防止标签页自动休眠。
+• 线上搜索主控台（Live Search）：在同一个标签页同时监听多组实时搜索，断线自动重连，并支持官方通知音效／桌面通知、书签分组与防止标签页自动休眠。
 • 词缀筛选与 T 阶工具：筛选栏旁提供 T 阶快捷按钮与词缀选择器（支持物等区间与 PoE2 碑牌／换界石／珠宝），可直接填入数值范围并拖拽排序。
 • 搜索结果增强：集成 poe.ninja 汇率价格换算与排序（国际服）、结果词缀高亮与「+和／+不」快速加入筛选、一键复制英文 PoB 装备文本、PoEDB 链接，以及 PoE2 符文覆盖试算。
 • 搜索结果看板：把这次搜索的结果集中到侧边栏筛选排序，找出能在同一个藏身处一次直购多件的卖家，并复制仓库搜索 regex 一次标出要买的物品。
 • 置顶物品：置顶搜索结果，之后以官方样式卡片回头比价，卖出的物品会标示已售出。
 • 常用词缀群组与搜索预览：保存常用词缀模板随时叠加到当前搜索；打开书签或历史记录前可先预览并微调筛选条件。
 • 书签文件夹与 TFT 互通：多级文件夹收纳交易搜索、拖拽排序、自动记录搜索历史，并支持与 TFT Trade Extension 互相导入导出书签。
-• 个性化设置：可调整主题、面板左右位置、界面缩放比例与快捷键；扩展界面支持简体中文、繁体中文与 English。
+• 个性化设置：11 款内置主题与自定义配色／圆角、面板左右位置、界面缩放比例与快捷键；扩展界面支持简体中文、繁体中文与 English。
 
 隐私与许可
 • 无需注册账号、无后端服务器、无统计追踪或广告，所有书签与设置均保存在你的浏览器本地。
