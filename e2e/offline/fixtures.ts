@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { chromium, test as base, type BrowserContext, type Worker } from '@playwright/test';
 
 /**
@@ -12,7 +13,22 @@ const EXTENSION_DIR = resolve(ROOT, process.env.POEXD_E2E_EXTENSION_DIR ?? '.out
 const FIXTURE_DIR = resolve(import.meta.dirname, 'fixtures');
 
 export const TRADE2_SEARCH_URL = 'https://www.pathofexile.com/trade2/search/poe2/Standard';
-export const TRADE1_SEARCH_ID = 'E2ESearch';
+/** 官方的 search id 就是 query 物件 gzip 後的 Base64URL（以 `H4sI` 開頭），擴充功能會解碼取得搜尋條件 */
+function searchIdFor(query: unknown): string {
+  return gzipSync(JSON.stringify(query)).toString('base64url');
+}
+
+export const TRADE1_SEARCH_ID = searchIdFor({
+  status: { option: 'online' },
+  type: 'Coronal Leather',
+  stats: [{ type: 'and', filters: [] }],
+});
+/** 替身頁在頁面上做第二次搜尋（SPA，不重新載入）時使用的 search id；只回傳最後兩筆結果 */
+export const TRADE1_SECOND_SEARCH_ID = searchIdFor({
+  status: { option: 'online' },
+  type: 'Plated Greaves',
+  stats: [{ type: 'and', filters: [] }],
+});
 export const TRADE1_SEARCH_URL = `https://www.pathofexile.com/trade/search/Standard/${TRADE1_SEARCH_ID}`;
 
 function fixture(name: string): string {
@@ -49,8 +65,22 @@ const BLANK_PNG = Buffer.from(
   'base64',
 );
 
-/** 依官方網址回傳替身頁或回放的 API；回傳 null 代表這個請求不該發生 */
-function replay(url: URL, method: string, resourceType: string): Reply | null {
+/** 各 search id 對應的結果，對照官方 `POST /api/trade/search` 回傳的 result 清單 */
+export function searchResultIds(searchId: string): string[] {
+  const ids = POE1_FETCH.result.map((entry) => entry.id);
+  return searchId === TRADE1_SECOND_SEARCH_ID ? ids.slice(-2) : ids;
+}
+
+/**
+ * 依官方網址回傳替身頁或回放的 API；回傳 null 代表這個請求不該發生。
+ * 替身頁以 `x-e2e-search-id` 標頭指定這次搜尋要拿到哪個 search id（官方由伺服器決定）。
+ */
+function replay(
+  url: URL,
+  method: string,
+  resourceType: string,
+  headers: Record<string, string>,
+): Reply | null {
   if (url.hostname === 'poe.ninja' && url.pathname.endsWith('/economy/exchange/current/overview')) {
     return { json: POE_NINJA_OVERVIEW };
   }
@@ -62,8 +92,9 @@ function replay(url: URL, method: string, resourceType: string): Reply | null {
   if (path.startsWith('/trade2/search/')) return { html: fixture('trade2-search.html') };
   if (path.startsWith('/trade/search/')) return { html: fixture('trade1-search.html') };
   if (method === 'POST' && path.startsWith('/api/trade/search/')) {
-    const ids = POE1_FETCH.result.map((entry) => entry.id);
-    return { json: { id: TRADE1_SEARCH_ID, complexity: 1, result: ids, total: ids.length } };
+    const id = headers['x-e2e-search-id'] || TRADE1_SEARCH_ID;
+    const ids = searchResultIds(id);
+    return { json: { id, complexity: 1, result: ids, total: ids.length } };
   }
   if (path.startsWith('/api/trade/fetch/')) {
     const wanted = new Set(decodeURIComponent(path.split('/').at(-1) ?? '').split(','));
@@ -81,7 +112,7 @@ async function installNetworkSandbox(context: BrowserContext, log: NetworkLog): 
       await route.continue();
       return;
     }
-    const reply = replay(url, request.method(), request.resourceType());
+    const reply = replay(url, request.method(), request.resourceType(), request.headers());
     if (!reply) {
       log.blocked.push(`${request.method()} ${url.href}`);
       await route.abort('blockedbyclient');

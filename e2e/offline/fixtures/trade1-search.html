@@ -12,7 +12,9 @@
     <div id="trade">
       <div class="content">
         <div class="search-panel">
-          <div class="search-bar"></div>
+          <div class="search-bar">
+            <div class="search-left"><input type="text" placeholder="Search Items..." /></div>
+          </div>
           <div class="search-advanced"></div>
         </div>
         <div class="results compact two">
@@ -100,25 +102,39 @@
           await waitFor(() => document.querySelector('poexd-sidebar-container') !== null);
         }
 
-        async function run() {
-          await waitForOfficialTiming();
-          const league = location.pathname.split('/')[3];
-          const search = await fetch(`/api/trade/search/${league}`, {
+        /**
+         * 照官方搜尋流程：POST search → 網址換成新的 search id（pushState）→ fetch → 重畫結果列。
+         * `searchId` 交給回放端決定回傳的 id；省略時沿用目前網址的 id（直接打開搜尋網址的情況）。
+         */
+        async function search(searchId) {
+          const [, , , league, currentId] = location.pathname.split('/');
+          const result = await fetch(`/api/trade/search/${league}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'x-e2e-search-id': searchId ?? currentId,
+            },
             body: JSON.stringify({
               query: { status: { option: 'online' }, stats: [{ type: 'and', filters: [] }] },
               sort: { price: 'asc' },
             }),
           }).then((response) => response.json());
+          if (result.id !== currentId) {
+            history.pushState(null, '', `/trade/search/${league}/${result.id}`);
+          }
           const fetched = await fetch(
-            `/api/trade/fetch/${search.result.join(',')}?query=${search.id}`,
+            `/api/trade/fetch/${result.result.join(',')}?query=${result.id}`,
           ).then((response) => response.json());
           const resultset = document.querySelector('.resultset');
-          for (const result of fetched.result) resultset.append(renderRow(result));
+          resultset.replaceChildren(...fetched.result.map(renderRow));
         }
 
-        run().catch((error) => console.error('[fixture] 替身頁載入失敗', error));
+        /** 測試用：模擬使用者在頁面上按下搜尋 */
+        window.e2eSearch = search;
+
+        waitForOfficialTiming()
+          .then(() => search())
+          .catch((error) => console.error('[fixture] 替身頁載入失敗', error));
       })();
     </script>
   </body>
