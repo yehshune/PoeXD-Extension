@@ -2,7 +2,7 @@
 
 > **文件狀態**：IN PROGRESS (2026-11-17)
 > **決策依據**：[ADR-0016](../adr/0016-console-sound-notification-owned-by-poexd.md)（proposed，實機驗證通過後改為 accepted）
-> **範圍**：主控台自己決定何時播放，播放官方頁面上的 `<audio>` 元素，音效與音量跟隨官方設定；加一個主控台專用的開關、300 ms 合併、被瀏覽器擋下時的提示。自選音效、每條連線各自的音效、桌面通知、標題未讀數、favicon badge 不在範圍內。
+> **範圍**：主控台自己決定何時播放，播放官方頁面上的 `<audio>` 元素，並可直接於主控台設定頁讀寫官網音量（0–100）與音效（內建 4 款＋自訂音檔上傳），即時同步 `<audio>.src`；另有主控台專用的開關、300 ms 合併、被瀏覽器擋下時的提示。每條連線各自的音效、桌面通知、標題未讀數、favicon badge 不在範圍內。
 
 ---
 
@@ -33,7 +33,7 @@
    - 找不到 `<audio>` 或其他錯誤只記錄錯誤名稱，同一種錯誤只記一次。
    - `preview()` 給設定頁試聽用，跳過合併；`dispose()` 清掉計時器與監聽器。
 4. **接線**：`entrypoints/content/logic/runtime.ts` 在主控台角色建立 notifier，teardown 時釋放；透過 Sidebar 既有的主控台物件傳到 UI。
-5. **UI**：`LiveSearchConsoleSettingsPane.vue` 加「通知音效」開關與試聽按鈕，說明「音效與音量跟隨官方網站的設定」；被擋下時在主控台顯示提示。所有顯示語系補齊 i18n。
+5. **UI**：`LiveSearchConsoleSettingsPane.vue` 提供「通知音效」開關、官方音效選擇（含自訂音檔上傳）、官方音量滑桿與試聽按鈕，直接同步官方網站設定並即時生效；被擋下時在主控台顯示提示。所有顯示語系補齊 i18n。
 6. **測試**：`tests/live-search-sound-notifier.test.ts`（合併、開關、音量解析與偽造值、音量 0、被擋與解除、找不到元素、dispose）、runtime 訊號測試、Preferences 測試、i18n 測試。
 
 ## 實機驗證

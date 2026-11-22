@@ -4,8 +4,9 @@ import type { PoeVersion } from '@/utils/trade-context';
  * 主控台通知音效（ADR-0016）
  *
  * 由主控台決定何時播放：runtime 每接受一個新的結果 token 就呼叫 `notify()`，
- * 合併視窗內只播一次。播放的是官方頁面上唯一的 `<audio>` 元素，所以音效跟隨
- * 使用者在官方網站選的設定；音量從頁面 localStorage 的官方 lscache 讀取。
+ * 合併視窗內只播一次。播放的是官方頁面上唯一的 `<audio>` 元素，並可直接從
+ * 主控台設定頁讀寫官方 `localStorage`（`lscache-tradewoop` / `lscache-trade2woop`）
+ * 的音量與音效（含自訂音檔），即時同步 `<audio>.src`。
  * 不呼叫官方 Vue 方法、不碰 main world。
  */
 
@@ -21,6 +22,8 @@ export interface OfficialSoundSetting {
   custom: boolean;
   name: string | null;
 }
+
+export type OfficialSoundSource = Omit<OfficialSoundSetting, 'volume'>;
 
 export type OfficialSoundUpdateOutcome =
   | { ok: true; setting: OfficialSoundSetting }
@@ -51,11 +54,7 @@ export interface LiveSearchSoundNotifier {
   /** 直接更新官方音量（0–100 整數），寫回官網 lscache 鍵 */
   updateOfficialVolume(volume: number): OfficialSoundUpdateOutcome;
   /** 直接更新官方音效（內建或自訂 data:audio/...），寫回官網 lscache 並同步 `<audio>.src` */
-  updateOfficialSound(next: {
-    file: string;
-    custom: boolean;
-    name: string | null;
-  }): OfficialSoundUpdateOutcome;
+  updateOfficialSound(next: OfficialSoundSource): OfficialSoundUpdateOutcome;
   getState(): LiveSearchSoundState;
   subscribe(listener: (state: LiveSearchSoundState) => void): () => void;
   dispose(): void;
@@ -67,6 +66,8 @@ export interface LiveSearchSoundNotifierOptions {
   findAudio?: () => HTMLAudioElement | null;
   readStorage?: (key: string) => string | null;
   writeStorage?: (key: string, value: string) => void;
+  /** 當 `<audio>.src` 初始即為自訂 `data:` URL 時，用來偵測目前區服的 CDN origin */
+  detectCdnOrigin?: () => string | null;
   /** 監聽使用者互動以解除「被擋下」狀態 */
   activationTarget?: Pick<EventTarget, 'addEventListener' | 'removeEventListener'>;
   now?: () => number;
@@ -82,9 +83,13 @@ export function getOfficialSoundSettingKey(version: PoeVersion): string {
   return version === 'poe2' ? 'lscache-trade2woop' : 'lscache-tradewoop';
 }
 
+export function isValidCustomSoundDataUrl(url: unknown): url is string {
+  return typeof url === 'string' && url.startsWith('data:audio/');
+}
+
 function isValidSoundFile(file: unknown, custom: boolean): file is string {
   if (typeof file !== 'string' || file.length === 0) return false;
-  if (custom) return file.startsWith('data:audio/');
+  if (custom) return isValidCustomSoundDataUrl(file);
   return BUILTIN_AUDIO_PATH_RE.test(file);
 }
 
@@ -156,10 +161,19 @@ function extractCdnOrigin(src: string | null | undefined): string | null {
 }
 
 export function resolveOfficialAudioSrc(setting: OfficialSoundSetting, cdnOrigin: string): string {
-  if (setting.custom && setting.file.startsWith('data:audio/')) {
+  if (setting.custom && isValidCustomSoundDataUrl(setting.file)) {
     return setting.file;
   }
   return `${cdnOrigin.replace(/\/$/, '')}/${setting.file.replace(/^\//, '')}`;
+}
+
+function defaultDetectCdnOrigin(): string | null {
+  if (typeof document === 'undefined') return null;
+  const el = document.querySelector<HTMLScriptElement | HTMLLinkElement>(
+    'script[src*="poecdn"], link[href*="poecdn"]',
+  );
+  const url = el ? ('src' in el ? el.src : el.href) : null;
+  return extractCdnOrigin(url);
 }
 
 function defaultFindAudio(): HTMLAudioElement | null {
@@ -194,6 +208,7 @@ export function createLiveSearchSoundNotifier(
   const findAudio = options.findAudio ?? defaultFindAudio;
   const readStorage = options.readStorage ?? defaultReadStorage;
   const writeStorage = options.writeStorage ?? defaultWriteStorage;
+  const detectCdnOrigin = options.detectCdnOrigin ?? defaultDetectCdnOrigin;
   const activationTarget =
     options.activationTarget ?? (typeof document !== 'undefined' ? document : undefined);
   const now = options.now ?? (() => Date.now());
@@ -204,23 +219,39 @@ export function createLiveSearchSoundNotifier(
   let lastPlayAt = Number.NEGATIVE_INFINITY;
   let disposed = false;
   let activationListening = false;
-  let cachedCdnOrigin = OFFICIAL_FALLBACK_CDN_ORIGIN;
+  let cachedCdnOrigin: string | null = null;
   const loggedErrors = new Set<string>();
   const listeners = new Set<(state: LiveSearchSoundState) => void>();
 
-  const captureCdnOrigin = (audio: HTMLAudioElement | null) => {
-    const origin = extractCdnOrigin(audio?.src);
-    if (origin) cachedCdnOrigin = origin;
+  const resolveRealmCdnOrigin = (audio: HTMLAudioElement | null): string => {
+    const fromAudio = extractCdnOrigin(audio?.src);
+    if (fromAudio) {
+      cachedCdnOrigin = fromAudio;
+      return fromAudio;
+    }
+    if (cachedCdnOrigin) return cachedCdnOrigin;
+    const fromPage = detectCdnOrigin();
+    if (fromPage) {
+      cachedCdnOrigin = fromPage;
+      return fromPage;
+    }
+    return OFFICIAL_FALLBACK_CDN_ORIGIN;
   };
 
   const syncAudioElementSrc = (audio: HTMLAudioElement | null, setting: OfficialSoundSetting) => {
     if (!audio) return;
-    captureCdnOrigin(audio);
+    const origin = resolveRealmCdnOrigin(audio);
     if (typeof audio.src !== 'string') return;
-    const nextSrc = resolveOfficialAudioSrc(setting, cachedCdnOrigin);
+    const nextSrc = resolveOfficialAudioSrc(setting, origin);
     if (audio.src !== nextSrc) {
       audio.src = nextSrc;
     }
+  };
+
+  const hasExplicitStoredSoundFile = (raw: string | null): boolean => {
+    const parsed = parseRawStorageObject(raw);
+    if (!parsed) return false;
+    return isValidSoundFile(parsed.file, parsed.custom === true);
   };
 
   const readSetting = (): OfficialSoundSetting =>
@@ -286,7 +317,8 @@ export function createLiveSearchSoundNotifier(
   }
 
   const play = async (): Promise<LiveSearchSoundPlayOutcome> => {
-    const setting = readSetting();
+    const raw = readStorage(settingKey);
+    const setting = parseOfficialSoundSetting(raw);
     if (setting.volume === 0) return { ok: false, reason: 'muted' };
 
     const audio = findAudio();
@@ -296,7 +328,12 @@ export function createLiveSearchSoundNotifier(
     }
 
     try {
-      syncAudioElementSrc(audio, setting);
+      // 僅在官方設定明確存有音效檔時同步 src，避免未設定過時覆寫官方預設（含 PoE 2）
+      if (hasExplicitStoredSoundFile(raw)) {
+        syncAudioElementSrc(audio, setting);
+      } else {
+        resolveRealmCdnOrigin(audio);
+      }
       if (audio.currentTime > 0) {
         audio.pause();
         audio.currentTime = 0;
@@ -347,11 +384,7 @@ export function createLiveSearchSoundNotifier(
       const current = readSetting();
       return persistSetting({ ...current, volume: clamped });
     },
-    updateOfficialSound(next: {
-      file: string;
-      custom: boolean;
-      name: string | null;
-    }): OfficialSoundUpdateOutcome {
+    updateOfficialSound(next: OfficialSoundSource): OfficialSoundUpdateOutcome {
       if (!isValidSoundFile(next.file, next.custom)) {
         return { ok: false, reason: 'invalid' };
       }

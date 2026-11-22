@@ -156,7 +156,7 @@
               type="range"
               min="0"
               max="100"
-              step="5"
+              step="1"
               data-test="official-sound-volume"
               :disabled="!soundNotifier"
               :value="officialSetting.volume"
@@ -168,12 +168,12 @@
           </div>
 
           <p
-            v-if="previewMessage"
+            v-if="soundFeedbackMessage"
             data-test="sound-preview-message"
             role="status"
             class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-amber-500"
           >
-            {{ previewMessage }}
+            {{ soundFeedbackMessage }}
           </p>
         </SettingsSection>
 
@@ -288,6 +288,7 @@ import { t, type I18nKey } from '@/utils/i18n';
 import type { LiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
 import {
   getOfficialSoundSettingKey,
+  isValidCustomSoundDataUrl,
   OFFICIAL_CUSTOM_SOUND_MAX_BYTES,
   OFFICIAL_DEFAULT_SOUND_FILE,
   OFFICIAL_DEFAULT_SOUND_VOLUME,
@@ -296,6 +297,7 @@ import {
   type LiveSearchSoundPlayOutcome,
   type OfficialBuiltInSoundId,
   type OfficialSoundSetting,
+  type OfficialSoundSource,
 } from '@/entrypoints/content/logic/live-search-sound-notifier';
 import {
   createLiveSearchResumeStore,
@@ -324,7 +326,7 @@ const liveSearchMaxDisplayedResults = ref<LiveSearchMaxDisplayedResults>(
   DEFAULT_PREFERENCES.liveSearchMaxDisplayedResults,
 );
 const liveSearchSoundEnabled = ref<boolean>(DEFAULT_PREFERENCES.liveSearchSoundEnabled);
-const previewMessage = ref('');
+const soundFeedbackMessage = ref('');
 const hasPersistedPlan = ref(false);
 const isClearingPlan = ref(false);
 const customFileInputRef = ref<HTMLInputElement | null>(null);
@@ -525,48 +527,56 @@ const PREVIEW_FAILURE_KEYS = {
 
 async function handlePreviewSound() {
   if (!props.soundNotifier) return;
-  previewMessage.value = '';
+  soundFeedbackMessage.value = '';
   const outcome = await props.soundNotifier.preview();
   if (outcome.ok) return;
-  previewMessage.value = t(PREVIEW_FAILURE_KEYS[outcome.reason]);
+  soundFeedbackMessage.value = t(PREVIEW_FAILURE_KEYS[outcome.reason]);
 }
 
 function handleVolumeInput(event: Event) {
+  const next = Number((event.target as HTMLInputElement).value);
+  if (!Number.isFinite(next)) return;
+  const clamped = Math.min(100, Math.max(0, Math.round(next)));
+  officialSetting.value = { ...officialSetting.value, volume: clamped };
+}
+
+async function handleVolumeChange(event: Event) {
   if (!props.soundNotifier?.updateOfficialVolume) return;
   const next = Number((event.target as HTMLInputElement).value);
   if (!Number.isFinite(next)) return;
-  previewMessage.value = '';
+  soundFeedbackMessage.value = '';
   const outcome = props.soundNotifier.updateOfficialVolume(next);
-  if (outcome.ok) {
-    officialSetting.value = outcome.setting;
-  } else {
-    previewMessage.value = t('liveSearch.sound.saveFailed');
-  }
-}
-
-async function handleVolumeChange() {
-  if (!props.soundNotifier || officialSetting.value.volume === 0) return;
-  await handlePreviewSound();
-}
-
-async function handleSelectSound(value: unknown) {
-  if (!props.soundNotifier?.updateOfficialSound) return;
-  const selected = String(value);
-  if (selected === CUSTOM_SOUND_SELECT_VALUE) return;
-  previewMessage.value = '';
-  const outcome = props.soundNotifier.updateOfficialSound({
-    file: selected,
-    custom: false,
-    name: null,
-  });
   if (!outcome.ok) {
-    previewMessage.value = t('liveSearch.sound.saveFailed');
+    soundFeedbackMessage.value = t('liveSearch.sound.saveFailed');
     return;
   }
   officialSetting.value = outcome.setting;
   if (officialSetting.value.volume > 0) {
     await handlePreviewSound();
   }
+}
+
+async function applyOfficialSound(source: OfficialSoundSource) {
+  if (!props.soundNotifier?.updateOfficialSound) return;
+  soundFeedbackMessage.value = '';
+  const outcome = props.soundNotifier.updateOfficialSound(source);
+  if (!outcome.ok) {
+    soundFeedbackMessage.value =
+      outcome.reason === 'storage'
+        ? t('liveSearch.sound.saveFailed')
+        : t('liveSearch.sound.uploadInvalid');
+    return;
+  }
+  officialSetting.value = outcome.setting;
+  if (officialSetting.value.volume > 0) {
+    await handlePreviewSound();
+  }
+}
+
+async function handleSelectSound(value: unknown) {
+  const selected = String(value);
+  if (selected === CUSTOM_SOUND_SELECT_VALUE) return;
+  await applyOfficialSound({ file: selected, custom: false, name: null });
 }
 
 function triggerUploadCustomSound() {
@@ -588,9 +598,9 @@ async function handleUploadCustomSound(event: Event) {
   input.value = '';
   if (!file || !props.soundNotifier?.updateOfficialSound) return;
 
-  previewMessage.value = '';
+  soundFeedbackMessage.value = '';
   if (file.size > OFFICIAL_CUSTOM_SOUND_MAX_BYTES) {
-    previewMessage.value = t('liveSearch.sound.uploadTooLarge');
+    soundFeedbackMessage.value = t('liveSearch.sound.uploadTooLarge');
     return;
   }
 
@@ -598,30 +608,15 @@ async function handleUploadCustomSound(event: Event) {
   try {
     dataUrl = await readFileAsDataUrl(file);
   } catch {
-    previewMessage.value = t('liveSearch.sound.uploadInvalid');
+    soundFeedbackMessage.value = t('liveSearch.sound.uploadInvalid');
     return;
   }
-  if (!dataUrl.startsWith('data:audio/')) {
-    previewMessage.value = t('liveSearch.sound.uploadInvalid');
+  if (!isValidCustomSoundDataUrl(dataUrl)) {
+    soundFeedbackMessage.value = t('liveSearch.sound.uploadInvalid');
     return;
   }
 
-  const outcome = props.soundNotifier.updateOfficialSound({
-    file: dataUrl,
-    custom: true,
-    name: file.name,
-  });
-  if (!outcome.ok) {
-    previewMessage.value =
-      outcome.reason === 'storage'
-        ? t('liveSearch.sound.saveFailed')
-        : t('liveSearch.sound.uploadInvalid');
-    return;
-  }
-  officialSetting.value = outcome.setting;
-  if (officialSetting.value.volume > 0) {
-    await handlePreviewSound();
-  }
+  await applyOfficialSound({ file: dataUrl, custom: true, name: file.name });
 }
 
 async function handleClearResumePlan() {

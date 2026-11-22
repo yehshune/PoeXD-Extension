@@ -61,7 +61,7 @@ A durable, per-game-version (`poe1` / `poe2`) activation intent for search conne
 _Avoid_: Runtime snapshot, session restore, subscription persistence, WebSocket persistence
 
 **Console Sound Notification (User-facing: 通知音效)**:
-The sound the LiveSearch Primary Page plays when one of its active connections receives a new result. PoeXD decides when it plays (ADR-0016): on result-token acceptance, before `/fetch`, coalescing bursts from any number of connections into one sound. It plays the official page's own `<audio>` element, so the sound and volume follow what the user chose on the official site, and the version-specific Preference `liveSearchSoundEnabled` turns it off for the console only. When the browser blocks playback because the console has not been interacted with, the console says so instead of failing silently.
+The sound the LiveSearch Primary Page plays when one of its active connections receives a new result. PoeXD decides when it plays (ADR-0016): on result-token acceptance, before `/fetch`, coalescing bursts from any number of connections into one sound. It plays the official page's own `<audio>` element, syncing sound selection (built-in or custom audio) and volume (0–100) directly with the official site's `lscache-tradewoop` / `lscache-trade2woop` entry from the console settings pane, while the version-specific Preference `liveSearchSoundEnabled` turns it off for the console only. When the browser blocks playback because the console has not been interacted with, the console says so instead of failing silently.
 _Avoid_: woop, official notify, alert sound, desktop notification (a separate feature)
 
 **Trade Page Role**:

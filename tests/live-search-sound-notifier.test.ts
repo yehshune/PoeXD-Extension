@@ -355,4 +355,29 @@ describe('LiveSearchSoundNotifier', () => {
     expect(notifier.updateOfficialVolume(40)).toEqual({ ok: false, reason: 'storage' });
     expect(warn).toHaveBeenCalledTimes(1);
   });
+
+  it('初始即為自訂音效時，切回內建音效透過 detectCdnOrigin 解析區服 CDN', () => {
+    const { audio, notifier } = setup({
+      detectCdnOrigin: () => 'https://web.poecdn.tw',
+    });
+    audio.src = 'data:audio/mp3;base64,AAAA';
+
+    const outcome = notifier.updateOfficialSound({
+      file: 'audio/trade/gong.mp3',
+      custom: false,
+      name: null,
+    });
+    expect(outcome.ok).toBe(true);
+    expect(audio.src).toBe('https://web.poecdn.tw/audio/trade/gong.mp3');
+  });
+
+  it('官方設定未指定 file 時，play() 不覆寫頁面原生 <audio>.src', async () => {
+    const { audio, storage, notifier } = setup();
+    audio.src = 'https://web.poecdn.com/audio/trade2/custom-default.mp3';
+    storage.set('lscache-tradewoop', JSON.stringify({ volume: 40 }));
+
+    await notifier.preview();
+    expect(audio.src).toBe('https://web.poecdn.com/audio/trade2/custom-default.mp3');
+    expect(audio.volume).toBeCloseTo(0.4);
+  });
 });
