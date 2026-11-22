@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DomFilter } from '@/entrypoints/content/logic/dom-filter';
+import {
+  ResultEnhancementPipeline,
+  type ResultEnhancement,
+} from '@/entrypoints/content/logic/result-enhancement-pipeline';
 import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -51,13 +54,16 @@ function setupDom(currentResults: () => FakeElement | null) {
 
   class FakeMutationObserver {
     target?: unknown;
+    disconnected = false;
     constructor(readonly callback: (mutations: any[]) => void) {
       observers.push(this);
     }
     observe(target: unknown) {
       this.target = target;
     }
-    disconnect() {}
+    disconnect() {
+      this.disconnected = true;
+    }
   }
 
   vi.stubGlobal('Element', FakeElement);
@@ -81,14 +87,17 @@ function setupDom(currentResults: () => FakeElement | null) {
   };
 }
 
-describe('DomFilter result lifecycle', () => {
-  it('observes the stable body before results exist and initializes a later result root', async () => {
+describe('ResultEnhancementPipeline', () => {
+  it('observes the stable body before results exist and initializes a later result root', () => {
     let results: FakeElement | null = null;
     const dom = setupDom(() => results);
-    const highlighter = { apply: vi.fn() };
-    const filter = new DomFilter('poe1', undefined, highlighter as any);
+    const highlighter: ResultEnhancement = { scope: 'always', apply: vi.fn() };
+    const pipeline = new ResultEnhancementPipeline({
+      version: 'poe1',
+      enhancements: [highlighter],
+    });
 
-    await filter.init();
+    pipeline.init();
     const bodyObserver = dom.observers.find((observer) => observer.target === dom.body);
     expect(bodyObserver).toBeDefined();
 
@@ -99,21 +108,29 @@ describe('DomFilter result lifecycle', () => {
     dom.flushFrame();
 
     expect(highlighter.apply).toHaveBeenCalledWith(results);
-    filter.cleanup();
+    pipeline.cleanup();
   });
 
-  it('processes only a newly added live-search row and skips prices', async () => {
+  it('processes only a newly added live-search row and skips search-normal enhancements', () => {
     const results = new FakeElement('results');
     const dom = setupDom(() => results);
-    const pricePresenter = { apply: vi.fn() };
-    const highlighter = { apply: vi.fn() };
-    const filter = new DomFilter('poe1', pricePresenter as any, highlighter as any);
-    filter.setPageMode('live');
+    const pricePresenter: ResultEnhancement = {
+      scope: 'search-normal',
+      apply: vi.fn(),
+      setPageMode: vi.fn(),
+    };
+    const highlighter: ResultEnhancement = { scope: 'always', apply: vi.fn() };
+    const pipeline = new ResultEnhancementPipeline({
+      version: 'poe1',
+      enhancements: [pricePresenter, highlighter],
+    });
+    pipeline.setPageMode('live');
+    expect(pricePresenter.setPageMode).toHaveBeenCalledWith('live');
 
-    await filter.init();
+    pipeline.init();
     dom.flushFrame();
-    pricePresenter.apply.mockClear();
-    highlighter.apply.mockClear();
+    vi.mocked(pricePresenter.apply).mockClear();
+    vi.mocked(highlighter.apply).mockClear();
 
     const row = new FakeElement('row');
     row.ownerResults = results;
@@ -123,20 +140,24 @@ describe('DomFilter result lifecycle', () => {
 
     expect(highlighter.apply).toHaveBeenCalledWith(row);
     expect(pricePresenter.apply).not.toHaveBeenCalled();
-    filter.setPageMode('search');
+
+    pipeline.setPageMode('search');
     dom.flushFrame();
     expect(pricePresenter.apply).toHaveBeenCalledWith(results);
-    filter.cleanup();
+    pipeline.cleanup();
   });
 
-  it('ignores price annotation mutations and rows outside results', () => {
+  it('ignores extension annotation mutations and rows outside results', () => {
     const results = new FakeElement('results');
     const dom = setupDom(() => results);
-    const highlighter = { apply: vi.fn() };
-    const filter = new DomFilter('poe1', undefined, highlighter as any);
-    filter.init();
+    const highlighter: ResultEnhancement = { scope: 'always', apply: vi.fn() };
+    const pipeline = new ResultEnhancementPipeline({
+      version: 'poe1',
+      enhancements: [highlighter],
+    });
+    pipeline.init();
     dom.flushFrame();
-    highlighter.apply.mockClear();
+    vi.mocked(highlighter.apply).mockClear();
 
     const row = new FakeElement('row');
     row.ownerResults = results;
@@ -153,45 +174,51 @@ describe('DomFilter result lifecycle', () => {
     dom.flushFrame();
 
     expect(highlighter.apply).not.toHaveBeenCalled();
-    filter.cleanup();
+    pipeline.cleanup();
   });
 
-  it('skips recently reordered rows while still enhancing newly added rows in the same batch', () => {
+  it('skips recently reordered rows while still enhancing newly added rows in batch order', () => {
     const results = new FakeElement('results');
     const dom = setupDom(() => results);
-    const highlighter = { apply: vi.fn() };
-    const pricePresenter = { apply: vi.fn() };
+    const callOrder: string[] = [];
     const movedRow = new FakeElement('row');
     movedRow.ownerResults = results;
     const newRow = new FakeElement('row');
     newRow.ownerResults = results;
 
-    const itemNormalizer = {
-      apply: vi.fn(),
-      applyBatch: vi.fn(),
+    const pricePresenter: ResultEnhancement = {
+      scope: 'search-normal',
+      apply: vi.fn(() => callOrder.push('price')),
     };
-    const sortController = {
-      isReordering: false,
-      isRecentlyMovedRow: vi.fn((node: unknown) => node === movedRow),
+    const itemNormalizer: ResultEnhancement = {
+      scope: 'search-normal',
       apply: vi.fn(),
-      applyBatch: vi.fn(),
+      applyBatch: vi.fn(() => callOrder.push('normalizer:batch')),
     };
-    const filter = new DomFilter(
-      'poe1',
-      pricePresenter as any,
-      highlighter as any,
-      itemNormalizer as any,
-      undefined,
-      undefined,
-      undefined,
-      sortController as any,
-    );
-    filter.init();
+    const sortController: ResultEnhancement = {
+      scope: 'search-normal',
+      apply: vi.fn(),
+      applyBatch: vi.fn(() => callOrder.push('sort:batch')),
+    };
+    const highlighter: ResultEnhancement = {
+      scope: 'always',
+      apply: vi.fn(() => callOrder.push('highlight')),
+    };
+    const pipeline = new ResultEnhancementPipeline({
+      version: 'poe1',
+      enhancements: [pricePresenter, itemNormalizer, sortController, highlighter],
+      reorderGuard: {
+        isReordering: false,
+        isRecentlyMovedRow: (node: unknown) => node === movedRow,
+      },
+    });
+    pipeline.init();
     dom.flushFrame();
-    highlighter.apply.mockClear();
-    pricePresenter.apply.mockClear();
-    itemNormalizer.applyBatch.mockClear();
-    sortController.applyBatch.mockClear();
+    callOrder.length = 0;
+    vi.mocked(pricePresenter.apply).mockClear();
+    vi.mocked(highlighter.apply).mockClear();
+    vi.mocked(itemNormalizer.applyBatch!).mockClear();
+    vi.mocked(sortController.applyBatch!).mockClear();
 
     const bodyObserver = dom.observers.find((observer) => observer.target === dom.body);
     bodyObserver.callback([{ target: results, addedNodes: [movedRow, newRow] }]);
@@ -201,10 +228,69 @@ describe('DomFilter result lifecycle', () => {
     expect(pricePresenter.apply).toHaveBeenCalledWith(newRow);
     expect(highlighter.apply).toHaveBeenCalledTimes(1);
     expect(highlighter.apply).toHaveBeenCalledWith(newRow);
-    expect(itemNormalizer.applyBatch).toHaveBeenCalledTimes(1);
     expect(itemNormalizer.applyBatch).toHaveBeenCalledWith([newRow]);
-    expect(sortController.applyBatch).toHaveBeenCalledTimes(1);
     expect(sortController.applyBatch).toHaveBeenCalledWith([newRow]);
-    filter.cleanup();
+    expect(callOrder).toEqual(['price', 'highlight', 'normalizer:batch', 'sort:batch']);
+    pipeline.cleanup();
+  });
+
+  it('fans out applyPreferences, setPageRole, handleFetchResponse, handleSearchQuery, and cleanup without wiping state on init', async () => {
+    const results = new FakeElement('results');
+    const dom = setupDom(() => results);
+    const events: string[] = [];
+
+    const first: ResultEnhancement = {
+      scope: 'search-normal',
+      apply: vi.fn(),
+      applyPreferences: async () => {
+        await Promise.resolve();
+        events.push('pref:1');
+      },
+      setPageRole: (role) => events.push(`role:1:${role}`),
+      cleanup: () => events.push('cleanup:1'),
+    };
+    const second: ResultEnhancement = {
+      scope: 'always',
+      apply: vi.fn(),
+      applyPreferences: () => {
+        events.push('pref:2');
+      },
+      setPageRole: (role) => events.push(`role:2:${role}`),
+      cleanup: () => events.push('cleanup:2'),
+    };
+
+    const onFetchResponse = vi.fn(async (_detail, league) => {
+      events.push(`fetch:${league}`);
+    });
+    const onSearchQuery = vi.fn((searchId) => {
+      events.push(`query:${searchId}`);
+    });
+
+    const pipeline = new ResultEnhancementPipeline({
+      version: 'poe1',
+      enhancements: [first, second],
+      onFetchResponse,
+      onSearchQuery,
+    });
+
+    await pipeline.applyPreferences({} as any);
+    pipeline.setPageRole('live-search-primary');
+    // init() 只重設 observer，不得觸發增強項目的 cleanup()
+    pipeline.init();
+    expect(events).toEqual([
+      'pref:1',
+      'pref:2',
+      'role:1:live-search-primary',
+      'role:2:live-search-primary',
+    ]);
+
+    await pipeline.handleFetchResponse('{"result":[]}', 'Standard');
+    pipeline.handleSearchQuery('AbCd1234Ef', {});
+    expect(events).toContain('fetch:Standard');
+    expect(events).toContain('query:AbCd1234Ef');
+
+    pipeline.cleanup();
+    expect(dom.observers[0].disconnected).toBe(true);
+    expect(events.slice(-2)).toEqual(['cleanup:1', 'cleanup:2']);
   });
 });

@@ -17,27 +17,21 @@ import { setActiveDisplayLocalePreference } from '@/utils/i18n';
 import { rememberPageLoadPreferences } from '@/utils/page-load-preferences';
 import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
 import { watchTradePageMode } from '@/utils/trade-page-mode';
-import { DomFilter } from './dom-filter';
+import {
+  createDefaultResultEnhancementPipeline,
+  type ResultEnhancementPipeline,
+} from './result-enhancement-pipeline';
 import { initHotkeysAndTildeListeners } from './hotkeys';
 import { installSearchEnterCommit } from './search-enter-commit';
 import { connectSearchObservationSession } from './search-observation-session';
 import { mountSidebarLayout, reserveSidebarPageLayout } from './sidebar-layout';
-import { ResultPricePresenter } from './result-price-presenter';
-import { ResultModHighlighter } from './result-mod-highlighter';
-import { ResultItemNormalizer } from './result-item-normalizer';
-import { ResultSortController } from './result-sort-controller';
-import { ResultModQuickFilter } from './result-mod-quick-filter';
-import { ResultPobCopy } from './result-pob-copy';
-import { ResultPinButton } from './result-pin-button';
-import { getTradeResultCache, type TradeResultCache } from '@/utils/trade-result-cache';
+import { getTradeResultCache } from '@/utils/trade-result-cache';
 import { getResultBoardRuntime } from './result-board-runtime';
-import { createPinnedItemClient } from '@/utils/pinned-item-client';
-import { ResultExternalLinks } from './result-external-links';
 import { isCloudflareChallenge } from '@/utils/trade-interstitial-classifier';
 import { whenTradePageReady } from './trade-page-readiness';
 import { createInitialPageLoadGate, type InitialPageLoadGate } from './initial-page-load-gate';
 import { expectsInitialSearchResults } from '@/utils/trade-search-identity';
-import { createFilterDomEnhancements, type FilterDomEnhancements } from './common';
+import { createFilterDomEnhancements } from './common';
 import { initToastHost, syncToastPreferences } from './toast-host';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import type { TradePageRole } from '@/utils/live-search-contract';
@@ -56,29 +50,11 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     return;
   }
   const cleanupToastHost = initToastHost(ctx);
-  const pricePresenter = new ResultPricePresenter(version);
-  const modHighlighter = new ResultModHighlighter();
-  const sortController = new ResultSortController(version, pricePresenter);
-  const itemNormalizer = new ResultItemNormalizer(version, sortController);
-  const modQuickFilter = new ResultModQuickFilter();
   const resultCache = getTradeResultCache();
-  const pobCopy = new ResultPobCopy(version, {}, resultCache);
-  const resultPin = new ResultPinButton(version, resultCache, createPinnedItemClient(version));
   // 搜尋結果看板只在一般頁啟用（確定頁面角色後才允許）
   const resultBoard = getResultBoardRuntime();
   let resultBoardAllowed = false;
-  const externalLinks = new ResultExternalLinks(version, pobCopy);
-  const domFilter = new DomFilter(
-    version,
-    pricePresenter,
-    modHighlighter,
-    itemNormalizer,
-    modQuickFilter,
-    pobCopy,
-    externalLinks,
-    sortController,
-    resultPin,
-  );
+  const resultPipeline = createDefaultResultEnhancementPipeline(version, resultCache);
   const filterEnhancements = createFilterDomEnhancements(version);
   let cleanupPageEvents: (() => void) | null = null;
   let cleanupHotkeys: (() => void) | null = null;
@@ -106,17 +82,9 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     initialPageLoad?.cancel();
     cancelAffixPrewarm?.();
     cleanupSearchSession?.();
-    domFilter.cleanup();
-    pricePresenter.cleanup();
-    itemNormalizer.cleanup();
-    sortController.cleanup();
-    modQuickFilter.cleanup();
-    pobCopy.cleanup();
-    resultPin.cleanup();
+    resultPipeline.cleanup();
     resultBoard.cleanup();
     resultCache.clear();
-    externalLinks.cleanup();
-    modHighlighter.cleanup();
     cleanupHotkeys?.();
     cleanupSearchEnterCommit?.();
     cleanupPageMode?.();
@@ -158,28 +126,9 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       filterEnhancements.setTierHelperEnabled(snapshot.enableTierHelper);
       filterEnhancements.setAffixSelectorEnabled(snapshot.enableAffixSelector);
       filterEnhancements.refreshAffixDisplayLocale();
-      await pricePresenter.setEnabled(snapshot.enablePriceComparison);
-      pricePresenter.refreshLocale?.();
-      modHighlighter.setEnabled(snapshot.enableResultModHighlight);
-      itemNormalizer.setEnabled(version === 'poe2' && snapshot.enableItemNormalizer);
-      itemNormalizer.refreshLocale?.();
-      sortController.setEnabled(
-        version === 'poe1'
-          ? snapshot.enablePriceComparison
-          : snapshot.enableItemNormalizer || snapshot.enablePriceComparison,
-      );
-      sortController.syncSupport();
-      sortController.refreshLocale();
-      modQuickFilter.setEnabled(snapshot.enableResultModQuickFilter);
-      modQuickFilter.refreshLocale();
-      pobCopy.setEnabled(snapshot.enableResultPobCopy);
-      pobCopy.refreshLocale();
-      resultPin.setEnabled(snapshot.sidebarModulePinnedItems);
-      resultPin.refreshLocale();
+      await resultPipeline.applyPreferences(snapshot);
       resultBoard.setEnabled(resultBoardAllowed && snapshot.sidebarModuleResultBoard);
       resultBoard.ensureShortcut();
-      externalLinks.setEnabled(snapshot.enableResultExternalLinks);
-      externalLinks.refreshLocale();
     };
     let appliedPreferences = preferences.read();
     await applyPreferences(appliedPreferences, { deferAffixLexicon: true });
@@ -222,7 +171,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     cleanupSearchSession = await connectSearchObservationSession({
       version,
       preferences,
-      consumeCriteria: (searchId, criteria) => modHighlighter.handleSearchQuery(searchId, criteria),
+      consumeCriteria: (searchId, criteria) => resultPipeline.handleSearchQuery(searchId, criteria),
     });
     if (disposed) {
       cleanupSearchSession();
@@ -230,11 +179,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       return;
     }
     cleanupPageMode = watchTradePageMode((mode) => {
-      pricePresenter.setPageMode(mode);
-      itemNormalizer.setPageMode(mode);
-      sortController.setPageMode(mode);
-      modQuickFilter.setPageMode(mode);
-      domFilter.setPageMode(mode);
+      resultPipeline.setPageMode(mode);
       filterEnhancements.setEditorEnabled(mode === 'search');
     });
     // 頁面角色確定前就建立，加上事件緩衝補送，才不會漏掉首批結果事件
@@ -242,16 +187,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       expectsInitialResults: expectsInitialSearchResults(window.location.href),
     });
     initialPageLoad = pageLoadGate;
-    cleanupPageEvents = registerPageContextEvents(
-      version,
-      pricePresenter,
-      itemNormalizer,
-      sortController,
-      resultCache,
-      [pobCopy, resultPin],
-      externalLinks,
-      filterEnhancements,
-    );
+    cleanupPageEvents = registerPageContextEvents(version, resultPipeline);
     cleanupHotkeys = initHotkeysAndTildeListeners(preferences);
     cleanupSearchEnterCommit = installSearchEnterCommit();
 
@@ -286,14 +222,10 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       if (disposed) {
         return;
       }
-      domFilter.setPageRole(pageRole);
       resultBoardAllowed = pageRole === 'normal';
       resultBoard.setEnabled(resultBoardAllowed && preferences.read().sidebarModuleResultBoard);
-      pricePresenter.setPageRole(pageRole);
-      itemNormalizer.setPageRole(pageRole);
-      sortController.setPageRole(pageRole);
-      modQuickFilter.setPageRole(pageRole);
-      domFilter.init();
+      resultPipeline.setPageRole(pageRole);
+      resultPipeline.init();
       if (pageRole === 'live-search-primary') {
         liveSearchSession = createLiveSearchPrimarySession({
           version,
@@ -310,7 +242,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
           liveSearchConsole: liveSearchSession?.console ?? null,
         })) || null;
       if (disposed) {
-        domFilter.cleanup();
+        resultPipeline.cleanup();
         return;
       }
       // 所有初始化期間註冊的監聽都已補送完畢，之後的事件即時處理即可
@@ -340,31 +272,13 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   }
 }
 
-function registerPageContextEvents(
-  version: PoeVersion,
-  pricePresenter: ResultPricePresenter,
-  itemNormalizer: ResultItemNormalizer,
-  sortController: ResultSortController,
-  resultCache: TradeResultCache,
-  resultConsumers: readonly { refresh(): void }[],
-  externalLinks: ResultExternalLinks,
-  filterEnhancements: FilterDomEnhancements,
-) {
+function registerPageContextEvents(version: PoeVersion, resultPipeline: ResultEnhancementPipeline) {
   const cleanups: (() => void)[] = [];
 
   cleanups.push(
     listenPoeEvent('poexd-fetch-response', async (detail) => {
       try {
-        await Promise.all([
-          pricePresenter.handleFetchResponse(detail, getTradeLeague()),
-          (async () => {
-            await itemNormalizer.handleFetchResponse(detail);
-            sortController.handleFetchResponse(detail);
-          })(),
-        ]);
-        resultCache.ingestFetchResponse(detail, { league: getTradeLeague() });
-        resultConsumers.forEach((consumer) => consumer.refresh());
-        externalLinks.refresh();
+        await resultPipeline.handleFetchResponse(detail, getTradeLeague());
       } catch (error) {
         console.error('[PoeXD] 解析攔截資料失敗:', error);
       }
