@@ -53,3 +53,6 @@ e2e/.report-offline
 
 # E2E auth state
 e2e/.auth
+
+# Local perf captures (scripts/perf)
+.perf
