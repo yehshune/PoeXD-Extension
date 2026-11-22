@@ -55,7 +55,7 @@ export interface ResultEnhancementPipelineOptions {
 
 /**
  * 統一管理官方結果列的 DOM 觀測、批次套用、偏好設定、頁面模式／角色、
- * fetch-to-cache 順序與釋放，取代淺層 DomFilter 與 runtime.ts 的 5 處手動 fan-out。
+ * fetch-to-cache 順序與釋放。
  */
 export class ResultEnhancementPipeline {
   private frame?: number;
