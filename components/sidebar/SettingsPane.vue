@@ -659,7 +659,10 @@ import {
   reactive,
   ref,
   toRefs,
+  watch,
+  type PropType,
 } from 'vue';
+import type { SettingsFocusRequest } from '@/utils/release-highlights';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -768,8 +771,15 @@ export default defineComponent({
     Search,
     X,
   },
+  props: {
+    /** 由 Sidebar 發出的區塊跳轉請求（例如改版提示的新功能按鈕） */
+    focusRequest: {
+      type: Object as PropType<SettingsFocusRequest | null>,
+      default: null,
+    },
+  },
   emits: ['ready'],
-  setup(_props, { emit }) {
+  setup(props, { emit }) {
     const version = getPoeVersion();
 
     const preferenceState = reactive<Preferences>({
@@ -1285,6 +1295,15 @@ export default defineComponent({
       if (wasSearching || wasCollapsed) void nextTick(scroll);
       else scroll();
     };
+    // 分頁可能剛掛載或剛由 v-show 顯示，等 DOM 更新後再捲動
+    watch(
+      () => props.focusRequest?.seq,
+      () => {
+        const section = props.focusRequest?.section;
+        if (section) void nextTick(() => openSection(section));
+      },
+      { immediate: true, flush: 'post' },
+    );
 
     const openPobSharePermissionPage = () => {
       void extensionMessaging.sendMessage('pobShare:openPermissionPage').catch((error: unknown) => {

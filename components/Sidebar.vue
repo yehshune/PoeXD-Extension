@@ -149,7 +149,11 @@
                   v-if="showUpdateNotice"
                   class="shrink-0 px-[var(--pxd-pane-padding)] pt-[var(--pxd-pane-padding)]"
                 >
-                  <UpdateNotice :version="updateNoticeVersion" @dismiss="dismissUpdateNotice" />
+                  <UpdateNotice
+                    :version="updateNoticeVersion"
+                    @dismiss="dismissUpdateNotice"
+                    @open-section="openSettingsSection"
+                  />
                 </div>
                 <!-- 分頁第一次在展開的側邊欄顯示時才掛載，之後以 v-show 保留狀態 -->
                 <BookmarkPane
@@ -183,6 +187,7 @@
                 <SettingsPane
                   v-if="isTabMounted('settings')"
                   v-show="activeTab === 'settings'"
+                  :focus-request="settingsFocusRequest"
                   @ready="settingsPaneReady = true"
                 />
 
@@ -360,6 +365,7 @@ import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
 import TemporarySearchDialog from './sidebar/TemporarySearchDialog.vue';
 import UpdateNotice from './sidebar/UpdateNotice.vue';
+import type { SettingsFocusRequest } from '@/utils/release-highlights';
 import SidebarNavRail, {
   type LiveSearchPrimaryTab,
   type SidebarNavTab,
@@ -417,6 +423,7 @@ import {
   resolveActivePaneTab,
   resolveVisiblePaneTabs,
   type SidebarModuleId,
+  type SettingsSectionId,
   type SidebarModulePreferenceKey,
 } from '@/utils/sidebar-modules';
 import { useSidebarGeometry } from './sidebar/composables/useSidebarGeometry';
@@ -651,6 +658,12 @@ export default defineComponent({
       }
     });
     const dismissUpdateNotice = () => updateOnboarding(dismissUpdate);
+    // 改版提示的新功能按鈕：切到系統設定分頁並捲到對應區塊
+    const settingsFocusRequest = ref<SettingsFocusRequest | null>(null);
+    const openSettingsSection = (section: SettingsSectionId) => {
+      activeTab.value = 'settings';
+      settingsFocusRequest.value = { section, seq: (settingsFocusRequest.value?.seq ?? 0) + 1 };
+    };
     const updatePreference = async (patch: Partial<Preferences>, label: string) => {
       if (!preferencesModule) return;
       const outcome = await preferencesModule.update(patch);
@@ -1342,6 +1355,8 @@ export default defineComponent({
       showUpdateNotice,
       updateNoticeVersion,
       dismissUpdateNotice,
+      settingsFocusRequest,
+      openSettingsSection,
       guideSetup,
       t,
       portalTarget,

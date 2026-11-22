@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { createApp, defineComponent, h, nextTick, ref } from 'vue';
+import type { SettingsFocusRequest } from '@/utils/release-highlights';
 import SettingsPane from '@/components/sidebar/SettingsPane.vue';
 import SettingsHotkeyInput from '@/components/sidebar/settings/SettingsHotkeyInput.vue';
 import { COMPONENT_SIZE_SPECS, FORM_INDICATOR_SPECS } from '@/lib/tokens';
@@ -933,6 +934,41 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     appearanceSection.querySelector<HTMLElement>('header')!.click();
     await nextTick();
     expect(appearanceSection.getAttribute('data-settings-section-collapsed')).toBe('true');
+  });
+
+  it('expands and highlights the section named by a focus request, including on mount', async () => {
+    let readyCalled = false;
+    const focusRequest = ref<SettingsFocusRequest | null>({
+      section: 'appearance',
+      seq: 1,
+    });
+    app = createApp({
+      setup: () => () =>
+        h(SettingsPane, {
+          focusRequest: focusRequest.value,
+          onReady: () => {
+            readyCalled = true;
+          },
+        }),
+    });
+    app.mount(container);
+    for (let i = 0; i < 20 && !readyCalled; i++) {
+      await nextTick();
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    await flushAsync();
+
+    const appearance = container.querySelector<HTMLElement>(
+      '[data-settings-section="appearance"]',
+    )!;
+    expect(appearance.getAttribute('data-settings-section-collapsed')).toBeNull();
+    expect(appearance.getAttribute('data-settings-section-highlighted')).toBe('true');
+
+    focusRequest.value = { section: 'modules', seq: 2 };
+    await flushAsync();
+    const modules = container.querySelector<HTMLElement>('[data-settings-section="modules"]')!;
+    expect(modules.getAttribute('data-settings-section-collapsed')).toBeNull();
+    expect(modules.getAttribute('data-settings-section-highlighted')).toBe('true');
   });
 
   it('merges both fuzzy search preferences into one switch', async () => {

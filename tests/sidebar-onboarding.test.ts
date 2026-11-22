@@ -23,10 +23,16 @@ vi.mock('@/components/sidebar/ToolsPane.vue', () => ({
 vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
   default: defineComponent({
     name: 'SettingsPane',
+    props: { focusRequest: { type: Object, default: null } },
     emits: ['ready'],
-    setup(_props, { emit }) {
+    setup(props, { emit }) {
       onMounted(() => emit('ready'));
-      return () => h('div');
+      return () =>
+        h('div', {
+          'data-test-settings-focus': props.focusRequest
+            ? `${(props.focusRequest as { section: string }).section}:${(props.focusRequest as { seq: number }).seq}`
+            : undefined,
+        });
     },
   }),
 }));
@@ -511,6 +517,23 @@ describe('Sidebar first-install onboarding', () => {
       await settle();
       expect(query('[data-onboarding-update]')).not.toBeNull();
     }
+
+    // New-feature jumps open the matching settings section and keep the notice visible
+    query('[data-sidebar-tab="history"]')!.click();
+    await settle();
+    query('[data-onboarding-highlight="modules"]')!.click();
+    await settle();
+    expect(query('[data-sidebar-tab="settings"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(query('[data-test-settings-focus]')!.getAttribute('data-test-settings-focus')).toBe(
+      'modules:1',
+    );
+    query('[data-onboarding-highlight="modules"]')!.click();
+    await settle();
+    // Clicking the same jump again issues a new request so the section re-highlights
+    expect(query('[data-test-settings-focus]')!.getAttribute('data-test-settings-focus')).toBe(
+      'modules:2',
+    );
+    expect(query('[data-onboarding-update]')).not.toBeNull();
 
     // Dismissing once hides it permanently
     query('[data-onboarding-action="dismiss-update"]')!.click();
