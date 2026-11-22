@@ -1,16 +1,22 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readBookmarkNodeSource } from './helpers/bookmark-node-source';
-import { createApp, defineComponent, h, nextTick, ref } from 'vue';
+import { computed, createApp, defineComponent, h, nextTick, ref, type Ref } from 'vue';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { ConfigProvider } from 'reka-ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useBookmarkPreview } from '@/components/sidebar/composables/useBookmarkPreview';
+import {
+  rowAnchorFromEvent,
+  usePinnedPreview,
+  useSearchPreviewDraft,
+  useTradeSearchPreview,
+  type TradeSearchPreviewData,
+} from '@/components/sidebar/composables/useTradeSearchPreview';
 import type { Bookmark } from '@/components/sidebar/bookmark-types';
 import TradeSearchPreviewContent from '@/components/sidebar/search-preview/TradeSearchPreviewContent.vue';
-import type { TradeSearchPreviewData } from '@/components/sidebar/composables/useTradeSearchPreview';
 import { createBoundaryVirtualElement } from '@/components/sidebar/search-preview/preview-anchor';
+import type { CriteriaOverlayManager } from '@/entrypoints/content/logic/criteria-overlay-manager';
 
 const mockDecodeTradeSearchUrl = vi.fn();
 const mockLoadTradeDictionaries = vi.fn();
@@ -29,7 +35,29 @@ vi.mock('@/utils/trade-stat-dictionary', async (importOriginal) => {
   };
 });
 
-describe('useBookmarkPreview data composable', () => {
+function createBookmarkPreviewHarness(options?: {
+  isDragging?: Ref<boolean>;
+  editingBookmarkId?: Ref<string | null>;
+}) {
+  const disabled = computed(
+    () => Boolean(options?.isDragging?.value) || Boolean(options?.editingBookmarkId?.value),
+  );
+  const preview = useTradeSearchPreview<Bookmark>({ disabled });
+  return {
+    activeBookmarkId: preview.activeEntityKey,
+    activePreviewData: preview.activePreviewData,
+    loadBookmarkPreview: (bm: Bookmark) => preview.loadPreview(bm.id, bm.url),
+    clearActivePreview: preview.clearActivePreview,
+    bookmarkPreviewCache: preview.previewCache,
+    previewBookmark: preview.activeItem,
+    previewAnchorEl: preview.anchorEl,
+    isPreviewOpen: preview.isOpen,
+    toggleBookmarkPreview: preview.toggle,
+    closePreview: preview.close,
+  };
+}
+
+describe('useTradeSearchPreview data composable', () => {
   const bookmarkA: Bookmark = {
     id: 'bm-1',
     searchRecordId: 'sr-1',
@@ -67,9 +95,10 @@ describe('useBookmarkPreview data composable', () => {
       }),
     );
 
-    const { activeBookmarkId, activePreviewData, loadBookmarkPreview } = useBookmarkPreview({
-      isDragging,
-    });
+    const { activeBookmarkId, activePreviewData, loadBookmarkPreview } =
+      createBookmarkPreviewHarness({
+        isDragging,
+      });
 
     const loadPromise = loadBookmarkPreview(bookmarkA);
     // Directly enters loading state without requiring vi.advanceTimersByTime(220)
@@ -96,7 +125,7 @@ describe('useBookmarkPreview data composable', () => {
     mockLoadTradeDictionaries.mockResolvedValue(undefined);
     mockExtractQueryMetadata.mockReturnValue(fakeMeta);
 
-    const { activePreviewData, loadBookmarkPreview } = useBookmarkPreview();
+    const { activePreviewData, loadBookmarkPreview } = createBookmarkPreviewHarness();
 
     await loadBookmarkPreview(bookmarkA);
 
@@ -123,7 +152,8 @@ describe('useBookmarkPreview data composable', () => {
     });
     mockExtractQueryMetadata.mockReturnValue(fakeMeta);
 
-    const { activePreviewData, loadBookmarkPreview, clearActivePreview } = useBookmarkPreview();
+    const { activePreviewData, loadBookmarkPreview, clearActivePreview } =
+      createBookmarkPreviewHarness();
 
     // 1st load
     await loadBookmarkPreview(bookmarkA);
@@ -144,7 +174,7 @@ describe('useBookmarkPreview data composable', () => {
   it('handles decode failure or legacy non-gzip urls by setting isLegacy', async () => {
     mockDecodeTradeSearchUrl.mockResolvedValue(null);
 
-    const { activePreviewData, loadBookmarkPreview } = useBookmarkPreview();
+    const { activePreviewData, loadBookmarkPreview } = createBookmarkPreviewHarness();
 
     await loadBookmarkPreview(bookmarkA);
 
@@ -158,7 +188,7 @@ describe('useBookmarkPreview data composable', () => {
   it('handles thrown errors gracefully by setting isLegacy', async () => {
     mockDecodeTradeSearchUrl.mockRejectedValue(new Error('Decompression error'));
 
-    const { activePreviewData, loadBookmarkPreview } = useBookmarkPreview();
+    const { activePreviewData, loadBookmarkPreview } = createBookmarkPreviewHarness();
 
     await loadBookmarkPreview(bookmarkA);
 
@@ -188,7 +218,7 @@ describe('useBookmarkPreview data composable', () => {
     mockExtractQueryMetadata.mockReturnValue(fakeMetaB);
 
     const { activeBookmarkId, activePreviewData, loadBookmarkPreview, bookmarkPreviewCache } =
-      useBookmarkPreview();
+      createBookmarkPreviewHarness();
 
     // Start loading A (pending)
     const promiseA = loadBookmarkPreview(bookmarkA);
@@ -222,7 +252,7 @@ describe('useBookmarkPreview data composable', () => {
     mockDecodeTradeSearchUrl.mockResolvedValue(null);
 
     const { activeBookmarkId, activePreviewData, loadBookmarkPreview, clearActivePreview } =
-      useBookmarkPreview();
+      createBookmarkPreviewHarness();
 
     await loadBookmarkPreview(bookmarkA);
     expect(activePreviewData.value).not.toBeNull();
@@ -241,9 +271,10 @@ describe('useBookmarkPreview data composable', () => {
     const isDragging = ref(false);
     mockDecodeTradeSearchUrl.mockResolvedValue(null);
 
-    const { activeBookmarkId, activePreviewData, loadBookmarkPreview } = useBookmarkPreview({
-      isDragging,
-    });
+    const { activeBookmarkId, activePreviewData, loadBookmarkPreview } =
+      createBookmarkPreviewHarness({
+        isDragging,
+      });
 
     await loadBookmarkPreview(bookmarkA);
     expect(activePreviewData.value).not.toBeNull();
@@ -266,9 +297,10 @@ describe('useBookmarkPreview data composable', () => {
     const editingBookmarkId = ref<string | null>(null);
     mockDecodeTradeSearchUrl.mockResolvedValue(null);
 
-    const { activeBookmarkId, activePreviewData, loadBookmarkPreview } = useBookmarkPreview({
-      editingBookmarkId,
-    });
+    const { activeBookmarkId, activePreviewData, loadBookmarkPreview } =
+      createBookmarkPreviewHarness({
+        editingBookmarkId,
+      });
 
     await loadBookmarkPreview(bookmarkA);
     expect(activePreviewData.value).not.toBeNull();
@@ -386,7 +418,7 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
     const editingBookmarkId = ref<string | null>(null);
 
     const { activeBookmarkId, activePreviewData, loadBookmarkPreview, clearActivePreview } =
-      useBookmarkPreview({ isDragging, editingBookmarkId });
+      createBookmarkPreviewHarness({ isDragging, editingBookmarkId });
 
     const handlePreviewOpenChange = (bm: Bookmark, open: boolean) => {
       if (open) {
@@ -523,7 +555,7 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
       loadBookmarkPreview,
       clearActivePreview,
       bookmarkPreviewCache,
-    } = useBookmarkPreview();
+    } = createBookmarkPreviewHarness();
 
     const handleOpenChange = (bm: Bookmark, open: boolean) => {
       if (open) {
@@ -1220,7 +1252,7 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
     it('opens on the first toggle and closes on a second toggle of the same bookmark', () => {
       const anchor = document.createElement('div');
       const { isPreviewOpen, previewAnchorEl, previewBookmark, toggleBookmarkPreview } =
-        useBookmarkPreview();
+        createBookmarkPreviewHarness();
 
       toggleBookmarkPreview(testBm('a'), anchor);
       expect(isPreviewOpen.value).toBe(true);
@@ -1236,7 +1268,7 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
       const anchorA = document.createElement('div');
       const anchorB = document.createElement('div');
       const { isPreviewOpen, previewAnchorEl, previewBookmark, toggleBookmarkPreview } =
-        useBookmarkPreview();
+        createBookmarkPreviewHarness();
 
       toggleBookmarkPreview(testBm('a'), anchorA);
       toggleBookmarkPreview(testBm('b'), anchorB);
@@ -1247,7 +1279,7 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
 
     it('does not open while dragging and closes when dragging starts', async () => {
       const isDragging = ref(true);
-      const { isPreviewOpen, toggleBookmarkPreview } = useBookmarkPreview({ isDragging });
+      const { isPreviewOpen, toggleBookmarkPreview } = createBookmarkPreviewHarness({ isDragging });
       toggleBookmarkPreview(testBm('a'), document.createElement('div'));
       expect(isPreviewOpen.value).toBe(false);
 
@@ -1258,6 +1290,160 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
       isDragging.value = true;
       await nextTick();
       expect(isPreviewOpen.value).toBe(false);
+    });
+  });
+
+  describe('usePinnedPreview & rowAnchorFromEvent', () => {
+    const item = (id: string) => ({ id });
+
+    it('opens on first toggle, closes on repeat toggle, and switches without closing', () => {
+      const onOpen = vi.fn();
+      const onClose = vi.fn();
+      const preview = usePinnedPreview<{ id: string }>({ onOpen, onClose });
+      const anchorA = document.createElement('div');
+      const anchorB = document.createElement('div');
+
+      preview.toggle(item('a'), anchorA);
+      expect(preview.isOpen.value).toBe(true);
+      expect(preview.activeItem.value?.id).toBe('a');
+      expect(preview.anchorEl.value).toBe(anchorA);
+      expect(onOpen).toHaveBeenCalledWith(item('a'));
+
+      preview.toggle(item('b'), anchorB);
+      expect(preview.activeItem.value?.id).toBe('b');
+      expect(preview.anchorEl.value).toBe(anchorB);
+      expect(onClose).not.toHaveBeenCalled();
+
+      preview.toggle(item('b'), anchorB);
+      expect(preview.isOpen.value).toBe(false);
+      expect(preview.activeItem.value).toBeNull();
+      expect(preview.anchorEl.value).toBeNull();
+      expect(onClose).toHaveBeenCalledWith(item('b'));
+    });
+
+    it('ignores toggles without anchor or while disabled, and anchors to closest row', async () => {
+      const disabled = ref(false);
+      const preview = usePinnedPreview<{ id: string }>({ disabled });
+      preview.toggle(item('a'), null);
+      expect(preview.isOpen.value).toBe(false);
+
+      preview.toggle(item('a'), document.createElement('div'));
+      disabled.value = true;
+      await nextTick();
+      expect(preview.isOpen.value).toBe(false);
+
+      const row = document.createElement('div');
+      row.className = 'row';
+      const button = document.createElement('button');
+      row.appendChild(button);
+      expect(rowAnchorFromEvent({ currentTarget: button } as unknown as Event, '.row')).toBe(row);
+      expect(rowAnchorFromEvent({ currentTarget: button } as unknown as Event, '.none')).toBe(
+        button,
+      );
+      expect(rowAnchorFromEvent({ currentTarget: null } as unknown as Event, '.row')).toBeNull();
+    });
+  });
+
+  describe('useSearchPreviewDraft', () => {
+    function createDraftHarness(
+      overrides: {
+        url?: string;
+        gameVersion?: 'poe1' | 'poe2';
+        managerVersion?: 'poe1' | 'poe2';
+      } = {},
+    ) {
+      const open = ref(true);
+      const rawQuery = ref<Record<string, unknown> | null>({
+        query: {
+          status: { option: 'securable' },
+          stats: [{ type: 'and', filters: [{ id: 'explicit.a', value: { min: 10 } }] }],
+        },
+      });
+      const previewData = ref<TradeSearchPreviewData | null>({
+        loading: false,
+        gameVersion: overrides.gameVersion ?? 'poe1',
+        criteria: {
+          status: 'securable',
+          statGroups: [{ type: 'and', filters: [{ id: 'explicit.a', value: { min: 10 } }] }],
+          fields: [],
+          sectionDisabled: {},
+        },
+      });
+      const overlay = vi.fn(async () => true);
+      const manager = {
+        version: overrides.managerVersion ?? 'poe1',
+        overlay,
+      } as unknown as CriteriaOverlayManager;
+      const draft = useSearchPreviewDraft({
+        open,
+        previewData,
+        rawQuery,
+        sourceName: 'Test Bookmark',
+        canOpenSearch: true,
+        tunable: false,
+        manager,
+        readUrl: () => overrides.url ?? 'https://www.pathofexile.com/trade/search/Standard',
+      });
+      return { open, rawQuery, previewData, draft, overlay };
+    }
+
+    it('preserves draft edits across close/reopen, updates effectivePreviewData, and clears on reset or overwrite', async () => {
+      const { open, draft } = createDraftHarness();
+      expect(draft.canTune.value).toBe(true);
+      expect(draft.isModified.value).toBe(false);
+
+      draft.setStatus('online');
+      draft.setStatFilterBound(0, 0, 'min', 25);
+      expect(draft.isModified.value).toBe(true);
+      expect(draft.effectivePreviewData.value?.criteria?.status).toBe('online');
+      expect(draft.effectivePreviewData.value?.criteria?.statGroups[0].filters[0].value).toEqual({
+        min: 25,
+      });
+
+      // Closing and reopening restores the saved draft for the same target
+      open.value = false;
+      await nextTick();
+      expect(draft.draftQuery.value).toBeNull();
+      open.value = true;
+      await nextTick();
+      expect(draft.isModified.value).toBe(true);
+      expect(draft.getModifiedQuery()).not.toBeNull();
+
+      // Consuming draft for overwrite returns the modified query and clears session cache
+      const overwritten = draft.consumeDraftForOverwrite();
+      expect(overwritten).not.toBeNull();
+      open.value = false;
+      await nextTick();
+      open.value = true;
+      await nextTick();
+      expect(draft.isModified.value).toBe(false);
+
+      // Reset reverts edits immediately
+      draft.setStatus('any');
+      expect(draft.isModified.value).toBe(true);
+      draft.resetTune();
+      expect(draft.isModified.value).toBe(false);
+    });
+
+    it('evaluates overlay eligibility for search page vs non-search page vs version mismatch', () => {
+      const valid = createDraftHarness();
+      expect(valid.draft.canOverlay.value).toBe(true);
+      expect(valid.draft.overlayHint.value).toBe('');
+      valid.draft.overlay({ kind: 'status' });
+      expect(valid.overlay).toHaveBeenCalledWith(
+        { status: 'securable', statGroups: [], fields: [], sectionDisabled: {} },
+        'Test Bookmark',
+      );
+
+      const nonSearch = createDraftHarness({
+        url: 'https://www.pathofexile.com/trade/exchange/Standard',
+      });
+      expect(nonSearch.draft.canOverlay.value).toBe(false);
+      expect(nonSearch.draft.overlayHint.value).toContain('搜尋頁');
+
+      const mismatch = createDraftHarness({ gameVersion: 'poe2', managerVersion: 'poe1' });
+      expect(mismatch.draft.canOverlay.value).toBe(false);
+      expect(mismatch.draft.overlayHint.value).not.toBe('');
     });
   });
 });

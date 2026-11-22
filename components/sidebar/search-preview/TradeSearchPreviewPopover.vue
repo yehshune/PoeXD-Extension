@@ -7,16 +7,16 @@
     @update:open="(val: boolean) => $emit('update:open', val)"
   >
     <TradeSearchPreviewContent
-      :preview-data="effectivePreviewData"
+      :preview-data="draft.effectivePreviewData.value"
       :reset-key="previewData"
-      :can-overlay="canOverlay"
+      :can-overlay="draft.canOverlay.value"
       :can-undo="manager.canUndo.value"
       :overlay-busy="manager.busy.value"
-      :overlay-hint="overlayHint"
+      :overlay-hint="draft.overlayHint.value"
       :source-name="sourceName"
       :can-open-search="canOpenSearch"
-      :can-tune="canTune"
-      :is-modified="isModified"
+      :can-tune="draft.canTune.value"
+      :is-modified="draft.isModified.value"
       :can-overwrite="canOverwrite"
       :overwrite-busy="overwriteBusy"
       :overwrite-label="overwriteLabel"
@@ -24,62 +24,34 @@
       :can-tune-status="!statsOnly"
       closable
       @close="$emit('update:open', false)"
-      @overlay="handleOverlay"
+      @overlay="draft.overlay"
       @undo="manager.undo()"
       @open-search="handleOpenSearch"
-      @set-status="applyTune((q) => setTradeQueryStatus(q, $event))"
-      @set-stat-group-disabled="
-        (idx, disabled) => applyTune((q) => setTradeStatGroupDisabled(q, idx, disabled))
-      "
-      @set-stat-group-bound="
-        (idx, bound, val) => applyTune((q) => setTradeStatGroupBound(q, idx, bound, val))
-      "
-      @set-stat-group-type="(idx, type) => applyTune((q) => setTradeStatGroupType(q, idx, type))"
-      @set-stat-filter-disabled="
-        (gIdx, fIdx, disabled) =>
-          applyTune((q) => setTradeStatFilterDisabled(q, gIdx, fIdx, disabled))
-      "
-      @set-stat-filter-bound="
-        (gIdx, fIdx, bound, val) =>
-          applyTune((q) => setTradeStatFilterBound(q, gIdx, fIdx, bound, val))
-      "
-      @set-stat-filter-domain="
-        (gIdx, fIdx, domain, allowed) =>
-          applyTune((q) => setTradeStatFilterDomain(q, gIdx, fIdx, domain, allowed))
-      "
-      @reset-tune="resetTune"
+      @set-status="draft.setStatus"
+      @set-stat-group-disabled="draft.setStatGroupDisabled"
+      @set-stat-group-bound="draft.setStatGroupBound"
+      @set-stat-group-type="draft.setStatGroupType"
+      @set-stat-filter-disabled="draft.setStatFilterDisabled"
+      @set-stat-filter-bound="draft.setStatFilterBound"
+      @set-stat-filter-domain="draft.setStatFilterDomain"
+      @reset-tune="draft.resetTune"
       @overwrite-bookmark="handleOverwriteBookmark"
     />
   </ItemPreviewPopover>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, type PropType } from 'vue';
+import type { PropType } from 'vue';
 import ItemPreviewPopover from '../item-preview/ItemPreviewPopover.vue';
 import TradeSearchPreviewContent from './TradeSearchPreviewContent.vue';
-import type { TradeSearchPreviewData } from '../composables/useTradeSearchPreview';
 import {
-  criteriaFromTradeQuery,
-  sliceOverlayCriteria,
-  type OverlayTarget,
-} from '@/utils/criteria-overlay';
-import {
-  areTradeQueriesEqual,
-  cloneTradeQuery,
-  setTradeQueryStatus,
-  setTradeStatFilterBound,
-  setTradeStatFilterDomain,
-  setTradeStatFilterDisabled,
-  setTradeStatGroupBound,
-  setTradeStatGroupType,
-  setTradeStatGroupDisabled,
-} from '@/utils/trade-query-tuning';
-import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
+  useSearchPreviewDraft,
+  type TradeSearchPreviewData,
+} from '../composables/useTradeSearchPreview';
 import {
   useCriteriaOverlayManager,
   type CriteriaOverlayManager,
 } from '@/entrypoints/content/logic/criteria-overlay-manager';
-import { t } from '@/utils/i18n';
 
 /**
  * 以點擊切換、固定顯示的 Search Preview（見 GLOSSARY.md）。可從中把條件疊加到目前搜尋。
@@ -139,115 +111,24 @@ const emit = defineEmits<{
 
 const manager = props.manager ?? useCriteriaOverlayManager();
 
-/** Popover 內的暫存微調草稿；依目標暫存於工作階段，避免誤點外部關閉視窗遺失調整。 */
-const draftsByKey = new Map<string, Record<string, unknown>>();
-const draftQuery = ref<Record<string, unknown> | null>(null);
-
-const currentDraftKey = () =>
-  props.rawQuery ? `${props.sourceName}\u0000${JSON.stringify(props.rawQuery)}` : '';
-
-const resetTune = () => {
-  const key = currentDraftKey();
-  if (key) draftsByKey.delete(key);
-  draftQuery.value = cloneTradeQuery(props.rawQuery);
-};
-
-watch(
-  [() => props.open, () => props.rawQuery, () => props.reference],
-  ([open]) => {
-    if (!open) {
-      draftQuery.value = null;
-      return;
-    }
-    const key = currentDraftKey();
-    const saved = key ? draftsByKey.get(key) : undefined;
-    draftQuery.value = saved ? cloneTradeQuery(saved) : cloneTradeQuery(props.rawQuery);
-  },
-  { immediate: true },
-);
-
-const isModified = computed(() =>
-  Boolean(
-    draftQuery.value && props.rawQuery && !areTradeQueriesEqual(draftQuery.value, props.rawQuery),
-  ),
-);
-
-const canTune = computed(() =>
-  Boolean(
-    (props.canOpenSearch || props.tunable) &&
-    draftQuery.value &&
-    !props.previewData?.loading &&
-    !props.previewData?.isLegacy,
-  ),
-);
-
-const effectivePreviewData = computed<TradeSearchPreviewData | null>(() => {
-  const base = props.previewData;
-  if (!base || !isModified.value || !draftQuery.value) return base;
-  return {
-    ...base,
-    criteria: criteriaFromTradeQuery(draftQuery.value),
-  };
+const draft = useSearchPreviewDraft({
+  open: () => props.open,
+  previewData: () => props.previewData,
+  rawQuery: () => props.rawQuery,
+  reference: () => props.reference,
+  sourceName: () => props.sourceName,
+  canOpenSearch: () => props.canOpenSearch,
+  tunable: () => props.tunable,
+  manager,
+  readUrl: () => props.readUrl(),
 });
 
-function applyTune(mutator: (current: Record<string, unknown>) => Record<string, unknown>): void {
-  if (!draftQuery.value) return;
-  const next = mutator(draftQuery.value);
-  draftQuery.value = next;
-  const key = currentDraftKey();
-  if (!key) return;
-  if (props.rawQuery && areTradeQueriesEqual(next, props.rawQuery)) {
-    draftsByKey.delete(key);
-  } else {
-    const cloned = cloneTradeQuery(next);
-    if (cloned) draftsByKey.set(key, cloned);
-  }
-}
-
 function handleOpenSearch(mode: 'current' | 'new-tab'): void {
-  emit('open-search', {
-    mode,
-    modifiedQuery: isModified.value && draftQuery.value ? cloneTradeQuery(draftQuery.value) : null,
-  });
+  emit('open-search', { mode, modifiedQuery: draft.getModifiedQuery() });
 }
 
 function handleOverwriteBookmark(): void {
-  if (!isModified.value || !draftQuery.value) return;
-  const cloned = cloneTradeQuery(draftQuery.value);
-  const key = currentDraftKey();
-  if (key) draftsByKey.delete(key);
+  const cloned = draft.consumeDraftForOverwrite();
   if (cloned) emit('overwrite-search', cloned);
-}
-
-/** 每次開啟時重新判斷目前頁面是否有可寫入的官方搜尋表單。 */
-const pageHasForm = ref(false);
-watch(
-  () => props.open,
-  (open) => {
-    if (open) pageHasForm.value = isTradeSearchFormUrl(props.readUrl());
-  },
-  { immediate: true },
-);
-
-const canOverlay = computed(() => {
-  const data = effectivePreviewData.value;
-  if (!pageHasForm.value || !data?.criteria || data.loading) return false;
-  return !data.gameVersion || data.gameVersion === manager.version;
-});
-
-const overlayHint = computed(() => {
-  const data = effectivePreviewData.value;
-  if (canOverlay.value || !data?.criteria || data.loading) return '';
-  if (!pageHasForm.value) return t('searchPreview.hint.notOnSearchPage');
-  return t('searchPreview.hint.versionMismatch');
-});
-
-function handleOverlay(target: OverlayTarget) {
-  const criteria = effectivePreviewData.value?.criteria;
-  if (!criteria) return;
-  void manager.overlay(
-    sliceOverlayCriteria(criteria, target),
-    props.sourceName || t('common.searchPreview'),
-  );
 }
 </script>

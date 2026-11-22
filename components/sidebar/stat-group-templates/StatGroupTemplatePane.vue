@@ -11,8 +11,11 @@ import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import DragTrashZone from '../layout/DragTrashZone.vue';
 import TradeSearchPreviewPopover from '../search-preview/TradeSearchPreviewPopover.vue';
-import type { TradeSearchPreviewData } from '../composables/useTradeSearchPreview';
-import { rowAnchorFromEvent, usePinnedPreview } from '../composables/usePinnedPreview';
+import {
+  rowAnchorFromEvent,
+  usePinnedPreview,
+  type TradeSearchPreviewData,
+} from '../composables/useTradeSearchPreview';
 import {
   hideDragTrash,
   scheduleAfterSortableDrop,

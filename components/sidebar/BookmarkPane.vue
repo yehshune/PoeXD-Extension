@@ -350,7 +350,7 @@ import type { Bookmark, BookmarkGroup } from './bookmark-types';
 import { createBookmarkModel, type BookmarkMutationIntent } from './bookmark-model';
 import { readBookmarkTargetContext, resolveBookmarkUrl } from '@/utils/bookmark-target';
 import { useBookmarkSortables } from './composables/useBookmarkSortables';
-import { rowAnchorFromEvent } from './composables/usePinnedPreview';
+import { rowAnchorFromEvent, useTradeSearchPreview } from './composables/useTradeSearchPreview';
 import {
   isLegacyTradeSearchUrl,
   isSameTradeSearchPageUrl,
@@ -377,7 +377,6 @@ import {
   formatFolderPath,
 } from '@/utils/bookmark-collection';
 import { enqueueLiveSearchConnections } from '@/utils/extension-protocol';
-import { useBookmarkPreview } from './composables/useBookmarkPreview';
 import { useBookmarkMenuState } from './composables/useBookmarkMenuState';
 import { useBookmarkCovers } from './composables/useBookmarkCovers';
 import { useBookmarkSearch } from './composables/useBookmarkSearch';
@@ -1140,23 +1139,30 @@ export default defineComponent({
     // 下載與分享碼使用相同的 Bookmark Transfer envelope。
     const exportBookmarks = () => bookmarkTransferWorkflow.run({ type: 'download' });
 
+    const previewDisabled = computed(
+      () =>
+        Boolean(isDragging.value) ||
+        Boolean(editingBookmarkId.value) ||
+        !enableBookmarkTooltip.value,
+    );
+
     const {
-      activeBookmarkId,
+      activeEntityKey: activeBookmarkId,
       activePreviewData,
       activeRawQuery,
-      loadBookmarkPreview,
+      loadPreview,
       clearActivePreview,
-      previewBookmark,
-      previewAnchorEl,
-      isPreviewOpen,
-      toggleBookmarkPreview,
-      closePreview,
-    } = useBookmarkPreview({
-      isDragging,
-      editingBookmarkId,
+      activeItem: previewBookmark,
+      anchorEl: previewAnchorEl,
+      isOpen: isPreviewOpen,
+      toggle: toggleBookmarkPreview,
+      close: closePreview,
+    } = useTradeSearchPreview<Bookmark>({
       version,
-      enableBookmarkTooltip,
+      disabled: previewDisabled,
     });
+
+    const loadBookmarkPreview = (bm: Bookmark) => loadPreview(bm.id, bm.url);
 
     /** 以事件來源所在的書籤列作為預覽錨點。 */
     const toggleBookmarkPreviewFromEvent = (bm: Bookmark, event: Event) => {

@@ -765,7 +765,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
-import { rowAnchorFromEvent } from '../composables/usePinnedPreview';
+import { rowAnchorFromEvent } from '../composables/useTradeSearchPreview';
 import { t, type I18nKey } from '@/utils/i18n';
 import { POB_BUILD_NAME_MAX_LENGTH } from '@/utils/pob-build-store';
 import type { ShoppingEntry } from '@/utils/pob-shopping-list';

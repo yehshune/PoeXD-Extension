@@ -200,8 +200,7 @@ import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
 import { getPreferences } from '@/utils/preferences';
 import TradeSearchPreviewPopover from './search-preview/TradeSearchPreviewPopover.vue';
 import { DEFAULT_PREFERENCES, type SearchEntryClickAction } from '@/utils/preferences-contract';
-import { useTradeSearchPreview } from './composables/useTradeSearchPreview';
-import { rowAnchorFromEvent, usePinnedPreview } from './composables/usePinnedPreview';
+import { rowAnchorFromEvent, useTradeSearchPreview } from './composables/useTradeSearchPreview';
 import { t } from '@/utils/i18n';
 
 export default defineComponent({
@@ -239,25 +238,17 @@ export default defineComponent({
     );
     let stopPreferences: (() => void) | undefined;
 
+    // 單例預覽：點擊切換，同一時間只開一個（見 GLOSSARY.md「Search Preview」）
     const {
       activePreviewData,
       activeRawQuery,
-      loadPreview: loadHistoryPreview,
-      clearActivePreview,
-    } = useTradeSearchPreview({
-      version,
-    });
-
-    // 單例預覽：點擊切換，同一時間只開一個（見 GLOSSARY.md「Search Preview」）
-    const {
       activeItem: previewHistory,
       anchorEl: previewAnchorEl,
       isOpen: isHistoryPreviewOpen,
       toggle: togglePinnedHistoryPreview,
       close: closeHistoryPreview,
-    } = usePinnedPreview<HistoryEntry>({
-      onOpen: (h) => void loadHistoryPreview(h.id, h.url),
-      onClose: (h) => clearActivePreview(h.id),
+    } = useTradeSearchPreview<HistoryEntry>({
+      version,
     });
     const previewSourceName = computed(() =>
       previewHistory.value ? getHistoryName(previewHistory.value) : '',
