@@ -602,4 +602,93 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
 
     removeGlobalListener();
   });
+
+  it('N. toggles item-type Popover open and closed on repeated trigger pointer+click inside Shadow DOM', async () => {
+    await mountFilterPane();
+
+    const triggerBtn = appRoot.querySelector(
+      '[data-filter-action="open-type-dialog"]',
+    ) as HTMLButtonElement;
+    expect(triggerBtn).toBeTruthy();
+
+    const triggerLabel = triggerBtn.querySelector('span') as HTMLElement;
+    expect(triggerLabel).toBeTruthy();
+
+    const simulateShadowTriggerClick = async (target: HTMLElement) => {
+      const PointerEventCtor = globalThis.PointerEvent ?? MouseEvent;
+      // 模擬真實瀏覽器 Shadow DOM 事件跨越邊界冒泡至 document 時的 retargeting：
+      // document 監聽到的 event.target 會被 retarget 成 shadow host，
+      // 但同步階段的 composedPath() 仍包含實際被點擊的 trigger 元素。
+      const pointerDownEvent = new PointerEventCtor('pointerdown', {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        pointerType: 'mouse',
+      });
+      vi.spyOn(pointerDownEvent, 'composedPath').mockReturnValue([
+        target,
+        triggerBtn,
+        shadowRoot,
+        host,
+        document.body,
+        document,
+      ]);
+      host.dispatchEvent(pointerDownEvent);
+
+      // 模擬點擊 focusable button 觸發的 focusin（同樣 retarget 至 shadow host，
+      // 且在 DismissableLayer 兩次 nextTick 後 composedPath() 已為空陣列）
+      triggerBtn.focus();
+      const focusInEvent = new FocusEvent('focusin', {
+        bubbles: true,
+        composed: true,
+      });
+      vi.spyOn(focusInEvent, 'composedPath').mockReturnValue([]);
+      host.dispatchEvent(focusInEvent);
+
+      await nextTick();
+      await nextTick();
+      target.click();
+      await nextTick();
+      await new Promise((r) => setTimeout(r, 20));
+    };
+
+    // 1. 首次點擊打開 Popover
+    await simulateShadowTriggerClick(triggerLabel);
+    expect(
+      portalRoot.querySelector('[data-slot="popover-content"][data-sidebar-dialog="affix-type"]'),
+    ).toBeTruthy();
+
+    // 2. 再次點擊同一顆按鈕應關閉 Popover，而不是先關再重開
+    await simulateShadowTriggerClick(triggerLabel);
+    expect(
+      portalRoot.querySelector('[data-slot="popover-content"][data-sidebar-dialog="affix-type"]'),
+    ).toBeNull();
+
+    // 3. 第三次點擊應能再度打開，且點外部區域仍可正常關閉
+    await simulateShadowTriggerClick(triggerBtn);
+    expect(
+      portalRoot.querySelector('[data-slot="popover-content"][data-sidebar-dialog="affix-type"]'),
+    ).toBeTruthy();
+
+    const PointerEventCtor = globalThis.PointerEvent ?? MouseEvent;
+    const outsidePointerDown = new PointerEventCtor('pointerdown', {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      pointerType: 'mouse',
+    });
+    vi.spyOn(outsidePointerDown, 'composedPath').mockReturnValue([
+      appRoot,
+      shadowRoot,
+      host,
+      document.body,
+      document,
+    ]);
+    host.dispatchEvent(outsidePointerDown);
+    await nextTick();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(
+      portalRoot.querySelector('[data-slot="popover-content"][data-sidebar-dialog="affix-type"]'),
+    ).toBeNull();
+  });
 });
