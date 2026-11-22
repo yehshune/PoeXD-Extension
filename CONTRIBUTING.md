@@ -45,5 +45,11 @@ Release notes 會依這些前綴自動分類。
 
 ## E2E 測試
 
-`pnpm e2e` 需要一個已通過 Cloudflare 驗證、並登入官方交易網站的瀏覽器設定檔
-（先執行 `pnpm dev` 手動登入一次），因此只在本機執行，CI 不會跑。
+E2E 分成兩套：
+
+- **離線 E2E**（`pnpm e2e:offline`，CI 會跑）：先建置 Chrome 版，再由 Playwright 自行啟動 Chromium 載入
+  `.output/chrome-mv3`。官方頁面由 `e2e/offline/fixtures/` 的最小骨架回放，其他對外請求一律擋下並記錄，
+  所以不會遇到 Cloudflare，也不會消耗官方 API 的速率限制。測試檔為 `e2e/offline/*.offline.ts`。
+  第一次執行前需 `pnpm exec playwright install chromium`。
+- **實機 E2E**（`pnpm e2e`）：需要一個已通過 Cloudflare 驗證、並登入官方交易網站的瀏覽器設定檔
+  （先執行 `pnpm dev` 手動登入一次），因此只在本機執行，CI 不會跑。用於確認真實官方頁面上的版面。

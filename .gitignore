@@ -32,6 +32,8 @@ poe-trade-official-site-enhancer
 # Playwright E2E
 e2e/.results
 e2e/.report
+e2e/.results-offline
+e2e/.report-offline
 
 # Local test data & captures
 *.test-dump.json
