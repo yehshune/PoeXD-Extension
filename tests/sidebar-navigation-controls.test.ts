@@ -9,6 +9,7 @@ import { getPoeVersion } from '@/utils/trade-context';
 import { SIDEBAR_LAYOUT_TRANSITION_MS } from '@/utils/sidebar-motion';
 
 const sidebarSource = readFileSync('components/Sidebar.vue', 'utf8');
+const navRailSource = readFileSync('components/sidebar/layout/SidebarNavRail.vue', 'utf8');
 
 // Spy records for child pane mount persistence
 const paneMountCounts = {
@@ -209,8 +210,8 @@ describe('Sidebar Navigation Controls Migration', () => {
     });
 
     it('preserves retained navigation and layout selectors and eliminates redundant ones', () => {
-      expect(sidebarSource).toContain('sidebar-nav');
-      expect(sidebarSource).toContain('nav-divider');
+      expect(navRailSource).toContain('sidebar-nav');
+      expect(navRailSource).toContain('nav-divider');
       expect(sidebarSource).toContain('sidebar-resize-handle');
       expect(sidebarSource).toContain('pxd-sidebar-wrapper');
       expect(sidebarSource).not.toContain('poe-sidebar-wrapper');
@@ -226,10 +227,10 @@ describe('Sidebar Navigation Controls Migration', () => {
       expect(sidebarSource).toMatch(
         /<Button[\s\S]*?size="default"[\s\S]*?data-sidebar-action="expand"/,
       );
-      expect(sidebarSource).toMatch(
+      expect(navRailSource).toMatch(
         /<Button[\s\S]*?size="icon-lg"[\s\S]*?data-sidebar-action="collapse"/,
       );
-      expect(sidebarSource).toMatch(
+      expect(navRailSource).toMatch(
         /<Button[\s\S]*?variant="ghost"[\s\S]*?size="icon-lg"[\s\S]*?:data-sidebar-tab="tab\.id"/,
       );
     });
@@ -325,7 +326,7 @@ describe('Sidebar Navigation Controls Migration', () => {
       expect(navButtons[navButtons.length - 2]).toBe(toolsTab);
 
       // Static source confirms padding with existing space token in template class
-      expect(sidebarSource).toContain('py-[var(--pxd-space-md)]');
+      expect(navRailSource).toContain('py-[var(--pxd-space-md)]');
     });
 
     it('B4. visually separates Live Search action from pane tabs with divider and outline variant without aria-pressed', async () => {
@@ -343,8 +344,8 @@ describe('Sidebar Navigation Controls Migration', () => {
       expect(actionBtn?.hasAttribute('aria-pressed')).toBe(false);
 
       // Template presentation: outline variant and divider separation
-      expect(sidebarSource).toMatch(
-        /<div class="nav-divider[\s\S]*?<Button[\s\S]*?variant="outline"[\s\S]*?data-sidebar-action="open-live-search"/,
+      expect(navRailSource).toMatch(
+        /<div[\s\S]*?class="nav-divider[\s\S]*?<Button[\s\S]*?variant="outline"[\s\S]*?data-sidebar-action="open-live-search"/,
       );
     });
 

@@ -14,6 +14,10 @@ const layoutSource = readFileSync('entrypoints/content/logic/sidebar-layout.ts',
 );
 
 const sidebarSource = readFileSync('components/Sidebar.vue', 'utf8').replace(/\r\n/g, '\n');
+const sidebarGeometrySource = readFileSync(
+  'components/sidebar/composables/useSidebarGeometry.ts',
+  'utf8',
+).replace(/\r\n/g, '\n');
 
 describe('Sidebar page layout', () => {
   it('animates the page left when a left sidebar collapses', () => {
@@ -137,9 +141,9 @@ describe('Sidebar Width and UI Scale Decoupling Runtime Regression', () => {
 
   it('3. custom resize directly uses visual width 500px, persisting 500 and staying 500px across scale changes', () => {
     // Contract check: Sidebar resize does not divide by scale
-    expect(sidebarSource).not.toContain('calcBaselineSidebarWidth');
-    expect(sidebarSource).toContain('sidebarWidth.value = visualWidth');
-    expect(sidebarSource).toContain('sidebarWidth: sidebarWidth.value');
+    expect(sidebarGeometrySource).not.toContain('calcBaselineSidebarWidth');
+    expect(sidebarGeometrySource).toContain('sidebarWidth.value = visualWidth');
+    expect(sidebarGeometrySource).toContain('sidebarWidth: sidebarWidth.value');
 
     // Runtime token check: 500px width remains 500px across scale changes
     const tokens85 = createUiRuntimeTokenValues({ scale: 0.85, sidebarWidth: 500 });

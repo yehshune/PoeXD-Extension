@@ -7,6 +7,10 @@ import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { createUiRuntimeTokenValues } from '@/lib/tokens';
 
 const sidebarSource = readFileSync('components/Sidebar.vue', 'utf8');
+const globalDialogSource = readFileSync(
+  'components/sidebar/layout/SidebarGlobalDialog.vue',
+  'utf8',
+);
 const dialogContentSource = readFileSync('components/ui/dialog/DialogContent.vue', 'utf8');
 
 // Mock child components of Sidebar to isolate Sidebar and Dialog testing
@@ -101,19 +105,19 @@ describe('Sidebar Shared Dialog Migration (Static Contracts)', () => {
     expect(dialogContentSource).toContain("base: 'z-(--pxd-z-dialog)'");
     expect(dialogContentSource).toContain("nested: 'z-(--pxd-z-dialog-nested)'");
     expect(dialogContentSource).toContain("system: 'z-(--pxd-z-dialog-system)'");
-    expect(sidebarSource).toContain('layer="system"');
+    expect(globalDialogSource).toContain('layer="system"');
   });
 
   it('enforces Density-invariant Shared Dialog viewport safety inset and Foundation header spacing', () => {
     // max-width and max-height are fixed 32px viewport safety inset, never polluted by density
-    expect(sidebarSource).toContain('max-w-[calc(100vw-32px)]');
-    expect(sidebarSource).toContain(
+    expect(globalDialogSource).toContain('max-w-[calc(100vw-32px)]');
+    expect(globalDialogSource).toContain(
       'max-h-[min(var(--pxd-sidebar-shared-dialog-max-height),calc(100vh-32px))]',
     );
-    expect(sidebarSource).not.toContain('max-w-[calc(100vw-var(--pxd-space');
+    expect(globalDialogSource).not.toContain('max-w-[calc(100vw-var(--pxd-space');
 
     // DialogHeader uses semantic token spacing
-    expect(sidebarSource).toContain(
+    expect(globalDialogSource).toContain(
       'gap-[var(--pxd-space-sm)] text-left pr-[var(--pxd-space-2xl)]',
     );
 
@@ -122,10 +126,10 @@ describe('Sidebar Shared Dialog Migration (Static Contracts)', () => {
   });
 
   it('enforces Shared Dialog layout contract with scrollable body container and fixed boundaries', () => {
-    expect(sidebarSource).toContain('data-sidebar-dialog-body');
-    expect(sidebarSource).toContain('ScrollAreaRoot');
-    expect(sidebarSource).toContain('ScrollAreaViewport');
-    expect(sidebarSource).toContain(
+    expect(globalDialogSource).toContain('data-sidebar-dialog-body');
+    expect(globalDialogSource).toContain('ScrollAreaRoot');
+    expect(globalDialogSource).toContain('ScrollAreaViewport');
+    expect(globalDialogSource).toContain(
       'shrink-0 gap-[var(--pxd-space-sm)] text-left pr-[var(--pxd-space-2xl)]',
     );
   });

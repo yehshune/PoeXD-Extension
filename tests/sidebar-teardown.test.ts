@@ -5,6 +5,10 @@ import { createApp, defineComponent, h, nextTick } from 'vue';
 import Sidebar from '@/components/Sidebar.vue';
 
 const sidebarSource = readFileSync('components/Sidebar.vue', 'utf8');
+const sidebarGeometrySource = readFileSync(
+  'components/sidebar/composables/useSidebarGeometry.ts',
+  'utf8',
+);
 
 vi.mock('@/components/sidebar/FilterPane.vue', () => ({
   default: defineComponent({
@@ -167,8 +171,8 @@ describe('Sidebar Teardown Ownership', () => {
       expect(sidebarSource).toContain(
         'chrome.storage.onChanged.removeListener(handleStorageChange)',
       );
-      expect(sidebarSource).toContain("document.body.style.removeProperty('user-select')");
-      expect(sidebarSource).toContain("document.body.style.removeProperty('cursor')");
+      expect(sidebarGeometrySource).toContain("document.body.style.removeProperty('user-select')");
+      expect(sidebarGeometrySource).toContain("document.body.style.removeProperty('cursor')");
     });
   });
 

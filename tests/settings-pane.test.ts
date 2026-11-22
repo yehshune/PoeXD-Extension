@@ -1611,11 +1611,14 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
 
-    const sidebarPath = path.resolve(__dirname, '../components/Sidebar.vue');
-    const sidebarContent = fs.readFileSync(sidebarPath, 'utf-8');
+    const geometryPath = path.resolve(
+      __dirname,
+      '../components/sidebar/composables/useSidebarGeometry.ts',
+    );
+    const geometryContent = fs.readFileSync(geometryPath, 'utf-8');
 
-    // handleResizeEnd in Sidebar.vue must commit sidebarWidth
-    expect(sidebarContent).toMatch(/handleResizeEnd[\s\S]*?sidebarWidth:\s*sidebarWidth\.value/);
+    // handleResizeEnd in useSidebarGeometry.ts must commit sidebarWidth
+    expect(geometryContent).toMatch(/handleResizeEnd[\s\S]*?sidebarWidth:\s*sidebarWidth\.value/);
 
     const settingsPanePath = path.resolve(__dirname, '../components/sidebar/SettingsPane.vue');
     const settingsContent = fs.readFileSync(settingsPanePath, 'utf-8');

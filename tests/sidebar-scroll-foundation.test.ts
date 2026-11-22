@@ -477,12 +477,15 @@ describe('Sidebar Scrollbar Foundation & Overlay Contract', () => {
 
   describe('5. Scope 4: Shared Dialog Scroll Body Migration', () => {
     it('uses ScrollAreaRoot and ScrollAreaViewport for data-sidebar-dialog-body', () => {
-      const sidebarSource = readFileSync('components/Sidebar.vue', 'utf-8');
+      const globalDialogSource = readFileSync(
+        'components/sidebar/layout/SidebarGlobalDialog.vue',
+        'utf-8',
+      );
 
-      expect(sidebarSource).toMatch(
+      expect(globalDialogSource).toMatch(
         /<ScrollAreaRoot[\s\S]*?data-sidebar-dialog-body[\s\S]*?>[\s\S]*?<ScrollAreaViewport/,
       );
-      expect(sidebarSource).not.toMatch(/data-sidebar-dialog-body[\s\S]*?pxd-scrollbar/);
+      expect(globalDialogSource).not.toMatch(/data-sidebar-dialog-body[\s\S]*?pxd-scrollbar/);
     });
   });
 

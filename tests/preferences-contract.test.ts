@@ -130,8 +130,8 @@ describe('Preferences Domain Contract', () => {
   it('ensures SettingsPane, FontSizeScaleControl, and Sidebar import canonical contract symbols rather than hardcoding', () => {
     const settingsPanePath = path.resolve(__dirname, '../components/sidebar/SettingsPane.vue');
     const content = fs.readFileSync(settingsPanePath, 'utf-8');
-    const sidebarContent = fs.readFileSync(
-      path.resolve(__dirname, '../components/Sidebar.vue'),
+    const sidebarGeometryContent = fs.readFileSync(
+      path.resolve(__dirname, '../components/sidebar/composables/useSidebarGeometry.ts'),
       'utf-8',
     );
     const fontScaleControlContent = fs.readFileSync(
@@ -140,7 +140,7 @@ describe('Preferences Domain Contract', () => {
     );
 
     expect(content).toContain('DEFAULT_PREFERENCES');
-    expect(sidebarContent).toContain('SIDEBAR_WIDTH_BOUNDS');
+    expect(sidebarGeometryContent).toContain('SIDEBAR_WIDTH_BOUNDS');
     expect(fontScaleControlContent).toContain('FONT_SIZE_PERCENT_STEP');
     expect(fontScaleControlContent).toContain('stepFontSizeScale');
     const planner = fs.readFileSync(

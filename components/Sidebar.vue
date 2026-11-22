@@ -77,173 +77,22 @@
           :style="{ flexDirection: sidebarPosition === 'left' ? 'row-reverse' : 'row' }"
         >
           <!-- 窄長功能導覽列 (Sidebar Panel) -->
-          <div
-            class="sidebar-nav w-[var(--pxd-sidebar-nav-width)] h-full bg-background flex flex-col items-center py-[var(--pxd-space-md)] gap-[var(--pxd-space-md)] box-border"
-          >
-            <!-- 關閉按鈕 (置頂取代收合) -->
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-lg"
-              :title="t('sidebar.header.close')"
-              :aria-label="t('sidebar.header.close')"
-              data-sidebar-action="collapse"
-              @click="toggleCollapse"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </Button>
-
-            <!-- Normal 模式功能導覽列 -->
-            <template v-if="pageRole === 'normal'">
-              <div class="nav-divider w-[60%] h-px bg-border"></div>
-
-              <Button
-                v-for="tab in navModuleTabs"
-                :key="tab.id"
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                :title="tab.name"
-                :aria-label="tab.name"
-                :aria-pressed="activeTab === tab.id"
-                :data-sidebar-tab="tab.id"
-                @mouseenter="handleNavTabIntent(tab.id)"
-                @focus="handleNavTabIntent(tab.id)"
-                @click="activeTab = tab.id"
-              >
-                <component :is="tab.icon" class="w-5 h-5" />
-              </Button>
-
-              <!-- 分隔線：區隔主要 pane tabs 與外部 action -->
-              <div
-                v-if="navModuleTabs.length > 0 && isModuleEnabled('live-search')"
-                class="nav-divider w-[60%] h-px bg-border"
-              ></div>
-
-              <!-- 開啟線上搜尋主控台入口 (Action，非 pane tab) -->
-              <Button
-                v-if="isModuleEnabled('live-search')"
-                type="button"
-                variant="outline"
-                size="icon-lg"
-                :title="t('sidebar.nav.openLiveSearch')"
-                :aria-label="t('sidebar.nav.openLiveSearch')"
-                data-sidebar-action="open-live-search"
-                @click="handleOpenLiveSearch"
-              >
-                <Radio class="w-5 h-5 text-primary" />
-              </Button>
-
-              <!-- 底部功能區：工具與資訊置於系統設定上方 -->
-              <Button
-                v-for="tab in tabs.filter((t) => t.id === 'tools')"
-                :key="tab.id"
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                class="mt-auto"
-                :title="tab.name"
-                :aria-label="tab.name"
-                :aria-pressed="activeTab === tab.id"
-                :data-sidebar-tab="tab.id"
-                @mouseenter="handleNavTabIntent(tab.id)"
-                @focus="handleNavTabIntent(tab.id)"
-                @click="activeTab = tab.id"
-              >
-                <component :is="tab.icon" class="w-5 h-5" />
-              </Button>
-
-              <!-- 系統設定置底 -->
-              <Button
-                v-for="tab in tabs.filter((t) => t.id === 'settings')"
-                :key="tab.id"
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                :title="tab.name"
-                :aria-label="tab.name"
-                :aria-pressed="activeTab === tab.id"
-                :data-sidebar-tab="tab.id"
-                @mouseenter="handleNavTabIntent(tab.id)"
-                @focus="handleNavTabIntent(tab.id)"
-                @click="activeTab = tab.id"
-              >
-                <component :is="tab.icon" class="w-5 h-5" />
-              </Button>
-            </template>
-
-            <!-- 線上搜尋主控台專用導覽列 (不可顯示原普通導覽) -->
-            <template v-else-if="pageRole === 'live-search-primary'">
-              <div class="nav-divider w-[60%] h-px bg-border"></div>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                :title="t('sidebar.nav.liveSearchConnections')"
-                :aria-label="t('sidebar.nav.liveSearchConnections')"
-                :aria-pressed="primaryActiveTab === 'connections'"
-                data-sidebar-tab="connections"
-                data-sidebar-primary-tab="connections"
-                @click="primaryActiveTab = 'connections'"
-              >
-                <Radio class="w-5 h-5" />
-              </Button>
-
-              <Button
-                v-if="isModuleEnabled('pinned-items')"
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                :title="t('sidebar.nav.pinnedItems')"
-                :aria-label="t('sidebar.nav.pinnedItems')"
-                :aria-pressed="primaryActiveTab === 'pinned-items'"
-                data-sidebar-tab="pinned-items"
-                data-sidebar-primary-tab="pinned-items"
-                @click="openPrimaryTab('pinned-items')"
-              >
-                <Pin class="w-5 h-5" />
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                :title="t('sidebar.nav.addConnection')"
-                :aria-label="t('sidebar.nav.addConnection')"
-                data-sidebar-action="open-custom-search"
-                data-sidebar-primary-action="custom-search"
-                @click="handleOpenCustomSearch"
-              >
-                <Plus class="w-5 h-5" />
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                class="mt-auto"
-                :title="t('sidebar.nav.liveSearchSettings')"
-                :aria-label="t('sidebar.nav.liveSearchSettings')"
-                :aria-pressed="primaryActiveTab === 'console-settings'"
-                data-sidebar-tab="console-settings"
-                data-sidebar-primary-tab="console-settings"
-                @click="primaryActiveTab = 'console-settings'"
-              >
-                <Settings class="w-5 h-5" />
-              </Button>
-            </template>
-          </div>
+          <SidebarNavRail
+            :page-role="pageRole"
+            :active-tab="activeTab"
+            :primary-active-tab="primaryActiveTab"
+            :nav-module-tabs="navModuleTabs"
+            :tools-tab="toolsTab"
+            :settings-tab="settingsTab"
+            :live-search-enabled="isModuleEnabled('live-search')"
+            :pinned-items-enabled="isModuleEnabled('pinned-items')"
+            @collapse="toggleCollapse"
+            @select-tab="activeTab = $event"
+            @tab-intent="handleNavTabIntent"
+            @open-live-search="handleOpenLiveSearch"
+            @select-primary-tab="openPrimaryTab"
+            @open-custom-search="handleOpenCustomSearch"
+          />
 
           <!-- 右側主要內容區 (Main Content) -->
           <div
@@ -448,102 +297,7 @@
         </Dialog>
 
         <!-- 全域共用對話框 Modal (Confirm / Alert / Prompt / Custom) -->
-        <Dialog :open="dialogState.isOpen" @update:open="setSharedDialogOpen">
-          <DialogContent
-            layer="system"
-            data-sidebar-dialog="shared"
-            class="flex h-auto max-h-[min(var(--pxd-sidebar-shared-dialog-max-height),calc(100vh-32px))] w-[var(--pxd-sidebar-shared-dialog-width)] max-w-[calc(100vw-32px)] flex-col gap-[var(--pxd-space-lg)] p-[var(--pxd-pane-padding)]"
-            @pointer-down-outside="(e) => e.preventDefault()"
-            @interact-outside="(e) => e.preventDefault()"
-            @escape-key-down="(e) => e.preventDefault()"
-          >
-            <DialogHeader
-              class="shrink-0 gap-[var(--pxd-space-sm)] text-left pr-[var(--pxd-space-2xl)]"
-            >
-              <DialogTitle
-                class="text-[length:var(--pxd-font-section-title)] font-bold tracking-[0.5px]"
-              >
-                {{ dialogState.title }}
-              </DialogTitle>
-            </DialogHeader>
-
-            <ScrollAreaRoot
-              data-sidebar-dialog-body
-              class="relative min-h-0 flex-1 overflow-hidden"
-            >
-              <ScrollAreaViewport class="h-full w-full min-h-0">
-                <DialogDescription
-                  class="text-[length:var(--pxd-font-caption)] leading-[1.5] m-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap"
-                >
-                  {{ dialogState.message }}
-                </DialogDescription>
-              </ScrollAreaViewport>
-              <ScrollBar />
-              <ScrollAreaCorner />
-            </ScrollAreaRoot>
-
-            <div v-if="dialogState.type === 'prompt'" class="w-full shrink-0">
-              <Input
-                v-model="dialogState.inputValue"
-                type="text"
-                size="default"
-                class="dialog-input w-full"
-                :placeholder="dialogState.inputPlaceholder"
-                data-sidebar-dialog-input
-                @keyup.enter="handleDialogConfirm"
-              />
-            </div>
-
-            <div
-              :class="[
-                'shrink-0 flex gap-[var(--pxd-space-md)] mt-[var(--pxd-space-sm)]',
-                dialogState.type === 'custom' ? 'flex-col items-stretch' : 'justify-end',
-              ]"
-            >
-              <template
-                v-if="
-                  dialogState.type === 'custom' &&
-                  dialogState.buttons &&
-                  dialogState.buttons.length > 0
-                "
-              >
-                <Button
-                  v-for="(btn, idx) in dialogState.buttons"
-                  :key="idx"
-                  type="button"
-                  :variant="btn.variant || 'outline'"
-                  size="sm"
-                  class="w-full text-center"
-                  data-sidebar-dialog-action="custom"
-                  @click="handleCustomButtonClick(btn.value)"
-                >
-                  {{ btn.label }}
-                </Button>
-              </template>
-              <template v-else>
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  data-sidebar-dialog-action="confirm"
-                  @click="handleDialogConfirm"
-                >
-                  {{ dialogState.confirmLabel || t('common.confirm') + ' (Enter)' }}
-                </Button>
-                <Button
-                  v-if="dialogState.type !== 'alert'"
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  data-sidebar-dialog-action="cancel"
-                  @click="handleDialogCancel"
-                >
-                  {{ dialogState.cancelLabel || t('common.cancel') + ' (Esc)' }}
-                </Button>
-              </template>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <SidebarGlobalDialog @open-change="isSharedDialogOpen = $event" />
 
         <!-- 暫時搜尋 Dialog (僅在 live-search-primary 模式啟用) -->
         <TemporarySearchDialog
@@ -605,6 +359,11 @@ import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
 import TemporarySearchDialog from './sidebar/TemporarySearchDialog.vue';
 import UpdateNotice from './sidebar/UpdateNotice.vue';
+import SidebarNavRail, {
+  type LiveSearchPrimaryTab,
+  type SidebarNavTab,
+} from './sidebar/layout/SidebarNavRail.vue';
+import SidebarGlobalDialog from './sidebar/layout/SidebarGlobalDialog.vue';
 import TierDropdownHost from './injected/TierDropdownHost.vue';
 import PageGuideHost from './sidebar/page-guide/PageGuideHost.vue';
 import { usePageGuide } from './sidebar/page-guide/usePageGuide';
@@ -613,7 +372,6 @@ import {
   usePageGuideDemos,
   type FilterPaneDemoHandle,
 } from './sidebar/page-guide/usePageGuideDemos';
-import { SIDEBAR_WIDTH_BOUNDS } from '@/utils/preferences-contract';
 import {
   RESULT_FEATURE_KEYS,
   readResultFeatures,
@@ -636,12 +394,6 @@ import {
   type PreferencesModule,
 } from '@/utils/preferences';
 import { createVersionedStorageKeys, readStorageValue } from '@/utils/storage-contracts';
-import {
-  COLLAPSED_TAB_DRAG_THRESHOLD,
-  COLLAPSED_TAB_KEYBOARD_STEP,
-  clampCollapsedTabTop,
-  collapsedTabTopCss,
-} from '@/utils/collapsed-tab-position';
 import { getPoeVersion } from '@/utils/trade-context';
 import {
   SIDEBAR_LAYOUT_TRANSITION_EASING,
@@ -657,7 +409,6 @@ import {
   shouldOfferMarketTranslation,
   type OnboardingState,
 } from '@/utils/onboarding';
-import { createUiRuntimeTokenValues } from '@/lib/tokens';
 import {
   DEFAULT_SIDEBAR_MODULE_PREFERENCES,
   SIDEBAR_MODULE_PREFERENCE_KEYS,
@@ -667,7 +418,7 @@ import {
   type SidebarModuleId,
   type SidebarModulePreferenceKey,
 } from '@/utils/sidebar-modules';
-import { installDialogGlobals, useSidebarDialog } from './sidebar/composables/useSidebarDialog';
+import { useSidebarGeometry } from './sidebar/composables/useSidebarGeometry';
 import {
   Dialog,
   DialogContent,
@@ -681,18 +432,13 @@ import {
   ScrollAreaViewport,
   ScrollBar,
 } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
-  Box,
   ChevronLeft,
   Bookmark,
   History,
   Settings,
-  Radio,
-  Plus,
-  RotateCcw,
   CircleHelp,
   SlidersHorizontal,
   ShoppingCart,
@@ -706,8 +452,6 @@ import type { LiveSearchPrimaryController, TradePageRole } from '@/utils/live-se
 import type { LiveSearchBookmarkController } from '@/entrypoints/content/logic/live-search-bookmark-controller';
 import type { LiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
 import type { LiveSearchSoundNotifier } from '@/entrypoints/content/logic/live-search-sound-notifier';
-
-installDialogGlobals();
 
 function formatVersionTag(version: string | undefined): string {
   if (!version) return '';
@@ -774,6 +518,8 @@ export default defineComponent({
     LiveSearchConsoleSettingsPane,
     TemporarySearchDialog,
     UpdateNotice,
+    SidebarNavRail,
+    SidebarGlobalDialog,
     TierDropdownHost,
     PageGuideHost,
     StatGroupTemplateHost,
@@ -787,16 +533,9 @@ export default defineComponent({
     ScrollAreaViewport,
     ScrollBar,
     ScrollAreaCorner,
-    Input,
     Button,
     ToolboxIcon,
-    Box,
     ChevronLeft,
-    Radio,
-    Pin,
-    Plus,
-    RotateCcw,
-    Settings,
   },
   setup(props) {
     const portalTarget = computed(() => props.portalTarget);
@@ -818,12 +557,10 @@ export default defineComponent({
     const resultFeatures = shallowRef<ResultFeatureFlags>(readResultFeatures(DEFAULT_PREFERENCES));
     const densityScale = ref(1.0);
     const activeTab = ref('bookmark');
-    const primaryActiveTab = ref<'connections' | 'pinned-items' | 'console-settings'>(
-      'connections',
-    );
+    const primaryActiveTab = ref<LiveSearchPrimaryTab>('connections');
     // 主控台的釘選 pane 第一次打開才掛載
     const primaryPinnedMounted = ref(false);
-    const openPrimaryTab = (tab: 'connections' | 'pinned-items' | 'console-settings') => {
+    const openPrimaryTab = (tab: LiveSearchPrimaryTab) => {
       if (tab === 'pinned-items') primaryPinnedMounted.value = true;
       primaryActiveTab.value = tab;
     };
@@ -992,108 +729,15 @@ export default defineComponent({
       isTemporarySearchDialogOpen.value = true;
     };
 
-    const {
-      dialogState,
-      handleDialogConfirm,
-      handleDialogCancel,
-      handleCustomButtonClick,
-      handleDialogDismiss,
-    } = useSidebarDialog();
-
-    const setSharedDialogOpen = (open: boolean) => {
-      if (open) return;
-
-      if (dialogState.value.isOpen) {
-        handleDialogDismiss();
-      }
-    };
+    const isSharedDialogOpen = ref(false);
 
     // 監聽並記憶用戶選取的導航分頁 (區分版本)
     watch(activeTab, (newVal) => {
       chrome.storage.local.set({ [activeTabKey]: newVal });
     });
 
-    const actualWidth = computed(() => {
-      return sidebarWidth.value;
-    });
-
-    const runtimeTokens = computed(() => {
-      return createUiRuntimeTokenValues({
-        scale: previewFontSizeScale.value ?? fontSizeScale.value,
-        density: densityScale.value,
-        sidebarWidth: sidebarWidth.value,
-      });
-    });
-
-    const isResizable = computed(() => !isCollapsed.value);
-
-    let isDragging = false;
-    let startX = 0;
-    let startVisualWidth = 0;
-    let resizeRafId: number | null = null;
-    let pendingVisualWidth: number | null = null;
-
-    const applyResizeWidth = (visualWidth: number) => {
-      sidebarWidth.value = visualWidth;
-      dispatchPoeEvent('poexd-sidebar-width-preview', visualWidth);
-    };
-
-    const handleResizeMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      const deltaX = e.clientX - startX;
-      const diff = sidebarPosition.value === 'left' ? deltaX : -deltaX;
-      let visualWidth = Math.round(startVisualWidth + diff);
-      if (visualWidth < SIDEBAR_WIDTH_BOUNDS.min) visualWidth = SIDEBAR_WIDTH_BOUNDS.min;
-      if (visualWidth > SIDEBAR_WIDTH_BOUNDS.max) visualWidth = SIDEBAR_WIDTH_BOUNDS.max;
-
-      pendingVisualWidth = visualWidth;
-      if (resizeRafId === null) {
-        resizeRafId = window.requestAnimationFrame(() => {
-          resizeRafId = null;
-          if (pendingVisualWidth !== null && isDragging) {
-            applyResizeWidth(pendingVisualWidth);
-          }
-        });
-      }
-    };
-
-    const handleResizeEnd = () => {
-      if (!isDragging) return;
-      isDragging = false;
-      if (resizeRafId !== null) {
-        window.cancelAnimationFrame(resizeRafId);
-        resizeRafId = null;
-      }
-      if (pendingVisualWidth !== null) {
-        applyResizeWidth(pendingVisualWidth);
-        pendingVisualWidth = null;
-      }
-      dispatchPoeEvent('poexd-sidebar-resizing-changed', false);
-      window.removeEventListener('mousemove', handleResizeMove);
-      window.removeEventListener('mouseup', handleResizeEnd);
-      document.body.style.removeProperty('user-select');
-      document.body.style.removeProperty('cursor');
-
-      void preferencesModule?.update({
-        sidebarWidth: sidebarWidth.value,
-      });
-    };
-
-    const handleResizeStart = (e: MouseEvent) => {
-      if (!isResizable.value) return;
-      isDragging = true;
-      startX = e.clientX;
-      startVisualWidth = actualWidth.value;
-      pendingVisualWidth = startVisualWidth;
-      dispatchPoeEvent('poexd-sidebar-resizing-changed', true);
-      window.addEventListener('mousemove', handleResizeMove);
-      window.addEventListener('mouseup', handleResizeEnd);
-      document.body.style.setProperty('user-select', 'none');
-      document.body.style.setProperty('cursor', 'col-resize');
-    };
-
     // 導覽列分頁圖示
-    const tabs = [
+    const tabs: SidebarNavTab[] = [
       {
         id: 'bookmark',
         get name() {
@@ -1165,6 +809,8 @@ export default defineComponent({
     const navModuleTabs = computed(() =>
       tabs.filter((tab) => tab.id !== 'settings' && tab.id !== 'tools' && isTabVisible(tab.id)),
     );
+    const toolsTab = tabs.find((tab) => tab.id === 'tools');
+    const settingsTab = tabs.find((tab) => tab.id === 'settings');
 
     // 目前分頁被關閉時，改顯示第一個仍開啟的分頁
     watch(modulePrefs, (prefs) => {
@@ -1347,118 +993,31 @@ export default defineComponent({
       dispatchPoeEvent('poexd-sidebar-collapsed-changed', isCollapsed.value);
     };
 
-    // 收合標籤：沿面板所在側邊上下拖曳；移動未超過門檻時仍視為點擊展開
-    const collapsedTabTop = ref(DEFAULT_PREFERENCES.collapsedTabTop);
-    const collapsedTabTopStyle = computed(() => collapsedTabTopCss(collapsedTabTop.value));
-    const isCollapsedTabDragging = ref(false);
-    let collapsedTabDrag: {
-      pointerId: number;
-      startY: number;
-      startTop: number;
-      tabHeight: number;
-    } | null = null;
-    let suppressCollapsedTabClick = false;
-
-    const previewCollapsedTabTop = (top: number) => {
-      collapsedTabTop.value = top;
-      dispatchPoeEvent('poexd-sidebar-collapsed-top-preview', top);
-    };
-
-    const commitCollapsedTabTop = (top: number) => {
-      previewCollapsedTabTop(top);
-      void preferencesModule?.update({ collapsedTabTop: top }).then((outcome) => {
-        if (!outcome.ok) console.error('[PoeXD Sidebar] 無法儲存收合標籤位置:', outcome.error);
-      });
-    };
-
-    const readCollapsedTabMetrics = (el: HTMLElement) => {
-      const rect = el.getBoundingClientRect();
-      // 尚未完成排版（height <= 0）時退回目前儲存的位置與預設高度
-      return {
-        top: rect.height > 0 ? rect.top : collapsedTabTop.value,
-        height: rect.height > 0 ? rect.height : 32,
-      };
-    };
-
-    watch(isCollapsed, (collapsed) => {
-      if (collapsed) return;
-      collapsedTabDrag = null;
-      if (isCollapsedTabDragging.value) {
-        isCollapsedTabDragging.value = false;
-        previewCollapsedTabTop(preferencesModule?.read().collapsedTabTop ?? collapsedTabTop.value);
-      }
+    const {
+      actualWidth,
+      runtimeTokens,
+      isResizable,
+      handleResizeStart,
+      collapsedTabTop,
+      collapsedTabTopStyle,
+      isCollapsedTabDragging,
+      previewCollapsedTabTop,
+      handleCollapsedTabPointerDown,
+      handleCollapsedTabPointerMove,
+      handleCollapsedTabPointerUp,
+      handleCollapsedTabPointerCancel,
+      handleCollapsedTabClick,
+      handleCollapsedTabKeydown,
+    } = useSidebarGeometry({
+      isCollapsed,
+      sidebarPosition,
+      sidebarWidth,
+      fontSizeScale,
+      previewFontSizeScale,
+      densityScale,
+      getPreferencesModule: () => preferencesModule,
+      onExpandFromTab: toggleCollapse,
     });
-
-    const handleCollapsedTabPointerDown = (e: PointerEvent) => {
-      if (e.button !== 0 || !e.isPrimary) return;
-      const { top, height } = readCollapsedTabMetrics(e.currentTarget as HTMLElement);
-      // 從實際顯示位置起算：儲存值可能因視窗變小而被 CSS clamp 過
-      collapsedTabDrag = {
-        pointerId: e.pointerId,
-        startY: e.clientY,
-        startTop: top,
-        tabHeight: height,
-      };
-      suppressCollapsedTabClick = false;
-    };
-
-    const handleCollapsedTabPointerMove = (e: PointerEvent) => {
-      const drag = collapsedTabDrag;
-      if (!drag || e.pointerId !== drag.pointerId) return;
-      const deltaY = e.clientY - drag.startY;
-      if (!isCollapsedTabDragging.value) {
-        if (Math.abs(deltaY) < COLLAPSED_TAB_DRAG_THRESHOLD) return;
-        isCollapsedTabDragging.value = true;
-        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-      }
-      previewCollapsedTabTop(
-        clampCollapsedTabTop(drag.startTop + deltaY, window.innerHeight, drag.tabHeight),
-      );
-    };
-
-    const finishCollapsedTabDrag = (e: PointerEvent, commit: boolean) => {
-      const drag = collapsedTabDrag;
-      if (!drag || e.pointerId !== drag.pointerId) return;
-      collapsedTabDrag = null;
-      if (!isCollapsedTabDragging.value) return;
-      const target = e.currentTarget as HTMLElement;
-      if (target.hasPointerCapture?.(e.pointerId)) {
-        target.releasePointerCapture?.(e.pointerId);
-      }
-      isCollapsedTabDragging.value = false;
-      if (commit) {
-        // 拖曳結束後瀏覽器仍會送出 click，擋掉這一次避免誤觸展開
-        suppressCollapsedTabClick = true;
-        setTimeout(() => {
-          suppressCollapsedTabClick = false;
-        }, 0);
-        commitCollapsedTabTop(collapsedTabTop.value);
-      } else {
-        previewCollapsedTabTop(preferencesModule?.read().collapsedTabTop ?? drag.startTop);
-      }
-    };
-
-    const handleCollapsedTabPointerUp = (e: PointerEvent) => finishCollapsedTabDrag(e, true);
-    const handleCollapsedTabPointerCancel = (e: PointerEvent) => finishCollapsedTabDrag(e, false);
-
-    const handleCollapsedTabClick = () => {
-      if (suppressCollapsedTabClick) {
-        suppressCollapsedTabClick = false;
-        return;
-      }
-      toggleCollapse();
-    };
-
-    /** Alt + ↑/↓ 以鍵盤調整收合標籤位置 */
-    const handleCollapsedTabKeydown = (e: KeyboardEvent) => {
-      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-      e.preventDefault();
-      const { top: currentTop, height: tabHeight } = readCollapsedTabMetrics(
-        e.currentTarget as HTMLElement,
-      );
-      const step = e.key === 'ArrowUp' ? -COLLAPSED_TAB_KEYBOARD_STEP : COLLAPSED_TAB_KEYBOARD_STEP;
-      commitCollapsedTabTop(clampCollapsedTabTop(currentTop + step, window.innerHeight, tabHeight));
-    };
 
     /** 從「新增詞綴群組」旁的選單跳到側邊欄管理分頁。 */
     const openStatGroupTemplateManager = () => {
@@ -1541,7 +1100,7 @@ export default defineComponent({
         !affixDemoMode.value &&
         e.key === 'Escape' &&
         isModalOpen.value &&
-        !dialogState.value.isOpen &&
+        !isSharedDialogOpen.value &&
         !isTypeDialogOpen.value
       ) {
         closeModal();
@@ -1615,7 +1174,7 @@ export default defineComponent({
 
     // 統一收斂全域 Modal active 狀態 (Affix Dialog, Shared Dialog, Type Dialog)
     const isAnyModalActive = computed(() => {
-      return isModalOpen.value || dialogState.value.isOpen || isTypeDialogOpen.value;
+      return isModalOpen.value || isSharedDialogOpen.value || isTypeDialogOpen.value;
     });
 
     watch(isAnyModalActive, (newVal, oldVal) => {
@@ -1791,16 +1350,6 @@ export default defineComponent({
       removeOpenAffixModalListener();
       removeSelectTypeModalListener();
       removeOpenResultBoardListener();
-      if (resizeRafId !== null) {
-        window.cancelAnimationFrame(resizeRafId);
-        resizeRafId = null;
-      }
-      if (isDragging) {
-        window.removeEventListener('mousemove', handleResizeMove);
-        window.removeEventListener('mouseup', handleResizeEnd);
-        document.body.style.removeProperty('user-select');
-        document.body.style.removeProperty('cursor');
-      }
     });
 
     return {
@@ -1834,6 +1383,8 @@ export default defineComponent({
       usesPaneScroll,
       tabs,
       navModuleTabs,
+      toolsTab,
+      settingsTab,
       isModuleEnabled,
       isTabVisible,
       toggleCollapse,
@@ -1849,6 +1400,7 @@ export default defineComponent({
       handleCollapsedTabClick,
       handleCollapsedTabKeydown,
       isModalOpen,
+      isSharedDialogOpen,
       targetGroupIndex,
       filterPaneRef,
       affixHeaderSlotRef,
@@ -1856,12 +1408,6 @@ export default defineComponent({
       isAffixPaneMounted,
       closeModal,
       setAffixDialogOpen,
-      dialogState,
-      handleDialogConfirm,
-      handleDialogCancel,
-      handleCustomButtonClick,
-      handleDialogDismiss,
-      setSharedDialogOpen,
       handleOverlayMousedown,
       handleOverlayMouseup,
       isResizable,
