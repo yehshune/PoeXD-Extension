@@ -378,6 +378,7 @@ import type {
 import {
   PREVIOUS_CONNECTIONS_GROUP_ID,
   SESSION_CONNECTIONS_GROUP_ID,
+  countLiveSearchSourceStatuses,
   createLiveSearchSourceController,
   formatLiveSearchDisplayLeague,
   getLiveSearchGroupSubtreeItems,
@@ -426,30 +427,7 @@ function handleOpenAddConnection() {
   emit('open-add-connection');
 }
 
-const statusCounts = computed(() => {
-  let all = 0;
-  let enabled = 0;
-  let disabled = 0;
-  let error = 0;
-  for (const group of normalizedGroups.value) {
-    for (const item of group.items) {
-      all += 1;
-      if (item.status === 'error') {
-        error += 1;
-      } else if (
-        item.status === 'active' ||
-        item.status === 'connecting' ||
-        item.status === 'reconnecting' ||
-        Boolean(item.pending)
-      ) {
-        enabled += 1;
-      } else {
-        disabled += 1;
-      }
-    }
-  }
-  return { all, enabled, disabled, error };
-});
+const statusCounts = computed(() => countLiveSearchSourceStatuses(normalizedGroups.value));
 
 const statusFilterOptions = computed<
   ReadonlyArray<{

@@ -157,6 +157,7 @@ export class LiveSearchPrimaryRuntime {
   private activeTargetLeague: string | null = null;
   private lastContainerLeague: string | null = null;
   private cumulativeRenderedTotal = 0;
+  private clearEpoch = 0;
 
   private subscriptions = new Map<string, SubscriptionContext>();
   private queue: PipelineTask[] = [];
@@ -288,19 +289,25 @@ export class LiveSearchPrimaryRuntime {
     this.notifyListeners();
   }
 
-  /**
-   * 清空官方展示區的已渲染結果，但不停止任何監聽中的 WebSocket 連線或重設聯盟鎖定。
-   */
-  public async clearResults(): Promise<HostCommandOutcome> {
-    if (this.disposed) {
-      return { success: false, error: 'Runtime already disposed' };
-    }
+  /** 重置本地展示結果計數、篩選狀態與來源標籤（共用 clearResults 與 teardownAllSubscriptions） */
+  private resetDisplayedResultsState(): void {
     this.cumulativeRenderedTotal = 0;
+    this.resultFilter.setFilter(null);
     this.resultFilter.clear();
     try {
       this.onResultsCleared?.();
     } catch (err) {
       console.error('[PoeXD LiveSearch] Results cleared listener failed:', err);
+    }
+  }
+
+  /**
+   * 清空官方展示區的已渲染結果，但不停止任何監聽中的 WebSocket 連線或重設聯盟鎖定。
+   * 須待 Host 重置成功後才清除本地計數、篩選與來源標籤，並遞增 clearEpoch 避免進行中任務回寫舊結果。
+   */
+  public async clearResults(): Promise<HostCommandOutcome> {
+    if (this.disposed) {
+      return { success: false, error: 'Runtime already disposed' };
     }
 
     const league = this.lastContainerLeague ?? this.runtimeLeague ?? this.activeTargetLeague;
@@ -313,7 +320,13 @@ export class LiveSearchPrimaryRuntime {
         realm,
         resetResults: true,
       });
+      if (!outcome.success || this.disposed) {
+        return outcome;
+      }
     }
+
+    this.clearEpoch += 1;
+    this.resetDisplayedResultsState();
     this.notifyListeners();
     return outcome;
   }
@@ -636,14 +649,8 @@ export class LiveSearchPrimaryRuntime {
       this.subscriptions.clear();
       this.queue = [];
       this.runtimeLeague = null;
-      this.cumulativeRenderedTotal = 0;
-      this.resultFilter.setFilter(null);
-      this.resultFilter.clear();
-      try {
-        this.onResultsCleared?.();
-      } catch (err) {
-        console.error('[PoeXD LiveSearch] Results cleared listener failed:', err);
-      }
+      this.clearEpoch += 1;
+      this.resetDisplayedResultsState();
       this.notifyListeners();
 
       const targetLeague = options?.targetLeague?.trim();
@@ -834,6 +841,7 @@ export class LiveSearchPrimaryRuntime {
    */
   private async executePipelineTask(task: PipelineTask): Promise<void> {
     const { subCtx, token } = task;
+    const taskEpoch = this.clearEpoch;
 
     // 1. PoeXD 經由 FetchRateGate 發起 HTTP /fetch
     const fetchUrl = this.buildFetchUrl(
@@ -896,7 +904,7 @@ export class LiveSearchPrimaryRuntime {
       return;
     }
 
-    if (this.disposed || subCtx.subscription.status === 'closed') {
+    if (this.disposed || subCtx.subscription.status === 'closed' || taskEpoch !== this.clearEpoch) {
       subCtx.pendingTokens.delete(token);
       return;
     }

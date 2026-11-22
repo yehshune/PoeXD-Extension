@@ -128,6 +128,31 @@ export function matchesLiveSearchSourceStatusFilter(
   return true;
 }
 
+/** 依與篩選完全一致的規則統計各狀態頁籤的連線數 */
+export function countLiveSearchSourceStatuses(
+  groups: readonly LiveSearchSourceGroup[],
+): Record<LiveSearchSourceStatusFilter, number> {
+  const counts: Record<LiveSearchSourceStatusFilter, number> = {
+    all: 0,
+    enabled: 0,
+    disabled: 0,
+    error: 0,
+  };
+  for (const group of groups) {
+    for (const item of group.items) {
+      counts.all += 1;
+      if (matchesLiveSearchSourceStatusFilter(item.status, 'error')) {
+        counts.error += 1;
+      } else if (matchesLiveSearchSourceStatusFilter(item.status, 'enabled')) {
+        counts.enabled += 1;
+      } else if (matchesLiveSearchSourceStatusFilter(item.status, 'disabled')) {
+        counts.disabled += 1;
+      }
+    }
+  }
+  return counts;
+}
+
 export function filterLiveSearchConnectionItems(
   items: readonly LiveSearchSourceItem[],
   options?: LiveSearchSourceFilterOptions,

@@ -26,6 +26,7 @@ export {
 
 export {
   buildCanonicalTradeSearchUrl,
+  countLiveSearchSourceStatuses,
   evaluateLiveSearchSourceCompatibility,
   filterLiveSearchConnectionItems,
   filterLiveSearchSourceGroups,

@@ -62,6 +62,18 @@ export const SEARCH_PAGE_DOM: readonly DomCheck[] = [
     offline: true,
   },
   {
+    id: 'result-count-heading',
+    selector: '.results .row-total h3',
+    usedBy: 'market-translation-page（結果筆數標題中文化）',
+    offline: false,
+  },
+  {
+    id: 'result-layout-buttons',
+    selector: '.results .row-total button[title]',
+    usedBy: 'market-translation-page（結果版型按鈕提示中文化）',
+    offline: false,
+  },
+  {
     id: 'resultset',
     selector: '.results .resultset',
     usedBy: 'result-board-runtime',
@@ -116,6 +128,12 @@ export const RESULT_ROW_DOM: readonly DomCheck[] = [
     id: 'row-indexed-time',
     selector: '[data-field="indexed"] small',
     usedBy: 'market-result-translator',
+    offline: false,
+  },
+  {
+    id: 'row-right-details',
+    selector: ':scope > .right .details',
+    usedBy: 'live-search-result-source-badge（主控台結果卡片來源標籤）',
     offline: false,
   },
 ];

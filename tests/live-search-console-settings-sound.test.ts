@@ -34,12 +34,13 @@ function createFakePreferences(): PreferencesModule {
   };
 }
 
-function mountPane(soundNotifier: LiveSearchSoundNotifier) {
+function mountPane(soundNotifier: LiveSearchSoundNotifier, desktopNotifier?: unknown) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   app = createApp(LiveSearchConsoleSettingsPane, {
     preferences: createFakePreferences(),
     soundNotifier,
+    ...(desktopNotifier ? { desktopNotifier } : {}),
   });
   app.mount(container);
   return {
@@ -217,6 +218,62 @@ describe('LiveSearchConsoleSettingsPane 官方音量與音效設定', () => {
     expect(container.querySelector('[data-test="official-sound-select"]')?.textContent).toContain(
       'Gong',
     );
+
+    cleanup();
+  });
+
+  it('一鍵靜音按鈕會記憶靜音前音量並在恢復時試聽；桌面通知權限為 denied 時於掛載即顯示提示', async () => {
+    const audio = createFakeAudio();
+    const storage = new Map<string, string>([
+      ['lscache-tradewoop', JSON.stringify({ file: 'audio/trade/gong.mp3', volume: 65 })],
+    ]);
+    const notifier = createLiveSearchSoundNotifier({
+      version: 'poe1',
+      isEnabled: () => true,
+      findAudio: () => audio as unknown as HTMLAudioElement,
+      readStorage: (key) => storage.get(key) ?? null,
+      writeStorage: (key, value) => {
+        storage.set(key, value);
+      },
+    });
+    const desktopNotifier = {
+      notify: vi.fn(),
+      test: vi.fn(),
+      requestPermission: vi.fn(),
+      getPermission: vi.fn(() => 'denied' as const),
+      dispose: vi.fn(),
+    };
+
+    const { container, cleanup } = mountPane(notifier, desktopNotifier);
+    await nextTick();
+
+    // 掛載即顯示桌面通知權限被拒提示
+    expect(
+      container.querySelector('[data-test="desktop-notification-message"]')?.textContent,
+    ).toBeTruthy();
+
+    const muteBtn = container.querySelector<HTMLButtonElement>(
+      '[data-test="btn-sound-mute-toggle"]',
+    )!;
+    expect(
+      container.querySelector('[data-test="official-sound-volume-value"]')?.textContent?.trim(),
+    ).toBe('65%');
+
+    // 點擊靜音 → 音量降為靜音（0）且不試聽
+    muteBtn.click();
+    await nextTick();
+    expect(
+      container.querySelector('[data-test="official-sound-volume-value"]')?.textContent?.trim(),
+    ).toBe('靜音');
+    expect(audio.playCalls).toBe(0);
+
+    // 再次點擊 → 恢復為 65% 並試聽
+    muteBtn.click();
+    await nextTick();
+    expect(
+      container.querySelector('[data-test="official-sound-volume-value"]')?.textContent?.trim(),
+    ).toBe('65%');
+    expect(audio.playCalls).toBe(1);
 
     cleanup();
   });

@@ -167,10 +167,11 @@ class RecordingHostClient implements ILiveSearchHostClient {
   }
   ensureCalls = 0;
   ensurePayloads: unknown[] = [];
+  nextEnsureSuccess = true;
   async ensureContainer(options?: unknown): Promise<HostCommandOutcome> {
     this.ensureCalls++;
     this.ensurePayloads.push(options);
-    return { success: true };
+    return this.nextEnsureSuccess ? { success: true } : { success: false, error: 'host failed' };
   }
   async renderResult(options: RenderResultOptions): Promise<HostCommandOutcome> {
     this.renderCalls.push(options);
@@ -316,6 +317,17 @@ describe('官方上方顯示筆數（實際保留數，與篩選連動）', () =
     });
     expect(onRendered).toHaveBeenCalledTimes(4);
 
+    // 篩選狀態下若 Host 重置失敗，本地計數、篩選與來源標籤均保持原樣不清空
+    runtime.setResultFilter(owners[0].canonicalKey);
+    hostClient.nextEnsureSuccess = false;
+    const failedOutcome = await runtime.clearResults();
+    expect(failedOutcome.success).toBe(false);
+    expect(onCleared).toHaveBeenCalledTimes(0);
+    expect(runtime.getSnapshot().displayedResultCount).toBe(4);
+    expect(runtime.getSnapshot().resultFilterKey).toBe(owners[0].canonicalKey);
+
+    // Host 重置成功後清空本地狀態並一併解除結果篩選
+    hostClient.nextEnsureSuccess = true;
     const outcome = await runtime.clearResults();
     expect(outcome.success).toBe(true);
     expect(onCleared).toHaveBeenCalledTimes(1);
@@ -327,6 +339,7 @@ describe('官方上方顯示筆數（實際保留數，與篩選連動）', () =
     const snapAfter = runtime.getSnapshot();
     expect(snapAfter.displayedResultCount).toBeUndefined();
     expect(snapAfter.resultCountsByOwner).toBeUndefined();
+    expect(snapAfter.resultFilterKey).toBeUndefined();
     expect(runtime.getCumulativeRenderedTotal()).toBe(0);
 
     runtime.dispose();

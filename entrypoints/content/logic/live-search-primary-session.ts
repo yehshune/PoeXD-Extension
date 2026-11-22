@@ -117,6 +117,7 @@ export function createLiveSearchPrimarySession(
   let desktopNotifier: LiveSearchDesktopNotifier | null = null;
   let resultSourceBadge: LiveSearchResultSourceBadge | null = null;
   let unsubBadgeSync: (() => void) | null = null;
+  let unsubSourceBadgeSync: (() => void) | null = null;
   let primaryRuntime: ReturnType<LiveSearchPrimarySessionFactories['createRuntime']> | null = null;
   let sourceController: LiveSearchSourceController | null = null;
   let resumeController: LiveSearchResumeController | null = null;
@@ -126,6 +127,7 @@ export function createLiveSearchPrimarySession(
   /** 依固定順序釋放已建立的子模組；建構中途失敗時也只釋放已建立者 */
   function disposeCreated(): void {
     cleanupEnqueueListener?.();
+    unsubSourceBadgeSync?.();
     unsubBadgeSync?.();
     resultSourceBadge?.dispose();
     titleGuard?.dispose();
@@ -223,6 +225,12 @@ export function createLiveSearchPrimarySession(
       preferences,
     });
     sourceController = sources;
+    unsubSourceBadgeSync =
+      typeof sources.subscribe === 'function'
+        ? sources.subscribe(() => {
+            badge.syncAll();
+          })
+        : null;
     resumeController = f.createResumeController({
       version,
       preferences,

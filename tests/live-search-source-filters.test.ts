@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCanonicalTradeSearchUrl,
+  countLiveSearchSourceStatuses,
   evaluateLiveSearchSourceCompatibility,
   extractSectionSourceCanonicalKey,
   filterLiveSearchConnectionItems,
@@ -142,6 +143,30 @@ describe('live-search-source-filters', () => {
 
       expect(matchesLiveSearchSourceStatusFilter('error', 'error')).toBe(true);
       expect(matchesLiveSearchSourceStatusFilter('active', 'error')).toBe(false);
+    });
+
+    it('countLiveSearchSourceStatuses 與 matchesLiveSearchSourceStatusFilter 保持完全一致', () => {
+      const groups: LiveSearchSourceGroup[] = [
+        {
+          id: 'g1',
+          name: 'G1',
+          kind: 'bookmark',
+          depth: 0,
+          items: [
+            makeItem({ id: 'a1', status: 'active' }),
+            makeItem({ id: 'a2', status: 'connecting' }),
+            makeItem({ id: 'a3', status: 'error' }),
+            makeItem({ id: 'a4', status: 'idle', pending: true }),
+            makeItem({ id: 'a5', status: 'closed' }),
+          ],
+        },
+      ];
+      expect(countLiveSearchSourceStatuses(groups)).toEqual({
+        all: 5,
+        enabled: 2,
+        disabled: 2,
+        error: 1,
+      });
     });
 
     it('依名稱、群組名、網址或 searchId 篩選連線項目', () => {

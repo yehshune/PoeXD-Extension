@@ -248,4 +248,61 @@ describe('createLiveSearchPrimarySession', () => {
       'sound:dispose',
     ]);
   });
+
+  it('將結果卡片來源標籤接至 runtime 與 sourceController（含更名同步與釋放）', () => {
+    const events: string[] = [];
+    const { factories } = createRecordingFactories(events);
+    let capturedRuntimeOpts: any;
+    const sourceListener: { fn: (() => void) | null } = { fn: null };
+    const badge = {
+      record: vi.fn(),
+      syncAll: vi.fn(),
+      clear: vi.fn(),
+      dispose: vi.fn(),
+    };
+
+    const session = createLiveSearchPrimarySession({
+      version: 'poe1',
+      preferences: createStubPreferences(),
+      resultCache: { ingestResult: vi.fn() },
+      doc: stubDoc,
+      factories: {
+        ...factories,
+        createResultSourceBadge: () => badge,
+        createRuntime: (_v, opts) => {
+          capturedRuntimeOpts = opts;
+          return {
+            subscribe: () => () => {},
+            dispose: vi.fn(),
+          } as any;
+        },
+        createSourceController: () =>
+          ({
+            read: () => ({ sessionConnections: [], groups: [] }),
+            subscribe: (fn: () => void) => {
+              sourceListener.fn = fn;
+              return () => {
+                sourceListener.fn = null;
+              };
+            },
+            enqueueIncomingConnections: vi.fn(),
+            dispose: vi.fn(),
+          }) as any,
+      },
+    });
+
+    capturedRuntimeOpts.onResultRendered({ itemId: 'item-1', ownerKey: 'poe1:std:abc' });
+    expect(badge.record).toHaveBeenCalledWith('item-1', 'poe1:std:abc');
+
+    capturedRuntimeOpts.onResultsCleared();
+    expect(badge.clear).toHaveBeenCalledTimes(1);
+
+    // 來源（如書籤更名）變動時應同步重刷卡片來源標籤
+    sourceListener.fn?.();
+    expect(badge.syncAll).toHaveBeenCalledTimes(1);
+
+    session.dispose();
+    expect(badge.dispose).toHaveBeenCalledTimes(1);
+    expect(sourceListener.fn).toBeNull();
+  });
 });

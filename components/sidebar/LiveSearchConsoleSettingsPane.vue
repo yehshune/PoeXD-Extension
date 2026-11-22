@@ -714,12 +714,10 @@ function handleVolumeInput(event: Event) {
   officialSetting.value = { ...officialSetting.value, volume: clamped };
 }
 
-async function handleVolumeChange(event: Event) {
+async function applyOfficialVolume(volume: number) {
   if (!props.soundNotifier?.updateOfficialVolume) return;
-  const next = Number((event.target as HTMLInputElement).value);
-  if (!Number.isFinite(next)) return;
   soundFeedbackMessage.value = '';
-  const outcome = props.soundNotifier.updateOfficialVolume(next);
+  const outcome = props.soundNotifier.updateOfficialVolume(volume);
   if (!outcome.ok) {
     soundFeedbackMessage.value = t('liveSearch.sound.saveFailed');
     return;
@@ -731,23 +729,19 @@ async function handleVolumeChange(event: Event) {
   }
 }
 
+async function handleVolumeChange(event: Event) {
+  const next = Number((event.target as HTMLInputElement).value);
+  if (!Number.isFinite(next)) return;
+  await applyOfficialVolume(next);
+}
+
 async function handleToggleMuteVolume() {
-  if (!props.soundNotifier?.updateOfficialVolume) return;
-  soundFeedbackMessage.value = '';
   const targetVolume =
     officialSetting.value.volume === 0 ? Math.max(1, lastNonZeroVolume.value) : 0;
   if (officialSetting.value.volume > 0) {
     lastNonZeroVolume.value = officialSetting.value.volume;
   }
-  const outcome = props.soundNotifier.updateOfficialVolume(targetVolume);
-  if (!outcome.ok) {
-    soundFeedbackMessage.value = t('liveSearch.sound.saveFailed');
-    return;
-  }
-  officialSetting.value = outcome.setting;
-  if (outcome.setting.volume > 0) {
-    await handlePreviewSound();
-  }
+  await applyOfficialVolume(targetVolume);
 }
 
 async function applyOfficialSound(source: OfficialSoundSource) {
