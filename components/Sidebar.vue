@@ -206,10 +206,10 @@
               <template v-else-if="pageRole === 'live-search-primary'">
                 <LiveSearchPrimaryPane
                   v-show="primaryActiveTab === 'connections'"
-                  :controller="liveSearchController"
-                  :bookmark-controller="liveSearchBookmarkController"
-                  :resume-controller="liveSearchResumeController"
-                  :sound-notifier="liveSearchSoundNotifier"
+                  :controller="liveSearchConsole?.primaryController ?? null"
+                  :bookmark-controller="liveSearchConsole?.sourceController ?? null"
+                  :resume-controller="liveSearchConsole?.resumeController ?? null"
+                  :sound-notifier="liveSearchConsole?.soundNotifier ?? null"
                   @open-add-connection="handleOpenCustomSearch"
                 />
                 <PinnedItemPane
@@ -219,8 +219,8 @@
                 />
                 <LiveSearchConsoleSettingsPane
                   v-show="primaryActiveTab === 'console-settings'"
-                  :resume-controller="liveSearchResumeController"
-                  :sound-notifier="liveSearchSoundNotifier"
+                  :resume-controller="liveSearchConsole?.resumeController ?? null"
+                  :sound-notifier="liveSearchConsole?.soundNotifier ?? null"
                 />
               </template>
             </div>
@@ -303,7 +303,7 @@
         <TemporarySearchDialog
           v-if="pageRole === 'live-search-primary'"
           :open="isTemporarySearchDialogOpen"
-          :source-controller="liveSearchBookmarkController"
+          :source-controller="liveSearchConsole?.sourceController ?? null"
           @update:open="isTemporarySearchDialogOpen = $event"
         />
 
@@ -448,10 +448,8 @@ import {
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import { t } from '@/utils/i18n';
-import type { LiveSearchPrimaryController, TradePageRole } from '@/utils/live-search-contract';
-import type { LiveSearchBookmarkController } from '@/entrypoints/content/logic/live-search-sources';
-import type { LiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
-import type { LiveSearchSoundNotifier } from '@/entrypoints/content/logic/live-search-sound-notifier';
+import type { TradePageRole } from '@/utils/live-search-contract';
+import type { LiveSearchConsoleHandles } from '@/entrypoints/content/logic/live-search-primary-session';
 
 function formatVersionTag(version: string | undefined): string {
   if (!version) return '';
@@ -481,25 +479,9 @@ export default defineComponent({
       type: String as PropType<TradePageRole>,
       default: 'normal',
     },
-    liveSearchController: {
-      type: Object as PropType<LiveSearchPrimaryController | null>,
+    liveSearchConsole: {
+      type: Object as PropType<LiveSearchConsoleHandles | null>,
       default: null,
-    },
-    liveSearchBookmarkController: {
-      type: Object as PropType<LiveSearchBookmarkController | null>,
-      default: null,
-    },
-    liveSearchResumeController: {
-      type: Object as PropType<LiveSearchResumeController | null>,
-      default: null,
-    },
-    liveSearchSoundNotifier: {
-      type: Object as PropType<LiveSearchSoundNotifier | null>,
-      default: null,
-    },
-    initialArrivalSignal: {
-      type: Boolean,
-      default: false,
     },
   },
   components: {
@@ -700,7 +682,7 @@ export default defineComponent({
       });
     };
 
-    if (props.pageRole === 'live-search-primary' && props.initialArrivalSignal) {
+    if (props.pageRole === 'live-search-primary' && props.liveSearchConsole?.initialArrivalSignal) {
       triggerArrivalFeedback();
     }
 

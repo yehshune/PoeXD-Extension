@@ -297,8 +297,10 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
 
     app = createApp(Sidebar, {
       pageRole: 'live-search-primary',
-      liveSearchController: mockController,
-      liveSearchBookmarkController: mockBookmarkController,
+      liveSearchConsole: {
+        primaryController: mockController,
+        sourceController: mockBookmarkController,
+      },
     });
     app.mount(container);
     await nextTick();
@@ -452,7 +454,7 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
       try {
         app = createApp(Sidebar, {
           pageRole: 'live-search-primary',
-          initialArrivalSignal: true,
+          liveSearchConsole: { initialArrivalSignal: true },
         });
         app.mount(container);
         await nextTick();
@@ -474,7 +476,7 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
     it('11. 非 action-driven reload (initialArrivalSignal: false) 不會自行觸發 arrival viewport feedback layer', async () => {
       app = createApp(Sidebar, {
         pageRole: 'live-search-primary',
-        initialArrivalSignal: false,
+        liveSearchConsole: { initialArrivalSignal: false },
       });
       app.mount(container);
       await nextTick();
@@ -497,7 +499,7 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
 
         app = createApp(Sidebar, {
           pageRole: 'live-search-primary',
-          initialArrivalSignal: false,
+          liveSearchConsole: { initialArrivalSignal: false },
         });
         app.mount(container);
         await nextTick();
@@ -586,8 +588,10 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
 
       app = createApp(Sidebar, {
         pageRole: 'live-search-primary',
-        liveSearchResumeController: mockResumeController,
-        liveSearchBookmarkController: mockBookmarkController,
+        liveSearchConsole: {
+          resumeController: mockResumeController,
+          sourceController: mockBookmarkController,
+        },
       });
       app.mount(container);
       await nextTick();

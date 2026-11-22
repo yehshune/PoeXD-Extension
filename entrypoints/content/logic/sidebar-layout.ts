@@ -8,10 +8,8 @@ import {
   readStorageValue,
 } from '@/utils/storage-contracts';
 import type { PoeVersion } from '@/utils/trade-context';
-import type { LiveSearchPrimaryController, TradePageRole } from '@/utils/live-search-contract';
-import type { LiveSearchBookmarkController } from './live-search-sources';
-import type { LiveSearchResumeController } from './live-search-resume-controller';
-import type { LiveSearchSoundNotifier } from './live-search-sound-notifier';
+import type { TradePageRole } from '@/utils/live-search-contract';
+import type { LiveSearchConsoleHandles } from './live-search-primary-session';
 import { syncUiRuntimeTokens } from '@/lib/tokens';
 import { applyThemeFromPreferences } from '@/lib/theme/theme-runtime';
 import { appendShadowHostStyle } from './shadow-host-style';
@@ -93,18 +91,19 @@ export async function reserveSidebarPageLayout(
   return remove;
 }
 
+export interface MountSidebarLayoutOptions {
+  pageRole?: TradePageRole;
+  liveSearchConsole?: LiveSearchConsoleHandles | null;
+}
+
 export async function mountSidebarLayout(
   ctx: any,
   version: PoeVersion,
   preferences: PreferencesModule,
   isDisposed = () => false,
-  pageRole: TradePageRole = 'normal',
-  liveSearchController?: LiveSearchPrimaryController | null,
-  liveSearchBookmarkController?: LiveSearchBookmarkController | null,
-  liveSearchResumeController?: LiveSearchResumeController | null,
-  initialArrivalSignal: boolean = false,
-  liveSearchSoundNotifier: LiveSearchSoundNotifier | null = null,
+  options: MountSidebarLayoutOptions = {},
 ) {
+  const { pageRole = 'normal', liveSearchConsole = null } = options;
   const keys = createVersionedStorageKeys(version);
   const data = await chrome.storage.local.get([keys.isCollapsed, 'isCollapsed']);
   if (isDisposed()) return;
@@ -159,11 +158,7 @@ export async function mountSidebarLayout(
       const app = createApp(Sidebar, {
         portalTarget: portalRoot,
         pageRole,
-        liveSearchController,
-        liveSearchBookmarkController,
-        liveSearchResumeController,
-        initialArrivalSignal,
-        liveSearchSoundNotifier,
+        liveSearchConsole,
       });
       app.mount(appRoot);
       return { app, appRoot, portalRoot };

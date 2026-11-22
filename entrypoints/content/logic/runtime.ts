@@ -13,7 +13,7 @@ import {
   getHydratedModsByGroup,
   markAffixSelectorPrewarmed,
 } from '@/utils/affix-lexicon';
-import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
+import { setActiveDisplayLocalePreference } from '@/utils/i18n';
 import { rememberPageLoadPreferences } from '@/utils/page-load-preferences';
 import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
 import { watchTradePageMode } from '@/utils/trade-page-mode';
@@ -40,53 +40,15 @@ import { expectsInitialSearchResults } from '@/utils/trade-search-identity';
 import { createFilterDomEnhancements, type FilterDomEnhancements } from './common';
 import { initToastHost, syncToastPreferences } from './toast-host';
 import { extensionMessaging } from '@/utils/extension-protocol';
-import type { LiveSearchPrimaryController, TradePageRole } from '@/utils/live-search-contract';
-import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
-import { LiveSearchPrimaryRuntime } from './live-search-primary-runtime';
-import { createLiveSearchPrimaryController } from './live-search-primary-controller';
+import type { TradePageRole } from '@/utils/live-search-contract';
 import {
-  createLiveSearchBookmarkController,
-  type LiveSearchBookmarkController,
-} from './live-search-sources';
-import {
-  createLiveSearchPrimaryExitGuard,
-  type LiveSearchPrimaryExitGuard,
-} from './live-search-primary-exit-guard';
-import { registerLiveSearchPrimaryEnqueueBridge } from './live-search-enqueue-receiver';
-import {
-  createLiveSearchConsoleHostGuard,
-  type LiveSearchConsoleHostGuard,
-} from './live-search-console-host-guard';
-import {
-  createLiveSearchConsoleTitleGuard,
-  type LiveSearchConsoleTitleGuard,
-} from './live-search-console-title';
-import {
-  createLiveSearchResumeStore,
-  type LiveSearchResumeStore,
-} from '@/utils/live-search-resume-store';
-import {
-  createLiveSearchResumeController,
-  type LiveSearchResumeController,
-} from './live-search-resume-controller';
-import {
-  createLiveSearchSoundNotifier,
-  type LiveSearchSoundNotifier,
-} from './live-search-sound-notifier';
+  createLiveSearchPrimarySession,
+  type LiveSearchPrimarySession,
+} from './live-search-primary-session';
 import { setKnownStats } from '@/utils/known-stats-store';
 import { setLiveTradeData, setMarketLiveTradeData } from '@/utils/live-trade-data-store';
 import { startMarketLiveLabelsSync } from '@/utils/market-live-labels';
 import { detectBrowserLocale, resolvePageLocale } from '@/utils/locale-resolution';
-
-let activePrimaryRuntime: LiveSearchPrimaryRuntime | null = null;
-let activePrimaryController: LiveSearchPrimaryController | null = null;
-let activeBookmarkController: LiveSearchBookmarkController | null = null;
-let activeResumeStore: LiveSearchResumeStore | null = null;
-let activeResumeController: LiveSearchResumeController | null = null;
-let activeSoundNotifier: LiveSearchSoundNotifier | null = null;
-let activeExitGuard: LiveSearchPrimaryExitGuard | null = null;
-let activeConsoleHostGuard: LiveSearchConsoleHostGuard | null = null;
-let activeConsoleTitleGuard: LiveSearchConsoleTitleGuard | null = null;
 
 export async function runLogic(ctx: any, version: PoeVersion) {
   if (isCloudflareChallenge(window.location, document)) {
@@ -127,7 +89,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   let stopSidebarPreferences: (() => void) | null = null;
   let removeReservedSidebarLayout: (() => void) | null = null;
   let stopWaitingTradePage: (() => void) | null = null;
-  let cleanupEnqueueListener: (() => void) | null = null;
+  let liveSearchSession: LiveSearchPrimarySession | null = null;
   let initialPageLoad: InitialPageLoadGate | null = null;
   let cancelAffixPrewarm: (() => void) | null = null;
   let stopEarlyEventBuffer: (() => void) | null = null;
@@ -143,7 +105,6 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     stopWaitingTradePage?.();
     initialPageLoad?.cancel();
     cancelAffixPrewarm?.();
-    cleanupEnqueueListener?.();
     cleanupSearchSession?.();
     domFilter.cleanup();
     pricePresenter.cleanup();
@@ -165,36 +126,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     filterEnhancements.cleanup();
     cleanupPageEvents?.();
     cleanupToastHost();
-    if (activeConsoleTitleGuard) {
-      activeConsoleTitleGuard.dispose();
-      activeConsoleTitleGuard = null;
-    }
-    if (activeConsoleHostGuard) {
-      activeConsoleHostGuard.dispose();
-      activeConsoleHostGuard = null;
-    }
-    if (activeExitGuard) {
-      activeExitGuard.dispose();
-      activeExitGuard = null;
-    }
-    if (activeBookmarkController) {
-      activeBookmarkController.dispose();
-      activeBookmarkController = null;
-    }
-    if (activeResumeController) {
-      activeResumeController.dispose();
-      activeResumeController = null;
-    }
-    activeResumeStore = null;
-    if (activePrimaryRuntime) {
-      activePrimaryRuntime.dispose();
-      activePrimaryRuntime = null;
-      activePrimaryController = null;
-    }
-    if (activeSoundNotifier) {
-      activeSoundNotifier.dispose();
-      activeSoundNotifier = null;
-    }
+    liveSearchSession?.dispose();
+    liveSearchSession = null;
     console.log('[PoeXD] Logic cleaned up successfully.');
   };
   if (typeof ctx?.onCleanup === 'function') ctx.onCleanup(cleanupAll);
@@ -362,73 +295,20 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       modQuickFilter.setPageRole(pageRole);
       domFilter.init();
       if (pageRole === 'live-search-primary') {
-        document.body?.setAttribute('data-poexd-page-role', 'live-search-primary');
-        activeConsoleTitleGuard = createLiveSearchConsoleTitleGuard(document, version);
-        activeConsoleTitleGuard.start();
-        activeConsoleHostGuard = createLiveSearchConsoleHostGuard();
-        activeConsoleHostGuard.start();
-        const soundNotifier = createLiveSearchSoundNotifier({
-          version,
-          isEnabled: () => preferences.read().liveSearchSoundEnabled,
-        });
-        activeSoundNotifier = soundNotifier;
-        activePrimaryRuntime = new LiveSearchPrimaryRuntime(version, {
-          getMaxDisplayedResults: () => preferences.read().liveSearchMaxDisplayedResults,
-          onResultTokenAccepted: () => soundNotifier.notify(),
-          // 主控台自己打的 /fetch 不經過 MAIN world 攔截，結果要另外交給共用快取
-          onResultFetched: ({ itemData, searchId, league }) =>
-            resultCache.ingestResult(itemData, { sourceSearchId: searchId, league }),
-        });
-        activePrimaryController = createLiveSearchPrimaryController(activePrimaryRuntime);
-        activeResumeStore = createLiveSearchResumeStore(version);
-        const bookmarkClient = createChromeBookmarkClient(version);
-        activeBookmarkController = createLiveSearchBookmarkController(
-          bookmarkClient,
-          activePrimaryController,
-          { resumeStore: activeResumeStore, preferences },
-        );
-        activeResumeController = createLiveSearchResumeController({
+        liveSearchSession = createLiveSearchPrimarySession({
           version,
           preferences,
-          sourceController: activeBookmarkController,
-          resumeStore: activeResumeStore,
-        });
-        activeExitGuard = createLiveSearchPrimaryExitGuard({
-          shouldWarn: () => (activePrimaryController?.read().subscriptions.length ?? 0) > 0,
-        });
-
-        cleanupEnqueueListener = registerLiveSearchPrimaryEnqueueBridge({
-          version,
-          messenger: extensionMessaging,
-          enqueueIncoming: (items) => {
-            if (!activeBookmarkController?.enqueueIncomingConnections) {
-              return Promise.resolve({
-                success: false,
-                addedCount: 0,
-                skippedCount: 0,
-                error: t('liveSearch.console.notReady'),
-                rejectReason: 'failed',
-              });
-            }
-            return activeBookmarkController.enqueueIncomingConnections(items);
-          },
-          isDisposed: () => disposed || !activeBookmarkController?.enqueueIncomingConnections,
+          resultCache,
+          initialArrivalSignal,
+          isHostDisposed: () => disposed,
         });
       }
       // 側邊欄一進官方頁就掛載（版面已先預留，掛載時頁面不位移）
       stopSidebarPreferences =
-        (await mountSidebarLayout(
-          ctx,
-          version,
-          preferences,
-          () => disposed,
+        (await mountSidebarLayout(ctx, version, preferences, () => disposed, {
           pageRole,
-          activePrimaryController,
-          activeBookmarkController,
-          activeResumeController,
-          initialArrivalSignal,
-          activeSoundNotifier,
-        )) || null;
+          liveSearchConsole: liveSearchSession?.console ?? null,
+        })) || null;
       if (disposed) {
         domFilter.cleanup();
         return;
