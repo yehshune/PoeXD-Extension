@@ -63,7 +63,7 @@ const emit = defineEmits<{ toggle: [] }>();
       <div
         v-else-if="$slots['expanded-icon']"
         data-result-row-expanded-icon
-        class="flex size-[var(--pxd-pinned-icon-box-size,88px)] shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/80 bg-black/55 p-[var(--pxd-space-xs)]"
+        class="flex size-[var(--pxd-pinned-icon-box-size,88px)] shrink-0 items-center justify-center overflow-hidden rounded-md border border-border/80 bg-black/95 p-[var(--pxd-space-xs)]"
       >
         <slot name="expanded-icon" />
       </div>
