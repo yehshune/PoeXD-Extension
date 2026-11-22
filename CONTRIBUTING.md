@@ -67,3 +67,11 @@ E2E 分成兩套：
 
 - **實機 E2E**（`pnpm e2e`）：需要一個已通過 Cloudflare 驗證、並登入官方交易網站的瀏覽器設定檔
   （先執行 `pnpm dev` 手動登入一次），因此只在本機執行，CI 不會跑。用於確認真實官方頁面上的版面。
+
+## 發版 / Releasing
+
+推送 `v*.*.*` tag 會觸發 `.github/workflows/release.yml` 打包。打 tag 前請確認：
+
+1. main 最新 commit 的 CI 全部通過（包含 `e2e-offline`）。
+2. 在 dev 瀏覽器分別開好有結果的 PoE1 與 PoE2 搜尋頁，執行 `pnpm e2e:canary` 確認官方頁面仍符合契約。
+   CI 跑不了實機檢查，官方改版只有這一步會發現；不符合時先修好再發版。
