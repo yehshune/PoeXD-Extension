@@ -497,6 +497,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'filterPane.dialog.searchPlaceholder': '搜索种类...',
   'filterPane.dialog.recent': '最近使用',
   'filterPane.dialog.empty': '找不到相符的物品类别',
+  'filterPane.dialog.syncOfficialCategory': '同时应用到官方道具过滤',
   'filterPane.header.syncCategory': '同步至市集 ({category})',
   'filterPane.header.syncCategoryTitle': '将官方市集的物品种类设为「{category}」',
   'filterPane.header.syncCategoryToast': '已将市集物品种类设为：{category}',

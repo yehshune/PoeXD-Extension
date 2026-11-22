@@ -38,10 +38,6 @@ export const SHADCN_SEMANTIC_VARIABLES = [
 ] as const;
 
 export const PAGE_INJECTED_SELECTORS = [
-  '.poexd-tier-trigger',
-  '.poexd-inline-btn',
-  '.poexd-filter-select-btn',
-  '.poexd-category-select-btn',
   '.poexd-send-to-console-btn',
   '.poexd-sortable-ghost',
   '.poexd-sortable-drag',

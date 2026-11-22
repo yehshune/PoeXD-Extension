@@ -64,27 +64,28 @@ export function injectCustomStyles(): void {
     .filter .input-group-btn { cursor: grab !important; }
     .filter .input-group-btn:active { cursor: grabbing !important; }
 
+    /* 顏色貼齊官網群組標題列按鈕（.edit-btn / .remove-btn），不隨擴充主題變動 */
     .poexd-inline-btn {
       background-color: transparent !important;
-      border: 1px solid transparent !important;
-      color: var(--muted-foreground) !important;
+      border: 0 !important;
+      color: oklch(0.913 0 0) !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
       cursor: pointer !important;
-      transition: color 0.15s, background-color 0.15s, border-color 0.15s !important;
+      transition: color 0.15s, background-color 0.15s !important;
       border-radius: 0 !important;
       box-sizing: border-box !important;
       vertical-align: middle !important;
     }
     .poexd-inline-btn:hover {
-      color: var(--accent-foreground) !important;
-      background-color: var(--accent) !important;
+      color: oklch(0.913 0 0) !important;
+      background-color: oklch(0.312 0.008 248) !important;
     }
     .poexd-inline-btn:focus,
     .poexd-inline-btn:focus-visible {
       outline: none !important;
-      box-shadow: 0 0 0 2px var(--ring) !important;
+      box-shadow: inset 0 0 0 1px oklch(0.6 0 0) !important;
     }
 
     .poexd-filter-select-btn {
@@ -106,14 +107,15 @@ export function injectCustomStyles(): void {
       width: ${HOST_TIER_TRIGGER_SPEC.widthPx}px !important;
     }
 
+    /* 顏色以 oklch() 對齊官網詞綴列（輸入欄底色、按鈕懸停與官網經典金），不隨擴充主題變動 */
     .poexd-tier-trigger {
       position: absolute !important;
       inset: 0 !important;
       width: auto !important;
       height: auto !important;
-      background-color: var(--secondary) !important;
-      border: 1px solid var(--border) !important;
-      color: var(--secondary-foreground) !important;
+      background-color: oklch(0.246 0.007 248) !important;
+      border: 1px solid transparent !important;
+      color: oklch(0.76 0.006 248) !important;
       padding: 0 ${HOST_TIER_TRIGGER_SPEC.paddingXPx}px !important;
       cursor: pointer !important;
       display: flex !important;
@@ -125,55 +127,42 @@ export function injectCustomStyles(): void {
       box-sizing: border-box !important;
       flex-shrink: 0 !important;
       border-radius: 0 !important;
-      box-shadow: var(--shadow-sm) !important;
-      transition: color 0.15s, background-color 0.15s, border-color 0.15s, box-shadow 0.15s !important;
+      box-shadow: none !important;
+      transition: color 0.15s, background-color 0.15s, border-color 0.15s !important;
     }
     .poexd-tier-trigger:hover {
-      border-color: var(--border) !important;
-      color: var(--accent-foreground) !important;
-      background-color: var(--accent) !important;
+      border-color: transparent !important;
+      color: oklch(0.913 0 0) !important;
+      background-color: oklch(0.312 0.008 248) !important;
     }
     .poexd-tier-trigger[data-tier-active="true"] {
-      color: var(--primary) !important;
-      border-color: var(--primary) !important;
+      color: oklch(0.654 0.055 78) !important;
+      border-color: oklch(0.654 0.055 78 / 0.65) !important;
     }
     .poexd-tier-trigger[data-state="open"],
     .poexd-tier-trigger[aria-expanded="true"] {
-      background-color: var(--accent) !important;
-      color: var(--primary) !important;
-      border-color: var(--primary) !important;
+      background-color: oklch(0.312 0.008 248) !important;
+      color: oklch(0.75 0.06 78) !important;
+      border-color: oklch(0.654 0.055 78) !important;
     }
     .poexd-tier-trigger:focus,
     .poexd-tier-trigger:focus-visible {
       outline: none !important;
-      box-shadow: 0 0 0 2px var(--ring) !important;
+      box-shadow: inset 0 0 0 1px oklch(0.654 0.055 78) !important;
     }
 
+    /* 直接沿用官網 .btn 樣式，不隨擴充主題變動，僅固定嵌入排版幾何 */
     .poexd-category-select-btn {
-      background-color: var(--secondary) !important;
-      color: var(--secondary-foreground) !important;
-      border: 1px solid var(--border) !important;
-      box-shadow: var(--shadow-sm) !important;
       padding: ${HOST_CATEGORY_BUTTON_SPEC.paddingYPx}px ${HOST_CATEGORY_BUTTON_SPEC.paddingXPx}px !important;
       margin-left: ${HOST_CATEGORY_BUTTON_SPEC.marginLeftPx}px !important;
       font-size: ${HOST_CATEGORY_BUTTON_SPEC.fontPx}px !important;
       height: ${HOST_CATEGORY_BUTTON_SPEC.heightPx}px !important;
       line-height: ${HOST_CATEGORY_BUTTON_SPEC.lineHeightPx}px !important;
+      border-radius: 0 !important;
       display: inline-flex !important;
       align-items: center !important;
       vertical-align: middle !important;
       cursor: pointer !important;
-      transition: color 0.15s, background-color 0.15s, border-color 0.15s !important;
-    }
-    .poexd-category-select-btn:hover {
-      background-color: var(--accent) !important;
-      color: var(--accent-foreground) !important;
-      border-color: var(--border) !important;
-    }
-    .poexd-category-select-btn:focus,
-    .poexd-category-select-btn:focus-visible {
-      outline: none !important;
-      box-shadow: 0 0 0 2px var(--ring) !important;
     }
 
     #trade .controls .controls-left:has(.poexd-send-to-console-btn) {
@@ -798,7 +787,7 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
       if (header && !header.querySelector('.poexd-category-select-btn')) {
         const selectBtn = document.createElement('button');
         selectBtn.type = 'button';
-        selectBtn.className = 'btn poexd-inline-btn poexd-category-select-btn';
+        selectBtn.className = 'btn poexd-category-select-btn';
         selectBtn.title = t('injectedControls.selectAffixTitle');
         selectBtn.textContent = t('injectedControls.selectAffix');
 

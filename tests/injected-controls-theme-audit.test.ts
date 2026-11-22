@@ -105,31 +105,32 @@ describe('Injected Controls Theme Audit & Contract Tests', () => {
   // 2. Semantic Vocabulary Verification
   // ---------------------------------------------------------------------------
   describe('2. Semantic Vocabulary Verification', () => {
-    it('styles .poexd-tier-trigger with secondary surface, foreground, border, square radius, shadow, hover accent, and focus ring', () => {
+    it('styles .poexd-tier-trigger to blend with official stat filter rows without theme variables', () => {
       const match = injectedControlsTsContent.match(/\.poexd-tier-trigger\s*\{([\s\S]*?)\n\s*\}/);
       expect(match).toBeTruthy();
       const rule = match![1];
 
-      expect(rule).toContain('background-color: var(--secondary)');
-      expect(rule).toContain('color: var(--secondary-foreground)');
-      expect(rule).toContain('border: 1px solid var(--border)');
       expect(rule).toContain('border-radius: 0 !important');
-      expect(rule).not.toContain('var(--radius)');
-      expect(rule).toContain('box-shadow: var(--shadow-sm)');
+      expect(rule).toContain('box-shadow: none !important');
+      expect(rule).not.toContain('var(--');
 
       const hoverMatch = injectedControlsTsContent.match(
         /\.poexd-tier-trigger:hover\s*\{([^}]+)\}/,
       );
       expect(hoverMatch).toBeTruthy();
-      const hoverRule = hoverMatch![1];
-      expect(hoverRule).toContain('background-color: var(--accent)');
-      expect(hoverRule).toContain('color: var(--accent-foreground)');
+      expect(hoverMatch![1]).not.toContain('var(--');
+
+      const activeMatch = injectedControlsTsContent.match(
+        /\.poexd-tier-trigger\[data-tier-active="true"\]\s*\{([^}]+)\}/,
+      );
+      expect(activeMatch).toBeTruthy();
+      expect(activeMatch![1]).not.toContain('var(--');
 
       const focusMatch = injectedControlsTsContent.match(
         /\.poexd-tier-trigger:(focus|focus-visible)\s*\{([^}]+)\}/,
       );
       expect(focusMatch).toBeTruthy();
-      expect(focusMatch![2]).toContain('box-shadow: 0 0 0 2px var(--ring)');
+      expect(focusMatch![2]).not.toContain('var(--');
     });
 
     it('verifies .poexd-tier-dropdown and .tier-act-btn are removed from logic and migrated to Vue component', () => {
@@ -163,23 +164,26 @@ describe('Injected Controls Theme Audit & Contract Tests', () => {
       expect(sidebarContent).toContain('TierDropdownHost');
     });
 
-    it('styles .poexd-inline-btn and .poexd-category-select-btn with semantic tokens and square radius', () => {
+    it('styles .poexd-inline-btn and .poexd-category-select-btn to match official buttons without theme variables', () => {
       const inlineBtnMatch = injectedControlsTsContent.match(/\.poexd-inline-btn\s*\{([^}]+)\}/);
       expect(inlineBtnMatch).toBeTruthy();
       const inlineRule = inlineBtnMatch![1];
-      expect(inlineRule).toContain('color: var(--muted-foreground)');
       expect(inlineRule).toContain('border-radius: 0 !important');
-      expect(inlineRule).not.toContain('var(--radius)');
+      expect(inlineRule).not.toContain('var(--');
+
+      const inlineHoverMatch = injectedControlsTsContent.match(
+        /\.poexd-inline-btn:hover\s*\{([^}]+)\}/,
+      );
+      expect(inlineHoverMatch).toBeTruthy();
+      expect(inlineHoverMatch![1]).not.toContain('var(--');
 
       const catBtnMatch = injectedControlsTsContent.match(
         /\.poexd-category-select-btn\s*\{([\s\S]*?)\n\s*\}/,
       );
       expect(catBtnMatch).toBeTruthy();
       const catRule = catBtnMatch![1];
-      expect(catRule).toContain('background-color: var(--secondary)');
-      expect(catRule).toContain('color: var(--secondary-foreground)');
-      expect(catRule).toContain('border: 1px solid var(--border)');
-      expect(catRule).not.toContain('var(--radius)');
+      expect(catRule).toContain('border-radius: 0 !important');
+      expect(catRule).not.toContain('var(--');
     });
 
     it('preserves restored poexd-sortable-drag styling without opacity', () => {

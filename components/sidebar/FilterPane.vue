@@ -375,6 +375,7 @@
           data-sidebar-dialog="affix-type"
           :inert="affixDemoMode || undefined"
           :overlay-class="affixDemoMode ? 'pointer-events-none' : undefined"
+          close-class="top-[calc((var(--pxd-sidebar-affix-dialog-header-height)-var(--control-height-sm,28px))/2)] right-[var(--pxd-pane-padding)]"
           :class="[
             'flex h-auto max-h-[82vh] w-[calc(100vw-32px)] max-w-[740px] flex-col gap-0 overflow-hidden p-0',
             affixDemoMode ? 'pointer-events-none select-none' : '',
@@ -385,11 +386,28 @@
           @escape-key-down="preventIfAffixDemo"
         >
           <DialogHeader
-            class="p-[var(--pxd-space-md)] pr-12 border-b border-border bg-background flex flex-row items-center justify-between space-y-0"
+            class="flex h-[var(--pxd-sidebar-affix-dialog-header-height)] shrink-0 flex-row items-center justify-between gap-[var(--pxd-space-md)] space-y-0 border-b border-border bg-background py-0 pl-[var(--pxd-pane-padding)] pr-[calc(var(--control-height-sm,28px)+var(--pxd-pane-padding)+var(--pxd-space-sm))]"
           >
             <DialogTitle class="text-[length:var(--pxd-font-section-title)] font-bold">
               {{ t('common.selectItemCategory') }}
             </DialogTitle>
+            <div
+              v-if="poexdSelectingTarget"
+              class="inline-flex shrink-0 items-center gap-[var(--pxd-space-xs)]"
+              data-test="tier-type-sync-official-wrap"
+            >
+              <Checkbox
+                id="pxd-tier-type-sync-official"
+                data-test="tier-type-sync-official"
+                :model-value="syncOfficialOnTypeSelect"
+                @update:model-value="(val) => (syncOfficialOnTypeSelect = val === true)"
+              />
+              <label
+                for="pxd-tier-type-sync-official"
+                class="cursor-pointer select-none whitespace-nowrap text-[length:var(--pxd-font-secondary)] text-muted-foreground hover:text-foreground"
+                >{{ t('filterPane.dialog.syncOfficialCategory') }}</label
+              >
+            </div>
             <DialogDescription class="sr-only">{{
               t('filterPane.dialog.description')
             }}</DialogDescription>
@@ -429,6 +447,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ChevronDown, X } from '@lucide/vue';
 import { ArrowUpRight, ChevronsDownUp, ChevronsUpDown } from '@lucide/vue';
@@ -466,6 +485,7 @@ export default defineComponent({
     PopoverTrigger,
     Input,
     Button,
+    Checkbox,
     ToggleGroup,
     ToggleGroupItem,
     ArrowUpRight,
@@ -957,7 +977,21 @@ export default defineComponent({
           category: type,
         });
 
-        // 2. 依 stable Tier slot identity 重新計算該 slot domain snapshot 並開啟原生 Trigger
+        // 2. 若使用者勾選「同時套用到官方道具過濾」，一併同步官方類別下拉選單
+        if (syncOfficialOnTypeSelect.value) {
+          const resolved = resolveOfficialCategoryOption(version, type);
+          if (resolved) {
+            dispatchPoeEvent('poexd-set-official-category', { option: resolved.option });
+            officialCategory.value = resolved.mainCategory;
+            showToast(
+              t('filterPane.header.syncCategoryToast', {
+                category: getTypeName(resolved.mainCategory),
+              }),
+            );
+          }
+        }
+
+        // 3. 依 stable Tier slot identity 重新計算該 slot domain snapshot 並開啟原生 Trigger
         if (slotKey) {
           await refreshAndReopenTierSlot(slotKey);
         }
@@ -1206,6 +1240,9 @@ export default defineComponent({
 
     let lastDetectedType: string | null | undefined = undefined;
     let pendingDetectedType: string | null | undefined = undefined;
+    // T 階按鈕開啟「選擇物品類別」時，是否同時將選取結果套用到官方道具類別過濾（工作階段內保留勾選狀態）
+    const syncOfficialOnTypeSelect = ref(false);
+
     const officialCategory = ref<string | null>(null);
 
     const syncableOfficialCategory = computed(() => {
@@ -1447,6 +1484,8 @@ export default defineComponent({
       dialogActiveCategory,
       toggleSelectDropdown,
       selectTypeOption,
+      poexdSelectingTarget,
+      syncOfficialOnTypeSelect,
       syncableOfficialCategory,
       syncOfficialCategory,
       getTypeName,

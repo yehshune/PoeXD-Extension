@@ -495,6 +495,7 @@ export const ZH_TW_MESSAGES = {
   'filterPane.dialog.searchPlaceholder': '搜尋種類...',
   'filterPane.dialog.recent': '最近使用',
   'filterPane.dialog.empty': '找不到相符的物品類別',
+  'filterPane.dialog.syncOfficialCategory': '同時套用到官方道具過濾',
   'filterPane.header.syncCategory': '同步至市集 ({category})',
   'filterPane.header.syncCategoryTitle': '將官方市集的物品種類設為「{category}」',
   'filterPane.header.syncCategoryToast': '已將市集物品種類設為：{category}',
