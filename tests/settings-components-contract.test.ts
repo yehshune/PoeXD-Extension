@@ -49,10 +49,9 @@ describe('Phase 1A: Settings Components UI Contract & Regression', () => {
       expect(settingsHotkeyInputSource).toContain(
         'group-hover:opacity-100 group-hover:pointer-events-auto',
       );
+      // 清除按鈕只在 hover 時顯示，focus 不再顯示（與其他 hover 操作一致）
       expect(settingsHotkeyInputSource).not.toContain('group-focus-within');
-      expect(settingsHotkeyInputSource).toContain(
-        'focus-visible:opacity-100 focus-visible:pointer-events-auto',
-      );
+      expect(settingsHotkeyInputSource).not.toContain('focus-visible:opacity-100');
       expect(settingsHotkeyInputSource).not.toContain('pl-2');
       expect(settingsHotkeyInputSource).not.toContain('py-0');
       expect(settingsHotkeyInputSource).not.toMatch(/h-\[calc\(/);
@@ -157,7 +156,7 @@ describe('Phase 1A: Settings Components UI Contract & Regression', () => {
         expect(input?.className).not.toContain('py-0');
         expect(input?.className).not.toContain('calc(');
 
-        // Clear button exists and has hover/focus-visibility classes
+        // Clear button exists and is revealed on hover only
         const clearBtn = container.querySelector('[data-settings-hotkey-action="clear"]');
         expect(clearBtn).not.toBeNull();
         expect(clearBtn?.className).toContain('opacity-0');
@@ -165,8 +164,8 @@ describe('Phase 1A: Settings Components UI Contract & Regression', () => {
         expect(clearBtn?.className).toContain('group-hover:opacity-100');
         expect(clearBtn?.className).toContain('group-hover:pointer-events-auto');
         expect(clearBtn?.className).not.toContain('group-focus-within');
-        expect(clearBtn?.className).toContain('focus-visible:opacity-100');
-        expect(clearBtn?.className).toContain('focus-visible:pointer-events-auto');
+        expect(clearBtn?.className).not.toContain('focus-visible:opacity-100');
+        expect(clearBtn?.className).not.toContain('focus-visible:pointer-events-auto');
         expect(clearBtn?.className).toContain('hover:text-destructive');
         expect(clearBtn?.className).toContain('hover:bg-transparent');
       });
