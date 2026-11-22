@@ -6,7 +6,12 @@
     class="trade-search-preview-popover bookmark-preview-popover flex min-h-0 flex-1 flex-col text-[length:var(--pxd-font-body)]"
   >
     <!-- 固定標題列（比照詞綴選擇器）：來源名稱、標籤與關閉鈕，不隨內容捲動 -->
-    <ItemPreviewHeader :title="headerTitle" :closable="closable" @close="emit('close')">
+    <ItemPreviewHeader
+      :title="headerTitle"
+      :closable="closable"
+      :modified="isModified"
+      @close="emit('close')"
+    >
       <template v-if="hasTags" #tags>
         <span
           v-if="previewData.realmLabel"
@@ -26,7 +31,7 @@
 
     <!-- 整合式單行頂部工具列：左側搜尋與微調存回、右側摺疊與疊加，固定單行避免微調時面板上下位移 -->
     <div
-      v-if="canOpenSearch || isModified || sectionKeys.length > 0 || canOverlay || overlayHint"
+      v-if="canOpenSearch || isModified || sectionKeys.length > 1 || canOverlay || overlayHint"
       :class="PREVIEW_TOOLBAR_CLASS"
     >
       <div
@@ -57,6 +62,11 @@
           <ExternalLink aria-hidden="true" />
           <span class="sr-only">{{ t('common.openNewTab') }}</span>
         </Button>
+        <span
+          v-if="canOpenSearch && isModified"
+          class="h-4 w-px shrink-0 bg-border/60"
+          aria-hidden="true"
+        />
         <Button
           v-if="canOverwrite && isModified"
           variant="outline"
@@ -87,11 +97,11 @@
       </div>
 
       <div
-        v-if="sectionKeys.length > 0 || canOverlay || overlayHint"
+        v-if="sectionKeys.length > 1 || canOverlay || overlayHint"
         class="preview-action-row ml-auto flex min-w-0 flex-1 items-center justify-end gap-[var(--pxd-space-xs)]"
       >
         <Button
-          v-if="sectionKeys.length > 0"
+          v-if="sectionKeys.length > 1"
           variant="ghost"
           size="icon-sm"
           class="preview-toggle-all shrink-0"
@@ -121,13 +131,14 @@
             <Plus aria-hidden="true" />{{ t('searchPreview.action.overlayAll') }}
           </Button>
           <Button
+            v-if="canUndo"
             variant="ghost"
             size="icon-sm"
             class="preview-overlay-btn shrink-0"
             data-test="preview-overlay-undo"
             :title="t('common.undoLastOverlay')"
             :aria-label="t('common.undo')"
-            :disabled="overlayBusy || !canUndo"
+            :disabled="overlayBusy"
             @click="emit('undo')"
           >
             <Undo2 aria-hidden="true" />
@@ -272,7 +283,7 @@
               <span :class="sectionCountClass">({{ statCount }})</span>
             </button>
             <Button
-              v-if="canOverlay && statGroups.length > 0"
+              v-if="canOverlay && statGroups.length > 1"
               variant="ghost"
               size="icon-sm"
               class="preview-overlay-icon shrink-0"
@@ -295,7 +306,7 @@
               :class="[
                 'preview-stat-group',
                 PREVIEW_CARD_CLASS,
-                group.disabled ? 'opacity-60' : '',
+                group.disabled ? 'opacity-60 grayscale' : '',
               ]"
               :data-stat-group-index="groupIndex"
               :data-disabled="group.disabled ? 'true' : undefined"
@@ -338,6 +349,7 @@
                     :placeholder="t('tierDropdown.minPlaceholder')"
                     :disabled="Boolean(group.disabled)"
                     :aria-label="t('tierDropdown.minPlaceholder')"
+                    @input="(e: Event) => handleGroupBoundInput(groupIndex, 'min', e)"
                     @change="
                       (e: Event) =>
                         emit('set-stat-group-bound', groupIndex, 'min', parseBoundInput(e))
@@ -355,6 +367,7 @@
                     :placeholder="t('tierDropdown.maxPlaceholder')"
                     :disabled="Boolean(group.disabled)"
                     :aria-label="t('tierDropdown.maxPlaceholder')"
+                    @input="(e: Event) => handleGroupBoundInput(groupIndex, 'max', e)"
                     @change="
                       (e: Event) =>
                         emit('set-stat-group-bound', groupIndex, 'max', parseBoundInput(e))
@@ -373,7 +386,7 @@
                   >{{ t('searchPreview.statGroup.disabled') }}</span
                 >
                 <span
-                  class="ml-auto whitespace-nowrap text-[length:var(--pxd-font-caption)] text-muted-foreground"
+                  class="whitespace-nowrap text-[length:var(--pxd-font-caption)] text-muted-foreground"
                   >{{ group.filters.length }}
                   {{
                     group.filters.length === 1
@@ -382,10 +395,10 @@
                   }}</span
                 >
                 <Button
-                  v-if="canOverlay"
+                  v-if="canOverlay && !isSingleStatGroupOnly"
                   variant="ghost"
                   size="sm"
-                  class="preview-overlay-btn px-[var(--pxd-space-xs)] text-foreground/85"
+                  class="preview-overlay-btn ml-auto px-[var(--pxd-space-xs)] text-foreground/85"
                   data-test="preview-overlay-stat-group"
                   :title="t('searchPreview.action.overlayStatGroupTitle')"
                   :disabled="overlayBusy"
@@ -402,7 +415,8 @@
                 :domain-disabled="Boolean(group.disabled)"
                 :version="previewData.gameVersion"
                 :lines="item.lines"
-                :title="item.filter.id"
+                :title="formatStatTitle(item.lines, item.filter.id)"
+                wrap
                 :checked="canTune ? !item.filter.disabled : undefined"
                 :toggle-disabled="Boolean(group.disabled)"
                 :bounds="canTune ? statBounds(item.filter) : null"
@@ -430,7 +444,8 @@
               :domain="item.domain"
               :version="previewData.gameVersion"
               :lines="item.lines"
-              :title="item.stat.id"
+              :title="formatStatTitle(item.lines, item.stat.id)"
+              wrap
               :range-text="flatRangeText(item.stat)"
             />
           </div>
@@ -703,6 +718,24 @@ function parseBoundInput(event: Event): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function handleGroupBoundInput(groupIndex: number, bound: 'min' | 'max', event: Event): void {
+  const input = event.target as HTMLInputElement;
+  if (input.validity?.badInput) return;
+  const raw = input.value.trim();
+  if (raw === '-' || raw.endsWith('.')) return;
+  if (raw === '') {
+    emit('set-stat-group-bound', groupIndex, bound, null);
+    return;
+  }
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed)) emit('set-stat-group-bound', groupIndex, bound, parsed);
+}
+
+function formatStatTitle(lines: readonly string[], statId?: string): string {
+  const text = lines.join(' / ');
+  return statId ? `${text}\n${statId}` : text;
+}
+
 function blurInputTarget(event: Event): void {
   (event.target as HTMLInputElement).blur();
 }
@@ -712,6 +745,17 @@ const statGroups = computed(() => criteria.value?.statGroups ?? []);
 const hasCriteria = computed(() => {
   const c = criteria.value;
   return Boolean(c && (c.item || c.status || c.statGroups.length > 0 || c.fields.length > 0));
+});
+/** 整個預覽只有單一詞綴群組且無其他條件時，工具列的「全部疊加」已涵蓋，略過卡片內重複疊加鈕 */
+const isSingleStatGroupOnly = computed(() => {
+  const c = criteria.value;
+  return Boolean(
+    statGroups.value.length === 1 &&
+    filterGroups.value.length === 0 &&
+    !c?.item &&
+    !c?.status &&
+    !c?.fields.length,
+  );
 });
 
 function hasSection(section: string): boolean {

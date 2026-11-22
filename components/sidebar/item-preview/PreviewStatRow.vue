@@ -72,13 +72,24 @@ const textClass = computed(() =>
 );
 
 function commitBound(bound: PreviewStatBound, event: Event): void {
-  const raw = (event.target as HTMLInputElement).value.trim();
+  const input = event.target as HTMLInputElement;
+  if (input.validity?.badInput) return;
+  const raw = input.value.trim();
   if (raw === '') {
     emit('commit-bound', bound, null);
     return;
   }
   const value = Number(raw);
   if (Number.isFinite(value)) emit('commit-bound', bound, value);
+}
+
+/** 輸入當下即時同步草稿，跳過未輸入完的負號或小數點結尾 */
+function handleBoundInput(bound: PreviewStatBound, event: Event): void {
+  const input = event.target as HTMLInputElement;
+  if (input.validity?.badInput) return;
+  const raw = input.value.trim();
+  if (raw === '-' || raw.endsWith('.')) return;
+  commitBound(bound, event);
 }
 
 function blurTarget(event: Event): void {
@@ -152,6 +163,7 @@ function blurTarget(event: Event): void {
         :aria-label="
           t(bound === 'min' ? 'tierDropdown.minPlaceholder' : 'tierDropdown.maxPlaceholder')
         "
+        @input="handleBoundInput(bound, $event)"
         @change="commitBound(bound, $event)"
         @keydown.enter.prevent="blurTarget"
       />

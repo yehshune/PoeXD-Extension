@@ -59,8 +59,33 @@ describe('TradeSearchPreviewContent 標題列', () => {
 
     const actionRow = container.querySelector('.preview-action-row')!;
     const buttons = Array.from(actionRow.querySelectorAll('button'));
-    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['全部收合', '全部疊加', '復原']);
+    // 只有單一摺疊區段且無復原紀錄時，不顯示全部收合與復原按鈕
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['全部疊加']);
     for (const button of buttons) expect(button.className).toContain('whitespace-nowrap');
+
+    app?.unmount();
+    const multiSectionData: TradeSearchPreviewData = {
+      ...data,
+      meta: {
+        suggestedName: 'x',
+        stats: [],
+        filters: [
+          { sectionKey: 'type_filters', fieldKey: 'category', value: { option: 'armour' } },
+        ],
+      },
+    };
+    const multi = render({
+      previewData: multiSectionData,
+      sourceName: '二元性 庇護細杖',
+      canOverlay: true,
+      canUndo: true,
+    });
+    const multiButtons = Array.from(multi.querySelectorAll('.preview-action-row button'));
+    expect(multiButtons.map((b) => b.textContent?.trim())).toEqual([
+      '全部收合',
+      '全部疊加',
+      '復原',
+    ]);
   });
 
   it('標題列比照詞綴選擇器：固定高度、本文字級，內容區可捲動', () => {
@@ -432,5 +457,43 @@ describe('TradeSearchPreviewContent 詞綴群組卡片', () => {
     expect(container.querySelector('.preview-section-toggle')?.getAttribute('aria-expanded')).toBe(
       'true',
     );
+  });
+
+  it('單一詞綴群組且無其他條件時，隱藏區段與群組內重複的疊加鈕，只留工具列的全部疊加', () => {
+    const singleGroupData: TradeSearchPreviewData = {
+      loading: false,
+      gameVersion: 'poe2',
+      meta: { suggestedName: 'single', stats: [], filters: [] },
+      criteria: {
+        statGroups: [{ type: 'and', filters: [{ id: 'explicit.stat_int' }] }],
+        fields: [],
+        sectionDisabled: {},
+      },
+    };
+    const container = render({ previewData: singleGroupData, canOverlay: true });
+    expect(container.querySelector('[data-test="preview-overlay-all"]')).not.toBeNull();
+    expect(container.querySelector('[data-test="preview-overlay-stats"]')).toBeNull();
+    expect(container.querySelector('[data-test="preview-overlay-stat-group"]')).toBeNull();
+    expect(container.querySelector('.preview-toggle-all')).toBeNull();
+  });
+
+  it('數值輸入在 input 當下即同步送出，清空時送出 null', () => {
+    const events: Array<[number, number, string, number | null]> = [];
+    const container = render({
+      canTune: true,
+      onSetStatFilterBound: (g: number, f: number, b: string, v: number | null) =>
+        events.push([g, f, b, v]),
+    });
+    const minInput = container.querySelectorAll<HTMLInputElement>(
+      '[data-stat-bound][data-bound="min"]',
+    )[1];
+    minInput.value = '42';
+    minInput.dispatchEvent(new Event('input'));
+    minInput.value = '';
+    minInput.dispatchEvent(new Event('input'));
+    expect(events).toEqual([
+      [0, 1, 'min', 42],
+      [0, 1, 'min', null],
+    ]);
   });
 });

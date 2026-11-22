@@ -9,6 +9,8 @@ defineProps({
   /** 名稱的文字顏色（例如依稀有度）；省略時為前景色 */
   titleClass: { type: String, default: '' },
   closable: { type: Boolean, default: false },
+  /** 有未儲存的暫存微調時在標題旁顯示圓點提示 */
+  modified: { type: Boolean, default: false },
 });
 
 const emit = defineEmits<{ close: [] }>();
@@ -18,13 +20,21 @@ const emit = defineEmits<{ close: [] }>();
   <div
     class="preview-header preview-title-row flex h-[var(--pxd-sidebar-affix-dialog-header-height)] min-w-0 shrink-0 items-center gap-[var(--pxd-space-sm)] border-b border-border/60 bg-muted/30 px-[var(--pxd-pane-padding)]"
   >
-    <span
-      class="preview-source-name min-w-0 flex-1 truncate text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px]"
-      :class="titleClass || 'text-foreground'"
-      data-test="preview-source-name"
-      :title="title"
-      >{{ title }}</span
-    >
+    <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-xs)]">
+      <span
+        class="preview-source-name min-w-0 truncate text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px]"
+        :class="titleClass || 'text-foreground'"
+        data-test="preview-source-name"
+        :title="title"
+        >{{ title }}</span
+      >
+      <span
+        v-if="modified"
+        class="preview-modified-dot size-2 shrink-0 rounded-full bg-primary"
+        data-test="preview-modified-dot"
+        aria-hidden="true"
+      />
+    </div>
     <div
       v-if="$slots.tags"
       class="preview-tags flex min-w-0 shrink items-center gap-[var(--pxd-space-xs)]"

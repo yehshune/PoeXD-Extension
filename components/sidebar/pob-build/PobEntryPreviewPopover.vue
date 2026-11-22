@@ -129,23 +129,17 @@ const queryType = computed(() => {
   return typeof type === 'string' && type.trim() ? type.trim() : '';
 });
 
-const itemCardTitle = computed(() => {
-  const row = effectiveRow.value;
-  if (!row) return '';
-  if (row.kind === 'equipment') return '';
-  return row.label;
-});
-
 const itemCardBase = computed(() => {
   const row = effectiveRow.value;
   if (!row) return '';
-  if (row.kind === 'equipment') return row.label;
   return queryType.value && queryType.value !== row.label ? queryType.value : '';
 });
 
 const showEnglishSubtitle = computed(() => {
   const row = effectiveRow.value;
-  return Boolean(row?.englishName && row.englishName !== row.label);
+  return Boolean(
+    row?.englishName && row.englishName !== row.label && row.englishName !== itemCardBase.value,
+  );
 });
 
 /** 展開後的每一行詞綴。同一個代碼的多行是同一個條件，數值輸入只放在第一行。 */
@@ -187,6 +181,11 @@ const hasPseudo = computed(
   () => effectiveRow.value?.mods?.some((mod) => mod.stat?.pseudo) ?? false,
 );
 
+/** 上下限鎖定為同一個精確值（如星團天賦數、插槽數、永恆珠寶種子碼）不應被「-10%」放寬 */
+function isExactLockedBound(filter: { min?: number; max?: number }): boolean {
+  return filter.min !== undefined && filter.max !== undefined && filter.min === filter.max;
+}
+
 const hasEnabledNumericBounds = computed(() =>
   Boolean(
     effectiveRow.value &&
@@ -196,6 +195,20 @@ const hasEnabledNumericBounds = computed(() =>
         filter.enabled &&
         filter.value !== undefined &&
         (filter.min !== undefined || filter.max !== undefined),
+    ),
+  ),
+);
+
+const hasRelaxableNumericBounds = computed(() =>
+  Boolean(
+    effectiveRow.value &&
+    !effectiveRow.value.searchOverride &&
+    effectiveRow.value.filters.some(
+      (filter) =>
+        filter.enabled &&
+        filter.value !== undefined &&
+        (filter.min !== undefined || filter.max !== undefined) &&
+        !isExactLockedBound(filter),
     ),
   ),
 );
@@ -268,6 +281,7 @@ function relaxBounds(): void {
     for (const filter of row.filters) {
       if (!filter.enabled || filter.value === undefined) continue;
       if (filter.min === undefined && filter.max === undefined) continue;
+      if (isExactLockedBound(filter)) continue;
       const entry = { ...nextStats[filter.key] };
       if (filter.min !== undefined) {
         entry.min =
@@ -341,6 +355,7 @@ function handleResetSearch(): void {
       <ItemPreviewHeader
         :title="effectiveRow.label"
         :title-class="nameClass"
+        :modified="isDraftModified"
         closable
         @close="emit('update:open', false)"
       >
@@ -424,10 +439,9 @@ function handleResetSearch(): void {
       <div
         class="min-h-0 flex-1 overflow-y-auto pxd-scrollbar p-[var(--pxd-pane-padding)] flex flex-col gap-[var(--pxd-space-md)]"
       >
-        <!-- 物品／基底與上架狀態摘要區：合併為單一無框底色區塊 -->
+        <!-- 基底、英文副標與上架狀態摘要區：省略與標題重複的名稱 -->
         <div
           v-if="
-            itemCardTitle ||
             itemCardBase ||
             showEnglishSubtitle ||
             (effectiveRow.query && !effectiveRow.searchOverride)
@@ -440,13 +454,15 @@ function handleResetSearch(): void {
             <div
               class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-[var(--pxd-space-md)] gap-y-[var(--pxd-space-xs)]"
             >
-              <div v-if="itemCardTitle" class="text-foreground">
-                <span class="text-muted-foreground">{{ t('searchPreview.label.item') }}</span>
-                <span class="font-semibold" :class="nameClass">{{ itemCardTitle }}</span>
-              </div>
               <div v-if="itemCardBase" class="text-muted-foreground">
                 {{ t('searchPreview.label.base')
                 }}<span class="text-foreground">{{ itemCardBase }}</span>
+              </div>
+              <div
+                v-if="showEnglishSubtitle"
+                class="text-[length:var(--pxd-font-caption)] text-muted-foreground"
+              >
+                {{ effectiveRow.englishName }}
               </div>
             </div>
             <span
@@ -456,12 +472,6 @@ function handleResetSearch(): void {
               {{ t('searchPreview.label.status')
               }}<span class="text-foreground">{{ t('pobBuild.statusInstantBuyout') }}</span>
             </span>
-          </div>
-          <div
-            v-if="showEnglishSubtitle"
-            class="text-[length:var(--pxd-font-caption)] text-muted-foreground"
-          >
-            {{ effectiveRow.englishName }}
           </div>
         </div>
 
@@ -492,6 +502,7 @@ function handleResetSearch(): void {
               class="ml-auto flex items-center gap-[var(--pxd-space-xs)]"
             >
               <Button
+                v-if="hasRelaxableNumericBounds"
                 variant="ghost"
                 size="sm"
                 class="h-auto px-[var(--pxd-space-xs)] py-[2px] text-[length:var(--pxd-font-caption)] text-muted-foreground hover:text-foreground"
@@ -546,6 +557,7 @@ function handleResetSearch(): void {
                   :model-value="effectiveRow.countMin"
                   :disabled="effectiveRow.searchOverride"
                   :aria-label="t('pobBuild.mods.countAria')"
+                  @input="commitCountMin($event)"
                   @change="commitCountMin($event)"
                   @keydown.enter.prevent="blurTarget"
                 />
@@ -554,6 +566,7 @@ function handleResetSearch(): void {
               <span
                 v-if="hasPseudo"
                 class="ml-auto inline-flex items-center gap-[var(--pxd-space-xs)]"
+                :title="t('pobBuild.mods.pseudoTitle')"
               >
                 <Checkbox
                   :id="controlId('pseudo')"
@@ -563,9 +576,11 @@ function handleResetSearch(): void {
                   @update:model-value="(value) => setPseudo(value === true)"
                 />
                 <!-- label 不包住 Checkbox：包住時點一下會被 label 再觸發一次而切回原狀 -->
-                <label :for="controlId('pseudo')" class="cursor-pointer text-foreground/85">{{
-                  t('pobBuild.mods.pseudo')
-                }}</label>
+                <label
+                  :for="controlId('pseudo')"
+                  class="cursor-pointer whitespace-nowrap text-foreground/85"
+                  >{{ t('pobBuild.mods.pseudo') }}</label
+                >
               </span>
             </div>
 

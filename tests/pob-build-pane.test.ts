@@ -1238,4 +1238,27 @@ describe('PobBuildPane', () => {
     await nextTick();
     expect(bounds()[0].value).toBe('80');
   });
+
+  it('上下限相同的精確鎖定條件（如種子碼、星團天賦數）不顯示 -10% 放寬按鈕', async () => {
+    const lockedBuild = sampleBuild();
+    const rareRow = lockedBuild.groups[0].rows[1];
+    rareRow.filters = [
+      {
+        key: 'explicit.seed',
+        id: 'explicit.seed',
+        value: 11057,
+        min: 11057,
+        max: 11057,
+        enabled: true,
+        customized: false,
+      },
+    ];
+    buildsRef.value = [lockedBuild];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+
+    expect(queryBody('[data-pob-build-relax-bounds]')).toBeNull();
+    expect(queryBody('[data-pob-build-clear-bounds]')).not.toBeNull();
+  });
 });

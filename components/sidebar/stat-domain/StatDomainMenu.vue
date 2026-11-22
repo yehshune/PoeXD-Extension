@@ -64,7 +64,7 @@ function onSelect(value: unknown): void {
         :class="[
           STAT_DOMAIN_BADGE_CLASS,
           domain === 'explicit'
-            ? 'bg-transparent font-normal text-muted-foreground/65 hover:bg-muted hover:text-foreground'
+            ? 'border-border/50 bg-muted/40 font-normal text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground'
             : 'hover:border-current/35',
           'inline-flex cursor-pointer items-center gap-px transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         ]"

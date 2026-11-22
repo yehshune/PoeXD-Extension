@@ -139,17 +139,29 @@ const emit = defineEmits<{
 
 const manager = props.manager ?? useCriteriaOverlayManager();
 
+/** Popover 內的暫存微調草稿；依目標暫存於工作階段，避免誤點外部關閉視窗遺失調整。 */
+const draftsByKey = new Map<string, Record<string, unknown>>();
 const draftQuery = ref<Record<string, unknown> | null>(null);
 
+const currentDraftKey = () =>
+  props.rawQuery ? `${props.sourceName}\u0000${JSON.stringify(props.rawQuery)}` : '';
+
 const resetTune = () => {
+  const key = currentDraftKey();
+  if (key) draftsByKey.delete(key);
   draftQuery.value = cloneTradeQuery(props.rawQuery);
 };
 
 watch(
   [() => props.open, () => props.rawQuery, () => props.reference],
   ([open]) => {
-    if (open) resetTune();
-    else draftQuery.value = null;
+    if (!open) {
+      draftQuery.value = null;
+      return;
+    }
+    const key = currentDraftKey();
+    const saved = key ? draftsByKey.get(key) : undefined;
+    draftQuery.value = saved ? cloneTradeQuery(saved) : cloneTradeQuery(props.rawQuery);
   },
   { immediate: true },
 );
@@ -180,7 +192,16 @@ const effectivePreviewData = computed<TradeSearchPreviewData | null>(() => {
 
 function applyTune(mutator: (current: Record<string, unknown>) => Record<string, unknown>): void {
   if (!draftQuery.value) return;
-  draftQuery.value = mutator(draftQuery.value);
+  const next = mutator(draftQuery.value);
+  draftQuery.value = next;
+  const key = currentDraftKey();
+  if (!key) return;
+  if (props.rawQuery && areTradeQueriesEqual(next, props.rawQuery)) {
+    draftsByKey.delete(key);
+  } else {
+    const cloned = cloneTradeQuery(next);
+    if (cloned) draftsByKey.set(key, cloned);
+  }
 }
 
 function handleOpenSearch(mode: 'current' | 'new-tab'): void {
@@ -193,6 +214,8 @@ function handleOpenSearch(mode: 'current' | 'new-tab'): void {
 function handleOverwriteBookmark(): void {
   if (!isModified.value || !draftQuery.value) return;
   const cloned = cloneTradeQuery(draftQuery.value);
+  const key = currentDraftKey();
+  if (key) draftsByKey.delete(key);
   if (cloned) emit('overwrite-search', cloned);
 }
 
