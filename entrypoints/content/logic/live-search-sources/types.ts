@@ -76,8 +76,6 @@ export interface LiveSearchBatchOutcome {
 
 export const TEMPORARY_SOURCE_GROUP_ID = 'custom_sources';
 export const TEMPORARY_SOURCE_GROUP_NAME = '暫時搜尋';
-export const CUSTOM_SOURCE_GROUP_ID = TEMPORARY_SOURCE_GROUP_ID;
-export const CUSTOM_SOURCE_GROUP_NAME = TEMPORARY_SOURCE_GROUP_NAME;
 export const SESSION_CONNECTIONS_GROUP_ID = 'session_connections';
 export const SESSION_CONNECTIONS_GROUP_NAME = '本次連線';
 export const PREVIOUS_CONNECTIONS_GROUP_ID = 'previous_connections';
@@ -143,10 +141,6 @@ export interface LiveSearchSourceController {
    */
   enable(sourceId: string): Promise<AddSubscriptionOutcome>;
   /**
-   * enable(sourceId) 之相容別名
-   */
-  add(sourceId: string): Promise<AddSubscriptionOutcome>;
-  /**
    * 批次啟用多筆搜尋來源（含相容性 preflight、canonical dedup 與未鎖聯盟 mixed-league 原子拒絕）
    */
   enableMany(sourceIds: readonly string[]): Promise<LiveSearchBatchOutcome>;
@@ -204,11 +198,6 @@ export interface LiveSearchSourceController {
   readonly resumeStore?: LiveSearchResumeStore | null;
   dispose(): void;
 }
-
-export type LiveSearchBookmarkItem = LiveSearchSourceItem;
-export type LiveSearchBookmarkGroup = LiveSearchSourceGroup;
-export type LiveSearchBookmarkSnapshot = LiveSearchSourceSnapshot;
-export type LiveSearchBookmarkController = LiveSearchSourceController;
 
 export interface LiveSearchSourceFilterOptions {
   query?: string;

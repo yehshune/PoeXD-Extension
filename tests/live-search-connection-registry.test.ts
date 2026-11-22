@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createLiveSearchConnectionRegistry } from '@/entrypoints/content/logic/live-search-sources/connection-registry';
 import { buildLiveSearchSourceSnapshot } from '@/entrypoints/content/logic/live-search-sources/snapshot-builder';
 import {
-  CUSTOM_SOURCE_GROUP_ID,
+  TEMPORARY_SOURCE_GROUP_ID,
   PREVIOUS_SOURCE_ID_PREFIX,
   SESSION_SOURCE_ID_PREFIX,
 } from '@/entrypoints/content/logic/live-search-sources/types';
@@ -117,7 +117,7 @@ describe('LiveSearchConnectionRegistry', () => {
       combinedResumeMap: registry.buildCombinedResumeMap(),
       peekCriteriaKey: () => undefined,
     });
-    expect(snapshot.groups.map((g) => g.id)).toEqual([CUSTOM_SOURCE_GROUP_ID]);
+    expect(snapshot.groups.map((g) => g.id)).toEqual([TEMPORARY_SOURCE_GROUP_ID]);
   });
 
   it('依聯盟清理 LiveSearch Resume Plan 上次連線並保留本次連線與其他聯盟紀錄', () => {

@@ -163,7 +163,7 @@ vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
 vi.mock('@/components/sidebar/LiveSearchPrimaryPane.vue', () => ({
   default: defineComponent({
     name: 'LiveSearchPrimaryPane',
-    props: ['controller', 'bookmarkController', 'resumeController'],
+    props: ['controller', 'sourceController', 'resumeController'],
     setup() {
       paneMountCounts.liveSearchPrimary++;
       onUnmounted(() => {

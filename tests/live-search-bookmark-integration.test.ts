@@ -4,15 +4,14 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { BookmarkCollectionView, BookmarkReadOutcome } from '@/utils/bookmark-coordinator';
 import {
-  createLiveSearchBookmarkController,
   createLiveSearchSourceController,
-  CUSTOM_SOURCE_GROUP_ID,
-  CUSTOM_SOURCE_GROUP_NAME,
+  TEMPORARY_SOURCE_GROUP_ID,
+  TEMPORARY_SOURCE_GROUP_NAME,
   filterLiveSearchSourceGroups,
   getLiveSearchGroupSubtreeItems,
   getLiveSearchGroupSubtreeSourceIds,
-  type LiveSearchBookmarkController,
-  type LiveSearchBookmarkSnapshot,
+  type LiveSearchSourceController,
+  type LiveSearchSourceSnapshot,
   type LiveSearchBookmarkSourcePort,
 } from '@/entrypoints/content/logic/live-search-sources';
 import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
@@ -236,8 +235,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
   describe('2. Bookmark Source Lifecycle & Refresh', () => {
     it('initial read yields loaded bookmark snapshot and subscribes to changes', async () => {
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
-      const snapshots: LiveSearchBookmarkSnapshot[] = [];
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
+      const snapshots: LiveSearchSourceSnapshot[] = [];
 
       const unsub = integration.subscribe((s) => snapshots.push(s));
 
@@ -276,10 +275,10 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
   describe('3. Add from Bookmark & Canonical Provenance', () => {
     it('adds subscription with canonical url, name, and sourceBookmarkId', async () => {
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
       await new Promise((r) => setTimeout(r, 20));
 
-      const outcome = await integration.add('bmk_1');
+      const outcome = await integration.enable('bmk_1');
       expect(outcome.success).toBe(true);
 
       const liveSnapshot = liveController.read();
@@ -296,13 +295,13 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
   describe('4. Active Mark & Canonical Identity Join', () => {
     it('marks both Bookmark A and Bookmark B active when they share the same canonical search', async () => {
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
-      const snapshots: LiveSearchBookmarkSnapshot[] = [];
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
+      const snapshots: LiveSearchSourceSnapshot[] = [];
       integration.subscribe((s) => snapshots.push(s));
       await new Promise((r) => setTimeout(r, 20));
 
       // Add Bookmark A
-      await integration.add('bmk_1');
+      await integration.enable('bmk_1');
       await new Promise((r) => setTimeout(r, 10));
 
       let latest = snapshots[snapshots.length - 1];
@@ -329,8 +328,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
     });
 
     it('marks bookmark active even if subscription was added manually via URL without bookmarkId', async () => {
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
-      const snapshots: LiveSearchBookmarkSnapshot[] = [];
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
+      const snapshots: LiveSearchSourceSnapshot[] = [];
       integration.subscribe((s) => snapshots.push(s));
       await new Promise((r) => setTimeout(r, 20));
 
@@ -350,16 +349,16 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
   describe('5. Duplicate Protection & Canonical SSOT', () => {
     it('rejects adding second bookmark pointing to already active canonical search', async () => {
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
       await new Promise((r) => setTimeout(r, 20));
 
       // Add bmk_1
-      const outcome1 = await integration.add('bmk_1');
+      const outcome1 = await integration.enable('bmk_1');
       expect(outcome1.success).toBe(true);
       expect(createdSockets).toHaveLength(1);
 
       // Try adding bmk_2 (same search identity)
-      const outcome2 = await integration.add('bmk_2');
+      const outcome2 = await integration.enable('bmk_2');
       expect(outcome2.success).toBe(false);
       expect(outcome2.error).toContain('已在即時監聽中');
       expect(createdSockets).toHaveLength(1); // Zero additional WebSocket!
@@ -407,12 +406,12 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       // Spy on addFromUrl to hang
       vi.spyOn(liveController, 'addFromUrl').mockImplementationOnce(() => slowPromise as any);
 
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
-      const snapshots: LiveSearchBookmarkSnapshot[] = [];
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
+      const snapshots: LiveSearchSourceSnapshot[] = [];
       integration.subscribe((s) => snapshots.push(s));
       await new Promise((r) => setTimeout(r, 20));
 
-      const addPromise = integration.add('bmk_1');
+      const addPromise = integration.enable('bmk_1');
 
       // Immediate check after triggering add: both bmk_1 and bmk_2 must be pending!
       const pendingSnapshot = snapshots[snapshots.length - 1];
@@ -425,7 +424,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       expect(bmk3Pending?.pending).toBe(false);
 
       // Concurrent click on bmk_2 is rejected
-      const concurrentOutcome = await integration.add('bmk_2');
+      const concurrentOutcome = await integration.enable('bmk_2');
       expect(concurrentOutcome.success).toBe(false);
       expect(concurrentOutcome.error).toContain('正在啟動中');
 
@@ -443,11 +442,11 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
   describe('7. Bookmark Mutation & Deletion Independence', () => {
     it('keeps subscription and WebSocket alive when origin bookmark is renamed, moved, or deleted', async () => {
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
       await new Promise((r) => setTimeout(r, 20));
 
       // Add subscription from bmk_1
-      await integration.add('bmk_1');
+      await integration.enable('bmk_1');
       const ws = createdSockets[0];
       ws.triggerOpen();
 
@@ -481,12 +480,12 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
   describe('8. Stop Subscription Clears Active Mark', () => {
     it('clears active mark on bookmarks after subscription is removed from live controller', async () => {
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
-      const snapshots: LiveSearchBookmarkSnapshot[] = [];
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
+      const snapshots: LiveSearchSourceSnapshot[] = [];
       integration.subscribe((s) => snapshots.push(s));
       await new Promise((r) => setTimeout(r, 20));
 
-      await integration.add('bmk_1');
+      await integration.enable('bmk_1');
       await new Promise((r) => setTimeout(r, 10));
 
       let latest = snapshots[snapshots.length - 1];
@@ -502,7 +501,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       expect(latest.groups[0].bookmarks[1].liveSearchStatus).toBeUndefined();
 
       // Can add again now
-      const readdOutcome = await integration.add('bmk_1');
+      const readdOutcome = await integration.enable('bmk_1');
       expect(readdOutcome.success).toBe(true);
 
       integration.dispose();
@@ -550,8 +549,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         },
       };
 
-      const integration = createLiveSearchBookmarkController(customSource, liveController);
-      const snapshots: LiveSearchBookmarkSnapshot[] = [];
+      const integration = createLiveSearchSourceController(customSource, liveController);
+      const snapshots: LiveSearchSourceSnapshot[] = [];
       integration.subscribe((s) => snapshots.push(s));
 
       // 初始讀取正在 in-flight
@@ -634,8 +633,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         },
       };
 
-      const integration = createLiveSearchBookmarkController(customSource, liveController);
-      const snapshots: LiveSearchBookmarkSnapshot[] = [];
+      const integration = createLiveSearchSourceController(customSource, liveController);
+      const snapshots: LiveSearchSourceSnapshot[] = [];
       integration.subscribe((s) => snapshots.push(s));
 
       expect(readCount).toBe(1);
@@ -688,7 +687,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         },
       };
 
-      const integration = createLiveSearchBookmarkController(customSource, liveController);
+      const integration = createLiveSearchSourceController(customSource, liveController);
       const listenerSpy = vi.fn();
       integration.subscribe(listenerSpy);
 
@@ -723,7 +722,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
   describe('10. Action Freshness & Reconciliation Drain Contracts', () => {
     it('waits for pending reconciliation drain and rejects when target bookmark is deleted during reload', async () => {
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
       await new Promise((r) => setTimeout(r, 20));
 
       let resolvePendingRead!: (val: BookmarkReadOutcome<BookmarkCollectionView>) => void;
@@ -747,7 +746,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       bookmarkSource.triggerChange();
 
       // 在 refresh pending 期間呼叫 add('bmk_1')
-      const addPromise = integration.add('bmk_1');
+      const addPromise = integration.enable('bmk_1');
 
       // 驗證等待期間零副作用
       expect(createdSockets).toHaveLength(0);
@@ -771,7 +770,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
     });
 
     it('waits for pending reconciliation drain and uses updated search identity when bookmark url changed during reload', async () => {
-      const integration = createLiveSearchBookmarkController(bookmarkSource, liveController);
+      const integration = createLiveSearchSourceController(bookmarkSource, liveController);
       await new Promise((r) => setTimeout(r, 20));
 
       let resolvePendingRead!: (val: BookmarkReadOutcome<BookmarkCollectionView>) => void;
@@ -794,7 +793,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       bookmarkSource.triggerChange();
 
       // 在 refresh pending 期間呼叫 add('bmk_3')
-      const addPromise = integration.add('bmk_3');
+      const addPromise = integration.enable('bmk_3');
 
       // 驗證等待期間零副作用
       expect(createdSockets).toHaveLength(0);
@@ -880,7 +879,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
         // 尚未新增 custom source 時，不應出現空的「自訂網址」群組
         expect(
-          sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID),
+          sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID),
         ).toBeUndefined();
 
         // 1. 新增自訂 URL -> 建立 Custom Source 並立即啟用
@@ -890,9 +889,9 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         );
         expect(addRes.success).toBe(true);
 
-        let customGroup = sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+        let customGroup = sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
         expect(customGroup).toBeDefined();
-        expect(customGroup?.name).toBe(CUSTOM_SOURCE_GROUP_NAME);
+        expect(customGroup?.name).toBe(TEMPORARY_SOURCE_GROUP_NAME);
         expect(customGroup?.items).toHaveLength(1);
 
         let customItem = customGroup!.items[0]!;
@@ -908,7 +907,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         expect(firstSubId).toBeDefined();
 
         createdSockets[0].triggerOpen();
-        customItem = sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID)!
+        customItem = sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID)!
           .items[0]!;
         expect(customItem.status).toBe('active');
 
@@ -917,7 +916,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         expect(runtime.getSubscriptions()).toHaveLength(0);
         expect(createdSockets[0].closed).toBe(true);
 
-        customGroup = sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+        customGroup = sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
         expect(customGroup).toBeDefined();
         customItem = customGroup!.items[0]!;
         expect(customItem.id).toBe(customId);
@@ -929,7 +928,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         expect(reEnableRes.success).toBe(true);
         expect(runtime.getSubscriptions()).toHaveLength(1);
 
-        customItem = sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID)!
+        customItem = sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID)!
           .items[0]!;
         expect(customItem.status).toBe('connecting');
         expect(customItem.subscriptionId).toBeDefined();
@@ -938,7 +937,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
         createdSockets[1].triggerOpen();
         expect(
-          sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID)!.items[0]!.status,
+          sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID)!.items[0]!
+            .status,
         ).toBe('active');
 
         // 4. 移除（當仍處於 active 時）-> 先安全停止該 Runtime subscription，再移除 Custom Source
@@ -947,7 +947,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         expect(createdSockets[1].closed).toBe(true);
         expect(runtime.getSubscriptions()).toHaveLength(0);
         expect(
-          sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID),
+          sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID),
         ).toBeUndefined();
 
         // 驗證全程未寫入任何 storage
@@ -969,7 +969,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       );
       expect(addRes.success).toBe(true);
 
-      const customGroup = sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+      const customGroup = sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
       expect(customGroup).toBeDefined();
       const customItem = customGroup!.items[0]!;
       expect(customItem.name).toBe('H4sIno_name_search_id');
@@ -997,7 +997,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       expect(addCustomRes.success).toBe(false);
 
       // 驗證 Custom Source 仍存在於「自訂網址」群組中，狀態為未啟用且 pending = false
-      let customGroup = sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+      let customGroup = sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
       expect(customGroup).toBeDefined();
       expect(customGroup!.items).toHaveLength(1);
       let customItem = customGroup!.items[0]!;
@@ -1010,7 +1010,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       const reEnableRes = await sourceCtrl.enable(customItem.id);
       expect(reEnableRes.success).toBe(true);
 
-      customGroup = sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+      customGroup = sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
       customItem = customGroup!.items[0]!;
       expect(customItem.status).toBe('connecting');
       expect(customItem.pending).toBe(false);
@@ -1036,7 +1036,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       let snap = sourceCtrl.read();
       const bmk3 = snap.groups[0].items.find((i) => i.id === 'bmk_3')!;
       // Bookmark 是 presentation owner，不產生第二筆 Temporary Search
-      const customGroup = snap.groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+      const customGroup = snap.groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
       expect(customGroup).toBeUndefined();
 
       expect(bmk3.status).toBe('active');
@@ -1082,7 +1082,9 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       expect(dup.success).toBe(false);
       expect(dup.error).toContain('相同搜尋條件已在即時監聽中');
       expect(createdSockets).toHaveLength(1);
-      expect(sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID)).toBeUndefined();
+      expect(
+        sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID),
+      ).toBeUndefined();
 
       sourceCtrl.dispose();
     });
@@ -1134,7 +1136,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       // 4. statusFilter = 'error' -> 只有 custom '裂界戒指'
       const errorGroups = filterLiveSearchSourceGroups(groups, { statusFilter: 'error' });
       expect(errorGroups).toHaveLength(1);
-      expect(errorGroups[0].id).toBe(CUSTOM_SOURCE_GROUP_ID);
+      expect(errorGroups[0].id).toBe(TEMPORARY_SOURCE_GROUP_ID);
       expect(errorGroups[0].items[0].name).toBe('裂界戒指');
 
       // 5. Name search: '獵首'
@@ -1214,7 +1216,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       };
 
       const readSpy = vi.spyOn(bookmarkSource, 'readCollection');
-      const snapshots: LiveSearchBookmarkSnapshot[] = [];
+      const snapshots: LiveSearchSourceSnapshot[] = [];
       const sourceCtrl = createLiveSearchSourceController(bookmarkSource, liveController);
       sourceCtrl.subscribe((s) => snapshots.push(s));
       await new Promise((r) => setTimeout(r, 20));
@@ -1622,7 +1624,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
           name: '自訂停止測試',
         },
       );
-      const customId = sourceCtrl.read().groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID)!
+      const customId = sourceCtrl.read().groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID)!
         .items[0]!.id;
 
       expect(runtime.getSubscriptions()).toHaveLength(2);
@@ -1646,7 +1648,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       // 所有 Bookmark 與 Custom Source 皆保留在列表且狀態為未啟用
       const snapAfter = sourceCtrl.read();
       expect(snapAfter.groups[0]!.items).toHaveLength(3);
-      const customGroupAfter = snapAfter.groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+      const customGroupAfter = snapAfter.groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
       expect(customGroupAfter).toBeDefined();
       expect(customGroupAfter!.items).toHaveLength(1);
       expect(customGroupAfter!.items[0]!.status).toBeUndefined();
@@ -1962,7 +1964,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         { id: 'f-child-a2', depth: 1, kind: 'bookmark' },
         { id: 'f-root-b', depth: 0, kind: 'bookmark' },
         { id: 'default_ungrouped', depth: 0, kind: 'bookmark' },
-        { id: CUSTOM_SOURCE_GROUP_ID, depth: 0, kind: 'custom' },
+        { id: TEMPORARY_SOURCE_GROUP_ID, depth: 0, kind: 'custom' },
       ]);
 
       // Direct bookmarks inside f-child-a1 are sorted by Bookmark order
@@ -2374,19 +2376,19 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       expect(addRes.success).toBe(true);
 
       const stdSnap1 = sourceCtrl.read();
-      const customGroup1 = stdSnap1.groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+      const customGroup1 = stdSnap1.groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
       expect(customGroup1).toBeDefined();
       expect(customGroup1!.items).toHaveLength(1);
       expect(customGroup1!.items[0].name).toBe('暫存項目');
 
       await sourceCtrl.switchLeague('Hardcore');
       const hcSnap = sourceCtrl.read();
-      const hcCustomGroup = hcSnap.groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+      const hcCustomGroup = hcSnap.groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
       expect(hcCustomGroup).toBeUndefined();
 
       await sourceCtrl.switchLeague('Standard');
       const stdSnap2 = sourceCtrl.read();
-      const customGroup2 = stdSnap2.groups.find((g) => g.id === CUSTOM_SOURCE_GROUP_ID);
+      const customGroup2 = stdSnap2.groups.find((g) => g.id === TEMPORARY_SOURCE_GROUP_ID);
       expect(customGroup2).toBeDefined();
       expect(customGroup2!.items).toHaveLength(1);
       expect(customGroup2!.items[0].name).toBe('暫存項目');

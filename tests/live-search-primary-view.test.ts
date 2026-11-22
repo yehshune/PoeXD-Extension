@@ -2538,7 +2538,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: enableManySpy,
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -2651,7 +2650,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           };
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -2729,7 +2727,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -2934,7 +2931,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -3006,7 +3002,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -3127,7 +3122,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: enableManyMock,
         stopMany: stopManyMock,
         addCustom: vi.fn(),
@@ -3233,7 +3227,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: enableManyMock,
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -3390,7 +3383,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -3479,7 +3471,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -3548,7 +3539,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -3623,7 +3613,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -3705,7 +3694,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -3843,7 +3831,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => {};
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -4010,7 +3997,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => stop();
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -4151,7 +4137,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => stop();
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -4301,7 +4286,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => stop();
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),
@@ -4515,7 +4499,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           return () => stop();
         },
         enable: vi.fn(),
-        add: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
         addCustom: vi.fn(),

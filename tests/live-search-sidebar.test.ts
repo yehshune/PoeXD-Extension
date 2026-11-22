@@ -80,7 +80,7 @@ vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
 vi.mock('@/components/sidebar/LiveSearchPrimaryPane.vue', () => ({
   default: defineComponent({
     name: 'LiveSearchPrimaryPane',
-    props: ['controller', 'bookmarkController'],
+    props: ['controller', 'sourceController'],
     emits: ['open-add-connection'],
     setup(props, { emit }) {
       paneMountCounts.liveSearchPrimary++;
@@ -91,7 +91,7 @@ vi.mock('@/components/sidebar/LiveSearchPrimaryPane.vue', () => ({
             'data-sidebar-pane': 'live-search-primary',
             'data-test': 'live-search-primary-pane',
             'data-has-controller': Boolean(props.controller) ? 'true' : 'false',
-            'data-has-bookmark-controller': Boolean(props.bookmarkController) ? 'true' : 'false',
+            'data-has-source-controller': Boolean(props.sourceController) ? 'true' : 'false',
           },
           [
             h('button', {
@@ -289,9 +289,9 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
       remove: vi.fn(),
     };
 
-    const mockBookmarkController = {
+    const mockSourceController = {
       subscribe: vi.fn(() => () => {}),
-      add: vi.fn(),
+      enable: vi.fn(),
       dispose: vi.fn(),
     };
 
@@ -299,7 +299,7 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
       pageRole: 'live-search-primary',
       liveSearchConsole: {
         primaryController: mockController,
-        sourceController: mockBookmarkController,
+        sourceController: mockSourceController,
       },
     });
     app.mount(container);
@@ -365,7 +365,7 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
     expect(primaryPane).not.toBeNull();
     expect(consoleSettingsPane).not.toBeNull();
     expect(primaryPane?.getAttribute('data-has-controller')).toBe('true');
-    expect(primaryPane?.getAttribute('data-has-bookmark-controller')).toBe('true');
+    expect(primaryPane?.getAttribute('data-has-source-controller')).toBe('true');
     expect(primaryPane?.style.display).not.toBe('none');
     expect(consoleSettingsPane?.style.display).toBe('none');
 
@@ -564,7 +564,7 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
         dispose: vi.fn(),
       };
 
-      const mockBookmarkController = {
+      const mockSourceController = {
         read: () => ({
           groups: [
             {
@@ -590,7 +590,7 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
         pageRole: 'live-search-primary',
         liveSearchConsole: {
           resumeController: mockResumeController,
-          sourceController: mockBookmarkController,
+          sourceController: mockSourceController,
         },
       });
       app.mount(container);

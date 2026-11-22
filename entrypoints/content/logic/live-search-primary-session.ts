@@ -21,8 +21,8 @@ import {
   type LiveSearchSoundNotifier,
 } from './live-search-sound-notifier';
 import {
-  createLiveSearchBookmarkController,
-  type LiveSearchBookmarkController,
+  createLiveSearchSourceController,
+  type LiveSearchSourceController,
 } from './live-search-sources';
 
 /**
@@ -30,7 +30,7 @@ import {
  */
 export interface LiveSearchConsoleHandles {
   primaryController?: LiveSearchPrimaryController | null;
-  sourceController?: LiveSearchBookmarkController | null;
+  sourceController?: LiveSearchSourceController | null;
   resumeController?: LiveSearchResumeController | null;
   soundNotifier?: LiveSearchSoundNotifier | null;
   initialArrivalSignal?: boolean;
@@ -52,7 +52,7 @@ export interface LiveSearchPrimarySessionFactories {
   createPrimaryController: typeof createLiveSearchPrimaryController;
   createResumeStore: typeof createLiveSearchResumeStore;
   createBookmarkClient: typeof createChromeBookmarkClient;
-  createSourceController: typeof createLiveSearchBookmarkController;
+  createSourceController: typeof createLiveSearchSourceController;
   createResumeController: typeof createLiveSearchResumeController;
   createExitGuard: typeof createLiveSearchPrimaryExitGuard;
   registerEnqueueBridge: typeof registerLiveSearchPrimaryEnqueueBridge;
@@ -77,7 +77,7 @@ const DEFAULT_FACTORIES: LiveSearchPrimarySessionFactories = {
   createPrimaryController: createLiveSearchPrimaryController,
   createResumeStore: createLiveSearchResumeStore,
   createBookmarkClient: createChromeBookmarkClient,
-  createSourceController: createLiveSearchBookmarkController,
+  createSourceController: createLiveSearchSourceController,
   createResumeController: createLiveSearchResumeController,
   createExitGuard: createLiveSearchPrimaryExitGuard,
   registerEnqueueBridge: registerLiveSearchPrimaryEnqueueBridge,
@@ -102,7 +102,7 @@ export function createLiveSearchPrimarySession(
   let hostGuard: ReturnType<LiveSearchPrimarySessionFactories['createHostGuard']> | null = null;
   let soundNotifier: LiveSearchSoundNotifier | null = null;
   let primaryRuntime: ReturnType<LiveSearchPrimarySessionFactories['createRuntime']> | null = null;
-  let sourceController: LiveSearchBookmarkController | null = null;
+  let sourceController: LiveSearchSourceController | null = null;
   let resumeController: LiveSearchResumeController | null = null;
   let exitGuard: ReturnType<LiveSearchPrimarySessionFactories['createExitGuard']> | null = null;
   let cleanupEnqueueListener: (() => void) | null = null;

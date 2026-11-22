@@ -382,7 +382,6 @@ export function createLiveSearchSourceController(
     },
 
     enable: (sourceId) => sourceActivator.enableSource(sourceId),
-    add: (sourceId) => sourceActivator.enableSource(sourceId),
     enableMany: batchExecutor.enableManySources,
     stopMany: batchExecutor.stopManySources,
     addCustom: sourceIntake.addCustom,
@@ -499,5 +498,3 @@ export function createLiveSearchSourceController(
     },
   };
 }
-
-export const createLiveSearchBookmarkController = createLiveSearchSourceController;

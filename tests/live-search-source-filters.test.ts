@@ -14,8 +14,8 @@ import {
   sameLeague,
 } from '@/entrypoints/content/logic/live-search-sources/source-filters';
 import {
-  CUSTOM_SOURCE_GROUP_ID,
-  CUSTOM_SOURCE_GROUP_NAME,
+  TEMPORARY_SOURCE_GROUP_ID,
+  TEMPORARY_SOURCE_GROUP_NAME,
   PREVIOUS_SOURCE_ID_PREFIX,
   SESSION_SOURCE_ID_PREFIX,
   type LiveSearchSourceGroup,
@@ -177,8 +177,8 @@ describe('live-search-source-filters', () => {
       id: 'tmp1',
       kind: 'custom',
       name: 'Temp Jewel',
-      groupId: CUSTOM_SOURCE_GROUP_ID,
-      groupName: CUSTOM_SOURCE_GROUP_NAME,
+      groupId: TEMPORARY_SOURCE_GROUP_ID,
+      groupName: TEMPORARY_SOURCE_GROUP_NAME,
       status: 'error',
     });
 
@@ -201,8 +201,8 @@ describe('live-search-source-filters', () => {
         bookmarks: [childItem],
       },
       {
-        id: CUSTOM_SOURCE_GROUP_ID,
-        name: CUSTOM_SOURCE_GROUP_NAME,
+        id: TEMPORARY_SOURCE_GROUP_ID,
+        name: TEMPORARY_SOURCE_GROUP_NAME,
         kind: 'custom',
         items: [customItem],
         bookmarks: [customItem],
@@ -212,7 +212,9 @@ describe('live-search-source-filters', () => {
     it('依 pre-order 聚合資料夾 subtree 項目與 ID，自訂群組維持獨立', () => {
       expect(getLiveSearchGroupSubtreeItems(groups, 'root').map((i) => i.id)).toEqual(['p1', 'c1']);
       expect(getLiveSearchGroupSubtreeSourceIds(groups, 'child')).toEqual(['c1']);
-      expect(getLiveSearchGroupSubtreeSourceIds(groups, CUSTOM_SOURCE_GROUP_ID)).toEqual(['tmp1']);
+      expect(getLiveSearchGroupSubtreeSourceIds(groups, TEMPORARY_SOURCE_GROUP_ID)).toEqual([
+        'tmp1',
+      ]);
       expect(getLiveSearchGroupSubtreeSourceIds(groups, 'missing')).toEqual([]);
     });
 
@@ -230,7 +232,7 @@ describe('live-search-source-filters', () => {
       ]);
 
       const errorOnly = filterLiveSearchSourceGroups(groups, { statusFilter: 'error' });
-      expect(errorOnly.map((g) => g.id)).toEqual([CUSTOM_SOURCE_GROUP_ID]);
+      expect(errorOnly.map((g) => g.id)).toEqual([TEMPORARY_SOURCE_GROUP_ID]);
     });
   });
 });

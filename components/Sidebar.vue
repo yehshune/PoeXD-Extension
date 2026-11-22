@@ -207,7 +207,7 @@
                 <LiveSearchPrimaryPane
                   v-show="primaryActiveTab === 'connections'"
                   :controller="liveSearchConsole?.primaryController ?? null"
-                  :bookmark-controller="liveSearchConsole?.sourceController ?? null"
+                  :source-controller="liveSearchConsole?.sourceController ?? null"
                   :resume-controller="liveSearchConsole?.resumeController ?? null"
                   :sound-notifier="liveSearchConsole?.soundNotifier ?? null"
                   @open-add-connection="handleOpenCustomSearch"

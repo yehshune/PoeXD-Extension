@@ -386,10 +386,6 @@ const props = defineProps({
     type: Object as PropType<LiveSearchPrimaryController | null>,
     default: null,
   },
-  bookmarkController: {
-    type: Object as PropType<LiveSearchSourceController | null>,
-    default: null,
-  },
   sourceController: {
     type: Object as PropType<LiveSearchSourceController | null>,
     default: null,
@@ -684,12 +680,12 @@ watch([visibleGroups, collapsedGroupIds, isSwitchingLeague], () => {
 });
 
 function getActiveSourceController(): LiveSearchSourceController | null {
-  return props.sourceController ?? props.bookmarkController ?? fallbackSourceController;
+  return props.sourceController ?? fallbackSourceController;
 }
 
 watch(
-  [() => props.controller, () => props.sourceController, () => props.bookmarkController],
-  ([newController, newSourceCtrl, newBookmarkCtrl]) => {
+  [() => props.controller, () => props.sourceController],
+  ([newController, newSourceCtrl]) => {
     if (unsubscribe) {
       unsubscribe();
       unsubscribe = null;
@@ -711,7 +707,7 @@ watch(
       snapshot.value = null;
     }
 
-    const externalSourceCtrl = newSourceCtrl ?? newBookmarkCtrl;
+    const externalSourceCtrl = newSourceCtrl;
     if (externalSourceCtrl) {
       unsubSource = externalSourceCtrl.subscribe((newSnapshot) => {
         sourceSnapshot.value = newSnapshot;
@@ -870,10 +866,7 @@ async function handleEnableSource(sourceId: string) {
   const sourceCtrl = getActiveSourceController();
   if (!sourceCtrl) return;
   try {
-    const outcome =
-      typeof sourceCtrl.enable === 'function'
-        ? await sourceCtrl.enable(sourceId)
-        : await sourceCtrl.add(sourceId);
+    const outcome = await sourceCtrl.enable(sourceId);
     if (!outcome.success) {
       showToast(outcome.error || t('liveSearch.toast.enableFailed'), 'error');
     }

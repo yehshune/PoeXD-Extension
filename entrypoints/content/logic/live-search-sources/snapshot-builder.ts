@@ -16,8 +16,8 @@ import {
   sameLeague,
 } from './source-filters';
 import {
-  CUSTOM_SOURCE_GROUP_ID,
-  CUSTOM_SOURCE_GROUP_NAME,
+  TEMPORARY_SOURCE_GROUP_ID,
+  TEMPORARY_SOURCE_GROUP_NAME,
   PREVIOUS_CONNECTIONS_GROUP_ID,
   PREVIOUS_CONNECTIONS_GROUP_NAME,
   PREVIOUS_SOURCE_ID_PREFIX,
@@ -283,8 +283,8 @@ export function buildLiveSearchSourceSnapshot(
         canonicalKey: c.canonicalKey,
         compatibility: compat.compatibility,
         compatibilityMessage: compat.compatibilityMessage,
-        groupId: CUSTOM_SOURCE_GROUP_ID,
-        groupName: CUSTOM_SOURCE_GROUP_NAME,
+        groupId: TEMPORARY_SOURCE_GROUP_ID,
+        groupName: TEMPORARY_SOURCE_GROUP_NAME,
         status: activeSub?.status,
         liveSearchStatus: activeSub?.status,
         pending: isPending,
@@ -303,8 +303,8 @@ export function buildLiveSearchSourceSnapshot(
     });
 
     groups.push({
-      id: CUSTOM_SOURCE_GROUP_ID,
-      name: CUSTOM_SOURCE_GROUP_NAME,
+      id: TEMPORARY_SOURCE_GROUP_ID,
+      name: TEMPORARY_SOURCE_GROUP_NAME,
       kind: 'custom',
       depth: 0,
       items: customItems,

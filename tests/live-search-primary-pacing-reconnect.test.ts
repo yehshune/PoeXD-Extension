@@ -9,7 +9,7 @@ import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-searc
 import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
 import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search-open-scheduler';
 import {
-  createLiveSearchBookmarkController,
+  createLiveSearchSourceController,
   type LiveSearchBookmarkSourcePort,
 } from '@/entrypoints/content/logic/live-search-sources';
 import type {
@@ -704,10 +704,10 @@ describe('LiveSearch Primary Pacing & Reconnect Comprehensive Tests', () => {
       subscribe: () => () => {},
     };
 
-    const bookmarkController = createLiveSearchBookmarkController(mockBookmarkSource, controller);
+    const sourceController = createLiveSearchSourceController(mockBookmarkSource, controller);
 
     let latestBookmarkSnapshot: any = null;
-    bookmarkController.subscribe((s) => {
+    sourceController.subscribe((s) => {
       latestBookmarkSnapshot = s;
     });
 
@@ -718,7 +718,7 @@ describe('LiveSearch Primary Pacing & Reconnect Comprehensive Tests', () => {
     expect(bmkBefore.liveSearchStatus).toBeUndefined();
 
     // 2. 加入至 LiveSearch
-    await bookmarkController.add('bmk_headhunter');
+    await sourceController.enable('bmk_headhunter');
     await new Promise((r) => setTimeout(r, 20));
 
     const bmkConnecting = latestBookmarkSnapshot.groups[0].bookmarks[0];
@@ -735,7 +735,7 @@ describe('LiveSearch Primary Pacing & Reconnect Comprehensive Tests', () => {
     expect(latestBookmarkSnapshot.groups[0].bookmarks[0].liveSearchStatus).toBe('error');
 
     // 5. 處於 error 狀態時，書籤依舊標記為已佔用，嘗試重複 add 應被阻擋
-    const dupAddOutcome = await bookmarkController.add('bmk_headhunter');
+    const dupAddOutcome = await sourceController.enable('bmk_headhunter');
     expect(dupAddOutcome.success).toBe(false);
   });
 });

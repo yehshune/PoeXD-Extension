@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BookmarkCollectionView, BookmarkReadOutcome } from '@/utils/bookmark-coordinator';
 import {
   createLiveSearchSourceController,
-  CUSTOM_SOURCE_GROUP_ID,
-  CUSTOM_SOURCE_GROUP_NAME,
   TEMPORARY_SOURCE_GROUP_ID,
   TEMPORARY_SOURCE_GROUP_NAME,
   type LiveSearchBookmarkSourcePort,
