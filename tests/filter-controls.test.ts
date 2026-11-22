@@ -479,7 +479,7 @@ describe('FilterPane Category Group Header Presentation & Contract', () => {
 
   it('verifies static DOM contracts and removes obsolete expand-arrow and after horizontal rule', () => {
     // Contract elements remain (in FilterAffixSection.vue)
-    expect(affixSectionSource).toContain(":id=\"'category_' + category.label\"");
+    expect(affixSectionSource).toContain(':id="\'category_\' + category.label"');
     expect(affixSectionSource).toContain('@click="emit(\'toggle-category\', category.label)"');
     expect(affixSectionSource).toContain(':aria-expanded="expanded"');
     expect(affixSectionSource).toContain('group-header');

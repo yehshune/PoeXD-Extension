@@ -508,8 +508,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'filterPane.selected.toggleMaxTitle': 'Click to toggle upper limit',
   'filterPane.selected.removeTitle': 'Remove this item',
   'filterPane.selected.empty': 'No affixes selected yet',
-  'filterPane.selected.emptyHint':
-    'Check modifiers to add them, or expand to pick a specific tier',
+  'filterPane.selected.emptyHint': 'Check modifiers to add them, or expand to pick a specific tier',
   'filterPane.actions.applyBatch': 'Batch Apply to Filters ({count})',
   'filterPane.actions.applyT1': 'Apply Highest Tier (T1)',
   'filterPane.actions.applyT1Title': 'Automatically set all pending affixes to highest tier',

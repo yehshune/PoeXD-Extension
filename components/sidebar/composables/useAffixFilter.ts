@@ -99,8 +99,7 @@ export function useAffixFilter({
     const seenIdsByAffinity = new Map<string, Set<string>>();
 
     filtered.forEach((mod) => {
-      const affinities =
-        mod.affinities && mod.affinities.length > 0 ? mod.affinities : ['normal'];
+      const affinities = mod.affinities && mod.affinities.length > 0 ? mod.affinities : ['normal'];
 
       affinities.forEach((affKey) => {
         if (!categoriesMap[affKey]) {

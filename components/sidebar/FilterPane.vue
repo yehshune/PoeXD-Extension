@@ -992,9 +992,16 @@ export default defineComponent({
     const resolveNavTier = (affinity: string): number => {
       if (affinity === 'normal' || affinity === 'cluster') return 0;
       if (
-        ['searing', 'eater', 'shaper', 'elder', 'crusader', 'redeemer', 'hunter', 'warlord'].includes(
-          affinity,
-        )
+        [
+          'searing',
+          'eater',
+          'shaper',
+          'elder',
+          'crusader',
+          'redeemer',
+          'hunter',
+          'warlord',
+        ].includes(affinity)
       ) {
         return 1;
       }

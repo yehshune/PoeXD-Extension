@@ -209,7 +209,9 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     await nextTick();
     await new Promise((r) => setTimeout(r, 20));
 
-    const content = portalRoot.querySelector('[data-slot="popover-content"][data-sidebar-dialog="affix-type"]');
+    const content = portalRoot.querySelector(
+      '[data-slot="popover-content"][data-sidebar-dialog="affix-type"]',
+    );
     expect(content).toBeTruthy();
     expect(portalRoot.querySelector('[data-slot="dialog-overlay"]')).toBeNull();
     expect(content?.className).toContain('z-(--pxd-z-floating)');
