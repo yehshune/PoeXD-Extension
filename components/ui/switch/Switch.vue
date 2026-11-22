@@ -25,7 +25,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
       cn(
         'peer relative inline-flex shrink-0 cursor-pointer items-center p-0 m-0 box-border appearance-none rounded-full border border-transparent transition-colors outline-none select-none',
         'h-[var(--checkbox-size,18px)] w-[calc(var(--checkbox-size,18px)*1.8)]',
-        'data-[state=checked]:bg-primary data-[state=unchecked]:bg-input',
+        'data-[state=checked]:bg-primary data-[state=unchecked]:bg-input data-[state=unchecked]:border-border/70',
         'focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background',
         'disabled:cursor-not-allowed disabled:opacity-50',
         props.class,
@@ -34,7 +34,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
   >
     <SwitchThumb
       data-slot="switch-thumb"
-      class="pointer-events-none block size-[calc(var(--checkbox-size,18px)-4px)] rounded-full bg-background shadow-sm ring-0 transition-transform duration-150 data-[state=unchecked]:translate-x-[1px] data-[state=checked]:translate-x-[calc(var(--checkbox-size,18px)*0.8+1px)] motion-reduce:transition-none"
+      class="pointer-events-none block size-[calc(var(--checkbox-size,18px)-4px)] rounded-full shadow-sm ring-0 transition-transform duration-150 data-[state=unchecked]:bg-background data-[state=checked]:bg-primary-foreground data-[state=unchecked]:translate-x-[1px] data-[state=checked]:translate-x-[calc(var(--checkbox-size,18px)*0.8+1px)] motion-reduce:transition-none"
     />
   </SwitchRoot>
 </template>

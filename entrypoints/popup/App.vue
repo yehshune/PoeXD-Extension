@@ -147,7 +147,7 @@ onUnmounted(() => {
               :data-open-realm="realm.id"
               :data-open-trade="version"
               :title="buildTradeRootUrl(realm.origin, version)"
-              class="flex items-center justify-between gap-1 px-2.5 py-2 rounded-md border border-border/80 bg-muted/30 hover:bg-muted/70 hover:border-primary/50 text-foreground transition-all cursor-pointer text-left select-none"
+              class="flex items-center justify-between gap-1 px-2.5 py-2 rounded-md border border-border/80 bg-card hover:bg-muted/60 hover:border-primary/50 text-foreground transition-all cursor-pointer text-left select-none"
               @click="openTradePage(realm.origin, version)"
             >
               <span class="text-[length:var(--pxd-font-body,13px)] font-medium leading-tight">

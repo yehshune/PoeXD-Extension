@@ -146,7 +146,7 @@ const resetSettings = async () => {
       <DropdownMenuTrigger as-child>
         <Button
           type="button"
-          variant="secondary"
+          variant="outline"
           size="icon-sm"
           data-settings-backup-menu
           :title="t('settings.section.backup')"

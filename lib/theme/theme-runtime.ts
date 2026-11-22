@@ -1,9 +1,14 @@
 import {
   CUSTOM_THEME_ID,
   THEME_ATTRIBUTE,
+  THEME_COLOR_SCHEME_ATTRIBUTE,
+  THEME_PRESETS,
+  isLightColor,
+  isPresetThemeId,
   normalizeThemeId,
   parseCustomThemeValues,
   pickContrastForeground,
+  resolveColorSchemeForHex,
   type ThemeOverride,
 } from './theme-contract';
 import {
@@ -34,6 +39,10 @@ export const THEME_OVERRIDE_CSS_VARIABLES = [
   '--input',
   '--ring',
   '--radius',
+  '--shadow-2xs',
+  '--shadow-xs',
+  '--shadow-sm',
+  '--shadow',
 ] as const;
 
 export type ThemeOverridesInput = string | ThemeOverride | null | undefined;
@@ -48,39 +57,54 @@ function clearThemeOverrideVariables(host: HTMLElement) {
   for (const name of THEME_OVERRIDE_CSS_VARIABLES) {
     host.style.removeProperty(name);
   }
+  host.removeAttribute(THEME_COLOR_SCHEME_ATTRIBUTE);
+}
+
+function getPopoverExpression(isLight: boolean): string {
+  return isLight
+    ? 'color-mix(in oklch, var(--background), oklch(1 0 0) 65%)'
+    : 'color-mix(in oklch, var(--card), var(--foreground) 5%)';
 }
 
 function applyThemeOverrideVariables(host: HTMLElement, override: ThemeOverride) {
   const { background, card, foreground, primary, destructive, radius } = override;
+  const currentScheme = background
+    ? resolveColorSchemeForHex(background)
+    : host.getAttribute(THEME_COLOR_SCHEME_ATTRIBUTE) === 'light'
+      ? 'light'
+      : 'dark';
+  const isLight = currentScheme === 'light';
 
   if (background) {
+    host.setAttribute(THEME_COLOR_SCHEME_ATTRIBUTE, currentScheme);
     host.style.setProperty('--background', background);
     host.style.setProperty(
       '--muted',
-      'color-mix(in oklch, var(--background), var(--foreground) 4%)',
+      'color-mix(in oklch, var(--background), var(--foreground) 8%)',
     );
     host.style.setProperty(
       '--border',
-      'color-mix(in oklch, var(--background), var(--foreground) 15%)',
+      'color-mix(in oklch, var(--background), var(--foreground) 16%)',
     );
     host.style.setProperty(
       '--input',
-      'color-mix(in oklch, var(--background), var(--foreground) 15%)',
+      'color-mix(in oklch, var(--background), var(--foreground) 22%)',
     );
     host.style.setProperty(
       '--muted-foreground',
-      'color-mix(in oklch, var(--foreground), var(--background) 30%)',
+      'color-mix(in oklch, var(--foreground), var(--background) 32%)',
     );
     host.style.setProperty(
       '--accent',
-      'color-mix(in oklch, var(--background), var(--primary) 25%)',
+      'color-mix(in oklch, var(--background), var(--primary) 18%)',
     );
+    host.style.setProperty('--popover', getPopoverExpression(isLight));
   }
 
   if (card) {
     host.style.setProperty('--card', card);
-    host.style.setProperty('--popover', 'var(--card)');
-    host.style.setProperty('--secondary', 'var(--card)');
+    host.style.setProperty('--popover', getPopoverExpression(isLight));
+    host.style.setProperty('--secondary', 'color-mix(in oklch, var(--card), var(--foreground) 6%)');
   }
 
   if (foreground) {
@@ -91,7 +115,7 @@ function applyThemeOverrideVariables(host: HTMLElement, override: ThemeOverride)
     host.style.setProperty('--accent-foreground', 'var(--foreground)');
     host.style.setProperty(
       '--muted-foreground',
-      'color-mix(in oklch, var(--foreground), var(--background) 30%)',
+      'color-mix(in oklch, var(--foreground), var(--background) 32%)',
     );
   }
 
@@ -101,7 +125,7 @@ function applyThemeOverrideVariables(host: HTMLElement, override: ThemeOverride)
     host.style.setProperty('--ring', 'var(--primary)');
     host.style.setProperty(
       '--accent',
-      'color-mix(in oklch, var(--background), var(--primary) 25%)',
+      'color-mix(in oklch, var(--background), var(--primary) 18%)',
     );
   }
 
@@ -112,6 +136,12 @@ function applyThemeOverrideVariables(host: HTMLElement, override: ThemeOverride)
 
   if (radius) {
     host.style.setProperty('--radius', radius);
+    const flatShadows = ['--shadow-2xs', '--shadow-xs', '--shadow-sm', '--shadow'] as const;
+    if (radius === '0rem') {
+      for (const s of flatShadows) host.style.setProperty(s, 'none');
+    } else {
+      for (const s of flatShadows) host.style.removeProperty(s);
+    }
   }
 }
 
@@ -143,6 +173,8 @@ export function applyThemeToHost(
     clearThemeOverrideVariables(host);
     if (normalized === CUSTOM_THEME_ID) {
       applyThemeOverrideVariables(host, parseCustomThemeValues(customOverrides));
+    } else if (isPresetThemeId(normalized) && isLightColor(THEME_PRESETS[normalized].background)) {
+      host.setAttribute(THEME_COLOR_SCHEME_ATTRIBUTE, 'light');
     }
     if (host.getAttribute(THEME_ATTRIBUTE) !== normalized) {
       host.setAttribute(THEME_ATTRIBUTE, normalized);

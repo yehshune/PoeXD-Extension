@@ -353,8 +353,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     );
     const valueToLabelMap: Record<string, string> = {
       'modern-dark': '現代暗色',
-      caffeine: '咖啡因',
-      catppuccin: '貓布奇諾',
+      caffeine: '暖黑拿鐵',
+      catppuccin: '深紫藍',
       left: '左側',
       right: '右側',
       small: '小',
@@ -1795,8 +1795,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     const { container } = await mountSettingsPane();
 
-    // Four theme buttons (3 presets + custom) and controls are always visible
-    expect(container.querySelectorAll('[data-custom-preset]')).toHaveLength(4);
+    // Twelve theme buttons (11 presets + custom) and controls are always visible
+    expect(container.querySelectorAll('[data-custom-preset]')).toHaveLength(12);
     const group = container.querySelector('[data-settings-group="theme-custom-colors"]');
     expect(group).not.toBeNull();
 

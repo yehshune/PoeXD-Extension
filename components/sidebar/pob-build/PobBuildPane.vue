@@ -127,7 +127,7 @@
           data-pob-build
         >
           <header
-            class="group relative flex items-center justify-between cursor-pointer select-none border-0 border-solid border-l-2 border-l-primary bg-muted/40 hover:bg-muted/70 has-[[data-state=open]]:bg-muted/70 py-[var(--pxd-bookmark-folder-header-padding-y)] px-[var(--pxd-space-lg)]"
+            class="group relative flex items-center justify-between cursor-pointer select-none border-0 border-solid border-l-2 border-l-primary bg-card hover:bg-muted/50 has-[[data-state=open]]:bg-muted/50 py-[var(--pxd-bookmark-folder-header-padding-y)] px-[var(--pxd-space-lg)]"
             :class="{ 'border-b border-border': !build.collapsed || isFiltering }"
             @click="toggleCollapsed(build.id)"
           >
@@ -187,7 +187,7 @@
             <div
               v-if="renamingId !== build.id"
               :class="{ '!opacity-100 !pointer-events-auto': isBuildMenuOpen(build.id) }"
-              class="pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_70%,var(--card))] absolute inset-y-0 right-0 z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto flex items-center"
+              class="pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_50%,var(--card))] absolute inset-y-0 right-0 z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto flex items-center"
               @click.stop
             >
               <DropdownMenu
@@ -366,7 +366,7 @@
 
             <p
               v-if="filteredGroups(build).length === 0"
-              class="m-0 bg-background px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+              class="m-0 bg-card px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
               data-pob-build-empty
             >
               {{
@@ -379,7 +379,7 @@
             <section
               v-for="group in filteredGroups(build)"
               :key="group.id"
-              class="flex flex-col bg-background border-b border-border last:border-b-0"
+              class="flex flex-col bg-card border-b border-border last:border-b-0"
               :data-pob-build-group="group.kind"
               :data-pob-build-group-id="group.id"
             >
@@ -504,8 +504,8 @@
                     <div
                       :class="[
                         isPreviewActive(build.id, row.key)
-                          ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--background))]'
-                          : '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_40%,var(--background))]',
+                          ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--card))]'
+                          : '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_40%,var(--card))]',
                         { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
                       ]"
                       class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto"
@@ -785,15 +785,15 @@ import {
   type ShoppingRow,
 } from './usePobBuild';
 
-// 稀有度顏色取遊戲內的色相，亮度取在深淺主題都看得清楚的中間值
+// 稀有度與技能寶石顏色統一引用 CSS 語意變數，自動隨明暗配色切換高對比色票
 const RARITY_CLASSES: Readonly<Record<string, string>> = {
-  UNIQUE: 'text-[oklch(0.68_0.15_50)]',
-  RELIC: 'text-[oklch(0.68_0.15_50)]',
-  RARE: 'text-[oklch(0.72_0.13_90)]',
-  MAGIC: 'text-[oklch(0.66_0.13_255)]',
+  UNIQUE: 'text-[var(--pxd-rarity-unique)]',
+  RELIC: 'text-[var(--pxd-rarity-unique)]',
+  RARE: 'text-[var(--pxd-rarity-rare)]',
+  MAGIC: 'text-[var(--pxd-rarity-magic)]',
   NORMAL: 'text-foreground',
 };
-const GEM_CLASS = 'text-[oklch(0.7_0.1_190)]';
+const GEM_CLASS = 'text-[var(--pxd-rarity-gem)]';
 
 export default defineComponent({
   name: 'PobBuildPane',

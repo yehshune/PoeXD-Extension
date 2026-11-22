@@ -44,8 +44,8 @@ function handleToggleCollapse() {
     :data-settings-section-collapsed="collapsible && !isExpanded ? 'true' : undefined"
     :aria-labelledby="headingId"
     :class="[
-      'flex flex-col rounded-lg border px-[var(--pxd-space-lg)] py-[var(--pxd-space-md)] transition-[background-color,border-color] duration-300',
-      highlighted ? 'border-primary/50 bg-primary/10' : 'border-border/55 bg-muted/20',
+      'flex flex-col rounded-lg border px-[var(--pxd-space-lg)] py-[var(--pxd-space-md)] transition-[background-color,border-color,box-shadow] duration-300',
+      highlighted ? 'border-primary bg-card ring-1 ring-primary/40' : 'border-border bg-card',
     ]"
   >
     <header

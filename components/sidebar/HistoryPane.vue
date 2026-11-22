@@ -24,7 +24,7 @@
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button
-              variant="secondary"
+              variant="outline"
               size="icon-sm"
               class="shrink-0"
               data-history-menu

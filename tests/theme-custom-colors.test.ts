@@ -5,16 +5,20 @@ import {
   DEFAULT_THEME_OVERRIDES_JSON,
   PRESET_THEME_IDS,
   THEME_ATTRIBUTE,
+  THEME_COLOR_SCHEME_ATTRIBUTE,
   THEME_CUSTOM_RADIUS_VALUES,
   THEME_PRESETS,
   getOklabLightness,
+  isLightColor,
   isValidHexColor,
   isValidThemeCustomRadius,
   isValidThemeOverridesJson,
   normalizeThemeOverridesJson,
   parseCustomThemeOverride,
   parseCustomThemeValues,
+  parseThemeImportJson,
   pickContrastForeground,
+  resolveColorSchemeForHex,
   resolveThemeEffectiveValues,
   serializeCustomThemeOverride,
 } from '@/lib/theme/theme-contract';
@@ -92,7 +96,40 @@ describe('Standalone custom theme slot + 3 built-in presets', () => {
       expect(getOklabLightness('#000000')).toBeCloseTo(0, 3);
       expect(getOklabLightness('#ffffff')).toBeCloseTo(1, 3);
       expect(pickContrastForeground('#3b82f6')).toBe('oklch(1 0 0)');
+      expect(pickContrastForeground('#818cf8')).toBe('oklch(0.2 0 0)');
+      expect(pickContrastForeground('#e06c53')).toBe('oklch(0.2 0 0)');
       expect(pickContrastForeground('#f5deb3')).toBe('oklch(0.2 0 0)');
+      expect(isLightColor('#f8fafc')).toBe(true);
+      expect(isLightColor('#121316')).toBe(false);
+      expect(resolveColorSchemeForHex('#ffffff')).toBe('light');
+      expect(resolveColorSchemeForHex('#1c1613')).toBe('dark');
+    });
+
+    it('parses both internal and external theme JSON formats cleanly', () => {
+      expect(
+        parseThemeImportJson(
+          JSON.stringify({
+            colors: {
+              background: '#F8FAFC',
+              surface: '#E2E8F0',
+              text: '#0F172A',
+              primary: '#2563EB',
+              danger: '#DC2626',
+            },
+            radius: '微圓',
+          }),
+        ),
+      ).toEqual({
+        background: '#f8fafc',
+        card: '#e2e8f0',
+        foreground: '#0f172a',
+        primary: '#2563eb',
+        destructive: '#dc2626',
+        radius: '0.25rem',
+      });
+
+      expect(parseThemeImportJson('invalid')).toBeNull();
+      expect(parseThemeImportJson('{}')).toBeNull();
     });
   });
 
@@ -116,12 +153,38 @@ describe('Standalone custom theme slot + 3 built-in presets', () => {
       expect(host.style.getPropertyValue('--ring')).toBe('var(--primary)');
       expect(host.style.getPropertyValue('--accent')).toContain('color-mix');
       expect(host.style.getPropertyValue('--radius')).toBe('0rem');
+      expect(host.style.getPropertyValue('--shadow-sm')).toBe('none');
 
-      // Switching back to a preset clears inline overrides
+      // Switching back to a preset clears inline overrides and color-scheme attribute
       applyThemeToHost(host, 'catppuccin', customJson);
       expect(host.getAttribute(THEME_ATTRIBUTE)).toBe('catppuccin');
+      expect(host.getAttribute(THEME_COLOR_SCHEME_ATTRIBUTE)).toBeNull();
       expect(host.style.getPropertyValue('--primary')).toBe('');
       expect(host.style.getPropertyValue('--radius')).toBe('');
+
+      // Light custom background automatically switches color-scheme to light
+      const lightJson = serializeCustomThemeOverride({
+        background: '#f8fafc',
+        card: '#e2e8f0',
+        foreground: '#0f172a',
+        primary: '#2563eb',
+        destructive: '#dc2626',
+        radius: '0.25rem',
+      });
+      applyThemeToHost(host, 'custom', lightJson);
+      expect(host.getAttribute(THEME_COLOR_SCHEME_ATTRIBUTE)).toBe('light');
+      expect(host.style.getPropertyValue('--muted')).toContain('8%');
+      expect(host.style.getPropertyValue('--input')).toContain('22%');
+      expect(host.style.getPropertyValue('--secondary')).toContain('color-mix');
+      expect(host.style.getPropertyValue('--popover')).toContain('oklch(1 0 0)');
+      expect(host.style.getPropertyValue('--shadow-sm')).toBe('');
+      // Light built-in presets set data-poexd-color-scheme="light" with zero inline overrides
+      applyThemeToHost(host, 'slate-mist', customJson);
+      expect(host.getAttribute(THEME_ATTRIBUTE)).toBe('slate-mist');
+      expect(host.getAttribute(THEME_COLOR_SCHEME_ATTRIBUTE)).toBe('light');
+      for (const prop of THEME_OVERRIDE_CSS_VARIABLES) {
+        expect(host.style.getPropertyValue(prop)).toBe('');
+      }
       cleanupPageThemeBridge();
     });
 

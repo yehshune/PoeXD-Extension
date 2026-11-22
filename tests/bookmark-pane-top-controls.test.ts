@@ -102,18 +102,20 @@ describe('Business Layer Migration Phase 2A — BookmarkPane Top Controls', () =
         /<Button[^>]*variant="outline"[^>]*size="sm"[^>]*class="flex-1 font-bold"/,
       );
 
-      // 全部展開 / 全部收合 Button
+      // 全部展開 / 全部收合 Button（與新建資料夾統一使用 outline，維持工具列視覺一致）
       expect(fixedSection).toMatch(
-        /<Button[^>]*variant="secondary"[^>]*size="sm"[^>]*class="font-bold"/,
+        /<Button[^>]*variant="outline"[^>]*size="sm"[^>]*class="font-bold"/,
       );
       expect(fixedSection).not.toContain('min-w-[calc(72px');
 
       // 搜尋切換 Button (icon-sm)
-      expect(fixedSection).toMatch(/<Button[^>]*variant="secondary"[^>]*size="icon-sm"/);
+      expect(fixedSection).toMatch(
+        /<Button[^>]*:variant="isSearchVisible \? 'default' : 'outline'"[^>]*size="icon-sm"/,
+      );
 
       // 匯入匯出更多操作 Button (icon-sm)
       expect(fixedSection).toMatch(
-        /<Button[^>]*variant="secondary"[^>]*size="icon-sm"[^>]*title=(?:"|&quot;)書籤匯入匯出操作(?:"|&quot;)/,
+        /<Button[^>]*variant="outline"[^>]*size="icon-sm"[^>]*title=(?:"|&quot;)書籤匯入匯出操作(?:"|&quot;)/,
       );
     });
 

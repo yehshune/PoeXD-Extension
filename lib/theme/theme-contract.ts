@@ -1,4 +1,16 @@
-export const PRESET_THEME_IDS = ['modern-dark', 'caffeine', 'catppuccin'] as const;
+export const PRESET_THEME_IDS = [
+  'modern-dark',
+  'caffeine',
+  'catppuccin',
+  'graphite-hud',
+  'nordic-slate',
+  'tactical-olive',
+  'roasted-cocoa',
+  'slate-mist',
+  'warm-parchment',
+  'celadon-haze',
+  'morandi-ash',
+] as const;
 export type PresetThemeId = (typeof PRESET_THEME_IDS)[number];
 
 export const THEME_IDS = [...PRESET_THEME_IDS, 'custom'] as const;
@@ -8,6 +20,8 @@ export const DEFAULT_THEME_ID: ThemeId = 'modern-dark';
 export const CUSTOM_THEME_ID = 'custom' satisfies ThemeId;
 
 export const THEME_ATTRIBUTE = 'data-poexd-theme';
+export const THEME_COLOR_SCHEME_ATTRIBUTE = 'data-poexd-color-scheme';
+export type ThemeColorScheme = 'light' | 'dark';
 
 export function isValidThemeId(value: unknown): value is ThemeId {
   return typeof value === 'string' && (THEME_IDS as readonly unknown[]).includes(value);
@@ -59,7 +73,7 @@ export type ThemeCustomColorKey = (typeof THEME_CUSTOM_COLOR_KEYS)[number];
 
 export const DEFAULT_THEME_OVERRIDES_JSON = '{}';
 
-/** 三個內建主題的原廠色票與圓角（供顯示與作為進入自訂時的起點） */
+/** 十一個內建主題的原廠色票與圓角（供顯示與作為進入自訂時的起點） */
 export const THEME_PRESETS: Readonly<Record<PresetThemeId, Readonly<ThemePresetValues>>> =
   Object.freeze({
     'modern-dark': Object.freeze({
@@ -85,6 +99,70 @@ export const THEME_PRESETS: Readonly<Record<PresetThemeId, Readonly<ThemePresetV
       primary: '#cba6f7',
       destructive: '#f38ba8',
       radius: '0.375rem',
+    }),
+    'graphite-hud': Object.freeze({
+      background: '#1e2026',
+      card: '#2a2d36',
+      foreground: '#eceef2',
+      primary: '#f59e0b',
+      destructive: '#f87171',
+      radius: '0.25rem',
+    }),
+    'slate-mist': Object.freeze({
+      background: '#cbd5e1',
+      card: '#b6c3d4',
+      foreground: '#0f172a',
+      primary: '#1d4ed8',
+      destructive: '#dc2626',
+      radius: '0.25rem',
+    }),
+    'nordic-slate': Object.freeze({
+      background: '#242933',
+      card: '#313846',
+      foreground: '#eceff4',
+      primary: '#88c0d0',
+      destructive: '#bf616a',
+      radius: '0.375rem',
+    }),
+    'warm-parchment': Object.freeze({
+      background: '#dfd8c8',
+      card: '#cfc6b2',
+      foreground: '#292218',
+      primary: '#9a3412',
+      destructive: '#b91c1c',
+      radius: '0.375rem',
+    }),
+    'tactical-olive': Object.freeze({
+      background: '#1d231f',
+      card: '#29322c',
+      foreground: '#e6ece8',
+      primary: '#6ee7b7',
+      destructive: '#fb7185',
+      radius: '0rem',
+    }),
+    'celadon-haze': Object.freeze({
+      background: '#ced8d2',
+      card: '#b9c7bf',
+      foreground: '#14241d',
+      primary: '#0f766e',
+      destructive: '#be123c',
+      radius: '0.5rem',
+    }),
+    'roasted-cocoa': Object.freeze({
+      background: '#241e1b',
+      card: '#332a26',
+      foreground: '#f2eae4',
+      primary: '#e09f67',
+      destructive: '#e56b6f',
+      radius: '0.375rem',
+    }),
+    'morandi-ash': Object.freeze({
+      background: '#d4cdd3',
+      card: '#c1b8c0',
+      foreground: '#1f1921',
+      primary: '#6d28d9',
+      destructive: '#be185d',
+      radius: '0.5rem',
     }),
   });
 
@@ -183,7 +261,95 @@ export function getOklabLightness(hex: string): number {
   return 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
 }
 
+/** OKLab 感知亮度門檻：高於此值視為淺色底，配深色字並啟用亮色語意調整 */
+export const OKLAB_LIGHT_THRESHOLD = 0.65;
+
+/** 判斷 `#rrggbb` 是否屬於淺色 */
+export function isLightColor(hex: string): boolean {
+  return getOklabLightness(hex) > OKLAB_LIGHT_THRESHOLD;
+}
+
+/** 依背景色亮度推導 `light` 或 `dark` 色彩方案 */
+export function resolveColorSchemeForHex(hex: string): ThemeColorScheme {
+  return isLightColor(hex) ? 'light' : 'dark';
+}
+
 /** 底色亮時配深色字、暗時配白字 */
 export function pickContrastForeground(hex: string): string {
-  return getOklabLightness(hex) > 0.7 ? 'oklch(0.2 0 0)' : 'oklch(1 0 0)';
+  return isLightColor(hex) ? 'oklch(0.2 0 0)' : 'oklch(1 0 0)';
+}
+
+const RADIUS_ALIAS_MAP: Readonly<Record<string, ThemeCustomRadius>> = Object.freeze({
+  '0': '0rem',
+  '0px': '0rem',
+  '0rem': '0rem',
+  直角: '0rem',
+  sharp: '0rem',
+  '4px': '0.25rem',
+  '0.25rem': '0.25rem',
+  微圓: '0.25rem',
+  subtle: '0.25rem',
+  '6px': '0.375rem',
+  '0.375rem': '0.375rem',
+  標準: '0.375rem',
+  standard: '0.375rem',
+  '8px': '0.5rem',
+  '0.5rem': '0.5rem',
+  圓潤: '0.5rem',
+  rounded: '0.5rem',
+});
+
+function resolveRadiusAlias(value: unknown): ThemeCustomRadius | undefined {
+  if (typeof value !== 'string') return undefined;
+  const key = value.trim().toLowerCase();
+  if (isValidThemeCustomRadius(key)) return key;
+  return RADIUS_ALIAS_MAP[key] ?? RADIUS_ALIAS_MAP[value.trim()];
+}
+
+/**
+ * 解析使用者貼上的自訂主題 JSON。
+ * 同時相容內部格式 `{ background, card, foreground, primary, destructive, radius }`
+ * 以及常見設計系統格式 `{ colors: { background, surface, text, primary, danger }, radius }`。
+ */
+export function parseThemeImportJson(raw: string): ThemePresetValues | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const record = parsed as Record<string, unknown>;
+  const colorsSource =
+    record.colors && typeof record.colors === 'object' && !Array.isArray(record.colors)
+      ? (record.colors as Record<string, unknown>)
+      : record;
+
+  const picked: ThemeOverride = {};
+  const mapField = (target: ThemeCustomColorKey, aliases: readonly string[]) => {
+    for (const alias of aliases) {
+      const val = colorsSource[alias];
+      if (isValidHexColor(val)) {
+        picked[target] = val.toLowerCase();
+        return;
+      }
+    }
+  };
+
+  mapField('background', ['background', 'bg']);
+  mapField('card', ['card', 'surface']);
+  mapField('foreground', ['foreground', 'text']);
+  mapField('primary', ['primary']);
+  mapField('destructive', ['destructive', 'danger']);
+
+  const radius = resolveRadiusAlias(record.radius ?? colorsSource.radius);
+  if (radius) picked.radius = radius;
+
+  if (Object.keys(picked).length === 0) return null;
+  return {
+    ...DEFAULT_CUSTOM_THEME_VALUES,
+    ...picked,
+  };
 }

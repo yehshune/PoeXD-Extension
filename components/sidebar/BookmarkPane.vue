@@ -19,7 +19,7 @@
         </Button>
         <div class="flex items-center gap-[var(--pxd-space-sm)] shrink-0">
           <Button
-            variant="secondary"
+            variant="outline"
             size="sm"
             class="font-bold"
             :title="isAllCollapsed ? t('common.expandAll') : t('common.collapseAll')"
@@ -31,7 +31,7 @@
             </span>
           </Button>
           <Button
-            :variant="isSearchVisible ? 'default' : 'secondary'"
+            :variant="isSearchVisible ? 'default' : 'outline'"
             size="icon-sm"
             :title="
               isSearchVisible ? t('bookmark.search.closeTooltip') : t('bookmark.search.tooltip')
@@ -44,7 +44,7 @@
             <DropdownMenu v-model:open="isTransferMenuOpen">
               <DropdownMenuTrigger as-child>
                 <Button
-                  variant="secondary"
+                  variant="outline"
                   size="icon-sm"
                   :title="
                     t('bookmark.transfer.menuTooltip') /* title=&quot;書籤匯入匯出操作&quot; */

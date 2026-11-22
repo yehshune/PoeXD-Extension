@@ -45,8 +45,16 @@ describe('Settings UI Metadata', () => {
     setActiveDisplayLocale('zh-TW');
     expect(THEME_LABELS).toEqual({
       'modern-dark': '現代暗色',
-      caffeine: '咖啡因',
-      catppuccin: '貓布奇諾',
+      caffeine: '暖黑拿鐵',
+      catppuccin: '深紫藍',
+      'graphite-hud': '暗灰琥珀',
+      'nordic-slate': '冷灰冰藍',
+      'tactical-olive': '暗綠薄荷',
+      'roasted-cocoa': '深褐焦糖',
+      'slate-mist': '柔灰淺藍',
+      'warm-parchment': '暖米紙色',
+      'celadon-haze': '霧青淺綠',
+      'morandi-ash': '淺灰紫調',
       custom: '自訂',
     });
 

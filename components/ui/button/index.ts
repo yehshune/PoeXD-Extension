@@ -10,9 +10,9 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'border border-border bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
+          'border border-transparent bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
         destructive:
-          'border border-border bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
+          'border border-transparent bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
         outline:
           'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground',
         secondary:

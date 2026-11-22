@@ -18,7 +18,7 @@ describe('result board format', () => {
 
   it('colours names by rarity and joins name with base', () => {
     const rare = toBoardEntry(rawResult({ id: 'a', name: 'Doom Shell', frameType: 2 }), 0)!;
-    expect(rarityColour(rare)).toBe('oklch(0.76 0.13 92)');
+    expect(rarityColour(rare)).toBe('var(--pxd-rarity-rare, oklch(0.76 0.13 92))');
     expect(entryTitle(rare)).toBe('Doom Shell Vaal Regalia');
     const plain = toBoardEntry(rawResult({ id: 'b', frameType: 99 }), 0)!;
     expect(rarityColour(plain)).toBe('var(--foreground)');

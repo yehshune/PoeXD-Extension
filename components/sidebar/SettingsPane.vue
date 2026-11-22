@@ -41,7 +41,7 @@
           v-else
           data-settings-nav
           :aria-label="t('settings.nav.ariaLabel')"
-          class="flex min-w-0 flex-1 flex-wrap items-center gap-[var(--pxd-space-xs)]"
+          class="flex min-w-0 flex-1 flex-wrap items-center gap-[3px]"
         >
           <button
             v-for="item in SECTION_NAV_ITEMS"
@@ -50,10 +50,10 @@
             :data-settings-nav-target="item.id"
             :data-active="activeSection === item.id ? 'true' : undefined"
             :class="[
-              'inline-flex cursor-pointer items-center rounded-sm border px-[var(--pxd-space-sm)] py-[2px] text-[length:var(--pxd-font-caption)] leading-snug transition-colors',
+              'inline-flex cursor-pointer items-center rounded-sm border px-[5px] py-[2px] text-[length:var(--pxd-font-caption)] leading-snug transition-colors',
               activeSection === item.id
                 ? 'border-primary/50 bg-primary/15 font-medium text-foreground'
-                : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                : 'border-border/60 bg-card text-muted-foreground hover:bg-muted/60 hover:text-foreground',
             ]"
             @click="openSection(item.id)"
           >
@@ -61,10 +61,10 @@
           </button>
         </nav>
 
-        <div class="flex shrink-0 items-center gap-[var(--pxd-space-sm)]">
+        <div class="flex shrink-0 items-center gap-[var(--pxd-space-xs)]">
           <Button
             type="button"
-            :variant="isSearchVisible ? 'default' : 'secondary'"
+            :variant="isSearchVisible ? 'default' : 'outline'"
             size="icon-sm"
             data-settings-search-toggle
             :aria-pressed="isSearchVisible"
@@ -434,15 +434,30 @@
                 size="sm"
                 :aria-pressed="theme === themeId"
                 :data-custom-preset="themeId"
+                class="gap-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)]"
                 @click="selectThemePreset(themeId)"
               >
-                {{ THEME_LABELS[themeId] }}
+                <span
+                  v-if="getThemeSwatchColors(themeId)"
+                  class="inline-flex items-center -space-x-1 shrink-0"
+                  aria-hidden="true"
+                >
+                  <span
+                    class="size-2.5 rounded-full border border-border/80"
+                    :style="{ backgroundColor: getThemeSwatchColors(themeId)!.background }"
+                  />
+                  <span
+                    class="size-2.5 rounded-full border border-border/80"
+                    :style="{ backgroundColor: getThemeSwatchColors(themeId)!.primary }"
+                  />
+                </span>
+                <span>{{ THEME_LABELS[themeId] }}</span>
               </Button>
             </div>
           </SettingsRow>
           <div
             data-settings-group="theme-custom-colors"
-            class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
+            class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-sm)]"
           >
             <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
               {{ t('settings.theme.custom.hint') }}
@@ -455,10 +470,21 @@
               :control-id="`theme-custom-${row.key}`"
             >
               <template #default="{ describedBy }">
-                <label
-                  class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-muted-foreground font-mono uppercase cursor-pointer"
-                >
-                  {{ previewColors[row.key] ?? activeThemeValues[row.key] }}
+                <div class="flex items-center gap-[var(--pxd-space-sm)]">
+                  <Input
+                    type="text"
+                    size="sm"
+                    maxlength="7"
+                    spellcheck="false"
+                    autocomplete="off"
+                    :data-custom-hex="row.key"
+                    :aria-label="t('settings.theme.custom.hexAria', { label: t(row.labelKey) })"
+                    :model-value="getThemeHexDisplayValue(row.key)"
+                    class="w-[82px] text-center font-mono text-[length:var(--pxd-font-caption)] uppercase"
+                    @input="handleThemeHexTextInput(row.key, $event)"
+                    @blur="handleThemeHexTextBlur(row.key)"
+                    @keydown.enter.prevent="handleThemeHexTextBlur(row.key)"
+                  />
                   <input
                     :id="`theme-custom-${row.key}`"
                     type="color"
@@ -468,7 +494,7 @@
                     @input="handleThemeCustomColorInput(row.key, $event)"
                     @change="handleThemeCustomColorChange(row.key, $event)"
                   />
-                </label>
+                </div>
               </template>
             </SettingsRow>
             <SettingsRow
@@ -496,11 +522,91 @@
                 </Button>
               </div>
             </SettingsRow>
-            <div class="flex justify-end">
+
+            <!-- 即時元件與詞綴對比預覽 -->
+            <div
+              data-test="theme-live-preview"
+              class="flex flex-col gap-[var(--pxd-space-sm)] rounded-md border border-border bg-background p-[var(--pxd-space-md)]"
+            >
+              <div class="flex items-center justify-between gap-[var(--pxd-space-xs)]">
+                <span class="text-[length:var(--pxd-font-micro)] text-muted-foreground">
+                  {{ t('settings.theme.custom.preview') }}
+                </span>
+                <div class="flex items-center gap-[var(--pxd-space-xs)]">
+                  <span
+                    class="inline-flex items-center rounded-sm bg-primary px-1.5 py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-primary-foreground"
+                  >
+                    {{ t('settings.theme.custom.previewPrimary') }}
+                  </span>
+                  <span
+                    class="inline-flex items-center rounded-sm border border-border bg-secondary px-1.5 py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-secondary-foreground"
+                  >
+                    {{ t('settings.theme.custom.previewSecondary') }}
+                  </span>
+                  <span
+                    class="inline-flex items-center rounded-sm bg-destructive px-1.5 py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-destructive-foreground"
+                  >
+                    {{ t('settings.theme.custom.previewDestructive') }}
+                  </span>
+                </div>
+              </div>
+              <div
+                class="flex flex-wrap items-center gap-[var(--pxd-space-xs)] rounded-sm border border-border bg-card px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
+              >
+                <span
+                  class="pxd-stat-domain-badge rounded-sm px-1.5 py-0.5 font-medium"
+                  data-stat-domain="implicit"
+                  style="--pxd-stat-color: var(--pxd-stat-implicit)"
+                >
+                  {{ t('settings.theme.custom.previewImplicit') }}
+                </span>
+                <span
+                  class="pxd-stat-domain-badge rounded-sm px-1.5 py-0.5 font-medium"
+                  data-stat-domain="crafted"
+                  style="--pxd-stat-color: var(--pxd-stat-crafted)"
+                >
+                  {{ t('settings.theme.custom.previewCrafted') }}
+                </span>
+                <span
+                  class="pxd-stat-domain-badge rounded-sm px-1.5 py-0.5 font-medium"
+                  data-stat-domain="fractured"
+                  style="--pxd-stat-color: var(--pxd-stat-fractured)"
+                >
+                  {{ t('settings.theme.custom.previewFractured') }}
+                </span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-[var(--pxd-space-xs)]">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                class="px-[var(--pxd-space-sm)]"
+                data-test="theme-custom-copy"
+                @click="copyActiveThemeJson"
+              >
+                {{
+                  themeJsonCopied
+                    ? t('settings.theme.custom.copiedJson')
+                    : t('settings.theme.custom.copyJson')
+                }}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                class="px-[var(--pxd-space-sm)]"
+                data-test="theme-custom-import"
+                @click="importCustomThemeJson"
+              >
+                {{ t('settings.theme.custom.importJson') }}
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                class="ml-auto px-[var(--pxd-space-sm)]"
                 data-test="theme-custom-reset"
                 :disabled="!hasActiveThemeOverride"
                 @click="resetActiveThemeOverrides"
@@ -718,8 +824,11 @@ import {
 } from '@/utils/preferences-contract';
 import {
   DEFAULT_THEME_OVERRIDES_JSON,
+  THEME_PRESETS,
+  isPresetThemeId,
   parseCustomThemeOverride,
   parseCustomThemeValues,
+  parseThemeImportJson,
   resolveThemeEffectiveValues,
   serializeCustomThemeOverride,
   type ThemeCustomColorKey,
@@ -994,6 +1103,10 @@ export default defineComponent({
       stopScrollSpy?.();
       clearTimeout(highlightTimer);
       clearPendingColorSave();
+      if (themeJsonCopiedTimer !== undefined) {
+        clearTimeout(themeJsonCopiedTimer);
+        themeJsonCopiedTimer = undefined;
+      }
     });
 
     const handleFontSizeScaleChange = (scale: number) => {
@@ -1137,14 +1250,116 @@ export default defineComponent({
 
     const selectThemePreset = (themeId: ThemeId) => {
       flushPendingColorSave();
+      clearHexTextDrafts();
       preferenceState.theme = themeId;
       void updatePreferences({ theme: themeId });
     };
 
     const resetActiveThemeOverrides = () => {
       clearPendingColorSave();
+      clearHexTextDrafts();
       preferenceState.themeCustomOverrides = DEFAULT_THEME_OVERRIDES_JSON;
       void updatePreferences({ themeCustomOverrides: DEFAULT_THEME_OVERRIDES_JSON });
+    };
+
+    const hexTextDrafts = reactive<Partial<Record<ThemeCustomColorKey, string>>>({});
+    const clearHexTextDrafts = () => {
+      for (const key of Object.keys(hexTextDrafts) as ThemeCustomColorKey[]) {
+        delete hexTextDrafts[key];
+      }
+    };
+
+    const getThemeHexDisplayValue = (key: ThemeCustomColorKey): string =>
+      hexTextDrafts[key] ?? (previewColors[key] ?? activeThemeValues.value[key]).toUpperCase();
+
+    const normalizeHexTextInput = (raw: string): string | null => {
+      const trimmed = raw.trim();
+      const candidate = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+      return isValidHexColor(candidate) ? candidate.toLowerCase() : null;
+    };
+
+    const handleThemeHexTextInput = (key: ThemeCustomColorKey, event: Event) => {
+      const raw = (event.target as HTMLInputElement | null)?.value ?? '';
+      hexTextDrafts[key] = raw.toUpperCase();
+      const normalized = normalizeHexTextInput(raw);
+      if (!normalized) return;
+      if (theme.value !== 'custom' && Object.keys(pendingPreviewPatch).length === 0) {
+        pendingPreviewPatch = { ...activeThemeValues.value, [key]: normalized };
+      } else {
+        pendingPreviewPatch = { ...pendingPreviewPatch, [key]: normalized };
+      }
+      schedulePreviewPatch({ [key]: normalized });
+      if (pendingOverridesSaveTimer !== undefined) clearTimeout(pendingOverridesSaveTimer);
+      pendingOverridesSaveTimer = setTimeout(flushPendingColorSave, 250);
+    };
+
+    const handleThemeHexTextBlur = (key: ThemeCustomColorKey) => {
+      const draft = hexTextDrafts[key];
+      delete hexTextDrafts[key];
+      if (draft === undefined) return;
+      const normalized = normalizeHexTextInput(draft);
+      if (!normalized) return;
+      pendingPreviewPatch = { ...pendingPreviewPatch, [key]: normalized };
+      flushPendingColorSave();
+    };
+
+    const getThemeSwatchColors = (
+      themeId: ThemeId,
+    ): { background: string; primary: string } | null => {
+      if (isPresetThemeId(themeId)) {
+        const preset = THEME_PRESETS[themeId];
+        return { background: preset.background, primary: preset.primary };
+      }
+      return null;
+    };
+
+    const themeJsonCopied = ref(false);
+    let themeJsonCopiedTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const copyActiveThemeJson = async () => {
+      const payload = JSON.stringify(activeThemeValues.value, null, 2);
+      try {
+        await navigator.clipboard?.writeText?.(payload);
+        themeJsonCopied.value = true;
+        if (themeJsonCopiedTimer !== undefined) clearTimeout(themeJsonCopiedTimer);
+        themeJsonCopiedTimer = setTimeout(() => {
+          themeJsonCopied.value = false;
+          themeJsonCopiedTimer = undefined;
+        }, 1500);
+      } catch {
+        // Clipboard API unavailable in restricted contexts
+      }
+    };
+
+    const importCustomThemeJson = async () => {
+      const promptFn = (
+        window as { poexdPrompt?: (msg: string, def?: string) => Promise<string | null> }
+      ).poexdPrompt;
+      const raw =
+        typeof promptFn === 'function'
+          ? await promptFn(t('settings.theme.custom.importPrompt'), '')
+          : typeof window !== 'undefined' && typeof window.prompt === 'function'
+            ? window.prompt(t('settings.theme.custom.importPrompt'), '')
+            : null;
+      if (!raw) return;
+      const parsed = parseThemeImportJson(raw);
+      if (!parsed) {
+        const alertFn = (window as { poexdAlert?: (msg: string, title?: string) => Promise<void> })
+          .poexdAlert;
+        if (typeof alertFn === 'function') {
+          await alertFn(
+            t('settings.theme.custom.importInvalid'),
+            t('settings.theme.custom.importJson'),
+          );
+        }
+        return;
+      }
+      clearPendingColorSave();
+      clearHexTextDrafts();
+      const serialized = serializeCustomThemeOverride(parsed);
+      preferenceState.theme = 'custom';
+      preferenceState.themeCustomOverrides = serialized;
+      void updatePreferences({ theme: 'custom', themeCustomOverrides: serialized });
     };
 
     const savePreference = (key: keyof Preferences) => {
@@ -1356,6 +1571,13 @@ export default defineComponent({
       handleThemeCustomColorInput,
       handleThemeCustomColorChange,
       handleThemeCustomRadiusChange,
+      getThemeHexDisplayValue,
+      handleThemeHexTextInput,
+      handleThemeHexTextBlur,
+      getThemeSwatchColors,
+      themeJsonCopied,
+      copyActiveThemeJson,
+      importCustomThemeJson,
       selectThemePreset,
       resetActiveThemeOverrides,
       displayLocale,

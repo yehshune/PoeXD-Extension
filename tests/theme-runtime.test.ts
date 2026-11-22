@@ -22,16 +22,37 @@ describe('Theme Foundation — Formal Theme System (Modern-Dark, Caffeine & Catp
   // 1. Theme Contract SSOT & Normalization
   // ---------------------------------------------------------------------------
   describe('1. Theme Contract SSOT & Normalization', () => {
-    it('defines canonical THEME_IDS as ["modern-dark", "caffeine", "catppuccin", "custom"] and DEFAULT_THEME_ID as "modern-dark"', () => {
-      expect(THEME_IDS).toEqual(['modern-dark', 'caffeine', 'catppuccin', 'custom']);
+    it('defines canonical THEME_IDS with all 11 built-in presets + custom and DEFAULT_THEME_ID as "modern-dark"', () => {
+      expect(THEME_IDS).toEqual([
+        'modern-dark',
+        'caffeine',
+        'catppuccin',
+        'graphite-hud',
+        'nordic-slate',
+        'tactical-olive',
+        'roasted-cocoa',
+        'slate-mist',
+        'warm-parchment',
+        'celadon-haze',
+        'morandi-ash',
+        'custom',
+      ]);
       expect(DEFAULT_THEME_ID).toBe('modern-dark');
       expect(THEME_ATTRIBUTE).toBe('data-poexd-theme');
     });
 
-    it('strictly validates ThemeId allowing only "modern-dark", "caffeine", "catppuccin", and "custom"', () => {
+    it('strictly validates ThemeId allowing only built-in presets and custom', () => {
       expect(isValidThemeId('modern-dark')).toBe(true);
       expect(isValidThemeId('caffeine')).toBe(true);
       expect(isValidThemeId('catppuccin')).toBe(true);
+      expect(isValidThemeId('graphite-hud')).toBe(true);
+      expect(isValidThemeId('slate-mist')).toBe(true);
+      expect(isValidThemeId('nordic-slate')).toBe(true);
+      expect(isValidThemeId('warm-parchment')).toBe(true);
+      expect(isValidThemeId('tactical-olive')).toBe(true);
+      expect(isValidThemeId('celadon-haze')).toBe(true);
+      expect(isValidThemeId('roasted-cocoa')).toBe(true);
+      expect(isValidThemeId('morandi-ash')).toBe(true);
       expect(isValidThemeId('custom')).toBe(true);
       expect(isValidThemeId('poexd-dark')).toBe(false);
       expect(isValidThemeId('light')).toBe(false);

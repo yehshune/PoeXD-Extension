@@ -362,7 +362,7 @@ function setMinSellerCount(value: string | number): void {
           <DropdownMenu v-if="view === 'items'" v-model:open="isSortMenuOpen">
             <DropdownMenuTrigger as-child>
               <Button
-                :variant="sortMode !== 'official' ? 'default' : 'secondary'"
+                :variant="sortMode !== 'official' ? 'default' : 'outline'"
                 size="icon-sm"
                 :title="t('resultBoard.sort.title')"
                 :aria-label="t('resultBoard.sort.title')"
@@ -388,7 +388,7 @@ function setMinSellerCount(value: string | number): void {
             </DropdownMenuContent>
           </DropdownMenu>
           <Button
-            :variant="isSearchVisible ? 'default' : 'secondary'"
+            :variant="isSearchVisible ? 'default' : 'outline'"
             size="icon-sm"
             class="shrink-0"
             data-board-search-toggle
@@ -404,7 +404,7 @@ function setMinSellerCount(value: string | number): void {
             <Search />
           </Button>
           <Button
-            variant="secondary"
+            variant="outline"
             size="icon-sm"
             class="shrink-0"
             data-board-expand-toggle

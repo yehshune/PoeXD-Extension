@@ -73,8 +73,8 @@
       class="bookmark-item-actions pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] flex items-center shrink-0 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
       :class="
         isCurrentBookmark || isPreviewActive
-          ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--background))]'
-          : '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_40%,var(--background))]'
+          ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--card))]'
+          : '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_40%,var(--card))]'
       "
     >
       <Button
