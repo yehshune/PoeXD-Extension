@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { t } from '@/utils/i18n';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { getTierParts, getTierValues, type TierDropdownItemSpec } from '@/utils/tier-slot-registry';
+import {
+  getTierParts,
+  getTierValues,
+  parseTierTagParts,
+  type TierDropdownItemSpec,
+} from '@/utils/tier-slot-registry';
 
 defineProps<{
   items: TierDropdownItemSpec[];
@@ -15,7 +20,9 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex-1 min-h-0 overflow-y-auto pxd-scrollbar flex flex-col gap-[var(--pxd-space-xs)]">
+  <div
+    class="flex-1 min-h-0 overflow-y-auto pxd-scrollbar flex flex-col gap-[var(--pxd-space-xs)] p-0.5 pr-1.5"
+  >
     <template v-for="item in items" :key="item.id">
       <!-- 一般靜態狀態列 (例如無可用類別提示，繼承一般 menu item 尺寸) -->
       <DropdownMenuItem
@@ -31,24 +38,29 @@ const emit = defineEmits<{
       <div
         v-else-if="item.type === 'tier'"
         data-slot="tier-row"
-        class="shrink-0 flex items-center justify-between gap-[var(--pxd-space-xs)] px-[var(--pxd-space-xs)] py-0.5 rounded transition-colors group cursor-pointer"
+        role="button"
+        tabindex="0"
+        class="shrink-0 flex items-center justify-between gap-[var(--pxd-space-xs)] px-[var(--pxd-space-xs)] py-0.5 rounded border transition-colors group cursor-pointer focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
         :class="[
-          isTierSelected(item) ? 'bg-primary/15 ring-1 ring-primary/40' : 'hover:bg-accent/50',
+          isTierSelected(item)
+            ? 'bg-primary/15 border-primary/50'
+            : 'border-transparent hover:bg-accent/50',
         ]"
         @click="emit('toggleTier', item)"
+        @keydown.enter.prevent="emit('toggleTier', item)"
+        @keydown.space.prevent="emit('toggleTier', item)"
       >
-        <!-- 1. 階級與等級 (左側區域為點擊熱區，點選切換範圍選取並即時連動套用) -->
+        <!-- 1. 階級與等級 (左側區域為點擊熱區，固定欄寬垂直對齊，點選切換範圍選取並即時連動套用) -->
         <div class="flex-1 min-w-0 flex items-center">
           <div
             v-if="getTierParts(item).tag"
             data-tier-action="tune"
-            class="text-[length:var(--pxd-font-secondary)] font-mono font-medium transition-colors select-none px-[var(--pxd-space-xs)] py-0.5 rounded text-left"
-            :class="[
-              getTierParts(item).tag.includes('Lv') ? 'min-w-[76px]' : 'min-w-[32px]',
+            class="inline-flex items-baseline font-mono transition-colors select-none px-[var(--pxd-space-xs)] py-0.5 text-left whitespace-nowrap"
+            :class="
               isTierSelected(item)
                 ? 'text-primary font-bold'
-                : 'text-muted-foreground group-hover:text-foreground',
-            ]"
+                : 'text-muted-foreground font-medium group-hover:text-foreground'
+            "
             :title="
               getTierValues(item).min || getTierValues(item).max
                 ? t('tierDropdown.rangeSelectTitle', {
@@ -58,7 +70,28 @@ const emit = defineEmits<{
                 : t('tierDropdown.tierSelectTitle')
             "
           >
-            {{ getTierParts(item).tag }}
+            <template v-if="parseTierTagParts(getTierParts(item).tag).level">
+              <span
+                class="inline-block w-[30px] shrink-0 text-[length:var(--pxd-font-secondary)]"
+                :class="
+                  isTierSelected(item)
+                    ? 'text-primary font-bold'
+                    : 'text-foreground/90 font-medium group-hover:text-foreground'
+                "
+                >{{ parseTierTagParts(getTierParts(item).tag).tier }}</span
+              >{{ ' ' }}<span
+                class="text-[length:var(--pxd-font-caption)]"
+                :class="
+                  isTierSelected(item)
+                    ? 'text-primary/80'
+                    : 'text-muted-foreground/80 group-hover:text-muted-foreground'
+                "
+                >{{ parseTierTagParts(getTierParts(item).tag).level }}</span
+              >
+            </template>
+            <span v-else class="text-[length:var(--pxd-font-secondary)]">{{
+              getTierParts(item).tag
+            }}</span>
           </div>
           <div
             v-else
@@ -82,7 +115,7 @@ const emit = defineEmits<{
             <button
               type="button"
               data-tier-action="min"
-              class="h-[24px] min-w-[46px] px-[var(--pxd-space-xs)] py-0 cursor-pointer justify-center text-center font-mono hover:bg-accent hover:text-accent-foreground text-foreground select-none transition-colors"
+              class="h-[24px] min-w-[46px] px-[var(--pxd-space-xs)] py-0 cursor-pointer justify-center text-center font-mono hover:bg-accent hover:text-accent-foreground text-foreground select-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-hidden"
               :title="t('tierDropdown.fillMinTitle', { min: getTierValues(item).min })"
               @click="emit('selectTier', item, 'min')"
             >
@@ -93,7 +126,7 @@ const emit = defineEmits<{
             <button
               type="button"
               data-tier-action="both"
-              class="h-[24px] w-[32px] px-[var(--pxd-space-xs)] py-0 cursor-pointer justify-center text-center font-mono font-bold text-primary hover:bg-primary hover:text-primary-foreground select-none transition-colors"
+              class="h-[24px] w-[32px] px-[var(--pxd-space-xs)] py-0 cursor-pointer justify-center text-center font-mono font-bold bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground select-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-hidden"
               :title="
                 t('tierDropdown.fillBothTitle', {
                   min: getTierValues(item).min,
@@ -109,7 +142,7 @@ const emit = defineEmits<{
             <button
               type="button"
               data-tier-action="max"
-              class="h-[24px] min-w-[46px] px-[var(--pxd-space-xs)] py-0 cursor-pointer justify-center text-center font-mono hover:bg-accent hover:text-accent-foreground text-foreground select-none transition-colors"
+              class="h-[24px] min-w-[46px] px-[var(--pxd-space-xs)] py-0 cursor-pointer justify-center text-center font-mono text-muted-foreground hover:bg-accent hover:text-accent-foreground select-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-hidden"
               :title="t('tierDropdown.fillMaxTitle', { max: getTierValues(item).max })"
               @click="emit('selectTier', item, 'max')"
             >

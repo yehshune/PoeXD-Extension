@@ -421,8 +421,8 @@ export interface HostTierTriggerSpec {
 }
 
 export const HOST_TIER_TRIGGER_SPEC: Readonly<HostTierTriggerSpec> = Object.freeze({
-  widthPx: 20,
-  fontPx: 11,
+  widthPx: 24,
+  fontPx: 12,
   lineHeightPx: 14,
   paddingXPx: 4,
   fontWeight: 600,

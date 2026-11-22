@@ -4,6 +4,7 @@ export interface TierDropdownItemSpec {
   id: string;
   type: 'switch_category' | 'trigger_modal' | 'header' | 'tier' | 'mod_group_option';
   label: string;
+  categoryLabel?: string;
   tierName?: string;
   tierLevel?: number;
   rangeText?: string;
@@ -59,6 +60,17 @@ export function getTierParts(item: TierDropdownItemSpec): { tag: string; range: 
 }
 
 /**
+ * 將 "T1 (Lv.86)" 拆分為階級代碼 ("T1") 與等級標籤 ("(Lv.86)")，便於固定欄寬垂直對齊
+ */
+export function parseTierTagParts(tag: string): { tier: string; level: string } {
+  const match = tag.match(/^(T\d+)\s*(\(Lv\.\d+\))$/);
+  if (match) {
+    return { tier: match[1], level: match[2] };
+  }
+  return { tier: tag, level: '' };
+}
+
+/**
  * 取得 Tier 項目的最小與最大數值，單一數值時兩者相同
  */
 export function getTierValues(item: TierDropdownItemSpec): { min: string; max: string } {
@@ -72,6 +84,7 @@ export interface TierSlotDescriptor {
   targetEl: HTMLElement;
   items: TierDropdownItemSpec[];
   onSelect: (item: TierDropdownItemSpec, mode?: 'min' | 'both' | 'max') => void;
+  getCurrentValues?: () => { min: string; max: string };
 }
 
 /**

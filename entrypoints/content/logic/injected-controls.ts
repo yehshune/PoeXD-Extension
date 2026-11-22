@@ -133,6 +133,16 @@ export function injectCustomStyles(): void {
       color: var(--accent-foreground) !important;
       background-color: var(--accent) !important;
     }
+    .poexd-tier-trigger[data-tier-active="true"] {
+      color: var(--primary) !important;
+      border-color: var(--primary) !important;
+    }
+    .poexd-tier-trigger[data-state="open"],
+    .poexd-tier-trigger[aria-expanded="true"] {
+      background-color: var(--accent) !important;
+      color: var(--primary) !important;
+      border-color: var(--primary) !important;
+    }
     .poexd-tier-trigger:focus,
     .poexd-tier-trigger:focus-visible {
       outline: none !important;
@@ -404,11 +414,12 @@ export function createTierSlotDomainData(
 ): {
   items: TierDropdownItemSpec[];
   onSelect: (item: TierDropdownItemSpec, mode?: 'min' | 'both' | 'max') => void;
+  getCurrentValues: () => { min: string; max: string };
 } {
   const effectiveStatId = statId ?? filterEl.getAttribute('data-poexd-stat-id');
   const eligibility = options.tierDomainService.resolveTierModEligibility(tiers, effectiveStatId);
   if (!eligibility.isEligible) {
-    return { items: [], onSelect: () => {} };
+    return { items: [], onSelect: () => {}, getCurrentValues: () => ({ min: '', max: '' }) };
   }
 
   const { normalTiers, availableTypes: typeList } = eligibility;
@@ -417,7 +428,10 @@ export function createTierSlotDomainData(
   const gIdx = gIdxAttr !== null ? Number(gIdxAttr) : null;
   const fIdx = fIdxAttr !== null ? Number(fIdxAttr) : null;
 
-  const applyValues = (minVal: string, maxVal: string) => {
+  const findMinMaxInputs = (): {
+    minInput: HTMLInputElement | null;
+    maxInput: HTMLInputElement | null;
+  } => {
     let minInput: HTMLInputElement | null = null;
     let maxInput: HTMLInputElement | null = null;
 
@@ -443,6 +457,19 @@ export function createTierSlotDomainData(
         maxInput = inputs[1];
       }
     }
+    return { minInput, maxInput };
+  };
+
+  const getCurrentValues = (): { min: string; max: string } => {
+    const { minInput, maxInput } = findMinMaxInputs();
+    return {
+      min: minInput?.value ?? '',
+      max: maxInput?.value ?? '',
+    };
+  };
+
+  const applyValues = (minVal: string, maxVal: string) => {
+    const { minInput, maxInput } = findMinMaxInputs();
 
     if (minInput) {
       minInput.value = minVal;
@@ -476,6 +503,7 @@ export function createTierSlotDomainData(
       id: 'switch_category',
       type: 'switch_category',
       label: t('tierDropdown.switchCategory', { category: categoryLabel }),
+      categoryLabel,
     });
 
     const filtered = options.tierDomainService.filterTiersByCategory(normalTiers, activeType);
@@ -583,6 +611,7 @@ export function createTierSlotDomainData(
         targetEl: slotEl,
         items: nextData.items,
         onSelect: nextData.onSelect,
+        getCurrentValues: nextData.getCurrentValues,
       });
     } else if (item.type === 'tier') {
       if (mode === 'both') {
@@ -595,7 +624,7 @@ export function createTierSlotDomainData(
     }
   };
 
-  return { items, onSelect };
+  return { items, onSelect, getCurrentValues };
 }
 
 export function createInjectedControls(options: InjectedControlsOptions): InjectedControls {
@@ -870,13 +899,19 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
       }
 
       const slotKey = slotEl.getAttribute('data-poexd-slot-key') || `tier-slot-${statId}`;
-      const { items, onSelect } = createTierSlotDomainDataBound(tiers, filterEl, slotEl, statId);
+      const { items, onSelect, getCurrentValues } = createTierSlotDomainDataBound(
+        tiers,
+        filterEl,
+        slotEl,
+        statId,
+      );
 
       discoveredSlots.push({
         key: slotKey,
         targetEl: slotEl,
         items,
         onSelect,
+        getCurrentValues,
       });
     });
 
@@ -914,13 +949,19 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
       return false;
     }
 
-    const { items, onSelect } = createTierSlotDomainDataBound(tiers, filterEl, slotEl, statId);
+    const { items, onSelect, getCurrentValues } = createTierSlotDomainDataBound(
+      tiers,
+      filterEl,
+      slotEl,
+      statId,
+    );
 
     upsertTierSlot({
       key: slotKey,
       targetEl: slotEl,
       items,
       onSelect,
+      getCurrentValues,
     });
     return true;
   };

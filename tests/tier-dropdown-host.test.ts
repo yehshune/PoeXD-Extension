@@ -633,20 +633,22 @@ describe('TierDropdownHost (Native Reka + Vue Teleport & Foundation Compliance)'
     );
     expect(groupButtons).toHaveLength(2);
 
-    // Option 0 (active, even)
+    // Option 0 (active -> primary accent left bar & tint)
     const opt0 = groupButtons![0];
     expect(opt0.className).toContain('shrink-0');
     expect(opt0.className).toContain('border-b');
     expect(opt0.className).toContain('bg-primary/15');
+    expect(opt0.className).toContain('border-l-primary');
     expect(opt0.textContent).toContain('✓');
     expect(opt0.innerHTML).toContain('var(--pxd-font-caption)');
     expect(opt0.innerHTML).not.toContain('var(--pxd-font-small)');
 
-    // Option 1 (inactive, odd -> zebra bg-muted/30, unified hover, wrappable)
+    // Option 1 (inactive -> clean transparent surface without zebra noise, unified hover, wrappable)
     const opt1 = groupButtons![1];
     expect(opt1.className).toContain('shrink-0');
     expect(opt1.className).toContain('border-b');
-    expect(opt1.className).toContain('bg-muted/30');
+    expect(opt1.className).toContain('bg-transparent');
+    expect(opt1.className).toContain('border-l-transparent');
     expect(opt1.className).toContain('hover:bg-accent/50');
     expect(opt1.textContent).toContain('增加#%能量護盾\n#最大生命');
     expect(opt1.innerHTML).toContain('break-words');
@@ -1342,7 +1344,7 @@ describe('Chromium Regressions (Native Reka + Vue Teleport Phase 3)', () => {
     expect(css).toMatch(/\.poexd-tier-trigger-slot\s*\{[^}]*position:\s*relative\s*!important/);
     expect(css).toMatch(/\.poexd-tier-trigger-slot\s*\{[^}]*vertical-align:\s*middle\s*!important/);
     expect(css).toMatch(/\.poexd-tier-trigger-slot\s*\{[^}]*white-space:\s*nowrap\s*!important/);
-    expect(css).toMatch(/\.poexd-tier-trigger-slot\s*\{[^}]*width:\s*20px\s*!important/);
+    expect(css).toMatch(/\.poexd-tier-trigger-slot\s*\{[^}]*width:\s*24px\s*!important/);
 
     enhancements.cleanup();
   });
