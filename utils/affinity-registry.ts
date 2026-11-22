@@ -183,7 +183,7 @@ export const poe1AffinityProfile: AffinityProfile = {
       return ['veiled'];
     }
     if (statId.startsWith('implicit.')) {
-      return ['normal', 'corrupted', 'synthesis'];
+      return ['normal', 'corrupted', 'synthesis', 'searing', 'eater'];
     }
     return ['normal'];
   },
@@ -329,7 +329,7 @@ export const commonAffinityProfile: CommonAffinityProfile = {
       return ['veiled'];
     }
     if (statId.startsWith('implicit.')) {
-      return ['normal', 'corrupted', 'synthesis'];
+      return ['normal', 'corrupted', 'synthesis', 'searing', 'eater'];
     }
     return ['normal'];
   },

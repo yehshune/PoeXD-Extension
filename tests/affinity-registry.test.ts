@@ -41,6 +41,8 @@ describe('Affinity Registry & Version Profiles', () => {
         'normal',
         'corrupted',
         'synthesis',
+        'searing',
+        'eater',
       ]);
     });
 

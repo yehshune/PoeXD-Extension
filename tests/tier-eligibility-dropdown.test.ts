@@ -577,11 +577,26 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
         'normal',
         'corrupted',
         'synthesis',
+        'searing',
+        'eater',
       ]);
       expect(resolveTargetAffinitiesByStatId('explicit.stat_12345')).toEqual(['normal']);
       expect(resolveTargetAffinitiesByStatId('fractured.stat_12345')).toEqual(['normal']);
       expect(resolveTargetAffinitiesByStatId(null)).toEqual(['normal']);
       expect(resolveTargetAffinitiesByStatId(undefined)).toEqual(['normal']);
+    });
+
+    it('PoE 1 只有灼燒/吞噬天地階級的固定詞綴（如胸甲的戰吼增益效果）仍有 T 階按鈕', () => {
+      const eldritchTiers = [
+        { level: 1, types: ['body-armour'], affinities: ['searing'], values: [['19', '20']] },
+        { level: 1, types: ['body-armour'], affinities: ['searing'], values: [['21', '22']] },
+        { level: 1, types: ['helmet'], affinities: ['eater'], values: [['5', '6']] },
+      ];
+
+      const result = resolveTierModEligibility(eldritchTiers, 'implicit.stat_3037553757', 'poe1');
+      expect(result.isEligible).toBe(true);
+      expect(filterTiersByCategory(result.normalTiers, 'body-armour')).toHaveLength(2);
+      expect(filterTiersByCategory(result.normalTiers, 'helmet')).toHaveLength(1);
     });
 
     it('resolveTierModEligibility 依據 statId 前綴篩選相應 affinity 階級', () => {
