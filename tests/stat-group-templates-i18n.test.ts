@@ -7,7 +7,7 @@ import StatGroupTemplatePane from '@/components/sidebar/stat-group-templates/Sta
 import {
   createCriteriaOverlayManager,
   statGroupTemplateStorageKey,
-} from '@/components/injected/criteria-overlay-manager';
+} from '@/entrypoints/content/logic/criteria-overlay-manager';
 import { createInMemoryPreferencesStorage } from '@/utils/preferences';
 import { setActiveDisplayLocale, resetI18nStateForTests } from '@/utils/i18n';
 

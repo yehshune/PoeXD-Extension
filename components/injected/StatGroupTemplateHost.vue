@@ -22,7 +22,7 @@ import {
   filterTemplates,
   useCriteriaOverlayManager,
   type StatGroupTemplate,
-} from './criteria-overlay-manager';
+} from '@/entrypoints/content/logic/criteria-overlay-manager';
 import { describeStatGroupsTooltip, formatCompactStatGroupChip } from './criteria-overlay-labels';
 import StatGroupTemplateSaveDialog from './StatGroupTemplateSaveDialog.vue';
 

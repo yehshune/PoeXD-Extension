@@ -35,7 +35,7 @@ import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import {
   labelCriteriaOverlayParts,
   type CriteriaOverlayPartLabel,
-} from './criteria-overlay-labels';
+} from '@/components/injected/criteria-overlay-labels';
 
 const DEFAULT_TIMEOUT_MS = 5000;
 const TRANSFER_VERSION = 1;
@@ -278,8 +278,12 @@ export function filterTemplates(
   });
 }
 
-function createRequestId(): string {
+function createRandomId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+}
+
+function createRequestId(): string {
+  return createRandomId();
 }
 
 function awaitReply<T>(
@@ -564,8 +568,7 @@ function parseStoredList(value: unknown): StoredList {
 }
 
 function defaultCreateId(): string {
-  const random = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-  return `stat-group-template:${random}`;
+  return `stat-group-template:${createRandomId()}`;
 }
 
 function errorMessage(error: unknown): string {
@@ -651,34 +654,35 @@ export function createCriteriaOverlayManager(
     templates.value = next;
   };
 
-  const run = async (task: () => Promise<void>) => {
-    if (busy.value) return;
+  const run = async (task: () => Promise<boolean | void>): Promise<boolean> => {
+    if (busy.value) return false;
     busy.value = true;
     try {
-      await task();
+      return (await task()) !== false;
     } catch (error) {
       notify(errorMessage(error), 'error');
+      return false;
     } finally {
       busy.value = false;
     }
   };
 
-  const overlay = async (criteria: OverlayCriteria, sourceName: string) => {
-    let applied = false;
-    await run(async () => {
+  const runVoid = async (task: () => Promise<void>): Promise<void> => {
+    await run(task);
+  };
+
+  const overlay = (criteria: OverlayCriteria, sourceName: string) =>
+    run(async () => {
       if (isEmptyOverlayCriteria(criteria)) {
         notify(t('statGroupTemplate.error.noOverlayCriteria'), 'error');
-        return;
+        return false;
       }
       const { snapshot, knownStatIds } = await channel.read();
       const report = await commitPlan(
         planCriteriaOverlayApplication(criteria, snapshot, knownStatIds),
       );
       notify(describeCriteriaOverlayReport(sourceName, report), 'success');
-      applied = true;
     });
-    return applied;
-  };
 
   const start = () => {
     starting ??= (async () => {
@@ -719,32 +723,26 @@ export function createCriteriaOverlayManager(
       }
     },
 
-    replaceStatGroup: async (index, groups, sourceName, item) => {
-      let replaced = false;
-      await run(async () => {
+    replaceStatGroup: (index, groups, sourceName, item) =>
+      run(async () => {
         const { snapshot } = await channel.read();
         const report = await commitPlan(planStatGroupReplacement(snapshot, index, groups, item));
         notify(describeCriteriaOverlayReport(sourceName, report), 'success');
-        replaced = true;
-      });
-      return replaced;
-    },
+      }),
 
-    updateStatGroup: async (index, filters, sourceName, value) => {
-      let updated = false;
-      await run(async () => {
+    updateStatGroup: (index, filters, sourceName, value) =>
+      run(async () => {
         const { snapshot } = await channel.read();
         const plan = planStatGroupFiltersUpdate(snapshot, index, filters, value);
-        if (!plan) throw new Error(`stat group ${index} not found`);
+        if (!plan) {
+          throw new Error(t('criteriaOverlay.session.statGroupNotFound', { index: index + 1 }));
+        }
         const report = await commitPlan(plan);
         notify(describeCriteriaOverlayReport(sourceName, report), 'success');
-        updated = true;
-      });
-      return updated;
-    },
+      }),
 
     undo: () =>
-      run(async () => {
+      runVoid(async () => {
         if (!pendingUndo) return;
         const { ops, fingerprint } = pendingUndo;
         const current = await channel.read();
@@ -758,7 +756,7 @@ export function createCriteriaOverlayManager(
       }),
 
     beginSaveTemplate: () =>
-      run(async () => {
+      runVoid(async () => {
         const { snapshot } = await channel.read();
         const criteria = captureOverlayCriteria(snapshot);
         if (criteria.statGroups.length === 0) {
@@ -772,7 +770,7 @@ export function createCriteriaOverlayManager(
       }),
 
     saveTemplate: (payload) =>
-      run(async () => {
+      runVoid(async () => {
         if (!captured) return;
         const picked = pickCriteriaOverlayParts(captured, new Set(payload.keys));
         const template = buildTemplate(payload.name, picked.statGroups);
@@ -783,7 +781,7 @@ export function createCriteriaOverlayManager(
       }),
 
     renameTemplate: (template, newName) =>
-      run(async () => {
+      runVoid(async () => {
         if (newName == null || newName.trim() === '' || newName.trim() === template.name) return;
         const normalized = normalizeStatGroupTemplateName(newName);
         await updateStored((current) => {
@@ -796,9 +794,8 @@ export function createCriteriaOverlayManager(
         });
       }),
 
-    updateTemplateStatGroups: async (template, statGroups) => {
-      let saved = false;
-      await run(async () => {
+    updateTemplateStatGroups: (template, statGroups) =>
+      run(async () => {
         const parsed = parseCriteriaOverlayStatGroups(JSON.parse(JSON.stringify(statGroups)));
         if (!parsed || parsed.length === 0) {
           throw new Error(t('statGroupTemplate.error.emptyGroups'));
@@ -812,13 +809,10 @@ export function createCriteriaOverlayManager(
           );
         });
         notify(t('statGroupTemplate.toast.updated', { name: template.name }), 'success');
-        saved = true;
-      });
-      return saved;
-    },
+      }),
 
     removeTemplate: (template) =>
-      run(async () => {
+      runVoid(async () => {
         const confirmed = await confirm(
           t('statGroupTemplate.dialog.deleteConfirm', { name: template.name }),
           t('statGroupTemplate.dialog.deleteTitle'),
@@ -828,7 +822,7 @@ export function createCriteriaOverlayManager(
       }),
 
     reorderTemplates: (orderedIds) =>
-      run(() =>
+      runVoid(() =>
         updateStored((current) => {
           const byId = new Map(current.map((item) => [item.id, item]));
           const ordered = orderedIds
@@ -841,10 +835,9 @@ export function createCriteriaOverlayManager(
 
     exportTemplates: () => serializeStatGroupTemplates(version, templates.value),
 
-    importTemplateEntries: async (entries, skipped = 0) => {
-      let imported = false;
-      await run(async () => {
-        if (entries.length === 0) return;
+    importTemplateEntries: (entries, skipped = 0) =>
+      run(async () => {
+        if (entries.length === 0) return false;
         const created = entries.map((entry) => buildTemplate(entry.name, entry.statGroups));
         await updateStored((current) => [...current, ...created]);
         notify(
@@ -856,13 +849,10 @@ export function createCriteriaOverlayManager(
             : t('statGroupTemplate.toast.imported', { count: entries.length }),
           'success',
         );
-        imported = true;
-      });
-      return imported;
-    },
+      }),
 
     clearTemplates: () =>
-      run(async () => {
+      runVoid(async () => {
         if (templates.value.length === 0) return;
         const confirmed = await confirm(
           t('statGroupTemplate.dialog.clearConfirm', { count: templates.value.length }),

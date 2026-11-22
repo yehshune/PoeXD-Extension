@@ -825,6 +825,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'criteriaOverlay.session.readFailed': '无法读取官方搜索表单',
   'criteriaOverlay.session.commitFailed': '套用搜索条件失败',
   'criteriaOverlay.session.undoConflict': '套用后搜索条件已变更，无法复原上次套用',
+  'criteriaOverlay.session.statGroupNotFound': '找不到第 {index} 组词缀群组',
   'formUrlSync.failed': '无法同步当前搜索表单：{reason}',
   'formUrlSync.unknownReason': '请刷新页面后再试',
 

@@ -9,7 +9,7 @@ import type { TradePageMode } from '@/utils/trade-page-mode';
 import {
   createPoeEventCriteriaOverlayChannel,
   type CriteriaOverlayPageChannel,
-} from '@/components/injected/criteria-overlay-manager';
+} from './criteria-overlay-manager';
 import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import { RESULT_MOD_ENGLISH_SUBTITLE_CLASS } from '@/utils/market-result-translator';
 import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';

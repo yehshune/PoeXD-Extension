@@ -78,7 +78,7 @@ import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import {
   useCriteriaOverlayManager,
   type CriteriaOverlayManager,
-} from '@/components/injected/criteria-overlay-manager';
+} from '@/entrypoints/content/logic/criteria-overlay-manager';
 import { t } from '@/utils/i18n';
 
 /**

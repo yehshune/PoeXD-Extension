@@ -27,7 +27,7 @@ import { t } from '@/utils/i18n';
 import type {
   CriteriaOverlayManager,
   StatGroupTemplateEntry,
-} from '@/components/injected/criteria-overlay-manager';
+} from '@/entrypoints/content/logic/criteria-overlay-manager';
 import StatGroupTemplateImportDialog from './StatGroupTemplateImportDialog.vue';
 
 /**

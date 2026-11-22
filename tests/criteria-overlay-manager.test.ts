@@ -20,7 +20,7 @@ import {
   syncSearchFormToUrl,
   type CriteriaOverlayPageChannel,
   type StatGroupTemplate,
-} from '@/components/injected/criteria-overlay-manager';
+} from '@/entrypoints/content/logic/criteria-overlay-manager';
 import {
   dispatchPoeEvent,
   initPoeEventNonce,

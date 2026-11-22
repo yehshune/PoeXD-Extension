@@ -26,7 +26,7 @@ import {
   type MercenarySkillRole,
   type MercenaryTier,
 } from '@/utils/mercenary-query';
-import type { CriteriaOverlayManager } from '../criteria-overlay-manager';
+import type { CriteriaOverlayManager } from '@/entrypoints/content/logic/criteria-overlay-manager';
 
 /**
  * edit：改寫被點擊的傭兵技能群組（單一技能）；batch：一次新增多個群組；

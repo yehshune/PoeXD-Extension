@@ -20,7 +20,7 @@ import { stripLiveSuffix } from '@/utils/trade-search-identity';
 import { decodeTradeSearchUrl, extractQueryMetadata } from '@/utils/trade-url-codec';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
 import { resolveSingleEnqueueToast } from '@/components/sidebar/live-search-presentation';
-import { syncSearchFormToUrl } from '@/components/injected/criteria-overlay-manager';
+import { syncSearchFormToUrl } from './criteria-overlay-manager';
 import { type TierDomainService } from './tier-domain-service';
 import { t } from '@/utils/i18n';
 

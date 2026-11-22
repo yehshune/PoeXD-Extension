@@ -7,7 +7,7 @@ import {
   createCriteriaOverlayManager,
   statGroupTemplateStorageKey,
   type CriteriaOverlayPageChannel,
-} from '@/components/injected/criteria-overlay-manager';
+} from '@/entrypoints/content/logic/criteria-overlay-manager';
 import StatGroupTemplatePane from '@/components/sidebar/stat-group-templates/StatGroupTemplatePane.vue';
 
 vi.mock('@/utils/trade-stat-dictionary', async (importOriginal) => ({

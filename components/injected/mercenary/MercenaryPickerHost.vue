@@ -24,7 +24,7 @@ import { t, type I18nKey } from '@/utils/i18n';
 import type { MercenarySupportSlots } from '@/utils/mercenary-data';
 import type { MercenaryGroupKind } from '@/utils/mercenary-query';
 import { activeStatGroupTemplateSlots } from '@/entrypoints/content/logic/stat-group-template-slots';
-import { useCriteriaOverlayManager } from '../criteria-overlay-manager';
+import { useCriteriaOverlayManager } from '@/entrypoints/content/logic/criteria-overlay-manager';
 import MercenaryBuildCombobox from './MercenaryBuildCombobox.vue';
 import MercenarySupportPanel from './MercenarySupportPanel.vue';
 import { useMercenaryPicker } from './useMercenaryPicker';
