@@ -412,7 +412,7 @@ onUnmounted(() => {
         </li>
       </ul>
 
-      <!-- 單例預覽（點擊切換，見 CONTEXT.md「Search Preview」） -->
+      <!-- 單例預覽（點擊切換，見 GLOSSARY.md「Search Preview」） -->
       <TradeSearchPreviewPopover
         :open="preview.isOpen.value"
         :side="sidebarPosition === 'left' ? 'right' : 'left'"

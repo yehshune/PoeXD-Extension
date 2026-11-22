@@ -30,7 +30,7 @@ pnpm build && pnpm build:firefox
 - 不要用 `innerHTML` 插入動態內容，請改用 `utils/safe-dom.ts` 或 `textContent`。
 - 新增權限需要在 PR 說明理由；非核心功能需要的權限請改用可選權限（`optional_permissions`），
   在使用者主動啟用時才請求。
-- 架構性決策請參考 `CONTEXT.md` 與 `docs/adr/`，必要時新增 ADR。
+- 架構性決策請參考 `GLOSSARY.md` 與 `docs/adr/`，必要時新增 ADR。
 
 ## Commit 訊息 / Commit messages
 

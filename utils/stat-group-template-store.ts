@@ -26,7 +26,7 @@ function createChromeLocalStorage(): StatGroupTemplateStorage {
   };
 }
 
-/** 一筆 Stat Group Template（常用詞綴群組）。見 CONTEXT.md、ADR-0010。 */
+/** 一筆 Stat Group Template（常用詞綴群組）。見 GLOSSARY.md、ADR-0010。 */
 export interface StatGroupTemplate {
   id: string;
   name: string;

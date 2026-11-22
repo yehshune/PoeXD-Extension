@@ -24,7 +24,7 @@ export function isTradeSearchFormUrl(url: string): boolean {
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
- * 把官方搜尋表單目前的內容寫進網址後回傳網址（見 CONTEXT.md「Bookmark」、ADR-0010）。
+ * 把官方搜尋表單目前的內容寫進網址後回傳網址（見 GLOSSARY.md「Bookmark」、ADR-0010）。
  * 官方網址不會隨每次表單修改更新，因此加入書籤前必須先同步；同步失敗時拋出錯誤，
  * 呼叫端不得退回儲存可能過時的網址。
  */

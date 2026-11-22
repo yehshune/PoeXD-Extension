@@ -1,5 +1,5 @@
 /**
- * 搜尋結果看板在一般頁上的接線（CONTEXT.md「Result Board」、ADR-0018）：
+ * 搜尋結果看板在一般頁上的接線（GLOSSARY.md「Result Board」、ADR-0018）：
  * - 官方 search / fetch 回應 → 看板狀態（`ResultBoardSession`）
  * - 「載入更多」一律觸發官方自己的按鈕（`ResultBoardLoader`）
  * - 定位、前往藏身處都操作官方結果列，不改動官方列表；前往藏身處的連結過期時先按官方的

@@ -194,7 +194,7 @@ pnpm build      # production build
 ```
 
 See the [contributing guide](./CONTRIBUTING.md) for the full workflow; architecture and decision
-records live in [CONTEXT.md](./CONTEXT.md) and [`docs/`](./docs/). Stack: WXT, Vue 3, TypeScript,
+records live in [GLOSSARY.md](./GLOSSARY.md) and [`docs/`](./docs/). Stack: WXT, Vue 3, TypeScript,
 Tailwind CSS 4, Vitest, Playwright.
 
 ## Support and license

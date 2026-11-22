@@ -124,7 +124,7 @@ pnpm compile    # 型別檢查
 pnpm build      # 生產建置
 ```
 
-完整流程與規範見[貢獻指南](./CONTRIBUTING.md)；架構與決策紀錄在 [CONTEXT.md](./CONTEXT.md) 與 [`docs/`](./docs/)。技術棧：WXT、Vue 3、TypeScript、Tailwind CSS 4、Vitest、Playwright。
+完整流程與規範見[貢獻指南](./CONTRIBUTING.md)；架構與決策紀錄在 [GLOSSARY.md](./GLOSSARY.md) 與 [`docs/`](./docs/)。技術棧：WXT、Vue 3、TypeScript、Tailwind CSS 4、Vitest、Playwright。
 
 ## 支持與授權
 

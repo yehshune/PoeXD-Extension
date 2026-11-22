@@ -218,7 +218,7 @@
           <ScrollBar />
           <ScrollAreaCorner />
         </ScrollAreaRoot>
-        <!-- 全域單例書籤預覽（點擊切換，見 CONTEXT.md「Search Preview」） -->
+        <!-- 全域單例書籤預覽（點擊切換，見 GLOSSARY.md「Search Preview」） -->
         <TradeSearchPreviewPopover
           :open="isPreviewOpen"
           :side="sidebarPosition === 'left' ? 'right' : 'left'"

@@ -1,7 +1,7 @@
 import { test, expect, POE2_FETCH, POE2_NINJA_OVERVIEW, TRADE2_RESULTS_URL } from './fixtures';
 
 /**
- * 搜尋結果看板（CONTEXT.md「Result Board」）：彙整這次搜尋已取得的結果，可排序、依賣家檢視，
+ * 搜尋結果看板（GLOSSARY.md「Result Board」）：彙整這次搜尋已取得的結果，可排序、依賣家檢視，
  * 點結果會定位到官方結果列。用 PoE2 的錄音：有 regal、崇高石與混沌石標價（換算後排序才有差別），
  * 也有同一個賣家的多筆刊登（賣家檢視才有分組）。
  */

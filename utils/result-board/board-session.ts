@@ -1,7 +1,7 @@
 /**
  * 一個市集頁上看板的狀態：目前的搜尋、帳本、暫時隱藏的賣家、已前往／已售出標記。
  *
- * 只存在記憶體；換搜尋時全部重來（CONTEXT.md「Result Board」）。狀態是不可變的值，
+ * 只存在記憶體；換搜尋時全部重來（GLOSSARY.md「Result Board」）。狀態是不可變的值，
  * 每次變更都換成新的物件並通知訂閱者。
  */
 import type { TradeResultEntry } from '@/utils/trade-result-cache';

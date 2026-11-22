@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 搜尋結果看板（CONTEXT.md「Result Board」）：這次搜尋已取得的結果，以物品清單或賣家清單檢視。
+ * 搜尋結果看板（GLOSSARY.md「Result Board」）：這次搜尋已取得的結果，以物品清單或賣家清單檢視。
  * 不改動官方結果列；載入更多透過官方按鈕（ADR-0018）。
  */
 import { computed, nextTick, onMounted, ref, watch } from 'vue';

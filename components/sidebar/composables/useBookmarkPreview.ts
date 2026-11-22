@@ -46,7 +46,7 @@ export function useBookmarkPreview(options?: UseBookmarkPreviewOptions) {
     return loadPreview(bm.id, bm.url);
   };
 
-  // 單例預覽狀態：以點擊切換開關，同一時間只開一個（見 CONTEXT.md「Search Preview」）
+  // 單例預覽狀態：以點擊切換開關，同一時間只開一個（見 GLOSSARY.md「Search Preview」）
   const {
     activeItem: previewBookmark,
     anchorEl: previewAnchorEl,

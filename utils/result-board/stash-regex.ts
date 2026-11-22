@@ -1,5 +1,5 @@
 /**
- * 倉庫搜尋 regex（CONTEXT.md「Stash Search Regex」、ADR-0018）：貼到遊戲內賣家藏身處的倉庫搜尋，
+ * 倉庫搜尋 regex（GLOSSARY.md「Stash Search Regex」、ADR-0018）：貼到遊戲內賣家藏身處的倉庫搜尋，
  * 一次標出所有要買的物品。純函式，不依賴看板，之後可重用到單件結果列與釘選物品。
  *
  * 遊戲內實測（2026-11-20，維護者回報）：

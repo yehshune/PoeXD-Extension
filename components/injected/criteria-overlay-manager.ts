@@ -49,7 +49,7 @@ export interface TemplateSaveDialogState {
 }
 
 /**
- * Criteria Overlay 與 Stat Group Template 的共用狀態與操作（見 CONTEXT.md、ADR-0010）。
+ * Criteria Overlay 與 Stat Group Template 的共用狀態與操作（見 GLOSSARY.md、ADR-0010）。
  * 「新增詞綴群組」選單、常用詞綴群組分頁與書籤／歷史的 Search Preview 共用同一份，
  * 因此「復原上次套用」不論從哪裡疊加都一致。
  */

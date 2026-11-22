@@ -584,7 +584,7 @@ const props = defineProps({
     type: [Object, String, Number] as PropType<TradeSearchPreviewData | string | number | null>,
     default: undefined,
   },
-  /** 目前頁面有官方搜尋表單時才可疊加（見 CONTEXT.md「Criteria Overlay」）。 */
+  /** 目前頁面有官方搜尋表單時才可疊加（見 GLOSSARY.md「Criteria Overlay」）。 */
   canOverlay: {
     type: Boolean,
     default: false,

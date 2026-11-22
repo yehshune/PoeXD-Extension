@@ -1,5 +1,5 @@
 /**
- * Criteria Overlay（疊加套用）純領域模組。見 CONTEXT.md、ADR-0009 與 ADR-0010。
+ * Criteria Overlay（疊加套用）純領域模組。見 GLOSSARY.md、ADR-0009 與 ADR-0010。
  *
  * - 擷取：把官方 Vuex `state.persistent` 的快照正規化為 OverlayCriteria。
  * - 選取：列出可勾選的片段，並依勾選結果取出子集合。
@@ -275,7 +275,7 @@ export function pickCriteriaOverlayParts(
   };
 }
 
-/** Search Preview 中可疊加的區塊（見 CONTEXT.md「Criteria Overlay」）。 */
+/** Search Preview 中可疊加的區塊（見 GLOSSARY.md「Criteria Overlay」）。 */
 export type OverlayTarget =
   | { kind: 'all' }
   | { kind: 'stats' }

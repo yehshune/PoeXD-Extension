@@ -82,7 +82,7 @@ import {
 import { t } from '@/utils/i18n';
 
 /**
- * 以點擊切換、固定顯示的 Search Preview（見 CONTEXT.md）。可從中把條件疊加到目前搜尋。
+ * 以點擊切換、固定顯示的 Search Preview（見 GLOSSARY.md）。可從中把條件疊加到目前搜尋。
  */
 const props = defineProps({
   open: { type: Boolean, default: false },

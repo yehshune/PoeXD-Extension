@@ -1,7 +1,7 @@
 /**
  * Result 詞綴快速篩選（`+AND` / `+NOT`）純邏輯模組。
  *
- * 與 Criteria Overlay（整組 stat group 疊加套用，見 CONTEXT.md）職責分離：
+ * 與 Criteria Overlay（整組 stat group 疊加套用，見 GLOSSARY.md）職責分離：
  * 此模組僅負責將單一詞綴 ID（不含數值）加入目前搜尋表單的指定群組類型，
  * 並產生經官方 mutation 白名單驗證的 op 序列。
  */

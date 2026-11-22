@@ -153,7 +153,7 @@
             </div>
           </div>
         </template>
-        <!-- 單例預覽（點擊切換，見 CONTEXT.md「Search Preview」） -->
+        <!-- 單例預覽（點擊切換，見 GLOSSARY.md「Search Preview」） -->
         <TradeSearchPreviewPopover
           :open="isHistoryPreviewOpen"
           :side="sidebarPosition === 'left' ? 'right' : 'left'"
@@ -248,7 +248,7 @@ export default defineComponent({
       version,
     });
 
-    // 單例預覽：點擊切換，同一時間只開一個（見 CONTEXT.md「Search Preview」）
+    // 單例預覽：點擊切換，同一時間只開一個（見 GLOSSARY.md「Search Preview」）
     const {
       activeItem: previewHistory,
       anchorEl: previewAnchorEl,

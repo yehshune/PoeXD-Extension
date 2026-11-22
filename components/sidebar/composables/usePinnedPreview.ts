@@ -8,7 +8,7 @@ export interface UsePinnedPreviewOptions<T> {
 }
 
 /**
- * 側邊欄清單共用的單例 Search Preview 狀態：點擊切換、同一時間只開一個（見 CONTEXT.md「Search Preview」）。
+ * 側邊欄清單共用的單例 Search Preview 狀態：點擊切換、同一時間只開一個（見 GLOSSARY.md「Search Preview」）。
  * 點同一筆再點一次關閉；點另一筆則直接切換到該筆。
  */
 export function usePinnedPreview<T extends { id: string }>(

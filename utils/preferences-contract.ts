@@ -35,7 +35,7 @@ export type SidebarPosition = (typeof SIDEBAR_POSITIONS)[number];
 export const BOOKMARK_BUTTON_POSITIONS = ['top', 'bottom'] as const;
 export type BookmarkButtonPosition = (typeof BOOKMARK_BUTTON_POSITIONS)[number];
 
-/** 左鍵點選書籤或搜尋歷史時：開啟搜尋，或切換 Search Preview（見 CONTEXT.md）。 */
+/** 左鍵點選書籤或搜尋歷史時：開啟搜尋，或切換 Search Preview（見 GLOSSARY.md）。 */
 export const SEARCH_ENTRY_CLICK_ACTIONS = ['open', 'preview'] as const;
 export type SearchEntryClickAction = (typeof SEARCH_ENTRY_CLICK_ACTIONS)[number];
 

@@ -100,7 +100,7 @@
 
 - 單元測試：語系不同不採用、市集漢化作用中不採用、同 id 覆蓋與缺 id 後備、偽造事件被拒、資料到達觸發重新渲染。
 - e2e：在至少一個非英文服（台服）確認新篩選標籤來自即時資料；頁面結構不符時退回打包資料且無錯誤。
-- 文件：`docs/trade-filter-data.md`「執行期載入」補上即時資料順序；ADR-0014 改為 accepted；`CONTEXT.md` 術語確認。
+- 文件：`docs/trade-filter-data.md`「執行期載入」補上即時資料順序；ADR-0014 改為 accepted；`GLOSSARY.md` 術語確認。
 
 ---
 
