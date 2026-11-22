@@ -41,9 +41,9 @@ describe('live-search-result-source-badge', () => {
     document.getElementById(RESULT_SOURCE_BADGE_STYLE_ID)?.remove();
   });
 
-  it('在已渲染結果列的 .right .details 頂端加上來源標籤，點擊可觸發篩選並同步 active 狀態', async () => {
+  it('在已渲染結果列（.row[data-id]）直接掛載來源標籤，點擊可觸發篩選並同步 active 狀態', async () => {
     const { addRow } = createTradeResultsDom();
-    const { details } = addRow('item-1');
+    const { row } = addRow('item-1');
 
     let filterOwner: string | null = null;
     const onSelectOwner = vi.fn((owner: string) => {
@@ -61,7 +61,7 @@ describe('live-search-result-source-badge', () => {
     badge.record('item-1', 'poe1:covens:abc');
     await Promise.resolve();
 
-    const btn = details.firstElementChild as HTMLButtonElement | null;
+    const btn = row.querySelector<HTMLButtonElement>(`:scope > .${RESULT_SOURCE_BADGE_CLASS}`);
     expect(btn?.classList.contains(RESULT_SOURCE_BADGE_CLASS)).toBe(true);
     expect(btn?.textContent).toBe('神聖衣監聽');
     expect(btn?.getAttribute('title')).toBe('來源：神聖衣監聽');
@@ -88,14 +88,14 @@ describe('live-search-result-source-badge', () => {
     badge.record('item-late', 'poe1:covens:xyz');
     await Promise.resolve();
 
-    const { details } = addRow('item-late');
+    const { row } = addRow('item-late');
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const btn = details.querySelector(`.${RESULT_SOURCE_BADGE_CLASS}`);
+    const btn = row.querySelector(`:scope > .${RESULT_SOURCE_BADGE_CLASS}`);
     expect(btn?.textContent).toBe('獵首搜尋');
 
     badge.clear();
-    expect(details.querySelector(`.${RESULT_SOURCE_BADGE_CLASS}`)).toBeNull();
+    expect(row.querySelector(`.${RESULT_SOURCE_BADGE_CLASS}`)).toBeNull();
     badge.dispose();
   });
 });

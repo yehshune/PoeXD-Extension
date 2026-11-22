@@ -344,4 +344,65 @@ describe('官方上方顯示筆數（實際保留數，與篩選連動）', () =
 
     runtime.dispose();
   });
+
+  it('clearResults 會丟棄進行中 renderResult 回傳後的過期寫入，不殘留幽靈計數或來源標籤', async () => {
+    const deferredRender: { resolve: ((val: HostCommandOutcome) => void) | null } = {
+      resolve: null,
+    };
+    const hostClient: ILiveSearchHostClient = {
+      ensureContainer: vi.fn(async () => ({ success: true })),
+      renderResult: vi.fn(
+        () =>
+          new Promise<HostCommandOutcome>((resolve) => {
+            deferredRender.resolve = resolve;
+          }),
+      ),
+      resetUnread: vi.fn(async () => ({ success: true })),
+      dispose: vi.fn(),
+    };
+    const onRendered = vi.fn();
+    let capturedHandlers: { onToken: (token: string) => void } | null = null;
+    const runtime = new LiveSearchPrimaryRuntime('poe1', {
+      hostClient,
+      fetchClient: vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ result: [{ id: 'stale-item-1', item: { name: 'Stale' } }] }),
+      })) as unknown as (url: string, init?: RequestInit) => Promise<Response>,
+      sessionFactory: (opts) => {
+        capturedHandlers = opts.handlers;
+        return { start: vi.fn(), stop: vi.fn(), retry: vi.fn(), dispose: vi.fn() } as any;
+      },
+      onResultRendered: onRendered,
+    });
+
+    await runtime.addSubscription({
+      id: 'sub_clear_race',
+      gameVersion: 'poe1',
+      league: 'Standard',
+      searchId: 'H4sIAAAAAAAA_race1',
+      url: 'https://www.pathofexile.com/trade/search/Standard/H4sIAAAAAAAA_race1',
+      status: 'idle',
+      createdAt: Date.now(),
+    });
+
+    // 1. 送入兩筆 token：第一筆進入 in-flight renderResult，第二筆排在 queue 中
+    capturedHandlers!.onToken('tok-1');
+    capturedHandlers!.onToken('tok-2');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(deferredRender.resolve).not.toBeNull();
+
+    // 2. 在第一筆 renderResult 尚未 resolve 前按下清空結果
+    await runtime.clearResults();
+
+    // 3. 第一筆過期 renderResult 事後 resolve：不得寫入幽靈計數、不得觸發 onRendered，且第二筆排隊任務應已被清空
+    deferredRender.resolve!({ success: true });
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(runtime.getCumulativeRenderedTotal()).toBe(0);
+    expect(runtime.getSnapshot().displayedResultCount).toBeUndefined();
+    expect(onRendered).not.toHaveBeenCalled();
+    expect(hostClient.renderResult).toHaveBeenCalledTimes(1);
+
+    runtime.dispose();
+  });
 });

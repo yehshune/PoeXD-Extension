@@ -1,7 +1,8 @@
 /**
  * 主控台結果卡片來源標籤（Result Source Badge）
  *
- * 在 Live Search 主控台的每筆官方結果列（`.results .row[data-id]`）右側資訊欄頂端
+ * 在 Live Search 主控台的每筆官方結果列（`.results .row[data-id]`）左下角留白區
+ *（所有三種官方版型 Default / Compact / Compact Two 中 `.left` 寬度皆為 25%，左下角皆不與圖示、操作按鈕或報價列重疊）
  * 顯示命中的監聽來源名稱；點擊標籤可直接篩選／取消篩選該連線的結果。
  * - 只使用安全 DOM API（createElement / textContent），絕不使用 innerHTML。
  * - CSS 不含任何硬編碼 hex 色票，僅使用 rgba / currentColor 以相容官網深色版型。
@@ -27,40 +28,42 @@ export interface LiveSearchResultSourceBadge {
 }
 
 const BADGE_CSS = `
-.${RESULT_SOURCE_BADGE_CLASS} {
+.results .row[data-id] > .${RESULT_SOURCE_BADGE_CLASS} {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  max-width: 100%;
-  margin: 0 0 4px 0;
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px solid rgba(196, 173, 130, 0.35);
-  background: rgba(196, 173, 130, 0.1);
-  color: rgba(235, 222, 194, 0.92);
+  box-sizing: border-box;
+  height: 22px;
+  max-width: calc(25% - 20px);
+  margin: 0;
+  padding: 0 8px 0 7px;
+  border-radius: 2px;
+  border: 1px solid rgba(160, 145, 118, 0.28);
+  border-left: 2px solid rgba(196, 173, 130, 0.72);
+  background: rgba(16, 18, 22, 0.88);
+  color: rgba(218, 204, 178, 0.9);
   font-size: 11px;
-  line-height: 1.35;
+  line-height: 20px;
   font-weight: 500;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  vertical-align: middle;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-.${RESULT_SOURCE_BADGE_CLASS}:hover {
-  background: rgba(196, 173, 130, 0.2);
-  border-color: rgba(196, 173, 130, 0.6);
+.results .row[data-id] > .${RESULT_SOURCE_BADGE_CLASS}:hover {
+  background: rgba(34, 31, 26, 0.94);
+  border-color: rgba(196, 173, 130, 0.55);
+  border-left-color: rgba(224, 198, 148, 0.95);
+  color: rgba(242, 232, 210, 0.98);
 }
-.${RESULT_SOURCE_BADGE_CLASS}[data-active="true"] {
-  background: rgba(96, 165, 250, 0.2);
-  border-color: rgba(96, 165, 250, 0.65);
+.results .row[data-id] > .${RESULT_SOURCE_BADGE_CLASS}[data-active="true"] {
+  background: rgba(30, 58, 138, 0.38);
+  border-color: rgba(96, 165, 250, 0.6);
+  border-left-color: rgba(147, 197, 253, 0.98);
   color: rgba(219, 234, 254, 0.98);
-}
-.${RESULT_SOURCE_BADGE_CLASS}__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.8;
-  flex-shrink: 0;
 }
 .${RESULT_SOURCE_BADGE_CLASS}__label {
   overflow: hidden;
@@ -113,24 +116,20 @@ export function createLiveSearchResultSourceBadge(
     const sourceName = options.resolveSourceName(ownerKey)?.trim();
     if (!sourceName) return;
 
-    const target = row.querySelector('.right .details') ?? row.querySelector('.right') ?? row;
-    let badge = target.querySelector<HTMLButtonElement>(`:scope > .${RESULT_SOURCE_BADGE_CLASS}`);
+    let badge = row.querySelector<HTMLButtonElement>(`:scope > .${RESULT_SOURCE_BADGE_CLASS}`);
     if (!badge) {
       badge = doc.createElement('button');
       badge.type = 'button';
       badge.className = RESULT_SOURCE_BADGE_CLASS;
-      const dot = doc.createElement('span');
-      dot.className = `${RESULT_SOURCE_BADGE_CLASS}__dot`;
-      dot.setAttribute('aria-hidden', 'true');
       const label = doc.createElement('span');
       label.className = `${RESULT_SOURCE_BADGE_CLASS}__label`;
-      badge.append(dot, label);
+      badge.appendChild(label);
       badge.addEventListener('click', (event) => {
         event.stopPropagation();
         const owner = badge?.getAttribute('data-poexd-source-owner');
         if (owner) options.onSelectOwner?.(owner);
       });
-      target.prepend(badge);
+      row.appendChild(badge);
     }
 
     if (badge.getAttribute('data-poexd-source-owner') !== ownerKey) {

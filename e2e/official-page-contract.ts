@@ -130,12 +130,6 @@ export const RESULT_ROW_DOM: readonly DomCheck[] = [
     usedBy: 'market-result-translator',
     offline: false,
   },
-  {
-    id: 'row-right-details',
-    selector: ':scope > .right .details',
-    usedBy: 'live-search-result-source-badge（主控台結果卡片來源標籤）',
-    offline: false,
-  },
 ];
 
 /** 線上搜尋主控台寫入官方 Vuex store 時需要的 mutation（official-livesearch-adapter） */

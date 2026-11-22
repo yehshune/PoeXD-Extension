@@ -115,6 +115,7 @@ interface SubscriptionContext {
 interface PipelineTask {
   subCtx: SubscriptionContext;
   token: string;
+  epoch: number;
 }
 
 export type { AddSubscriptionOutcome, LiveSearchRetryOutcome };
@@ -243,7 +244,11 @@ export class LiveSearchPrimaryRuntime {
     token: string;
     itemData: unknown;
     ownerKey: string;
+    expectedEpoch?: number;
   }): Promise<boolean> {
+    if (input.expectedEpoch !== undefined && input.expectedEpoch !== this.clearEpoch) {
+      return false;
+    }
     const maxResults = this.readMaxDisplayedResults();
     const itemId = LiveSearchPrimaryRuntime.readItemId(input.itemData);
     const displayTotal = itemId
@@ -259,6 +264,12 @@ export class LiveSearchPrimaryRuntime {
       maxResults,
     });
     if (!outcome.success) return false;
+    if (
+      this.disposed ||
+      (input.expectedEpoch !== undefined && input.expectedEpoch !== this.clearEpoch)
+    ) {
+      return false;
+    }
     this.cumulativeRenderedTotal += 1;
     if (itemId) {
       this.resultFilter.record(itemId, input.ownerKey, maxResults, input.token);
@@ -326,6 +337,10 @@ export class LiveSearchPrimaryRuntime {
     }
 
     this.clearEpoch += 1;
+    for (const queued of this.queue) {
+      queued.subCtx.pendingTokens.delete(queued.token);
+    }
+    this.queue = [];
     this.resetDisplayedResultsState();
     this.notifyListeners();
     return outcome;
@@ -775,10 +790,11 @@ export class LiveSearchPrimaryRuntime {
     // 標記為 pending，避免在 in-flight 期間被重複推入佇列
     subCtx.pendingTokens.add(token);
 
-    // 推入序列化 Pipeline Queue
+    // 推入序列化 Pipeline Queue（記錄入佇列當下 clearEpoch，供清空結果時丟棄過期任務）
     this.enqueueTask({
       subCtx,
       token,
+      epoch: this.clearEpoch,
     });
 
     this.emitResultTokenAccepted(subCtx);
@@ -840,8 +856,11 @@ export class LiveSearchPrimaryRuntime {
    * 4. 任何失敗均移除 pending 但不標記 processed，允許未來重試
    */
   private async executePipelineTask(task: PipelineTask): Promise<void> {
-    const { subCtx, token } = task;
-    const taskEpoch = this.clearEpoch;
+    const { subCtx, token, epoch: taskEpoch } = task;
+    if (taskEpoch !== this.clearEpoch) {
+      subCtx.pendingTokens.delete(token);
+      return;
+    }
 
     // 1. PoeXD 經由 FetchRateGate 發起 HTTP /fetch
     const fetchUrl = this.buildFetchUrl(
@@ -923,6 +942,7 @@ export class LiveSearchPrimaryRuntime {
           league: subCtx.subscription.league,
           searchId: subCtx.subscription.searchId,
         }),
+        expectedEpoch: taskEpoch,
       });
 
       if (rendered) {
