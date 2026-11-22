@@ -19,6 +19,13 @@
           <div class="search-advanced"></div>
         </div>
         <div class="results compact two">
+          <!-- 官方結果數列：結果數標題加上三個版面切換鈕（擴充功能把看板捷徑放在這一列） -->
+          <div class="row row-total">
+            <h3></h3>
+            <button title="Default" class="layout-btn layout-immersion"></button>
+            <button title="Compact" class="layout-btn layout-compact"></button>
+            <button title="Compact Two-Columned" class="layout-btn layout-compact-two"></button>
+          </div>
           <div class="resultset"></div>
         </div>
       </div>
@@ -149,6 +156,8 @@
           );
           const resultset = document.querySelector('.resultset');
           resultset.replaceChildren(...fetched.result.map(renderRow));
+          document.querySelector('.row-total h3').textContent =
+            `Showing ${fetched.result.length} results (${result.total} matched)`;
         }
 
         /** 測試用：模擬使用者在頁面上按下搜尋 */

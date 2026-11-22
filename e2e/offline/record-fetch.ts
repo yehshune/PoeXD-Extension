@@ -36,8 +36,11 @@ interface FetchResult {
   item: Record<string, unknown>;
 }
 
-/** 賣家帳號、角色、藏身處 token（JWT）與倉庫名稱一律換成假值；聯盟固定為 Standard */
-export function scrubFetchResult(result: FetchResult, index: number): FetchResult {
+/**
+ * 賣家帳號、角色、藏身處 token（JWT）與倉庫名稱一律換成假值；聯盟固定為 Standard。
+ * `sellerIndex` 決定假賣家名稱：同一個真實帳號要用同一個 index，看板的賣家分組才和官方一致。
+ */
+export function scrubFetchResult(result: FetchResult, sellerIndex: number): FetchResult {
   const {
     hideout_token: _token,
     whisper: _whisper,
@@ -48,12 +51,22 @@ export function scrubFetchResult(result: FetchResult, index: number): FetchResul
     ...result,
     listing: {
       ...listing,
-      account: { name: `E2ESeller#${1000 + index}`, online: null },
+      account: { name: `E2ESeller#${1000 + sellerIndex}`, online: null },
       ...(listing.stash ? { stash: { ...listing.stash, name: 'E2E Stash' } } : {}),
       hideout_token: 'e2e-hideout-token',
     },
     item: { ...result.item, league: 'Standard' },
   };
+}
+
+/** 依真實帳號出現順序編號後去識別化；真實帳號名稱只在記憶體裡比對，不會寫進 fixture */
+export function scrubFetchResults(results: readonly FetchResult[]): FetchResult[] {
+  const sellerIndexes = new Map<unknown, number>();
+  return results.map((result) => {
+    const account = result.listing.account?.name;
+    if (!sellerIndexes.has(account)) sellerIndexes.set(account, sellerIndexes.size);
+    return scrubFetchResult(result, sellerIndexes.get(account) ?? 0);
+  });
 }
 
 async function main(): Promise<void> {
@@ -95,7 +108,7 @@ async function main(): Promise<void> {
       },
       { ids, searchId, fetchPath, realm },
     );
-    const results = (body.result as FetchResult[]).map(scrubFetchResult);
+    const results = scrubFetchResults(body.result as FetchResult[]);
     writeFileSync(output, `${JSON.stringify({ result: results }, null, 2)}\n`);
     console.log(`已寫入 ${results.length} 筆到 ${output}`);
   } finally {

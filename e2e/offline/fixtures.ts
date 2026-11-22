@@ -51,7 +51,7 @@ interface FetchFixture {
   result: {
     id: string;
     item: { name?: string; typeLine: string };
-    listing: { price: { amount: number; currency: string } };
+    listing: { price: { amount: number; currency: string }; account: { name: string } };
   }[];
 }
 

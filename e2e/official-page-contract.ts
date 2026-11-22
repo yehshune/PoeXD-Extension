@@ -56,6 +56,12 @@ export const SEARCH_PAGE_DOM: readonly DomCheck[] = [
     offline: true,
   },
   {
+    id: 'result-count-row',
+    selector: '.results > .row.row-total',
+    usedBy: 'result-board-runtime（結果數旁的看板捷徑）',
+    offline: true,
+  },
+  {
     id: 'resultset',
     selector: '.results .resultset',
     usedBy: 'result-board-runtime',
