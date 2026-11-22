@@ -7,6 +7,8 @@ import {
   type LiveSearchEnqueueItem,
   type LiveSearchEnqueueRequest,
   type LiveSearchEnqueueResponse,
+  type LiveSearchFocusPrimaryRequest,
+  type LiveSearchFocusPrimaryResponse,
   type LiveSearchGetPageRoleResponse,
   type LiveSearchOpenPrimaryRequest,
   type LiveSearchOpenPrimaryResponse,
@@ -394,6 +396,55 @@ export class LiveSearchCoordinator {
   }
 
   /**
+   * 僅聚焦既有的線上搜尋主控台分頁，絕不建立新分頁。
+   * 主要供主控台桌面通知點擊回呼使用：優先聚焦發送請求的分頁本身（`sender.tab`），
+   * 即使 session 記錄因故遺失也不會誤開新的官方交易市集分頁。
+   */
+  public async focusPrimary(
+    request?: LiveSearchFocusPrimaryRequest,
+    sender?: any,
+  ): Promise<LiveSearchFocusPrimaryResponse> {
+    const effectiveVersion = this.resolveEffectiveVersion(request?.gameVersion, sender);
+    const senderTab = sender?.tab as LiveSearchTab | undefined;
+
+    let targetTab: LiveSearchTab | null = null;
+    if (
+      senderTab &&
+      typeof senderTab.id === 'number' &&
+      isTabEligibleAsPrimary(senderTab, effectiveVersion)
+    ) {
+      targetTab = senderTab;
+    } else {
+      targetTab = await this.resolveValidPrimaryTabForVersion(effectiveVersion);
+    }
+
+    if (!targetTab || targetTab.id === undefined) {
+      return { success: false };
+    }
+
+    try {
+      const updatedTab = await this.tabs.update(targetTab.id, { active: true });
+      const windowId = updatedTab?.windowId ?? targetTab.windowId;
+      if (windowId !== undefined) {
+        try {
+          await this.windows.update(windowId, { focused: true });
+        } catch {
+          // window 可能已關閉或無權限，忽略
+        }
+      }
+      return {
+        success: true,
+        tabId: targetTab.id,
+      };
+    } catch (focusError: any) {
+      return {
+        success: false,
+        error: focusError?.message || String(focusError),
+      };
+    }
+  }
+
+  /**
    * 讓瀏覽器不自動捨棄主控台分頁（記憶體節省、記憶體不足），避免閒置後被重新載入而中斷所有連線。
    * 這是分頁本身的屬性，service worker 重啟後仍保留，所以只在建立時設定。
    * 失敗（例如瀏覽器不支援）不影響開啟主控台，只記錄錯誤。
@@ -683,7 +734,10 @@ export class LiveSearchCoordinator {
     const expectedVersion = record.gameVersion || version;
     let isNonTrade = false;
     if (changeInfo.url) {
-      if (!isEligibleTradeUrl(changeInfo.url, expectedVersion)) {
+      if (
+        !(changeInfo.url === 'about:blank' && tab?.status === 'loading') &&
+        !isEligibleTradeUrl(changeInfo.url, expectedVersion)
+      ) {
         isNonTrade = true;
       }
     } else if (tab && tab.status === 'complete') {

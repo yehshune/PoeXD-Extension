@@ -34,6 +34,16 @@ export interface LiveSearchOpenPrimaryResponse {
   error?: MessageValue;
 }
 
+export interface LiveSearchFocusPrimaryRequest {
+  gameVersion?: PoeVersion;
+}
+
+export interface LiveSearchFocusPrimaryResponse {
+  success: boolean;
+  tabId?: number;
+  error?: MessageValue;
+}
+
 export interface LiveSearchGetPageRoleRequest {
   gameVersion?: PoeVersion;
 }

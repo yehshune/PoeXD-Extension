@@ -680,4 +680,67 @@ describe('LiveSearch Primary Coordinator (Phase 1 Ownership & Lifecycle)', () =>
       ]);
     });
   });
+
+  describe('focusPrimary (desktop notification click never creates a new tab)', () => {
+    it('focuses sender.tab directly even when session storage has no primary record, without calling tabs.create', async () => {
+      tabsDb.set(77, {
+        id: 77,
+        url: 'https://www.pathofexile.com/trade2/search/poe2/Standard',
+        windowId: 5,
+        active: false,
+      });
+
+      const res = await coordinator.focusPrimary(
+        { gameVersion: 'poe2' },
+        {
+          tab: {
+            id: 77,
+            url: 'https://www.pathofexile.com/trade2/search/poe2/Standard',
+            windowId: 5,
+          },
+        },
+      );
+
+      expect(res).toEqual({ success: true, tabId: 77 });
+      expect(mockTabsApi.create).not.toHaveBeenCalled();
+      expect(mockTabsApi.update).toHaveBeenCalledWith(77, { active: true });
+      expect(mockWindowsApi.update).toHaveBeenCalledWith(5, { focused: true });
+    });
+
+    it('falls back to existing stored primary tab when sender.tab is absent and never creates a new tab', async () => {
+      const openRes = await coordinator.openPrimary({ gameVersion: 'poe1' });
+      expect(openRes.tabId).toBeDefined();
+      vi.mocked(mockTabsApi.create).mockClear();
+      vi.mocked(mockTabsApi.update).mockClear();
+      vi.mocked(mockWindowsApi.update).mockClear();
+
+      const res = await coordinator.focusPrimary({ gameVersion: 'poe1' });
+
+      expect(res).toEqual({ success: true, tabId: openRes.tabId });
+      expect(mockTabsApi.create).not.toHaveBeenCalled();
+      expect(mockTabsApi.update).toHaveBeenCalledWith(openRes.tabId, { active: true });
+      expect(mockWindowsApi.update).toHaveBeenCalledWith(1, { focused: true });
+    });
+
+    it('returns success: false without calling tabs.create when neither sender.tab nor stored primary exists', async () => {
+      const res = await coordinator.focusPrimary({ gameVersion: 'poe2' });
+
+      expect(res).toEqual({ success: false });
+      expect(mockTabsApi.create).not.toHaveBeenCalled();
+    });
+
+    it('does not invalidate primary ownership when handleTabUpdated sees transient about:blank while loading', async () => {
+      const openRes = await coordinator.openPrimary({ gameVersion: 'poe2' });
+      const tabId = openRes.tabId!;
+
+      await coordinator.handleTabUpdated(
+        tabId,
+        { url: 'about:blank' },
+        { id: tabId, url: 'about:blank', status: 'loading' },
+      );
+
+      const role = await coordinator.getPageRole(tabId, 'poe2');
+      expect(role.role).toBe('live-search-primary');
+    });
+  });
 });

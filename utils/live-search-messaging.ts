@@ -3,6 +3,7 @@ import type { LiveSearchCoordinator } from './live-search-coordinator';
 import type {
   LiveSearchConsumePendingEnqueueResponse,
   LiveSearchEnqueueResponse,
+  LiveSearchFocusPrimaryResponse,
   LiveSearchGetPageRoleResponse,
   LiveSearchOpenPrimaryResponse,
 } from './live-search-contract';
@@ -22,6 +23,13 @@ export function registerLiveSearchBackgroundHandlers(
     'liveSearch:openPrimary',
     async ({ data, sender }): Promise<LiveSearchOpenPrimaryResponse> => {
       return coordinator.openPrimary(data, sender);
+    },
+  );
+
+  const unregFocus = messenger.onMessage(
+    'liveSearch:focusPrimary',
+    async ({ data, sender }): Promise<LiveSearchFocusPrimaryResponse> => {
+      return coordinator.focusPrimary(data, sender);
     },
   );
 
@@ -66,6 +74,7 @@ export function registerLiveSearchBackgroundHandlers(
     coordinator.setArrivalNotifier(undefined);
     coordinator.setEnqueueForwarder(undefined);
     unregOpen();
+    unregFocus();
     unregGetRole();
     unregEnqueue();
     unregConsumePending();

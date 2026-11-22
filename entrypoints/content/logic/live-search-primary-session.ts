@@ -162,7 +162,7 @@ export function createLiveSearchPrimarySession(
           window.focus();
         }
         void f.messenger
-          .sendMessage('liveSearch:openPrimary', { gameVersion: version })
+          .sendMessage('liveSearch:focusPrimary', { gameVersion: version })
           .catch(() => {});
       },
     });

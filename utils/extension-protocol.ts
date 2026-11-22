@@ -28,6 +28,8 @@ import type {
   LiveSearchEnqueueItem,
   LiveSearchEnqueueRequest,
   LiveSearchEnqueueResponse,
+  LiveSearchFocusPrimaryRequest,
+  LiveSearchFocusPrimaryResponse,
   LiveSearchGetPageRoleRequest,
   LiveSearchGetPageRoleResponse,
   LiveSearchOpenPrimaryRequest,
@@ -53,6 +55,9 @@ export interface ExtensionProtocolMap {
   'liveSearch:openPrimary': (
     request?: LiveSearchOpenPrimaryRequest,
   ) => LiveSearchOpenPrimaryResponse;
+  'liveSearch:focusPrimary': (
+    request?: LiveSearchFocusPrimaryRequest,
+  ) => LiveSearchFocusPrimaryResponse;
   'liveSearch:getPageRole': (
     request?: LiveSearchGetPageRoleRequest,
   ) => LiveSearchGetPageRoleResponse;

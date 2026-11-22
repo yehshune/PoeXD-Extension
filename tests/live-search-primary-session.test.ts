@@ -305,4 +305,38 @@ describe('createLiveSearchPrimarySession', () => {
     expect(badge.dispose).toHaveBeenCalledTimes(1);
     expect(sourceListener.fn).toBeNull();
   });
+
+  it('點擊桌面通知時透過 liveSearch:focusPrimary 聚焦主控台，而非呼叫會開新分頁的 liveSearch:openPrimary', () => {
+    const events: string[] = [];
+    const { factories } = createRecordingFactories(events);
+    let capturedDesktopOpts: any;
+    const sendMessage = vi.fn(async () => ({ success: true }));
+
+    const session = createLiveSearchPrimarySession({
+      version: 'poe2',
+      preferences: createStubPreferences(),
+      resultCache: { ingestResult: vi.fn() },
+      doc: stubDoc,
+      factories: {
+        ...factories,
+        createDesktopNotifier: (opts) => {
+          capturedDesktopOpts = opts;
+          return {
+            notify: vi.fn(),
+            test: vi.fn(() => ({ ok: true as const })),
+            getPermission: vi.fn(() => 'granted' as const),
+            requestPermission: vi.fn(async () => 'granted' as const),
+            dispose: vi.fn(),
+          };
+        },
+        messenger: { sendMessage } as any,
+      },
+    });
+
+    capturedDesktopOpts.onFocusConsole();
+    expect(sendMessage).toHaveBeenCalledWith('liveSearch:focusPrimary', { gameVersion: 'poe2' });
+    expect(sendMessage).not.toHaveBeenCalledWith('liveSearch:openPrimary', expect.anything());
+
+    session.dispose();
+  });
 });
