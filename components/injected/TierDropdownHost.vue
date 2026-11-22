@@ -42,11 +42,7 @@ function isDemoMenu(slotKey: string): boolean {
   return tierMenuDemoSlotKey.value === slotKey;
 }
 
-function findMatchingTierIds(
-  slot: TierSlotDescriptor,
-  minVal: string,
-  maxVal: string,
-): string[] {
+function findMatchingTierIds(slot: TierSlotDescriptor, minVal: string, maxVal: string): string[] {
   const min = minVal.trim();
   const max = maxVal.trim();
   if (!min && !max) return [];
@@ -125,8 +121,7 @@ function getTuning(slot: TierSlotDescriptor): SlotTuningState {
 function isTuningDirty(slot: TierSlotDescriptor): boolean {
   const tuning = getTuning(slot);
   return (
-    tuning.min.trim() !== tuning.appliedMin.trim() ||
-    tuning.max.trim() !== tuning.appliedMax.trim()
+    tuning.min.trim() !== tuning.appliedMin.trim() || tuning.max.trim() !== tuning.appliedMax.trim()
   );
 }
 

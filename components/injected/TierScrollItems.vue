@@ -79,7 +79,8 @@ const emit = defineEmits<{
                     : 'text-foreground/90 font-medium group-hover:text-foreground'
                 "
                 >{{ parseTierTagParts(getTierParts(item).tag).tier }}</span
-              >{{ ' ' }}<span
+              >{{ ' '
+              }}<span
                 class="text-[length:var(--pxd-font-caption)]"
                 :class="
                   isTierSelected(item)
