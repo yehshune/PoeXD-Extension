@@ -91,7 +91,9 @@ describe('stat-domain (詞綴網域色票與官方標籤)', () => {
   it('徽章用簡稱：中文為 2～3 字且涵蓋所有網域，其他語言沿用官方標籤', () => {
     setTradeLabelTestData({
       version: 'poe1',
-      officialStats: { 'zh-TW': { stats: { 'explicit.stat_1': 'x' }, labels: { crafted: '已工藝' } } },
+      officialStats: {
+        'zh-TW': { stats: { 'explicit.stat_1': 'x' }, labels: { crafted: '已工藝' } },
+      },
     });
     expect(getStatDomainBadgeLabel('crafted')).toBe('工藝');
     expect(getStatDomainBadgeLabel('implicit')).toBe('固定');

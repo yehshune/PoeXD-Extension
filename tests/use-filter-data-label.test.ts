@@ -4,10 +4,7 @@ import { useFilterData } from '@/components/sidebar/composables/useFilterData';
 import type { ModTier } from '@/components/sidebar/types';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '@/utils/i18n';
 import { setAffixLexiconMockData } from '@/utils/affix-lexicon';
-import {
-  resetTradeLabelsForTests,
-  setTradeLabelTestData,
-} from '@/utils/trade-label-resolver';
+import { resetTradeLabelsForTests, setTradeLabelTestData } from '@/utils/trade-label-resolver';
 
 const tier = (overrides: Partial<ModTier>): ModTier => ({
   affinities: ['prefix'],

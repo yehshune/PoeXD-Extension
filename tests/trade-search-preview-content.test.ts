@@ -4,10 +4,7 @@ import { createApp, nextTick, type App } from 'vue';
 import TradeSearchPreviewContent from '@/components/sidebar/search-preview/TradeSearchPreviewContent.vue';
 import type { TradeSearchPreviewData } from '@/components/sidebar/composables/useTradeSearchPreview';
 import { setMockDictionaries } from '@/utils/trade-stat-dictionary';
-import {
-  resetTradeLabelsForTests,
-  setTradeLabelTestData,
-} from '@/utils/trade-label-resolver';
+import { resetTradeLabelsForTests, setTradeLabelTestData } from '@/utils/trade-label-resolver';
 
 const data: TradeSearchPreviewData = {
   loading: false,
