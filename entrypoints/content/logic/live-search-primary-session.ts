@@ -17,6 +17,10 @@ import {
   type LiveSearchResumeController,
 } from './live-search-resume-controller';
 import {
+  createLiveSearchDesktopNotifier,
+  type LiveSearchDesktopNotifier,
+} from './live-search-desktop-notifier';
+import {
   createLiveSearchSoundNotifier,
   type LiveSearchSoundNotifier,
 } from './live-search-sound-notifier';
@@ -33,6 +37,7 @@ export interface LiveSearchConsoleHandles {
   sourceController?: LiveSearchSourceController | null;
   resumeController?: LiveSearchResumeController | null;
   soundNotifier?: LiveSearchSoundNotifier | null;
+  desktopNotifier?: LiveSearchDesktopNotifier | null;
   initialArrivalSignal?: boolean;
 }
 
@@ -45,6 +50,7 @@ export interface LiveSearchPrimarySessionFactories {
   createTitleGuard: typeof createLiveSearchConsoleTitleGuard;
   createHostGuard: typeof createLiveSearchConsoleHostGuard;
   createSoundNotifier: typeof createLiveSearchSoundNotifier;
+  createDesktopNotifier: typeof createLiveSearchDesktopNotifier;
   createRuntime: (
     version: PoeVersion,
     options: ConstructorParameters<typeof LiveSearchPrimaryRuntime>[1],
@@ -73,6 +79,7 @@ const DEFAULT_FACTORIES: LiveSearchPrimarySessionFactories = {
   createTitleGuard: createLiveSearchConsoleTitleGuard,
   createHostGuard: createLiveSearchConsoleHostGuard,
   createSoundNotifier: createLiveSearchSoundNotifier,
+  createDesktopNotifier: createLiveSearchDesktopNotifier,
   createRuntime: (version, options) => new LiveSearchPrimaryRuntime(version, options),
   createPrimaryController: createLiveSearchPrimaryController,
   createResumeStore: createLiveSearchResumeStore,
@@ -101,6 +108,7 @@ export function createLiveSearchPrimarySession(
   let titleGuard: ReturnType<LiveSearchPrimarySessionFactories['createTitleGuard']> | null = null;
   let hostGuard: ReturnType<LiveSearchPrimarySessionFactories['createHostGuard']> | null = null;
   let soundNotifier: LiveSearchSoundNotifier | null = null;
+  let desktopNotifier: LiveSearchDesktopNotifier | null = null;
   let primaryRuntime: ReturnType<LiveSearchPrimarySessionFactories['createRuntime']> | null = null;
   let sourceController: LiveSearchSourceController | null = null;
   let resumeController: LiveSearchResumeController | null = null;
@@ -116,6 +124,7 @@ export function createLiveSearchPrimarySession(
     sourceController?.dispose();
     resumeController?.dispose();
     primaryRuntime?.dispose();
+    desktopNotifier?.dispose();
     soundNotifier?.dispose();
   }
 
@@ -133,9 +142,35 @@ export function createLiveSearchPrimarySession(
     });
     soundNotifier = notifier;
 
+    const desktop = f.createDesktopNotifier({
+      version,
+      isEnabled: () => preferences.read().liveSearchDesktopNotificationEnabled,
+      onFocusConsole: () => {
+        if (typeof window !== 'undefined' && typeof window.focus === 'function') {
+          window.focus();
+        }
+        void f.messenger
+          .sendMessage('liveSearch:openPrimary', { gameVersion: version })
+          .catch(() => {});
+      },
+    });
+    desktopNotifier = desktop;
+
+    const resolveSourceName = (ownerKey: string): string | undefined => {
+      const connections = sourceController?.read().sessionConnections;
+      if (!connections) return undefined;
+      return connections.find((item) => item.canonicalKey === ownerKey)?.name;
+    };
+
     primaryRuntime = f.createRuntime(version, {
       getMaxDisplayedResults: () => preferences.read().liveSearchMaxDisplayedResults,
-      onResultTokenAccepted: () => notifier.notify(),
+      onResultTokenAccepted: (event) => {
+        notifier.notify();
+        desktop.notify({
+          ownerKey: event?.ownerKey,
+          sourceName: event?.ownerKey ? resolveSourceName(event.ownerKey) : undefined,
+        });
+      },
       // 主控台自己打的 /fetch 不經過 MAIN world 攔截，結果要另外交給共用快取
       onResultFetched: ({ itemData, searchId, league }) =>
         resultCache.ingestResult(itemData, { sourceSearchId: searchId, league }),
@@ -194,6 +229,7 @@ export function createLiveSearchPrimarySession(
       sourceController,
       resumeController,
       soundNotifier,
+      desktopNotifier,
       initialArrivalSignal,
     },
 

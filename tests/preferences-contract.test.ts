@@ -42,6 +42,7 @@ describe('Preferences Domain Contract', () => {
       fontSizeScale: 1,
       hotkeyClear: '\\',
       hotkeyFocus: '/',
+      liveSearchDesktopNotificationEnabled: false,
       liveSearchMaxDisplayedResults: 100,
       liveSearchResumeMode: 'prompt',
       liveSearchSelectedLeague: '',

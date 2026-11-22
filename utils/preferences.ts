@@ -74,6 +74,7 @@ const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
   'enableResultPobCopy',
   'enableSearchTilde',
   'enableTierHelper',
+  'liveSearchDesktopNotificationEnabled',
   'liveSearchSoundEnabled',
   'marketTranslation',
   'marketTranslationBilingual',

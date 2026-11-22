@@ -221,6 +221,7 @@
                   v-show="primaryActiveTab === 'console-settings'"
                   :resume-controller="liveSearchConsole?.resumeController ?? null"
                   :sound-notifier="liveSearchConsole?.soundNotifier ?? null"
+                  :desktop-notifier="liveSearchConsole?.desktopNotifier ?? null"
                 />
               </template>
             </div>

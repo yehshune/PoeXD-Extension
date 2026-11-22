@@ -1174,6 +1174,22 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'The official sound element was not found. Reload the console',
   'liveSearch.sound.preview.blocked': 'The browser blocked the sound. Press Preview again',
   'liveSearch.sound.preview.error': 'Could not play the sound',
+  'liveSearch.desktopNotify.label': 'Desktop Notifications',
+  'liveSearch.desktopNotify.enableLabel': 'Notify when results arrive in the background',
+  'liveSearch.desktopNotify.desc':
+    'Only shown while the console is hidden or unfocused. Each monitored search keeps its own notification card and coalesces bursts; click to focus the console.',
+  'liveSearch.desktopNotify.testBtn': 'Test Notification',
+  'liveSearch.desktopNotify.title': 'New PoeXD Live Search Results',
+  'liveSearch.desktopNotify.bodySingleSource': '"{name}" matched {count} new result(s)',
+  'liveSearch.desktopNotify.bodyGeneric': '{count} new item(s) matched your live search',
+  'liveSearch.desktopNotify.testBody':
+    'Desktop notifications are active. Background hits will appear here.',
+  'liveSearch.desktopNotify.unsupported': 'Desktop notifications are not supported in this browser',
+  'liveSearch.desktopNotify.denied':
+    'Notifications are blocked for this site. Re-enable them in the address bar site settings',
+  'liveSearch.desktopNotify.permissionNeeded':
+    'Notification permission is required. Click Allow in the browser prompt',
+  'liveSearch.desktopNotify.error': 'Could not display desktop notification',
   'liveSearch.settings.clearingPlan': 'Clearing...',
   'liveSearch.settings.resumeModeClean': 'Clean',
   'liveSearch.settings.resumeModeManual': 'Manual',

@@ -177,6 +177,51 @@
           </p>
         </SettingsSection>
 
+        <!-- 桌面通知（瀏覽器原生 Web Notification API） -->
+        <SettingsSection
+          section-id="live-search-desktop-notification"
+          :title="t('liveSearch.desktopNotify.label')"
+          :icon="Bell"
+        >
+          <SettingsRow
+            :label="t('liveSearch.desktopNotify.enableLabel')"
+            :description="t('liveSearch.desktopNotify.desc')"
+            control-id="live-search-desktop-notification-enabled"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="live-search-desktop-notification-enabled"
+                :model-value="liveSearchDesktopNotificationEnabled"
+                data-test="pref-desktop-notification-enabled"
+                :aria-describedby="describedBy"
+                @update:model-value="handleUpdateDesktopNotificationEnabled"
+              />
+            </template>
+          </SettingsRow>
+          <div class="flex flex-col items-start gap-[var(--pxd-space-xs)]">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-test="btn-desktop-notification-test"
+              :disabled="!desktopNotifier"
+              class="text-[length:var(--pxd-font-caption)]"
+              @click="handleTestDesktopNotification"
+            >
+              <BellRing aria-hidden="true" />
+              {{ t('liveSearch.desktopNotify.testBtn') }}
+            </Button>
+            <p
+              v-if="desktopNotifyFeedbackMessage"
+              data-test="desktop-notification-message"
+              role="status"
+              class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-amber-500"
+            >
+              {{ desktopNotifyFeedbackMessage }}
+            </p>
+          </div>
+        </SettingsSection>
+
         <!-- 重新開啟主控台時 (Resume Mode) -->
         <SettingsSection
           section-id="live-search-resume"
@@ -265,7 +310,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { ListOrdered, Play, RotateCcw, Upload, Volume2 } from '@lucide/vue';
+import { Bell, BellRing, ListOrdered, Play, RotateCcw, Upload, Volume2 } from '@lucide/vue';
 import SettingsRow from './settings/SettingsRow.vue';
 import SettingsSection from './settings/SettingsSection.vue';
 import {
@@ -286,6 +331,10 @@ import {
 import { getPoeVersion } from '@/utils/trade-context';
 import { t, type I18nKey } from '@/utils/i18n';
 import type { LiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
+import type {
+  LiveSearchDesktopNotifier,
+  LiveSearchDesktopNotifyOutcome,
+} from '@/entrypoints/content/logic/live-search-desktop-notifier';
 import {
   getOfficialSoundSettingKey,
   isValidCustomSoundDataUrl,
@@ -318,6 +367,10 @@ const props = defineProps({
     type: Object as PropType<LiveSearchSoundNotifier | null>,
     default: null,
   },
+  desktopNotifier: {
+    type: Object as PropType<LiveSearchDesktopNotifier | null>,
+    default: null,
+  },
 });
 
 const version = getPoeVersion();
@@ -326,7 +379,11 @@ const liveSearchMaxDisplayedResults = ref<LiveSearchMaxDisplayedResults>(
   DEFAULT_PREFERENCES.liveSearchMaxDisplayedResults,
 );
 const liveSearchSoundEnabled = ref<boolean>(DEFAULT_PREFERENCES.liveSearchSoundEnabled);
+const liveSearchDesktopNotificationEnabled = ref<boolean>(
+  DEFAULT_PREFERENCES.liveSearchDesktopNotificationEnabled,
+);
 const soundFeedbackMessage = ref('');
+const desktopNotifyFeedbackMessage = ref('');
 const hasPersistedPlan = ref(false);
 const isClearingPlan = ref(false);
 const customFileInputRef = ref<HTMLInputElement | null>(null);
@@ -400,6 +457,9 @@ function applyPreferences(snapshot: Readonly<Preferences>) {
     snapshot.liveSearchMaxDisplayedResults ?? DEFAULT_PREFERENCES.liveSearchMaxDisplayedResults;
   liveSearchSoundEnabled.value =
     snapshot.liveSearchSoundEnabled ?? DEFAULT_PREFERENCES.liveSearchSoundEnabled;
+  liveSearchDesktopNotificationEnabled.value =
+    snapshot.liveSearchDesktopNotificationEnabled ??
+    DEFAULT_PREFERENCES.liveSearchDesktopNotificationEnabled;
 }
 
 function bindPreferencesModule(mod: PreferencesModule | undefined) {
@@ -489,7 +549,11 @@ onUnmounted(() => {
 });
 
 async function updatePreference<
-  K extends 'liveSearchResumeMode' | 'liveSearchMaxDisplayedResults' | 'liveSearchSoundEnabled',
+  K extends
+    | 'liveSearchResumeMode'
+    | 'liveSearchMaxDisplayedResults'
+    | 'liveSearchSoundEnabled'
+    | 'liveSearchDesktopNotificationEnabled',
 >(key: K, value: Preferences[K]) {
   if (!activePreferences) return;
   const outcome = await activePreferences.update({ [key]: value });
@@ -516,6 +580,52 @@ async function handleUpdateSoundEnabled(val: unknown) {
   if (typeof val !== 'boolean') return;
   liveSearchSoundEnabled.value = val;
   await updatePreference('liveSearchSoundEnabled', val);
+}
+
+const DESKTOP_NOTIFY_FAILURE_KEYS = {
+  unsupported: 'liveSearch.desktopNotify.unsupported',
+  denied: 'liveSearch.desktopNotify.denied',
+  default: 'liveSearch.desktopNotify.permissionNeeded',
+  error: 'liveSearch.desktopNotify.error',
+} as const satisfies Record<
+  Exclude<LiveSearchDesktopNotifyOutcome, { ok: true }>['reason'],
+  I18nKey
+>;
+
+async function handleUpdateDesktopNotificationEnabled(val: unknown) {
+  if (typeof val !== 'boolean') return;
+  desktopNotifyFeedbackMessage.value = '';
+  if (!val) {
+    liveSearchDesktopNotificationEnabled.value = false;
+    await updatePreference('liveSearchDesktopNotificationEnabled', false);
+    return;
+  }
+
+  if (props.desktopNotifier) {
+    let permission = props.desktopNotifier.getPermission();
+    if (permission === 'default') {
+      permission = await props.desktopNotifier.requestPermission();
+    }
+    if (permission !== 'granted') {
+      liveSearchDesktopNotificationEnabled.value = false;
+      desktopNotifyFeedbackMessage.value = t(DESKTOP_NOTIFY_FAILURE_KEYS[permission]);
+      return;
+    }
+  }
+
+  liveSearchDesktopNotificationEnabled.value = true;
+  await updatePreference('liveSearchDesktopNotificationEnabled', true);
+}
+
+async function handleTestDesktopNotification() {
+  if (!props.desktopNotifier) return;
+  desktopNotifyFeedbackMessage.value = '';
+  if (props.desktopNotifier.getPermission() === 'default') {
+    await props.desktopNotifier.requestPermission();
+  }
+  const outcome = props.desktopNotifier.test();
+  if (outcome.ok) return;
+  desktopNotifyFeedbackMessage.value = t(DESKTOP_NOTIFY_FAILURE_KEYS[outcome.reason]);
 }
 
 const PREVIEW_FAILURE_KEYS = {

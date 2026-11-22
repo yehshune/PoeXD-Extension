@@ -206,6 +206,8 @@ export interface Preferences {
   fontSizeScale: number;
   hotkeyClear: string;
   hotkeyFocus: string;
+  /** 主控台桌面通知：背景或未聚焦時透過瀏覽器原生 Notification API 提示新結果 */
+  liveSearchDesktopNotificationEnabled: boolean;
   liveSearchMaxDisplayedResults: LiveSearchMaxDisplayedResults;
   liveSearchResumeMode: LiveSearchResumeMode;
   liveSearchSelectedLeague: string;
@@ -255,6 +257,7 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   fontSizeScale: 1,
   hotkeyClear: '\\',
   hotkeyFocus: '/',
+  liveSearchDesktopNotificationEnabled: false,
   liveSearchMaxDisplayedResults: 100,
   liveSearchResumeMode: 'prompt',
   liveSearchSelectedLeague: '',
