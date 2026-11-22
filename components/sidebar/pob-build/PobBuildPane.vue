@@ -17,7 +17,7 @@
         </Button>
 
         <Button
-          variant="secondary"
+          variant="outline"
           size="sm"
           class="font-bold shrink-0"
           data-pob-build-expand-all
@@ -32,7 +32,7 @@
         </Button>
 
         <Button
-          :variant="isSearchVisible ? 'default' : 'secondary'"
+          :variant="isSearchVisible ? 'default' : 'outline'"
           size="icon-sm"
           data-pob-build-search-toggle
           :disabled="builds.length === 0 && !isSearchVisible"

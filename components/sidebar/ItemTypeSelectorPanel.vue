@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col min-h-0 flex-1 overflow-hidden">
     <!-- 搜尋輸入框（附清空鈕與鍵盤 ↑↓ / Enter 選取） -->
-    <div class="p-[var(--pxd-space-sm)] bg-background border-b border-border shrink-0">
+    <div class="p-[var(--pxd-space-sm)] bg-popover border-b border-border shrink-0">
       <div class="relative flex items-center">
         <Input
           ref="searchInputRef"

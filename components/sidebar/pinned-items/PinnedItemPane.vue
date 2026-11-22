@@ -369,7 +369,7 @@ function formatFee(fee: number | undefined): string {
         <DropdownMenu v-model:open="isSortMenuOpen">
           <DropdownMenuTrigger as-child>
             <Button
-              :variant="sortMode !== 'custom' ? 'default' : 'secondary'"
+              :variant="sortMode !== 'custom' ? 'default' : 'outline'"
               size="icon-sm"
               class="shrink-0"
               data-pinned-items-sort
@@ -397,7 +397,7 @@ function formatFee(fee: number | undefined): string {
           </DropdownMenuContent>
         </DropdownMenu>
         <Button
-          :variant="isSearchVisible ? 'default' : 'secondary'"
+          :variant="isSearchVisible ? 'default' : 'outline'"
           size="icon-sm"
           class="shrink-0"
           data-pinned-items-search-toggle
@@ -413,7 +413,7 @@ function formatFee(fee: number | undefined): string {
           <Search />
         </Button>
         <Button
-          variant="secondary"
+          variant="outline"
           size="icon-sm"
           class="shrink-0"
           data-pinned-items-expand-toggle
@@ -429,7 +429,7 @@ function formatFee(fee: number | undefined): string {
         <DropdownMenu v-model:open="isClearMenuOpen">
           <DropdownMenuTrigger as-child>
             <Button
-              variant="secondary"
+              variant="outline"
               size="icon-sm"
               class="shrink-0"
               data-pinned-items-clear

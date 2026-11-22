@@ -123,7 +123,7 @@ function downloadBackup() {
       }}</span>
     </Button>
     <Button
-      variant="secondary"
+      variant="outline"
       size="sm"
       class="font-bold shrink-0"
       data-test="stat-group-template-undo"
@@ -135,7 +135,7 @@ function downloadBackup() {
       <span class="pxd-toolbar-btn-text ml-1.5 truncate">{{ t('common.undo') }}</span>
     </Button>
     <Button
-      :variant="isSearchVisible ? 'default' : 'secondary'"
+      :variant="isSearchVisible ? 'default' : 'outline'"
       size="icon-sm"
       data-test="stat-group-template-search-toggle"
       :title="
@@ -150,7 +150,7 @@ function downloadBackup() {
     <DropdownMenu v-model:open="isMenuOpen">
       <DropdownMenuTrigger as-child>
         <Button
-          variant="secondary"
+          variant="outline"
           size="icon-sm"
           :title="t('statGroupTemplate.toolbar.menuTooltip')"
           data-test="stat-group-template-menu"

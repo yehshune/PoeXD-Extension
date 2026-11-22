@@ -67,7 +67,7 @@ function clearThemeOverrideVariables(host: HTMLElement) {
 
 function getPopoverExpression(isLight: boolean): string {
   return isLight
-    ? 'color-mix(in oklch, var(--background), oklch(1 0 0) 65%)'
+    ? 'color-mix(in oklch, var(--background), oklch(1 0 0) 25%)'
     : 'color-mix(in oklch, var(--card), var(--foreground) 5%)';
 }
 
