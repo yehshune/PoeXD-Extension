@@ -169,7 +169,7 @@ export interface PoeCriteriaOverlayCommitResultPayload {
   error?: string;
 }
 
-/** 請 Main World 以官方 `save(true)` 把目前搜尋表單寫進網址（不修改表單）。 */
+/** 請 Main World 以官方 `updateUrl()`（退回 `save(true)`）把目前搜尋表單寫進網址（不修改表單）。 */
 export interface PoeCriteriaOverlaySyncPayload {
   requestId: string;
 }

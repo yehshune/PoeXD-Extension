@@ -248,33 +248,37 @@ describe('initCriteriaOverlayAdapter', () => {
 
   describe('sync', () => {
     let errorSpy: ReturnType<typeof vi.spyOn>;
+    let updateUrl: ReturnType<typeof vi.fn>;
     beforeEach(() => {
       errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      updateUrl = vi.fn();
+      (root as any).updateUrl = updateUrl;
     });
     afterEach(() => errorSpy.mockRestore());
 
     const requestSync = (requestId: string) =>
       listeners.get('poexd-criteria-overlay-sync')!(serializePoeCriteriaOverlaySync({ requestId }));
 
-    it('saves through the official root without touching the form and replies with the URL', async () => {
-      let finishSave!: () => void;
+    it('writes the URL with the official updateUrl() so the search is not marked dirty', async () => {
+      let finishUpdate!: () => void;
       root.loaded = true;
-      root.save.mockImplementation(
+      updateUrl.mockImplementation(
         () =>
           new Promise<void>((resolve) => {
-            finishSave = () => {
-              window.history.pushState(null, '', '/trade/search/Standard/synced');
+            finishUpdate = () => {
+              window.history.replaceState(null, '', '/trade/search/Standard/synced');
               resolve();
             };
           }),
       );
       requestSync('s1');
       await Promise.resolve();
-      expect(root.save).toHaveBeenCalledWith(true);
+      expect(updateUrl).toHaveBeenCalledOnce();
+      expect(root.save).not.toHaveBeenCalled();
       expect(store.commit).not.toHaveBeenCalled();
       expect(dispatched).toEqual([]);
 
-      finishSave();
+      finishUpdate();
       await vi.waitFor(() => expect(dispatched).toHaveLength(1));
       const [type, payload] = dispatched[0];
       expect(type).toBe('poexd-criteria-overlay-sync-result');
@@ -286,21 +290,40 @@ describe('initCriteriaOverlayAdapter', () => {
       expect(window.location.pathname).toBe('/trade/search/Standard/synced');
     });
 
+    it('falls back to save(true) when the official page has no updateUrl()', async () => {
+      (root as any).updateUrl = undefined;
+      requestSync('s5');
+      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+      expect(root.save).toHaveBeenCalledWith(true);
+      expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
+        requestId: 's5',
+        success: true,
+      });
+    });
+
     it('refuses to report success while the official page has not loaded', async () => {
       root.loaded = false;
       requestSync('s2');
       await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+      expect(updateUrl).not.toHaveBeenCalled();
       expect(root.save).not.toHaveBeenCalled();
       expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
         requestId: 's2',
         success: false,
         error: 'PAGE_NOT_LOADED',
-        diagnostics: { storeFound: true, rootFound: true, hasSave: true, loaded: false },
+        diagnostics: {
+          storeFound: true,
+          rootFound: true,
+          hasUpdateUrl: true,
+          hasSave: true,
+          loaded: false,
+        },
       });
       expect(errorSpy).toHaveBeenCalled();
     });
 
     it('reports TRADE_ROOT_NOT_FOUND instead of silently skipping the URL write', async () => {
+      (root as any).updateUrl = undefined;
       (root as any).save = undefined;
       requestSync('s3');
       await vi.waitFor(() => expect(dispatched).toHaveLength(1));
@@ -310,13 +333,14 @@ describe('initCriteriaOverlayAdapter', () => {
       });
     });
 
-    it('passes the official save error through', async () => {
-      root.save.mockRejectedValue(new Error('CompressionStream failed'));
+    it('passes the official URL write error through', async () => {
+      updateUrl.mockRejectedValue(new Error('CompressionStream failed'));
       requestSync('s4');
       await vi.waitFor(() => expect(dispatched).toHaveLength(1));
       expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
         success: false,
         error: 'CompressionStream failed',
+        diagnostics: { method: 'updateUrl' },
       });
     });
   });

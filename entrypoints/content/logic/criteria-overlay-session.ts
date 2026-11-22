@@ -42,7 +42,7 @@ export interface CriteriaOverlayPageChannel {
 
 /** 只把官方搜尋表單寫進網址（不修改表單）的通道；測試時可替換。 */
 export interface CriteriaOverlayUrlSyncChannel {
-  /** 官方 `save(true)` 寫完網址後回傳 `location.href`。 */
+  /** 官方寫完網址（`updateUrl()`，退回 `save(true)`）後回傳 `location.href`。 */
   syncToUrl(): Promise<string>;
 }
 

@@ -159,8 +159,13 @@ function describeRoute(pathname: string): string {
 }
 
 /**
- * 以官方 `save(true)` 把目前搜尋表單寫進網址，不修改表單（見 GLOSSARY.md「Bookmark」、ADR-0010）。
- * 官方 `save` 在頁面尚未 `loaded` 時什麼都不做，若照常回報成功，呼叫端會存到過時的網址，
+ * 把目前搜尋表單寫進網址，不修改表單（見 GLOSSARY.md「Bookmark」、ADR-0010）。
+ *
+ * 優先用官方 `updateUrl()`（`history.replaceState`）：不標記 search dirty，官方「啟動即時搜尋」
+ * 按鈕不會因加入書籤而隱藏；也不新增歷史紀錄，「上一頁」不會退回同步前並清空結果；
+ * Category Binding 會延續同一個 session。官方沒有 `updateUrl` 時才退回 `save(true)`。
+ *
+ * 官方頁面尚未 `loaded` 時表單還不是使用者看到的內容，若照常回報成功，呼叫端會存到過時的網址，
  * 因此先檢查並回報明確的錯誤代碼。
  */
 export async function syncCriteriaOverlayFormToUrl(): Promise<CriteriaOverlaySyncOutcome> {
@@ -172,6 +177,7 @@ export async function syncCriteriaOverlayFormToUrl(): Promise<CriteriaOverlaySyn
     route: describeRoute(window.location.pathname),
     storeFound: !!store,
     rootFound: !!root,
+    hasUpdateUrl: typeof root?.updateUrl === 'function',
     hasSave: typeof root?.save === 'function',
     loaded: typeof root?.loaded === 'boolean' ? root.loaded : null,
   };
@@ -182,11 +188,14 @@ export async function syncCriteriaOverlayFormToUrl(): Promise<CriteriaOverlaySyn
   };
 
   if (!store) return fail('FORM_STATE_NOT_FOUND');
-  if (!root || typeof root.save !== 'function') return fail('TRADE_ROOT_NOT_FOUND');
+  const updateUrl = typeof root?.updateUrl === 'function' ? root.updateUrl.bind(root) : null;
+  const save = typeof root?.save === 'function' ? root.save.bind(root) : null;
+  if (!root || (!updateUrl && !save)) return fail('TRADE_ROOT_NOT_FOUND');
   if (root.loaded === false) return fail('PAGE_NOT_LOADED');
 
+  diagnostics.method = updateUrl ? 'updateUrl' : 'save';
   try {
-    await root.save(true);
+    await (updateUrl ? updateUrl() : save!(true));
   } catch (cause) {
     return fail(cause instanceof Error && cause.message ? cause.message : 'SAVE_FAILED', cause);
   }
