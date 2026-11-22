@@ -900,8 +900,14 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     ]);
     const navButtons = Array.from(
       container.querySelectorAll<HTMLButtonElement>('[data-settings-nav-target]'),
-    ).map((btn) => btn.getAttribute('data-settings-nav-target'));
-    expect(navButtons).toEqual(visibleSections);
+    );
+    expect(navButtons.map((btn) => btn.getAttribute('data-settings-nav-target'))).toEqual(
+      visibleSections,
+    );
+    for (const btn of navButtons) {
+      expect(btn.className).toContain('rounded-sm');
+      expect(btn.className).not.toContain('rounded-full');
+    }
     expect(container.querySelector('[data-settings-tablist]')).toBeNull();
 
     // Localization starts expanded while the other 5 sections start collapsed like a clean directory
@@ -1099,9 +1105,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(toggle.getAttribute('aria-controls')).toBe(details.id);
   });
 
-  it('filters settings rows by search query and shows an empty state when nothing matches', async () => {
+  it('toggles search input in place of nav buttons, filters settings rows, and shows an empty state when nothing matches', async () => {
     const { container } = await mountSettingsPane();
-    expect(container.querySelector('[data-settings-search-toggle]')).toBeNull();
+    const toggle = container.querySelector<HTMLButtonElement>('[data-settings-search-toggle]')!;
+    expect(toggle).not.toBeNull();
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(container.querySelector('[data-settings-search]')).toBeNull();
+    expect(container.querySelector('[data-settings-nav]')).not.toBeNull();
+
+    toggle.click();
+    await flushAsync();
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('[data-settings-nav]')).toBeNull();
     const input = container.querySelector<HTMLInputElement>('[data-settings-search]')!;
     expect(input).not.toBeNull();
 
@@ -1143,19 +1158,21 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     (container.querySelector('[data-settings-search-clear]') as HTMLButtonElement).click();
     await flushAsync();
-    // Clearing the query shows every section again
+    // Clearing the query keeps the search input open and shows every section again
+    expect(container.querySelector('[data-settings-search]')).not.toBeNull();
     expect(visibleSections().length).toBe(6);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
-    // Escape clears the query while keeping the search box visible
+    // Escape closes the search box, clears the query, and restores the nav buttons
     input.value = '模糊';
     input.dispatchEvent(new Event('input'));
     await flushAsync();
     expect(visibleSections()).toEqual(['searchHotkeys']);
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await flushAsync();
-    expect(container.querySelector('[data-settings-search]')).not.toBeNull();
-    expect(input.value).toBe('');
+    expect(container.querySelector('[data-settings-search]')).toBeNull();
+    expect(container.querySelector('[data-settings-nav]')).not.toBeNull();
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
     expect(visibleSections().length).toBe(6);
   });
 

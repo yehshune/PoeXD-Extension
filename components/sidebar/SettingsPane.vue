@@ -1,50 +1,47 @@
 <template>
   <SidebarPane data-pane="settings" class="pxd-settings-pane">
     <template #fixed>
-      <!-- 搜尋框與備份選單：固定於捲動區上方（與書籤、歷史、PoB 分頁相同） -->
+      <!-- 頂部工具列：左側為區段跳轉按鈕（開啟搜尋時原地替換為搜尋框），右側固定為搜尋切換與備份選單 -->
       <div
         data-settings-toolbar
-        class="mb-[var(--pxd-space-sm)] flex w-full min-w-0 flex-col gap-[var(--pxd-space-sm)] border-b border-border pb-[var(--pxd-space-sm)]"
+        class="mb-[var(--pxd-space-sm)] flex w-full min-w-0 items-start gap-[var(--pxd-space-sm)] border-b border-border pb-[var(--pxd-space-sm)]"
       >
-        <div class="flex w-full min-w-0 items-center gap-[var(--pxd-space-sm)]">
-          <div class="relative flex min-w-0 flex-1 items-center">
-            <Search
-              class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              v-model="searchQuery"
-              type="search"
-              size="sm"
-              data-settings-search
-              class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))] [&::-webkit-search-cancel-button]:appearance-none"
-              :placeholder="t('settings.search.placeholder')"
-              :aria-label="t('settings.search.placeholder')"
-              @keydown.esc.stop.prevent="clearSearch"
-            />
-            <Button
-              v-if="searchQuery"
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              class="absolute right-[var(--pxd-space-xs)]"
-              data-settings-search-clear
-              :title="t('settings.search.clear')"
-              :aria-label="t('settings.search.clear')"
-              @click="clearSearch"
-            >
-              <X />
-            </Button>
-          </div>
-          <SettingsBackupMenu :preferences="preferences" :version="version" />
+        <div v-if="isSearchVisible" class="relative flex min-w-0 flex-1 items-center">
+          <Search
+            class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            type="search"
+            size="sm"
+            data-settings-search
+            class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))] [&::-webkit-search-cancel-button]:appearance-none"
+            :placeholder="t('settings.search.placeholder')"
+            :aria-label="t('settings.search.placeholder')"
+            @keydown.esc.stop.prevent="closeSearch"
+          />
+          <Button
+            v-if="searchQuery"
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            class="absolute right-[var(--pxd-space-xs)]"
+            data-settings-search-clear
+            :title="t('settings.search.clear')"
+            :aria-label="t('settings.search.clear')"
+            @click="clearSearch"
+          >
+            <X />
+          </Button>
         </div>
 
-        <!-- 區段快速跳轉膠囊（搜尋時隱藏以騰出檢視空間） -->
         <nav
-          v-if="!isSearching"
+          v-else
           data-settings-nav
           :aria-label="t('settings.nav.ariaLabel')"
-          class="flex flex-wrap items-center gap-[var(--pxd-space-xs)]"
+          class="flex min-w-0 flex-1 flex-wrap items-center gap-[var(--pxd-space-xs)]"
         >
           <button
             v-for="item in SECTION_NAV_ITEMS"
@@ -53,7 +50,7 @@
             :data-settings-nav-target="item.id"
             :data-active="activeSection === item.id ? 'true' : undefined"
             :class="[
-              'inline-flex cursor-pointer items-center rounded-full border px-[var(--pxd-space-sm)] py-[2px] text-[length:var(--pxd-font-caption)] leading-snug transition-colors',
+              'inline-flex cursor-pointer items-center rounded-sm border px-[var(--pxd-space-sm)] py-[2px] text-[length:var(--pxd-font-caption)] leading-snug transition-colors',
               activeSection === item.id
                 ? 'border-primary/50 bg-primary/15 font-medium text-foreground'
                 : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground',
@@ -63,6 +60,26 @@
             {{ t(item.labelKey) }}
           </button>
         </nav>
+
+        <div class="flex shrink-0 items-center gap-[var(--pxd-space-sm)]">
+          <Button
+            type="button"
+            :variant="isSearchVisible ? 'default' : 'secondary'"
+            size="icon-sm"
+            data-settings-search-toggle
+            :aria-pressed="isSearchVisible"
+            :title="
+              isSearchVisible ? t('bookmark.search.closeTooltip') : t('settings.search.placeholder')
+            "
+            :aria-label="
+              isSearchVisible ? t('bookmark.search.closeTooltip') : t('settings.search.placeholder')
+            "
+            @click="toggleSearch"
+          >
+            <Search />
+          </Button>
+          <SettingsBackupMenu :preferences="preferences" :version="version" />
+        </div>
       </div>
     </template>
 
@@ -1172,11 +1189,26 @@ export default defineComponent({
       savePreference(key);
     };
 
-    // 設定搜尋：預設顯示輸入框，搜尋時跨區塊列出符合的設定
+    // 設定搜尋：點擊放大鏡按鈕展開輸入框（取代跳轉按鈕區），搜尋時跨區塊列出符合的設定
+    const isSearchVisible = ref(false);
     const searchQuery = ref('');
+    const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
     const { isSearching, hasResults: hasSearchResults } = provideSettingsSearch(searchQuery);
     const clearSearch = () => {
       searchQuery.value = '';
+    };
+    const closeSearch = () => {
+      isSearchVisible.value = false;
+      searchQuery.value = '';
+    };
+    const toggleSearch = async () => {
+      if (isSearchVisible.value) {
+        closeSearch();
+        return;
+      }
+      isSearchVisible.value = true;
+      await nextTick();
+      (searchInputRef.value?.$el as HTMLInputElement | undefined)?.focus?.();
     };
 
     const SECTION_NAV_ITEMS: readonly {
@@ -1246,9 +1278,9 @@ export default defineComponent({
       }, 1600);
     };
     const openSection = (section: SettingsSectionId) => {
-      const wasSearching = isSearching.value;
+      const wasSearching = isSearching.value || isSearchVisible.value;
       const wasCollapsed = collapsedSections.value.has(section);
-      clearSearch();
+      closeSearch();
       expandSection(section);
       activeSection.value = section;
       triggerSectionHighlight(section);
@@ -1277,10 +1309,14 @@ export default defineComponent({
       moduleValues,
       enabledModuleCount,
       toggleModule,
+      isSearchVisible,
       searchQuery,
+      searchInputRef,
       isSearching,
       hasSearchResults,
       clearSearch,
+      closeSearch,
+      toggleSearch,
       SECTION_NAV_ITEMS,
       sectionsRef,
       activeSection,
