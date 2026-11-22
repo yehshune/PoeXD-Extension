@@ -360,16 +360,18 @@ export function usePageGuideDemos(options: PageGuideDemosOptions) {
     await nextTick();
     const triggerSelector = `[data-poexd-page-guide-demo="true"] .poexd-tier-trigger[data-tier-slot-key="${key}"]`;
     const trigger = document.querySelector<HTMLElement>(triggerSelector);
+    const demoRow = trigger?.closest<HTMLElement>('[data-poexd-page-guide-demo="true"]') ?? null;
     for (let i = 0; i < 15; i += 1) {
       const menu = findSidebarElement('[data-slot="dropdown-menu-content"][data-state="open"]');
       if (menu && menu.getBoundingClientRect().width > 0) {
-        options.setDemoElements({ ring: trigger ? [trigger, menu] : menu });
+        const anchorEl = demoRow ?? trigger;
+        options.setDemoElements({ ring: anchorEl ? [anchorEl, menu] : menu });
         return;
       }
       await sleep(40);
       if (!alive()) return;
     }
-    if (trigger) options.setDemoElements({ ring: trigger });
+    if (demoRow ?? trigger) options.setDemoElements({ ring: (demoRow ?? trigger)! });
   };
 
   const runStepDemo = async (demo: PageGuideStepDemo) => {

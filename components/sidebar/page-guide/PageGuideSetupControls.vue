@@ -2,7 +2,6 @@
 import { PanelLeft, PanelRight, RotateCcw } from '@lucide/vue';
 import { computed } from 'vue';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -54,6 +53,10 @@ const previewResultZhText = computed(() =>
 );
 const previewResultEnText = computed(() => t('pageGuide.setup.marketTranslation.previewModEn'));
 
+const isDemoPlaying = computed(() =>
+  Boolean(props.bindings.demoPlaying || props.bindings.demoCursor !== null),
+);
+
 const segmentClass = 'grid gap-[var(--pxd-space-xs)]';
 const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-muted-foreground';
 </script>
@@ -97,19 +100,19 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
     </div>
 
     <div v-else-if="kind === 'market-translation'" class="flex flex-col gap-[var(--pxd-space-sm)]">
-      <div class="flex items-center gap-[var(--pxd-space-md)]">
-        <Checkbox
-          id="page-guide-market-translation"
-          :model-value="bindings.marketTranslation"
-          data-setup-action="market-translation"
-          @update:model-value="(value) => bindings.setMarketTranslation(value === true)"
-        />
+      <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
         <label
           for="page-guide-market-translation"
-          class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] text-foreground"
+          class="cursor-pointer select-none text-[length:var(--pxd-font-secondary)] font-medium text-foreground"
         >
           {{ t('pageGuide.setup.marketTranslation.label') }}
         </label>
+        <Switch
+          id="page-guide-market-translation"
+          :model-value="bindings.marketTranslation"
+          data-setup-action="market-translation"
+          @update:model-value="(value: boolean) => bindings.setMarketTranslation(value)"
+        />
       </div>
 
       <div
@@ -210,13 +213,6 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
         </Button>
       </div>
 
-      <p
-        data-setup-hint="custom-width"
-        class="m-0 text-[length:var(--pxd-font-caption)] text-primary"
-      >
-        {{ t('pageGuide.setup.customWidthHint') }}
-      </p>
-
       <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
         <span :class="rowLabelClass">{{ t('settings.fontSize.label') }}</span>
         <FontSizeScaleControl
@@ -234,15 +230,15 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
       variant="outline"
       class="self-start"
       :data-setup-action="kind === 'collapse-drag' ? 'replay-collapse-demo' : 'replay-step-demo'"
-      :disabled="Boolean(bindings.demoPlaying || bindings.demoCursor !== null)"
+      :disabled="isDemoPlaying"
       @click="
         kind === 'collapse-drag'
           ? bindings.replayCollapseDemo()
           : bindings.replayStepDemo?.(stepId ?? '')
       "
     >
-      <RotateCcw />
-      {{ t('pageGuide.setup.collapse.replay') }}
+      <RotateCcw :class="isDemoPlaying ? 'motion-safe:animate-spin' : ''" />
+      {{ isDemoPlaying ? t('pageGuide.setup.demo.playing') : t('pageGuide.setup.collapse.replay') }}
     </Button>
 
     <ul

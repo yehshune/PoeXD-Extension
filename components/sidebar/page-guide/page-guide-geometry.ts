@@ -34,6 +34,20 @@ export function padGuideRect(rect: GuideRect, padding: number): GuideRect {
   };
 }
 
+/** 將外框裁切回視窗範圍內，避免靠邊元件（例如貼齊左緣的收合把手）的外框被切掉。 */
+export function clampGuideRectToViewport(rect: GuideRect, viewport: GuideSize): GuideRect {
+  const left = Math.max(0, rect.left);
+  const top = Math.max(0, rect.top);
+  const right = Math.min(viewport.width, rect.left + rect.width);
+  const bottom = Math.min(viewport.height, rect.top + rect.height);
+  return {
+    top,
+    left,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  };
+}
+
 /** 合併多個元素的矩形外框（例如同時框住 T 按鈕與展開的選單）。 */
 export function unionGuideRects(rects: readonly GuideRect[]): GuideRect | null {
   if (rects.length === 0) return null;
@@ -84,17 +98,35 @@ export function placeGuideBubble(
   const above = target.top - gap - bubble.height;
   const right = target.left + target.width + gap;
   const left = target.left - gap - bubble.width;
+  const fitsBelow = below + bubble.height <= viewport.height - VIEWPORT_MARGIN;
+  const fitsAbove = above >= VIEWPORT_MARGIN;
+  const fitsRight = right + bubble.width <= viewport.width - VIEWPORT_MARGIN;
+  const fitsLeft = left >= VIEWPORT_MARGIN;
 
-  if (below + bubble.height <= viewport.height - VIEWPORT_MARGIN) {
+  // 高目標（如展開的階級選單或直立導覽列）在較矮視窗上優先放左右，避免硬塞下方或重疊
+  const isTallTarget = target.height >= viewport.height * 0.4;
+  if (isTallTarget) {
+    if (fitsRight && fitsLeft) {
+      const rightSpace = viewport.width - (target.left + target.width);
+      const leftSpace = target.left;
+      return leftSpace >= rightSpace
+        ? { top: centeredTop, left, placement: 'left' }
+        : { top: centeredTop, left: right, placement: 'right' };
+    }
+    if (fitsRight) return { top: centeredTop, left: right, placement: 'right' };
+    if (fitsLeft) return { top: centeredTop, left, placement: 'left' };
+  }
+
+  if (fitsBelow) {
     return { top: below, left: centeredLeft, placement: 'bottom' };
   }
-  if (above >= VIEWPORT_MARGIN) {
+  if (fitsAbove) {
     return { top: above, left: centeredLeft, placement: 'top' };
   }
-  if (right + bubble.width <= viewport.width - VIEWPORT_MARGIN) {
+  if (fitsRight) {
     return { top: centeredTop, left: right, placement: 'right' };
   }
-  if (left >= VIEWPORT_MARGIN) {
+  if (fitsLeft) {
     return { top: centeredTop, left, placement: 'left' };
   }
   return { top: maxTop, left: centeredLeft, placement: 'bottom' };

@@ -72,6 +72,8 @@ describe('PageGuideHost', () => {
     expect(portal.querySelector('[data-page-guide-counter]')?.textContent?.trim()).toBe(
       `1 / ${visibleStepCount}`,
     );
+    expect(portal.querySelector('[data-page-guide-progress]')).not.toBeNull();
+    expect(portal.querySelector('[data-page-guide-action="close"]')).not.toBeNull();
     expect(portal.querySelector('[data-page-guide-blocker]')).not.toBeNull();
     expect(portal.querySelector('[data-page-guide-action="previous"]')).toBeNull();
 

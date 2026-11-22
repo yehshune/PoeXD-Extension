@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clampGuideRectToViewport,
   padGuideRect,
   placeGuideBubble,
   unionGuideRects,
@@ -53,6 +54,27 @@ describe('placeGuideBubble', () => {
   it('keeps the bubble inside the viewport horizontally', () => {
     const target = { top: 100, left: 0, width: 20, height: 20 };
     expect(placeGuideBubble(target, bubble, viewport).left).toBe(8);
+  });
+
+  it('prefers side placement for tall targets on shorter viewports to avoid overlapping', () => {
+    const shortViewport = { width: 1280, height: 720 };
+    const tallMenu = { top: 200, left: 600, width: 420, height: 420 };
+    const position = placeGuideBubble(tallMenu, bubble, shortViewport);
+    expect(position.placement).toBe('left');
+    expect(position.left + bubble.width).toBeLessThanOrEqual(tallMenu.left);
+  });
+});
+
+describe('clampGuideRectToViewport', () => {
+  it('clamps negative edge padding back into the viewport', () => {
+    expect(
+      clampGuideRectToViewport({ top: 264, left: -6, width: 79, height: 46 }, viewport),
+    ).toEqual({
+      top: 264,
+      left: 0,
+      width: 73,
+      height: 46,
+    });
   });
 });
 

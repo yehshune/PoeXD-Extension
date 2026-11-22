@@ -3,11 +3,12 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import { Button } from '@/components/ui/button';
 import { t, type I18nKey } from '@/utils/i18n';
 import { affixDemoMode } from '@/utils/page-guide-demo-state';
-import { MousePointer2, MoveHorizontal } from '@lucide/vue';
+import { MousePointer2, MoveHorizontal, X } from '@lucide/vue';
 import PageGuideOfficialResult from './PageGuideOfficialResult.vue';
 import PageGuideSetupControls from './PageGuideSetupControls.vue';
 import type { PageGuideSetupBindings } from './page-guide-setup';
 import {
+  clampGuideRectToViewport,
   padGuideRect,
   placeGuideBubble,
   unionGuideRects,
@@ -89,6 +90,12 @@ const SIDEBAR_CALLOUT_SPECS: readonly {
     descKey: 'pageGuide.tour.sidebar.item.pinnedItems',
   },
   {
+    id: 'result-board',
+    selector: '[data-sidebar-tab="result-board"]',
+    titleKey: 'sidebar.nav.resultBoard',
+    descKey: 'pageGuide.tour.sidebar.item.resultBoard',
+  },
+  {
     id: 'live-search',
     selector: '[data-sidebar-action="open-live-search"]',
     titleKey: 'sidebar.nav.openLiveSearch',
@@ -131,6 +138,11 @@ const mode = computed(() => guide.state.mode);
 const step = computed(() => guide.currentStep.value);
 const isTour = computed(() => mode.value === 'tour');
 const isLastStep = computed(() => guide.stepNumber.value >= guide.stepCount.value);
+const progressPercent = computed(() => {
+  const total = guide.stepCount.value;
+  if (total <= 0) return 0;
+  return Math.min(100, Math.max(0, (guide.stepNumber.value / total) * 100));
+});
 /** 需要使用者直接操作側欄的步驟不放擋點擊的遮罩，只用外框陰影把其他地方變暗 */
 const isInteractive = computed(() => isTour.value && step.value?.interactive === true);
 const showReload = computed(() => isTour.value && isLastStep.value && props.setup?.reloadRequired);
@@ -411,13 +423,25 @@ function buildResizeIndicator(
   };
 }
 
+function rectsOverlap(a: GuideRect, b: GuideRect): boolean {
+  return !(
+    a.left + a.width <= b.left ||
+    a.left >= b.left + b.width ||
+    a.top + a.height <= b.top ||
+    a.top >= b.top + b.height
+  );
+}
+
 function measure() {
   guide.refreshElement();
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
   const rects = activeRingElements.value
     .map((el) => el.getBoundingClientRect())
     .filter((r) => r.width > 0 && r.height > 0);
   const union = unionGuideRects(rects);
-  const paddedTarget = union ? padGuideRect(union, RING_PADDING) : null;
+  const paddedTarget = union
+    ? clampGuideRectToViewport(padGuideRect(union, RING_PADDING), viewport)
+    : null;
   const resizeHandle = findResizeHandle();
   // 外觀步驟直接改以拖曳把手高亮取代整面側欄外框，避免雙重垂直線條
   const nextRing = resizeHandle ? null : paddedTarget;
@@ -439,19 +463,41 @@ function measure() {
   const box = bubble.value;
   let nextBubblePosition: GuideBubblePosition | null = null;
   if (box) {
+    const bubbleSize = { width: box.offsetWidth, height: box.offsetHeight };
     if (affixDemoMode.value) {
+      // 置於右側「待套用清單」中段空白區，避免擋住底部的套用按鈕
+      const rightEdge = spotlight ? spotlight.left + spotlight.width : viewport.width;
+      const topAnchor = spotlight
+        ? spotlight.top + Math.round((spotlight.height - bubbleSize.height) * 0.45)
+        : Math.round((viewport.height - bubbleSize.height) * 0.45);
       nextBubblePosition = {
-        top: Math.max(8, window.innerHeight - box.offsetHeight - 20),
-        left: Math.max(8, window.innerWidth - box.offsetWidth - 20),
-        placement: 'bottom',
+        top: Math.max(8, Math.min(topAnchor, viewport.height - bubbleSize.height - 8)),
+        left: Math.max(
+          8,
+          Math.min(rightEdge - bubbleSize.width - 20, viewport.width - bubbleSize.width - 8),
+        ),
+        placement: 'right',
       };
+    } else if (
+      step.value?.id === 'collapse' &&
+      bubblePosition.value &&
+      (props.setup?.demoPlaying || props.setup?.demoCursor !== null) &&
+      (!nextRing ||
+        !rectsOverlap(
+          {
+            top: bubblePosition.value.top,
+            left: bubblePosition.value.left,
+            width: bubbleSize.width,
+            height: bubbleSize.height,
+          },
+          nextRing,
+        ))
+    ) {
+      // 收合示範播放中保持說明框穩定不跳動（只要不擋到目前高亮目標）
+      nextBubblePosition = bubblePosition.value;
     } else {
       const bubbleTarget = expandTargetForCallouts(spotlight ?? nextRing, nextCallouts);
-      nextBubblePosition = placeGuideBubble(
-        bubbleTarget,
-        { width: box.offsetWidth, height: box.offsetHeight },
-        { width: window.innerWidth, height: window.innerHeight },
-      );
+      nextBubblePosition = placeGuideBubble(bubbleTarget, bubbleSize, viewport);
     }
     const current = bubblePosition.value;
     if (
@@ -791,9 +837,19 @@ const calloutLayoutStyle = computed(() => {
         role="dialog"
         aria-modal="true"
         :aria-label="t('pageGuide.nav.aria')"
-        class="fixed z-(--pxd-z-guide-overlay) flex flex-col gap-[var(--pxd-space-md)] rounded-md border border-border bg-popover p-[var(--pxd-pane-padding)] text-popover-foreground shadow-lg w-[min(360px,calc(100vw-16px))]"
+        class="fixed z-(--pxd-z-guide-overlay) flex flex-col gap-[var(--pxd-space-md)] overflow-hidden rounded-md border border-border bg-popover p-[var(--pxd-pane-padding)] text-popover-foreground shadow-lg w-[min(360px,calc(100vw-16px))]"
         :style="bubbleStyle"
       >
+        <div
+          data-page-guide-progress
+          aria-hidden="true"
+          class="pointer-events-none absolute inset-x-0 top-0 h-[2.5px] bg-muted/60"
+        >
+          <div
+            class="h-full bg-primary motion-safe:transition-[width] motion-safe:duration-200"
+            :style="{ width: `${progressPercent}%` }"
+          />
+        </div>
         <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
           <h2 class="m-0 text-[length:var(--pxd-font-section-title)] font-bold leading-snug">
             {{ t(step.titleKey) }}
@@ -828,6 +884,16 @@ const calloutLayoutStyle = computed(() => {
                 })
               }}
             </span>
+            <button
+              type="button"
+              data-page-guide-action="close"
+              :title="t('pageGuide.nav.close')"
+              :aria-label="t('pageGuide.nav.close')"
+              class="inline-flex size-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              @click="guide.stop()"
+            >
+              <X class="size-3.5" aria-hidden="true" />
+            </button>
           </div>
         </div>
         <p class="m-0 text-[length:var(--pxd-font-body)] leading-[1.6] text-muted-foreground">

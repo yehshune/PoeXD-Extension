@@ -239,7 +239,6 @@ describe('Sidebar first-install onboarding', () => {
     queryDoc('[data-setup-position="right"]')!.click();
     await settle();
     expect(updatePreferencesSpy).toHaveBeenCalledWith({ sidebarPosition: 'right' });
-    expect(queryDoc('[data-setup-hint="custom-width"]')).not.toBeNull();
   });
 
   it('toggles market translation bilingual options when marketTranslation is enabled', async () => {
@@ -259,7 +258,7 @@ describe('Sidebar first-install onboarding', () => {
     snapshot = { ...snapshot, displayLocale: 'en', fontSizeScale: 1 };
     await mountSidebar({ [ONBOARDING_STORAGE_KEY]: freshInstall, isCollapsed_poe2: false });
     await clickNext();
-    expect(queryDoc('[data-setup-hint="custom-width"]')).not.toBeNull();
+    expect(queryDoc('[data-setup-kind="appearance"]')).not.toBeNull();
 
     const triggerBtn = queryDoc('[data-font-scale-trigger]') as HTMLButtonElement;
     const resetBtn = queryDoc('[data-font-scale-action="reset"]') as HTMLButtonElement;
@@ -390,6 +389,7 @@ describe('Sidebar first-install onboarding', () => {
     expect(callouts.length).toBeGreaterThanOrEqual(6);
     expect(callouts.map((el) => el.dataset.calloutId)).toContain('bookmark');
     expect(callouts.map((el) => el.dataset.calloutId)).toContain('pob-build');
+    expect(callouts.map((el) => el.dataset.calloutId)).toContain('result-board');
     expect(callouts.map((el) => el.dataset.calloutId)).toContain('live-search');
     expect(callouts[0]!.style.left).toBe('380px');
 
