@@ -33,6 +33,8 @@ export const TRADE1_SECOND_SEARCH_ID = searchIdFor({
   stats: [{ type: 'and', filters: [] }],
 });
 export const TRADE1_SEARCH_URL = `https://www.pathofexile.com/trade/search/Standard/${TRADE1_SEARCH_ID}`;
+/** 台服（Garena）的同一個搜尋：介面語系依網域判定為 zh-TW，且沒有價格換算 */
+export const TRADE1_TW_SEARCH_URL = `https://pathofexile.tw/trade/search/Standard/${TRADE1_SEARCH_ID}`;
 
 function fixture(name: string): string {
   return readFileSync(resolve(FIXTURE_DIR, name), 'utf8');
@@ -99,7 +101,8 @@ function replay(
   if (url.hostname.endsWith('poecdn.com') && url.pathname.endsWith('.png')) {
     return { png: BLANK_PNG };
   }
-  if (!url.hostname.endsWith('pathofexile.com')) return null;
+  // 國際服與台服（Garena）的官方網站共用同一套前端，替身頁與 API 回放相同
+  if (!/(^|\.)pathofexile\.(com|tw)$/.test(url.hostname)) return null;
   const path = url.pathname;
   // Trade root 是線上搜尋主控台開啟的頁面，替身頁在這裡只掛官方 store、不自動搜尋
   if (/^\/trade\/?$/.test(path)) return { html: fixture('trade1-search.html') };
