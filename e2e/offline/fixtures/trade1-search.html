@@ -188,7 +188,10 @@
               render();
             },
           };
-          document.querySelector('#trade').__vue__ = { $store: store };
+          // 官方是 Vue 3 + Vuex 4：store 掛在 app 的全域屬性上
+          document.querySelector('#trade').__vue_app__ = {
+            config: { globalProperties: { $store: store } },
+          };
         }
 
         const isTradeRoot = /^\/trade\/?$/.test(location.pathname);

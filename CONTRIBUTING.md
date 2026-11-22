@@ -57,5 +57,12 @@ E2E 分成兩套：
   結果列用的 `fixtures/poe1-fetch.json` 是真實官方 API 回應（已去除帳號、藏身處 token 等個資）；
   官方改了回應格式時，在 dev 瀏覽器開一個有結果的 PoE1 搜尋頁，執行 `node e2e/offline/record-fetch.ts` 重錄。
   repo 只保存 API JSON，不保存官方網站的 HTML / JS / CSS。
+
+- **實機金絲雀**（`pnpm e2e:canary`，不進 CI）：離線 E2E 只驗證替身頁，官方改版時仍會全綠，所以另外用
+  `e2e/official-page-contract.ts` 列出擴充功能依賴的官方 DOM 選擇器與 Vuex store 形狀。`pnpm dev` 開著、
+  在 dev 瀏覽器開好一個有結果的官方搜尋頁後執行，它只讀取已開啟分頁的 DOM 與 store，不發任何請求。
+  同一份契約中標成 `offline: true` 的項目也由 `e2e/offline/contract.offline.ts` 檢查替身頁，
+  讓替身頁跟著官方更新。新功能開始依賴官方的某個結構時，請一併加進契約。
+
 - **實機 E2E**（`pnpm e2e`）：需要一個已通過 Cloudflare 驗證、並登入官方交易網站的瀏覽器設定檔
   （先執行 `pnpm dev` 手動登入一次），因此只在本機執行，CI 不會跑。用於確認真實官方頁面上的版面。

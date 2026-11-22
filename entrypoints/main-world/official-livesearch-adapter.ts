@@ -578,7 +578,7 @@ export function initOfficialLiveSearchAdapter(
         return;
       }
 
-      // 冷啟動初期官方 Vue Store (#trade.__vue__.$store) 可能尚在掛載中，短暫輪詢等待其就緒
+      // 冷啟動初期官方 Vuex store（Vue 3：#trade.__vue_app__.config.globalProperties.$store）可能尚在掛載中，短暫輪詢等待其就緒
       const startTime = Date.now();
       const pollTimer = setInterval(() => {
         const readyStore = storeProvider();
