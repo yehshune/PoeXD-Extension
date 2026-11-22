@@ -3,11 +3,12 @@ import { X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { RELEASES_PAGE_URL } from '@/utils/support-links';
 import { t } from '@/utils/i18n';
-import { RELEASE_HIGHLIGHTS } from '@/utils/release-highlights';
+import type { ReleaseHighlight } from '@/utils/release-highlights';
 import type { SettingsSectionId } from '@/utils/sidebar-modules';
 
 defineProps<{
   version: string;
+  highlights: readonly ReleaseHighlight[];
 }>();
 
 const emit = defineEmits<{
@@ -41,12 +42,12 @@ const emit = defineEmits<{
       </div>
 
       <div
-        v-if="RELEASE_HIGHLIGHTS.length > 0"
+        v-if="highlights.length > 0"
         class="flex min-w-0 flex-wrap items-center gap-[var(--pxd-space-xs)]"
       >
         <span class="text-muted-foreground">{{ t('onboarding.update.highlightsLabel') }}</span>
         <Button
-          v-for="highlight in RELEASE_HIGHLIGHTS"
+          v-for="highlight in highlights"
           :key="highlight.id"
           type="button"
           variant="outline"

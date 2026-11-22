@@ -518,7 +518,34 @@ describe('Sidebar first-install onboarding', () => {
       expect(query('[data-onboarding-update]')).not.toBeNull();
     }
 
-    // New-feature jumps open the matching settings section and keep the notice visible
+    // Highlights belong to another release series, so no jump buttons for v1.6.1
+    expect(query('[data-onboarding-highlight]')).toBeNull();
+
+    // Dismissing once hides it permanently
+    query('[data-onboarding-action="dismiss-update"]')!.click();
+    await settle();
+    expect(query('[data-onboarding-update]')).toBeNull();
+    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toEqual({
+      tourPending: false,
+      expandHintPending: false,
+      lastSeenVersion: '1.6.1',
+    });
+  });
+
+  it('shows the current release highlights as settings jumps on the update notice', async () => {
+    await mountSidebar({
+      [ONBOARDING_STORAGE_KEY]: {
+        tourPending: false,
+        expandHintPending: false,
+        updatePending: true,
+        lastSeenVersion: '1.12.0',
+      },
+      isCollapsed_poe2: false,
+    });
+    await settle();
+    expect(query('[data-onboarding-highlight="theme"]')).not.toBeNull();
+
+    // Jumps open the matching settings section and keep the notice visible
     query('[data-sidebar-tab="history"]')!.click();
     await settle();
     query('[data-onboarding-highlight="modules"]')!.click();
@@ -534,16 +561,6 @@ describe('Sidebar first-install onboarding', () => {
       'modules:2',
     );
     expect(query('[data-onboarding-update]')).not.toBeNull();
-
-    // Dismissing once hides it permanently
-    query('[data-onboarding-action="dismiss-update"]')!.click();
-    await settle();
-    expect(query('[data-onboarding-update]')).toBeNull();
-    expect(mockStorage[ONBOARDING_STORAGE_KEY]).toEqual({
-      tourPending: false,
-      expandHintPending: false,
-      lastSeenVersion: '1.6.1',
-    });
   });
 
   it('starts the tour when the install state arrives after the sidebar mounted', async () => {

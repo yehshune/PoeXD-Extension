@@ -151,6 +151,7 @@
                 >
                   <UpdateNotice
                     :version="updateNoticeVersion"
+                    :highlights="updateNoticeHighlights"
                     @dismiss="dismissUpdateNotice"
                     @open-section="openSettingsSection"
                   />
@@ -365,7 +366,7 @@ import LiveSearchPrimaryPane from './sidebar/LiveSearchPrimaryPane.vue';
 import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPane.vue';
 import TemporarySearchDialog from './sidebar/TemporarySearchDialog.vue';
 import UpdateNotice from './sidebar/UpdateNotice.vue';
-import type { SettingsFocusRequest } from '@/utils/release-highlights';
+import { getReleaseHighlights, type SettingsFocusRequest } from '@/utils/release-highlights';
 import SidebarNavRail, {
   type LiveSearchPrimaryTab,
   type SidebarNavTab,
@@ -629,6 +630,7 @@ export default defineComponent({
     const updateNoticeVersion = computed(
       () => formatVersionTag(onboarding.value.lastSeenVersion) || appVersion,
     );
+    const updateNoticeHighlights = computed(() => getReleaseHighlights(updateNoticeVersion.value));
     const showMarketTranslationOffer = computed(() =>
       shouldOfferMarketTranslation({
         hostname: typeof window !== 'undefined' ? window.location.hostname : '',
@@ -1356,6 +1358,7 @@ export default defineComponent({
       updateNoticeVersion,
       dismissUpdateNotice,
       settingsFocusRequest,
+      updateNoticeHighlights,
       openSettingsSection,
       guideSetup,
       t,
