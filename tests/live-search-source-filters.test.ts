@@ -189,7 +189,6 @@ describe('live-search-source-filters', () => {
         kind: 'bookmark',
         order: 0,
         items: [parentItem],
-        bookmarks: [parentItem],
       },
       {
         id: 'child',
@@ -198,14 +197,12 @@ describe('live-search-source-filters', () => {
         parentId: 'root',
         order: 0,
         items: [childItem],
-        bookmarks: [childItem],
       },
       {
         id: TEMPORARY_SOURCE_GROUP_ID,
         name: TEMPORARY_SOURCE_GROUP_NAME,
         kind: 'custom',
         items: [customItem],
-        bookmarks: [customItem],
       },
     ];
 

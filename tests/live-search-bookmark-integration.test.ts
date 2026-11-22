@@ -246,7 +246,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       const latest = snapshots[snapshots.length - 1];
       expect(latest.loading).toBe(false);
       expect(latest.groups).toHaveLength(1);
-      expect(latest.groups[0].bookmarks).toHaveLength(3);
+      expect(latest.groups[0].items).toHaveLength(3);
       expect(bookmarkSource.listenerCount).toBe(1);
 
       // Bookmark change triggers refresh
@@ -264,7 +264,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       await new Promise((r) => setTimeout(r, 20));
 
       const afterAdd = snapshots[snapshots.length - 1];
-      expect(afterAdd.groups[0].bookmarks).toHaveLength(4);
+      expect(afterAdd.groups[0].items).toHaveLength(4);
 
       // Dispose removes listeners
       integration.dispose();
@@ -305,24 +305,24 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       await new Promise((r) => setTimeout(r, 10));
 
       let latest = snapshots[snapshots.length - 1];
-      let bmk1 = latest.groups[0].bookmarks.find((b) => b.id === 'bmk_1');
-      let bmk2 = latest.groups[0].bookmarks.find((b) => b.id === 'bmk_2');
-      let bmk3 = latest.groups[0].bookmarks.find((b) => b.id === 'bmk_3');
+      let bmk1 = latest.groups[0].items.find((b) => b.id === 'bmk_1');
+      let bmk2 = latest.groups[0].items.find((b) => b.id === 'bmk_2');
+      let bmk3 = latest.groups[0].items.find((b) => b.id === 'bmk_3');
 
       // Both bmk_1 and bmk_2 share 'Standard/H4sIcluster_shared', so both must be connecting!
-      expect(bmk1?.liveSearchStatus).toBe('connecting');
-      expect(bmk2?.liveSearchStatus).toBe('connecting');
-      expect(bmk3?.liveSearchStatus).toBeUndefined();
+      expect(bmk1?.status).toBe('connecting');
+      expect(bmk2?.status).toBe('connecting');
+      expect(bmk3?.status).toBeUndefined();
 
       // Trigger WS open -> both become active
       createdSockets[0].triggerOpen();
       await new Promise((r) => setTimeout(r, 10));
 
       latest = snapshots[snapshots.length - 1];
-      bmk1 = latest.groups[0].bookmarks.find((b) => b.id === 'bmk_1');
-      bmk2 = latest.groups[0].bookmarks.find((b) => b.id === 'bmk_2');
-      expect(bmk1?.liveSearchStatus).toBe('active');
-      expect(bmk2?.liveSearchStatus).toBe('active');
+      bmk1 = latest.groups[0].items.find((b) => b.id === 'bmk_1');
+      bmk2 = latest.groups[0].items.find((b) => b.id === 'bmk_2');
+      expect(bmk1?.status).toBe('active');
+      expect(bmk2?.status).toBe('active');
 
       integration.dispose();
     });
@@ -340,8 +340,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       await new Promise((r) => setTimeout(r, 10));
 
       const latest = snapshots[snapshots.length - 1];
-      const bmk3 = latest.groups[0].bookmarks.find((b) => b.id === 'bmk_3');
-      expect(bmk3?.liveSearchStatus).toBe('connecting');
+      const bmk3 = latest.groups[0].items.find((b) => b.id === 'bmk_3');
+      expect(bmk3?.status).toBe('connecting');
 
       integration.dispose();
     });
@@ -415,9 +415,9 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
       // Immediate check after triggering add: both bmk_1 and bmk_2 must be pending!
       const pendingSnapshot = snapshots[snapshots.length - 1];
-      const bmk1Pending = pendingSnapshot.groups[0].bookmarks.find((b) => b.id === 'bmk_1');
-      const bmk2Pending = pendingSnapshot.groups[0].bookmarks.find((b) => b.id === 'bmk_2');
-      const bmk3Pending = pendingSnapshot.groups[0].bookmarks.find((b) => b.id === 'bmk_3');
+      const bmk1Pending = pendingSnapshot.groups[0].items.find((b) => b.id === 'bmk_1');
+      const bmk2Pending = pendingSnapshot.groups[0].items.find((b) => b.id === 'bmk_2');
+      const bmk3Pending = pendingSnapshot.groups[0].items.find((b) => b.id === 'bmk_3');
 
       expect(bmk1Pending?.pending).toBe(true);
       expect(bmk2Pending?.pending).toBe(true);
@@ -434,7 +434,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
       // Pending flags are cleared
       const finalSnapshot = snapshots[snapshots.length - 1];
-      expect(finalSnapshot.groups[0].bookmarks.every((b) => !b.pending)).toBe(true);
+      expect(finalSnapshot.groups[0].items.every((b) => !b.pending)).toBe(true);
 
       integration.dispose();
     });
@@ -489,7 +489,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       await new Promise((r) => setTimeout(r, 10));
 
       let latest = snapshots[snapshots.length - 1];
-      expect(latest.groups[0].bookmarks[0].liveSearchStatus).toBe('connecting');
+      expect(latest.groups[0].items[0].status).toBe('connecting');
 
       // Stop the subscription
       const subId = liveController.read().subscriptions[0].id;
@@ -497,8 +497,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       await new Promise((r) => setTimeout(r, 10));
 
       latest = snapshots[snapshots.length - 1];
-      expect(latest.groups[0].bookmarks[0].liveSearchStatus).toBeUndefined();
-      expect(latest.groups[0].bookmarks[1].liveSearchStatus).toBeUndefined();
+      expect(latest.groups[0].items[0].status).toBeUndefined();
+      expect(latest.groups[0].items[1].status).toBeUndefined();
 
       // Can add again now
       const readdOutcome = await integration.enable('bmk_1');
@@ -2006,7 +2006,6 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
               removable: false,
             },
           ],
-          bookmarks: [],
         },
         {
           id: 'f-helmet',
@@ -2032,7 +2031,6 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
               removable: false,
             },
           ],
-          bookmarks: [],
         },
         {
           id: 'f-high',
@@ -2058,7 +2056,6 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
               removable: false,
             },
           ],
-          bookmarks: [],
         },
         {
           id: 'f-gloves',
@@ -2084,7 +2081,6 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
               removable: false,
             },
           ],
-          bookmarks: [],
         },
       ];
 
@@ -3149,7 +3145,6 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
               removable: false,
             },
           ],
-          bookmarks: [],
         },
       ];
 

@@ -97,8 +97,6 @@ export interface LiveSearchSourceItem {
   groupId: string;
   groupName: string;
   status?: LiveSearchSubscriptionStatus;
-  /** 相容既有存取欄位名稱 */
-  liveSearchStatus?: LiveSearchSubscriptionStatus;
   pending: boolean;
   subscriptionId?: string;
   errorMessage?: string;
@@ -117,8 +115,6 @@ export interface LiveSearchSourceGroup {
   order?: number;
   depth?: number;
   items: LiveSearchSourceItem[];
-  /** 相容既有存取欄位名稱 */
-  bookmarks: LiveSearchSourceItem[];
 }
 
 export interface LiveSearchSourceSnapshot {

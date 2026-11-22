@@ -714,25 +714,25 @@ describe('LiveSearch Primary Pacing & Reconnect Comprehensive Tests', () => {
     await new Promise((r) => setTimeout(r, 20));
 
     // 1. 尚未加入
-    const bmkBefore = latestBookmarkSnapshot.groups[0].bookmarks[0];
-    expect(bmkBefore.liveSearchStatus).toBeUndefined();
+    const bmkBefore = latestBookmarkSnapshot.groups[0].items[0];
+    expect(bmkBefore.status).toBeUndefined();
 
     // 2. 加入至 LiveSearch
     await sourceController.enable('bmk_headhunter');
     await new Promise((r) => setTimeout(r, 20));
 
-    const bmkConnecting = latestBookmarkSnapshot.groups[0].bookmarks[0];
-    expect(bmkConnecting.liveSearchStatus).toBe('connecting');
+    const bmkConnecting = latestBookmarkSnapshot.groups[0].items[0];
+    expect(bmkConnecting.status).toBe('connecting');
 
     // 3. WebSocket open -> active
     createdSockets[0].triggerOpen();
     await new Promise((r) => setTimeout(r, 20));
-    expect(latestBookmarkSnapshot.groups[0].bookmarks[0].liveSearchStatus).toBe('active');
+    expect(latestBookmarkSnapshot.groups[0].items[0].status).toBe('active');
 
     // 4. WebSocket close -> terminal error (因 maxFailedAttempts: 0)
     createdSockets[0].triggerClose();
     await new Promise((r) => setTimeout(r, 20));
-    expect(latestBookmarkSnapshot.groups[0].bookmarks[0].liveSearchStatus).toBe('error');
+    expect(latestBookmarkSnapshot.groups[0].items[0].status).toBe('error');
 
     // 5. 處於 error 狀態時，書籤依舊標記為已佔用，嘗試重複 add 應被阻擋
     const dupAddOutcome = await sourceController.enable('bmk_headhunter');

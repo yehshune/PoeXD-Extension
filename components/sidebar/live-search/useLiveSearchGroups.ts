@@ -48,9 +48,9 @@ function normalizeGroups(
   const bookmarkRawGroups = rawGroups.filter((g) => (g.kind ?? 'bookmark') !== 'custom');
   return rawGroups.map((g, index) => {
     const groupKind = g.kind ?? 'bookmark';
-    const rawItems = g.items ?? g.bookmarks ?? [];
+    const rawItems = g.items ?? [];
     const normalizedItems: LiveSearchSourceItem[] = rawItems.map((item) => {
-      const status = item.status ?? item.liveSearchStatus;
+      const status = item.status;
       const kind = item.kind ?? 'bookmark';
       return {
         ...item,
@@ -58,7 +58,6 @@ function normalizeGroups(
         groupId: item.groupId ?? g.id,
         groupName: item.groupName ?? g.name,
         status,
-        liveSearchStatus: status,
         canonicalIdentity: item.canonicalIdentity ?? null,
         canonicalKey: item.canonicalKey ?? null,
         compatibility: item.compatibility,
@@ -79,7 +78,6 @@ function normalizeGroups(
       order: typeof g.order === 'number' ? g.order : index,
       depth: resolvedDepth,
       items: normalizedItems,
-      bookmarks: normalizedItems,
     };
   });
 }
@@ -120,7 +118,6 @@ export function useLiveSearchGroups(
           order: 0,
           depth: 0,
           items: sessionItems,
-          bookmarks: sessionItems,
         });
       }
       if (previousItems.length > 0) {
@@ -131,7 +128,6 @@ export function useLiveSearchGroups(
           order: 1,
           depth: 0,
           items: previousItems,
-          bookmarks: previousItems,
         });
       }
       return result;

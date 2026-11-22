@@ -142,7 +142,7 @@ const currentLeagueDisplay = computed(() => {
 function isBookmarkSelectable(item: LiveSearchSourceItem): boolean {
   if (item.compatibility !== 'compatible') return false;
   if (item.pending) return false;
-  const st = item.status ?? item.liveSearchStatus;
+  const st = item.status;
   if (st === 'connecting' || st === 'active' || st === 'reconnecting' || st === 'error') {
     return false;
   }
@@ -162,7 +162,7 @@ function isDuplicateCanonicalSelected(item: LiveSearchSourceItem): boolean {
 const sessionPausedCanonicalKeys = computed<Set<string>>(() => {
   const keys = new Set<string>();
   for (const item of sourceSnapshot.value?.sessionConnections ?? []) {
-    const st = item.status ?? item.liveSearchStatus;
+    const st = item.status;
     if (st !== 'connecting' && st !== 'active' && st !== 'reconnecting' && st !== 'error') {
       keys.add(getItemDedupKey(item));
     }

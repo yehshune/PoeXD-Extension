@@ -135,7 +135,7 @@ export function filterLiveSearchConnectionItems(
   const query = options?.query?.trim().toLowerCase() ?? '';
   const statusFilter = options?.statusFilter ?? 'all';
   return items.filter((item) => {
-    const status = item.status ?? item.liveSearchStatus;
+    const status = item.status;
     if (!matchesLiveSearchSourceStatusFilter(status, statusFilter)) {
       return false;
     }
@@ -170,7 +170,7 @@ export function getLiveSearchGroupSubtreeItems(
   const target = groups.find((g) => g.id === groupId);
   if (!target) return [];
   if (target.kind === 'custom') {
-    return [...(target.items ?? target.bookmarks ?? [])];
+    return [...(target.items ?? [])];
   }
 
   const bookmarkGroups = groups.filter((g) => (g.kind ?? 'bookmark') !== 'custom');
@@ -191,12 +191,12 @@ export function getLiveSearchGroupSubtreeItems(
 
   const targetNode = findTargetNode(tree);
   if (!targetNode) {
-    return [...(target.items ?? target.bookmarks ?? [])];
+    return [...(target.items ?? [])];
   }
 
   const items: LiveSearchSourceItem[] = [];
   function collectSubtree(node: FolderTreeNode<OrderedSourceGroup>) {
-    const directItems = node.folder.items ?? node.folder.bookmarks ?? [];
+    const directItems = node.folder.items ?? [];
     items.push(...directItems);
     for (const child of node.children) {
       collectSubtree(child);
@@ -224,7 +224,7 @@ function filterDirectItemsForGroup(
   folderMatched: boolean,
 ): LiveSearchSourceItem[] {
   return items.filter((item) => {
-    const status = item.status ?? item.liveSearchStatus;
+    const status = item.status;
     if (!matchesLiveSearchSourceStatusFilter(status, statusFilter)) {
       return false;
     }
@@ -264,7 +264,7 @@ export function filterLiveSearchSourceGroups(
     for (const node of nodes) {
       const selfFolderMatches = query !== '' && node.folder.name.toLowerCase().includes(query);
       const inMatchedFolderSubtree = ancestorFolderMatched || selfFolderMatches;
-      const rawItems = node.folder.items ?? node.folder.bookmarks ?? [];
+      const rawItems = node.folder.items ?? [];
       const matchingDirectItems = filterDirectItemsForGroup(
         rawItems,
         query,
@@ -279,7 +279,6 @@ export function filterLiveSearchSourceGroups(
           parentId: node.depth === 0 ? undefined : node.folder.parentId,
           depth: node.depth,
           items: matchingDirectItems,
-          bookmarks: matchingDirectItems,
         });
         result.push(...retainedChildren);
       }
@@ -292,14 +291,13 @@ export function filterLiveSearchSourceGroups(
 
   for (const group of customGroups) {
     const folderMatches = query !== '' && group.name.toLowerCase().includes(query);
-    const rawItems = group.items ?? group.bookmarks ?? [];
+    const rawItems = group.items ?? [];
     const matchingItems = filterDirectItemsForGroup(rawItems, query, statusFilter, folderMatches);
     if (matchingItems.length > 0) {
       filteredGroups.push({
         ...group,
         depth: 0,
         items: matchingItems,
-        bookmarks: matchingItems,
       });
     }
   }

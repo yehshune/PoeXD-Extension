@@ -193,7 +193,6 @@ export function buildLiveSearchSourceSnapshot(
         groupId: resolvedGroupId,
         groupName: resolvedGroupName,
         status: activeSub?.status,
-        liveSearchStatus: activeSub?.status,
         pending: isPending,
         subscriptionId: activeSub?.id,
         errorMessage: activeSub?.errorMessage,
@@ -235,7 +234,6 @@ export function buildLiveSearchSourceSnapshot(
           order: node.folder.order,
           depth: node.depth,
           items: directItems,
-          bookmarks: directItems,
         });
         projected.push(...childGroups);
       }
@@ -252,7 +250,6 @@ export function buildLiveSearchSourceSnapshot(
         order: Number.MAX_SAFE_INTEGER,
         depth: 0,
         items: defaultGroupItems,
-        bookmarks: defaultGroupItems,
       });
     }
   }
@@ -286,7 +283,6 @@ export function buildLiveSearchSourceSnapshot(
         groupId: TEMPORARY_SOURCE_GROUP_ID,
         groupName: TEMPORARY_SOURCE_GROUP_NAME,
         status: activeSub?.status,
-        liveSearchStatus: activeSub?.status,
         pending: isPending,
         subscriptionId: activeSub?.id,
         errorMessage: activeSub?.errorMessage,
@@ -308,7 +304,6 @@ export function buildLiveSearchSourceSnapshot(
       kind: 'custom',
       depth: 0,
       items: customItems,
-      bookmarks: customItems,
     });
   }
 
@@ -342,7 +337,6 @@ export function buildLiveSearchSourceSnapshot(
       sessionConnections.push({
         ...bmkItem,
         status: activeSub?.status ?? 'idle',
-        liveSearchStatus: activeSub?.status ?? 'idle',
         pending: isPending,
         subscriptionId: activeSub?.id,
         errorMessage: activeSub?.errorMessage,
@@ -353,7 +347,6 @@ export function buildLiveSearchSourceSnapshot(
       sessionConnections.push({
         ...customItem,
         status: activeSub?.status ?? 'idle',
-        liveSearchStatus: activeSub?.status ?? 'idle',
         pending: isPending,
         subscriptionId: activeSub?.id,
         errorMessage: activeSub?.errorMessage,
@@ -384,7 +377,6 @@ export function buildLiveSearchSourceSnapshot(
         groupId: SESSION_CONNECTIONS_GROUP_ID,
         groupName: SESSION_CONNECTIONS_GROUP_NAME,
         status: activeSub?.status ?? 'idle',
-        liveSearchStatus: activeSub?.status ?? 'idle',
         pending: isPending,
         subscriptionId: activeSub?.id,
         errorMessage: activeSub?.errorMessage,
@@ -414,7 +406,6 @@ export function buildLiveSearchSourceSnapshot(
         groupId: PREVIOUS_CONNECTIONS_GROUP_ID,
         groupName: bmkItem.groupName,
         status: 'idle',
-        liveSearchStatus: 'idle',
         removable: true,
       });
       continue;
@@ -452,7 +443,6 @@ export function buildLiveSearchSourceSnapshot(
       groupId: PREVIOUS_CONNECTIONS_GROUP_ID,
       groupName: PREVIOUS_CONNECTIONS_GROUP_NAME,
       status: 'idle',
-      liveSearchStatus: 'idle',
       pending: pendingSearchKeys.has(canonicalKey),
       removable: true,
       coverImageUrl: validCover,

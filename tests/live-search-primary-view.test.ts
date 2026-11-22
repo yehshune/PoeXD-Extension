@@ -1418,7 +1418,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
         customSources: [],
@@ -2399,7 +2398,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
           // 2. 全部 active 群組：不顯示 quick enable
           {
@@ -2426,7 +2424,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
           // 3. incompatible-only 群組：不顯示 quick enable
           {
@@ -2454,7 +2451,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
           // 4. error-only 群組：不顯示 quick enable
           {
@@ -2482,7 +2478,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
           // 5. pending-only 群組：不顯示 quick enable
           {
@@ -2509,7 +2504,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -2804,7 +2798,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
             order: 0,
             depth: 0,
             items: [],
-            bookmarks: [],
           },
           {
             id: 'f-helmet',
@@ -2829,13 +2822,11 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 groupId: 'f-helmet',
                 groupName: '頭盔',
                 status: 'active',
-                liveSearchStatus: 'active',
                 pending: false,
                 subscriptionId: 'sub-helm-active',
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
           {
             id: 'f-high',
@@ -2860,7 +2851,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 groupId: 'f-high',
                 groupName: '高價',
                 status: 'idle',
-                liveSearchStatus: 'idle',
                 pending: false,
                 removable: false,
               },
@@ -2879,14 +2869,12 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 groupId: 'f-high',
                 groupName: '高價',
                 status: 'error',
-                liveSearchStatus: 'error',
                 errorMessage: 'WebSocket 斷線',
                 pending: false,
                 subscriptionId: 'sub-mb-error',
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
           {
             id: 'f-gloves',
@@ -2911,12 +2899,10 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 groupId: 'f-gloves',
                 groupName: '手套',
                 status: 'idle',
-                liveSearchStatus: 'idle',
                 pending: false,
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -3371,7 +3357,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -3459,7 +3444,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: true,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -3527,7 +3511,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 coverImageUrl: 'https://web.poecdn.com/gen/image/not_found.png',
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -3601,7 +3584,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -3682,7 +3664,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -3819,7 +3800,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -3949,7 +3929,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
           {
             id: 'custom_sources',
@@ -3984,7 +3963,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: true,
               },
             ],
-            bookmarks: [],
           },
         ],
       });
@@ -4124,7 +4102,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       });
@@ -4214,7 +4191,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
             kind: 'bookmark',
             depth: 0,
             items: [],
-            bookmarks: [],
           },
         ],
       };
@@ -4273,7 +4249,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       });
@@ -4356,7 +4331,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -4402,7 +4376,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
@@ -4486,7 +4459,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       });
@@ -4611,7 +4583,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
                 removable: false,
               },
             ],
-            bookmarks: [],
           },
         ],
       };
