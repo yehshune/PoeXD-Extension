@@ -8,12 +8,12 @@ import {
   sendLiveTradeData,
 } from '@/entrypoints/main-world/poe-runtime-reader';
 import { parsePoeLiveTradeData, serializePoeLiveTradeData } from '@/utils/event-contracts';
-import {
-  getLiveTradeData,
-  resetLiveTradeDataForTests,
-  setLiveTradeData,
-} from '@/utils/live-trade-data-store';
 import { resetTradeRequestIdleForTests } from '@/entrypoints/main-world/trade-request-idle';
+import {
+  getUsableLiveTradeData,
+  resetTradeLabelsForTests,
+  setLiveTradeData,
+} from '@/utils/trade-label-resolver';
 
 const readJson = (path: string): any =>
   JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -158,20 +158,20 @@ describe('initPoeRuntimeReader（MAIN world）', () => {
   });
 });
 
-describe('live-trade-data-store', () => {
-  afterEach(() => resetLiveTradeDataForTests());
+describe('trade-label-resolver 的頁面即時資料', () => {
+  afterEach(() => resetTradeLabelsForTests());
 
   it('依遊戲版本分開保存，更新時不改動先前的快照', () => {
     const filters = parsePoeLiveTradeData(
       serializePoeLiveTradeData({ propertyFilters: enFilters, knownStats: enStats }),
     )!;
     setLiveTradeData('poe1', { pageLocale: 'en', ...filters });
-    const first = getLiveTradeData('poe1');
+    const first = getUsableLiveTradeData('poe1', 'en', 'www.pathofexile.com');
     expect(Object.isFrozen(first)).toBe(true);
-    expect(getLiveTradeData('poe2')).toBeUndefined();
+    expect(getUsableLiveTradeData('poe2', 'en', 'www.pathofexile.com')).toBeUndefined();
 
     setLiveTradeData('poe1', { pageLocale: 'zh-TW', filters: null, statLabels: null });
     expect(first?.pageLocale).toBe('en');
-    expect(getLiveTradeData('poe1')?.pageLocale).toBe('zh-TW');
+    expect(getUsableLiveTradeData('poe1', 'zh-TW', 'pathofexile.tw')?.pageLocale).toBe('zh-TW');
   });
 });

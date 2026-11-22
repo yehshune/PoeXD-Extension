@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computed } from 'vue';
 import {
-  ensureOfficialStatTextLoaded,
   getOfficialStatDomainLabel,
   getOfficialStatLabel,
-  resetOfficialStatTextForTests,
-  setMockOfficialStatText,
-} from '@/utils/official-stat-text';
+  resetTradeLabelsForTests,
+  setTradeLabelTestData,
+} from '@/utils/trade-label-resolver';
 
 const shard = (
   locale: string,
@@ -24,7 +23,7 @@ const shard = (
 
 describe('official stat text (官方市集詞綴文字)', () => {
   beforeEach(() => {
-    resetOfficialStatTextForTests();
+    resetTradeLabelsForTests();
   });
 
   afterEach(() => {
@@ -32,10 +31,10 @@ describe('official stat text (官方市集詞綴文字)', () => {
   });
 
   it('依詞綴代碼回傳該語系市集的寫法，正負向跟官方一致', () => {
-    setMockOfficialStatText('poe2', 'zh-TW', {
+    setTradeLabelTestData({ version: 'poe2', officialStats: { 'zh-TW': { stats: {
       'explicit.stat_3639275092': '增加#%能力值需求',
       'explicit.stat_2160282525': '減少#%你身上的冰凍持續時間',
-    });
+    } } } });
     expect(getOfficialStatLabel('explicit.stat_3639275092', 'poe2', 'zh-TW')).toBe(
       '增加#%能力值需求',
     );
@@ -45,10 +44,10 @@ describe('official stat text (官方市集詞綴文字)', () => {
   });
 
   it('英文跟詞綴字典一致：轉小寫並去掉開頭的 +', () => {
-    setMockOfficialStatText('poe1', 'en', {
+    setTradeLabelTestData({ version: 'poe1', officialStats: { 'en': { stats: {
       'explicit.stat_3299347043': '+# to maximum Life',
       'explicit.stat_474294393': '#% reduced Mana Cost of Skills',
-    });
+    } } } });
     expect(getOfficialStatLabel('explicit.stat_3299347043', 'poe1', 'en')).toBe(
       '# to maximum life',
     );
@@ -58,20 +57,29 @@ describe('official stat text (官方市集詞綴文字)', () => {
   });
 
   it('同一代碼有多種寫法時取第一個', () => {
-    setMockOfficialStatText('poe1', 'zh-TW', {
+    setTradeLabelTestData({ version: 'poe1', officialStats: { 'zh-TW': { stats: {
       'explicit.stat_1': ['區域內有 #% 機率', '地圖內有 #% 機率'],
-    });
+    } } } });
     expect(getOfficialStatLabel('explicit.stat_1', 'poe1', 'zh-TW')).toBe('區域內有 #% 機率');
   });
 
   it('其他類別查不到時退回 explicit 同一個 stat', () => {
-    setMockOfficialStatText('poe2', 'zh-TW', { 'explicit.stat_9': '增加#%護甲值' });
+    setTradeLabelTestData({
+      version: 'poe2',
+      officialStats: { 'zh-TW': { stats: { 'explicit.stat_9': '增加#%護甲值' } } },
+    });
     expect(getOfficialStatLabel('fractured.stat_9', 'poe2', 'zh-TW')).toBe('增加#%護甲值');
   });
 
   it('中文市集回傳的仍是英文原文時視為沒有翻譯', () => {
-    setMockOfficialStatText('poe2', 'en', { 'explicit.stat_5': '#% increased Spirit' });
-    setMockOfficialStatText('poe2', 'zh-TW', { 'explicit.stat_5': '#% increased Spirit' });
+    setTradeLabelTestData({
+      version: 'poe2',
+      officialStats: { en: { stats: { 'explicit.stat_5': '#% increased Spirit' } } },
+    });
+    setTradeLabelTestData({
+      version: 'poe2',
+      officialStats: { 'zh-TW': { stats: { 'explicit.stat_5': '#% increased Spirit' } } },
+    });
     expect(getOfficialStatLabel('explicit.stat_5', 'poe2', 'zh-TW')).toBeNull();
   });
 
@@ -105,9 +113,12 @@ describe('official stat text (官方市集詞綴文字)', () => {
       async () => new Response(JSON.stringify({ stats: 'bad' }), { status: 200 }),
     );
     vi.stubGlobal('fetch', fetchSpy);
-    expect(await ensureOfficialStatTextLoaded('poe1', 'zh-TW')).toBe(false);
-    expect(await ensureOfficialStatTextLoaded('poe1', 'zh-TW')).toBe(false);
+    // 第一次查詢觸發載入，分片格式不符
     expect(getOfficialStatLabel('explicit.stat_1', 'poe1', 'zh-TW')).toBeNull();
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    await new Promise((done) => setTimeout(done, 0));
+    expect(getOfficialStatLabel('explicit.stat_1', 'poe1', 'zh-TW')).toBeNull();
+    await new Promise((done) => setTimeout(done, 0));
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -120,7 +131,8 @@ describe('official stat text (官方市集詞綴文字)', () => {
         ),
     );
     vi.stubGlobal('fetch', fetchSpy);
-    expect(await ensureOfficialStatTextLoaded('poe2', 'zh-TW')).toBe(true);
-    expect(getOfficialStatDomainLabel('fractured', 'poe2', 'zh-TW')).toBe('破裂');
+    const label = computed(() => getOfficialStatDomainLabel('fractured', 'poe2', 'zh-TW'));
+    expect(label.value).toBeNull();
+    await vi.waitFor(() => expect(label.value).toBe('破裂'));
   });
 });

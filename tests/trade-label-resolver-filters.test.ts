@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick, computed } from 'vue';
-import {
-  ensureTradeFiltersLoaded,
-  getTradeFiltersSources,
-  resetTradeFiltersForTests,
-} from '@/utils/trade-filters-store';
-import { translateFilterGroup, translateFilterKey } from '@/utils/trade-stat-dictionary';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '@/utils/i18n';
+import {
+  preloadTradeLabels,
+  resetTradeLabelsForTests,
+  translateFilterGroup,
+  translateFilterKey,
+} from '@/utils/trade-label-resolver';
 
 const JA_POE1 = {
   groups: { type_filters: '種類フィルター' },
@@ -22,7 +22,7 @@ const flush = async () => {
 describe('trade filters store (per display locale)', () => {
   beforeEach(() => {
     resetI18nStateForTests('zh-TW');
-    resetTradeFiltersForTests();
+    resetTradeLabelsForTests();
   });
 
   afterEach(() => {
@@ -34,7 +34,7 @@ describe('trade filters store (per display locale)', () => {
     vi.stubGlobal('fetch', fetchSpy);
     setActiveDisplayLocale('zh-CN');
     expect(translateFilterGroup('type_filters', 'poe1')).toBe('类型过滤器');
-    expect(await ensureTradeFiltersLoaded('poe1', 'zh-TW')).not.toBeNull();
+    await preloadTradeLabels('poe1', ['zh-TW', 'zh-CN']);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -61,9 +61,9 @@ describe('trade filters store (per display locale)', () => {
     vi.stubGlobal('fetch', fetchSpy);
     setActiveDisplayLocale('ko');
 
-    expect(await ensureTradeFiltersLoaded('poe1', 'ko')).toBeNull();
+    await preloadTradeLabels('poe1', ['ko']);
     expect(translateFilterGroup('type_filters', 'poe1')).toBe('Type Filters');
-    getTradeFiltersSources('poe1');
+    translateFilterKey('trade_filters.price', 'poe1');
     await flush();
     await new Promise((done) => setTimeout(done, 0));
     expect(fetchSpy).toHaveBeenCalledTimes(1);

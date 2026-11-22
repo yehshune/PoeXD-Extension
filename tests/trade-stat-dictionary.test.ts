@@ -4,17 +4,17 @@ import {
   formatFilterValue,
   setMockDictionaries,
   setMockItemShards,
-  translateFilterGroup,
-  translateFilterKey,
   translateItemName,
-  translateStat,
   translateStatLines,
 } from '../utils/trade-stat-dictionary';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '../utils/i18n';
 import {
-  resetOfficialStatTextForTests,
-  setMockOfficialStatText,
-} from '../utils/official-stat-text';
+  resetTradeLabelsForTests,
+  setTradeLabelTestData,
+  translateFilterGroup,
+  translateFilterKey,
+  translateStat,
+} from '@/utils/trade-label-resolver';
 
 describe('trade-stat-dictionary (extension)', () => {
   afterEach(() => {
@@ -23,7 +23,7 @@ describe('trade-stat-dictionary (extension)', () => {
     setMockDictionaries('poe2', null, null, null);
     setMockItemShards('poe1', null);
     setMockItemShards('poe2', null);
-    resetOfficialStatTextForTests();
+    resetTradeLabelsForTests();
   });
 
   describe('translateFilterGroup', () => {
@@ -286,8 +286,11 @@ describe('trade-stat-dictionary (extension)', () => {
         'explicit.stat_3639275092': [{ displayTemplate: '減少 #% 能力值需求' }],
         'explicit.stat_only_game': [{ displayTemplate: '遊戲詞綴' }],
       });
-      setMockOfficialStatText('poe2', 'en', {});
-      setMockOfficialStatText('poe2', 'zh-TW', { 'explicit.stat_3639275092': '增加#%能力值需求' });
+      setTradeLabelTestData({ version: 'poe2', officialStats: { en: { stats: {} } } });
+      setTradeLabelTestData({
+        version: 'poe2',
+        officialStats: { 'zh-TW': { stats: { 'explicit.stat_3639275092': '增加#%能力值需求' } } },
+      });
 
       expect(translateStat('explicit.stat_3639275092', 'poe2')).toBe('增加#%能力值需求');
       expect(translateStat('fractured.stat_3639275092', 'poe2')).toBe('增加#%能力值需求');

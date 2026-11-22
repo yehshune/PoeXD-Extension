@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp, nextTick, type App } from 'vue';
-import { resetOfficialStatTextForTests, setMockOfficialStatText } from '@/utils/official-stat-text';
 import TradeSearchPreviewContent from '@/components/sidebar/search-preview/TradeSearchPreviewContent.vue';
 import type { TradeSearchPreviewData } from '@/components/sidebar/composables/useTradeSearchPreview';
 import { setMockDictionaries } from '@/utils/trade-stat-dictionary';
+import {
+  resetTradeLabelsForTests,
+  setTradeLabelTestData,
+} from '@/utils/trade-label-resolver';
 
 const data: TradeSearchPreviewData = {
   loading: false,
@@ -248,12 +251,12 @@ describe('TradeSearchPreviewContent 詞綴群組卡片', () => {
   });
 
   it('canTune 時同一個代碼有多種前綴的詞綴可從選單切換網域；不可微調時維持一般標籤', async () => {
-    setMockOfficialStatText('poe2', 'en', {
+    setTradeLabelTestData({ version: 'poe2', officialStats: { 'en': { stats: {
       'explicit.stat_int': '+# to Intelligence',
       'fractured.stat_int': '+# to Intelligence',
       'desecrated.stat_int': '+# to Intelligence',
       'explicit.stat_hybrid': '#% increased Physical Damage',
-    });
+    } } } });
     try {
       const picked: unknown[][] = [];
       const container = render({
@@ -294,7 +297,7 @@ describe('TradeSearchPreviewContent 詞綴群組卡片', () => {
       const readOnly = render({ canTune: false });
       expect(readOnly.querySelector('[data-stat-domain-trigger]')).toBeNull();
     } finally {
-      resetOfficialStatTextForTests();
+      resetTradeLabelsForTests();
     }
   });
 

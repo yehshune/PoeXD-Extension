@@ -16,11 +16,8 @@ import {
   resolveUiLocale,
 } from '@/utils/locale-resolution';
 import { setActiveDisplayLocalePreference } from '@/utils/i18n';
-import {
-  loadTradeDictionaries,
-  translateStat,
-  translateStatLines,
-} from '@/utils/trade-stat-dictionary';
+import { loadTradeDictionaries, translateStatLines } from '@/utils/trade-stat-dictionary';
+import { translateStat } from '@/utils/trade-label-resolver';
 import { createTierDomainService } from '@/entrypoints/content/logic/tier-domain-service';
 import { useFilterData } from '@/components/sidebar/composables/useFilterData';
 

@@ -8,8 +8,11 @@ import {
   type ModsTiersArtifact,
 } from '@/utils/affix-lexicon';
 import { resetI18nStateForTests, setActiveDisplayLocalePreference } from '@/utils/i18n';
-import { resetTradeFiltersForTests, setMockTradeFilters } from '@/utils/trade-filters-store';
 import { translateStatLines } from '@/utils/trade-stat-dictionary';
+import {
+  resetTradeLabelsForTests,
+  setTradeLabelTestData,
+} from '@/utils/trade-label-resolver';
 
 const readJson = <T>(path: string): T =>
   JSON.parse(readFileSync(resolve(__dirname, '..', path), 'utf8')) as T;
@@ -29,13 +32,13 @@ describe('stat translation fallbacks', () => {
   beforeEach(() => {
     resetI18nStateForTests('zh-TW');
     resetAffixLexiconCacheForTests();
-    resetTradeFiltersForTests();
+    resetTradeLabelsForTests();
     loadShippedLexicon('poe2');
   });
 
   afterEach(() => {
     resetAffixLexiconCacheForTests();
-    resetTradeFiltersForTests();
+    resetTradeLabelsForTests();
   });
 
   it('translates an explicit stat that the lexicon only knows under another category', () => {
@@ -56,11 +59,11 @@ describe('stat translation fallbacks', () => {
   });
 
   it('translates pseudo stats from the trade filters data of the display locale', () => {
-    setMockTradeFilters('poe2', {
+    setTradeLabelTestData({ version: 'poe2', filters: {
       groups: {},
       fields: {},
       pseudoStats: { 'pseudo.pseudo_total_chaos_resistance': '+#% 總混沌抗性' },
-    });
+    } });
     expect(translateStatLines('pseudo.pseudo_total_chaos_resistance', 'poe2')).toEqual([
       '+#% 總混沌抗性',
     ]);
@@ -68,12 +71,12 @@ describe('stat translation fallbacks', () => {
 
   it('lowercases English pseudo text to match lexicon output', () => {
     setActiveDisplayLocalePreference('en');
-    setMockTradeFilters('poe2', {
+    setTradeLabelTestData({ version: 'poe2', filters: {
       locale: 'en',
       groups: {},
       fields: {},
       pseudoStats: { 'pseudo.pseudo_total_chaos_resistance': '+#% total to Chaos Resistance' },
-    });
+    } });
     expect(translateStatLines('pseudo.pseudo_total_chaos_resistance', 'poe2')).toEqual([
       '+#% total to chaos resistance',
     ]);

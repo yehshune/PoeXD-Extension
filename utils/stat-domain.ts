@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'vue';
 import { getActiveDisplayLocale, getActiveUiLocale } from './i18n';
-import { getOfficialStatDomainLabel } from './official-stat-text';
+import { getOfficialStatDomainLabel } from './trade-label-resolver';
 import type { SupportedUiLocale } from './preferences-contract';
 import { splitStatId } from './stat-domain-order';
 import type { PoeVersion } from './trade-context';

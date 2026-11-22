@@ -1,12 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '../utils/i18n';
-import type { LiveTradeDataSnapshot } from '../utils/live-trade-data-store';
-import {
-  getUsableLiveTradeData,
-  resetLiveTradeDataForTests,
-  setLiveTradeData,
-  setMarketLiveTradeData,
-} from '../utils/live-trade-data-store';
 import { startMarketLiveLabelsSync, toMarketLiveSnapshot } from '../utils/market-live-labels';
 import {
   MARKET_LIVE_SCHEMA_VERSION,
@@ -14,11 +7,16 @@ import {
   type MarketLiveDataCache,
 } from '../utils/market-translation-live';
 import {
+  type LiveTradeDataSnapshot,
   getOfficialStatLabel,
-  resetOfficialStatTextForTests,
-  setMockOfficialStatText,
-} from '../utils/official-stat-text';
-import { translateFilterKey, translateStat } from '../utils/trade-stat-dictionary';
+  getUsableLiveTradeData,
+  resetTradeLabelsForTests,
+  setLiveTradeData,
+  setMarketLiveTradeData,
+  setTradeLabelTestData,
+  translateFilterKey,
+  translateStat,
+} from '@/utils/trade-label-resolver';
 
 const INTERNATIONAL = 'www.pathofexile.com';
 
@@ -73,7 +71,7 @@ describe('toMarketLiveSnapshot', () => {
 });
 
 describe('getUsableLiveTradeData 的市集漢化來源', () => {
-  afterEach(() => resetLiveTradeDataForTests());
+  afterEach(() => resetTradeLabelsForTests());
 
   const market = toMarketLiveSnapshot(makeCache()) as LiveTradeDataSnapshot;
 
@@ -106,15 +104,14 @@ describe('側邊欄標籤採用市集漢化快取', () => {
   beforeEach(() => {
     vi.stubGlobal('window', { location: { hostname: INTERNATIONAL } });
     setActiveDisplayLocale('zh-TW');
-    setMockOfficialStatText('poe1', 'en', {});
-    setMockOfficialStatText('poe1', 'zh-TW', {});
+    setTradeLabelTestData({ version: 'poe1', officialStats: { en: { stats: {} } } });
+    setTradeLabelTestData({ version: 'poe1', officialStats: { 'zh-TW': { stats: {} } } });
     setMarketLiveTradeData('poe1', toMarketLiveSnapshot(makeCache()));
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    resetLiveTradeDataForTests();
-    resetOfficialStatTextForTests();
+    resetTradeLabelsForTests();
     resetI18nStateForTests('zh-TW');
   });
 

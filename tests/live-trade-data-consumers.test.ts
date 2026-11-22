@@ -3,20 +3,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '../utils/i18n';
 import type { LiveStatLabels, LiveTradeFilters } from '../utils/live-trade-data';
 import {
-  getUsableLiveTradeData,
-  resetLiveTradeDataForTests,
-  setLiveTradeData,
-} from '../utils/live-trade-data-store';
-import {
   getOfficialStatLabel,
-  resetOfficialStatTextForTests,
-  setMockOfficialStatText,
-} from '../utils/official-stat-text';
-import {
+  getUsableLiveTradeData,
+  resetTradeLabelsForTests,
+  setLiveTradeData,
+  setTradeLabelTestData,
   translateFilterGroup,
   translateFilterKey,
   translateStat,
-} from '../utils/trade-stat-dictionary';
+} from '@/utils/trade-label-resolver';
 
 /** 模擬 3.30 上線當天：頁面有新欄位、改名的群組，打包資料還是舊的 */
 const liveFilters: LiveTradeFilters = {
@@ -39,13 +34,15 @@ const setLive = (pageLocale: 'zh-TW' | 'en' | 'ja') =>
 describe('即時市集資料接入（ADR-0014 第 3 階段）', () => {
   beforeEach(() => {
     setActiveDisplayLocale('zh-TW');
-    setMockOfficialStatText('poe1', 'en', { 'explicit.stat_english_only': '+# to Something' });
-    setMockOfficialStatText('poe1', 'zh-TW', {});
+    setTradeLabelTestData({
+      version: 'poe1',
+      officialStats: { en: { stats: { 'explicit.stat_english_only': '+# to Something' } } },
+    });
+    setTradeLabelTestData({ version: 'poe1', officialStats: { 'zh-TW': { stats: {} } } });
   });
 
   afterEach(() => {
-    resetLiveTradeDataForTests();
-    resetOfficialStatTextForTests();
+    resetTradeLabelsForTests();
     resetI18nStateForTests('zh-TW');
   });
 
@@ -112,7 +109,7 @@ describe('即時市集資料接入（ADR-0014 第 3 階段）', () => {
 
       setActiveDisplayLocale('en');
       setLive('en');
-      setMockOfficialStatText('poe1', 'en', {});
+      setTradeLabelTestData({ version: 'poe1', officialStats: { en: { stats: {} } } });
       expect(translateStat('pseudo.pseudo_live_total', 'poe1')).toBe('# 即時總計');
     });
 

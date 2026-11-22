@@ -7,7 +7,7 @@
  * 只換顯示文字，不產生 id，也不影響送給 Trade API 的值（同 ADR-0014 的規則）。
  */
 import type { LiveStatLabels } from './live-trade-data';
-import type { LiveTradeDataSnapshot } from './live-trade-data-store';
+import type { LiveTradeDataSnapshot } from './trade-label-resolver';
 import { resolveMarketTranslationLocale, type MarketTranslationLocale } from './market-translation';
 import { MARKET_TRANSLATION_STORAGE_KEYS } from './market-translation-bridge';
 import {

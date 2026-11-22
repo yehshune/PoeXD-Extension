@@ -9,7 +9,7 @@
  * 資料來自 MAIN world，視為不可信：形狀、型別、筆數或長度任一不符就整份回傳 null，不做部分採用，
  * 呼叫端退回打包資料。全部是純函式、不改動輸入；這支在頁面環境也會執行，不能依賴擴充 API。
  */
-import type { TradeFiltersData } from './trade-filters-store';
+import type { TradeFiltersData } from './trade-label-resolver';
 
 /** 驗證上限：比官方資料（2026-11 PoE 1 約 12 群組、18,000 筆 stats）寬鬆數倍，只擋異常輸入 */
 export const LIVE_TRADE_DATA_LIMITS = Object.freeze({

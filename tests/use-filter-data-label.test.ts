@@ -4,7 +4,10 @@ import { useFilterData } from '@/components/sidebar/composables/useFilterData';
 import type { ModTier } from '@/components/sidebar/types';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '@/utils/i18n';
 import { setAffixLexiconMockData } from '@/utils/affix-lexicon';
-import { resetOfficialStatTextForTests, setMockOfficialStatText } from '@/utils/official-stat-text';
+import {
+  resetTradeLabelsForTests,
+  setTradeLabelTestData,
+} from '@/utils/trade-label-resolver';
 
 const tier = (overrides: Partial<ModTier>): ModTier => ({
   affinities: ['prefix'],
@@ -19,12 +22,12 @@ const tier = (overrides: Partial<ModTier>): ModTier => ({
 describe('選擇器的詞綴標籤', () => {
   beforeEach(() => {
     resetI18nStateForTests('zh-TW');
-    resetOfficialStatTextForTests();
-    setMockOfficialStatText('poe2', 'en', {});
+    resetTradeLabelsForTests();
+    setTradeLabelTestData({ version: 'poe2', officialStats: { en: { stats: {} } } });
   });
 
   afterEach(() => {
-    resetOfficialStatTextForTests();
+    resetTradeLabelsForTests();
   });
 
   const groupsFor = (modsData: Record<string, ModTier[]>) => {
@@ -34,7 +37,10 @@ describe('選擇器的詞綴標籤', () => {
   };
 
   it('單一詞綴用官方市集的寫法，階級列仍是遊戲寫法', () => {
-    setMockOfficialStatText('poe2', 'zh-TW', { 'explicit.stat_3639275092': '增加#%能力值需求' });
+    setTradeLabelTestData({
+      version: 'poe2',
+      officialStats: { 'zh-TW': { stats: { 'explicit.stat_3639275092': '增加#%能力值需求' } } },
+    });
     const [group] = groupsFor({
       '#% reduced attribute requirements': [
         tier({
@@ -51,10 +57,10 @@ describe('選擇器的詞綴標籤', () => {
   });
 
   it('複合詞綴維持完整的遊戲寫法', () => {
-    setMockOfficialStatText('poe2', 'zh-TW', {
+    setTradeLabelTestData({ version: 'poe2', officialStats: { 'zh-TW': { stats: {
       'explicit.stat_a': '增加#%護甲值',
       'explicit.stat_b': '增加#%暈眩恢復',
-    });
+    } } } });
     const [group] = groupsFor({
       hybrid: [
         tier({
@@ -68,7 +74,7 @@ describe('選擇器的詞綴標籤', () => {
   });
 
   it('官方沒有翻譯時保留原本的標籤', () => {
-    setMockOfficialStatText('poe2', 'zh-TW', {});
+    setTradeLabelTestData({ version: 'poe2', officialStats: { 'zh-TW': { stats: {} } } });
     const [group] = groupsFor({
       x: [tier({ id: 'explicit.stat_x', key: 'x', displayTemplate: '遊戲詞綴 #%' })],
     });
@@ -76,7 +82,7 @@ describe('選擇器的詞綴標籤', () => {
   });
 
   it('官方沒有翻譯時改用詞綴字典的市集標準寫法，而不是最低階級的遊戲文字', () => {
-    setMockOfficialStatText('poe2', 'zh-TW', {});
+    setTradeLabelTestData({ version: 'poe2', officialStats: { 'zh-TW': { stats: {} } } });
     setAffixLexiconMockData(
       'poe2',
       {
@@ -117,7 +123,10 @@ describe('選擇器的詞綴標籤', () => {
   });
 
   it('跟著顯示語系切換', () => {
-    setMockOfficialStatText('poe2', 'zh-CN', { 'explicit.stat_3639275092': '属性需求提高 #%' });
+    setTradeLabelTestData({
+      version: 'poe2',
+      officialStats: { 'zh-CN': { stats: { 'explicit.stat_3639275092': '属性需求提高 #%' } } },
+    });
     setActiveDisplayLocale('zh-CN');
     const [group] = groupsFor({
       g: [tier({ id: 'explicit.stat_3639275092', key: 'g', displayTemplate: '属性需求降低 #%' })],

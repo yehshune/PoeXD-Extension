@@ -1,30 +1,19 @@
 import type { SupportedLocale } from './preferences-contract';
 import { getLocaleItemsAssetPath, type PoeVersion } from './trade-context';
-import {
-  ensureAffixLexiconLoaded,
-  setAffixLexiconMockData,
-  translateAffixStat,
-} from './affix-lexicon';
+import { ensureAffixLexiconLoaded, setAffixLexiconMockData } from './affix-lexicon';
 import { getActiveDisplayLocale, getActiveUiLocale } from './i18n';
-import { translateMercenaryStat } from './mercenary-data';
-import { getOfficialStatLabel } from './official-stat-text';
 import {
   describeShardMismatch,
   isShardCompatible,
   type ShardFingerprint,
 } from './game-data-shard-compat';
 import {
-  officialCategoryMapPoe1,
-  officialCategoryMapPoe2,
-  typeNamesPoe1,
-  typeNamesPoe2,
-} from '@/components/sidebar/typeMaps';
-import {
-  ensureTradeFiltersLoaded,
-  getTradeFiltersSources,
-  setMockTradeFilters,
+  preloadTradeLabels,
+  resolveFilterOptionLabel,
+  setTradeLabelTestData,
+  translateStat,
   type TradeFiltersData,
-} from './trade-filters-store';
+} from './trade-label-resolver';
 import { loadExtensionJson } from './extension-json-cache';
 
 export interface LocaleItemsShard {
@@ -147,9 +136,7 @@ export async function loadTradeDictionaries(version: PoeVersion = 'poe1'): Promi
   }
 
   // 3. 載入顯示語系與 UI 語系的市集篩選翻譯（locales/{locale}/trade-filters.json）
-  for (const loc of new Set<SupportedLocale>([displayLocale, getActiveUiLocale()])) {
-    tasks.push(ensureTradeFiltersLoaded(version, loc));
-  }
+  tasks.push(preloadTradeLabels(version));
 
   await Promise.all(tasks);
 }
@@ -189,7 +176,12 @@ export function setMockDictionaries(
   itemNames?: Map<string, string> | null,
 ) {
   if (mods) setAffixLexiconMockData(version, mods);
-  if (filters !== undefined) setMockTradeFilters(version, filters as TradeFiltersData | null);
+  if (filters !== undefined) {
+    setTradeLabelTestData({
+      version,
+      filters: filters as TradeFiltersData | null,
+    });
+  }
   if (itemNames === null) {
     const state = getOrCreateItemState(version);
     state.mockItemMap = null;
@@ -209,110 +201,6 @@ export function setMockDictionaries(
     state.mockItemMap = normMap;
     state.mockItemReverseMap = revMap;
   }
-}
-
-/**
- * 取得指定版本已載入的 trade-filters 字典
- */
-export function getLoadedFiltersData(version: PoeVersion = 'poe1'): TradeFiltersData {
-  return getTradeFiltersSources(version)[0];
-}
-
-/**
- * 將過濾條件 Key 轉為當前 Display Locale 標籤（優先查 trade-filters 字典的 fields 與 groups）
- */
-export function translateFilterKey(key: string, version: PoeVersion = 'poe1'): string {
-  const parts = key.split('.');
-  const fieldKey = parts.pop() || key;
-
-  for (const filtersData of getTradeFiltersSources(version)) {
-    if (filtersData?.fields?.[fieldKey]) {
-      return filtersData.fields[fieldKey].split('\u200b')[0].trim();
-    }
-    if (filtersData?.groups?.[fieldKey]) {
-      return filtersData.groups[fieldKey].split('\u200b')[0].trim();
-    }
-  }
-
-  return fieldKey;
-}
-
-/**
- * 將過濾群組 Key 轉為當前 Display Locale 標籤（優先查 trade-filters 字典的 groups）
- */
-export function translateFilterGroup(groupKey: string, version: PoeVersion = 'poe1'): string {
-  for (const filtersData of getTradeFiltersSources(version)) {
-    if (filtersData?.groups?.[groupKey]) {
-      return filtersData.groups[groupKey].split('\u200b')[0].trim();
-    }
-  }
-
-  return groupKey;
-}
-
-function cleanOptionText(text: string): string {
-  if (!text) return '';
-  return text.split('\u200b')[0].trim();
-}
-
-function lookupOptionInFiltersData(
-  filtersData: TradeFiltersData | undefined,
-  optionVal: string,
-  optKey: string,
-  fieldKey: string,
-): string | null {
-  if (!filtersData?.options) return null;
-  if (filtersData.options[fieldKey]?.[optionVal] || filtersData.options[fieldKey]?.[optKey]) {
-    return cleanOptionText(
-      filtersData.options[fieldKey][optionVal] || filtersData.options[fieldKey][optKey],
-    );
-  }
-  if (filtersData.options.price?.[optionVal] || filtersData.options.price?.[optKey]) {
-    return cleanOptionText(
-      filtersData.options.price[optionVal] || filtersData.options.price[optKey],
-    );
-  }
-  if (filtersData.options.category?.[optionVal] || filtersData.options.category?.[optKey]) {
-    return cleanOptionText(
-      filtersData.options.category[optionVal] || filtersData.options.category[optKey],
-    );
-  }
-  for (const optGroup of Object.values<any>(filtersData.options)) {
-    if (optGroup && typeof optGroup === 'object' && optGroup[optionVal]) {
-      return cleanOptionText(optGroup[optionVal]);
-    }
-  }
-  return null;
-}
-
-/**
- * 查找選項文字在當前 Display Locale 的翻譯，利用 trade-filters 的 options 或 typeNames 表
- */
-function resolveOptionLabel(
-  optionVal: string,
-  fieldKey: string,
-  version: PoeVersion = 'poe1',
-): string {
-  const optKey = optionVal.toLowerCase();
-
-  // 1. 從 trade-filters 的 options 中對照（顯示語系 → UI 語系 → 內建 en）
-  for (const filtersData of getTradeFiltersSources(version)) {
-    const hit = lookupOptionInFiltersData(filtersData, optionVal, optKey, fieldKey);
-    if (hit) return hit;
-  }
-
-  // 2. 從既有的 typeNamesPoe1 / typeNamesPoe2 與 officialCategoryMap 中查找（物品分類與裝備型別）
-  const typeNames = version === 'poe2' ? typeNamesPoe2 : typeNamesPoe1;
-  const officialMap = version === 'poe2' ? officialCategoryMapPoe2 : officialCategoryMapPoe1;
-  if (officialMap[optKey] && typeNames[officialMap[optKey]]) {
-    return typeNames[officialMap[optKey]];
-  }
-  const cleanTypeKey = optKey.replace(/^[a-z_]+\./, '');
-  if (typeNames[cleanTypeKey]) {
-    return typeNames[cleanTypeKey];
-  }
-
-  return optionVal;
 }
 
 /**
@@ -344,7 +232,7 @@ export function formatFilterValue(
 ): string {
   if (val === null || val === undefined) return '';
   if (typeof val !== 'object') {
-    return resolveOptionLabel(String(val), fieldKey, version);
+    return resolveFilterOptionLabel(String(val), fieldKey, version);
   }
 
   if (Array.isArray(val)) {
@@ -370,15 +258,12 @@ export function formatFilterValue(
 
   if (optVal !== undefined && optVal !== null && optVal !== '') {
     const optStr = String(optVal);
-    parts.push(resolveOptionLabel(optStr, fieldKey, version));
+    parts.push(resolveFilterOptionLabel(optStr, fieldKey, version));
   }
 
   return parts.length > 0 ? parts.join(' ') : '';
 }
 
-/**
- * 同步查詢已快取的詞綴說明，找不到則降級去除 prefix
- */
 /** 字典中混合詞綴（一條詞綴含多行效果）各行之間的分隔字串。 */
 export const HYBRID_STAT_SEPARATOR = '|||||';
 
@@ -389,28 +274,6 @@ export function translateStatLines(statId: string, version: PoeVersion = 'poe1')
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
   return lines.length > 0 ? lines : [statId];
-}
-
-/** 市集上的詞綴：優先用官方市集的寫法（正負向跟市集一致），查不到才用詞綴字典 */
-export function translateStat(statId: string, version: PoeVersion = 'poe1'): string {
-  const translated =
-    getOfficialStatLabel(statId, version, getActiveDisplayLocale()) ??
-    translateAffixStat(statId, version) ??
-    translatePseudoStat(statId, version) ??
-    (version === 'poe1' ? translateMercenaryStat(statId) : null);
-  if (translated) return translated;
-  return statId.replace(/^[a-z_]+\./, '');
-}
-
-/** pseudo 偽屬性不在詞綴字典內，改查官方 /data/stats 產生的翻譯（顯示語系 → UI 語系 → en） */
-function translatePseudoStat(statId: string, version: PoeVersion): string | null {
-  if (!statId.startsWith('pseudo.')) return null;
-  for (const source of getTradeFiltersSources(version)) {
-    const text = source.pseudoStats?.[statId];
-    // 與詞綴字典一致：英文模板以小寫呈現
-    if (text) return source.locale === 'en' ? text.toLowerCase() : text;
-  }
-  return null;
 }
 
 /**
@@ -444,7 +307,7 @@ export function translateItemName(name: string, version: PoeVersion = 'poe1'): s
   }
 
   // 嘗試比對是否為分類 (category)
-  const catLabel = resolveOptionLabel(name, 'category', version);
+  const catLabel = resolveFilterOptionLabel(name, 'category', version);
   if (catLabel !== name) {
     return catLabel;
   }

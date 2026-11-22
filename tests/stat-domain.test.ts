@@ -1,8 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setActiveDisplayLocale } from '@/utils/i18n';
-import { resetLiveTradeDataForTests, setLiveTradeData } from '@/utils/live-trade-data-store';
-import { resetOfficialStatTextForTests, setMockOfficialStatText } from '@/utils/official-stat-text';
 import {
   extractStatDomain,
   toStatDomainKey,
@@ -12,18 +10,21 @@ import {
   shouldShowStatDomainBadge,
   STAT_DOMAIN_KEYS,
 } from '@/utils/stat-domain';
+import {
+  resetTradeLabelsForTests,
+  setLiveTradeData,
+  setTradeLabelTestData,
+} from '@/utils/trade-label-resolver';
 
 describe('stat-domain (詞綴網域色票與官方標籤)', () => {
   beforeEach(() => {
     setActiveDisplayLocale('zh-TW');
-    resetOfficialStatTextForTests();
-    resetLiveTradeDataForTests();
+    resetTradeLabelsForTests();
   });
 
   afterEach(() => {
     setActiveDisplayLocale('zh-TW');
-    resetOfficialStatTextForTests();
-    resetLiveTradeDataForTests();
+    resetTradeLabelsForTests();
   });
 
   it('從官方 stat id 解析所有支援的網域前綴', () => {
@@ -67,12 +68,12 @@ describe('stat-domain (詞綴網域色票與官方標籤)', () => {
     setActiveDisplayLocale('en');
     expect(getStatDomainLabel('rune', 'poe2')).toBe('Augment');
 
-    setMockOfficialStatText(
-      'poe1',
-      'en',
-      { 'explicit.stat_1': 'x' },
-      { fractured: 'Fractured Override' },
-    );
+    setTradeLabelTestData({
+      version: 'poe1',
+      officialStats: {
+        en: { stats: { 'explicit.stat_1': 'x' }, labels: { fractured: 'Fractured Override' } },
+      },
+    });
     expect(getStatDomainLabel('fractured', 'poe1')).toBe('Fractured Override');
 
     setLiveTradeData('poe1', {
@@ -88,7 +89,10 @@ describe('stat-domain (詞綴網域色票與官方標籤)', () => {
   });
 
   it('徽章用簡稱：中文為 2～3 字且涵蓋所有網域，其他語言沿用官方標籤', () => {
-    setMockOfficialStatText('poe1', 'zh-TW', { 'explicit.stat_1': 'x' }, { crafted: '已工藝' });
+    setTradeLabelTestData({
+      version: 'poe1',
+      officialStats: { 'zh-TW': { stats: { 'explicit.stat_1': 'x' }, labels: { crafted: '已工藝' } } },
+    });
     expect(getStatDomainBadgeLabel('crafted')).toBe('工藝');
     expect(getStatDomainBadgeLabel('implicit')).toBe('固定');
     expect(getStatDomainBadgeLabel(null)).toBeNull();

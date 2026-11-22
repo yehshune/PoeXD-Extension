@@ -9,11 +9,10 @@ import type { PoeVersion } from '@/utils/trade-context';
 import type { StatGroupType } from '@/utils/trade-query-tuning';
 import {
   formatFilterValue,
-  translateFilterGroup,
-  translateFilterKey,
   translateItemName,
   translateStatLines,
 } from '@/utils/trade-stat-dictionary';
+import { translateFilterGroup, translateFilterKey } from '@/utils/trade-label-resolver';
 import { createActiveUiLocaleProxy, t, type SupportedUiLocale } from '@/utils/i18n';
 
 export interface CriteriaOverlayPartLabel {

@@ -10,7 +10,7 @@ import {
   translateAffixStat,
 } from '@/utils/affix-lexicon';
 import { getActiveDisplayLocale, getActiveDisplayLocaleRef } from '@/utils/i18n';
-import { getOfficialStatLabel } from '@/utils/official-stat-text';
+import { getOfficialStatLabel } from '@/utils/trade-label-resolver';
 import { getKnownStatsRef } from '@/utils/known-stats-store';
 import type { ModGroup, ModTier } from '../types';
 

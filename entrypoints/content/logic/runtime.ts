@@ -40,7 +40,7 @@ import {
   type LiveSearchPrimarySession,
 } from './live-search-primary-session';
 import { setKnownStats } from '@/utils/known-stats-store';
-import { setLiveTradeData, setMarketLiveTradeData } from '@/utils/live-trade-data-store';
+import { setLiveTradeData, setMarketLiveTradeData } from '@/utils/trade-label-resolver';
 import { startMarketLiveLabelsSync } from '@/utils/market-live-labels';
 import { detectBrowserLocale, resolvePageLocale } from '@/utils/locale-resolution';
 

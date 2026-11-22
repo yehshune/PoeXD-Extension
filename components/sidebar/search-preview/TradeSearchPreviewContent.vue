@@ -546,7 +546,6 @@ import {
   STAT_GROUP_TYPES,
   type StatGroupType,
 } from '@/utils/trade-query-tuning';
-import { getOfficialStatDomains } from '@/utils/official-stat-text';
 import ItemPreviewHeader from '../item-preview/ItemPreviewHeader.vue';
 import PreviewStatRow, { type PreviewStatBounds } from '../item-preview/PreviewStatRow.vue';
 import StatGroupTypeSelect from '../item-preview/StatGroupTypeSelect.vue';
@@ -567,12 +566,12 @@ import {
 } from '@/components/injected/criteria-overlay-labels';
 import type { TradeSearchPreviewData } from '../composables/useTradeSearchPreview';
 import type { ExtractedFilterItem } from '@/utils/trade-url-codec';
+import { formatFilterValue, translateStatLines } from '@/utils/trade-stat-dictionary';
 import {
-  formatFilterValue,
+  getOfficialStatDomains,
   translateFilterGroup,
   translateFilterKey,
-  translateStatLines,
-} from '@/utils/trade-stat-dictionary';
+} from '@/utils/trade-label-resolver';
 
 const props = defineProps({
   previewData: {
