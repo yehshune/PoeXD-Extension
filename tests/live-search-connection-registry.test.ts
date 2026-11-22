@@ -17,7 +17,7 @@ describe('LiveSearchConnectionRegistry', () => {
     const identity = { gameVersion: 'poe1' as const, league: 'Standard', searchId: 'PrOm1234Ef' };
     const url = 'https://www.pathofexile.com/trade/search/Standard/PrOm1234Ef';
 
-    registry.upsertCustomSource({
+    registry.upsertTemporarySearch({
       canonicalKey: key,
       canonicalIdentity: identity,
       name: 'Temp',
@@ -58,7 +58,7 @@ describe('LiveSearchConnectionRegistry', () => {
       (k) => (k === key ? activeSub : undefined),
     );
 
-    expect(registry.getCustomSources()).toHaveLength(0);
+    expect(registry.getTemporarySearches()).toHaveLength(0);
     expect(promoted).toEqual([identity]);
     expect(registry.getSessionEntry(key)).toMatchObject({
       name: 'Saved Bookmark',
@@ -94,8 +94,8 @@ describe('LiveSearchConnectionRegistry', () => {
     );
 
     expect(registry.getSessionEntry(key)?.sourceBookmarkId).toBeUndefined();
-    expect(registry.getCustomSources()).toHaveLength(1);
-    expect(registry.getCustomSources()[0]).toMatchObject({
+    expect(registry.getTemporarySearches()).toHaveLength(1);
+    expect(registry.getTemporarySearches()[0]).toMatchObject({
       id: 'custom_fallback_sub_fallback',
       canonicalKey: key,
       provenance: 'origin-bookmark-removed',
@@ -111,7 +111,7 @@ describe('LiveSearchConnectionRegistry', () => {
       hasSource: true,
       currentCollection: { groups: [], bookmarks: [] },
       currentLiveSubscriptions: [activeSub],
-      customSources: registry.getCustomSources(),
+      temporarySearches: registry.getTemporarySearches(),
       sessionEntriesByKey: registry.getSessionEntries(),
       pendingSearchKeys: registry.getPendingSearchKeys(),
       combinedResumeMap: registry.buildCombinedResumeMap(),
@@ -165,10 +165,10 @@ describe('LiveSearchConnectionRegistry', () => {
       key,
     );
 
-    const materialized = registry.ensureCustomSourceForSectionKey(key, 'Standard');
+    const materialized = registry.ensureTemporarySearchForSectionKey(key, 'Standard');
     expect(materialized).toMatchObject({ canonicalKey: key, name: 'Saved Temp' });
 
-    const updated = registry.upsertCustomSource({
+    const updated = registry.upsertTemporarySearch({
       canonicalKey: key,
       canonicalIdentity: identity,
       name: 'MaTr1234Ef',

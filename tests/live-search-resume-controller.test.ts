@@ -274,7 +274,7 @@ describe('LiveSearch Resume Controller & Integration', () => {
     expect((await getStorePlan(resumeStore)).identities).toHaveLength(0);
   });
 
-  it('3. 自訂搜尋網址 (addCustom) 加入本次連線時一併持久化至 Resume Plan，暫停時保留，移除時刪除', async () => {
+  it('3. 自訂搜尋網址 (addTemporarySearch) 加入本次連線時一併持久化至 Resume Plan，暫停時保留，移除時刪除', async () => {
     const resumeStorage = createMockResumeStorage();
     const resumeStore = createLiveSearchResumeStore('poe1', resumeStorage);
 
@@ -297,7 +297,7 @@ describe('LiveSearch Resume Controller & Integration', () => {
     ]);
 
     // 新增自訂搜尋網址
-    const out = await sourceController.addCustom(
+    const out = await sourceController.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sItemp123',
       { name: '自訂搜尋1' },
     );
@@ -385,7 +385,7 @@ describe('LiveSearch Resume Controller & Integration', () => {
     });
 
     // 1. 新增 active 自訂搜尋（已進入 Resume Plan）
-    await sourceController.addCustom(
+    await sourceController.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIpromo123',
     );
     expect((await getStorePlan(resumeStore)).identities).toHaveLength(1);
@@ -870,7 +870,9 @@ describe('LiveSearch Resume Controller & Integration', () => {
     // 啟用書籤連線
     await sourceController.enable('b1');
     // 新增暫時搜尋
-    await sourceController.addCustom('https://www.pathofexile.com/trade/search/Standard/H4sItemp1');
+    await sourceController.addTemporarySearch(
+      'https://www.pathofexile.com/trade/search/Standard/H4sItemp1',
+    );
 
     expect(liveController.subscriptions).toHaveLength(2);
 
@@ -1537,7 +1539,7 @@ describe('LiveSearch Resume Controller & Integration', () => {
     });
 
     // 加入 Temporary Search (custom1)
-    await sourceController.addCustom(
+    await sourceController.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIcustom1',
     );
 

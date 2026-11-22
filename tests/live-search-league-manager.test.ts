@@ -43,7 +43,7 @@ function createManager(overrides: Partial<LiveSearchLeagueManagerDeps> = {}) {
     resumeStore: null,
     liveController,
     isLoading: () => false,
-    getCustomSources: () => [],
+    getTemporarySearches: () => [],
     getLatestResumeIdentities: () => [],
     onSelectedLeagueChanged,
     ...overrides,

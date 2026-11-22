@@ -855,8 +855,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       expect(bmkStopped.subscriptionId).toBeUndefined();
       expect(runtime.getSubscriptions()).toHaveLength(0);
 
-      // Bookmark 不可透過 removeCustom 移除
-      expect(sourceCtrl.removeCustom('bmk_3')).toBe(false);
+      // Bookmark 不可透過 removeTemporarySearch 移除
+      expect(sourceCtrl.removeTemporarySearch('bmk_3')).toBe(false);
       expect(sourceCtrl.read().groups[0].items.find((i) => i.id === 'bmk_3')).toBeDefined();
 
       sourceCtrl.dispose();
@@ -883,7 +883,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         ).toBeUndefined();
 
         // 1. 新增自訂 URL -> 建立 Custom Source 並立即啟用
-        const addRes = await sourceCtrl.addCustom(
+        const addRes = await sourceCtrl.addTemporarySearch(
           'https://www.pathofexile.com/trade/search/Standard/H4sIcustom_jewel_1/live',
           { name: '自訂珠寶搜尋' },
         );
@@ -942,7 +942,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         ).toBe('active');
 
         // 4. 移除（當仍處於 active 時）-> 先安全停止該 Runtime subscription，再移除 Custom Source
-        const removed = sourceCtrl.removeCustom(customId);
+        const removed = sourceCtrl.removeTemporarySearch(customId);
         expect(removed).toBe(true);
         expect(createdSockets[1].closed).toBe(true);
         expect(runtime.getSubscriptions()).toHaveLength(0);
@@ -963,7 +963,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       const sourceCtrl = createLiveSearchSourceController(bookmarkSource, liveController);
       await new Promise((r) => setTimeout(r, 20));
 
-      const addRes = await sourceCtrl.addCustom(
+      const addRes = await sourceCtrl.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sIno_name_search_id/live',
         { name: '   ' },
       );
@@ -990,7 +990,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         error: 'Host container temporarily unavailable',
       });
 
-      const addCustomRes = await sourceCtrl.addCustom(
+      const addCustomRes = await sourceCtrl.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sItransient_fail_custom_1/live',
         { name: '暫時失敗自訂搜尋' },
       );
@@ -1026,7 +1026,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       await new Promise((r) => setTimeout(r, 20));
 
       // 手動新增與 bmk_3 (Standard/search_hh) 相同 canonical identity 的搜尋
-      const addCustomRes = await sourceCtrl.addCustom(
+      const addCustomRes = await sourceCtrl.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_hh/live',
         { name: '自訂獵首' },
       );
@@ -1048,8 +1048,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       expect(dupRes.error).toContain('已在即時監聽中');
       expect(createdSockets).toHaveLength(1);
 
-      // 再次呼叫 addCustom 也收斂並拒絕重複監聽
-      const dupCustomRes = await sourceCtrl.addCustom(
+      // 再次呼叫 addTemporarySearch 也收斂並拒絕重複監聽
+      const dupCustomRes = await sourceCtrl.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_hh/live',
         { name: '自訂獵首 2' },
       );
@@ -1075,7 +1075,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       expect((await sourceCtrl.enable('bmk_3')).success).toBe(true);
       createdSockets[0].triggerOpen();
 
-      const dup = await sourceCtrl.addCustom(
+      const dup = await sourceCtrl.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_hh_reordered',
         { name: '同條件不同網址' },
       );
@@ -1111,9 +1111,12 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       createdSockets[0].triggerOpen();
 
       // custom_1: terminal error
-      await sourceCtrl.addCustom('https://www.pathofexile.com/trade/search/Standard/H4sIerr_ring', {
-        name: '裂界戒指',
-      });
+      await sourceCtrl.addTemporarySearch(
+        'https://www.pathofexile.com/trade/search/Standard/H4sIerr_ring',
+        {
+          name: '裂界戒指',
+        },
+      );
       createdSockets[1].triggerClose();
 
       // bmk_3 ('獵首皮帶'): disabled (未啟用)
@@ -1618,7 +1621,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
       // bmk_1 (active), bmk_3 (disabled), custom_1 (active)
       await sourceCtrl.enable('bmk_1');
-      await sourceCtrl.addCustom(
+      await sourceCtrl.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sIcustom_stop_test',
         {
           name: '自訂停止測試',
@@ -1953,9 +1956,12 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       const sourceCtrl = createLiveSearchSourceController(fakeSource, liveController);
       await vi.waitFor(() => expect(sourceCtrl.read().loading).toBe(false));
 
-      await sourceCtrl.addCustom('https://www.pathofexile.com/trade/search/Standard/H4sIcustom_1', {
-        name: 'Temp Search 1',
-      });
+      await sourceCtrl.addTemporarySearch(
+        'https://www.pathofexile.com/trade/search/Standard/H4sIcustom_1',
+        {
+          name: 'Temp Search 1',
+        },
+      );
 
       const snapshot = sourceCtrl.read();
       expect(snapshot.groups.map((g) => ({ id: g.id, depth: g.depth, kind: g.kind }))).toEqual([
@@ -2365,7 +2371,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       });
       await vi.waitFor(() => expect(sourceCtrl.read().loading).toBe(false));
 
-      const addRes = await sourceCtrl.addCustom(
+      const addRes = await sourceCtrl.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sItemp_preserve_123',
         { name: '暫存項目' },
       );
@@ -3093,7 +3099,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       });
       await vi.waitFor(() => expect(sourceCtrl.read().loading).toBe(false));
 
-      const addRes = await sourceCtrl.addCustom(
+      const addRes = await sourceCtrl.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sIcustom_cover_test',
         { name: '暫時搜尋測試' },
       );

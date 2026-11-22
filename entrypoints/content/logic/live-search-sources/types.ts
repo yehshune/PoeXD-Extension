@@ -133,7 +133,7 @@ export interface LiveSearchSourceController {
   read(): Readonly<LiveSearchSourceSnapshot>;
   subscribe(listener: (snapshot: Readonly<LiveSearchSourceSnapshot>) => void): () => void;
   /**
-   * 啟用指定搜尋來源 (Bookmark、本次連線、上次連線或 Custom Source)
+   * 啟用指定搜尋來源 (Bookmark、本次連線、上次連線或 Temporary Search)
    */
   enable(sourceId: string): Promise<AddSubscriptionOutcome>;
   /**
@@ -147,7 +147,7 @@ export interface LiveSearchSourceController {
   /**
    * 建立自訂 URL 搜尋來源並立即加入本次連線與啟用
    */
-  addCustom(
+  addTemporarySearch(
     url: string,
     options?: { name?: string; coverImageUrl?: string },
   ): Promise<AddSubscriptionOutcome>;
@@ -168,7 +168,7 @@ export interface LiveSearchSourceController {
   /**
    * 移除自訂 URL 來源；若移除時仍 active，先安全停止其 Runtime subscription 再移除來源
    */
-  removeCustom(sourceId: string): boolean;
+  removeTemporarySearch(sourceId: string): boolean;
   /**
    * 從「本次連線」移除項目；若仍在監聽中則先安全停止 WebSocket
    */
@@ -205,7 +205,7 @@ export interface LiveSearchPrimaryContext {
   runtimeLeague: string | null;
 }
 
-export interface CustomSourceRecord {
+export interface TemporarySearchRecord {
   id: string;
   name: string;
   url: string;

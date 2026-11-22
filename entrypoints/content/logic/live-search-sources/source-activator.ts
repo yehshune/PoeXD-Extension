@@ -91,14 +91,17 @@ export function createLiveSearchSourceActivator(
     // 0. 支援從「上次連線」(prev_*) 或「本次連線」(session_*) 直接啟用非書籤來源
     const targetKey = extractSectionSourceCanonicalKey(trimmedId);
     if (targetKey) {
-      const existingCustom = registry.ensureCustomSourceForSectionKey(targetKey, opLeague);
-      if (existingCustom) {
-        return enableSource(existingCustom.id, options);
+      const existingTemporarySearch = registry.ensureTemporarySearchForSectionKey(
+        targetKey,
+        opLeague,
+      );
+      if (existingTemporarySearch) {
+        return enableSource(existingTemporarySearch.id, options);
       }
     }
 
-    // 1. Custom / Temporary Search Source
-    const custom = registry.findCustomById(trimmedId);
+    // 1. Temporary Search Source
+    const custom = registry.findTemporarySearchById(trimmedId);
     if (custom) {
       const compat = evaluateLiveSearchSourceCompatibility(
         custom.canonicalIdentity,
@@ -139,7 +142,7 @@ export function createLiveSearchSourceActivator(
           return enableSource(redirect.sourceId, { skipCriteriaRedirect: true });
         }
         if (redirect?.kind === 'adopt-meta') {
-          registry.patchCustomSource(custom.id, {
+          registry.patchTemporarySearch(custom.id, {
             coverImageUrl: redirect.entry.coverImageUrl,
             name: redirect.entry.name,
           });

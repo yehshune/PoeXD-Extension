@@ -1020,8 +1020,8 @@ function handleRemoveSource(item: LiveSearchSourceItem, groupId: string) {
       return;
     }
   }
-  if (typeof sourceCtrl.removeCustom === 'function') {
-    sourceCtrl.removeCustom(item.id);
+  if (typeof sourceCtrl.removeTemporarySearch === 'function') {
+    sourceCtrl.removeTemporarySearch(item.id);
   }
 }
 

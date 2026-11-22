@@ -8,7 +8,7 @@ import type {
 import { fetchTradeLeagues, type TradeLeague } from '@/utils/trade-leagues';
 import type { PreferencesModule } from '@/utils/preferences';
 import { sameLeague } from './source-filters';
-import type { CustomSourceRecord, LiveSearchControllerBasePort } from './types';
+import type { TemporarySearchRecord, LiveSearchControllerBasePort } from './types';
 
 export interface LiveSearchLeagueManagerDeps {
   runtime: LiveSearchControllerBasePort;
@@ -18,7 +18,7 @@ export interface LiveSearchLeagueManagerDeps {
   liveController: LiveSearchPrimaryController;
   fetchLeagues?: (version: PoeVersion) => Promise<TradeLeague[]>;
   isLoading: () => boolean;
-  getCustomSources: () => readonly CustomSourceRecord[];
+  getTemporarySearches: () => readonly TemporarySearchRecord[];
   getLatestResumeIdentities: () => readonly LiveSearchResumeIdentity[];
   onSelectedLeagueChanged: (league: string) => void;
 }
@@ -90,7 +90,7 @@ export function createLiveSearchLeagueManager(
       }
     }
 
-    for (const c of deps.getCustomSources()) {
+    for (const c of deps.getTemporarySearches()) {
       if (c.canonicalIdentity.gameVersion === currentGameVersion) {
         addLeague(c.canonicalIdentity.league);
       }

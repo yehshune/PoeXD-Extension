@@ -282,7 +282,7 @@ describe('LiveSearch Temporary Search + Bookmark Reconciliation Phase Tests', ()
   // 4. Temporary -> Bookmark Promotion
   it('4. Temporary -> Bookmark Promotion: promotes active Temporary Search to Bookmark without reconnecting', async () => {
     // 手動新增一筆非書籤的暫時搜尋
-    const addRes = await sourceCtrl.addCustom(
+    const addRes = await sourceCtrl.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_mageblood',
       { name: '暫時魔血' },
     );
@@ -329,7 +329,7 @@ describe('LiveSearch Temporary Search + Bookmark Reconciliation Phase Tests', ()
 
   it('4b. Temporary -> Bookmark Promotion: inactive Temporary Search is reconciled into Bookmark without leaving duplicate', async () => {
     // 新增一筆自訂搜尋並停止它使其進入 inactive
-    await sourceCtrl.addCustom(
+    await sourceCtrl.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_inactive_promo',
       { name: '未啟用暫時項目' },
     );
@@ -374,8 +374,8 @@ describe('LiveSearch Temporary Search + Bookmark Reconciliation Phase Tests', ()
     const bmkBefore = snapBefore.groups[0].items.find((i) => i.id === 'bmk_hh')!;
     expect(bmkBefore.status).toBeUndefined();
 
-    // 使用者以相同的 canonical URL 呼叫 addCustom
-    const addRes = await sourceCtrl.addCustom(
+    // 使用者以相同的 canonical URL 呼叫 addTemporarySearch
+    const addRes = await sourceCtrl.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_hh/live',
       { name: '想重複新增的暫時搜尋' },
     );
@@ -391,9 +391,9 @@ describe('LiveSearch Temporary Search + Bookmark Reconciliation Phase Tests', ()
     expect(bmkAfter.status).toBe('connecting');
     expect(runtime.getSubscriptions()).toHaveLength(1);
 
-    // 若已 active 時再次呼叫 addCustom，保持既有連線並拒絕重複
+    // 若已 active 時再次呼叫 addTemporarySearch，保持既有連線並拒絕重複
     createdSockets[0].triggerOpen();
-    const addDupRes = await sourceCtrl.addCustom(
+    const addDupRes = await sourceCtrl.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_hh',
     );
     expect(addDupRes.success).toBe(false);
@@ -548,7 +548,7 @@ describe('LiveSearch Temporary Search + Bookmark Reconciliation Phase Tests', ()
   // 9. Remove Temporary
   it('9. Remove Temporary: safely stops active Runtime subscription exactly once and removes Temporary source', async () => {
     // 新增一筆 Temporary Search 並使其 active
-    await sourceCtrl.addCustom(
+    await sourceCtrl.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIsearch_to_remove',
       { name: '待移除暫時搜尋' },
     );
@@ -562,7 +562,7 @@ describe('LiveSearch Temporary Search + Bookmark Reconciliation Phase Tests', ()
     const removeSpy = vi.spyOn(runtime, 'removeSubscription');
 
     // 點擊 [移除]
-    const removeSuccess = sourceCtrl.removeCustom(tempItem.id);
+    const removeSuccess = sourceCtrl.removeTemporarySearch(tempItem.id);
     expect(removeSuccess).toBe(true);
 
     // 驗證：Runtime stop 被恰好呼叫一次

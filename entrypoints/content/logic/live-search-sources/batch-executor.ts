@@ -421,7 +421,7 @@ export function createLiveSearchBatchExecutor(
         const canonicalKey = registry.resolveCanonicalKeyBySourceId(sourceId, currentCollection);
         const exists =
           (canonicalKey !== null && registry.hasSessionEntry(canonicalKey)) ||
-          Boolean(registry.findCustomById(sourceId)) ||
+          Boolean(registry.findTemporarySearchById(sourceId)) ||
           Boolean(currentCollection?.bookmarks.some((b) => b.id === sourceId));
         skipped += 1;
         if (exists) {

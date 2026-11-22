@@ -39,7 +39,7 @@ export interface LiveSearchSourceIntakeDeps {
 }
 
 export interface LiveSearchSourceIntake {
-  addCustom(
+  addTemporarySearch(
     url: string,
     options?: { name?: string; coverImageUrl?: string },
   ): Promise<AddSubscriptionOutcome>;
@@ -60,7 +60,7 @@ export function createLiveSearchSourceIntake(
     return next;
   }
 
-  async function addCustom(
+  async function addTemporarySearch(
     url: string,
     options?: { name?: string; coverImageUrl?: string },
   ): Promise<AddSubscriptionOutcome> {
@@ -133,14 +133,14 @@ export function createLiveSearchSourceIntake(
     );
 
     if (existingBookmark) {
-      registry.removeCustomByCanonicalKey(canonicalKey);
+      registry.removeTemporarySearchByCanonicalKey(canonicalKey);
       if (ops.findActiveSubByCanonicalKey(canonicalKey)) {
         return { success: false, error: t('liveSearch.error.alreadyActive') };
       }
       return await deps.enableSource(existingBookmark.id);
     }
 
-    const customRecord = registry.upsertCustomSource({
+    const temporarySearch = registry.upsertTemporarySearch({
       canonicalKey,
       canonicalIdentity: parsed,
       name: displayName,
@@ -153,13 +153,14 @@ export function createLiveSearchSourceIntake(
     registry.registerSessionEntry({
       canonicalKey,
       canonicalIdentity: parsed,
-      name: customRecord.name || t('liveSearch.defaultSearchNameWithId', { id: parsed.searchId }),
+      name:
+        temporarySearch.name || t('liveSearch.defaultSearchNameWithId', { id: parsed.searchId }),
       url: cleanUrl,
-      coverImageUrl: customRecord.coverImageUrl,
+      coverImageUrl: temporarySearch.coverImageUrl,
     });
 
     ops.notify();
-    return await deps.enableSource(customRecord.id, { skipCriteriaRedirect: true });
+    return await deps.enableSource(temporarySearch.id, { skipCriteriaRedirect: true });
   }
 
   function enqueueIncomingConnections(
@@ -340,7 +341,7 @@ export function createLiveSearchSourceIntake(
             searchId: candidate.parsed.searchId,
           });
         } else {
-          const customRecord = registry.upsertCustomSource({
+          const temporarySearch = registry.upsertTemporarySearch({
             canonicalKey: candidate.canonicalKey,
             canonicalIdentity: candidate.parsed,
             name: resolvedName,
@@ -354,7 +355,7 @@ export function createLiveSearchSourceIntake(
             url: candidate.cleanUrl,
             coverImageUrl: validCover,
           });
-          sourceIdsToEnable.push(customRecord.id);
+          sourceIdsToEnable.push(temporarySearch.id);
           resumeEntriesToPersist.push({
             gameVersion: candidate.parsed.gameVersion,
             league: candidate.parsed.league,
@@ -382,7 +383,7 @@ export function createLiveSearchSourceIntake(
   }
 
   return {
-    addCustom,
+    addTemporarySearch,
     enqueueIncomingConnections,
   };
 }

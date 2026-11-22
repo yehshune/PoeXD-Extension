@@ -280,7 +280,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
     await flushAsync();
 
-    await sourceController.addCustom(
+    await sourceController.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIitem-to-stop',
       { name: '測試自訂搜尋' },
     );
@@ -341,7 +341,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     unmount();
   });
 
-  it('dispatches toast error when addCustom fails with invalid url and does not render inline banner', async () => {
+  it('dispatches toast error when addTemporarySearch fails with invalid url and does not render inline banner', async () => {
     const toasts: any[] = [];
     const removeToastListener = listenPoeEvent('poexd-toast', (detail) => {
       toasts.push(detail);
@@ -353,7 +353,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
     await flushAsync();
 
-    await sourceController.addCustom(
+    await sourceController.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIitem-to-fail',
       { name: '測試' },
     );
@@ -391,7 +391,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
     await flushAsync();
 
-    await sourceController.addCustom(
+    await sourceController.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIws-err-search',
       {
         name: '重連測試',
@@ -438,7 +438,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
     await flushAsync();
 
-    await sourceController.addCustom(
+    await sourceController.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIterminal-search',
       {
         name: '終態測試',
@@ -570,7 +570,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     await flushAsync();
 
     // 新增一筆自訂網址並使其進入 terminal error (異常)
-    await sourceController.addCustom(
+    await sourceController.addTemporarySearch(
       'https://www.pathofexile.com/trade/search/Standard/H4sIheadhunter_xyz',
       {
         name: '獵首',
@@ -745,7 +745,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       );
 
       // 2. 建立訂閱並推送第 1 筆新物品 -> 觸發 200 /fetch
-      await sourceController.addCustom(
+      await sourceController.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sIrate-test',
         {
           name: '速率測試',
@@ -851,7 +851,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         toggleBtn.click();
         await flushAsync();
 
-        await sourceController.addCustom(
+        await sourceController.addTemporarySearch(
           'https://www.pathofexile.com/trade/search/Standard/H4sIcooldown-decay-test',
           {
             name: '冷卻衰減測試',
@@ -1123,7 +1123,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       expect(container.querySelector('[data-test="summary-rendered"]')).toBeNull();
 
       // 觸發 1 筆渲染使 cumulativeRenderedTotal = 1
-      await sourceController.addCustom(
+      await sourceController.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sIdiag-sub',
         {
           name: '診斷測試',
@@ -1420,7 +1420,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
             ],
           },
         ],
-        customSources: [],
+        temporarySearches: [],
       };
 
       const mockSourceController: any = {
@@ -1433,8 +1433,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         stop: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         reload: vi.fn(),
         dispose: vi.fn(),
       };
@@ -2063,7 +2063,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       const sourceController = createLiveSearchSourceController(port, controller, { resumeStore });
 
       // 加入 Temporary Search
-      await sourceController.addCustom(
+      await sourceController.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sItemp_should_not_show',
       );
 
@@ -2534,8 +2534,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: enableManySpy,
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn().mockResolvedValue(true),
@@ -2646,8 +2646,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: switchLeagueMock,
@@ -2723,8 +2723,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: switchLeagueMock,
@@ -2919,8 +2919,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -2990,8 +2990,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -3110,8 +3110,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: enableManyMock,
         stopMany: stopManyMock,
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -3215,8 +3215,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: enableManyMock,
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -3370,8 +3370,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -3457,8 +3457,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -3524,8 +3524,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -3597,8 +3597,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -3677,8 +3677,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -3813,8 +3813,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -3977,8 +3977,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -4116,8 +4116,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -4263,8 +4263,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -4473,8 +4473,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         enable: vi.fn(),
         enableMany: vi.fn(),
         stopMany: vi.fn(),
-        addCustom: vi.fn(),
-        removeCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
+        removeTemporarySearch: vi.fn(),
         retry: vi.fn(),
         stop: vi.fn(),
         switchLeague: vi.fn(),
@@ -4928,7 +4928,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
       await sourceController1.enable('bmk_paused');
       sourceController1.stop('bmk_paused'); // 暫停但仍在本次連線清單內
-      await sourceController1.addCustom(
+      await sourceController1.addTemporarySearch(
         'https://www.pathofexile.com/trade/search/Standard/H4sIcustom_session',
         { name: '本次自訂網址' },
       );

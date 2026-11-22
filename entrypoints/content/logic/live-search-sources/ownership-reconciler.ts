@@ -8,7 +8,7 @@ import {
 import type { LiveSearchSubscription } from '@/utils/live-search-contract';
 import type { LiveSearchResumeIdentity } from '@/utils/live-search-resume-store';
 import { hasValidCover } from './connection-dedup';
-import type { CustomSourceRecord, SessionConnectionMeta } from './types';
+import type { TemporarySearchRecord, SessionConnectionMeta } from './types';
 
 /**
  * 內部輔助：調和 Temporary Search 與 Bookmark 之間的歸屬關係
@@ -17,7 +17,7 @@ import type { CustomSourceRecord, SessionConnectionMeta } from './types';
 export function reconcileRegistryOwnership(
   collection: BookmarkCollectionView | null,
   liveSubscriptions: readonly Readonly<LiveSearchSubscription>[],
-  customSources: CustomSourceRecord[],
+  temporarySearches: TemporarySearchRecord[],
   sessionEntriesByKey: Map<string, SessionConnectionMeta>,
   findActiveSub: (canonicalKey: string) => Readonly<LiveSearchSubscription> | undefined,
 ): LiveSearchResumeIdentity[] {
@@ -60,9 +60,9 @@ export function reconcileRegistryOwnership(
   const promotedResumeIdentities: LiveSearchResumeIdentity[] = [];
 
   // 1. Temporary Search -> Bookmark Promotion
-  for (let i = customSources.length - 1; i >= 0; i--) {
-    if (bookmarkCanonicalKeys.has(customSources[i].canonicalKey)) {
-      const promoted = customSources[i];
+  for (let i = temporarySearches.length - 1; i >= 0; i--) {
+    if (bookmarkCanonicalKeys.has(temporarySearches[i].canonicalKey)) {
+      const promoted = temporarySearches[i];
       const activeSub = findActiveSub(promoted.canonicalKey);
       if (activeSub && activeSub.status !== 'closed') {
         promotedResumeIdentities.push({
@@ -71,7 +71,7 @@ export function reconcileRegistryOwnership(
           searchId: promoted.canonicalIdentity.searchId,
         });
       }
-      customSources.splice(i, 1);
+      temporarySearches.splice(i, 1);
     }
   }
 
@@ -84,8 +84,8 @@ export function reconcileRegistryOwnership(
       searchId: sub.searchId,
     });
     if (bookmarkCanonicalKeys.has(subKey)) continue;
-    if (!customSources.some((c) => c.canonicalKey === subKey)) {
-      customSources.push({
+    if (!temporarySearches.some((c) => c.canonicalKey === subKey)) {
+      temporarySearches.push({
         id: `custom_fallback_${sub.id}`,
         name: sub.name || t('liveSearch.defaultSearchName'),
         url: sub.url,

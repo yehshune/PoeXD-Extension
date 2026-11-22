@@ -28,7 +28,7 @@ function createBaseSnapshotInput(
     hasSource: true,
     currentCollection: { groups: [], bookmarks: [] },
     currentLiveSubscriptions: [],
-    customSources: [],
+    temporarySearches: [],
     sessionEntriesByKey: new Map(),
     pendingSearchKeys: new Set(),
     combinedResumeMap: new Map(),

@@ -416,13 +416,13 @@ async function handleSubmit() {
     }
 
     const sourceCtrl = props.sourceController;
-    if (!sourceCtrl || typeof sourceCtrl.addCustom !== 'function') {
+    if (!sourceCtrl || typeof sourceCtrl.addTemporarySearch !== 'function') {
       validationError.value = t('liveSearch.console.notReady');
       return;
     }
 
     const nameOpt = inputName.value.trim();
-    const outcome = await sourceCtrl.addCustom(url, { name: nameOpt });
+    const outcome = await sourceCtrl.addTemporarySearch(url, { name: nameOpt });
 
     if (outcome.success) {
       const sourceId = 'sourceId' in outcome ? (outcome as any).sourceId : undefined;

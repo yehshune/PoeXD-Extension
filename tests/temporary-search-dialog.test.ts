@@ -275,7 +275,7 @@ describe('TemporarySearchDialog', () => {
 
       let submittedName = '';
       const sourceController = {
-        addCustom: vi.fn(async (_url: string, opts?: { name?: string }) => {
+        addTemporarySearch: vi.fn(async (_url: string, opts?: { name?: string }) => {
           submittedName = opts?.name ?? '';
           return { success: true, sourceId: 'src_custom_1' };
         }),
@@ -304,13 +304,13 @@ describe('TemporarySearchDialog', () => {
       await flushAsync(5);
 
       // Still in-flight because waiting for dictionary
-      expect(sourceController.addCustom).not.toHaveBeenCalled();
+      expect(sourceController.addTemporarySearch).not.toHaveBeenCalled();
 
       // Complete dictionary load
       resolveDict();
       await flushAsync();
 
-      expect(sourceController.addCustom).toHaveBeenCalledTimes(1);
+      expect(sourceController.addTemporarySearch).toHaveBeenCalledTimes(1);
       expect(submittedName).toBe('魔血 (重型腰帶)');
 
       unmount();
@@ -320,7 +320,7 @@ describe('TemporarySearchDialog', () => {
   describe('Form Submission & Validation Error Handling', () => {
     it('submits successfully, emits success and update:open: false, and resets form', async () => {
       const sourceController = {
-        addCustom: vi.fn(async (url: string, opts?: { name?: string }) => ({
+        addTemporarySearch: vi.fn(async (url: string, opts?: { name?: string }) => ({
           success: true,
           sourceId: 'src_cust_123',
         })),
@@ -347,7 +347,7 @@ describe('TemporarySearchDialog', () => {
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       await flushAsync();
 
-      expect(sourceController.addCustom).toHaveBeenCalledWith(
+      expect(sourceController.addTemporarySearch).toHaveBeenCalledWith(
         'https://www.pathofexile.com/trade/search/Standard/test123',
         { name: '自訂名稱' },
       );
@@ -359,7 +359,7 @@ describe('TemporarySearchDialog', () => {
 
     it('renders in-field validation error on failure without closing dialog', async () => {
       const sourceController = {
-        addCustom: vi.fn(async () => ({
+        addTemporarySearch: vi.fn(async () => ({
           success: false,
           error: '無效的 Trade 搜尋網址格式',
         })),
@@ -406,7 +406,7 @@ describe('TemporarySearchDialog', () => {
       });
 
       const sourceController = {
-        addCustom: vi.fn(async () => submitPromise),
+        addTemporarySearch: vi.fn(async () => submitPromise),
       };
 
       const { unmount } = mountDialog({ open: true, sourceController });
@@ -425,13 +425,13 @@ describe('TemporarySearchDialog', () => {
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       await flushAsync(5);
 
-      expect(sourceController.addCustom).toHaveBeenCalledTimes(1);
+      expect(sourceController.addTemporarySearch).toHaveBeenCalledTimes(1);
 
       // Second submit while first is still pending
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       await flushAsync(5);
 
-      expect(sourceController.addCustom).toHaveBeenCalledTimes(1);
+      expect(sourceController.addTemporarySearch).toHaveBeenCalledTimes(1);
 
       // Finish first submit
       resolveSubmit({ success: true, sourceId: 'src_done' });
@@ -547,7 +547,7 @@ describe('TemporarySearchDialog', () => {
           incompatibleBreakdown: { invalidUrl: 0, wrongVersion: 0, wrongLeague: 0 },
           runtimeFailureCount: 0,
         })),
-        addCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
       };
 
       const { openRef, unmount } = mountDialog({
@@ -674,7 +674,7 @@ describe('TemporarySearchDialog', () => {
           incompatibleBreakdown: { invalidUrl: 0, wrongVersion: 0, wrongLeague: 0 },
           runtimeFailureCount: 0,
         })),
-        addCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
       };
 
       const { unmount } = mountDialog({
@@ -786,7 +786,7 @@ describe('TemporarySearchDialog', () => {
           return () => {};
         },
         enableMany: vi.fn(),
-        addCustom: vi.fn(),
+        addTemporarySearch: vi.fn(),
       };
 
       const { unmount } = mountDialog({

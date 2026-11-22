@@ -98,7 +98,7 @@ export function createLiveSearchSourceController(
     liveController,
     fetchLeagues: options?.fetchLeagues,
     isLoading: () => reloadCoordinator.isLoading(),
-    getCustomSources: () => registry.getCustomSources(),
+    getTemporarySearches: () => registry.getTemporarySearches(),
     getLatestResumeIdentities: () => registry.getLatestResumeIdentities(),
     onSelectedLeagueChanged: () => {
       reloadCoordinator.syncResolvedCollection();
@@ -238,7 +238,7 @@ export function createLiveSearchSourceController(
       hasSource: Boolean(source),
       currentCollection: reloadCoordinator.getCurrentCollection(),
       currentLiveSubscriptions,
-      customSources: registry.getCustomSources(),
+      temporarySearches: registry.getTemporarySearches(),
       sessionEntriesByKey: registry.getSessionEntries(),
       pendingSearchKeys: registry.getPendingSearchKeys(),
       combinedResumeMap: registry.buildCombinedResumeMap(),
@@ -384,7 +384,7 @@ export function createLiveSearchSourceController(
     enable: (sourceId) => sourceActivator.enableSource(sourceId),
     enableMany: batchExecutor.enableManySources,
     stopMany: batchExecutor.stopManySources,
-    addCustom: sourceIntake.addCustom,
+    addTemporarySearch: sourceIntake.addTemporarySearch,
     enqueueIncomingConnections: sourceIntake.enqueueIncomingConnections,
 
     stop(sourceOrSubscriptionId) {
@@ -410,9 +410,9 @@ export function createLiveSearchSourceController(
       return liveController.retry(subId);
     },
 
-    removeCustom(sourceId) {
+    removeTemporarySearch(sourceId) {
       if (disposed || typeof sourceId !== 'string') return false;
-      const outcome = registry.removeCustomById(sourceId.trim());
+      const outcome = registry.removeTemporarySearchById(sourceId.trim());
       if (!outcome) return false;
       const activeSub = findActiveSubByCanonicalKey(outcome.removed.canonicalKey);
       if (activeSub) liveController.remove(activeSub.id);

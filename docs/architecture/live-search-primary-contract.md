@@ -68,7 +68,7 @@
 - **LiveSearch Primary Mode**：
   - 切換為 LiveSearch 專屬 Sidebar mode，提供專屬導覽列：
     - `搜尋連線`（預設主檢視，聚焦呈現「**本次連線** (`session_connections`)」與「**上次連線** (`previous_connections`)」兩大區塊，不再於主畫面平鋪未啟用的完整書籤資料夾樹）
-    - `＋ 新增連線` / `＋ 暫時搜尋`（Action 按鈕，非第三個分頁；點擊後開啟雙分頁輕量 `TemporarySearchDialog`：Tab 1「**從書籤挑選**」支援從目前聯盟書籤與資料夾多選批次加入「本次連線」；Tab 2「**輸入搜尋網址**」支援貼上 Trade 搜尋網址與自選/自動推導名稱並由 `LiveSearchSourceController.addCustom()` 加入「本次連線」）
+    - `＋ 新增連線` / `＋ 暫時搜尋`（Action 按鈕，非第三個分頁；點擊後開啟雙分頁輕量 `TemporarySearchDialog`：Tab 1「**從書籤挑選**」支援從目前聯盟書籤與資料夾多選批次加入「本次連線」；Tab 2「**輸入搜尋網址**」支援貼上 Trade 搜尋網址與自選/自動推導名稱並由 `LiveSearchSourceController.addTemporarySearch()` 加入「本次連線」）
     - `主控台設定`（置底設定分頁，僅控制主控台專屬顯示偏好）
   - `Sidebar.vue` 頂部標題列之 `activeTabName` 與 Primary 導覽同步顯示 `搜尋連線` 或 `主控台設定`（瀏覽器分頁 `document.title` 仍固定為 `線上搜尋主控台`）。
   - 嚴格禁止顯示原本的快速書籤、搜尋歷史、系統設定導覽按鈕，且嚴格禁止 mount 普通 `BookmarkPane`、`HistoryPane`、`SettingsPane`（透過條件渲染根本不掛載），僅 mount 專屬的 `LiveSearchPrimaryPane` 與 `LiveSearchConsoleSettingsPane`。
@@ -147,12 +147,14 @@
 Bookmark Domain (Read-Only Port: LiveSearchBookmarkSourcePort)
                   │
                   ▼
-   LiveSearchSourceController (live-search-bookmark-controller.ts facade)
-   ├─ live-search-source-types.ts / live-search-source-filters.ts (型別、相容性與群組/連線篩選純函式)
-   ├─ live-search-league-manager.ts (啟動聯盟解析與系統性聯盟切換)
-   ├─ live-search-snapshot-builder.ts (Snapshot 投影與 Canonical Identity Ownership Reconciliation)
-   ├─ live-search-batch-executor.ts (單筆/批次啟用與停止 Orchestration)
-   └─ live-search-source-intake.ts (暫時搜尋建立與一般頁背景派送接收)
+   LiveSearchSourceController (live-search-sources/index.ts seam → controller.ts 組裝)
+   ├─ connection-registry.ts (獨占可變連線狀態；ownership-reconciler.ts 負責 Temporary Search ↔ Bookmark 歸屬調和)
+   ├─ types.ts / source-filters.ts (型別、相容性與群組/連線篩選純函式)
+   ├─ league-manager.ts (啟動聯盟解析與系統性聯盟切換)
+   ├─ reload-coordinator.ts (書籤集合載入、聯盟 URL 解析與 reload drain)
+   ├─ snapshot-builder.ts (Snapshot 投影)
+   ├─ source-activator.ts / batch-executor.ts (單筆／批次啟用與停止 Orchestration)
+   └─ source-intake.ts (暫時搜尋建立與一般頁背景派送接收)
                   ▲
                   │
 LiveSearch Domain (Narrow Controller: LiveSearchPrimaryController)
@@ -166,7 +168,7 @@ LiveSearch Domain (Narrow Controller: LiveSearchPrimaryController)
 - **Deep Module 與介面窄化**：
   - **Bookmark Domain**：不暴露肥大的 `BookmarkModel`（不含 mutations, rename, drag-drop, import/export 等），僅以最小 `LiveSearchBookmarkSourcePort` 暴露 `readCollection()` 與 `subscribe()`。由 `createChromeBookmarkClient` 結構性滿足。
   - **LiveSearch Domain**：`LiveSearchPrimaryRuntime` 與 `LiveSearchPrimaryController` 完全不依賴 Bookmark 任何模組。
-  - **Unified Source Controller (`live-search-bookmark-controller.ts` 及其子模組)**：唯一的合成層與對外入口（導出 `createLiveSearchSourceController` 並保留 `createLiveSearchBookmarkController` 相容別名），內部依職責拆分為 `live-search-source-types.ts`、`live-search-source-filters.ts`、`live-search-league-manager.ts`、`live-search-snapshot-builder.ts`、`live-search-batch-executor.ts` 與 `live-search-source-intake.ts`，統一協調 Bookmark 唯讀訂閱、主控台 page-session 記憶體內的暫時搜尋來源、`sessionConnections` 與 `previousConnections` 分區投影、Canonical Identity Reconciliation、Source Compatibility 投影、Pending 防重、批次啟用/停止 Orchestration 與篩選純函式（`filterLiveSearchSourceGroups`），對外暴露 `read()`、`subscribe()`、`enable(sourceId)`（別名 `add`）、`enableMany(sourceIds)`、`stopMany(sourceIds)`、`addCustom(url, options)`、`enqueueIncomingConnections(items)`、`removeSessionConnection(sourceId)`、`removePreviousConnection(sourceId)`、`restoreAllPreviousConnections()`、`clearPreviousConnections()`、`stop(sourceOrSubscriptionId)`、`retry(sourceOrSubscriptionId)`、`removeCustom(sourceId)` 與 `dispose()`。
+  - **Unified Source Controller (`live-search-sources/` 目錄模組，以 `index.ts` 為唯一對外 seam)**：唯一的合成層與對外入口（導出 `createLiveSearchSourceController`），內部依職責拆分為 `controller.ts`（組裝）、`connection-registry.ts`（獨占可變連線狀態）、`types.ts`、`source-filters.ts`、`league-manager.ts`、`reload-coordinator.ts`、`snapshot-builder.ts`、`ownership-reconciler.ts`、`connection-dedup.ts`、`source-activator.ts`、`batch-executor.ts` 與 `source-intake.ts`，統一協調 Bookmark 唯讀訂閱、主控台 page-session 記憶體內的暫時搜尋來源、`sessionConnections` 與 `previousConnections` 分區投影、Canonical Identity Reconciliation、Source Compatibility 投影、Pending 防重、批次啟用/停止 Orchestration 與篩選純函式（`filterLiveSearchSourceGroups`），對外暴露 `read()`、`subscribe()`、`enable(sourceId)`、`enableMany(sourceIds)`、`stopMany(sourceIds)`、`addTemporarySearch(url, options)`、`enqueueIncomingConnections(items)`、`removeSessionConnection(sourceId)`、`removePreviousConnection(sourceId)`、`restoreAllPreviousConnections()`、`clearPreviousConnections()`、`stop(sourceOrSubscriptionId)`、`retry(sourceOrSubscriptionId)`、`removeTemporarySearch(sourceId)` 與 `dispose()`。
 - **Temporary Search + Bookmark Reconciliation 契約 (Source Ownership Invariant)**：
   - **Temporary Search 定義**：
     `Temporary Search`（使用者可見名稱：`暫時搜尋`）= 存在於目前線上搜尋主控台 page-session memory 的非書籤搜尋來源；不寫入持久化 `Bookmark` 或 `Preferences`，但在主控台啟用後會將其 canonical identity 與選用顯示資訊（`name`, `url`, `coverImageUrl`）寫入 `LiveSearchResumeStore`，使下次開啟主控台時可呈現於「上次連線」(`previousConnections`)。
@@ -261,7 +263,7 @@ LiveSearch Domain (Narrow Controller: LiveSearchPrimaryController)
   - **Temporary Search 在 League Context 下的生命週期**：
     - Canonical league 繼續為權威，不得因 selected league 竄改 URL 或 identity。
     - 若使用者輸入與目前 selected league 不同的 Temporary Search，系統安全拒絕並明確提示「此搜尋屬於 X，請先切換主控台聯盟後再新增」。
-    - **切換聯盟保留 Temporary Search Metadata**：`switchLeague()` 絕不可刪除 `customSources`。原聯盟之 Temporary Search 僅因 League Projection 而隱藏，切回原聯盟時重新出現且狀態為 inactive；直到使用者關閉或刷新主控台分頁，page-session 記憶體釋放才消失。
+    - **切換聯盟保留 Temporary Search Metadata**：`switchLeague()` 絕不可刪除 `temporarySearches`。原聯盟之 Temporary Search 僅因 League Projection 而隱藏，切回原聯盟時重新出現且狀態為 inactive；直到使用者關閉或刷新主控台分頁，page-session 記憶體釋放才消失。
   - **Startup League Resolution Readiness**：
     - Snapshot 具備 `leagueResolved: boolean` 語意。
     - 啟動時依確定性優先級解析 initial league：`1. persisted recent selected league > 2. Resume Store league > 3. authoritative Bookmark league > 4. official league > 5. Standard`。
@@ -455,7 +457,7 @@ Browser native WebSocket
     1. 「**使用線上搜尋開啟**」：透過 `toLiveUrl(bookmark.url)` 將書籤網址轉換為官方 `/live` URL，並以 `window.open(toLiveUrl(bookmark.url), '_blank')` 於新分頁開啟官方線上搜尋頁面。
     2. 「**送入線上搜尋主控台**」（資料夾選單為「**將資料夾送入主控台**」）：透過 `'liveSearch:enqueueConnections'` 將書籤或資料夾內相容書籤背景送入該遊戲版本的線上搜尋主控台，**不切換使用者目前所在的一般頁面分頁**，並以 Toast 提示派送結果。
   - 一般 Trade 頁面官方搜尋控制列注入「**送入主控台**」（`.poexd-send-to-console-btn`）按鈕，點擊後先將搜尋表單條件同步至 URL，再以 `'liveSearch:enqueueConnections'` 背景送入線上搜尋主控台。
-  - 主控台分頁內部的「搜尋連線」區塊透過分頁內的 `LiveSearchSourceController`（別名 `LiveSearchBookmarkController`）運作，啟用書籤來源時直接沿用 `bookmark.name`。
+  - 主控台分頁內部的「搜尋連線」區塊透過分頁內的 `LiveSearchSourceController` 運作，啟用書籤來源時直接沿用 `bookmark.name`。
 
 ### 11.2 主控台 Trade URL 自動解析訂閱名稱契約（雙分支與 `disabled` 驗證鏈）
 

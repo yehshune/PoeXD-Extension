@@ -23,7 +23,7 @@ import {
 import {
   PREVIOUS_SOURCE_ID_PREFIX,
   SESSION_SOURCE_ID_PREFIX,
-  type CustomSourceRecord,
+  type TemporarySearchRecord,
   type SessionConnectionMeta,
 } from './types';
 
@@ -33,27 +33,27 @@ export interface CandidateInfo {
   exists: boolean;
 }
 
-export interface UpsertCustomSourceInput {
+export interface UpsertTemporarySearchInput {
   canonicalKey: string;
   canonicalIdentity: ParsedTradeSearchIdentity;
   name: string;
   url: string;
   coverImageUrl?: string;
-  /** 若為 true，既有名稱非空時不覆寫（addCustom 未輸入名稱時沿用舊名） */
+  /** 若為 true，既有名稱非空時不覆寫（addTemporarySearch 未輸入名稱時沿用舊名） */
   preserveExistingName?: boolean;
-  /** 若為 true，清除既有 provenance（addCustom 語意） */
+  /** 若為 true，清除既有 provenance（addTemporarySearch 語意） */
   clearProvenance?: boolean;
 }
 
 export interface LiveSearchConnectionRegistry {
   // Read-only views
-  getCustomSources(): readonly CustomSourceRecord[];
+  getTemporarySearches(): readonly TemporarySearchRecord[];
   getSessionEntries(): ReadonlyMap<string, SessionConnectionMeta>;
   getPendingSearchKeys(): ReadonlySet<string>;
   getLatestResumeIdentities(): readonly LiveSearchResumeIdentity[];
   hasAnyState(): boolean;
-  findCustomById(sourceId: string): CustomSourceRecord | undefined;
-  findCustomByCanonicalKey(canonicalKey: string): CustomSourceRecord | undefined;
+  findTemporarySearchById(sourceId: string): TemporarySearchRecord | undefined;
+  findTemporarySearchByCanonicalKey(canonicalKey: string): TemporarySearchRecord | undefined;
   getSessionEntry(canonicalKey: string): SessionConnectionMeta | undefined;
   hasSessionEntry(canonicalKey: string): boolean;
   isPending(canonicalKey: string): boolean;
@@ -87,15 +87,15 @@ export interface LiveSearchConnectionRegistry {
     liveSubscriptions: readonly Readonly<LiveSearchSubscription>[],
     collection: BookmarkCollectionView | null,
   ): void;
-  upsertCustomSource(input: UpsertCustomSourceInput): CustomSourceRecord;
-  patchCustomSource(sourceId: string, patch: { name?: string; coverImageUrl?: string }): void;
-  ensureCustomSourceForSectionKey(
+  upsertTemporarySearch(input: UpsertTemporarySearchInput): TemporarySearchRecord;
+  patchTemporarySearch(sourceId: string, patch: { name?: string; coverImageUrl?: string }): void;
+  ensureTemporarySearchForSectionKey(
     targetKey: string,
     opLeague: string,
-  ): CustomSourceRecord | undefined;
-  removeCustomByCanonicalKey(canonicalKey: string): boolean;
-  removeCustomById(sourceId: string): {
-    removed: CustomSourceRecord;
+  ): TemporarySearchRecord | undefined;
+  removeTemporarySearchByCanonicalKey(canonicalKey: string): boolean;
+  removeTemporarySearchById(sourceId: string): {
+    removed: TemporarySearchRecord;
     wasPersistedInResume: boolean;
   } | null;
   removeSessionConnection(
@@ -125,7 +125,7 @@ export interface LiveSearchConnectionRegistry {
   clear(): void;
 }
 
-function createCustomSourceId(): string {
+function createTemporarySearchId(): string {
   return `custom_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
@@ -134,7 +134,7 @@ function createCustomSourceId(): string {
  * 歸屬轉換與 LiveSearch Resume Plan 基準狀態。
  */
 export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegistry {
-  const customSources: CustomSourceRecord[] = [];
+  const temporarySearches: TemporarySearchRecord[] = [];
   const sessionEntriesByKey = new Map<string, SessionConnectionMeta>();
   const baselineResumeByKey = new Map<string, LiveSearchResumeIdentity>();
   const pendingSearchKeys = new Set<string>();
@@ -181,16 +181,16 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
   }
 
   return {
-    getCustomSources: () => customSources,
+    getTemporarySearches: () => temporarySearches,
     getSessionEntries: () => sessionEntriesByKey,
     getPendingSearchKeys: () => pendingSearchKeys,
     getLatestResumeIdentities: () => latestResumeIdentities,
     hasAnyState: () =>
-      customSources.length > 0 || sessionEntriesByKey.size > 0 || baselineResumeByKey.size > 0,
+      temporarySearches.length > 0 || sessionEntriesByKey.size > 0 || baselineResumeByKey.size > 0,
 
-    findCustomById: (sourceId) => customSources.find((c) => c.id === sourceId),
-    findCustomByCanonicalKey: (canonicalKey) =>
-      customSources.find((c) => c.canonicalKey === canonicalKey),
+    findTemporarySearchById: (sourceId) => temporarySearches.find((c) => c.id === sourceId),
+    findTemporarySearchByCanonicalKey: (canonicalKey) =>
+      temporarySearches.find((c) => c.canonicalKey === canonicalKey),
     getSessionEntry: (canonicalKey) => sessionEntriesByKey.get(canonicalKey),
     hasSessionEntry: (canonicalKey) => sessionEntriesByKey.has(canonicalKey),
     isPending: (canonicalKey) => pendingSearchKeys.has(canonicalKey),
@@ -202,7 +202,7 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
       const sectionKey = extractSectionSourceCanonicalKey(trimmed);
       if (sectionKey) return sectionKey;
       if (sessionEntriesByKey.has(trimmed)) return trimmed;
-      const custom = customSources.find((c) => c.id === trimmed);
+      const custom = temporarySearches.find((c) => c.id === trimmed);
       if (custom) return custom.canonicalKey;
       const bookmark = collection?.bookmarks.find((b) => b.id === trimmed);
       if (bookmark) return getBookmarkCanonicalKey(bookmark);
@@ -234,7 +234,7 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
         }
       }
 
-      const custom = customSources.find((c) => c.id === sourceId);
+      const custom = temporarySearches.find((c) => c.id === sourceId);
       if (custom) {
         return { parsed: custom.canonicalIdentity, sourceUrl: undefined, exists: true };
       }
@@ -313,7 +313,7 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
       ) {
         return entry.sourceBookmarkId;
       }
-      const custom = customSources.find((c) => c.canonicalKey === entry.key);
+      const custom = temporarySearches.find((c) => c.canonicalKey === entry.key);
       if (custom) return custom.id;
       return section === 'session'
         ? `${SESSION_SOURCE_ID_PREFIX}${entry.key}`
@@ -356,8 +356,8 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
       }
     },
 
-    upsertCustomSource(input) {
-      let record = customSources.find((c) => c.canonicalKey === input.canonicalKey);
+    upsertTemporarySearch(input) {
+      let record = temporarySearches.find((c) => c.canonicalKey === input.canonicalKey);
       if (record) {
         record.url = input.url;
         if (!input.preserveExistingName || !record.name) {
@@ -374,7 +374,7 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
         return record;
       }
       record = {
-        id: createCustomSourceId(),
+        id: createTemporarySearchId(),
         name: input.name,
         url: input.url,
         canonicalIdentity: { ...input.canonicalIdentity },
@@ -382,25 +382,25 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
         createdAt: Date.now(),
         coverImageUrl: input.coverImageUrl,
       };
-      customSources.push(record);
+      temporarySearches.push(record);
       return record;
     },
 
-    patchCustomSource(sourceId, patch) {
-      const custom = customSources.find((c) => c.id === sourceId);
+    patchTemporarySearch(sourceId, patch) {
+      const custom = temporarySearches.find((c) => c.id === sourceId);
       if (!custom) return;
       if (patch.coverImageUrl !== undefined) custom.coverImageUrl = patch.coverImageUrl;
       if (patch.name) custom.name = patch.name;
     },
 
-    ensureCustomSourceForSectionKey(targetKey, opLeague) {
-      const existing = customSources.find((c) => c.canonicalKey === targetKey);
+    ensureTemporarySearchForSectionKey(targetKey, opLeague) {
+      const existing = temporarySearches.find((c) => c.canonicalKey === targetKey);
       if (existing) return existing;
 
       const sessionMeta = sessionEntriesByKey.get(targetKey);
       if (sessionMeta) {
-        const created: CustomSourceRecord = {
-          id: createCustomSourceId(),
+        const created: TemporarySearchRecord = {
+          id: createTemporarySearchId(),
           name: sessionMeta.name,
           url: sessionMeta.url,
           canonicalIdentity: { ...sessionMeta.canonicalIdentity },
@@ -408,7 +408,7 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
           createdAt: Date.now(),
           coverImageUrl: sessionMeta.coverImageUrl,
         };
-        customSources.push(created);
+        temporarySearches.push(created);
         return created;
       }
 
@@ -426,8 +426,8 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
           league: opLeague || resumeEntry.league,
           searchId: resumeEntry.searchId,
         };
-        const created: CustomSourceRecord = {
-          id: createCustomSourceId(),
+        const created: TemporarySearchRecord = {
+          id: createTemporarySearchId(),
           name:
             resumeEntry.name ||
             t('liveSearch.defaultSearchNameWithId', { id: resumeEntry.searchId }),
@@ -437,24 +437,24 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
           createdAt: Date.now(),
           coverImageUrl: resumeEntry.coverImageUrl,
         };
-        customSources.push(created);
+        temporarySearches.push(created);
         return created;
       }
 
       return undefined;
     },
 
-    removeCustomByCanonicalKey(canonicalKey) {
-      const idx = customSources.findIndex((c) => c.canonicalKey === canonicalKey);
+    removeTemporarySearchByCanonicalKey(canonicalKey) {
+      const idx = temporarySearches.findIndex((c) => c.canonicalKey === canonicalKey);
       if (idx === -1) return false;
-      customSources.splice(idx, 1);
+      temporarySearches.splice(idx, 1);
       return true;
     },
 
-    removeCustomById(sourceId) {
-      const idx = customSources.findIndex((c) => c.id === sourceId);
+    removeTemporarySearchById(sourceId) {
+      const idx = temporarySearches.findIndex((c) => c.id === sourceId);
       if (idx === -1) return null;
-      const [removed] = customSources.splice(idx, 1);
+      const [removed] = temporarySearches.splice(idx, 1);
       sessionEntriesByKey.delete(removed.canonicalKey);
       const wasPersistedInResume = latestResumeIdentities.some(
         (id) => getResumeCanonicalKey(id) === removed.canonicalKey,
@@ -463,12 +463,12 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
     },
 
     removeSessionConnection(sourceId, canonicalKey) {
-      const customIdx = customSources.findIndex(
+      const customIdx = temporarySearches.findIndex(
         (c) => c.id === sourceId || (canonicalKey !== null && c.canonicalKey === canonicalKey),
       );
       const hadSessionEntry = canonicalKey !== null && sessionEntriesByKey.has(canonicalKey);
       if (customIdx !== -1) {
-        customSources.splice(customIdx, 1);
+        temporarySearches.splice(customIdx, 1);
       }
       let wasPersistedInResume = false;
       if (canonicalKey) {
@@ -492,7 +492,7 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
       return reconcileRegistryOwnership(
         collection,
         liveSubscriptions,
-        customSources,
+        temporarySearches,
         sessionEntriesByKey,
         findActiveSub,
       );
@@ -586,7 +586,7 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
 
     clear() {
       pendingSearchKeys.clear();
-      customSources.length = 0;
+      temporarySearches.length = 0;
       sessionEntriesByKey.clear();
       baselineResumeByKey.clear();
       latestResumeIdentities = [];

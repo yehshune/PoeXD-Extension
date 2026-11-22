@@ -24,7 +24,7 @@ import {
   SESSION_CONNECTIONS_GROUP_ID,
   SESSION_CONNECTIONS_GROUP_NAME,
   SESSION_SOURCE_ID_PREFIX,
-  type CustomSourceRecord,
+  type TemporarySearchRecord,
   type LiveSearchPrimaryContext,
   type LiveSearchSourceGroup,
   type LiveSearchSourceItem,
@@ -43,7 +43,7 @@ export interface BuildLiveSearchSnapshotInput {
   hasSource: boolean;
   currentCollection: BookmarkCollectionView | null;
   currentLiveSubscriptions: readonly Readonly<LiveSearchSubscription>[];
-  customSources: readonly CustomSourceRecord[];
+  temporarySearches: readonly TemporarySearchRecord[];
   sessionEntriesByKey: ReadonlyMap<string, SessionConnectionMeta>;
   pendingSearchKeys: ReadonlySet<string>;
   combinedResumeMap: ReadonlyMap<string, LiveSearchResumeIdentity>;
@@ -70,7 +70,7 @@ export function buildLiveSearchSourceSnapshot(
     hasSource,
     currentCollection,
     currentLiveSubscriptions,
-    customSources,
+    temporarySearches,
     sessionEntriesByKey,
     pendingSearchKeys,
     combinedResumeMap,
@@ -80,7 +80,7 @@ export function buildLiveSearchSourceSnapshot(
   const currentSelectedLeague = selectedLeague || 'Standard';
 
   if (
-    (loading && customSources.length === 0 && sessionEntriesByKey.size === 0) ||
+    (loading && temporarySearches.length === 0 && sessionEntriesByKey.size === 0) ||
     !isLeagueResolved
   ) {
     return {
@@ -101,7 +101,7 @@ export function buildLiveSearchSourceSnapshot(
   if (
     errorMessage &&
     !currentCollection &&
-    customSources.length === 0 &&
+    temporarySearches.length === 0 &&
     sessionEntriesByKey.size === 0
   ) {
     return {
@@ -254,7 +254,7 @@ export function buildLiveSearchSourceSnapshot(
     }
   }
 
-  const filteredCustomSources = customSources.filter((c) => {
+  const filteredTemporarySearches = temporarySearches.filter((c) => {
     if (
       c.canonicalIdentity.gameVersion === primaryContext.gameVersion &&
       !sameLeague(c.canonicalIdentity.league, currentSelectedLeague)
@@ -266,8 +266,8 @@ export function buildLiveSearchSourceSnapshot(
 
   const customItemByCanonicalKey = new Map<string, LiveSearchSourceItem>();
 
-  if (filteredCustomSources.length > 0) {
-    const customItems: LiveSearchSourceItem[] = filteredCustomSources.map((c) => {
+  if (filteredTemporarySearches.length > 0) {
+    const customItems: LiveSearchSourceItem[] = filteredTemporarySearches.map((c) => {
       const activeSub = activeIdentityMap.get(c.canonicalKey);
       const isPending = pendingSearchKeys.has(c.canonicalKey);
       const compat = evaluateLiveSearchSourceCompatibility(c.canonicalIdentity, primaryContext);
