@@ -56,7 +56,9 @@ E2E 分成兩套：
   `openssl`（Git for Windows、macOS、GitHub Actions 的 Ubuntu 都內建）。
   結果列用的 `fixtures/poe1-fetch.json`、`fixtures/poe2-fetch.json` 是真實官方 API 回應（已去除帳號、
   藏身處 token 等個資）；官方改了回應格式時，在 dev 瀏覽器開一個有結果的搜尋頁，執行
-  `node e2e/offline/record-fetch.ts poe1`（或 `poe2`）重錄。
+  `node e2e/offline/record-fetch.ts poe1`（或 `poe2`）重錄。去識別化會讓同一個真實帳號對應同一個假賣家。
+  PoE2 的錄音要同時有混沌石標價、不同價格與同一賣家的多筆刊登（價格換算、看板排序與賣家分組靠這些資料），
+  缺少時測試會直接說明缺什麼；一次搜尋湊不齊時可以合併兩次錄音。
   repo 只保存 API JSON，不保存官方網站的 HTML / JS / CSS。
 
 - **實機金絲雀**（`pnpm e2e:canary`，不進 CI）：離線 E2E 只驗證替身頁，官方改版時仍會全綠，所以另外用

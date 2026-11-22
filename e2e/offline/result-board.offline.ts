@@ -2,7 +2,8 @@ import { test, expect, POE2_FETCH, POE2_NINJA_OVERVIEW, TRADE2_RESULTS_URL } fro
 
 /**
  * 搜尋結果看板（CONTEXT.md「Result Board」）：彙整這次搜尋已取得的結果，可排序、依賣家檢視，
- * 點結果會定位到官方結果列。用 PoE2 的錄音：同時有崇高石與混沌石標價，換算後排序才有差別。
+ * 點結果會定位到官方結果列。用 PoE2 的錄音：有 regal、崇高石與混沌石標價（換算後排序才有差別），
+ * 也有同一個賣家的多筆刊登（賣家檢視才有分組）。
  */
 
 test.describe('搜尋結果看板', () => {
@@ -24,7 +25,7 @@ test.describe('搜尋結果看板', () => {
     await expect(entries).toHaveCount(POE2_FETCH.result.length);
     await expect(sidebar.getByText(`${POE2_FETCH.result.length} retrieved`)).toBeVisible();
 
-    // 回放的 PoE2 匯率 1 chaos = 40 exalted：92 chaos（3,680 ex）最貴，2000 exalted 最便宜
+    // 回放的 PoE2 匯率 1 chaos = 40 exalted：92 chaos（3,680 ex）最貴，1 regal（0.2 ex）最便宜
     const mostExpensive = [...POE2_FETCH.result].sort(
       (a, b) => priceInExalted(b.listing.price) - priceInExalted(a.listing.price),
     )[0];
@@ -54,7 +55,15 @@ test.describe('搜尋結果看板', () => {
     }
     const sellers = sidebar.locator('[data-board-seller]');
     await sidebar.locator('[data-board-view="sellers"]').click();
-    await expect(sellers).toHaveCount([...sellerCounts.values()].filter((n) => n >= 2).length);
+    const repeatSellers = [...sellerCounts].filter(([, count]) => count >= 2);
+    if (repeatSellers.length === 0) {
+      throw new Error('poe2-fetch.json 需要至少一位有多筆刊登的賣家，賣家分組才測得到');
+    }
+    await expect(sellers).toHaveCount(repeatSellers.length);
+    const [repeatName, repeatCount] = repeatSellers[0];
+    await expect(sidebar.locator(`[data-board-seller="${repeatName}"]`)).toContainText(
+      `${repeatCount} instant buyout`,
+    );
     await sidebar.getByRole('button', { name: 'Decrease minimum instant buyout count' }).click();
     await expect(sellers).toHaveCount(sellerCounts.size);
 

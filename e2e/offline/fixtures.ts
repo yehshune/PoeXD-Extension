@@ -84,6 +84,7 @@ export const POE2_NINJA_OVERVIEW = {
   core: { primary: 'exalted' },
   lines: [
     { id: 'exalted', primaryValue: 1 },
+    { id: 'regal', primaryValue: 0.2 },
     { id: 'chaos', primaryValue: 40 },
     { id: 'divine', primaryValue: 400 },
   ],
