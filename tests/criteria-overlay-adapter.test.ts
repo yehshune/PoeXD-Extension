@@ -9,8 +9,10 @@ import {
 import {
   parsePoeCriteriaOverlayCommitResult,
   parsePoeCriteriaOverlayReadResult,
+  parsePoeCriteriaOverlaySyncResult,
   serializePoeCriteriaOverlayCommit,
   serializePoeCriteriaOverlayRead,
+  serializePoeCriteriaOverlaySync,
 } from '@/utils/event-protocol-types';
 import type { CriteriaOverlayOp } from '@/utils/criteria-overlay';
 
@@ -163,7 +165,7 @@ describe('initCriteriaOverlayAdapter', () => {
   let bridge: MainWorldBridge;
   let teardown: (() => void) | null = null;
   let store: ReturnType<typeof createStore>;
-  let root: { save: ReturnType<typeof vi.fn> };
+  let root: { save: ReturnType<typeof vi.fn>; loaded?: boolean };
 
   beforeEach(() => {
     listeners = new Map();
@@ -241,6 +243,81 @@ describe('initCriteriaOverlayAdapter', () => {
     expect(parsePoeCriteriaOverlayCommitResult(dispatched[0][1])).toEqual({
       requestId: 'c1',
       success: true,
+    });
+  });
+
+  describe('sync', () => {
+    let errorSpy: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+      errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+    afterEach(() => errorSpy.mockRestore());
+
+    const requestSync = (requestId: string) =>
+      listeners.get('poexd-criteria-overlay-sync')!(serializePoeCriteriaOverlaySync({ requestId }));
+
+    it('saves through the official root without touching the form and replies with the URL', async () => {
+      let finishSave!: () => void;
+      root.loaded = true;
+      root.save.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            finishSave = () => {
+              window.history.pushState(null, '', '/trade/search/Standard/synced');
+              resolve();
+            };
+          }),
+      );
+      requestSync('s1');
+      await Promise.resolve();
+      expect(root.save).toHaveBeenCalledWith(true);
+      expect(store.commit).not.toHaveBeenCalled();
+      expect(dispatched).toEqual([]);
+
+      finishSave();
+      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+      const [type, payload] = dispatched[0];
+      expect(type).toBe('poexd-criteria-overlay-sync-result');
+      expect(parsePoeCriteriaOverlaySyncResult(payload)).toEqual({
+        requestId: 's1',
+        success: true,
+        url: window.location.href,
+      });
+      expect(window.location.pathname).toBe('/trade/search/Standard/synced');
+    });
+
+    it('refuses to report success while the official page has not loaded', async () => {
+      root.loaded = false;
+      requestSync('s2');
+      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+      expect(root.save).not.toHaveBeenCalled();
+      expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
+        requestId: 's2',
+        success: false,
+        error: 'PAGE_NOT_LOADED',
+        diagnostics: { storeFound: true, rootFound: true, hasSave: true, loaded: false },
+      });
+      expect(errorSpy).toHaveBeenCalled();
+    });
+
+    it('reports TRADE_ROOT_NOT_FOUND instead of silently skipping the URL write', async () => {
+      (root as any).save = undefined;
+      requestSync('s3');
+      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+      expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
+        success: false,
+        error: 'TRADE_ROOT_NOT_FOUND',
+      });
+    });
+
+    it('passes the official save error through', async () => {
+      root.save.mockRejectedValue(new Error('CompressionStream failed'));
+      requestSync('s4');
+      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+      expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
+        success: false,
+        error: 'CompressionStream failed',
+      });
     });
   });
 

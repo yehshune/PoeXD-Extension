@@ -186,3 +186,10 @@ export function isLegacyTradeSearchUrl(urlValue: string): boolean {
   }
   return isLegacySearchId(identity.searchId);
 }
+
+const SEARCH_FORM_ROUTE = /\/trade2?\/search\//;
+
+/** 只有官方搜尋路由有可寫入網址的搜尋表單（通貨兌換不適用）。 */
+export function isTradeSearchFormUrl(url: string): boolean {
+  return SEARCH_FORM_ROUTE.test(url);
+}

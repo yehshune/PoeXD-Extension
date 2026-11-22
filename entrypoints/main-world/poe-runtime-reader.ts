@@ -42,6 +42,8 @@ export function getVueStore(): HostVuexStore | null {
 export interface HostTradeRoot {
   /** 官方實作為 async：完成時才 `history.pushState` 寫入新網址。 */
   save?: (dirty?: boolean) => Promise<void> | void;
+  /** 官方初始化完成前為 false；此時 `save()` 什麼都不做（不寫網址）。 */
+  loaded?: boolean;
   setPropertyFilterGroupDisabled?: (payload: { group: string; disable: boolean }) => void;
 }
 

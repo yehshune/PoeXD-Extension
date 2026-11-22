@@ -9,7 +9,7 @@ import {
   STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH,
   type StatGroupTemplate,
 } from '@/utils/stat-group-template-store';
-import { isTradeSearchFormUrl } from '@/entrypoints/content/logic/form-url-sync';
+import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import { criteriaFromTradeQuery } from '@/utils/criteria-overlay';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';

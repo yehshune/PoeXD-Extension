@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createCriteriaOverlaySession,
   createPoeEventCriteriaOverlayChannel,
+  CriteriaOverlaySyncError,
   describeCriteriaOverlayReport,
+  syncSearchFormToUrl,
   type CriteriaOverlayPageChannel,
 } from '@/entrypoints/content/logic/criteria-overlay-session';
 import {
@@ -12,9 +14,13 @@ import {
   listenPoeEvent,
   parsePoeCriteriaOverlayCommit,
   parsePoeCriteriaOverlayRead,
+  parsePoeCriteriaOverlaySync,
   serializePoeCriteriaOverlayCommitResult,
   serializePoeCriteriaOverlayReadResult,
+  serializePoeCriteriaOverlaySyncResult,
 } from '@/utils/event-contracts';
+import { t } from '@/utils/i18n';
+import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import type { OverlayCriteria } from '@/utils/criteria-overlay';
 
 const snapshot = {
@@ -157,6 +163,116 @@ describe('describeCriteriaOverlayReport', () => {
       }),
     ).toBe(
       '已套用「純淨基底」：新增 1 個詞綴群組、設定 2 個篩選欄位、設定上架狀態；略過 1 個重複群組、2 條已不存在的詞綴',
+    );
+  });
+});
+
+describe('channel.syncToUrl', () => {
+  beforeEach(() => initPoeEventNonce('nonce-1'));
+
+  function answerSync(reply: Record<string, unknown>) {
+    return listenPoeEvent('poexd-criteria-overlay-sync', (detail) => {
+      const request = parsePoeCriteriaOverlaySync(detail)!;
+      dispatchPoeEvent(
+        'poexd-criteria-overlay-sync-result',
+        serializePoeCriteriaOverlaySyncResult({ requestId: request.requestId, ...reply } as any),
+      );
+    });
+  }
+
+  it('returns the URL the main world reports after saving', async () => {
+    const stop = answerSync({
+      success: true,
+      url: 'https://www.pathofexile.com/trade/search/S/new',
+    });
+    await expect(createPoeEventCriteriaOverlayChannel(500).syncToUrl()).resolves.toBe(
+      'https://www.pathofexile.com/trade/search/S/new',
+    );
+    stop();
+  });
+
+  it('translates main-world error codes and keeps the diagnostics', async () => {
+    const stop = answerSync({
+      success: false,
+      error: 'PAGE_NOT_LOADED',
+      diagnostics: { loaded: false, rootFound: true },
+    });
+    const error = await createPoeEventCriteriaOverlayChannel(500)
+      .syncToUrl()
+      .catch((e) => e);
+    expect(error).toBeInstanceOf(CriteriaOverlaySyncError);
+    expect(error.message).toBe(t('criteriaOverlay.session.pageNotLoaded'));
+    expect(error.code).toBe('PAGE_NOT_LOADED');
+    expect(error.diagnostics).toEqual({ loaded: false, rootFound: true });
+    stop();
+  });
+
+  it('reports NO_RESPONSE when the main world never answers', async () => {
+    const error = await createPoeEventCriteriaOverlayChannel(10)
+      .syncToUrl()
+      .catch((e) => e);
+    expect(error.code).toBe('NO_RESPONSE');
+    expect(error.message).toBe(t('criteriaOverlay.session.noResponse'));
+  });
+});
+
+describe('syncSearchFormToUrl', () => {
+  const SEARCH_URL = 'https://www.pathofexile.com/trade/search/Standard/old';
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => errorSpy.mockRestore());
+
+  it('returns the synced URL from the channel', async () => {
+    const syncToUrl = vi.fn(async () => 'https://www.pathofexile.com/trade/search/Standard/new');
+    await expect(
+      syncSearchFormToUrl({ channel: { syncToUrl }, readUrl: () => SEARCH_URL }),
+    ).resolves.toBe('https://www.pathofexile.com/trade/search/Standard/new');
+    expect(syncToUrl).toHaveBeenCalledOnce();
+  });
+
+  it('skips the write-through on non-search routes', async () => {
+    const syncToUrl = vi.fn(async () => 'unused');
+    const url = 'https://www.pathofexile.com/trade/exchange/Standard/x';
+    await expect(syncSearchFormToUrl({ channel: { syncToUrl }, readUrl: () => url })).resolves.toBe(
+      url,
+    );
+    expect(syncToUrl).not.toHaveBeenCalled();
+  });
+
+  it('rejects with the actual reason and logs code, route and diagnostics without the query', async () => {
+    const syncToUrl = vi.fn(async () => {
+      throw new CriteriaOverlaySyncError('官方頁面尚未載入完成', 'PAGE_NOT_LOADED', {
+        loaded: false,
+      });
+    });
+    await expect(
+      syncSearchFormToUrl({ channel: { syncToUrl }, readUrl: () => SEARCH_URL }),
+    ).rejects.toThrow(t('formUrlSync.failed', { reason: '官方頁面尚未載入完成' }));
+    const logged = errorSpy.mock.calls[0][1] as Record<string, unknown>;
+    expect(logged).toMatchObject({ code: 'PAGE_NOT_LOADED', route: 'trade/search', loaded: false });
+    expect(JSON.stringify(logged)).not.toContain('Standard/old');
+  });
+
+  it('falls back to a refresh hint when the failure has no message', async () => {
+    const syncToUrl = vi.fn(async () => {
+      throw new Error('');
+    });
+    await expect(
+      syncSearchFormToUrl({ channel: { syncToUrl }, readUrl: () => SEARCH_URL }),
+    ).rejects.toThrow(t('formUrlSync.failed', { reason: t('formUrlSync.unknownReason') }));
+  });
+});
+
+describe('isTradeSearchFormUrl', () => {
+  it('only treats official search routes as having a writable form', () => {
+    expect(isTradeSearchFormUrl('https://www.pathofexile.com/trade/search/Standard/x')).toBe(true);
+    expect(isTradeSearchFormUrl('https://www.pathofexile.com/trade2/search/poe2/Standard/x')).toBe(
+      true,
+    );
+    expect(isTradeSearchFormUrl('https://www.pathofexile.com/trade/exchange/Standard/x')).toBe(
+      false,
     );
   });
 });

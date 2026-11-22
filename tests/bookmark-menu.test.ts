@@ -41,9 +41,12 @@ vi.mock('@/utils/trade-leagues', () => ({
   fetchTradeLeagues: vi.fn(async () => mockTradeLeagues),
 }));
 
-const syncFormToUrlSpy = vi.fn(async () => window.location.href);
-vi.mock('@/entrypoints/content/logic/form-url-sync', () => ({
-  syncFormToUrl: () => syncFormToUrlSpy(),
+const syncSearchFormToUrlSpy = vi.fn(async () => window.location.href);
+vi.mock('@/entrypoints/content/logic/criteria-overlay-session', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('@/entrypoints/content/logic/criteria-overlay-session')
+  >()),
+  syncSearchFormToUrl: () => syncSearchFormToUrlSpy(),
 }));
 
 let mockBookmarkCollection = {
@@ -247,8 +250,8 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
     deleteBookmarkSpy.mockClear();
     reorderBookmarksSpy.mockClear();
     exportTransferSpy.mockClear();
-    syncFormToUrlSpy.mockReset();
-    syncFormToUrlSpy.mockImplementation(async () => window.location.href);
+    syncSearchFormToUrlSpy.mockReset();
+    syncSearchFormToUrlSpy.mockImplementation(async () => window.location.href);
     (globalThis as any).happyDOM?.setURL?.('https://www.pathofexile.com/trade/search/Standard');
 
     mockBookmarkCollection = {
@@ -837,7 +840,7 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
   it('J. overwrites bookmark with current search without confirmation dialog while preserving name and group', async () => {
     const newSearchUrl = 'https://www.pathofexile.com/trade/search/Standard/H4sIAAAAAAAAA_updated';
     (globalThis as any).happyDOM?.setURL?.(`${newSearchUrl}/live`);
-    syncFormToUrlSpy.mockResolvedValue(`${newSearchUrl}/live`);
+    syncSearchFormToUrlSpy.mockResolvedValue(`${newSearchUrl}/live`);
     putBookmarkSpy.mockImplementationOnce(async (input: any) => {
       mockBookmarkCollection = {
         ...mockBookmarkCollection,
@@ -864,7 +867,7 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
     await new Promise((r) => setTimeout(r, 50));
 
     expect(poexdConfirmSpy).not.toHaveBeenCalled();
-    expect(syncFormToUrlSpy).toHaveBeenCalledOnce();
+    expect(syncSearchFormToUrlSpy).toHaveBeenCalledOnce();
     expect(putBookmarkSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'bm-1',

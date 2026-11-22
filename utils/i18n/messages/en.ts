@@ -871,6 +871,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'criteriaOverlay.report.templateWithSkipped': 'Applied "{name}": {done}; Skipped {skipped}',
   'criteriaOverlay.report.template': 'Applied "{name}": {done}',
   'criteriaOverlay.report.separator': ', ',
+  'criteriaOverlay.session.tradeRootNotFound':
+    'Could not find the official trade page component. Please refresh and try again.',
+  'criteriaOverlay.session.pageNotLoaded':
+    'The official trade page has not finished loading. Please wait a moment and try again.',
   'criteriaOverlay.session.noResponse':
     'Official page did not respond. Please refresh and try again.',
   'criteriaOverlay.session.readFailed': 'Failed to read official search form.',

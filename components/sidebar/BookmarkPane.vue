@@ -367,7 +367,7 @@ import {
   isGenericTradePageTitle,
 } from '@/utils/trade-url-codec';
 import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
-import { syncFormToUrl } from '@/entrypoints/content/logic/form-url-sync';
+import { syncSearchFormToUrl } from '@/entrypoints/content/logic/criteria-overlay-session';
 import {
   BOOKMARK_NAME_MAX_LENGTH,
   sanitizeBookmarkName,
@@ -462,6 +462,12 @@ export default defineComponent({
     const executeBookmarkIntent = async (intent: BookmarkMutationIntent) => {
       const outcome = await bookmarkModel.execute(intent);
       if (!outcome.ok) {
+        // 只記錄意圖類型與錯誤代碼，不含書籤名稱或網址
+        console.error('[PoeXD] 書籤寫入失敗:', {
+          intent: intent.type,
+          code: outcome.error.code,
+          message: outcome.error.message,
+        });
         await (window as any).poexdAlert(
           t('bookmark.dialog.saveFailure', { message: outcome.error.message }),
           t('common.saveFailed'),
@@ -1012,7 +1018,7 @@ export default defineComponent({
       let syncedUrl: string;
       try {
         // 官方網址不一定反映剛修改的表單，先寫入再取網址（ADR-0010）
-        syncedUrl = await syncFormToUrl();
+        syncedUrl = await syncSearchFormToUrl();
       } catch (error) {
         dispatchPoeEvent('poexd-toast', {
           message: error instanceof Error ? error.message : String(error),
@@ -1030,6 +1036,7 @@ export default defineComponent({
       }
       const title = sanitizeBookmarkName(rawTitle, t('bookmark.defaultPageTitle'));
       if (!url) {
+        console.error('[PoeXD] 加入書籤失敗：同步後取得的網址為空');
         await (window as any).poexdAlert(
           t('bookmark.dialog.cannotGetUrl'),
           t('bookmark.dialog.importFailureTitle'),

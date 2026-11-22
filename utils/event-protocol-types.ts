@@ -169,6 +169,23 @@ export interface PoeCriteriaOverlayCommitResultPayload {
   error?: string;
 }
 
+/** 請 Main World 以官方 `save(true)` 把目前搜尋表單寫進網址（不修改表單）。 */
+export interface PoeCriteriaOverlaySyncPayload {
+  requestId: string;
+}
+
+/** 同步失敗時的診斷資訊（只含布林與路由名稱，不含查詢內容）。 */
+export type PoeCriteriaOverlaySyncDiagnostics = Record<string, string | number | boolean | null>;
+
+export interface PoeCriteriaOverlaySyncResultPayload {
+  requestId: string;
+  success: boolean;
+  /** 官方寫完網址後的 `location.href`；失敗時省略。 */
+  url?: string;
+  error?: string;
+  diagnostics?: PoeCriteriaOverlaySyncDiagnostics;
+}
+
 /**
  * 頁面導覽的示範狀態：暫時展開收起的篩選面板、在官方表單加入一個詞綴篩選，
  * 讓導覽能指到詞綴選擇器與 T 階按鈕，結束時還原成原本的樣子。
@@ -199,7 +216,7 @@ export interface PoeLiveSearchCommandResultPayload {
 // -------------------------------------------------------------
 
 /**
- * Main World -> Content World (14 個事件)
+ * Main World -> Content World (15 個事件)
  * 帶有 JSON 結構之事件在 CustomEvent 傳輸時採用 serialized JSON string 以維持 wire 相容。
  */
 export interface PoeMainToContentEventMap {
@@ -213,6 +230,7 @@ export interface PoeMainToContentEventMap {
   'poexd-livesearch-command-result': string; // Wire format: serialized JSON of PoeLiveSearchCommandResultPayload
   'poexd-criteria-overlay-read-result': string; // Wire format: serialized JSON of PoeCriteriaOverlayReadResultPayload
   'poexd-criteria-overlay-commit-result': string; // Wire format: serialized JSON of PoeCriteriaOverlayCommitResultPayload
+  'poexd-criteria-overlay-sync-result': string; // Wire format: serialized JSON of PoeCriteriaOverlaySyncResultPayload
   'poexd-page-guide-demo-result': string; // Wire format: serialized JSON of PoePageGuideDemoResultPayload
   'poexd-search-result-summary': string; // Wire format: serialized JSON of SearchResultSummary
   'poexd-fetch-failed': string; // Wire format: serialized JSON of FetchFailure
@@ -220,7 +238,7 @@ export interface PoeMainToContentEventMap {
 }
 
 /**
- * Content World -> Main World (14 個事件)
+ * Content World -> Main World (15 個事件)
  */
 export interface PoeContentToMainEventMap {
   'poexd-request-known-stats': void;
@@ -237,11 +255,12 @@ export interface PoeContentToMainEventMap {
   'poexd-livesearch-console-guard': PoeLiveSearchConsoleGuardPayload;
   'poexd-criteria-overlay-read': string; // Wire format: serialized JSON of PoeCriteriaOverlayReadPayload
   'poexd-criteria-overlay-commit': string; // Wire format: serialized JSON of PoeCriteriaOverlayCommitPayload
+  'poexd-criteria-overlay-sync': string; // Wire format: serialized JSON of PoeCriteriaOverlaySyncPayload
   'poexd-page-guide-demo': string; // Wire format: serialized JSON of PoePageGuideDemoPayload
 }
 
 /**
- * 28 個跨世界通訊事件合約（Main World <-> Content World）
+ * 30 個跨世界通訊事件合約（Main World <-> Content World）
  */
 export type PoeCrossWorldEventMap = PoeMainToContentEventMap & PoeContentToMainEventMap;
 
@@ -273,6 +292,8 @@ export interface PoeCrossWorldPayloadMap {
   'poexd-criteria-overlay-read-result': PoeCriteriaOverlayReadResultPayload;
   'poexd-criteria-overlay-commit': PoeCriteriaOverlayCommitPayload;
   'poexd-criteria-overlay-commit-result': PoeCriteriaOverlayCommitResultPayload;
+  'poexd-criteria-overlay-sync': PoeCriteriaOverlaySyncPayload;
+  'poexd-criteria-overlay-sync-result': PoeCriteriaOverlaySyncResultPayload;
   'poexd-page-guide-demo': PoePageGuideDemoPayload;
   'poexd-page-guide-demo-result': PoePageGuideDemoResultPayload;
   'poexd-search-result-summary': SearchResultSummary;
@@ -704,6 +725,49 @@ export function parsePoeCriteriaOverlayCommitResult(
     requestId,
     success: record.success,
     ...(typeof record.error === 'string' ? { error: record.error } : {}),
+  };
+}
+
+export function serializePoeCriteriaOverlaySync(payload: PoeCriteriaOverlaySyncPayload): string {
+  return JSON.stringify(payload);
+}
+
+export function parsePoeCriteriaOverlaySync(
+  detail: unknown,
+): PoeCriteriaOverlaySyncPayload | undefined {
+  const record = parseJsonRecord(detail);
+  const requestId = record && readRequestId(record);
+  return requestId ? { requestId } : undefined;
+}
+
+export function serializePoeCriteriaOverlaySyncResult(
+  payload: PoeCriteriaOverlaySyncResultPayload,
+): string {
+  return JSON.stringify(payload);
+}
+
+function parseSyncDiagnostics(value: unknown): PoeCriteriaOverlaySyncDiagnostics | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value).filter(
+    ([, v]) => v === null || ['string', 'number', 'boolean'].includes(typeof v),
+  );
+  return Object.fromEntries(entries) as PoeCriteriaOverlaySyncDiagnostics;
+}
+
+export function parsePoeCriteriaOverlaySyncResult(
+  detail: unknown,
+): PoeCriteriaOverlaySyncResultPayload | undefined {
+  const record = parseJsonRecord(detail);
+  const requestId = record && readRequestId(record);
+  if (!record || !requestId || typeof record.success !== 'boolean') return undefined;
+  if (record.success && typeof record.url !== 'string') return undefined;
+  const diagnostics = parseSyncDiagnostics(record.diagnostics);
+  return {
+    requestId,
+    success: record.success,
+    ...(typeof record.url === 'string' ? { url: record.url } : {}),
+    ...(typeof record.error === 'string' ? { error: record.error } : {}),
+    ...(diagnostics ? { diagnostics } : {}),
   };
 }
 

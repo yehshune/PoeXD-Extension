@@ -74,7 +74,7 @@ import {
   setTradeStatGroupType,
   setTradeStatGroupDisabled,
 } from '@/utils/trade-query-tuning';
-import { isTradeSearchFormUrl } from '@/entrypoints/content/logic/form-url-sync';
+import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import {
   useCriteriaOverlayManager,
   type CriteriaOverlayManager,

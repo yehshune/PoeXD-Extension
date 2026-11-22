@@ -819,6 +819,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'criteriaOverlay.report.templateWithSkipped': '已套用「{name}」：{done}；略过 {skipped}',
   'criteriaOverlay.report.template': '已套用「{name}」：{done}',
   'criteriaOverlay.report.separator': '、',
+  'criteriaOverlay.session.tradeRootNotFound': '找不到官方搜索页面组件，请刷新后再试',
+  'criteriaOverlay.session.pageNotLoaded': '官方页面尚未加载完成，请稍候再试',
   'criteriaOverlay.session.noResponse': '官方页面没有回应，请刷新后再试',
   'criteriaOverlay.session.readFailed': '无法读取官方搜索表单',
   'criteriaOverlay.session.commitFailed': '套用搜索条件失败',

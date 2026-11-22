@@ -817,6 +817,8 @@ export const ZH_TW_MESSAGES = {
   'criteriaOverlay.report.templateWithSkipped': '已套用「{name}」：{done}；略過 {skipped}',
   'criteriaOverlay.report.template': '已套用「{name}」：{done}',
   'criteriaOverlay.report.separator': '、',
+  'criteriaOverlay.session.tradeRootNotFound': '找不到官方搜尋頁面元件，請重新整理後再試',
+  'criteriaOverlay.session.pageNotLoaded': '官方頁面尚未載入完成，請稍候再試',
   'criteriaOverlay.session.noResponse': '官方頁面沒有回應，請重新整理後再試',
   'criteriaOverlay.session.readFailed': '無法讀取官方搜尋表單',
   'criteriaOverlay.session.commitFailed': '套用搜尋條件失敗',

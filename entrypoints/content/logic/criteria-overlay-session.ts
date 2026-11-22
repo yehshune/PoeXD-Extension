@@ -3,8 +3,11 @@ import {
   listenPoeEvent,
   parsePoeCriteriaOverlayCommitResult,
   parsePoeCriteriaOverlayReadResult,
+  parsePoeCriteriaOverlaySyncResult,
   serializePoeCriteriaOverlayCommit,
   serializePoeCriteriaOverlayRead,
+  serializePoeCriteriaOverlaySync,
+  type PoeCriteriaOverlaySyncDiagnostics,
 } from '@/utils/event-contracts';
 import {
   captureOverlayCriteria,
@@ -22,6 +25,7 @@ import {
   type CriteriaOverlayOp,
 } from '@/utils/criteria-overlay';
 import { getActiveUiLocale, t } from '@/utils/i18n';
+import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 
 const DEFAULT_TIMEOUT_MS = 5000;
 
@@ -34,6 +38,24 @@ export interface CriteriaOverlayPageSnapshot {
 export interface CriteriaOverlayPageChannel {
   read(): Promise<CriteriaOverlayPageSnapshot>;
   commit(ops: readonly CriteriaOverlayOp[]): Promise<void>;
+}
+
+/** 只把官方搜尋表單寫進網址（不修改表單）的通道；測試時可替換。 */
+export interface CriteriaOverlayUrlSyncChannel {
+  /** 官方 `save(true)` 寫完網址後回傳 `location.href`。 */
+  syncToUrl(): Promise<string>;
+}
+
+/** 同步失敗的錯誤：message 已翻譯，code 與 diagnostics 供日誌追查。 */
+export class CriteriaOverlaySyncError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly diagnostics: PoeCriteriaOverlaySyncDiagnostics = {},
+  ) {
+    super(message);
+    this.name = 'CriteriaOverlaySyncError';
+  }
 }
 
 export interface CriteriaOverlaySession {
@@ -69,7 +91,10 @@ function createRequestId(): string {
 }
 
 function awaitReply<T>(
-  type: 'poexd-criteria-overlay-read-result' | 'poexd-criteria-overlay-commit-result',
+  type:
+    | 'poexd-criteria-overlay-read-result'
+    | 'poexd-criteria-overlay-commit-result'
+    | 'poexd-criteria-overlay-sync-result',
   requestId: string,
   parse: (detail: unknown) => (T & { requestId: string }) | undefined,
   send: () => void,
@@ -93,17 +118,22 @@ function awaitReply<T>(
 
 function translateAdapterError(
   error: string | undefined,
-  fallbackKey: 'criteriaOverlay.session.readFailed' | 'criteriaOverlay.session.commitFailed',
+  fallbackKey:
+    | 'criteriaOverlay.session.readFailed'
+    | 'criteriaOverlay.session.commitFailed'
+    | 'formUrlSync.unknownReason',
 ): string {
   if (!error) return t(fallbackKey);
   if (error === 'FORM_STATE_NOT_FOUND') return t('criteriaOverlay.session.formStateNotFound');
+  if (error === 'TRADE_ROOT_NOT_FOUND') return t('criteriaOverlay.session.tradeRootNotFound');
+  if (error === 'PAGE_NOT_LOADED') return t('criteriaOverlay.session.pageNotLoaded');
   return error;
 }
 
 /** 透過跨世界事件與 Main World 的 criteria-overlay-adapter 溝通。 */
 export function createPoeEventCriteriaOverlayChannel(
   timeoutMs = DEFAULT_TIMEOUT_MS,
-): CriteriaOverlayPageChannel {
+): CriteriaOverlayPageChannel & CriteriaOverlayUrlSyncChannel {
   return {
     async read() {
       const requestId = createRequestId();
@@ -143,7 +173,86 @@ export function createPoeEventCriteriaOverlayChannel(
         throw new Error(translateAdapterError(reply.error, 'criteriaOverlay.session.commitFailed'));
       }
     },
+    async syncToUrl() {
+      const requestId = createRequestId();
+      let reply;
+      try {
+        reply = await awaitReply(
+          'poexd-criteria-overlay-sync-result',
+          requestId,
+          parsePoeCriteriaOverlaySyncResult,
+          () =>
+            dispatchPoeEvent(
+              'poexd-criteria-overlay-sync',
+              serializePoeCriteriaOverlaySync({ requestId }),
+            ),
+          timeoutMs,
+        );
+      } catch (error) {
+        throw new CriteriaOverlaySyncError(
+          error instanceof Error ? error.message : String(error),
+          'NO_RESPONSE',
+          { timeoutMs },
+        );
+      }
+      if (!reply.success || typeof reply.url !== 'string') {
+        throw new CriteriaOverlaySyncError(
+          translateAdapterError(reply.error, 'formUrlSync.unknownReason'),
+          reply.error ?? 'UNKNOWN',
+          reply.diagnostics,
+        );
+      }
+      return reply.url;
+    },
   };
+}
+
+/** 只取路由前兩段（例如 `trade/search`），日誌不帶聯盟與查詢內容。 */
+function describeRoute(url: string): string {
+  try {
+    return new URL(url).pathname.split('/').filter(Boolean).slice(0, 2).join('/');
+  } catch {
+    return '';
+  }
+}
+
+export interface SyncSearchFormToUrlDeps {
+  channel?: CriteriaOverlayUrlSyncChannel;
+  readUrl?: () => string;
+}
+
+/**
+ * 把官方搜尋表單目前的內容寫進網址後回傳網址（見 GLOSSARY.md「Bookmark」、ADR-0010）。
+ * 官方網址不會隨每次表單修改更新，因此加入書籤前必須先同步；同步失敗時拋出錯誤，
+ * 呼叫端不得退回儲存可能過時的網址。非搜尋路由（例如通貨兌換）直接回傳目前網址。
+ */
+export async function syncSearchFormToUrl(deps: SyncSearchFormToUrlDeps = {}): Promise<string> {
+  const readUrl = deps.readUrl ?? (() => window.location.href);
+  const before = readUrl();
+  if (!isTradeSearchFormUrl(before)) return before;
+
+  const channel = deps.channel ?? createPoeEventCriteriaOverlayChannel();
+  const startedAt = Date.now();
+  try {
+    return await channel.syncToUrl();
+  } catch (error) {
+    const code = error instanceof CriteriaOverlaySyncError ? error.code : 'UNKNOWN';
+    const diagnostics = error instanceof CriteriaOverlaySyncError ? error.diagnostics : {};
+    console.error('[PoeXD] 同步搜尋表單到網址失敗:', {
+      code,
+      message: error instanceof Error ? error.message : String(error),
+      route: describeRoute(before),
+      elapsedMs: Date.now() - startedAt,
+      visibility: typeof document !== 'undefined' ? document.visibilityState : undefined,
+      readyState: typeof document !== 'undefined' ? document.readyState : undefined,
+      ...diagnostics,
+    });
+    // 帶出實際原因（例如官方頁面沒有回應時要重新整理），而不是一律要使用者稍後再試
+    const reason = error instanceof Error ? error.message.trim() : '';
+    throw new Error(t('formUrlSync.failed', { reason: reason || t('formUrlSync.unknownReason') }), {
+      cause: error,
+    });
+  }
 }
 
 export function createCriteriaOverlaySession(

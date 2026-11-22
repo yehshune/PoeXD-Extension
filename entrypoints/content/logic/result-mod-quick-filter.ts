@@ -10,7 +10,7 @@ import {
   createPoeEventCriteriaOverlayChannel,
   type CriteriaOverlayPageChannel,
 } from './criteria-overlay-session';
-import { isTradeSearchFormUrl } from './form-url-sync';
+import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import { RESULT_MOD_ENGLISH_SUBTITLE_CLASS } from '@/utils/market-result-translator';
 import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 

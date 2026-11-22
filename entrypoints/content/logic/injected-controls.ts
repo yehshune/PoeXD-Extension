@@ -20,7 +20,7 @@ import { stripLiveSuffix } from '@/utils/trade-search-identity';
 import { decodeTradeSearchUrl, extractQueryMetadata } from '@/utils/trade-url-codec';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
 import { resolveSingleEnqueueToast } from '@/components/sidebar/live-search-presentation';
-import { syncFormToUrl } from './form-url-sync';
+import { syncSearchFormToUrl } from './criteria-overlay-session';
 import { type TierDomainService } from './tier-domain-service';
 import { t } from '@/utils/i18n';
 
@@ -657,7 +657,7 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
         try {
           let syncedUrl: string;
           try {
-            syncedUrl = await syncFormToUrl();
+            syncedUrl = await syncSearchFormToUrl();
           } catch (syncErr) {
             dispatchPoeEvent('poexd-toast', {
               message: syncErr instanceof Error ? syncErr.message : String(syncErr),

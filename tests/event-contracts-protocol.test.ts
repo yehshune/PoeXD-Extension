@@ -48,6 +48,7 @@ type ExpectedMainToContent =
   | 'poexd-livesearch-command-result'
   | 'poexd-criteria-overlay-read-result'
   | 'poexd-criteria-overlay-commit-result'
+  | 'poexd-criteria-overlay-sync-result'
   | 'poexd-page-guide-demo-result'
   | 'poexd-search-result-summary'
   | 'poexd-fetch-failed'
@@ -69,6 +70,7 @@ type ExpectedContentToMain =
   | 'poexd-livesearch-console-guard'
   | 'poexd-criteria-overlay-read'
   | 'poexd-criteria-overlay-commit'
+  | 'poexd-criteria-overlay-sync'
   | 'poexd-page-guide-demo';
 type _ContentToMainExact = Assert<Equal<ContentToMainKeys, ExpectedContentToMain>>;
 
