@@ -820,7 +820,7 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
         true,
       );
       expect(visibleRows()).toBe(3);
-      expect(toggleAll().textContent).toContain('全部摺疊');
+      expect(toggleAll().textContent).toContain('全部收合');
 
       toggles()[1].click();
       await nextTick();
@@ -831,7 +831,7 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
       toggleAll().click();
       await nextTick();
       expect(visibleRows()).toBe(3);
-      expect(toggleAll().textContent).toContain('全部摺疊');
+      expect(toggleAll().textContent).toContain('全部收合');
 
       toggleAll().click();
       await nextTick();

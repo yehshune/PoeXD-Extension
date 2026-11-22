@@ -29,8 +29,8 @@
             size="icon-sm"
             class="absolute right-[var(--pxd-space-xs)]"
             data-settings-search-clear
-            :title="t('settings.search.clear')"
-            :aria-label="t('settings.search.clear')"
+            :title="t('common.clearSearch')"
+            :aria-label="t('common.clearSearch')"
             @click="clearSearch"
           >
             <X />
@@ -199,11 +199,7 @@
                     :disabled="marketTranslationRefreshing"
                     @click="refreshMarketTranslationCache"
                   >
-                    {{
-                      marketTranslationRefreshing
-                        ? t('settings.marketTranslation.refresh.refreshing')
-                        : t('settings.marketTranslation.refresh.button')
-                    }}
+                    {{ marketTranslationRefreshing ? t('common.updating') : t('common.updateNow') }}
                   </Button>
                 </SettingsRow>
                 <p
@@ -645,7 +641,7 @@
             class="mt-[var(--pxd-space-sm)]"
             @click="clearSearch"
           >
-            {{ t('settings.search.clear') }}
+            {{ t('common.clearSearch') }}
           </Button>
         </div>
       </div>
@@ -952,7 +948,7 @@ export default defineComponent({
       if (typeof alert === 'function') {
         await alert(
           t('settings.alert.saveFailedMessage', { message: outcome.error.message }),
-          t('settings.alert.saveFailedTitle'),
+          t('common.saveFailed'),
         );
       }
     };

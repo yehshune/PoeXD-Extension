@@ -201,7 +201,7 @@ const allSold = computed(
             v-if="allSold"
             class="shrink-0 rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-caption)] leading-tight text-destructive"
             data-board-seller-mark
-            >{{ t('resultBoard.mark.sold') }}</span
+            >{{ t('common.sold') }}</span
           >
           <span
             v-else-if="visited"
@@ -289,8 +289,8 @@ const allSold = computed(
           size="icon-sm"
           class="shrink-0"
           :disabled="seller.instantBuyoutCount === 0 || sellerBusy"
-          :title="t('resultBoard.action.travel')"
-          :aria-label="t('resultBoard.action.travel')"
+          :title="t('common.travelToHideout')"
+          :aria-label="t('common.travelToHideout')"
           data-board-seller-travel
           @click="emit('travelSeller')"
         >
@@ -333,7 +333,7 @@ const allSold = computed(
         >
           <Loader2 v-if="sellerBusy" class="animate-spin" />
           <Home v-else />
-          {{ t('resultBoard.action.travel') }}
+          {{ t('common.travelToHideout') }}
         </Button>
       </div>
       <div

@@ -143,11 +143,7 @@ function submit() {
                     data-test="stat-group-template-toggle-all"
                     @click="toggleAll"
                   >
-                    {{
-                      allSelected
-                        ? t('statGroupTemplate.dialog.clearAll')
-                        : t('statGroupTemplate.dialog.selectAll')
-                    }}
+                    {{ allSelected ? t('common.deselectAll') : t('common.selectAll') }}
                   </Button>
                 </div>
                 <label

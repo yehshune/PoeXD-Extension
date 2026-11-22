@@ -63,7 +63,7 @@
         v-if="isLegacyUrl"
         class="legacy-search-badge shrink-0 text-[length:var(--pxd-font-micro)] text-destructive"
         :title="t('bookmark.row.invalidNoticeTooltip')"
-        >{{ t('bookmark.row.invalidBadge') }}</span
+        >{{ t('common.invalid') }}</span
       >
     </span>
 
@@ -103,7 +103,7 @@
       <Button
         variant="ghost"
         size="icon-sm"
-        :title="t('bookmark.row.openNewTab') /* title=&quot;在新分頁開啟&quot; */"
+        :title="t('common.openNewTab') /* title=&quot;在新分頁開啟&quot; */"
         @click.stop="ctx.openBookmarkNewTab(bm)"
         @pointerdown.stop
       >
@@ -140,7 +140,7 @@
             <DropdownMenuItem @click="ctx.openBookmarkNewTab(bm)">
               <ExternalLink class="text-muted-foreground" />
               <!-- 在新分頁開啟 -->
-              {{ t('bookmark.row.openNewTab') }}
+              {{ t('common.openNewTab') }}
             </DropdownMenuItem>
 
             <DropdownMenuItem
@@ -149,13 +149,13 @@
               @click="ctx.sendBookmarkToLiveSearchConsole(bm)"
             >
               <Radio class="text-primary" />
-              {{ t('bookmark.row.sendToConsole') }}
+              {{ t('common.sendToConsole') }}
             </DropdownMenuItem>
 
             <DropdownMenuItem @click="ctx.openBookmarkLiveSearch(bm)">
               <Radio class="text-muted-foreground" />
               <!-- 使用線上搜尋開啟 -->
-              {{ t('bookmark.row.openLiveSearch') }}
+              {{ t('common.openLiveSearch') }}
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
@@ -170,7 +170,7 @@
 
             <DropdownMenuItem @click="ctx.startRenameBookmark(bm)">
               <Pencil class="text-muted-foreground" />
-              {{ t('bookmark.action.rename') }}
+              {{ t('common.rename') }}
             </DropdownMenuItem>
 
             <!-- 二級選單：更換封面 -->

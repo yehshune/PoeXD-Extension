@@ -25,7 +25,7 @@
           v-else-if="node.status === 'delete'"
           class="px-1.5 py-0.5 rounded text-[length:var(--pxd-font-caption)] font-medium bg-destructive/15 text-destructive border border-destructive/30"
         >
-          {{ t('bookmarkImport.diff.statusDelete') }}
+          {{ t('common.delete') }}
         </span>
         <span
           v-else
@@ -81,7 +81,7 @@
             v-else-if="bm.status === 'delete'"
             class="px-1.5 py-0.5 rounded text-[length:var(--pxd-font-caption)] font-medium bg-destructive/15 text-destructive border border-destructive/30"
           >
-            {{ t('bookmarkImport.diff.statusDelete') }}
+            {{ t('common.delete') }}
           </span>
           <span
             v-else-if="bm.status === 'update'"

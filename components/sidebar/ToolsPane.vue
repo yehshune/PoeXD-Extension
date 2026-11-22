@@ -94,9 +94,7 @@
             @click="handleForceRefreshEconomy"
           >
             <RefreshCw :class="{ 'animate-spin': isRefreshingEconomy }" aria-hidden="true" />
-            {{
-              isRefreshingEconomy ? t('tools.economy.updatingBtn') : t('tools.economy.updateNowBtn')
-            }}
+            {{ isRefreshingEconomy ? t('common.updating') : t('common.updateNow') }}
           </Button>
           <p v-if="economyError" class="m-0 text-[length:var(--pxd-font-caption)] text-destructive">
             {{ economyError }}

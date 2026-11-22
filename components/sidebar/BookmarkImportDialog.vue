@@ -571,7 +571,7 @@ export default defineComponent({
     );
 
     const submitButtonText = computed(() => {
-      if (!parsedPayload.value) return t('bookmarkImport.action.import');
+      if (!parsedPayload.value) return t('common.import');
       if (importMode.value === 'replace') return t('bookmarkImport.action.replaceAndImport');
       if (importMode.value === 'merge') return t('bookmarkImport.action.mergeAndImport');
       return t('bookmarkImport.action.createAndImport');

@@ -302,9 +302,7 @@
                 />
                 <ChevronsUpDown v-else class="size-[var(--control-icon-sm,14px)] shrink-0" />
                 <span>{{
-                  hasAnyExpandedCategory
-                    ? t('filterPane.actions.collapseAll')
-                    : t('filterPane.actions.expandAll')
+                  hasAnyExpandedCategory ? t('common.collapseAll') : t('common.expandAll')
                 }}</span>
               </Button>
             </div>
@@ -390,7 +388,7 @@
             class="p-[var(--pxd-space-md)] pr-12 border-b border-border bg-background flex flex-row items-center justify-between space-y-0"
           >
             <DialogTitle class="text-[length:var(--pxd-font-section-title)] font-bold">
-              {{ t('filterPane.dialog.title') }}
+              {{ t('common.selectItemCategory') }}
             </DialogTitle>
             <DialogDescription class="sr-only">{{
               t('filterPane.dialog.description')

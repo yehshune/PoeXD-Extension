@@ -22,16 +22,12 @@
             variant="secondary"
             size="sm"
             class="font-bold"
-            :title="
-              isAllCollapsed ? t('bookmark.action.expandAll') : t('bookmark.action.collapseAll')
-            "
+            :title="isAllCollapsed ? t('common.expandAll') : t('common.collapseAll')"
             @click="toggleExpandAll"
           >
             <ChevronsUpDown />
             <span class="pxd-toolbar-btn-text ml-1.5 truncate">
-              {{
-                isAllCollapsed ? t('bookmark.action.expandAll') : t('bookmark.action.collapseAll')
-              }}
+              {{ isAllCollapsed ? t('common.expandAll') : t('common.collapseAll') }}
             </span>
           </Button>
           <Button
@@ -72,12 +68,12 @@
                 <DropdownMenuItem @click="copyTransfer('collection')">
                   <Copy class="text-muted-foreground" />
                   <!-- 複製分享碼 -->
-                  {{ t('bookmark.transfer.copyShareCode') }}
+                  {{ t('bookmarkImport.export.copyCode') }}
                 </DropdownMenuItem>
                 <DropdownMenuItem @click="exportBookmarks">
                   <Download class="text-muted-foreground" />
                   <!-- 下載備份檔 -->
-                  {{ t('bookmark.transfer.downloadBackup') }}
+                  {{ t('bookmarkImport.export.downloadBackup') }}
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
@@ -158,7 +154,7 @@
           variant="ghost"
           size="icon-sm"
           class="absolute right-[var(--pxd-space-xs)]"
-          :title="t('bookmark.search.clearTooltip') /* title=&quot;清除搜尋&quot; */"
+          :title="t('common.clearSearch') /* title=&quot;清除搜尋&quot; */"
           @click="searchQuery = ''"
         >
           <X />
@@ -274,7 +270,7 @@
           class="text-center text-[length:var(--pxd-font-secondary)] font-bold leading-snug select-none"
         >
           <!-- 放開以刪除書籤 -->
-          {{ t('bookmark.row.delete') }}
+          {{ t('bookmark.action.deleteBookmark') }}
         </div>
         <!-- 放開以刪除 -->
         <div
@@ -468,7 +464,7 @@ export default defineComponent({
       if (!outcome.ok) {
         await (window as any).poexdAlert(
           t('bookmark.dialog.saveFailure', { message: outcome.error.message }),
-          t('bookmark.dialog.saveFailureTitle'),
+          t('common.saveFailed'),
         );
       }
       return outcome.ok;
@@ -697,7 +693,7 @@ export default defineComponent({
       });
       const confirmed = await (window as any).poexdConfirm?.(
         message,
-        t('bookmark.dialog.clearCollectionTitle'),
+        t('bookmark.transfer.clearAll'),
       );
       if (!confirmed) return;
 
@@ -849,11 +845,11 @@ export default defineComponent({
               },
             ],
           },
-          { timeoutMessage: t('bookmark.toast.sendToConsoleFailed') },
+          { timeoutMessage: t('common.sendToConsoleFailed') },
         );
         showToast(resolveSingleEnqueueToast(res, bookmark.name).message);
       } catch (err) {
-        showToast(err instanceof Error ? err.message : t('bookmark.toast.sendToConsoleFailed'));
+        showToast(err instanceof Error ? err.message : t('common.sendToConsoleFailed'));
       }
     };
 
@@ -893,10 +889,10 @@ export default defineComponent({
             gameVersion: version,
             items,
           },
-          { timeoutMessage: t('bookmark.toast.sendToConsoleFailed') },
+          { timeoutMessage: t('common.sendToConsoleFailed') },
         );
         if (!res.success) {
-          showToast(formatMessage(res.error, 'bookmark.toast.sendToConsoleFailed'));
+          showToast(formatMessage(res.error, 'common.sendToConsoleFailed'));
         } else if (res.created) {
           showToast(t('bookmark.toast.sentWithCreated', { count: items.length }));
         } else {
@@ -907,7 +903,7 @@ export default defineComponent({
           showToast(parts.join(' · '));
         }
       } catch (err) {
-        showToast(err instanceof Error ? err.message : t('bookmark.toast.sendToConsoleFailed'));
+        showToast(err instanceof Error ? err.message : t('common.sendToConsoleFailed'));
       }
     };
 
@@ -998,7 +994,7 @@ export default defineComponent({
               });
         const confirm = await (window as any).poexdConfirm(
           message,
-          t('bookmark.dialog.deleteFolderTitle'),
+          t('bookmark.action.deleteFolder'),
         );
         if (!confirm) return;
       }

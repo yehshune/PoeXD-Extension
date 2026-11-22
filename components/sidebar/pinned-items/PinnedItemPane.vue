@@ -419,12 +419,8 @@ function formatFee(fee: number | undefined): string {
           data-pinned-items-expand-toggle
           :disabled="!canToggleExpandAll"
           :aria-pressed="hasAnyExpanded"
-          :title="
-            hasAnyExpanded ? t('bookmark.action.collapseAll') : t('bookmark.action.expandAll')
-          "
-          :aria-label="
-            hasAnyExpanded ? t('bookmark.action.collapseAll') : t('bookmark.action.expandAll')
-          "
+          :title="hasAnyExpanded ? t('common.collapseAll') : t('common.expandAll')"
+          :aria-label="hasAnyExpanded ? t('common.collapseAll') : t('common.expandAll')"
           @click="toggleExpandAll"
         >
           <ChevronsDownUp v-if="hasAnyExpanded" />
@@ -494,7 +490,7 @@ function formatFee(fee: number | undefined): string {
           variant="ghost"
           size="icon-sm"
           class="absolute right-[var(--pxd-space-xs)]"
-          :title="t('bookmark.search.clearTooltip')"
+          :title="t('common.clearSearch')"
           @click="searchQuery = ''"
         >
           <X />
@@ -611,7 +607,7 @@ function formatFee(fee: number | undefined): string {
               <template #price>
                 <ResultPriceLabel
                   :amount="
-                    item.listing.price ? `${item.listing.price.amount}` : t('pinnedItem.noPrice')
+                    item.listing.price ? `${item.listing.price.amount}` : t('common.noPrice')
                   "
                   :currency="item.listing.price?.currency"
                   :icon="item.listing.price?.icon"
@@ -640,7 +636,7 @@ function formatFee(fee: number | undefined): string {
                   v-if="isSold(item)"
                   class="rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-destructive"
                   data-pinned-item-sold
-                  >{{ t('pinnedItem.sold') }}</span
+                  >{{ t('common.sold') }}</span
                 >
                 <span
                   v-else-if="states[item.id] === 'refreshing' || states[item.id] === 'traveling'"

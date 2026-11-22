@@ -97,7 +97,7 @@
                 v-if="isLegacyTradeSearchUrl(h.url)"
                 class="legacy-search-badge shrink-0 text-[length:var(--pxd-font-micro)] text-destructive"
                 :title="t('history.invalidTooltip')"
-                >{{ t('history.invalidBadge') }}</span
+                >{{ t('common.invalid') }}</span
               >
               <span
                 class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0"
@@ -117,7 +117,7 @@
                 v-if="searchEntryClickAction === 'preview'"
                 variant="ghost"
                 size="icon-sm"
-                :title="t('history.row.open')"
+                :title="t('common.openSearch')"
                 data-test="history-open"
                 @click.stop="openHistory(h.url)"
               >
@@ -128,7 +128,7 @@
                 variant="ghost"
                 size="icon-sm"
                 :class="previewHistory?.id === h.id ? 'text-primary bg-primary/15' : undefined"
-                :title="t('history.row.preview')"
+                :title="t('common.searchPreview')"
                 data-test="history-preview-toggle"
                 @click.stop="toggleHistoryPreview(h, $event)"
               >
@@ -137,7 +137,7 @@
               <Button
                 variant="ghost"
                 size="icon-sm"
-                :title="t('history.row.openNewTab')"
+                :title="t('common.openNewTab')"
                 @click.stop="openHistoryNewTab(h.url)"
               >
                 <ExternalLink />

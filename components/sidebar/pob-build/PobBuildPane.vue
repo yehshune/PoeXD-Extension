@@ -22,14 +22,12 @@
           class="font-bold shrink-0"
           data-pob-build-expand-all
           :disabled="builds.length === 0"
-          :title="
-            isAllCollapsed ? t('bookmark.action.expandAll') : t('bookmark.action.collapseAll')
-          "
+          :title="isAllCollapsed ? t('common.expandAll') : t('common.collapseAll')"
           @click="toggleExpandAll"
         >
           <ChevronsUpDown />
           <span class="pxd-toolbar-btn-text ml-1.5 truncate">
-            {{ isAllCollapsed ? t('bookmark.action.expandAll') : t('bookmark.action.collapseAll') }}
+            {{ isAllCollapsed ? t('common.expandAll') : t('common.collapseAll') }}
           </span>
         </Button>
 
@@ -65,7 +63,7 @@
           variant="ghost"
           size="icon-sm"
           class="absolute right-[var(--pxd-space-xs)]"
-          :title="t('bookmark.search.clearTooltip')"
+          :title="t('common.clearSearch')"
           @click="searchQuery = ''"
         >
           <X />
@@ -139,7 +137,7 @@
                 data-pob-build-toggle
                 class="inline-flex shrink-0 items-center justify-center border-0 bg-transparent p-0 text-muted-foreground hover:text-foreground cursor-pointer"
                 :aria-expanded="!build.collapsed || isFiltering"
-                :aria-label="t('pobBuild.toggleBuildAria', { name: build.name })"
+                :aria-label="t('pobBuild.toggleGroupAria', { name: build.name })"
                 @click.stop="toggleCollapsed(build.id)"
               >
                 <ChevronDown
@@ -201,8 +199,8 @@
                     variant="ghost"
                     size="icon-sm"
                     data-pob-build-menu
-                    :title="t('pobBuild.moreActionsTitle')"
-                    :aria-label="t('pobBuild.moreActionsTitle')"
+                    :title="t('common.moreActions')"
+                    :aria-label="t('common.moreActions')"
                     @click.stop
                   >
                     <Ellipsis />
@@ -223,7 +221,7 @@
                   </DropdownMenuItem>
                   <DropdownMenuItem data-pob-build-rename @click="startRename(build)">
                     <Pencil class="text-muted-foreground" />
-                    {{ t('pobBuild.renameTitle') }}
+                    {{ t('common.rename') }}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -560,8 +558,8 @@
                             variant="ghost"
                             size="icon-sm"
                             data-pob-build-more
-                            :title="t('pobBuild.moreActionsTitle')"
-                            :aria-label="t('pobBuild.moreActionsTitle')"
+                            :title="t('common.moreActions')"
+                            :aria-label="t('common.moreActions')"
                             @click.stop
                           >
                             <Ellipsis />
@@ -578,7 +576,7 @@
                             @click="sendToLiveSearch(build.id, row)"
                           >
                             <Send class="text-muted-foreground" />
-                            {{ t('pobBuild.sendToConsole') }}
+                            {{ t('common.sendToConsole') }}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             :disabled="!canSearch(row)"
@@ -586,7 +584,7 @@
                             @click="openLiveSearch(build.id, row)"
                           >
                             <Radio class="text-muted-foreground" />
-                            {{ t('pobBuild.openLiveSearch') }}
+                            {{ t('common.openLiveSearch') }}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -610,7 +608,7 @@
                               data-pob-build-add-bookmark
                             >
                               <BookmarkPlus class="text-muted-foreground" />
-                              {{ t('pobBuild.addToBookmarks') }}
+                              {{ t('common.addToBookmarks') }}
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent
                               class="w-[var(--pxd-menu-sub-width,192px)] max-h-[min(var(--pxd-menu-sub-max-height,180px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))] overflow-y-auto pxd-scrollbar"
@@ -620,7 +618,7 @@
                                 disabled
                                 class="text-muted-foreground"
                               >
-                                {{ t('pobBuild.loadingFolders') }}
+                                {{ t('common.loading') }}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 v-else-if="bookmarkFolders.length === 0"

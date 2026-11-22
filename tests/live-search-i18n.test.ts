@@ -190,7 +190,7 @@ describe('LiveSearch Console & Presentation i18n (Seam 7)', () => {
       // zh-CN
       setActiveDisplayLocale('zh-CN');
       await nextTick();
-      expect(document.body.textContent).toContain('新增搜索连线');
+      expect(document.body.textContent).toContain('新增搜索连接');
       expect(document.body.textContent).toContain('从书签挑选');
       expect(document.body.textContent).toContain('输入搜索网址');
 

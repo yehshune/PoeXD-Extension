@@ -224,7 +224,7 @@ function handleOverlay(target: OverlayTarget) {
   if (!criteria) return;
   void manager.overlay(
     sliceOverlayCriteria(criteria, target),
-    props.sourceName || t('searchPreview.defaultSourceName'),
+    props.sourceName || t('common.searchPreview'),
   );
 }
 </script>

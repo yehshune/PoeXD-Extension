@@ -193,7 +193,7 @@ function openManager() {
           :disabled="!canUndo"
           @select="undoLastApply"
         >
-          {{ t('statGroupTemplate.action.undoTitle') }}
+          {{ t('common.undoLastOverlay') }}
         </DropdownMenuItem>
         <DropdownMenuItem
           size="sm"

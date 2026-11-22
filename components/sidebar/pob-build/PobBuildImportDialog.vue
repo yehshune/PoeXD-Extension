@@ -118,7 +118,7 @@ function handleSubmit() {
           data-pob-build-import-cancel
           @click="handleOpenChange(false)"
         >
-          {{ t('pobBuild.cancelBtn') }}
+          {{ t('common.cancel') }}
         </Button>
         <Button
           type="button"
@@ -129,10 +129,10 @@ function handleSubmit() {
           @click="handleSubmit"
         >
           <template v-if="mode === 'update'">
-            {{ isBusy ? t('pobBuild.updatingBtn') : t('pobBuild.updateBtn') }}
+            {{ isBusy ? t('common.updating') : t('pobBuild.updateBtn') }}
           </template>
           <template v-else>
-            {{ isBusy ? t('pobBuild.importingBtn') : t('pobBuild.importBtn') }}
+            {{ isBusy ? t('pobBuild.importingBtn') : t('common.import') }}
           </template>
         </Button>
       </DialogFooter>

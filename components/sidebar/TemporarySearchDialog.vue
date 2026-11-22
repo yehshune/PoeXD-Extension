@@ -417,7 +417,7 @@ async function handleSubmit() {
 
     const sourceCtrl = props.sourceController;
     if (!sourceCtrl || typeof sourceCtrl.addCustom !== 'function') {
-      validationError.value = t('liveSearch.tempDialog.notReady');
+      validationError.value = t('liveSearch.console.notReady');
       return;
     }
 
@@ -430,11 +430,11 @@ async function handleSubmit() {
       emit('success', sourceId);
       emit('update:open', false);
     } else {
-      const errorMsg = outcome.error || t('liveSearch.presentation.enqueueFailed');
+      const errorMsg = outcome.error || t('common.sendToConsoleFailed');
       validationError.value = errorMsg;
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : t('liveSearch.presentation.enqueueFailed');
+    const msg = err instanceof Error ? err.message : t('common.sendToConsoleFailed');
     validationError.value = msg;
     dispatchPoeEvent('poexd-toast', {
       message: msg,
@@ -450,7 +450,7 @@ async function handleEnableSelectedBookmarks() {
   if (isSubmitting.value || selectedBookmarkIds.value.size === 0) return;
   const sourceCtrl = props.sourceController;
   if (!sourceCtrl || typeof sourceCtrl.enableMany !== 'function') {
-    validationError.value = t('liveSearch.tempDialog.notReady');
+    validationError.value = t('liveSearch.console.notReady');
     return;
   }
 
@@ -572,7 +572,7 @@ onUnmounted(() => {
               type="text"
               size="sm"
               data-test="bookmark-picker-search"
-              :placeholder="t('liveSearch.tempDialog.searchBookmarksPlaceholder')"
+              :placeholder="t('bookmark.search.placeholder')"
               class="w-full pl-8 pr-7 text-[length:var(--pxd-font-caption)]"
               @keydown.esc.stop="handleCancel"
             />
@@ -582,7 +582,7 @@ onUnmounted(() => {
               variant="ghost"
               size="icon-sm"
               class="absolute right-1"
-              :title="t('bookmark.search.clearTooltip')"
+              :title="t('common.clearSearch')"
               @click="pickerSearchQuery = ''"
             >
               <X />

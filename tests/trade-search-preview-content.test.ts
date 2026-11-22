@@ -59,7 +59,7 @@ describe('TradeSearchPreviewContent 標題列', () => {
 
     const actionRow = container.querySelector('.preview-action-row')!;
     const buttons = Array.from(actionRow.querySelectorAll('button'));
-    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['全部摺疊', '全部疊加', '復原']);
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['全部收合', '全部疊加', '復原']);
     for (const button of buttons) expect(button.className).toContain('whitespace-nowrap');
   });
 

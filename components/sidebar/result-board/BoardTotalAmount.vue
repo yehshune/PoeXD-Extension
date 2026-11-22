@@ -24,7 +24,7 @@ defineProps<{
       }}</span>
     </template>
     <template v-else-if="total.totals.length === 0">
-      <span>{{ t('resultBoard.noPrice') }}</span>
+      <span>{{ t('common.noPrice') }}</span>
     </template>
     <template v-else>
       <template v-for="(item, index) in total.totals" :key="item.currency">

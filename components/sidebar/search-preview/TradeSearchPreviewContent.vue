@@ -50,12 +50,12 @@
           size="icon-sm"
           class="preview-overlay-btn shrink-0 text-foreground/80"
           data-test="preview-open-new-tab"
-          :title="t('bookmark.row.openNewTab')"
-          :aria-label="t('bookmark.row.openNewTab')"
+          :title="t('common.openNewTab')"
+          :aria-label="t('common.openNewTab')"
           @click="emit('open-search', 'new-tab')"
         >
           <ExternalLink aria-hidden="true" />
-          <span class="sr-only">{{ t('bookmark.row.openNewTab') }}</span>
+          <span class="sr-only">{{ t('common.openNewTab') }}</span>
         </Button>
         <Button
           v-if="canOverwrite && isModified"
@@ -95,24 +95,14 @@
           variant="ghost"
           size="icon-sm"
           class="preview-toggle-all shrink-0"
-          :title="
-            allExpanded
-              ? t('searchPreview.action.collapseAll')
-              : t('searchPreview.action.expandAll')
-          "
-          :aria-label="
-            allExpanded
-              ? t('searchPreview.action.collapseAll')
-              : t('searchPreview.action.expandAll')
-          "
+          :title="allExpanded ? t('common.collapseAll') : t('common.expandAll')"
+          :aria-label="allExpanded ? t('common.collapseAll') : t('common.expandAll')"
           @click="toggleAll"
         >
           <ChevronsDownUp v-if="allExpanded" aria-hidden="true" />
           <ChevronsUpDown v-else aria-hidden="true" />
           <span class="sr-only">{{
-            allExpanded
-              ? t('searchPreview.action.collapseAll')
-              : t('searchPreview.action.expandAll')
+            allExpanded ? t('common.collapseAll') : t('common.expandAll')
           }}</span>
         </Button>
         <div
@@ -135,13 +125,13 @@
             size="icon-sm"
             class="preview-overlay-btn shrink-0"
             data-test="preview-overlay-undo"
-            :title="t('searchPreview.action.undoTitle')"
-            :aria-label="t('searchPreview.action.undo')"
+            :title="t('common.undoLastOverlay')"
+            :aria-label="t('common.undo')"
             :disabled="overlayBusy || !canUndo"
             @click="emit('undo')"
           >
             <Undo2 aria-hidden="true" />
-            <span class="sr-only">{{ t('searchPreview.action.undo') }}</span>
+            <span class="sr-only">{{ t('common.undo') }}</span>
           </Button>
         </div>
         <span
@@ -820,7 +810,7 @@ const sectionKeys = computed<string[]>(() => {
 
 const hasTags = computed(() => Boolean(props.previewData?.realmLabel || props.previewData?.league));
 
-const headerTitle = computed(() => props.sourceName || t('searchPreview.defaultSourceName'));
+const headerTitle = computed(() => props.sourceName || t('common.searchPreview'));
 
 const collapsedKeys = ref<ReadonlySet<string>>(new Set());
 const rootRef = ref<HTMLElement | null>(null);

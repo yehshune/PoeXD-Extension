@@ -125,14 +125,12 @@ function downloadBackup() {
       size="sm"
       class="font-bold shrink-0"
       data-test="stat-group-template-undo"
-      :title="t('statGroupTemplate.action.undoTitle')"
+      :title="t('common.undoLastOverlay')"
       :disabled="busy || !canUndo"
       @click="manager.undo()"
     >
       <Undo2 />
-      <span class="pxd-toolbar-btn-text ml-1.5 truncate">{{
-        t('statGroupTemplate.action.undo')
-      }}</span>
+      <span class="pxd-toolbar-btn-text ml-1.5 truncate">{{ t('common.undo') }}</span>
     </Button>
     <Button
       :variant="isSearchVisible ? 'default' : 'secondary'"
@@ -170,11 +168,11 @@ function downloadBackup() {
         <DropdownMenuSeparator />
         <DropdownMenuItem :disabled="templates.length === 0" @click="copyShareCode">
           <Copy class="text-muted-foreground" />
-          {{ t('bookmark.transfer.copyShareCode') }}
+          {{ t('bookmarkImport.export.copyCode') }}
         </DropdownMenuItem>
         <DropdownMenuItem :disabled="templates.length === 0" @click="downloadBackup">
           <Download class="text-muted-foreground" />
-          {{ t('bookmark.transfer.downloadBackup') }}
+          {{ t('bookmarkImport.export.downloadBackup') }}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -209,7 +207,7 @@ function downloadBackup() {
       variant="ghost"
       size="icon-sm"
       class="absolute right-[var(--pxd-space-xs)]"
-      :title="t('bookmark.search.clearTooltip')"
+      :title="t('common.clearSearch')"
       @click="query = ''"
     >
       <X />

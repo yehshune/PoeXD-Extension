@@ -49,8 +49,8 @@ const emit = defineEmits<{
         type="button"
         data-slot="tuning-clear-btn"
         class="h-[24px] w-[22px] inline-flex items-center justify-center text-[length:var(--pxd-font-caption)] text-muted-foreground hover:text-foreground hover:bg-accent rounded cursor-pointer transition-colors focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-hidden"
-        :title="t('tierDropdown.clearTitle')"
-        :aria-label="t('tierDropdown.clearTitle')"
+        :title="t('common.clearValues')"
+        :aria-label="t('common.clearValues')"
         @click="emit('clear')"
       >
         ×

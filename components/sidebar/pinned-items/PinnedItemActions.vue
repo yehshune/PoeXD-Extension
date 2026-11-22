@@ -49,12 +49,12 @@ const menuOpen = ref(false);
 const isBusy = () => props.state === 'refreshing' || props.state === 'traveling';
 
 function travelLabel(): string {
-  if (props.state === 'sold') return t('pinnedItem.sold');
+  if (props.state === 'sold') return t('common.sold');
   if (props.state === 'refreshing') return t('pinnedItem.action.refreshing');
   if (props.state === 'traveling') return t('pinnedItem.action.traveling');
   if (props.state === 'in-demand') return t('pinnedItem.action.travelAgain');
   if (props.state === 'teleporting') return t('pinnedItem.action.travelSent');
-  return t('pinnedItem.action.travel');
+  return t('common.travelToHideout');
 }
 
 const travelDisabled = () => !props.sameRealm || isBusy() || props.state === 'sold';
@@ -120,8 +120,8 @@ const travelDisabled = () => !props.sameRealm || isBusy() || props.state === 'so
           size="icon-sm"
           :class="{ 'ml-auto': full }"
           data-pinned-item-menu
-          :title="t('pinnedItem.action.more')"
-          :aria-label="t('pinnedItem.action.more')"
+          :title="t('common.moreActions')"
+          :aria-label="t('common.moreActions')"
           @click.stop
         >
           <MoreVertical />
@@ -141,7 +141,7 @@ const travelDisabled = () => !props.sameRealm || isBusy() || props.state === 'so
         </template>
         <DropdownMenuItem data-pinned-item-unpin @click="emit('unpin')">
           <Trash2 class="text-muted-foreground" />
-          {{ t('pinnedItem.button.unpinTitle') }}
+          {{ t('common.unpin') }}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

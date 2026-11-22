@@ -336,7 +336,7 @@ export function isMercenaryConditionGroup(group: Element): boolean {
 
 function filterGroupButtonTitle(mode: FilterGroupButtonMode): string {
   if (mode === 'mercenary') return t('injectedControls.selectMercenaryGroupTitle');
-  if (mode === 'mercenary-condition') return t('injectedControls.addMercenaryToGroupTitle');
+  if (mode === 'mercenary-condition') return t('mercenaryPicker.groupTitle');
   return t('injectedControls.selectAffixGroupTitle');
 }
 
@@ -575,7 +575,7 @@ export function createTierSlotDomainData(
     items.push({
       id: 'trigger_modal',
       type: 'trigger_modal',
-      label: t('tierDropdown.selectCategory'),
+      label: t('common.selectItemCategory'),
     });
   }
 
@@ -712,7 +712,7 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
                 },
               ],
             },
-            { timeoutMessage: t('injectedControls.sendToConsoleFailed') },
+            { timeoutMessage: t('common.sendToConsoleFailed') },
           );
 
           const toast = resolveSingleEnqueueToast(res, displayLabel);
@@ -723,7 +723,7 @@ export function createInjectedControls(options: InjectedControlsOptions): Inject
           });
         } catch (err) {
           dispatchPoeEvent('poexd-toast', {
-            message: err instanceof Error ? err.message : t('injectedControls.sendToConsoleFailed'),
+            message: err instanceof Error ? err.message : t('common.sendToConsoleFailed'),
             tone: 'error',
             durationMs: 3000,
           });

@@ -165,8 +165,8 @@
               variant="ghost"
               size="icon-sm"
               :data-test="`btn-item-menu-${item.id}`"
-              :title="t('liveSearch.primary.moreActions')"
-              :aria-label="t('liveSearch.primary.moreActions')"
+              :title="t('common.moreActions')"
+              :aria-label="t('common.moreActions')"
               class="text-muted-foreground hover:text-foreground shrink-0"
               @pointerdown.capture="emit('menu-trigger-pointerdown', item.id, $event)"
               @click.capture="emit('menu-trigger-click-capture', $event)"
@@ -194,7 +194,7 @@
                 group.id === PREVIOUS_CONNECTIONS_GROUP_ID
                   ? t('liveSearch.primary.removePreviousRecord')
                   : group.id === SESSION_CONNECTIONS_GROUP_ID
-                    ? t('liveSearch.primary.removeFromSession')
+                    ? t('liveSearch.console.removeFromSession')
                     : t('liveSearch.primary.removeTempSearch')
               }}
             </DropdownMenuItem>

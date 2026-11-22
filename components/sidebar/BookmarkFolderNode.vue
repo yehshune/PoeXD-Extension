@@ -125,7 +125,7 @@
               <DropdownMenuItem @click="ctx.startRenameGroup(node.folder)">
                 <Pencil class="text-muted-foreground" />
                 <!-- 重新命名 -->
-                {{ t('bookmark.action.rename') }}
+                {{ t('common.rename') }}
               </DropdownMenuItem>
 
               <!-- 二級選單：移動到資料夾 -->

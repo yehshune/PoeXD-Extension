@@ -48,7 +48,7 @@ export function formatAmount(amount: number): string {
 }
 
 export function formatPrice(price: BoardPrice | undefined): string {
-  return price ? `${formatAmount(price.amount)} ${price.currency}` : t('resultBoard.noPrice');
+  return price ? `${formatAmount(price.amount)} ${price.currency}` : t('common.noPrice');
 }
 
 export function formatTotal(total: PriceTotal): string {
@@ -58,7 +58,7 @@ export function formatTotal(total: PriceTotal): string {
       ? `${amount} ${t('resultBoard.total.unconverted', { count: total.unconverted })}`
       : amount;
   }
-  if (total.totals.length === 0) return t('resultBoard.noPrice');
+  if (total.totals.length === 0) return t('common.noPrice');
   return total.totals.map((price) => `${formatAmount(price.amount)} ${price.currency}`).join(' + ');
 }
 

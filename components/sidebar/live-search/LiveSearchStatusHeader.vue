@@ -80,7 +80,7 @@
         {{
           isRateWaiting
             ? t('liveSearch.primary.rateWaiting', { seconds: remainingWaitSeconds })
-            : t('liveSearch.primary.rateNormal')
+            : t('liveSearch.console.apiHealthNormal')
         }}
       </span>
       <ChevronDown

@@ -410,12 +410,8 @@ function setMinSellerCount(value: string | number): void {
             data-board-expand-toggle
             :disabled="!canToggleExpandAll"
             :aria-pressed="hasAnyExpanded"
-            :title="
-              hasAnyExpanded ? t('bookmark.action.collapseAll') : t('bookmark.action.expandAll')
-            "
-            :aria-label="
-              hasAnyExpanded ? t('bookmark.action.collapseAll') : t('bookmark.action.expandAll')
-            "
+            :title="hasAnyExpanded ? t('common.collapseAll') : t('common.expandAll')"
+            :aria-label="hasAnyExpanded ? t('common.collapseAll') : t('common.expandAll')"
             @click="board.toggleExpandAll"
           >
             <ChevronsDownUp v-if="hasAnyExpanded" />
@@ -441,7 +437,7 @@ function setMinSellerCount(value: string | number): void {
             variant="ghost"
             size="icon-sm"
             class="absolute right-[var(--pxd-space-xs)]"
-            :aria-label="t('bookmark.search.clearTooltip')"
+            :aria-label="t('common.clearSearch')"
             @click="keyword = ''"
           >
             <X />
@@ -509,8 +505,8 @@ function setMinSellerCount(value: string | number): void {
               v-if="priceMinText || priceMaxText"
               variant="ghost"
               size="icon-sm"
-              :aria-label="t('bookmark.search.clearTooltip')"
-              :title="t('bookmark.search.clearTooltip')"
+              :aria-label="t('common.clearSearch')"
+              :title="t('common.clearSearch')"
               data-board-price-clear
               @click="
                 priceMinText = '';

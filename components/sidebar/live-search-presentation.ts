@@ -136,7 +136,7 @@ export function resolveSingleEnqueueToast(
 ): BatchPresentationToast {
   if (!res.success) {
     return {
-      message: formatMessage(res.error, 'liveSearch.presentation.enqueueFailed'),
+      message: formatMessage(res.error, 'common.sendToConsoleFailed'),
       tone: 'error',
     };
   }

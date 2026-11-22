@@ -378,8 +378,8 @@ onUnmounted(() => {
               variant="ghost"
               size="icon-sm"
               data-test="stat-group-template-rename"
-              :title="t('statGroupTemplate.action.rename')"
-              :aria-label="t('statGroupTemplate.action.rename')"
+              :title="t('common.rename')"
+              :aria-label="t('common.rename')"
               :disabled="busy"
               @click.stop="startRename(template)"
             >
@@ -389,8 +389,8 @@ onUnmounted(() => {
               variant="ghost-destructive"
               size="icon-sm"
               data-test="stat-group-template-delete"
-              :title="t('statGroupTemplate.action.delete')"
-              :aria-label="t('statGroupTemplate.action.delete')"
+              :title="t('common.delete')"
+              :aria-label="t('common.delete')"
               :disabled="busy"
               @click.stop="manager.removeTemplate(template)"
             >

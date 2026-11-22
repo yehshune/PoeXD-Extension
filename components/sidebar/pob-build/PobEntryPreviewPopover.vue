@@ -509,7 +509,7 @@ function handleResetSearch(): void {
                 :title="t('pobBuild.mods.clearBoundsTitle')"
                 @click="clearBounds"
               >
-                {{ t('pobBuild.mods.clearBounds') }}
+                {{ t('common.clearValues') }}
               </Button>
             </div>
           </div>

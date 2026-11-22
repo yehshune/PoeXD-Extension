@@ -76,8 +76,8 @@
         variant="ghost"
         size="icon-sm"
         data-test="btn-group-add-connection"
-        :title="t('liveSearch.primary.addNewConnection')"
-        :aria-label="t('liveSearch.primary.addNewConnection')"
+        :title="t('liveSearch.console.addConnectionTitle')"
+        :aria-label="t('liveSearch.console.addConnectionTitle')"
         class="shrink-0 text-muted-foreground hover:text-foreground ml-1"
         @click.stop="emit('open-add-connection')"
       >
@@ -129,7 +129,7 @@
               :disabled="isBatchRunning"
               @click="emit('batch-enable-group', group.id)"
             >
-              {{ t('liveSearch.primary.restoreAll') }}
+              {{ t('liveSearch.console.restoreAll') }}
             </DropdownMenuItem>
             <DropdownMenuItem
               :data-test="`btn-group-clear-${group.id}`"
@@ -348,7 +348,7 @@ const groupIndentStyle = computed<Record<string, string>>(() => {
 
 const quickEnableTitle = computed(() => {
   if (props.group.id === PREVIOUS_CONNECTIONS_GROUP_ID) {
-    return t('liveSearch.primary.restoreAll');
+    return t('liveSearch.console.restoreAll');
   }
   if (props.group.id === SESSION_CONNECTIONS_GROUP_ID) {
     return t('liveSearch.primary.enableAll');

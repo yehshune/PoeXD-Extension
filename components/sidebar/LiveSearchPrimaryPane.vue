@@ -63,7 +63,7 @@
                 size="icon-sm"
                 data-test="btn-clear-search"
                 class="absolute right-1"
-                :title="t('bookmark.search.clearTooltip')"
+                :title="t('common.clearSearch')"
                 @click="clearSearch"
               >
                 <X />
@@ -243,7 +243,7 @@
                   @click="handleOpenAddConnection"
                 >
                   <Plus />
-                  <span>{{ t('liveSearch.primary.addNewConnection') }}</span>
+                  <span>{{ t('liveSearch.console.addConnectionTitle') }}</span>
                 </Button>
               </template>
             </SidebarEmptyState>

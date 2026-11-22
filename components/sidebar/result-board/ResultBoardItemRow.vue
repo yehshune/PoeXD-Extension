@@ -240,7 +240,7 @@ onBeforeUnmount(stopObserving);
       </template>
       <template #price>
         <ResultPriceLabel
-          :amount="entry.price ? formatAmount(entry.price.amount) : t('resultBoard.noPrice')"
+          :amount="entry.price ? formatAmount(entry.price.amount) : t('common.noPrice')"
           :currency="entry.price?.currency"
           :icon="currency?.icon"
           :currency-name="currency?.name"
@@ -285,7 +285,7 @@ onBeforeUnmount(stopObserving);
               : 'border-primary/30 bg-primary/10 text-primary'
           "
           data-board-entry-mark
-          >{{ mark === 'sold' ? t('resultBoard.mark.sold') : t('resultBoard.mark.visited') }}</span
+          >{{ mark === 'sold' ? t('common.sold') : t('resultBoard.mark.visited') }}</span
         >
       </template>
       <template #actions>
@@ -305,8 +305,8 @@ onBeforeUnmount(stopObserving);
             variant="ghost"
             size="icon-sm"
             :disabled="mark === 'sold' || Boolean(travelState)"
-            :title="t('resultBoard.action.travel')"
-            :aria-label="t('resultBoard.action.travel')"
+            :title="t('common.travelToHideout')"
+            :aria-label="t('common.travelToHideout')"
             data-board-travel
             @click.stop="emit('travel')"
           >
@@ -319,8 +319,8 @@ onBeforeUnmount(stopObserving);
             :class="pinned ? 'text-primary hover:text-primary' : ''"
             :aria-pressed="pinned === true"
             :data-board-pinned="pinned ? '' : undefined"
-            :title="pinned ? t('resultBoard.action.unpin') : t('resultBoard.action.pin')"
-            :aria-label="pinned ? t('resultBoard.action.unpin') : t('resultBoard.action.pin')"
+            :title="pinned ? t('common.unpin') : t('resultBoard.action.pin')"
+            :aria-label="pinned ? t('common.unpin') : t('resultBoard.action.pin')"
             data-board-pin
             @click.stop="emit('pin')"
           >

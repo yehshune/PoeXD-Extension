@@ -261,11 +261,7 @@ function handleSubmit() {
             data-test="stat-group-template-import-toggle-all"
             @click="toggleAll"
           >
-            {{
-              allSelected
-                ? t('statGroupTemplate.dialog.clearAll')
-                : t('statGroupTemplate.dialog.selectAll')
-            }}
+            {{ allSelected ? t('common.deselectAll') : t('common.selectAll') }}
           </Button>
         </div>
 
@@ -324,7 +320,7 @@ function handleSubmit() {
           {{
             selectedEntries.length > 0
               ? t('statGroupTemplate.import.confirmBtn', { count: selectedEntries.length })
-              : t('bookmarkImport.action.import')
+              : t('common.import')
           }}
         </Button>
       </DialogFooter>

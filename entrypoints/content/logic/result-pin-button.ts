@@ -284,7 +284,7 @@ export class ResultPinButton {
   }
 
   private titleFor(pinned: boolean): string {
-    return pinned ? t('pinnedItem.button.unpinTitle') : t('pinnedItem.button.pinTitle');
+    return pinned ? t('common.unpin') : t('pinnedItem.button.pinTitle');
   }
 
   private createButton(resultId: string): HTMLButtonElement {
