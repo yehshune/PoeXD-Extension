@@ -115,6 +115,14 @@ export function createLabelLookup(
   }
   for (const bucket of buckets.values()) bucket.sort((a, b) => b.weight - a.weight);
 
+  const translatePlaceholder = (value: string): string => {
+    const direct = label(value);
+    if (direct) return direct;
+    const numbered = value.match(NUMBER_WITH_LABEL);
+    const numberedLabel = numbered && label(numbered[2]);
+    return numberedLabel ? `${numbered[1]} ${numberedLabel}` : value;
+  };
+
   const matchTemplate = (text: string): TemplateMatch | null => {
     const normalized = normalizeSpace(text);
     if (!normalized) return null;
@@ -132,7 +140,7 @@ export function createLabelLookup(
       const translated = template.localizedLiterals
         .map((literal, i) =>
           i < template.localizedOrder.length
-            ? literal + values[template.localizedOrder[i]]
+            ? literal + translatePlaceholder(values[template.localizedOrder[i]])
             : literal,
         )
         .join('');

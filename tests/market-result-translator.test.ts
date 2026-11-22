@@ -569,3 +569,122 @@ describe('createResultTranslator：結果列詞綴中英並列副標', () => {
     stop();
   });
 });
+
+// 取自 2026-11-22 國際服 PoE1 阿茲瓦特史記與探險日誌結果列的實際結構
+const CHRONICLE_ROW = `
+<div class="item-popup item-popup--currency">
+  <div class="item-popup__header"><div class="item-popup__header-line">Chronicle of Atzoatl</div></div>
+  <div class="item-popup__content">
+    <div class="item-property item-popup__property"><span class="lc"><span>Area Level</span>: <span>71</span></span></div>
+    <div class="item-property item-popup__property item-popup__property--additional" id="open-hdr"><span class="lc"><span>Open Rooms:</span></span></div>
+    <div class="item-property item-popup__property item-popup__property--additional" id="room-tiered"><span class="lc"><span>Jewellery Forge (Tier 2)</span></span></div>
+    <div class="item-property item-popup__property item-popup__property--additional" id="room-plain"><span class="lc"><span>Cellar</span></span></div>
+    <div class="item-property item-popup__property item-popup__property--additional" id="obs-hdr"><span class="lc"><span>Obstructed Rooms:</span></span></div>
+    <div class="item-property item-popup__property item-popup__property--additional" id="room-obs"><span class="lc"><span>Treasury (Tier 2)</span></span></div>
+    <div class="item-property item-popup__property item-popup__property--additional" id="room-apex"><span class="lc"><span>Apex of Atzoatl</span></span></div>
+    <div class="item-mod item-mod--pseudo"><span data-field="stat.pseudo.pseudo_temple_storm_room_1" class="s lc"><span>Has Room: Tempest Generator (Tier 1)</span></span></div>
+    <div class="item-popup__desc-text"><span class="lc">Right click this item to view the Temple of Atzoatl.\r\nCan be used in a personal Map Device to open portals to the Temple of Atzoatl in the present day.</span></div>
+  </div>
+</div>`;
+
+const LOGBOOK_ROW = `
+<div class="item-popup item-popup--normal">
+  <div class="item-popup__header"><div class="item-popup__header-line">Expedition Logbook</div></div>
+  <div class="item-popup__content">
+    <div class="item-property item-popup__property"><span class="lc"><span>Area Level</span>: <span>75</span></span></div>
+    <div class="item-popup__mod item-popup__mod--logbook" id="lb-1">
+      <span class="lc area">Rotting Temple</span><br>
+      <span class="lc faction" faction="Faction1">Druids of the Broken Circle</span>
+    </div>
+    <div class="item-mod item-mod--implicit"><span data-field="stat.implicit.stat_1640965354" class="s lc"><span>Area contains 24% increased number of Runic Monster Markers</span></span></div>
+    <div class="item-popup__mod item-popup__mod--logbook" id="lb-2">
+      <span class="lc area">Volcanic Island</span><br>
+      <span class="lc faction" faction="Faction1">Druids of the Broken Circle</span>
+    </div>
+    <div class="item-mod item-mod--implicit"><span data-field="stat.implicit.stat_3289828378" class="s lc"><span>31% increased Explosive Radius</span></span></div>
+    <div class="item-popup__desc-text"><span class="lc">Take this item to Dannig in your Hideout to open portals to an expedition.</span></div>
+  </div>
+</div>`;
+
+describe('createResultTranslator：阿茲瓦特史記與探險日誌', () => {
+  it('阿茲瓦特史記：標題、房間（含階級模板巢狀譯名）、偽屬性房間與多行物品說明', () => {
+    document.body.innerHTML = CHRONICLE_ROW;
+    createResultTranslator({
+      modLines: {},
+      tradeStats: {
+        en: {
+          'pseudo.pseudo_temple_storm_room_1': 'Has Room: Tempest Generator (Tier 1)',
+          'explicit.stat_210067635': '#% increased Attack Speed (Local)',
+        },
+        localized: {
+          'pseudo.pseudo_temple_storm_room_1': '有房間：暴雷發電室（階級 1）',
+          'explicit.stat_210067635': '增加 #% 攻擊速度 (部分)',
+        },
+      },
+      items: { 'chronicle of atzoatl': '阿茲瓦特史記' },
+      labels: {
+        'Area Level': '區域等級',
+        'Open Rooms:': '開啟房間：',
+        'Obstructed Rooms:': '受阻的房間：',
+        'Jewellery Forge': '珠寶冶煉室',
+        Cellar: '神殿地窖',
+        Treasury: '祕寶庫',
+        'Apex of Atzoatl': '阿茲瓦特之巔',
+        'Right click this item to view the Temple of Atzoatl. Can be used in a personal Map Device to open portals to the Temple of Atzoatl in the present day.':
+          '右鍵點擊此物品來檢視阿茲瓦特神廟。\n可以使用於個人地圖裝置以開啟前往現今阿茲瓦特神廟的傳送門。',
+      },
+      templates: [['{0} (Tier {1})', '{0}（階級 {1}）']],
+    }).translate(document.body);
+
+    expect(texts('.item-popup__header-line')).toEqual(['阿茲瓦特史記']);
+    expect(byId('open-hdr').textContent).toBe('開啟房間：');
+    expect(byId('room-tiered').textContent).toBe('珠寶冶煉室（階級 2）');
+    expect(byId('room-plain').textContent).toBe('神殿地窖');
+    expect(byId('obs-hdr').textContent).toBe('受阻的房間：');
+    expect(byId('room-obs').textContent).toBe('祕寶庫（階級 2）');
+    expect(byId('room-apex').textContent).toBe('阿茲瓦特之巔');
+    expect(
+      document.querySelector('[data-field="stat.pseudo.pseudo_temple_storm_room_1"]')?.textContent,
+    ).toBe('有房間：暴雷發電室（階級 1）');
+    expect(document.querySelector('.item-popup__desc-text')?.textContent).toBe(
+      '右鍵點擊此物品來檢視阿茲瓦特神廟。\n可以使用於個人地圖裝置以開啟前往現今阿茲瓦特神廟的傳送門。',
+    );
+  });
+
+  it('探險日誌：標題、地區與派系（.item-popup__mod--logbook）、固定詞綴與物品說明', () => {
+    document.body.innerHTML = LOGBOOK_ROW;
+    createResultTranslator({
+      modLines: {
+        '1640965354': [
+          [
+            'Area contains {0:d}% increased number of Runic Monster Markers',
+            '區域增加 {0:d}% 魔符怪物標記的數量',
+          ],
+        ],
+        '3289828378': [['{0:d}% increased Explosive Radius', '增加 {0:d}% 爆炸範圍']],
+      },
+      items: { 'expedition logbook': '探險日誌' },
+      labels: {
+        'Area Level': '區域等級',
+        'Rotting Temple': '腐朽神殿',
+        'Volcanic Island': '火山島',
+        'Druids of the Broken Circle': '破碎環之德魯伊',
+        'Take this item to Dannig in your Hideout to open portals to an expedition.':
+          '把此道具帶回你的藏身處給丹尼格，來開啟前往探險的傳送門。',
+      },
+    }).translate(document.body);
+
+    expect(texts('.item-popup__header-line')).toEqual(['探險日誌']);
+    expect(byId('lb-1').querySelector('.area')?.textContent).toBe('腐朽神殿');
+    expect(byId('lb-1').querySelector('.faction')?.textContent).toBe('破碎環之德魯伊');
+    expect(byId('lb-2').querySelector('.area')?.textContent).toBe('火山島');
+    expect(byId('lb-2').querySelector('.faction')?.textContent).toBe('破碎環之德魯伊');
+    expect(texts('[data-field^="stat."] > span')).toEqual([
+      '區域增加 24% 魔符怪物標記的數量',
+      '增加 31% 爆炸範圍',
+    ]);
+    expect(document.querySelector('.item-popup__desc-text')?.textContent).toBe(
+      '把此道具帶回你的藏身處給丹尼格，來開啟前往探險的傳送門。',
+    );
+  });
+});

@@ -49,7 +49,9 @@ const PROPERTY_SELECTOR = '.item-property, .item-mod--mercenary > div > span';
 const MOD_SELECTOR = '.item-mod > span.lc:not([data-field]):not(.l):not(.r)';
 const TIME_SELECTOR = '[data-field="indexed"] small';
 const LABEL_SELECTOR = [
+  '.item-popup__desc-text',
   '.item-popup__sec-desc-text',
+  '.item-popup__mod--logbook',
   '.item-popup__content > div:not([class]) > .lc',
   '.itemPopupAdditional [data-field]',
   '.price-label',
@@ -91,6 +93,7 @@ const STAT_HASH = /^stat_(\d+)$/;
 const SEPARATOR_NODE = /^[^\p{L}\p{N}]+$/u;
 const MOD_PLACEHOLDER = /\{\d+:\+?[dn]\}/g;
 const MOD_NUMBER = /[+-]?\d+(?:\.\d+)?/g;
+const TRAILING_PAREN = /\s*\([^()]*\)\s*$/;
 
 /** 節點在 root 內部是否屬於要略過的區塊（root 外層的祖先不算） */
 /** target（含）到 root（含）之間有我們自己插入的節點；root 外層不看 */
@@ -234,10 +237,16 @@ export function createResultTranslator(
       const localized = asList(data.tradeStats.localized[statId]);
       fallback =
         en.length === localized.length
-          ? en.map((text, i) => [
-              tradeTextToModTemplate(text),
-              tradeTextToModTemplate(localized[i]),
-            ])
+          ? en.flatMap((text, i): Array<readonly [string, string]> => {
+              const zh = localized[i];
+              const exact = [
+                tradeTextToModTemplate(text, { stripTrailingParen: false }),
+                tradeTextToModTemplate(zh, { stripTrailingParen: false }),
+              ] as const;
+              return TRAILING_PAREN.test(text)
+                ? [exact, [tradeTextToModTemplate(text), tradeTextToModTemplate(zh)] as const]
+                : [exact];
+            })
           : [];
       fallbackPairs.set(statId, fallback);
     }

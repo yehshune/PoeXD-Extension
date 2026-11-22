@@ -110,11 +110,16 @@ export function translateModLine(
 
 /**
  * 市集寫法（`#` 佔位符）轉成同格式模板，供描述檔查不到的代碼備援。
- * 結尾的市集專用括號（例如 `(Local)`、`(部分)`）不會出現在結果列，一併去掉。
+ * 預設去掉結尾的市集專用括號（例如 `(Local)`、`(部分)`），它們不會出現在結果列；
+ * 但部分條目（例如神殿房間 `Has Room: ... (Tier 1)`）的結尾括號屬於顯示文字，
+ * 呼叫端可傳 `{ stripTrailingParen: false }` 保留。
  */
-export function tradeTextToModTemplate(text: string): string {
+export function tradeTextToModTemplate(
+  text: string,
+  options?: { stripTrailingParen?: boolean },
+): string {
   let index = 0;
-  return text
-    .replace(/\s*\([^()]*\)\s*$/, '')
-    .replace(/(\+?)#/g, (_match, plus: string) => `{${index++}:${plus}d}`);
+  const source =
+    options?.stripTrailingParen === false ? text : text.replace(/\s*\([^()]*\)\s*$/, '');
+  return source.replace(/(\+?)#/g, (_match, plus: string) => `{${index++}:${plus}d}`);
 }
