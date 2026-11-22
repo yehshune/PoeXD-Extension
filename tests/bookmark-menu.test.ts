@@ -42,10 +42,8 @@ vi.mock('@/utils/trade-leagues', () => ({
 }));
 
 const syncSearchFormToUrlSpy = vi.fn(async () => window.location.href);
-vi.mock('@/entrypoints/content/logic/criteria-overlay-session', async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import('@/entrypoints/content/logic/criteria-overlay-session')
-  >()),
+vi.mock('@/components/injected/criteria-overlay-manager', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/components/injected/criteria-overlay-manager')>()),
   syncSearchFormToUrl: () => syncSearchFormToUrlSpy(),
 }));
 

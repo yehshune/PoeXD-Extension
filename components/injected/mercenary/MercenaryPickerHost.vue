@@ -23,7 +23,7 @@ import { listenPoeEvent } from '@/utils/event-contracts';
 import { t, type I18nKey } from '@/utils/i18n';
 import type { MercenarySupportSlots } from '@/utils/mercenary-data';
 import type { MercenaryGroupKind } from '@/utils/mercenary-query';
-import { activeStatGroupTemplateSlots } from '@/utils/stat-group-template-slot-registry';
+import { activeStatGroupTemplateSlots } from '@/entrypoints/content/logic/stat-group-template-slots';
 import { useCriteriaOverlayManager } from '../criteria-overlay-manager';
 import MercenaryBuildCombobox from './MercenaryBuildCombobox.vue';
 import MercenarySupportPanel from './MercenarySupportPanel.vue';

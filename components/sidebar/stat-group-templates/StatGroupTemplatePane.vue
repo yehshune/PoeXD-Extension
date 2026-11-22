@@ -5,10 +5,6 @@ import { Eye, Pencil, SlidersHorizontal, Trash2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
-import {
-  STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH,
-  type StatGroupTemplate,
-} from '@/utils/stat-group-template-store';
 import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import { criteriaFromTradeQuery } from '@/utils/criteria-overlay';
 import SidebarPane from '../layout/SidebarPane.vue';
@@ -25,9 +21,11 @@ import {
 } from '../composables/useDragTrash';
 import { createSidebarDragScrollOptions } from '../composables/sidebar-drag-scroll';
 import {
+  STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH,
   filterTemplates,
   useCriteriaOverlayManager,
   type CriteriaOverlayManager,
+  type StatGroupTemplate,
 } from '@/components/injected/criteria-overlay-manager';
 import {
   describeStatGroupsTooltip,

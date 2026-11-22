@@ -367,7 +367,7 @@ import {
   isGenericTradePageTitle,
 } from '@/utils/trade-url-codec';
 import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
-import { syncSearchFormToUrl } from '@/entrypoints/content/logic/criteria-overlay-session';
+import { syncSearchFormToUrl } from '@/components/injected/criteria-overlay-manager';
 import {
   BOOKMARK_NAME_MAX_LENGTH,
   sanitizeBookmarkName,

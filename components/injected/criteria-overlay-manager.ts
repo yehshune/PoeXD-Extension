@@ -1,45 +1,120 @@
 import { ref, type Ref } from 'vue';
-import { dispatchPoeEvent } from '@/utils/event-contracts';
 import {
+  dispatchPoeEvent,
+  listenPoeEvent,
+  parsePoeCriteriaOverlayCommitResult,
+  parsePoeCriteriaOverlayReadResult,
+  parsePoeCriteriaOverlaySyncResult,
+  serializePoeCriteriaOverlayCommit,
+  serializePoeCriteriaOverlayRead,
+  serializePoeCriteriaOverlaySync,
+  type PoeCriteriaOverlaySyncDiagnostics,
+} from '@/utils/event-contracts';
+import {
+  captureOverlayCriteria,
+  criteriaOverlayFormFingerprint,
   isEmptyOverlayCriteria,
+  parseCriteriaOverlayStatGroups,
   pickCriteriaOverlayParts,
+  planCriteriaOverlayApplication,
+  planStatGroupFiltersUpdate,
+  planStatGroupReplacement,
+  type CriteriaOverlayApplyPlan,
+  type CriteriaOverlayApplyReport,
   type CriteriaOverlayFormSnapshot,
   type CriteriaOverlayItem,
+  type CriteriaOverlayOp,
   type CriteriaOverlayStatFilter,
   type CriteriaOverlayStatGroup,
   type OverlayCriteria,
 } from '@/utils/criteria-overlay';
-import {
-  createStatGroupTemplateStore,
-  type StatGroupTemplate,
-  type StatGroupTemplateStore,
-} from '@/utils/stat-group-template-store';
-import {
-  parseStatGroupTemplateTransfer,
-  serializeStatGroupTemplates,
-} from '@/utils/stat-group-template-transfer';
 import { getPoeVersion, type PoeVersion } from '@/utils/trade-context';
-import { t } from '@/utils/i18n';
+import { getActiveUiLocale, t } from '@/utils/i18n';
 import { loadTradeDictionaries, translateStatLines } from '@/utils/trade-stat-dictionary';
-import {
-  createCriteriaOverlaySession,
-  describeCriteriaOverlayReport,
-  type CriteriaOverlaySession,
-} from '@/entrypoints/content/logic/criteria-overlay-session';
+import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import {
   labelCriteriaOverlayParts,
   type CriteriaOverlayPartLabel,
 } from './criteria-overlay-labels';
 
+const DEFAULT_TIMEOUT_MS = 5000;
+const TRANSFER_VERSION = 1;
+
+export const STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH = 60;
+export const STAT_GROUP_TEMPLATE_TRANSFER_FORMAT = 'poexd-stat-group-templates';
+
 export type OverlayToastTone = 'default' | 'success' | 'error';
+
+/** 最小 key-value 儲存介面（與 PreferencesStorage 相容，測試可替換為記憶體實作）。 */
+export interface StatGroupTemplateStorage {
+  get(keys: readonly string[]): Promise<Record<string, unknown>>;
+  set(values: Record<string, unknown>): Promise<void>;
+  subscribe(listener: (changes: Record<string, unknown>) => void | Promise<void>): () => void;
+}
+
+/** 一筆 Stat Group Template（常用詞綴群組）。見 GLOSSARY.md、ADR-0010。 */
+export interface StatGroupTemplate {
+  id: string;
+  name: string;
+  statGroups: CriteriaOverlayStatGroup[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** 匯入時要新增的一筆常用詞綴群組（id 與時間由儲存層重新產生）。 */
+export interface StatGroupTemplateEntry {
+  name: string;
+  statGroups: CriteriaOverlayStatGroup[];
+}
+
+export interface StatGroupTemplateTransfer {
+  entries: StatGroupTemplateEntry[];
+  /** 無法解析而略過的項目數。 */
+  skipped: number;
+}
+
+export interface CriteriaOverlayPageSnapshot {
+  snapshot: Record<string, unknown>;
+  knownStatIds: ReadonlySet<string> | null;
+}
+
+/** 與 Main World 往返的通道；測試時可替換為記憶體 adapter。 */
+export interface CriteriaOverlayPageChannel {
+  read(): Promise<CriteriaOverlayPageSnapshot>;
+  commit(ops: readonly CriteriaOverlayOp[]): Promise<void>;
+}
+
+/** 只把官方搜尋表單寫進網址（不修改表單）的通道；測試時可替換。 */
+export interface CriteriaOverlayUrlSyncChannel {
+  /** 官方寫完網址（`updateUrl()`，退回 `save(true)`）後回傳 `location.href`。 */
+  syncToUrl(): Promise<string>;
+}
+
+/** 同步失敗的錯誤：message 已翻譯，code 與 diagnostics 供日誌追查。 */
+export class CriteriaOverlaySyncError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly diagnostics: PoeCriteriaOverlaySyncDiagnostics = {},
+  ) {
+    super(message);
+    this.name = 'CriteriaOverlaySyncError';
+  }
+}
+
+export interface SyncSearchFormToUrlDeps {
+  channel?: CriteriaOverlayUrlSyncChannel;
+  readUrl?: () => string;
+}
 
 export interface CriteriaOverlayManagerDeps {
   version: PoeVersion;
-  createStore?: (version: PoeVersion) => StatGroupTemplateStore;
-  session?: CriteriaOverlaySession;
+  channel?: CriteriaOverlayPageChannel;
+  storage?: StatGroupTemplateStorage;
+  now?: () => number;
+  createId?: () => string;
   notify?: (message: string, tone: OverlayToastTone) => void;
   confirm?: (message: string, title: string) => Promise<boolean>;
-  prompt?: (message: string, defaultValue: string, title: string) => Promise<string | null>;
   loadDictionaries?: (version: PoeVersion) => Promise<unknown>;
 }
 
@@ -82,7 +157,7 @@ export interface CriteriaOverlayManager {
   undo(): Promise<void>;
   beginSaveTemplate(): Promise<void>;
   saveTemplate(payload: { name: string; keys: readonly string[] }): Promise<void>;
-  renameTemplate(template: StatGroupTemplate, newName?: string): Promise<void>;
+  renameTemplate(template: StatGroupTemplate, newName: string): Promise<void>;
   /** 把預覽中微調後的詞綴群組存回範本；成功回傳 true。 */
   updateTemplateStatGroups(
     template: StatGroupTemplate,
@@ -90,17 +165,93 @@ export interface CriteriaOverlayManager {
   ): Promise<boolean>;
   removeTemplate(template: StatGroupTemplate): Promise<void>;
   reorderTemplates(orderedIds: readonly string[]): Promise<void>;
-  /** 目前清單的匯出內容（見 stat-group-template-transfer）。 */
+  /** 目前清單的匯出內容。 */
   exportTemplates(): string;
-  /** 請使用者貼上匯出內容後附加匯入。 */
-  importTemplates(): Promise<void>;
   /** 直接附加匯入已解析的常用詞綴群組項目。 */
   importTemplateEntries(
-    entries: readonly { name: string; statGroups: readonly CriteriaOverlayStatGroup[] }[],
+    entries: readonly StatGroupTemplateEntry[],
     skipped?: number,
   ): Promise<boolean>;
   /** 確認後清空目前版本的所有常用詞綴群組。 */
   clearTemplates(): Promise<void>;
+}
+
+export function statGroupTemplateStorageKey(version: PoeVersion): string {
+  return `poexdStatGroupTemplatesV1_${version}`;
+}
+
+export function normalizeStatGroupTemplateName(name: string): string {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (!trimmed) throw new Error(t('statGroupTemplate.error.nameEmpty'));
+  if (trimmed.length > STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH) {
+    throw new Error(
+      t('statGroupTemplate.error.nameTooLong', { max: STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH }),
+    );
+  }
+  return trimmed;
+}
+
+/** 匯出成可分享的 JSON；只保留名稱與詞綴群組，不含本機 id 與時間。 */
+export function serializeStatGroupTemplates(
+  gameVersion: PoeVersion,
+  templates: readonly StatGroupTemplate[],
+): string {
+  return JSON.stringify({
+    format: STAT_GROUP_TEMPLATE_TRANSFER_FORMAT,
+    version: TRANSFER_VERSION,
+    gameVersion,
+    templates: templates.map(({ name, statGroups }) => ({ name, statGroups })),
+  });
+}
+
+function parseTransferEntry(value: unknown): StatGroupTemplateEntry | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const statGroups = parseCriteriaOverlayStatGroups(raw.statGroups);
+  if (!statGroups || statGroups.length === 0 || typeof raw.name !== 'string') return undefined;
+  try {
+    return { name: normalizeStatGroupTemplateName(raw.name), statGroups };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 解析匯入內容。詞綴 ID 依遊戲版本不同，因此拒絕其他版本匯出的內容。
+ * @throws 內容不是常用詞綴群組匯出格式、版本不符或沒有任何有效項目時
+ */
+export function parseStatGroupTemplateTransfer(
+  text: string,
+  gameVersion: PoeVersion,
+): StatGroupTemplateTransfer {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    throw new Error(t('statGroupTemplate.error.importInvalidFormat'));
+  }
+  const raw = payload as Record<string, unknown> | null;
+  if (
+    !raw ||
+    typeof raw !== 'object' ||
+    raw.format !== STAT_GROUP_TEMPLATE_TRANSFER_FORMAT ||
+    !Array.isArray(raw.templates)
+  ) {
+    throw new Error(t('statGroupTemplate.error.importInvalidFormat'));
+  }
+  if (raw.gameVersion !== gameVersion) {
+    throw new Error(
+      t('statGroupTemplate.error.importVersionMismatch', {
+        sourceVersion: String(raw.gameVersion).toUpperCase(),
+        targetVersion: gameVersion.toUpperCase(),
+      }),
+    );
+  }
+  const entries = raw.templates
+    .map(parseTransferEntry)
+    .filter((entry): entry is StatGroupTemplateEntry => entry !== undefined);
+  if (entries.length === 0) throw new Error(t('statGroupTemplate.error.importEmpty'));
+  return { entries, skipped: raw.templates.length - entries.length };
 }
 
 /** 依名稱、詞綴 ID 或群組內詞綴文字篩選（不分大小寫）；空白查詢回傳原陣列。 */
@@ -127,7 +278,295 @@ export function filterTemplates(
   });
 }
 
-export const filterTemplatesByName = filterTemplates;
+function createRequestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+}
+
+function awaitReply<T>(
+  type:
+    | 'poexd-criteria-overlay-read-result'
+    | 'poexd-criteria-overlay-commit-result'
+    | 'poexd-criteria-overlay-sync-result',
+  requestId: string,
+  parse: (detail: unknown) => (T & { requestId: string }) | undefined,
+  send: () => void,
+  timeoutMs: number,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      stop();
+      reject(new Error(t('criteriaOverlay.session.noResponse')));
+    }, timeoutMs);
+    const stop = listenPoeEvent(type, (detail) => {
+      const reply = parse(detail);
+      if (!reply || reply.requestId !== requestId) return;
+      clearTimeout(timer);
+      stop();
+      resolve(reply);
+    });
+    send();
+  });
+}
+
+function translateAdapterError(
+  error: string | undefined,
+  fallbackKey:
+    | 'criteriaOverlay.session.readFailed'
+    | 'criteriaOverlay.session.commitFailed'
+    | 'formUrlSync.unknownReason',
+): string {
+  if (!error) return t(fallbackKey);
+  if (error === 'FORM_STATE_NOT_FOUND') return t('criteriaOverlay.session.formStateNotFound');
+  if (error === 'TRADE_ROOT_NOT_FOUND') return t('criteriaOverlay.session.tradeRootNotFound');
+  if (error === 'PAGE_NOT_LOADED') return t('criteriaOverlay.session.pageNotLoaded');
+  return error;
+}
+
+/** 透過跨世界事件與 Main World 的 criteria-overlay-adapter 溝通。 */
+export function createPoeEventCriteriaOverlayChannel(
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): CriteriaOverlayPageChannel & CriteriaOverlayUrlSyncChannel {
+  return {
+    async read() {
+      const requestId = createRequestId();
+      const reply = await awaitReply(
+        'poexd-criteria-overlay-read-result',
+        requestId,
+        parsePoeCriteriaOverlayReadResult,
+        () =>
+          dispatchPoeEvent(
+            'poexd-criteria-overlay-read',
+            serializePoeCriteriaOverlayRead({ requestId }),
+          ),
+        timeoutMs,
+      );
+      if (!reply.snapshot) {
+        throw new Error(translateAdapterError(reply.error, 'criteriaOverlay.session.readFailed'));
+      }
+      return {
+        snapshot: reply.snapshot,
+        knownStatIds: reply.knownStatIds ? new Set(reply.knownStatIds) : null,
+      };
+    },
+    async commit(ops) {
+      const requestId = createRequestId();
+      const reply = await awaitReply(
+        'poexd-criteria-overlay-commit-result',
+        requestId,
+        parsePoeCriteriaOverlayCommitResult,
+        () =>
+          dispatchPoeEvent(
+            'poexd-criteria-overlay-commit',
+            serializePoeCriteriaOverlayCommit({ requestId, ops: [...ops] }),
+          ),
+        timeoutMs,
+      );
+      if (!reply.success) {
+        throw new Error(translateAdapterError(reply.error, 'criteriaOverlay.session.commitFailed'));
+      }
+    },
+    async syncToUrl() {
+      const requestId = createRequestId();
+      let reply;
+      try {
+        reply = await awaitReply(
+          'poexd-criteria-overlay-sync-result',
+          requestId,
+          parsePoeCriteriaOverlaySyncResult,
+          () =>
+            dispatchPoeEvent(
+              'poexd-criteria-overlay-sync',
+              serializePoeCriteriaOverlaySync({ requestId }),
+            ),
+          timeoutMs,
+        );
+      } catch (error) {
+        throw new CriteriaOverlaySyncError(
+          error instanceof Error ? error.message : String(error),
+          'NO_RESPONSE',
+          { timeoutMs },
+        );
+      }
+      if (!reply.success || typeof reply.url !== 'string') {
+        throw new CriteriaOverlaySyncError(
+          translateAdapterError(reply.error, 'formUrlSync.unknownReason'),
+          reply.error ?? 'UNKNOWN',
+          reply.diagnostics,
+        );
+      }
+      return reply.url;
+    },
+  };
+}
+
+/** 只取路由前兩段（例如 `trade/search`），日誌不帶聯盟與查詢內容。 */
+function describeRoute(url: string): string {
+  try {
+    return new URL(url).pathname.split('/').filter(Boolean).slice(0, 2).join('/');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * 把官方搜尋表單目前的內容寫進網址後回傳網址（見 GLOSSARY.md「Bookmark」、ADR-0010）。
+ * 官方網址不會隨每次表單修改更新，因此加入書籤前必須先同步；同步失敗時拋出錯誤，
+ * 呼叫端不得退回儲存可能過時的網址。非搜尋路由（例如通貨兌換）直接回傳目前網址。
+ */
+export async function syncSearchFormToUrl(deps: SyncSearchFormToUrlDeps = {}): Promise<string> {
+  const readUrl = deps.readUrl ?? (() => window.location.href);
+  const before = readUrl();
+  if (!isTradeSearchFormUrl(before)) return before;
+
+  const channel = deps.channel ?? createPoeEventCriteriaOverlayChannel();
+  const startedAt = Date.now();
+  try {
+    return await channel.syncToUrl();
+  } catch (error) {
+    const code = error instanceof CriteriaOverlaySyncError ? error.code : 'UNKNOWN';
+    const diagnostics = error instanceof CriteriaOverlaySyncError ? error.diagnostics : {};
+    console.error('[PoeXD] 同步搜尋表單到網址失敗:', {
+      code,
+      message: error instanceof Error ? error.message : String(error),
+      route: describeRoute(before),
+      elapsedMs: Date.now() - startedAt,
+      visibility: typeof document !== 'undefined' ? document.visibilityState : undefined,
+      readyState: typeof document !== 'undefined' ? document.readyState : undefined,
+      ...diagnostics,
+    });
+    const reason = error instanceof Error ? error.message.trim() : '';
+    throw new Error(t('formUrlSync.failed', { reason: reason || t('formUrlSync.unknownReason') }), {
+      cause: error,
+    });
+  }
+}
+
+/** 將套用結果整理成給使用者看的一句話。 */
+export function describeCriteriaOverlayReport(
+  name: string,
+  report: CriteriaOverlayApplyReport,
+): string {
+  const parts: string[] = [];
+  const activeUi = getActiveUiLocale();
+  const sep = t('criteriaOverlay.report.separator');
+  const enPlural = (count: number) => (activeUi === 'en' && count > 1 ? 's' : '');
+
+  if (report.addedStatGroups > 0) {
+    parts.push(
+      t('criteriaOverlay.report.addedStatGroups', {
+        count: report.addedStatGroups,
+        s: enPlural(report.addedStatGroups),
+      }),
+    );
+  }
+  if (report.changedFields > 0) {
+    parts.push(
+      t('criteriaOverlay.report.changedFields', {
+        count: report.changedFields,
+        s: enPlural(report.changedFields),
+      }),
+    );
+  }
+  if ((report.updatedStatGroups ?? 0) > 0) {
+    parts.push(
+      t('criteriaOverlay.report.updatedStatGroups', {
+        count: report.updatedStatGroups ?? 0,
+        s: enPlural(report.updatedStatGroups ?? 0),
+      }),
+    );
+  }
+  if (report.changedItem) parts.push(t('criteriaOverlay.report.changedItem'));
+  if (report.changedStatus) parts.push(t('criteriaOverlay.report.changedStatus'));
+
+  const skipped: string[] = [];
+  if (report.skippedDuplicateStatGroups > 0) {
+    skipped.push(
+      t('criteriaOverlay.report.skippedDuplicate', {
+        count: report.skippedDuplicateStatGroups,
+        s: enPlural(report.skippedDuplicateStatGroups),
+      }),
+    );
+  }
+  if (report.skippedUnknownStatFilters > 0) {
+    skipped.push(
+      t('criteriaOverlay.report.skippedUnknown', {
+        count: report.skippedUnknownStatFilters,
+        s: enPlural(report.skippedUnknownStatFilters),
+      }),
+    );
+  }
+
+  const done = parts.length > 0 ? parts.join(sep) : t('criteriaOverlay.report.noChanges');
+  return skipped.length > 0
+    ? t('criteriaOverlay.report.templateWithSkipped', { name, done, skipped: skipped.join(sep) })
+    : t('criteriaOverlay.report.template', { name, done });
+}
+
+function createChromeLocalStorage(): StatGroupTemplateStorage {
+  return {
+    get: (keys) => chrome.storage.local.get([...keys]),
+    set: (values) => chrome.storage.local.set(values),
+    subscribe(listener) {
+      const handle = (changes: Record<string, { newValue?: unknown }>, areaName: string) => {
+        if (areaName !== 'local') return;
+        void listener(
+          Object.fromEntries(Object.entries(changes).map(([k, change]) => [k, change.newValue])),
+        );
+      };
+      chrome.storage.onChanged.addListener(handle);
+      return () => chrome.storage.onChanged.removeListener(handle);
+    },
+  };
+}
+
+function parseStoredTemplate(value: unknown): StatGroupTemplate | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const statGroups = parseCriteriaOverlayStatGroups(raw.statGroups);
+  if (
+    typeof raw.id !== 'string' ||
+    raw.id === '' ||
+    typeof raw.name !== 'string' ||
+    raw.name.trim() === '' ||
+    !statGroups ||
+    statGroups.length === 0 ||
+    typeof raw.createdAt !== 'number' ||
+    typeof raw.updatedAt !== 'number'
+  ) {
+    return undefined;
+  }
+  return {
+    id: raw.id,
+    name: raw.name,
+    statGroups,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+  };
+}
+
+interface StoredList {
+  templates: StatGroupTemplate[];
+  /** 無法解析的原始項目（例如較新版本寫入的格式），寫回時原樣保留。 */
+  unparsed: unknown[];
+}
+
+function parseStoredList(value: unknown): StoredList {
+  if (!Array.isArray(value)) return { templates: [], unparsed: [] };
+  return value.reduce<StoredList>(
+    (acc, raw) => {
+      const parsed = parseStoredTemplate(raw);
+      return parsed
+        ? { ...acc, templates: [...acc.templates, parsed] }
+        : { ...acc, unparsed: [...acc.unparsed, raw] };
+    },
+    { templates: [], unparsed: [] },
+  );
+}
+
+function defaultCreateId(): string {
+  const random = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+  return `stat-group-template:${random}`;
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -135,17 +574,11 @@ function errorMessage(error: unknown): string {
 
 type DialogWindow = Window & {
   poexdConfirm?: (message: string, title?: string) => Promise<boolean>;
-  poexdPrompt?: (message: string, defaultValue?: string, title?: string) => Promise<string | null>;
 };
 
 function defaultConfirm(message: string, title: string): Promise<boolean> {
   const confirm = (window as DialogWindow).poexdConfirm;
   return confirm ? confirm(message, title) : Promise.resolve(false);
-}
-
-function defaultPrompt(message: string, defaultValue: string, title: string) {
-  const prompt = (window as DialogWindow).poexdPrompt;
-  return prompt ? prompt(message, defaultValue, title) : Promise.resolve(null);
 }
 
 function defaultNotify(message: string, tone: OverlayToastTone) {
@@ -162,24 +595,60 @@ export function createCriteriaOverlayManager(
   deps: CriteriaOverlayManagerDeps,
 ): CriteriaOverlayManager {
   const { version } = deps;
-  const session = deps.session ?? createCriteriaOverlaySession();
+  const channel = deps.channel ?? createPoeEventCriteriaOverlayChannel();
+  const storage = deps.storage ?? createChromeLocalStorage();
+  const now = deps.now ?? Date.now;
+  const createId = deps.createId ?? defaultCreateId;
   const notify = deps.notify ?? defaultNotify;
   const confirm = deps.confirm ?? defaultConfirm;
-  const prompt = deps.prompt ?? defaultPrompt;
   const loadDictionaries = deps.loadDictionaries ?? loadTradeDictionaries;
-  const createStore = deps.createStore ?? createStatGroupTemplateStore;
+  const storageKey = statGroupTemplateStorageKey(version);
 
   const templates = ref<StatGroupTemplate[]>([]);
-  const canUndo = ref(session.canUndo());
+  const canUndo = ref(false);
   const busy = ref(false);
   const saveDialog: TemplateSaveDialogState = { open: ref(false), parts: ref([]) };
   let captured: OverlayCriteria | null = null;
-  let store: StatGroupTemplateStore | null = null;
+  let pendingUndo: { ops: CriteriaOverlayOp[]; fingerprint: string } | null = null;
   let starting: Promise<void> | null = null;
 
-  const requireStore = (): StatGroupTemplateStore => {
-    if (!store) throw new Error(t('statGroupTemplate.error.storeNotReady'));
-    return store;
+  const setUndo = (next: { ops: CriteriaOverlayOp[]; fingerprint: string } | null) => {
+    pendingUndo = next && next.ops.length > 0 ? next : null;
+    canUndo.value = pendingUndo !== null;
+  };
+
+  const commitPlan = async (plan: CriteriaOverlayApplyPlan) => {
+    if (plan.ops.length > 0) {
+      setUndo(null);
+      await channel.commit(plan.ops);
+      const after = await channel.read();
+      setUndo({ ops: plan.undoOps, fingerprint: criteriaOverlayFormFingerprint(after.snapshot) });
+    }
+    return plan.report;
+  };
+
+  const buildTemplate = (
+    name: string,
+    statGroups: readonly CriteriaOverlayStatGroup[],
+  ): StatGroupTemplate => {
+    if (statGroups.length === 0) throw new Error(t('statGroupTemplate.error.emptyGroups'));
+    const timestamp = now();
+    return {
+      id: createId(),
+      name: normalizeStatGroupTemplateName(name),
+      statGroups: JSON.parse(JSON.stringify(statGroups)),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+  };
+
+  const readStored = async () => parseStoredList((await storage.get([storageKey]))[storageKey]);
+
+  const updateStored = async (mutate: (current: StatGroupTemplate[]) => StatGroupTemplate[]) => {
+    const { templates: current, unparsed } = await readStored();
+    const next = mutate(current);
+    await storage.set({ [storageKey]: [...next, ...unparsed] });
+    templates.value = next;
   };
 
   const run = async (task: () => Promise<void>) => {
@@ -201,7 +670,10 @@ export function createCriteriaOverlayManager(
         notify(t('statGroupTemplate.error.noOverlayCriteria'), 'error');
         return;
       }
-      const report = await session.apply(criteria);
+      const { snapshot, knownStatIds } = await channel.read();
+      const report = await commitPlan(
+        planCriteriaOverlayApplication(criteria, snapshot, knownStatIds),
+      );
       notify(describeCriteriaOverlayReport(sourceName, report), 'success');
       applied = true;
     });
@@ -210,16 +682,13 @@ export function createCriteriaOverlayManager(
 
   const start = () => {
     starting ??= (async () => {
-      session.subscribeUndo((value) => {
-        canUndo.value = value;
-      });
       try {
-        const created = createStore(version);
-        store = created;
-        created.subscribe((next) => {
-          templates.value = next;
+        storage.subscribe((changes) => {
+          if (storageKey in changes) {
+            templates.value = parseStoredList(changes[storageKey]).templates;
+          }
         });
-        templates.value = await created.list();
+        templates.value = (await readStored()).templates;
       } catch (error) {
         console.warn('[PoeXD] 常用詞綴群組初始化失敗:', error);
       }
@@ -242,7 +711,8 @@ export function createCriteriaOverlayManager(
 
     readFormSnapshot: async () => {
       try {
-        return await session.readSnapshot();
+        const { snapshot } = await channel.read();
+        return snapshot;
       } catch (error) {
         notify(errorMessage(error), 'error');
         return null;
@@ -252,7 +722,8 @@ export function createCriteriaOverlayManager(
     replaceStatGroup: async (index, groups, sourceName, item) => {
       let replaced = false;
       await run(async () => {
-        const report = await session.replaceStatGroup(index, groups, item);
+        const { snapshot } = await channel.read();
+        const report = await commitPlan(planStatGroupReplacement(snapshot, index, groups, item));
         notify(describeCriteriaOverlayReport(sourceName, report), 'success');
         replaced = true;
       });
@@ -262,7 +733,10 @@ export function createCriteriaOverlayManager(
     updateStatGroup: async (index, filters, sourceName, value) => {
       let updated = false;
       await run(async () => {
-        const report = await session.updateStatGroup(index, filters, value);
+        const { snapshot } = await channel.read();
+        const plan = planStatGroupFiltersUpdate(snapshot, index, filters, value);
+        if (!plan) throw new Error(`stat group ${index} not found`);
+        const report = await commitPlan(plan);
         notify(describeCriteriaOverlayReport(sourceName, report), 'success');
         updated = true;
       });
@@ -271,12 +745,22 @@ export function createCriteriaOverlayManager(
 
     undo: () =>
       run(async () => {
-        if (await session.undo()) notify(t('statGroupTemplate.toast.undone'), 'success');
+        if (!pendingUndo) return;
+        const { ops, fingerprint } = pendingUndo;
+        const current = await channel.read();
+        if (criteriaOverlayFormFingerprint(current.snapshot) !== fingerprint) {
+          setUndo(null);
+          throw new Error(t('criteriaOverlay.session.undoConflict'));
+        }
+        await channel.commit(ops);
+        setUndo(null);
+        notify(t('statGroupTemplate.toast.undone'), 'success');
       }),
 
     beginSaveTemplate: () =>
       run(async () => {
-        const criteria = await session.capture();
+        const { snapshot } = await channel.read();
+        const criteria = captureOverlayCriteria(snapshot);
         if (criteria.statGroups.length === 0) {
           notify(t('statGroupTemplate.error.noSavableGroups'), 'error');
           return;
@@ -291,7 +775,8 @@ export function createCriteriaOverlayManager(
       run(async () => {
         if (!captured) return;
         const picked = pickCriteriaOverlayParts(captured, new Set(payload.keys));
-        await requireStore().create(payload.name, picked.statGroups);
+        const template = buildTemplate(payload.name, picked.statGroups);
+        await updateStored((current) => [...current, template]);
         saveDialog.open.value = false;
         captured = null;
         notify(t('statGroupTemplate.toast.saved', { name: payload.name }), 'success');
@@ -299,22 +784,33 @@ export function createCriteriaOverlayManager(
 
     renameTemplate: (template, newName) =>
       run(async () => {
-        const next =
-          newName !== undefined
-            ? newName
-            : await prompt(
-                t('statGroupTemplate.dialog.renamePrompt'),
-                template.name,
-                t('statGroupTemplate.dialog.renameTitle'),
-              );
-        if (next == null || next.trim() === '' || next.trim() === template.name) return;
-        await requireStore().rename(template.id, next);
+        if (newName == null || newName.trim() === '' || newName.trim() === template.name) return;
+        const normalized = normalizeStatGroupTemplateName(newName);
+        await updateStored((current) => {
+          if (!current.some((item) => item.id === template.id)) {
+            throw new Error(t('statGroupTemplate.error.notFound'));
+          }
+          return current.map((item) =>
+            item.id === template.id ? { ...item, name: normalized, updatedAt: now() } : item,
+          );
+        });
       }),
 
     updateTemplateStatGroups: async (template, statGroups) => {
       let saved = false;
       await run(async () => {
-        await requireStore().updateStatGroups(template.id, statGroups);
+        const parsed = parseCriteriaOverlayStatGroups(JSON.parse(JSON.stringify(statGroups)));
+        if (!parsed || parsed.length === 0) {
+          throw new Error(t('statGroupTemplate.error.emptyGroups'));
+        }
+        await updateStored((current) => {
+          if (!current.some((item) => item.id === template.id)) {
+            throw new Error(t('statGroupTemplate.error.notFound'));
+          }
+          return current.map((item) =>
+            item.id === template.id ? { ...item, statGroups: parsed, updatedAt: now() } : item,
+          );
+        });
         notify(t('statGroupTemplate.toast.updated', { name: template.name }), 'success');
         saved = true;
       });
@@ -328,10 +824,20 @@ export function createCriteriaOverlayManager(
           t('statGroupTemplate.dialog.deleteTitle'),
         );
         if (!confirmed) return;
-        await requireStore().remove(template.id);
+        await updateStored((current) => current.filter((item) => item.id !== template.id));
       }),
 
-    reorderTemplates: (orderedIds) => run(() => requireStore().reorder(orderedIds)),
+    reorderTemplates: (orderedIds) =>
+      run(() =>
+        updateStored((current) => {
+          const byId = new Map(current.map((item) => [item.id, item]));
+          const ordered = orderedIds
+            .map((id) => byId.get(id))
+            .filter((item): item is StatGroupTemplate => item !== undefined);
+          const listed = new Set(ordered.map((item) => item.id));
+          return [...ordered, ...current.filter((item) => !listed.has(item.id))];
+        }),
+      ),
 
     exportTemplates: () => serializeStatGroupTemplates(version, templates.value),
 
@@ -339,7 +845,8 @@ export function createCriteriaOverlayManager(
       let imported = false;
       await run(async () => {
         if (entries.length === 0) return;
-        await requireStore().createMany(entries);
+        const created = entries.map((entry) => buildTemplate(entry.name, entry.statGroups));
+        await updateStored((current) => [...current, ...created]);
         notify(
           skipped > 0
             ? t('statGroupTemplate.toast.importedWithSkipped', {
@@ -354,27 +861,6 @@ export function createCriteriaOverlayManager(
       return imported;
     },
 
-    importTemplates: () =>
-      run(async () => {
-        const text = await prompt(
-          t('statGroupTemplate.dialog.importPrompt'),
-          '',
-          t('statGroupTemplate.dialog.importTitle'),
-        );
-        if (text == null || text.trim() === '') return;
-        const { entries, skipped } = parseStatGroupTemplateTransfer(text.trim(), version);
-        await requireStore().createMany(entries);
-        notify(
-          skipped > 0
-            ? t('statGroupTemplate.toast.importedWithSkipped', {
-                count: entries.length,
-                skipped,
-              })
-            : t('statGroupTemplate.toast.imported', { count: entries.length }),
-          'success',
-        );
-      }),
-
     clearTemplates: () =>
       run(async () => {
         if (templates.value.length === 0) return;
@@ -383,7 +869,7 @@ export function createCriteriaOverlayManager(
           t('statGroupTemplate.dialog.clearTitle'),
         );
         if (!confirmed) return;
-        await requireStore().clear();
+        await updateStored(() => []);
         notify(t('statGroupTemplate.toast.cleared'), 'success');
       }),
   };

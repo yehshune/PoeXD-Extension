@@ -15,11 +15,14 @@ import {
   ScrollAreaViewport,
   ScrollBar,
 } from '@/components/ui/scroll-area';
-import type { StatGroupTemplate } from '@/utils/stat-group-template-store';
-import { activeStatGroupTemplateSlots } from '@/utils/stat-group-template-slot-registry';
+import { activeStatGroupTemplateSlots } from '@/entrypoints/content/logic/stat-group-template-slots';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
 import { t } from '@/utils/i18n';
-import { filterTemplates, useCriteriaOverlayManager } from './criteria-overlay-manager';
+import {
+  filterTemplates,
+  useCriteriaOverlayManager,
+  type StatGroupTemplate,
+} from './criteria-overlay-manager';
 import { describeStatGroupsTooltip, formatCompactStatGroupChip } from './criteria-overlay-labels';
 import StatGroupTemplateSaveDialog from './StatGroupTemplateSaveDialog.vue';
 

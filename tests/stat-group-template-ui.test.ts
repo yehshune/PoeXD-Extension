@@ -3,11 +3,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createApp, h, nextTick, ref } from 'vue';
 import {
   ADD_STAT_GROUP_SELECTOR,
+  activeStatGroupTemplateSlots,
   cleanStatGroupTemplateSlots,
   injectStatGroupTemplateSlots,
   STAT_GROUP_TEMPLATE_SLOT_CLASS,
 } from '@/entrypoints/content/logic/stat-group-template-slots';
-import { activeStatGroupTemplateSlots } from '@/utils/stat-group-template-slot-registry';
 import StatGroupTemplateSaveDialog from '@/components/injected/StatGroupTemplateSaveDialog.vue';
 import {
   groupCriteriaOverlayPartLabels,

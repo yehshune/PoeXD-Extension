@@ -2,10 +2,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp, h, nextTick } from 'vue';
 import { createInMemoryPreferencesStorage } from '@/utils/preferences';
-import { createStatGroupTemplateStore } from '@/utils/stat-group-template-store';
-import type { OverlayCriteria, CriteriaOverlayStatGroup } from '@/utils/criteria-overlay';
-import type { CriteriaOverlaySession } from '@/entrypoints/content/logic/criteria-overlay-session';
-import { createCriteriaOverlayManager } from '@/components/injected/criteria-overlay-manager';
+import type { CriteriaOverlayOp, CriteriaOverlayStatGroup } from '@/utils/criteria-overlay';
+import {
+  createCriteriaOverlayManager,
+  statGroupTemplateStorageKey,
+  type CriteriaOverlayPageChannel,
+} from '@/components/injected/criteria-overlay-manager';
 import StatGroupTemplatePane from '@/components/sidebar/stat-group-templates/StatGroupTemplatePane.vue';
 
 vi.mock('@/utils/trade-stat-dictionary', async (importOriginal) => ({
@@ -35,35 +37,45 @@ afterEach(() => {
 });
 
 async function mountPane(url = SEARCH_URL) {
-  let id = 0;
-  const store = createStatGroupTemplateStore('poe1', {
-    storage: createInMemoryPreferencesStorage(),
-    createId: () => `t${++id}`,
+  let id = 2;
+  const storage = createInMemoryPreferencesStorage({
+    [statGroupTemplateStorageKey('poe1')]: [
+      { id: 't1', name: '生命抗性', statGroups: groups, createdAt: 1, updatedAt: 1 },
+      { id: 't2', name: '移速', statGroups: [groups[0]], createdAt: 2, updatedAt: 2 },
+    ],
   });
-  await store.create('生命抗性', groups);
-  await store.create('移速', [groups[0]]);
-  const applied: OverlayCriteria[] = [];
-  const session = {
-    capture: vi.fn(async () => ({ statGroups: groups, fields: [], sectionDisabled: {} })),
-    apply: vi.fn(async (c: OverlayCriteria) => {
-      applied.push(c);
-      return {
-        addedStatGroups: c.statGroups.length,
-        skippedDuplicateStatGroups: 0,
-        skippedUnknownStatFilters: 0,
-        changedFields: 0,
-        changedItem: false,
-        changedStatus: false,
-      };
+  const committedGroups: CriteriaOverlayStatGroup[][] = [];
+  const channel: CriteriaOverlayPageChannel = {
+    read: vi.fn(async () => ({
+      snapshot: {
+        stats: [{ type: 'and', filters: [{ id: 'explicit.form_existing' }] }],
+      },
+      knownStatIds: null,
+    })),
+    commit: vi.fn(async (ops: readonly CriteriaOverlayOp[]) => {
+      const pushed: CriteriaOverlayStatGroup[] = [];
+      for (const op of ops) {
+        if (op.kind === 'pushStatGroup') {
+          pushed.push({
+            type: op.type,
+            filters: op.filters.map((f) => ({
+              id: f.id,
+              ...(f.value ? { value: f.value } : {}),
+              ...(f.disabled ? { disabled: f.disabled } : {}),
+            })),
+          });
+        } else if (op.kind === 'setStatGroupValue' && pushed.length > 0) {
+          pushed[pushed.length - 1].value = op.value ?? undefined;
+        }
+      }
+      committedGroups.push(pushed);
     }),
-    undo: vi.fn(async () => true),
-    canUndo: () => false,
-    subscribeUndo: () => () => {},
-  } as unknown as CriteriaOverlaySession;
+  };
   const manager = createCriteriaOverlayManager({
     version: 'poe1',
-    createStore: () => store,
-    session,
+    storage,
+    channel,
+    createId: () => `t${++id}`,
     notify: () => {},
     confirm: async () => true,
     loadDictionaries: async () => {},
@@ -78,7 +90,7 @@ async function mountPane(url = SEARCH_URL) {
   app.mount(container);
   cleanup = () => app.unmount();
   await flush();
-  return { container, store, applied, manager, session };
+  return { container, committedGroups, manager, channel };
 }
 
 const items = (root: HTMLElement) =>
@@ -111,7 +123,7 @@ describe('StatGroupTemplatePane', () => {
   });
 
   it('supports inline rename and single-row delete button', async () => {
-    const { container, store } = await mountPane();
+    const { container, manager } = await mountPane();
     const firstRow = () => items(container)[0];
     firstRow()
       .querySelector<HTMLButtonElement>('[data-test="stat-group-template-rename"]')!
@@ -138,18 +150,18 @@ describe('StatGroupTemplatePane', () => {
     renameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await flush();
 
-    expect((await store.list())[0].name).toBe('三抗血量');
+    expect(manager.templates.value[0].name).toBe('三抗血量');
     expect(firstRow().textContent).toContain('三抗血量');
 
     firstRow()
       .querySelector<HTMLButtonElement>('[data-test="stat-group-template-delete"]')!
       .click();
     await flush();
-    expect((await store.list()).map((t) => t.id)).toEqual(['t2']);
+    expect(manager.templates.value.map((t) => t.id)).toEqual(['t2']);
   });
 
   it('opens the import dialog from the toolbar menu and imports selected entries', async () => {
-    const { container, manager, store } = await mountPane();
+    const { container, manager } = await mountPane();
     const exported = manager.exportTemplates();
     container.querySelector<HTMLButtonElement>('[data-test="stat-group-template-menu"]')!.click();
     await flush();
@@ -179,7 +191,7 @@ describe('StatGroupTemplatePane', () => {
       .click();
     await flush();
 
-    expect((await store.list()).map((t) => t.name)).toEqual([
+    expect(manager.templates.value.map((t) => t.name)).toEqual([
       '生命抗性',
       '移速',
       '生命抗性',
@@ -188,18 +200,18 @@ describe('StatGroupTemplatePane', () => {
   });
 
   it('overlays every group of a template', async () => {
-    const { container, applied } = await mountPane();
+    const { container, committedGroups } = await mountPane();
     items(container)[0]
       .querySelector<HTMLButtonElement>('[data-test="stat-group-template-apply"]')!
       .click();
     await flush();
-    expect(applied).toEqual([{ statGroups: groups, fields: [], sectionDisabled: {} }]);
+    expect(committedGroups).toEqual([groups]);
   });
 
   const popover = () => document.body.querySelector('[data-test="search-preview-popover"]');
 
   it('toggles a pinned preview outside the list and overlays a single group from it', async () => {
-    const { container, applied } = await mountPane();
+    const { container, committedGroups } = await mountPane();
     const toggle = items(container)[0].querySelector<HTMLButtonElement>(
       '[data-test="stat-group-template-toggle"]',
     )!;
@@ -212,7 +224,7 @@ describe('StatGroupTemplatePane', () => {
       .querySelectorAll<HTMLButtonElement>('[data-test="preview-overlay-stat-group"]')[1]
       .click();
     await flush();
-    expect(applied).toEqual([{ statGroups: [groups[1]], fields: [], sectionDisabled: {} }]);
+    expect(committedGroups).toEqual([[groups[1]]]);
 
     toggle.click();
     await flush();
@@ -220,7 +232,7 @@ describe('StatGroupTemplatePane', () => {
   });
 
   it('預覽可暫時微調詞綴並疊加微調後的條件，存回後寫進範本並重設暫存', async () => {
-    const { container, applied, store } = await mountPane();
+    const { container, committedGroups, manager } = await mountPane();
     items(container)[0]
       .querySelector<HTMLButtonElement>('[data-test="stat-group-template-toggle"]')!
       .click();
@@ -242,12 +254,12 @@ describe('StatGroupTemplatePane', () => {
     // 暫時疊加：用微調後的條件，範本本身不變
     popover()!.querySelector<HTMLButtonElement>('[data-test="preview-overlay-stats"]')!.click();
     await flush();
-    expect(applied[0].statGroups[0].filters[0]).toEqual({ id: 'explicit.a', value: { min: 5 } });
-    expect((await store.list())[0].statGroups).toEqual(groups);
+    expect(committedGroups[0][0].filters[0]).toEqual({ id: 'explicit.a', value: { min: 5 } });
+    expect(manager.templates.value[0].statGroups).toEqual(groups);
 
     saveBack()!.click();
     await flush();
-    const saved = (await store.list())[0];
+    const saved = manager.templates.value[0];
     expect(saved.name).toBe('生命抗性');
     expect(saved.statGroups[0].filters[0]).toEqual({ id: 'explicit.a', value: { min: 5 } });
     expect(saved.statGroups[1]).toEqual(groups[1]);
@@ -286,12 +298,12 @@ describe('StatGroupTemplatePane', () => {
   });
 
   it('closes the preview when its template is deleted', async () => {
-    const { container, store } = await mountPane();
+    const { container, manager } = await mountPane();
     items(container)[0]
       .querySelector<HTMLButtonElement>('[data-test="stat-group-template-toggle"]')!
       .click();
     await flush();
-    await store.remove('t1');
+    await manager.removeTemplate(manager.templates.value[0]);
     await flush();
     expect(popover()).toBeNull();
   });
@@ -302,21 +314,21 @@ describe('StatGroupTemplatePane', () => {
   });
 
   it('shows an empty state when nothing is saved', async () => {
-    const { container, store } = await mountPane();
-    for (const template of await store.list()) await store.remove(template.id);
+    const { container, manager } = await mountPane();
+    await manager.clearTemplates();
     await flush();
     expect(container.querySelector('[data-test="stat-group-template-empty"]')).not.toBeNull();
   });
 
   it('頂部主按鈕擷取目前表單並開啟儲存對話框', async () => {
-    const { container, manager, session } = await mountPane();
+    const { container, manager, channel } = await mountPane();
     const save = container.querySelector<HTMLButtonElement>(
       '[data-test="stat-group-template-save-current"]',
     )!;
     expect(save.disabled).toBe(false);
     save.click();
     await flush();
-    expect(session.capture).toHaveBeenCalled();
+    expect(channel.read).toHaveBeenCalled();
     expect(manager.saveDialog.open.value).toBe(true);
   });
 

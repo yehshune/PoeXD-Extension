@@ -17,7 +17,7 @@ import {
   ScrollAreaViewport,
   ScrollBar,
 } from '@/components/ui/scroll-area';
-import { STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH } from '@/utils/stat-group-template-store';
+import { STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH } from './criteria-overlay-manager';
 import { t } from '@/utils/i18n';
 import type { CriteriaOverlayPartLabel } from './criteria-overlay-labels';
 

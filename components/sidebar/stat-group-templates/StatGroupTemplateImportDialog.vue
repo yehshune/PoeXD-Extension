@@ -21,7 +21,7 @@ import {
 import {
   parseStatGroupTemplateTransfer,
   type StatGroupTemplateEntry,
-} from '@/utils/stat-group-template-transfer';
+} from '@/components/injected/criteria-overlay-manager';
 import {
   describeStatGroupsTooltip,
   formatCompactStatGroupChip,

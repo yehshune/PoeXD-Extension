@@ -10,7 +10,7 @@ import {
   labelCriteriaOverlayParts,
   summarizeOverlayCriteria,
 } from '@/components/injected/criteria-overlay-labels';
-import { describeCriteriaOverlayReport } from '@/entrypoints/content/logic/criteria-overlay-session';
+import { describeCriteriaOverlayReport } from '@/components/injected/criteria-overlay-manager';
 import { setActiveDisplayLocale, resetI18nStateForTests } from '@/utils/i18n';
 
 describe('Structured Transfer & Criteria Overlay i18n (Seam 2)', () => {

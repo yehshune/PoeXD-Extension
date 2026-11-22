@@ -23,9 +23,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { downloadTextFile } from '@/utils/download-file';
-import type { StatGroupTemplateEntry } from '@/utils/stat-group-template-transfer';
 import { t } from '@/utils/i18n';
-import type { CriteriaOverlayManager } from '@/components/injected/criteria-overlay-manager';
+import type {
+  CriteriaOverlayManager,
+  StatGroupTemplateEntry,
+} from '@/components/injected/criteria-overlay-manager';
 import StatGroupTemplateImportDialog from './StatGroupTemplateImportDialog.vue';
 
 /**

@@ -7,7 +7,7 @@ import {
   ResultModQuickFilter,
 } from '@/entrypoints/content/logic/result-mod-quick-filter';
 import { RESULT_MOD_ENGLISH_SUBTITLE_CLASS } from '@/utils/market-result-translator';
-import type { CriteriaOverlayPageChannel } from '@/entrypoints/content/logic/criteria-overlay-session';
+import type { CriteriaOverlayPageChannel } from '@/components/injected/criteria-overlay-manager';
 import { initPoeEventNonce, listenPoeEvent, type PoeToastDetail } from '@/utils/event-contracts';
 import { setActiveDisplayLocalePreference } from '@/utils/i18n';
 
