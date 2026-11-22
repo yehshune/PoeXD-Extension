@@ -155,12 +155,18 @@
         window.e2eSearch = search;
 
         /**
-         * Trade root（`/trade`）是線上搜尋主控台開啟的頁面。主控台把即時結果寫進官方 Vuex store，
-         * 這裡照 docs/architecture/live-search-host-adapter-contract.md 實作最小的替身 store：
-         * 只提供 adapter 會用到的 state 與 mutation，未註冊的 mutation 會丟出例外（和官方 Vuex 一樣不會默默吞掉）。
+         * 官方 Vuex store 與根元件的最小替身，只提供擴充功能會用到的 state、mutation 與方法；
+         * 未註冊的 mutation 會丟出例外（和官方 Vuex 一樣不會默默吞掉）。
+         * - 搜尋頁：存書籤前會以根元件的 `save(true)` 把表單寫進網址（ADR-0010）。替身頁的網址
+         *   本來就和結果一致，所以 save 不需改網址。
+         * - Trade root（`/trade`）：線上搜尋主控台把即時結果寫進 store
+         *   （docs/architecture/live-search-host-adapter-contract.md），這裡依 active search 畫出結果列。
          */
-        function installOfficialStore() {
-          const state = { transient: { searches: [], search: { active: null } } };
+        function installOfficialStore({ renderLiveResults }) {
+          const state = {
+            persistent: {},
+            transient: { searches: [], search: { active: null } },
+          };
           const findSearch = (localId) =>
             state.transient.searches.find((s) => s.localId === localId);
           const mutations = {
@@ -186,8 +192,10 @@
             resetActiveUnreadHits() {
               if (state.transient.search.active) state.transient.search.active.unreadHits = 0;
             },
+            setSearchDirty() {},
           };
           const render = () => {
+            if (!renderLiveResults) return;
             const active = state.transient.search.active;
             const rows = (active?.results ?? [])
               .map((batch) => batch.items[batch.result[0]])
@@ -211,16 +219,18 @@
             },
           };
           // 官方是 Vue 3 + Vuex 4：store 掛在 app 的全域屬性上
+          // 根元件由 app._instance.proxy 取得（poe-runtime-reader 的 getTradeRootComponent）
           document.querySelector('#trade').__vue_app__ = {
             config: { globalProperties: { $store: store } },
+            _instance: { proxy: { save: async () => {} } },
           };
         }
 
         const isTradeRoot = /^\/trade\/?$/.test(location.pathname);
-        if (isTradeRoot) {
-          installOfficialStore();
-        } else if (currentRoute().searchId) {
-          // 網址沒有 search id（剛打開的空白搜尋頁）時和官方一樣不自動搜尋
+        installOfficialStore({ renderLiveResults: isTradeRoot });
+        // 主控台（trade root）的結果全部來自即時推送；網址沒有 search id（剛打開的空白搜尋頁）時
+        // 和官方一樣不自動搜尋
+        if (!isTradeRoot && currentRoute().searchId) {
           waitForOfficialTiming()
             .then(() => search())
             .catch((error) => console.error('[fixture] 替身頁載入失敗', error));

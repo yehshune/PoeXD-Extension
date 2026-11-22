@@ -24,7 +24,7 @@ import {
 const offlineOnly = <T extends { offline: boolean }>(checks: readonly T[]) =>
   checks.filter((check) => check.offline);
 
-async function failedChecks(page: Page, withStore: boolean): Promise<CheckResult[]> {
+async function failedChecks(page: Page): Promise<CheckResult[]> {
   const inspection = await page.evaluate(inspectOfficialPage, {
     searchPage: offlineOnly(SEARCH_PAGE_DOM),
     rowSelector: RESULT_ROW_SELECTOR,
@@ -32,9 +32,7 @@ async function failedChecks(page: Page, withStore: boolean): Promise<CheckResult
     mutations: STORE_MUTATIONS,
     requireRows: true,
   });
-  return inspection.results.filter(
-    (result) => !result.ok && (withStore || !result.id.startsWith('store')),
-  );
+  return inspection.results.filter((result) => !result.ok);
 }
 
 test.describe('替身頁對齊官方契約', () => {
@@ -45,8 +43,7 @@ test.describe('替身頁對齊官方契約', () => {
     test(`${game} 搜尋頁的 DOM 結構符合契約`, async ({ page }) => {
       await page.goto(url);
       await expect(page.locator(RESULT_ROW_SELECTOR)).toHaveCount(count);
-      // 替身搜尋頁沒有掛官方 store（只有主控台用得到），store 檢查留給 trade root
-      expect(await failedChecks(page, false)).toEqual([]);
+      expect(await failedChecks(page)).toEqual([]);
     });
   }
 
