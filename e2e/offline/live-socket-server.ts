@@ -21,17 +21,26 @@ export interface LiveSocket {
   readonly searchId: string;
   /** 模擬官方推送新上架物品；token 直接用 fetch 回放裡的物品 id */
   push(token: string): void;
+  /** 模擬連線中斷（伺服器端直接切斷，不送 close 訊框） */
+  drop(): void;
+  /** 連線關閉時完成（不論是哪一端關的） */
+  readonly closed: Promise<void>;
 }
 
 export interface LiveSocketServer {
   readonly port: number;
-  /** 等擴充功能連上指定搜尋的即時連線 */
-  waitFor(searchId: string): Promise<LiveSocket>;
+  /** 等第 nth 條（從 1 起算）連上指定搜尋的即時連線 */
+  waitFor(searchId: string, nth?: number): Promise<LiveSocket>;
+  /** 之後這個搜尋的連線一律以 HTTP 403 拒絕握手（模擬 search id 失效或被官方拒絕） */
+  reject(searchId: string): void;
+  /** 等到這個搜尋第 nth 次（從 1 起算）被拒絕的連線嘗試 */
+  waitForRejection(searchId: string, nth?: number): Promise<void>;
   close(): Promise<void>;
 }
 
 const LIVE_SOCKET_PATH = /^\/api\/trade2?\/live\//;
 const WAIT_TIMEOUT_MS = 15_000;
+const WAIT_POLL_MS = 50;
 const WEBSOCKET_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 let certificate: { key: Buffer; cert: Buffer } | null = null;
@@ -97,9 +106,20 @@ export async function startLiveSocketServer({
   blocked,
   documentFor,
 }: LiveSocketServerOptions): Promise<LiveSocketServer> {
-  const sockets = new Map<string, LiveSocket>();
-  const waiters = new Map<string, ((socket: LiveSocket) => void)[]>();
+  const accepted = new Map<string, LiveSocket[]>();
+  const rejectedCounts = new Map<string, number>();
+  const rejectedIds = new Set<string>();
   const connections = new Set<Socket>();
+
+  /** 輪詢到條件成立；連線事件很少，輪詢比維護 waiter 清單簡單 */
+  async function waitUntil<T>(read: () => T | undefined, label: string): Promise<T> {
+    for (let elapsed = 0; elapsed < WAIT_TIMEOUT_MS; elapsed += WAIT_POLL_MS) {
+      const value = read();
+      if (value !== undefined) return value;
+      await new Promise((resolve) => setTimeout(resolve, WAIT_POLL_MS));
+    }
+    throw new Error(`等不到${label}`);
+  }
 
   const server: Server = createServer(testCertificate(), (request, response) => {
     // 只有 context.route 攔不到的導覽會走到這裡（擴充功能以 chrome.tabs.create 開分頁的第一次導覽）
@@ -121,6 +141,12 @@ export async function startLiveSocketServer({
       socket.destroy();
       return;
     }
+    const searchId = decodeURIComponent(url.pathname.split('/').at(-1) ?? '');
+    if (rejectedIds.has(searchId)) {
+      rejectedCounts.set(searchId, (rejectedCounts.get(searchId) ?? 0) + 1);
+      socket.end('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n');
+      return;
+    }
     const accept = createHash('sha1')
       .update(key + WEBSOCKET_GUID)
       .digest('base64');
@@ -135,21 +161,25 @@ export async function startLiveSocketServer({
       ].join('\r\n'),
     );
     connections.add(socket);
+    const closed = new Promise<void>((resolve) => socket.once('close', () => resolve()));
     socket.on('close', () => connections.delete(socket));
-    // 用戶端的訊框（ping / close）不需要處理；連線錯誤在測試結束關閉時是預期的
-    socket.on('data', () => {});
+    // 用戶端關閉連線時會送 close 訊框（opcode 8）並等伺服器回覆才結束 TCP；其他訊框不需要處理。
+    // 連線錯誤在測試結束關閉時是預期的
+    socket.on('data', (chunk: Buffer) => {
+      if ((chunk[0] & 0x0f) !== 0x8) return;
+      socket.end(Buffer.from([0x88, 0x00]));
+    });
     socket.on('error', () => {});
 
-    const searchId = decodeURIComponent(url.pathname.split('/').at(-1) ?? '');
     const live: LiveSocket = {
       searchId,
       push: (token) => socket.write(textFrame(JSON.stringify({ result: token }))),
+      drop: () => socket.destroy(),
+      closed,
     };
     // 官方連線成功後會先廣播 {"auth": true}
     socket.write(textFrame(JSON.stringify({ auth: true })));
-    sockets.set(searchId, live);
-    (waiters.get(searchId) ?? []).forEach((resolve) => resolve(live));
-    waiters.delete(searchId);
+    accepted.set(searchId, [...(accepted.get(searchId) ?? []), live]);
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -159,22 +189,20 @@ export async function startLiveSocketServer({
 
   return {
     port: (server.address() as AddressInfo).port,
-    waitFor(searchId) {
-      const existing = sockets.get(searchId);
-      if (existing) return Promise.resolve(existing);
-      return new Promise((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error(`等不到即時搜尋連線：${searchId}`)),
-          WAIT_TIMEOUT_MS,
-        );
-        waiters.set(searchId, [
-          ...(waiters.get(searchId) ?? []),
-          (socket) => {
-            clearTimeout(timer);
-            resolve(socket);
-          },
-        ]);
-      });
+    waitFor(searchId, nth = 1) {
+      return waitUntil(
+        () => accepted.get(searchId)?.[nth - 1],
+        `第 ${nth} 條即時搜尋連線：${searchId}`,
+      );
+    },
+    reject(searchId) {
+      rejectedIds.add(searchId);
+    },
+    async waitForRejection(searchId, nth = 1) {
+      await waitUntil(
+        () => ((rejectedCounts.get(searchId) ?? 0) >= nth ? true : undefined),
+        `第 ${nth} 次被拒絕的即時搜尋連線：${searchId}`,
+      );
     },
     close() {
       connections.forEach((socket) => socket.destroy());

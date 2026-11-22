@@ -203,7 +203,7 @@ export interface OfflineOptions {
 export interface OfflineFixtures {
   network: NetworkLog;
   /** 官方即時搜尋 WebSocket 的本機替身 */
-  liveSockets: Pick<LiveSocketServer, 'waitFor'>;
+  liveSockets: Omit<LiveSocketServer, 'port' | 'close'>;
   /** 頁面上未捕捉的例外與 console.error，測試結束時應為空 */
   pageErrors: string[];
   serviceWorker: Worker;

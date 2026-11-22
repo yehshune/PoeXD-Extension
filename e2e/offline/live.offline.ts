@@ -9,6 +9,17 @@ import { test, expect, POE1_FETCH, TRADE1_SEARCH_ID, TRADE1_SEARCH_URL } from '.
 
 const TRADE_ROOT = /^https:\/\/www\.pathofexile\.com\/trade\/?$/;
 
+/** 取得主控台頁並新增一條「輸入搜尋網址」的連線，回傳該連線在側邊欄的那一列 */
+async function addConnection(consolePage: Page, name: string): Promise<Locator> {
+  const sidebar = consolePage.locator('poexd-sidebar-container');
+  await (await sidebarButton(consolePage, '＋ Add Search Connection')).click();
+  await sidebar.getByText('Enter Search URL').click();
+  await sidebar.getByLabel('Search URL').fill(TRADE1_SEARCH_URL);
+  await sidebar.getByLabel('Search Name (optional)').fill(name);
+  await sidebar.getByRole('button', { name: 'Start', exact: true }).click();
+  return sidebar.locator('[data-test="connection-item"]').filter({ hasText: name });
+}
+
 /** 側邊欄可能還在掛載、也可能已展開：等展開按鈕或目標按鈕其一出現，需要時才展開 */
 async function sidebarButton(page: Page, name: string): Promise<Locator> {
   const sidebar = page.locator('poexd-sidebar-container');
@@ -44,15 +55,9 @@ test.describe('線上搜尋主控台', () => {
       if (message.type() === 'error') consoleErrors.push(`[console] ${message.text()}`);
     });
 
-    const sidebar = consolePage.locator('poexd-sidebar-container');
-    await (await sidebarButton(consolePage, '＋ Add Search Connection')).click();
-    await sidebar.getByText('Enter Search URL').click();
-    await sidebar.getByLabel('Search URL').fill(TRADE1_SEARCH_URL);
-    await sidebar.getByLabel('Search Name (optional)').fill('E2E Live');
-    await sidebar.getByRole('button', { name: 'Start', exact: true }).click();
-
+    const connection = await addConnection(consolePage, 'E2E Live');
     const socket = await liveSockets.waitFor(TRADE1_SEARCH_ID);
-    await expect(sidebar.getByText('E2E Live').first()).toBeVisible();
+    await expect(connection).toBeVisible();
 
     const [first, second] = POE1_FETCH.result;
     const rows = consolePage.locator('.results .row[data-id]');
@@ -69,5 +74,60 @@ test.describe('線上搜尋主控台', () => {
 
     expect(consoleErrors).toEqual([]);
     expect(network.blocked).toEqual([]);
+  });
+
+  test('連線中斷後自動重連，重連後的推送照常顯示', async ({ page, liveSockets }) => {
+    const consolePage = await openConsole(page);
+    const connection = await addConnection(consolePage, 'E2E Reconnect');
+    const firstSocket = await liveSockets.waitFor(TRADE1_SEARCH_ID);
+    await expect(connection.getByRole('button', { name: 'Pause' })).toBeVisible();
+
+    firstSocket.drop();
+    // 第一次重連約等 5 秒（±20%），期間顯示倒數
+    await expect(connection.locator('[data-status^="Reconnecting"]')).toBeVisible();
+    const secondSocket = await liveSockets.waitFor(TRADE1_SEARCH_ID, 2);
+    await expect(connection.getByRole('button', { name: 'Pause' })).toBeVisible();
+
+    const [item] = POE1_FETCH.result;
+    secondSocket.push(item.id);
+    await expect(consolePage.locator(`.results .row[data-id="${item.id}"]`)).toBeVisible();
+  });
+
+  test('暫停會關閉連線，重新啟用後再連上並顯示推送', async ({ page, liveSockets }) => {
+    const consolePage = await openConsole(page);
+    const connection = await addConnection(consolePage, 'E2E Pause');
+    const firstSocket = await liveSockets.waitFor(TRADE1_SEARCH_ID);
+
+    await connection.getByRole('button', { name: 'Pause' }).click();
+    await firstSocket.closed;
+    await connection.getByRole('button', { name: 'Enable' }).click();
+
+    const secondSocket = await liveSockets.waitFor(TRADE1_SEARCH_ID, 2);
+    await expect(connection.getByRole('button', { name: 'Pause' })).toBeVisible();
+    const [item] = POE1_FETCH.result;
+    secondSocket.push(item.id);
+    await expect(consolePage.locator(`.results .row[data-id="${item.id}"]`)).toBeVisible();
+  });
+
+  test('移除連線會關閉 WebSocket 並從清單消失', async ({ page, liveSockets }) => {
+    const consolePage = await openConsole(page);
+    const connection = await addConnection(consolePage, 'E2E Remove');
+    const socket = await liveSockets.waitFor(TRADE1_SEARCH_ID);
+
+    await connection.hover();
+    await connection.getByRole('button', { name: 'More actions' }).click();
+    await consolePage.locator('[data-test^="btn-remove-"]').click();
+    await socket.closed;
+    await expect(connection).toHaveCount(0);
+  });
+
+  test('官方拒絕連線時進入重連倒數，而不是立刻重試', async ({ page, liveSockets }) => {
+    // 模擬 search id 失效：官方在 WebSocket 握手階段就拒絕
+    liveSockets.reject(TRADE1_SEARCH_ID);
+    const consolePage = await openConsole(page);
+    const connection = await addConnection(consolePage, 'E2E Rejected');
+
+    await liveSockets.waitForRejection(TRADE1_SEARCH_ID);
+    await expect(connection.locator('[data-status^="Reconnecting in"]')).toBeVisible();
   });
 });
