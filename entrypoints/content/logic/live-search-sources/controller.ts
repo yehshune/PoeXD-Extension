@@ -450,10 +450,8 @@ export function createLiveSearchSourceController(
       const trimmed = sourceIdOrCanonicalKey.trim();
       if (!trimmed) return false;
       const canonicalKey =
-        registry.resolveCanonicalKeyBySourceId(
-          trimmed,
-          reloadCoordinator.getCurrentCollection(),
-        ) ?? trimmed;
+        registry.resolveCanonicalKeyBySourceId(trimmed, reloadCoordinator.getCurrentCollection()) ??
+        trimmed;
       registry.forgetPrevious(canonicalKey);
       let storeRemoved = true;
       if (resumeStore) {

@@ -17,8 +17,18 @@ describe('LiveSearchConnectionRegistry', () => {
     const identity = { gameVersion: 'poe1' as const, league: 'Standard', searchId: 'PrOm1234Ef' };
     const url = 'https://www.pathofexile.com/trade/search/Standard/PrOm1234Ef';
 
-    registry.upsertCustomSource({ canonicalKey: key, canonicalIdentity: identity, name: 'Temp', url });
-    registry.registerSessionEntry({ canonicalKey: key, canonicalIdentity: identity, name: 'Temp', url });
+    registry.upsertCustomSource({
+      canonicalKey: key,
+      canonicalIdentity: identity,
+      name: 'Temp',
+      url,
+    });
+    registry.registerSessionEntry({
+      canonicalKey: key,
+      canonicalIdentity: identity,
+      name: 'Temp',
+      url,
+    });
 
     const activeSub = {
       id: 'sub_1',
@@ -79,10 +89,8 @@ describe('LiveSearchConnectionRegistry', () => {
       status: 'active',
     } as Readonly<LiveSearchSubscription>;
 
-    registry.reconcileOwnership(
-      { groups: [], bookmarks: [] },
-      [activeSub],
-      (k) => (k === key ? activeSub : undefined),
+    registry.reconcileOwnership({ groups: [], bookmarks: [] }, [activeSub], (k) =>
+      k === key ? activeSub : undefined,
     );
 
     expect(registry.getSessionEntry(key)?.sourceBookmarkId).toBeUndefined();
@@ -143,11 +151,19 @@ describe('LiveSearchConnectionRegistry', () => {
     const identity = { gameVersion: 'poe1' as const, league: 'Standard', searchId: 'MaTr1234Ef' };
 
     registry.applyInitialResumeRead([
-      { ...identity, name: 'Saved Temp', url: 'https://www.pathofexile.com/trade/search/Standard/MaTr1234Ef' },
+      {
+        ...identity,
+        name: 'Saved Temp',
+        url: 'https://www.pathofexile.com/trade/search/Standard/MaTr1234Ef',
+      },
     ]);
 
-    expect(registry.resolveCanonicalKeyBySourceId(`${PREVIOUS_SOURCE_ID_PREFIX}${key}`, null)).toBe(key);
-    expect(registry.resolveCanonicalKeyBySourceId(`${SESSION_SOURCE_ID_PREFIX}${key}`, null)).toBe(key);
+    expect(registry.resolveCanonicalKeyBySourceId(`${PREVIOUS_SOURCE_ID_PREFIX}${key}`, null)).toBe(
+      key,
+    );
+    expect(registry.resolveCanonicalKeyBySourceId(`${SESSION_SOURCE_ID_PREFIX}${key}`, null)).toBe(
+      key,
+    );
 
     const materialized = registry.ensureCustomSourceForSectionKey(key, 'Standard');
     expect(materialized).toMatchObject({ canonicalKey: key, name: 'Saved Temp' });
@@ -163,21 +179,52 @@ describe('LiveSearchConnectionRegistry', () => {
     expect(updated.name).toBe('Saved Temp');
   });
 
-  it('pruneBaselineForLeague 僅移除目前聯盟中已刪除且無自訂 metadata 的書籤型 Resume 項目', () => {
+  it('pruneBaselineForLeague 僅移除目前聯盟中已刪除且無自訂 metadata 的書籤型 Resume 基準項目', () => {
     const registry = createLiveSearchConnectionRegistry();
-    registry.applyInitialResumeRead([
+    const deletedKey = 'poe1:standard:DeLeTeD123';
+    const keptBookmarkKey = 'poe1:standard:KeEpBm1234';
+    const namedTempKey = 'poe1:standard:TempKeep12';
+    const urlTempKey = 'poe1:standard:UrlKeep123';
+    const otherLeagueKey = 'poe1:hardcore:HcDeleted1';
+
+    // 先由 store 訂閱回呼建立基準，再由較晚完成的初始讀取覆寫 latest 為空：
+    // 此時項目只存在於 baselineResumeByKey，combined map 能直接反映 prune 效果。
+    registry.applyResumePlanSnapshot([
       { gameVersion: 'poe1', league: 'Standard', searchId: 'DeLeTeD123' },
       { gameVersion: 'poe1', league: 'Standard', searchId: 'KeEpBm1234' },
       { gameVersion: 'poe1', league: 'Standard', searchId: 'TempKeep12', name: 'Temp Name' },
+      {
+        gameVersion: 'poe1',
+        league: 'Standard',
+        searchId: 'UrlKeep123',
+        url: 'https://www.pathofexile.com/trade/search/Standard/UrlKeep123',
+      },
       { gameVersion: 'poe1', league: 'Hardcore', searchId: 'HcDeleted1' },
     ]);
+    registry.applyInitialResumeRead([]);
+    expect(registry.buildCombinedResumeMap().has(deletedKey)).toBe(true);
 
-    registry.pruneBaselineForLeague(new Set(['poe1:standard:KeEpBm1234']), 'Standard');
-    const combined = registry.buildCombinedResumeMap();
-    // latestResumeIdentities 仍待 store.pruneToAuthoritative 回呼更新，但 baselineResumeByKey 已即時移除
-    expect(registry.clearPreviousForLeague('Standard')).not.toContain('poe1:standard:KeepMissing');
-    expect(combined.has('poe1:standard:KeEpBm1234')).toBe(true);
-    expect(combined.has('poe1:standard:TempKeep12')).toBe(true);
-    expect(combined.has('poe1:hardcore:HcDeleted1')).toBe(true);
+    registry.pruneBaselineForLeague(new Set([keptBookmarkKey]), 'Standard');
+
+    expect([...registry.buildCombinedResumeMap().keys()].sort()).toEqual(
+      [keptBookmarkKey, namedTempKey, otherLeagueKey, urlTempKey].sort(),
+    );
+  });
+
+  it('pruneBaselineForLeague 不觸碰 latestResumeIdentities（交由 store.pruneToAuthoritative 回呼更新）', () => {
+    const registry = createLiveSearchConnectionRegistry();
+    const deletedKey = 'poe1:standard:DeLeTeD123';
+    registry.applyInitialResumeRead([
+      { gameVersion: 'poe1', league: 'Standard', searchId: 'DeLeTeD123' },
+    ]);
+
+    registry.pruneBaselineForLeague(new Set(), 'Standard');
+
+    expect(registry.getLatestResumeIdentities()).toHaveLength(1);
+    expect(registry.buildCombinedResumeMap().has(deletedKey)).toBe(true);
+
+    // store 回呼送出已修剪的 plan 後，項目才完全消失
+    registry.applyResumePlanSnapshot([]);
+    expect(registry.buildCombinedResumeMap().has(deletedKey)).toBe(false);
   });
 });

@@ -171,7 +171,7 @@ export function createLiveSearchSourceIntake(
       }
 
       const ready = ops.ensureReady();
-    if (ready) await ready;
+      if (ready) await ready;
 
       if (ops.isDisposed()) {
         return { success: false, error: t('liveSearch.console.closed'), rejectReason: 'failed' };
@@ -260,10 +260,7 @@ export function createLiveSearchSourceIntake(
         };
       }
 
-      if (
-        !primaryContext.runtimeLeague &&
-        !sameLeague(ops.getSelectedLeague(), incomingLeague)
-      ) {
+      if (!primaryContext.runtimeLeague && !sameLeague(ops.getSelectedLeague(), incomingLeague)) {
         const switched = await deps.switchLeague(incomingLeague);
         if (!switched) {
           return {

@@ -88,10 +88,7 @@ export interface LiveSearchConnectionRegistry {
     collection: BookmarkCollectionView | null,
   ): void;
   upsertCustomSource(input: UpsertCustomSourceInput): CustomSourceRecord;
-  patchCustomSource(
-    sourceId: string,
-    patch: { name?: string; coverImageUrl?: string },
-  ): void;
+  patchCustomSource(sourceId: string, patch: { name?: string; coverImageUrl?: string }): void;
   ensureCustomSourceForSectionKey(
     targetKey: string,
     opLeague: string,

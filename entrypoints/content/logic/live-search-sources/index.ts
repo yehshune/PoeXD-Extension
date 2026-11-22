@@ -1,7 +1,4 @@
-export {
-  createLiveSearchBookmarkController,
-  createLiveSearchSourceController,
-} from './controller';
+export { createLiveSearchBookmarkController, createLiveSearchSourceController } from './controller';
 
 export {
   CUSTOM_SOURCE_GROUP_ID,
