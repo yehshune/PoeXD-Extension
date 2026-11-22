@@ -356,7 +356,6 @@ export function useSearchPreviewDraft(options: UseSearchPreviewDraftOptions) {
     effectivePreviewData,
     canOverlay,
     overlayHint,
-    applyTune,
     resetTune,
     getModifiedQuery,
     consumeDraftForOverwrite,
