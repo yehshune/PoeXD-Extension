@@ -176,7 +176,7 @@ import type {
   LiveSearchPrimaryViewSnapshot,
   TradeRateLimitWindow,
 } from '@/utils/live-search-contract';
-import { formatLiveSearchDisplayLeague } from '@/entrypoints/content/logic/live-search-bookmark-controller';
+import { formatLiveSearchDisplayLeague } from '@/entrypoints/content/logic/live-search-sources';
 
 const props = defineProps({
   currentSelectedLeague: {

@@ -5,7 +5,7 @@ import type {
   LiveSearchBatchOutcome,
   LiveSearchSourceController,
   LiveSearchSourceSnapshot,
-} from './live-search-bookmark-controller';
+} from './live-search-sources';
 import {
   getResumeCanonicalKey,
   type LiveSearchResumePlanData,

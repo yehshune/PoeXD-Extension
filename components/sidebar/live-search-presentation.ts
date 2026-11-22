@@ -2,7 +2,7 @@ import type {
   LiveSearchBatchOutcome,
   LiveSearchSourceGroup,
   LiveSearchSourceItem,
-} from '@/entrypoints/content/logic/live-search-bookmark-controller';
+} from '@/entrypoints/content/logic/live-search-sources';
 import type { LiveSearchEnqueueResponse } from '@/utils/live-search-contract';
 import type { ResumableInspectItem } from './LiveSearchResumeInspectPopover.vue';
 import { formatFolderPath } from '@/utils/bookmark-collection';

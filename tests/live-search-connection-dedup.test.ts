@@ -9,7 +9,7 @@ import {
   dedupePreviousConnectionItems,
   shouldAdoptExisting,
   type DedupEntry,
-} from '@/entrypoints/content/logic/live-search-connection-dedup';
+} from '@/entrypoints/content/logic/live-search-sources/connection-dedup';
 import { getTradeSearchCanonicalKey } from '@/utils/trade-search-identity';
 import { reuseUnchangedItems } from '@/components/sidebar/bookmark-model';
 

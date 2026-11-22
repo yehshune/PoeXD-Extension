@@ -9,12 +9,12 @@ import {
 } from '@/utils/trade-search-identity';
 import type { LiveSearchSubscription } from '@/utils/live-search-contract';
 import type { LiveSearchResumeIdentity } from '@/utils/live-search-resume-store';
-import { dedupePreviousConnectionItems, hasValidCover } from './live-search-connection-dedup';
+import { dedupePreviousConnectionItems, hasValidCover } from './connection-dedup';
 import {
   buildCanonicalTradeSearchUrl,
   evaluateLiveSearchSourceCompatibility,
   sameLeague,
-} from './live-search-source-filters';
+} from './source-filters';
 import {
   CUSTOM_SOURCE_GROUP_ID,
   CUSTOM_SOURCE_GROUP_NAME,
@@ -30,7 +30,7 @@ import {
   type LiveSearchSourceItem,
   type LiveSearchSourceSnapshot,
   type SessionConnectionMeta,
-} from './live-search-source-types';
+} from './types';
 
 export interface BuildLiveSearchSnapshotInput {
   loading: boolean;
@@ -481,118 +481,4 @@ export function buildLiveSearchSourceSnapshot(
     previousConnectionsSignature: dedupedPrevious.items.map((item) => item.id).join('|'),
     unresolvedCriteriaIdentities: dedupedPrevious.unresolved,
   };
-}
-
-export interface ReconcileSourceOwnershipInput {
-  currentCollection: BookmarkCollectionView | null;
-  currentLiveSubscriptions: readonly Readonly<LiveSearchSubscription>[];
-  customSources: CustomSourceRecord[];
-  sessionEntriesByKey: Map<string, SessionConnectionMeta>;
-  findActiveSubByCanonicalKey: (
-    canonicalKey: string,
-  ) => Readonly<LiveSearchSubscription> | undefined;
-}
-
-export function reconcileLiveSearchSourceOwnership(
-  input: ReconcileSourceOwnershipInput,
-): LiveSearchResumeIdentity[] {
-  const {
-    currentCollection,
-    currentLiveSubscriptions,
-    customSources,
-    sessionEntriesByKey,
-    findActiveSubByCanonicalKey,
-  } = input;
-
-  const bookmarkCanonicalKeys = new Set<string>();
-  if (currentCollection) {
-    const bookmarksByKey = new Map<string, typeof currentCollection.bookmarks>();
-    for (const b of currentCollection.bookmarks) {
-      const cleanUrl = stripLiveSuffix(b.url);
-      const parsed = parseTradeSearchUrl(cleanUrl);
-      if (parsed) {
-        const key = getTradeSearchCanonicalKey(parsed);
-        bookmarkCanonicalKeys.add(key);
-        const list = bookmarksByKey.get(key);
-        if (list) {
-          list.push(b);
-        } else {
-          bookmarksByKey.set(key, [b]);
-        }
-      }
-    }
-
-    for (const [key, sessionMeta] of sessionEntriesByKey.entries()) {
-      const candidates = bookmarksByKey.get(key);
-      if (!candidates || candidates.length === 0) {
-        // 來源書籤已被刪除或覆蓋為其他搜尋時，清除過期 sourceBookmarkId，改以暫時搜尋／session 身分運作
-        sessionMeta.sourceBookmarkId = undefined;
-        continue;
-      }
-      const preferred =
-        (sessionMeta.sourceBookmarkId
-          ? candidates.find((c) => c.id === sessionMeta.sourceBookmarkId)
-          : undefined) ?? candidates[0];
-      if (preferred) {
-        sessionMeta.name = preferred.name;
-        sessionMeta.url = preferred.url;
-        sessionMeta.sourceBookmarkId = preferred.id;
-        if (hasValidCover(preferred.coverImageUrl)) {
-          sessionMeta.coverImageUrl = preferred.coverImageUrl;
-        }
-      }
-    }
-  }
-
-  const promotedResumeIdentities: LiveSearchResumeIdentity[] = [];
-
-  // 1. Temporary -> Bookmark Promotion
-  for (let i = customSources.length - 1; i >= 0; i--) {
-    if (bookmarkCanonicalKeys.has(customSources[i].canonicalKey)) {
-      const promoted = customSources[i];
-      const activeSub = findActiveSubByCanonicalKey(promoted.canonicalKey);
-      if (activeSub && activeSub.status !== 'closed') {
-        promotedResumeIdentities.push({
-          gameVersion: promoted.canonicalIdentity.gameVersion,
-          league: promoted.canonicalIdentity.league,
-          searchId: promoted.canonicalIdentity.searchId,
-        });
-      }
-      customSources.splice(i, 1);
-    }
-  }
-
-  // 2. Active Bookmark Deletion / Canonical Split Fallback
-  for (const sub of currentLiveSubscriptions) {
-    if (sub.status === 'closed') continue;
-
-    const subKey = getTradeSearchCanonicalKey({
-      gameVersion: sub.gameVersion,
-      league: sub.league,
-      searchId: sub.searchId,
-    });
-
-    if (bookmarkCanonicalKeys.has(subKey)) {
-      continue;
-    }
-
-    const existingCustom = customSources.find((c) => c.canonicalKey === subKey);
-    if (!existingCustom) {
-      customSources.push({
-        id: `custom_fallback_${sub.id}`,
-        name: sub.name || t('liveSearch.defaultSearchName'),
-        url: sub.url,
-        canonicalIdentity: {
-          gameVersion: sub.gameVersion,
-          league: sub.league,
-          searchId: sub.searchId,
-        },
-        canonicalKey: subKey,
-        createdAt: Date.now(),
-        provenance: 'origin-bookmark-removed',
-      });
-    }
-  }
-
-  return promotedResumeIdentities;
 }

@@ -56,7 +56,7 @@ describe('evaluateLiveSearchSourceCompatibility legacy check', () => {
 
   it('marks short-ID item searches as invalid', async () => {
     const { evaluateLiveSearchSourceCompatibility } =
-      await import('../entrypoints/content/logic/live-search-bookmark-controller');
+      await import('../entrypoints/content/logic/live-search-sources');
     const url = 'https://www.pathofexile.com/trade/search/Standard/Ab3dEf';
     expect(evaluateLiveSearchSourceCompatibility(identity, context, url).compatibility).toBe(
       'invalid-url',
@@ -68,7 +68,7 @@ describe('evaluateLiveSearchSourceCompatibility legacy check', () => {
 
   it('does not flag currency exchange bookmarks as legacy', async () => {
     const { evaluateLiveSearchSourceCompatibility } =
-      await import('../entrypoints/content/logic/live-search-bookmark-controller');
+      await import('../entrypoints/content/logic/live-search-sources');
     const url = 'https://www.pathofexile.com/trade/exchange/Standard/Ab3dEf';
     expect(evaluateLiveSearchSourceCompatibility(identity, context, url).compatibility).toBe(
       'compatible',

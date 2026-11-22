@@ -20,7 +20,7 @@ import {
   type LiveSearchSourceGroup,
   type LiveSearchSourceItem,
   type LiveSearchSourceStatusFilter,
-} from './live-search-source-types';
+} from './types';
 
 export function sameLeague(a: string | null | undefined, b: string | null | undefined): boolean {
   return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();

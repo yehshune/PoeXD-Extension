@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createLiveSearchLeagueManager,
   type LiveSearchLeagueManagerDeps,
-} from '@/entrypoints/content/logic/live-search-league-manager';
-import type { LiveSearchControllerBasePort } from '@/entrypoints/content/logic/live-search-source-types';
+} from '@/entrypoints/content/logic/live-search-sources/league-manager';
+import type { LiveSearchControllerBasePort } from '@/entrypoints/content/logic/live-search-sources/types';
 import type { PoeVersion } from '@/utils/trade-context';
 import type { BookmarkCollectionView } from '@/utils/bookmark-coordinator';
 import type { LiveSearchPrimaryController } from '@/utils/live-search-contract';

@@ -236,7 +236,7 @@ import {
   type LiveSearchSourceCompatibility,
   type LiveSearchSourceGroup,
   type LiveSearchSourceItem,
-} from '@/entrypoints/content/logic/live-search-bookmark-controller';
+} from '@/entrypoints/content/logic/live-search-sources';
 
 const props = defineProps({
   item: {

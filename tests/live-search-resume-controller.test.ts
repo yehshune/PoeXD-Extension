@@ -3,7 +3,7 @@ import {
   createLiveSearchSourceController,
   type LiveSearchBookmarkSourcePort,
   type LiveSearchSourceController,
-} from '@/entrypoints/content/logic/live-search-bookmark-controller';
+} from '@/entrypoints/content/logic/live-search-sources';
 import {
   createLiveSearchResumeController,
   type LiveSearchResumeController,

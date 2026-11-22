@@ -10,7 +10,7 @@ import {
 import type {
   LiveSearchBatchOutcome,
   LiveSearchSourceGroup,
-} from '@/entrypoints/content/logic/live-search-bookmark-controller';
+} from '@/entrypoints/content/logic/live-search-sources';
 
 describe('LiveSearch Shared Presentation Helpers', () => {
   describe('projectResumableInspectItems', () => {

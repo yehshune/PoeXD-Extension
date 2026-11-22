@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildLiveSearchSourceSnapshot,
-  reconcileLiveSearchSourceOwnership,
   type BuildLiveSearchSnapshotInput,
-} from '@/entrypoints/content/logic/live-search-snapshot-builder';
+} from '@/entrypoints/content/logic/live-search-sources/snapshot-builder';
 import {
-  CUSTOM_SOURCE_GROUP_ID,
   PREVIOUS_SOURCE_ID_PREFIX,
   SESSION_SOURCE_ID_PREFIX,
-  type CustomSourceRecord,
   type SessionConnectionMeta,
-} from '@/entrypoints/content/logic/live-search-source-types';
+} from '@/entrypoints/content/logic/live-search-sources/types';
 import type { BookmarkCollectionView } from '@/utils/bookmark-coordinator';
 import type { LiveSearchSubscription } from '@/utils/live-search-contract';
 import type { LiveSearchResumeIdentity } from '@/utils/live-search-resume-store';
@@ -179,121 +176,6 @@ describe('live-search-snapshot-builder', () => {
       expect(previousConnectionsSignature).toBe(
         `${PREVIOUS_SOURCE_ID_PREFIX}poe1:standard:PrEv1234Ef`,
       );
-    });
-  });
-
-  describe('reconcileLiveSearchSourceOwnership', () => {
-    it('當書籤出現相同 canonical key 時將暫時搜尋提升為書籤，並回傳需補寫的 resume identities', () => {
-      const key = 'poe1:standard:PrOm1234Ef';
-      const customSources: CustomSourceRecord[] = [
-        {
-          id: 'custom_1',
-          name: 'Temp',
-          url: 'https://www.pathofexile.com/trade/search/Standard/PrOm1234Ef',
-          canonicalIdentity: { gameVersion: 'poe1', league: 'Standard', searchId: 'PrOm1234Ef' },
-          canonicalKey: key,
-          createdAt: 1,
-        },
-      ];
-      const sessionEntriesByKey = new Map<string, SessionConnectionMeta>([
-        [
-          key,
-          {
-            canonicalKey: key,
-            canonicalIdentity: { gameVersion: 'poe1', league: 'Standard', searchId: 'PrOm1234Ef' },
-            name: 'Temp',
-            url: 'https://www.pathofexile.com/trade/search/Standard/PrOm1234Ef',
-          },
-        ],
-      ]);
-      const activeSub = {
-        id: 'sub_1',
-        gameVersion: 'poe1',
-        league: 'Standard',
-        searchId: 'PrOm1234Ef',
-        name: 'Temp',
-        url: 'https://www.pathofexile.com/trade/search/Standard/PrOm1234Ef',
-        status: 'active',
-      } as Readonly<LiveSearchSubscription>;
-
-      const promoted = reconcileLiveSearchSourceOwnership({
-        currentCollection: {
-          groups: [],
-          bookmarks: [
-            {
-              id: 'b_promoted',
-              searchRecordId: 'sr_promoted',
-              gameVersion: 'poe1',
-              order: 0,
-              name: 'Saved Bookmark',
-              url: 'https://www.pathofexile.com/trade/search/Standard/PrOm1234Ef',
-              groupId: 'g1',
-              coverImageUrl: VALID_COVER,
-            },
-          ],
-        },
-        currentLiveSubscriptions: [activeSub],
-        customSources,
-        sessionEntriesByKey,
-        findActiveSubByCanonicalKey: (k) => (k === key ? activeSub : undefined),
-      });
-
-      expect(customSources).toHaveLength(0);
-      expect(promoted).toEqual([
-        { gameVersion: 'poe1', league: 'Standard', searchId: 'PrOm1234Ef' },
-      ]);
-      expect(sessionEntriesByKey.get(key)).toMatchObject({
-        name: 'Saved Bookmark',
-        sourceBookmarkId: 'b_promoted',
-        coverImageUrl: VALID_COVER,
-      });
-    });
-
-    it('當 active 書籤被刪除時建立 origin-bookmark-removed 暫時來源並清除過期 sourceBookmarkId', () => {
-      const key = 'poe1:standard:FaLl1234Ef';
-      const customSources: CustomSourceRecord[] = [];
-      const sessionEntriesByKey = new Map<string, SessionConnectionMeta>([
-        [
-          key,
-          {
-            canonicalKey: key,
-            canonicalIdentity: { gameVersion: 'poe1', league: 'Standard', searchId: 'FaLl1234Ef' },
-            name: 'Old Bookmark',
-            url: 'https://www.pathofexile.com/trade/search/Standard/FaLl1234Ef',
-            sourceBookmarkId: 'b_deleted',
-          },
-        ],
-      ]);
-      const activeSub = {
-        id: 'sub_fallback',
-        gameVersion: 'poe1',
-        league: 'Standard',
-        searchId: 'FaLl1234Ef',
-        name: 'Old Bookmark',
-        url: 'https://www.pathofexile.com/trade/search/Standard/FaLl1234Ef',
-        status: 'active',
-      } as Readonly<LiveSearchSubscription>;
-
-      reconcileLiveSearchSourceOwnership({
-        currentCollection: { groups: [], bookmarks: [] },
-        currentLiveSubscriptions: [activeSub],
-        customSources,
-        sessionEntriesByKey,
-        findActiveSubByCanonicalKey: (k) => (k === key ? activeSub : undefined),
-      });
-
-      expect(sessionEntriesByKey.get(key)?.sourceBookmarkId).toBeUndefined();
-      expect(customSources).toHaveLength(1);
-      expect(customSources[0]).toMatchObject({
-        id: 'custom_fallback_sub_fallback',
-        canonicalKey: key,
-        provenance: 'origin-bookmark-removed',
-      });
-      // 驗證此 fallback 來源投影到 snapshot 會落於 custom 群組
-      const { snapshot } = buildLiveSearchSourceSnapshot(
-        createBaseSnapshotInput({ customSources, currentLiveSubscriptions: [activeSub] }),
-      );
-      expect(snapshot.groups.map((g) => g.id)).toEqual([CUSTOM_SOURCE_GROUP_ID]);
     });
   });
 });

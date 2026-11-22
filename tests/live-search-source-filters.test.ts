@@ -12,7 +12,7 @@ import {
   getLiveSearchGroupSubtreeSourceIds,
   matchesLiveSearchSourceStatusFilter,
   sameLeague,
-} from '@/entrypoints/content/logic/live-search-source-filters';
+} from '@/entrypoints/content/logic/live-search-sources/source-filters';
 import {
   CUSTOM_SOURCE_GROUP_ID,
   CUSTOM_SOURCE_GROUP_NAME,
@@ -20,7 +20,7 @@ import {
   SESSION_SOURCE_ID_PREFIX,
   type LiveSearchSourceGroup,
   type LiveSearchSourceItem,
-} from '@/entrypoints/content/logic/live-search-source-types';
+} from '@/entrypoints/content/logic/live-search-sources/types';
 
 function makeItem(overrides: Partial<LiveSearchSourceItem> & { id: string }): LiveSearchSourceItem {
   return {

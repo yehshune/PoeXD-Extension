@@ -449,7 +449,7 @@ import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import { t } from '@/utils/i18n';
 import type { LiveSearchPrimaryController, TradePageRole } from '@/utils/live-search-contract';
-import type { LiveSearchBookmarkController } from '@/entrypoints/content/logic/live-search-bookmark-controller';
+import type { LiveSearchBookmarkController } from '@/entrypoints/content/logic/live-search-sources';
 import type { LiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
 import type { LiveSearchSoundNotifier } from '@/entrypoints/content/logic/live-search-sound-notifier';
 

@@ -9,7 +9,7 @@ import {
 } from '@/utils/storage-contracts';
 import type { PoeVersion } from '@/utils/trade-context';
 import type { LiveSearchPrimaryController, TradePageRole } from '@/utils/live-search-contract';
-import type { LiveSearchBookmarkController } from './live-search-bookmark-controller';
+import type { LiveSearchBookmarkController } from './live-search-sources';
 import type { LiveSearchResumeController } from './live-search-resume-controller';
 import type { LiveSearchSoundNotifier } from './live-search-sound-notifier';
 import { syncUiRuntimeTokens } from '@/lib/tokens';

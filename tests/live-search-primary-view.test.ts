@@ -17,7 +17,7 @@ import {
   type LiveSearchBookmarkSourcePort,
   type LiveSearchSourceController,
   type LiveSearchSourceSnapshot,
-} from '@/entrypoints/content/logic/live-search-bookmark-controller';
+} from '@/entrypoints/content/logic/live-search-sources';
 import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-search-primary-runtime';
 import { LiveSearchFetchRateGate } from '@/entrypoints/content/logic/live-search-fetch-rate-gate';
 import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search-open-scheduler';

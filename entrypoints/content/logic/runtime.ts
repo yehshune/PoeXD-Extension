@@ -47,7 +47,7 @@ import { createLiveSearchPrimaryController } from './live-search-primary-control
 import {
   createLiveSearchBookmarkController,
   type LiveSearchBookmarkController,
-} from './live-search-bookmark-controller';
+} from './live-search-sources';
 import {
   createLiveSearchPrimaryExitGuard,
   type LiveSearchPrimaryExitGuard,

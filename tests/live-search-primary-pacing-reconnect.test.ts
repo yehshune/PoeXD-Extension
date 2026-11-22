@@ -11,7 +11,7 @@ import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search
 import {
   createLiveSearchBookmarkController,
   type LiveSearchBookmarkSourcePort,
-} from '@/entrypoints/content/logic/live-search-bookmark-controller';
+} from '@/entrypoints/content/logic/live-search-sources';
 import type {
   EnsureContainerOptions,
   HostCommandOutcome,

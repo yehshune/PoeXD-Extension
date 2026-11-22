@@ -33,7 +33,7 @@ import {
   type LiveSearchSourceGroup,
   type LiveSearchSourceItem,
   type LiveSearchSourceSnapshot,
-} from '@/entrypoints/content/logic/live-search-bookmark-controller';
+} from '@/entrypoints/content/logic/live-search-sources';
 
 const props = defineProps({
   open: {

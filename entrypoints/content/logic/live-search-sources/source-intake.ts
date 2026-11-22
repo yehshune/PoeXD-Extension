@@ -15,24 +15,21 @@ import type {
   LiveSearchResumeIdentity,
   LiveSearchResumeStore,
 } from '@/utils/live-search-resume-store';
-import type { LiveSearchEnableSourceOptions } from './live-search-batch-executor';
-import { hasValidCover } from './live-search-connection-dedup';
+import { hasValidCover } from './connection-dedup';
+import type { LiveSearchConnectionRegistry } from './connection-registry';
+import type { LiveSearchEnableSourceOptions } from './source-activator';
 import {
   formatLiveSearchDisplayLeague,
   formatLiveSearchDisplayVersion,
   getBookmarkCanonicalKey,
   sameLeague,
-} from './live-search-source-filters';
-import type {
-  CustomSourceRecord,
-  LiveSearchBatchOutcome,
-  LiveSearchSourceRuntimePort,
-} from './live-search-source-types';
+} from './source-filters';
+import type { LiveSearchBatchOutcome, LiveSearchOperationContext } from './types';
 
 export interface LiveSearchSourceIntakeDeps {
-  runtime: LiveSearchSourceRuntimePort;
+  ops: LiveSearchOperationContext;
+  registry: LiveSearchConnectionRegistry;
   resumeStore: LiveSearchResumeStore | null;
-  customSources: CustomSourceRecord[];
   switchLeague: (targetLeague: string) => Promise<boolean>;
   enableSource: (
     sourceId: string,
@@ -54,7 +51,7 @@ export interface LiveSearchSourceIntake {
 export function createLiveSearchSourceIntake(
   deps: LiveSearchSourceIntakeDeps,
 ): LiveSearchSourceIntake {
-  const { runtime } = deps;
+  const { ops, registry, resumeStore } = deps;
   let enqueueIncomingChain: Promise<unknown> = Promise.resolve();
 
   function runEnqueueIncoming<T>(task: () => Promise<T>): Promise<T> {
@@ -67,23 +64,17 @@ export function createLiveSearchSourceIntake(
     url: string,
     options?: { name?: string; coverImageUrl?: string },
   ): Promise<AddSubscriptionOutcome> {
-    if (runtime.isDisposed()) {
+    if (ops.isDisposed()) {
       return { success: false, error: t('liveSearch.error.controllerDisposed') };
     }
 
-    if (!runtime.isLeagueResolved()) {
-      await runtime.ensureStartupResolved();
-    }
+    const ready = ops.ensureReady();
+    if (ready) await ready;
 
-    if (runtime.hasSource && runtime.isReloadPending()) {
-      await runtime.waitForReconciliationDrain();
-    }
-
-    if (runtime.isDisposed()) {
+    if (ops.isDisposed()) {
       return { success: false, error: t('liveSearch.error.controllerDisposed') };
     }
-
-    if (runtime.isSwitchingLeague()) {
+    if (ops.isSwitchingLeague()) {
       return { success: false, error: t('liveSearch.error.switchingLeague') };
     }
 
@@ -94,13 +85,10 @@ export function createLiveSearchSourceIntake(
     const cleanUrl = stripLiveSuffix(url.trim());
     const parsed = parseTradeSearchUrl(cleanUrl);
     if (!parsed) {
-      return {
-        success: false,
-        error: t('liveSearch.error.invalidUrlFormat'),
-      };
+      return { success: false, error: t('liveSearch.error.invalidUrlFormat') };
     }
 
-    const currentGameVersion = runtime.getGameVersion();
+    const currentGameVersion = ops.getGameVersion();
     if (parsed.gameVersion !== currentGameVersion) {
       return {
         success: false,
@@ -111,7 +99,7 @@ export function createLiveSearchSourceIntake(
       };
     }
 
-    const selectedLeague = runtime.getRawSelectedLeague();
+    const selectedLeague = ops.getSelectedLeague();
     if (!sameLeague(parsed.league, selectedLeague)) {
       return {
         success: false,
@@ -127,7 +115,7 @@ export function createLiveSearchSourceIntake(
     let incomingCover = hasValidCover(options?.coverImageUrl) ? options?.coverImageUrl : undefined;
 
     // 相同搜尋條件只能有一筆：須在登記本次連線之前決定沿用哪一筆
-    const redirect = await runtime.resolveCriteriaRedirect(parsed, canonicalKey, incomingCover);
+    const redirect = await ops.resolveCriteriaRedirect(parsed, canonicalKey, incomingCover);
     if (redirect?.kind === 'error') return { success: false, error: redirect.error };
     if (redirect?.kind === 'source') {
       return deps.enableSource(redirect.sourceId, { skipCriteriaRedirect: true });
@@ -139,52 +127,30 @@ export function createLiveSearchSourceIntake(
     // 未提供名稱時以搜尋代碼（search ID）命名，確保可辨識、可搜尋、可篩選結果
     const displayName = trimmedName || parsed.searchId;
 
-    const currentCollection = runtime.getCurrentCollection();
+    const currentCollection = ops.getCurrentCollection();
     const existingBookmark = currentCollection?.bookmarks.find(
       (b) => getBookmarkCanonicalKey(b) === canonicalKey,
     );
 
     if (existingBookmark) {
-      const existingCustomIdx = deps.customSources.findIndex(
-        (c) => c.canonicalKey === canonicalKey,
-      );
-      if (existingCustomIdx !== -1) {
-        deps.customSources.splice(existingCustomIdx, 1);
-      }
-
-      if (runtime.findActiveSubByCanonicalKey(canonicalKey)) {
+      registry.removeCustomByCanonicalKey(canonicalKey);
+      if (ops.findActiveSubByCanonicalKey(canonicalKey)) {
         return { success: false, error: t('liveSearch.error.alreadyActive') };
       }
-
       return await deps.enableSource(existingBookmark.id);
     }
 
-    let customRecord = deps.customSources.find((c) => c.canonicalKey === canonicalKey);
-    const validCover = incomingCover;
+    const customRecord = registry.upsertCustomSource({
+      canonicalKey,
+      canonicalIdentity: parsed,
+      name: displayName,
+      url: cleanUrl,
+      coverImageUrl: incomingCover,
+      preserveExistingName: !trimmedName,
+      clearProvenance: true,
+    });
 
-    if (customRecord) {
-      customRecord.url = cleanUrl;
-      if (trimmedName || !customRecord.name) {
-        customRecord.name = displayName;
-      }
-      if (validCover) {
-        customRecord.coverImageUrl = validCover;
-      }
-      customRecord.provenance = undefined;
-    } else {
-      customRecord = {
-        id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-        name: displayName,
-        url: cleanUrl,
-        canonicalIdentity: { ...parsed },
-        canonicalKey,
-        createdAt: Date.now(),
-        coverImageUrl: validCover,
-      };
-      deps.customSources.push(customRecord);
-    }
-
-    runtime.registerSessionEntry({
+    registry.registerSessionEntry({
       canonicalKey,
       canonicalIdentity: parsed,
       name: customRecord.name || t('liveSearch.defaultSearchNameWithId', { id: parsed.searchId }),
@@ -192,7 +158,7 @@ export function createLiveSearchSourceIntake(
       coverImageUrl: customRecord.coverImageUrl,
     });
 
-    runtime.notify();
+    ops.notify();
     return await deps.enableSource(customRecord.id, { skipCriteriaRedirect: true });
   }
 
@@ -200,19 +166,14 @@ export function createLiveSearchSourceIntake(
     items: readonly LiveSearchEnqueueItem[],
   ): Promise<LiveSearchEnqueueResponse> {
     return runEnqueueIncoming(async () => {
-      if (runtime.isDisposed()) {
+      if (ops.isDisposed()) {
         return { success: false, error: t('liveSearch.console.closed'), rejectReason: 'failed' };
       }
 
-      if (!runtime.isLeagueResolved()) {
-        await runtime.ensureStartupResolved();
-      }
+      const ready = ops.ensureReady();
+    if (ready) await ready;
 
-      if (runtime.hasSource && runtime.isReloadPending()) {
-        await runtime.waitForReconciliationDrain();
-      }
-
-      if (runtime.isDisposed()) {
+      if (ops.isDisposed()) {
         return { success: false, error: t('liveSearch.console.closed'), rejectReason: 'failed' };
       }
 
@@ -230,21 +191,14 @@ export function createLiveSearchSourceIntake(
         if (!item || typeof item.url !== 'string' || !item.url.trim()) continue;
         const cleanUrl = stripLiveSuffix(item.url.trim());
         const parsed = parseTradeSearchUrl(cleanUrl);
-        if (!parsed || isLegacyTradeSearchUrl(cleanUrl)) {
-          continue;
-        }
+        if (!parsed || isLegacyTradeSearchUrl(cleanUrl)) continue;
         const canonicalKey = getTradeSearchCanonicalKey(parsed);
         if (seenIncomingKeys.has(canonicalKey)) {
           duplicateIncomingSkipped++;
           continue;
         }
         seenIncomingKeys.add(canonicalKey);
-        parsedCandidates.push({
-          item,
-          cleanUrl,
-          parsed,
-          canonicalKey,
-        });
+        parsedCandidates.push({ item, cleanUrl, parsed, canonicalKey });
       }
 
       if (parsedCandidates.length === 0) {
@@ -255,7 +209,7 @@ export function createLiveSearchSourceIntake(
         };
       }
 
-      const currentGameVersion = runtime.getGameVersion();
+      const currentGameVersion = ops.getGameVersion();
       const wrongVersionItem = parsedCandidates.find(
         (c) => c.parsed.gameVersion !== currentGameVersion,
       );
@@ -290,7 +244,7 @@ export function createLiveSearchSourceIntake(
       }
 
       const incomingLeague = parsedCandidates[0].parsed.league.trim();
-      const primaryContext = runtime.getPrimaryContext();
+      const primaryContext = ops.getPrimaryContext();
 
       if (
         primaryContext.runtimeLeague &&
@@ -308,7 +262,7 @@ export function createLiveSearchSourceIntake(
 
       if (
         !primaryContext.runtimeLeague &&
-        !sameLeague(runtime.getRawSelectedLeague(), incomingLeague)
+        !sameLeague(ops.getSelectedLeague(), incomingLeague)
       ) {
         const switched = await deps.switchLeague(incomingLeague);
         if (!switched) {
@@ -327,7 +281,7 @@ export function createLiveSearchSourceIntake(
 
       for (const candidate of parsedCandidates) {
         // 迴圈內會 await 條件解析，書籤集合可能在期間重新載入，每輪都要讀最新集合
-        const currentCollection = runtime.getCurrentCollection();
+        const currentCollection = ops.getCurrentCollection();
         const existingBookmark =
           (candidate.item.sourceBookmarkId
             ? currentCollection?.bookmarks.find(
@@ -351,7 +305,7 @@ export function createLiveSearchSourceIntake(
           t('liveSearch.defaultSearchNameWithId', { id: candidate.parsed.searchId });
 
         // 相同搜尋條件只能有一筆：已在本次連線者沿用既有項目；與上次連線相同者有圖片優先
-        const redirect = await runtime.resolveCriteriaRedirect(
+        const redirect = await ops.resolveCriteriaRedirect(
           candidate.parsed,
           candidate.canonicalKey,
           validCover,
@@ -374,7 +328,7 @@ export function createLiveSearchSourceIntake(
         }
 
         if (existingBookmark) {
-          runtime.registerSessionEntry({
+          registry.registerSessionEntry({
             canonicalKey: candidate.canonicalKey,
             canonicalIdentity: candidate.parsed,
             name: existingBookmark.name,
@@ -389,26 +343,14 @@ export function createLiveSearchSourceIntake(
             searchId: candidate.parsed.searchId,
           });
         } else {
-          let customRecord = deps.customSources.find(
-            (c) => c.canonicalKey === candidate.canonicalKey,
-          );
-          if (!customRecord) {
-            customRecord = {
-              id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-              name: resolvedName,
-              url: candidate.cleanUrl,
-              canonicalIdentity: { ...candidate.parsed },
-              canonicalKey: candidate.canonicalKey,
-              createdAt: Date.now(),
-              coverImageUrl: validCover,
-            };
-            deps.customSources.push(customRecord);
-          } else {
-            customRecord.url = candidate.cleanUrl;
-            if (resolvedName) customRecord.name = resolvedName;
-            if (validCover) customRecord.coverImageUrl = validCover;
-          }
-          runtime.registerSessionEntry({
+          const customRecord = registry.upsertCustomSource({
+            canonicalKey: candidate.canonicalKey,
+            canonicalIdentity: candidate.parsed,
+            name: resolvedName,
+            url: candidate.cleanUrl,
+            coverImageUrl: validCover,
+          });
+          registry.registerSessionEntry({
             canonicalKey: candidate.canonicalKey,
             canonicalIdentity: candidate.parsed,
             name: resolvedName,
@@ -427,10 +369,10 @@ export function createLiveSearchSourceIntake(
         }
       }
 
-      runtime.notify();
+      ops.notify();
       const batchOutcome = await deps.enableManySources(sourceIdsToEnable);
-      if (deps.resumeStore && batchOutcome.succeeded > 0 && resumeEntriesToPersist.length > 0) {
-        await deps.resumeStore.addIdentities(resumeEntriesToPersist);
+      if (resumeStore && batchOutcome.succeeded > 0 && resumeEntriesToPersist.length > 0) {
+        await resumeStore.addIdentities(resumeEntriesToPersist);
       }
 
       return {

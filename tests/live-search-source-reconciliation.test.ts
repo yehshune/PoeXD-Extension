@@ -9,7 +9,7 @@ import {
   TEMPORARY_SOURCE_GROUP_NAME,
   type LiveSearchBookmarkSourcePort,
   type LiveSearchSourceController,
-} from '@/entrypoints/content/logic/live-search-bookmark-controller';
+} from '@/entrypoints/content/logic/live-search-sources';
 import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
 import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-search-primary-runtime';
 import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search-open-scheduler';

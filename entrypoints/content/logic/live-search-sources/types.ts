@@ -13,7 +13,7 @@ import type { LiveSearchResumeStore } from '@/utils/live-search-resume-store';
 import type { TradeLeague } from '@/utils/trade-leagues';
 import type { PreferencesModule } from '@/utils/preferences';
 import type { TradeSearchCriteriaKeyResolver } from '@/utils/trade-search-criteria-key';
-import type { DedupEntry } from './live-search-connection-dedup';
+import type { DedupEntry } from './connection-dedup';
 
 export interface LiveSearchSourceControllerOptions {
   resumeStore?: LiveSearchResumeStore | null;
@@ -246,7 +246,7 @@ export type CriteriaRedirect =
   | { kind: 'adopt-meta'; entry: DedupEntry };
 
 /**
- * Controller 核心狀態與通知 Port，供 league-manager 等基礎子模組共用
+ * Controller 核心狀態與通知 Port，供 league-manager 共用
  */
 export interface LiveSearchControllerBasePort {
   readonly hasSource: boolean;
@@ -259,19 +259,26 @@ export interface LiveSearchControllerBasePort {
 }
 
 /**
- * Controller 完整執行期 Port，供 batch-executor 與 source-intake 共用
+ * 內部操作協作上下文（供 activator / batch-executor / source-intake 共用）
+ * 僅提供生命週期守衛、聯盟世代與通知，不暴露任何裸露可變集合
  */
-export interface LiveSearchSourceRuntimePort extends LiveSearchControllerBasePort {
-  isLeagueResolved(): boolean;
+export interface LiveSearchOperationContext {
+  isDisposed(): boolean;
   isSwitchingLeague(): boolean;
-  getRawSelectedLeague(): string;
-  ensureStartupResolved(): Promise<void>;
+  ensureReady(): Promise<void> | undefined;
+  waitForReloadDrain(): Promise<void> | undefined;
+  getGameVersion(): PoeVersion;
+  getSelectedLeague(): string;
+  getTransitionGeneration(): number;
   getPrimaryContext(): LiveSearchPrimaryContext;
+  getCurrentCollection(): BookmarkCollectionView | null;
+  getCurrentLiveSubscriptions(): readonly Readonly<LiveSearchSubscription>[];
   findActiveSubByCanonicalKey(canonicalKey: string): Readonly<LiveSearchSubscription> | undefined;
+  resolveSubscriptionId(sourceOrSubscriptionId: string): string | undefined;
   resolveCriteriaRedirect(
     identity: ParsedTradeSearchIdentity,
     canonicalKey: string,
     incomingCover: string | undefined,
   ): Promise<CriteriaRedirect | null>;
-  registerSessionEntry(meta: SessionConnectionMeta): void;
+  notify(): void;
 }

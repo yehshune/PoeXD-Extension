@@ -7,8 +7,8 @@ import type {
 } from '@/utils/live-search-resume-store';
 import { fetchTradeLeagues, type TradeLeague } from '@/utils/trade-leagues';
 import type { PreferencesModule } from '@/utils/preferences';
-import { sameLeague } from './live-search-source-filters';
-import type { CustomSourceRecord, LiveSearchControllerBasePort } from './live-search-source-types';
+import { sameLeague } from './source-filters';
+import type { CustomSourceRecord, LiveSearchControllerBasePort } from './types';
 
 export interface LiveSearchLeagueManagerDeps {
   runtime: LiveSearchControllerBasePort;

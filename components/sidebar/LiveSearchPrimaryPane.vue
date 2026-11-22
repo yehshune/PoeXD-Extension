@@ -374,7 +374,7 @@ import {
   type LiveSearchSourceItem,
   type LiveSearchSourceSnapshot,
   type LiveSearchSourceStatusFilter,
-} from '@/entrypoints/content/logic/live-search-bookmark-controller';
+} from '@/entrypoints/content/logic/live-search-sources';
 import type {
   LiveSearchResumeController,
   LiveSearchResumeSnapshot,
