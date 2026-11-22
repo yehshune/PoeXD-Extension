@@ -22,6 +22,7 @@ import {
 } from './search-query-observation';
 import { createSearchRecordCaptureAdapter } from './search-record-capture';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
+import { t } from '@/utils/i18n';
 
 export interface SearchObservationSessionDependencies {
   version: PoeVersion;
@@ -247,7 +248,7 @@ class SearchObservationSession {
     const observation = {
       gameVersion: this.dependencies.version,
       url,
-      name: this.getSearchName() || '未命名搜尋',
+      name: this.getSearchName() || t('injectedControls.unnamedSearch'),
       icon,
     };
 
