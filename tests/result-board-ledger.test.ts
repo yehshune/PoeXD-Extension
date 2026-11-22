@@ -5,7 +5,7 @@ import {
   createLedger,
   ledgerForSearch,
   skipInLedger,
-} from '@/utils/result-board/board-ledger';
+} from '@/utils/result-board/board-session';
 import { rawResult } from './helpers/result-board-fixtures';
 
 describe('toBoardEntry', () => {

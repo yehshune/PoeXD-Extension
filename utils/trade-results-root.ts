@@ -24,3 +24,20 @@ export function removeTradeResultStyle(styleId: string): void {
   if (typeof document === 'undefined' || hasPageGuideMock()) return;
   document.getElementById(styleId)?.remove();
 }
+
+export interface OfficialRowCurrency {
+  icon?: string;
+  name?: string;
+}
+
+/** 從官方結果列讀取價格旁的通貨圖示網址與顯示名稱（呼叫端依需求自行驗證 CDN 網址） */
+export function readOfficialRowCurrency(row: Element): OfficialRowCurrency | undefined {
+  const img = row.querySelector<HTMLImageElement>('.price .currency-image img');
+  if (!img) return undefined;
+  const icon = img.getAttribute('src') ?? img.src ?? undefined;
+  const name =
+    img.closest('.currency-image')?.querySelector(':scope > span')?.textContent?.trim() ||
+    img.getAttribute('title') ||
+    undefined;
+  return { ...(icon ? { icon } : {}), ...(name ? { name } : {}) };
+}

@@ -3,8 +3,8 @@
  * 每件物品的暫時狀態（已售出、被搶先）只存在這個 pane 的記憶體。
  */
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue';
+import { useCurrencyRates } from '@/components/sidebar/composables/useCurrencyRates';
 import { ResultPobCopy } from '@/entrypoints/content/logic/result-pob-copy';
-import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-price-presenter';
 import { LiveSearchFetchRateGate } from '@/entrypoints/content/logic/live-search-fetch-rate-gate';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { getActiveUiLocale, t, type I18nKey } from '@/utils/i18n';
@@ -23,10 +23,7 @@ import {
   type PinnedItemSnapshot,
 } from '@/utils/pinned-items';
 import { isPobExportableItem } from '@/utils/pob-item-text';
-import { getPreferences } from '@/utils/preferences';
-import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
-import { isPriceConversionSupported } from '@/utils/trade-realms';
 import { getTradeResultCache } from '@/utils/trade-result-cache';
 
 export type PinnedItemTransientState =
@@ -62,37 +59,18 @@ export function usePinnedItems() {
   const items = shallowRef<PinnedItemSnapshot[]>([]);
   const showAllLeagues = ref(false);
   const states = ref<Record<string, PinnedItemTransientState>>({});
-  const loadedCurrencyRates = shallowRef<CurrencyRateSnapshot | undefined>(undefined);
-  const enablePriceComparison = ref(true);
-  const currencyRates = computed(() =>
-    enablePriceComparison.value ? loadedCurrencyRates.value : undefined,
-  );
   const currentLeague = getTradeLeague();
   const currentOrigin = window.location.origin;
+  const {
+    enablePriceComparison,
+    rates: currencyRates,
+    ensureRates: ensureCurrencyRates,
+  } = useCurrencyRates({
+    version,
+    resolveLeague: () => currentLeague,
+  });
   let pobCopy: ResultPobCopy | undefined;
   let unsubscribe: (() => void) | undefined;
-  let unsubscribePrefs: (() => void) | undefined;
-  let disposed = false;
-  let ratesLoading = false;
-
-  async function ensureCurrencyRates() {
-    if (
-      !enablePriceComparison.value ||
-      loadedCurrencyRates.value ||
-      ratesLoading ||
-      !currentLeague ||
-      !isPriceConversionSupported()
-    ) {
-      return;
-    }
-    ratesLoading = true;
-    try {
-      const rates = await fetchCurrencyRates(version, currentLeague);
-      if (!disposed && rates) loadedCurrencyRates.value = rates;
-    } finally {
-      ratesLoading = false;
-    }
-  }
 
   const visibleItems = computed(() =>
     showAllLeagues.value || !currentLeague
@@ -136,24 +114,9 @@ export function usePinnedItems() {
         reconcileSoldStates(next);
       })
       .catch((error: unknown) => console.warn('[PoeXD] 讀取釘選清單失敗:', error));
-    void getPreferences(version).then((outcome) => {
-      if (disposed) return;
-      if (!outcome.ok) {
-        void ensureCurrencyRates();
-        return;
-      }
-      unsubscribePrefs = outcome.value.subscribe((snapshot) => {
-        enablePriceComparison.value = snapshot.enablePriceComparison;
-        if (snapshot.enablePriceComparison) {
-          void ensureCurrencyRates();
-        }
-      });
-    });
   });
   onUnmounted(() => {
-    disposed = true;
     unsubscribe?.();
-    unsubscribePrefs?.();
   });
 
   const sameRealm = (item: PinnedItemSnapshot) => isSameRealm(item, currentOrigin);

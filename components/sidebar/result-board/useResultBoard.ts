@@ -4,24 +4,18 @@
  */
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
 import {
-  findOfficialRow,
   getResultBoardRuntime,
   OFFICIAL_RESULT_CAP,
   type ResultBoardRuntime,
   type TravelOutcome,
 } from '@/entrypoints/content/logic/result-board-runtime';
-import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-price-presenter';
+import { useCurrencyRates } from '@/components/sidebar/composables/useCurrencyRates';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t, type I18nKey } from '@/utils/i18n';
-import { resolvePageLocale } from '@/utils/locale-resolution';
-import { capturePinnedCardDom } from '@/utils/pinned-card-dom';
 import { createPinnedItemClient } from '@/utils/pinned-item-client';
-import { createPinnedItemSnapshot, type PinnedItemSnapshot } from '@/utils/pinned-items';
-import { getPreferences } from '@/utils/preferences';
-import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
+import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
-import { sumPrices, type PriceTotal } from '@/utils/result-board/board-price';
-import { summarizePrices } from '@/utils/result-board/board-price-summary';
+import { sumPrices, summarizePrices, type PriceTotal } from '@/utils/result-board/board-price';
 import {
   availableSortModes,
   filterEntries,
@@ -41,7 +35,6 @@ import {
 } from '@/utils/result-board/stash-regex';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
 import { getTradePageMode } from '@/utils/trade-page-mode';
-import { isPriceConversionSupported } from '@/utils/trade-realms';
 import { getTradeResultCache } from '@/utils/trade-result-cache';
 
 export type BoardView = 'items' | 'sellers';
@@ -63,9 +56,6 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const version = getPoeVersion();
   const state = shallowRef(runtime.session.getState());
   const loaderState = shallowRef(runtime.loader.getState());
-  const loadedRates = shallowRef<CurrencyRateSnapshot | undefined>(undefined);
-  const enablePriceComparison = ref(true);
-  const rates = computed(() => (enablePriceComparison.value ? loadedRates.value : undefined));
   const isLiveMode = ref(getTradePageMode() === 'live');
 
   const view = ref<BoardView>('items');
@@ -87,10 +77,6 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const travelTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   let disposed = false;
-  let ratesLoading = false;
-  let loadedRatesLeague: string | undefined;
-  let loadingRatesLeague: string | undefined;
-  let ratesRequestId = 0;
   const cleanups: (() => void)[] = [];
 
   /** 新頁面（`/trade`）掛載時網址尚無聯盟，搜尋後才透過 SPA 路由補上，每次使用時動態讀取 */
@@ -106,38 +92,10 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     return undefined;
   }
 
-  async function ensureRates() {
-    const currentLeague = resolveLeague();
-    if (!enablePriceComparison.value || !currentLeague || !isPriceConversionSupported()) {
-      return;
-    }
-    if (loadedRates.value && loadedRatesLeague === currentLeague) return;
-    if (ratesLoading && loadingRatesLeague === currentLeague) return;
-    if (loadedRatesLeague && loadedRatesLeague !== currentLeague) {
-      loadedRates.value = undefined;
-      loadedRatesLeague = undefined;
-    }
-    const requestId = ++ratesRequestId;
-    ratesLoading = true;
-    loadingRatesLeague = currentLeague;
-    try {
-      const loaded = await fetchCurrencyRates(version, currentLeague);
-      if (
-        !disposed &&
-        requestId === ratesRequestId &&
-        loaded &&
-        resolveLeague() === currentLeague
-      ) {
-        loadedRates.value = loaded;
-        loadedRatesLeague = currentLeague;
-      }
-    } finally {
-      if (requestId === ratesRequestId) {
-        ratesLoading = false;
-        loadingRatesLeague = undefined;
-      }
-    }
-  }
+  const { enablePriceComparison, rates, ensureRates } = useCurrencyRates({
+    version,
+    resolveLeague,
+  });
 
   const entries = computed(() => state.value.ledger.entries);
   const hasMixedInstantBuyout = computed(() => {
@@ -313,26 +271,11 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   /** 展開時的卡片快取：同一次搜尋內每個 id 只擷取一次 DOM，避免大筆數展開時重複重建 shadow root */
   const snapshotCache = new Map<string, PinnedItemSnapshot>();
 
-  /** 展開時的卡片：用官方結果列擷取的卡片與快取裡的物品資料（與釘選相同的渲染） */
+  /** 展開時的卡片：交由 runtime 擷取官方結果列卡片與快取資料（與釘選相同的渲染） */
   function cardSnapshot(id: string): PinnedItemSnapshot | undefined {
     const cached = snapshotCache.get(id);
     if (cached) return cached;
-    const entry = getTradeResultCache().get(id);
-    const currentLeague = resolveLeague(entry?.league);
-    if (!entry || !currentLeague) return undefined;
-    const row = findOfficialRow(id);
-    const snapshot = createPinnedItemSnapshot(
-      entry,
-      {
-        gameVersion: version,
-        origin: window.location.origin,
-        league: currentLeague,
-        sourceSearchId: entry.sourceSearchId,
-        locale: resolvePageLocale(),
-        card: row ? capturePinnedCardDom(row) : undefined,
-      },
-      Date.now(),
-    );
+    const snapshot = runtime.captureCardSnapshot(id, version, resolveLeague);
     if (snapshot) snapshotCache.set(id, snapshot);
     return snapshot;
   }
@@ -446,21 +389,6 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
         })
         .catch(() => {});
     }
-    void getPreferences(version).then((outcome) => {
-      if (disposed) return;
-      if (!outcome.ok) {
-        void ensureRates();
-        return;
-      }
-      cleanups.push(
-        outcome.value.subscribe((snapshot) => {
-          enablePriceComparison.value = snapshot.enablePriceComparison;
-          if (snapshot.enablePriceComparison) {
-            void ensureRates();
-          }
-        }),
-      );
-    });
   });
 
   onUnmounted(() => {
@@ -518,12 +446,12 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     travel,
     travelSeller,
     pin,
-    hideSeller: (account: string) => runtime.session.hideSeller(account),
-    showAllSellers: () => runtime.session.showAllSellers(),
-    loadNext: () => void runtime.loader.loadNext(),
-    loadBatches: (batches: number) => void runtime.loader.loadBatches(batches),
-    loadAll: () => void runtime.loader.loadAll(),
-    stopLoading: () => runtime.loader.stop(),
+    hideSeller: (account: string) => runtime.hideSeller(account),
+    showAllSellers: () => runtime.showAllSellers(),
+    loadNext: () => runtime.loadNext(),
+    loadBatches: (batches: number) => runtime.loadBatches(batches),
+    loadAll: () => runtime.loadAll(),
+    stopLoading: () => runtime.stopLoading(),
     // 不知道官方總數時一律可以按，由載入流程回報「找不到按鈕」；
     // 依賴看板與載入狀態，讓結果或載入改變時重新判斷
     canLoadMore: computed(() => {

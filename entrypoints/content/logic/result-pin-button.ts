@@ -7,6 +7,7 @@ import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { capturePinnedCardDom } from '@/utils/pinned-card-dom';
+import { readOfficialRowCurrency } from '@/utils/trade-results-root';
 import type { PinnedItemClient } from '@/utils/pinned-item-client';
 import { createPinnedItemSnapshot, PINNED_ITEM_LIMIT } from '@/utils/pinned-items';
 import { createSvgIcon, type SvgIconSpec } from '@/utils/safe-dom';
@@ -114,13 +115,8 @@ export function readRowCurrency(
   resultId: string,
   doc: Document = document,
 ): { icon?: string; name?: string } | undefined {
-  const img = findRow(resultId, doc)?.querySelector<HTMLImageElement>('.price .currency-image img');
-  if (!img) return undefined;
-  const name =
-    img.closest('.currency-image')?.querySelector(':scope > span')?.textContent?.trim() ||
-    img.getAttribute('title') ||
-    undefined;
-  return { icon: img.src, ...(name ? { name } : {}) };
+  const row = findRow(resultId, doc);
+  return row ? readOfficialRowCurrency(row) : undefined;
 }
 
 const defaultDeps: ResultPinButtonDeps = {

@@ -315,24 +315,24 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expandToggleBtn.click();
     await flush();
     expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelectorAll('[data-board-entry-card-missing]')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-board-entry-card]')).toHaveLength(2);
 
     // Click when expanded -> collapses all items
     expandToggleBtn.click();
     await flush();
     expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('false');
-    expect(container.querySelectorAll('[data-board-entry-card-missing]')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-board-entry-card]')).toHaveLength(0);
 
     // Expand one item -> clicking toggles back to collapse all
     container.querySelector<HTMLElement>('[data-board-entry-toggle]')!.click();
     await flush();
     expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelectorAll('[data-board-entry-card-missing]')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-board-entry-card]')).toHaveLength(1);
 
     expandToggleBtn.click();
     await flush();
     expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('false');
-    expect(container.querySelectorAll('[data-board-entry-card-missing]')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-board-entry-card]')).toHaveLength(0);
 
     // Enter min price -> clear button appears and resets filter
     expect(container.querySelector('[data-board-price-clear]')).toBeNull();

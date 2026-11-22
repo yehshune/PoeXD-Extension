@@ -11,6 +11,9 @@
  */
 import { dispatchPoeEvent, listenPoeEvent, parsePoeFetchResponse } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
+import { resolvePageLocale } from '@/utils/locale-resolution';
+import { capturePinnedCardDom } from '@/utils/pinned-card-dom';
+import { createPinnedItemSnapshot, type PinnedItemSnapshot } from '@/utils/pinned-items';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import {
   parseFetchFailure,
@@ -26,7 +29,9 @@ import {
   type BoardState,
   type CurrencyDisplay,
 } from '@/utils/result-board/board-session';
+import type { PoeVersion } from '@/utils/trade-context';
 import { getTradeResultCache, type TradeResultCache } from '@/utils/trade-result-cache';
+import { readOfficialRowCurrency } from '@/utils/trade-results-root';
 
 /** 官方一次 search 最多回傳的結果 id 數 */
 export const OFFICIAL_RESULT_CAP = 100;
@@ -148,14 +153,9 @@ export function findOfficialRow(id: string, doc: Document = document): HTMLEleme
 
 /** 官方結果列上的通貨圖示與名稱；網址不是 PoE CDN 時不採用 */
 export function readRowCurrency(row: Element): CurrencyDisplay | undefined {
-  const img = row.querySelector<HTMLImageElement>('.price .currency-image img');
-  const icon = img?.getAttribute('src') ?? undefined;
-  if (!img || !isValidPoeCdnImageUrl(icon)) return undefined;
-  const name =
-    img.closest('.currency-image')?.querySelector(':scope > span')?.textContent?.trim() ||
-    img.getAttribute('title') ||
-    undefined;
-  return { icon, ...(name ? { name: name.slice(0, 64) } : {}) };
+  const raw = readOfficialRowCurrency(row);
+  if (!raw?.icon || !isValidPoeCdnImageUrl(raw.icon)) return undefined;
+  return { icon: raw.icon, ...(raw.name ? { name: raw.name.slice(0, 64) } : {}) };
 }
 
 const isUsable = (button: HTMLElement | null | undefined): button is HTMLElement =>
@@ -320,6 +320,54 @@ export class ResultBoardRuntime {
     });
     rowTotal.appendChild(button);
     syncShortcutLayout(button, rowTotal);
+  }
+
+  hideSeller(account: string): void {
+    this.session.hideSeller(account);
+  }
+
+  showAllSellers(): void {
+    this.session.showAllSellers();
+  }
+
+  loadNext(): void {
+    void this.loader.loadNext();
+  }
+
+  loadBatches(batches: number): void {
+    void this.loader.loadBatches(batches);
+  }
+
+  loadAll(): void {
+    void this.loader.loadAll();
+  }
+
+  stopLoading(): void {
+    this.loader.stop();
+  }
+
+  /** 擷取展開檢視用的官方卡片快照（封裝官方 DOM 與快取讀取，避免 UI 直接跨 seam 擷取） */
+  captureCardSnapshot(
+    id: string,
+    version: PoeVersion,
+    resolveLeague: (entryLeague?: string) => string | undefined,
+  ): PinnedItemSnapshot | undefined {
+    const entry = this.cache.get(id);
+    const league = resolveLeague(entry?.league);
+    if (!entry || !league) return undefined;
+    const row = findOfficialRow(id, this.doc);
+    return createPinnedItemSnapshot(
+      entry,
+      {
+        gameVersion: version,
+        origin: window.location.origin,
+        league,
+        sourceSearchId: entry.sourceSearchId,
+        locale: resolvePageLocale(),
+        card: row ? capturePinnedCardDom(row) : undefined,
+      },
+      this.now(),
+    );
   }
 
   cleanup(): void {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toBoardEntry, type BoardEntry } from '@/utils/result-board/board-entry';
-import { summarizePrices } from '@/utils/result-board/board-price-summary';
+import { summarizePrices } from '@/utils/result-board/board-price';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import { rawResult, type RawResultOptions } from './helpers/result-board-fixtures';
 
