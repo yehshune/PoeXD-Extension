@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { chromium, test as base, type BrowserContext, type Worker } from '@playwright/test';
+import { startLiveSocketServer, type LiveSocketServer } from './live-socket-server.ts';
+
+export type { LiveSocket } from './live-socket-server.ts';
 
 /**
  * 離線 E2E：載入 `.output/chrome-mv3` 的建置，官方網站與所有外部請求都由本檔回放或擋下。
@@ -52,6 +55,15 @@ export const POE_NINJA_OVERVIEW = {
   ],
 };
 
+/** 官方 `/api/trade/data/leagues` 的合成回應；擴充功能只讀 id、text 與 realm */
+export const TRADE_LEAGUES = {
+  result: [
+    { id: 'Standard', realm: 'pc', text: 'Standard' },
+    { id: 'Hardcore', realm: 'pc', text: 'Hardcore' },
+    { id: 'Standard', realm: 'poe2', text: 'Standard' },
+  ],
+};
+
 /** 測試期間被擋下的外部請求，讓測試能確認沒有漏網的真實連線 */
 export interface NetworkLog {
   blocked: string[];
@@ -89,8 +101,11 @@ function replay(
   }
   if (!url.hostname.endsWith('pathofexile.com')) return null;
   const path = url.pathname;
+  // Trade root 是線上搜尋主控台開啟的頁面，替身頁在這裡只掛官方 store、不自動搜尋
+  if (/^\/trade\/?$/.test(path)) return { html: fixture('trade1-search.html') };
   if (path.startsWith('/trade2/search/')) return { html: fixture('trade2-search.html') };
   if (path.startsWith('/trade/search/')) return { html: fixture('trade1-search.html') };
+  if (/^\/api\/trade2?\/data\/leagues$/.test(path)) return { json: TRADE_LEAGUES };
   if (method === 'POST' && path.startsWith('/api/trade/search/')) {
     const id = headers['x-e2e-search-id'] || TRADE1_SEARCH_ID;
     const ids = searchResultIds(id);
@@ -154,6 +169,8 @@ export interface OfflineOptions {
 
 export interface OfflineFixtures {
   network: NetworkLog;
+  /** 官方即時搜尋 WebSocket 的本機替身 */
+  liveSockets: Pick<LiveSocketServer, 'waitFor'>;
   /** 頁面上未捕捉的例外與 console.error，測試結束時應為空 */
   pageErrors: string[];
   serviceWorker: Worker;
@@ -164,11 +181,31 @@ export const test = base.extend<OfflineOptions & OfflineFixtures & { context: Br
   network: async ({}, use) => {
     await use({ blocked: [] });
   },
-  context: async ({ network }, use) => {
+  liveSockets: async ({ network }, use) => {
+    const server = await startLiveSocketServer({
+      blocked: network.blocked,
+      documentFor: (url) => {
+        const reply = replay(url, 'GET', 'document', {});
+        return reply && 'html' in reply ? reply.html : null;
+      },
+    });
+    await use(server);
+    await server.close();
+  },
+  context: async ({ network, liveSockets }, use) => {
+    const { port } = liveSockets as LiveSocketServer;
     const context = await chromium.launchPersistentContext('', {
       channel: 'chromium',
       locale: 'en-US',
-      args: [`--disable-extensions-except=${EXTENSION_DIR}`, `--load-extension=${EXTENSION_DIR}`],
+      args: [
+        `--disable-extensions-except=${EXTENSION_DIR}`,
+        `--load-extension=${EXTENSION_DIR}`,
+        // 一般請求在 DNS 之前就被 context.route 回放或擋下。會真的連線的只剩 context.route 攔不到的：
+        // content script 的 WebSocket，以及擴充功能以 chrome.tabs.create 開分頁的第一次導覽。
+        // 官方網域導到本機替身，其餘一律解析失敗，確保不會連到任何真正的網站。
+        `--host-resolver-rules=MAP www.pathofexile.com 127.0.0.1:${port}, MAP * ~NOTFOUND`,
+        '--ignore-certificate-errors',
+      ],
     });
     await installNetworkSandbox(context, network);
     await use(context);

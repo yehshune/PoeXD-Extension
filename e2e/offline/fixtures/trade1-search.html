@@ -132,9 +132,73 @@
         /** 測試用：模擬使用者在頁面上按下搜尋 */
         window.e2eSearch = search;
 
-        waitForOfficialTiming()
-          .then(() => search())
-          .catch((error) => console.error('[fixture] 替身頁載入失敗', error));
+        /**
+         * Trade root（`/trade`）是線上搜尋主控台開啟的頁面。主控台把即時結果寫進官方 Vuex store，
+         * 這裡照 docs/architecture/live-search-host-adapter-contract.md 實作最小的替身 store：
+         * 只提供 adapter 會用到的 state 與 mutation，未註冊的 mutation 會丟出例外（和官方 Vuex 一樣不會默默吞掉）。
+         */
+        function installOfficialStore() {
+          const state = { transient: { searches: [], search: { active: null } } };
+          const findSearch = (localId) =>
+            state.transient.searches.find((s) => s.localId === localId);
+          const mutations = {
+            addSearchQuery(search) {
+              state.transient.searches.push(search);
+            },
+            setSearchActive(search) {
+              state.transient.search.active = search;
+            },
+            showAdvancedSearch() {},
+            addSearchResult({ localId, resultId, id, result, items, total, inexact }) {
+              const search = findSearch(localId);
+              if (!search) return;
+              // 官方把新批次 unshift 到最前面
+              Object.assign(search, { id, total, inexact });
+              search.results.unshift({ id: resultId, result, items: { ...items } });
+              search.unreadHits += 1;
+            },
+            setItemForSearchResult({ localId, id, itemId, itemData }) {
+              const batch = findSearch(localId)?.results.find((b) => b.id === id);
+              if (batch) batch.items[itemId] = itemData;
+            },
+            resetActiveUnreadHits() {
+              if (state.transient.search.active) state.transient.search.active.unreadHits = 0;
+            },
+          };
+          const render = () => {
+            const active = state.transient.search.active;
+            const rows = (active?.results ?? [])
+              .map((batch) => batch.items[batch.result[0]])
+              .filter(Boolean)
+              .map(renderRow);
+            document.querySelector('.resultset').replaceChildren(...rows);
+          };
+          const store = {
+            state,
+            _mutations: Object.fromEntries(
+              Object.keys(mutations).map((name) => [name, [mutations[name]]]),
+            ),
+            commit(type, payload) {
+              if (!mutations[type]) throw new Error(`[vuex] unknown mutation type: ${type}`);
+              mutations[type](payload);
+              render();
+            },
+            _withCommit(fn) {
+              fn();
+              render();
+            },
+          };
+          document.querySelector('#trade').__vue__ = { $store: store };
+        }
+
+        const isTradeRoot = /^\/trade\/?$/.test(location.pathname);
+        if (isTradeRoot) {
+          installOfficialStore();
+        } else {
+          waitForOfficialTiming()
+            .then(() => search())
+            .catch((error) => console.error('[fixture] 替身頁載入失敗', error));
+        }
       })();
     </script>
   </body>
