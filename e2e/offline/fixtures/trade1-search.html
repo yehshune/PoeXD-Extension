@@ -82,13 +82,21 @@
           }
         }
 
+        // 擴充功能的 MAIN world 攔截器啟動時會派送一次 poexd-history-changed
+        const interceptorReady = new Promise((resolve) =>
+          window.addEventListener('poexd-history-changed', resolve, { once: true }),
+        );
+
         /**
          * 官方頁面要先載入大量腳本與 4 支 data API 才會搜尋，通常此時擴充功能已初始化完畢（側邊欄已掛上）。
-         * `?timing=early` 模擬官方回應比擴充功能初始化更快：攔截器一就緒就搜尋。
+         * `?timing=early` 模擬官方比擴充功能初始化更快：攔截器一就緒就搜尋，
+         * 此時擴充功能還在讀偏好設定、連線 background，各功能的監聽都還沒註冊。
          */
         async function waitForOfficialTiming() {
-          await waitFor(() => !window.fetch.toString().includes('[native code]'));
-          if (new URLSearchParams(location.search).get('timing') === 'early') return;
+          if (new URLSearchParams(location.search).get('timing') === 'early') {
+            await interceptorReady;
+            return;
+          }
           await waitFor(() => document.querySelector('poexd-sidebar-container') !== null);
         }
 

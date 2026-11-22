@@ -2,6 +2,7 @@ import {
   dispatchPoeEvent,
   listenPoeEvent,
   initPoeEventNonce,
+  startPoeEventBuffer,
   parsePoeKnownStats,
   parsePoeLiveTradeData,
 } from '@/utils/event-contracts';
@@ -129,10 +130,16 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   let cleanupEnqueueListener: (() => void) | null = null;
   let initialPageLoad: InitialPageLoadGate | null = null;
   let cancelAffixPrewarm: (() => void) | null = null;
+  let stopEarlyEventBuffer: (() => void) | null = null;
+  const releaseEarlyEvents = () => {
+    stopEarlyEventBuffer?.();
+    stopEarlyEventBuffer = null;
+  };
   let disposed = false;
   const cleanupAll = () => {
     if (disposed) return;
     disposed = true;
+    releaseEarlyEvents();
     stopWaitingTradePage?.();
     initialPageLoad?.cancel();
     cancelAffixPrewarm?.();
@@ -192,6 +199,12 @@ export async function runLogic(ctx: any, version: PoeVersion) {
   };
   if (typeof ctx?.onCleanup === 'function') ctx.onCleanup(cleanupAll);
   if (typeof ctx?.onInvalidated === 'function') ctx.onInvalidated(cleanupAll);
+
+  // 攔截器要在任何 await 之前注入：官方腳本有快取時，首批 search / fetch 會比讀偏好設定、
+  // 連線 background 更早送出，晚注入就整批漏接（結果列沒有 PoB／釘選等按鈕、搜尋紀錄漏記）。
+  // 各功能的監聽在初始化完成前才陸續註冊，期間的事件先緩衝，註冊時補送。
+  const interceptorReady = injectApiInterceptor();
+  stopEarlyEventBuffer = startPoeEventBuffer(EARLY_PAGE_EVENTS);
 
   try {
     const preferencesOutcome = await getPreferences(version);
@@ -291,8 +304,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       domFilter.setPageMode(mode);
       filterEnhancements.setEditorEnabled(mode === 'search');
     });
-    const interceptorReady = injectApiInterceptor();
-    // 與 interceptor 同時建立，才不會漏掉等待頁面角色期間送達的首批結果事件
+    // 頁面角色確定前就建立，加上事件緩衝補送，才不會漏掉首批結果事件
     const pageLoadGate = createInitialPageLoadGate({
       expectsInitialResults: expectsInitialSearchResults(window.location.href),
     });
@@ -421,6 +433,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
         domFilter.cleanup();
         return;
       }
+      // 所有初始化期間註冊的監聽都已補送完畢，之後的事件即時處理即可
+      releaseEarlyEvents();
       filterEnhancements.initialize();
       if (pageRole === 'normal') {
         // 詞綴字典約 3.6 MB，解析會佔住主執行緒：等官方頁面載完首批結果再預載；
@@ -437,6 +451,7 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     });
     if (!disposed) console.log(`[PoeXD] PoeXD-Extention logic active for game version: ${version}`);
   } catch (error: any) {
+    releaseEarlyEvents();
     if (error.message?.includes('Extension context invalidated')) {
       console.warn('[PoeXD] 擴充功能已被重新載入，請重新整理網頁以繼續使用。');
     } else {
@@ -519,6 +534,17 @@ function registerPageContextEvents(
 
   return () => cleanups.forEach((cleanup) => cleanup());
 }
+
+/** 初始化期間需要緩衝的 Main World 事件：首批搜尋、結果與頁面資料，漏接就要等下一次才會補上 */
+const EARLY_PAGE_EVENTS = [
+  'poexd-fetch-response',
+  'poexd-fetch-failed',
+  'poexd-search-query-observed',
+  'poexd-search-triggered',
+  'poexd-search-result-summary',
+  'poexd-known-stats',
+  'poexd-live-trade-data',
+] as const;
 
 function injectApiInterceptor(): Promise<void> {
   const nonce =

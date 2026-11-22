@@ -40,12 +40,12 @@ test.describe('搜尋結果列', () => {
     expect(network.blocked).toEqual([]);
   });
 
-  test('首批結果比擴充功能初始化更早到達時，結果列仍加上按鈕', async ({ page }) => {
-    // 已知問題：首批 fetch 事件早於側邊欄掛載時，結果列不會出現 PoB 複製／外部連結／釘選按鈕，
-    // 要等下一次 fetch 才補上（詞綴快速篩選不受影響）。修好後移除 test.fail。
-    test.fail();
+  test('首批結果比擴充功能初始化更早到達時，結果列仍加上按鈕', async ({ page, pageErrors }) => {
+    // 迴歸測試：攔截器曾排在讀偏好設定等 await 之後才注入，官方首批 search / fetch 會整批漏接。
+    // 現在攔截器最先注入，各功能的監聽較晚註冊，靠初始化期間的事件緩衝補送首批事件。
     await page.goto(`${TRADE1_SEARCH_URL}?timing=early`);
     await expectRowEnhancements(page);
+    expect(pageErrors).toEqual([]);
   });
 
   test('釘選的物品出現在側邊欄的釘選物品，重新整理後仍在', async ({ page, pageErrors }) => {
