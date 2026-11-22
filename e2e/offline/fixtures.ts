@@ -48,7 +48,11 @@ function fixture(name: string): string {
 }
 
 interface FetchFixture {
-  result: { id: string; item: { name?: string; typeLine: string } }[];
+  result: {
+    id: string;
+    item: { name?: string; typeLine: string };
+    listing: { price: { amount: number; currency: string } };
+  }[];
 }
 
 /** `record-fetch.ts` 從真實官方 API 錄下並去除個資的 PoE1 fetch 回應 */
@@ -72,6 +76,16 @@ export const TRADE_LEAGUES = {
     { id: 'Standard', realm: 'pc', text: 'Standard' },
     { id: 'Hardcore', realm: 'pc', text: 'Hardcore' },
     { id: 'Standard', realm: 'poe2', text: 'Standard' },
+  ],
+};
+
+/** PoE2 的匯率以崇高石為基準；換算一律換成崇高石，所以只有非崇高石標價的物品會顯示換算 */
+export const POE2_NINJA_OVERVIEW = {
+  core: { primary: 'exalted' },
+  lines: [
+    { id: 'exalted', primaryValue: 1 },
+    { id: 'chaos', primaryValue: 40 },
+    { id: 'divine', primaryValue: 400 },
   ],
 };
 
@@ -105,7 +119,7 @@ function replay(
   headers: Record<string, string>,
 ): Reply | null {
   if (url.hostname === 'poe.ninja' && url.pathname.endsWith('/economy/exchange/current/overview')) {
-    return { json: POE_NINJA_OVERVIEW };
+    return { json: url.pathname.startsWith('/poe2/') ? POE2_NINJA_OVERVIEW : POE_NINJA_OVERVIEW };
   }
   if (url.hostname.endsWith('poecdn.com') && url.pathname.endsWith('.png')) {
     return { png: BLANK_PNG };

@@ -1,21 +1,21 @@
 {
   "result": [
     {
-      "id": "289aa0ba0cb9d69a73af2c5f32f380b389bc38eca05c6612f59e68e2e6cc8dff",
+      "id": "c820d504be7018ff23b7203f7d878f1f53b8bf143a1efe75e4683eef023024a3",
       "listing": {
         "method": "psapi",
-        "indexed": "2025-12-19T21:38:16Z",
+        "indexed": "2026-09-10T18:05:10Z",
         "stash": {
           "name": "E2E Stash",
-          "x": 1,
-          "y": 8
+          "x": 10,
+          "y": 11
         },
         "price": {
           "type": "~b/o",
-          "amount": 1,
+          "amount": 2000,
           "currency": "exalted"
         },
-        "fee": 10266,
+        "fee": 17900,
         "account": {
           "name": "E2ESeller#1000",
           "online": null
@@ -27,67 +27,63 @@
         "verified": true,
         "w": 1,
         "h": 1,
-        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvSmV3ZWxzL1J1YnlKZXdlbCIsInciOjEsImgiOjEsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/8ef1a48ec8/RubyJewel.png",
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvVW5pcXVlcy9Ub2tlbk9mUGFzc2FnZTA1IiwidyI6MSwiaCI6MSwic2NhbGUiOjEsInJlYWxtIjoicG9lMiJ9XQ/ccd3997a06/TokenOfPassage05.png",
         "league": "Standard",
-        "id": "289aa0ba0cb9d69a73af2c5f32f380b389bc38eca05c6612f59e68e2e6cc8dff",
-        "name": "Kraken Desire",
-        "typeLine": "Ruby",
-        "baseType": "Ruby",
-        "rarity": "Rare",
-        "ilvl": 81,
+        "id": "c820d504be7018ff23b7203f7d878f1f53b8bf143a1efe75e4683eef023024a3",
+        "name": "Grip of Kulemak",
+        "typeLine": "Abyssal Signet",
+        "baseType": "Abyssal Signet",
+        "rarity": "Unique",
+        "ilvl": 82,
         "identified": true,
-        "note": "~b/o 1 exalted",
+        "note": "~b/o 2000 exalted",
         "properties": [
           {
-            "name": "[Jewel]",
+            "name": "Ring",
             "values": [],
             "displayMode": 0,
             "type": 109
           }
         ],
+        "implicitMods": [
+          {
+            "description": "Inflict [AbyssalWasting|Abyssal Wasting] on [Hit]",
+            "domain": "implicit",
+            "hash": "stat.implicit.stat_2646093132",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "1",
+                    "max": "1"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
         "explicitMods": [
           {
-            "description": "8% increased [ElementalDamage|Elemental Damage]",
+            "description": "37% increased maximum [EnergyShield|Energy Shield]",
             "domain": "explicit",
-            "hash": "stat.explicit.stat_3141070085",
+            "hash": "stat.explicit.stat_2482852589",
             "mods": [
               {
-                "name": "Prismatic",
-                "tier": "P1",
                 "magnitudes": [
                   {
-                    "min": "5",
-                    "max": "15"
+                    "min": "30",
+                    "max": "40"
                   }
                 ]
               }
             ]
           },
           {
-            "description": "Damage [Penetration|Penetrates] 7% [Resistances|Fire Resistance]",
+            "description": "19% [FasterESRechargeStart|faster start of Energy Shield Recharge]",
             "domain": "explicit",
-            "hash": "stat.explicit.stat_2653955271",
+            "hash": "stat.explicit.stat_1782086450",
             "mods": [
               {
-                "name": "Searing",
-                "tier": "P1",
-                "magnitudes": [
-                  {
-                    "min": "5",
-                    "max": "10"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "description": "[Banner] Skills have 21% increased Duration",
-            "domain": "explicit",
-            "hash": "stat.explicit.stat_2720982137",
-            "mods": [
-              {
-                "name": "of Inspiring",
-                "tier": "S1",
                 "magnitudes": [
                   {
                     "min": "15",
@@ -96,38 +92,118 @@
                 ]
               }
             ]
+          },
+          {
+            "description": "23% reduced [Presence|Presence] Area of Effect",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_101878827",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "-30",
+                    "max": "-20"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "26% reduced [LightRadius|Light Radius]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1263695895",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "-30",
+                    "max": "-20"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "40% increased [Immobilised|Immobilisation] buildup against targets affected by [AbyssalWasting|Abyssal Wasting]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3893409915",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "30",
+                    "max": "40"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "Recover 4% of your maximum Mana when an Enemy dies in your [Presence|Presence]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2456226238",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "3",
+                    "max": "5"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Spell|Spell] Skills have 16% increased Area of Effect",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1967040409",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "12",
+                    "max": "18"
+                  }
+                ]
+              }
+            ]
           }
         ],
-        "descrText": "Place into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.",
-        "frameType": 2,
-        "frameTypeId": "Rare",
+        "flavourText": ["Drink deeply of the Well.\r", "Let the Abyss coil within."],
+        "frameType": 3,
+        "frameTypeId": "Unique",
         "extended": {
           "hashes": {
             "explicit": [
-              ["explicit.stat_3141070085", [2]],
-              ["explicit.stat_2653955271", [0]],
-              ["explicit.stat_2720982137", [1]]
-            ]
+              ["explicit.stat_2482852589", [3]],
+              ["explicit.stat_1782086450", [3]],
+              ["explicit.stat_101878827", [0]],
+              ["explicit.stat_1263695895", [1]],
+              ["explicit.stat_3893409915", [5]],
+              ["explicit.stat_2456226238", [2]],
+              ["explicit.stat_1967040409", [4]]
+            ],
+            "implicit": [["implicit.stat_2646093132", [0]]]
           }
         }
       }
     },
     {
-      "id": "decef1a886fc0402a370236d6801554e589073cb04498169c0e292fd2e0c6f79",
+      "id": "99c46fffb2827f8dc84175822a72f9b598711242385754230a00fa3dcfc52819",
       "listing": {
         "method": "psapi",
-        "indexed": "2025-12-09T20:05:41Z",
+        "indexed": "2026-09-10T18:05:10Z",
         "stash": {
           "name": "E2E Stash",
-          "x": 8,
-          "y": 3
+          "x": 11,
+          "y": 8
         },
         "price": {
           "type": "~b/o",
-          "amount": 1,
+          "amount": 2000,
           "currency": "exalted"
         },
-        "fee": 15300,
+        "fee": 21318,
         "account": {
           "name": "E2ESeller#1001",
           "online": null
@@ -137,403 +213,25 @@
       "item": {
         "realm": "poe2",
         "verified": true,
-        "w": 2,
-        "h": 2,
-        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0Jhc2V0eXBlcy9IZWxtZXREZXgwNSIsInciOjIsImgiOjIsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/367615d8a8/HelmetDex05.png",
+        "w": 1,
+        "h": 4,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9Ud29IYW5kV2VhcG9ucy9TdGF2ZXMvVW5pcXVlcy9LdWxlbWFrc0JpcnRoIiwidyI6MSwiaCI6NCwic2NhbGUiOjEsInJlYWxtIjoicG9lMiJ9XQ/8460c512f8/KulemaksBirth.png",
         "league": "Standard",
-        "id": "decef1a886fc0402a370236d6801554e589073cb04498169c0e292fd2e0c6f79",
-        "name": "Mind Cowl",
-        "typeLine": "Deerstalker Hood",
-        "baseType": "Deerstalker Hood",
-        "rarity": "Rare",
-        "ilvl": 78,
+        "id": "99c46fffb2827f8dc84175822a72f9b598711242385754230a00fa3dcfc52819",
+        "sockets": [],
+        "name": "The Unborn Lich",
+        "typeLine": "Ravenous Staff",
+        "baseType": "Ravenous Staff",
+        "rarity": "Unique",
+        "ilvl": 86,
         "identified": true,
-        "note": "~b/o 1 exalted",
+        "note": "~b/o 2000 exalted",
         "properties": [
           {
-            "name": "Helmet",
+            "name": "[Staff]",
             "values": [],
             "displayMode": 0,
             "type": 109
-          },
-          {
-            "name": "[Evasion|Evasion Rating]",
-            "values": [["464", 1]],
-            "displayMode": 0,
-            "type": 17
-          }
-        ],
-        "requirements": [
-          {
-            "name": "Level",
-            "values": [["59", 0]],
-            "displayMode": 0,
-            "type": 62
-          },
-          {
-            "name": "[Dexterity|Dex]",
-            "values": [["83", 0]],
-            "displayMode": 1,
-            "type": 64
-          }
-        ],
-        "explicitMods": [
-          {
-            "description": "72% increased [Evasion|Evasion] Rating",
-            "domain": "explicit",
-            "hash": "stat.explicit.stat_124859000",
-            "mods": [
-              {
-                "name": "Wayfarer's",
-                "tier": "P2",
-                "level": 60,
-                "magnitudes": [
-                  {
-                    "min": "33",
-                    "max": "38"
-                  }
-                ]
-              },
-              {
-                "name": "Ibex's",
-                "tier": "P2",
-                "level": 60,
-                "magnitudes": [
-                  {
-                    "min": "33",
-                    "max": "38"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "description": "+37 to maximum Life",
-            "domain": "explicit",
-            "hash": "stat.explicit.stat_3299347043",
-            "mods": [
-              {
-                "name": "Ibex's",
-                "tier": "P2",
-                "level": 60,
-                "magnitudes": [
-                  {
-                    "min": "33",
-                    "max": "41"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "description": "+130 to maximum Mana",
-            "domain": "explicit",
-            "hash": "stat.explicit.stat_1050105434",
-            "mods": [
-              {
-                "name": "Wayfarer's",
-                "tier": "P2",
-                "level": 60,
-                "magnitudes": [
-                  {
-                    "min": "27",
-                    "max": "32"
-                  }
-                ]
-              },
-              {
-                "name": "Gentian",
-                "tier": "P3",
-                "level": 54,
-                "magnitudes": [
-                  {
-                    "min": "90",
-                    "max": "104"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "description": "Gain [Deflect|Deflection Rating] equal to 11% of [Evasion|Evasion Rating]",
-            "domain": "explicit",
-            "hash": "stat.explicit.stat_3033371881",
-            "mods": [
-              {
-                "name": "of Deflecting",
-                "tier": "S5",
-                "magnitudes": [
-                  {
-                    "min": "8",
-                    "max": "11"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "frameType": 2,
-        "frameTypeId": "Rare",
-        "extended": {
-          "ev": 557,
-          "ev_aug": true,
-          "hashes": {
-            "explicit": [
-              ["explicit.stat_124859000", [1, 2]],
-              ["explicit.stat_3299347043", [2]],
-              ["explicit.stat_1050105434", [1, 3]],
-              ["explicit.stat_3033371881", [0]]
-            ]
-          }
-        }
-      }
-    },
-    {
-      "id": "5074344a26fe0c83c71896b5424566d1476ee804068055ffcd0ff5e94086b0dc",
-      "listing": {
-        "method": "psapi",
-        "indexed": "2025-09-03T09:46:56Z",
-        "stash": {
-          "name": "E2E Stash",
-          "x": 6,
-          "y": 2
-        },
-        "price": {
-          "type": "~b/o",
-          "amount": 1,
-          "currency": "exalted"
-        },
-        "fee": 1574,
-        "account": {
-          "name": "E2ESeller#1002",
-          "online": null
-        },
-        "hideout_token": "e2e-hideout-token"
-      },
-      "item": {
-        "realm": "poe2",
-        "verified": true,
-        "w": 2,
-        "h": 2,
-        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0Jhc2V0eXBlcy9IZWxtZXRJbnQwNiIsInciOjIsImgiOjIsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/0821cebc37/HelmetInt06.png",
-        "league": "Standard",
-        "id": "5074344a26fe0c83c71896b5424566d1476ee804068055ffcd0ff5e94086b0dc",
-        "name": "",
-        "typeLine": "Consistent Gold Circlet of the Thunderhead",
-        "baseType": "Gold Circlet",
-        "rarity": "Magic",
-        "ilvl": 52,
-        "identified": true,
-        "note": "~b/o 1 exalted",
-        "properties": [
-          {
-            "name": "Helmet",
-            "values": [],
-            "displayMode": 0,
-            "type": 109
-          },
-          {
-            "name": "[EnergyShield|Energy Shield]",
-            "values": [["62", 0]],
-            "displayMode": 0,
-            "type": 18
-          }
-        ],
-        "requirements": [
-          {
-            "name": "Level",
-            "values": [["40", 0]],
-            "displayMode": 0,
-            "type": 62
-          },
-          {
-            "name": "[Intelligence|Int]",
-            "values": [["58", 0]],
-            "displayMode": 1,
-            "type": 65
-          }
-        ],
-        "explicitMods": [
-          {
-            "description": "+155 to [Accuracy|Accuracy] Rating",
-            "domain": "explicit",
-            "hash": "stat.explicit.stat_803737631",
-            "mods": [
-              {
-                "name": "Consistent",
-                "tier": "P5",
-                "level": 36,
-                "magnitudes": [
-                  {
-                    "min": "124",
-                    "max": "167"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "description": "+22% to [Resistances|Lightning Resistance]",
-            "domain": "explicit",
-            "hash": "stat.explicit.stat_1671376347",
-            "mods": [
-              {
-                "name": "of the Thunderhead",
-                "tier": "S5",
-                "level": 37,
-                "magnitudes": [
-                  {
-                    "min": "21",
-                    "max": "25"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "frameType": 1,
-        "frameTypeId": "Magic",
-        "extended": {
-          "es": 74,
-          "es_aug": true,
-          "hashes": {
-            "explicit": [
-              ["explicit.stat_803737631", [0]],
-              ["explicit.stat_1671376347", [1]]
-            ]
-          }
-        }
-      }
-    },
-    {
-      "id": "0e43aeb48d4cb55245c9e8e22c4986b033e627b649c3e7ddc96c9b046be8248d",
-      "listing": {
-        "method": "psapi",
-        "indexed": "2026-01-07T20:15:38Z",
-        "stash": {
-          "name": "E2E Stash",
-          "x": 9,
-          "y": 11
-        },
-        "price": {
-          "type": "~b/o",
-          "amount": 1,
-          "currency": "exalted"
-        },
-        "fee": 614,
-        "account": {
-          "name": "E2ESeller#1003",
-          "online": null
-        },
-        "hideout_token": "e2e-hideout-token"
-      },
-      "item": {
-        "realm": "poe2",
-        "verified": true,
-        "w": 3,
-        "h": 1,
-        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmVsaWNzL1JlbGljQmFzZTN4MSIsInciOjMsImgiOjEsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/b73199fe0f/RelicBase3x1.png",
-        "league": "Standard",
-        "id": "0e43aeb48d4cb55245c9e8e22c4986b033e627b649c3e7ddc96c9b046be8248d",
-        "name": "",
-        "typeLine": "Tapestry Relic of Empowerment",
-        "baseType": "Tapestry Relic",
-        "rarity": "Magic",
-        "ilvl": 56,
-        "identified": true,
-        "note": "~b/o 1 exalted",
-        "properties": [
-          {
-            "name": "Relic",
-            "values": [],
-            "displayMode": 0,
-            "type": 109
-          }
-        ],
-        "explicitMods": [
-          {
-            "description": "Restore 52 [Honour] on killing a Boss",
-            "domain": "sanctum",
-            "hash": "stat.sanctum.stat_3865020351",
-            "mods": [
-              {
-                "name": "of Empowerment",
-                "tier": "S5",
-                "magnitudes": [
-                  {
-                    "min": "40",
-                    "max": "59"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "descrText": "Place this item on the Relic Altar at the start of the Trial of the Sekhemas",
-        "frameType": 1,
-        "frameTypeId": "Magic",
-        "extended": {
-          "hashes": {
-            "sanctum": [["sanctum.stat_3865020351", [0]]]
-          }
-        }
-      }
-    },
-    {
-      "id": "9a4ed034de8214564d1d464fc38ca8a96087814c97e8f3e8ea23df87c9d45990",
-      "listing": {
-        "method": "psapi",
-        "indexed": "2026-05-26T03:58:07Z",
-        "stash": {
-          "name": "E2E Stash",
-          "x": 0,
-          "y": 10
-        },
-        "price": {
-          "type": "~b/o",
-          "amount": 1,
-          "currency": "exalted"
-        },
-        "fee": 3110,
-        "account": {
-          "name": "E2ESeller#1004",
-          "online": null
-        },
-        "hideout_token": "e2e-hideout-token"
-      },
-      "item": {
-        "realm": "poe2",
-        "verified": true,
-        "w": 2,
-        "h": 2,
-        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb290cy9CYXNldHlwZXMvQm9vdHNEZXhJbnQwMSIsInciOjIsImgiOjIsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/28c930b721/BootsDexInt01.png",
-        "league": "Standard",
-        "id": "9a4ed034de8214564d1d464fc38ca8a96087814c97e8f3e8ea23df87c9d45990",
-        "name": "",
-        "typeLine": "Wanderer Shoes of Exile",
-        "baseType": "Wanderer Shoes",
-        "rarity": "Magic",
-        "ilvl": 68,
-        "identified": true,
-        "note": "~b/o 1 exalted",
-        "properties": [
-          {
-            "name": "Boots",
-            "values": [],
-            "displayMode": 0,
-            "type": 109
-          },
-          {
-            "name": "[Evasion|Evasion Rating]",
-            "values": [["122", 0]],
-            "displayMode": 0,
-            "type": 17
-          },
-          {
-            "name": "[EnergyShield|Energy Shield]",
-            "values": [["37", 0]],
-            "displayMode": 0,
-            "type": 18
           }
         ],
         "requirements": [
@@ -544,32 +242,600 @@
             "type": 62
           },
           {
-            "name": "[Dexterity|Dex]",
-            "values": [["47", 0]],
-            "displayMode": 1,
-            "type": 64
-          },
-          {
             "name": "[Intelligence|Int]",
-            "values": [["47", 0]],
+            "values": [["114", 0]],
             "displayMode": 1,
             "type": 65
           }
         ],
+        "grantedSkills": [
+          {
+            "name": "Grants Skill",
+            "values": [["Level 19 Feast of Flesh", 25]],
+            "displayMode": 0,
+            "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvV2VhcG9uRmVhc3RvZkZsZXNoIiwicmVhbG0iOiJwb2UyIn1d/595e9a4687/WeaponFeastofFlesh.png",
+            "domain": "skill",
+            "hash": "stat.skill.feast_of_flesh"
+          }
+        ],
         "explicitMods": [
           {
-            "description": "+22% to [Resistances|Chaos Resistance]",
+            "description": "75% increased [Abyssalify|Desecrated Modifier] magnitudes",
             "domain": "explicit",
-            "hash": "stat.explicit.stat_2923486259",
+            "hash": "stat.explicit.stat_586037801",
             "mods": [
               {
-                "name": "of Exile",
+                "magnitudes": [
+                  {
+                    "min": "60",
+                    "max": "80"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "veiledMods": [
+          {
+            "description": "Prefix02"
+          },
+          {
+            "description": "Prefix02"
+          },
+          {
+            "description": "Suffix06"
+          },
+          {
+            "description": "Prefix06"
+          }
+        ],
+        "desecrated": true,
+        "flavourText": [
+          "In ghastly pits beneath the world,\r",
+          "Kulemak grows countless new bodies,\r",
+          "each more powerful than the last.\r",
+          "Not all of his abominations survive."
+        ],
+        "frameType": 3,
+        "frameTypeId": "Unique",
+        "socketedItems": [
+          {
+            "realm": "poe2",
+            "verified": true,
+            "w": 1,
+            "h": 1,
+            "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9OZXcvQmxhbmtHZW0iLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MSwicmVhbG0iOiJwb2UyIn1d/250ec3ed08/BlankGem.png",
+            "support": false,
+            "league": "Forbidden Rites",
+            "gemSockets": ["W", "W", "W", "W"],
+            "sockets": [
+              {
+                "group": 0,
+                "type": "gem"
+              },
+              {
+                "group": 1,
+                "type": "gem"
+              },
+              {
+                "group": 2,
+                "type": "gem"
+              },
+              {
+                "group": 3,
+                "type": "gem"
+              }
+            ],
+            "name": "",
+            "typeLine": "Feast of Flesh",
+            "baseType": "Feast of Flesh",
+            "ilvl": 0,
+            "identified": true,
+            "properties": [
+              {
+                "name": "[Spell], [Buff], [AoESkill|AoE], [Nova], [Repeat|Repeatable]",
+                "values": [],
+                "displayMode": 0
+              },
+              {
+                "name": "Level",
+                "values": [["19", 0]],
+                "displayMode": 0,
+                "type": 5
+              },
+              {
+                "name": "Cost",
+                "values": [["0 Mana", 0]],
+                "displayMode": 0
+              },
+              {
+                "name": "Cast Time",
+                "values": [["1.30s", 0]],
+                "displayMode": 0
+              }
+            ],
+            "requirements": [
+              {
+                "name": "Level",
+                "values": [["84", 0]],
+                "displayMode": 0,
+                "type": 62
+              },
+              {
+                "name": "[Intelligence|Int]",
+                "values": [["147", 0]],
+                "displayMode": 1,
+                "type": 65
+              }
+            ],
+            "secDescrText": "[Consume] [Corpse|Corpses] near you to recover Life and Mana over a short time per [Corpse] [Consume|Consumed].",
+            "gemTabs": [
+              {
+                "name": "Feast of Flesh",
+                "pages": [
+                  {
+                    "stats": [
+                      "[Corpse] [Consume|Consumption] radius is 4 metres",
+                      "[Consume|Consumes] up to 5 [Corpse|Corpses]",
+                      "Recover 203 Life and 203 Mana over 3 seconds per [Corpse] [Consume|Consumed]"
+                    ],
+                    "skillName": "Feast of Flesh"
+                  }
+                ]
+              }
+            ],
+            "gemSkill": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvV2VhcG9uRmVhc3RvZkZsZXNoIiwicmVhbG0iOiJwb2UyIn1d/595e9a4687/WeaponFeastofFlesh.png",
+            "descrText": "Skills can be managed in the Skills Panel.",
+            "frameType": 4,
+            "frameTypeId": "Gem",
+            "socketedItems": []
+          }
+        ],
+        "extended": {
+          "hashes": {
+            "explicit": [["explicit.stat_586037801", [0]]],
+            "skill": [["skill.feast_of_flesh", null]]
+          }
+        }
+      }
+    },
+    {
+      "id": "07c1645f39ce165d5b1a1933af828b9240df4aaa484422c55fa13639571c6551",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-09-12T20:57:10Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 8,
+          "y": 5
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 2000,
+          "currency": "exalted"
+        },
+        "fee": 31635,
+        "account": {
+          "name": "E2ESeller#1002",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 2,
+        "h": 3,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9PbmVIYW5kV2VhcG9ucy9TY2VwdGVycy9CYXNldHlwZXMvU2NlcHRyZTA2YyIsInciOjIsImgiOjMsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/9c15e1e13e/Sceptre06c.png",
+        "league": "Standard",
+        "id": "07c1645f39ce165d5b1a1933af828b9240df4aaa484422c55fa13639571c6551",
+        "sockets": [
+          {
+            "group": 0,
+            "type": "rune"
+          }
+        ],
+        "name": "Demon Cry",
+        "typeLine": "Shrine Sceptre",
+        "baseType": "Shrine Sceptre",
+        "rarity": "Rare",
+        "ilvl": 81,
+        "identified": true,
+        "note": "~b/o 2000 exalted",
+        "properties": [
+          {
+            "name": "[Sceptre]",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          },
+          {
+            "name": "[Spirit]",
+            "values": [["129", 1]],
+            "displayMode": 0,
+            "type": 25
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["54", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "[Strength|Str]",
+            "values": [["17", 0]],
+            "displayMode": 1,
+            "type": 63
+          },
+          {
+            "name": "[Intelligence|Int]",
+            "values": [["38", 0]],
+            "displayMode": 1,
+            "type": 65
+          }
+        ],
+        "grantedSkills": [
+          {
+            "name": "Grants Skill",
+            "values": [["Level 18 Purity of Lightning", 25]],
+            "displayMode": 0,
+            "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvUHVyaXR5b2ZMaWdodG5pbmdXZWFwb25Ta2lsbCIsInJlYWxtIjoicG9lMiJ9XQ/a7c55bdbfe/PurityofLightningWeaponSkill.png",
+            "domain": "skill",
+            "hash": "stat.skill.purity_of_lightning"
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "29% increased [Spirit|Spirit]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3984865854",
+            "mods": [
+              {
+                "name": "Envoy's",
+                "tier": "P3",
+                "level": 48,
+                "magnitudes": [
+                  {
+                    "min": "27",
+                    "max": "30"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+112 to maximum Mana",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1050105434",
+            "mods": [
+              {
+                "name": "Aqua",
+                "tier": "P6",
+                "level": 38,
+                "magnitudes": [
+                  {
+                    "min": "65",
+                    "max": "79"
+                  }
+                ]
+              },
+              {
+                "name": "Envoy's",
+                "tier": "P3",
+                "level": 48,
+                "magnitudes": [
+                  {
+                    "min": "34",
+                    "max": "37"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Allies|Allies] in your [Presence|Presence] deal 11 to 16 added [Attack|Attack] [Physical|Physical] Damage",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1574590649",
+            "mods": [
+              {
+                "name": "Razor-sharp",
+                "tier": "P3",
+                "level": 60,
+                "magnitudes": [
+                  {
+                    "min": "7",
+                    "max": "11"
+                  },
+                  {
+                    "min": "14",
+                    "max": "20"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Allies|Allies] in your [Presence|Presence] have 28% increased [Critical|Critical Hit] Chance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1250712710",
+            "mods": [
+              {
+                "name": "of Calamity",
+                "tier": "S3",
+                "level": 41,
+                "magnitudes": [
+                  {
+                    "min": "25",
+                    "max": "29"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Allies] in your [Presence] have 20% increased [CriticalDamageBonus|Critical Damage Bonus]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3057012405",
+            "mods": [
+              {
+                "name": "of Rage",
+                "tier": "S4",
+                "level": 30,
+                "magnitudes": [
+                  {
+                    "min": "20",
+                    "max": "24"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Allies|Allies] in your [Presence|Presence] Regenerate 24 Life per second",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_4010677958",
+            "mods": [
+              {
+                "name": "of Resurgence",
                 "tier": "S2",
                 "level": 68,
                 "magnitudes": [
                   {
-                    "min": "20",
-                    "max": "23"
+                    "min": "23.1",
+                    "max": "29"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "socketedItems": [
+          {
+            "realm": "poe2",
+            "verified": true,
+            "w": 1,
+            "h": 1,
+            "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9OZXcvQmxhbmtHZW0iLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MSwicmVhbG0iOiJwb2UyIn1d/250ec3ed08/BlankGem.png",
+            "support": false,
+            "league": "Forbidden Rites",
+            "gemSockets": ["W", "W", "W", "W"],
+            "sockets": [
+              {
+                "group": 0,
+                "type": "gem"
+              },
+              {
+                "group": 1,
+                "type": "gem"
+              },
+              {
+                "group": 2,
+                "type": "gem"
+              },
+              {
+                "group": 3,
+                "type": "gem"
+              }
+            ],
+            "name": "",
+            "typeLine": "Purity of Lightning",
+            "baseType": "Purity of Lightning",
+            "ilvl": 0,
+            "identified": true,
+            "properties": [
+              {
+                "name": "[Buff], [Persistent], [Aura], [Lightning]",
+                "values": [],
+                "displayMode": 0
+              },
+              {
+                "name": "Level",
+                "values": [["18", 0]],
+                "displayMode": 0,
+                "type": 5
+              }
+            ],
+            "requirements": [
+              {
+                "name": "Level",
+                "values": [["78", 0]],
+                "displayMode": 0,
+                "type": 62
+              },
+              {
+                "name": "[Strength|Str]",
+                "values": [["42", 0]],
+                "displayMode": 1,
+                "type": 63
+              },
+              {
+                "name": "[Intelligence|Int]",
+                "values": [["106", 0]],
+                "displayMode": 1,
+                "type": 65
+              }
+            ],
+            "secDescrText": "Emit an [Aura] that boosts the [Resistances|Lightning Resistance] of you and [Allies] in your [Presence].",
+            "gemTabs": [
+              {
+                "name": "Purity of Lightning",
+                "pages": [
+                  {
+                    "stats": ["[Aura] grants +39% to [Lightning|Lightning] Resistance"],
+                    "skillName": "Purity of Lightning"
+                  }
+                ]
+              }
+            ],
+            "gemSkill": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvUHVyaXR5b2ZMaWdodG5pbmdXZWFwb25Ta2lsbCIsInJlYWxtIjoicG9lMiJ9XQ/a7c55bdbfe/PurityofLightningWeaponSkill.png",
+            "descrText": "Skills can be managed in the Skills Panel.",
+            "frameType": 4,
+            "frameTypeId": "Gem",
+            "socketedItems": []
+          }
+        ],
+        "extended": {
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_3984865854", [3]],
+              ["explicit.stat_1050105434", [1, 3]],
+              ["explicit.stat_1574590649", [5]],
+              ["explicit.stat_1250712710", [4]],
+              ["explicit.stat_3057012405", [0]],
+              ["explicit.stat_4010677958", [2]]
+            ],
+            "skill": [["skill.purity_of_lightning", null]]
+          }
+        }
+      }
+    },
+    {
+      "id": "fb66613d34bc56e1838ba77b100d7057d3b5a40efc29de405101ab71931bffdf",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-09-07T00:57:48Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 0,
+          "y": 0
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 2000,
+          "currency": "exalted"
+        },
+        "fee": 3215,
+        "account": {
+          "name": "E2ESeller#1003",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 1,
+        "h": 4,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9PbmVIYW5kV2VhcG9ucy9PbmVIYW5kU3BlYXJzLzFIU3BlYXIwNyIsInciOjEsImgiOjQsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/9bda9719ba/1HSpear07.png",
+        "league": "Standard",
+        "id": "fb66613d34bc56e1838ba77b100d7057d3b5a40efc29de405101ab71931bffdf",
+        "sockets": [],
+        "name": "",
+        "typeLine": "Jagged Spear of the Panther",
+        "baseType": "Jagged Spear",
+        "rarity": "Magic",
+        "ilvl": 62,
+        "identified": true,
+        "note": "~b/o 2000 exalted",
+        "properties": [
+          {
+            "name": "[Spear]",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          },
+          {
+            "name": "[Physical] Damage",
+            "values": [["33-61", 0]],
+            "displayMode": 0,
+            "type": 9
+          },
+          {
+            "name": "[Critical|Critical Hit] Chance",
+            "values": [["6.00%", 0]],
+            "displayMode": 0,
+            "type": 12
+          },
+          {
+            "name": "Attacks per Second",
+            "values": [["1.50", 0]],
+            "displayMode": 0,
+            "type": 13
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["59", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "[Strength|Str]",
+            "values": [["33", 0]],
+            "displayMode": 1,
+            "type": 63
+          },
+          {
+            "name": "[Dexterity|Dex]",
+            "values": [["81", 0]],
+            "displayMode": 1,
+            "type": 64
+          }
+        ],
+        "grantedSkills": [
+          {
+            "name": "Grants Skill",
+            "values": [["Spear Throw", 25]],
+            "displayMode": 0,
+            "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvSHVudHJlc3NJY2VTcGVhciIsInJlYWxtIjoicG9lMiJ9XQ/da079143ea/HuntressIceSpear.png"
+          }
+        ],
+        "implicitMods": [
+          {
+            "description": "Bleeding you inflict deals Damage 10% faster",
+            "domain": "implicit",
+            "hash": "stat.implicit.stat_3828375170",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "10",
+                    "max": "20"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "+21 to [Dexterity|Dexterity]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3261801346",
+            "mods": [
+              {
+                "name": "of the Panther",
+                "tier": "S4",
+                "level": 44,
+                "magnitudes": [
+                  {
+                    "min": "21",
+                    "max": "24"
                   }
                 ]
               }
@@ -578,13 +844,1159 @@
         ],
         "frameType": 1,
         "frameTypeId": "Magic",
+        "socketedItems": [
+          {
+            "realm": "poe2",
+            "verified": true,
+            "w": 1,
+            "h": 1,
+            "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9OZXcvQmxhbmtHZW0iLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MSwicmVhbG0iOiJwb2UyIn1d/250ec3ed08/BlankGem.png",
+            "support": false,
+            "league": "Forbidden Rites",
+            "name": "",
+            "typeLine": "Spear Throw",
+            "baseType": "Spear Throw",
+            "ilvl": 0,
+            "identified": true,
+            "properties": [
+              {
+                "name": "[Attack], [AoESkill|AoE], [Projectile], [Repeat|Repeatable]",
+                "values": [],
+                "displayMode": 0
+              },
+              {
+                "name": "Level",
+                "values": [["1", 0]],
+                "displayMode": 0,
+                "type": 5
+              },
+              {
+                "name": "Attack Speed",
+                "values": [["70% of base", 0]],
+                "displayMode": 0
+              },
+              {
+                "name": "Attack Damage",
+                "values": [["125%", 0]],
+                "displayMode": 0
+              }
+            ],
+            "weaponRequirements": [
+              {
+                "name": "",
+                "values": [["[Spear]", 0]],
+                "displayMode": 0,
+                "type": 96
+              }
+            ],
+            "secDescrText": "Hurl your [Spear] with force. Consumes a [Charges|Frenzy Charge] if you have one to cause the [Spear] to explode at the end of its flight.",
+            "gemTabs": [
+              {
+                "name": "Spear Throw",
+                "pages": [
+                  {
+                    "skillName": "Spear Throw"
+                  },
+                  {
+                    "properties": [
+                      {
+                        "name": "Attack Damage",
+                        "values": [["232%", 0]],
+                        "displayMode": 0
+                      }
+                    ],
+                    "stats": ["Explosion radius is 2 metres"],
+                    "skillName": "Explosion"
+                  }
+                ]
+              }
+            ],
+            "gemSkill": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvSHVudHJlc3NJY2VTcGVhciIsInJlYWxtIjoicG9lMiJ9XQ/da079143ea/HuntressIceSpear.png",
+            "descrText": "Skills can be managed in the Skills Panel.",
+            "frameType": 4,
+            "frameTypeId": "Gem"
+          }
+        ],
         "extended": {
-          "ev": 146,
-          "ev_aug": true,
-          "es": 44,
-          "es_aug": true,
+          "dps": 84.75,
+          "pdps": 84.75,
+          "edps": 0,
+          "dps_aug": true,
+          "pdps_aug": true,
           "hashes": {
-            "explicit": [["explicit.stat_2923486259", [0]]]
+            "explicit": [["explicit.stat_3261801346", [0]]],
+            "implicit": [["implicit.stat_3828375170", [1]]]
+          }
+        }
+      }
+    },
+    {
+      "id": "977197f0ef64c6e203a45629b88907f1490042bfb4e092748acda359a9aad33e",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-09-11T18:08:38Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 2,
+          "y": 0
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 2000,
+          "currency": "exalted"
+        },
+        "fee": 5273,
+        "account": {
+          "name": "E2ESeller#1004",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 1,
+        "h": 1,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvVW5pcXVlcy9CbGlzdGVyaW5nQm9uZCIsInciOjEsImgiOjEsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/624abc8043/BlisteringBond.png",
+        "league": "Standard",
+        "id": "977197f0ef64c6e203a45629b88907f1490042bfb4e092748acda359a9aad33e",
+        "name": "Blistering Bond",
+        "typeLine": "Ruby Ring",
+        "baseType": "Ruby Ring",
+        "rarity": "Unique",
+        "ilvl": 52,
+        "identified": true,
+        "note": "~b/o 2000 exalted",
+        "properties": [
+          {
+            "name": "Ring",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["8", 0]],
+            "displayMode": 0,
+            "type": 62
+          }
+        ],
+        "implicitMods": [
+          {
+            "description": "+28% to [Resistances|Fire Resistance]",
+            "domain": "implicit",
+            "hash": "stat.implicit.stat_3372524247",
+            "mods": [
+              {
+                "level": 10,
+                "magnitudes": [
+                  {
+                    "min": "20",
+                    "max": "30"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "+41 to maximum Life",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3299347043",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "40",
+                    "max": "60"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+27% to [Resistances|Fire Resistance]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3372524247",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "20",
+                    "max": "30"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "-15% to [Resistances|Cold Resistance]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_4220027924",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "-15",
+                    "max": "-10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "You take [Fire] Damage instead of [Physical] Damage from [Bleeding]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2022332470",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "1",
+                    "max": "1"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Fire|Fire Damage] also [Contributes] to [Bleeding|Bleeding] [BuffMagnitude|Magnitude]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1221641885",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "1",
+                    "max": "1"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Bleeding] you inflict deals [Fire|Fire Damage] instead of [Physical|Physical Damage]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1016759424",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "1",
+                    "max": "1"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "flavourText": [
+          "\"The Brotherhood of Silence does not set out to torture our targets.\r",
+          "Excruciating pain is simply a byproduct of certain... necessary methods.\""
+        ],
+        "frameType": 3,
+        "frameTypeId": "Unique",
+        "extended": {
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_3299347043", [0]],
+              ["explicit.stat_3372524247", [1]],
+              ["explicit.stat_4220027924", [2]],
+              ["explicit.stat_2022332470", [3]],
+              ["explicit.stat_1221641885", [4]],
+              ["explicit.stat_1016759424", [5]]
+            ],
+            "implicit": [["implicit.stat_3372524247", [0]]]
+          }
+        }
+      }
+    },
+    {
+      "id": "2f9161b2af802d7a12e7732077588f1e28fa888d932cf0cd1a85173ace39af96",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-09-14T09:07:37Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 0,
+          "y": 4
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 2000,
+          "currency": "exalted"
+        },
+        "fee": 6735,
+        "account": {
+          "name": "E2ESeller#1005",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 1,
+        "h": 1,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQW11bGV0cy9CYXNldHlwZXMvSmFkZUFtdWxldCIsInciOjEsImgiOjEsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/ac51014172/JadeAmulet.png",
+        "league": "Standard",
+        "id": "2f9161b2af802d7a12e7732077588f1e28fa888d932cf0cd1a85173ace39af96",
+        "name": "Damnation Pendant",
+        "typeLine": "Jade Amulet",
+        "baseType": "Jade Amulet",
+        "rarity": "Rare",
+        "ilvl": 50,
+        "identified": true,
+        "note": "~b/o 2000 exalted",
+        "properties": [
+          {
+            "name": "Amulet",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["36", 0]],
+            "displayMode": 0,
+            "type": 62
+          }
+        ],
+        "implicitMods": [
+          {
+            "description": "+12 to [Dexterity|Dexterity]",
+            "domain": "implicit",
+            "hash": "stat.implicit.stat_3261801346",
+            "mods": [
+              {
+                "level": 10,
+                "magnitudes": [
+                  {
+                    "min": "10",
+                    "max": "15"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "+62 to maximum Mana",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1050105434",
+            "mods": [
+              {
+                "name": "Cerulean",
+                "tier": "P9",
+                "level": 33,
+                "magnitudes": [
+                  {
+                    "min": "55",
+                    "max": "64"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+44 to [Spirit|Spirit]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3981240776",
+            "mods": [
+              {
+                "name": "Marchioness'",
+                "tier": "P2",
+                "level": 46,
+                "magnitudes": [
+                  {
+                    "min": "43",
+                    "max": "46"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+22 to [Strength|Strength]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_4080418644",
+            "mods": [
+              {
+                "name": "of the Gorilla",
+                "tier": "S4",
+                "level": 44,
+                "magnitudes": [
+                  {
+                    "min": "21",
+                    "max": "24"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+21 to [Dexterity|Dexterity]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3261801346",
+            "mods": [
+              {
+                "name": "of the Panther",
+                "tier": "S4",
+                "level": 44,
+                "magnitudes": [
+                  {
+                    "min": "21",
+                    "max": "24"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "extended": {
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_1050105434", [0]],
+              ["explicit.stat_3981240776", [3]],
+              ["explicit.stat_4080418644", [1]],
+              ["explicit.stat_3261801346", [2]]
+            ],
+            "implicit": [["implicit.stat_3261801346", [0]]]
+          }
+        }
+      }
+    },
+    {
+      "id": "e25f83ed76a661adbc87b58c3ce28153c3e1d6beda431c50268f63399dc4d70f",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-09-24T21:33:48Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 5,
+          "y": 4
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 2000,
+          "currency": "exalted"
+        },
+        "fee": 39143,
+        "account": {
+          "name": "E2ESeller#1006",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 1,
+        "h": 4,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9Ud29IYW5kV2VhcG9ucy9TdGF2ZXMvQmFzZXR5cGVzL1N0YWZmMDYiLCJ3IjoxLCJoIjo0LCJzY2FsZSI6MSwicmVhbG0iOiJwb2UyIn1d/7df6587cac/Staff06.png",
+        "league": "Standard",
+        "id": "e25f83ed76a661adbc87b58c3ce28153c3e1d6beda431c50268f63399dc4d70f",
+        "sockets": [
+          {
+            "group": 0,
+            "type": "rune"
+          },
+          {
+            "group": 1,
+            "type": "rune"
+          }
+        ],
+        "name": "Vengeance Pole",
+        "typeLine": "Chiming Staff",
+        "baseType": "Chiming Staff",
+        "rarity": "Rare",
+        "ilvl": 81,
+        "identified": true,
+        "note": "~b/o 2000 exalted",
+        "properties": [
+          {
+            "name": "[Staff]",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["64", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "[Intelligence|Int]",
+            "values": [["46", 0]],
+            "displayMode": 1,
+            "type": 65
+          }
+        ],
+        "grantedSkills": [
+          {
+            "name": "Grants Skill",
+            "values": [["Level 19 Sigil of Power", 25]],
+            "displayMode": 0,
+            "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvU2lnaWxvZlBvd2VyV2VhcG9uU2tpbGwiLCJyZWFsbSI6InBvZTIifV0/5b743215eb/SigilofPowerWeaponSkill.png",
+            "domain": "skill",
+            "hash": "stat.skill.sigil_of_power"
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "[Gain] 56% of Damage as Extra [Lightning] Damage",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3278136794",
+            "mods": [
+              {
+                "name": "Stormbound",
+                "tier": "P1",
+                "level": 80,
+                "magnitudes": [
+                  {
+                    "min": "55",
+                    "max": "60"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+6 to Level of all [Chaos|Chaos] [Spell|Spell] Skills",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_4226189338",
+            "mods": [
+              {
+                "name": "of Havoc",
+                "tier": "S2",
+                "level": 55,
+                "magnitudes": [
+                  {
+                    "min": "5",
+                    "max": "6"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+28 to [Intelligence|Intelligence]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_328541901",
+            "mods": [
+              {
+                "name": "of the Savant",
+                "tier": "S2",
+                "level": 66,
+                "magnitudes": [
+                  {
+                    "min": "28",
+                    "max": "30"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "22% increased Mana Regeneration Rate",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_789117908",
+            "mods": [
+              {
+                "name": "of the Hearth",
+                "tier": "S1",
+                "level": 30,
+                "magnitudes": [
+                  {
+                    "min": "18",
+                    "max": "22"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "15% increased [LightRadius|Light Radius]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1263695895",
+            "mods": [
+              {
+                "name": "of the Hearth",
+                "tier": "S1",
+                "level": 30,
+                "magnitudes": [
+                  {
+                    "min": "15",
+                    "max": "15"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "socketedItems": [
+          {
+            "realm": "poe2",
+            "verified": true,
+            "w": 1,
+            "h": 1,
+            "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9OZXcvQmxhbmtHZW0iLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MSwicmVhbG0iOiJwb2UyIn1d/250ec3ed08/BlankGem.png",
+            "support": false,
+            "league": "Forbidden Rites",
+            "gemSockets": ["W", "W", "W", "W"],
+            "sockets": [
+              {
+                "group": 0,
+                "type": "gem"
+              },
+              {
+                "group": 1,
+                "type": "gem"
+              },
+              {
+                "group": 2,
+                "type": "gem"
+              },
+              {
+                "group": 3,
+                "type": "gem"
+              }
+            ],
+            "name": "",
+            "typeLine": "Sigil of Power",
+            "baseType": "Sigil of Power",
+            "ilvl": 0,
+            "identified": true,
+            "properties": [
+              {
+                "name": "[Spell], [AoESkill|AoE], [DurationSkill|Duration], [GainsStages|Staged]",
+                "values": [],
+                "displayMode": 0
+              },
+              {
+                "name": "Level",
+                "values": [["19", 0]],
+                "displayMode": 0,
+                "type": 5
+              },
+              {
+                "name": "Cost",
+                "values": [["0 Mana", 0]],
+                "displayMode": 0
+              },
+              {
+                "name": "Cooldown Time",
+                "values": [["10.00s", 0]],
+                "displayMode": 0
+              },
+              {
+                "name": "Cast Time",
+                "values": [["0.60s", 0]],
+                "displayMode": 0
+              }
+            ],
+            "requirements": [
+              {
+                "name": "Level",
+                "values": [["84", 0]],
+                "displayMode": 0,
+                "type": 62
+              },
+              {
+                "name": "[Intelligence|Int]",
+                "values": [["147", 0]],
+                "displayMode": 1,
+                "type": 65
+              }
+            ],
+            "secDescrText": "Place a Sigil on the ground, providing a powerful [Spell] Damage [Buff] to you and [Allies] while standing in it. The [Buff] becomes more powerful the more mana you spend while standing in the Sigil.",
+            "gemTabs": [
+              {
+                "name": "Sigil of Power",
+                "pages": [
+                  {
+                    "stats": [
+                      "Minimum 1 second between gaining Stages",
+                      "Sigil radius is 3 metres",
+                      "Gains a Stage when you Spend a total of 50% of your Maximum Mana while in Area",
+                      "Sigil duration is 11.8 seconds",
+                      "Maximum 4 Stages",
+                      "[Buff] grants 14% more [Spell] damage per Stage"
+                    ],
+                    "skillName": "Sigil of Power"
+                  }
+                ]
+              }
+            ],
+            "gemSkill": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvU2lnaWxvZlBvd2VyV2VhcG9uU2tpbGwiLCJyZWFsbSI6InBvZTIifV0/5b743215eb/SigilofPowerWeaponSkill.png",
+            "descrText": "Skills can be managed in the Skills Panel.",
+            "frameType": 4,
+            "frameTypeId": "Gem",
+            "socketedItems": []
+          }
+        ],
+        "extended": {
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_3278136794", [3]],
+              ["explicit.stat_4226189338", [1]],
+              ["explicit.stat_328541901", [2]],
+              ["explicit.stat_789117908", [0]],
+              ["explicit.stat_1263695895", [0]]
+            ],
+            "skill": [["skill.sigil_of_power", null]]
+          }
+        }
+      }
+    },
+    {
+      "id": "839b10eabc53f54206929665eff18e2d1e96e81050e52c4c18298ecb9c904c25",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-09-10T18:10:00Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 10,
+          "y": 10
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 2000,
+          "currency": "exalted"
+        },
+        "fee": 17900,
+        "account": {
+          "name": "E2ESeller#1007",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 1,
+        "h": 1,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvVW5pcXVlcy9Ub2tlbk9mUGFzc2FnZTA1IiwidyI6MSwiaCI6MSwic2NhbGUiOjEsInJlYWxtIjoicG9lMiJ9XQ/ccd3997a06/TokenOfPassage05.png",
+        "league": "Standard",
+        "id": "839b10eabc53f54206929665eff18e2d1e96e81050e52c4c18298ecb9c904c25",
+        "name": "Grip of Kulemak",
+        "typeLine": "Abyssal Signet",
+        "baseType": "Abyssal Signet",
+        "rarity": "Unique",
+        "ilvl": 82,
+        "identified": true,
+        "note": "~b/o 2000 exalted",
+        "properties": [
+          {
+            "name": "Ring",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          }
+        ],
+        "implicitMods": [
+          {
+            "description": "Inflict [AbyssalWasting|Abyssal Wasting] on [Hit]",
+            "domain": "implicit",
+            "hash": "stat.implicit.stat_2646093132",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "1",
+                    "max": "1"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "37% increased [Armour]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2866361420",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "30",
+                    "max": "40"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "34% increased [Critical|Critical Hit] Chance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_587431675",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "25",
+                    "max": "40"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+28% of [Armour|Armour] also applies to [ElementalDamage|Elemental Damage]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3362812763",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "20",
+                    "max": "30"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "26% reduced [Presence|Presence] Area of Effect",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_101878827",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "-30",
+                    "max": "-20"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "21% reduced [LightRadius|Light Radius]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1263695895",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "-30",
+                    "max": "-20"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "37% increased [Ignite|Ignite] [BuffMagnitude|Magnitude]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3791899485",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "30",
+                    "max": "40"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "87% increased [BuffMagnitude|Magnitude] of [AbyssalWasting|Abyssal Wasting] you inflict",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_4043376133",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "60",
+                    "max": "100"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "flavourText": ["Drink deeply of the Well.\r", "Let the Abyss coil within."],
+        "frameType": 3,
+        "frameTypeId": "Unique",
+        "extended": {
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_2866361420", [4]],
+              ["explicit.stat_587431675", [5]],
+              ["explicit.stat_3362812763", [4]],
+              ["explicit.stat_101878827", [0]],
+              ["explicit.stat_1263695895", [1]],
+              ["explicit.stat_3791899485", [2]],
+              ["explicit.stat_4043376133", [3]]
+            ],
+            "implicit": [["implicit.stat_2646093132", [0]]]
+          }
+        }
+      }
+    },
+    {
+      "id": "a11805b6b79cf365267bde8a7b632abefccb7adbed260bf2b7fca335bbc292fb",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-09-08T19:01:29Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 7,
+          "y": 4
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 91,
+          "currency": "chaos"
+        },
+        "fee": 18152,
+        "account": {
+          "name": "E2ESeller#1008",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 1,
+        "h": 1,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvVW5pcXVlcy9CZXJla3NHcmlwIiwidyI6MSwiaCI6MSwic2NhbGUiOjEsInJlYWxtIjoicG9lMiJ9XQ/696e998ff9/BereksGrip.png",
+        "league": "Standard",
+        "id": "a11805b6b79cf365267bde8a7b632abefccb7adbed260bf2b7fca335bbc292fb",
+        "name": "Berek's Grip",
+        "typeLine": "Two-Stone Ring",
+        "baseType": "Two-Stone Ring",
+        "rarity": "Unique",
+        "ilvl": 80,
+        "identified": true,
+        "note": "~b/o 91 chaos",
+        "properties": [
+          {
+            "name": "Ring",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["42", 0]],
+            "displayMode": 0,
+            "type": 62
+          }
+        ],
+        "implicitMods": [
+          {
+            "description": "+12% to Cold and Lightning Resistances",
+            "domain": "implicit",
+            "hash": "stat.implicit.stat_4277795662",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "12",
+                    "max": "16"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "+17 to [Dexterity|Dexterity] and [Intelligence|Intelligence]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2300185227",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "10",
+                    "max": "20"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+12% to Cold and Lightning Resistances",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_4277795662",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "10",
+                    "max": "20"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Hit|Hits] against you have 40% reduced [Critical|Critical Hit Chance] while you are [Chill|Chilled]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3923947492",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "-50",
+                    "max": "-35"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Wind|Wind Skills] which can be boosted by [ElementalGround|Elemental Ground Surfaces] count\nas being boosted by [ShockedGround|Shocked Ground]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2626360934",
+            "mods": [
+              {
+                "level": 53,
+                "magnitudes": [
+                  {
+                    "min": "1",
+                    "max": "1"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "flavourText": [
+          "\"Berek hid from Storm's lightning wrath\r",
+          "In the embrace of oblivious Frost\r",
+          "Repelled by ice, blinded by blizzards\r",
+          "Storm raged in vain\r",
+          "While Berek slept.\"\r",
+          "- Berek and the Untamed"
+        ],
+        "frameType": 3,
+        "frameTypeId": "Unique",
+        "extended": {
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_2300185227", [0]],
+              ["explicit.stat_4277795662", [1]],
+              ["explicit.stat_3923947492", [2]],
+              ["explicit.stat_2626360934", [3]]
+            ],
+            "implicit": [["implicit.stat_4277795662", [0]]]
+          }
+        }
+      }
+    },
+    {
+      "id": "7ebdfe742fc413c89e5b9e02bf1d5ae5b6a1be1dab3fb7bdfa9381470d673d80",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-09-10T10:36:25Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 1,
+          "y": 10
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 92,
+          "currency": "chaos"
+        },
+        "fee": 15569,
+        "account": {
+          "name": "E2ESeller#1009",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 1,
+        "h": 1,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvSmV3ZWxzL1VuaXF1ZXMvVW5keWluZ0hhdHJlZCIsInciOjEsImgiOjEsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/077ca94281/UndyingHatred.png",
+        "league": "Standard",
+        "id": "7ebdfe742fc413c89e5b9e02bf1d5ae5b6a1be1dab3fb7bdfa9381470d673d80",
+        "name": "Undying Hate",
+        "typeLine": "Timeless Jewel",
+        "baseType": "Timeless Jewel",
+        "rarity": "Unique",
+        "ilvl": 86,
+        "identified": true,
+        "note": "~b/o 92 chaos",
+        "properties": [
+          {
+            "name": "[Jewel]",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          },
+          {
+            "name": "Limited to",
+            "values": [["1 Historic", 0]],
+            "displayMode": 0
+          },
+          {
+            "name": "Radius",
+            "values": [["Very Large", 0]],
+            "displayMode": 0,
+            "type": 24
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "Glorifying the defilement of 24528 souls in tribute to Ulaman\nPassives in radius are Conquered by the Abyssals\n[UnstableDesecration|Desecration makes this item unstable]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3418580811|28",
+            "mods": [
+              {
+                "magnitudes": [
+                  {
+                    "min": "79",
+                    "max": "30977"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Historic]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3787436548"
+          }
+        ],
+        "descrText": "Place into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.\nCan be Desecrated 4 Times.\n[UnstableDesecration|Item becomes Unstable when Desecrated]",
+        "flavourText": [
+          "They believed themselves driven by necessity,\r",
+          "but that desperation made them monstrous."
+        ],
+        "frameType": 3,
+        "frameTypeId": "Unique",
+        "extended": {
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_3418580811|28", [0]],
+              ["explicit.stat_3787436548", null]
+            ]
           }
         }
       }

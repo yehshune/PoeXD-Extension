@@ -81,7 +81,7 @@ test.describe('搜尋結果列', () => {
 });
 
 test.describe('PoE2 搜尋結果列', () => {
-  test('每一列都加上 PoB 複製、外部連結、釘選與詞綴快速篩選', async ({
+  test('每一列都加上 PoB 複製、外部連結、釘選、詞綴快速篩選與價格換算', async ({
     page,
     pageErrors,
     network,
@@ -98,6 +98,21 @@ test.describe('PoE2 搜尋結果列', () => {
     await expect(
       rows.first().locator('.item-mod--explicit .poexd-result-mod-actions').first(),
     ).toBeAttached();
+
+    // 回放的 PoE2 匯率：1 chaos = 40 exalted；崇高石標價的物品不需要換算
+    const chaosListing = POE2_FETCH.result.find(
+      (entry) => entry.listing.price.currency === 'chaos',
+    );
+    if (!chaosListing) throw new Error('poe2-fetch.json 需要至少一筆以混沌石標價的物品');
+    const chaosRow = page.locator(`.results .row[data-id="${chaosListing.id}"]`);
+    await expect(chaosRow.locator('.price .poexd-price-comparison')).toContainText(
+      (chaosListing.listing.price.amount * 40).toLocaleString('en-US'),
+    );
+    for (const entry of POE2_FETCH.result.filter((e) => e.listing.price.currency === 'exalted')) {
+      await expect(
+        page.locator(`.results .row[data-id="${entry.id}"] .poexd-price-comparison`),
+      ).toHaveCount(0);
+    }
 
     expect(pageErrors).toEqual([]);
     expect(network.blocked).toEqual([]);
