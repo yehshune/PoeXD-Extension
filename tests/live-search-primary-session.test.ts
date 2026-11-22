@@ -156,4 +156,96 @@ describe('createLiveSearchPrimarySession', () => {
     expect(afterDispose.success).toBe(false);
     expect(enqueueIncomingConnections).toHaveBeenCalledTimes(1);
   });
+  function createRecordingFactories(events: string[]) {
+    const captured: { enqueueBridgeOpts?: any } = {};
+    const enqueueIncomingConnections = vi.fn(async () => ({
+      success: true,
+      addedCount: 1,
+      skippedCount: 0,
+    }));
+    const factories: Partial<LiveSearchPrimarySessionFactories> = {
+      createTitleGuard: () => ({
+        start: () => events.push('title:start'),
+        dispose: () => events.push('title:dispose'),
+      }),
+      createHostGuard: () => ({
+        start: () => events.push('host:start'),
+        dispose: () => events.push('host:dispose'),
+      }),
+      createSoundNotifier: () =>
+        ({ notify: vi.fn(), dispose: () => events.push('sound:dispose') }) as any,
+      createRuntime: () => ({ dispose: () => events.push('runtime:dispose') }) as any,
+      createPrimaryController: () => ({ read: () => ({ subscriptions: [] }) }) as any,
+      createResumeStore: () => ({}) as any,
+      createBookmarkClient: () => ({}) as any,
+      createSourceController: () =>
+        ({
+          enqueueIncomingConnections,
+          dispose: () => events.push('source:dispose'),
+        }) as any,
+      createResumeController: () => ({ dispose: () => events.push('resume:dispose') }) as any,
+      createExitGuard: () => ({ dispose: () => events.push('exit:dispose') }),
+      registerEnqueueBridge: (opts) => {
+        captured.enqueueBridgeOpts = opts;
+        return () => events.push('enqueue:cleanup');
+      },
+    };
+    return { factories, captured, enqueueIncomingConnections };
+  }
+
+  const stubDoc = { body: { setAttribute: () => {} } } as unknown as Document;
+
+  it('宿主 runtime 開始釋放（isHostDisposed 為 true）時，enqueue bridge 立即視為已釋放', () => {
+    const events: string[] = [];
+    const { factories, captured } = createRecordingFactories(events);
+    let hostDisposed = false;
+
+    const session = createLiveSearchPrimarySession({
+      version: 'poe1',
+      preferences: createStubPreferences(),
+      resultCache: { ingestResult: vi.fn() },
+      isHostDisposed: () => hostDisposed,
+      doc: stubDoc,
+      factories,
+    });
+
+    expect(captured.enqueueBridgeOpts.isDisposed()).toBe(false);
+    // runtime.ts 的 cleanupAll 會先設 disposed = true，再於最後呼叫 session.dispose()
+    hostDisposed = true;
+    expect(captured.enqueueBridgeOpts.isDisposed()).toBe(true);
+    expect(events).not.toContain('enqueue:cleanup');
+
+    session.dispose();
+    expect(events).toContain('enqueue:cleanup');
+  });
+
+  it('建構中途失敗時依序釋放已建立的子模組並重新拋出錯誤', () => {
+    const events: string[] = [];
+    const { factories } = createRecordingFactories(events);
+    const boom = new Error('resume store unavailable');
+
+    expect(() =>
+      createLiveSearchPrimarySession({
+        version: 'poe1',
+        preferences: createStubPreferences(),
+        resultCache: { ingestResult: vi.fn() },
+        doc: stubDoc,
+        factories: {
+          ...factories,
+          createResumeStore: () => {
+            throw boom;
+          },
+        },
+      }),
+    ).toThrow(boom);
+
+    expect(events).toEqual([
+      'title:start',
+      'host:start',
+      'title:dispose',
+      'host:dispose',
+      'runtime:dispose',
+      'sound:dispose',
+    ]);
+  });
 });

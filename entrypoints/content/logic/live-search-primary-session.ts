@@ -48,7 +48,7 @@ export interface LiveSearchPrimarySessionFactories {
   createRuntime: (
     version: PoeVersion,
     options: ConstructorParameters<typeof LiveSearchPrimaryRuntime>[1],
-  ) => Pick<LiveSearchPrimaryRuntime, 'dispose'> & LiveSearchPrimaryRuntime;
+  ) => LiveSearchPrimaryRuntime;
   createPrimaryController: typeof createLiveSearchPrimaryController;
   createResumeStore: typeof createLiveSearchResumeStore;
   createBookmarkClient: typeof createChromeBookmarkClient;
@@ -97,61 +97,96 @@ export function createLiveSearchPrimarySession(
 
   doc.body?.setAttribute('data-poexd-page-role', 'live-search-primary');
 
-  const titleGuard = f.createTitleGuard(doc, version);
-  titleGuard.start();
-
-  const hostGuard = f.createHostGuard();
-  hostGuard.start();
-
-  const soundNotifier = f.createSoundNotifier({
-    version,
-    isEnabled: () => preferences.read().liveSearchSoundEnabled,
-  });
-
-  const primaryRuntime = f.createRuntime(version, {
-    getMaxDisplayedResults: () => preferences.read().liveSearchMaxDisplayedResults,
-    onResultTokenAccepted: () => soundNotifier.notify(),
-    // 主控台自己打的 /fetch 不經過 MAIN world 攔截，結果要另外交給共用快取
-    onResultFetched: ({ itemData, searchId, league }) =>
-      resultCache.ingestResult(itemData, { sourceSearchId: searchId, league }),
-  });
-
-  const primaryController = f.createPrimaryController(primaryRuntime);
-  const resumeStore = f.createResumeStore(version);
-  const bookmarkClient = f.createBookmarkClient(version);
-  const sourceController = f.createSourceController(bookmarkClient, primaryController, {
-    resumeStore,
-    preferences,
-  });
-  const resumeController = f.createResumeController({
-    version,
-    preferences,
-    sourceController,
-    resumeStore,
-  });
-  const exitGuard = f.createExitGuard({
-    shouldWarn: () => (primaryController.read().subscriptions.length ?? 0) > 0,
-  });
-
   let disposed = false;
-  const cleanupEnqueueListener = f.registerEnqueueBridge({
-    version,
-    messenger: f.messenger,
-    enqueueIncoming: (items) => {
-      if (disposed || !sourceController.enqueueIncomingConnections) {
-        return Promise.resolve({
-          success: false,
-          addedCount: 0,
-          skippedCount: 0,
-          error: t('liveSearch.console.notReady'),
-          rejectReason: 'failed',
-        });
-      }
-      return sourceController.enqueueIncomingConnections(items);
-    },
-    isDisposed: () =>
-      disposed || Boolean(isHostDisposed?.()) || !sourceController.enqueueIncomingConnections,
-  });
+  let titleGuard: ReturnType<LiveSearchPrimarySessionFactories['createTitleGuard']> | null = null;
+  let hostGuard: ReturnType<LiveSearchPrimarySessionFactories['createHostGuard']> | null = null;
+  let soundNotifier: LiveSearchSoundNotifier | null = null;
+  let primaryRuntime: ReturnType<LiveSearchPrimarySessionFactories['createRuntime']> | null = null;
+  let sourceController: LiveSearchBookmarkController | null = null;
+  let resumeController: LiveSearchResumeController | null = null;
+  let exitGuard: ReturnType<LiveSearchPrimarySessionFactories['createExitGuard']> | null = null;
+  let cleanupEnqueueListener: (() => void) | null = null;
+
+  /** 依固定順序釋放已建立的子模組；建構中途失敗時也只釋放已建立者 */
+  function disposeCreated(): void {
+    cleanupEnqueueListener?.();
+    titleGuard?.dispose();
+    hostGuard?.dispose();
+    exitGuard?.dispose();
+    sourceController?.dispose();
+    resumeController?.dispose();
+    primaryRuntime?.dispose();
+    soundNotifier?.dispose();
+  }
+
+  let primaryController: LiveSearchPrimaryController;
+  try {
+    titleGuard = f.createTitleGuard(doc, version);
+    titleGuard.start();
+
+    hostGuard = f.createHostGuard();
+    hostGuard.start();
+
+    const notifier = f.createSoundNotifier({
+      version,
+      isEnabled: () => preferences.read().liveSearchSoundEnabled,
+    });
+    soundNotifier = notifier;
+
+    primaryRuntime = f.createRuntime(version, {
+      getMaxDisplayedResults: () => preferences.read().liveSearchMaxDisplayedResults,
+      onResultTokenAccepted: () => notifier.notify(),
+      // 主控台自己打的 /fetch 不經過 MAIN world 攔截，結果要另外交給共用快取
+      onResultFetched: ({ itemData, searchId, league }) =>
+        resultCache.ingestResult(itemData, { sourceSearchId: searchId, league }),
+    });
+
+    const controller = f.createPrimaryController(primaryRuntime);
+    primaryController = controller;
+    const resumeStore = f.createResumeStore(version);
+    const bookmarkClient = f.createBookmarkClient(version);
+    const sources = f.createSourceController(bookmarkClient, controller, {
+      resumeStore,
+      preferences,
+    });
+    sourceController = sources;
+    resumeController = f.createResumeController({
+      version,
+      preferences,
+      sourceController: sources,
+      resumeStore,
+    });
+    exitGuard = f.createExitGuard({
+      shouldWarn: () => (controller.read().subscriptions.length ?? 0) > 0,
+    });
+
+    cleanupEnqueueListener = f.registerEnqueueBridge({
+      version,
+      messenger: f.messenger,
+      enqueueIncoming: (items) => {
+        if (disposed || !sources.enqueueIncomingConnections) {
+          return Promise.resolve({
+            success: false,
+            addedCount: 0,
+            skippedCount: 0,
+            error: t('liveSearch.console.notReady'),
+            rejectReason: 'failed',
+          });
+        }
+        return sources.enqueueIncomingConnections(items);
+      },
+      isDisposed: () =>
+        disposed || Boolean(isHostDisposed?.()) || !sources.enqueueIncomingConnections,
+    });
+  } catch (err) {
+    disposed = true;
+    try {
+      disposeCreated();
+    } catch (cleanupErr) {
+      console.error('[PoeXD LiveSearch] Failed to roll back partial primary session:', cleanupErr);
+    }
+    throw err;
+  }
 
   return {
     console: {
@@ -165,14 +200,7 @@ export function createLiveSearchPrimarySession(
     dispose() {
       if (disposed) return;
       disposed = true;
-      cleanupEnqueueListener();
-      titleGuard.dispose();
-      hostGuard.dispose();
-      exitGuard.dispose();
-      sourceController.dispose();
-      resumeController.dispose();
-      primaryRuntime.dispose();
-      soundNotifier.dispose();
+      disposeCreated();
     },
   };
 }

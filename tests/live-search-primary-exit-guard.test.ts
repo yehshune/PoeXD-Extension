@@ -266,17 +266,30 @@ describe('LiveSearch Primary Exit Guard Contract Tests', () => {
 
   describe('7. Composition Root Contract in runtime.ts', () => {
     it('verifies runtime.ts only creates exit guard for live-search-primary role', () => {
-      const filePath = resolve(process.cwd(), 'entrypoints/content/logic/runtime.ts');
-      const content = readFileSync(filePath, 'utf-8');
+      const runtimeContent = readFileSync(
+        resolve(process.cwd(), 'entrypoints/content/logic/runtime.ts'),
+        'utf-8',
+      );
+      const sessionContent = readFileSync(
+        resolve(process.cwd(), 'entrypoints/content/logic/live-search-primary-session.ts'),
+        'utf-8',
+      );
 
-      // 確保 exit guard 僅在 pageRole === 'live-search-primary' 分支中被建立
-      const primaryBranchMatch = content.match(
-        /if\s*\(\s*pageRole\s*===\s*['"]live-search-primary['"]\s*\)\s*\{[\s\S]*?createLiveSearchPrimaryExitGuard[\s\S]*?\}/,
+      // Exit guard 由 LiveSearchPrimarySession 組裝，runtime.ts 不得自行建立
+      expect(runtimeContent).not.toContain('createLiveSearchPrimaryExitGuard');
+      expect(sessionContent).toMatch(/createExitGuard:\s*createLiveSearchPrimaryExitGuard/);
+
+      // Session 僅在 pageRole === 'live-search-primary' 分支中建立
+      const primaryBranchMatch = runtimeContent.match(
+        /if\s*\(\s*pageRole\s*===\s*['"]live-search-primary['"]\s*\)\s*\{[\s\S]*?createLiveSearchPrimarySession\(/,
       );
       expect(primaryBranchMatch).not.toBeNull();
+      expect(runtimeContent.match(/createLiveSearchPrimarySession\(/g)).toHaveLength(1);
 
-      // 確保在 cleanupAll 中有主動 dispose activeExitGuard
-      expect(content).toContain('activeExitGuard.dispose()');
+      // cleanupAll 釋放 session，session.dispose() 釋放 exit guard
+      // （釋放順序與冪等性見 live-search-primary-session.test.ts）
+      expect(runtimeContent).toContain('liveSearchSession?.dispose()');
+      expect(sessionContent).toMatch(/exitGuard\??\.dispose\(\)/);
     });
   });
 });
