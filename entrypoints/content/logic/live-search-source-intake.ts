@@ -322,11 +322,12 @@ export function createLiveSearchSourceIntake(
         }
       }
 
-      const currentCollection = runtime.getCurrentCollection();
       const sourceIdsToEnable: string[] = [];
       const resumeEntriesToPersist: LiveSearchResumeIdentity[] = [];
 
       for (const candidate of parsedCandidates) {
+        // 迴圈內會 await 條件解析，書籤集合可能在期間重新載入，每輪都要讀最新集合
+        const currentCollection = runtime.getCurrentCollection();
         const existingBookmark =
           (candidate.item.sourceBookmarkId
             ? currentCollection?.bookmarks.find(
