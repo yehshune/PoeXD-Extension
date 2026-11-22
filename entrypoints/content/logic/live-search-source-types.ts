@@ -6,6 +6,7 @@ import type {
   LiveSearchEnqueueItem,
   LiveSearchEnqueueResponse,
   LiveSearchRetryOutcome,
+  LiveSearchSubscription,
   LiveSearchSubscriptionStatus,
 } from '@/utils/live-search-contract';
 import type { LiveSearchResumeStore } from '@/utils/live-search-resume-store';
@@ -81,6 +82,8 @@ export const SESSION_CONNECTIONS_GROUP_ID = 'session_connections';
 export const SESSION_CONNECTIONS_GROUP_NAME = '本次連線';
 export const PREVIOUS_CONNECTIONS_GROUP_ID = 'previous_connections';
 export const PREVIOUS_CONNECTIONS_GROUP_NAME = '上次連線';
+export const SESSION_SOURCE_ID_PREFIX = 'session_';
+export const PREVIOUS_SOURCE_ID_PREFIX = 'prev_';
 
 export type LiveSearchSourceProvenance = 'origin-bookmark-removed';
 
@@ -241,3 +244,34 @@ export type CriteriaRedirect =
   | { kind: 'error'; error: string }
   | { kind: 'source'; sourceId: string }
   | { kind: 'adopt-meta'; entry: DedupEntry };
+
+/**
+ * Controller 核心狀態與通知 Port，供 league-manager 等基礎子模組共用
+ */
+export interface LiveSearchControllerBasePort {
+  readonly hasSource: boolean;
+  isDisposed(): boolean;
+  isReloadPending(): boolean;
+  waitForReconciliationDrain(): Promise<void>;
+  getGameVersion(): PoeVersion;
+  getCurrentCollection(): BookmarkCollectionView | null;
+  notify(): void;
+}
+
+/**
+ * Controller 完整執行期 Port，供 batch-executor 與 source-intake 共用
+ */
+export interface LiveSearchSourceRuntimePort extends LiveSearchControllerBasePort {
+  isLeagueResolved(): boolean;
+  isSwitchingLeague(): boolean;
+  getRawSelectedLeague(): string;
+  ensureStartupResolved(): Promise<void>;
+  getPrimaryContext(): LiveSearchPrimaryContext;
+  findActiveSubByCanonicalKey(canonicalKey: string): Readonly<LiveSearchSubscription> | undefined;
+  resolveCriteriaRedirect(
+    identity: ParsedTradeSearchIdentity,
+    canonicalKey: string,
+    incomingCover: string | undefined,
+  ): Promise<CriteriaRedirect | null>;
+  registerSessionEntry(meta: SessionConnectionMeta): void;
+}

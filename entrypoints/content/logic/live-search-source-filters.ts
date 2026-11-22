@@ -11,16 +11,20 @@ import {
 } from '@/utils/trade-search-identity';
 import type { LiveSearchSubscriptionStatus } from '@/utils/live-search-contract';
 import { DEFAULT_TRADE_ORIGIN, getSupportedTradeOrigin } from '@/utils/trade-realms';
-import type {
-  LiveSearchBatchIncompatibleBreakdown,
-  LiveSearchBatchSkipCounts,
-  LiveSearchPrimaryContext,
-  LiveSearchSourceCompatibility,
-  LiveSearchSourceFilterOptions,
-  LiveSearchSourceGroup,
-  LiveSearchSourceItem,
-  LiveSearchSourceStatusFilter,
+import {
+  PREVIOUS_SOURCE_ID_PREFIX,
+  SESSION_SOURCE_ID_PREFIX,
+  type LiveSearchPrimaryContext,
+  type LiveSearchSourceCompatibility,
+  type LiveSearchSourceFilterOptions,
+  type LiveSearchSourceGroup,
+  type LiveSearchSourceItem,
+  type LiveSearchSourceStatusFilter,
 } from './live-search-source-types';
+
+export function sameLeague(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+}
 
 export function formatLiveSearchDisplayVersion(version: PoeVersion): string {
   return version === 'poe2' ? 'PoE 2' : 'PoE 1';
@@ -92,7 +96,7 @@ export function evaluateLiveSearchSourceCompatibility(
   }
 
   const lockedLeague = primaryContext.runtimeLeague?.trim();
-  if (lockedLeague && parsed.league.trim().toLowerCase() !== lockedLeague.toLowerCase()) {
+  if (lockedLeague && !sameLeague(parsed.league, lockedLeague)) {
     return {
       compatibility: 'wrong-league',
       compatibilityMessage: t('liveSearch.error.lockedLeagueMismatch', {
@@ -305,11 +309,11 @@ export function filterLiveSearchSourceGroups(
 
 export function extractSectionSourceCanonicalKey(sourceId: string): string | null {
   const trimmed = sourceId.trim();
-  if (trimmed.startsWith('prev_')) {
-    return trimmed.slice('prev_'.length);
+  if (trimmed.startsWith(PREVIOUS_SOURCE_ID_PREFIX)) {
+    return trimmed.slice(PREVIOUS_SOURCE_ID_PREFIX.length);
   }
-  if (trimmed.startsWith('session_')) {
-    return trimmed.slice('session_'.length);
+  if (trimmed.startsWith(SESSION_SOURCE_ID_PREFIX)) {
+    return trimmed.slice(SESSION_SOURCE_ID_PREFIX.length);
   }
   return null;
 }
@@ -317,25 +321,4 @@ export function extractSectionSourceCanonicalKey(sourceId: string): string | nul
 export function getBookmarkCanonicalKey(bookmark: { url: string }): string | null {
   const parsed = parseTradeSearchUrl(stripLiveSuffix(bookmark.url));
   return parsed ? getTradeSearchCanonicalKey(parsed) : null;
-}
-
-export function createEmptyBatchCounters(): {
-  skipReasons: LiveSearchBatchSkipCounts;
-  incompatibleBreakdown: LiveSearchBatchIncompatibleBreakdown;
-} {
-  return {
-    skipReasons: {
-      alreadyActive: 0,
-      pending: 0,
-      incompatible: 0,
-      duplicateInBatch: 0,
-      notFound: 0,
-      inactive: 0,
-    },
-    incompatibleBreakdown: {
-      invalidUrl: 0,
-      wrongVersion: 0,
-      wrongLeague: 0,
-    },
-  };
 }

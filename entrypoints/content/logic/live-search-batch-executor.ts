@@ -1,4 +1,3 @@
-import type { BookmarkCollectionView } from '@/utils/bookmark-coordinator';
 import { t } from '@/utils/i18n';
 import {
   getTradeSearchCanonicalKey,
@@ -15,25 +14,25 @@ import type {
   LiveSearchResumeIdentity,
   LiveSearchResumeStore,
 } from '@/utils/live-search-resume-store';
-import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
-import type { ConnectionDedup } from './live-search-connection-dedup';
+import { hasValidCover, type ConnectionDedup } from './live-search-connection-dedup';
 import {
   buildCanonicalTradeSearchUrl,
-  createEmptyBatchCounters,
   evaluateLiveSearchSourceCompatibility,
   extractSectionSourceCanonicalKey,
   formatLiveSearchDisplayLeague,
+  sameLeague,
 } from './live-search-source-filters';
 import type {
-  CriteriaRedirect,
   CustomSourceRecord,
+  LiveSearchBatchIncompatibleBreakdown,
   LiveSearchBatchOutcome,
-  LiveSearchPrimaryContext,
+  LiveSearchBatchSkipCounts,
+  LiveSearchSourceRuntimePort,
   SessionConnectionMeta,
 } from './live-search-source-types';
 
 export interface LiveSearchBatchExecutorDeps {
-  hasSource: boolean;
+  runtime: LiveSearchSourceRuntimePort;
   liveController: LiveSearchPrimaryController;
   resumeStore: LiveSearchResumeStore | null;
   connectionDedup: ConnectionDedup;
@@ -41,75 +40,80 @@ export interface LiveSearchBatchExecutorDeps {
   sessionEntriesByKey: Map<string, SessionConnectionMeta>;
   baselineResumeByKey: Map<string, LiveSearchResumeIdentity>;
   pendingSearchKeys: Set<string>;
-  isDisposed: () => boolean;
-  isLeagueResolved: () => boolean;
-  isSwitchingLeague: () => boolean;
   getTransitionGeneration: () => number;
-  getRawSelectedLeague: () => string;
-  ensureStartupResolved: () => Promise<void>;
-  isReloadPending: () => boolean;
-  waitForReconciliationDrain: () => Promise<void>;
-  getPrimaryContext: () => LiveSearchPrimaryContext;
-  getCurrentCollection: () => BookmarkCollectionView | null;
   getCurrentLiveSubscriptions: () => readonly Readonly<LiveSearchSubscription>[];
-  findActiveSubByCanonicalKey: (
-    canonicalKey: string,
-  ) => Readonly<LiveSearchSubscription> | undefined;
   findResumeEntryByCanonicalKey: (canonicalKey: string) => LiveSearchResumeIdentity | undefined;
   resolveCanonicalKeyBySourceId: (sourceId: string) => string | null;
   resolveSubscriptionId: (sourceOrSubscriptionId: string) => string | undefined;
-  resolveCriteriaRedirect: (
-    identity: ParsedTradeSearchIdentity,
-    canonicalKey: string,
-    incomingCover: string | undefined,
-  ) => Promise<CriteriaRedirect | null>;
-  registerSessionEntry: (meta: SessionConnectionMeta) => void;
-  notify: () => void;
+}
+
+export interface LiveSearchEnableSourceOptions {
+  /** 跳過「相同搜尋條件」轉向（由轉向後或已完成去重之入口使用，避免循環）。 */
+  skipCriteriaRedirect?: boolean;
 }
 
 export interface LiveSearchBatchExecutor {
-  enableSource(sourceId: string): Promise<AddSubscriptionOutcome>;
-  enableSourceInternal(sourceId: string, allowRedirect: boolean): Promise<AddSubscriptionOutcome>;
+  enableSource(
+    sourceId: string,
+    options?: LiveSearchEnableSourceOptions,
+  ): Promise<AddSubscriptionOutcome>;
   enableManySources(sourceIds: readonly string[]): Promise<LiveSearchBatchOutcome>;
   stopManySources(sourceIds: readonly string[]): LiveSearchBatchOutcome;
+}
+
+export function createEmptyBatchCounters(): {
+  skipReasons: LiveSearchBatchSkipCounts;
+  incompatibleBreakdown: LiveSearchBatchIncompatibleBreakdown;
+} {
+  return {
+    skipReasons: {
+      alreadyActive: 0,
+      pending: 0,
+      incompatible: 0,
+      duplicateInBatch: 0,
+      notFound: 0,
+      inactive: 0,
+    },
+    incompatibleBreakdown: {
+      invalidUrl: 0,
+      wrongVersion: 0,
+      wrongLeague: 0,
+    },
+  };
 }
 
 export function createLiveSearchBatchExecutor(
   deps: LiveSearchBatchExecutorDeps,
 ): LiveSearchBatchExecutor {
-  function enableSource(sourceId: string): Promise<AddSubscriptionOutcome> {
-    return enableSourceInternal(sourceId, true);
-  }
+  const { runtime } = deps;
 
-  /**
-   * @param allowRedirect 是否套用「相同搜尋條件」轉向；轉向後的再次呼叫不再轉向，避免循環。
-   */
-  async function enableSourceInternal(
+  async function enableSource(
     sourceId: string,
-    allowRedirect: boolean,
+    options?: LiveSearchEnableSourceOptions,
   ): Promise<AddSubscriptionOutcome> {
-    if (deps.isDisposed()) {
+    const allowRedirect = !options?.skipCriteriaRedirect;
+    if (runtime.isDisposed()) {
       return { success: false, error: t('liveSearch.error.controllerDisposed') };
     }
 
-    if (!deps.isLeagueResolved()) {
-      await deps.ensureStartupResolved();
+    if (!runtime.isLeagueResolved()) {
+      await runtime.ensureStartupResolved();
     }
 
-    if (deps.hasSource && deps.isReloadPending()) {
-      await deps.waitForReconciliationDrain();
+    if (runtime.hasSource && runtime.isReloadPending()) {
+      await runtime.waitForReconciliationDrain();
     }
 
-    if (deps.isDisposed()) {
+    if (runtime.isDisposed()) {
       return { success: false, error: t('liveSearch.error.controllerDisposed') };
     }
 
-    if (deps.isSwitchingLeague()) {
+    if (runtime.isSwitchingLeague()) {
       return { success: false, error: t('liveSearch.error.switchingLeague') };
     }
 
     const opGeneration = deps.getTransitionGeneration();
-    const opLeague = deps.getRawSelectedLeague();
+    const opLeague = runtime.getRawSelectedLeague();
 
     if (!sourceId || typeof sourceId !== 'string') {
       return { success: false, error: t('liveSearch.error.invalidBookmarkId') };
@@ -163,7 +167,7 @@ export function createLiveSearchBatchExecutor(
         }
       }
       if (existingCustom) {
-        return enableSourceInternal(existingCustom.id, allowRedirect);
+        return enableSource(existingCustom.id, options);
       }
     }
 
@@ -172,7 +176,7 @@ export function createLiveSearchBatchExecutor(
     if (custom) {
       const compat = evaluateLiveSearchSourceCompatibility(
         custom.canonicalIdentity,
-        deps.getPrimaryContext(),
+        runtime.getPrimaryContext(),
       );
       if (compat.compatibility !== 'compatible') {
         return {
@@ -181,7 +185,7 @@ export function createLiveSearchBatchExecutor(
         };
       }
 
-      if (custom.canonicalIdentity.league.trim().toLowerCase() !== opLeague.trim().toLowerCase()) {
+      if (!sameLeague(custom.canonicalIdentity.league, opLeague)) {
         return {
           success: false,
           error: t('liveSearch.error.selectedLeagueMismatch', {
@@ -194,18 +198,20 @@ export function createLiveSearchBatchExecutor(
       if (deps.pendingSearchKeys.has(custom.canonicalKey)) {
         return { success: false, error: t('liveSearch.error.alreadyStarting') };
       }
-      if (deps.findActiveSubByCanonicalKey(custom.canonicalKey)) {
+      if (runtime.findActiveSubByCanonicalKey(custom.canonicalKey)) {
         return { success: false, error: t('liveSearch.error.alreadyActive') };
       }
 
       if (allowRedirect) {
-        const redirect = await deps.resolveCriteriaRedirect(
+        const redirect = await runtime.resolveCriteriaRedirect(
           custom.canonicalIdentity,
           custom.canonicalKey,
           custom.coverImageUrl,
         );
         if (redirect?.kind === 'error') return { success: false, error: redirect.error };
-        if (redirect?.kind === 'source') return enableSourceInternal(redirect.sourceId, false);
+        if (redirect?.kind === 'source') {
+          return enableSource(redirect.sourceId, { skipCriteriaRedirect: true });
+        }
         if (redirect?.kind === 'adopt-meta') {
           custom.coverImageUrl = redirect.entry.coverImageUrl;
           if (redirect.entry.name) custom.name = redirect.entry.name;
@@ -213,12 +219,12 @@ export function createLiveSearchBatchExecutor(
         if (deps.pendingSearchKeys.has(custom.canonicalKey)) {
           return { success: false, error: t('liveSearch.error.alreadyStarting') };
         }
-        if (deps.findActiveSubByCanonicalKey(custom.canonicalKey)) {
+        if (runtime.findActiveSubByCanonicalKey(custom.canonicalKey)) {
           return { success: false, error: t('liveSearch.error.alreadyActive') };
         }
       }
 
-      deps.registerSessionEntry({
+      runtime.registerSessionEntry({
         canonicalKey: custom.canonicalKey,
         canonicalIdentity: custom.canonicalIdentity,
         name: custom.name,
@@ -226,13 +232,13 @@ export function createLiveSearchBatchExecutor(
         coverImageUrl: custom.coverImageUrl,
       });
       deps.pendingSearchKeys.add(custom.canonicalKey);
-      deps.notify();
+      runtime.notify();
 
       try {
         if (
           deps.getTransitionGeneration() !== opGeneration ||
-          deps.isSwitchingLeague() ||
-          deps.getRawSelectedLeague() !== opLeague
+          runtime.isSwitchingLeague() ||
+          runtime.getRawSelectedLeague() !== opLeague
         ) {
           return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
         }
@@ -241,11 +247,11 @@ export function createLiveSearchBatchExecutor(
         });
         if (
           deps.getTransitionGeneration() !== opGeneration ||
-          deps.isSwitchingLeague() ||
-          deps.getRawSelectedLeague() !== opLeague
+          runtime.isSwitchingLeague() ||
+          runtime.getRawSelectedLeague() !== opLeague
         ) {
           if (outcome.success) {
-            const sub = deps.findActiveSubByCanonicalKey(custom.canonicalKey);
+            const sub = runtime.findActiveSubByCanonicalKey(custom.canonicalKey);
             if (sub) {
               deps.liveController.remove(sub.id);
             } else {
@@ -271,28 +277,28 @@ export function createLiveSearchBatchExecutor(
         return outcome;
       } finally {
         deps.pendingSearchKeys.delete(custom.canonicalKey);
-        deps.notify();
+        runtime.notify();
       }
     }
 
     // 2. Bookmark Source
-    if (deps.isReloadPending()) {
-      await deps.waitForReconciliationDrain();
+    if (runtime.isReloadPending()) {
+      await runtime.waitForReconciliationDrain();
     }
 
-    if (deps.isDisposed()) {
+    if (runtime.isDisposed()) {
       return { success: false, error: t('liveSearch.error.controllerDisposed') };
     }
 
     if (
       deps.getTransitionGeneration() !== opGeneration ||
-      deps.isSwitchingLeague() ||
-      deps.getRawSelectedLeague() !== opLeague
+      runtime.isSwitchingLeague() ||
+      runtime.getRawSelectedLeague() !== opLeague
     ) {
       return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
     }
 
-    const currentCollection = deps.getCurrentCollection();
+    const currentCollection = runtime.getCurrentCollection();
     if (!currentCollection) {
       return { success: false, error: t('liveSearch.error.bookmarksNotReady') };
     }
@@ -313,7 +319,7 @@ export function createLiveSearchBatchExecutor(
 
     const compat = evaluateLiveSearchSourceCompatibility(
       parsed,
-      deps.getPrimaryContext(),
+      runtime.getPrimaryContext(),
       bookmarkUrl,
     );
     if (compat.compatibility !== 'compatible') {
@@ -323,7 +329,7 @@ export function createLiveSearchBatchExecutor(
       };
     }
 
-    if (parsed.league.trim().toLowerCase() !== opLeague.trim().toLowerCase()) {
+    if (!sameLeague(parsed.league, opLeague)) {
       return {
         success: false,
         error: t('liveSearch.error.selectedLeagueMismatch', {
@@ -339,26 +345,23 @@ export function createLiveSearchBatchExecutor(
       return { success: false, error: t('liveSearch.error.alreadyStarting') };
     }
 
-    if (deps.findActiveSubByCanonicalKey(searchKey)) {
+    if (runtime.findActiveSubByCanonicalKey(searchKey)) {
       return { success: false, error: t('liveSearch.error.alreadyActive') };
     }
 
-    let validCoverUrl =
-      bookmark.coverImageUrl && isValidPoeCdnImageUrl(bookmark.coverImageUrl)
-        ? bookmark.coverImageUrl
-        : undefined;
+    let validCoverUrl = hasValidCover(bookmark.coverImageUrl) ? bookmark.coverImageUrl : undefined;
 
     deps.pendingSearchKeys.add(searchKey);
-    deps.notify();
+    runtime.notify();
 
     if (allowRedirect) {
-      const redirect = await deps.resolveCriteriaRedirect(parsed, searchKey, validCoverUrl);
+      const redirect = await runtime.resolveCriteriaRedirect(parsed, searchKey, validCoverUrl);
       if (redirect?.kind === 'error' || redirect?.kind === 'source') {
         deps.pendingSearchKeys.delete(searchKey);
-        deps.notify();
+        runtime.notify();
         return redirect.kind === 'error'
           ? { success: false, error: redirect.error }
-          : enableSourceInternal(redirect.sourceId, false);
+          : enableSource(redirect.sourceId, { skipCriteriaRedirect: true });
       }
       // 同一 search ID：書籤名稱維持優先顯示，只沿用上次連線的封面
       if (redirect?.kind === 'adopt-meta') validCoverUrl = redirect.entry.coverImageUrl;
@@ -367,8 +370,8 @@ export function createLiveSearchBatchExecutor(
     try {
       if (
         deps.getTransitionGeneration() !== opGeneration ||
-        deps.isSwitchingLeague() ||
-        deps.getRawSelectedLeague() !== opLeague
+        runtime.isSwitchingLeague() ||
+        runtime.getRawSelectedLeague() !== opLeague
       ) {
         return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
       }
@@ -378,11 +381,11 @@ export function createLiveSearchBatchExecutor(
       });
       if (
         deps.getTransitionGeneration() !== opGeneration ||
-        deps.isSwitchingLeague() ||
-        deps.getRawSelectedLeague() !== opLeague
+        runtime.isSwitchingLeague() ||
+        runtime.getRawSelectedLeague() !== opLeague
       ) {
         if (outcome.success) {
-          const sub = deps.findActiveSubByCanonicalKey(searchKey);
+          const sub = runtime.findActiveSubByCanonicalKey(searchKey);
           if (sub) {
             deps.liveController.remove(sub.id);
           } else {
@@ -392,7 +395,7 @@ export function createLiveSearchBatchExecutor(
         return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
       }
       if (outcome.success) {
-        deps.registerSessionEntry({
+        runtime.registerSessionEntry({
           canonicalKey: searchKey,
           canonicalIdentity: parsed,
           name: bookmark.name,
@@ -413,7 +416,7 @@ export function createLiveSearchBatchExecutor(
       return outcome;
     } finally {
       deps.pendingSearchKeys.delete(searchKey);
-      deps.notify();
+      runtime.notify();
     }
   }
 
@@ -422,7 +425,7 @@ export function createLiveSearchBatchExecutor(
     const requestedIds = Array.isArray(sourceIds) ? sourceIds : [];
     const requested = requestedIds.length;
 
-    if (deps.isDisposed()) {
+    if (runtime.isDisposed()) {
       return {
         success: false,
         requested,
@@ -450,15 +453,15 @@ export function createLiveSearchBatchExecutor(
       };
     }
 
-    if (!deps.isLeagueResolved()) {
-      await deps.ensureStartupResolved();
+    if (!runtime.isLeagueResolved()) {
+      await runtime.ensureStartupResolved();
     }
 
-    if (deps.hasSource && deps.isReloadPending()) {
-      await deps.waitForReconciliationDrain();
+    if (runtime.hasSource && runtime.isReloadPending()) {
+      await runtime.waitForReconciliationDrain();
     }
 
-    if (deps.isDisposed()) {
+    if (runtime.isDisposed()) {
       return {
         success: false,
         requested,
@@ -473,7 +476,7 @@ export function createLiveSearchBatchExecutor(
       };
     }
 
-    if (deps.isSwitchingLeague()) {
+    if (runtime.isSwitchingLeague()) {
       return {
         success: false,
         requested,
@@ -489,8 +492,8 @@ export function createLiveSearchBatchExecutor(
     }
 
     const opGeneration = deps.getTransitionGeneration();
-    const opLeague = deps.getRawSelectedLeague();
-    const currentCollection = deps.getCurrentCollection();
+    const opLeague = runtime.getRawSelectedLeague();
+    const currentCollection = runtime.getCurrentCollection();
 
     if (
       !currentCollection &&
@@ -512,7 +515,7 @@ export function createLiveSearchBatchExecutor(
       };
     }
 
-    const primaryContext = deps.getPrimaryContext();
+    const primaryContext = runtime.getPrimaryContext();
 
     function resolveCandidateInfo(sourceId: string): {
       parsed: ParsedTradeSearchIdentity | null;
@@ -626,7 +629,7 @@ export function createLiveSearchBatchExecutor(
 
       const parsed = info.parsed;
 
-      if (parsed && parsed.league.trim().toLowerCase() !== opLeague.trim().toLowerCase()) {
+      if (parsed && !sameLeague(parsed.league, opLeague)) {
         skipped += 1;
         skipReasons.incompatible += 1;
         incompatibleBreakdown.wrongLeague += 1;
@@ -650,7 +653,7 @@ export function createLiveSearchBatchExecutor(
 
       const canonicalKey = getTradeSearchCanonicalKey(parsed);
 
-      if (deps.findActiveSubByCanonicalKey(canonicalKey)) {
+      if (runtime.findActiveSubByCanonicalKey(canonicalKey)) {
         skipped += 1;
         skipReasons.alreadyActive += 1;
         continue;
@@ -746,14 +749,14 @@ export function createLiveSearchBatchExecutor(
     let lastError: string | undefined;
 
     for (const candidate of eligibleCandidates) {
-      if (deps.isDisposed()) {
+      if (runtime.isDisposed()) {
         failed += 1;
         continue;
       }
       if (
         deps.getTransitionGeneration() !== opGeneration ||
-        deps.isSwitchingLeague() ||
-        deps.getRawSelectedLeague() !== opLeague
+        runtime.isSwitchingLeague() ||
+        runtime.getRawSelectedLeague() !== opLeague
       ) {
         failed += eligibleCandidates.length - succeeded;
         lastError = t('liveSearch.error.leagueSwitchedBatchAborted');
@@ -762,8 +765,8 @@ export function createLiveSearchBatchExecutor(
       const outcome = await enableSource(candidate.sourceId);
       if (
         deps.getTransitionGeneration() !== opGeneration ||
-        deps.isSwitchingLeague() ||
-        deps.getRawSelectedLeague() !== opLeague
+        runtime.isSwitchingLeague() ||
+        runtime.getRawSelectedLeague() !== opLeague
       ) {
         failed += eligibleCandidates.length - succeeded;
         lastError = t('liveSearch.error.leagueSwitchedBatchAborted');
@@ -796,7 +799,7 @@ export function createLiveSearchBatchExecutor(
     const requestedIds = Array.isArray(sourceIds) ? sourceIds : [];
     const requested = requestedIds.length;
 
-    if (deps.isDisposed()) {
+    if (runtime.isDisposed()) {
       return {
         success: false,
         requested,
@@ -825,7 +828,7 @@ export function createLiveSearchBatchExecutor(
     }
 
     const stoppedSubIds = new Set<string>();
-    const currentCollection = deps.getCurrentCollection();
+    const currentCollection = runtime.getCurrentCollection();
     let succeeded = 0;
     let skipped = 0;
 
@@ -864,7 +867,7 @@ export function createLiveSearchBatchExecutor(
       succeeded += 1;
     }
 
-    deps.notify();
+    runtime.notify();
     return {
       success: true,
       requested,
@@ -879,7 +882,6 @@ export function createLiveSearchBatchExecutor(
 
   return {
     enableSource,
-    enableSourceInternal,
     enableManySources,
     stopManySources,
   };

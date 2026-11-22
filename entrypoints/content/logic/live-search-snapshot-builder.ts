@@ -9,19 +9,21 @@ import {
 } from '@/utils/trade-search-identity';
 import type { LiveSearchSubscription } from '@/utils/live-search-contract';
 import type { LiveSearchResumeIdentity } from '@/utils/live-search-resume-store';
-import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
-import { dedupePreviousConnectionItems } from './live-search-connection-dedup';
+import { dedupePreviousConnectionItems, hasValidCover } from './live-search-connection-dedup';
 import {
   buildCanonicalTradeSearchUrl,
   evaluateLiveSearchSourceCompatibility,
+  sameLeague,
 } from './live-search-source-filters';
 import {
   CUSTOM_SOURCE_GROUP_ID,
   CUSTOM_SOURCE_GROUP_NAME,
   PREVIOUS_CONNECTIONS_GROUP_ID,
   PREVIOUS_CONNECTIONS_GROUP_NAME,
+  PREVIOUS_SOURCE_ID_PREFIX,
   SESSION_CONNECTIONS_GROUP_ID,
   SESSION_CONNECTIONS_GROUP_NAME,
+  SESSION_SOURCE_ID_PREFIX,
   type CustomSourceRecord,
   type LiveSearchPrimaryContext,
   type LiveSearchSourceGroup,
@@ -165,7 +167,7 @@ export function buildLiveSearchSourceSnapshot(
       if (
         parsed &&
         parsed.gameVersion === primaryContext.gameVersion &&
-        parsed.league.trim().toLowerCase() !== currentSelectedLeague.trim().toLowerCase()
+        !sameLeague(parsed.league, currentSelectedLeague)
       ) {
         continue;
       }
@@ -177,8 +179,7 @@ export function buildLiveSearchSourceSnapshot(
       const knownFolder = folderMap.get(b.groupId);
       const resolvedGroupId = knownFolder ? knownFolder.id : 'default_ungrouped';
       const resolvedGroupName = knownFolder ? knownFolder.name : t('liveSearch.uncategorized');
-      const validCoverUrl =
-        b.coverImageUrl && isValidPoeCdnImageUrl(b.coverImageUrl) ? b.coverImageUrl : undefined;
+      const validCoverUrl = hasValidCover(b.coverImageUrl) ? b.coverImageUrl : undefined;
 
       const item: LiveSearchSourceItem = {
         kind: 'bookmark',
@@ -259,7 +260,7 @@ export function buildLiveSearchSourceSnapshot(
   const filteredCustomSources = customSources.filter((c) => {
     if (
       c.canonicalIdentity.gameVersion === primaryContext.gameVersion &&
-      c.canonicalIdentity.league.trim().toLowerCase() !== currentSelectedLeague.trim().toLowerCase()
+      !sameLeague(c.canonicalIdentity.league, currentSelectedLeague)
     ) {
       return false;
     }
@@ -317,8 +318,7 @@ export function buildLiveSearchSourceSnapshot(
   for (const [canonicalKey, meta] of sessionEntriesByKey.entries()) {
     if (
       meta.canonicalIdentity.gameVersion === primaryContext.gameVersion &&
-      meta.canonicalIdentity.league.trim().toLowerCase() !==
-        currentSelectedLeague.trim().toLowerCase()
+      !sameLeague(meta.canonicalIdentity.league, currentSelectedLeague)
     ) {
       continue;
     }
@@ -359,15 +359,12 @@ export function buildLiveSearchSourceSnapshot(
         errorMessage: activeSub?.errorMessage,
         reconnectInSeconds: activeSub?.reconnectInSeconds,
         removable: true,
-        coverImageUrl:
-          meta.coverImageUrl && isValidPoeCdnImageUrl(meta.coverImageUrl)
-            ? meta.coverImageUrl
-            : undefined,
+        coverImageUrl: hasValidCover(meta.coverImageUrl) ? meta.coverImageUrl : undefined,
       });
     } else {
       sessionConnections.push({
         kind: meta.sourceBookmarkId ? 'bookmark' : 'custom',
-        id: meta.sourceBookmarkId || `session_${canonicalKey}`,
+        id: meta.sourceBookmarkId || `${SESSION_SOURCE_ID_PREFIX}${canonicalKey}`,
         name:
           meta.name ||
           activeSub?.name ||
@@ -393,10 +390,7 @@ export function buildLiveSearchSourceSnapshot(
         errorMessage: activeSub?.errorMessage,
         reconnectInSeconds: activeSub?.reconnectInSeconds,
         removable: true,
-        coverImageUrl:
-          meta.coverImageUrl && isValidPoeCdnImageUrl(meta.coverImageUrl)
-            ? meta.coverImageUrl
-            : undefined,
+        coverImageUrl: hasValidCover(meta.coverImageUrl) ? meta.coverImageUrl : undefined,
       });
     }
   }
@@ -406,7 +400,7 @@ export function buildLiveSearchSourceSnapshot(
 
   for (const [canonicalKey, resumeId] of combinedResumeMap.entries()) {
     if (resumeId.gameVersion !== primaryContext.gameVersion) continue;
-    if (resumeId.league.trim().toLowerCase() !== currentSelectedLeague.trim().toLowerCase()) {
+    if (!sameLeague(resumeId.league, currentSelectedLeague)) {
       continue;
     }
     if (sessionEntriesByKey.has(canonicalKey) || activeIdentityMap.has(canonicalKey)) {
@@ -444,14 +438,11 @@ export function buildLiveSearchSourceSnapshot(
       primaryContext,
       resolvedUrl,
     );
-    const validCover =
-      resumeId.coverImageUrl && isValidPoeCdnImageUrl(resumeId.coverImageUrl)
-        ? resumeId.coverImageUrl
-        : undefined;
+    const validCover = hasValidCover(resumeId.coverImageUrl) ? resumeId.coverImageUrl : undefined;
 
     previousConnections.push({
       kind: 'custom',
-      id: `prev_${canonicalKey}`,
+      id: `${PREVIOUS_SOURCE_ID_PREFIX}${canonicalKey}`,
       name: resumeId.name || t('liveSearch.defaultSearchNameWithId', { id: resumeId.searchId }),
       url: resolvedUrl,
       canonicalIdentity: parsedIdentity,
@@ -546,7 +537,7 @@ export function reconcileLiveSearchSourceOwnership(
         sessionMeta.name = preferred.name;
         sessionMeta.url = preferred.url;
         sessionMeta.sourceBookmarkId = preferred.id;
-        if (preferred.coverImageUrl && isValidPoeCdnImageUrl(preferred.coverImageUrl)) {
+        if (hasValidCover(preferred.coverImageUrl)) {
           sessionMeta.coverImageUrl = preferred.coverImageUrl;
         }
       }

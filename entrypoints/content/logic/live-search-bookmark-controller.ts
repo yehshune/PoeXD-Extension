@@ -3,8 +3,6 @@ import { t } from '@/utils/i18n';
 import type { PoeVersion } from '@/utils/trade-context';
 import {
   getTradeSearchCanonicalKey,
-  parseTradeSearchUrl,
-  stripLiveSuffix,
   type ParsedTradeSearchIdentity,
 } from '@/utils/trade-search-identity';
 import type {
@@ -17,7 +15,6 @@ import {
   type LiveSearchResumeIdentity,
 } from '@/utils/live-search-resume-store';
 import { readBookmarkTargetContext, resolveBookmarkUrl } from '@/utils/bookmark-target';
-import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import { createTradeSearchCriteriaKeyResolver } from '@/utils/trade-search-criteria-key';
 import {
   createConnectionDedup,
@@ -34,18 +31,23 @@ import {
 import {
   extractSectionSourceCanonicalKey,
   getBookmarkCanonicalKey,
+  sameLeague,
 } from './live-search-source-filters';
 import { createLiveSearchSourceIntake } from './live-search-source-intake';
-import type {
-  CriteriaRedirect,
-  CustomSourceRecord,
-  LiveSearchBatchOutcome,
-  LiveSearchBookmarkSourcePort,
-  LiveSearchPrimaryContext,
-  LiveSearchSourceController,
-  LiveSearchSourceControllerOptions,
-  LiveSearchSourceSnapshot,
-  SessionConnectionMeta,
+import {
+  PREVIOUS_SOURCE_ID_PREFIX,
+  SESSION_SOURCE_ID_PREFIX,
+  type CriteriaRedirect,
+  type CustomSourceRecord,
+  type LiveSearchBatchOutcome,
+  type LiveSearchBookmarkSourcePort,
+  type LiveSearchControllerBasePort,
+  type LiveSearchPrimaryContext,
+  type LiveSearchSourceController,
+  type LiveSearchSourceControllerOptions,
+  type LiveSearchSourceRuntimePort,
+  type LiveSearchSourceSnapshot,
+  type SessionConnectionMeta,
 } from './live-search-source-types';
 
 export {
@@ -127,31 +129,34 @@ export function createLiveSearchSourceController(
 
   let unsubSource: (() => void) | null = null;
   let unsubLive: (() => void) | null = null;
-  let unsubPreferences: (() => void) | null = null;
   let unsubResumeStore: (() => void) | null = null;
 
   let criteriaResolutionPending = false;
   let lastPreviousConnectionsSignature = '';
 
+  const baseRuntimePort: LiveSearchControllerBasePort = {
+    hasSource: Boolean(source),
+    isDisposed: () => disposed,
+    isReloadPending: () => isReloading || hasPendingReload,
+    waitForReconciliationDrain,
+    getGameVersion: () => currentGameVersion,
+    getCurrentCollection: () => currentCollection,
+    notify,
+  };
+
   const leagueManager = createLiveSearchLeagueManager({
+    runtime: baseRuntimePort,
     initialLeague: options?.initialLeague,
     preferences,
     resumeStore,
     liveController,
     fetchLeagues: options?.fetchLeagues,
-    hasSource: Boolean(source),
-    isDisposed: () => disposed,
     isLoading: () => loading,
-    isReloadPending: () => isReloading || hasPendingReload,
-    waitForReconciliationDrain,
-    getGameVersion: () => currentGameVersion,
-    getCurrentCollection: () => currentCollection,
     getCustomSources: () => customSources,
     getLatestResumeIdentities: () => latestResumeIdentities,
     onSelectedLeagueChanged: () => {
       syncResolvedCollection();
     },
-    notify,
   });
 
   const connectionDedup = createConnectionDedup({
@@ -199,14 +204,12 @@ export function createLiveSearchSourceController(
         searchId: sub.searchId,
       };
       const canonicalKey = getTradeSearchCanonicalKey(canonicalIdentity);
-      const matchingBookmark = currentCollection?.bookmarks.find((b) => {
-        const parsed = parseTradeSearchUrl(stripLiveSuffix(b.url));
-        return parsed && getTradeSearchCanonicalKey(parsed) === canonicalKey;
-      });
-      const validCover =
-        matchingBookmark?.coverImageUrl && isValidPoeCdnImageUrl(matchingBookmark.coverImageUrl)
-          ? matchingBookmark.coverImageUrl
-          : undefined;
+      const matchingBookmark = currentCollection?.bookmarks.find(
+        (b) => getBookmarkCanonicalKey(b) === canonicalKey,
+      );
+      const validCover = hasValidCover(matchingBookmark?.coverImageUrl)
+        ? matchingBookmark.coverImageUrl
+        : undefined;
       registerSessionEntry({
         canonicalKey,
         canonicalIdentity,
@@ -389,7 +392,9 @@ export function createLiveSearchSourceController(
     }
     const custom = customSources.find((c) => c.canonicalKey === entry.key);
     if (custom) return custom.id;
-    return section === 'session' ? `session_${entry.key}` : `prev_${entry.key}`;
+    return section === 'session'
+      ? `${SESSION_SOURCE_ID_PREFIX}${entry.key}`
+      : `${PREVIOUS_SOURCE_ID_PREFIX}${entry.key}`;
   }
 
   async function forgetPreviousConnection(canonicalKey: string): Promise<void> {
@@ -542,13 +547,12 @@ export function createLiveSearchSourceController(
               const key = getBookmarkCanonicalKey(b);
               if (key) validKeys.add(key);
             }
-            const leagueLower = currentSelectedLeague.trim().toLowerCase();
             for (const [k, v] of baselineResumeByKey.entries()) {
               if (
                 !v.url &&
                 !v.name &&
                 !validKeys.has(k) &&
-                v.league.trim().toLowerCase() === leagueLower
+                sameLeague(v.league, currentSelectedLeague)
               ) {
                 baselineResumeByKey.delete(k);
               }
@@ -617,8 +621,7 @@ export function createLiveSearchSourceController(
     }
     const bookmark = currentCollection?.bookmarks.find((b) => b.id === trimmed);
     if (bookmark) {
-      const parsed = parseTradeSearchUrl(stripLiveSuffix(bookmark.url));
-      return parsed ? getTradeSearchCanonicalKey(parsed) : null;
+      return getBookmarkCanonicalKey(bookmark);
     }
     return null;
   }
@@ -649,8 +652,20 @@ export function createLiveSearchSourceController(
     );
   }
 
+  const sourceRuntimePort: LiveSearchSourceRuntimePort = {
+    ...baseRuntimePort,
+    isLeagueResolved: () => leagueManager.isResolved(),
+    isSwitchingLeague: () => leagueManager.isSwitching(),
+    getRawSelectedLeague: () => leagueManager.getRawSelectedLeague(),
+    ensureStartupResolved: () => leagueManager.ensureStartupResolved(),
+    getPrimaryContext,
+    findActiveSubByCanonicalKey,
+    resolveCriteriaRedirect,
+    registerSessionEntry,
+  };
+
   const batchExecutor = createLiveSearchBatchExecutor({
-    hasSource: Boolean(source),
+    runtime: sourceRuntimePort,
     liveController,
     resumeStore,
     connectionDedup,
@@ -658,48 +673,20 @@ export function createLiveSearchSourceController(
     sessionEntriesByKey,
     baselineResumeByKey,
     pendingSearchKeys,
-    isDisposed: () => disposed,
-    isLeagueResolved: () => leagueManager.isResolved(),
-    isSwitchingLeague: () => leagueManager.isSwitching(),
     getTransitionGeneration: () => leagueManager.getTransitionGeneration(),
-    getRawSelectedLeague: () => leagueManager.getRawSelectedLeague(),
-    ensureStartupResolved: () => leagueManager.ensureStartupResolved(),
-    isReloadPending: () => isReloading || hasPendingReload,
-    waitForReconciliationDrain,
-    getPrimaryContext,
-    getCurrentCollection: () => currentCollection,
     getCurrentLiveSubscriptions: () => currentLiveSubscriptions,
-    findActiveSubByCanonicalKey,
     findResumeEntryByCanonicalKey,
     resolveCanonicalKeyBySourceId,
     resolveSubscriptionId,
-    resolveCriteriaRedirect,
-    registerSessionEntry,
-    notify,
   });
 
   const sourceIntake = createLiveSearchSourceIntake({
-    hasSource: Boolean(source),
+    runtime: sourceRuntimePort,
     resumeStore,
     customSources,
-    isDisposed: () => disposed,
-    isLeagueResolved: () => leagueManager.isResolved(),
-    isSwitchingLeague: () => leagueManager.isSwitching(),
-    getGameVersion: () => currentGameVersion,
-    getRawSelectedLeague: () => leagueManager.getRawSelectedLeague(),
-    getPrimaryContext,
-    getCurrentCollection: () => currentCollection,
-    ensureStartupResolved: () => leagueManager.ensureStartupResolved(),
-    isReloadPending: () => isReloading || hasPendingReload,
-    waitForReconciliationDrain,
     switchLeague: (targetLeague) => leagueManager.switchLeague(targetLeague),
-    findActiveSubByCanonicalKey,
-    resolveCriteriaRedirect,
-    registerSessionEntry,
     enableSource: batchExecutor.enableSource,
-    enableSourceInternal: batchExecutor.enableSourceInternal,
     enableManySources: batchExecutor.enableManySources,
-    notify,
   });
 
   if (source) {
@@ -784,8 +771,8 @@ export function createLiveSearchSourceController(
       };
     },
 
-    enable: batchExecutor.enableSource,
-    add: batchExecutor.enableSource,
+    enable: (sourceId: string) => batchExecutor.enableSource(sourceId),
+    add: (sourceId: string) => batchExecutor.enableSource(sourceId),
     enableMany: batchExecutor.enableManySources,
     stopMany: batchExecutor.stopManySources,
     addCustom: sourceIntake.addCustom,
@@ -865,10 +852,10 @@ export function createLiveSearchSourceController(
 
     async clearPreviousConnections(): Promise<boolean> {
       if (disposed) return false;
-      const currentLeagueNorm = (leagueManager.getRawSelectedLeague() || '').trim().toLowerCase();
+      const rawSelectedLeague = leagueManager.getRawSelectedLeague();
       const isMatchingSelectedLeague = (league: string | undefined) => {
-        if (!currentLeagueNorm) return true;
-        return (league || '').trim().toLowerCase() === currentLeagueNorm;
+        if (!rawSelectedLeague.trim()) return true;
+        return sameLeague(league, rawSelectedLeague);
       };
 
       const keysToRemove: string[] = [];
@@ -923,8 +910,6 @@ export function createLiveSearchSourceController(
       unsubSource = null;
       unsubLive?.();
       unsubLive = null;
-      unsubPreferences?.();
-      unsubPreferences = null;
       unsubResumeStore?.();
       unsubResumeStore = null;
       listeners.clear();

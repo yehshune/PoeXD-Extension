@@ -147,10 +147,12 @@
 Bookmark Domain (Read-Only Port: LiveSearchBookmarkSourcePort)
                   │
                   ▼
-   LiveSearchSourceController (live-search-bookmark-controller.ts)
-   ├─ Bookmark Sources (📁 Group A, 📁 Group B...)
-   ├─ Transient Temporary Search Sources (📁 暫時搜尋, page-session memory only)
-   └─ Canonical Identity Reconciliation & Ownership Projection
+   LiveSearchSourceController (live-search-bookmark-controller.ts facade)
+   ├─ live-search-source-types.ts / live-search-source-filters.ts (型別、相容性與群組/連線篩選純函式)
+   ├─ live-search-league-manager.ts (啟動聯盟解析與系統性聯盟切換)
+   ├─ live-search-snapshot-builder.ts (Snapshot 投影與 Canonical Identity Ownership Reconciliation)
+   ├─ live-search-batch-executor.ts (單筆/批次啟用與停止 Orchestration)
+   └─ live-search-source-intake.ts (暫時搜尋建立與一般頁背景派送接收)
                   ▲
                   │
 LiveSearch Domain (Narrow Controller: LiveSearchPrimaryController)
@@ -164,7 +166,7 @@ LiveSearch Domain (Narrow Controller: LiveSearchPrimaryController)
 - **Deep Module 與介面窄化**：
   - **Bookmark Domain**：不暴露肥大的 `BookmarkModel`（不含 mutations, rename, drag-drop, import/export 等），僅以最小 `LiveSearchBookmarkSourcePort` 暴露 `readCollection()` 與 `subscribe()`。由 `createChromeBookmarkClient` 結構性滿足。
   - **LiveSearch Domain**：`LiveSearchPrimaryRuntime` 與 `LiveSearchPrimaryController` 完全不依賴 Bookmark 任何模組。
-  - **Unified Source Controller (`live-search-bookmark-controller.ts`)**：唯一的合成層（導出 `createLiveSearchSourceController` 並保留 `createLiveSearchBookmarkController` 相容別名），同時管理 Bookmark 唯讀訂閱、主控台 page-session 記憶體內的暫時搜尋來源、`sessionConnections` 與 `previousConnections` 分區投影、Canonical Identity Reconciliation、Source Compatibility 投影、Pending 防重、批次啟用/停止 Orchestration 與篩選純函式（`filterLiveSearchSourceGroups`），對外暴露 `read()`、`subscribe()`、`enable(sourceId)`（別名 `add`）、`enableMany(sourceIds)`、`stopMany(sourceIds)`、`addCustom(url, options)`、`enqueueIncomingConnections(items)`、`removeSessionConnection(sourceId)`、`removePreviousConnection(sourceId)`、`restoreAllPreviousConnections()`、`clearPreviousConnections()`、`stop(sourceOrSubscriptionId)`、`retry(sourceOrSubscriptionId)`、`removeCustom(sourceId)` 與 `dispose()`。
+  - **Unified Source Controller (`live-search-bookmark-controller.ts` 及其子模組)**：唯一的合成層與對外入口（導出 `createLiveSearchSourceController` 並保留 `createLiveSearchBookmarkController` 相容別名），內部依職責拆分為 `live-search-source-types.ts`、`live-search-source-filters.ts`、`live-search-league-manager.ts`、`live-search-snapshot-builder.ts`、`live-search-batch-executor.ts` 與 `live-search-source-intake.ts`，統一協調 Bookmark 唯讀訂閱、主控台 page-session 記憶體內的暫時搜尋來源、`sessionConnections` 與 `previousConnections` 分區投影、Canonical Identity Reconciliation、Source Compatibility 投影、Pending 防重、批次啟用/停止 Orchestration 與篩選純函式（`filterLiveSearchSourceGroups`），對外暴露 `read()`、`subscribe()`、`enable(sourceId)`（別名 `add`）、`enableMany(sourceIds)`、`stopMany(sourceIds)`、`addCustom(url, options)`、`enqueueIncomingConnections(items)`、`removeSessionConnection(sourceId)`、`removePreviousConnection(sourceId)`、`restoreAllPreviousConnections()`、`clearPreviousConnections()`、`stop(sourceOrSubscriptionId)`、`retry(sourceOrSubscriptionId)`、`removeCustom(sourceId)` 與 `dispose()`。
 - **Temporary Search + Bookmark Reconciliation 契約 (Source Ownership Invariant)**：
   - **Temporary Search 定義**：
     `Temporary Search`（使用者可見名稱：`暫時搜尋`）= 存在於目前線上搜尋主控台 page-session memory 的非書籤搜尋來源；不寫入持久化 `Bookmark` 或 `Preferences`，但在主控台啟用後會將其 canonical identity 與選用顯示資訊（`name`, `url`, `coverImageUrl`）寫入 `LiveSearchResumeStore`，使下次開啟主控台時可呈現於「上次連線」(`previousConnections`)。

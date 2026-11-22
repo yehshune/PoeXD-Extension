@@ -1,4 +1,3 @@
-import type { BookmarkCollectionView } from '@/utils/bookmark-coordinator';
 import type { PoeVersion } from '@/utils/trade-context';
 import { parseTradeSearchUrl, stripLiveSuffix } from '@/utils/trade-search-identity';
 import type { LiveSearchPrimaryController } from '@/utils/live-search-contract';
@@ -8,25 +7,20 @@ import type {
 } from '@/utils/live-search-resume-store';
 import { fetchTradeLeagues, type TradeLeague } from '@/utils/trade-leagues';
 import type { PreferencesModule } from '@/utils/preferences';
-import type { CustomSourceRecord } from './live-search-source-types';
+import { sameLeague } from './live-search-source-filters';
+import type { CustomSourceRecord, LiveSearchControllerBasePort } from './live-search-source-types';
 
 export interface LiveSearchLeagueManagerDeps {
+  runtime: LiveSearchControllerBasePort;
   initialLeague?: string;
   preferences: PreferencesModule | null;
   resumeStore: LiveSearchResumeStore | null;
   liveController: LiveSearchPrimaryController;
   fetchLeagues?: (version: PoeVersion) => Promise<TradeLeague[]>;
-  hasSource: boolean;
-  isDisposed: () => boolean;
   isLoading: () => boolean;
-  isReloadPending: () => boolean;
-  waitForReconciliationDrain: () => Promise<void>;
-  getGameVersion: () => PoeVersion;
-  getCurrentCollection: () => BookmarkCollectionView | null;
   getCustomSources: () => readonly CustomSourceRecord[];
   getLatestResumeIdentities: () => readonly LiveSearchResumeIdentity[];
   onSelectedLeagueChanged: (league: string) => void;
-  notify: () => void;
 }
 
 export interface LiveSearchLeagueManager {
@@ -68,7 +62,7 @@ export function createLiveSearchLeagueManager(
   function getAvailableLeagues(): readonly string[] {
     const set = new Set<string>();
     const result: string[] = [];
-    const currentGameVersion = deps.getGameVersion();
+    const currentGameVersion = deps.runtime.getGameVersion();
 
     function addLeague(l: string | null | undefined) {
       if (!l) return;
@@ -85,7 +79,7 @@ export function createLiveSearchLeagueManager(
       addLeague(ol);
     }
 
-    const currentCollection = deps.getCurrentCollection();
+    const currentCollection = deps.runtime.getCurrentCollection();
     if (currentCollection) {
       for (const b of currentCollection.bookmarks) {
         const cleanUrl = stripLiveSuffix(b.url);
@@ -118,7 +112,6 @@ export function createLiveSearchLeagueManager(
 
   async function resolveInitialLeague(): Promise<void> {
     if (isLeagueResolved) return;
-    const currentGameVersion = deps.getGameVersion();
 
     // 1. persisted recent selected league
     const prefLeague = deps.preferences?.read().liveSearchSelectedLeague?.trim();
@@ -133,6 +126,7 @@ export function createLiveSearchLeagueManager(
     if (deps.resumeStore) {
       try {
         const res = await deps.resumeStore.read();
+        const currentGameVersion = deps.runtime.getGameVersion();
         if (res.ok && res.value.identities.length > 0) {
           const match = res.value.identities.find((id) => id.gameVersion === currentGameVersion);
           if (match && match.league.trim()) {
@@ -146,7 +140,8 @@ export function createLiveSearchLeagueManager(
     }
 
     // 3. authoritative Bookmark league (由 currentCollection 提供)
-    const currentCollection = deps.getCurrentCollection();
+    const currentCollection = deps.runtime.getCurrentCollection();
+    const currentGameVersion = deps.runtime.getGameVersion();
     if (currentCollection && currentCollection.bookmarks.length > 0) {
       for (const b of currentCollection.bookmarks) {
         const cleanUrl = stripLiveSuffix(b.url);
@@ -168,7 +163,7 @@ export function createLiveSearchLeagueManager(
       return;
     }
 
-    if (deps.hasSource && deps.isLoading()) {
+    if (deps.runtime.hasSource && deps.isLoading()) {
       return;
     }
 
@@ -184,17 +179,17 @@ export function createLiveSearchLeagueManager(
   function startStartupTasks(): void {
     if (!isLeagueResolved) {
       initialResolutionPromise = resolveInitialLeague().then(() => {
-        if (!deps.isDisposed() && isLeagueResolved) deps.notify();
+        if (!deps.runtime.isDisposed() && isLeagueResolved) deps.runtime.notify();
       });
     }
 
     isFetchingOfficialLeagues = true;
     officialLeaguesPromise = (async () => {
       try {
-        const currentGameVersion = deps.getGameVersion();
+        const currentGameVersion = deps.runtime.getGameVersion();
         if (deps.fetchLeagues) {
           const list = await deps.fetchLeagues(currentGameVersion);
-          if (!deps.isDisposed() && Array.isArray(list)) {
+          if (!deps.runtime.isDisposed() && Array.isArray(list)) {
             officialLeagues = list.map((l) => l.id).filter(Boolean);
           }
         } else if (
@@ -204,18 +199,18 @@ export function createLiveSearchLeagueManager(
           !window.location.host.includes('localhost')
         ) {
           const list = await fetchTradeLeagues(currentGameVersion);
-          if (!deps.isDisposed() && Array.isArray(list)) {
+          if (!deps.runtime.isDisposed() && Array.isArray(list)) {
             officialLeagues = list.map((l) => l.id).filter(Boolean);
           }
         }
       } catch {
       } finally {
         isFetchingOfficialLeagues = false;
-        if (!isLeagueResolved && !deps.isDisposed()) {
+        if (!isLeagueResolved && !deps.runtime.isDisposed()) {
           await resolveInitialLeague();
         }
-        if (!deps.isDisposed()) {
-          deps.notify();
+        if (!deps.runtime.isDisposed()) {
+          deps.runtime.notify();
         }
       }
     })();
@@ -226,8 +221,8 @@ export function createLiveSearchLeagueManager(
     if (initialResolutionPromise) {
       await initialResolutionPromise;
     }
-    if (deps.hasSource && (deps.isReloadPending() || deps.isLoading())) {
-      await deps.waitForReconciliationDrain();
+    if (deps.runtime.hasSource && (deps.runtime.isReloadPending() || deps.isLoading())) {
+      await deps.runtime.waitForReconciliationDrain();
     }
     if (officialLeaguesPromise) {
       await officialLeaguesPromise;
@@ -242,18 +237,14 @@ export function createLiveSearchLeagueManager(
   }
 
   async function switchLeague(targetLeague: string): Promise<boolean> {
-    if (deps.isDisposed()) return false;
+    if (deps.runtime.isDisposed()) return false;
     const trimmed = targetLeague.trim();
     if (!trimmed) return false;
 
-    if (!isSwitchingLeague && trimmed.toLowerCase() === selectedLeague.toLowerCase()) {
+    if (!isSwitchingLeague && sameLeague(trimmed, selectedLeague)) {
       return true;
     }
-    if (
-      isSwitchingLeague &&
-      pendingTargetLeague &&
-      trimmed.toLowerCase() === pendingTargetLeague.toLowerCase()
-    ) {
+    if (isSwitchingLeague && pendingTargetLeague && sameLeague(trimmed, pendingTargetLeague)) {
       return switchChain;
     }
 
@@ -261,15 +252,15 @@ export function createLiveSearchLeagueManager(
     const switchId = ++currentSwitchId;
     transitionGeneration++;
     isSwitchingLeague = true;
-    deps.notify();
+    deps.runtime.notify();
 
     const runSwitch = async (): Promise<boolean> => {
       try {
-        if (switchId !== currentSwitchId || deps.isDisposed()) {
+        if (switchId !== currentSwitchId || deps.runtime.isDisposed()) {
           return false;
         }
         await deps.liveController.teardownAll();
-        if (switchId !== currentSwitchId || deps.isDisposed()) {
+        if (switchId !== currentSwitchId || deps.runtime.isDisposed()) {
           return false;
         }
         await deps.liveController.teardownAll({ targetLeague: trimmed });
@@ -281,7 +272,7 @@ export function createLiveSearchLeagueManager(
             await deps.preferences.update({ liveSearchSelectedLeague: trimmed });
           } catch {}
         }
-        if (switchId !== currentSwitchId || deps.isDisposed()) {
+        if (switchId !== currentSwitchId || deps.runtime.isDisposed()) {
           return false;
         }
         return true;
@@ -297,7 +288,7 @@ export function createLiveSearchLeagueManager(
           try {
             await deps.liveController.teardownAll();
           } catch {}
-          deps.notify();
+          deps.runtime.notify();
         }
       }
     };
