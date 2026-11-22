@@ -6,8 +6,9 @@
   </head>
   <body>
     <!--
-      PoE1 官方搜尋頁的最小替身：沒有官方的 Vue app，只照官方的請求順序（search → fetch）打 API，
-      再依官方結果列的 DOM 結構畫出 `.results .resultset .row[data-id]`。API 回應由 fixtures.ts 回放。
+      官方搜尋頁（PoE1 `/trade/search/...`、PoE2 `/trade2/search/poe2/...`）的最小替身：沒有官方的 Vue app，
+      只照官方的請求順序（search → fetch）打 API，再依官方結果列的 DOM 結構畫出 `.results .resultset .row[data-id]`。
+      API 回應由 fixtures.ts 回放。
     -->
     <div id="trade">
       <div class="content">
@@ -103,12 +104,33 @@
         }
 
         /**
+         * 拆解目前網址：PoE1 `/trade/search/<league>/<id>`、PoE2 `/trade2/search/poe2/<league>/<id>`，
+         * 並對應官方的 API 路徑（PoE2 的 fetch 會多帶 `realm=poe2`）。
+         */
+        function currentRoute() {
+          const parts = location.pathname.split('/').filter(Boolean);
+          const poe2 = parts[0] === 'trade2';
+          const base = parts.slice(0, poe2 ? 4 : 3);
+          const league = base.at(-1);
+          return {
+            searchId: parts[base.length],
+            searchApi: poe2 ? `/api/trade2/search/poe2/${league}` : `/api/trade/search/${league}`,
+            fetchApi: (ids, id) =>
+              poe2
+                ? `/api/trade2/fetch/${ids}?query=${id}&realm=poe2`
+                : `/api/trade/fetch/${ids}?query=${id}`,
+            pagePath: (id) => `/${base.join('/')}/${id}`,
+          };
+        }
+
+        /**
          * 照官方搜尋流程：POST search → 網址換成新的 search id（pushState）→ fetch → 重畫結果列。
          * `searchId` 交給回放端決定回傳的 id；省略時沿用目前網址的 id（直接打開搜尋網址的情況）。
          */
         async function search(searchId) {
-          const [, , , league, currentId] = location.pathname.split('/');
-          const result = await fetch(`/api/trade/search/${league}`, {
+          const route = currentRoute();
+          const currentId = route.searchId;
+          const result = await fetch(route.searchApi, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -120,11 +142,11 @@
             }),
           }).then((response) => response.json());
           if (result.id !== currentId) {
-            history.pushState(null, '', `/trade/search/${league}/${result.id}`);
+            history.pushState(null, '', route.pagePath(result.id));
           }
-          const fetched = await fetch(
-            `/api/trade/fetch/${result.result.join(',')}?query=${result.id}`,
-          ).then((response) => response.json());
+          const fetched = await fetch(route.fetchApi(result.result.join(','), result.id)).then(
+            (response) => response.json(),
+          );
           const resultset = document.querySelector('.resultset');
           resultset.replaceChildren(...fetched.result.map(renderRow));
         }
@@ -197,7 +219,8 @@
         const isTradeRoot = /^\/trade\/?$/.test(location.pathname);
         if (isTradeRoot) {
           installOfficialStore();
-        } else {
+        } else if (currentRoute().searchId) {
+          // 網址沒有 search id（剛打開的空白搜尋頁）時和官方一樣不自動搜尋
           waitForOfficialTiming()
             .then(() => search())
             .catch((error) => console.error('[fixture] 替身頁載入失敗', error));

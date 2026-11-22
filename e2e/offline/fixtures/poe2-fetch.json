@@ -1,0 +1,593 @@
+{
+  "result": [
+    {
+      "id": "289aa0ba0cb9d69a73af2c5f32f380b389bc38eca05c6612f59e68e2e6cc8dff",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2025-12-19T21:38:16Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 1,
+          "y": 8
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "exalted"
+        },
+        "fee": 10266,
+        "account": {
+          "name": "E2ESeller#1000",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 1,
+        "h": 1,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvSmV3ZWxzL1J1YnlKZXdlbCIsInciOjEsImgiOjEsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/8ef1a48ec8/RubyJewel.png",
+        "league": "Standard",
+        "id": "289aa0ba0cb9d69a73af2c5f32f380b389bc38eca05c6612f59e68e2e6cc8dff",
+        "name": "Kraken Desire",
+        "typeLine": "Ruby",
+        "baseType": "Ruby",
+        "rarity": "Rare",
+        "ilvl": 81,
+        "identified": true,
+        "note": "~b/o 1 exalted",
+        "properties": [
+          {
+            "name": "[Jewel]",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "8% increased [ElementalDamage|Elemental Damage]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3141070085",
+            "mods": [
+              {
+                "name": "Prismatic",
+                "tier": "P1",
+                "magnitudes": [
+                  {
+                    "min": "5",
+                    "max": "15"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "Damage [Penetration|Penetrates] 7% [Resistances|Fire Resistance]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2653955271",
+            "mods": [
+              {
+                "name": "Searing",
+                "tier": "P1",
+                "magnitudes": [
+                  {
+                    "min": "5",
+                    "max": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "[Banner] Skills have 21% increased Duration",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2720982137",
+            "mods": [
+              {
+                "name": "of Inspiring",
+                "tier": "S1",
+                "magnitudes": [
+                  {
+                    "min": "15",
+                    "max": "25"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "descrText": "Place into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.",
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "extended": {
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_3141070085", [2]],
+              ["explicit.stat_2653955271", [0]],
+              ["explicit.stat_2720982137", [1]]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "decef1a886fc0402a370236d6801554e589073cb04498169c0e292fd2e0c6f79",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2025-12-09T20:05:41Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 8,
+          "y": 3
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "exalted"
+        },
+        "fee": 15300,
+        "account": {
+          "name": "E2ESeller#1001",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 2,
+        "h": 2,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0Jhc2V0eXBlcy9IZWxtZXREZXgwNSIsInciOjIsImgiOjIsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/367615d8a8/HelmetDex05.png",
+        "league": "Standard",
+        "id": "decef1a886fc0402a370236d6801554e589073cb04498169c0e292fd2e0c6f79",
+        "name": "Mind Cowl",
+        "typeLine": "Deerstalker Hood",
+        "baseType": "Deerstalker Hood",
+        "rarity": "Rare",
+        "ilvl": 78,
+        "identified": true,
+        "note": "~b/o 1 exalted",
+        "properties": [
+          {
+            "name": "Helmet",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          },
+          {
+            "name": "[Evasion|Evasion Rating]",
+            "values": [["464", 1]],
+            "displayMode": 0,
+            "type": 17
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["59", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "[Dexterity|Dex]",
+            "values": [["83", 0]],
+            "displayMode": 1,
+            "type": 64
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "72% increased [Evasion|Evasion] Rating",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_124859000",
+            "mods": [
+              {
+                "name": "Wayfarer's",
+                "tier": "P2",
+                "level": 60,
+                "magnitudes": [
+                  {
+                    "min": "33",
+                    "max": "38"
+                  }
+                ]
+              },
+              {
+                "name": "Ibex's",
+                "tier": "P2",
+                "level": 60,
+                "magnitudes": [
+                  {
+                    "min": "33",
+                    "max": "38"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+37 to maximum Life",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3299347043",
+            "mods": [
+              {
+                "name": "Ibex's",
+                "tier": "P2",
+                "level": 60,
+                "magnitudes": [
+                  {
+                    "min": "33",
+                    "max": "41"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+130 to maximum Mana",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1050105434",
+            "mods": [
+              {
+                "name": "Wayfarer's",
+                "tier": "P2",
+                "level": 60,
+                "magnitudes": [
+                  {
+                    "min": "27",
+                    "max": "32"
+                  }
+                ]
+              },
+              {
+                "name": "Gentian",
+                "tier": "P3",
+                "level": 54,
+                "magnitudes": [
+                  {
+                    "min": "90",
+                    "max": "104"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "Gain [Deflect|Deflection Rating] equal to 11% of [Evasion|Evasion Rating]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3033371881",
+            "mods": [
+              {
+                "name": "of Deflecting",
+                "tier": "S5",
+                "magnitudes": [
+                  {
+                    "min": "8",
+                    "max": "11"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "extended": {
+          "ev": 557,
+          "ev_aug": true,
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_124859000", [1, 2]],
+              ["explicit.stat_3299347043", [2]],
+              ["explicit.stat_1050105434", [1, 3]],
+              ["explicit.stat_3033371881", [0]]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "5074344a26fe0c83c71896b5424566d1476ee804068055ffcd0ff5e94086b0dc",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2025-09-03T09:46:56Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 6,
+          "y": 2
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "exalted"
+        },
+        "fee": 1574,
+        "account": {
+          "name": "E2ESeller#1002",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 2,
+        "h": 2,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0Jhc2V0eXBlcy9IZWxtZXRJbnQwNiIsInciOjIsImgiOjIsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/0821cebc37/HelmetInt06.png",
+        "league": "Standard",
+        "id": "5074344a26fe0c83c71896b5424566d1476ee804068055ffcd0ff5e94086b0dc",
+        "name": "",
+        "typeLine": "Consistent Gold Circlet of the Thunderhead",
+        "baseType": "Gold Circlet",
+        "rarity": "Magic",
+        "ilvl": 52,
+        "identified": true,
+        "note": "~b/o 1 exalted",
+        "properties": [
+          {
+            "name": "Helmet",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          },
+          {
+            "name": "[EnergyShield|Energy Shield]",
+            "values": [["62", 0]],
+            "displayMode": 0,
+            "type": 18
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["40", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "[Intelligence|Int]",
+            "values": [["58", 0]],
+            "displayMode": 1,
+            "type": 65
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "+155 to [Accuracy|Accuracy] Rating",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_803737631",
+            "mods": [
+              {
+                "name": "Consistent",
+                "tier": "P5",
+                "level": 36,
+                "magnitudes": [
+                  {
+                    "min": "124",
+                    "max": "167"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+22% to [Resistances|Lightning Resistance]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1671376347",
+            "mods": [
+              {
+                "name": "of the Thunderhead",
+                "tier": "S5",
+                "level": 37,
+                "magnitudes": [
+                  {
+                    "min": "21",
+                    "max": "25"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 1,
+        "frameTypeId": "Magic",
+        "extended": {
+          "es": 74,
+          "es_aug": true,
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_803737631", [0]],
+              ["explicit.stat_1671376347", [1]]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "0e43aeb48d4cb55245c9e8e22c4986b033e627b649c3e7ddc96c9b046be8248d",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-01-07T20:15:38Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 9,
+          "y": 11
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "exalted"
+        },
+        "fee": 614,
+        "account": {
+          "name": "E2ESeller#1003",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 3,
+        "h": 1,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmVsaWNzL1JlbGljQmFzZTN4MSIsInciOjMsImgiOjEsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/b73199fe0f/RelicBase3x1.png",
+        "league": "Standard",
+        "id": "0e43aeb48d4cb55245c9e8e22c4986b033e627b649c3e7ddc96c9b046be8248d",
+        "name": "",
+        "typeLine": "Tapestry Relic of Empowerment",
+        "baseType": "Tapestry Relic",
+        "rarity": "Magic",
+        "ilvl": 56,
+        "identified": true,
+        "note": "~b/o 1 exalted",
+        "properties": [
+          {
+            "name": "Relic",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "Restore 52 [Honour] on killing a Boss",
+            "domain": "sanctum",
+            "hash": "stat.sanctum.stat_3865020351",
+            "mods": [
+              {
+                "name": "of Empowerment",
+                "tier": "S5",
+                "magnitudes": [
+                  {
+                    "min": "40",
+                    "max": "59"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "descrText": "Place this item on the Relic Altar at the start of the Trial of the Sekhemas",
+        "frameType": 1,
+        "frameTypeId": "Magic",
+        "extended": {
+          "hashes": {
+            "sanctum": [["sanctum.stat_3865020351", [0]]]
+          }
+        }
+      }
+    },
+    {
+      "id": "9a4ed034de8214564d1d464fc38ca8a96087814c97e8f3e8ea23df87c9d45990",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-05-26T03:58:07Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 0,
+          "y": 10
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "exalted"
+        },
+        "fee": 3110,
+        "account": {
+          "name": "E2ESeller#1004",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "realm": "poe2",
+        "verified": true,
+        "w": 2,
+        "h": 2,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb290cy9CYXNldHlwZXMvQm9vdHNEZXhJbnQwMSIsInciOjIsImgiOjIsInNjYWxlIjoxLCJyZWFsbSI6InBvZTIifV0/28c930b721/BootsDexInt01.png",
+        "league": "Standard",
+        "id": "9a4ed034de8214564d1d464fc38ca8a96087814c97e8f3e8ea23df87c9d45990",
+        "name": "",
+        "typeLine": "Wanderer Shoes of Exile",
+        "baseType": "Wanderer Shoes",
+        "rarity": "Magic",
+        "ilvl": 68,
+        "identified": true,
+        "note": "~b/o 1 exalted",
+        "properties": [
+          {
+            "name": "Boots",
+            "values": [],
+            "displayMode": 0,
+            "type": 109
+          },
+          {
+            "name": "[Evasion|Evasion Rating]",
+            "values": [["122", 0]],
+            "displayMode": 0,
+            "type": 17
+          },
+          {
+            "name": "[EnergyShield|Energy Shield]",
+            "values": [["37", 0]],
+            "displayMode": 0,
+            "type": 18
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["65", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "[Dexterity|Dex]",
+            "values": [["47", 0]],
+            "displayMode": 1,
+            "type": 64
+          },
+          {
+            "name": "[Intelligence|Int]",
+            "values": [["47", 0]],
+            "displayMode": 1,
+            "type": 65
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "+22% to [Resistances|Chaos Resistance]",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2923486259",
+            "mods": [
+              {
+                "name": "of Exile",
+                "tier": "S2",
+                "level": 68,
+                "magnitudes": [
+                  {
+                    "min": "20",
+                    "max": "23"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 1,
+        "frameTypeId": "Magic",
+        "extended": {
+          "ev": 146,
+          "ev_aug": true,
+          "es": 44,
+          "es_aug": true,
+          "hashes": {
+            "explicit": [["explicit.stat_2923486259", [0]]]
+          }
+        }
+      }
+    }
+  ]
+}

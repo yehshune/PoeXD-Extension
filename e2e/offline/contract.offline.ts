@@ -7,7 +7,14 @@ import {
   STORE_MUTATIONS,
   type CheckResult,
 } from '../official-page-contract.ts';
-import { test, expect, POE1_FETCH, TRADE1_SEARCH_URL } from './fixtures';
+import {
+  test,
+  expect,
+  POE1_FETCH,
+  POE2_FETCH,
+  TRADE1_SEARCH_URL,
+  TRADE2_RESULTS_URL,
+} from './fixtures';
 
 /**
  * 替身頁對齊官方契約：實機金絲雀（pnpm e2e:canary）用同一份契約檢查真正的官方頁面，
@@ -31,12 +38,17 @@ async function failedChecks(page: Page, withStore: boolean): Promise<CheckResult
 }
 
 test.describe('替身頁對齊官方契約', () => {
-  test('搜尋頁的 DOM 結構符合契約', async ({ page }) => {
-    await page.goto(TRADE1_SEARCH_URL);
-    await expect(page.locator(RESULT_ROW_SELECTOR)).toHaveCount(POE1_FETCH.result.length);
-    // 替身搜尋頁沒有掛官方 store（只有主控台用得到），store 檢查留給 trade root
-    expect(await failedChecks(page, false)).toEqual([]);
-  });
+  for (const { game, url, count } of [
+    { game: 'PoE1', url: TRADE1_SEARCH_URL, count: POE1_FETCH.result.length },
+    { game: 'PoE2', url: TRADE2_RESULTS_URL, count: POE2_FETCH.result.length },
+  ]) {
+    test(`${game} 搜尋頁的 DOM 結構符合契約`, async ({ page }) => {
+      await page.goto(url);
+      await expect(page.locator(RESULT_ROW_SELECTOR)).toHaveCount(count);
+      // 替身搜尋頁沒有掛官方 store（只有主控台用得到），store 檢查留給 trade root
+      expect(await failedChecks(page, false)).toEqual([]);
+    });
+  }
 
   test('Trade root 的官方 store 符合契約', async ({ page }) => {
     await page.goto('https://www.pathofexile.com/trade');

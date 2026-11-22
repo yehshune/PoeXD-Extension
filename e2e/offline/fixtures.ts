@@ -15,6 +15,7 @@ const ROOT = resolve(import.meta.dirname, '../..');
 const EXTENSION_DIR = resolve(ROOT, process.env.POEXD_E2E_EXTENSION_DIR ?? '.output/chrome-mv3');
 const FIXTURE_DIR = resolve(import.meta.dirname, 'fixtures');
 
+/** PoE2 剛打開、還沒搜尋的空白搜尋頁（網址沒有 search id，替身頁不會自動搜尋） */
 export const TRADE2_SEARCH_URL = 'https://www.pathofexile.com/trade2/search/poe2/Standard';
 /** 官方的 search id 就是 query 物件 gzip 後的 Base64URL（以 `H4sI` 開頭），擴充功能會解碼取得搜尋條件 */
 function searchIdFor(query: unknown): string {
@@ -33,6 +34,12 @@ export const TRADE1_SECOND_SEARCH_ID = searchIdFor({
   stats: [{ type: 'and', filters: [] }],
 });
 export const TRADE1_SEARCH_URL = `https://www.pathofexile.com/trade/search/Standard/${TRADE1_SEARCH_ID}`;
+export const TRADE2_SEARCH_ID = searchIdFor({
+  status: { option: 'online' },
+  stats: [{ type: 'and', filters: [] }],
+});
+/** 有結果的 PoE2 搜尋頁 */
+export const TRADE2_RESULTS_URL = `${TRADE2_SEARCH_URL}/${TRADE2_SEARCH_ID}`;
 /** 台服（Garena）的同一個搜尋：介面語系依網域判定為 zh-TW，且沒有價格換算 */
 export const TRADE1_TW_SEARCH_URL = `https://pathofexile.tw/trade/search/Standard/${TRADE1_SEARCH_ID}`;
 
@@ -46,6 +53,8 @@ interface FetchFixture {
 
 /** `record-fetch.ts` 從真實官方 API 錄下並去除個資的 PoE1 fetch 回應 */
 export const POE1_FETCH: FetchFixture = JSON.parse(fixture('poe1-fetch.json'));
+/** `record-fetch.ts poe2` 錄下的 PoE2 fetch 回應 */
+export const POE2_FETCH: FetchFixture = JSON.parse(fixture('poe2-fetch.json'));
 
 /** background 的價格換算向 poe.ninja 要的匯率；合成的固定值，以混沌石為基準 */
 export const POE_NINJA_OVERVIEW = {
@@ -105,18 +114,25 @@ function replay(
   if (!/(^|\.)pathofexile\.(com|tw)$/.test(url.hostname)) return null;
   const path = url.pathname;
   // Trade root 是線上搜尋主控台開啟的頁面，替身頁在這裡只掛官方 store、不自動搜尋
-  if (/^\/trade\/?$/.test(path)) return { html: fixture('trade1-search.html') };
-  if (path.startsWith('/trade2/search/')) return { html: fixture('trade2-search.html') };
-  if (path.startsWith('/trade/search/')) return { html: fixture('trade1-search.html') };
+  if (/^\/trade\/?$/.test(path) || /^\/trade2?\/search\//.test(path)) {
+    return { html: fixture('trade-search.html') };
+  }
   if (/^\/api\/trade2?\/data\/leagues$/.test(path)) return { json: TRADE_LEAGUES };
   if (method === 'POST' && path.startsWith('/api/trade/search/')) {
     const id = headers['x-e2e-search-id'] || TRADE1_SEARCH_ID;
     const ids = searchResultIds(id);
     return { json: { id, complexity: 1, result: ids, total: ids.length } };
   }
-  if (path.startsWith('/api/trade/fetch/')) {
-    const wanted = new Set(decodeURIComponent(path.split('/').at(-1) ?? '').split(','));
-    return { json: { result: POE1_FETCH.result.filter((entry) => wanted.has(entry.id)) } };
+  if (method === 'POST' && path.startsWith('/api/trade2/search/poe2/')) {
+    const id = headers['x-e2e-search-id'] || TRADE2_SEARCH_ID;
+    const ids = POE2_FETCH.result.map((entry) => entry.id);
+    return { json: { id, complexity: 1, result: ids, total: ids.length } };
+  }
+  const fetched = /^\/api\/(trade2?)\/fetch\/([^/]+)$/.exec(path);
+  if (fetched) {
+    const wanted = new Set(decodeURIComponent(fetched[2]).split(','));
+    const source = fetched[1] === 'trade2' ? POE2_FETCH : POE1_FETCH;
+    return { json: { result: source.result.filter((entry) => wanted.has(entry.id)) } };
   }
   if (resourceType === 'document') return { html: fixture('non-trade.html') };
   return null;

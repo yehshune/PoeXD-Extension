@@ -54,8 +54,9 @@ E2E 分成兩套：
   線上搜尋的 WebSocket 由 content script 建立，Playwright 攔不到，改由本機 WSS 替身伺服器
   （`e2e/offline/live-socket-server.ts`）扮演官方；它在測試當下用 `openssl` 產生自簽憑證，所以 PATH 上需要有
   `openssl`（Git for Windows、macOS、GitHub Actions 的 Ubuntu 都內建）。
-  結果列用的 `fixtures/poe1-fetch.json` 是真實官方 API 回應（已去除帳號、藏身處 token 等個資）；
-  官方改了回應格式時，在 dev 瀏覽器開一個有結果的 PoE1 搜尋頁，執行 `node e2e/offline/record-fetch.ts` 重錄。
+  結果列用的 `fixtures/poe1-fetch.json`、`fixtures/poe2-fetch.json` 是真實官方 API 回應（已去除帳號、
+  藏身處 token 等個資）；官方改了回應格式時，在 dev 瀏覽器開一個有結果的搜尋頁，執行
+  `node e2e/offline/record-fetch.ts poe1`（或 `poe2`）重錄。
   repo 只保存 API JSON，不保存官方網站的 HTML / JS / CSS。
 
 - **實機金絲雀**（`pnpm e2e:canary`，不進 CI）：離線 E2E 只驗證替身頁，官方改版時仍會全綠，所以另外用

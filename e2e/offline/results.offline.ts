@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test';
-import { test, expect, POE1_FETCH, TRADE1_SEARCH_URL } from './fixtures';
+import {
+  test,
+  expect,
+  POE1_FETCH,
+  POE2_FETCH,
+  TRADE1_SEARCH_URL,
+  TRADE2_RESULTS_URL,
+} from './fixtures';
 
 /**
  * 搜尋結果列：替身頁以回放的官方 search / fetch 回應畫出結果列，
@@ -70,5 +77,29 @@ test.describe('搜尋結果列', () => {
     await openPinned();
     await expect(sidebar.getByText(itemName).first()).toBeVisible();
     expect(pageErrors).toEqual([]);
+  });
+});
+
+test.describe('PoE2 搜尋結果列', () => {
+  test('每一列都加上 PoB 複製、外部連結、釘選與詞綴快速篩選', async ({
+    page,
+    pageErrors,
+    network,
+  }) => {
+    await page.goto(TRADE2_RESULTS_URL);
+    const rows = page.locator('.results .row[data-id]');
+    await expect(rows).toHaveCount(POE2_FETCH.result.length);
+    for (const row of await rows.all()) {
+      const actions = row.locator('.left .poexd-left-actions');
+      await expect(actions.locator('.poexd-pob-copy-btn')).toBeAttached();
+      await expect(actions.locator('.poexd-result-link-btn').first()).toBeAttached();
+      await expect(actions.locator('.poexd-pin-btn')).toBeAttached();
+    }
+    await expect(
+      rows.first().locator('.item-mod--explicit .poexd-result-mod-actions').first(),
+    ).toBeAttached();
+
+    expect(pageErrors).toEqual([]);
+    expect(network.blocked).toEqual([]);
   });
 });
