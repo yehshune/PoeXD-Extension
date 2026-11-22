@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createLiveSearchSoundNotifier,
   getOfficialSoundSettingKey,
+  parseOfficialSoundSetting,
   parseOfficialSoundVolume,
   type LiveSearchSoundNotifierOptions,
 } from '@/entrypoints/content/logic/live-search-sound-notifier';
 
 class FakeAudio {
+  src = 'https://web.poecdn.com/audio/trade/pulse.mp3';
   currentTime = 0;
   volume = 1;
   playCalls = 0;
@@ -40,6 +42,9 @@ function setup(overrides: Partial<LiveSearchSoundNotifierOptions> = {}) {
     isEnabled: () => enabled,
     findAudio: () => audio as unknown as HTMLAudioElement,
     readStorage: (key) => storage.get(key) ?? null,
+    writeStorage: (key, value) => {
+      storage.set(key, value);
+    },
     activationTarget: target,
     now: () => clock,
     ...overrides,
@@ -258,5 +263,96 @@ describe('LiveSearchSoundNotifier', () => {
 
     expect(audio.playCalls).toBe(1);
     expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('updateOfficialVolume 寫回官方 lscache 並保留既有音效欄位', () => {
+    const { storage, notifier } = setup();
+    storage.set(
+      'lscache-tradewoop',
+      JSON.stringify({
+        name: null,
+        file: 'audio/trade/gong.mp3',
+        volume: 20,
+        custom: false,
+        playOnLoad: false,
+      }),
+    );
+
+    const outcome = notifier.updateOfficialVolume(75);
+    expect(outcome).toEqual({
+      ok: true,
+      setting: { file: 'audio/trade/gong.mp3', volume: 75, custom: false, name: null },
+    });
+    expect(JSON.parse(storage.get('lscache-tradewoop')!)).toMatchObject({
+      file: 'audio/trade/gong.mp3',
+      volume: 75,
+      custom: false,
+      name: null,
+      playOnLoad: false,
+    });
+    expect(notifier.updateOfficialVolume(150)).toEqual({
+      ok: true,
+      setting: { file: 'audio/trade/gong.mp3', volume: 100, custom: false, name: null },
+    });
+  });
+
+  it('updateOfficialSound 可切換內建與自訂音效，保留原本區服 CDN origin', () => {
+    const { audio, storage, notifier } = setup();
+    audio.src = 'https://web.poecdn.tw/audio/trade/pulse.mp3';
+
+    const piano = notifier.updateOfficialSound({
+      file: 'audio/trade/piano.mp3',
+      custom: false,
+      name: null,
+    });
+    expect(piano.ok).toBe(true);
+    expect(audio.src).toBe('https://web.poecdn.tw/audio/trade/piano.mp3');
+
+    const custom = notifier.updateOfficialSound({
+      file: 'data:audio/mp3;base64,AAAA',
+      custom: true,
+      name: 'alert.mp3',
+    });
+    expect(custom).toEqual({
+      ok: true,
+      setting: {
+        file: 'data:audio/mp3;base64,AAAA',
+        volume: 50,
+        custom: true,
+        name: 'alert.mp3',
+      },
+    });
+    expect(audio.src).toBe('data:audio/mp3;base64,AAAA');
+    expect(parseOfficialSoundSetting(storage.get('lscache-tradewoop') ?? null)).toEqual({
+      file: 'data:audio/mp3;base64,AAAA',
+      volume: 50,
+      custom: true,
+      name: 'alert.mp3',
+    });
+
+    // 從自訂切回內建音效時仍使用原區服 CDN
+    const chime = notifier.updateOfficialSound({
+      file: 'audio/trade/chime.mp3',
+      custom: false,
+      name: null,
+    });
+    expect(chime.ok).toBe(true);
+    expect(audio.src).toBe('https://web.poecdn.tw/audio/trade/chime.mp3');
+
+    // 不合法路徑被拒絕
+    expect(
+      notifier.updateOfficialSound({ file: 'javascript:alert(1)', custom: false, name: null }),
+    ).toEqual({ ok: false, reason: 'invalid' });
+  });
+
+  it('storage 寫入失敗時回傳 storage 錯誤且不拋出例外', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { notifier } = setup({
+      writeStorage: () => {
+        throw Object.assign(new Error('quota'), { name: 'QuotaExceededError' });
+      },
+    });
+    expect(notifier.updateOfficialVolume(40)).toEqual({ ok: false, reason: 'storage' });
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });

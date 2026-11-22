@@ -1151,13 +1151,25 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.sound.enableLabel': 'Play a sound on new results',
   'liveSearch.sound.previewBtn': 'Preview',
   'liveSearch.sound.desc':
-    'Sound and volume follow the official site setting. To change them, use the official settings in a normal Trade tab; volume applies at once, a new sound after the console is reopened.',
+    'Sound and volume sync directly with the official site settings and apply immediately.',
+  'liveSearch.sound.fileLabel': 'Notification Sound (Official)',
+  'liveSearch.sound.volumeLabel': 'Volume (Official)',
+  'liveSearch.sound.volumeMuted': 'Muted',
+  'liveSearch.sound.option.pulse': 'Pulse',
+  'liveSearch.sound.option.piano': 'Piano',
+  'liveSearch.sound.option.chime': 'Chime',
+  'liveSearch.sound.option.gong': 'Gong',
+  'liveSearch.sound.customNamed': 'Custom: {name}',
+  'liveSearch.sound.customUnnamed': 'Custom Sound',
+  'liveSearch.sound.uploadTitle': 'Upload custom audio file (max 1 MB)',
+  'liveSearch.sound.uploadTooLarge': 'Audio file is too large (max 1 MB)',
+  'liveSearch.sound.uploadInvalid': 'Unsupported audio file format',
+  'liveSearch.sound.saveFailed': 'Could not save official sound settings to storage',
   'liveSearch.sound.blockedNotice':
     'The browser blocked the notification sound. Click here to enable it',
   'liveSearch.sound.blockedTitle':
     'Browsers block sound in a tab opened in the background until you interact with it',
-  'liveSearch.sound.preview.muted':
-    'The official volume is muted. Raise it in the official settings',
+  'liveSearch.sound.preview.muted': 'Volume is muted. Raise the volume slider above',
   'liveSearch.sound.preview.missing':
     'The official sound element was not found. Reload the console',
   'liveSearch.sound.preview.blocked': 'The browser blocked the sound. Press Preview again',
