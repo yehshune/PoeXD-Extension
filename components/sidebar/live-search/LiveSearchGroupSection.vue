@@ -25,7 +25,11 @@
         class="flex flex-1 min-w-0 items-center justify-between gap-[var(--pxd-space-sm)] text-left cursor-pointer select-none"
         @click="emit('toggle-collapse', group.id)"
       >
-        <div class="flex items-center gap-[var(--pxd-space-md)] min-w-0 flex-1">
+        <div class="flex items-center gap-[var(--pxd-space-sm)] min-w-0 flex-1">
+          <ChevronDown
+            class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground transition-transform duration-150"
+            :class="{ '-rotate-90': isCollapsed }"
+          />
           <Radio
             v-if="group.id === SESSION_CONNECTIONS_GROUP_ID"
             class="size-[var(--control-icon-sm,14px)] shrink-0 text-primary"
@@ -62,10 +66,6 @@
               {{ t('liveSearch.primary.error') }}
             </span>
           </template>
-          <ChevronDown
-            class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground transition-transform duration-150 ml-0.5"
-            :class="{ '-rotate-90': isCollapsed }"
-          />
         </div>
       </button>
 
@@ -209,6 +209,7 @@
         :active-preview-data="activePreviewData"
         :is-result-filterable="isItemResultFilterable(item, group)"
         :is-result-filter-target="isItemResultFilterTarget(item)"
+        :result-count="getItemResultCount ? getItemResultCount(item) : 0"
         :is-batch-running="isBatchRunning"
         :is-item-menu-open="activeItemMenuId === item.id"
         @dragstart="(it, gId, ev) => emit('connection-dragstart', it, gId, ev)"
@@ -309,6 +310,10 @@ const props = defineProps({
   isItemResultFilterTarget: {
     type: Function as PropType<(item: LiveSearchSourceItem) => boolean>,
     required: true,
+  },
+  getItemResultCount: {
+    type: Function as PropType<(item: LiveSearchSourceItem) => number>,
+    default: undefined,
   },
 });
 

@@ -55,6 +55,19 @@
           >
             {{ item.name }}
           </span>
+          <span
+            v-if="isResultFilterable && resultCount > 0"
+            data-test="connection-item-hit-count"
+            :title="t('liveSearch.resultFilter.hitCountTitle', { count: resultCount })"
+            class="shrink-0 px-1.5 py-0.5 rounded-full text-[length:var(--pxd-font-caption)] font-mono tabular-nums leading-none"
+            :class="
+              isResultFilterTarget
+                ? 'bg-primary text-primary-foreground font-semibold'
+                : 'bg-muted text-muted-foreground'
+            "
+          >
+            {{ resultCount }}
+          </span>
         </div>
       </TradeSearchPreviewTooltip>
 
@@ -135,17 +148,22 @@
             <RotateCcw />
           </Button>
 
-          <!-- 4. 未啟用 / 已暫停 (idle / closed)：點擊啟用 -->
+          <!-- 4. 未啟用 / 已暫停 (idle / closed)：點擊啟用（上次連線為次要操作改用 ghost） -->
           <Button
             v-else
             type="button"
-            variant="secondary"
+            :variant="group.id === PREVIOUS_CONNECTIONS_GROUP_ID ? 'ghost' : 'secondary'"
             size="icon-sm"
             :data-test="`btn-enable-${item.id}`"
             data-status="未啟用"
             :title="t('liveSearch.primary.enable')"
             :aria-label="t('liveSearch.primary.enable')"
             class="shrink-0"
+            :class="
+              group.id === PREVIOUS_CONNECTIONS_GROUP_ID
+                ? 'text-muted-foreground hover:text-foreground'
+                : ''
+            "
             :disabled="isBatchRunning"
             @click="emit('enable', item.id)"
           >
@@ -270,6 +288,10 @@ const props = defineProps({
   isResultFilterTarget: {
     type: Boolean,
     required: true,
+  },
+  resultCount: {
+    type: Number,
+    default: 0,
   },
   isBatchRunning: {
     type: Boolean,

@@ -166,8 +166,10 @@ class RecordingHostClient implements ILiveSearchHostClient {
     return { success: true };
   }
   ensureCalls = 0;
-  async ensureContainer(): Promise<HostCommandOutcome> {
+  ensurePayloads: unknown[] = [];
+  async ensureContainer(options?: unknown): Promise<HostCommandOutcome> {
     this.ensureCalls++;
+    this.ensurePayloads.push(options);
     return { success: true };
   }
   async renderResult(options: RenderResultOptions): Promise<HostCommandOutcome> {
@@ -285,6 +287,48 @@ describe('官方上方顯示筆數（實際保留數，與篩選連動）', () =
 
     runtime.setResultFilter(null);
     expect(hostClient.syncCalls.at(-1)?.total).toBe(4);
+    runtime.dispose();
+  });
+
+  it('snapshot 提供各連線命中數與總顯示筆數，clearResults 會重置容器與計數而不影響後續渲染', async () => {
+    const hostClient = new RecordingHostClient();
+    const onRendered = vi.fn();
+    const onCleared = vi.fn();
+    const runtime = new LiveSearchPrimaryRuntime('poe1', {
+      hostClient,
+      webSocketFactory: vi.fn(),
+      fetchClient: vi.fn(),
+      onResultRendered: onRendered,
+      onResultsCleared: onCleared,
+    });
+    const owners = buildFallbackDevOwners('poe1', 'Standard');
+    await runtime.renderSyntheticResults(
+      'Standard',
+      buildFakeTradeResults(4, 'Standard', 'poe1', owners),
+    );
+
+    const snapBefore = runtime.getSnapshot();
+    expect(snapBefore.displayedResultCount).toBe(4);
+    expect(snapBefore.resultCountsByOwner).toEqual({
+      [owners[0].canonicalKey]: 2,
+      [owners[1].canonicalKey]: 1,
+      [owners[2].canonicalKey]: 1,
+    });
+    expect(onRendered).toHaveBeenCalledTimes(4);
+
+    const outcome = await runtime.clearResults();
+    expect(outcome.success).toBe(true);
+    expect(onCleared).toHaveBeenCalledTimes(1);
+    expect(hostClient.ensurePayloads.at(-1)).toMatchObject({
+      league: 'Standard',
+      resetResults: true,
+    });
+
+    const snapAfter = runtime.getSnapshot();
+    expect(snapAfter.displayedResultCount).toBeUndefined();
+    expect(snapAfter.resultCountsByOwner).toBeUndefined();
+    expect(runtime.getCumulativeRenderedTotal()).toBe(0);
+
     runtime.dispose();
   });
 });

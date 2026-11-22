@@ -69,6 +69,10 @@ export function createLiveSearchPrimaryController(
       runtime.setResultFilter(canonicalKey);
     },
 
+    async clearResults(): Promise<void> {
+      await runtime.clearResults();
+    },
+
     ...(import.meta.env.DEV
       ? {
           async injectDevResults(count, owners) {

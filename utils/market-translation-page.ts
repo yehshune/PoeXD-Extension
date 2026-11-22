@@ -328,6 +328,89 @@ export function forceRerenderVueApps(doc: Document): boolean {
   return updated;
 }
 
+const RESULTS_HEADING_PATTERN =
+  /^(No results found|Showing 1 result|Showing (\d+) results)(?: \(([^()]+) matched\))?(?: \(max\))?$/;
+
+function lookupUiString(strings: Record<string, string>, key: string): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(strings, key)) return undefined;
+  const value = strings[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+/**
+ * 官網結果區由較新的 `#app` Vue 3 實例渲染（使用私有 `Symbol(locale)`，於英文站不讀 `window.__`）。
+ * 依官方 `trade-ui.json` 字典原地轉換 `.row-total h3` 的筆數標題（零手寫字典，符合 ADR-0012）。
+ */
+export function translateResultsHeadingText(text: string, strings: Record<string, string>): string {
+  const trimmed = text.trim();
+  const match = RESULTS_HEADING_PATTERN.exec(trimmed);
+  if (!match) return text;
+
+  const [, base, count, matchedCount] = match;
+  let result: string;
+  if (count !== undefined) {
+    const tpl = lookupUiString(strings, 'Showing {i} results');
+    result = tpl ? tpl.replace(/\{i\}/g, count) : base;
+  } else {
+    result = lookupUiString(strings, base) ?? base;
+  }
+
+  if (matchedCount !== undefined) {
+    const matchedTpl = lookupUiString(strings, '{i} matched');
+    const matchedText = matchedTpl
+      ? matchedTpl.replace(/\{i\}/g, matchedCount)
+      : `${matchedCount} matched`;
+    result += ` (${matchedText})`;
+  }
+
+  if (trimmed.endsWith(' (max)')) {
+    const maxText = lookupUiString(strings, 'max') ?? 'max';
+    result += ` (${maxText})`;
+  }
+
+  return result;
+}
+
+/**
+ * 將官網 `#app` 結果區內未走 `window.__` 的介面文字（筆數標題、版型提示、載入更多、找不到物品）
+ * 以官方 `trade-ui.json` 字典原地替換；字典缺鍵時保留原文。回傳更新節點數。
+ */
+export function localizeResultsAppDom(doc: Document, strings: Record<string, string>): number {
+  let updated = 0;
+
+  for (const h3 of Array.from(doc.querySelectorAll('.results .row-total h3'))) {
+    const raw = h3.textContent ?? '';
+    const next = translateResultsHeadingText(raw, strings);
+    if (next !== raw) {
+      h3.textContent = next;
+      updated += 1;
+    }
+  }
+
+  for (const button of Array.from(doc.querySelectorAll('.results .row-total button[title]'))) {
+    const title = button.getAttribute('title');
+    if (!title) continue;
+    const translated = lookupUiString(strings, title);
+    if (translated && translated !== title) {
+      button.setAttribute('title', translated);
+      updated += 1;
+    }
+  }
+
+  for (const el of Array.from(
+    doc.querySelectorAll('.results .load-more-btn span, .results .row.error h3'),
+  )) {
+    const raw = el.textContent ?? '';
+    const translated = lookupUiString(strings, raw.trim());
+    if (translated && translated !== raw) {
+      el.textContent = translated;
+      updated += 1;
+    }
+  }
+
+  return updated;
+}
+
 export interface MarketTranslationPageOptions {
   /** data API 最多等待 payload 的時間（毫秒） */
   timeoutMs: number;
@@ -340,9 +423,43 @@ export function startMarketTranslationPage(
   const gate = createPayloadGate(options.timeoutMs);
   let staticUiChecked = false;
   let mountObserver: MutationObserver | null = null;
+  let resultsObserver: MutationObserver | null = null;
+  let activeUiStrings: Record<string, string> | null = null;
+  let resultsSyncScheduled = false;
   const stopMountObserver = () => {
     mountObserver?.disconnect();
     mountObserver = null;
+  };
+  const stopResultsObserver = () => {
+    resultsObserver?.disconnect();
+    resultsObserver = null;
+    activeUiStrings = null;
+  };
+  const scheduleResultsDomLocalization = () => {
+    if (resultsSyncScheduled || !activeUiStrings) return;
+    resultsSyncScheduled = true;
+    queueMicrotask(() => {
+      resultsSyncScheduled = false;
+      if (!activeUiStrings) return;
+      localizeResultsAppDom(win.document, activeUiStrings);
+    });
+  };
+  const ensureResultsAppLocalized = (strings: Record<string, string>) => {
+    activeUiStrings = strings;
+    localizeResultsAppDom(win.document, strings);
+    const Observer = (win as Window & typeof globalThis).MutationObserver;
+    if (resultsObserver || typeof Observer !== 'function') return;
+    const root = win.document.documentElement;
+    if (!root) return;
+    const observer = new Observer(() => {
+      scheduleResultsDomLocalization();
+    });
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+    resultsObserver = observer;
   };
   const ensureTradeStaticUiLocalized = (strings: Record<string, string>) => {
     if (staticUiChecked) return;
@@ -392,6 +509,7 @@ export function startMarketTranslationPage(
     if (message.type === 'ui') {
       applyUiDictionary(win, message.ui);
       ensureTradeStaticUiLocalized(message.ui);
+      ensureResultsAppLocalized(message.ui);
       forceRerenderVueApps(win.document);
       return;
     }
@@ -402,6 +520,7 @@ export function startMarketTranslationPage(
     applyUiDictionary(win, message.payload.ui);
     gate.settle(message.payload);
     ensureTradeStaticUiLocalized(message.payload.ui);
+    ensureResultsAppLocalized(message.payload.ui);
     forceRerenderVueApps(win.document);
   };
 
@@ -424,6 +543,7 @@ export function startMarketTranslationPage(
   return () => {
     win.removeEventListener('message', handleMessage);
     stopMountObserver();
+    stopResultsObserver();
     restoreFetch();
   };
 }

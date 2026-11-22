@@ -21,6 +21,10 @@ import {
   type LiveSearchDesktopNotifier,
 } from './live-search-desktop-notifier';
 import {
+  createLiveSearchResultSourceBadge,
+  type LiveSearchResultSourceBadge,
+} from './live-search-result-source-badge';
+import {
   createLiveSearchSoundNotifier,
   type LiveSearchSoundNotifier,
 } from './live-search-sound-notifier';
@@ -51,6 +55,7 @@ export interface LiveSearchPrimarySessionFactories {
   createHostGuard: typeof createLiveSearchConsoleHostGuard;
   createSoundNotifier: typeof createLiveSearchSoundNotifier;
   createDesktopNotifier: typeof createLiveSearchDesktopNotifier;
+  createResultSourceBadge: typeof createLiveSearchResultSourceBadge;
   createRuntime: (
     version: PoeVersion,
     options: ConstructorParameters<typeof LiveSearchPrimaryRuntime>[1],
@@ -80,6 +85,7 @@ const DEFAULT_FACTORIES: LiveSearchPrimarySessionFactories = {
   createHostGuard: createLiveSearchConsoleHostGuard,
   createSoundNotifier: createLiveSearchSoundNotifier,
   createDesktopNotifier: createLiveSearchDesktopNotifier,
+  createResultSourceBadge: createLiveSearchResultSourceBadge,
   createRuntime: (version, options) => new LiveSearchPrimaryRuntime(version, options),
   createPrimaryController: createLiveSearchPrimaryController,
   createResumeStore: createLiveSearchResumeStore,
@@ -109,6 +115,8 @@ export function createLiveSearchPrimarySession(
   let hostGuard: ReturnType<LiveSearchPrimarySessionFactories['createHostGuard']> | null = null;
   let soundNotifier: LiveSearchSoundNotifier | null = null;
   let desktopNotifier: LiveSearchDesktopNotifier | null = null;
+  let resultSourceBadge: LiveSearchResultSourceBadge | null = null;
+  let unsubBadgeSync: (() => void) | null = null;
   let primaryRuntime: ReturnType<LiveSearchPrimarySessionFactories['createRuntime']> | null = null;
   let sourceController: LiveSearchSourceController | null = null;
   let resumeController: LiveSearchResumeController | null = null;
@@ -118,6 +126,8 @@ export function createLiveSearchPrimarySession(
   /** 依固定順序釋放已建立的子模組；建構中途失敗時也只釋放已建立者 */
   function disposeCreated(): void {
     cleanupEnqueueListener?.();
+    unsubBadgeSync?.();
+    resultSourceBadge?.dispose();
     titleGuard?.dispose();
     hostGuard?.dispose();
     exitGuard?.dispose();
@@ -157,10 +167,30 @@ export function createLiveSearchPrimarySession(
     desktopNotifier = desktop;
 
     const resolveSourceName = (ownerKey: string): string | undefined => {
-      const connections = sourceController?.read().sessionConnections;
-      if (!connections) return undefined;
-      return connections.find((item) => item.canonicalKey === ownerKey)?.name;
+      const snap = sourceController?.read();
+      const fromSession = snap?.sessionConnections?.find((item) => item.canonicalKey === ownerKey);
+      if (fromSession?.name) return fromSession.name;
+      if (snap?.groups) {
+        for (const group of snap.groups) {
+          const found = group.items.find((item) => item.canonicalKey === ownerKey);
+          if (found?.name) return found.name;
+        }
+      }
+      return undefined;
     };
+
+    const badge = f.createResultSourceBadge({
+      document: doc,
+      resolveSourceName,
+      getFilterOwner: () => primaryRuntime?.getResultFilter() ?? null,
+      onSelectOwner: (ownerKey) => {
+        if (!primaryRuntime) return;
+        const current = primaryRuntime.getResultFilter();
+        primaryRuntime.setResultFilter(current === ownerKey ? null : ownerKey);
+      },
+      formatTooltip: (name) => t('liveSearch.resultFilter.badgeTooltip', { name }),
+    });
+    resultSourceBadge = badge;
 
     primaryRuntime = f.createRuntime(version, {
       getMaxDisplayedResults: () => preferences.read().liveSearchMaxDisplayedResults,
@@ -174,7 +204,15 @@ export function createLiveSearchPrimarySession(
       // 主控台自己打的 /fetch 不經過 MAIN world 攔截，結果要另外交給共用快取
       onResultFetched: ({ itemData, searchId, league }) =>
         resultCache.ingestResult(itemData, { sourceSearchId: searchId, league }),
+      onResultRendered: ({ itemId, ownerKey }) => badge.record(itemId, ownerKey),
+      onResultsCleared: () => badge.clear(),
     });
+    unsubBadgeSync =
+      typeof primaryRuntime.subscribe === 'function'
+        ? primaryRuntime.subscribe(() => {
+            badge.syncAll();
+          })
+        : null;
 
     const controller = f.createPrimaryController(primaryRuntime);
     primaryController = controller;

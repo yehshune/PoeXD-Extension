@@ -247,6 +247,10 @@ export interface LiveSearchPrimaryViewSnapshot {
   rateLimit: Readonly<TradeRateLimitStateSnapshot>;
   /** 目前僅顯示此連線（canonical key）的結果；省略表示顯示全部 */
   resultFilterKey?: string;
+  /** 目前展示區保留的總結果數（不受單一連線篩選影響） */
+  displayedResultCount?: number;
+  /** 各連線（canonical key）目前保留於展示區的結果數 */
+  resultCountsByOwner?: Readonly<Record<string, number>>;
 }
 
 export interface LiveSearchDevResultOwner {
@@ -272,6 +276,8 @@ export interface LiveSearchPrimaryController {
   teardownAll(options?: { targetLeague?: string }): Promise<void>;
   /** 僅顯示指定連線（canonical key）的結果；null 顯示全部 */
   setResultFilter?(canonicalKey: string | null): void;
+  /** 清空展示區結果但不中斷任何監聽連線 */
+  clearResults?(): Promise<void>;
   /** 開發模式專用：注入假結果至官方展示區（不連線、不 fetch） */
   injectDevResults?(
     count: number,

@@ -256,10 +256,13 @@ export class ResultSortController {
   }
 
   private restoreOriginalDomOrder(container?: Element | null) {
-    const root = container || getResultsRoot();
     this.sortMode = 'default';
-    if (!root) return;
-    this.reorderDomRows(root);
+    if (this.originalOrder.length === 0) return;
+    const root = container || getResultsRoot();
+    if (root) {
+      this.reorderDomRows(root);
+    }
+    this.originalOrder = [];
   }
 
   private resetForLiveOrConsole() {
@@ -624,6 +627,7 @@ export class ResultSortController {
    */
   private reorderDomRows(container: Element) {
     if (this.isReordering) return;
+    if (this.isLiveOrConsole() && this.originalOrder.length === 0) return;
     if (
       isPriceDependentSortMode(this.sortMode) &&
       (!this.pricePresenter || !this.pricePresenter.isEnabled())

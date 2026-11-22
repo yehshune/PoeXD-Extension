@@ -61,6 +61,21 @@ export interface LiveSearchPrimaryRuntimeOptions {
    * 監聽者拋出的例外會被隔離，不影響 pipeline。
    */
   onResultFetched?: (event: LiveSearchResultFetchedEvent) => void;
+  /**
+   * 單筆結果成功渲染進官方展示區後呼叫（涵蓋真實與開發注入結果），供來源標籤等展示增強使用。
+   */
+  onResultRendered?: (event: LiveSearchResultRenderedEvent) => void;
+  /**
+   * 展示區結果被清空（清空結果或切換聯盟）時呼叫。
+   */
+  onResultsCleared?: () => void;
+}
+
+export interface LiveSearchResultRenderedEvent {
+  /** 官方結果列 `data-id`（即 `itemData.id`） */
+  itemId: string;
+  /** 結果所屬連線的 canonical key */
+  ownerKey: string;
 }
 
 export interface LiveSearchResultFetchedEvent {
@@ -135,9 +150,12 @@ export class LiveSearchPrimaryRuntime {
   private readonly resultFilter: LiveSearchResultFilter;
   private readonly onResultTokenAccepted?: (event: LiveSearchResultTokenAcceptedEvent) => void;
   private readonly onResultFetched?: (event: LiveSearchResultFetchedEvent) => void;
+  private readonly onResultRendered?: (event: LiveSearchResultRenderedEvent) => void;
+  private readonly onResultsCleared?: () => void;
 
   private runtimeLeague: string | null = null;
   private activeTargetLeague: string | null = null;
+  private lastContainerLeague: string | null = null;
   private cumulativeRenderedTotal = 0;
 
   private subscriptions = new Map<string, SubscriptionContext>();
@@ -195,6 +213,8 @@ export class LiveSearchPrimaryRuntime {
     this.resultFilter = options?.resultFilter ?? createLiveSearchResultFilter();
     this.onResultTokenAccepted = options?.onResultTokenAccepted;
     this.onResultFetched = options?.onResultFetched;
+    this.onResultRendered = options?.onResultRendered;
+    this.onResultsCleared = options?.onResultsCleared;
   }
 
   private readMaxDisplayedResults(): number | undefined {
@@ -239,7 +259,14 @@ export class LiveSearchPrimaryRuntime {
     });
     if (!outcome.success) return false;
     this.cumulativeRenderedTotal += 1;
-    if (itemId) this.resultFilter.record(itemId, input.ownerKey, maxResults, input.token);
+    if (itemId) {
+      this.resultFilter.record(itemId, input.ownerKey, maxResults, input.token);
+      try {
+        this.onResultRendered?.({ itemId, ownerKey: input.ownerKey });
+      } catch (err) {
+        console.error('[PoeXD LiveSearch] Result rendered listener failed:', err);
+      }
+    }
     return true;
   }
 
@@ -259,6 +286,36 @@ export class LiveSearchPrimaryRuntime {
     this.resultFilter.setFilter(next);
     this.syncHostDisplayTotal();
     this.notifyListeners();
+  }
+
+  /**
+   * 清空官方展示區的已渲染結果，但不停止任何監聽中的 WebSocket 連線或重設聯盟鎖定。
+   */
+  public async clearResults(): Promise<HostCommandOutcome> {
+    if (this.disposed) {
+      return { success: false, error: 'Runtime already disposed' };
+    }
+    this.cumulativeRenderedTotal = 0;
+    this.resultFilter.clear();
+    try {
+      this.onResultsCleared?.();
+    } catch (err) {
+      console.error('[PoeXD LiveSearch] Results cleared listener failed:', err);
+    }
+
+    const league = this.lastContainerLeague ?? this.runtimeLeague ?? this.activeTargetLeague;
+    let outcome: HostCommandOutcome = { success: true };
+    if (league) {
+      const realm = this.gameVersion === 'poe2' ? 'poe2' : 'pc';
+      outcome = await this.hostClient.ensureContainer({
+        localId: this.displayLocalId,
+        league,
+        realm,
+        resetResults: true,
+      });
+    }
+    this.notifyListeners();
+    return outcome;
   }
 
   public getResultFilter(): string | null {
@@ -296,12 +353,22 @@ export class LiveSearchPrimaryRuntime {
 
   public getSnapshot(): Readonly<LiveSearchPrimaryViewSnapshot> {
     const resultFilterKey = this.resultFilter.getFilter();
+    const displayedResultCount =
+      typeof this.resultFilter.totalCount === 'function'
+        ? this.resultFilter.totalCount()
+        : this.resultFilter.displayTotal();
+    const resultCountsByOwner =
+      typeof this.resultFilter.getOwnerCounts === 'function'
+        ? this.resultFilter.getOwnerCounts()
+        : undefined;
     return {
       gameVersion: this.gameVersion,
       runtimeLeague: this.runtimeLeague,
       cumulativeRenderedTotal: this.cumulativeRenderedTotal,
       subscriptions: this.getSubscriptions(),
       rateLimit: this.fetchRateGate.getStateSnapshot(),
+      ...(displayedResultCount > 0 ? { displayedResultCount } : {}),
+      ...(displayedResultCount > 0 && resultCountsByOwner ? { resultCountsByOwner } : {}),
       ...(resultFilterKey ? { resultFilterKey } : {}),
     };
   }
@@ -453,6 +520,7 @@ export class LiveSearchPrimaryRuntime {
       }
 
       this.runtimeLeague = subLeague;
+      this.lastContainerLeague = subscription.league.trim();
     } else {
       // 驗證後續 subscription 必須 league 完全一致
       if (this.runtimeLeague !== subLeague) {
@@ -571,6 +639,11 @@ export class LiveSearchPrimaryRuntime {
       this.cumulativeRenderedTotal = 0;
       this.resultFilter.setFilter(null);
       this.resultFilter.clear();
+      try {
+        this.onResultsCleared?.();
+      } catch (err) {
+        console.error('[PoeXD LiveSearch] Results cleared listener failed:', err);
+      }
       this.notifyListeners();
 
       const targetLeague = options?.targetLeague?.trim();
@@ -588,6 +661,7 @@ export class LiveSearchPrimaryRuntime {
           );
         }
         this.activeTargetLeague = targetLeague.toLowerCase();
+        this.lastContainerLeague = targetLeague;
       }
     });
     this.addSubscriptionMutex = next.catch(() => {});
@@ -614,6 +688,7 @@ export class LiveSearchPrimaryRuntime {
       if (!ensureResult.success) {
         return { rendered: 0, failed: items.length, error: ensureResult.error };
       }
+      this.lastContainerLeague = targetLeague;
     }
     let rendered = 0;
     let failed = 0;

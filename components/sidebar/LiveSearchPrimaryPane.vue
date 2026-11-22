@@ -35,9 +35,15 @@
           :active-subscription-count="activeSubscriptionCount"
           :error-subscription-count="errorSubscriptionCount"
           :is-sound-blocked="isSoundBlocked"
+          :is-sound-enabled="liveSearchSoundEnabled"
+          :can-toggle-sound="Boolean(soundNotifier)"
+          :displayed-result-count="displayedResultCount"
+          :can-clear-results="typeof controller?.clearResults === 'function'"
           :rate-limit="snapshot?.rateLimit"
           @switch-league="handleSwitchLeague"
           @enable-sound="handleEnableSound"
+          @toggle-sound="handleToggleSoundEnabled"
+          @clear-results="handleClearResults"
         />
 
         <!-- 搜尋與狀態篩選固定主要工具列 -->
@@ -85,9 +91,16 @@
               :key="opt.value"
               :value="opt.value"
               :data-test="`filter-status-${opt.value}`"
-              class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
+              class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center gap-1"
+              :class="opt.value === 'error' && opt.count > 0 ? 'text-destructive' : ''"
             >
-              {{ opt.label }}
+              <span>{{ opt.label }}</span>
+              <span
+                v-if="opt.count > 0"
+                class="text-[length:var(--pxd-font-caption)] opacity-70 tabular-nums"
+              >
+                {{ opt.count }}
+              </span>
             </ToggleGroupItem>
           </ToggleGroup>
 
@@ -266,6 +279,7 @@
                 :active-preview-data="activePreviewData"
                 :is-item-result-filterable="isResultFilterable"
                 :is-item-result-filter-target="isResultFilterTarget"
+                :get-item-result-count="getItemResultCount"
                 @toggle-collapse="toggleGroupCollapse"
                 @open-add-connection="handleOpenAddConnection"
                 @batch-enable-group="handleBatchEnableGroup"
@@ -412,16 +426,50 @@ function handleOpenAddConnection() {
   emit('open-add-connection');
 }
 
+const statusCounts = computed(() => {
+  let all = 0;
+  let enabled = 0;
+  let disabled = 0;
+  let error = 0;
+  for (const group of normalizedGroups.value) {
+    for (const item of group.items) {
+      all += 1;
+      if (item.status === 'error') {
+        error += 1;
+      } else if (
+        item.status === 'active' ||
+        item.status === 'connecting' ||
+        item.status === 'reconnecting' ||
+        Boolean(item.pending)
+      ) {
+        enabled += 1;
+      } else {
+        disabled += 1;
+      }
+    }
+  }
+  return { all, enabled, disabled, error };
+});
+
 const statusFilterOptions = computed<
   ReadonlyArray<{
     value: LiveSearchSourceStatusFilter;
     label: string;
+    count: number;
   }>
 >(() => [
-  { value: 'all', label: t('liveSearch.primary.filterAll') },
-  { value: 'enabled', label: t('liveSearch.primary.filterEnabled') },
-  { value: 'disabled', label: t('liveSearch.primary.filterDisabled') },
-  { value: 'error', label: t('liveSearch.primary.filterError') },
+  { value: 'all', label: t('liveSearch.primary.filterAll'), count: statusCounts.value.all },
+  {
+    value: 'enabled',
+    label: t('liveSearch.primary.filterEnabled'),
+    count: statusCounts.value.enabled,
+  },
+  {
+    value: 'disabled',
+    label: t('liveSearch.primary.filterDisabled'),
+    count: statusCounts.value.disabled,
+  },
+  { value: 'error', label: t('liveSearch.primary.filterError'), count: statusCounts.value.error },
 ]);
 
 const paneRootRef = ref<HTMLElement | null>(null);
@@ -429,6 +477,8 @@ const snapshot = ref<Readonly<LiveSearchPrimaryViewSnapshot> | null>(null);
 const sourceSnapshot = ref<Readonly<LiveSearchSourceSnapshot> | null>(null);
 
 const sidebarPosition = ref<'left' | 'right'>(DEFAULT_PREFERENCES.sidebarPosition ?? 'right');
+const liveSearchSoundEnabled = ref<boolean>(DEFAULT_PREFERENCES.liveSearchSoundEnabled);
+let activePreferencesModule: PreferencesModule | null = null;
 const tooltipSide = computed<'left' | 'right'>(() => {
   return sidebarPosition.value === 'left' ? 'right' : 'left';
 });
@@ -594,6 +644,8 @@ function showToast(message: string, tone: 'default' | 'error' = 'default') {
 
 function applyPreferencesSnapshot(prefSnapshot: Readonly<Preferences>) {
   sidebarPosition.value = prefSnapshot.sidebarPosition ?? 'right';
+  liveSearchSoundEnabled.value =
+    prefSnapshot.liveSearchSoundEnabled ?? DEFAULT_PREFERENCES.liveSearchSoundEnabled;
 }
 
 function bindPreferences(mod: PreferencesModule | null | undefined) {
@@ -601,8 +653,20 @@ function bindPreferences(mod: PreferencesModule | null | undefined) {
     stopPreferences();
     stopPreferences = null;
   }
+  activePreferencesModule = mod ?? null;
   if (mod) {
+    applyPreferencesSnapshot(mod.read());
     stopPreferences = mod.subscribe(applyPreferencesSnapshot);
+  }
+}
+
+async function handleToggleSoundEnabled() {
+  const next = !liveSearchSoundEnabled.value;
+  liveSearchSoundEnabled.value = next;
+  if (!activePreferencesModule) return;
+  const outcome = await activePreferencesModule.update({ liveSearchSoundEnabled: next });
+  if (!outcome.ok) {
+    applyPreferencesSnapshot(activePreferencesModule.read());
   }
 }
 
@@ -1031,6 +1095,8 @@ const isDevInjecting = ref(false);
 const devInjectStatus = ref('');
 
 const resultFilterKey = computed(() => snapshot.value?.resultFilterKey ?? null);
+const displayedResultCount = computed(() => snapshot.value?.displayedResultCount ?? 0);
+const resultCountsByOwner = computed(() => snapshot.value?.resultCountsByOwner ?? {});
 const resultFilterName = computed(() => {
   const key = resultFilterKey.value;
   if (!key) return '';
@@ -1050,6 +1116,15 @@ function isResultFilterable(item: LiveSearchSourceItem, group: LiveSearchSourceG
 
 function isResultFilterTarget(item: LiveSearchSourceItem): boolean {
   return Boolean(resultFilterKey.value) && item.canonicalKey === resultFilterKey.value;
+}
+
+function getItemResultCount(item: LiveSearchSourceItem): number {
+  if (!item.canonicalKey) return 0;
+  return resultCountsByOwner.value[item.canonicalKey] ?? 0;
+}
+
+async function handleClearResults() {
+  await props.controller?.clearResults?.();
 }
 
 function handleToggleResultFilter(item: LiveSearchSourceItem, group: LiveSearchSourceGroup) {

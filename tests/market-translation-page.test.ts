@@ -5,8 +5,10 @@ import {
   createPayloadGate,
   forceRerenderVueApps,
   isTradeDataRequest,
+  localizeResultsAppDom,
   localizeTradeStoreUi,
   startMarketTranslationPage,
+  translateResultsHeadingText,
   wrapFetchWithGate,
 } from '@/utils/market-translation-page';
 import {
@@ -550,6 +552,110 @@ describe('startMarketTranslationPage', () => {
       }),
     );
     expect((window as any).__).toBeUndefined();
+    stop();
+    postSpy.mockRestore();
+  });
+});
+
+describe('translateResultsHeadingText & localizeResultsAppDom', () => {
+  const twStrings: Record<string, string> = {
+    'No results found': '查無結果',
+    'Showing 1 result': '顯示 1 筆結果',
+    'Showing {i} results': '顯示 {i} 筆結果',
+    '{i} matched': '{i} 筆符合',
+    max: '最大',
+    Default: '預設',
+    'Load More': '讀取更多',
+    'Item not found': '無發現道具',
+  };
+
+  it('將官網 #app 結果區所有筆數標題格式依 trade-ui.json 轉換', () => {
+    expect(translateResultsHeadingText('No results found', twStrings)).toBe('查無結果');
+    expect(translateResultsHeadingText('Showing 1 result', twStrings)).toBe('顯示 1 筆結果');
+    expect(translateResultsHeadingText('Showing 13 results', twStrings)).toBe('顯示 13 筆結果');
+    expect(translateResultsHeadingText('Showing 10 results (250 matched)', twStrings)).toBe(
+      '顯示 10 筆結果 (250 筆符合)',
+    );
+    expect(translateResultsHeadingText('Showing 100 results (10000+ matched)', twStrings)).toBe(
+      '顯示 100 筆結果 (10000+ 筆符合)',
+    );
+    expect(translateResultsHeadingText('Showing 50 results (max)', twStrings)).toBe(
+      '顯示 50 筆結果 (最大)',
+    );
+    // 已經中文化或未知文字保持不變
+    expect(translateResultsHeadingText('顯示 13 筆結果', twStrings)).toBe('顯示 13 筆結果');
+    expect(translateResultsHeadingText('Showing 13 results', {})).toBe('Showing 13 results');
+  });
+
+  it('localizeResultsAppDom 會原地轉換標題、版型按鈕 title、讀取更多與找不到物品', () => {
+    const results = document.createElement('div');
+    results.className = 'results';
+    const rowTotal = document.createElement('div');
+    rowTotal.className = 'row row-total';
+    const h3 = document.createElement('h3');
+    h3.textContent = 'Showing 13 results';
+    const btnDefault = document.createElement('button');
+    btnDefault.setAttribute('title', 'Default');
+    const btnCompact = document.createElement('button');
+    btnCompact.setAttribute('title', 'Compact');
+    rowTotal.append(h3, btnDefault, btnCompact);
+
+    const loadMoreBtn = document.createElement('button');
+    loadMoreBtn.className = 'btn load-more-btn';
+    const loadMoreSpan = document.createElement('span');
+    loadMoreSpan.textContent = 'Load More';
+    loadMoreBtn.appendChild(loadMoreSpan);
+
+    const errRow = document.createElement('div');
+    errRow.className = 'row error';
+    const errH3 = document.createElement('h3');
+    errH3.textContent = 'Item not found';
+    errRow.appendChild(errH3);
+
+    results.append(rowTotal, loadMoreBtn, errRow);
+    document.body.appendChild(results);
+
+    expect(localizeResultsAppDom(document, twStrings)).toBe(4);
+    expect(h3.textContent).toBe('顯示 13 筆結果');
+    expect(btnDefault.getAttribute('title')).toBe('預設');
+    // 字典缺鍵時保留原文（ADR-0012）
+    expect(btnCompact.getAttribute('title')).toBe('Compact');
+    expect(loadMoreSpan.textContent).toBe('讀取更多');
+    expect(errH3.textContent).toBe('無發現道具');
+    // 再次呼叫為 no-op
+    expect(localizeResultsAppDom(document, twStrings)).toBe(0);
+
+    results.remove();
+  });
+
+  it('startMarketTranslationPage 在 #app 結果標題動態更新後會自動重新中文化', async () => {
+    (window as any).fetch = vi.fn(async () => new Response('{}'));
+    const postSpy = vi.spyOn(window, 'postMessage').mockImplementation(() => {});
+    const results = document.createElement('div');
+    results.className = 'results';
+    const rowTotal = document.createElement('div');
+    rowTotal.className = 'row row-total';
+    const h3 = document.createElement('h3');
+    h3.textContent = 'Showing 1 result';
+    rowTotal.appendChild(h3);
+    results.appendChild(rowTotal);
+    document.body.appendChild(results);
+
+    const stop = startMarketTranslationPage(window, { timeoutMs: 1500 });
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { source: MARKET_MESSAGE_SOURCE, type: 'ui', ui: twStrings },
+        source: window,
+      }),
+    );
+    expect(h3.textContent).toBe('顯示 1 筆結果');
+
+    // 模擬 Vue 3 更新文字節點
+    h3.textContent = 'Showing 2 results';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(h3.textContent).toBe('顯示 2 筆結果');
+
+    results.remove();
     stop();
     postSpy.mockRestore();
   });

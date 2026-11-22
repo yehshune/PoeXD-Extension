@@ -318,4 +318,45 @@ describe('ResultSortController', () => {
 
     controller.cleanup();
   });
+
+  it('線上搜尋與主控台模式下，切換設定或呼叫 syncSupport 絕不將各批次 .resultset 的 .row 合併進第一個 .resultset', () => {
+    const { happyWin, results, resultSet } = createHappyTradeDom(
+      'https://www.pathofexile.com/trade/search/Standard/live-console',
+    );
+    const makeRow = (id: string) => {
+      const row = happyWin.document.createElement('div');
+      row.className = 'row';
+      row.setAttribute('data-id', id);
+      return row;
+    };
+    const r1 = makeRow('live-1');
+    const r2 = makeRow('live-2');
+    const r3 = makeRow('live-3');
+    resultSet.appendChild(r1);
+    const resultSet2 = happyWin.document.createElement('div');
+    resultSet2.className = 'resultset';
+    resultSet2.appendChild(r2);
+    const resultSet3 = happyWin.document.createElement('div');
+    resultSet3.className = 'resultset';
+    resultSet3.appendChild(r3);
+    results.appendChild(resultSet2);
+    results.appendChild(resultSet3);
+
+    const mockPricePresenter = {
+      isEnabled: () => true,
+      getPrimaryPrice: () => 10,
+    };
+    const controller = new ResultSortController('poe1', mockPricePresenter as any);
+    controller.setPageRole('live-search-primary');
+    controller.setEnabled(false);
+    controller.setEnabled(true);
+    controller.syncSupport();
+    controller.apply(results as unknown as Element);
+
+    expect(Array.from(resultSet.children)).toEqual([r1] as any);
+    expect(Array.from(resultSet2.children)).toEqual([r2] as any);
+    expect(Array.from(resultSet3.children)).toEqual([r3] as any);
+
+    controller.cleanup();
+  });
 });

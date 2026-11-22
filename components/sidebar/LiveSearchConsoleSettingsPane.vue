@@ -134,12 +134,38 @@
           <!-- 官方音量滑桿（0–100%） -->
           <div class="flex flex-col gap-[var(--pxd-space-xs)]">
             <div class="flex items-center justify-between gap-[var(--pxd-space-xs)]">
-              <label
-                for="live-search-official-volume"
-                class="text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground"
-              >
-                {{ t('liveSearch.sound.volumeLabel') }}
-              </label>
+              <div class="flex items-center gap-[var(--pxd-space-xs)]">
+                <button
+                  type="button"
+                  data-test="btn-sound-mute-toggle"
+                  :disabled="!soundNotifier"
+                  :title="
+                    officialSetting.volume === 0
+                      ? t('liveSearch.sound.unmuteToggleTitle')
+                      : t('liveSearch.sound.muteToggleTitle')
+                  "
+                  :aria-label="
+                    officialSetting.volume === 0
+                      ? t('liveSearch.sound.unmuteToggleTitle')
+                      : t('liveSearch.sound.muteToggleTitle')
+                  "
+                  class="inline-flex items-center justify-center rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  @click="handleToggleMuteVolume"
+                >
+                  <VolumeX
+                    v-if="officialSetting.volume === 0"
+                    class="size-[var(--control-icon-sm,14px)]"
+                    aria-hidden="true"
+                  />
+                  <Volume2 v-else class="size-[var(--control-icon-sm,14px)]" aria-hidden="true" />
+                </button>
+                <label
+                  for="live-search-official-volume"
+                  class="text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground"
+                >
+                  {{ t('liveSearch.sound.volumeLabel') }}
+                </label>
+              </div>
               <span
                 data-test="official-sound-volume-value"
                 class="text-[length:var(--pxd-font-caption)] font-medium tabular-nums text-foreground"
@@ -310,7 +336,16 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Bell, BellRing, ListOrdered, Play, RotateCcw, Upload, Volume2 } from '@lucide/vue';
+import {
+  Bell,
+  BellRing,
+  ListOrdered,
+  Play,
+  RotateCcw,
+  Upload,
+  Volume2,
+  VolumeX,
+} from '@lucide/vue';
 import SettingsRow from './settings/SettingsRow.vue';
 import SettingsSection from './settings/SettingsSection.vue';
 import {
@@ -434,9 +469,30 @@ const selectedSoundLabel = computed(() => {
   return builtIn ? builtInSoundLabel(builtIn.id) : unknownSoundLabel.value;
 });
 
+const lastNonZeroVolume = ref<number>(OFFICIAL_DEFAULT_SOUND_VOLUME);
+
 function refreshOfficialSetting() {
   if (!props.soundNotifier?.readOfficialSetting) return;
-  officialSetting.value = props.soundNotifier.readOfficialSetting();
+  const next = props.soundNotifier.readOfficialSetting();
+  officialSetting.value = next;
+  if (next.volume > 0) {
+    lastNonZeroVolume.value = next.volume;
+  }
+}
+
+function refreshDesktopPermissionHint() {
+  if (!props.desktopNotifier) return;
+  const perm = props.desktopNotifier.getPermission();
+  if (perm === 'denied') {
+    desktopNotifyFeedbackMessage.value = t('liveSearch.desktopNotify.denied');
+  } else if (perm === 'unsupported') {
+    desktopNotifyFeedbackMessage.value = t('liveSearch.desktopNotify.unsupported');
+  } else if (
+    desktopNotifyFeedbackMessage.value === t('liveSearch.desktopNotify.denied') ||
+    desktopNotifyFeedbackMessage.value === t('liveSearch.desktopNotify.unsupported')
+  ) {
+    desktopNotifyFeedbackMessage.value = '';
+  }
 }
 
 function handleStorageSync(event: StorageEvent) {
@@ -518,6 +574,14 @@ watch(
   () => props.soundNotifier,
   () => {
     refreshOfficialSetting();
+  },
+  { immediate: true },
+);
+
+watch(
+  () => props.desktopNotifier,
+  () => {
+    refreshDesktopPermissionHint();
   },
   { immediate: true },
 );
@@ -661,7 +725,27 @@ async function handleVolumeChange(event: Event) {
     return;
   }
   officialSetting.value = outcome.setting;
+  if (outcome.setting.volume > 0) {
+    lastNonZeroVolume.value = outcome.setting.volume;
+    await handlePreviewSound();
+  }
+}
+
+async function handleToggleMuteVolume() {
+  if (!props.soundNotifier?.updateOfficialVolume) return;
+  soundFeedbackMessage.value = '';
+  const targetVolume =
+    officialSetting.value.volume === 0 ? Math.max(1, lastNonZeroVolume.value) : 0;
   if (officialSetting.value.volume > 0) {
+    lastNonZeroVolume.value = officialSetting.value.volume;
+  }
+  const outcome = props.soundNotifier.updateOfficialVolume(targetVolume);
+  if (!outcome.ok) {
+    soundFeedbackMessage.value = t('liveSearch.sound.saveFailed');
+    return;
+  }
+  officialSetting.value = outcome.setting;
+  if (outcome.setting.volume > 0) {
     await handlePreviewSound();
   }
 }
@@ -678,7 +762,8 @@ async function applyOfficialSound(source: OfficialSoundSource) {
     return;
   }
   officialSetting.value = outcome.setting;
-  if (officialSetting.value.volume > 0) {
+  if (outcome.setting.volume > 0) {
+    lastNonZeroVolume.value = outcome.setting.volume;
     await handlePreviewSound();
   }
 }

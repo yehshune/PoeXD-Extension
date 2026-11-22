@@ -30,6 +30,10 @@ export interface LiveSearchResultFilter {
   getFilter(): string | null;
   /** 各連線目前記錄的結果數 */
   countFor(ownerKey: string): number;
+  /** 目前保留的總結果數（不受篩選影響） */
+  totalCount?(): number;
+  /** 各連線目前保留的結果數統計表 */
+  getOwnerCounts?(): Record<string, number>;
   clear(): void;
   dispose(): void;
 }
@@ -130,6 +134,16 @@ export function createLiveSearchResultFilter(
     },
     countFor(ownerKey) {
       return countOwner(ownerKey);
+    },
+    totalCount() {
+      return entries.size;
+    },
+    getOwnerCounts() {
+      const counts: Record<string, number> = {};
+      for (const entry of entries.values()) {
+        counts[entry.owner] = (counts[entry.owner] ?? 0) + 1;
+      }
+      return counts;
     },
     clear() {
       entries.clear();

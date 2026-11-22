@@ -63,31 +63,78 @@
       </template>
     </div>
 
-    <!-- Compact API Rate Status Trigger -->
-    <button
-      type="button"
-      data-test="btn-toggle-rate-details"
-      class="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-sm hover:bg-muted transition-colors cursor-pointer"
-      :aria-expanded="isRateDetailsOpen"
-      :title="t('liveSearch.primary.rateToggleTitle')"
-      @click="isRateDetailsOpen = !isRateDetailsOpen"
-    >
-      <span
-        data-test="rate-limit-status"
-        class="font-medium font-mono"
-        :class="isRateWaiting ? 'text-amber-500' : 'text-emerald-500'"
+    <div class="flex items-center gap-1 shrink-0">
+      <!-- 清空結果區：保留所有監聽連線，一鍵清除已渲染結果 -->
+      <button
+        v-if="canClearResults && displayedResultCount > 0"
+        type="button"
+        data-test="btn-clear-results"
+        class="inline-flex items-center justify-center p-1 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+        :title="t('liveSearch.primary.clearResultsTitle')"
+        :aria-label="t('liveSearch.primary.clearResultsTitle')"
+        @click="emit('clear-results')"
       >
-        {{
-          isRateWaiting
-            ? t('liveSearch.primary.rateWaiting', { seconds: remainingWaitSeconds })
-            : t('liveSearch.console.apiHealthNormal')
-        }}
-      </span>
-      <ChevronDown
-        class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-150"
-        :class="{ 'rotate-180': isRateDetailsOpen }"
-      />
-    </button>
+        <Trash2 class="size-[var(--control-icon-sm,14px)]" aria-hidden="true" />
+      </button>
+
+      <!-- 快捷音效開關：不必離開連線列表即可一鍵靜音／開啟 -->
+      <button
+        v-if="canToggleSound"
+        type="button"
+        data-test="btn-toggle-sound"
+        class="inline-flex items-center justify-center p-1 rounded-sm hover:bg-muted transition-colors cursor-pointer"
+        :class="
+          isSoundEnabled
+            ? 'text-foreground/80 hover:text-foreground'
+            : 'text-muted-foreground/60 hover:text-foreground'
+        "
+        :aria-pressed="isSoundEnabled"
+        :title="
+          isSoundEnabled
+            ? t('liveSearch.sound.quickMuteTitle')
+            : t('liveSearch.sound.quickUnmuteTitle')
+        "
+        :aria-label="
+          isSoundEnabled
+            ? t('liveSearch.sound.quickMuteTitle')
+            : t('liveSearch.sound.quickUnmuteTitle')
+        "
+        @click="emit('toggle-sound')"
+      >
+        <Volume2
+          v-if="isSoundEnabled"
+          class="size-[var(--control-icon-sm,14px)]"
+          aria-hidden="true"
+        />
+        <VolumeX v-else class="size-[var(--control-icon-sm,14px)]" aria-hidden="true" />
+      </button>
+
+      <!-- Compact API Rate Status Trigger -->
+      <button
+        type="button"
+        data-test="btn-toggle-rate-details"
+        class="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-sm hover:bg-muted transition-colors cursor-pointer"
+        :aria-expanded="isRateDetailsOpen"
+        :title="t('liveSearch.primary.rateToggleTitle')"
+        @click="isRateDetailsOpen = !isRateDetailsOpen"
+      >
+        <span
+          data-test="rate-limit-status"
+          class="font-medium font-mono"
+          :class="isRateWaiting ? 'text-amber-500' : 'text-emerald-500'"
+        >
+          {{
+            isRateWaiting
+              ? t('liveSearch.primary.rateWaiting', { seconds: remainingWaitSeconds })
+              : t('liveSearch.console.apiHealthNormal')
+          }}
+        </span>
+        <ChevronDown
+          class="size-[var(--control-icon-sm,14px)] text-muted-foreground transition-transform duration-150"
+          :class="{ 'rotate-180': isRateDetailsOpen }"
+        />
+      </button>
+    </div>
   </div>
 
   <!-- 通知音效被瀏覽器擋下（ADR-0016）：點一下即可解除並試聽。
@@ -164,7 +211,7 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch, type PropType } from 'vue';
-import { Check, ChevronDown, Loader2, VolumeX } from '@lucide/vue';
+import { Check, ChevronDown, Loader2, Trash2, Volume2, VolumeX } from '@lucide/vue';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -207,6 +254,22 @@ const props = defineProps({
     type: Boolean,
     required: true,
   },
+  isSoundEnabled: {
+    type: Boolean,
+    default: true,
+  },
+  canToggleSound: {
+    type: Boolean,
+    default: false,
+  },
+  displayedResultCount: {
+    type: Number,
+    default: 0,
+  },
+  canClearResults: {
+    type: Boolean,
+    default: false,
+  },
   rateLimit: {
     type: Object as PropType<Readonly<LiveSearchPrimaryViewSnapshot['rateLimit']> | undefined>,
     default: undefined,
@@ -216,6 +279,8 @@ const props = defineProps({
 const emit = defineEmits<{
   (e: 'switch-league', league: string): void;
   (e: 'enable-sound'): void;
+  (e: 'toggle-sound'): void;
+  (e: 'clear-results'): void;
 }>();
 
 const isLeagueMenuOpen = ref(false);
