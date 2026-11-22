@@ -76,13 +76,18 @@ describe('parseMarketUiAsset', () => {
 });
 
 describe('startMarketTranslationBridge', () => {
-  it('開啟且語系為繁中時載入介面字典與對應版本的 data 字典並送出 payload', async () => {
+  it('開啟且語系為繁中時先送出介面字典，再載入對應版本的 data 字典並送出 payload', async () => {
     const { deps, posted } = createDeps();
     await startMarketTranslationBridge(deps);
     expect(deps.loadJson).toHaveBeenCalledWith('json/locales/zh-TW/trade-ui.json');
     expect(deps.loadJson).toHaveBeenCalledWith('json/poe2/locales/zh-TW/trade-stats.json');
-    expect(posted).toHaveLength(1);
-    expect(posted[0]).toMatchObject({
+    expect(posted).toHaveLength(2);
+    expect(posted[0]).toEqual({
+      source: MARKET_MESSAGE_SOURCE,
+      type: 'ui',
+      ui: { 'Search Listed Items': '搜尋道具' },
+    });
+    expect(posted[1]).toMatchObject({
       source: MARKET_MESSAGE_SOURCE,
       type: 'payload',
       payload: {
@@ -92,6 +97,37 @@ describe('startMarketTranslationBridge', () => {
         data: { stats: { stats: { 'explicit.stat_1': '增加#%能力值需求' } } },
       },
     });
+  });
+
+  it('data 分片尚未載入完成前就先送出 ui 訊息，且期間收到 request 會先回覆 ui', async () => {
+    let releaseStats: (value: unknown) => void = () => {};
+    const { deps, posted, receive } = createDeps({
+      loadJson: vi.fn((path: string) => {
+        if (path === 'json/poe2/locales/zh-TW/trade-stats.json') {
+          return new Promise((resolve) => {
+            releaseStats = resolve;
+          });
+        }
+        return loadAsset(path);
+      }),
+    });
+
+    const started = startMarketTranslationBridge(deps);
+    await vi.waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toEqual({
+      source: MARKET_MESSAGE_SOURCE,
+      type: 'ui',
+      ui: { 'Search Listed Items': '搜尋道具' },
+    });
+
+    receive(createRequestMessage());
+    expect(posted).toHaveLength(2);
+    expect(posted[1]).toEqual(posted[0]);
+
+    releaseStats(statsAsset);
+    await started;
+    expect(posted).toHaveLength(3);
+    expect(posted[2]).toMatchObject({ type: 'payload', payload: { locale: 'zh-TW' } });
   });
 
   it('送出 payload 後以 payload 與版本通知 onPayload；停用時不通知', async () => {
@@ -124,13 +160,13 @@ describe('startMarketTranslationBridge', () => {
     });
     await startMarketTranslationBridge(deps);
     expect(deps.loadJson).toHaveBeenCalledWith('json/poe1/locales/zh-TW/trade-stats.json');
-    expect(posted[0]).toMatchObject({ type: 'payload', payload: { bilingual: false } });
+    expect(posted.at(-1)).toMatchObject({ type: 'payload', payload: { bilingual: false } });
   });
 
   it('data 分片全部缺少時仍送出介面字典', async () => {
     const { deps, posted } = createDeps({ pathname: '/trade' });
     await startMarketTranslationBridge(deps);
-    expect(posted[0]).toMatchObject({ type: 'payload', payload: { locale: 'zh-TW' } });
+    expect(posted.at(-1)).toMatchObject({ type: 'payload', payload: { locale: 'zh-TW' } });
   });
 
   it('關閉時送出 disabled，不載入任何分片', async () => {
@@ -156,7 +192,7 @@ describe('startMarketTranslationBridge', () => {
     });
     await startMarketTranslationBridge(deps);
     expect(deps.loadJson).toHaveBeenCalledWith('json/locales/zh-CN/trade-ui.json');
-    expect(posted[0]).toMatchObject({ type: 'payload', payload: { locale: 'zh-CN' } });
+    expect(posted.at(-1)).toMatchObject({ type: 'payload', payload: { locale: 'zh-CN' } });
   });
 
   it('介面字典載入失敗時送出 disabled，讓頁面不必等到逾時', async () => {
@@ -252,7 +288,7 @@ describe('startMarketTranslationBridge', () => {
     });
     await startMarketTranslationBridge(fresh.deps);
     expect(requestLiveRefresh).not.toHaveBeenCalled();
-    expect(fresh.posted[0]).toMatchObject({
+    expect(fresh.posted.at(-1)).toMatchObject({
       type: 'payload',
       payload: {
         ui: { 'Search Listed Items': '搜尋道具', 'New UI Key': '新介面譯文' },
@@ -279,7 +315,7 @@ describe('startMarketTranslationBridge', () => {
     });
     await startMarketTranslationBridge(stale.deps);
     expect(requestLiveRefresh).toHaveBeenCalledWith({ version: 'poe2', locale: 'zh-TW' });
-    expect(stale.posted[0]).toMatchObject({ type: 'payload', payload: { locale: 'zh-TW' } });
+    expect(stale.posted.at(-1)).toMatchObject({ type: 'payload', payload: { locale: 'zh-TW' } });
   });
 
   it('舊格式快取即使未過期也通知背景拆開存放', async () => {

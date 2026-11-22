@@ -30,6 +30,7 @@ import {
   MARKET_MESSAGE_SOURCE,
   createDisabledMessage,
   createPayloadMessage,
+  createUiMessage,
   type MarketTranslationMessage,
   type MarketTranslationPayload,
 } from './market-translation-protocol';
@@ -95,7 +96,10 @@ interface BuiltBridgeResult {
   loadLiveEn?: () => Promise<MarketLiveEnglishData | undefined>;
 }
 
-async function buildMessage(deps: MarketTranslationBridgeDeps): Promise<BuiltBridgeResult> {
+async function buildMessage(
+  deps: MarketTranslationBridgeDeps,
+  onUiReady: (ui: Record<string, string>) => void,
+): Promise<BuiltBridgeResult> {
   const stored = await deps.readStorage(MARKET_TRANSLATION_STORAGE_KEYS);
   const locale = resolveMarketTranslationLocale({
     enabled: stored.marketTranslation === true,
@@ -108,15 +112,29 @@ async function buildMessage(deps: MarketTranslationBridgeDeps): Promise<BuiltBri
   const uiCacheKey = getMarketLiveUiCacheKey(locale);
   const dataCacheKey = getMarketLiveDataCacheKey(version, locale);
 
-  // 介面字典失敗就整個停用；data 字典與本機快取各自容錯
-  const [uiAsset, bundledData, cachedRaw] = await Promise.all([
+  // 介面字典（~56 KB）與大型 data 分片／快取並行載入，前者備妥就立刻送給 MAIN world 寫入 window.__，
+  // 避免官網已快取的 JS 模組在 data 載完前就先求值模組頂層的 translate() 而鎖死英文
+  const uiPromise = Promise.all([
     deps.loadJson(getMarketUiAssetPath(locale)),
+    deps.readStorage([uiCacheKey]).catch(() => ({}) as Record<string, unknown>),
+  ]).then(([uiAsset, uiCachedRaw]) => {
+    const bundledUi = parseMarketUiAsset(uiAsset, locale);
+    const liveUi = readValidMarketLiveUiCache(uiCachedRaw[uiCacheKey], locale);
+    const ui = mergeMarketUiStrings(bundledUi, liveUi?.strings);
+    onUiReady(ui);
+    return { ui, liveUi };
+  });
+
+  const dataPromise = Promise.all([
     loadMarketTradeDictionary(deps.loadJson, { version, locale }),
-    deps.readStorage([uiCacheKey, dataCacheKey]).catch(() => ({}) as Record<string, unknown>),
-  ]);
-  const bundledUi = parseMarketUiAsset(uiAsset, locale);
-  const liveUi = readValidMarketLiveUiCache(cachedRaw[uiCacheKey], locale);
-  const liveData = readValidMarketLiveDataCache(cachedRaw[dataCacheKey], version, locale);
+    deps.readStorage([dataCacheKey]).catch(() => ({}) as Record<string, unknown>),
+  ]).then(([bundledData, dataCachedRaw]) => {
+    const liveData = readValidMarketLiveDataCache(dataCachedRaw[dataCacheKey], version, locale);
+    return { bundledData, liveData };
+  });
+
+  // 介面字典失敗就整個停用；data 字典與本機快取各自容錯
+  const [{ ui, liveUi }, { bundledData, liveData }] = await Promise.all([uiPromise, dataPromise]);
 
   const now = (deps.now ?? Date.now)();
   if (
@@ -132,7 +150,6 @@ async function buildMessage(deps: MarketTranslationBridgeDeps): Promise<BuiltBri
     }
   }
 
-  const ui = mergeMarketUiStrings(bundledUi, liveUi?.strings);
   const data = mergeMarketTradeDictionary(bundledData, liveData);
   const englishKey = getMarketLiveEnglishCacheKey(version, locale);
   const loadLiveEn = async () => {
@@ -158,15 +175,24 @@ const isRequest = (data: unknown): boolean =>
 export async function startMarketTranslationBridge(
   deps: MarketTranslationBridgeDeps,
 ): Promise<() => void> {
+  let latestUi: MarketTranslationMessage | null = null;
   let latest: MarketTranslationMessage | null = null;
   let loadLiveEn: BuiltBridgeResult['loadLiveEn'];
   // 先訂閱：MAIN world 可能比這裡早啟動，它的 request 要在準備好之後得到回應
   const unsubscribe = deps.subscribe((data) => {
-    if (latest && isRequest(data)) deps.post(latest);
+    if (!isRequest(data)) return;
+    if (latest) {
+      deps.post(latest);
+    } else if (latestUi) {
+      deps.post(latestUi);
+    }
   });
 
   try {
-    const built = await buildMessage(deps);
+    const built = await buildMessage(deps, (ui) => {
+      latestUi = createUiMessage(ui);
+      deps.post(latestUi);
+    });
     latest = built.message;
     loadLiveEn = built.loadLiveEn;
   } catch (error) {

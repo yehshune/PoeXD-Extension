@@ -126,7 +126,11 @@ export function createPayloadGate(timeoutMs: number): PayloadGate {
   };
 }
 
-export function wrapFetchWithGate(win: Window, gate: PayloadGate): () => void {
+export function wrapFetchWithGate(
+  win: Window,
+  gate: PayloadGate,
+  onDataResponse?: (payload: MarketTranslationPayload) => void,
+): () => void {
   const originalFetch = win.fetch;
   if (typeof originalFetch !== 'function') return () => {};
 
@@ -150,6 +154,7 @@ export function wrapFetchWithGate(win: Window, gate: PayloadGate): () => void {
     const url = requestUrl(args[0], win.location.href);
     if (kind === 'items' && url) {
       const response = await fetchItems(url, () => originalFetch.apply(this, args));
+      if (payload) onDataResponse?.(payload);
       return localizeResponse(response, kind, payload);
     }
     const response = await originalFetch.apply(this, args);
@@ -160,6 +165,7 @@ export function wrapFetchWithGate(win: Window, gate: PayloadGate): () => void {
             items.ok ? items.json() : null,
           )
       : undefined;
+    if (payload) onDataResponse?.(payload);
     return localizeResponse(response, kind, payload, loadItems);
   };
   win.fetch = gatedFetch as typeof fetch;
@@ -192,7 +198,10 @@ interface VNodeLike {
 }
 
 interface ComponentInstanceLike {
-  proxy?: { $forceUpdate?: () => void } | null;
+  proxy?: {
+    $forceUpdate?: () => void;
+    static_?: Record<string, unknown> | null;
+  } | null;
   subTree?: VNodeLike | null;
 }
 
@@ -212,13 +221,102 @@ function visitVNode(vnode: unknown, visited: Set<unknown>): void {
   }
 }
 
+interface VueHostLike {
+  _vnode?: VNodeLike | null;
+  __vue_app__?: {
+    _instance?: ComponentInstanceLike | null;
+    _container?: { _vnode?: VNodeLike | null } | null;
+  } | null;
+}
+
+function getVueRootInstance(host: VueHostLike): ComponentInstanceLike | null {
+  return (
+    host._vnode?.component ??
+    host.__vue_app__?._container?._vnode?.component ??
+    host.__vue_app__?._instance ??
+    null
+  );
+}
+
+function translateField(
+  target: Record<string, unknown>,
+  key: string,
+  strings: Record<string, string>,
+): number {
+  const value = target[key];
+  if (typeof value !== 'string') return 0;
+  const translated = Object.prototype.hasOwnProperty.call(strings, value)
+    ? strings[value]
+    : undefined;
+  if (typeof translated !== 'string' || translated === value) return 0;
+  target[key] = translated;
+  return 1;
+}
+
+function translateArrayField(
+  list: unknown,
+  keys: readonly string[],
+  strings: Record<string, string>,
+): number {
+  if (!Array.isArray(list)) return 0;
+  let updated = 0;
+  for (const entry of list) {
+    if (!entry || typeof entry !== 'object') continue;
+    const record = entry as Record<string, unknown>;
+    for (const key of keys) updated += translateField(record, key, strings);
+  }
+  return updated;
+}
+
+function hasMountedTradeStatic(doc: Document): boolean {
+  const hosts = Array.from(doc.querySelectorAll('[data-v-app]'));
+  return hosts.some((host) => {
+    const state = getVueRootInstance(host as unknown as VueHostLike)?.proxy?.static_;
+    return Boolean(state && typeof state === 'object');
+  });
+}
+
+/**
+ * 官網 bundle 的靜態初始選項（設定頁下拉、以物易物狀態、詞綴群組標題等）在 ES module
+ * 頂層就會呼叫 `translate()`，並掛在 Trade 根元件 `proxy.static_` 上。
+ * 若快取極快導致模組早於 `window.__` 求值，於此原地回填仍維持英文原鍵的欄位，
+ * 讓後續掛載的設定頁與下拉元件直接讀到中文。
+ */
+export function localizeTradeStoreUi(doc: Document, strings: Record<string, string>): number {
+  const hosts = Array.from(doc.querySelectorAll('[data-v-app]'));
+  const visited = new Set<object>();
+  let updated = 0;
+  for (const host of hosts) {
+    const state = getVueRootInstance(host as unknown as VueHostLike)?.proxy?.static_;
+    if (!state || typeof state !== 'object' || visited.has(state)) continue;
+    visited.add(state);
+    try {
+      const account = state.account;
+      if (account && typeof account === 'object') {
+        const accountRecord = account as Record<string, unknown>;
+        updated += translateArrayField(accountRecord.status, ['text'], strings);
+        updated += translateArrayField(accountRecord.languages, ['text'], strings);
+        updated += translateField(accountRecord, 'statusRetrieving', strings);
+      }
+      updated += translateArrayField(state.exchangeStatus, ['text'], strings);
+      updated += translateArrayField(state.searchBarLayouts, ['text'], strings);
+      updated += translateArrayField(state.socketVariants, ['text'], strings);
+      updated += translateArrayField(state.notifications, ['name'], strings);
+      updated += translateArrayField(state.notificationVolumes, ['text'], strings);
+      updated += translateArrayField(state.statGroups, ['title', 'tip'], strings);
+    } catch {
+      // 官網改版導致 static_ 結構不符時略過，不影響其餘翻譯
+    }
+  }
+  return updated;
+}
+
 /** 對頁面上已掛載的 Vue 3 app 全部 `$forceUpdate()`；沒有掛載的 app 時回傳 false。 */
 export function forceRerenderVueApps(doc: Document): boolean {
   const hosts = Array.from(doc.querySelectorAll('[data-v-app]'));
   let updated = false;
   for (const host of hosts) {
-    const root = (host as unknown as { __vue_app__?: { _instance?: ComponentInstanceLike } })
-      .__vue_app__?._instance;
+    const root = getVueRootInstance(host as unknown as VueHostLike);
     if (!root) continue;
     try {
       forceUpdateTree(root, new Set());
@@ -240,18 +338,70 @@ export function startMarketTranslationPage(
   options: MarketTranslationPageOptions,
 ): () => void {
   const gate = createPayloadGate(options.timeoutMs);
-  const restoreFetch = wrapFetchWithGate(win, gate);
+  let staticUiChecked = false;
+  let mountObserver: MutationObserver | null = null;
+  const stopMountObserver = () => {
+    mountObserver?.disconnect();
+    mountObserver = null;
+  };
+  const ensureTradeStaticUiLocalized = (strings: Record<string, string>) => {
+    if (staticUiChecked) return;
+    if (hasMountedTradeStatic(win.document)) {
+      localizeTradeStoreUi(win.document, strings);
+      staticUiChecked = true;
+      stopMountObserver();
+      return;
+    }
+    watchTradeMount(strings);
+  };
+  /**
+   * 字典與 data API 常比 `#trade` 掛載更早到（實測 ui ~140ms、data ~740ms、掛載 ~820ms），
+   * 上面的觸發點全在掛載前跑完而落空。Vue 3 掛載完成時才在容器設 `data-v-app`，
+   * 監看這個屬性，掛好後立刻回填 static_ 並重繪已渲染的下拉。
+   */
+  let pendingStrings: Record<string, string> | null = null;
+  const watchTradeMount = (strings: Record<string, string>) => {
+    pendingStrings = strings;
+    const Observer = (win as Window & typeof globalThis).MutationObserver;
+    if (mountObserver || typeof Observer !== 'function') return;
+    const observer = new Observer(() => {
+      if (staticUiChecked || !pendingStrings) return stopMountObserver();
+      if (!hasMountedTradeStatic(win.document)) return;
+      localizeTradeStoreUi(win.document, pendingStrings);
+      staticUiChecked = true;
+      stopMountObserver();
+      forceRerenderVueApps(win.document);
+    });
+    observer.observe(win.document, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-v-app'],
+    });
+    mountObserver = observer;
+  };
+  const restoreFetch = wrapFetchWithGate(win, gate, (payload) => {
+    // 官網 #trade 是非同步掛載，可能在 ui/payload 送達後才掛好；
+    // 趁 data API 回應尚未交回 Vue（設定頁與 multiselect 尚未掛載）前補齊 proxy.static_
+    ensureTradeStaticUiLocalized(payload.ui);
+  });
 
   const receive = (data: unknown) => {
     if (!isMarketTranslationMessage(data)) return;
     const message = data;
     if (message.type === 'request' || gate.settled) return;
+    if (message.type === 'ui') {
+      applyUiDictionary(win, message.ui);
+      ensureTradeStaticUiLocalized(message.ui);
+      forceRerenderVueApps(win.document);
+      return;
+    }
     if (message.type === 'disabled') {
       gate.settle(null);
       return;
     }
     applyUiDictionary(win, message.payload.ui);
     gate.settle(message.payload);
+    ensureTradeStaticUiLocalized(message.payload.ui);
     forceRerenderVueApps(win.document);
   };
 
@@ -273,6 +423,7 @@ export function startMarketTranslationPage(
 
   return () => {
     win.removeEventListener('message', handleMessage);
+    stopMountObserver();
     restoreFetch();
   };
 }

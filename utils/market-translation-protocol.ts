@@ -38,6 +38,7 @@ export interface MarketTranslationPayload {
 export type MarketTranslationMessage =
   | { source: typeof MARKET_MESSAGE_SOURCE; type: 'request' }
   | { source: typeof MARKET_MESSAGE_SOURCE; type: 'disabled' }
+  | { source: typeof MARKET_MESSAGE_SOURCE; type: 'ui'; ui: Record<string, string> }
   | { source: typeof MARKET_MESSAGE_SOURCE; type: 'payload'; payload: MarketTranslationPayload };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -59,6 +60,7 @@ export function isMarketTranslationPayload(value: unknown): value is MarketTrans
 export function isMarketTranslationMessage(value: unknown): value is MarketTranslationMessage {
   if (!isRecord(value) || value.source !== MARKET_MESSAGE_SOURCE) return false;
   if (value.type === 'request' || value.type === 'disabled') return true;
+  if (value.type === 'ui') return isStringMap(value.ui);
   return value.type === 'payload' && isMarketTranslationPayload(value.payload);
 }
 
@@ -70,6 +72,12 @@ export const createRequestMessage = (): MarketTranslationMessage => ({
 export const createDisabledMessage = (): MarketTranslationMessage => ({
   source: MARKET_MESSAGE_SOURCE,
   type: 'disabled',
+});
+
+export const createUiMessage = (ui: Record<string, string>): MarketTranslationMessage => ({
+  source: MARKET_MESSAGE_SOURCE,
+  type: 'ui',
+  ui,
 });
 
 /** window 上的小訊息：附帶的 port 會送來一則 payload 訊息 */
