@@ -17,6 +17,14 @@ import {
   syncPageThemeBridge,
 } from './page-theme-bridge';
 
+/** 直角 (`0rem`) 模式下收斂為 `none` 的基礎陰影變數 */
+const FLAT_SHADOW_CSS_VARIABLES = [
+  '--shadow-2xs',
+  '--shadow-xs',
+  '--shadow-sm',
+  '--shadow',
+] as const;
+
 /** 自訂主題寫入 host inline style 的語意變數清單 */
 export const THEME_OVERRIDE_CSS_VARIABLES = [
   '--background',
@@ -39,10 +47,7 @@ export const THEME_OVERRIDE_CSS_VARIABLES = [
   '--input',
   '--ring',
   '--radius',
-  '--shadow-2xs',
-  '--shadow-xs',
-  '--shadow-sm',
-  '--shadow',
+  ...FLAT_SHADOW_CSS_VARIABLES,
 ] as const;
 
 export type ThemeOverridesInput = string | ThemeOverride | null | undefined;
@@ -136,11 +141,10 @@ function applyThemeOverrideVariables(host: HTMLElement, override: ThemeOverride)
 
   if (radius) {
     host.style.setProperty('--radius', radius);
-    const flatShadows = ['--shadow-2xs', '--shadow-xs', '--shadow-sm', '--shadow'] as const;
     if (radius === '0rem') {
-      for (const s of flatShadows) host.style.setProperty(s, 'none');
+      for (const s of FLAT_SHADOW_CSS_VARIABLES) host.style.setProperty(s, 'none');
     } else {
-      for (const s of flatShadows) host.style.removeProperty(s);
+      for (const s of FLAT_SHADOW_CSS_VARIABLES) host.style.removeProperty(s);
     }
   }
 }

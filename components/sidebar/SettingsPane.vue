@@ -41,7 +41,7 @@
           v-else
           data-settings-nav
           :aria-label="t('settings.nav.ariaLabel')"
-          class="flex min-w-0 flex-1 flex-wrap items-center gap-[3px]"
+          class="flex min-w-0 flex-1 flex-wrap items-center gap-[var(--pxd-space-xs)]"
         >
           <button
             v-for="item in SECTION_NAV_ITEMS"
@@ -50,7 +50,7 @@
             :data-settings-nav-target="item.id"
             :data-active="activeSection === item.id ? 'true' : undefined"
             :class="[
-              'inline-flex cursor-pointer items-center rounded-sm border px-[5px] py-[2px] text-[length:var(--pxd-font-caption)] leading-snug transition-colors',
+              'inline-flex cursor-pointer items-center rounded-sm border px-[var(--pxd-space-xs)] py-[2px] text-[length:var(--pxd-font-caption)] leading-snug transition-colors',
               activeSection === item.id
                 ? 'border-primary/50 bg-primary/15 font-medium text-foreground'
                 : 'border-border/60 bg-card text-muted-foreground hover:bg-muted/60 hover:text-foreground',
@@ -434,7 +434,7 @@
                 size="sm"
                 :aria-pressed="theme === themeId"
                 :data-custom-preset="themeId"
-                class="gap-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)]"
+                class="gap-[var(--control-gap-sm)] px-[var(--input-padding-x-sm)]"
                 @click="selectThemePreset(themeId)"
               >
                 <span
@@ -582,7 +582,7 @@
                 type="button"
                 variant="outline"
                 size="sm"
-                class="px-[var(--pxd-space-sm)]"
+                class="px-[var(--input-padding-x-sm)]"
                 data-test="theme-custom-copy"
                 @click="copyActiveThemeJson"
               >
@@ -596,7 +596,7 @@
                 type="button"
                 variant="outline"
                 size="sm"
-                class="px-[var(--pxd-space-sm)]"
+                class="px-[var(--input-padding-x-sm)]"
                 data-test="theme-custom-import"
                 @click="importCustomThemeJson"
               >
@@ -606,7 +606,7 @@
                 type="button"
                 variant="ghost"
                 size="sm"
-                class="ml-auto px-[var(--pxd-space-sm)]"
+                class="ml-auto px-[var(--input-padding-x-sm)]"
                 data-test="theme-custom-reset"
                 :disabled="!hasActiveThemeOverride"
                 @click="resetActiveThemeOverrides"
@@ -1220,10 +1220,7 @@ export default defineComponent({
       }
     };
 
-    const handleThemeCustomColorInput = (key: ThemeCustomColorKey, event: Event) => {
-      const value = (event.target as HTMLInputElement | null)?.value;
-      if (!isValidHexColor(value)) return;
-      const hex = value.toLowerCase();
+    const queueThemeColorPreview = (key: ThemeCustomColorKey, hex: string) => {
       // 若尚未進入 custom，將起點色票一併納入 pendingPreviewPatch，確保提交時完整保存
       if (theme.value !== 'custom' && Object.keys(pendingPreviewPatch).length === 0) {
         pendingPreviewPatch = { ...activeThemeValues.value, [key]: hex };
@@ -1233,6 +1230,12 @@ export default defineComponent({
       schedulePreviewPatch({ [key]: hex });
       if (pendingOverridesSaveTimer !== undefined) clearTimeout(pendingOverridesSaveTimer);
       pendingOverridesSaveTimer = setTimeout(flushPendingColorSave, 250);
+    };
+
+    const handleThemeCustomColorInput = (key: ThemeCustomColorKey, event: Event) => {
+      const value = (event.target as HTMLInputElement | null)?.value;
+      if (!isValidHexColor(value)) return;
+      queueThemeColorPreview(key, value.toLowerCase());
     };
 
     const handleThemeCustomColorChange = (key: ThemeCustomColorKey, event: Event) => {
@@ -1283,14 +1286,7 @@ export default defineComponent({
       hexTextDrafts[key] = raw.toUpperCase();
       const normalized = normalizeHexTextInput(raw);
       if (!normalized) return;
-      if (theme.value !== 'custom' && Object.keys(pendingPreviewPatch).length === 0) {
-        pendingPreviewPatch = { ...activeThemeValues.value, [key]: normalized };
-      } else {
-        pendingPreviewPatch = { ...pendingPreviewPatch, [key]: normalized };
-      }
-      schedulePreviewPatch({ [key]: normalized });
-      if (pendingOverridesSaveTimer !== undefined) clearTimeout(pendingOverridesSaveTimer);
-      pendingOverridesSaveTimer = setTimeout(flushPendingColorSave, 250);
+      queueThemeColorPreview(key, normalized);
     };
 
     const handleThemeHexTextBlur = (key: ThemeCustomColorKey) => {
@@ -1351,6 +1347,8 @@ export default defineComponent({
             t('settings.theme.custom.importInvalid'),
             t('settings.theme.custom.importJson'),
           );
+        } else if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+          window.alert(t('settings.theme.custom.importInvalid'));
         }
         return;
       }

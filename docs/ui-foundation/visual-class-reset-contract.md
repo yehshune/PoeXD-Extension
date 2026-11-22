@@ -185,8 +185,8 @@ Theme 唯一使用 shadcn / Tailwind 現有的語意基礎設施：
   - `Primitive class 保持穩定`：基礎組件（Button、Input、Select、Dialog 等）class 與 API 完全保持通用。
   - `Theme 完全不影響 Scale / Density / Geometry`：UI Scale、Density、各類 Pane 與控制項高度、間距等完全獨立於 Theme。
   - `Page Theme Bridge 跟隨 active Theme`：宿主頁注入 UI 透過 Bridge 自動從 shadowHost 讀取計算後語意數值，無須為各主題建立第二套注入樣式。
-- **唯一 DOM Owner**：WXT `ui.shadowHost`（`wrapper`），設定屬性 `data-poexd-theme="modern-dark"`、`data-poexd-theme="caffeine"`、`data-poexd-theme="catppuccin"` 或 `data-poexd-theme="custom"`（`custom` 模式於同節點 inline 覆寫語意變數）。絕對不污染 `document.documentElement`、`document.body` 或 PoE 官方網站 DOM。
-- **唯一 Theme 屬性**：`data-poexd-theme`。
+- **唯一 DOM Owner**：WXT `ui.shadowHost`（`wrapper`），設定主屬性 `data-poexd-theme="<theme-id>"`（內建主題或 `custom`，`custom` 模式於同節點 inline 覆寫語意變數）；當背景屬淺色時於同節點標記輔助明暗屬性 `data-poexd-color-scheme="light"`（驅動亮色 `color-scheme`、陰影與高對比詞綴／稀有度色票）。絕對不污染 `document.documentElement`、`document.body` 或 PoE 官方網站 DOM。
+- **Theme 屬性**：主屬性 `data-poexd-theme` 與同節點輔助明暗屬性 `data-poexd-color-scheme`（不再使用舊版 `data-theme`）。
 - **自然繼承架構**：`appRoot` 與 `portalRoot` 不各自持有 theme attribute，完全自 `shadowHost` 自然繼承 CSS 變數。Dialog、DropdownMenu、Tooltip 等 Teleport 到 `portalRoot` 的浮層元件自然繼承相同主題。
 - **無 FOUC 時序保證**：在 `ui.mount()` 執行前即透過 `applyThemeToHost` 套用主題，避免初始渲染樣式閃爍。偏好變更時直接更新 host 屬性，不 remount Vue、不重新載入頁面。
 - **偏好管理**：共用既有 `PreferencesModule` 與 `PreferencesStorage`。
@@ -283,7 +283,7 @@ PoeXD 有少數 UI 直接注入 PoE 官方 document DOM，無法透過 Shadow DO
 
 `components/ui/*` 是穩定的 Theme 消費者，應**固定使用標準 shadcn / Tailwind semantic classes**：
 
-- `Button`: 固定使用 `bg-primary text-primary-foreground border border-border rounded-md shadow-sm` 等標準 class。
+- `Button`: 固定使用 `bg-primary text-primary-foreground border border-transparent rounded-md shadow-sm`（實心強調鈕 `default` / `destructive` 採 `border-transparent` 避免在亮色主題出現灰邊；`outline` / `secondary` 保留 `border-input` / `border-border`）。
 - `Input`: 固定使用 `border border-input bg-background rounded-md` 等標準 class。
 - `Dialog`: 固定使用 `bg-background border border-border rounded-lg shadow-lg`。
 - `DropdownMenu` / `Tooltip` / `Popover`: 固定使用 `bg-popover border border-border rounded-md shadow-md`。
@@ -373,7 +373,7 @@ PoeXD 有少數 UI 直接注入 PoE 官方 document DOM，無法透過 Shadow DO
 
 ### 9.3 邊框 (Border)
 
-- Primitive 固定保留 `border border-border`。
+- 容器類與非實心 Primitive 固定保留 `border border-border`（或 `border-input`）；實心強調鈕（`Button` `default` / `destructive`）保留 `border border-transparent` 維持盒模型尺寸一致且避免亮底雜邊。
 - **邊框主題能力邊界**：目前 Foundation 僅保證 Theme values（CSS 變數）可控制 **Border color 與視覺能見度 (Visibility)**：
   - Theme A 可令 `border-border: transparent` 或低對比色，呈現無框/弱框視覺；
   - Theme B 可賦予 `border-border` 具體清晰色彩，呈現明顯外框。
