@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MainWorldBridge } from '@/entrypoints/main-world/bridge-bootstrap';
+import { initCriteriaOverlayAdapter } from '@/entrypoints/main-world/criteria-overlay-adapter';
 import {
   executeCriteriaOverlayOps,
-  initCriteriaOverlayAdapter,
   readCriteriaOverlaySnapshot,
-} from '@/entrypoints/main-world/criteria-overlay-adapter';
+} from '@/entrypoints/main-world/main-world-search-form';
 import {
   parsePoeCriteriaOverlayCommitResult,
   parsePoeCriteriaOverlayReadResult,

@@ -3,10 +3,9 @@ import {
   serializePoePageGuideDemoResult,
 } from '@/utils/event-protocol-types';
 import type { MainWorldBridge } from './bridge-bootstrap';
-import { setFilterCategory } from './category-binding-manager';
-import { saveAllCategoriesToSessionStorage, tagFilterDomElements } from './dom-tagger';
-import type { HostFilterGroup, HostVuexStore } from './host-types';
-import { getVueStore, readKnownStatIds } from './poe-runtime-reader';
+import type { HostFilterGroup } from './host-types';
+import { mainWorldSearchForm, type MainWorldSearchForm } from './main-world-search-form';
+import { readKnownStatIds } from './poe-runtime-reader';
 
 /** 「+# 最大生命」：PoE1 與 PoE2 都有、而且一定有 T 階資料的常見詞綴 */
 const PREFERRED_DEMO_STAT_ID = 'explicit.stat_3299347043';
@@ -25,71 +24,30 @@ export function pickDemoStatId(knownStatIds: readonly string[] | null): string |
 /**
  * 導覽用的示範狀態。篩選面板收起時先用官方 toggleSearch 展開；加入示範詞綴時只記錄推入的群組，
  * 還原時僅移除示範群組並收回面板（不動使用者既有詞綴與隱藏綁定屬性），也不呼叫官方 save()。
+ * 表單寫入（含重新標記）都交給 MainWorldSearchForm。
  */
-export function createPageGuideDemo(getStore: () => HostVuexStore | null) {
+export function createPageGuideDemo(form: MainWorldSearchForm) {
   const addedGroups = new Set<HostFilterGroup>();
   let revealedFilters = false;
 
-  const requireStore = (): HostVuexStore => {
-    const store = getStore();
-    if (!store) throw new Error('FORM_STATE_NOT_FOUND');
-    return store;
-  };
-
   const showFilters = () => {
-    const store = requireStore();
-    if (store.state?.transient?.advancedSearchHidden !== true) return;
-    store.commit('toggleSearch', undefined);
-    revealedFilters = true;
+    const toggled = form.setAdvancedSearchHidden(false);
+    if (toggled === null) throw new Error('FORM_STATE_NOT_FOUND');
+    if (toggled) revealedFilters = true;
   };
 
   const addStatFilter = () => {
-    const store = requireStore();
     showFilters();
     const statId = pickDemoStatId(readKnownStatIds());
     if (!statId) throw new Error('DEMO_STAT_NOT_FOUND');
-    store.commit('pushStatGroup', {
-      type: 'and',
-      filters: [{ id: statId, value: {}, disabled: false }],
-    });
-    const stats = (store.state?.persistent?.stats ?? store.state?.query?.stats) as
-      | HostFilterGroup[]
-      | undefined;
-    const pushedGroup = stats?.[stats.length - 1];
-    if (pushedGroup) {
-      addedGroups.add(pushedGroup);
-      const demoFilter = pushedGroup.filters?.[0];
-      if (demoFilter) {
-        Object.defineProperty(demoFilter, 'poexdPageGuideDemo', {
-          value: true,
-          writable: true,
-          enumerable: false,
-          configurable: true,
-        });
-        setFilterCategory(demoFilter, DEMO_STAT_CATEGORY);
-      }
-    }
+    const pushedGroup = form.addDemoStatGroup(statId, DEMO_STAT_CATEGORY);
+    if (pushedGroup) addedGroups.add(pushedGroup);
   };
 
   const restore = () => {
-    const store = getStore();
-    if (store && addedGroups.size > 0) {
-      const persistentStats = store.state?.persistent?.stats as HostFilterGroup[] | undefined;
-      if (Array.isArray(persistentStats)) {
-        store._withCommit(() => {
-          for (let i = persistentStats.length - 1; i >= 0; i -= 1) {
-            if (addedGroups.has(persistentStats[i]!)) {
-              persistentStats.splice(i, 1);
-            }
-          }
-        });
-        saveAllCategoriesToSessionStorage();
-      }
-    }
+    form.removeStatGroups(addedGroups);
     addedGroups.clear();
-    if (store && revealedFilters && store.state?.transient?.advancedSearchHidden === false) {
-      store.commit('toggleSearch', undefined);
-    }
+    if (revealedFilters) form.setAdvancedSearchHidden(true);
     revealedFilters = false;
   };
 
@@ -102,7 +60,7 @@ export function createPageGuideDemo(getStore: () => HostVuexStore | null) {
 }
 
 export function initPageGuideDemoAdapter(bridge: MainWorldBridge) {
-  const demo = createPageGuideDemo(getVueStore);
+  const demo = createPageGuideDemo(mainWorldSearchForm);
 
   const unsubscribe = bridge.addListener('poexd-page-guide-demo', (detail) => {
     const request = parsePoePageGuideDemo(detail);
@@ -112,8 +70,6 @@ export function initPageGuideDemoAdapter(bridge: MainWorldBridge) {
       if (request.action === 'show-filters') demo.showFilters();
       else if (request.action === 'add-stat-filter') demo.addStatFilter();
       else demo.restore();
-      // 等官方重新渲染後重新標記詞綴，T 階按鈕才會出現或移除
-      setTimeout(() => tagFilterDomElements(), 20);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
     }

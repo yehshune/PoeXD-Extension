@@ -9,6 +9,7 @@ import {
   setFilterCategory,
   setFilterModGroup,
 } from '@/entrypoints/main-world/category-binding-manager';
+import { createMainWorldSearchForm } from '@/entrypoints/main-world/main-world-search-form';
 import { findFirstTierSlotKey } from '@/utils/page-guide-demo-state';
 import {
   parsePoePageGuideDemo,
@@ -19,6 +20,7 @@ import {
 
 vi.mock('@/entrypoints/main-world/poe-runtime-reader', () => ({
   getVueStore: () => null,
+  getTradeRootComponent: () => null,
   readKnownStatIds: () => ['explicit.stat_3299347043', 'explicit.stat_1'],
 }));
 
@@ -46,6 +48,18 @@ function createStore(advancedSearchHidden = false) {
   return store;
 }
 
+/** 以假的 store 建立表單；寫入與重新標記改成記錄呼叫 */
+function formFor(store: ReturnType<typeof createStore> | null) {
+  const deps = {
+    getStore: () => store as never,
+    getRoot: () => null,
+    persist: vi.fn(),
+    retag: vi.fn(),
+    schedule: vi.fn((task: () => void) => task()),
+  };
+  return { form: createMainWorldSearchForm(deps), deps };
+}
+
 describe('pickDemoStatId', () => {
   it('prefers the life stat when the site knows it', () => {
     expect(pickDemoStatId(['explicit.stat_1', 'explicit.stat_3299347043'])).toBe(
@@ -69,7 +83,7 @@ describe('pickDemoStatId', () => {
 describe('createPageGuideDemo', () => {
   it('binds the demo stat to body armour so the tier list shows tier values', () => {
     const store = createStore();
-    const demo = createPageGuideDemo(() => store as never);
+    const demo = createPageGuideDemo(formFor(store).form);
 
     demo.addStatFilter();
     const group = store.state.persistent.stats[0] as { filters: Record<string, unknown>[] };
@@ -81,7 +95,7 @@ describe('createPageGuideDemo', () => {
 
   it('pushes one stat group and restores the previous stats without saving', () => {
     const store = createStore();
-    const demo = createPageGuideDemo(() => store as never);
+    const demo = createPageGuideDemo(formFor(store).form);
 
     demo.addStatFilter();
     expect(store.commit).toHaveBeenCalledWith('pushStatGroup', {
@@ -99,7 +113,7 @@ describe('createPageGuideDemo', () => {
 
   it('keeps the first snapshot when the filter is added twice', () => {
     const store = createStore();
-    const demo = createPageGuideDemo(() => store as never);
+    const demo = createPageGuideDemo(formFor(store).form);
     demo.addStatFilter();
     demo.addStatFilter();
     demo.restore();
@@ -108,7 +122,7 @@ describe('createPageGuideDemo', () => {
 
   it('opens a collapsed filter panel and collapses it again on restore', () => {
     const store = createStore(true);
-    const demo = createPageGuideDemo(() => store as never);
+    const demo = createPageGuideDemo(formFor(store).form);
 
     demo.addStatFilter();
     expect(store.state.transient.advancedSearchHidden).toBe(false);
@@ -121,7 +135,7 @@ describe('createPageGuideDemo', () => {
 
   it('leaves an already open panel alone', () => {
     const store = createStore(false);
-    const demo = createPageGuideDemo(() => store as never);
+    const demo = createPageGuideDemo(formFor(store).form);
     demo.showFilters();
     expect(demo.isActive()).toBe(false);
     demo.restore();
@@ -129,7 +143,7 @@ describe('createPageGuideDemo', () => {
   });
 
   it('fails clearly without the official store', () => {
-    const demo = createPageGuideDemo(() => null);
+    const demo = createPageGuideDemo(formFor(null).form);
     expect(() => demo.addStatFilter()).toThrow('FORM_STATE_NOT_FOUND');
     expect(() => demo.restore()).not.toThrow();
   });
@@ -142,7 +156,7 @@ describe('createPageGuideDemo', () => {
     const originalGroup = { type: 'and', filters: [existingFilter] };
     store.state.persistent.stats.push(originalGroup);
 
-    const demo = createPageGuideDemo(() => store as never);
+    const demo = createPageGuideDemo(formFor(store).form);
     demo.addStatFilter();
     expect(store.state.persistent.stats).toHaveLength(2);
     const demoGroup = store.state.persistent.stats[1] as { filters: Record<string, unknown>[] };
