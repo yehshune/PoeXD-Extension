@@ -51,5 +51,8 @@ E2E 分成兩套：
   `.output/chrome-mv3`。官方頁面由 `e2e/offline/fixtures/` 的最小骨架回放，其他對外請求一律擋下並記錄，
   所以不會遇到 Cloudflare，也不會消耗官方 API 的速率限制。測試檔為 `e2e/offline/*.offline.ts`。
   第一次執行前需 `pnpm exec playwright install chromium`。
+  結果列用的 `fixtures/poe1-fetch.json` 是真實官方 API 回應（已去除帳號、藏身處 token 等個資）；
+  官方改了回應格式時，在 dev 瀏覽器開一個有結果的 PoE1 搜尋頁，執行 `node e2e/offline/record-fetch.ts` 重錄。
+  repo 只保存 API JSON，不保存官方網站的 HTML / JS / CSS。
 - **實機 E2E**（`pnpm e2e`）：需要一個已通過 Cloudflare 驗證、並登入官方交易網站的瀏覽器設定檔
   （先執行 `pnpm dev` 手動登入一次），因此只在本機執行，CI 不會跑。用於確認真實官方頁面上的版面。

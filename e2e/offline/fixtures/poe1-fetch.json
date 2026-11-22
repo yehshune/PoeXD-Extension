@@ -1,0 +1,891 @@
+{
+  "result": [
+    {
+      "id": "650fcd3c75bce353a211620f5d4bd68c1e35969a1a23c3e63586f34aef73cfcc",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-11-16T18:33:37Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 4,
+          "y": 9
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "alch"
+        },
+        "fee": 1012,
+        "account": {
+          "name": "E2ESeller#1000",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "verified": true,
+        "w": 2,
+        "h": 3,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5RGV4M0MiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e30de2c7a6/BodyDex3C.png",
+        "league": "Standard",
+        "id": "650fcd3c75bce353a211620f5d4bd68c1e35969a1a23c3e63586f34aef73cfcc",
+        "sockets": [
+          {
+            "group": 0,
+            "attr": "G",
+            "sColour": "W"
+          },
+          {
+            "group": 1,
+            "attr": "G",
+            "sColour": "W"
+          },
+          {
+            "group": 1,
+            "attr": "G",
+            "sColour": "W"
+          }
+        ],
+        "name": "Ghoul Skin",
+        "typeLine": "Coronal Leather",
+        "baseType": "Coronal Leather",
+        "rarity": "Rare",
+        "ilvl": 52,
+        "identified": true,
+        "note": "~b/o 1 alch",
+        "properties": [
+          {
+            "name": "Evasion Rating",
+            "values": [["502", 0]],
+            "displayMode": 0,
+            "type": 17
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["49", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "Dex",
+            "values": [["109", 1]],
+            "displayMode": 1,
+            "type": 64
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "18% reduced Attribute Requirements",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3639275092",
+            "mods": [
+              {
+                "name": "of the Worthy",
+                "tier": "S2",
+                "level": 36,
+                "magnitudes": [
+                  {
+                    "min": "-18",
+                    "max": "-18"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+58 to maximum Life",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3299347043",
+            "mods": [
+              {
+                "name": "Stout",
+                "tier": "P9",
+                "level": 24,
+                "magnitudes": [
+                  {
+                    "min": "55",
+                    "max": "69"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+24% to Lightning Resistance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1671376347",
+            "mods": [
+              {
+                "name": "of the Thunderhead",
+                "tier": "S5",
+                "level": 37,
+                "magnitudes": [
+                  {
+                    "min": "24",
+                    "max": "29"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+12% to Chaos Resistance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2923486259",
+            "mods": [
+              {
+                "name": "of Banishment",
+                "tier": "S5",
+                "level": 30,
+                "magnitudes": [
+                  {
+                    "min": "11",
+                    "max": "15"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "extended": {
+          "base_defence_percentile": 13,
+          "ev": 602,
+          "ev_aug": true,
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_3639275092", [3]],
+              ["explicit.stat_3299347043", [0]],
+              ["explicit.stat_1671376347", [1]],
+              ["explicit.stat_2923486259", [2]]
+            ]
+          },
+          "text": "SXRlbSBDbGFzczogQm9keSBBcm1vdXJzDQpSYXJpdHk6IFJhcmUNCkdob3VsIFNraW4NCkNvcm9uYWwgTGVhdGhlcg0KLS0tLS0tLS0NCkV2YXNpb24gUmF0aW5nOiA1MDINCi0tLS0tLS0tDQpSZXF1aXJlbWVudHM6DQpMZXZlbDogNDkNCkRleDogMTA5IChhdWdtZW50ZWQpDQotLS0tLS0tLQ0KU29ja2V0czogVyBXLVcgDQotLS0tLS0tLQ0KSXRlbSBMZXZlbDogNTINCi0tLS0tLS0tDQoxOCUgcmVkdWNlZCBBdHRyaWJ1dGUgUmVxdWlyZW1lbnRzDQorNTggdG8gbWF4aW11bSBMaWZlDQorMjQlIHRvIExpZ2h0bmluZyBSZXNpc3RhbmNlDQorMTIlIHRvIENoYW9zIFJlc2lzdGFuY2UNCi0tLS0tLS0tDQpOb3RlOiB+Yi9vIDEgYWxjaA0K"
+        }
+      }
+    },
+    {
+      "id": "e2b5b23fc0964bf2493c0ac6d85469f8b98aa252d4bc508aeaca343e4a040cec",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-11-16T07:00:41Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 6,
+          "y": 8
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "alch"
+        },
+        "fee": 510,
+        "account": {
+          "name": "E2ESeller#1001",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "verified": true,
+        "w": 2,
+        "h": 2,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb290cy9Cb290c0RleDIiLCJ3IjoyLCJoIjoyLCJzY2FsZSI6MX1d/37d9d4d590/BootsDex2.png",
+        "league": "Standard",
+        "id": "e2b5b23fc0964bf2493c0ac6d85469f8b98aa252d4bc508aeaca343e4a040cec",
+        "sockets": [
+          {
+            "group": 0,
+            "attr": "G",
+            "sColour": "W"
+          },
+          {
+            "group": 0,
+            "attr": "G",
+            "sColour": "W"
+          },
+          {
+            "group": 0,
+            "attr": "G",
+            "sColour": "W"
+          }
+        ],
+        "name": "Vengeance March",
+        "typeLine": "Goathide Boots",
+        "baseType": "Goathide Boots",
+        "rarity": "Rare",
+        "ilvl": 23,
+        "identified": true,
+        "note": "~b/o 1 alch",
+        "properties": [
+          {
+            "name": "Evasion Rating",
+            "values": [["102", 1]],
+            "displayMode": 0,
+            "type": 17
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["15", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "Dex",
+            "values": [["26", 0]],
+            "displayMode": 1,
+            "type": 64
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "+53 to Evasion Rating",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_53045048",
+            "mods": [
+              {
+                "name": "Acrobat's",
+                "tier": "P5",
+                "level": 17,
+                "magnitudes": [
+                  {
+                    "min": "36",
+                    "max": "63"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+4 to maximum Life",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3299347043",
+            "mods": [
+              {
+                "name": "Hale",
+                "tier": "P9",
+                "magnitudes": [
+                  {
+                    "min": "3",
+                    "max": "9"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "Regenerate 8.6 Life per second",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3325883026",
+            "mods": [
+              {
+                "name": "of the Flatworm",
+                "tier": "S6",
+                "level": 19,
+                "magnitudes": [
+                  {
+                    "min": "8.1",
+                    "max": "16"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+8% to Fire Resistance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3372524247",
+            "mods": [
+              {
+                "name": "of the Whelpling",
+                "tier": "S8",
+                "magnitudes": [
+                  {
+                    "min": "6",
+                    "max": "11"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+6% to Lightning Resistance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1671376347",
+            "mods": [
+              {
+                "name": "of the Cloud",
+                "tier": "S8",
+                "magnitudes": [
+                  {
+                    "min": "6",
+                    "max": "11"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "extended": {
+          "base_defence_percentile": 58,
+          "ev": 122,
+          "ev_aug": true,
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_53045048", [0]],
+              ["explicit.stat_3299347043", [4]],
+              ["explicit.stat_3325883026", [3]],
+              ["explicit.stat_3372524247", [1]],
+              ["explicit.stat_1671376347", [2]]
+            ]
+          },
+          "text": "SXRlbSBDbGFzczogQm9vdHMNClJhcml0eTogUmFyZQ0KVmVuZ2VhbmNlIE1hcmNoDQpHb2F0aGlkZSBCb290cw0KLS0tLS0tLS0NCkV2YXNpb24gUmF0aW5nOiAxMDIgKGF1Z21lbnRlZCkNCi0tLS0tLS0tDQpSZXF1aXJlbWVudHM6DQpMZXZlbDogMTUNCkRleDogMjYNCi0tLS0tLS0tDQpTb2NrZXRzOiBXLVctVyANCi0tLS0tLS0tDQpJdGVtIExldmVsOiAyMw0KLS0tLS0tLS0NCis1MyB0byBFdmFzaW9uIFJhdGluZw0KKzQgdG8gbWF4aW11bSBMaWZlDQpSZWdlbmVyYXRlIDguNiBMaWZlIHBlciBzZWNvbmQNCis4JSB0byBGaXJlIFJlc2lzdGFuY2UNCis2JSB0byBMaWdodG5pbmcgUmVzaXN0YW5jZQ0KLS0tLS0tLS0NCk5vdGU6IH5iL28gMSBhbGNoDQo="
+        }
+      }
+    },
+    {
+      "id": "71968f4332358465ecebb1807b76bacbfdf488b637a3503edd596ea09b77d947",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-11-15T03:48:11Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 2,
+          "y": 4
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "alch"
+        },
+        "fee": 801,
+        "account": {
+          "name": "E2ESeller#1002",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "verified": true,
+        "w": 2,
+        "h": 3,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyRGV4SW50MUMiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/e6eb42b23a/BodyStrDexInt1C.png",
+        "league": "Standard",
+        "id": "71968f4332358465ecebb1807b76bacbfdf488b637a3503edd596ea09b77d947",
+        "sockets": [
+          {
+            "group": 0,
+            "attr": "G",
+            "sColour": "W"
+          },
+          {
+            "group": 1,
+            "attr": "G",
+            "sColour": "W"
+          }
+        ],
+        "name": "Cataclysm Shell",
+        "typeLine": "Cabalist Regalia",
+        "baseType": "Cabalist Regalia",
+        "rarity": "Rare",
+        "ilvl": 35,
+        "identified": true,
+        "note": "~b/o 1 alch",
+        "properties": [
+          {
+            "name": "Energy Shield",
+            "values": [["89", 1]],
+            "displayMode": 0,
+            "type": 18
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["35", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "Int",
+            "values": [["99", 0]],
+            "displayMode": 1,
+            "type": 65
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "+22 to Intelligence",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_328541901",
+            "mods": [
+              {
+                "name": "of the Prodigy",
+                "tier": "S7",
+                "level": 22,
+                "magnitudes": [
+                  {
+                    "min": "18",
+                    "max": "22"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+4 to maximum Energy Shield",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_4052037485",
+            "mods": [
+              {
+                "name": "Shining",
+                "tier": "P11",
+                "level": 3,
+                "magnitudes": [
+                  {
+                    "min": "3",
+                    "max": "5"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+4 to maximum Life",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3299347043",
+            "mods": [
+              {
+                "name": "Hale",
+                "tier": "P13",
+                "magnitudes": [
+                  {
+                    "min": "3",
+                    "max": "9"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "Regenerate 17.5 Life per second",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3325883026",
+            "mods": [
+              {
+                "name": "of the Starfish",
+                "tier": "S8",
+                "level": 31,
+                "magnitudes": [
+                  {
+                    "min": "16.1",
+                    "max": "24"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+28 to maximum Mana",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1050105434",
+            "mods": [
+              {
+                "name": "Azure",
+                "tier": "P10",
+                "level": 17,
+                "magnitudes": [
+                  {
+                    "min": "25",
+                    "max": "29"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+17% to Fire Resistance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3372524247",
+            "mods": [
+              {
+                "name": "of the Salamander",
+                "tier": "S7",
+                "level": 12,
+                "magnitudes": [
+                  {
+                    "min": "12",
+                    "max": "17"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "extended": {
+          "base_defence_percentile": 77,
+          "es": 107,
+          "es_aug": true,
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_328541901", [5]],
+              ["explicit.stat_4052037485", [2]],
+              ["explicit.stat_3299347043", [1]],
+              ["explicit.stat_3325883026", [4]],
+              ["explicit.stat_1050105434", [3]],
+              ["explicit.stat_3372524247", [0]]
+            ]
+          },
+          "text": "SXRlbSBDbGFzczogQm9keSBBcm1vdXJzDQpSYXJpdHk6IFJhcmUNCkNhdGFjbHlzbSBTaGVsbA0KQ2FiYWxpc3QgUmVnYWxpYQ0KLS0tLS0tLS0NCkVuZXJneSBTaGllbGQ6IDg5IChhdWdtZW50ZWQpDQotLS0tLS0tLQ0KUmVxdWlyZW1lbnRzOg0KTGV2ZWw6IDM1DQpJbnQ6IDk5DQotLS0tLS0tLQ0KU29ja2V0czogVyBXIA0KLS0tLS0tLS0NCkl0ZW0gTGV2ZWw6IDM1DQotLS0tLS0tLQ0KKzIyIHRvIEludGVsbGlnZW5jZQ0KKzQgdG8gbWF4aW11bSBFbmVyZ3kgU2hpZWxkDQorNCB0byBtYXhpbXVtIExpZmUNClJlZ2VuZXJhdGUgMTcuNSBMaWZlIHBlciBzZWNvbmQNCisyOCB0byBtYXhpbXVtIE1hbmENCisxNyUgdG8gRmlyZSBSZXNpc3RhbmNlDQotLS0tLS0tLQ0KTm90ZTogfmIvbyAxIGFsY2gNCg=="
+        }
+      }
+    },
+    {
+      "id": "eeda510762a88a071fa61d31763787025904ae3a76ad4f2a19bafa9b548a35c4",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-11-16T03:24:02Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 0,
+          "y": 0
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "alch"
+        },
+        "fee": 1466,
+        "account": {
+          "name": "E2ESeller#1003",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "verified": true,
+        "w": 2,
+        "h": 3,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5SW50MUIiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/906a100c16/BodyInt1B.png",
+        "league": "Standard",
+        "id": "eeda510762a88a071fa61d31763787025904ae3a76ad4f2a19bafa9b548a35c4",
+        "sockets": [
+          {
+            "group": 0,
+            "attr": "I",
+            "sColour": "B"
+          },
+          {
+            "group": 1,
+            "attr": "G",
+            "sColour": "W"
+          }
+        ],
+        "name": "Armageddon Shell",
+        "typeLine": "Savant's Robe",
+        "baseType": "Savant's Robe",
+        "rarity": "Rare",
+        "ilvl": 59,
+        "identified": true,
+        "note": "~b/o 1 alch",
+        "properties": [
+          {
+            "name": "Quality",
+            "values": [["+12%", 1]],
+            "displayMode": 0,
+            "type": 6
+          },
+          {
+            "name": "Energy Shield",
+            "values": [["129", 1]],
+            "displayMode": 0,
+            "type": 18
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["56", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "Int",
+            "values": [["152", 0]],
+            "displayMode": 1,
+            "type": 65
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "+33 to maximum Life",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3299347043",
+            "mods": [
+              {
+                "name": "Sanguine",
+                "tier": "P11",
+                "level": 11,
+                "magnitudes": [
+                  {
+                    "min": "25",
+                    "max": "39"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+29% to Fire Resistance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3372524247",
+            "mods": [
+              {
+                "name": "of the Kiln",
+                "tier": "S5",
+                "level": 36,
+                "magnitudes": [
+                  {
+                    "min": "24",
+                    "max": "29"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+13% to Cold Resistance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_4220027924",
+            "mods": [
+              {
+                "name": "of the Seal",
+                "tier": "S7",
+                "level": 14,
+                "magnitudes": [
+                  {
+                    "min": "12",
+                    "max": "17"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+23% to Chaos Resistance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2923486259",
+            "mods": [
+              {
+                "name": "of Expulsion",
+                "tier": "S3",
+                "level": 56,
+                "magnitudes": [
+                  {
+                    "min": "21",
+                    "max": "25"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "extended": {
+          "base_defence_percentile": 0,
+          "es": 138,
+          "es_aug": true,
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_3299347043", [1]],
+              ["explicit.stat_3372524247", [2]],
+              ["explicit.stat_4220027924", [3]],
+              ["explicit.stat_2923486259", [0]]
+            ]
+          },
+          "text": "SXRlbSBDbGFzczogQm9keSBBcm1vdXJzDQpSYXJpdHk6IFJhcmUNCkFybWFnZWRkb24gU2hlbGwNClNhdmFudCdzIFJvYmUNCi0tLS0tLS0tDQpRdWFsaXR5OiArMTIlIChhdWdtZW50ZWQpDQpFbmVyZ3kgU2hpZWxkOiAxMjkgKGF1Z21lbnRlZCkNCi0tLS0tLS0tDQpSZXF1aXJlbWVudHM6DQpMZXZlbDogNTYNCkludDogMTUyDQotLS0tLS0tLQ0KU29ja2V0czogQiBXIA0KLS0tLS0tLS0NCkl0ZW0gTGV2ZWw6IDU5DQotLS0tLS0tLQ0KKzMzIHRvIG1heGltdW0gTGlmZQ0KKzI5JSB0byBGaXJlIFJlc2lzdGFuY2UNCisxMyUgdG8gQ29sZCBSZXNpc3RhbmNlDQorMjMlIHRvIENoYW9zIFJlc2lzdGFuY2UNCi0tLS0tLS0tDQpOb3RlOiB+Yi9vIDEgYWxjaA0K"
+        }
+      }
+    },
+    {
+      "id": "2cb5f6e2212f1f32cb18706acb73dfd7eee78b192c89d6ab34e99e0a43a1180b",
+      "listing": {
+        "method": "psapi",
+        "indexed": "2026-11-14T23:51:21Z",
+        "stash": {
+          "name": "E2E Stash",
+          "x": 2,
+          "y": 9
+        },
+        "price": {
+          "type": "~b/o",
+          "amount": 1,
+          "currency": "alch"
+        },
+        "fee": 505,
+        "account": {
+          "name": "E2ESeller#1004",
+          "online": null
+        },
+        "hideout_token": "e2e-hideout-token"
+      },
+      "item": {
+        "verified": true,
+        "w": 2,
+        "h": 2,
+        "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb290cy9Cb290c1N0cjMiLCJ3IjoyLCJoIjoyLCJzY2FsZSI6MX1d/56efa25c50/BootsStr3.png",
+        "league": "Standard",
+        "id": "2cb5f6e2212f1f32cb18706acb73dfd7eee78b192c89d6ab34e99e0a43a1180b",
+        "sockets": [
+          {
+            "group": 0,
+            "attr": "G",
+            "sColour": "W"
+          },
+          {
+            "group": 1,
+            "attr": "G",
+            "sColour": "W"
+          }
+        ],
+        "name": "Spirit Track",
+        "typeLine": "Plated Greaves",
+        "baseType": "Plated Greaves",
+        "rarity": "Rare",
+        "ilvl": 30,
+        "identified": true,
+        "note": "~b/o 1 alch",
+        "properties": [
+          {
+            "name": "Armour",
+            "values": [["103", 1]],
+            "displayMode": 0,
+            "type": 16
+          }
+        ],
+        "requirements": [
+          {
+            "name": "Level",
+            "values": [["24", 0]],
+            "displayMode": 0,
+            "type": 62
+          },
+          {
+            "name": "Str",
+            "values": [["44", 0]],
+            "displayMode": 1,
+            "type": 63
+          }
+        ],
+        "explicitMods": [
+          {
+            "description": "32% increased Armour",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_1062208444",
+            "mods": [
+              {
+                "name": "Reinforced",
+                "tier": "P7",
+                "level": 3,
+                "magnitudes": [
+                  {
+                    "min": "15",
+                    "max": "26"
+                  }
+                ]
+              },
+              {
+                "name": "Beetle's",
+                "tier": "P6",
+                "magnitudes": [
+                  {
+                    "min": "6",
+                    "max": "13"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+80 to maximum Life",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3299347043",
+            "mods": [
+              {
+                "name": "Robust",
+                "tier": "P4",
+                "level": 30,
+                "magnitudes": [
+                  {
+                    "min": "70",
+                    "max": "84"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "+8% to Fire Resistance",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_3372524247",
+            "mods": [
+              {
+                "name": "of the Whelpling",
+                "tier": "S8",
+                "magnitudes": [
+                  {
+                    "min": "6",
+                    "max": "11"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "6% increased Stun and Block Recovery",
+            "domain": "explicit",
+            "hash": "stat.explicit.stat_2511217560",
+            "mods": [
+              {
+                "name": "Beetle's",
+                "tier": "P6",
+                "magnitudes": [
+                  {
+                    "min": "6",
+                    "max": "7"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "extended": {
+          "base_defence_percentile": 5,
+          "ar": 124,
+          "ar_aug": true,
+          "hashes": {
+            "explicit": [
+              ["explicit.stat_1062208444", [0, 2]],
+              ["explicit.stat_3299347043", [1]],
+              ["explicit.stat_3372524247", [3]],
+              ["explicit.stat_2511217560", [2]]
+            ]
+          },
+          "text": "SXRlbSBDbGFzczogQm9vdHMNClJhcml0eTogUmFyZQ0KU3Bpcml0IFRyYWNrDQpQbGF0ZWQgR3JlYXZlcw0KLS0tLS0tLS0NCkFybW91cjogMTAzIChhdWdtZW50ZWQpDQotLS0tLS0tLQ0KUmVxdWlyZW1lbnRzOg0KTGV2ZWw6IDI0DQpTdHI6IDQ0DQotLS0tLS0tLQ0KU29ja2V0czogVyBXIA0KLS0tLS0tLS0NCkl0ZW0gTGV2ZWw6IDMwDQotLS0tLS0tLQ0KMzIlIGluY3JlYXNlZCBBcm1vdXINCis4MCB0byBtYXhpbXVtIExpZmUNCis4JSB0byBGaXJlIFJlc2lzdGFuY2UNCjYlIGluY3JlYXNlZCBTdHVuIGFuZCBCbG9jayBSZWNvdmVyeQ0KLS0tLS0tLS0NCk5vdGU6IH5iL28gMSBhbGNoDQo="
+        }
+      }
+    }
+  ]
+}
