@@ -1289,7 +1289,8 @@ const gemGroupOf = (gem: PobBuildGem): ShoppingGemGroup =>
     ? { id: gem.slot, slot: gem.slot }
     : { id: `${LINK_GROUP_PREFIX}${gem.skill}`, skill: gem.skill };
 
-const gemKey = (gem: PobBuildGem): string =>
+/** 寶石在購物清單裡的 key（同分組、同等級品質的寶石合併成一列） */
+export const gemKey = (gem: PobBuildGem): string =>
   ['gem', gemGroupOf(gem).id, gem.name, gem.level, gem.quality].join(KEY_SEPARATOR);
 
 /** 寶石分組前的 key（不含分組），舊版存下的進度用這個格式 */

@@ -20,9 +20,15 @@ const props = defineProps<{
 const emit = defineEmits<{
   /** 滑入有內容物的插槽時帶出內容與插槽元素；離開時為 null */
   hoverContent: [content: SocketContent | null, element: HTMLElement | null];
+  /** 點有內容物的插槽（不會再觸發外層格子的點擊） */
+  selectContent: [content: SocketContent, event: MouseEvent];
 }>();
 
 const CELL = 10;
+/** 插槽直徑佔一格的比例；和 poe.ninja 一樣讓寶石圖看得清楚，幾乎填滿格子 */
+const SOCKET_SIZE = 0.86;
+/** 插槽區佔物品圖片寬度的比例（以背包格數換算） */
+const AREA_WIDTH = 94;
 
 const layout = computed(() => socketLayout(props.sockets, props.width ?? 2, props.height ?? 3));
 
@@ -37,7 +43,7 @@ const socketStyle = (index: number) => {
   return {
     left: `${((socket.column + 0.5) / columns) * 100}%`,
     top: `${((socket.row + 0.5) / rows) * 100}%`,
-    width: `${(0.62 / columns) * 100}%`,
+    width: `${(SOCKET_SIZE / columns) * 100}%`,
   };
 };
 
@@ -54,6 +60,13 @@ const COLOR_CLASS: Readonly<Record<SocketColor, string>> = {
 
 const contentAt = (index: number) => props.contents?.[index];
 
+const select = (index: number, event: MouseEvent) => {
+  const content = contentAt(index);
+  if (!content) return;
+  event.stopPropagation();
+  emit('selectContent', content, event);
+};
+
 const enter = (index: number, event: MouseEvent) => {
   const content = contentAt(index);
   if (content) emit('hoverContent', content, event.currentTarget as HTMLElement);
@@ -67,7 +80,7 @@ const enter = (index: number, event: MouseEvent) => {
     :data-socket-count="layout.sockets.length"
     class="pxd-sockets"
     :style="{
-      width: `${(layout.columns / Math.max(width ?? 2, 1)) * 72}%`,
+      width: `${(layout.columns / Math.max(width ?? 2, 1)) * AREA_WIDTH}%`,
       aspectRatio: `${layout.columns} / ${layout.rows}`,
     }"
   >
@@ -96,6 +109,7 @@ const enter = (index: number, event: MouseEvent) => {
       :style="socketStyle(index)"
       @mouseenter="enter(index, $event)"
       @mouseleave="emit('hoverContent', null, null)"
+      @click="select(index, $event)"
     >
       <PobItemImage
         v-if="contentAt(index)?.icon"
@@ -112,7 +126,7 @@ const enter = (index: number, event: MouseEvent) => {
   position: absolute;
   top: 50%;
   left: 50%;
-  max-height: 88%;
+  max-height: 98%;
   transform: translate(-50%, -50%);
   pointer-events: none;
   filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.8));
@@ -127,7 +141,7 @@ const enter = (index: number, event: MouseEvent) => {
 
 .pxd-socket-link {
   stroke: oklch(0.82 0.06 85);
-  stroke-width: 2.4;
+  stroke-width: 3.2;
   stroke-linecap: round;
 }
 
@@ -148,6 +162,7 @@ const enter = (index: number, event: MouseEvent) => {
 
 /* 有內容物時：外圈是插槽顏色，中間放內容物圖片 */
 .pxd-socket.is-filled {
+  cursor: pointer;
   border: 2px solid var(--pxd-socket-color);
   background: rgb(0 0 0 / 0.75);
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.65);

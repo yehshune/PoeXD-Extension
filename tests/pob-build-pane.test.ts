@@ -463,7 +463,7 @@ describe('PobBuildPane', () => {
     const rare = {
       ...equip.rows[1],
       socketContents: [
-        { kind: 'gem' as const, label: '懲戒', detail: 'Lv.20 / 20%', icon: ICON },
+        { kind: 'gem' as const, label: '懲戒', detail: 'Lv.20 / 20%', icon: ICON, rowKey: 'k-gem' },
         { kind: 'gem' as const, label: '增加持續時間輔助', support: true },
       ],
     };
@@ -485,6 +485,15 @@ describe('PobBuildPane', () => {
     sockets[0].dispatchEvent(new MouseEvent('mouseleave'));
     await nextTick();
     expect(query('[data-pob-build-socket-tip]')).toBeNull();
+
+    // 點插槽裡的寶石開該寶石的設定框，不觸發外層格子
+    sockets[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await flushAsync();
+    expect(queryBody('[data-pob-build-gem-filters]')).not.toBeNull();
+    expect(query('[data-pob-build-gear-tile="gloves"]')?.getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+    expect(fake.openSearch).not.toHaveBeenCalled();
   });
 
   it('寶石的預覽框可以改等級與品質下限並存回', async () => {
@@ -1439,12 +1448,20 @@ describe('PobBuildPane', () => {
     await flushAsync();
     expect(queryBody('[data-pob-build-mods]')).not.toBeNull();
 
-    // 點擊格子直接搜尋
-    query<HTMLButtonElement>('[data-pob-build-gear-tile="gloves"]')!.click();
+    // 點擊格子開關預覽，不直接搜尋；Ctrl 點擊開新分頁搜尋
+    const glovesTile = query<HTMLButtonElement>('[data-pob-build-gear-tile="gloves"]')!;
+    glovesTile.click();
+    await nextTick();
+    expect(glovesTile.getAttribute('aria-pressed')).toBe('false');
+    glovesTile.click();
+    await nextTick();
+    expect(glovesTile.getAttribute('aria-pressed')).toBe('true');
+    expect(fake.openSearch).not.toHaveBeenCalled();
+    glovesTile.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
     expect(fake.openSearch).toHaveBeenCalledWith(
       'b1',
       expect.objectContaining({ key: 'k-rare' }),
-      'current',
+      'new-tab',
     );
 
     query<HTMLElement>('[data-pob-build-gear-tile="gloves"] [data-pob-build-gear-done]')!.click();

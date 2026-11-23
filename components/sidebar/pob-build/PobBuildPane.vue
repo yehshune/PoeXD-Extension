@@ -410,6 +410,7 @@
               @hover="(row, event) => hoverPreview(build.id, row, event)"
               @leave="leavePreviewTrigger"
               @toggle-done="(key) => toggleDone(build.id, key)"
+              @select-content="(content, event) => selectSocketContent(build, content, event)"
             />
 
             <p
@@ -492,7 +493,7 @@
                         :layers="row.iconLayers"
                         :width="row.iconSize?.width"
                         :height="row.iconSize?.height"
-                        :foulborn="row.foulborn"
+                        :foulborn="row.foulborn && !row.iconFoulborn"
                       />
                     </span>
                     <span
@@ -866,6 +867,7 @@ import {
   type SetOption,
   type ShoppingGroup,
   type ShoppingRow,
+  type SocketContent,
 } from './usePobBuild';
 
 // 稀有度與技能寶石顏色統一引用 CSS 語意變數，自動隨明暗配色切換高對比色票
@@ -954,7 +956,10 @@ export default defineComponent({
     const renamingId = ref<string | null>(null);
     const renameInput = ref('');
     /** 目前在右側 Popover 檢視／調整詞綴的項目 */
-    const activePreviewTarget = ref<{ buildId: string; key: string } | null>(null);
+    /** `fromSocket`：從插槽點開的寶石，所屬分組收合時也照樣顯示 */
+    const activePreviewTarget = ref<{ buildId: string; key: string; fromSocket?: boolean } | null>(
+      null,
+    );
     const previewAnchorEl = ref<PreviewAnchor | null>(null);
     /** 目前開啟「更多動作」選單的那一列 */
     const openMenuRow = ref<string | null>(null);
@@ -1182,7 +1187,7 @@ export default defineComponent({
         if (found) return { buildId: build.id, row: found };
       }
       for (const group of listGroups(build)) {
-        if (isGroupCollapsed(build, group.id)) continue;
+        if (isGroupCollapsed(build, group.id) && !target.fromSocket) continue;
         const found = group.rows.find((entry) => entry.key === target.key);
         if (found) return { buildId: build.id, row: found };
       }
@@ -1289,15 +1294,31 @@ export default defineComponent({
     };
 
     /**
-     * 裝備欄的格子：預覽改由滑鼠移入開啟，點擊直接搜尋，Ctrl／⌘ 點擊開新分頁；
-     * 不能搜尋但有詞綴（例如對不到市集名稱）時點擊固定開啟預覽
+     * 裝備欄的格子：滑鼠移入稍停就開預覽，點擊則開關預覽（固定開著）；Ctrl／⌘ 點擊開新分頁搜尋。
+     * 沒有可調的條件時點擊直接搜尋
      */
     const handleGearSelect = (buildId: string, row: ShoppingRow, event: MouseEvent) => {
-      if (canSearch(row)) {
-        pob.openSearch(buildId, row, event.ctrlKey || event.metaKey ? 'new-tab' : 'current');
+      if (canSearch(row) && (event.ctrlKey || event.metaKey)) {
+        pob.openSearch(buildId, row, 'new-tab');
         return;
       }
       if (canPreview(row)) togglePreview(buildId, row.key, event);
+      else if (canSearch(row)) pob.openSearch(buildId, row, 'current');
+    };
+
+    /** 點裝備插槽裡的寶石：開關那顆寶石的設定框，位置對齊所在的裝備格 */
+    const selectSocketContent = (build: BuildView, content: SocketContent, event: MouseEvent) => {
+      const key = content.rowKey;
+      if (!key) return;
+      const row = build.groups
+        .filter((group) => group.kind === 'gem')
+        .flatMap((group) => group.rows)
+        .find((entry) => entry.key === key);
+      if (!row || !canPreview(row)) return;
+      togglePreview(build.id, key, event);
+      if (activePreviewTarget.value?.key === key) {
+        activePreviewTarget.value = { ...activePreviewTarget.value, fromSocket: true };
+      }
     };
 
     const rowTooltip = (row: ShoppingRow) => {
@@ -1478,6 +1499,7 @@ export default defineComponent({
       hasEquipment,
       equipmentRows,
       handleGearSelect,
+      selectSocketContent,
       isGroupCollapsed,
       toggleGroupCollapsed,
       groupCountLabel,

@@ -38,6 +38,7 @@ import {
   effectiveSearchBy,
   type VisceraModIndex,
   entryStatFilters,
+  gemKey,
   loadTradeNameCatalog,
   migrateLegacyGemKeys,
   normalizeSearchDefaults,
@@ -115,6 +116,8 @@ export interface ShoppingRow extends ShoppingEntry {
   iconSize?: { width: number; height: number };
   /** 圖片是三格 sprite（藥劑、寶石）時由下往上疊的格子 */
   iconLayers?: readonly number[];
+  /** 圖片已是官方穢生造型（不必再染色） */
+  iconFoulborn?: true;
   /** 裝備插槽裡的東西（PoE 1 寶石、PoE 2 符文），依插槽順序；沒有時省略 */
   socketContents?: SocketContent[];
   /** 可以勾選的搜尋條件（同一個代碼的多行已合併），已套用使用者的調整 */
@@ -148,6 +151,8 @@ export interface SocketContent {
   support?: boolean;
   icon?: string;
   iconLayers?: readonly number[];
+  /** 寶石在清單裡的列（點插槽時開這顆寶石的設定框） */
+  rowKey?: string;
 }
 
 export type StatBound = 'min' | 'max';
@@ -497,7 +502,9 @@ export function usePobBuild(
   };
 
   /** 圖片網址與背包尺寸（臟器組合沒有單一物品，不給圖片） */
-  const artOf = (entry: ShoppingEntry): Pick<ShoppingRow, 'icon' | 'iconSize' | 'iconLayers'> => {
+  const artOf = (
+    entry: ShoppingEntry,
+  ): Pick<ShoppingRow, 'icon' | 'iconSize' | 'iconLayers' | 'iconFoulborn'> => {
     if (!itemArt.value || entry.visceraBundle || entry.visceraPart) return {};
     const image = itemArtFor(itemArt.value, entry);
     if (!image) return {};
@@ -505,6 +512,7 @@ export function usePobBuild(
       icon: image.url,
       iconSize: { width: image.width, height: image.height },
       ...(image.layers ? { iconLayers: image.layers } : {}),
+      ...(image.foulborn ? { iconFoulborn: true } : {}),
     };
   };
 
@@ -554,6 +562,7 @@ export function usePobBuild(
               .filter(Boolean)
               .join(' · '),
             ...(gem.support ? { support: true } : {}),
+            rowKey: gemKey(gem),
             ...contentArt('gem', gem.support ? [englishName, gem.name] : [gem.name]),
           };
         });

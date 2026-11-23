@@ -23,6 +23,8 @@ export interface ItemArtData {
   source: ArtSource;
   bases: Readonly<Record<string, BaseArt>>;
   uniques: Readonly<Record<string, UniqueArt>>;
+  /** PoE1 穢生傳奇：名稱 → 官方 `gen/image/` 之後的網址 */
+  foulborn: Readonly<Record<string, string>>;
 }
 
 export interface ItemArtImage {
@@ -35,6 +37,8 @@ export interface ItemArtImage {
    * 疊成 背面 → 液體 → 外殼；寶石是「符號、白色遮罩、晶體」，疊成 晶體 → 符號。
    */
   layers?: readonly number[];
+  /** 是官方的穢生造型圖片（不用再自己染色） */
+  foulborn?: true;
 }
 
 /** sprite 的格數（遊戲的藥劑與寶石圖都是三格） */
@@ -48,6 +52,8 @@ export interface ItemArtQuery {
   englishName: string;
   /** 傳奇的英文底材名稱；傳奇圖片缺尺寸或查不到時用 */
   artBase?: string;
+  /** 穢生傳奇：有官方穢生圖片時優先使用 */
+  foulborn?: boolean;
 }
 
 const ART_SOURCES: Readonly<Record<PoeVersion, ArtSource>> = {
@@ -68,6 +74,13 @@ const SAFE_ART_PATH = /^[A-Za-z0-9_' -]+(?:\/[A-Za-z0-9_' -]+)*$/;
 /** 轉換寶石（`Absolution of Inspiring`）沒有自己的物品，圖片沿用原寶石 */
 const TRANSFIGURED_SUFFIX = / of (?:the )?[A-Z][A-Za-z' ]+$/;
 
+/**
+ * 穢生造型是 GGG 伺服器產生的圖片，網址的參數與雜湊由 poe.ninja 提供、poexd-data 照抄，
+ * 這裡只接受 `參數/十六進位雜湊/檔名.png` 這種形狀，主機固定為官方 CDN。
+ */
+const FOULBORN_PREFIX = 'https://web.poecdn.com/gen/image/';
+const SAFE_GEN_IMAGE = /^[A-Za-z0-9_-]+\/[0-9a-f]+\/[A-Za-z0-9_'.%-]+\.png$/;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -80,6 +93,7 @@ export function parseItemArt(
     source: ART_SOURCES[version],
     bases: value.bases as ItemArtData['bases'],
     uniques: value.uniques as ItemArtData['uniques'],
+    foulborn: isRecord(value.foulborn) ? (value.foulborn as ItemArtData['foulborn']) : {},
   };
 }
 
@@ -104,6 +118,21 @@ const baseImage = (art: ItemArtData, name: string | undefined): ItemArtImage | u
   return base ? imageOf(art.source, base[0], base[1], base[2]) : undefined;
 };
 
+function foulbornImage(
+  art: ItemArtData,
+  name: string,
+  regular: ItemArtImage | undefined,
+): ItemArtImage | undefined {
+  const tail = Object.hasOwn(art.foulborn, name) ? art.foulborn[name] : undefined;
+  if (typeof tail !== 'string' || !SAFE_GEN_IMAGE.test(tail)) return undefined;
+  return {
+    url: `${FOULBORN_PREFIX}${tail}`,
+    width: regular?.width ?? 1,
+    height: regular?.height ?? 1,
+    foulborn: true,
+  };
+}
+
 export function itemArtFor(art: ItemArtData, query: ItemArtQuery): ItemArtImage | undefined {
   if (query.kind === 'gem') {
     return (
@@ -116,10 +145,12 @@ export function itemArtFor(art: ItemArtData, query: ItemArtQuery): ItemArtImage 
       ? art.uniques[query.englishName]
       : undefined;
     const base = baseImage(art, query.artBase);
-    if (!unique) return base;
-    return unique.length === 3
-      ? imageOf(art.source, unique[0], unique[1], unique[2])
-      : imageOf(art.source, unique[0], base?.width, base?.height);
+    const image = !unique
+      ? base
+      : unique.length === 3
+        ? imageOf(art.source, unique[0], unique[1], unique[2])
+        : imageOf(art.source, unique[0], base?.width, base?.height);
+    return query.foulborn ? (foulbornImage(art, query.englishName, image) ?? image) : image;
   }
   return baseImage(art, query.englishName);
 }

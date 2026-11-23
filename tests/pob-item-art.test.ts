@@ -16,6 +16,10 @@ const art = parseItemArt({
     'The Covetous Dark': ['Weapons/OneHandWeapons/Claws/Eyethief_Tier00'],
     Redbeak: ['Weapons/OneHandWeapons/OneHandSwords/OneHandSword1Unique', 1, 3],
   },
+  foulborn: {
+    'The Covetous Dark': 'WzI1LDE0XQ/8f193a2016/Eyethief_Tier00.png',
+    Redbeak: 'https://evil.example/x.png',
+  },
 })!;
 
 const CDN = 'https://web.poecdn.com/image/Art/2DItems/';
@@ -50,6 +54,31 @@ describe('pob item art', () => {
     expect(
       itemArtFor(art, { kind: 'unique', englishName: 'Mystery', artBase: 'Cobalt Jewel' }),
     ).toMatchObject({ url: `${CDN}Jewels/basicint.png` });
+  });
+
+  it('穢生傳奇改用官方 gen/image 圖片，尺寸沿用一般造型；網址形狀不符時退回一般圖片', () => {
+    expect(
+      itemArtFor(art, {
+        kind: 'unique',
+        englishName: 'The Covetous Dark',
+        artBase: 'Imperial Claw',
+        foulborn: true,
+      }),
+    ).toEqual({
+      url: 'https://web.poecdn.com/gen/image/WzI1LDE0XQ/8f193a2016/Eyethief_Tier00.png',
+      width: 2,
+      height: 3,
+      foulborn: true,
+    });
+    expect(itemArtFor(art, { kind: 'unique', englishName: 'Redbeak', foulborn: true })).toEqual({
+      url: `${CDN}Weapons/OneHandWeapons/OneHandSwords/OneHandSword1Unique.png`,
+      width: 1,
+      height: 3,
+    });
+    // 不是穢生時不用穢生圖片
+    expect(
+      itemArtFor(art, { kind: 'unique', englishName: 'The Covetous Dark' })?.foulborn,
+    ).toBeUndefined();
   });
 
   it('寶石：轉換寶石退回原寶石的圖片', () => {

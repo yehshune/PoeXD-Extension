@@ -24,6 +24,8 @@ const emit = defineEmits<{
   hover: [row: ShoppingRow, event: MouseEvent];
   leave: [];
   toggleDone: [key: string];
+  /** 點插槽裡的寶石（開該寶石的設定框） */
+  selectContent: [content: SocketContent, event: MouseEvent];
 }>();
 
 const showSwap = ref(false);
@@ -173,7 +175,10 @@ const tileTitle = (row: ShoppingRow) =>
           class="pxd-gear-tile"
           :class="[
             row ? tileClass(row) : 'pxd-gear-tile--empty',
-            { 'is-active': row && activeKey === row.key },
+            {
+              'is-active': row && activeKey === row.key,
+              'pxd-gear-tile--corrupted': row?.corrupted,
+            },
           ]"
           :style="{
             gridColumn: `${cell.column} / span ${cell.width}`,
@@ -191,7 +196,7 @@ const tileTitle = (row: ShoppingRow) =>
               :layers="row.iconLayers"
               :width="row.iconSize?.width"
               :height="row.iconSize?.height"
-              :foulborn="row.foulborn"
+              :foulborn="row.foulborn && !row.iconFoulborn"
             />
             <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
             <PobSocketOverlay
@@ -202,6 +207,7 @@ const tileTitle = (row: ShoppingRow) =>
               :height="row.iconSize?.height"
               :contents="row.socketContents"
               @hover-content="showSocketTip"
+              @select-content="(content, event) => emit('selectContent', content, event)"
             />
           </template>
           <span v-else class="pxd-gear-tile__slot">{{ cellLabel(id) }}</span>
@@ -245,7 +251,10 @@ const tileTitle = (row: ShoppingRow) =>
           :aria-pressed="activeKey === row.key"
           :title="tileTitle(row)"
           class="pxd-gear-tile pxd-gear-tile--flask"
-          :class="[tileClass(row), { 'is-active': activeKey === row.key }]"
+          :class="[
+            tileClass(row),
+            { 'is-active': activeKey === row.key, 'pxd-gear-tile--corrupted': row.corrupted },
+          ]"
           @click="emit('select', row, $event)"
           @mouseenter="emit('hover', row, $event)"
           @mouseleave="emit('leave')"
@@ -257,7 +266,7 @@ const tileTitle = (row: ShoppingRow) =>
             :layers="row.iconLayers"
             :width="row.iconSize?.width"
             :height="row.iconSize?.height"
-            :foulborn="row.foulborn"
+            :foulborn="row.foulborn && !row.iconFoulborn"
           />
           <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
           <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
@@ -309,7 +318,10 @@ const tileTitle = (row: ShoppingRow) =>
           :aria-pressed="activeKey === row.key"
           :title="tileTitle(row)"
           class="pxd-gear-tile pxd-gear-tile--small"
-          :class="[tileClass(row), { 'is-active': activeKey === row.key }]"
+          :class="[
+            tileClass(row),
+            { 'is-active': activeKey === row.key, 'pxd-gear-tile--corrupted': row.corrupted },
+          ]"
           @click="emit('select', row, $event)"
           @mouseenter="emit('hover', row, $event)"
           @mouseleave="emit('leave')"
@@ -321,7 +333,7 @@ const tileTitle = (row: ShoppingRow) =>
             :layers="row.iconLayers"
             :width="row.iconSize?.width"
             :height="row.iconSize?.height"
-            :foulborn="row.foulborn"
+            :foulborn="row.foulborn && !row.iconFoulborn"
           />
           <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
           <span v-if="row.count > 1" class="pxd-gear-tile__count">×{{ row.count }}</span>
@@ -383,7 +395,7 @@ const tileTitle = (row: ShoppingRow) =>
 
 .pxd-gear-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
   gap: var(--pxd-space-xs);
 }
 
@@ -395,6 +407,7 @@ const tileTitle = (row: ShoppingRow) =>
 
 .pxd-gear-tile {
   --pxd-gear-accent: var(--border);
+  --pxd-corrupted: oklch(0.55 0.21 27);
   position: relative;
   display: flex;
   min-width: 0;
@@ -513,13 +526,24 @@ button.pxd-gear-tile:focus-visible,
   background: var(--primary);
 }
 
+.pxd-gear-tile--corrupted {
+  border-color: color-mix(in srgb, var(--pxd-corrupted) 75%, transparent);
+  background:
+    radial-gradient(
+      ellipse at 50% 45%,
+      color-mix(in srgb, var(--pxd-corrupted) 30%, transparent),
+      transparent 80%
+    ),
+    color-mix(in srgb, var(--pxd-corrupted) 12%, var(--card));
+}
+
+/* 已汙染：和 poe.ninja 一樣把整格染成暗紅，外加一圈內光，不另外畫線 */
 .pxd-gear-tile__corrupted {
   position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  height: 2px;
-  background: oklch(0.6 0.22 27);
-  box-shadow: 0 0 4px oklch(0.6 0.22 27 / 0.8);
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 10px color-mix(in srgb, var(--pxd-corrupted) 70%, transparent);
+  pointer-events: none;
 }
 
 .pxd-gear-tile__count {
