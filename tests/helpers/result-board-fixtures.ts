@@ -18,6 +18,10 @@ export interface RawResultOptions {
   baseType?: string;
   fee?: number;
   stash?: { name?: string; x?: number; y?: number };
+  explicitMods?: string[];
+  implicitMods?: string[];
+  fracturedMods?: string[];
+  extendedMods?: Record<string, { name?: string; tier?: string }[]>;
 }
 
 /** 組出一筆形狀比照官方 `/fetch` 的快取結果 */
@@ -40,6 +44,10 @@ export function rawResult(options: RawResultOptions): TradeResultEntry {
     baseType = options.typeLine ?? 'Vaal Regalia',
     fee,
     stash,
+    explicitMods,
+    implicitMods,
+    fracturedMods,
+    extendedMods,
   } = options;
   const onlineValue =
     online === 'offline'
@@ -58,6 +66,10 @@ export function rawResult(options: RawResultOptions): TradeResultEntry {
       frameType,
       icon: 'https://web.poecdn.com/x.png',
       ...(note !== undefined ? { note } : {}),
+      ...(explicitMods ? { explicitMods } : {}),
+      ...(implicitMods ? { implicitMods } : {}),
+      ...(fracturedMods ? { fracturedMods } : {}),
+      ...(extendedMods ? { extended: { mods: extendedMods } } : {}),
     },
     listing: {
       indexed,

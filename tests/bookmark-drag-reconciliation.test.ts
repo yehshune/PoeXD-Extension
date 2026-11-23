@@ -570,8 +570,10 @@ describe('Bookmark Drag-and-Drop & Vue DOM Ownership Reconciliation Regression',
     });
 
     // Ensure filtered items are displayed
-    expect(appRoot.querySelector('.bookmark-row-item[data-id="bm-2"]')).not.toBeNull();
-    expect(appRoot.querySelector('.bookmark-row-item[data-id="bm-1"]')).toBeNull();
+    await vi.waitFor(() => {
+      expect(appRoot.querySelector('.bookmark-row-item[data-id="bm-2"]')).not.toBeNull();
+      expect(appRoot.querySelector('.bookmark-row-item[data-id="bm-1"]')).toBeNull();
+    });
 
     // Attempting drop via any stale Sortable onEnd reference must not dispatch reorders
     for (const stale of initialInstances) {

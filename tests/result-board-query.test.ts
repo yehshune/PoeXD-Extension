@@ -131,4 +131,69 @@ describe('filterEntries', () => {
       'c',
     ]);
   });
+
+  it('matches mods, tiers, multi-keywords, exclusions, fuzzy subsequences, and localized lines', () => {
+    const rich = entries([
+      {
+        id: 'bow-t1',
+        name: 'Victory Nock',
+        typeLine: 'Imperial Bow',
+        explicitMods: ['179% increased Physical Damage', '+54 to Dexterity'],
+        extendedMods: { explicit: [{ name: 'Merciless', tier: 'P1' }, { tier: 'S1' }] },
+      },
+      {
+        id: 'bow-hybrid',
+        name: 'Bramble Thirst',
+        typeLine: 'Citadel Bow',
+        explicitMods: ['174% increased Physical Damage', 'Adds 37 to 68 Fire Damage'],
+        extendedMods: { explicit: [{ tier: 'P7' }, { tier: 'P3' }] },
+      },
+      {
+        id: 'ring-chaos',
+        name: 'Miracle Loop',
+        typeLine: 'Amethyst Ring',
+        implicitMods: ['+23% to Chaos Resistance'],
+        fracturedMods: ['+75 to maximum Life'],
+      },
+    ]);
+
+    const localizedMap: Record<string, string[]> = {
+      'bow-t1': ['帝國之弓', '增加 179% 物理傷害', '+54 敏捷', 'P1'],
+      'bow-hybrid': ['城塞戰弓', '增加 174% 物理傷害', '附加 37 至 68 火焰傷害', 'P7 + P3'],
+      'ring-chaos': ['紫晶戒指', '+23% 混沌抗性', '+75 最大生命'],
+    };
+
+    const match = (keyword: string) =>
+      ids(
+        filterEntries(
+          rich,
+          {
+            ...noFilter,
+            keyword,
+            extraSearchLines: (entry) => localizedMap[entry.id] ?? [],
+          },
+          rates,
+        ),
+      );
+
+    // Raw English mods & tiers
+    expect(match('physical')).toEqual(['bow-t1', 'bow-hybrid']);
+    expect(match('merciless')).toEqual(['bow-t1']);
+    expect(match('p1')).toEqual(['bow-t1']);
+    expect(match('chaos resistance')).toEqual(['ring-chaos']);
+
+    // Localized Chinese names & mods
+    expect(match('帝國之弓')).toEqual(['bow-t1']);
+    expect(match('火焰傷害')).toEqual(['bow-hybrid']);
+
+    // Fuzzy subsequence matching (CJK & English)
+    expect(match('物理傷')).toEqual(['bow-t1', 'bow-hybrid']);
+    expect(match('混抗')).toEqual(['ring-chaos']);
+    expect(match('physdmg')).toEqual(['bow-t1', 'bow-hybrid']);
+
+    // Multi-keyword AND + exclusion (-term)
+    expect(match('物理傷 p1')).toEqual(['bow-t1']);
+    expect(match('物理傷 -火焰')).toEqual(['bow-t1']);
+    expect(match('弓 -城塞')).toEqual(['bow-t1']);
+  });
 });

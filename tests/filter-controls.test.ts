@@ -189,6 +189,7 @@ describe('FilterPane Controls Row (Runtime Contracts)', () => {
     // Input "生命"
     searchInput.value = '生命';
     searchInput.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await nextTick();
 
     expect(appRoot.textContent).toContain('最大生命');
@@ -350,6 +351,7 @@ describe('FilterPane Controls Row (Runtime Contracts)', () => {
     const searchInput = appRoot.querySelector('.item-search input') as HTMLInputElement;
     searchInput.value = '生命';
     searchInput.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await nextTick();
 
     const selectAllBtn = appRoot.querySelector(
@@ -382,6 +384,7 @@ describe('FilterPane Controls Row (Runtime Contracts)', () => {
     const searchInput = appRoot.querySelector('.item-search input') as HTMLInputElement;
     searchInput.value = '最大';
     searchInput.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await nextTick();
 
     const selectAllBtn = appRoot.querySelector(

@@ -10,6 +10,7 @@ import {
   type TravelOutcome,
 } from '@/entrypoints/content/logic/result-board-runtime';
 import { useCurrencyRates } from '@/components/sidebar/composables/useCurrencyRates';
+import { useDebouncedRef } from '@/components/sidebar/composables/useDebouncedSearch';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t, type I18nKey } from '@/utils/i18n';
 import { createPinnedItemClient } from '@/utils/pinned-item-client';
@@ -19,6 +20,8 @@ import { sumPrices, summarizePrices, type PriceTotal } from '@/utils/result-boar
 import {
   availableSortModes,
   filterEntries,
+  matchesBoardEntry,
+  parseSearchTokens,
   sortEntries,
   type BoardSortMode,
 } from '@/utils/result-board/board-query';
@@ -63,6 +66,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const instantOnly = ref(false);
   const hideSold = ref(false);
   const keyword = ref('');
+  const debouncedKeyword = useDebouncedRef(keyword);
   const priceMinText = ref('');
   const priceMaxText = ref('');
   const minSellerCount = ref(DEFAULT_MIN_SELLER_COUNT);
@@ -124,6 +128,9 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   });
   const hasSoldEntries = computed(() => soldIds.value.size > 0);
 
+  const extraSearchLines = (entry: BoardEntry): readonly string[] =>
+    runtime.readEntrySearchLines(entry.id);
+
   const filteredEntries = computed(() => {
     const base =
       hasSoldEntries.value && hideSold.value
@@ -134,10 +141,11 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
         base,
         {
           instantBuyoutOnly: hasMixedInstantBuyout.value && instantOnly.value,
-          keyword: keyword.value,
+          keyword: debouncedKeyword.value,
           hiddenAccounts: state.value.hiddenAccounts,
           priceMin: parseBound(priceMinText.value),
           priceMax: parseBound(priceMaxText.value),
+          extraSearchLines,
         },
         rates.value,
       ),
@@ -147,7 +155,8 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   });
 
   const sellers = computed(() => {
-    const term = keyword.value.trim().toLowerCase();
+    const tokens = parseSearchTokens(debouncedKeyword.value);
+    const hasTokens = tokens.include.length > 0 || tokens.exclude.length > 0;
     const matched = filterSellers(
       sortSellers(aggregateSellers(entries.value, rates.value, soldIds.value)),
       {
@@ -155,9 +164,11 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
         hiddenAccounts: state.value.hiddenAccounts,
       },
     );
-    if (!term) return matched;
+    if (!hasTokens) return matched;
     return matched.filter((seller) =>
-      [seller.account, seller.character ?? ''].some((field) => field.toLowerCase().includes(term)),
+      seller.entries.some((entry) =>
+        matchesBoardEntry(entry, tokens, extraSearchLines(entry)),
+      ),
     );
   });
 

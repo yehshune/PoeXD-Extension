@@ -163,6 +163,7 @@ describe('PinnedItemPane search bar', () => {
 
     input.value = 'loath';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flush();
 
     const rows = container.querySelectorAll('[data-pinned-item-id]');
@@ -172,6 +173,7 @@ describe('PinnedItemPane search bar', () => {
 
     input.value = 'no-such-item-xyz';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flush();
 
     expect(container.querySelectorAll('[data-pinned-item-id]')).toHaveLength(0);

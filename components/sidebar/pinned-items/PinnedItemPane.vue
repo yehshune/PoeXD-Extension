@@ -37,6 +37,7 @@ import {
   useDragTrash,
 } from '../composables/useDragTrash';
 import { createSidebarDragScrollOptions } from '../composables/sidebar-drag-scroll';
+import { useDebouncedRef } from '../composables/useDebouncedSearch';
 import { moveTemplateId } from '../stat-group-templates/template-order';
 import { requestResultTranslation } from '@/utils/market-result-translation-request';
 import ResultPriceLabel from '../result-row/ResultPriceLabel.vue';
@@ -96,10 +97,11 @@ const isSortMenuOpen = ref(false);
 const sortMode = ref<PinnedSortMode>('custom');
 const isSearchVisible = ref(false);
 const searchQuery = ref('');
+const debouncedSearchQuery = useDebouncedRef(searchQuery);
 const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
 
 const filteredItems = computed(() => {
-  const matched = filterPinnedItems(visibleItems.value, searchQuery.value);
+  const matched = filterPinnedItems(visibleItems.value, debouncedSearchQuery.value);
   return sortPinnedItems(matched, sortMode.value, currencyRates.value);
 });
 /** 搜尋中或非自訂排序時停用拖曳，避免錯位或與排序規則衝突。 */

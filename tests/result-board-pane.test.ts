@@ -233,6 +233,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     const input2 = container.querySelector<HTMLInputElement>('[data-board-keyword]')!;
     input2.value = 'Alpha';
     input2.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flush();
     expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
 
@@ -241,6 +242,70 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(container.querySelector('[data-board-keyword]')).toBeNull();
     expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
     expect(storageData.resultBoardSearchVisible_poe1).toBe(false);
+  });
+
+  it('searches localized item names, mods, fuzzy keywords, and filters sellers by item match', async () => {
+    const resultset = document.createElement('div');
+    resultset.className = 'resultset';
+    resultset.innerHTML = `
+      <div class="row" data-id="r1">
+        <div class="itemHeader"><span class="lc">帝國之弓</span></div>
+        <span class="s lc">增加 179% 物理傷害</span>
+        <span class="lc l pr">P1</span>
+      </div>
+      <div class="row" data-id="r2">
+        <div class="itemHeader"><span class="lc">紫晶戒指</span></div>
+        <span class="s lc">+23% 混沌抗性</span>
+      </div>
+    `;
+    document.body.appendChild(resultset);
+
+    try {
+      ingest([
+        rawResult({
+          id: 'r1',
+          account: 'BowSeller#1',
+          name: 'Victory Nock',
+          typeLine: 'Imperial Bow',
+          explicitMods: ['179% increased Physical Damage'],
+        }),
+        rawResult({
+          id: 'r2',
+          account: 'RingSeller#2',
+          name: 'Miracle Loop',
+          typeLine: 'Amethyst Ring',
+          implicitMods: ['+23% to Chaos Resistance'],
+        }),
+      ]);
+
+      const app = createApp({ render: () => h(ResultBoardPane) });
+      app.mount(container);
+      unmount = () => app.unmount();
+      await flush();
+
+      container.querySelector<HTMLElement>('[data-board-search-toggle]')!.click();
+      await flush();
+
+      const input = container.querySelector<HTMLInputElement>('[data-board-keyword]')!;
+      input.value = '物理傷 p1';
+      input.dispatchEvent(new Event('input'));
+      await new Promise((r) => setTimeout(r, 180));
+      await flush();
+
+      const matchedIds = Array.from(container.querySelectorAll('[data-board-entry-id]')).map((el) =>
+        el.getAttribute('data-board-entry-id'),
+      );
+      expect(matchedIds).toEqual(['r1']);
+
+      // Switch to Sellers view with minSellerCount=1 and verify item keyword matches BowSeller#1
+      container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+      await flush();
+      container.querySelector<HTMLElement>('[data-board-min-count-dec]')!.click();
+      await flush();
+      expect(container.querySelectorAll('[data-board-seller]')).toHaveLength(1);
+    } finally {
+      resultset.remove();
+    }
   });
 
   it('remembers the items / sellers view across mounts', async () => {

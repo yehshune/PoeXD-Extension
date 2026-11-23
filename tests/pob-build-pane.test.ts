@@ -1100,6 +1100,7 @@ describe('PobBuildPane', () => {
     const filterInput = query<HTMLInputElement>('[data-pob-build-filter]')!;
     filterInput.value = 'Punishment';
     filterInput.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await nextTick();
     expect(queryAll('[data-pob-build-row]')).toHaveLength(1);
     expect(row(0).textContent).toContain('Punishment');
@@ -1257,6 +1258,7 @@ describe('PobBuildPane', () => {
     const filterInput = query<HTMLInputElement>('[data-pob-build-filter]')!;
     filterInput.value = 'Leviathan';
     filterInput.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await nextTick();
     expect(queryAll('[data-pob-build-row]')).toHaveLength(1);
     expect(row(0).textContent).toContain('Leviathan Gauntlets');
@@ -1397,9 +1399,10 @@ describe('PobBuildPane', () => {
         el.getAttribute('data-sprite-frame'),
       ),
     ).toEqual(['1', '2', '0']);
-    expect(
-      (sprite.querySelector('[data-sprite-frame="2"]') as HTMLElement).style.backgroundPosition,
-    ).toBe('100% 0px');
+    const liquid = sprite.querySelector('[data-sprite-frame="2"]') as HTMLImageElement;
+    expect(liquid.style.left).toBe('-200%');
+    expect(liquid.style.width).toBe('300%');
+    expect(liquid.getAttribute('referrerpolicy')).toBe('no-referrer');
   });
 
   it('已完成項目沉底時於第一筆已完成列加上分隔線標記', async () => {

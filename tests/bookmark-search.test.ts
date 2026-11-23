@@ -1,10 +1,24 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
-import { ref } from 'vue';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextTick, ref } from 'vue';
 import { useBookmarkSearch } from '@/components/sidebar/composables/useBookmarkSearch';
+import { DEFAULT_SEARCH_DEBOUNCE_MS } from '@/components/sidebar/composables/useDebouncedSearch';
 import type { Bookmark, BookmarkGroup } from '@/components/sidebar/bookmark-types';
 
 describe('useBookmarkSearch', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const flushDebounce = async () => {
+    await nextTick();
+    vi.advanceTimersByTime(DEFAULT_SEARCH_DEBOUNCE_MS);
+    await nextTick();
+  };
   const dummyGroups: BookmarkGroup[] = [
     { id: 'group-1', name: '通貨 Currency', order: 0 },
     { id: 'group-2', name: '裝備 Gear', order: 1 },
@@ -53,37 +67,41 @@ describe('useBookmarkSearch', () => {
     ]);
   });
 
-  it('filters by folder name (case-insensitive)', () => {
+  it('filters by folder name (case-insensitive)', async () => {
     const groups = ref(dummyGroups);
     const bookmarks = ref(dummyBookmarks);
 
     const search = useBookmarkSearch({ groups, bookmarks });
 
     search.searchQuery.value = 'currency';
+    await flushDebounce();
     expect(search.filteredGroups.value.map((g) => g.id)).toEqual(['group-1']);
 
     search.searchQuery.value = 'GEAR';
+    await flushDebounce();
     expect(search.filteredGroups.value.map((g) => g.id)).toEqual(['group-2']);
   });
 
-  it('filters by bookmark name (case-insensitive)', () => {
+  it('filters by bookmark name (case-insensitive)', async () => {
     const groups = ref(dummyGroups);
     const bookmarks = ref(dummyBookmarks);
 
     const search = useBookmarkSearch({ groups, bookmarks });
 
     search.searchQuery.value = 'exalted';
+    await flushDebounce();
     expect(search.filteredGroups.value.map((g) => g.id)).toEqual(['group-1']);
     expect(search.getFilteredGroupBookmarks('group-1').map((b) => b.id)).toEqual(['bm-1']);
   });
 
-  it('filters by bookmark URL', () => {
+  it('filters by bookmark URL', async () => {
     const groups = ref(dummyGroups);
     const bookmarks = ref(dummyBookmarks);
 
     const search = useBookmarkSearch({ groups, bookmarks });
 
     search.searchQuery.value = 'hh-belt';
+    await flushDebounce();
     expect(search.filteredGroups.value.map((g) => g.id)).toEqual(['group-2']);
     expect(search.getFilteredGroupBookmarks('group-2').map((b) => b.id)).toEqual(['bm-3']);
   });
@@ -137,7 +155,7 @@ describe('useBookmarkSearch', () => {
     expect(search.isSearchVisible.value).toBe(false);
   });
 
-  it('11. preserves complete ancestor path when a deeply nested bookmark matches', () => {
+  it('11. preserves complete ancestor path when a deeply nested bookmark matches', async () => {
     // 裝備 (root) -> 武器 (child) -> 弓 (grandchild) -> 神弓 (bookmark)
     // 消耗品 (unrelated root) -> 藥劑 (child)
     const hierarchyGroups: BookmarkGroup[] = [
@@ -179,6 +197,7 @@ describe('useBookmarkSearch', () => {
     const search = useBookmarkSearch({ groups, bookmarks });
 
     search.searchQuery.value = '神弓';
+    await flushDebounce();
 
     // Filtered groups must include g-bow and all its ancestors: g-weapon, g-equip
     const resultGroupIds = search.filteredGroups.value.map((g) => g.id);
@@ -195,7 +214,7 @@ describe('useBookmarkSearch', () => {
     expect(search.getFilteredGroupBookmarks('g-equip')).toEqual([]);
   });
 
-  it('12. preserves matching folder and necessary ancestors without including unrelated subtrees', () => {
+  it('12. preserves matching folder and necessary ancestors without including unrelated subtrees', async () => {
     // 裝備 (root) -> 武器 (child) -> 弓 (grandchild, no match)
     // 裝備 (root) -> 防具 (child, no match)
     const hierarchyGroups: BookmarkGroup[] = [
@@ -221,6 +240,7 @@ describe('useBookmarkSearch', () => {
 
     // Search matches folder '武器'
     search.searchQuery.value = '武器';
+    await flushDebounce();
 
     const resultGroupIds = search.filteredGroups.value.map((g) => g.id);
     // Must include matching folder '武器' and ancestor '裝備'

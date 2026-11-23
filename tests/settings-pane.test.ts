@@ -1163,6 +1163,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     input.value = '模糊';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flushAsync();
     expect(visibleSections()).toEqual(['searchHotkeys']);
     const hotkeyRows = Array.from(
@@ -1176,17 +1177,20 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // A section title match keeps every row in that section visible
     input.value = '書籤與歷史';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flushAsync();
     expect(visibleSections()).toEqual(['bookmarks']);
 
     // Hidden keywords keep removed descriptions searchable
     input.value = '翻譯';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flushAsync();
     expect(visibleSections()).toEqual(['localization']);
 
     input.value = 'zzz-no-such-setting';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flushAsync();
     expect(visibleSections()).toEqual([]);
     const empty = container.querySelector('[data-settings-search-empty]');
@@ -1202,6 +1206,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Escape closes the search box, clears the query, and restores the nav buttons
     input.value = '模糊';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flushAsync();
     expect(visibleSections()).toEqual(['searchHotkeys']);
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

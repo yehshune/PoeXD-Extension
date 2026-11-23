@@ -44,6 +44,10 @@ export interface BoardEntry {
   stash?: BoardStash;
   /** 遊戲內物品的標價備註，市集寫法（例如 `~b/o 2 chaos`）；倉庫搜尋 regex 用 */
   note?: string;
+  /** 物品詞綴原文（explicit / implicit / fractured / crafted / enchant 等）；看板搜尋用 */
+  mods?: readonly string[];
+  /** 官方 `extended.mods` 的階級與詞綴名（例如 `P1`、`S1`、`Merciless`）；看板搜尋用 */
+  modTiers?: readonly string[];
   /** 刊登時間（epoch ms） */
   indexedAt?: number;
   /** 可直接前往藏身處購買；否則需要私訊 */
@@ -52,6 +56,22 @@ export interface BoardEntry {
 }
 
 const MAX_TEXT_LENGTH = 256;
+const MAX_MOD_LINE_LENGTH = 512;
+
+const MOD_KEYS = [
+  'enchantMods',
+  'implicitMods',
+  'explicitMods',
+  'craftedMods',
+  'fracturedMods',
+  'scourgeMods',
+  'crucibleMods',
+  'utilityMods',
+  'runeMods',
+  'desecratedMods',
+  'sanctumMods',
+  'veiledMods',
+] as const;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -61,6 +81,44 @@ const text = (value: unknown): string =>
 
 /** PoE 2 的 `[標籤|顯示文字]` 或 `[標籤]` 標記只顯示文字 */
 const unwrapMarkup = (value: string): string => value.replace(/\[(?:[^\]|]*\|)?([^\]]*)\]/g, '$1');
+
+function readMods(item: Record<string, unknown>): readonly string[] | undefined {
+  const mods: string[] = [];
+  for (const key of MOD_KEYS) {
+    const list = item[key];
+    if (!Array.isArray(list)) continue;
+    for (const entry of list) {
+      const raw =
+        typeof entry === 'string'
+          ? entry
+          : isRecord(entry) && typeof entry.description === 'string'
+            ? entry.description
+            : '';
+      if (!raw || raw.length > MAX_MOD_LINE_LENGTH) continue;
+      const cleaned = unwrapMarkup(raw).trim();
+      if (cleaned) mods.push(cleaned);
+    }
+  }
+  return mods.length > 0 ? mods : undefined;
+}
+
+function readModTiers(item: Record<string, unknown>): readonly string[] | undefined {
+  const extended = isRecord(item.extended) ? item.extended : undefined;
+  const extendedMods = extended && isRecord(extended.mods) ? extended.mods : undefined;
+  if (!extendedMods) return undefined;
+  const tokens = new Set<string>();
+  for (const list of Object.values(extendedMods)) {
+    if (!Array.isArray(list)) continue;
+    for (const mod of list) {
+      if (!isRecord(mod)) continue;
+      const tier = text(mod.tier).trim();
+      if (tier) tokens.add(tier);
+      const name = text(mod.name).trim();
+      if (name) tokens.add(name);
+    }
+  }
+  return tokens.size > 0 ? Array.from(tokens) : undefined;
+}
 
 function readPrice(value: unknown): BoardPrice | undefined {
   if (!isRecord(value)) return undefined;
@@ -143,6 +201,8 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
       : undefined;
   const stash = readStash(listing.stash);
   const note = readNote(item, listing.price);
+  const mods = readMods(item);
+  const modTiers = readModTiers(item);
   const indexedAt = readIndexedAt(listing.indexed);
   const frameType =
     typeof item.frameType === 'number' && Number.isFinite(item.frameType)
@@ -161,6 +221,8 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
     ...(fee !== undefined ? { fee } : {}),
     ...(stash ? { stash } : {}),
     ...(note ? { note } : {}),
+    ...(mods ? { mods } : {}),
+    ...(modTiers ? { modTiers } : {}),
     ...(indexedAt !== undefined ? { indexedAt } : {}),
     instantBuyout: typeof hideoutToken === 'string' && hideoutToken.length > 0,
     seller,

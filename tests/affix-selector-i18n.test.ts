@@ -248,6 +248,7 @@ describe('Seam 1: Affix Selector (`FilterPane.vue` and `ModItem.vue`) & Bilingua
     // 2. Search by English keyword 'life'
     searchInput!.value = 'life';
     searchInput!.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 180));
     await nextTick();
 
     items = appRoot.querySelectorAll('.mod-item-container');
@@ -256,6 +257,7 @@ describe('Seam 1: Affix Selector (`FilterPane.vue` and `ModItem.vue`) & Bilingua
     // 3. Search by non-matching keyword 'chaos'
     searchInput!.value = 'chaos_non_existent';
     searchInput!.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 180));
     await nextTick();
 
     const empty = appRoot.querySelector('.empty-mods');

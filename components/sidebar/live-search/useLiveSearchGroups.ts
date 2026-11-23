@@ -1,4 +1,5 @@
 import { computed, ref, type Ref } from 'vue';
+import { useDebouncedRef } from '@/components/sidebar/composables/useDebouncedSearch';
 import { getFolderAncestors, getFolderDepth } from '@/utils/bookmark-collection';
 import { t } from '@/utils/i18n';
 import type { LiveSearchSubscriptionStatus } from '@/utils/live-search-contract';
@@ -86,6 +87,7 @@ export function useLiveSearchGroups(
   sourceSnapshot: Ref<Readonly<LiveSearchSourceSnapshot> | null>,
 ) {
   const searchQuery = ref('');
+  const debouncedSearchQuery = useDebouncedRef(searchQuery);
   const statusFilter = ref<LiveSearchSourceStatusFilter>('all');
   const collapsedGroupIds = ref<Set<string>>(new Set());
 
@@ -190,7 +192,7 @@ export function useLiveSearchGroups(
 
   const filteredGroups = computed(() => {
     return filterLiveSearchSourceGroups(normalizedGroups.value, {
-      query: searchQuery.value,
+      query: debouncedSearchQuery.value,
       statusFilter: statusFilter.value,
     });
   });

@@ -23,6 +23,7 @@ import {
   useCriteriaOverlayManager,
   type StatGroupTemplate,
 } from '@/entrypoints/content/logic/criteria-overlay-manager';
+import { useDebouncedRef } from '@/components/sidebar/composables/useDebouncedSearch';
 import { describeStatGroupsTooltip, formatCompactStatGroupChip } from './criteria-overlay-labels';
 import StatGroupTemplateSaveDialog from './StatGroupTemplateSaveDialog.vue';
 
@@ -37,11 +38,12 @@ const saveDialogOpen = saveDialog.open;
 const saveParts = saveDialog.parts;
 const openStateMap = reactive<Record<number, boolean>>({});
 const menuFilterQuery = ref('');
+const debouncedMenuFilterQuery = useDebouncedRef(menuFilterQuery);
 const dictReadyTick = ref(0);
 
 const filteredTemplates = computed(() => {
   void dictReadyTick.value;
-  return filterTemplates(templates.value, menuFilterQuery.value, manager.version);
+  return filterTemplates(templates.value, debouncedMenuFilterQuery.value, manager.version);
 });
 
 function handleOpenChange(slotIndex: number, open: boolean) {

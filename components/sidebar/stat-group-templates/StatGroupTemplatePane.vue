@@ -23,6 +23,7 @@ import {
   useDragTrash,
 } from '../composables/useDragTrash';
 import { createSidebarDragScrollOptions } from '../composables/sidebar-drag-scroll';
+import { useDebouncedRef } from '../composables/useDebouncedSearch';
 import {
   STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH,
   filterTemplates,
@@ -64,8 +65,10 @@ const editingTemplateId = ref<string | null>(null);
 const editingTemplateName = ref('');
 const renameInputRef = ref<InstanceType<typeof Input>[] | InstanceType<typeof Input> | null>(null);
 
+const debouncedQuery = useDebouncedRef(query);
+
 const visibleTemplates = computed(() =>
-  filterTemplates(templates.value, query.value, manager.version),
+  filterTemplates(templates.value, debouncedQuery.value, manager.version),
 );
 /** 搜尋中或行內編輯名稱時停用排序與拖曳刪除，避免誤觸與錯位。 */
 const canDrag = computed(() => query.value.trim() === '' && editingTemplateId.value === null);

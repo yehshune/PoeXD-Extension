@@ -715,6 +715,7 @@ describe('Bookmark Tree UI & Hierarchy Semantics', () => {
       )!;
       searchInput.value = 'completely_non_existent_query_xyz';
       searchInput.dispatchEvent(new Event('input'));
+      await new Promise((r) => setTimeout(r, 180));
       await nextTick();
 
       const emptyMsg = appRoot.querySelector('[data-test="bookmark-search-empty"]');

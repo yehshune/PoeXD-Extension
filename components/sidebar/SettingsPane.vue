@@ -768,6 +768,7 @@ import {
   watch,
   type PropType,
 } from 'vue';
+import { useDebouncedRef } from './composables/useDebouncedSearch';
 import type { SettingsFocusRequest } from '@/utils/release-highlights';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1411,8 +1412,10 @@ export default defineComponent({
     // 設定搜尋：點擊放大鏡按鈕展開輸入框（取代跳轉按鈕區），搜尋時跨區塊列出符合的設定
     const isSearchVisible = ref(false);
     const searchQuery = ref('');
+    const debouncedSearchQuery = useDebouncedRef(searchQuery);
     const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
-    const { isSearching, hasResults: hasSearchResults } = provideSettingsSearch(searchQuery);
+    const { isSearching, hasResults: hasSearchResults } =
+      provideSettingsSearch(debouncedSearchQuery);
     const clearSearch = () => {
       searchQuery.value = '';
     };

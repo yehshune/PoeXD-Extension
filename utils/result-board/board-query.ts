@@ -21,6 +21,8 @@ export interface EntryFilter {
   /** 以匯率快照的主通貨計，只在有匯率時套用 */
   priceMin?: number;
   priceMax?: number;
+  /** 額外可搜尋文字（例如官方結果列經市集漢化後的品名與詞綴行） */
+  extraSearchLines?: (entry: BoardEntry) => readonly string[];
 }
 
 export function availableSortModes(conversionAvailable: boolean): BoardSortMode[] {
@@ -84,11 +86,87 @@ export function sortEntries(
   }
 }
 
-function matchesKeyword(entry: BoardEntry, keyword: string): boolean {
-  if (!keyword) return true;
-  return [entry.name, entry.typeLine, entry.seller.account, entry.seller.character ?? ''].some(
-    (field) => field.toLowerCase().includes(keyword),
-  );
+export interface ParsedSearchTokens {
+  include: readonly string[];
+  exclude: readonly string[];
+}
+
+/** 拆成空白分隔的多個條件；`-詞` 表示排除 */
+export function parseSearchTokens(keyword: string): ParsedSearchTokens {
+  const include: string[] = [];
+  const exclude: string[] = [];
+  for (const raw of keyword.trim().toLowerCase().split(/\s+/)) {
+    if (!raw) continue;
+    if (raw.startsWith('-') && raw.length > 1) {
+      exclude.push(raw.slice(1));
+    } else {
+      include.push(raw);
+    }
+  }
+  return { include, exclude };
+}
+
+/** 單行子序列模糊比對（例如「物理傷」命中「增加 179% 物理傷害」、「混抗」命中「+35% 混沌抗性」） */
+function isSubsequence(needle: string, haystack: string): boolean {
+  if (needle.length > haystack.length) return false;
+  let needleIdx = 0;
+  for (let i = 0; i < haystack.length && needleIdx < needle.length; i += 1) {
+    if (haystack[i] === needle[needleIdx]) needleIdx += 1;
+  }
+  return needleIdx === needle.length;
+}
+
+function matchesToken(lines: readonly string[], token: string, fuzzy: boolean): boolean {
+  for (const line of lines) {
+    if (line.includes(token)) return true;
+  }
+  if (!fuzzy || token.length < 2) return false;
+  for (const line of lines) {
+    if (isSubsequence(token, line)) return true;
+  }
+  return false;
+}
+
+function entrySearchLines(
+  entry: BoardEntry,
+  extraLines?: readonly string[],
+): readonly string[] {
+  const lines: string[] = [];
+  const push = (value: string | undefined) => {
+    const normalized = value?.trim().toLowerCase();
+    if (normalized) lines.push(normalized);
+  };
+  push(entry.name);
+  push(entry.typeLine);
+  if (entry.baseType && entry.baseType !== entry.typeLine) push(entry.baseType);
+  push(entry.seller.account);
+  push(entry.seller.character);
+  if (entry.mods) {
+    for (const mod of entry.mods) push(mod);
+  }
+  if (entry.modTiers) {
+    for (const tier of entry.modTiers) push(tier);
+  }
+  if (extraLines) {
+    for (const line of extraLines) push(line);
+  }
+  return lines;
+}
+
+export function matchesBoardEntry(
+  entry: BoardEntry,
+  tokens: ParsedSearchTokens,
+  extraLines?: readonly string[],
+): boolean {
+  if (tokens.include.length === 0 && tokens.exclude.length === 0) return true;
+  const lines = entrySearchLines(entry, extraLines);
+  for (const excluded of tokens.exclude) {
+    if (matchesToken(lines, excluded, false)) return false;
+  }
+  for (const included of tokens.include) {
+    if (!matchesToken(lines, included, true)) return false;
+  }
+  return true;
 }
 
 function withinPrice(
@@ -110,12 +188,13 @@ export function filterEntries(
   filter: EntryFilter,
   rates: CurrencyRateSnapshot | undefined,
 ): BoardEntry[] {
-  const keyword = filter.keyword.trim().toLowerCase();
+  const tokens = parseSearchTokens(filter.keyword);
+  const hasTokens = tokens.include.length > 0 || tokens.exclude.length > 0;
   return entries.filter(
     (entry) =>
       (!filter.instantBuyoutOnly || entry.instantBuyout) &&
       !filter.hiddenAccounts.has(entry.seller.account) &&
-      matchesKeyword(entry, keyword) &&
+      (!hasTokens || matchesBoardEntry(entry, tokens, filter.extraSearchLines?.(entry))) &&
       withinPrice(entry, filter, rates),
   );
 }

@@ -112,12 +112,14 @@ describe('StatGroupTemplatePane', () => {
     )!;
     input.value = '移速';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flush();
     expect(items(container).map((el) => el.dataset.templateId)).toEqual(['t2']);
 
     // 支援依群組內詞綴篩選
     input.value = 'explicit.b';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flush();
     expect(items(container).map((el) => el.dataset.templateId)).toEqual(['t1']);
   });
@@ -356,6 +358,7 @@ describe('StatGroupTemplatePane', () => {
     )!;
     input.value = '移速';
     input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await flush();
     expect(items(container)).toHaveLength(1);
 

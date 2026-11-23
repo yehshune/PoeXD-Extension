@@ -2,6 +2,7 @@ import { computed, ref, watch, type Ref } from 'vue';
 import { filterModGroupsByItemLevel, parseItemLevelFilter } from '../utils';
 import type { CategoryGroup, ModGroup } from '../types';
 import { getActiveDisplayLocale } from '@/utils/i18n';
+import { useDebouncedRef } from './useDebouncedSearch';
 
 export type GenerationFilter = 'all' | 'prefix' | 'suffix';
 
@@ -38,6 +39,7 @@ export function useAffixFilter({
   getCategoryPriority,
 }: UseAffixFilterOptions) {
   const searchQuery = ref('');
+  const debouncedSearchQuery = useDebouncedRef(searchQuery);
   const clearSearchQuery = () => {
     searchQuery.value = '';
   };
@@ -82,8 +84,8 @@ export function useAffixFilter({
     const allGroups = currentTypeGroups.value;
 
     let filtered = allGroups;
-    if (searchQuery.value.trim()) {
-      const queries = searchQuery.value.toLowerCase().split(/\s+/).filter(Boolean);
+    if (debouncedSearchQuery.value.trim()) {
+      const queries = debouncedSearchQuery.value.toLowerCase().split(/\s+/).filter(Boolean);
       const displayLocale = getActiveDisplayLocale();
       const includeEnglishKey =
         displayLocale === 'zh-TW' || displayLocale === 'zh-CN' || displayLocale === 'en';

@@ -25,6 +25,7 @@ import { formatFolderPath } from '@/utils/bookmark-collection';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import { resolveBatchEnableToast } from './live-search-presentation';
+import { useDebouncedRef } from './composables/useDebouncedSearch';
 import {
   filterLiveSearchSourceGroups,
   formatLiveSearchDisplayLeague,
@@ -62,6 +63,7 @@ const urlInputRef = ref<any>(null);
 
 const sourceSnapshot = ref<Readonly<LiveSearchSourceSnapshot> | null>(null);
 const pickerSearchQuery = ref('');
+const debouncedPickerSearchQuery = useDebouncedRef(pickerSearchQuery);
 const selectedBookmarkIds = ref<Set<string>>(new Set());
 const collapsedPickerGroupIds = ref<Set<string>>(new Set());
 let unsubSource: (() => void) | null = null;
@@ -100,7 +102,7 @@ const bookmarkGroups = computed<LiveSearchSourceGroup[]>(() => {
 
 const filteredBookmarkGroups = computed<LiveSearchSourceGroup[]>(() => {
   return filterLiveSearchSourceGroups(bookmarkGroups.value, {
-    query: pickerSearchQuery.value,
+    query: debouncedPickerSearchQuery.value,
     statusFilter: 'all',
   }).filter((g) => (g.items?.length ?? 0) > 0);
 });

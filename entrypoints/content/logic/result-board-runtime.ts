@@ -60,6 +60,9 @@ const SHORTCUT_CLASS = 'poexd-board-shortcut';
 const LOCATE_CLASS = 'poexd-board-locate';
 const ROW_SELECTOR = '.resultset .row[data-id]';
 const GONE_ROW_SELECTOR = '.row[data-id].gone';
+/** 官方結果列上可納入看板搜尋的文字節點（品名、基底、詞綴、階級，排除按鈕與 UI 雜訊） */
+const ENTRY_SEARCH_TEXT_SELECTOR =
+  '.itemHeader .lc, .item-popup__header-line, .s.lc, [data-field^="stat."], .lc.l.pr, .lc.l.su';
 const NATIVE_LAYOUT_BTN_SELECTOR = '.layout-btn';
 const NATIVE_LAYOUT_GAP_PX = 8;
 const NATIVE_LAYOUT_PITCH_PX = 38;
@@ -288,6 +291,21 @@ export class ResultBoardRuntime {
       }
     }
     return undefined;
+  }
+
+  /** 讀取官方結果列上的顯示文字（含市集漢化後的品名、基底、詞綴與階級）供看板搜尋 */
+  readEntrySearchLines(id: string): readonly string[] {
+    const row = findOfficialRow(id, this.doc);
+    if (!row) return [];
+    const seen = new Set<string>();
+    const lines: string[] = [];
+    for (const el of row.querySelectorAll(ENTRY_SEARCH_TEXT_SELECTOR)) {
+      const text = el.textContent?.trim();
+      if (!text || seen.has(text)) continue;
+      seen.add(text);
+      lines.push(text);
+    }
+    return lines;
   }
 
   /** 按下官方結果列上 PoeXD 的釘選按鈕（與在結果列上釘選相同）；沒有按鈕時回傳 false */

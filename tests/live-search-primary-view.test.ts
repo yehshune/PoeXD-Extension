@@ -637,7 +637,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     ) as HTMLInputElement;
     searchInput.value = 'headhunter_xyz';
     searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-    await flushAsync();
+    await flushAsync(180);
     visibleNames = Array.from(container.querySelectorAll('[data-test="connection-item-name"]')).map(
       (el) => el.textContent?.trim(),
     );
@@ -1584,7 +1584,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       ) as HTMLInputElement;
       searchInput.value = '魔血';
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      await flushAsync();
+      await flushAsync(180);
 
       const groupA = container.querySelector('[data-group-id="session_connections"]')!;
       expect(groupA.querySelectorAll('[data-test="connection-item"]')).toHaveLength(1);
@@ -3041,7 +3041,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       ) as HTMLInputElement;
       searchInput.value = 'Headhunter';
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      await flushAsync();
+      await flushAsync(180);
 
       expect(
         Array.from(container.querySelectorAll('[data-test="connection-group"]')).map((el) =>
@@ -3239,7 +3239,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       // but filteredSourceIds ONLY has ['b-hh-idle'] (does NOT include 'b-helm-active' from ancestor 'f-helmet')!
       searchInput.value = 'Headhunter';
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      await flushAsync();
+      await flushAsync(180);
 
       expect(
         container.querySelector('[data-test="filtered-match-count"]')?.textContent?.trim(),
@@ -3263,7 +3263,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       // while excluding sibling 'f-gloves'
       searchInput.value = '頭盔';
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      await flushAsync();
+      await flushAsync(180);
 
       expect(
         container.querySelector('[data-test="filtered-match-count"]')?.textContent?.trim(),
@@ -4163,7 +4163,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       ) as HTMLInputElement;
       searchInput.value = 'non_matching_search_keyword';
       searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-      await flushAsync(100);
+      await flushAsync(180);
 
       expect(container.querySelector('[data-source-id="b-cleanup-1"]')).toBeNull();
       expect(document.body.querySelector('[data-slot="tooltip-content"]')).toBeNull();

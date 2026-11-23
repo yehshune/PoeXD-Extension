@@ -775,6 +775,7 @@ import {
   watch,
   type PropType,
 } from 'vue';
+import { useDebouncedRef } from '../composables/useDebouncedSearch';
 import {
   ArrowRight,
   BookmarkPlus,
@@ -923,6 +924,7 @@ export default defineComponent({
     const updateTarget = ref<{ id: string; name: string } | null>(null);
     const isSearchVisible = ref(false);
     const searchQuery = ref('');
+    const debouncedSearchQuery = useDebouncedRef(searchQuery);
     const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
     const renamingId = ref<string | null>(null);
     const renameInput = ref('');
@@ -1122,10 +1124,10 @@ export default defineComponent({
     const nameClass = (entry: ShoppingEntry): string =>
       entry.kind === 'gem' ? GEM_CLASS : (RARITY_CLASSES[entry.rarity ?? 'NORMAL'] ?? '');
 
-    const isFiltering = computed(() => searchQuery.value.trim().length > 0);
+    const isFiltering = computed(() => debouncedSearchQuery.value.trim().length > 0);
 
     const visibleBuilds = computed<BuildView[]>(() => {
-      const needle = searchQuery.value.trim().toLowerCase();
+      const needle = debouncedSearchQuery.value.trim().toLowerCase();
       if (!needle) return pob.builds.value;
       return pob.builds.value
         .map((build) => ({

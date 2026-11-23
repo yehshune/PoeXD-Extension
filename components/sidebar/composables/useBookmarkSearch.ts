@@ -10,6 +10,7 @@ import {
 } from 'vue';
 import type { Bookmark, BookmarkGroup } from '../bookmark-types';
 import { getFolderAncestors } from '@/utils/bookmark-collection';
+import { useDebouncedRef } from './useDebouncedSearch';
 
 const EMPTY_BOOKMARKS: readonly Bookmark[] = Object.freeze([]);
 
@@ -22,6 +23,7 @@ export function useBookmarkSearch(options: UseBookmarkSearchOptions) {
   const { groups, bookmarks } = options;
 
   const searchQuery = ref('');
+  const debouncedSearchQuery = useDebouncedRef(searchQuery);
   const isSearchVisible = ref(false);
   const searchInputRef = ref<HTMLInputElement | { $el?: HTMLInputElement } | null>(null);
 
@@ -68,7 +70,7 @@ export function useBookmarkSearch(options: UseBookmarkSearchOptions) {
   }
 
   const filteredGroups = computed<readonly BookmarkGroup[]>(() => {
-    const query = searchQuery.value.trim().toLowerCase();
+    const query = debouncedSearchQuery.value.trim().toLowerCase();
     if (!query) return groups.value;
 
     const matchingFolderIds = new Set(
@@ -101,7 +103,7 @@ export function useBookmarkSearch(options: UseBookmarkSearchOptions) {
   // 讓只讀取單一資料夾的元件在其他資料夾變動時不需重繪。
   let previousIndex = new Map<string, readonly Bookmark[]>();
   const filteredBookmarksByGroup = computed<ReadonlyMap<string, readonly Bookmark[]>>(() => {
-    const query = searchQuery.value.trim().toLowerCase();
+    const query = debouncedSearchQuery.value.trim().toLowerCase();
     const next = new Map<string, Bookmark[]>();
     for (const bm of bookmarks.value) {
       if (
