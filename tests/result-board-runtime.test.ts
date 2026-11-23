@@ -484,4 +484,36 @@ describe('ResultBoardRuntime', () => {
     runtime.setEnabled(true);
     expect(runtime.session.getState().marks).toEqual({ a: 'sold', b: 'sold' });
   });
+
+  it('syncOfficialFilter hides non-matching official rows, shows reset banner, and restores on reset', () => {
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    deliverFetch(cache, ['a', 'b']);
+
+    const onReset = vi.fn();
+    runtime.syncOfficialFilter({
+      matchedIds: new Set(['a']),
+      totalCount: 2,
+      onReset,
+    });
+
+    const resultset = document.querySelector('.resultset')!;
+    const rowA = document.querySelector('[data-id="a"]')!;
+    const rowB = document.querySelector('[data-id="b"]')!;
+    const banner = document.querySelector('.poexd-board-sync-banner')!;
+
+    expect(resultset.classList.contains('poexd-board-sync-active')).toBe(true);
+    expect(rowA.classList.contains('poexd-board-sync-hidden')).toBe(false);
+    expect(rowB.classList.contains('poexd-board-sync-hidden')).toBe(true);
+    expect(banner).not.toBeNull();
+    expect(banner.textContent).toContain('1');
+    expect(banner.textContent).toContain('2');
+
+    banner.querySelector('button')!.click();
+    expect(onReset).toHaveBeenCalledTimes(1);
+
+    runtime.syncOfficialFilter(null);
+    expect(resultset.classList.contains('poexd-board-sync-active')).toBe(false);
+    expect(rowB.classList.contains('poexd-board-sync-hidden')).toBe(false);
+    expect(document.querySelector('.poexd-board-sync-banner')).toBeNull();
+  });
 });

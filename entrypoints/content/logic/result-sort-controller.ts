@@ -131,6 +131,7 @@ export class ResultSortController {
   private pageRole: TradePageRole = 'normal';
   private activeSearchId?: string;
   private originalOrder: string[] = [];
+  private hasReorderedDom = false;
   private sortMode: SortMode = 'default';
   private statProvider?: SortStatProvider;
   private unsubRates?: () => void;
@@ -190,6 +191,18 @@ export class ResultSortController {
     }
   }
 
+  /** 新一次搜尋（即使與前一次同 searchId）：清空舊一輪的官方順序，避免 default 模式覆寫最新官方 DOM */
+  handleSearchQuery(searchId: string) {
+    if (this.isLiveOrConsole()) return;
+    const isNewSearchId = searchId !== this.activeSearchId;
+    this.activeSearchId = searchId;
+    this.originalOrder = [];
+    this.hasReorderedDom = false;
+    if (isNewSearchId) {
+      removeSortControls();
+    }
+  }
+
   handleFetchResponse(detail: string) {
     if (this.isLiveOrConsole()) return;
     const batch = parsePoeFetchResultBatch(detail);
@@ -199,6 +212,7 @@ export class ResultSortController {
     if (searchId !== this.activeSearchId) {
       this.activeSearchId = searchId;
       this.originalOrder = [];
+      this.hasReorderedDom = false;
       removeSortControls();
     }
 
@@ -670,6 +684,7 @@ export class ResultSortController {
     }
 
     if (this.sortMode === 'default') {
+      if (!this.hasReorderedDom) return;
       const orderIndexMap = new Map<string, number>();
       this.originalOrder.forEach((id, index) => orderIndexMap.set(id, index));
       const items = rows.map((row) => {
@@ -679,7 +694,9 @@ export class ResultSortController {
       });
       items.sort((a, b) => a.idx - b.idx);
       sortedRows = items.map((i) => i.row);
+      this.hasReorderedDom = false;
     } else if (isPurePriceSortMode(this.sortMode)) {
+      this.hasReorderedDom = true;
       const direction = this.sortMode === 'price_asc' ? 'asc' : 'desc';
       const items = rows.map((row) => {
         const id = resolveRowId(row);
@@ -691,6 +708,7 @@ export class ResultSortController {
       items.sort((a, b) => compareNullablePriceValues(a.val, b.val, direction));
       sortedRows = items.map((i) => i.row);
     } else {
+      this.hasReorderedDom = true;
       const items = rows.map((row) => {
         const id = resolveRowId(row);
         const rawStat = this.statProvider?.getSortMetric(this.sortMode, id);

@@ -22,6 +22,7 @@ import {
   matchesModConditions,
   type BoardModCondition,
   type BoardModOption,
+  type BoardModQuickFilter,
   type BoardModTierCap,
 } from '@/utils/result-board/board-mods';
 import { sumPrices, summarizePrices, type PriceTotal } from '@/utils/result-board/board-price';
@@ -82,6 +83,8 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const debouncedKeyword = useDebouncedRef(keyword);
   const modConditions = ref<readonly BoardModCondition[]>([]);
   const modPickerQuery = ref('');
+  const modQuickFilter = ref<BoardModQuickFilter>('all');
+  const syncOfficialFilter = ref(false);
   const debouncedModPickerQuery = useDebouncedRef(modPickerQuery);
   const modDictTick = ref(0);
   let modDictLoading = false;
@@ -166,13 +169,22 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
 
   const modOptions = computed<BoardModOption[]>(() => {
     void modDictTick.value;
-    return aggregateBoardModOptions(visibleEntries.value, (hash) =>
-      translateStatLines(hash, version).join(' / '),
+    return aggregateBoardModOptions(
+      visibleEntries.value,
+      (hash) => translateStatLines(hash, version).join(' / '),
+      modConditions.value,
     );
   });
 
+  const selectedModKeys = computed(() => new Set(modConditions.value.map((cond) => cond.key)));
+
   const filteredModOptions = computed(() =>
-    filterModOptions(modOptions.value, debouncedModPickerQuery.value),
+    filterModOptions(
+      modOptions.value,
+      debouncedModPickerQuery.value,
+      modQuickFilter.value,
+      selectedModKeys.value,
+    ),
   );
 
   const modOptionByKey = computed(() => {
@@ -193,6 +205,15 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       modConditions.value = modConditions.value.map((cond) => (cond.key === key ? next : cond));
     } else {
       modConditions.value = [...modConditions.value, next];
+    }
+  }
+
+  /** 點選選項標題：未選時啟用（不限階級），已選時直接移除整個條件 */
+  function toggleModOption(key: string): void {
+    if (modConditions.value.some((cond) => cond.key === key)) {
+      removeModCondition(key);
+    } else {
+      setModCondition(key, undefined);
     }
   }
 
@@ -262,14 +283,51 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
               matchesModConditions(entry, modConditions.value),
           )
         : entries.value;
-    return filterSellers(
-      sortSellers(aggregateSellers(sourceEntries, rates.value, soldIds.value)),
-      {
-        minInstantBuyout: minSellerCount.value,
-        hiddenAccounts: state.value.hiddenAccounts,
-      },
-    );
+    return filterSellers(sortSellers(aggregateSellers(sourceEntries, rates.value, soldIds.value)), {
+      minInstantBuyout: minSellerCount.value,
+      hiddenAccounts: state.value.hiddenAccounts,
+    });
   });
+
+  const hasActiveFilters = computed(
+    () =>
+      modConditions.value.length > 0 ||
+      debouncedKeyword.value.trim().length > 0 ||
+      (conversionAvailable.value &&
+        (parseBound(priceMinText.value) !== undefined ||
+          parseBound(priceMaxText.value) !== undefined)) ||
+      (hasMixedInstantBuyout.value && instantOnly.value) ||
+      (hasSoldEntries.value && hideSold.value) ||
+      state.value.hiddenAccounts.size > 0,
+  );
+
+  function toggleSyncOfficialFilter(): void {
+    if (!hasActiveFilters.value && !syncOfficialFilter.value) return;
+    syncOfficialFilter.value = !syncOfficialFilter.value;
+  }
+
+  watch(
+    [syncOfficialFilter, hasActiveFilters, view, filteredEntries, sellers, entries],
+    () => {
+      if (!syncOfficialFilter.value || !hasActiveFilters.value) {
+        runtime.syncOfficialFilter(null);
+        return;
+      }
+      const matchedIds = new Set(
+        view.value === 'items'
+          ? filteredEntries.value.map((entry) => entry.id)
+          : sellers.value.flatMap((seller) => seller.entries.map((entry) => entry.id)),
+      );
+      runtime.syncOfficialFilter({
+        matchedIds,
+        totalCount: entries.value.length,
+        onReset: () => {
+          syncOfficialFilter.value = false;
+        },
+      });
+    },
+    { flush: 'post' },
+  );
 
   const priceSummary = computed(() => summarizePrices(entries.value, rates.value));
 
@@ -454,6 +512,8 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       expandedSellers.value = new Set();
       modConditions.value = [];
       modPickerQuery.value = '';
+      modQuickFilter.value = 'all';
+      syncOfficialFilter.value = false;
       snapshotCache.clear();
       travelTimers.forEach((timer) => clearTimeout(timer));
       travelTimers.clear();
@@ -505,6 +565,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
 
   onUnmounted(() => {
     disposed = true;
+    runtime.syncOfficialFilter(null);
     snapshotCache.clear();
     travelTimers.forEach((timer) => clearTimeout(timer));
     travelTimers.clear();
@@ -528,11 +589,16 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     keyword,
     modConditions,
     modPickerQuery,
+    modQuickFilter,
+    hasActiveFilters,
+    syncOfficialFilter,
+    toggleSyncOfficialFilter,
     modOptions,
     filteredModOptions,
     modOptionByKey,
     ensureModDictionary,
     setModCondition,
+    toggleModOption,
     removeModCondition,
     clearModConditions,
     priceMinText,

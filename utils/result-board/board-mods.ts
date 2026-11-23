@@ -19,7 +19,11 @@ export type BoardModRoll = TradeItemModRoll;
 export const BOARD_MOD_TIER_CAPS = [1, 2, 3] as const;
 export type BoardModTierCap = (typeof BOARD_MOD_TIER_CAPS)[number];
 
-/** 看板「必含獨立詞綴」條件；`maxTier` 未設表示不限階級，設為 1/2/3 表示 T1 / ≤T2 / ≤T3 */
+/** 獨立詞綴選擇器的快速分類切換 */
+export const BOARD_MOD_QUICK_FILTERS = ['all', 'pure', 'hybrid', 't1'] as const;
+export type BoardModQuickFilter = (typeof BOARD_MOD_QUICK_FILTERS)[number];
+
+/** 看板「必含獨立詞綴」條件；`maxTier` 未設表示不限階級，設為 1/2/3 表示 T1 / T1–T2 / T1–T3 */
 export interface BoardModCondition {
   key: string;
   maxTier?: BoardModTierCap;
@@ -33,12 +37,16 @@ export interface BoardModOption {
   isHybrid: boolean;
   label: string;
   searchText: string;
-  /** 擁有此獨立詞條的物品件數 */
+  /** 符合其餘已選條件交集後，擁有此獨立詞條的物品件數 */
   itemCount: number;
-  /** 是否有任何一筆帶數字階級（決定 UI 是否顯示階級按鈕） */
+  /** 是否有任何一筆帶數字階級 */
   hasTiers: boolean;
-  /** 累積階級件數：T1 (≤1)、≤T2、≤T3 各符合幾件物品 */
+  /** 累積階級件數：T1、T1–T2、T1–T3 各符合幾件物品（已套用其餘條件交集） */
   tierCounts: Readonly<Record<BoardModTierCap, number>>;
+  /** 目前結果中出現的最高階級代碼（例如 `P1`、`S2`），供 tooltip 提示 */
+  bestTier?: string;
+  /** 目前結果中出現過的詞綴原名（如 `Merciless`、`Conqueror's`），供 tooltip 提示 */
+  sampleNames: readonly string[];
 }
 
 /** 解析單一詞綴階級字串（例如 `P1` → prefix #1、`S3` → suffix #3） */
@@ -72,10 +80,16 @@ export function matchesModConditions(
   );
 }
 
-/** 從已載入的看板結果彙整獨立詞條選項，依出現件數降冪排序 */
+const MAX_SAMPLE_NAMES = 4;
+
+/**
+ * 從已載入的看板結果彙整獨立詞條選項，並依其餘已選條件計算即時交集件數（faceted counts）。
+ * 即使交集為 0，選項仍保留在清單中（件數為 0），方便玩家看清全貌並即時調整條件。
+ */
 export function aggregateBoardModOptions(
   entries: readonly BoardEntry[],
   resolveStatLabel: (hash: string) => string,
+  activeConditions: readonly BoardModCondition[] = [],
 ): BoardModOption[] {
   interface Bucket {
     key: string;
@@ -85,10 +99,27 @@ export function aggregateBoardModOptions(
     names: Set<string>;
     entryIds: Set<string>;
     hasTiers: boolean;
+    bestTierNumber?: number;
+    bestTier?: string;
     tierEntryIds: Record<BoardModTierCap, Set<string>>;
   }
 
   const buckets = new Map<string, Bucket>();
+  const recordRoll = (bucket: Bucket, entryId: string, roll: BoardModRoll) => {
+    bucket.entryIds.add(entryId);
+    if (roll.tierNumber !== undefined) {
+      bucket.hasTiers = true;
+      if (bucket.bestTierNumber === undefined || roll.tierNumber < bucket.bestTierNumber) {
+        bucket.bestTierNumber = roll.tierNumber;
+        bucket.bestTier = roll.tier;
+      }
+      for (const cap of BOARD_MOD_TIER_CAPS) {
+        if (roll.tierNumber <= cap) bucket.tierEntryIds[cap].add(entryId);
+      }
+    }
+  };
+
+  // 先建立所有曾出現詞條的靜態欄位（label、原名、是否帶階級）
   for (const entry of entries) {
     if (!entry.modRolls) continue;
     for (const roll of entry.modRolls) {
@@ -106,12 +137,38 @@ export function aggregateBoardModOptions(
         };
         buckets.set(roll.key, bucket);
       }
-      bucket.entryIds.add(entry.id);
       if (roll.name) bucket.names.add(roll.name);
-      if (roll.tierNumber !== undefined) {
-        bucket.hasTiers = true;
-        for (const cap of BOARD_MOD_TIER_CAPS) {
-          if (roll.tierNumber <= cap) bucket.tierEntryIds[cap].add(entry.id);
+      if (roll.tierNumber !== undefined) bucket.hasTiers = true;
+      if (activeConditions.length === 0) {
+        recordRoll(bucket, entry.id, roll);
+      }
+    }
+  }
+
+  if (activeConditions.length > 0) {
+    const activeKeySet = new Set(activeConditions.map((cond) => cond.key));
+    // 非已選詞條共用「全部已選條件」篩選結果；已選詞條各自排除自身條件後重算
+    const allMatched = entries.filter((entry) => matchesModConditions(entry, activeConditions));
+    for (const entry of allMatched) {
+      if (!entry.modRolls) continue;
+      for (const roll of entry.modRolls) {
+        if (activeKeySet.has(roll.key)) continue;
+        const bucket = buckets.get(roll.key);
+        if (bucket) recordRoll(bucket, entry.id, roll);
+      }
+    }
+    for (const cond of activeConditions) {
+      const bucket = buckets.get(cond.key);
+      if (!bucket) continue;
+      const others = activeConditions.filter((item) => item.key !== cond.key);
+      const scoped =
+        others.length === 0
+          ? entries
+          : entries.filter((entry) => matchesModConditions(entry, others));
+      for (const entry of scoped) {
+        if (!entry.modRolls) continue;
+        for (const roll of entry.modRolls) {
+          if (roll.key === cond.key) recordRoll(bucket, entry.id, roll);
         }
       }
     }
@@ -120,11 +177,12 @@ export function aggregateBoardModOptions(
   const options: BoardModOption[] = [];
   for (const bucket of buckets.values()) {
     const label = bucket.hashes.map((hash) => resolveStatLabel(hash)).join(' / ');
+    const sampleNames = Array.from(bucket.names).slice(0, MAX_SAMPLE_NAMES);
     const searchParts = [
       label,
       ...bucket.names,
       ...bucket.hashes,
-      bucket.isHybrid ? 'hybrid 複合 复合' : 'pure 純詞 纯词',
+      bucket.isHybrid ? 'hybrid 複合 复合' : 'single pure 單詞 单词 純詞 纯词',
     ];
     options.push({
       key: bucket.key,
@@ -140,6 +198,8 @@ export function aggregateBoardModOptions(
         2: bucket.tierEntryIds[2].size,
         3: bucket.tierEntryIds[3].size,
       },
+      ...(bucket.bestTier ? { bestTier: bucket.bestTier } : {}),
+      sampleNames,
     });
   }
 
@@ -161,18 +221,38 @@ export function isSubsequence(needle: string, haystack: string): boolean {
   return j === needle.length;
 }
 
-/** 篩選詞條選擇器清單（支援空白多詞＋模糊子序列比對） */
+/** 篩選詞條選擇器清單（支援快速分類、空白多詞＋模糊子序列比對，並將已選條件置頂、0 件交集排後） */
 export function filterModOptions(
   options: readonly BoardModOption[],
   query: string,
+  quickFilter: BoardModQuickFilter = 'all',
+  selectedKeys?: ReadonlySet<string>,
 ): BoardModOption[] {
   const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return [...options];
-  return options.filter((opt) =>
-    tokens.every(
+  const filtered = options.filter((opt) => {
+    if (quickFilter === 'pure' && opt.isHybrid) return false;
+    if (quickFilter === 'hybrid' && !opt.isHybrid) return false;
+    if (quickFilter === 't1' && opt.tierCounts[1] === 0) return false;
+    if (tokens.length === 0) return true;
+    return tokens.every(
       (token) =>
         opt.searchText.includes(token) ||
         (token.length >= 2 && isSubsequence(token, opt.searchText)),
-    ),
-  );
+    );
+  });
+
+  if (!selectedKeys || selectedKeys.size === 0) return filtered;
+  return filtered.sort((a, b) => {
+    const aSelected = selectedKeys.has(a.key) ? 0 : 1;
+    const bSelected = selectedKeys.has(b.key) ? 0 : 1;
+    if (aSelected !== bSelected) return aSelected - bSelected;
+    const aNonZero = a.itemCount > 0 ? 0 : 1;
+    const bNonZero = b.itemCount > 0 ? 0 : 1;
+    if (aNonZero !== bNonZero) return aNonZero - bNonZero;
+    return (
+      b.itemCount - a.itemCount ||
+      Number(a.isHybrid) - Number(b.isHybrid) ||
+      a.label.localeCompare(b.label)
+    );
+  });
 }

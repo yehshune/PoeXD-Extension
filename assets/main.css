@@ -375,6 +375,11 @@
 ) {
   color-scheme: light;
   --popover: color-mix(in oklch, var(--background), oklch(1 0 0) 25%);
+  /* 亮色主題的 --card 比 --background 略暗，--muted / --accent 須以 --card 為基準往 --foreground 混色，
+     否則在 bg-card 上的 hover:bg-muted(/50) 會幾乎與卡片底色重合而看不出變化 */
+  --secondary: color-mix(in oklch, var(--card), var(--foreground) 10%);
+  --muted: color-mix(in oklch, var(--card), var(--foreground) 11%);
+  --accent: color-mix(in oklch, var(--card), var(--primary) 18%);
 }
 
 :host([data-poexd-theme='graphite-hud']),

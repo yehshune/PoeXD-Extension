@@ -359,4 +359,40 @@ describe('ResultSortController', () => {
 
     controller.cleanup();
   });
+
+  it('同一個 searchId 重新搜尋後應清空舊 originalOrder，不把官方最新 DOM 硬排回舊順序', () => {
+    const { results, resultSet, addRow } = createHappyTradeDom(
+      'https://www.pathofexile.com/trade/search/Standard/same-search',
+    );
+    const mockPricePresenter = {
+      isEnabled: () => true,
+      getPrimaryPrice: () => 10,
+    };
+    const controller = new ResultSortController('poe1', mockPricePresenter as any);
+
+    // 第一輪搜尋：a -> b -> c
+    controller.handleSearchQuery('same-search');
+    controller.handleFetchResponse(
+      JSON.stringify({
+        url: '/api/trade/fetch/a,b,c?query=same-search',
+        data: { result: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] },
+      }),
+    );
+
+    // 第二輪同條件重新搜尋（same searchId），官方順序變成 c -> a -> b
+    controller.handleSearchQuery('same-search');
+    const rC = addRow('c');
+    const rA = addRow('a');
+    const rB = addRow('b');
+    controller.handleFetchResponse(
+      JSON.stringify({
+        url: '/api/trade/fetch/c,a,b?query=same-search',
+        data: { result: [{ id: 'c' }, { id: 'a' }, { id: 'b' }] },
+      }),
+    );
+    controller.apply(results as unknown as Element);
+
+    expect(Array.from(resultSet.children)).toEqual([rC, rA, rB] as any);
+    controller.cleanup();
+  });
 });

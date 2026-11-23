@@ -338,7 +338,9 @@ export function createDefaultResultEnhancementPipeline(
       resultPin.refresh();
       externalLinks.refresh();
     },
-    onSearchQuery: (searchId, criteria) =>
-      modHighlighter.handleSearchQuery(searchId, criteria as any),
+    onSearchQuery: (searchId, criteria) => {
+      modHighlighter.handleSearchQuery(searchId, criteria as any);
+      sortController.handleSearchQuery(searchId);
+    },
   });
 }

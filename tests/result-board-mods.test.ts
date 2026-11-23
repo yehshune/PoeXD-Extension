@@ -178,12 +178,44 @@ describe('board-mods independent mod parsing, aggregation & filtering', () => {
       .map((e) => e.id);
     expect(matchedBoth).toEqual(['pure-t1']);
 
-    // Picker fuzzy & hybrid/pure keyword search
+    // Picker fuzzy & hybrid/single keyword search
+    expect(filterModOptions(options, '物理傷 單詞').map((o) => o.key)).toEqual([purePhys.key]);
     expect(filterModOptions(options, '物理傷 純詞').map((o) => o.key)).toEqual([purePhys.key]);
     expect(filterModOptions(options, '物理傷 複合').map((o) => o.key)).toEqual([
       hybridAcc.key,
       hybridImpale.key,
     ]);
+
+    // Quick filters: pure / hybrid / t1
+    expect(filterModOptions(options, '', 'pure').every((o) => !o.isHybrid)).toBe(true);
+    expect(filterModOptions(options, '', 'hybrid').every((o) => o.isHybrid)).toBe(true);
+    expect(filterModOptions(options, '', 't1').map((o) => o.key)).toEqual(
+      expect.arrayContaining([purePhys.key, aspdOpt.key, hybridImpale.key]),
+    );
+    expect(filterModOptions(options, '', 't1').some((o) => o.key === hybridAcc.key)).toBe(false);
+
+    // Best tier & sample affix names metadata for tooltips
+    expect(purePhys.bestTier).toBe('P1');
+    expect(purePhys.sampleNames).toEqual(expect.arrayContaining(['Merciless', 'Cruel']));
+
+    // Faceted counts when pure %phys T1 is active:
+    // - purePhys keeps its own full counts (3 items, 2 T1)
+    // - aspd stays 1 (pure-t1 has both)
+    // - hybridAcc drops from 2 -> 1 (only pure-t1-plus-hybrid matches)
+    // - hybridImpale drops from 1 -> 0
+    const faceted = aggregateBoardModOptions(entries, resolveLabel, [
+      { key: purePhys.key, maxTier: 1 },
+    ]);
+    const facetedByKey = new Map(faceted.map((o) => [o.key, o]));
+    expect(facetedByKey.get(purePhys.key)?.itemCount).toBe(3);
+    expect(facetedByKey.get(aspdOpt.key)?.itemCount).toBe(1);
+    expect(facetedByKey.get(hybridAcc.key)?.itemCount).toBe(1);
+    expect(facetedByKey.get(hybridImpale.key)?.itemCount).toBe(0);
+
+    // Selected options pin to top, 0-count options sink to bottom
+    const ordered = filterModOptions(faceted, '', 'all', new Set([aspdOpt.key]));
+    expect(ordered[0].key).toBe(aspdOpt.key);
+    expect(ordered[ordered.length - 1].key).toBe(hybridImpale.key);
   });
 
   it('parses current official structured *Mods entries with extended.hashes (PoE 1 & PoE 2)', () => {

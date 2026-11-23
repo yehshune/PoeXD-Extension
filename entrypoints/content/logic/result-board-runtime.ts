@@ -55,9 +55,19 @@ const TRAVEL_REFRESH_POLL_MS = 100;
  */
 export type TravelOutcome = 'travelled' | 'unavailable' | 'busy' | 'refresh-failed';
 
+/** 看板同步過濾左側官方結果列的狀態（顯式 opt-in，純 CSS 隱藏不改動官方排序） */
+export interface OfficialFilterSync {
+  matchedIds: ReadonlySet<string>;
+  totalCount: number;
+  onReset: () => void;
+}
+
 const STYLE_ID = 'poexd-result-board-style';
 const SHORTCUT_CLASS = 'poexd-board-shortcut';
 const LOCATE_CLASS = 'poexd-board-locate';
+const SYNC_ACTIVE_CLASS = 'poexd-board-sync-active';
+const SYNC_HIDDEN_CLASS = 'poexd-board-sync-hidden';
+const SYNC_BANNER_CLASS = 'poexd-board-sync-banner';
 const ROW_SELECTOR = '.resultset .row[data-id]';
 const GONE_ROW_SELECTOR = '.row[data-id].gone';
 /** 官方結果列上可納入看板搜尋的文字節點（品名、基底、詞綴、階級，排除按鈕與 UI 雜訊） */
@@ -113,6 +123,40 @@ const STYLE_CONTENT = `
     outline: 2px solid oklch(0.858 0.068 82.8);
     outline-offset: -2px;
     transition: outline-color 0.3s;
+  }
+  .resultset .row.${SYNC_HIDDEN_CLASS} {
+    display: none !important;
+  }
+  .resultset.${SYNC_ACTIVE_CLASS} .controls:has(.load-more-btn),
+  .resultset.${SYNC_ACTIVE_CLASS} .load-more-btn {
+    display: none !important;
+  }
+  .${SYNC_BANNER_CLASS} {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 6px 0;
+    padding: 8px 12px;
+    border: 1px solid oklch(0.52 0.04 76);
+    background: oklch(0.245 0.006 250 / 0.96);
+    color: oklch(0.92 0.03 82);
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .${SYNC_BANNER_CLASS} > button {
+    padding: 3px 10px;
+    border: 1px solid oklch(0.52 0.04 76);
+    background: oklch(0.295 0.006 250);
+    color: oklch(0.95 0.025 82);
+    font-size: 12px;
+    line-height: 1.3;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .${SYNC_BANNER_CLASS} > button:hover {
+    background: oklch(0.35 0.01 250);
   }
 `;
 
@@ -195,6 +239,7 @@ export class ResultBoardRuntime {
   private currencyScanTimer: ReturnType<typeof setTimeout> | undefined;
   private goneObserver: MutationObserver | undefined;
   private observedResultset: Element | null = null;
+  private officialFilter: OfficialFilterSync | null = null;
 
   constructor(
     private readonly cache: TradeResultCache = getTradeResultCache(),
@@ -511,7 +556,77 @@ export class ResultBoardRuntime {
     this.observedResultset = null;
   }
 
+  /** 同步暫時過濾左側官方結果列（純 CSS 隱藏未命中列＋頂部還原橫條＋暫藏底部載入按鈕） */
+  syncOfficialFilter(filter: OfficialFilterSync | null): void {
+    this.officialFilter = filter;
+    if (!filter) {
+      this.clearOfficialFilterDom();
+      return;
+    }
+    this.ensureStyle();
+    this.ensureGoneObserver();
+    this.applyOfficialFilterDom(filter);
+  }
+
+  private applyOfficialFilterDom(filter: OfficialFilterSync): void {
+    const resultset = this.doc.querySelector('.resultset');
+    if (resultset) {
+      resultset.classList.add(SYNC_ACTIVE_CLASS);
+      for (const row of resultset.querySelectorAll('.row[data-id]')) {
+        const id = row.getAttribute('data-id');
+        row.classList.toggle(SYNC_HIDDEN_CLASS, !id || !filter.matchedIds.has(id));
+      }
+    }
+    this.upsertSyncBanner(filter);
+  }
+
+  private upsertSyncBanner(filter: OfficialFilterSync): void {
+    const resultset = this.doc.querySelector('.resultset');
+    const rowTotal = this.doc.querySelector('.row.row-total');
+    const anchor = rowTotal ?? resultset;
+    if (!anchor?.parentNode) return;
+
+    let banner = this.doc.querySelector<HTMLElement>(`.${SYNC_BANNER_CLASS}`);
+    if (!banner) {
+      banner = this.doc.createElement('div');
+      banner.className = SYNC_BANNER_CLASS;
+      banner.setAttribute('role', 'status');
+      const label = this.doc.createElement('span');
+      const resetBtn = this.doc.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.addEventListener('click', () => {
+        this.officialFilter?.onReset();
+      });
+      banner.append(label, resetBtn);
+      if (rowTotal) rowTotal.after(banner);
+      else resultset?.before(banner);
+    }
+
+    const label = banner.querySelector('span');
+    const resetBtn = banner.querySelector('button');
+    if (label) {
+      label.textContent = t('resultBoard.syncOfficial.banner', {
+        matched: filter.matchedIds.size,
+        total: filter.totalCount,
+      });
+    }
+    if (resetBtn) {
+      resetBtn.textContent = t('resultBoard.syncOfficial.showAll');
+    }
+  }
+
+  private clearOfficialFilterDom(): void {
+    this.doc.querySelectorAll(`.${SYNC_ACTIVE_CLASS}`).forEach((element) => {
+      element.classList.remove(SYNC_ACTIVE_CLASS);
+    });
+    this.doc.querySelectorAll(`.${SYNC_HIDDEN_CLASS}`).forEach((element) => {
+      element.classList.remove(SYNC_HIDDEN_CLASS);
+    });
+    this.doc.querySelectorAll(`.${SYNC_BANNER_CLASS}`).forEach((element) => element.remove());
+  }
+
   private handleResultsetMutations(mutations: readonly MutationRecord[]): void {
+    let addedRow = false;
     for (const mutation of mutations) {
       if (mutation.type === 'attributes') {
         const target = mutation.target;
@@ -528,6 +643,7 @@ export class ResultBoardRuntime {
         for (const node of mutation.addedNodes) {
           if (node.nodeType !== 1) continue;
           const el = node as Element;
+          if (el.classList.contains('row')) addedRow = true;
           if (el.classList.contains('row') && el.classList.contains('gone')) {
             const id = el.getAttribute('data-id');
             if (id) this.session.markSold(id);
@@ -536,6 +652,9 @@ export class ResultBoardRuntime {
           }
         }
       }
+    }
+    if (addedRow && this.officialFilter) {
+      this.applyOfficialFilterDom(this.officialFilter);
     }
   }
 
@@ -546,17 +665,19 @@ export class ResultBoardRuntime {
     }
   }
 
-  /** 換搜尋時停下進行中的載入、清掉上一次的停止原因與等待中的前往藏身處 */
+  /** 換搜尋時停下進行中的載入、清掉上一次的停止原因、同步過濾與等待中的前往藏身處 */
   private handleSearchChange({ searchId, startedAt }: BoardState): void {
     const observed = this.observedSearch;
     if (observed?.searchId === searchId && observed.startedAt === startedAt) return;
     this.observedSearch = { searchId, startedAt };
     this.pendingTravels = [];
     this.loader.reset();
+    this.syncOfficialFilter(null);
   }
 
   private detach(): void {
     this.loader.reset();
+    this.syncOfficialFilter(null);
     this.disconnectGoneObserver();
     this.cleanups.forEach((cleanup) => cleanup());
     this.cleanups = [];

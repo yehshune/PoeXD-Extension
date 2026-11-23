@@ -11,6 +11,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   LayoutList,
+  ListFilter,
   Loader2,
   Minus,
   Plus,
@@ -58,6 +59,9 @@ const {
   keyword,
   modConditions,
   modPickerQuery,
+  modQuickFilter,
+  hasActiveFilters,
+  syncOfficialFilter,
   modOptions,
   filteredModOptions,
   modOptionByKey,
@@ -359,9 +363,9 @@ function setMinSellerCount(value: string | number): void {
       />
 
       <div class="flex flex-col gap-[var(--pxd-space-sm)] pb-[var(--pxd-space-sm)]">
-        <div class="flex items-center gap-[var(--pxd-space-sm)]">
+        <div class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]">
           <div
-            class="flex h-[var(--control-height-sm)] items-center rounded-md border border-border p-[2px]"
+            class="order-1 flex h-[var(--control-height-sm)] shrink-0 items-center rounded-md border border-border p-[2px]"
             role="tablist"
           >
             <Button
@@ -378,152 +382,10 @@ function setMinSellerCount(value: string | number): void {
               {{ option === 'items' ? t('resultBoard.view.items') : t('resultBoard.view.sellers') }}
             </Button>
           </div>
-          <span class="flex-1"></span>
-          <DropdownMenu v-if="view === 'items'" v-model:open="isSortMenuOpen">
-            <DropdownMenuTrigger as-child>
-              <Button
-                :variant="sortMode !== 'official' ? 'default' : 'outline'"
-                size="icon-sm"
-                :title="t('resultBoard.sort.title')"
-                :aria-label="t('resultBoard.sort.title')"
-                data-board-sort
-              >
-                <ArrowUpDown />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent v-if="isSortMenuOpen" align="end">
-              <DropdownMenuItem
-                v-for="mode in sortModes"
-                :key="mode"
-                :data-board-sort-mode="mode"
-                class="justify-between gap-[var(--pxd-space-md)]"
-                @click="sortMode = mode"
-              >
-                <span>{{ t(SORT_LABEL_KEYS[mode]) }}</span>
-                <Check
-                  v-if="sortMode === mode"
-                  class="size-[var(--control-icon-sm)] text-primary"
-                />
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            :variant="isModFilterOpen || modConditions.length > 0 ? 'default' : 'outline'"
-            size="icon-sm"
-            class="relative shrink-0"
-            data-board-mod-filter-toggle
-            :aria-expanded="isModFilterOpen"
-            :title="t('resultBoard.modFilter.title')"
-            :aria-label="t('resultBoard.modFilter.title')"
-            @click="toggleModFilter"
-          >
-            <SlidersHorizontal />
-            <span
-              v-if="modConditions.length > 0"
-              class="absolute -top-1 -right-1 flex h-[14px] min-w-[14px] items-center justify-center rounded-full border border-background bg-primary px-[3px] text-[9px] font-bold leading-none text-primary-foreground tabular-nums"
-              data-board-mod-filter-count
-            >
-              {{ modConditions.length }}
-            </span>
-          </Button>
-          <Button
-            :variant="isSearchVisible ? 'default' : 'outline'"
-            size="icon-sm"
-            class="shrink-0"
-            data-board-search-toggle
-            :aria-expanded="isSearchVisible"
-            :title="
-              isSearchVisible ? t('bookmark.search.closeTooltip') : t('resultBoard.filter.keyword')
-            "
-            :aria-label="
-              isSearchVisible ? t('bookmark.search.closeTooltip') : t('resultBoard.filter.keyword')
-            "
-            @click="toggleSearch"
-          >
-            <Search />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            class="shrink-0"
-            data-board-expand-toggle
-            :disabled="!canToggleExpandAll"
-            :aria-pressed="hasAnyExpanded"
-            :title="hasAnyExpanded ? t('common.collapseAll') : t('common.expandAll')"
-            :aria-label="hasAnyExpanded ? t('common.collapseAll') : t('common.expandAll')"
-            @click="board.toggleExpandAll"
-          >
-            <ChevronsDownUp v-if="hasAnyExpanded" />
-            <ChevronsUpDown v-else />
-          </Button>
-        </div>
 
-        <div v-if="isSearchVisible" class="relative flex items-center">
-          <Search
-            class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
-          />
-          <Input
-            ref="searchInputRef"
-            v-model="keyword"
-            size="sm"
-            :placeholder="t('resultBoard.filter.keyword')"
-            class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))]"
-            data-board-keyword
-            @keydown.esc.stop.prevent="closeSearch"
-          />
-          <Button
-            v-if="keyword"
-            variant="ghost"
-            size="icon-sm"
-            class="absolute right-[var(--pxd-space-xs)]"
-            :aria-label="t('common.clearSearch')"
-            @click="keyword = ''"
-          >
-            <X />
-          </Button>
-        </div>
-
-        <ResultBoardModFilterPanel
-          :open="isModFilterOpen"
-          :query="modPickerQuery"
-          :options="filteredModOptions"
-          :all-option-count="modOptions.length"
-          :option-by-key="modOptionByKey"
-          :conditions="modConditions"
-          @update:query="modPickerQuery = $event"
-          @select="board.setModCondition"
-          @remove="board.removeModCondition"
-          @clear-all="board.clearModConditions"
-          @close="closeModFilter"
-        />
-
-        <div
-          v-if="
-            view === 'items' && (hasMixedInstantBuyout || hasSoldEntries || conversionAvailable)
-          "
-          class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]"
-        >
-          <label
-            v-if="hasMixedInstantBuyout"
-            class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] cursor-pointer select-none"
-          >
-            <Checkbox v-model="instantOnly" data-board-instant-only />
-            {{ t('resultBoard.filter.instantOnly') }}
-          </label>
-          <label
-            v-if="hasSoldEntries"
-            class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] cursor-pointer select-none"
-          >
-            <Checkbox
-              :model-value="hideSold"
-              data-board-hide-sold
-              @update:model-value="setHideSold"
-            />
-            {{ t('resultBoard.filter.hideSold') }}
-          </label>
           <div
-            v-if="conversionAvailable"
-            class="inline-flex items-center gap-[var(--pxd-space-xs)]"
+            v-if="view === 'items' && conversionAvailable"
+            class="order-3 flex basis-full items-center gap-[var(--pxd-space-xs)] @[460px]:order-2 @[460px]:basis-auto"
           >
             <Input
               v-model="priceMinText"
@@ -569,13 +431,10 @@ function setMinSellerCount(value: string | number): void {
               <X />
             </Button>
           </div>
-        </div>
-        <div
-          v-else-if="view === 'sellers'"
-          class="flex flex-wrap items-center justify-between gap-[var(--pxd-space-sm)]"
-        >
+
           <div
-            class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)]"
+            v-else-if="view === 'sellers'"
+            class="order-3 flex basis-full items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] @[460px]:order-2 @[460px]:basis-auto"
           >
             <span>{{ t('resultBoard.filter.minCount') }}</span>
             <div
@@ -617,16 +476,181 @@ function setMinSellerCount(value: string | number): void {
             </div>
             <span>{{ t('resultBoard.filter.minCountUnit') }}</span>
           </div>
-          <Button
-            v-if="state.hiddenAccounts.size > 0"
-            variant="link"
-            size="sm"
-            class="h-auto p-0"
-            data-board-show-hidden
-            @click="board.showAllSellers"
+
+          <div
+            class="order-2 ml-auto flex shrink-0 items-center gap-[var(--pxd-space-sm)] @[460px]:order-3"
           >
-            {{ t('resultBoard.hidden.restore', { count: state.hiddenAccounts.size }) }}
+            <DropdownMenu v-if="view === 'items'" v-model:open="isSortMenuOpen">
+              <DropdownMenuTrigger as-child>
+                <Button
+                  :variant="sortMode !== 'official' ? 'default' : 'outline'"
+                  size="icon-sm"
+                  :title="t('resultBoard.sort.title')"
+                  :aria-label="t('resultBoard.sort.title')"
+                  data-board-sort
+                >
+                  <ArrowUpDown />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent v-if="isSortMenuOpen" align="end">
+                <DropdownMenuItem
+                  v-for="mode in sortModes"
+                  :key="mode"
+                  :data-board-sort-mode="mode"
+                  class="justify-between gap-[var(--pxd-space-md)]"
+                  @click="sortMode = mode"
+                >
+                  <span>{{ t(SORT_LABEL_KEYS[mode]) }}</span>
+                  <Check
+                    v-if="sortMode === mode"
+                    class="size-[var(--control-icon-sm)] text-primary"
+                  />
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              :variant="syncOfficialFilter && hasActiveFilters ? 'default' : 'outline'"
+              size="icon-sm"
+              class="shrink-0"
+              data-board-sync-official
+              :disabled="!hasActiveFilters && !syncOfficialFilter"
+              :aria-pressed="syncOfficialFilter && hasActiveFilters"
+              :title="
+                !hasActiveFilters && !syncOfficialFilter
+                  ? t('resultBoard.syncOfficial.disabledHint')
+                  : syncOfficialFilter
+                    ? t('resultBoard.syncOfficial.active')
+                    : t('resultBoard.syncOfficial.title')
+              "
+              :aria-label="
+                syncOfficialFilter
+                  ? t('resultBoard.syncOfficial.active')
+                  : t('resultBoard.syncOfficial.title')
+              "
+              @click="board.toggleSyncOfficialFilter"
+            >
+              <ListFilter />
+            </Button>
+            <Button
+              :variant="isModFilterOpen || modConditions.length > 0 ? 'default' : 'outline'"
+              size="icon-sm"
+              class="relative shrink-0"
+              data-board-mod-filter-toggle
+              :aria-expanded="isModFilterOpen"
+              :title="t('resultBoard.modFilter.title')"
+              :aria-label="t('resultBoard.modFilter.title')"
+              @click="toggleModFilter"
+            >
+              <SlidersHorizontal />
+              <span
+                v-if="modConditions.length > 0"
+                class="absolute -top-1 -right-1 flex h-[14px] min-w-[14px] items-center justify-center rounded-full border border-background bg-primary px-[3px] text-[9px] font-bold leading-none text-primary-foreground tabular-nums"
+                data-board-mod-filter-count
+              >
+                {{ modConditions.length }}
+              </span>
+            </Button>
+            <Button
+              :variant="isSearchVisible ? 'default' : 'outline'"
+              size="icon-sm"
+              class="shrink-0"
+              data-board-search-toggle
+              :aria-expanded="isSearchVisible"
+              :title="
+                isSearchVisible
+                  ? t('bookmark.search.closeTooltip')
+                  : t('resultBoard.filter.keyword')
+              "
+              :aria-label="
+                isSearchVisible
+                  ? t('bookmark.search.closeTooltip')
+                  : t('resultBoard.filter.keyword')
+              "
+              @click="toggleSearch"
+            >
+              <Search />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              class="shrink-0"
+              data-board-expand-toggle
+              :disabled="!canToggleExpandAll"
+              :aria-pressed="hasAnyExpanded"
+              :title="hasAnyExpanded ? t('common.collapseAll') : t('common.expandAll')"
+              :aria-label="hasAnyExpanded ? t('common.collapseAll') : t('common.expandAll')"
+              @click="board.toggleExpandAll"
+            >
+              <ChevronsDownUp v-if="hasAnyExpanded" />
+              <ChevronsUpDown v-else />
+            </Button>
+          </div>
+        </div>
+
+        <div v-if="isSearchVisible" class="relative flex items-center">
+          <Search
+            class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
+          />
+          <Input
+            ref="searchInputRef"
+            v-model="keyword"
+            size="sm"
+            :placeholder="t('resultBoard.filter.keyword')"
+            class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))]"
+            data-board-keyword
+            @keydown.esc.stop.prevent="closeSearch"
+          />
+          <Button
+            v-if="keyword"
+            variant="ghost"
+            size="icon-sm"
+            class="absolute right-[var(--pxd-space-xs)]"
+            :aria-label="t('common.clearSearch')"
+            @click="keyword = ''"
+          >
+            <X />
           </Button>
+        </div>
+
+        <ResultBoardModFilterPanel
+          :open="isModFilterOpen"
+          :query="modPickerQuery"
+          :quick-filter="modQuickFilter"
+          :options="filteredModOptions"
+          :all-option-count="modOptions.length"
+          :option-by-key="modOptionByKey"
+          :conditions="modConditions"
+          @update:query="modPickerQuery = $event"
+          @update:quick-filter="modQuickFilter = $event"
+          @select="board.setModCondition"
+          @toggle="board.toggleModOption"
+          @remove="board.removeModCondition"
+          @clear-all="board.clearModConditions"
+          @close="closeModFilter"
+        />
+
+        <div
+          v-if="view === 'items' && (hasMixedInstantBuyout || hasSoldEntries)"
+          class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]"
+        >
+          <label
+            v-if="hasMixedInstantBuyout"
+            class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] cursor-pointer select-none"
+          >
+            <Checkbox v-model="instantOnly" data-board-instant-only />
+            {{ t('resultBoard.filter.instantOnly') }}
+          </label>
+          <label
+            v-if="hasSoldEntries"
+            class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] cursor-pointer select-none"
+          >
+            <Checkbox
+              :model-value="hideSold"
+              data-board-hide-sold
+              @update:model-value="setHideSold"
+            />
+            {{ t('resultBoard.filter.hideSold') }}
+          </label>
         </div>
 
         <p
@@ -637,7 +661,7 @@ function setMinSellerCount(value: string | number): void {
           {{ t('resultBoard.conversionUnavailable') }}
         </p>
         <Button
-          v-if="view === 'items' && state.hiddenAccounts.size > 0"
+          v-if="state.hiddenAccounts.size > 0"
           variant="link"
           size="sm"
           class="h-auto self-start p-0"
