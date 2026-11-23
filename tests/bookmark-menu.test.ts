@@ -78,7 +78,10 @@ const exportTransferSpy = vi.fn(async () => ({ ok: true, value: {} }));
 
 vi.mock('@/utils/bookmark-messaging', () => ({
   createChromeBookmarkClient: () => ({
-    readCollection: vi.fn(async () => ({ ok: true, value: mockBookmarkCollection })),
+    readCollection: vi.fn(async () => ({
+      ok: true,
+      value: mockBookmarkCollection,
+    })),
     putGroup: vi.fn(async () => ({ ok: true })),
     deleteGroup: vi.fn(async () => ({ ok: true })),
     reorderGroups: vi.fn(async () => ({ ok: true })),
@@ -273,7 +276,10 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
       groups: [
         { id: 'group-1', name: '通貨' },
         { id: 'group-2', name: '裝備' },
-        { id: 'group-3', name: '超級長無比的自訂資料夾名稱用於驗證截斷行為與選單寬度安全邊界' },
+        {
+          id: 'group-3',
+          name: '超級長無比的自訂資料夾名稱用於驗證截斷行為與選單寬度安全邊界',
+        },
       ],
     };
 
@@ -614,7 +620,7 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
     );
 
     // Verify folder label has min-w-0 flex-1 truncate
-    const labelSpan = longFolderItem?.querySelector('span');
+    const labelSpan = longFolderItem?.querySelector<HTMLElement>('span.truncate');
     expect(labelSpan).not.toBeNull();
     expect(labelSpan?.className).toContain('min-w-0');
     expect(labelSpan?.className).toContain('flex-1');
@@ -702,7 +708,11 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
 
     // Explicit keyboard activation with ArrowRight
     coverTrigger?.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }),
+      new KeyboardEvent('keydown', {
+        key: 'ArrowRight',
+        bubbles: true,
+        cancelable: true,
+      }),
     );
     await nextTick();
     await new Promise((r) => setTimeout(r, 60));
@@ -726,7 +736,11 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
     ).find((t) => t.textContent?.includes('更換封面'));
     poexdAlertSpy.mockClear();
     coverTriggerEnter?.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
     );
     await nextTick();
     await new Promise((r) => setTimeout(r, 60));

@@ -16,21 +16,52 @@ const json = (value) => Buffer.from(JSON.stringify(value));
 function publishedFiles() {
   const files = {};
   for (const version of ['poe1', 'poe2']) {
-    files[`${version}/mods-tiers.json`] = json({ patch: '1.0', tiers: [{}, {}] });
-    files[`${version}/locales/en/stats.json`] = json({ patch: '1.0', tierTemplates: [0, 1] });
-    files[`${version}/locales/zh-TW/stats.json`] = json({ patch: '1.0', tierTemplates: [0, 1] });
-    files[`${version}/locales/en/items.json`] = json({ patch: '1.0', items: ['A'] });
-    files[`${version}/locales/en/trade-filters.json`] = json({ schemaVersion: 3, fields: {} });
-    files[`${version}/locales/en/trade-stats.json`] = json({ schemaVersion: 1, stats: {} });
+    files[`${version}/mods-tiers.json`] = json({
+      patch: '1.0',
+      tiers: [{}, {}],
+    });
+    files[`${version}/locales/en/stats.json`] = json({
+      patch: '1.0',
+      tierTemplates: [0, 1],
+    });
+    files[`${version}/locales/zh-TW/stats.json`] = json({
+      patch: '1.0',
+      tierTemplates: [0, 1],
+    });
+    files[`${version}/locales/en/items.json`] = json({
+      patch: '1.0',
+      items: ['A'],
+    });
+    files[`${version}/locales/en/trade-filters.json`] = json({
+      schemaVersion: 3,
+      fields: {},
+    });
+    files[`${version}/locales/en/trade-stats.json`] = json({
+      schemaVersion: 1,
+      stats: {},
+    });
   }
-  files['poe1/mercenary.json'] = json({ patch: '1.0', builds: [{}], skills: [{}], supports: [{}] });
+  files['poe1/mercenary.json'] = json({
+    patch: '1.0',
+    builds: [{}],
+    skills: [{}],
+    supports: [{}],
+  });
   files['poe1/locales/en/mercenary.json'] = json({
     patch: '1.0',
     builds: ['B'],
     skills: ['S'],
     supports: ['U'],
   });
-  files['locales/zh-TW/trade-ui.json'] = json({ schemaVersion: 1, strings: {} });
+  files['locales/zh-TW/trade-ui.json'] = json({
+    schemaVersion: 1,
+    strings: {},
+  });
+  files['folder-icons/index.json'] = json({
+    schemaVersion: 1,
+    icons: [{ file: 'witch.webp' }],
+  });
+  files['folder-icons/witch.webp'] = 'webp';
   files['poe2/atlas_maps.json'] = json([]);
   return files;
 }
@@ -49,7 +80,11 @@ function manifestOf(files, extra = {}) {
         .filter(([path]) => batchOfDataPath(path))
         .map(([path, bytes]) => [
           path,
-          { batch: batchOfDataPath(path), sha256: sha256Of(bytes), bytes: bytes.length },
+          {
+            batch: batchOfDataPath(path),
+            sha256: sha256Of(bytes),
+            bytes: bytes.length,
+          },
         ]),
     ),
     ...extra,
@@ -147,7 +182,10 @@ describe('planSync', () => {
   it('skips a batch whose download does not match the manifest, keeping the others', async () => {
     const files = publishedFiles();
     const manifest = parseManifest(manifestOf(files));
-    const corrupted = { ...files, 'poe2/locales/en/stats.json': json({ patch: '9.9' }) };
+    const corrupted = {
+      ...files,
+      'poe2/locales/en/stats.json': json({ patch: '9.9' }),
+    };
     const plan = await planSync(manifest, ['poe1/game', 'poe2/game'], io(corrupted));
     expect(plan.synced).toEqual(['poe1/game']);
     expect(plan.failures).toHaveLength(1);
@@ -158,7 +196,10 @@ describe('planSync', () => {
   it('skips a batch that is internally inconsistent even when hashes match', async () => {
     const files = {
       ...publishedFiles(),
-      'poe2/locales/zh-TW/stats.json': json({ patch: '0.9', tierTemplates: [0, 1] }),
+      'poe2/locales/zh-TW/stats.json': json({
+        patch: '0.9',
+        tierTemplates: [0, 1],
+      }),
     };
     const plan = await planSync(parseManifest(manifestOf(files)), ['poe2/game'], io(files));
     expect(plan.writes).toEqual([]);
@@ -176,9 +217,11 @@ describe('validateBatchContent', () => {
     expect(validateBatchContent('poe2/trade-filters', {})).toEqual([
       '缺少 poe2/locales/en/trade-filters.json',
     ]);
-    expect(validateBatchContent('market', { 'poe1/locales/en/trade-stats.json': {} })).toEqual([
-      '缺少 poe2/locales/en/trade-stats.json',
-    ]);
+    expect(
+      validateBatchContent('market', {
+        'poe1/locales/en/trade-stats.json': {},
+      }),
+    ).toEqual(['缺少 poe2/locales/en/trade-stats.json']);
   });
 });
 
