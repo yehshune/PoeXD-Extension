@@ -261,7 +261,8 @@ describe('usePobBuild', () => {
       const build = first(pob);
       expect(build).toMatchObject({
         id: 'build-1',
-        name: 'Chieftain Lv.97',
+        name: '酋長 Lv.97',
+        icon: 'poe1:asc:Chieftain',
         collapsed: false,
         itemSetId: '1',
         itemSetOptions: [
@@ -280,7 +281,7 @@ describe('usePobBuild', () => {
       expect(stored()).toEqual([
         {
           id: 'build-1',
-          name: 'Chieftain Lv.97',
+          name: '酋長 Lv.97',
           code: toCode(buildXml()),
           importedAt: 1234,
           collapsed: false,
@@ -300,10 +301,7 @@ describe('usePobBuild', () => {
       await pob.importCode(toCode(buildXml()));
       await pob.importCode(toCode(buildXml({ ascendancy: 'Juggernaut' })));
 
-      expect(pob.builds.value.map((build) => build.name)).toEqual([
-        'Juggernaut Lv.97',
-        'Chieftain Lv.97',
-      ]);
+      expect(pob.builds.value.map((build) => build.name)).toEqual(['勇士 Lv.97', '酋長 Lv.97']);
       // 名稱資料只載入一次（頁面區服與顯示語言各一份），第二次匯入不重複載入
       expect(loadCatalog).toHaveBeenCalledTimes(2);
 
@@ -382,7 +380,7 @@ describe('usePobBuild', () => {
       const pob = usePobBuild('poe1', deps);
       expect(await pob.importCode('  https://poe.ninja/poe1/pob/abc123  ')).toBe(true);
       expect(fetchShareCode).toHaveBeenCalledWith('https://poe.ninja/poe1/pob/abc123');
-      expect(first(pob).name).toBe('Chieftain Lv.97');
+      expect(first(pob).name).toBe('酋長 Lv.97');
       expect(stored()[0].code).toBe(code);
     });
 
@@ -1271,12 +1269,12 @@ describe('usePobBuild', () => {
       expect(await pob.sendToLiveSearch('build-1', phoenix)).toBe(true);
       const request = enqueueLiveSearch.mock.calls[0][0];
       expect(request.gameVersion).toBe('poe1');
-      expect(request.items[0].name).toBe('Chieftain Lv.97 · Rise of the Phoenix');
+      expect(request.items[0].name).toBe('酋長 Lv.97 · Rise of the Phoenix');
       const parsed = parseTradeSearchUrl(request.items[0].url);
       expect(parsed).toMatchObject({ gameVersion: 'poe1', league: 'standard' });
       expect(await decodeGzipBase64UrlToQuery(parsed!.searchId)).toEqual(phoenix.query);
       expect(showToast).toHaveBeenCalledWith(
-        '已送入主控台：Chieftain Lv.97 · Rise of the Phoenix',
+        '已送入主控台：酋長 Lv.97 · Rise of the Phoenix',
         'default',
       );
     });

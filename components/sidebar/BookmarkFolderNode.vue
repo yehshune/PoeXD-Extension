@@ -18,15 +18,6 @@
       @click="ctx.toggleGroupCollapse(node.folder.id)"
     >
       <div class="flex w-full min-w-0 items-center gap-[var(--pxd-space-md)]">
-        <button
-          type="button"
-          class="folder-drag-handle flex items-center justify-center cursor-grab active:cursor-grabbing p-0.5 -ml-1 text-muted-foreground/60 hover:text-foreground shrink-0 focus-visible:outline-none rounded transition-colors"
-          :title="t('bookmark.folder.dragHandleTitle')"
-          tabindex="-1"
-          @click.stop
-        >
-          <GripVertical class="size-[var(--control-icon-sm,14px)] shrink-0" />
-        </button>
         <FolderIconPicker
           v-if="ctx.setFolderAppearance"
           v-model:open="isIconPickerOpen"
@@ -37,11 +28,20 @@
         >
           <button
             type="button"
-            class="folder-icon-trigger flex items-center justify-center shrink-0 rounded p-0.5 -m-0.5 hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary transition-colors"
+            class="folder-icon-trigger relative flex items-center justify-center shrink-0 rounded px-1 py-0.5 -mx-1 -my-0.5 hover:bg-muted/80 hover:ring-1 hover:ring-border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary transition-all cursor-pointer"
+            :class="{
+              'bg-primary/10 ring-1 ring-dashed ring-primary/70 gap-1':
+                ctx.editingGroupId.value === node.folder.id,
+            }"
             :title="t('bookmark.folderIcon.changeTitle')"
+            @mousedown.prevent
             @click.stop
           >
             <FolderIcon :icon="node.folder.icon" :color="node.folder.color" :open="!isCollapsed" />
+            <Palette
+              v-if="ctx.editingGroupId.value === node.folder.id"
+              class="size-[12px] shrink-0 text-primary"
+            />
           </button>
         </FolderIconPicker>
         <FolderIcon
@@ -80,6 +80,17 @@
         v-if="ctx.editingGroupId.value !== node.folder.id && !ctx.isDragging.value"
         class="group-actions pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_50%,var(--card))] absolute inset-y-0 right-0 rounded-r-[inherit] z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto flex items-center gap-[var(--pxd-space-sm)]"
       >
+        <!-- 拖曳排序把手（隨懸停動作列一併浮現，不佔用左側圖示對齊空間） -->
+        <button
+          type="button"
+          class="folder-drag-handle inline-flex size-[var(--control-height-sm)] items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:bg-accent hover:text-accent-foreground shrink-0 focus-visible:outline-none rounded-md transition-colors"
+          :title="t('bookmark.folder.dragHandleTitle')"
+          tabindex="-1"
+          @click.stop
+        >
+          <GripVertical class="size-[var(--control-icon-sm,14px)] shrink-0" />
+        </button>
+
         <!-- 新增書籤按鈕 -->
         <Button
           v-if="shouldShowHeaderAdd"

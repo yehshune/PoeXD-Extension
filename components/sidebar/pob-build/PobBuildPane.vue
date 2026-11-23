@@ -146,6 +146,8 @@
                 />
               </button>
 
+              <FolderIcon v-if="build.icon" :icon="build.icon" data-pob-build-icon />
+
               <Input
                 v-if="renamingId === build.id"
                 :ref="focusRenameInput"

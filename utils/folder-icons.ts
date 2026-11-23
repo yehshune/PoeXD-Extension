@@ -250,9 +250,10 @@ export function findAscendancyFolderIcon(
       .replace(/[^a-z0-9]+/g, '');
 
   const ascNorm = normalizeName(ascendancyName);
-  if (ascNorm && ascNorm !== 'none') {
+  const ascAlias = ascNorm === 'raider' ? 'warden' : ascNorm;
+  if (ascAlias && ascAlias !== 'none') {
     const matched = candidates.find(
-      (entry) => entry.id.includes(':asc:') && normalizeName(entry.ascendancyName) === ascNorm,
+      (entry) => entry.id.includes(':asc:') && normalizeName(entry.ascendancyName) === ascAlias,
     );
     if (matched) return matched.id;
   }
@@ -266,4 +267,23 @@ export function findAscendancyFolderIcon(
   }
 
   return undefined;
+}
+
+/**
+ * 將 PoB 的英文昇華或職業名稱翻譯為指定語系名稱（如 `Chieftain` → `酋長`）。
+ * 若找不到對應項目則回傳原始名稱。
+ */
+export function localizeAscendancyOrClassName(
+  gameVersion: PoeVersion,
+  ascendancyName: string | undefined,
+  className: string | undefined,
+  locale: string,
+): string {
+  const iconId = findAscendancyFolderIcon(gameVersion, ascendancyName, className);
+  if (iconId) {
+    const entry = IMAGE_ICON_BY_ID.get(iconId);
+    if (entry) return getFolderIconLabel(entry.labels, locale);
+  }
+  // PoE 1 舊版 PoB 可能仍寫 Raider，對應至新版昇華列或舊譯名
+  return (ascendancyName || className || '').trim();
 }

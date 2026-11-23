@@ -9,7 +9,7 @@ import type {
   LiveSearchEnqueueRequest,
   LiveSearchEnqueueResponse,
 } from '@/utils/live-search-contract';
-import { findAscendancyFolderIcon } from '@/utils/folder-icons';
+import { findAscendancyFolderIcon, localizeAscendancyOrClassName } from '@/utils/folder-icons';
 import { getActiveDisplayLocale, t, type I18nKey } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { parsePobBuildXml, PobBuildError, type PobBuild } from '@/utils/pob-build';
@@ -182,6 +182,8 @@ export interface SetOption {
 export interface BuildView {
   id: string;
   name: string;
+  /** 依流派昇華／基礎職業解析出的寬版圖示 ID */
+  icon?: string;
   collapsed: boolean;
   itemSetOptions: SetOption[];
   skillSetOptions: SetOption[];
@@ -362,8 +364,15 @@ function toErrorKey(error: unknown): I18nKey {
 const toOptions = (sets: ReadonlyArray<{ id: string; title: string }>): SetOption[] =>
   sets.map((set, index) => ({ id: set.id, title: set.title, position: index + 1 }));
 
-const defaultName = (build: PobBuild): string =>
+const legacyEnglishDefaultName = (build: PobBuild): string =>
   `${build.ascendancy || build.className || 'Build'} Lv.${build.level}`;
+
+const defaultName = (build: PobBuild, locale = getActiveDisplayLocale()): string => {
+  const classLabel =
+    localizeAscendancyOrClassName(build.gameVersion, build.ascendancy, build.className, locale) ||
+    'Build';
+  return `${classLabel} Lv.${build.level}`;
+};
 
 /** 以 key 為鍵的物件只留下 keep 裡的 key */
 const pickKeys = <T>(source: Readonly<Record<string, T>>, keep: ReadonlySet<string>) =>
@@ -708,9 +717,15 @@ export function usePobBuild(
   const toView = (session: Session): BuildView => {
     const entries = entriesOf(session);
     const visible = entries.filter((entry) => !session.removed.has(entry.key));
+    const icon = findAscendancyFolderIcon(
+      version,
+      session.build.ascendancy,
+      session.build.className,
+    );
     return {
       id: session.id,
       name: session.name,
+      ...(icon ? { icon } : {}),
       collapsed: session.collapsed,
       itemSetOptions: toOptions(session.build.itemSets),
       skillSetOptions: toOptions(session.build.skillSets),
@@ -820,9 +835,13 @@ export function usePobBuild(
       wanted: string | undefined,
       active: string,
     ) => (wanted && sets.some((set) => set.id === wanted) ? wanted : active);
+    const resolvedName =
+      !stored.name || stored.name === legacyEnglishDefaultName(build)
+        ? defaultName(build)
+        : stored.name;
     return {
       id: stored.id,
-      name: stored.name || defaultName(build),
+      name: resolvedName,
       code: stored.code,
       build,
       collapsed: stored.collapsed,

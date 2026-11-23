@@ -121,7 +121,7 @@ const resetAppearance = () => {
         <!-- 職業與昇華（寬版頭像） -->
         <div
           v-if="activeTab === 'class'"
-          class="pxd-scrollbar grid max-h-[276px] grid-cols-4 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
+          class="pxd-scrollbar grid h-[264px] content-start grid-cols-4 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
         >
           <button
             v-for="entry in classIcons"
@@ -153,7 +153,7 @@ const resetAppearance = () => {
         <!-- 通貨與裝備 -->
         <div
           v-else-if="activeTab === 'item'"
-          class="pxd-scrollbar grid max-h-[276px] grid-cols-5 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
+          class="pxd-scrollbar grid h-[264px] content-start grid-cols-5 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
         >
           <button
             v-for="entry in itemIcons"
@@ -180,7 +180,7 @@ const resetAppearance = () => {
         <!-- 輿圖與機制 -->
         <div
           v-else-if="activeTab === 'atlas'"
-          class="pxd-scrollbar grid max-h-[276px] grid-cols-5 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
+          class="pxd-scrollbar grid h-[264px] content-start grid-cols-5 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
         >
           <button
             v-for="entry in atlasIcons"
@@ -207,7 +207,7 @@ const resetAppearance = () => {
         <!-- 通用：資料夾顏色 + Lucide 圖示 -->
         <div
           v-else
-          class="pxd-scrollbar flex max-h-[276px] flex-col gap-[var(--pxd-space-md)] overflow-y-auto pr-[var(--pxd-space-xs)]"
+          class="pxd-scrollbar flex h-[264px] flex-col gap-[var(--pxd-space-md)] overflow-y-auto pr-[var(--pxd-space-xs)]"
         >
           <div>
             <div
@@ -274,16 +274,17 @@ const resetAppearance = () => {
 
         <!-- 底部重設 -->
         <div
-          class="flex items-center justify-between border-t border-border/60 pt-[var(--pxd-space-sm)]"
+          class="flex min-h-[26px] items-center justify-between border-t border-border/60 pt-[var(--pxd-space-sm)]"
         >
           <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground">
             {{ t('bookmark.folderIcon.hint') }}
           </span>
           <Button
-            v-if="normalizedIcon || normalizedColor"
             variant="ghost"
             size="sm"
             class="h-auto px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)]"
+            :class="{ invisible: !normalizedIcon && !normalizedColor }"
+            :disabled="!normalizedIcon && !normalizedColor"
             @click="resetAppearance"
           >
             <RotateCcw class="size-[var(--control-icon-sm,14px)]" />

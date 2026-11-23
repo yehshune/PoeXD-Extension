@@ -54,12 +54,19 @@ const resolved = computed(() => resolveFolderIcon(props.icon));
 const colorSpec = computed(() => getFolderColorSpec(props.color));
 
 const colorClass = computed(() => colorSpec.value?.textClass ?? 'text-muted-foreground');
+const slotClass = computed(() =>
+  props.size === 'lg'
+    ? 'inline-flex size-[32px] shrink-0 items-center justify-center'
+    : props.size === 'md'
+      ? 'inline-flex h-[26px] w-[35px] shrink-0 items-center justify-center'
+      : 'inline-flex h-[24px] w-[32px] shrink-0 items-center justify-center',
+);
 const iconSizeClass = computed(() =>
   props.size === 'lg'
     ? 'size-[24px] shrink-0'
     : props.size === 'md'
       ? 'size-[20px] shrink-0'
-      : 'size-[18px] shrink-0',
+      : 'size-[20px] shrink-0',
 );
 const wideImageClass = computed(() =>
   props.size === 'lg'
@@ -78,20 +85,22 @@ const squareImageClass = computed(() =>
 </script>
 
 <template>
-  <img
-    v-if="resolved?.kind === 'image'"
-    :src="resolved.url"
-    :class="resolved.wide ? wideImageClass : squareImageClass"
-    alt=""
-    loading="lazy"
-    decoding="async"
-    draggable="false"
-  />
-  <component
-    :is="LUCIDE_COMPONENTS[resolved.iconKey]"
-    v-else-if="resolved?.kind === 'lucide'"
-    :class="[iconSizeClass, colorClass]"
-  />
-  <FolderOpen v-else-if="open" :class="[iconSizeClass, colorClass]" />
-  <Folder v-else :class="[iconSizeClass, colorClass]" />
+  <span :class="slotClass">
+    <img
+      v-if="resolved?.kind === 'image'"
+      :src="resolved.url"
+      :class="resolved.wide ? wideImageClass : squareImageClass"
+      alt=""
+      loading="lazy"
+      decoding="async"
+      draggable="false"
+    />
+    <component
+      :is="LUCIDE_COMPONENTS[resolved.iconKey]"
+      v-else-if="resolved?.kind === 'lucide'"
+      :class="[iconSizeClass, colorClass]"
+    />
+    <FolderOpen v-else-if="open" :class="[iconSizeClass, colorClass]" />
+    <Folder v-else :class="[iconSizeClass, colorClass]" />
+  </span>
 </template>
