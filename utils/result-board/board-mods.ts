@@ -26,15 +26,15 @@ export interface BoardModRoll {
   name?: string;
 }
 
-/** 看板「必含獨立詞綴」條件；`maxTier` 未設表示不限階級，設為 1/2/3 表示 T1 / ≤T2 / ≤T3 */
-export interface BoardModCondition {
-  key: string;
-  maxTier?: number;
-}
-
 /** 可供篩選的累積階級上限 */
 export const BOARD_MOD_TIER_CAPS = [1, 2, 3] as const;
 export type BoardModTierCap = (typeof BOARD_MOD_TIER_CAPS)[number];
+
+/** 看板「必含獨立詞綴」條件；`maxTier` 未設表示不限階級，設為 1/2/3 表示 T1 / ≤T2 / ≤T3 */
+export interface BoardModCondition {
+  key: string;
+  maxTier?: BoardModTierCap;
+}
 
 /** 從目前看板結果彙整出來的獨立詞條選項 */
 export interface BoardModOption {
@@ -72,17 +72,27 @@ export function parseTierCode(
   };
 }
 
-/** 從官方 `item.extended.mods` 擷取獨立詞條陣列 */
-export function readBoardModRolls(item: Record<string, unknown>): readonly BoardModRoll[] | undefined {
+/** 從官方 `item.extended.mods` 單次走訪擷取獨立詞條與階級／詞綴名索引 */
+export function readExtendedModData(item: Record<string, unknown>): {
+  modTiers?: readonly string[];
+  modRolls?: readonly BoardModRoll[];
+} {
   const extended = isRecord(item.extended) ? item.extended : undefined;
   const extendedMods = extended && isRecord(extended.mods) ? extended.mods : undefined;
-  if (!extendedMods) return undefined;
+  if (!extendedMods) return {};
 
+  const tierTokens = new Set<string>();
   const rolls: BoardModRoll[] = [];
   for (const [category, list] of Object.entries(extendedMods)) {
     if (!Array.isArray(list)) continue;
     for (const rawMod of list) {
-      if (!isRecord(rawMod) || !Array.isArray(rawMod.magnitudes)) continue;
+      if (!isRecord(rawMod)) continue;
+      const tier = typeof rawMod.tier === 'string' && rawMod.tier.length <= 256 ? rawMod.tier.trim() : '';
+      const name = typeof rawMod.name === 'string' && rawMod.name.length <= 256 ? rawMod.name.trim() : '';
+      if (tier) tierTokens.add(tier);
+      if (name) tierTokens.add(name);
+
+      if (!Array.isArray(rawMod.magnitudes)) continue;
       const hashSet = new Set<string>();
       for (const mag of rawMod.magnitudes) {
         if (isRecord(mag) && typeof mag.hash === 'string' && mag.hash.trim()) {
@@ -91,8 +101,6 @@ export function readBoardModRolls(item: Record<string, unknown>): readonly Board
       }
       if (hashSet.size === 0) continue;
       const hashes = Array.from(hashSet).sort();
-      const tier = typeof rawMod.tier === 'string' ? rawMod.tier.trim() : '';
-      const name = typeof rawMod.name === 'string' ? rawMod.name.trim() : '';
       const parsedTier = parseTierCode(tier);
       rolls.push({
         key: `${category}:${hashes.join('+')}`,
@@ -105,7 +113,15 @@ export function readBoardModRolls(item: Record<string, unknown>): readonly Board
       });
     }
   }
-  return rolls.length > 0 ? rolls : undefined;
+  return {
+    ...(tierTokens.size > 0 ? { modTiers: Array.from(tierTokens) } : {}),
+    ...(rolls.length > 0 ? { modRolls: rolls } : {}),
+  };
+}
+
+/** 從官方 `item.extended.mods` 擷取獨立詞條陣列 */
+export function readBoardModRolls(item: Record<string, unknown>): readonly BoardModRoll[] | undefined {
+  return readExtendedModData(item).modRolls;
 }
 
 /** 判斷單件物品是否同時符合所有「必含獨立詞綴」條件 */
@@ -205,7 +221,8 @@ export function aggregateBoardModOptions(
   );
 }
 
-function isSubsequence(needle: string, haystack: string): boolean {
+/** 單行子序列模糊比對（例如「物理傷」命中「增加 179% 物理傷害」、「混抗」命中「+35% 混沌抗性」） */
+export function isSubsequence(needle: string, haystack: string): boolean {
   if (needle.length > haystack.length) return false;
   let j = 0;
   for (let i = 0; i < haystack.length && j < needle.length; i += 1) {

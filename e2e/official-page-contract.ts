@@ -103,14 +103,32 @@ export const RESULT_ROW_DOM: readonly DomCheck[] = [
   {
     id: 'row-item-header',
     selector: '.item-popup__header-line',
-    usedBy: 'market-result-translator',
+    usedBy: 'market-result-translator, result-board-runtime',
     offline: true,
+  },
+  {
+    id: 'row-item-header-lc',
+    selector: '.itemHeader .lc',
+    usedBy: 'result-board-runtime（看板漢化品名搜尋）',
+    offline: false,
   },
   {
     id: 'row-stat-field',
     selector: '[data-field^="stat."]',
-    usedBy: 'result-mod-quick-filter, market-result-translator',
+    usedBy: 'result-mod-quick-filter, market-result-translator, result-board-runtime',
     offline: true,
+  },
+  {
+    id: 'row-mod-line-lc',
+    selector: '.s.lc',
+    usedBy: 'result-board-runtime（看板漢化詞綴搜尋）',
+    offline: false,
+  },
+  {
+    id: 'row-mod-tier-badge',
+    selector: '.lc.l.pr, .lc.l.su',
+    usedBy: 'result-board-runtime（看板階級搜尋）',
+    offline: false,
   },
   {
     id: 'row-price-field',

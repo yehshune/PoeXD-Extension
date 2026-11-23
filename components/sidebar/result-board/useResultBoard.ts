@@ -22,6 +22,7 @@ import {
   matchesModConditions,
   type BoardModCondition,
   type BoardModOption,
+  type BoardModTierCap,
 } from '@/utils/result-board/board-mods';
 import { sumPrices, summarizePrices, type PriceTotal } from '@/utils/result-board/board-price';
 import {
@@ -46,7 +47,11 @@ import {
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
 import { getTradePageMode } from '@/utils/trade-page-mode';
 import { getTradeResultCache } from '@/utils/trade-result-cache';
-import { loadTradeDictionaries, translateStatLines } from '@/utils/trade-stat-dictionary';
+import {
+  loadTradeDictionaries,
+  translateItemName,
+  translateStatLines,
+} from '@/utils/trade-stat-dictionary';
 
 export type BoardView = 'items' | 'sellers';
 
@@ -153,13 +158,17 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       });
   }
 
+  const visibleEntries = computed(() =>
+    hasSoldEntries.value && hideSold.value
+      ? entries.value.filter((entry) => !soldIds.value.has(entry.id))
+      : entries.value,
+  );
+
   const modOptions = computed<BoardModOption[]>(() => {
     void modDictTick.value;
-    const base =
-      hasSoldEntries.value && hideSold.value
-        ? entries.value.filter((entry) => !soldIds.value.has(entry.id))
-        : entries.value;
-    return aggregateBoardModOptions(base, (hash) => translateStatLines(hash, version).join(' / '));
+    return aggregateBoardModOptions(visibleEntries.value, (hash) =>
+      translateStatLines(hash, version).join(' / '),
+    );
   });
 
   const filteredModOptions = computed(() =>
@@ -172,7 +181,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     return map;
   });
 
-  function setModCondition(key: string, maxTier?: number): void {
+  function setModCondition(key: string, maxTier?: BoardModTierCap): void {
     const existing = modConditions.value.find((cond) => cond.key === key);
     if (existing && existing.maxTier === maxTier) {
       // 再次點選相同條件時取消選取
@@ -195,17 +204,35 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     modConditions.value = [];
   }
 
-  const extraSearchLines = (entry: BoardEntry): readonly string[] =>
-    runtime.readEntrySearchLines(entry.id);
+  watch(debouncedKeyword, (value) => {
+    if (value.trim()) ensureModDictionary();
+  });
+
+  const extraSearchLines = (entry: BoardEntry): readonly string[] => {
+    const lines = [...runtime.readEntrySearchLines(entry.id)];
+    const translatedName = entry.name ? translateItemName(entry.name, version) : '';
+    if (translatedName && translatedName !== entry.name) lines.push(translatedName);
+    const translatedType = entry.typeLine ? translateItemName(entry.typeLine, version) : '';
+    if (translatedType && translatedType !== entry.typeLine) lines.push(translatedType);
+    const translatedBase = entry.baseType ? translateItemName(entry.baseType, version) : '';
+    if (translatedBase && translatedBase !== entry.baseType) lines.push(translatedBase);
+    if (entry.modRolls) {
+      for (const roll of entry.modRolls) {
+        for (const hash of roll.hashes) {
+          for (const line of translateStatLines(hash, version)) {
+            if (line && line !== hash) lines.push(line);
+          }
+        }
+      }
+    }
+    return lines;
+  };
 
   const filteredEntries = computed(() => {
-    const base =
-      hasSoldEntries.value && hideSold.value
-        ? entries.value.filter((entry) => !soldIds.value.has(entry.id))
-        : entries.value;
+    void modDictTick.value;
     return sortEntries(
       filterEntries(
-        base,
+        visibleEntries.value,
         {
           instantBuyoutOnly: hasMixedInstantBuyout.value && instantOnly.value,
           keyword: debouncedKeyword.value,
@@ -223,23 +250,24 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   });
 
   const sellers = computed(() => {
+    void modDictTick.value;
     const tokens = parseSearchTokens(debouncedKeyword.value);
     const hasTokens = tokens.include.length > 0 || tokens.exclude.length > 0;
     const hasMods = modConditions.value.length > 0;
-    const matched = filterSellers(
-      sortSellers(aggregateSellers(entries.value, rates.value, soldIds.value)),
+    const sourceEntries =
+      hasTokens || hasMods
+        ? visibleEntries.value.filter(
+            (entry) =>
+              (!hasTokens || matchesBoardEntry(entry, tokens, extraSearchLines(entry))) &&
+              matchesModConditions(entry, modConditions.value),
+          )
+        : entries.value;
+    return filterSellers(
+      sortSellers(aggregateSellers(sourceEntries, rates.value, soldIds.value)),
       {
         minInstantBuyout: minSellerCount.value,
         hiddenAccounts: state.value.hiddenAccounts,
       },
-    );
-    if (!hasTokens && !hasMods) return matched;
-    return matched.filter((seller) =>
-      seller.entries.some(
-        (entry) =>
-          (!hasTokens || matchesBoardEntry(entry, tokens, extraSearchLines(entry))) &&
-          matchesModConditions(entry, modConditions.value),
-      ),
     );
   });
 

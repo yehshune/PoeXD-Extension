@@ -13,6 +13,7 @@ import {
   ComboboxViewport,
 } from 'reka-ui';
 import { t } from '@/utils/i18n';
+import { useDebouncedRef } from '@/components/sidebar/composables/useDebouncedSearch';
 import type { MercenaryBuildOption } from './useMercenaryPicker';
 
 /** 可輸入搜尋的 Build 下拉；null 代表「不限 Build」。 */
@@ -24,9 +25,10 @@ const emit = defineEmits<{ 'update:modelValue': [value: number | null] }>();
 
 const ANY_BUILD = -1;
 const query = ref('');
+const debouncedQuery = useDebouncedRef(query);
 
 const filtered = computed(() => {
-  const needle = query.value.trim().toLowerCase();
+  const needle = debouncedQuery.value.trim().toLowerCase();
   if (!needle) return props.options;
   return props.options.filter((option) => option.keywords.some((k) => k.includes(needle)));
 });

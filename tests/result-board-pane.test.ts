@@ -364,6 +364,61 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(container.querySelector('[data-board-mod-filter-count]')).toBeNull();
   });
 
+  it('filters seller view entries before aggregating min-seller count', async () => {
+    const PHYS = 'explicit.stat_1509134228';
+    const ACC = 'explicit.stat_691932474';
+    ingest([
+      // SellerA holds 2 bows, but ONLY 1 has pure T1 %phys
+      rawResult({
+        id: 'a1',
+        account: 'SellerA#1',
+        extendedMods: { explicit: [{ tier: 'P1', magnitudes: [{ hash: PHYS }] }] },
+      }),
+      rawResult({
+        id: 'a2',
+        account: 'SellerA#1',
+        extendedMods: {
+          explicit: [{ tier: 'P3', magnitudes: [{ hash: PHYS }, { hash: ACC }] }],
+        },
+      }),
+      // SellerB holds 2 bows, BOTH have pure T1 %phys
+      rawResult({
+        id: 'b1',
+        account: 'SellerB#2',
+        extendedMods: { explicit: [{ tier: 'P1', magnitudes: [{ hash: PHYS }] }] },
+      }),
+      rawResult({
+        id: 'b2',
+        account: 'SellerB#2',
+        extendedMods: { explicit: [{ tier: 'P1', magnitudes: [{ hash: PHYS }] }] },
+      }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    // Switch to Sellers view (default minSellerCount = 2 -> both SellerA and SellerB appear)
+    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+    await flush();
+    expect(container.querySelectorAll('[data-board-seller]')).toHaveLength(2);
+
+    // Apply pure T1 %phys filter -> SellerA only has 1 matching item, so only SellerB passes minSellerCount=2
+    container.querySelector<HTMLButtonElement>('[data-board-mod-filter-toggle]')!.click();
+    await flush();
+    const pureOption = container.querySelector<HTMLElement>(
+      `[data-board-mod-option][data-mod-key="explicit:${PHYS}"]`,
+    )!;
+    pureOption.querySelector<HTMLButtonElement>('[data-board-mod-tier="1"]')!.click();
+    await flush();
+
+    const matchedSellers = Array.from(container.querySelectorAll('[data-board-seller]')).map((el) =>
+      el.getAttribute('data-board-seller'),
+    );
+    expect(matchedSellers).toEqual(['SellerB#2']);
+  });
+
   it('remembers the items / sellers view across mounts', async () => {
     ingest([rawResult({ id: 'r1', name: 'Alpha' })]);
     const mountPane = async () => {

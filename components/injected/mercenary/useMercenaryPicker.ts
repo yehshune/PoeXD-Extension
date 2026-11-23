@@ -1,4 +1,5 @@
 import { computed, ref, shallowRef } from 'vue';
+import { useDebouncedRef } from '@/components/sidebar/composables/useDebouncedSearch';
 import {
   readSnapshotItem,
   readSnapshotStatGroup,
@@ -95,6 +96,7 @@ export function useMercenaryPicker(deps: MercenaryPickerDeps) {
   const targetFilters = shallowRef<readonly CriteriaOverlayStatFilter[]>([]);
   const targetValue = shallowRef<Record<string, unknown> | null>(null);
   const skillQuery = ref('');
+  const debouncedSkillQuery = useDebouncedRef(skillQuery);
   const drafts = ref<Record<number, MercenarySkillDraft>>({});
   const activeSkillIndex = ref<number | null>(null);
 
@@ -150,7 +152,7 @@ export function useMercenaryPicker(deps: MercenaryPickerDeps) {
         skills: buildSkills.value.filter((s) => s.role === role),
       })).filter((section) => section.skills.length > 0);
     }
-    const query = skillQuery.value.trim().toLowerCase();
+    const query = debouncedSkillQuery.value.trim().toLowerCase();
     const skills = current.skills
       .filter((s) => !query || s.name.toLowerCase().includes(query))
       .sort((a, b) => a.name.localeCompare(b.name))

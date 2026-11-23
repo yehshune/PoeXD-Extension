@@ -28,7 +28,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:query': [value: string];
-  select: [key: string, maxTier?: number];
+  select: [key: string, maxTier?: BoardModTierCap];
   remove: [key: string];
   clearAll: [];
   close: [];
@@ -57,18 +57,18 @@ function categoryLabel(category: string): string {
   return key ? t(key) : '';
 }
 
-function tierLabel(maxTier: number | undefined): string {
+function tierLabel(maxTier: BoardModTierCap | undefined): string {
   if (maxTier === undefined) return t('resultBoard.modFilter.anyTier');
   if (maxTier === 1) return t('resultBoard.modFilter.tierExact', { tier: 1 });
   return t('resultBoard.modFilter.tierUpTo', { tier: maxTier });
 }
 
-function activeTierOf(key: string): { active: boolean; maxTier?: number } {
+function activeTierOf(key: string): { active: boolean; maxTier?: BoardModTierCap } {
   const cond = props.conditions.find((item) => item.key === key);
   return cond ? { active: true, maxTier: cond.maxTier } : { active: false };
 }
 
-function isTierSelected(key: string, maxTier: number | undefined): boolean {
+function isTierSelected(key: string, maxTier: BoardModTierCap | undefined): boolean {
   const state = activeTierOf(key);
   return state.active && state.maxTier === maxTier;
 }
@@ -81,7 +81,7 @@ function cycleConditionTier(cond: BoardModCondition): void {
     undefined,
   ];
   if (candidates.length <= 1) return;
-  const idx = candidates.indexOf(cond.maxTier as BoardModTierCap | undefined);
+  const idx = candidates.indexOf(cond.maxTier);
   const next = candidates[(idx + 1) % candidates.length];
   emit('select', cond.key, next);
 }

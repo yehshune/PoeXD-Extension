@@ -5,7 +5,7 @@
  */
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import type { TradeResultEntry } from '@/utils/trade-result-cache';
-import { readBoardModRolls, type BoardModRoll } from './board-mods';
+import { readExtendedModData, type BoardModRoll } from './board-mods';
 
 export type SellerPresence = 'online' | 'afk' | 'offline';
 
@@ -105,24 +105,6 @@ function readMods(item: Record<string, unknown>): readonly string[] | undefined 
   return mods.length > 0 ? mods : undefined;
 }
 
-function readModTiers(item: Record<string, unknown>): readonly string[] | undefined {
-  const extended = isRecord(item.extended) ? item.extended : undefined;
-  const extendedMods = extended && isRecord(extended.mods) ? extended.mods : undefined;
-  if (!extendedMods) return undefined;
-  const tokens = new Set<string>();
-  for (const list of Object.values(extendedMods)) {
-    if (!Array.isArray(list)) continue;
-    for (const mod of list) {
-      if (!isRecord(mod)) continue;
-      const tier = text(mod.tier).trim();
-      if (tier) tokens.add(tier);
-      const name = text(mod.name).trim();
-      if (name) tokens.add(name);
-    }
-  }
-  return tokens.size > 0 ? Array.from(tokens) : undefined;
-}
-
 function readPrice(value: unknown): BoardPrice | undefined {
   if (!isRecord(value)) return undefined;
   const { amount } = value;
@@ -205,8 +187,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
   const stash = readStash(listing.stash);
   const note = readNote(item, listing.price);
   const mods = readMods(item);
-  const modTiers = readModTiers(item);
-  const modRolls = readBoardModRolls(item);
+  const { modTiers, modRolls } = readExtendedModData(item);
   const indexedAt = readIndexedAt(listing.indexed);
   const frameType =
     typeof item.frameType === 'number' && Number.isFinite(item.frameType)

@@ -5,7 +5,7 @@
  */
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { BoardEntry } from './board-entry';
-import { matchesModConditions, type BoardModCondition } from './board-mods';
+import { isSubsequence, matchesModConditions, type BoardModCondition } from './board-mods';
 import { convertPrice } from './board-price';
 
 export type BoardSortMode =
@@ -107,16 +107,6 @@ export function parseSearchTokens(keyword: string): ParsedSearchTokens {
     }
   }
   return { include, exclude };
-}
-
-/** 單行子序列模糊比對（例如「物理傷」命中「增加 179% 物理傷害」、「混抗」命中「+35% 混沌抗性」） */
-function isSubsequence(needle: string, haystack: string): boolean {
-  if (needle.length > haystack.length) return false;
-  let needleIdx = 0;
-  for (let i = 0; i < haystack.length && needleIdx < needle.length; i += 1) {
-    if (haystack[i] === needle[needleIdx]) needleIdx += 1;
-  }
-  return needleIdx === needle.length;
 }
 
 function matchesToken(lines: readonly string[], token: string, fuzzy: boolean): boolean {

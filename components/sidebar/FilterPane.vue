@@ -437,6 +437,7 @@ import FilterSelectedPanel from './FilterSelectedPanel.vue';
 import ItemTypeSelectorPanel from './ItemTypeSelectorPanel.vue';
 import { useProgressiveAffixRender } from './composables/useProgressiveAffixRender';
 import { useAffixFilter } from './composables/useAffixFilter';
+import { useDebouncedRef } from './composables/useDebouncedSearch';
 import {
   Dialog,
   DialogContent,
@@ -671,6 +672,7 @@ export default defineComponent({
     // 自訂類別選擇器狀態（詞綴選擇器內用 Popover 展開於下方；外部由 T 階下拉觸發或主彈窗未開時改用置中 Dialog）
     const isSelectDropdownOpen = ref(false);
     const typeSearchQuery = ref('');
+    const debouncedTypeSearchQuery = useDebouncedRef(typeSearchQuery);
     const typePopoverPanelRef = ref<InstanceType<typeof ItemTypeSelectorPanel> | null>(null);
     const typeDialogPanelRef = ref<InstanceType<typeof ItemTypeSelectorPanel> | null>(null);
     const poexdSelectingTarget = ref<any>(null);
@@ -859,7 +861,7 @@ export default defineComponent({
       if (target && Array.isArray(target.availableTypes)) {
         rawTypes = target.availableTypes;
       }
-      const query = typeSearchQuery.value.trim().toLowerCase();
+      const query = debouncedTypeSearchQuery.value.trim().toLowerCase();
 
       // 使用外部定義的 PoE1 / PoE2 側邊欄按鈕分行排版設定
       const typeRowConfigs = tradeMapping.typeRowConfigs;
