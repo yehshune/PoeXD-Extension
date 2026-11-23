@@ -758,7 +758,9 @@
         :row-detail-text="activePreview ? rowDetail(activePreview.row) : ''"
         :name-class="activePreview ? nameClass(activePreview.row) : ''"
         :search-defaults="activePreviewDefaults"
-        @mouseenter="pinPreview"
+        @mouseenter="enterPreviewCard"
+        @mouseleave="leavePreviewTrigger"
+        @pointerdown="pinPreview"
         @focusin="pinPreview"
         @update:open="(open) => !open && closePreview()"
         @save-selection="
@@ -1202,11 +1204,12 @@ export default defineComponent({
     const isPreviewOpen = computed(() => activePreview.value !== null);
 
     /**
-     * 滑鼠移入格子（或清單的圖示、調整按鈕）稍停即開啟預覽；移出時若沒進入預覽框就關閉，
-     * 進入過預覽框後固定開著，直到點外面、按關閉或移到另一個項目。
+     * 滑鼠移入格子（或清單的圖示、調整按鈕）稍停即開啟預覽；移進預覽框只暫停關閉，移出照常
+     * 收合。點擊格子或在預覽框內操作（pointerdown／focusin）才會固定開著，固定時不受其他項
+     * 目的 hover 干擾，直到點外面、按關閉或再點一次。
      */
-    const HOVER_OPEN_DELAY = 180;
-    const HOVER_CLOSE_DELAY = 450;
+    const HOVER_OPEN_DELAY = 260;
+    const HOVER_CLOSE_DELAY = 200;
     let hoverOpenTimer: ReturnType<typeof setTimeout> | undefined;
     let hoverCloseTimer: ReturnType<typeof setTimeout> | undefined;
     const previewPinned = ref(false);
@@ -1229,16 +1232,20 @@ export default defineComponent({
 
     const hoverPreview = (buildId: string, row: ShoppingRow, event: Event) => {
       clearTimeout(hoverCloseTimer);
-      if (!canPreview(row) || isPreviewActive(buildId, row.key)) return;
+      if (previewPinned.value || !canPreview(row) || isPreviewActive(buildId, row.key)) return;
       // 事件的 currentTarget 只在處理當下有效，先找好定位元素
       const anchor = previewAnchorFromEvent(event);
       if (!anchor) return;
       clearTimeout(hoverOpenTimer);
       hoverOpenTimer = setTimeout(() => {
-        previewPinned.value = false;
+        if (previewPinned.value) return;
         activePreviewTarget.value = { buildId, key: row.key };
         previewAnchorEl.value = anchor;
       }, HOVER_OPEN_DELAY);
+    };
+
+    const enterPreviewCard = () => {
+      clearTimeout(hoverCloseTimer);
     };
 
     const leavePreviewTrigger = () => {
@@ -1266,6 +1273,10 @@ export default defineComponent({
 
     const togglePreview = (buildId: string, key: string, event: Event) => {
       if (isPreviewActive(buildId, key)) {
+        if (!previewPinned.value) {
+          pinPreview();
+          return;
+        }
         closePreview();
         return;
       }
@@ -1445,6 +1456,7 @@ export default defineComponent({
       togglePreview,
       closePreview,
       hoverPreview,
+      enterPreviewCard,
       leavePreviewTrigger,
       pinPreview,
       searchEntryClickAction,
