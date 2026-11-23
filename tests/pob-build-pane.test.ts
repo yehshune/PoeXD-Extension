@@ -731,6 +731,62 @@ describe('PobBuildPane', () => {
     expect(queryBody('[data-pob-build-item-filters]')).toBeNull();
   });
 
+  it('有類別的稀有裝可在預覽改以類別＋防禦類型搜尋並存回', async () => {
+    const build = sampleBuild();
+    const [equipment] = build.groups;
+    const gloves = {
+      ...equipment.rows[1],
+      category: {
+        id: 'armour.gloves',
+        defences: ['ar' as const, 'es' as const],
+        defenceSection: 'armour_filters' as const,
+      },
+      searchBy: 'base' as const,
+    };
+    buildsRef.value = [
+      {
+        ...build,
+        groups: [{ ...equipment, rows: equipment.rows.map((r, i) => (i === 1 ? gloves : r)) }],
+      },
+    ];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+
+    expect(queryBody('[data-pob-build-item-filters]')).not.toBeNull();
+    const option = (value: string) =>
+      queryBody<HTMLElement>(`[data-pob-build-search-by-option="${value}"]`)!;
+    expect(option('base').getAttribute('data-state')).toBe('on');
+    expect(queryBody('[data-pob-build-category-hint]')).toBeNull();
+
+    option('category').click();
+    await nextTick();
+    expect(option('category').getAttribute('data-state')).toBe('on');
+    expect(queryBody('[data-pob-build-category-hint]')?.textContent?.trim()).toBe(
+      '手套・護甲／能量護盾',
+    );
+    queryBody<HTMLButtonElement>('[data-pob-build-save-selection]')!.click();
+    await nextTick();
+    expect(fake.saveSelection).toHaveBeenCalledWith(
+      'b1',
+      'k-rare',
+      expect.objectContaining({ searchBy: 'category' }),
+    );
+  });
+
+  it('整體搜尋設定可把稀有裝改成類別搜尋', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    query<HTMLButtonElement>('[data-pob-build-search-settings]')!.click();
+    await flushAsync();
+    const option = (value: string) =>
+      queryBody<HTMLElement>(`[data-pob-build-rare-search-option="${value}"]`)!;
+    expect(option('base').getAttribute('data-state')).toBe('on');
+    option('category').click();
+    await nextTick();
+    expect(fake.setSearchDefaults).toHaveBeenCalledWith('b1', { rareSearch: 'category' });
+  });
+
   it('build 標題的整體搜尋設定改連結條件與數值比例時交給狀態處理', async () => {
     buildsRef.value = [{ ...sampleBuild(), searchDefaults: { statPercent: 70 } }];
     await mount();

@@ -11,6 +11,7 @@ import {
   type LinkPolicy,
   type StatSelection,
 } from './pob-shopping-list';
+import { RARE_SEARCH_MODES, type RareSearchMode } from './pob-category-search';
 import { isGzipHash } from './trade-url-codec';
 import type { PoeVersion } from './trade-context';
 
@@ -192,9 +193,13 @@ export function toEntrySearchSelection(value: unknown): EntrySearchSelection | u
     (typeof value.links === 'number' && LINK_OPTIONS.includes(value.links))
       ? { links: value.links }
       : {}),
+    ...(isRareSearchMode(value.searchBy) ? { searchBy: value.searchBy } : {}),
   };
   return Object.keys(selection).length > 0 ? selection : undefined;
 }
+
+const isRareSearchMode = (value: unknown): value is RareSearchMode =>
+  RARE_SEARCH_MODES.includes(value as RareSearchMode);
 
 /** build 整體設定來自本機儲存：不合法的欄位略過 */
 export function toSearchDefaults(value: unknown): BuildSearchDefaults {
@@ -202,6 +207,7 @@ export function toSearchDefaults(value: unknown): BuildSearchDefaults {
   return normalizeSearchDefaults({
     ...(typeof value.statPercent === 'number' ? { statPercent: value.statPercent } : {}),
     ...(typeof value.links === 'string' ? { links: value.links as LinkPolicy } : {}),
+    ...(isRareSearchMode(value.rareSearch) ? { rareSearch: value.rareSearch } : {}),
   });
 }
 

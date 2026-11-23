@@ -20,8 +20,13 @@ import {
   type BuildSearchDefaults,
   type LinkPolicy,
 } from '@/utils/pob-shopping-list';
+import {
+  DEFAULT_RARE_SEARCH,
+  RARE_SEARCH_MODES,
+  type RareSearchMode,
+} from '@/utils/pob-category-search';
 
-/** build 卡片標題的整體搜尋設定：詞綴數值比例與連結條件；單件預覽改過的條件不受影響 */
+/** build 卡片標題的整體搜尋設定：詞綴數值比例、連結條件與稀有裝搜尋方式；單件預覽改過的條件不受影響 */
 const props = defineProps({
   open: { type: Boolean, default: false },
   buildName: { type: String, default: '' },
@@ -42,8 +47,14 @@ const LINK_POLICY_LABELS: Readonly<Record<LinkPolicy, I18nKey>> = {
   none: 'pobBuild.searchSettings.linksNone',
 };
 
+const RARE_SEARCH_LABELS: Readonly<Record<RareSearchMode, I18nKey>> = {
+  base: 'pobBuild.searchSettings.rareSearchBase',
+  category: 'pobBuild.searchSettings.rareSearchCategory',
+};
+
 const statPercent = computed(() => props.defaults.statPercent ?? DEFAULT_STAT_PERCENT);
 const linkPolicy = computed(() => props.defaults.links ?? DEFAULT_LINK_POLICY);
+const rareSearch = computed(() => props.defaults.rareSearch ?? DEFAULT_RARE_SEARCH);
 const isCustomized = computed(() => Object.keys(props.defaults).length > 0);
 
 function setStatPercent(value: unknown): void {
@@ -56,6 +67,11 @@ function setLinkPolicy(value: unknown): void {
   // ToggleGroup 再點一次已選的項目會送出空值，維持原選擇
   if (typeof value !== 'string' || !LINK_POLICIES.includes(value as LinkPolicy)) return;
   emit('change', { ...props.defaults, links: value as LinkPolicy });
+}
+
+function setRareSearch(value: unknown): void {
+  if (typeof value !== 'string' || !RARE_SEARCH_MODES.includes(value as RareSearchMode)) return;
+  emit('change', { ...props.defaults, rareSearch: value as RareSearchMode });
 }
 
 function resetDefaults(): void {
@@ -141,6 +157,29 @@ function resetDefaults(): void {
             :data-pob-build-link-policy-option="policy"
           >
             {{ t(LINK_POLICY_LABELS[policy]) }}
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      <div class="flex flex-col gap-[var(--pxd-space-xs)]">
+        <span class="text-muted-foreground">{{ t('pobBuild.searchSettings.rareSearch') }}</span>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          class="w-full"
+          data-pob-build-rare-search
+          :model-value="rareSearch"
+          @update:model-value="setRareSearch"
+        >
+          <ToggleGroupItem
+            v-for="mode in RARE_SEARCH_MODES"
+            :key="mode"
+            :value="mode"
+            class="flex-1"
+            :data-pob-build-rare-search-option="mode"
+          >
+            {{ t(RARE_SEARCH_LABELS[mode]) }}
           </ToggleGroupItem>
         </ToggleGroup>
       </div>

@@ -38,6 +38,7 @@ import {
   buildTradeSearchUrl,
   effectiveCountMin,
   effectiveLinks,
+  effectiveSearchBy,
   type VisceraModIndex,
   entryStatFilters,
   loadTradeNameCatalog,
@@ -50,6 +51,7 @@ import {
   type ShoppingStatFilter,
   type TradeNameCatalog,
 } from '@/utils/pob-shopping-list';
+import type { RareSearchMode } from '@/utils/pob-category-search';
 import { loadModLineTranslator, type ModLineTranslator } from '@/utils/pob-mod-translator';
 import { loadStatMatcher, type StatMatcher } from '@/utils/pob-stat-matcher';
 import { loadVisceraModIndex } from '@/utils/pob-viscera-parts';
@@ -117,6 +119,8 @@ export interface ShoppingRow extends ShoppingEntry {
   pseudo: boolean;
   /** 實際帶入搜尋的連結數下限（單件設定或 build 整體設定）；不限時省略 */
   linksMin?: number;
+  /** 實際的搜尋方式（沒有類別的項目一律是基底） */
+  searchBy?: RareSearchMode;
   /** 使用者調整過這一項的搜尋條件，或存回了市集搜尋 */
   searchCustomized: boolean;
   /** 目前已儲存的條件調整（供 Popover 建立暫存草稿使用） */
@@ -499,6 +503,7 @@ export function usePobBuild(
       ...(countMin !== undefined ? { countMin } : {}),
       pseudo: selection?.pseudo === true,
       ...(linksMin !== undefined ? { linksMin } : {}),
+      searchBy: effectiveSearchBy(entry, selection, defaults),
       searchCustomized: selection !== undefined || session.searchOverrides[entry.key] !== undefined,
       ...(selection ? { searchSelection: selection } : {}),
       searchOverride: session.searchOverrides[entry.key] !== undefined,

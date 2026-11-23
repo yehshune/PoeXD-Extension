@@ -871,33 +871,57 @@ describe('usePobBuild', () => {
       expect(stored()[0].searchDefaults).toEqual({});
     });
 
+    it('build 整體設定：稀有裝改以類別搜尋，單件可以改回基底', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      pob.selectItemSet('build-1', '2');
+      expect(plateOf(pob)).toMatchObject({ searchBy: 'base', category: { id: 'armour.chest' } });
+
+      pob.setSearchDefaults('build-1', { rareSearch: 'category' });
+      expect(plateOf(pob).searchBy).toBe('category');
+      expect(plateOf(pob).query).not.toHaveProperty('type');
+      expect(plateOf(pob).query).toMatchObject({
+        filters: { type_filters: { filters: { category: { option: 'armour.chest' } } } },
+      });
+
+      pob.saveSelection('build-1', plateOf(pob).key, { searchBy: 'base' });
+      expect(plateOf(pob).searchBy).toBe('base');
+      expect(plateOf(pob).query).toMatchObject({ type: 'Plate Vest' });
+      await flush();
+      expect(stored()[0].searchSelections[plateOf(pob).key]).toEqual({ searchBy: 'base' });
+    });
+
     it('本機存的整體設定格式不對時略過該欄', async () => {
       storage.data[pobBuildsStorageKey('poe1')] = [
         {
           id: 'saved',
           name: '',
           code: toCode(buildXml()),
-          searchDefaults: { statPercent: 33, links: 'seven' },
+          searchDefaults: { statPercent: 33, links: 'seven', rareSearch: 'name' },
           searchSelections: {
-            a: { links: 9 },
+            a: { links: 9, searchBy: 'name' },
             b: { links: null },
-            c: { links: 5 },
+            c: { links: 5, searchBy: 'category' },
           },
         },
         {
           id: 'other',
           name: '',
           code: toCode(buildXml()),
-          searchDefaults: { statPercent: 60, links: 'six' },
+          searchDefaults: { statPercent: 60, links: 'six', rareSearch: 'category' },
         },
       ];
       const list = await createPobBuildStore('poe1', { storage }).list();
       expect(list[0].searchDefaults).toEqual({});
       expect(list[0].searchSelections).toEqual({
         b: { links: null },
-        c: { links: 5 },
+        c: { links: 5, searchBy: 'category' },
       });
-      expect(list[1].searchDefaults).toEqual({ statPercent: 60, links: 'six' });
+      expect(list[1].searchDefaults).toEqual({
+        statPercent: 60,
+        links: 'six',
+        rareSearch: 'category',
+      });
     });
 
     it('開啟搜尋使用調整後的條件', async () => {

@@ -26,7 +26,12 @@ export interface PobBuildItem {
   explicitMods: PobItemMod[];
   /** 最大的連結插槽數（PoE 1 的 `Sockets:` 行）；沒有插槽時省略 */
   maxLinks?: number;
+  /** 基底帶有的防禦類型（依 PoB 的 `…BasePercentile` 行）；沒有防禦時省略 */
+  baseDefences?: PobDefence[];
 }
+
+/** 護甲、閃避、能量護盾、結界 */
+export type PobDefence = 'ar' | 'ev' | 'es' | 'ward';
 
 export interface PobItemMod {
   text: string;
@@ -226,6 +231,33 @@ function parseMaxLinks(lines: readonly string[]): number | undefined {
   return largest > 0 ? largest : undefined;
 }
 
+const DEFENCE_LINES: readonly { defence: PobDefence; percentile: RegExp; value: RegExp }[] = [
+  { defence: 'ar', percentile: /^ArmourBasePercentile:/, value: /^Armour:\s*(\d+)/ },
+  { defence: 'ev', percentile: /^EvasionBasePercentile:/, value: /^Evasion(?: Rating)?:\s*(\d+)/ },
+  {
+    defence: 'es',
+    percentile: /^EnergyShieldBasePercentile:/,
+    value: /^Energy Shield:\s*(\d+)/,
+  },
+  { defence: 'ward', percentile: /^WardBasePercentile:/, value: /^Ward:\s*(\d+)/ },
+];
+
+/**
+ * 基底防禦類型：PoB 只替基底有的防禦寫 `…BasePercentile` 行（詞綴加上的防禦不會有），
+ * 舊版匯出沒有這些行時退回防禦數值行
+ */
+function parseBaseDefences(lines: readonly string[]): PobDefence[] | undefined {
+  const byPercentile = DEFENCE_LINES.filter(({ percentile }) =>
+    lines.some((line) => percentile.test(line)),
+  );
+  const found = byPercentile.length
+    ? byPercentile
+    : DEFENCE_LINES.filter(({ value }) =>
+        lines.some((line) => Number(value.exec(line)?.[1] ?? 0) > 0),
+      );
+  return found.length ? found.map(({ defence }) => defence) : undefined;
+}
+
 function parseItem(item: Element, slot: string): PobBuildItem | undefined {
   const lines = itemTextLines(item);
   const rarityIndex = lines.findIndex((line) => RARITY_LINE.test(line));
@@ -237,7 +269,9 @@ function parseItem(item: Element, slot: string): PobBuildItem | undefined {
   const next = lines[rarityIndex + 2] ?? '';
   const hasBaseLine = (rarity === 'RARE' || rarity === 'UNIQUE' || rarity === 'RELIC') && next;
   const implicitsIndex = lines.findIndex((line) => IMPLICITS_LINE.test(line));
-  const maxLinks = parseMaxLinks(lines.slice(0, implicitsIndex < 0 ? undefined : implicitsIndex));
+  const properties = lines.slice(0, implicitsIndex < 0 ? undefined : implicitsIndex);
+  const maxLinks = parseMaxLinks(properties);
+  const baseDefences = parseBaseDefences(properties);
   return {
     slot,
     rarity,
@@ -245,6 +279,7 @@ function parseItem(item: Element, slot: string): PobBuildItem | undefined {
     ...(hasBaseLine && !SPEC_LINE.test(next) ? { baseType: clip(next) } : {}),
     ...parseMods(lines),
     ...(maxLinks !== undefined ? { maxLinks } : {}),
+    ...(baseDefences ? { baseDefences } : {}),
   };
 }
 

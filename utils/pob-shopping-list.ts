@@ -26,6 +26,14 @@ import {
   type PobItemRarity,
   type PobItemSet,
 } from './pob-build';
+import {
+  categoryOfItem,
+  categorySearchBase,
+  DEFAULT_RARE_SEARCH,
+  RARE_SEARCH_MODES,
+  type EntryCategory,
+  type RareSearchMode,
+} from './pob-category-search';
 import { modLineSkeleton, type StatDomain, type StatMatcher } from './pob-stat-matcher';
 import { statDomainOf, withStatDomain } from './stat-domain-order';
 import { getLocaleItemsAssetPath, tradeVersionProfiles, type PoeVersion } from './trade-context';
@@ -112,6 +120,8 @@ export interface ShoppingEntry {
   visceraPart?: VisceraPart;
   /** PoB 裝備的連結數；五連以上才有（實際是否帶入搜尋由 `effectiveLinks` 決定） */
   links?: number;
+  /** 非傳奇裝備依部位推得的市集類別；有才能改用「類別＋防禦類型」搜尋 */
+  category?: EntryCategory;
   /** 不含詞綴與連結條件的搜尋（名稱、基底、分類）；null 表示無法搜尋 */
   searchBase: Record<string, unknown> | null;
   /** 官方市集的 query 物件（套用使用者的選擇後）；null 表示無法搜尋 */
@@ -147,6 +157,8 @@ export interface EntrySearchSelection {
   pseudo?: boolean;
   /** 單件的連結條件：數字為連結數下限，null 為不限；省略時依 build 整體設定 */
   links?: number | null;
+  /** 單件的稀有裝搜尋方式；省略時依 build 整體設定 */
+  searchBy?: RareSearchMode;
 }
 
 /** build 整體設定的連結條件：照 PoB（五連以上）、只帶六連、一律不帶 */
@@ -164,11 +176,13 @@ export interface BuildSearchDefaults {
   /** 沒調整過的詞綴下限取原數值的幾 %（預設 80） */
   statPercent?: number;
   links?: LinkPolicy;
+  /** 稀有裝（非傳奇）以基底或類別＋防禦類型搜尋 */
+  rareSearch?: RareSearchMode;
 }
 
 /** 只留下和預設不同、而且合法的欄位 */
 export function normalizeSearchDefaults(value: BuildSearchDefaults): BuildSearchDefaults {
-  const { statPercent, links } = value;
+  const { statPercent, links, rareSearch } = value;
   return {
     ...(statPercent !== undefined &&
     statPercent !== DEFAULT_STAT_PERCENT &&
@@ -177,6 +191,11 @@ export function normalizeSearchDefaults(value: BuildSearchDefaults): BuildSearch
       : {}),
     ...(links !== undefined && links !== DEFAULT_LINK_POLICY && LINK_POLICIES.includes(links)
       ? { links }
+      : {}),
+    ...(rareSearch !== undefined &&
+    rareSearch !== DEFAULT_RARE_SEARCH &&
+    RARE_SEARCH_MODES.includes(rareSearch)
+      ? { rareSearch }
       : {}),
   };
 }
@@ -709,6 +728,16 @@ export function effectiveLinks(
   return entry.links;
 }
 
+/** 實際的搜尋方式：單件設定優先，否則依 build 整體設定；項目沒有類別時一律以基底搜尋 */
+export function effectiveSearchBy(
+  entry: Pick<ShoppingEntry, 'category'>,
+  selection?: EntrySearchSelection,
+  defaults?: BuildSearchDefaults,
+): RareSearchMode {
+  if (!entry.category) return 'base';
+  return selection?.searchBy ?? defaults?.rareSearch ?? DEFAULT_RARE_SEARCH;
+}
+
 /** 把連結條件併進既有的 filters（臟器的分類條件等），不覆蓋其他區塊 */
 function withLinks(
   base: Record<string, unknown>,
@@ -727,12 +756,17 @@ function withLinks(
 
 /** 套用使用者的選擇與 build 整體設定組出搜尋；項目無法搜尋時回傳 null */
 export function buildEntryQuery(
-  entry: Pick<ShoppingEntry, 'mods' | 'searchBase' | 'visceraBundle' | 'links'>,
+  entry: Pick<ShoppingEntry, 'mods' | 'searchBase' | 'visceraBundle' | 'links' | 'category'>,
   selection?: EntrySearchSelection,
   defaults?: BuildSearchDefaults,
 ): Record<string, unknown> | null {
-  if (!entry.searchBase) return null;
-  const base = withLinks(entry.searchBase, effectiveLinks(entry, selection, defaults));
+  // 類別搜尋不需要基底名稱，對不到市集基底名稱的項目也能搜
+  const searchBase =
+    entry.category && effectiveSearchBy(entry, selection, defaults) === 'category'
+      ? categorySearchBase(entry.category, INSTANT_BUYOUT_STATUS)
+      : entry.searchBase;
+  if (!searchBase) return null;
+  const base = withLinks(searchBase, effectiveLinks(entry, selection, defaults));
   const enabled = entryStatFilters(entry, selection, defaults).filter((filter) => filter.enabled);
   const filters = selection?.pseudo
     ? mergeIntoPseudo(enabled, entry.mods ?? [], statRatioOf(defaults))
@@ -790,13 +824,15 @@ export function applyEntrySelection(
 
 export interface SelectionRowSnapshot extends Pick<
   ShoppingEntry,
-  'mods' | 'searchBase' | 'visceraBundle' | 'links'
+  'mods' | 'searchBase' | 'visceraBundle' | 'links' | 'category'
 > {
   filters?: readonly ShoppingStatFilter[];
   countMin?: number;
   pseudo?: boolean;
   /** 實際帶入搜尋的連結數下限 */
   linksMin?: number;
+  /** 實際的搜尋方式 */
+  searchBy?: RareSearchMode;
   searchSelection?: EntrySearchSelection;
 }
 
@@ -813,6 +849,7 @@ export function cloneEntrySearchSelection(selection?: EntrySearchSelection): Ent
     ...(selection.countMin !== undefined ? { countMin: selection.countMin } : {}),
     ...(selection.pseudo === true ? { pseudo: true } : {}),
     ...('links' in selection ? { links: selection.links ?? null } : {}),
+    ...(selection.searchBy ? { searchBy: selection.searchBy } : {}),
   };
 }
 
@@ -843,7 +880,7 @@ export function selectionFromRowState(
 
 /** 僅保留相對於預設值（PoB 加上 build 整體設定）有差異的欄位；全部回到預設時回傳 undefined。 */
 export function normalizeSelectionForEntry(
-  entry: Pick<ShoppingEntry, 'mods' | 'visceraBundle' | 'links'>,
+  entry: Pick<ShoppingEntry, 'mods' | 'visceraBundle' | 'links' | 'category'>,
   selection: EntrySearchSelection | undefined,
   searchDefaults?: BuildSearchDefaults,
 ): EntrySearchSelection | undefined {
@@ -886,16 +923,23 @@ export function normalizeSelectionForEntry(
       effectiveLinks(entry, undefined, searchDefaults)
       ? { links: selection.links ?? null }
       : {}),
+    ...(selection.searchBy &&
+    RARE_SEARCH_MODES.includes(selection.searchBy) &&
+    effectiveSearchBy(entry, selection, searchDefaults) !==
+      effectiveSearchBy(entry, undefined, searchDefaults)
+      ? { searchBy: selection.searchBy }
+      : {}),
   };
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 /** 比較兩個搜尋條件快照，判斷暫存微調是否與已儲存狀態不同。 */
 export function isSelectionDraftModified(
-  saved: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo' | 'linksMin'>,
-  draft: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo' | 'linksMin'>,
+  saved: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo' | 'linksMin' | 'searchBy'>,
+  draft: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo' | 'linksMin' | 'searchBy'>,
 ): boolean {
   if (Boolean(saved.pseudo) !== Boolean(draft.pseudo)) return true;
+  if ((saved.searchBy ?? 'base') !== (draft.searchBy ?? 'base')) return true;
   if (saved.linksMin !== draft.linksMin) return true;
   if (saved.countMin !== draft.countMin) return true;
   const left = saved.filters ?? [];
@@ -935,6 +979,7 @@ function itemEntry(
   item: PobBuildItem,
   catalog: TradeNameCatalog,
   matcher: StatMatcher | undefined,
+  version: PoeVersion,
 ): ShoppingEntry {
   const isUnique = item.rarity === 'UNIQUE' || item.rarity === 'RELIC';
   const base = resolveBase(item.baseType ?? catalog.findBaseType(item.name), catalog);
@@ -984,6 +1029,7 @@ function itemEntry(
     });
   }
   if (!isUnique) {
+    const category = categoryOfItem(item, version);
     return finish({
       key,
       kind: 'equipment',
@@ -993,6 +1039,7 @@ function itemEntry(
       rarity: item.rarity,
       searchBase: base.trade ? { status: INSTANT_BUYOUT_STATUS, type: base.trade } : null,
       ...linksOf(item),
+      ...(category ? { category } : {}),
     });
   }
   const seed = TIMELESS_NAME_SUFFIX.test(item.name)
@@ -1125,7 +1172,7 @@ export function buildShoppingList(
     .flatMap((item) =>
       isVisceraBundleItem(item) ? splitVisceraBundle(item, matcher, options.visceraMods) : [item],
     )
-    .map((item) => itemEntry(item, catalog, matcher));
+    .map((item) => itemEntry(item, catalog, matcher, build.gameVersion));
   const gems =
     build.gameVersion === 'poe1' ? (skillSet?.gems ?? []).map((gem) => gemEntry(gem, catalog)) : [];
   // 同一套裡內容完全相同的項目（例如兩顆一樣的珠寶）共用一個 key，合併成一列並計數

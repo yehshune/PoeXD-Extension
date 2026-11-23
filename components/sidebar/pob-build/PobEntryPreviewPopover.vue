@@ -5,12 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { t } from '@/utils/i18n';
+import { t, type I18nKey } from '@/utils/i18n';
+import type { PobDefence } from '@/utils/pob-build';
+import { RARE_SEARCH_MODES, type RareSearchMode } from '@/utils/pob-category-search';
 import {
   applyEntrySelection,
   buildEntryQuery,
   effectiveCountMin,
   effectiveLinks,
+  effectiveSearchBy,
   LINK_OPTIONS,
   cloneEntrySearchSelection,
   entryStatFilters,
@@ -121,6 +124,7 @@ const effectiveRow = computed<ShoppingRow | null>(() => {
     countMin,
     pseudo,
     linksMin: effectiveLinks(row, draft, defaults),
+    searchBy: effectiveSearchBy(row, draft, defaults),
     query: buildEntryQuery(row, draft, defaults),
     searchSelection: draft,
   };
@@ -146,6 +150,37 @@ function setLinks(value: unknown): void {
   if (links !== null && !LINK_OPTIONS.includes(links)) return;
   mutateDraft((draft) => ({ ...draft, links }));
 }
+
+/** 有市集類別的非傳奇裝備可以改以類別＋防禦類型搜尋 */
+const showSearchBy = computed(() =>
+  Boolean(effectiveRow.value?.category && !effectiveRow.value.searchOverride),
+);
+
+const showItemFilters = computed(() => showLinks.value || showSearchBy.value);
+
+const searchByValue = computed<RareSearchMode>(() => effectiveRow.value?.searchBy ?? 'base');
+
+const SEARCH_BY_LABELS: Readonly<Record<RareSearchMode, I18nKey>> = {
+  base: 'pobBuild.itemFilters.searchByBase',
+  category: 'pobBuild.itemFilters.searchByCategory',
+};
+
+function setSearchBy(value: unknown): void {
+  if (typeof value !== 'string' || !RARE_SEARCH_MODES.includes(value as RareSearchMode)) return;
+  mutateDraft((draft) => ({ ...draft, searchBy: value as RareSearchMode }));
+}
+
+/** 類別搜尋時的說明：「頭盔・護甲／能量護盾」；沒有防禦條件時只有類別 */
+const categoryHint = computed(() => {
+  const category = effectiveRow.value?.category;
+  if (!category || searchByValue.value !== 'category') return '';
+  const name = t(`pobBuild.category.${category.id}` as I18nKey);
+  if (!category.defences?.length) return name;
+  const defences = category.defences
+    .map((defence: PobDefence) => t(`pobBuild.defence.${defence}` as I18nKey))
+    .join(t('pobBuild.itemFilters.defenceSeparator'));
+  return t('pobBuild.itemFilters.categoryHint', { category: name, defences });
+});
 
 const isDraftModified = computed(() =>
   Boolean(
@@ -523,9 +558,9 @@ function handleResetSearch(): void {
           {{ t('pobBuild.mods.overrideNotice') }}
         </p>
 
-        <!-- 物品條件區：連結數（PoB 五連以上） -->
+        <!-- 物品條件區：搜尋方式（基底或類別）與連結數（PoB 五連以上） -->
         <div
-          v-if="showLinks"
+          v-if="showItemFilters"
           data-pob-build-item-filters
           class="flex flex-col gap-[var(--pxd-space-xs)]"
         >
@@ -533,6 +568,42 @@ function handleResetSearch(): void {
             {{ t('pobBuild.itemFilters.title') }}
           </span>
           <div
+            v-if="showSearchBy"
+            :class="[
+              PREVIEW_CARD_CLASS,
+              'flex flex-wrap items-center gap-[var(--pxd-space-md)] p-[var(--pxd-space-sm)]',
+            ]"
+          >
+            <span class="shrink-0 text-[length:var(--pxd-font-secondary)] text-muted-foreground">
+              {{ t('pobBuild.itemFilters.searchBy') }}
+            </span>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              data-pob-build-search-by
+              :model-value="searchByValue"
+              @update:model-value="setSearchBy"
+            >
+              <ToggleGroupItem
+                v-for="mode in RARE_SEARCH_MODES"
+                :key="mode"
+                :value="mode"
+                :data-pob-build-search-by-option="mode"
+              >
+                {{ t(SEARCH_BY_LABELS[mode]) }}
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <span
+              v-if="categoryHint"
+              data-pob-build-category-hint
+              class="ml-auto min-w-0 text-[length:var(--pxd-font-caption)] text-muted-foreground"
+            >
+              {{ categoryHint }}
+            </span>
+          </div>
+          <div
+            v-if="showLinks"
             :class="[
               PREVIEW_CARD_CLASS,
               'flex items-center gap-[var(--pxd-space-md)] p-[var(--pxd-space-sm)]',
