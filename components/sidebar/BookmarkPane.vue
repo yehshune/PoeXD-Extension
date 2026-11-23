@@ -193,14 +193,19 @@
                 </Button>
               </template>
             </SidebarEmptyState>
-            <p
+            <SidebarFilterEmptyState
               v-else-if="visibleFolderNodes.length === 0"
               data-test="bookmark-search-empty"
-              class="m-0 py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
               key="no-match"
-            >
-              {{ t('bookmark.empty.noMatch') }}
-            </p>
+              icon="search"
+              :message="t('bookmark.empty.noMatch')"
+              :active-filters="
+                searchQuery.trim()
+                  ? [t('common.filterTag.keyword', { query: searchQuery.trim() })]
+                  : undefined
+              "
+              @reset="searchQuery = ''"
+            />
             <template v-else key="groups-content">
               <div
                 :key="listRenderKey"
@@ -298,6 +303,7 @@ import { describeBookmarkImportFailure } from '@/utils/bookmark-transfer-message
 import { formatMessage, t } from '@/utils/i18n';
 import SidebarPane from './layout/SidebarPane.vue';
 import SidebarEmptyState from './layout/SidebarEmptyState.vue';
+import SidebarFilterEmptyState from './layout/SidebarFilterEmptyState.vue';
 import DragTrashZone from './layout/DragTrashZone.vue';
 import BookmarkFolderNode from './BookmarkFolderNode.vue';
 import {
@@ -406,6 +412,7 @@ export default defineComponent({
   components: {
     SidebarPane,
     SidebarEmptyState,
+    SidebarFilterEmptyState,
     DragTrashZone,
     BookmarkFolderNode,
     BookmarkIcon,

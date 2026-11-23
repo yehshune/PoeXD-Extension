@@ -163,12 +163,20 @@
         </div>
       </div>
 
-      <div
+      <SidebarFilterEmptyState
         v-if="groupedAvailableTypes.length === 0"
-        class="no-options-found p-[var(--pxd-space-md)] text-[length:var(--pxd-font-body)] text-muted-foreground text-center"
-      >
-        {{ t('filterPane.dialog.empty') }}
-      </div>
+        compact
+        icon="search"
+        class="no-options-found"
+        :message="t('filterPane.dialog.empty')"
+        :active-filters="
+          searchQuery.trim()
+            ? [t('common.filterTag.keyword', { query: searchQuery.trim() })]
+            : undefined
+        "
+        :show-reset="Boolean(searchQuery.trim())"
+        @reset="clearSearch"
+      />
     </div>
   </div>
 </template>
@@ -179,6 +187,7 @@ import { X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { t } from '@/utils/i18n';
+import SidebarFilterEmptyState from './layout/SidebarFilterEmptyState.vue';
 
 export interface TypeSelectorOption {
   key: string;

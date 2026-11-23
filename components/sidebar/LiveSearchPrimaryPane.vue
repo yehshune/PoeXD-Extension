@@ -234,19 +234,24 @@
               {{ t('liveSearch.primary.loadingConnections') }}
             </div>
 
+            <SidebarFilterEmptyState
+              v-else-if="filteredGroups.length === 0 && hasAnySources"
+              data-test="connections-empty"
+              :message="t('liveSearch.primary.noMatchingConnections')"
+              :active-filters="activeConnectionFilterLabels"
+              class="rounded-md border border-dashed border-border"
+              @reset="resetConnectionFilters"
+            />
+
             <SidebarEmptyState
               v-else-if="filteredGroups.length === 0"
               data-test="connections-empty"
-              :message="
-                hasAnySources
-                  ? t('liveSearch.primary.noMatchingConnections')
-                  : t('liveSearch.primary.noAvailableConnections')
-              "
-              :hint="!hasAnySources ? t('liveSearch.primary.emptyGuide') : undefined"
+              :message="t('liveSearch.primary.noAvailableConnections')"
+              :hint="t('liveSearch.primary.emptyGuide')"
               class="rounded-md border border-dashed border-border"
             >
-              <template v-if="!hasAnySources" #icon><Radio /></template>
-              <template v-if="!hasAnySources" #actions>
+              <template #icon><Radio /></template>
+              <template #actions>
                 <Button
                   type="button"
                   variant="secondary"
@@ -351,6 +356,7 @@ import {
 } from '@/components/ui/scroll-area';
 import DragTrashZone from './layout/DragTrashZone.vue';
 import SidebarEmptyState from './layout/SidebarEmptyState.vue';
+import SidebarFilterEmptyState from './layout/SidebarFilterEmptyState.vue';
 import LiveSearchStatusHeader from './live-search/LiveSearchStatusHeader.vue';
 import LiveSearchGroupSection from './live-search/LiveSearchGroupSection.vue';
 import { useLiveSearchMenuState } from './live-search/useLiveSearchMenuState';
@@ -532,6 +538,28 @@ const {
   hasEnableableSourcesInGroup,
   hasStoppedSourcesInGroup,
 } = useLiveSearchGroups(sourceSnapshot);
+
+const activeConnectionFilterLabels = computed(() => {
+  const labels: string[] = [];
+  if (statusFilter.value !== 'all') {
+    const statusLabel = statusFilterOptions.value.find(
+      (opt) => opt.value === statusFilter.value,
+    )?.label;
+    if (statusLabel) {
+      labels.push(t('common.filterTag.status', { status: statusLabel }));
+    }
+  }
+  const trimmed = searchQuery.value.trim();
+  if (trimmed) {
+    labels.push(t('common.filterTag.keyword', { query: trimmed }));
+  }
+  return labels;
+});
+
+function resetConnectionFilters() {
+  clearSearch();
+  handleStatusFilterChange('all');
+}
 
 const currentSelectedLeague = computed(() => {
   return sourceSnapshot.value?.selectedLeague || snapshot.value?.runtimeLeague || 'Standard';

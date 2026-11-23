@@ -9,6 +9,7 @@ import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 import { criteriaFromTradeQuery } from '@/utils/criteria-overlay';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
+import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
 import DragTrashZone from '../layout/DragTrashZone.vue';
 import TradeSearchPreviewPopover from '../search-preview/TradeSearchPreviewPopover.vue';
 import {
@@ -303,12 +304,13 @@ onUnmounted(() => {
         <template #icon><SlidersHorizontal /></template>
       </SidebarEmptyState>
 
-      <p
+      <SidebarFilterEmptyState
         v-else-if="visibleTemplates.length === 0"
-        class="m-0 py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
-      >
-        {{ t('statGroupTemplate.empty.noMatch', { query: query.trim() }) }}
-      </p>
+        icon="search"
+        :message="t('statGroupTemplate.empty.noMatch', { query: query.trim() })"
+        data-test="stat-group-template-no-match"
+        @reset="query = ''"
+      />
 
       <ul
         v-show="visibleTemplates.length > 0"

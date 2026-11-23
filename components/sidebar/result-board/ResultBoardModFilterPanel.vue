@@ -5,7 +5,7 @@
  * 列出目前結果中實際出現的獨立詞條（自動區分單詞與複合詞），提供快速分類切換、
  * 累積階級（不限 / T1 / T1–T2 / T1–T3）與多條件即時交集件數。
  */
-import { nextTick, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { ChevronUp, Search, X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,7 @@ import {
   ScrollBar,
 } from '@/components/ui/scroll-area';
 import { t, type I18nKey } from '@/utils/i18n';
+import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
 import {
   BOARD_MOD_QUICK_FILTERS,
   BOARD_MOD_TIER_CAPS,
@@ -113,6 +114,22 @@ function cycleConditionTier(cond: BoardModCondition): void {
   const idx = candidates.indexOf(cond.maxTier);
   const next = candidates[(idx + 1) % candidates.length];
   emit('select', cond.key, next);
+}
+const activePickerFilterLabels = computed(() => {
+  const labels: string[] = [];
+  const trimmed = props.query.trim();
+  if (trimmed) {
+    labels.push(t('common.filterTag.keyword', { query: trimmed }));
+  }
+  if (props.quickFilter !== 'all') {
+    labels.push(t(QUICK_FILTER_LABEL_KEYS[props.quickFilter]));
+  }
+  return labels;
+});
+
+function resetPickerFilters(): void {
+  if (props.query) emit('update:query', '');
+  if (props.quickFilter !== 'all') emit('update:quickFilter', 'all');
 }
 </script>
 
@@ -253,13 +270,15 @@ function cycleConditionTier(cond: BoardModCondition): void {
       >
         {{ t('resultBoard.modFilter.empty') }}
       </p>
-      <p
+      <SidebarFilterEmptyState
         v-else-if="options.length === 0"
-        class="m-0 py-[var(--pxd-space-sm)] text-center text-[length:var(--pxd-font-caption)] text-muted-foreground"
+        compact
+        :message="t('resultBoard.modFilter.noMatch')"
+        :active-filters="activePickerFilterLabels"
+        :show-reset="activePickerFilterLabels.length > 0"
         data-board-mod-picker-no-match
-      >
-        {{ t('resultBoard.modFilter.noMatch') }}
-      </p>
+        @reset="resetPickerFilters"
+      />
       <ScrollAreaRoot v-else class="relative max-h-[min(240px,36vh)] overflow-hidden">
         <ScrollAreaViewport class="max-h-[min(240px,36vh)] w-full">
           <ul

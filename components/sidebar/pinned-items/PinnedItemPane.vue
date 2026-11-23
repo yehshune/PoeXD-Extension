@@ -29,6 +29,7 @@ import { isSameLeague, type PinnedItemSnapshot } from '@/utils/pinned-items';
 import { getTradeRealm } from '@/utils/trade-realms';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
+import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
 import DragTrashZone from '../layout/DragTrashZone.vue';
 import {
   hideDragTrash,
@@ -501,23 +502,30 @@ function formatFee(fee: number | undefined): string {
     </template>
 
     <template #scroll>
-      <SidebarEmptyState
-        v-if="visibleItems.length === 0"
+      <SidebarFilterEmptyState
+        v-if="visibleItems.length === 0 && hiddenCount > 0"
         :message="t('pinnedItem.empty')"
-        :hint="hiddenCount > 0 ? t('pinnedItem.hiddenByLeague', { count: hiddenCount }) : undefined"
+        :hint="t('pinnedItem.hiddenByLeague', { count: hiddenCount })"
+        :action-label="t('pinnedItem.showAllLeagues')"
+        data-pinned-items-empty
+        @reset="showAllLeagues = true"
+      />
+      <SidebarEmptyState
+        v-else-if="visibleItems.length === 0"
+        :message="t('pinnedItem.empty')"
         data-pinned-items-empty
       >
         <template #icon><Pin /></template>
       </SidebarEmptyState>
 
       <template v-else>
-        <p
+        <SidebarFilterEmptyState
           v-if="filteredItems.length === 0"
-          class="m-0 py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+          icon="search"
+          :message="t('pinnedItem.noMatch', { query: searchQuery.trim() })"
           data-pinned-items-no-match
-        >
-          {{ t('pinnedItem.noMatch', { query: searchQuery.trim() }) }}
-        </p>
+          @reset="searchQuery = ''"
+        />
 
         <ul
           v-show="filteredItems.length > 0"

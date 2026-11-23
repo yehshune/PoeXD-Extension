@@ -334,16 +334,18 @@
               @add-tier-filter="addTierFilter"
             />
 
-            <div
+            <SidebarFilterEmptyState
               v-if="isEmpty"
-              class="empty-mods text-center text-muted-foreground text-[length:var(--pxd-font-body)] py-[var(--pxd-space-2xl)]"
-            >
-              {{
+              class="empty-mods"
+              :message="
                 isInvalidItemLevelRange
                   ? t('filterPane.emptyInvalidItemLevelRange')
                   : t('filterPane.empty')
-              }}
-            </div>
+              "
+              :active-filters="activeAffixFilterLabels"
+              :show-reset="activeAffixFilterLabels.length > 0"
+              @reset="resetAffixFilters"
+            />
           </div>
         </div>
 
@@ -435,6 +437,7 @@ import type { ModTier, ModGroup, SelectedModInfo, StatFilterModPayload } from '.
 import FilterAffixSection from './FilterAffixSection.vue';
 import FilterSelectedPanel from './FilterSelectedPanel.vue';
 import ItemTypeSelectorPanel from './ItemTypeSelectorPanel.vue';
+import SidebarFilterEmptyState from './layout/SidebarFilterEmptyState.vue';
 import { useProgressiveAffixRender } from './composables/useProgressiveAffixRender';
 import { useAffixFilter } from './composables/useAffixFilter';
 import { useDebouncedRef } from './composables/useDebouncedSearch';
@@ -476,6 +479,7 @@ export default defineComponent({
     FilterAffixSection,
     FilterSelectedPanel,
     ItemTypeSelectorPanel,
+    SidebarFilterEmptyState,
     Dialog,
     DialogContent,
     DialogDescription,
@@ -1436,6 +1440,32 @@ export default defineComponent({
       },
     });
 
+    const activeAffixFilterLabels = computed(() => {
+      const labels: string[] = [];
+      const trimmed = searchQuery.value.trim();
+      if (trimmed) {
+        labels.push(t('common.filterTag.keyword', { query: trimmed }));
+      }
+      if (hasItemLevelFilter.value) {
+        const min = String(itemLevelMin.value ?? '').trim();
+        const max = String(itemLevelMax.value ?? '').trim();
+        const range = min && max ? `${min}~${max}` : min ? `${min}~` : `~${max}`;
+        labels.push(t('common.filterTag.itemLevel', { range }));
+      }
+      if (generationFilter.value === 'prefix') {
+        labels.push(t('filterPane.generation.prefix'));
+      } else if (generationFilter.value === 'suffix') {
+        labels.push(t('filterPane.generation.suffix'));
+      }
+      return labels;
+    });
+
+    const resetAffixFilters = () => {
+      clearSearchQuery();
+      clearItemLevelFilter();
+      generationFilter.value = 'all';
+    };
+
     const preventIfAffixDemo = (event: Event) => {
       if (affixDemoMode.value) event.preventDefault();
     };
@@ -1444,6 +1474,8 @@ export default defineComponent({
       t,
       affixDemoMode,
       preventIfAffixDemo,
+      activeAffixFilterLabels,
+      resetAffixFilters,
       loading,
       selectedType,
       currentTypeGroups,

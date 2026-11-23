@@ -794,7 +794,16 @@ describe('FilterPane Item Level Filter (Runtime Contracts)', () => {
     await nextTick();
 
     const empty = appRoot.querySelector('.empty-mods');
-    expect(empty?.textContent?.trim()).toBe('物品等級下限不可大於上限，請調整區間');
+    expect(empty?.textContent?.trim()).toContain('物品等級下限不可大於上限，請調整區間');
+    expect(empty?.textContent).toContain('85~70');
+
+    const resetBtn = empty?.querySelector('[data-filter-empty-reset]') as HTMLButtonElement | null;
+    expect(resetBtn).toBeTruthy();
+    resetBtn?.click();
+    await nextTick();
+    expect(appRoot.querySelector('.empty-mods')).toBeNull();
+    expect(minInput.value).toBe('');
+    expect(maxInput.value).toBe('');
   });
 
   it('renders non-prefix/suffix mods under split categories and hides them when filtering prefix/suffix only', async () => {

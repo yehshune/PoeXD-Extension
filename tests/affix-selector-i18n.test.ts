@@ -262,7 +262,8 @@ describe('Seam 1: Affix Selector (`FilterPane.vue` and `ModItem.vue`) & Bilingua
 
     const empty = appRoot.querySelector('.empty-mods');
     expect(empty).toBeTruthy();
-    expect(empty?.textContent?.trim()).toBe('沒有符合的詞綴');
+    expect(empty?.textContent?.trim()).toContain('沒有符合的詞綴');
+    expect(empty?.querySelector('[data-filter-empty-reset]')).toBeTruthy();
   });
 
   it('preserves Page Locale for unmatched affix fallback query even when Display Locale is zh-TW', async () => {

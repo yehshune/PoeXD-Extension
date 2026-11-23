@@ -36,6 +36,7 @@ import { createVersionedStorageKeys } from '@/utils/storage-contracts';
 import { getPoeVersion } from '@/utils/trade-context';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
+import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
 import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
 import ResultBoardModFilterPanel from './ResultBoardModFilterPanel.vue';
@@ -238,6 +239,52 @@ const summaryTokens = computed(() =>
 function setMinSellerCount(value: string | number): void {
   const parsed = Math.floor(Number(value));
   minSellerCount.value = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+const activeBoardFilterLabels = computed(() => {
+  const labels: string[] = [];
+  const trimmedKeyword = keyword.value.trim();
+  if (trimmedKeyword) {
+    labels.push(t('common.filterTag.keyword', { query: trimmedKeyword }));
+  }
+  if (modConditions.value.length > 0) {
+    labels.push(t('common.filterTag.mods', { count: modConditions.value.length }));
+  }
+  if (view.value === 'items') {
+    const min = priceMinText.value.trim();
+    const max = priceMaxText.value.trim();
+    if (conversionAvailable.value && (min || max)) {
+      const range = min && max ? `${min}~${max}` : min ? `${min}~` : `~${max}`;
+      labels.push(t('common.filterTag.price', { range }));
+    }
+    if (hasMixedInstantBuyout.value && instantOnly.value) {
+      labels.push(t('resultBoard.filter.instantOnly'));
+    }
+    if (hasSoldEntries.value && hideSold.value) {
+      labels.push(t('resultBoard.filter.hideSold'));
+    }
+  } else if (minSellerCount.value > 0) {
+    labels.push(t('common.filterTag.minSellerItems', { count: minSellerCount.value }));
+  }
+  if (state.value.hiddenAccounts.size > 0) {
+    labels.push(t('common.filterTag.hiddenSellers', { count: state.value.hiddenAccounts.size }));
+  }
+  return labels;
+});
+
+function resetAllFilters(): void {
+  keyword.value = '';
+  board.clearModConditions();
+  priceMinText.value = '';
+  priceMaxText.value = '';
+  instantOnly.value = false;
+  if (hideSold.value) {
+    setHideSold(false);
+  }
+  minSellerCount.value = 0;
+  if (state.value.hiddenAccounts.size > 0) {
+    board.showAllSellers();
+  }
 }
 </script>
 
@@ -684,13 +731,14 @@ function setMinSellerCount(value: string | number): void {
       </SidebarEmptyState>
 
       <template v-else-if="view === 'items'">
-        <p
+        <SidebarFilterEmptyState
           v-if="filteredEntries.length === 0"
-          class="m-0 py-[var(--pxd-space-lg)] text-center text-muted-foreground"
+          :message="t('resultBoard.noMatch')"
+          :active-filters="activeBoardFilterLabels"
+          :show-reset="activeBoardFilterLabels.length > 0"
           data-board-no-match
-        >
-          {{ t('resultBoard.noMatch') }}
-        </p>
+          @reset="resetAllFilters"
+        />
         <ul
           v-else
           ref="itemsListRef"
@@ -717,13 +765,14 @@ function setMinSellerCount(value: string | number): void {
       </template>
 
       <template v-else>
-        <p
+        <SidebarFilterEmptyState
           v-if="sellers.length === 0"
-          class="m-0 py-[var(--pxd-space-lg)] text-center text-muted-foreground"
+          :message="t('resultBoard.noSellerMatch')"
+          :active-filters="activeBoardFilterLabels"
+          :show-reset="activeBoardFilterLabels.length > 0"
           data-board-no-seller-match
-        >
-          {{ t('resultBoard.noSellerMatch') }}
-        </p>
+          @reset="resetAllFilters"
+        />
         <ul
           v-else
           ref="sellersListRef"

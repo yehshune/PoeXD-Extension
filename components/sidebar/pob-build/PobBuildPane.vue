@@ -111,13 +111,13 @@
         </template>
       </SidebarEmptyState>
 
-      <p
+      <SidebarFilterEmptyState
         v-else-if="visibleBuilds.length === 0"
         data-pob-build-no-match
-        class="m-0 py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
-      >
-        {{ t('pobBuild.noMatch', { query: searchQuery.trim() }) }}
-      </p>
+        icon="search"
+        :message="t('pobBuild.noMatch', { query: searchQuery.trim() })"
+        @reset="searchQuery = ''"
+      />
 
       <div v-else class="flex flex-col gap-[var(--pxd-bookmark-tree-gap)]">
         <section
@@ -846,6 +846,7 @@ import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
+import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
 import { rowAnchorFromEvent } from '../composables/useTradeSearchPreview';
 import type { PreviewAnchor } from '../item-preview/preview-classes';
 import { t, type I18nKey } from '@/utils/i18n';
@@ -938,6 +939,7 @@ export default defineComponent({
     Separator,
     ShoppingCart,
     SidebarEmptyState,
+    SidebarFilterEmptyState,
     SidebarPane,
     SlidersHorizontal,
     Trash2,
