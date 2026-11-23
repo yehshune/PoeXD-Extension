@@ -20,6 +20,11 @@ export interface OnboardingState {
   readonly updatePending?: boolean;
   /** 最後一次看過的擴充版本，供日後的新功能提示比對 */
   readonly lastSeenVersion?: string;
+  /**
+   * 改版提示要補上哪個版本之後的新功能（升級前的版本）。
+   * 連續升級但尚未關閉提示時保留最早的版本，跳過的系列也會一併顯示。
+   */
+  readonly highlightsSinceVersion?: string;
 }
 
 /** 沒有狀態時（舊使用者或資料無效）一律視為不需引導 */
@@ -51,6 +56,9 @@ export function parseOnboardingState(raw: unknown): OnboardingState {
     ...(raw.updatePending === true ? { updatePending: true } : {}),
     ...(typeof raw.lastSeenVersion === 'string' && raw.lastSeenVersion
       ? { lastSeenVersion: raw.lastSeenVersion }
+      : {}),
+    ...(typeof raw.highlightsSinceVersion === 'string' && raw.highlightsSinceVersion
+      ? { highlightsSinceVersion: raw.highlightsSinceVersion }
       : {}),
   });
 }
@@ -94,11 +102,16 @@ export function createUpdateOnboardingState(input: UpdateOnboardingInput): Onboa
       lastSeenVersion: version,
     });
   }
+  // 上一則提示還沒關閉：沿用它的起始版本；舊版狀態沒有起始版本時留空，由顯示端列出所有系列
+  const highlightsSinceVersion = current.updatePending
+    ? current.highlightsSinceVersion
+    : (previousVersion ?? current.lastSeenVersion);
   return Object.freeze({
     tourPending: false,
     expandHintPending: false,
     updatePending: true,
     lastSeenVersion: version,
+    ...(highlightsSinceVersion ? { highlightsSinceVersion } : {}),
   });
 }
 
@@ -107,7 +120,7 @@ export function markTourStarted(state: OnboardingState): OnboardingState {
 }
 
 export function dismissUpdate(state: OnboardingState): OnboardingState {
-  const { updatePending: _, ...rest } = state;
+  const { updatePending: _, highlightsSinceVersion: __, ...rest } = state;
   return Object.freeze(rest);
 }
 
@@ -159,7 +172,8 @@ export function createOnboardingStore(area: OnboardingStorageArea): OnboardingSt
         next.tourPending === current.tourPending &&
         next.expandHintPending === current.expandHintPending &&
         Boolean(next.updatePending) === Boolean(current.updatePending) &&
-        next.lastSeenVersion === current.lastSeenVersion
+        next.lastSeenVersion === current.lastSeenVersion &&
+        next.highlightsSinceVersion === current.highlightsSinceVersion
       ) {
         return current;
       }

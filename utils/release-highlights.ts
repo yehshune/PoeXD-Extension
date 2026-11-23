@@ -3,8 +3,9 @@ import type { SettingsSectionId } from './sidebar-modules';
 
 /**
  * 改版提示上的新功能跳轉：點擊後切到系統設定分頁並捲到對應區塊高亮。
- * 每個項目只在 `release`（major.minor）系列顯示，例如 '1.12' 只出現在 1.12.x；
- * 進到下一個 minor 版後自動不再顯示，發版時只需新增該版的項目。
+ * 每個項目標記它所屬的 `release`（major.minor）系列；改版提示會列出
+ * 「升級前版本之後、到目前版本為止」的所有系列，跳過中間版本的使用者也看得到。
+ * 發版時只需新增該版的項目。
  */
 export interface ReleaseHighlight {
   readonly id: string;
@@ -35,14 +36,36 @@ export function toReleaseSeries(version: string | undefined): string | null {
   return match ? `${Number(match[1])}.${Number(match[2])}` : null;
 }
 
-/** 回傳指定版本所屬系列的新功能項目；版本無法解析時不顯示任何項目 */
+function parseSeries(series: string): readonly [number, number] {
+  const [major, minor] = series.split('.').map(Number);
+  return [major, minor];
+}
+
+/** 比較兩個 `major.minor` 系列；a 較舊時為負數 */
+function compareSeries(a: string, b: string): number {
+  const [aMajor, aMinor] = parseSeries(a);
+  const [bMajor, bMinor] = parseSeries(b);
+  return aMajor !== bMajor ? aMajor - bMajor : aMinor - bMinor;
+}
+
+/**
+ * 回傳改版提示要顯示的新功能項目：系列晚於 `sinceVersion`（升級前的版本）且不晚於目前版本。
+ * 目前版本的系列一律顯示（同系列的小版更新仍可看到）；`sinceVersion` 未知或無法解析時，
+ * 列出目前版本以前的所有系列。目前版本無法解析時不顯示任何項目。
+ */
 export function getReleaseHighlights(
   version: string | undefined,
   highlights: readonly ReleaseHighlight[] = RELEASE_HIGHLIGHTS,
+  sinceVersion?: string,
 ): readonly ReleaseHighlight[] {
   const series = toReleaseSeries(version);
   if (!series) return [];
-  return highlights.filter((highlight) => highlight.release === series);
+  const since = toReleaseSeries(sinceVersion);
+  return highlights.filter((highlight) => {
+    if (compareSeries(highlight.release, series) > 0) return false;
+    if (highlight.release === series) return true;
+    return since === null || compareSeries(highlight.release, since) > 0;
+  });
 }
 
 /** Sidebar 傳給 SettingsPane 的跳轉請求；seq 讓重複點同一區塊也能再次觸發 */

@@ -630,7 +630,13 @@ export default defineComponent({
     const updateNoticeVersion = computed(
       () => formatVersionTag(onboarding.value.lastSeenVersion) || appVersion,
     );
-    const updateNoticeHighlights = computed(() => getReleaseHighlights(updateNoticeVersion.value));
+    const updateNoticeHighlights = computed(() =>
+      getReleaseHighlights(
+        updateNoticeVersion.value,
+        undefined,
+        onboarding.value.highlightsSinceVersion,
+      ),
+    );
     const showMarketTranslationOffer = computed(() =>
       shouldOfferMarketTranslation({
         hostname: typeof window !== 'undefined' ? window.location.hostname : '',

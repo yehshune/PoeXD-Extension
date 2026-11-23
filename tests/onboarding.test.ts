@@ -64,7 +64,64 @@ describe('createUpdateOnboardingState', () => {
       expandHintPending: false,
       updatePending: true,
       lastSeenVersion: '1.6.1',
+      highlightsSinceVersion: '1.6.0',
     });
+  });
+
+  it('remembers the version the user upgraded from for release highlights', () => {
+    expect(
+      createUpdateOnboardingState({
+        reason: 'update',
+        version: '1.13.0',
+        previousVersion: '1.11.0',
+        current: { tourPending: false, expandHintPending: false, lastSeenVersion: '1.11.0' },
+      }),
+    ).toMatchObject({ updatePending: true, highlightsSinceVersion: '1.11.0' });
+  });
+
+  it('keeps the oldest unseen version when the previous notice was not dismissed', () => {
+    const pending = {
+      tourPending: false,
+      expandHintPending: false,
+      updatePending: true,
+      lastSeenVersion: '1.12.0',
+      highlightsSinceVersion: '1.11.0',
+    };
+    expect(
+      createUpdateOnboardingState({
+        reason: 'update',
+        version: '1.13.0',
+        previousVersion: '1.12.0',
+        current: pending,
+      }),
+    ).toMatchObject({ highlightsSinceVersion: '1.11.0', lastSeenVersion: '1.13.0' });
+
+    // 舊版狀態沒有起始版本又尚未關閉：不知道從哪版開始，交由顯示端列出所有系列
+    const legacy = createUpdateOnboardingState({
+      reason: 'update',
+      version: '1.13.0',
+      previousVersion: '1.12.0',
+      current: {
+        tourPending: false,
+        expandHintPending: false,
+        updatePending: true,
+        lastSeenVersion: '1.12.0',
+      },
+    });
+    expect(legacy?.updatePending).toBe(true);
+    expect(legacy).not.toHaveProperty('highlightsSinceVersion');
+  });
+
+  it('clears the highlight range when the update notice is dismissed', () => {
+    const updated = createUpdateOnboardingState({
+      reason: 'update',
+      version: '1.13.0',
+      previousVersion: '1.11.0',
+    })!;
+    expect(dismissUpdate(updated)).not.toHaveProperty('highlightsSinceVersion');
+    expect(
+      parseOnboardingState({ ...updated, highlightsSinceVersion: '1.11.0' }).highlightsSinceVersion,
+    ).toBe('1.11.0');
   });
 
   it('returns null for non-update reasons or same-version dev reloads', () => {
