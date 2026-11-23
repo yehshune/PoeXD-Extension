@@ -224,6 +224,7 @@ describe('usePobBuild', () => {
           removed: [],
           icons: {},
           searchSelections: {},
+          searchDefaults: {},
           searchOverrides: {},
         },
       ]);
@@ -765,6 +766,72 @@ describe('usePobBuild', () => {
       expect(plateOf(pob).searchSelection).toBeUndefined();
       await flush();
       expect(stored()[0].searchSelections).toEqual({});
+    });
+
+    it('build 整體設定：數值比例套用到沒調整過的條件，存回本機並重新讀回', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      pob.selectItemSet('build-1', '2');
+      expect(first(pob).searchDefaults).toEqual({});
+
+      pob.setSearchDefaults('build-1', { statPercent: 50, links: 'none' });
+      expect(first(pob).searchDefaults).toEqual({
+        statPercent: 50,
+        links: 'none',
+      });
+      expect(plateOf(pob).filters[0]).toMatchObject({
+        min: 50,
+        customized: false,
+      });
+      expect(plateOf(pob).query).toMatchObject({
+        stats: [{ filters: [{ id: LIFE, value: { min: 50 } }] }],
+      });
+
+      // 單件調整過的下限不跟著整體設定變
+      pob.setStatBound('build-1', plateOf(pob).key, LIFE, 'min', 95);
+      pob.setSearchDefaults('build-1', { statPercent: 70 });
+      expect(plateOf(pob).filters[0]).toMatchObject({ min: 95 });
+      await flush();
+      expect(stored()[0].searchDefaults).toEqual({ statPercent: 70 });
+
+      const reopened = usePobBuild('poe1', deps);
+      await reopened.restore();
+      expect(first(reopened).searchDefaults).toEqual({ statPercent: 70 });
+
+      // 回到預設時不存多餘的欄位
+      pob.setSearchDefaults('build-1', { statPercent: 80, links: 'pob' });
+      expect(first(pob).searchDefaults).toEqual({});
+      await flush();
+      expect(stored()[0].searchDefaults).toEqual({});
+    });
+
+    it('本機存的整體設定格式不對時略過該欄', async () => {
+      storage.data[pobBuildsStorageKey('poe1')] = [
+        {
+          id: 'saved',
+          name: '',
+          code: toCode(buildXml()),
+          searchDefaults: { statPercent: 33, links: 'seven' },
+          searchSelections: {
+            a: { links: 9 },
+            b: { links: null },
+            c: { links: 5 },
+          },
+        },
+        {
+          id: 'other',
+          name: '',
+          code: toCode(buildXml()),
+          searchDefaults: { statPercent: 60, links: 'six' },
+        },
+      ];
+      const list = await createPobBuildStore('poe1', { storage }).list();
+      expect(list[0].searchDefaults).toEqual({});
+      expect(list[0].searchSelections).toEqual({
+        b: { links: null },
+        c: { links: 5 },
+      });
+      expect(list[1].searchDefaults).toEqual({ statPercent: 60, links: 'six' });
     });
 
     it('開啟搜尋使用調整後的條件', async () => {

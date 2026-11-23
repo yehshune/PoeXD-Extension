@@ -65,6 +65,7 @@ const fake = {
   setPseudo: vi.fn(),
   saveSelection: vi.fn(),
   resetSearch: vi.fn(),
+  setSearchDefaults: vi.fn(),
   openSharePermissionPage: vi.fn(),
   dispose: vi.fn(),
 } satisfies UsePobBuild;
@@ -208,6 +209,7 @@ const sampleBuild = (): BuildView => ({
   progress: { done: 1, total: 4 },
   hideDone: false,
   removedCount: 2,
+  searchDefaults: {},
 });
 
 const flushAsync = async (ms = 20) => {
@@ -686,6 +688,64 @@ describe('PobBuildPane', () => {
     )!.click();
     await flushAsync();
     expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
+  });
+
+  it('PoB 五連以上的裝備在預覽顯示物品條件，可把連結改成不限並存回', async () => {
+    const build = sampleBuild();
+    const [equipment] = build.groups;
+    const linked = { ...equipment.rows[1], links: 6, linksMin: 6 };
+    buildsRef.value = [
+      {
+        ...build,
+        groups: [{ ...equipment, rows: equipment.rows.map((r, i) => (i === 1 ? linked : r)) }],
+      },
+    ];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+
+    expect(queryBody('[data-pob-build-item-filters]')).not.toBeNull();
+    const option = (value: string) =>
+      queryBody<HTMLElement>(`[data-pob-build-links-option="${value}"]`)!;
+    expect(option('6').getAttribute('data-state')).toBe('on');
+    expect(queryBody('[data-pob-build-item-filters]')?.textContent).toContain('PoB：6 連');
+
+    option('any').click();
+    await nextTick();
+    expect(option('any').getAttribute('data-state')).toBe('on');
+    queryBody<HTMLButtonElement>('[data-pob-build-save-selection]')!.click();
+    await nextTick();
+    expect(fake.saveSelection).toHaveBeenCalledWith(
+      'b1',
+      'k-rare',
+      expect.objectContaining({ links: null }),
+    );
+  });
+
+  it('沒有五連以上的裝備不顯示物品條件', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-mods-popover]')).not.toBeNull();
+    expect(queryBody('[data-pob-build-item-filters]')).toBeNull();
+  });
+
+  it('build 標題的整體搜尋設定改連結條件與數值比例時交給狀態處理', async () => {
+    buildsRef.value = [{ ...sampleBuild(), searchDefaults: { statPercent: 70 } }];
+    await mount();
+    const trigger = query<HTMLButtonElement>('[data-pob-build-search-settings]')!;
+    expect(trigger.classList.contains('text-primary')).toBe(true);
+    trigger.click();
+    await flushAsync();
+
+    expect(queryBody('[data-pob-build-search-settings-panel]')).not.toBeNull();
+    queryBody<HTMLElement>('[data-pob-build-link-policy-option="none"]')!.click();
+    await nextTick();
+    expect(fake.setSearchDefaults).toHaveBeenCalledWith('b1', { statPercent: 70, links: 'none' });
+
+    queryBody<HTMLButtonElement>('[data-pob-build-search-settings-reset]')!.click();
+    expect(fake.setSearchDefaults).toHaveBeenLastCalledWith('b1', {});
   });
 
   it('詞綴可同時改下限與上限；符合方式以下拉選單在且／計數之間切換', async () => {

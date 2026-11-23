@@ -2,7 +2,7 @@
  * 購物清單：把匯入的 PoB build 轉成一筆筆可以直接開啟的官方市集搜尋。
  *
  * - 傳奇：以名稱加基底搜尋；永恆珠寶另外帶入種子編號。
- * - 稀有、魔法、普通：以基底搜尋，並把對得到市集代碼的固定詞綴與一般詞綴帶入條件（下限取八成，
+ * - 稀有、魔法、普通：以基底搜尋，並把對得到市集代碼的固定詞綴與一般詞綴帶入條件（下限預設取八成，
  *   方便找到相近而不必完全相同的裝備）；工藝詞綴可以自己做，不列入條件。附魔只有星團珠寶預設帶入。
  * - 寶石：以名稱搜尋，等級與品質帶入下限；PoE 2 的技能寶石不在市集交易，不列入。
  * - 身甲與雙手武器有五連以上時帶入連結數下限。
@@ -110,7 +110,9 @@ export interface ShoppingEntry {
   visceraBundle?: true;
   /** 從合成臟器拆出、只含單一部位詞綴的項目：以市集的部位分類搜尋，詞綴全部符合 */
   visceraPart?: VisceraPart;
-  /** 不含詞綴條件的搜尋（名稱、基底、連結）；null 表示無法搜尋 */
+  /** PoB 裝備的連結數；五連以上才有（實際是否帶入搜尋由 `effectiveLinks` 決定） */
+  links?: number;
+  /** 不含詞綴與連結條件的搜尋（名稱、基底、分類）；null 表示無法搜尋 */
   searchBase: Record<string, unknown> | null;
   /** 官方市集的 query 物件（套用使用者的選擇後）；null 表示無法搜尋 */
   query: Record<string, unknown> | null;
@@ -143,7 +145,44 @@ export interface EntrySearchSelection {
   countMin?: number;
   /** 抗性、生命、能力值合併成總和條件 */
   pseudo?: boolean;
+  /** 單件的連結條件：數字為連結數下限，null 為不限；省略時依 build 整體設定 */
+  links?: number | null;
 }
+
+/** build 整體設定的連結條件：照 PoB（五連以上）、只帶六連、一律不帶 */
+export type LinkPolicy = 'pob' | 'six' | 'none';
+export const LINK_POLICIES: readonly LinkPolicy[] = ['pob', 'six', 'none'];
+/** 詞綴數值下限可選的比例（原數值的百分比） */
+export const STAT_PERCENT_OPTIONS: readonly number[] = [100, 90, 80, 70, 60, 50];
+export const DEFAULT_STAT_PERCENT = 80;
+export const DEFAULT_LINK_POLICY: LinkPolicy = 'pob';
+/** 單件可以選的連結數下限 */
+export const LINK_OPTIONS: readonly number[] = [5, 6];
+
+/** 一份 build 的整體搜尋設定；只存和預設不同的欄位，單件調整優先 */
+export interface BuildSearchDefaults {
+  /** 沒調整過的詞綴下限取原數值的幾 %（預設 80） */
+  statPercent?: number;
+  links?: LinkPolicy;
+}
+
+/** 只留下和預設不同、而且合法的欄位 */
+export function normalizeSearchDefaults(value: BuildSearchDefaults): BuildSearchDefaults {
+  const { statPercent, links } = value;
+  return {
+    ...(statPercent !== undefined &&
+    statPercent !== DEFAULT_STAT_PERCENT &&
+    STAT_PERCENT_OPTIONS.includes(statPercent)
+      ? { statPercent }
+      : {}),
+    ...(links !== undefined && links !== DEFAULT_LINK_POLICY && LINK_POLICIES.includes(links)
+      ? { links }
+      : {}),
+  };
+}
+
+const statRatioOf = (defaults?: BuildSearchDefaults): number =>
+  (defaults?.statPercent ?? DEFAULT_STAT_PERCENT) / 100;
 
 /** 介面顯示的一個條件：同一個代碼的多行已合併 */
 export interface ShoppingStatFilter {
@@ -174,8 +213,6 @@ const BASE_VARIANT_SUFFIX = /\s*\([^)]*\)$/;
 const TIMELESS_STAT = /\.pseudo_timeless_jewel_/;
 const CLUSTER_JEWEL_BASE = /Cluster Jewel$/;
 const MIN_BASE_NAME_LENGTH = 4;
-/** 類似裝備的數值下限：原數值的八成 */
-const STAT_MIN_RATIO = 0.8;
 /** 連結數到這個數量才帶入搜尋（四連以下很容易自己做） */
 const MIN_SEARCHED_LINKS = 5;
 /** 裝備本身有數值的部位：同一句詞綴優先對到市集標 `(Local)` 的代碼 */
@@ -450,16 +487,17 @@ export async function loadTradeNameCatalog(
 }
 
 /**
- * 預設的數值範圍：正數取八成當下限、負數（減少、降低需求）取八成當上限；整數無條件捨去到整數，
+ * 預設的數值範圍：正數取 percent%（預設八成）當下限、負數（減少、降低需求）當上限；整數無條件捨去到整數，
  * 小於 10 的非整數保留一位小數（0.5% 暴擊率不會變成「有就好」）。
  */
 export function defaultStatBounds(
   value: number | undefined,
   exact = false,
+  percent = DEFAULT_STAT_PERCENT,
 ): { min?: number; max?: number } {
   if (value === undefined || !Number.isFinite(value) || value === 0) return {};
   if (exact) return { min: value, max: value };
-  const scaled = value * STAT_MIN_RATIO;
+  const scaled = (value * percent) / 100;
   const keepDecimal = !Number.isInteger(value) && Math.abs(value) < 10;
   const factor = keepDecimal ? 10 : 1;
   const rounded =
@@ -545,15 +583,17 @@ function validDomain(
 export function entryStatFilters(
   entry: Pick<ShoppingEntry, 'mods'>,
   selection?: EntrySearchSelection,
+  defaults?: BuildSearchDefaults,
 ): ShoppingStatFilter[] {
   const groups = new Map<string, ShoppingStat[]>();
   for (const mod of entry.mods ?? []) {
     if (mod.stat) groups.set(mod.stat.id, [...(groups.get(mod.stat.id) ?? []), mod.stat]);
   }
+  const percent = defaults?.statPercent ?? DEFAULT_STAT_PERCENT;
   return [...groups.entries()].map(([key, stats]) => {
     const [first] = stats;
     const value = first.option === undefined ? sumValues(stats) : undefined;
-    const bounds = defaultStatBounds(value, first.exact);
+    const bounds = defaultStatBounds(value, first.exact, percent);
     const custom = selection?.stats?.[key];
     const id = withStatDomain(key, validDomain(first, custom?.domain));
     const pick = (key: 'min' | 'max') =>
@@ -603,10 +643,11 @@ const ENCHANT_PREFIX = 'enchant.';
 export const isRequiredInCountMode = (statId: string): boolean =>
   statId.startsWith(IMPLICIT_PREFIX) || statId.startsWith(ENCHANT_PREFIX);
 
-/** 總和條件：勾選的抗性、生命、能力值換成總和，下限同樣取八成 */
+/** 總和條件：勾選的抗性、生命、能力值換成總和，下限同樣依整體設定的比例 */
 function mergeIntoPseudo(
   filters: readonly ShoppingStatFilter[],
   mods: readonly ShoppingMod[],
+  ratio: number,
 ): QueryStatFilter[] {
   const pseudoOf = new Map<string, readonly PseudoContribution[]>();
   for (const mod of mods) if (mod.stat?.pseudo) pseudoOf.set(mod.stat.id, mod.stat.pseudo);
@@ -618,9 +659,9 @@ function mergeIntoPseudo(
       rest.push(toQueryFilter(filter));
       continue;
     }
-    // 使用者調整過的那一行以他填的界限計入（正數看下限、負數看上限，清空視為 0），否則取八成
+    // 使用者調整過的那一行以他填的界限計入（正數看下限、負數看上限，清空視為 0），否則依比例
     const customBound = filter.value < 0 ? filter.max : filter.min;
-    const lineMinimum = filter.customized ? (customBound ?? 0) : filter.value * STAT_MIN_RATIO;
+    const lineMinimum = filter.customized ? (customBound ?? 0) : filter.value * ratio;
     for (const { id, weight } of contributions) {
       totals.set(id, (totals.get(id) ?? 0) + lineMinimum * weight);
     }
@@ -640,7 +681,6 @@ function mergeIntoPseudo(
   return [...pseudo, ...rest];
 }
 
-/** 套用使用者的選擇組出搜尋；項目無法搜尋時回傳 null */
 /** 臟器合成項目預設「至少符合 1 項」 */
 export const VISCERA_BUNDLE_COUNT_MIN = 1;
 
@@ -652,19 +692,55 @@ export function effectiveCountMin(
   return selection?.countMin ?? (entry.visceraBundle ? VISCERA_BUNDLE_COUNT_MIN : undefined);
 }
 
-export function buildEntryQuery(
-  entry: Pick<ShoppingEntry, 'mods' | 'searchBase' | 'visceraBundle'>,
+/**
+ * 實際帶入搜尋的連結數下限：單件設定優先（null 為不限），否則依 build 的連結條件；
+ * 項目本身沒有五連以上時，只有單件明確指定才帶入。
+ */
+export function effectiveLinks(
+  entry: Pick<ShoppingEntry, 'links'>,
   selection?: EntrySearchSelection,
+  defaults?: BuildSearchDefaults,
+): number | undefined {
+  if (selection && 'links' in selection) return selection.links ?? undefined;
+  if (entry.links === undefined) return undefined;
+  const policy = defaults?.links ?? DEFAULT_LINK_POLICY;
+  if (policy === 'none') return undefined;
+  if (policy === 'six') return entry.links >= 6 ? 6 : undefined;
+  return entry.links;
+}
+
+/** 把連結條件併進既有的 filters（臟器的分類條件等），不覆蓋其他區塊 */
+function withLinks(
+  base: Record<string, unknown>,
+  links: number | undefined,
+): Record<string, unknown> {
+  if (links === undefined) return base;
+  const filters = (base.filters ?? {}) as Record<string, unknown>;
+  return {
+    ...base,
+    filters: {
+      ...filters,
+      socket_filters: { filters: { links: { min: links } } },
+    },
+  };
+}
+
+/** 套用使用者的選擇與 build 整體設定組出搜尋；項目無法搜尋時回傳 null */
+export function buildEntryQuery(
+  entry: Pick<ShoppingEntry, 'mods' | 'searchBase' | 'visceraBundle' | 'links'>,
+  selection?: EntrySearchSelection,
+  defaults?: BuildSearchDefaults,
 ): Record<string, unknown> | null {
   if (!entry.searchBase) return null;
-  const enabled = entryStatFilters(entry, selection).filter((filter) => filter.enabled);
+  const base = withLinks(entry.searchBase, effectiveLinks(entry, selection, defaults));
+  const enabled = entryStatFilters(entry, selection, defaults).filter((filter) => filter.enabled);
   const filters = selection?.pseudo
-    ? mergeIntoPseudo(enabled, entry.mods ?? [])
+    ? mergeIntoPseudo(enabled, entry.mods ?? [], statRatioOf(defaults))
     : enabled.map(toQueryFilter);
-  if (filters.length === 0) return entry.searchBase;
+  if (filters.length === 0) return base;
   const countMin = effectiveCountMin(entry, selection);
   if (countMin === undefined || !Number.isInteger(countMin) || countMin < 1) {
-    return { ...entry.searchBase, stats: [{ type: 'and', filters }] };
+    return { ...base, stats: [{ type: 'and', filters }] };
   }
   // 臟器合成項目的固定詞綴分屬不同件，不能全部強制符合
   const isRequired = (id: string) => !entry.visceraBundle && isRequiredInCountMode(id);
@@ -682,37 +758,45 @@ export function buildEntryQuery(
         ]
       : []),
   ];
-  return { ...entry.searchBase, stats: groups };
+  return { ...base, stats: groups };
 }
 
 /** 套用使用者的選擇：更新每一行是否帶入搜尋與實際的搜尋條件 */
 export function applyEntrySelection(
   entry: ShoppingEntry,
   selection?: EntrySearchSelection,
+  defaults?: BuildSearchDefaults,
 ): ShoppingEntry {
-  if (!entry.mods || !selection) return entry;
+  const hasDefaults = defaults !== undefined && Object.keys(defaults).length > 0;
+  if (!selection && !hasDefaults) return entry;
   const enabled = new Set(
-    entryStatFilters(entry, selection)
+    entryStatFilters(entry, selection, defaults)
       .filter((filter) => filter.enabled)
       .map((filter) => filter.key),
   );
   return {
     ...entry,
-    mods: entry.mods.map((mod) => ({
-      ...mod,
-      searched: mod.stat ? enabled.has(mod.stat.id) : false,
-    })),
-    query: buildEntryQuery(entry, selection),
+    ...(entry.mods
+      ? {
+          mods: entry.mods.map((mod) => ({
+            ...mod,
+            searched: mod.stat ? enabled.has(mod.stat.id) : false,
+          })),
+        }
+      : {}),
+    query: buildEntryQuery(entry, selection, defaults),
   };
 }
 
 export interface SelectionRowSnapshot extends Pick<
   ShoppingEntry,
-  'mods' | 'searchBase' | 'visceraBundle'
+  'mods' | 'searchBase' | 'visceraBundle' | 'links'
 > {
   filters?: readonly ShoppingStatFilter[];
   countMin?: number;
   pseudo?: boolean;
+  /** 實際帶入搜尋的連結數下限 */
+  linksMin?: number;
   searchSelection?: EntrySearchSelection;
 }
 
@@ -728,13 +812,17 @@ export function cloneEntrySearchSelection(selection?: EntrySearchSelection): Ent
     ...(stats && Object.keys(stats).length > 0 ? { stats } : {}),
     ...(selection.countMin !== undefined ? { countMin: selection.countMin } : {}),
     ...(selection.pseudo === true ? { pseudo: true } : {}),
+    ...('links' in selection ? { links: selection.links ?? null } : {}),
   };
 }
 
 /** 從購物列目前狀態建立可編輯草稿（優先採用已儲存的 searchSelection，缺乏時由 filters 推導）。 */
-export function selectionFromRowState(row: SelectionRowSnapshot): EntrySearchSelection {
+export function selectionFromRowState(
+  row: SelectionRowSnapshot,
+  searchDefaults?: BuildSearchDefaults,
+): EntrySearchSelection {
   if (row.searchSelection) return cloneEntrySearchSelection(row.searchSelection);
-  const defaults = entryStatFilters(row);
+  const defaults = entryStatFilters(row, undefined, searchDefaults);
   const stats: Record<string, StatSelection> = {};
   row.filters?.forEach((filter, index) => {
     const base = defaults[index];
@@ -753,13 +841,16 @@ export function selectionFromRowState(row: SelectionRowSnapshot): EntrySearchSel
   };
 }
 
-/** 僅保留相對於 PoB 預設值有差異的欄位；全部回到預設時回傳 undefined。 */
+/** 僅保留相對於預設值（PoB 加上 build 整體設定）有差異的欄位；全部回到預設時回傳 undefined。 */
 export function normalizeSelectionForEntry(
-  entry: Pick<ShoppingEntry, 'mods' | 'visceraBundle'>,
+  entry: Pick<ShoppingEntry, 'mods' | 'visceraBundle' | 'links'>,
   selection: EntrySearchSelection | undefined,
+  searchDefaults?: BuildSearchDefaults,
 ): EntrySearchSelection | undefined {
   if (!selection) return undefined;
-  const defaults = new Map(entryStatFilters(entry).map((filter) => [filter.key, filter]));
+  const defaults = new Map(
+    entryStatFilters(entry, undefined, searchDefaults).map((filter) => [filter.key, filter]),
+  );
   const stats: Record<string, StatSelection> = {};
   for (const [id, custom] of Object.entries(selection.stats ?? {})) {
     const base = defaults.get(id);
@@ -790,16 +881,22 @@ export function normalizeSelectionForEntry(
       ? { countMin: selection.countMin }
       : {}),
     ...(selection.pseudo === true ? { pseudo: true } : {}),
+    ...('links' in selection &&
+    effectiveLinks(entry, selection, searchDefaults) !==
+      effectiveLinks(entry, undefined, searchDefaults)
+      ? { links: selection.links ?? null }
+      : {}),
   };
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 /** 比較兩個搜尋條件快照，判斷暫存微調是否與已儲存狀態不同。 */
 export function isSelectionDraftModified(
-  saved: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo'>,
-  draft: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo'>,
+  saved: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo' | 'linksMin'>,
+  draft: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo' | 'linksMin'>,
 ): boolean {
   if (Boolean(saved.pseudo) !== Boolean(draft.pseudo)) return true;
+  if (saved.linksMin !== draft.linksMin) return true;
   if (saved.countMin !== draft.countMin) return true;
   const left = saved.filters ?? [];
   const right = draft.filters ?? [];
@@ -816,9 +913,9 @@ export function isSelectionDraftModified(
   });
 }
 
-function linkFilters(item: PobBuildItem): Record<string, unknown> {
-  if (!item.maxLinks || item.maxLinks < MIN_SEARCHED_LINKS) return {};
-  return { filters: { socket_filters: { filters: { links: { min: item.maxLinks } } } } };
+/** 五連以上才記下連結數（四連以下很容易自己做） */
+function linksOf(item: PobBuildItem): { links?: number } {
+  return item.maxLinks && item.maxLinks >= MIN_SEARCHED_LINKS ? { links: item.maxLinks } : {};
 }
 
 /** 對不到市集名稱時，去掉種類說明再試一次（`Two-Stone Ring (Cold/Lightning)`） */
@@ -894,9 +991,8 @@ function itemEntry(
       englishName: base.english ?? item.name,
       slot: item.slot,
       rarity: item.rarity,
-      searchBase: base.trade
-        ? { status: INSTANT_BUYOUT_STATUS, type: base.trade, ...linkFilters(item) }
-        : null,
+      searchBase: base.trade ? { status: INSTANT_BUYOUT_STATUS, type: base.trade } : null,
+      ...linksOf(item),
     });
   }
   const seed = TIMELESS_NAME_SUFFIX.test(item.name)
@@ -919,9 +1015,9 @@ function itemEntry(
           status: INSTANT_BUYOUT_STATUS,
           name: tradeName,
           ...(base.trade ? { type: base.trade } : {}),
-          ...linkFilters(item),
         }
       : null,
+    ...linksOf(item),
   });
 }
 

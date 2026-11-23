@@ -10,6 +10,7 @@ import {
   assignVisceraParts,
   createVisceraModIndex,
   defaultStatBounds,
+  effectiveLinks,
   entryStatFilters,
   isSelectionDraftModified,
   normalizeSelectionForEntry,
@@ -823,5 +824,139 @@ Implicits: 0
         ],
       },
     ]);
+  });
+});
+
+describe('build 整體設定：詞綴數值比例與連結條件', () => {
+  const list = buildShoppingList(parsePobBuildXml(xml), catalog, {}, matcher);
+  const axe = list.find((item) => item.label === 'Reaver Axe')!;
+  const kaom = list.find((item) => item.label === "Kaom's Heart")!;
+  const PHYS = 'explicit.stat_1509134228';
+  const sixLink = { socket_filters: { filters: { links: { min: 6 } } } };
+
+  it('defaultStatBounds 依比例計算下限；100% 為原值', () => {
+    expect(defaultStatBounds(129, false, 50)).toEqual({ min: 64 });
+    expect(defaultStatBounds(129, false, 100)).toEqual({ min: 129 });
+    expect(defaultStatBounds(-12, false, 50)).toEqual({ max: -6 });
+    expect(defaultStatBounds(0.5, false, 50)).toEqual({ min: 0.2 });
+    expect(defaultStatBounds(8, true, 50)).toEqual({ min: 8, max: 8 });
+  });
+
+  it('連結數記在項目上，不再寫死在 searchBase；五連以下沒有', () => {
+    expect(axe.links).toBe(6);
+    expect(axe.searchBase).not.toHaveProperty('filters');
+    expect(kaom.links).toBeUndefined();
+    expect(effectiveLinks(axe)).toBe(6);
+    expect(effectiveLinks(kaom)).toBeUndefined();
+  });
+
+  it('數值比例套用到沒調整過的條件，調整過的維持使用者填的值', () => {
+    expect(buildEntryQuery(axe, undefined, { statPercent: 50 })).toEqual({
+      status: { option: 'securable' },
+      type: 'Reaver Axe',
+      filters: sixLink,
+      stats: [
+        {
+          type: 'and',
+          filters: [
+            { id: PHYS, value: { min: 64 } },
+            { id: 'explicit.stat_2', value: { min: 0.2 } },
+            { id: 'explicit.stat_1', value: { max: -6 } },
+          ],
+        },
+      ],
+    });
+    const filters = entryStatFilters(axe, { stats: { [PHYS]: { min: 120 } } }, { statPercent: 50 });
+    expect(filters.find((filter) => filter.key === PHYS)).toMatchObject({
+      min: 120,
+    });
+    expect(filters.find((filter) => filter.key === 'explicit.stat_2')).toMatchObject({ min: 0.2 });
+  });
+
+  it('總和條件的下限也依比例計算', () => {
+    const ring = list.find((item) => item.label === 'Two-Stone Ring')!;
+    const life = entryStatFilters(ring).find(
+      (filter) => filter.key === 'explicit.stat_3299347043',
+    )!;
+    const query = buildEntryQuery(ring, { pseudo: true }, { statPercent: 50 }) as {
+      stats: { filters: { id: string; value?: { min?: number } }[] }[];
+    };
+    expect(query.stats[0].filters).toContainEqual({
+      id: 'pseudo.pseudo_total_life',
+      value: { min: Math.floor(life.value! * 0.5) },
+    });
+  });
+
+  it('連結條件：照 PoB、只帶六連、一律不帶', () => {
+    const fiveLink = { ...axe, links: 5 };
+    expect(effectiveLinks(fiveLink, undefined, { links: 'pob' })).toBe(5);
+    expect(effectiveLinks(fiveLink, undefined, { links: 'six' })).toBeUndefined();
+    expect(effectiveLinks(axe, undefined, { links: 'six' })).toBe(6);
+    expect(effectiveLinks(axe, undefined, { links: 'none' })).toBeUndefined();
+    expect(buildEntryQuery(axe, undefined, { links: 'none' })).not.toHaveProperty('filters');
+  });
+
+  it('單件的連結設定優先於 build 預設：null 為不限，數字為下限', () => {
+    expect(effectiveLinks(axe, { links: null })).toBeUndefined();
+    expect(buildEntryQuery(axe, { links: null })).not.toHaveProperty('filters');
+    expect(effectiveLinks(axe, { links: 5 }, { links: 'none' })).toBe(5);
+    expect(buildEntryQuery(axe, { links: 5 }, { links: 'none' })).toMatchObject({
+      filters: { socket_filters: { filters: { links: { min: 5 } } } },
+    });
+  });
+
+  it('連結條件和既有的分類條件合併，不會蓋掉', () => {
+    const entry = {
+      ...axe,
+      searchBase: {
+        status: { option: 'securable' },
+        filters: {
+          type_filters: { filters: { category: { option: 'weapon' } } },
+        },
+      },
+    };
+    expect(buildEntryQuery(entry)).toMatchObject({
+      filters: {
+        type_filters: { filters: { category: { option: 'weapon' } } },
+        ...sixLink,
+      },
+    });
+  });
+
+  it('applyEntrySelection：沒有調整但 build 設定不是預設時重新計算搜尋', () => {
+    const applied = applyEntrySelection(axe, undefined, { statPercent: 50 });
+    expect(applied.query).toEqual(buildEntryQuery(axe, undefined, { statPercent: 50 }));
+    expect(applyEntrySelection(axe, undefined)).toBe(axe);
+  });
+
+  it('normalizeSelectionForEntry：等於 build 預設的連結與下限會被精簡', () => {
+    expect(normalizeSelectionForEntry(axe, { links: 6 })).toBeUndefined();
+    expect(normalizeSelectionForEntry(axe, { links: 6 }, { links: 'none' })).toEqual({ links: 6 });
+    expect(normalizeSelectionForEntry(axe, { links: null })).toEqual({
+      links: null,
+    });
+    expect(normalizeSelectionForEntry(kaom, { links: null })).toBeUndefined();
+    expect(
+      normalizeSelectionForEntry(axe, { stats: { [PHYS]: { min: 64 } } }, { statPercent: 50 }),
+    ).toBeUndefined();
+    expect(normalizeSelectionForEntry(axe, { stats: { [PHYS]: { min: 64 } } })).toEqual({
+      stats: { [PHYS]: { min: 64 } },
+    });
+  });
+
+  it('草稿：複製保留連結設定，連結不同時視為已修改', () => {
+    expect(cloneEntrySearchSelection({ links: null })).toEqual({ links: null });
+    expect(cloneEntrySearchSelection({ links: 5 })).toEqual({ links: 5 });
+    expect(
+      isSelectionDraftModified(
+        { filters: [], countMin: undefined, pseudo: false, linksMin: 6 },
+        {
+          filters: [],
+          countMin: undefined,
+          pseudo: false,
+          linksMin: undefined,
+        },
+      ),
+    ).toBe(true);
   });
 });

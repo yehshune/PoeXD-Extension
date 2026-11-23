@@ -37,10 +37,13 @@ import {
   buildTradeCodeUrl,
   buildTradeSearchUrl,
   effectiveCountMin,
+  effectiveLinks,
   type VisceraModIndex,
   entryStatFilters,
   loadTradeNameCatalog,
   migrateLegacyGemKeys,
+  normalizeSearchDefaults,
+  type BuildSearchDefaults,
   type EntrySearchSelection,
   type ShoppingEntry,
   type ShoppingMod,
@@ -106,6 +109,8 @@ export interface ShoppingRow extends ShoppingEntry {
   countMin?: number;
   /** 抗性、生命、能力值改用總和條件 */
   pseudo: boolean;
+  /** 實際帶入搜尋的連結數下限（單件設定或 build 整體設定）；不限時省略 */
+  linksMin?: number;
   /** 使用者調整過這一項的搜尋條件，或存回了市集搜尋 */
   searchCustomized: boolean;
   /** 目前已儲存的條件調整（供 Popover 建立暫存草稿使用） */
@@ -150,6 +155,8 @@ export interface BuildView {
   hideDone: boolean;
   /** 目前套裝中被移除的項目數 */
   removedCount: number;
+  /** build 整體搜尋設定；只含和預設不同的欄位 */
+  searchDefaults: BuildSearchDefaults;
 }
 
 export interface UsePobBuild {
@@ -197,6 +204,8 @@ export interface UsePobBuild {
   saveSelection(buildId: string, key: string, selection: EntrySearchSelection | undefined): void;
   /** 清掉這一項的搜尋調整，回到預設 */
   resetSearch(buildId: string, key: string): void;
+  /** 修改 build 整體搜尋設定；單件調整過的條件維持不變 */
+  setSearchDefaults(buildId: string, defaults: BuildSearchDefaults): void;
   /** 開啟該項目的市集搜尋；頁面沒有聯盟或項目無法搜尋時回傳 false */
   openSearch(buildId: string, entry: ShoppingEntry, mode: PobSearchOpenMode): boolean;
   /** 取得該項目對應的市集搜尋網址（供 `<a href>` 右鍵／中鍵原生開啟分頁）；無法搜尋或無聯盟時回傳 undefined */
@@ -229,6 +238,7 @@ interface Session {
   removed: ReadonlySet<string>;
   icons: Readonly<Record<string, string>>;
   searchSelections: Readonly<Record<string, EntrySearchSelection>>;
+  searchDefaults: BuildSearchDefaults;
   searchOverrides: Readonly<Record<string, string>>;
 }
 
@@ -360,6 +370,7 @@ const isSameSession = (left: Session, right: Session): boolean =>
   sameSet(left.removed, right.removed) &&
   sameJson(left.icons, right.icons) &&
   sameJson(left.searchSelections, right.searchSelections) &&
+  sameJson(left.searchDefaults, right.searchDefaults) &&
   sameJson(left.searchOverrides, right.searchOverrides);
 
 type PatchSource = StoredPobBuildPatch | ((current: StoredPobBuild) => StoredPobBuildPatch);
@@ -464,8 +475,10 @@ export function usePobBuild(
 
   const toRow = (session: Session, entry: ShoppingEntry): ShoppingRow => {
     const selection = session.searchSelections[entry.key];
-    const applied = applyEntrySelection(entry, selection);
+    const defaults = session.searchDefaults;
+    const applied = applyEntrySelection(entry, selection, defaults);
     const countMin = effectiveCountMin(entry, selection);
+    const linksMin = effectiveLinks(entry, selection, defaults);
     return {
       ...applied,
       label:
@@ -475,9 +488,10 @@ export function usePobBuild(
       ...(applied.mods ? { mods: applied.mods.map(localizeMod) } : {}),
       done: session.done.has(entry.key),
       ...(session.icons[entry.key] ? { icon: session.icons[entry.key] } : {}),
-      filters: entryStatFilters(entry, selection),
+      filters: entryStatFilters(entry, selection, defaults),
       ...(countMin !== undefined ? { countMin } : {}),
       pseudo: selection?.pseudo === true,
+      ...(linksMin !== undefined ? { linksMin } : {}),
       searchCustomized: selection !== undefined || session.searchOverrides[entry.key] !== undefined,
       ...(selection ? { searchSelection: selection } : {}),
       searchOverride: session.searchOverrides[entry.key] !== undefined,
@@ -527,6 +541,7 @@ export function usePobBuild(
       },
       hideDone: session.hideDone,
       removedCount: entries.length - visible.length,
+      searchDefaults: session.searchDefaults,
     };
   };
 
@@ -641,6 +656,7 @@ export function usePobBuild(
       removed: new Set(stored.removed),
       icons: stored.icons,
       searchSelections: stored.searchSelections,
+      searchDefaults: stored.searchDefaults,
       searchOverrides: stored.searchOverrides,
     };
   };
@@ -903,6 +919,7 @@ export function usePobBuild(
             hideDone: session.hideDone,
             itemSetId: session.itemSetId,
             skillSetId: session.skillSetId,
+            searchDefaults: session.searchDefaults,
             ...patch,
           });
           sessions.value = sessions.value.map((entry) => (entry.id === buildId ? updated : entry));
@@ -1017,6 +1034,10 @@ export function usePobBuild(
       if (find(buildId)?.searchOverrides[key] !== undefined) {
         updateOverrides(buildId, ({ [key]: _removed, ...rest }) => rest);
       }
+    },
+    setSearchDefaults(buildId, defaults) {
+      const searchDefaults = normalizeSearchDefaults(defaults);
+      update(buildId, { searchDefaults }, { searchDefaults });
     },
     openSearch(buildId, entry, mode) {
       const url = buildEntryUrl(buildId, entry, { reportNoLeague: true });

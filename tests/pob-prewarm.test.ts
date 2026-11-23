@@ -40,6 +40,7 @@ const makeStored = (id: string, code: string): StoredPobBuild => ({
   removed: [],
   icons: {},
   searchSelections: {},
+  searchDefaults: {},
   searchOverrides: {},
 });
 

@@ -170,7 +170,7 @@
 
                 <span
                   class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums group-hover:opacity-0"
-                  :class="{ 'opacity-0': isBuildMenuOpen(build.id) }"
+                  :class="{ 'opacity-0': isHeaderActive(build.id) }"
                   data-pob-build-progress
                   :title="
                     t('pobBuild.progress', {
@@ -186,10 +186,17 @@
 
             <div
               v-if="renamingId !== build.id"
-              :class="{ '!opacity-100 !pointer-events-auto': isBuildMenuOpen(build.id) }"
+              :class="{ '!opacity-100 !pointer-events-auto': isHeaderActive(build.id) }"
               class="pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_50%,var(--card))] absolute inset-y-0 right-0 z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto flex items-center"
               @click.stop
             >
+              <PobBuildSearchSettings
+                :open="isSettingsOpen(build.id)"
+                :build-name="build.name"
+                :defaults="build.searchDefaults"
+                @update:open="(open) => setSettingsOpen(build.id, open)"
+                @change="(defaults) => setSearchDefaults(build.id, defaults)"
+              />
               <DropdownMenu
                 :open="isBuildMenuOpen(build.id)"
                 @update:open="(open) => setBuildMenuOpen(build.id, open)"
@@ -684,6 +691,7 @@
         :row="activePreview?.row ?? null"
         :row-detail-text="activePreview ? rowDetail(activePreview.row) : ''"
         :name-class="activePreview ? nameClass(activePreview.row) : ''"
+        :search-defaults="activePreviewDefaults"
         @update:open="(open) => !open && closePreview()"
         @save-selection="
           (selection) =>
@@ -774,6 +782,7 @@ import { DEFAULT_PREFERENCES, type SearchEntryClickAction } from '@/utils/prefer
 import { getPoeVersion } from '@/utils/trade-context';
 import { getFolderItemIndentLevel } from '../bookmark-tree';
 import PobBuildImportDialog from './PobBuildImportDialog.vue';
+import PobBuildSearchSettings from './PobBuildSearchSettings.vue';
 import PobEntryPreviewPopover from './PobEntryPreviewPopover.vue';
 import type { PobBookmarkFolder } from './pob-bookmark-bridge';
 import { formatPobSlot } from './pob-slot-label';
@@ -826,6 +835,7 @@ export default defineComponent({
     Pencil,
     Plus,
     PobBuildImportDialog,
+    PobBuildSearchSettings,
     PobEntryPreviewPopover,
     Radio,
     RefreshCw,
@@ -878,6 +888,16 @@ export default defineComponent({
       }
       openBuildMenuId.value = buildId;
     };
+
+    /** 目前開啟整體搜尋設定的那份 build */
+    const openSettingsId = ref<string | null>(null);
+    const isSettingsOpen = (buildId: string) => openSettingsId.value === buildId;
+    const setSettingsOpen = (buildId: string, open: boolean) => {
+      if (open) openSettingsId.value = buildId;
+      else if (openSettingsId.value === buildId) openSettingsId.value = null;
+    };
+    /** 標題的懸停操作在選單或設定開啟時保持顯示 */
+    const isHeaderActive = (buildId: string) => isBuildMenuOpen(buildId) || isSettingsOpen(buildId);
 
     const isMenuOpen = (buildId: string, key: string) => openMenuRow.value === rowId(buildId, key);
     const setMenuOpen = (buildId: string, key: string, open: boolean) => {
@@ -1059,6 +1079,13 @@ export default defineComponent({
       return null;
     });
 
+    /** 預覽中的項目所屬 build 的整體搜尋設定 */
+    const activePreviewDefaults = computed(
+      () =>
+        pob.builds.value.find((build) => build.id === activePreview.value?.buildId)
+          ?.searchDefaults ?? {},
+    );
+
     const isPreviewOpen = computed(() => activePreview.value !== null);
 
     const closePreview = () => {
@@ -1238,6 +1265,11 @@ export default defineComponent({
       handleEntryAuxClick,
       isBuildMenuOpen,
       setBuildMenuOpen,
+      isSettingsOpen,
+      setSettingsOpen,
+      isHeaderActive,
+      activePreviewDefaults,
+      setSearchDefaults: pob.setSearchDefaults,
       isMenuOpen,
       setMenuOpen,
       bookmarkFolders,
