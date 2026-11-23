@@ -214,6 +214,29 @@ describe('usePobBuild', () => {
       expect(reopened.builds.value).toHaveLength(1);
     });
 
+    it('等待期間匯入的 build，還原完成後不會被等待前的舊清單蓋掉', async () => {
+      const original = usePobBuild('poe1', deps);
+      expect(await original.importCode(toCode(buildXml()))).toBe(true);
+
+      let markLoaded!: () => void;
+      const pageLoaded = new Promise<void>((resolve) => {
+        markLoaded = resolve;
+      });
+      const reopened = usePobBuild('poe1', {
+        ...deps,
+        waitForInitialPageLoad: () => pageLoaded,
+      });
+      const restoring = reopened.restore();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(await reopened.importCode(toCode(buildXml()))).toBe(true);
+      expect(reopened.builds.value).toHaveLength(1);
+
+      markLoaded();
+      await restoring;
+      expect(stored()).toHaveLength(2);
+      expect(reopened.builds.value).toHaveLength(2);
+    });
+
     it('本機沒有 build 時不必等待也不載入資料', async () => {
       const waitForInitialPageLoad = vi.fn(() => new Promise<void>(() => {}));
       const pob = usePobBuild('poe1', { ...deps, waitForInitialPageLoad });

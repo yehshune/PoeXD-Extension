@@ -846,7 +846,17 @@ export function usePobBuild(
         return;
       }
       if (stored.length === 0) return;
-      if (!catalog.value) await deps.waitForInitialPageLoad?.();
+      if (!catalog.value && deps.waitForInitialPageLoad) {
+        await deps.waitForInitialPageLoad();
+        // 等待可能長達數秒，期間使用者可能已匯入或刪除 build：重讀，免得用舊清單蓋掉畫面
+        try {
+          stored = await deps.store.list();
+        } catch (error) {
+          console.error('[PoeXD] 無法讀取本機的 PoB 購物清單:', error);
+          return;
+        }
+        if (stored.length === 0) return;
+      }
       try {
         await ensureData();
       } catch (error) {
