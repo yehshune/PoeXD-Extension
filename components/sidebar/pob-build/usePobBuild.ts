@@ -32,6 +32,7 @@ import {
   buildTradeCodeUrl,
   buildTradeSearchUrl,
   effectiveCountMin,
+  effectiveGemFilters,
   effectiveLinks,
   effectivePseudo,
   effectiveSearchBy,
@@ -114,6 +115,8 @@ export interface ShoppingRow extends ShoppingEntry {
   iconSize?: { width: number; height: number };
   /** 圖片是三格 sprite（藥劑、寶石）時由下往上疊的格子 */
   iconLayers?: readonly number[];
+  /** 裝備插槽裡的東西（PoE 1 寶石、PoE 2 符文），依插槽順序；沒有時省略 */
+  socketContents?: SocketContent[];
   /** 可以勾選的搜尋條件（同一個代碼的多行已合併），已套用使用者的調整 */
   filters: ShoppingStatFilter[];
   /** 「至少符合 N 項」；未設定時為全部符合 */
@@ -124,12 +127,27 @@ export interface ShoppingRow extends ShoppingEntry {
   linksMin?: number;
   /** 實際的搜尋方式（沒有類別的項目一律是基底） */
   searchBy?: RareSearchMode;
+  /** 寶石實際帶入搜尋的等級／品質下限；不限時省略 */
+  gemLevelMin?: number;
+  gemQualityMin?: number;
   /** 使用者調整過這一項的搜尋條件，或存回了市集搜尋 */
   searchCustomized: boolean;
   /** 目前已儲存的條件調整（供 Popover 建立暫存草稿使用） */
   searchSelection?: EntrySearchSelection;
   /** 這一項使用從市集頁面存回的搜尋（詞綴條件不套用） */
   searchOverride: boolean;
+}
+
+/** 插在裝備插槽裡的寶石或符文 */
+export interface SocketContent {
+  kind: 'gem' | 'rune';
+  /** 顯示語言的名稱 */
+  label: string;
+  /** 寶石的等級／品質、所屬連線 */
+  detail?: string;
+  support?: boolean;
+  icon?: string;
+  iconLayers?: readonly number[];
 }
 
 export type StatBound = 'min' | 'max';
@@ -234,6 +252,9 @@ export interface UsePobBuild {
   /** 停止等待搜尋結果圖片（元件卸載時呼叫） */
   dispose(): void;
 }
+
+/** PoB 的輔助寶石名稱不含「Support」，市集與圖片對照用的英文名稱有 */
+const SUPPORT_NAME_SUFFIX = ' Support';
 
 interface Session {
   id: string;
@@ -487,10 +508,83 @@ export function usePobBuild(
     };
   };
 
+  const contentArt = (
+    kind: 'gem' | 'equipment',
+    names: readonly string[],
+  ): Pick<SocketContent, 'icon' | 'iconLayers'> => {
+    if (!itemArt.value) return {};
+    for (const englishName of names) {
+      const image = itemArtFor(itemArt.value, { kind, englishName });
+      if (image) return { icon: image.url, ...(image.layers ? { iconLayers: image.layers } : {}) };
+    }
+    return {};
+  };
+
+  const displayName = (englishName: string): string =>
+    (displayNames.value ?? catalog.value)?.toTradeName(englishName) ?? englishName;
+
+  /**
+   * 插槽內容物：PoE 2 是物品上的 `Rune:` 行；PoE 1 是目前技能組裡指定插在這個部位的寶石。
+   * PoB 不記錄寶石在哪個孔，依技能組的順序填入；超過插槽數的不顯示。
+   */
+  const socketContentsOf = (
+    session: Session,
+    entry: ShoppingEntry,
+  ): Pick<ShoppingRow, 'socketContents'> => {
+    if (entry.kind === 'gem' || !entry.sockets || !entry.slot) return {};
+    const socketCount = entry.sockets.replace(/[^A-Z]/g, '').length;
+    const contents: SocketContent[] = entry.socketed
+      ? entry.socketed.map((name) => ({
+          kind: 'rune' as const,
+          label: displayName(name),
+          ...contentArt('equipment', [name]),
+        }))
+      : gemsInSlot(session, entry.slot).map((gem) => {
+          const englishName = gem.support ? `${gem.name}${SUPPORT_NAME_SUFFIX}` : gem.name;
+          const label = displayName(englishName);
+          const skill = gem.skill ? skillLabel(gem.skill) : '';
+          return {
+            kind: 'gem' as const,
+            label,
+            // 連線名稱和寶石同名（主動寶石本身）時不重複顯示
+            detail: [
+              t('pobBuild.gemDetail', { level: gem.level, quality: gem.quality }),
+              skill && skill !== label && gem.skill !== gem.name ? skill : '',
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            ...(gem.support ? { support: true } : {}),
+            ...contentArt('gem', gem.support ? [englishName, gem.name] : [gem.name]),
+          };
+        });
+    const shown = contents.slice(0, socketCount);
+    return shown.length > 0 ? { socketContents: shown } : {};
+  };
+
+  const gemsInSlot = (session: Session, slot: string) => {
+    const sets = session.build.skillSets;
+    const set =
+      sets.find((candidate) => candidate.id === session.skillSetId) ??
+      sets.find((candidate) => candidate.id === session.build.activeSkillSetId) ??
+      sets[0];
+    return set?.gems.filter((gem) => gem.slot === slot) ?? [];
+  };
+
   /** 書籤與主控台的封面只能是一張完整的圖，三格 sprite 不當封面 */
   const coverOf = (entry: ShoppingEntry): string | undefined => {
     const art = artOf(entry);
     return art.iconLayers ? undefined : art.icon;
+  };
+
+  const gemMinsOf = (
+    entry: ShoppingEntry,
+    selection: EntrySearchSelection | undefined,
+  ): Pick<ShoppingRow, 'gemLevelMin' | 'gemQualityMin'> => {
+    const { level, quality } = effectiveGemFilters(entry, selection);
+    return {
+      ...(level !== undefined ? { gemLevelMin: level } : {}),
+      ...(quality !== undefined ? { gemQualityMin: quality } : {}),
+    };
   };
 
   const toRow = (session: Session, entry: ShoppingEntry): ShoppingRow => {
@@ -508,18 +602,20 @@ export function usePobBuild(
       ...(applied.mods ? { mods: applied.mods.map(localizeMod) } : {}),
       done: session.done.has(entry.key),
       ...artOf(entry),
+      ...socketContentsOf(session, entry),
       filters: entryStatFilters(entry, selection, defaults),
       ...(countMin !== undefined ? { countMin } : {}),
       pseudo: effectivePseudo(entry, selection, defaults),
       ...(linksMin !== undefined ? { linksMin } : {}),
       searchBy: effectiveSearchBy(entry, selection, defaults),
+      ...gemMinsOf(entry, selection),
       searchCustomized: selection !== undefined || session.searchOverrides[entry.key] !== undefined,
       ...(selection ? { searchSelection: selection } : {}),
       searchOverride: session.searchOverrides[entry.key] !== undefined,
     };
   };
 
-  /** 依清單順序切成分組；已完成的項目沉到所屬分組最下面，隱藏已完成時直接略過 */
+  /** 依清單順序切成分組；隱藏已完成時略過已完成的項目 */
   const toGroups = (session: Session, entries: readonly ShoppingEntry[]): ShoppingGroup[] => {
     const groups = new Map<string, ShoppingGroup>();
     for (const entry of entries) {
@@ -537,9 +633,8 @@ export function usePobBuild(
     return [...groups.values()]
       .map((group) => ({
         ...group,
-        rows: session.hideDone
-          ? group.rows.filter((row) => !row.done)
-          : [...group.rows.filter((row) => !row.done), ...group.rows.filter((row) => row.done)],
+        // 已完成的項目留在原位（不沉底），開啟「隱藏已完成」時才拿掉
+        rows: session.hideDone ? group.rows.filter((row) => !row.done) : group.rows,
       }))
       .filter((group) => group.rows.length > 0);
   };

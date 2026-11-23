@@ -130,6 +130,12 @@ export interface ShoppingEntry {
   sockets?: string;
   /** 傳奇的英文底材名稱，查圖片尺寸用 */
   artBase?: string;
+  /** PoE 2 插槽內容物的英文名稱（符文、靈魂核心），依插槽順序 */
+  socketed?: string[];
+  /** PoB 裡這件是已汙染的 */
+  corrupted?: true;
+  /** 穢生傳奇（englishName 是去掉前綴的一般名稱） */
+  foulborn?: true;
   /** PoB 裝備的連結數；五連以上才有（實際是否帶入搜尋由 `effectiveLinks` 決定） */
   links?: number;
   /** 非傳奇裝備依部位推得的市集類別；有才能改用「類別＋防禦類型」搜尋 */
@@ -173,7 +179,14 @@ export interface EntrySearchSelection {
   links?: number | null;
   /** 單件的稀有裝搜尋方式；省略時依 build 整體設定 */
   searchBy?: RareSearchMode;
+  /** 寶石的等級／品質下限：數字為下限，null 為不限；省略時用 PoB 的數值 */
+  gemLevel?: number | null;
+  gemQuality?: number | null;
 }
+
+/** 寶石等級與品質下限可以設定的範圍 */
+export const MAX_GEM_LEVEL = 40;
+export const MAX_GEM_QUALITY = 100;
 
 /** build 整體設定的連結條件：照 PoB（五連以上）、只帶六連、一律不帶 */
 export type LinkPolicy = 'pob' | 'six' | 'none';
@@ -826,15 +839,71 @@ function withDefenceMins(
   };
 }
 
+type GemFilterEntry = Pick<ShoppingEntry, 'kind' | 'level' | 'quality'>;
+
+/** 寶石實際帶入搜尋的等級／品質下限（使用者的調整優先，否則用 PoB 的數值）；不限的欄位省略 */
+export function effectiveGemFilters(
+  entry: GemFilterEntry,
+  selection?: EntrySearchSelection,
+): { level?: number; quality?: number } {
+  if (entry.kind !== 'gem') return {};
+  const pick = (custom: number | null | undefined, hasCustom: boolean, pob: number | undefined) => {
+    const value = hasCustom ? custom : pob;
+    return typeof value === 'number' && value > 0 ? value : undefined;
+  };
+  const level = pick(
+    selection?.gemLevel,
+    selection !== undefined && 'gemLevel' in selection,
+    entry.level !== undefined && entry.level > 1 ? entry.level : undefined,
+  );
+  const quality = pick(
+    selection?.gemQuality,
+    selection !== undefined && 'gemQuality' in selection,
+    entry.quality,
+  );
+  return {
+    ...(level !== undefined ? { level } : {}),
+    ...(quality !== undefined ? { quality } : {}),
+  };
+}
+
+/** 換掉寶石搜尋的等級與品質條件（其他雜項條件保留） */
+function withGemFilters(
+  searchBase: Record<string, unknown>,
+  gem: { level?: number; quality?: number },
+): Record<string, unknown> {
+  const { filters, ...rest } = searchBase as { filters?: Record<string, any> };
+  const { misc_filters: misc, ...otherGroups } = filters ?? {};
+  const { gem_level: _level, quality: _quality, ...otherMisc } = misc?.filters ?? {};
+  const miscFilters = {
+    ...otherMisc,
+    ...(gem.level !== undefined ? { gem_level: { min: gem.level } } : {}),
+    ...(gem.quality !== undefined ? { quality: { min: gem.quality } } : {}),
+  };
+  const groups = {
+    ...otherGroups,
+    ...(Object.keys(miscFilters).length > 0
+      ? { misc_filters: { ...misc, filters: miscFilters } }
+      : {}),
+  };
+  return Object.keys(groups).length > 0 ? { ...rest, filters: groups } : rest;
+}
+
 /** 套用使用者的選擇與 build 整體設定組出搜尋；項目無法搜尋時回傳 null */
 export function buildEntryQuery(
   entry: Pick<
     ShoppingEntry,
     'mods' | 'searchBase' | 'visceraBundle' | 'visceraPart' | 'links' | 'category' | 'defences'
-  >,
+  > &
+    Partial<GemFilterEntry>,
   selection?: EntrySearchSelection,
   defaults?: BuildSearchDefaults,
 ): Record<string, unknown> | null {
+  if (entry.kind === 'gem') {
+    return entry.searchBase
+      ? withGemFilters(entry.searchBase, effectiveGemFilters(entry as GemFilterEntry, selection))
+      : null;
+  }
   // 類別搜尋不需要基底名稱，對不到市集基底名稱的項目也能搜
   const searchBase =
     entry.category && effectiveSearchBy(entry, selection, defaults) === 'category'
@@ -912,6 +981,9 @@ export interface SelectionRowSnapshot extends Pick<
   linksMin?: number;
   /** 實際的搜尋方式 */
   searchBy?: RareSearchMode;
+  /** 寶石實際帶入的等級／品質下限 */
+  gemLevelMin?: number;
+  gemQualityMin?: number;
   searchSelection?: EntrySearchSelection;
 }
 
@@ -929,6 +1001,8 @@ export function cloneEntrySearchSelection(selection?: EntrySearchSelection): Ent
     ...(typeof selection.pseudo === 'boolean' ? { pseudo: selection.pseudo } : {}),
     ...('links' in selection ? { links: selection.links ?? null } : {}),
     ...(selection.searchBy ? { searchBy: selection.searchBy } : {}),
+    ...('gemLevel' in selection ? { gemLevel: selection.gemLevel ?? null } : {}),
+    ...('gemQuality' in selection ? { gemQuality: selection.gemQuality ?? null } : {}),
   };
 }
 
@@ -961,7 +1035,8 @@ export function selectionFromRowState(
 
 /** 僅保留相對於預設值（PoB 加上 build 整體設定）有差異的欄位；全部回到預設時回傳 undefined。 */
 export function normalizeSelectionForEntry(
-  entry: Pick<ShoppingEntry, 'mods' | 'visceraBundle' | 'links' | 'category'>,
+  entry: Pick<ShoppingEntry, 'mods' | 'visceraBundle' | 'links' | 'category'> &
+    Partial<GemFilterEntry>,
   selection: EntrySearchSelection | undefined,
   searchDefaults?: BuildSearchDefaults,
 ): EntrySearchSelection | undefined {
@@ -1014,15 +1089,39 @@ export function normalizeSelectionForEntry(
       effectiveSearchBy(entry, undefined, searchDefaults)
       ? { searchBy: selection.searchBy }
       : {}),
+    ...gemSelectionChanges(entry, selection),
   };
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+/** 寶石的等級／品質調整：和 PoB 的數值相同時不算自訂 */
+function gemSelectionChanges(
+  entry: Partial<GemFilterEntry>,
+  selection: EntrySearchSelection,
+): Pick<EntrySearchSelection, 'gemLevel' | 'gemQuality'> {
+  if (entry.kind !== 'gem') return {};
+  const gemEntry = entry as GemFilterEntry;
+  const pob = effectiveGemFilters(gemEntry);
+  const chosen = effectiveGemFilters(gemEntry, selection);
+  return {
+    ...('gemLevel' in selection && chosen.level !== pob.level
+      ? { gemLevel: chosen.level ?? null }
+      : {}),
+    ...('gemQuality' in selection && chosen.quality !== pob.quality
+      ? { gemQuality: chosen.quality ?? null }
+      : {}),
+  };
+}
+
 /** 比較兩個搜尋條件快照，判斷暫存微調是否與已儲存狀態不同。 */
-export function isSelectionDraftModified(
-  saved: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo' | 'linksMin' | 'searchBy'>,
-  draft: Pick<SelectionRowSnapshot, 'filters' | 'countMin' | 'pseudo' | 'linksMin' | 'searchBy'>,
-): boolean {
+type DraftSnapshot = Pick<
+  SelectionRowSnapshot,
+  'filters' | 'countMin' | 'pseudo' | 'linksMin' | 'searchBy' | 'gemLevelMin' | 'gemQualityMin'
+>;
+
+export function isSelectionDraftModified(saved: DraftSnapshot, draft: DraftSnapshot): boolean {
+  if (saved.gemLevelMin !== draft.gemLevelMin) return true;
+  if (saved.gemQualityMin !== draft.gemQualityMin) return true;
   if (Boolean(saved.pseudo) !== Boolean(draft.pseudo)) return true;
   if ((saved.searchBy ?? 'base') !== (draft.searchBy ?? 'base')) return true;
   if (saved.linksMin !== draft.linksMin) return true;
@@ -1042,11 +1141,19 @@ export function isSelectionDraftModified(
   });
 }
 
-/** 五連以上才記下連結數（四連以下很容易自己做） */
-function linksOf(item: PobBuildItem): { links?: number; sockets?: string } {
+/**
+ * 裝備的連結數與外觀：五連以上才記下連結數（四連以下很容易自己做）；插槽、內容物、
+ * 汙染與穢生給介面顯示
+ */
+function itemTraitsOf(
+  item: PobBuildItem,
+): Pick<ShoppingEntry, 'links' | 'sockets' | 'socketed' | 'corrupted' | 'foulborn'> {
   return {
     ...(item.maxLinks && item.maxLinks >= MIN_SEARCHED_LINKS ? { links: item.maxLinks } : {}),
     ...(item.sockets ? { sockets: item.sockets } : {}),
+    ...(item.socketed ? { socketed: [...item.socketed] } : {}),
+    ...(item.corrupted ? { corrupted: true as const } : {}),
+    ...(item.foulborn ? { foulborn: true as const } : {}),
   };
 }
 
@@ -1129,7 +1236,7 @@ function itemEntry(
       searchBase: base.trade
         ? { status: INSTANT_BUYOUT_STATUS, type: base.trade, filters: NON_UNIQUE_FILTERS }
         : null,
-      ...linksOf(item),
+      ...itemTraitsOf(item),
       ...(category ? { category } : {}),
       ...(defences ? { defences } : {}),
     });
@@ -1157,7 +1264,7 @@ function itemEntry(
           ...(base.trade ? { type: base.trade } : {}),
         }
       : null,
-    ...linksOf(item),
+    ...itemTraitsOf(item),
   });
 }
 

@@ -2,7 +2,7 @@
 import { computed, type PropType } from 'vue';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { isNestedMenuInteraction } from '../stat-domain/nested-menu-guard';
-import { PREVIEW_POPOVER_CLASS } from './preview-classes';
+import { PREVIEW_POPOVER_CLASS, type PreviewAnchor } from './preview-classes';
 
 /**
  * 物品預覽的 Popover 外框（PoB 物品預覽、書籤／歷史搜尋預覽共用）：定位、尺寸與
@@ -16,7 +16,8 @@ const props = defineProps({
     type: String as PropType<'left' | 'right' | 'top' | 'bottom'>,
     default: 'right',
   },
-  reference: { type: Object as PropType<HTMLElement | null>, default: null },
+  /** 定位用的元素，或只提供位置的虛擬錨點（例如「裝備欄的寬度、某一格的高度」） */
+  reference: { type: Object as PropType<PreviewAnchor | null>, default: null },
   /** 內容還沒準備好時不渲染 PopoverContent */
   ready: { type: Boolean, default: true },
 });
@@ -31,7 +32,9 @@ const anchorReference = computed(() => props.reference ?? undefined);
  */
 function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): void {
   const path = event.detail?.originalEvent?.composedPath?.() ?? [];
-  if (props.reference && path.includes(props.reference)) {
+  const reference = props.reference;
+  const anchorElement = reference instanceof Element ? reference : reference?.contextElement;
+  if (anchorElement && path.includes(anchorElement)) {
     event.preventDefault();
     return;
   }

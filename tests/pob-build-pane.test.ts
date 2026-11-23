@@ -432,7 +432,86 @@ describe('PobBuildPane', () => {
     ];
     await nextTick();
     expect(query('[data-pob-build-empty]')?.textContent).toContain('全部完成，已隱藏 4 項');
-    expect(query('[data-pob-build-hide-done]')?.getAttribute('data-state')).toBe('checked');
+    expect(query('[data-pob-build-hide-done]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(query('[data-pob-build-hide-done-indicator]')).not.toBeNull();
+  });
+
+  it('汙染與穢生：清單加上標籤，裝備欄格子加上汙染標記與穢生圖片效果', async () => {
+    const base = sampleBuild();
+    const [equip, gems] = base.groups;
+    const rare = { ...equip.rows[1], corrupted: true as const, icon: ICON };
+    const unique = { ...equip.rows[0], foulborn: true as const, done: false };
+    buildsRef.value = [
+      { ...base, groups: [{ ...equip, rows: [unique, rare, equip.rows[2]] }, gems] },
+    ];
+    await mount();
+    expect(row(0).querySelector('[data-pob-build-foulborn]')?.textContent).toContain('穢生');
+    expect(row(0).querySelector('.pxd-item--foulborn')).not.toBeNull();
+    expect(row(1).querySelector('[data-pob-build-corrupted]')?.textContent).toContain('已汙染');
+
+    query<HTMLElement>('[data-pob-build-view-option="gear"]')!.click();
+    await nextTick();
+    expect(
+      query('[data-pob-build-gear-tile="gloves"] [data-pob-build-gear-corrupted]'),
+    ).not.toBeNull();
+    expect(query('[data-pob-build-gear-tile="weapon2"] .pxd-item--foulborn')).not.toBeNull();
+  });
+
+  it('插槽內顯示內容物圖片，外圈保留插槽顏色；滑過插槽顯示內容說明', async () => {
+    const base = sampleBuild();
+    const [equip, gems] = base.groups;
+    const rare = {
+      ...equip.rows[1],
+      socketContents: [
+        { kind: 'gem' as const, label: '懲戒', detail: 'Lv.20 / 20%', icon: ICON },
+        { kind: 'gem' as const, label: '增加持續時間輔助', support: true },
+      ],
+    };
+    buildsRef.value = [
+      { ...base, groups: [{ ...equip, rows: [equip.rows[0], rare, equip.rows[2]] }, gems] },
+    ];
+    await mount({ view: 'gear' });
+    const sockets = queryAll('[data-pob-build-gear-tile="gloves"] .pxd-socket');
+    expect(sockets).toHaveLength(4);
+    expect(sockets[0].getAttribute('data-socket-filled')).toBe('true');
+    expect(sockets[0].getAttribute('data-socket-color')).toBe('R');
+    expect(sockets[0].querySelector('img')?.getAttribute('referrerpolicy')).toBe('no-referrer');
+    expect(sockets[2].getAttribute('data-socket-filled')).toBeNull();
+
+    sockets[0].dispatchEvent(new MouseEvent('mouseenter'));
+    await nextTick();
+    expect(query('[data-pob-build-socket-tip]')?.textContent).toContain('懲戒');
+    expect(query('[data-pob-build-socket-tip]')?.textContent).toContain('Lv.20 / 20%');
+    sockets[0].dispatchEvent(new MouseEvent('mouseleave'));
+    await nextTick();
+    expect(query('[data-pob-build-socket-tip]')).toBeNull();
+  });
+
+  it('寶石的預覽框可以改等級與品質下限並存回', async () => {
+    const base = sampleBuild();
+    const [equip, gems] = base.groups;
+    const gem = { ...gems.rows[0], gemLevelMin: 20, gemQualityMin: 20 };
+    buildsRef.value = [{ ...base, groups: [equip, { ...gems, rows: [gem] }] }];
+    await mount();
+    const gemRow = queryAll('[data-pob-build-row]').find((el) =>
+      el.textContent?.includes('Punishment'),
+    )!;
+    gemRow.querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+    const level = queryBody<HTMLInputElement>('[data-pob-build-gem-level]')!;
+    expect(level.value).toBe('20');
+    level.value = '1';
+    level.dispatchEvent(new Event('change'));
+    await flushAsync();
+    const quality = queryBody<HTMLInputElement>('[data-pob-build-gem-quality]')!;
+    quality.value = '';
+    quality.dispatchEvent(new Event('change'));
+    await flushAsync();
+    queryBody<HTMLButtonElement>('[data-pob-build-save-selection]')!.click();
+    expect(fake.saveSelection).toHaveBeenCalledWith('b1', 'k-gem', {
+      gemLevel: 1,
+      gemQuality: null,
+    });
   });
 
   it('名稱按鈕上按空白鍵標記完成，Enter 仍是搜尋', async () => {
@@ -1320,7 +1399,7 @@ describe('PobBuildPane', () => {
     expect(row(0).textContent).toContain('Punishment');
   });
 
-  it('預設為裝備欄檢視：裝備依部位放進格子，寶石仍是清單，點格子開啟預覽；可切回清單', async () => {
+  it('預設為裝備欄檢視：裝備依部位放進格子，寶石仍是清單，滑鼠移入格子開啟預覽；可切回清單', async () => {
     buildsRef.value = [sampleBuild()];
     await mount({ view: 'gear' });
     const option = (value: string) =>
@@ -1340,10 +1419,33 @@ describe('PobBuildPane', () => {
       expect.stringContaining('Punishment'),
     ]);
 
-    query<HTMLButtonElement>('[data-pob-build-gear-tile="gloves"]')!.click();
+    vi.useFakeTimers();
+    try {
+      const gloves = query<HTMLButtonElement>('[data-pob-build-gear-tile="gloves"]')!;
+      gloves.dispatchEvent(new MouseEvent('mouseenter'));
+      vi.advanceTimersByTime(300);
+      await nextTick();
+      expect(gloves.getAttribute('aria-pressed')).toBe('true');
+      // 沒進入預覽框就移出時關閉
+      gloves.dispatchEvent(new MouseEvent('mouseleave'));
+      vi.advanceTimersByTime(600);
+      await nextTick();
+      expect(gloves.getAttribute('aria-pressed')).toBe('false');
+      gloves.dispatchEvent(new MouseEvent('mouseenter'));
+      vi.advanceTimersByTime(300);
+    } finally {
+      vi.useRealTimers();
+    }
     await flushAsync();
     expect(queryBody('[data-pob-build-mods]')).not.toBeNull();
-    expect(query('[data-pob-build-gear-tile="gloves"]')!.getAttribute('aria-pressed')).toBe('true');
+
+    // 點擊格子直接搜尋
+    query<HTMLButtonElement>('[data-pob-build-gear-tile="gloves"]')!.click();
+    expect(fake.openSearch).toHaveBeenCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-rare' }),
+      'current',
+    );
 
     query<HTMLElement>('[data-pob-build-gear-tile="gloves"] [data-pob-build-gear-done]')!.click();
     expect(fake.toggleDone).toHaveBeenCalledWith('b1', 'k-rare');
@@ -1355,7 +1457,6 @@ describe('PobBuildPane', () => {
       ),
     ).toBe('4');
 
-    // 沒有詞綴可看的項目直接搜尋
     query<HTMLButtonElement>('[data-pob-build-gear-tile="weapon2"]')!.click();
     expect(fake.openSearch).toHaveBeenCalledWith(
       'b1',
@@ -1413,28 +1514,6 @@ describe('PobBuildPane', () => {
     const tile = query('[data-pob-build-gear-tile="flask"]')!;
     expect(tile.querySelector('[data-pob-item-sprite]')).toBeNull();
     expect(tile.querySelector('img')?.getAttribute('src')).toContain('Flasks/sprint');
-  });
-
-  it('已完成項目沉底時於第一筆已完成列加上分隔線標記', async () => {
-    const base = sampleBuild();
-    const equip = base.groups[0];
-    // 模擬真實順序：未完成在前、已完成在後
-    buildsRef.value = [
-      {
-        ...base,
-        groups: [
-          {
-            ...equip,
-            rows: [equip.rows[1], equip.rows[2], equip.rows[0]],
-          },
-        ],
-      },
-    ];
-    await mount();
-
-    expect(row(0).getAttribute('data-done-divider')).toBeNull();
-    expect(row(1).getAttribute('data-done-divider')).toBeNull();
-    expect(row(2).getAttribute('data-done-divider')).toBe('true');
   });
 
   it('詞綴 Popover 支援一鍵放寬 -10%、清除數值，且關閉再開啟時保留未儲存草稿', async () => {

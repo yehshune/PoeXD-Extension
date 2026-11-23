@@ -15,6 +15,8 @@ const props = defineProps<{
   /** 背包格數，決定疊加後的長寬比；省略時為正方形 */
   width?: number;
   height?: number;
+  /** 穢生傳奇：官方圖是 GGG 伺服器即時加上紫色紋路，這裡以濾鏡近似 */
+  foulborn?: boolean;
 }>();
 
 const singleImage = ref(false);
@@ -48,6 +50,7 @@ const checkSprite = (event: Event) => {
     role="img"
     data-pob-item-sprite
     class="pxd-item-sprite"
+    :class="{ 'pxd-item--foulborn': foulborn }"
     :style="{ aspectRatio }"
   >
     <span v-for="(frame, index) in layers" :key="frame" class="pxd-item-sprite__layer">
@@ -62,10 +65,22 @@ const checkSprite = (event: Event) => {
       />
     </span>
   </span>
-  <img v-else :src="src" alt="" loading="lazy" referrerpolicy="no-referrer" />
+  <img
+    v-else
+    :src="src"
+    alt=""
+    loading="lazy"
+    referrerpolicy="no-referrer"
+    :class="{ 'pxd-item--foulborn': foulborn }"
+  />
 </template>
 
 <style scoped>
+.pxd-item--foulborn {
+  filter: saturate(0.35) brightness(0.9) drop-shadow(0 0 1px oklch(0.62 0.26 305))
+    drop-shadow(0 0 3px oklch(0.55 0.25 300 / 0.8));
+}
+
 .pxd-item-sprite {
   position: relative;
   display: inline-block;

@@ -28,6 +28,12 @@ export interface PobBuildItem {
   maxLinks?: number;
   /** PoB 的插槽文字，例如 `R-R-G B`（大寫、單一空白）；沒有插槽時省略 */
   sockets?: string;
+  /** PoE 2 插在插槽裡的符文、靈魂核心等（`Rune:` 行，依插槽順序）；沒有時省略 */
+  socketed?: string[];
+  /** 已汙染（含二次汙染） */
+  corrupted?: true;
+  /** 穢生傳奇（名稱前綴 `Foulborn`） */
+  foulborn?: true;
   /** 基底帶有的防禦類型（依 PoB 的 `…BasePercentile` 行）；沒有防禦時省略 */
   baseDefences?: PobDefence[];
   /** PoB 算好的防禦數值（含品質與詞綴）；沒有防禦時省略 */
@@ -124,6 +130,7 @@ const VALUE_RANGE = /\((-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)\)/g;
 /** 詞綴區之後的狀態行，不是詞綴 */
 const STATUS_LINES = new Set([
   'Corrupted',
+  'Twice Corrupted',
   'Mirrored',
   'Split',
   'Unidentified',
@@ -140,6 +147,11 @@ const STATUS_LINES = new Set([
   'Eater of Worlds Item',
 ]);
 const JEWEL_SLOT = 'Jewel';
+const CORRUPTED_LINES = new Set(['Corrupted', 'Twice Corrupted']);
+const FOULBORN_NAME = /^Foulborn\s+/;
+/** PoE 2 插槽內容物：`Rune: Thrud's Might`（靈魂核心、護符偶像也用同一個欄位） */
+const RUNE_LINE = /^Rune:\s*(.+)$/;
+const MAX_SOCKETED = 6;
 /**
  * 身外 Wickerman（3.30）的臟器。新版 PoB 放在 `Wickerman Head` 等四個部位，跟一般裝備一樣；
  * 還沒有這些部位的 PoB（例如從角色匯入的 build）把四件臟器的詞綴合併寫成標題為 `Viscera`
@@ -320,6 +332,11 @@ function parseItem(item: Element, slot: string): PobBuildItem | undefined {
   const maxLinks = parseMaxLinks(sockets);
   const baseDefences = parseBaseDefences(properties);
   const defenceValues = parseDefenceValues(properties);
+  const socketed = properties
+    .flatMap((line) => clip(RUNE_LINE.exec(line)?.[1]) || [])
+    .slice(0, MAX_SOCKETED);
+  const corrupted = lines.some((line) => CORRUPTED_LINES.has(line));
+  const foulborn = (rarity === 'UNIQUE' || rarity === 'RELIC') && FOULBORN_NAME.test(name);
   return {
     slot,
     rarity,
@@ -330,6 +347,9 @@ function parseItem(item: Element, slot: string): PobBuildItem | undefined {
     ...(sockets ? { sockets } : {}),
     ...(baseDefences ? { baseDefences } : {}),
     ...(defenceValues ? { defenceValues } : {}),
+    ...(socketed.length > 0 ? { socketed } : {}),
+    ...(corrupted ? { corrupted: true as const } : {}),
+    ...(foulborn ? { foulborn: true as const } : {}),
   };
 }
 

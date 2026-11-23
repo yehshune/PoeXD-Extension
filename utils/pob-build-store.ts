@@ -4,6 +4,8 @@
  */
 import {
   LINK_OPTIONS,
+  MAX_GEM_LEVEL,
+  MAX_GEM_QUALITY,
   normalizeSearchDefaults,
   type BuildSearchDefaults,
   type EntrySearchSelection,
@@ -180,8 +182,22 @@ export function toEntrySearchSelection(value: unknown): EntrySearchSelection | u
       ? { links: value.links }
       : {}),
     ...(isRareSearchMode(value.searchBy) ? { searchBy: value.searchBy } : {}),
+    ...gemBound('gemLevel', value.gemLevel, MAX_GEM_LEVEL),
+    ...gemBound('gemQuality', value.gemQuality, MAX_GEM_QUALITY),
   };
   return Object.keys(selection).length > 0 ? selection : undefined;
+}
+
+/** 寶石等級／品質下限：整數且在範圍內，或 null（不限） */
+function gemBound<K extends 'gemLevel' | 'gemQuality'>(
+  key: K,
+  value: unknown,
+  max: number,
+): Partial<Record<K, number | null>> {
+  if (value === null) return { [key]: null } as Partial<Record<K, number | null>>;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max
+    ? ({ [key]: value } as Partial<Record<K, number | null>>)
+    : {};
 }
 
 const isRareSearchMode = (value: unknown): value is RareSearchMode =>

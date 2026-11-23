@@ -168,6 +168,13 @@
                   {{ build.name }}
                 </span>
 
+                <EyeOff
+                  v-if="build.hideDone"
+                  data-pob-build-hide-done-indicator
+                  class="size-[var(--control-icon-sm,14px)] shrink-0 text-primary group-hover:opacity-0"
+                  :class="{ 'opacity-0': isHeaderActive(build.id) }"
+                  :aria-label="t('pobBuild.hideDoneOn')"
+                />
                 <span
                   class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums group-hover:opacity-0"
                   :class="{ 'opacity-0': isHeaderActive(build.id) }"
@@ -190,6 +197,19 @@
               class="pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_50%,var(--card))] absolute inset-y-0 right-0 z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto flex items-center"
               @click.stop
             >
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                data-pob-build-hide-done
+                :aria-pressed="build.hideDone"
+                :class="build.hideDone ? 'text-primary bg-primary/15' : undefined"
+                :title="t(build.hideDone ? 'pobBuild.showDone' : 'pobBuild.hideDone')"
+                :aria-label="t(build.hideDone ? 'pobBuild.showDone' : 'pobBuild.hideDone')"
+                @click.stop="setHideDone(build.id, !build.hideDone)"
+              >
+                <EyeOff v-if="build.hideDone" />
+                <Eye v-else />
+              </Button>
               <PobBuildSearchSettings
                 :open="isSettingsOpen(build.id)"
                 :build-name="build.name"
@@ -251,8 +271,6 @@
                 (build.itemSetOptions.length > 1 ||
                   showSkillSets(build) ||
                   build.removedCount > 0 ||
-                  build.progress.done > 0 ||
-                  build.hideDone ||
                   buildCategories(build).length > 1 ||
                   hasEquipment(build))
               "
@@ -348,26 +366,8 @@
                 </Select>
               </div>
 
-              <div
-                v-if="build.removedCount > 0 || build.progress.done > 0 || build.hideDone"
-                class="flex items-center gap-[var(--pxd-space-md)]"
-              >
-                <span
-                  v-if="build.progress.done > 0 || build.hideDone"
-                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] text-muted-foreground"
-                >
-                  <Checkbox
-                    :id="`pob-hide-done-${build.id}`"
-                    data-pob-build-hide-done
-                    :model-value="build.hideDone"
-                    @update:model-value="(value) => setHideDone(build.id, value === true)"
-                  />
-                  <label :for="`pob-hide-done-${build.id}`" class="cursor-pointer select-none">{{
-                    t('pobBuild.hideDone')
-                  }}</label>
-                </span>
+              <div v-if="build.removedCount > 0" class="flex items-center">
                 <Button
-                  v-if="build.removedCount > 0"
                   variant="link"
                   size="sm"
                   data-pob-build-restore-removed
@@ -407,6 +407,8 @@
               :rows="equipmentRows(build)"
               :active-key="activePreview?.buildId === build.id ? activePreview.row.key : undefined"
               @select="(row, event) => handleGearSelect(build.id, row, event)"
+              @hover="(row, event) => hoverPreview(build.id, row, event)"
+              @leave="leavePreviewTrigger"
               @toggle-done="(key) => toggleDone(build.id, key)"
             />
 
@@ -457,18 +459,14 @@
               </h4>
 
               <template v-if="!isGroupCollapsed(build, group.id)">
-                <template v-for="(row, rowIndex) in group.rows" :key="row.key">
+                <template v-for="row in group.rows" :key="row.key">
                   <div
                     data-pob-build-row
                     :data-done="row.done ? 'true' : 'false'"
-                    :data-done-divider="isFirstDoneRow(group.rows, rowIndex) ? 'true' : undefined"
                     :class="[
                       isPreviewActive(build.id, row.key)
                         ? 'bg-primary/12 hover:bg-primary/15 has-[[data-state=open]]:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
                         : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40',
-                      isFirstDoneRow(group.rows, rowIndex)
-                        ? 'border-t border-solid border-t-border'
-                        : '',
                     ]"
                     class="group/row relative flex items-center gap-[var(--pxd-space-sm)] border-0 border-b border-dashed border-border px-[var(--pxd-space-md)] py-[var(--pxd-bookmark-row-padding-y)] last:border-b-0 transition-colors"
                   >
@@ -481,8 +479,11 @@
 
                     <span
                       v-if="row.icon"
+                      data-pob-build-icon-hover
                       class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center"
                       :class="{ 'opacity-50': row.done }"
+                      @mouseenter="hoverPreview(build.id, row, $event)"
+                      @mouseleave="leavePreviewTrigger"
                     >
                       <PobItemImage
                         data-pob-build-icon
@@ -491,6 +492,7 @@
                         :layers="row.iconLayers"
                         :width="row.iconSize?.width"
                         :height="row.iconSize?.height"
+                        :foulborn="row.foulborn"
                       />
                     </span>
                     <span
@@ -499,6 +501,8 @@
                       data-pob-build-icon-placeholder
                       class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[length:var(--pxd-font-micro)] font-bold text-muted-foreground"
                       :class="{ 'opacity-50': row.done }"
+                      @mouseenter="hoverPreview(build.id, row, $event)"
+                      @mouseleave="leavePreviewTrigger"
                       >?</span
                     >
 
@@ -530,6 +534,18 @@
                           data-pob-build-suffix
                           class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums"
                           >{{ row.suffix }}</span
+                        >
+                        <span
+                          v-if="row.foulborn"
+                          data-pob-build-foulborn
+                          class="shrink-0 text-[length:var(--pxd-font-caption)] font-semibold text-[oklch(0.68_0.2_305)]"
+                          >{{ t('pobBuild.foulborn') }}</span
+                        >
+                        <span
+                          v-if="row.corrupted"
+                          data-pob-build-corrupted
+                          class="shrink-0 text-[length:var(--pxd-font-caption)] font-semibold text-[oklch(0.62_0.22_27)]"
+                          >{{ t('pobBuild.corrupted') }}</span
                         >
                         <span
                           v-if="row.count > 1"
@@ -589,6 +605,8 @@
                         :title="t('pobBuild.toggleModsTitle')"
                         :aria-label="t('pobBuild.toggleModsTitle')"
                         @click.stop="togglePreview(build.id, row.key, $event)"
+                        @mouseenter="hoverPreview(build.id, row, $event)"
+                        @mouseleave="leavePreviewTrigger"
                       >
                         <SlidersHorizontal />
                       </Button>
@@ -739,6 +757,8 @@
         :row-detail-text="activePreview ? rowDetail(activePreview.row) : ''"
         :name-class="activePreview ? nameClass(activePreview.row) : ''"
         :search-defaults="activePreviewDefaults"
+        @mouseenter="pinPreview"
+        @focusin="pinPreview"
         @update:open="(open) => !open && closePreview()"
         @save-selection="
           (selection) =>
@@ -783,6 +803,8 @@ import {
   ChevronsUpDown,
   Ellipsis,
   ExternalLink,
+  Eye,
+  EyeOff,
   Folder,
   Loader2,
   Pencil,
@@ -823,6 +845,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import { rowAnchorFromEvent } from '../composables/useTradeSearchPreview';
+import type { PreviewAnchor } from '../item-preview/preview-classes';
 import { t, type I18nKey } from '@/utils/i18n';
 import { POB_BUILD_NAME_MAX_LENGTH } from '@/utils/pob-build-store';
 import type { ShoppingEntry } from '@/utils/pob-shopping-list';
@@ -884,6 +907,8 @@ export default defineComponent({
     DropdownMenuTrigger,
     Ellipsis,
     ExternalLink,
+    Eye,
+    EyeOff,
     Folder,
     Input,
     Loader2,
@@ -930,7 +955,7 @@ export default defineComponent({
     const renameInput = ref('');
     /** 目前在右側 Popover 檢視／調整詞綴的項目 */
     const activePreviewTarget = ref<{ buildId: string; key: string } | null>(null);
-    const previewAnchorEl = ref<HTMLElement | null>(null);
+    const previewAnchorEl = ref<PreviewAnchor | null>(null);
     /** 目前開啟「更多動作」選單的那一列 */
     const openMenuRow = ref<string | null>(null);
     /** 目前開啟操作選單的那份 build */
@@ -980,8 +1005,9 @@ export default defineComponent({
 
     /** 有存回的搜尋或有條件時才能送主控台、加書籤 */
     const canSearch = (row: ShoppingRow) => row.searchOverride || row.query !== null;
-    /** 有詞綴或存回搜尋時才提供預覽／微調彈窗 */
-    const canPreview = (row: ShoppingRow) => Boolean(row.mods?.length || row.searchOverride);
+    /** 有詞綴、存回搜尋，或是可以搜尋的寶石（調整等級／品質）時才提供預覽／微調彈窗 */
+    const canPreview = (row: ShoppingRow) =>
+      row.kind === 'gem' ? row.query !== null : Boolean(row.mods?.length || row.searchOverride);
 
     // PoE 2 的技能寶石不在市集交易，清單沒有寶石，技能組也就不必選
     const showSkillSets = (build: BuildView) =>
@@ -1106,9 +1132,6 @@ export default defineComponent({
     const isGroupAllDone = (group: ShoppingGroup): boolean =>
       group.rows.length > 0 && groupDoneCount(group) === group.rows.length;
 
-    const isFirstDoneRow = (rows: readonly ShoppingRow[], index: number): boolean =>
-      Boolean(rows[index]?.done && index > 0 && !rows[index - 1]?.done);
-
     const groupTitle = (group: ShoppingGroup): string => {
       if (group.kind === 'equipment') return t('pobBuild.group.equipment');
       return group.slot
@@ -1175,9 +1198,72 @@ export default defineComponent({
 
     const isPreviewOpen = computed(() => activePreview.value !== null);
 
+    /**
+     * 滑鼠移入格子（或清單的圖示、調整按鈕）稍停即開啟預覽；移出時若沒進入預覽框就關閉，
+     * 進入過預覽框後固定開著，直到點外面、按關閉或移到另一個項目。
+     */
+    const HOVER_OPEN_DELAY = 180;
+    const HOVER_CLOSE_DELAY = 450;
+    let hoverOpenTimer: ReturnType<typeof setTimeout> | undefined;
+    let hoverCloseTimer: ReturnType<typeof setTimeout> | undefined;
+    const previewPinned = ref(false);
+
+    const clearHoverTimers = () => {
+      clearTimeout(hoverOpenTimer);
+      clearTimeout(hoverCloseTimer);
+    };
+
     const closePreview = () => {
+      clearHoverTimers();
+      previewPinned.value = false;
       activePreviewTarget.value = null;
       previewAnchorEl.value = null;
+    };
+
+    /**
+     * 預覽的錨點：清單的列橫跨整個側欄，預覽自然出現在側欄外；裝備欄的格子改用
+     * 「裝備欄的寬度、該格的高度」當錨點，預覽才不會蓋住其他格子
+     */
+    const previewAnchorFromEvent = (event: Event): PreviewAnchor | null => {
+      const anchor = rowAnchorFromEvent(event, PREVIEW_ANCHOR);
+      const gear = anchor?.closest<HTMLElement>('[data-pob-build-gear]');
+      if (!anchor || !gear || !anchor.matches('[data-pob-build-gear-tile]')) return anchor;
+      return {
+        contextElement: anchor,
+        getBoundingClientRect: () => {
+          const area = gear.getBoundingClientRect();
+          const tile = anchor.getBoundingClientRect();
+          return new DOMRect(area.left, tile.top, area.width, tile.height);
+        },
+      };
+    };
+
+    const hoverPreview = (buildId: string, row: ShoppingRow, event: Event) => {
+      clearTimeout(hoverCloseTimer);
+      if (!canPreview(row) || isPreviewActive(buildId, row.key)) return;
+      // 事件的 currentTarget 只在處理當下有效，先找好定位元素
+      const anchor = previewAnchorFromEvent(event);
+      if (!anchor) return;
+      clearTimeout(hoverOpenTimer);
+      hoverOpenTimer = setTimeout(() => {
+        previewPinned.value = false;
+        activePreviewTarget.value = { buildId, key: row.key };
+        previewAnchorEl.value = anchor;
+      }, HOVER_OPEN_DELAY);
+    };
+
+    const leavePreviewTrigger = () => {
+      clearTimeout(hoverOpenTimer);
+      if (previewPinned.value || !activePreviewTarget.value) return;
+      clearTimeout(hoverCloseTimer);
+      hoverCloseTimer = setTimeout(() => {
+        if (!previewPinned.value) closePreview();
+      }, HOVER_CLOSE_DELAY);
+    };
+
+    const pinPreview = () => {
+      clearTimeout(hoverCloseTimer);
+      previewPinned.value = true;
     };
 
     watch(activePreview, (value) => {
@@ -1194,23 +1280,24 @@ export default defineComponent({
         closePreview();
         return;
       }
-      const anchor = rowAnchorFromEvent(event, PREVIEW_ANCHOR);
+      const anchor = previewAnchorFromEvent(event);
       if (!anchor) return;
+      clearHoverTimers();
+      previewPinned.value = true;
       activePreviewTarget.value = { buildId, key };
       previewAnchorEl.value = anchor;
     };
 
-    /** 裝備欄的格子：點擊開啟預覽（沒有詞綴可看時直接搜尋），Ctrl／⌘ 點擊開新分頁 */
+    /**
+     * 裝備欄的格子：預覽改由滑鼠移入開啟，點擊直接搜尋，Ctrl／⌘ 點擊開新分頁；
+     * 不能搜尋但有詞綴（例如對不到市集名稱）時點擊固定開啟預覽
+     */
     const handleGearSelect = (buildId: string, row: ShoppingRow, event: MouseEvent) => {
-      if (canSearch(row) && (event.ctrlKey || event.metaKey)) {
-        pob.openSearch(buildId, row, 'new-tab');
+      if (canSearch(row)) {
+        pob.openSearch(buildId, row, event.ctrlKey || event.metaKey ? 'new-tab' : 'current');
         return;
       }
-      if (canPreview(row)) {
-        togglePreview(buildId, row.key, event);
-        return;
-      }
-      if (canSearch(row)) pob.openSearch(buildId, row, 'current');
+      if (canPreview(row)) togglePreview(buildId, row.key, event);
     };
 
     const rowTooltip = (row: ShoppingRow) => {
@@ -1328,6 +1415,7 @@ export default defineComponent({
       }
     });
     onUnmounted(() => {
+      clearHoverTimers();
       disposed = true;
       stopPreferences?.();
       stopPreferences = undefined;
@@ -1354,6 +1442,9 @@ export default defineComponent({
       isPreviewActive,
       togglePreview,
       closePreview,
+      hoverPreview,
+      leavePreviewTrigger,
+      pinPreview,
       searchEntryClickAction,
       canSearch,
       canPreview,
@@ -1391,7 +1482,6 @@ export default defineComponent({
       toggleGroupCollapsed,
       groupCountLabel,
       isGroupAllDone,
-      isFirstDoneRow,
       groupTitle,
       rowDetail,
       nameClass,

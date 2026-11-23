@@ -12,10 +12,13 @@ import {
   applyEntrySelection,
   buildEntryQuery,
   effectiveCountMin,
+  effectiveGemFilters,
   effectiveLinks,
   effectivePseudo,
   effectiveSearchBy,
   LINK_OPTIONS,
+  MAX_GEM_LEVEL,
+  MAX_GEM_QUALITY,
   cloneEntrySearchSelection,
   entryStatFilters,
   isRequiredInCountMode,
@@ -38,6 +41,7 @@ import {
   PREVIEW_META_BLOCK_CLASS,
   PREVIEW_TAG_CLASS,
   PREVIEW_TOOLBAR_CLASS,
+  type PreviewAnchor,
 } from '../item-preview/preview-classes';
 import type { ShoppingRow, StatBound } from './usePobBuild';
 
@@ -65,7 +69,7 @@ const props = defineProps({
     default: 'right',
   },
   reference: {
-    type: Object as PropType<HTMLElement | null>,
+    type: Object as PropType<PreviewAnchor | null>,
     default: null,
   },
   buildId: { type: String, default: '' },
@@ -118,8 +122,12 @@ const effectiveRow = computed<ShoppingRow | null>(() => {
   const applied = applyEntrySelection(row, draft, defaults);
   const countMin = effectiveCountMin(row, draft);
   const pseudo = effectivePseudo(row, draft, defaults);
+  const gem = effectiveGemFilters(row, draft);
+  const { gemLevelMin: _level, gemQualityMin: _quality, ...rest } = row;
   return {
-    ...row,
+    ...rest,
+    ...(gem.level !== undefined ? { gemLevelMin: gem.level } : {}),
+    ...(gem.quality !== undefined ? { gemQualityMin: gem.quality } : {}),
     mods: applied.mods,
     filters,
     countMin,
@@ -182,6 +190,17 @@ const categoryHint = computed(() => {
     .join(t('pobBuild.itemFilters.defenceSeparator'));
   return t('pobBuild.itemFilters.categoryHint', { category: name, defences });
 });
+
+const isGem = computed(() => effectiveRow.value?.kind === 'gem');
+
+/** 寶石等級／品質下限：空白為不限 */
+function commitGemBound(field: 'gemLevel' | 'gemQuality', event: Event): void {
+  const raw = (event.target as HTMLInputElement).value.trim();
+  const max = field === 'gemLevel' ? MAX_GEM_LEVEL : MAX_GEM_QUALITY;
+  const value = raw === '' ? null : Math.floor(Number(raw));
+  if (value !== null && (!Number.isFinite(value) || value < 0 || value > max)) return;
+  mutateDraft((draft) => ({ ...draft, [field]: value === 0 ? null : value }));
+}
 
 const isDraftModified = computed(() =>
   Boolean(
@@ -558,6 +577,68 @@ function handleResetSearch(): void {
         >
           {{ t('pobBuild.mods.overrideNotice') }}
         </p>
+
+        <!-- 寶石條件：等級與品質下限（預設為 PoB 的數值） -->
+        <div
+          v-if="isGem"
+          data-pob-build-gem-filters
+          class="flex flex-col gap-[var(--pxd-space-xs)]"
+        >
+          <span class="text-[length:var(--pxd-font-section-title)] font-semibold text-foreground">
+            {{ t('pobBuild.gemFilters.title') }}
+          </span>
+          <div
+            :class="[
+              PREVIEW_CARD_CLASS,
+              'grid grid-cols-[auto_1fr_auto] items-center gap-x-[var(--pxd-space-md)] gap-y-[var(--pxd-space-sm)] p-[var(--pxd-space-sm)]',
+            ]"
+          >
+            <label
+              :for="controlId('gem-level')"
+              class="text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+              >{{ t('pobBuild.gemFilters.level') }}</label
+            >
+            <Input
+              :id="controlId('gem-level')"
+              size="sm"
+              type="number"
+              min="0"
+              :max="MAX_GEM_LEVEL"
+              step="1"
+              data-pob-build-gem-level
+              :class="PREVIEW_BOUND_INPUT_CLASS"
+              :placeholder="t('pobBuild.gemFilters.any')"
+              :model-value="effectiveRow.gemLevelMin ?? ''"
+              @change="commitGemBound('gemLevel', $event)"
+              @keydown.enter.prevent="blurTarget"
+            />
+            <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums">
+              {{ t('pobBuild.gemFilters.pob', { value: effectiveRow.level ?? 1 }) }}
+            </span>
+            <label
+              :for="controlId('gem-quality')"
+              class="text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+              >{{ t('pobBuild.gemFilters.quality') }}</label
+            >
+            <Input
+              :id="controlId('gem-quality')"
+              size="sm"
+              type="number"
+              min="0"
+              :max="MAX_GEM_QUALITY"
+              step="1"
+              data-pob-build-gem-quality
+              :class="PREVIEW_BOUND_INPUT_CLASS"
+              :placeholder="t('pobBuild.gemFilters.any')"
+              :model-value="effectiveRow.gemQualityMin ?? ''"
+              @change="commitGemBound('gemQuality', $event)"
+              @keydown.enter.prevent="blurTarget"
+            />
+            <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums">
+              {{ t('pobBuild.gemFilters.pob', { value: `${effectiveRow.quality ?? 0}%` }) }}
+            </span>
+          </div>
+        </div>
 
         <!-- 物品條件區：搜尋方式（基底或類別）與連結數（PoB 五連以上） -->
         <div

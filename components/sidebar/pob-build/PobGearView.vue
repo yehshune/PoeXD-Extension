@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * 購物清單的「裝備欄」檢視：依遊戲裝備視窗的位置排出 PoB 的裝備，下方是藥劑、護符、珠寶、
- * 柳條人與移植物。格子以稀有度上色，點擊開啟與清單相同的預覽；勾選完成用格子角落的按鈕。
+ * 柳條人與移植物。格子以稀有度上色；滑鼠移入開啟與清單相同的預覽，點擊直接搜尋；
+ * 勾選完成用格子角落的按鈕。
  */
 import { Check } from '@lucide/vue';
 import { computed, ref } from 'vue';
@@ -10,7 +11,7 @@ import PobItemImage from './PobItemImage.vue';
 import PobSocketOverlay from './PobSocketOverlay.vue';
 import { formatPobSlot } from './pob-slot-label';
 import { GEAR_CELLS, gearLayout, type GearCellId } from './pob-gear-layout';
-import type { ShoppingRow } from './usePobBuild';
+import type { ShoppingRow, SocketContent } from './usePobBuild';
 
 const props = defineProps<{
   rows: readonly ShoppingRow[];
@@ -19,10 +20,31 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [row: ShoppingRow, event: MouseEvent];
+  /** 滑鼠移入／移出有物品的格子（開關預覽） */
+  hover: [row: ShoppingRow, event: MouseEvent];
+  leave: [];
   toggleDone: [key: string];
 }>();
 
 const showSwap = ref(false);
+const rootEl = ref<HTMLElement | null>(null);
+
+/** 滑過插槽時顯示的內容說明（畫在格子外，才不會被格子裁掉） */
+const socketTip = ref<{ content: SocketContent; left: number; top: number } | null>(null);
+const showSocketTip = (content: SocketContent | null, element: HTMLElement | null) => {
+  const root = rootEl.value;
+  if (!content || !element || !root) {
+    socketTip.value = null;
+    return;
+  }
+  const box = element.getBoundingClientRect();
+  const origin = root.getBoundingClientRect();
+  socketTip.value = {
+    content,
+    left: box.left + box.width / 2 - origin.left,
+    top: box.top - origin.top,
+  };
+};
 const layout = computed(() => gearLayout(props.rows));
 
 /** 主裝備欄的每一格（空格也要畫出來，看得出缺哪個部位；第三戒指只有裝了才畫） */
@@ -81,14 +103,38 @@ const RARITY_TILE: Readonly<Record<string, string>> = {
 };
 const tileClass = (row: ShoppingRow) => RARITY_TILE[row.rarity ?? 'NORMAL'] ?? '';
 
-const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slot ?? '')}`;
+const tileTitle = (row: ShoppingRow) =>
+  [
+    row.label,
+    formatPobSlot(row.slot ?? ''),
+    row.foulborn ? t('pobBuild.foulborn') : '',
+    row.corrupted ? t('pobBuild.corrupted') : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 </script>
 
 <template>
   <div
+    ref="rootEl"
     data-pob-build-gear
-    class="flex flex-col gap-[var(--pxd-space-sm)] bg-card p-[var(--pxd-space-md)]"
+    class="relative flex flex-col gap-[var(--pxd-space-sm)] bg-card p-[var(--pxd-space-md)]"
   >
+    <div
+      v-if="socketTip"
+      data-pob-build-socket-tip
+      class="pxd-socket-tip"
+      :style="{ left: `${socketTip.left}px`, top: `${socketTip.top}px` }"
+    >
+      <span
+        class="font-semibold"
+        :class="socketTip.content.kind === 'gem' ? 'text-[var(--pxd-rarity-gem)]' : ''"
+        >{{ socketTip.content.label }}</span
+      >
+      <span v-if="socketTip.content.detail" class="text-muted-foreground">{{
+        socketTip.content.detail
+      }}</span>
+    </div>
     <div v-if="layout.hasSwap" class="flex justify-end">
       <div
         role="group"
@@ -134,6 +180,8 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
             gridRow: `${cell.row} / span ${cell.height}`,
           }"
           @click="row && emit('select', row, $event)"
+          @mouseenter="row && emit('hover', row, $event)"
+          @mouseleave="row && emit('leave')"
         >
           <template v-if="row">
             <PobItemImage
@@ -143,6 +191,7 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
               :layers="row.iconLayers"
               :width="row.iconSize?.width"
               :height="row.iconSize?.height"
+              :foulborn="row.foulborn"
             />
             <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
             <PobSocketOverlay
@@ -151,9 +200,17 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
               :sockets="row.sockets"
               :width="row.iconSize?.width"
               :height="row.iconSize?.height"
+              :contents="row.socketContents"
+              @hover-content="showSocketTip"
             />
           </template>
           <span v-else class="pxd-gear-tile__slot">{{ cellLabel(id) }}</span>
+          <span
+            v-if="row?.corrupted"
+            data-pob-build-gear-corrupted
+            class="pxd-gear-tile__corrupted"
+            :aria-label="t('pobBuild.corrupted')"
+          />
           <span
             v-if="row?.searchCustomized"
             data-pob-build-gear-customized
@@ -190,6 +247,8 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
           class="pxd-gear-tile pxd-gear-tile--flask"
           :class="[tileClass(row), { 'is-active': activeKey === row.key }]"
           @click="emit('select', row, $event)"
+          @mouseenter="emit('hover', row, $event)"
+          @mouseleave="emit('leave')"
         >
           <PobItemImage
             v-if="row.icon"
@@ -198,9 +257,16 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
             :layers="row.iconLayers"
             :width="row.iconSize?.width"
             :height="row.iconSize?.height"
+            :foulborn="row.foulborn"
           />
           <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
           <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
+          <span
+            v-if="row.corrupted"
+            data-pob-build-gear-corrupted
+            class="pxd-gear-tile__corrupted"
+            :aria-label="t('pobBuild.corrupted')"
+          />
           <span
             role="checkbox"
             tabindex="0"
@@ -245,6 +311,8 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
           class="pxd-gear-tile pxd-gear-tile--small"
           :class="[tileClass(row), { 'is-active': activeKey === row.key }]"
           @click="emit('select', row, $event)"
+          @mouseenter="emit('hover', row, $event)"
+          @mouseleave="emit('leave')"
         >
           <PobItemImage
             v-if="row.icon"
@@ -253,10 +321,17 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
             :layers="row.iconLayers"
             :width="row.iconSize?.width"
             :height="row.iconSize?.height"
+            :foulborn="row.foulborn"
           />
           <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
           <span v-if="row.count > 1" class="pxd-gear-tile__count">×{{ row.count }}</span>
           <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
+          <span
+            v-if="row.corrupted"
+            data-pob-build-gear-corrupted
+            class="pxd-gear-tile__corrupted"
+            :aria-label="t('pobBuild.corrupted')"
+          />
           <span
             role="checkbox"
             tabindex="0"
@@ -282,7 +357,28 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
   grid-template-columns: repeat(8, minmax(0, 1fr));
   grid-template-rows: repeat(6, minmax(0, 1fr));
   aspect-ratio: 8 / 6;
+  /* aspect-ratio 預設會讓內容撐開最小高度；PoE2 的原圖較大，會把整列撐高 */
+  min-height: 0;
   gap: var(--pxd-space-xs);
+}
+
+.pxd-socket-tip {
+  position: absolute;
+  z-index: var(--pxd-z-sticky);
+  display: flex;
+  max-width: 220px;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--popover, var(--card));
+  padding: 3px 6px;
+  font-size: var(--pxd-font-caption);
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 6px));
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
 }
 
 .pxd-gear-row {
@@ -415,6 +511,15 @@ button.pxd-gear-tile:focus-visible,
   height: 6px;
   border-radius: 9999px;
   background: var(--primary);
+}
+
+.pxd-gear-tile__corrupted {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  background: oklch(0.6 0.22 27);
+  box-shadow: 0 0 4px oklch(0.6 0.22 27 / 0.8);
 }
 
 .pxd-gear-tile__count {

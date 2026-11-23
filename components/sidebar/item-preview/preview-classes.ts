@@ -41,3 +41,8 @@ export const PREVIEW_STAT_ROW_CLASS =
 /** 詞綴群組卡片的標頭（群組類別、群組數值） */
 export const PREVIEW_GROUP_HEADER_CLASS =
   'flex flex-wrap items-center gap-[var(--pxd-space-xs)] border-b border-border/40 bg-muted/45 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)]';
+
+/** 預覽 Popover 的錨點：實際元素，或只提供位置的虛擬錨點（contextElement 用來判斷點擊是否落在錨點上） */
+export type PreviewAnchor =
+  | HTMLElement
+  | { getBoundingClientRect: () => DOMRect; contextElement?: HTMLElement };

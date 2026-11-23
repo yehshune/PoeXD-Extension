@@ -613,8 +613,41 @@ describe('usePobBuild', () => {
     });
   });
 
+  describe('插槽內容物', () => {
+    it('PoE 1 依技能組把插在該部位的寶石依序填進插槽（超過插槽數不顯示）', async () => {
+      const supports = [
+        '<Skill enabled="true" slot="Weapon 2">',
+        '<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemEmpower" level="4" nameSpec="Empower" quality="0"/>',
+        '<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemEnlighten" level="4" nameSpec="Enlighten" quality="0"/>',
+        '<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemEnhance" level="4" nameSpec="Enhance" quality="0"/>',
+        '</Skill>',
+      ].join('\n');
+      const xml = buildXml()
+        .replace('Mosaic Kite Shield\n', 'Mosaic Kite Shield\nSockets: R-B\n')
+        .replace(
+          '<SkillSet id="1" title="Endgame">',
+          `<SkillSet id="1" title="Endgame">\n${supports}`,
+        );
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(xml));
+      await flush();
+      const shield = rowByLabel(first(pob), 'Rise of the Phoenix');
+      expect(shield.socketContents).toEqual([
+        expect.objectContaining({
+          kind: 'gem',
+          label: 'Empower Support',
+          support: true,
+          detail: 'Lv.4 / 0%',
+        }),
+        expect.objectContaining({ kind: 'gem', label: 'Enlighten Support', support: true }),
+      ]);
+      // 沒有插槽的裝備沒有內容物
+      expect(rowByLabel(first(pob), "Xoph's Heart").socketContents).toBeUndefined();
+    });
+  });
+
   describe('隱藏已完成與排序', () => {
-    it('已完成的項目沉到所屬分組最下面；隱藏已完成時不列出但仍計入進度，並記住', async () => {
+    it('已完成的項目留在原位；隱藏已完成時不列出但仍計入進度，並記住', async () => {
       const pob = usePobBuild('poe1', deps);
       await pob.importCode(toCode(buildXml()));
       expect(labels(first(pob))).toEqual([
@@ -626,9 +659,9 @@ describe('usePobBuild', () => {
 
       pob.toggleDone('build-1', rowByLabel(first(pob), 'Rise of the Phoenix').key);
       expect(labels(first(pob))).toEqual([
+        'Rise of the Phoenix',
         'Not On Trade',
         "Xoph's Heart",
-        'Rise of the Phoenix',
         'Punishment',
       ]);
 
@@ -673,9 +706,9 @@ describe('usePobBuild', () => {
       const build = first(pob);
       expect(build.name).toBe('我的 build');
       expect(labels(build)).toEqual([
+        'Rise of the Phoenix',
         'Plate Vest',
         "Xoph's Heart",
-        'Rise of the Phoenix',
         'Punishment',
       ]);
       expect(rowByLabel(build, 'Rise of the Phoenix').done).toBe(true);

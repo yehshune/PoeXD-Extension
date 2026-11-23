@@ -333,6 +333,7 @@ describe('buildShoppingList', () => {
         kind: 'unique',
         count: 1,
         label: "Xoph's Heart",
+        foulborn: true,
         slot: 'Amulet',
         query: { status: { option: 'securable' }, name: "Xoph's Heart", type: 'Amber Amulet' },
       },
@@ -644,5 +645,78 @@ Implicits: 0
       createTradeNameCatalog({ englishItems: ENGLISH_ITEMS }),
     );
     expect(entry).toMatchObject({ artBase: 'Mosaic Kite Shield', sockets: 'R-G B' });
+  });
+});
+
+describe('汙染、穢生與插槽內容物', () => {
+  const itemXml = (body: string, root = 'PathOfBuilding') => `<${root}>
+	<Build className="Marauder" level="90" targetVersion="3_0"/>
+	<Items activeItemSet="1">
+		<Item id="1">
+${body}
+		</Item>
+		<ItemSet id="1"><Slot itemId="1" name="Body Armour"/></ItemSet>
+	</Items>
+	<Skills/>
+</${root}>`;
+
+  it('記下汙染（含二次汙染）；二次汙染那一行不算詞綴', () => {
+    const [corrupted] = parsePobBuildXml(
+      itemXml(`Rarity: RARE
+Doom Shell
+Astral Plate
+Implicits: 0
++50 to maximum Life
+Twice Corrupted`),
+    ).itemSets[0].items;
+    expect(corrupted.corrupted).toBe(true);
+    expect(corrupted.explicitMods.map((mod) => mod.text)).toEqual(['+50 to maximum Life']);
+    const [clean] = parsePobBuildXml(
+      itemXml(`Rarity: RARE
+Doom Shell
+Astral Plate
+Implicits: 0`),
+    ).itemSets[0].items;
+    expect(clean).not.toHaveProperty('corrupted');
+  });
+
+  it('穢生傳奇記下旗標，清單項目沿用一般名稱並標示穢生與汙染', () => {
+    const build = parsePobBuildXml(
+      itemXml(`Rarity: UNIQUE
+Foulborn Rise of the Phoenix
+Mosaic Kite Shield
+Implicits: 0
+Corrupted`),
+    );
+    expect(build.itemSets[0].items[0]).toMatchObject({ foulborn: true, corrupted: true });
+    const [entry] = buildShoppingList(
+      build,
+      createTradeNameCatalog({ englishItems: ENGLISH_ITEMS }),
+    );
+    expect(entry).toMatchObject({
+      englishName: 'Rise of the Phoenix',
+      foulborn: true,
+      corrupted: true,
+    });
+  });
+
+  it('PoE 2 的 `Rune:` 行依序記成插槽內容物', () => {
+    const build = parsePobBuildXml(
+      itemXml(
+        `Rarity: RARE
+Doom Shell
+Expert Hexer's Robe
+Sockets: S S
+Rune: Thrud&apos;s Might
+Rune: Soul Core of Quipolatl
+Implicits: 1
+{enchant}{rune}6% increased Attack Speed`,
+        'PathOfBuilding2',
+      ),
+    );
+    expect(build.itemSets[0].items[0].socketed).toEqual([
+      "Thrud's Might",
+      'Soul Core of Quipolatl',
+    ]);
   });
 });
