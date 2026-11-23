@@ -197,7 +197,7 @@
               v-else-if="visibleFolderNodes.length === 0"
               data-test="bookmark-search-empty"
               key="no-match"
-              icon="search"
+              mode="search"
               :message="t('bookmark.empty.noMatch')"
               :active-filters="
                 searchQuery.trim()

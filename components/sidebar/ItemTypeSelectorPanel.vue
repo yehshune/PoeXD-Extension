@@ -166,7 +166,7 @@
       <SidebarFilterEmptyState
         v-if="groupedAvailableTypes.length === 0"
         compact
-        icon="search"
+        mode="search"
         class="no-options-found"
         :message="t('filterPane.dialog.empty')"
         :active-filters="

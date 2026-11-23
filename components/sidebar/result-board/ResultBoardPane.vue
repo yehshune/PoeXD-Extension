@@ -42,7 +42,7 @@ import ResultBoardItemRow from './ResultBoardItemRow.vue';
 import ResultBoardModFilterPanel from './ResultBoardModFilterPanel.vue';
 import ResultBoardSellerRow from './ResultBoardSellerRow.vue';
 import { currencyDisplayOf, stopMessage } from './result-board-format';
-import { useResultBoard, type BoardView } from './useResultBoard';
+import { parseBound, useResultBoard, type BoardView } from './useResultBoard';
 
 const board = useResultBoard();
 const {
@@ -251,10 +251,15 @@ const activeBoardFilterLabels = computed(() => {
     labels.push(t('common.filterTag.mods', { count: modConditions.value.length }));
   }
   if (view.value === 'items') {
-    const min = priceMinText.value.trim();
-    const max = priceMaxText.value.trim();
-    if (conversionAvailable.value && (min || max)) {
-      const range = min && max ? `${min}~${max}` : min ? `${min}~` : `~${max}`;
+    const min = parseBound(priceMinText.value);
+    const max = parseBound(priceMaxText.value);
+    if (conversionAvailable.value && (min !== undefined || max !== undefined)) {
+      const range =
+        min !== undefined && max !== undefined
+          ? `${min}~${max}`
+          : min !== undefined
+            ? `${min}~`
+            : `~${max}`;
       labels.push(t('common.filterTag.price', { range }));
     }
     if (hasMixedInstantBuyout.value && instantOnly.value) {
@@ -263,8 +268,17 @@ const activeBoardFilterLabels = computed(() => {
     if (hasSoldEntries.value && hideSold.value) {
       labels.push(t('resultBoard.filter.hideSold'));
     }
-  } else if (minSellerCount.value > 0) {
-    labels.push(t('common.filterTag.minSellerItems', { count: minSellerCount.value }));
+  } else {
+    if (
+      (trimmedKeyword || modConditions.value.length > 0) &&
+      hasSoldEntries.value &&
+      hideSold.value
+    ) {
+      labels.push(t('resultBoard.filter.hideSold'));
+    }
+    if (minSellerCount.value > 0) {
+      labels.push(t('common.filterTag.minSellerItems', { count: minSellerCount.value }));
+    }
   }
   if (state.value.hiddenAccounts.size > 0) {
     labels.push(t('common.filterTag.hiddenSellers', { count: state.value.hiddenAccounts.size }));

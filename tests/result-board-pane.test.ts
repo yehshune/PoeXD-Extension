@@ -1041,4 +1041,47 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(minInput.value).toBe('2');
     expect(container.querySelectorAll('[data-board-seller]')).toHaveLength(1);
   });
+
+  it('resets hideSold and hiddenAccounts from filter empty state and ignores non-numeric price text', async () => {
+    ingest([
+      rawResult({ id: 'a1', account: 'SellerA#1', amount: 10, currency: 'chaos' }),
+      rawResult({ id: 'b1', account: 'SellerB#2', amount: 20, currency: 'chaos' }),
+    ]);
+    runtime.session.markSold('a1');
+    runtime.session.hideSeller('SellerB#2');
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    // 勾選隱藏已售出後，a1 被 hideSold 隱藏、b1 被 hiddenAccounts 隱藏 → 空狀態
+    const hideSoldCheckbox = container.querySelector<HTMLButtonElement>('[data-board-hide-sold]')!;
+    hideSoldCheckbox.click();
+    await flush();
+
+    const empty = container.querySelector('[data-board-no-match]');
+    expect(empty).not.toBeNull();
+    expect(empty?.textContent).toContain('隱藏已售出');
+    expect(empty?.textContent).toContain('已隱藏 1 位賣家');
+
+    // 輸入非數字價格不應誤顯示價格條件摘要
+    const minPriceInput = container.querySelector<HTMLInputElement>('[data-board-price-min]');
+    if (minPriceInput) {
+      minPriceInput.value = 'abc';
+      minPriceInput.dispatchEvent(new Event('input'));
+      await flush();
+      expect(empty?.textContent).not.toContain('價格 abc');
+    }
+
+    // 點擊重設篩選應一併重設 hideSold 與 hiddenAccounts
+    const resetBtn = empty?.querySelector<HTMLButtonElement>('[data-filter-empty-reset]')!;
+    expect(resetBtn).not.toBeNull();
+    resetBtn.click();
+    await flush();
+
+    expect(container.querySelector('[data-board-no-match]')).toBeNull();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
+    expect(storageData.resultBoardHideSold_poe1).toBe(false);
+  });
 });

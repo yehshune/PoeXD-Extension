@@ -189,4 +189,25 @@ describe('PinnedItemPane search bar', () => {
     expect(sortableOptionMock).toHaveBeenCalledWith('disabled', false);
     expect(vi.mocked(Sortable.create)).toHaveBeenCalled();
   });
+
+  it('shows one-click show-all-leagues button when items exist only in other leagues', async () => {
+    mockPinnedList.mockResolvedValueOnce([
+      { ...sampleItems[0], id: 'other-league-1', league: 'Standard' },
+    ]);
+    const app = createApp({ render: () => h(PinnedItemPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    const empty = container.querySelector('[data-pinned-items-empty]');
+    expect(empty?.textContent).toContain('其他聯盟還有 1 件');
+    const resetBtn = empty?.querySelector<HTMLButtonElement>('[data-filter-empty-reset]');
+    expect(resetBtn?.textContent).toContain('顯示所有聯盟');
+
+    resetBtn!.click();
+    await flush();
+
+    expect(container.querySelector('[data-pinned-items-empty]')).toBeNull();
+    expect(container.querySelectorAll('[data-pinned-item-id]')).toHaveLength(1);
+  });
 });

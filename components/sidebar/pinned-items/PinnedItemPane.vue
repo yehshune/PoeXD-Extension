@@ -521,7 +521,7 @@ function formatFee(fee: number | undefined): string {
       <template v-else>
         <SidebarFilterEmptyState
           v-if="filteredItems.length === 0"
-          icon="search"
+          mode="search"
           :message="t('pinnedItem.noMatch', { query: searchQuery.trim() })"
           data-pinned-items-no-match
           @reset="searchQuery = ''"

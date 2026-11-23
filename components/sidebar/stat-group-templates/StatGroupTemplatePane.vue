@@ -306,7 +306,7 @@ onUnmounted(() => {
 
       <SidebarFilterEmptyState
         v-else-if="visibleTemplates.length === 0"
-        icon="search"
+        mode="search"
         :message="t('statGroupTemplate.empty.noMatch', { query: query.trim() })"
         data-test="stat-group-template-no-match"
         @reset="query = ''"

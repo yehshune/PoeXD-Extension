@@ -18,7 +18,11 @@ defineProps<{
     <div
       v-if="$slots.icon"
       class="shrink-0 opacity-50"
-      :class="compact ? '[&>svg]:size-5' : '[&>svg]:size-6'"
+      :class="
+        compact
+          ? '[&>svg]:size-[var(--control-icon-default,16px)]'
+          : '[&>svg]:size-[var(--control-icon-lg,20px)]'
+      "
       aria-hidden="true"
     >
       <slot name="icon" />

@@ -46,9 +46,9 @@ describe('SidebarFilterEmptyState', () => {
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 
-  it('defaults action label to 清除搜尋 when icon="search" and hides button when showReset=false', async () => {
+  it('defaults action label to 清除搜尋 when mode="search" and hides button when showReset=false', async () => {
     const el = mountComponent(SidebarFilterEmptyState, {
-      icon: 'search',
+      mode: 'search',
       message: '找不到相符的書籤',
       showReset: true,
     });

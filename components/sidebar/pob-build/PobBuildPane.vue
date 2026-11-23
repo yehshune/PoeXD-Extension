@@ -114,7 +114,7 @@
       <SidebarFilterEmptyState
         v-else-if="visibleBuilds.length === 0"
         data-pob-build-no-match
-        icon="search"
+        mode="search"
         :message="t('pobBuild.noMatch', { query: searchQuery.trim() })"
         @reset="searchQuery = ''"
       />
