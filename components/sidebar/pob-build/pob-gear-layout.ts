@@ -156,3 +156,25 @@ export function gearLayout<T extends GearLayoutEntry>(entries: readonly T[]): Ge
     others,
   };
 }
+
+/**
+ * 物品圖片依「物品背包格數 ÷ 裝備格數」限制上限，回傳圖片在格子裡所佔的寬高比例（0–1）。
+ * 避免高解析度原圖（例如 PoE2 的 1×3 法杖）在較大的 2×4 武器欄裡等比放大撐滿整格，
+ * 也讓插槽覆蓋層與實際顯示的圖片尺寸保持一致。
+ */
+export function fitItemInTile(
+  itemWidth: number,
+  itemHeight: number,
+  tileWidth: number,
+  tileHeight: number,
+): { width: number; height: number } {
+  const safeItemWidth = Math.max(itemWidth, 1);
+  const safeItemHeight = Math.max(itemHeight, 1);
+  const safeTileWidth = Math.max(tileWidth, 1);
+  const safeTileHeight = Math.max(tileHeight, 1);
+  const scale = Math.min(1, safeTileWidth / safeItemWidth, safeTileHeight / safeItemHeight);
+  return {
+    width: (safeItemWidth * scale) / safeTileWidth,
+    height: (safeItemHeight * scale) / safeTileHeight,
+  };
+}

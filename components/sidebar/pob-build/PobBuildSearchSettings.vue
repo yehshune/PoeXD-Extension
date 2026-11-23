@@ -108,7 +108,7 @@ function resetDefaults(): void {
       :side-offset="6"
       :collision-padding="8"
       data-pob-build-search-settings-panel
-      class="flex w-[min(300px,calc(100vw-32px))] flex-col gap-[var(--pxd-space-md)] text-[length:var(--pxd-font-secondary)]"
+      class="flex w-[min(var(--pxd-overlay-inspect-width,300px),calc(100vw-32px))] flex-col gap-[var(--pxd-space-md)] text-[length:var(--pxd-font-secondary)]"
       @click.stop
     >
       <div class="flex items-center justify-between gap-[var(--pxd-space-sm)]">

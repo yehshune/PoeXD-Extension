@@ -198,11 +198,10 @@
               @click.stop
             >
               <Button
-                variant="ghost"
+                :variant="build.hideDone ? 'secondary' : 'ghost'"
                 size="icon-sm"
                 data-pob-build-hide-done
                 :aria-pressed="build.hideDone"
-                :class="build.hideDone ? 'text-primary bg-primary/15' : undefined"
                 :title="t(build.hideDone ? 'pobBuild.showDone' : 'pobBuild.hideDone')"
                 :aria-label="t(build.hideDone ? 'pobBuild.showDone' : 'pobBuild.hideDone')"
                 @click.stop="setHideDone(build.id, !build.hideDone)"

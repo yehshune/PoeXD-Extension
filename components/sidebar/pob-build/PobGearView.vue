@@ -6,11 +6,18 @@
  */
 import { computed, ref } from 'vue';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t, type I18nKey } from '@/utils/i18n';
 import PobItemImage from './PobItemImage.vue';
 import PobSocketOverlay from './PobSocketOverlay.vue';
 import { formatPobSlot } from './pob-slot-label';
-import { GEAR_CELLS, gearLayout, type GearCell, type GearCellId } from './pob-gear-layout';
+import {
+  GEAR_CELLS,
+  fitItemInTile,
+  gearLayout,
+  type GearCell,
+  type GearCellId,
+} from './pob-gear-layout';
 import type { ShoppingRow, SocketContent } from './usePobBuild';
 
 const props = defineProps<{
@@ -98,18 +105,20 @@ const tileTitle = (row: ShoppingRow) =>
     .filter(Boolean)
     .join(' · ');
 
+const onWeaponSetChange = (value: unknown) => {
+  if (value === '1' || value === '2') showSwap.value = value === '2';
+};
+
 /**
  * 物品圖片依「物品背包格數 ÷ 裝備格數」限制上限，避免高解析度原圖（例如 PoE2 的 1×3 法杖）
  * 在較大的 2×4 武器欄裡等比放大撐滿整格。
  */
 const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
   if (!row.iconSize) return undefined;
-  const itemWidth = Math.max(row.iconSize.width, 1);
-  const itemHeight = Math.max(row.iconSize.height, 1);
-  const scale = Math.min(1, cell.width / itemWidth, cell.height / itemHeight);
+  const fitted = fitItemInTile(row.iconSize.width, row.iconSize.height, cell.width, cell.height);
   return {
-    maxWidth: `${((itemWidth * scale) / cell.width) * 100}%`,
-    maxHeight: `${((itemHeight * scale) / cell.height) * 100}%`,
+    maxWidth: `${fitted.width * 100}%`,
+    maxHeight: `${fitted.height * 100}%`,
   };
 };
 </script>
@@ -120,28 +129,37 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
     class="relative flex flex-col gap-[var(--pxd-space-sm)] bg-card p-[var(--pxd-space-md)]"
   >
     <div class="pxd-gear-body">
-      <div v-if="layout.hasSwap" class="flex justify-end">
+      <div v-if="layout.hasSwap" class="grid grid-cols-8 gap-[var(--pxd-space-xs)]">
         <div
-          role="group"
-          :aria-label="t('pobBuild.gear.weaponSet')"
-          class="inline-flex overflow-hidden rounded-sm border border-border text-[length:var(--pxd-font-caption)] font-bold"
+          v-for="side in ['left', 'right'] as const"
+          :key="side"
+          class="flex justify-center"
+          :class="side === 'left' ? 'col-span-2' : 'col-start-7 col-span-2'"
         >
-          <button
-            v-for="(swap, index) in [false, true]"
-            :key="index"
-            type="button"
-            data-pob-build-gear-swap
-            :aria-pressed="showSwap === swap"
-            class="cursor-pointer px-[var(--pxd-space-sm)] py-[1px] transition-colors"
-            :class="
-              showSwap === swap
-                ? 'bg-primary/15 text-primary'
-                : 'bg-background/60 text-muted-foreground hover:bg-muted/60'
-            "
-            @click="showSwap = swap"
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            :model-value="showSwap ? '2' : '1'"
+            :aria-label="t('pobBuild.gear.weaponSet')"
+            class="inline-grid grid-cols-2"
+            @update:model-value="onWeaponSetChange"
           >
-            {{ swap ? 'II' : 'I' }}
-          </button>
+            <ToggleGroupItem
+              value="1"
+              data-pob-build-gear-swap
+              class="px-[var(--pxd-space-sm)] font-bold"
+            >
+              I
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="2"
+              data-pob-build-gear-swap
+              class="px-[var(--pxd-space-sm)] font-bold"
+            >
+              II
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
       </div>
 

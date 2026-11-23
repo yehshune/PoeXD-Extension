@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GEAR_CELLS, gearLayout } from '@/components/sidebar/pob-build/pob-gear-layout';
+import {
+  GEAR_CELLS,
+  fitItemInTile,
+  gearLayout,
+} from '@/components/sidebar/pob-build/pob-gear-layout';
 import { formatPobSlot } from '@/components/sidebar/pob-build/pob-slot-label';
 import { resetI18nStateForTests } from '@/utils/i18n';
 
@@ -131,5 +135,14 @@ describe('gearLayout：PoB 部位放到遊戲裝備欄的格子', () => {
       ),
     );
     expect(formatPobSlot('Head')).not.toBe('Head');
+  });
+
+  it('fitItemInTile 依物品格數與裝備格數等比縮放，不超過原格佔比', () => {
+    // 1×3 法杖放入 2×4 武器欄：不放大超過自身格數
+    expect(fitItemInTile(1, 3, 2, 4)).toEqual({ width: 0.5, height: 0.75 });
+    // 2×4 雙手武放入 2×4 武器欄：剛好填滿
+    expect(fitItemInTile(2, 4, 2, 4)).toEqual({ width: 1, height: 1 });
+    // 物品大於格子時等比縮小不溢出
+    expect(fitItemInTile(2, 4, 1, 2)).toEqual({ width: 1, height: 1 });
   });
 });
