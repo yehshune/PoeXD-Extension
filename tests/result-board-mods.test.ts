@@ -41,8 +41,16 @@ describe('board-mods independent mod parsing, aggregation & filtering', () => {
           id: 'pure-t1',
           extendedMods: {
             explicit: [
-              { name: 'Merciless', tier: 'P1', magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }] },
-              { name: 'of Celebration', tier: 'S1', magnitudes: [{ hash: ASPD_HASH, min: '17', max: '19' }] },
+              {
+                name: 'Merciless',
+                tier: 'P1',
+                magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }],
+              },
+              {
+                name: 'of Celebration',
+                tier: 'S1',
+                magnitudes: [{ hash: ASPD_HASH, min: '17', max: '19' }],
+              },
             ],
           },
         }),
@@ -54,7 +62,11 @@ describe('board-mods independent mod parsing, aggregation & filtering', () => {
           id: 'pure-t1-plus-hybrid',
           extendedMods: {
             explicit: [
-              { name: 'Merciless', tier: 'P1', magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }] },
+              {
+                name: 'Merciless',
+                tier: 'P1',
+                magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }],
+              },
               {
                 name: 'Squire',
                 tier: 'P8',
@@ -74,7 +86,11 @@ describe('board-mods independent mod parsing, aggregation & filtering', () => {
           id: 'fake-t1-p3-p4',
           extendedMods: {
             explicit: [
-              { name: 'Cruel', tier: 'P3', magnitudes: [{ hash: PHYS_HASH, min: '135', max: '154' }] },
+              {
+                name: 'Cruel',
+                tier: 'P3',
+                magnitudes: [{ hash: PHYS_HASH, min: '135', max: '154' }],
+              },
               {
                 name: 'Champion',
                 tier: 'P4',
@@ -168,5 +184,167 @@ describe('board-mods independent mod parsing, aggregation & filtering', () => {
       hybridAcc.key,
       hybridImpale.key,
     ]);
+  });
+
+  it('parses current official structured *Mods entries with extended.hashes (PoE 1 & PoE 2)', () => {
+    const rawStructured = (
+      id: string,
+      itemOverrides: Record<string, unknown>,
+    ): ReturnType<typeof rawResult> => {
+      const base = rawResult({ id });
+      return {
+        ...base,
+        item: {
+          ...(base.item as Record<string, unknown>),
+          ...itemOverrides,
+        },
+      };
+    };
+
+    const entries = [
+      // Pure T1 Merciless + Hybrid P3 Conqueror's (both contribute to phys%, Conqueror's also adds accuracy)
+      toBoardEntry(
+        rawStructured('structured-pure-t1', {
+          explicitMods: [
+            {
+              description: '234% increased Physical Damage',
+              domain: 'explicit',
+              hash: `stat.${PHYS_HASH}`,
+              mods: [
+                {
+                  name: "Conqueror's",
+                  tier: 'P3',
+                  level: 60,
+                  magnitudes: [{ min: '55', max: '64' }],
+                },
+                {
+                  name: 'Merciless',
+                  tier: 'P1',
+                  level: 83,
+                  magnitudes: [{ min: '170', max: '179' }],
+                },
+              ],
+            },
+            {
+              description: '+135 to Accuracy Rating',
+              domain: 'explicit',
+              hash: `stat.${ACC_HASH}`,
+              mods: [
+                {
+                  name: "Conqueror's",
+                  tier: 'P3',
+                  level: 60,
+                  magnitudes: [{ min: '124', max: '149' }],
+                },
+              ],
+            },
+            {
+              description: '19% increased Attack Speed',
+              domain: 'fractured',
+              hash: 'stat.fractured.stat_210067635',
+              flags: { fractured: true },
+              mods: [
+                {
+                  name: 'of Celebration',
+                  tier: 'S1',
+                  level: 82,
+                  magnitudes: [{ min: '17', max: '19' }],
+                },
+              ],
+            },
+          ],
+          implicitMods: [
+            {
+              description: '31% increased Critical Strike Chance',
+              domain: 'implicit',
+              hash: 'stat.implicit.stat_2375316951',
+              mods: [{ magnitudes: [{ min: '30', max: '50' }] }],
+            },
+          ],
+          extended: {
+            hashes: {
+              explicit: [
+                [PHYS_HASH, [2, 5]],
+                [ACC_HASH, [2]],
+              ],
+              fractured: [['fractured.stat_210067635', [0]]],
+              implicit: [['implicit.stat_2375316951', [0]]],
+            },
+          },
+        }),
+        0,
+      )!,
+      // Fake T1 summed from Pure P3 Cruel + Hybrid P4 Champion's (no extended.hashes fallback test)
+      toBoardEntry(
+        rawStructured('structured-fallback-no-hashes', {
+          explicitMods: [
+            {
+              description: '200% increased Physical Damage',
+              domain: 'explicit',
+              hash: `stat.${PHYS_HASH}`,
+              mods: [
+                { name: 'Cruel', tier: 'P3', level: 60, magnitudes: [{ min: '135', max: '154' }] },
+                {
+                  name: "Champion's",
+                  tier: 'P4',
+                  level: 46,
+                  magnitudes: [{ min: '45', max: '54' }],
+                },
+              ],
+            },
+            {
+              description: '+111 to Accuracy Rating',
+              domain: 'explicit',
+              hash: `stat.${ACC_HASH}`,
+              mods: [
+                {
+                  name: "Champion's",
+                  tier: 'P4',
+                  level: 46,
+                  magnitudes: [{ min: '98', max: '123' }],
+                },
+              ],
+            },
+          ],
+          extended: {},
+        }),
+        1,
+      )!,
+    ];
+
+    expect(entries[0].modTiers).toEqual(
+      expect.arrayContaining(['P1', 'P3', 'Merciless', "Conqueror's"]),
+    );
+
+    const options = aggregateBoardModOptions(entries, resolveLabel);
+    const purePhys = options.find((opt) => !opt.isHybrid && opt.hashes[0] === PHYS_HASH)!;
+    const hybridAcc = options.find(
+      (opt) => opt.isHybrid && opt.hashes.includes(PHYS_HASH) && opt.hashes.includes(ACC_HASH),
+    )!;
+    const implicitCrit = options.find((opt) => opt.category === 'implicit')!;
+    const fracturedAspd = options.find((opt) => opt.category === 'fractured')!;
+
+    expect(purePhys).toBeDefined();
+    expect(purePhys.itemCount).toBe(2);
+    expect(purePhys.hasTiers).toBe(true);
+    expect(purePhys.tierCounts).toEqual({ 1: 1, 2: 1, 3: 2 });
+
+    expect(hybridAcc).toBeDefined();
+    expect(hybridAcc.itemCount).toBe(2);
+    expect(hybridAcc.tierCounts).toEqual({ 1: 0, 2: 0, 3: 1 });
+
+    expect(implicitCrit).toBeDefined();
+    expect(implicitCrit.isHybrid).toBe(false);
+    expect(implicitCrit.hasTiers).toBe(false);
+
+    expect(fracturedAspd).toBeDefined();
+    expect(fracturedAspd.hashes).toEqual(['fractured.stat_210067635']);
+    expect(fracturedAspd.tierCounts).toEqual({ 1: 1, 2: 1, 3: 1 });
+
+    // Pure T1 %phys matches ONLY structured-pure-t1
+    const matchedT1 = entries
+      .filter((e) => matchesModConditions(e, [{ key: purePhys.key, maxTier: 1 }]))
+      .map((e) => e.id);
+    expect(matchedT1).toEqual(['structured-pure-t1']);
   });
 });

@@ -3,23 +3,7 @@
  */
 import type { PinnedCardNode } from '@/utils/pinned-card-dom';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
-
-const MOD_KEYS = [
-  'enchantMods',
-  'implicitMods',
-  'explicitMods',
-  'craftedMods',
-  'fracturedMods',
-  'scourgeMods',
-  'crucibleMods',
-  'utilityMods',
-  'runeMods',
-  'desecratedMods',
-  'sanctumMods',
-  'veiledMods',
-] as const;
-
-const unwrapMarkup = (value: string): string => value.replace(/\[(?:[^\]|]*\|)?([^\]]*)\]/g, '$1');
+import { readTradeItemModLines, unwrapItemMarkup } from '@/utils/trade-item-mods';
 
 const searchableTextCache = new WeakMap<PinnedItemSnapshot, string>();
 
@@ -35,17 +19,6 @@ function collectCardNodeText(node: PinnedCardNode, out: string[]): void {
   }
 }
 
-function collectModText(entry: unknown, out: string[]): void {
-  if (typeof entry === 'string') {
-    if (entry) out.push(unwrapMarkup(entry));
-    return;
-  }
-  if (typeof entry === 'object' && entry !== null && !Array.isArray(entry)) {
-    const desc = (entry as { description?: unknown }).description;
-    if (typeof desc === 'string' && desc) out.push(unwrapMarkup(desc));
-  }
-}
-
 export function getPinnedItemSearchText(snapshot: PinnedItemSnapshot): string {
   const cached = searchableTextCache.get(snapshot);
   if (cached !== undefined) return cached;
@@ -54,13 +27,10 @@ export function getPinnedItemSearchText(snapshot: PinnedItemSnapshot): string {
   const item = snapshot.item;
   for (const key of ['name', 'typeLine', 'baseType', 'note'] as const) {
     const val = item[key];
-    if (typeof val === 'string' && val) parts.push(unwrapMarkup(val));
+    if (typeof val === 'string' && val) parts.push(unwrapItemMarkup(val));
   }
-  for (const key of MOD_KEYS) {
-    const list = item[key];
-    if (Array.isArray(list)) {
-      for (const entry of list) collectModText(entry, parts);
-    }
+  for (const line of readTradeItemModLines(item)) {
+    parts.push(line.text);
   }
   if (snapshot.listing.accountName) parts.push(snapshot.listing.accountName);
   if (snapshot.listing.price?.currency) parts.push(snapshot.listing.price.currency);

@@ -8,6 +8,7 @@
  * 詞綴保留原文並計數，由呼叫端告知使用者，不會默默產生錯的英文。
  */
 import type { PoeVersion } from './trade-context';
+import { readTradeItemModLines, unwrapItemMarkup } from './trade-item-mods';
 
 /** 把頁面語系的文字轉回英文（見 pob-text-lexicon.ts） */
 export interface PobTextLexicon {
@@ -52,19 +53,18 @@ const RARITY_BY_NAME: Readonly<Record<string, Rarity>> = {
 };
 const RARITY_BY_FRAME_TYPE: readonly Rarity[] = ['NORMAL', 'MAGIC', 'RARE', 'UNIQUE'];
 
-/** 物品上的詞綴欄位與預設類別；詞綴本身帶 `domain` 時以它為準 */
-const MOD_FIELDS: ReadonlyArray<readonly [field: string, kind: ModKind]> = [
-  ['enchantMods', 'enchant'],
-  ['scourgeMods', 'scourge'],
-  ['runeMods', 'rune'],
-  ['implicitMods', 'implicit'],
-  ['fracturedMods', 'fractured'],
-  ['explicitMods', 'explicit'],
-  ['craftedMods', 'crafted'],
-  ['crucibleMods', 'crucible'],
-  ['desecratedMods', 'desecrated'],
-];
-const MOD_KINDS = new Set<string>(MOD_FIELDS.map(([, kind]) => kind));
+/** PoB 支援的詞綴類別 */
+const MOD_KINDS = new Set<string>([
+  'enchant',
+  'scourge',
+  'rune',
+  'implicit',
+  'fractured',
+  'explicit',
+  'crafted',
+  'crucible',
+  'desecrated',
+]);
 /** PoB 的 `Implicits: N` 涵蓋這幾類，依此順序輸出在其他詞綴之前 */
 const IMPLICIT_KINDS: readonly ModKind[] = ['enchant', 'scourge', 'rune', 'implicit'];
 /** PoB 認得的行首標記；沒列出的類別（例如褻瀆）當一般詞綴輸出 */
@@ -100,8 +100,6 @@ const TRAILING_FLAG_LINES: ReadonlyArray<readonly [key: string, line: string]> =
 const PROPERTY_TYPE_QUALITY = 6;
 const REQUIREMENT_TYPE_LEVEL = 62;
 const FALLBACK_ITEM_NAME = 'New Item';
-/** PoE 2 的 `[標籤|顯示文字]` 或 `[標籤]` 標記 */
-const BRACKET_MARKUP = /\[(?:[^\]|]*\|)?([^\]]*)\]/g;
 /** PoE 2 只對特定昇華生效的 Bonded 行，PoB 無法解析 */
 const BONDED_LINE = /^\[ShamanOnlyMods\|/;
 const STAT_HASH = /stat_(\d+)/;
@@ -110,8 +108,6 @@ const isRecord = (value: unknown): value is Json =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
-
-const unwrapBrackets = (value: string): string => value.replace(BRACKET_MARKUP, '$1');
 
 function resolveRarity(item: Json): Rarity | undefined {
   const byName = RARITY_BY_NAME[text(item.rarity).toLowerCase()];
@@ -131,8 +127,8 @@ export function isPobExportableItem(raw: unknown): boolean {
 export function resolveEnglishItemName(raw: unknown, lexicon?: PobTextLexicon): string | null {
   if (!isRecord(raw)) return null;
   const isUnique = resolveRarity(raw) === 'UNIQUE';
-  const name = unwrapBrackets(text(raw.name));
-  const base = unwrapBrackets(text(raw.baseType) || text(raw.typeLine));
+  const name = unwrapItemMarkup(text(raw.name));
+  const base = unwrapItemMarkup(text(raw.baseType) || text(raw.typeLine));
   const localized = isUnique && name ? name : base;
   if (!localized) return null;
   return lexicon ? (lexicon.toEnglishNames(localized)[0] ?? null) : localized;
@@ -169,9 +165,9 @@ interface NameLines {
 }
 
 function buildNameLines(item: Json, rarity: Rarity, lexicon?: PobTextLexicon): NameLines {
-  const name = unwrapBrackets(text(item.name));
-  const baseType = unwrapBrackets(text(item.baseType));
-  const typeLine = unwrapBrackets(text(item.typeLine));
+  const name = unwrapItemMarkup(text(item.name));
+  const baseType = unwrapItemMarkup(text(item.baseType));
+  const typeLine = unwrapItemMarkup(text(item.typeLine));
   const hasOwnName = (rarity === 'RARE' || rarity === 'UNIQUE') && name !== '';
 
   if (!lexicon) {
@@ -193,55 +189,35 @@ function buildNameLines(item: Json, rarity: Rarity, lexicon?: PobTextLexicon): N
   };
 }
 
-function resolveModKind(entry: unknown, fallback: ModKind): ModKind {
-  if (!isRecord(entry)) return fallback;
-  const domain = text(entry.domain);
-  if (MOD_KINDS.has(domain)) return domain as ModKind;
-  const flags = isRecord(entry.flags) ? entry.flags : {};
-  if (flags.crafted === true) return 'crafted';
-  if (flags.fractured === true) return 'fractured';
-  if (flags.desecrated === true) return 'desecrated';
-  return fallback;
-}
-
 interface ModOutput {
   kind: ModKind;
   lines: string[];
   untranslated: boolean;
 }
 
-function buildModOutput(
-  entry: unknown,
-  fallback: ModKind,
-  lexicon?: PobTextLexicon,
-): ModOutput | null {
-  const rawDescription = isRecord(entry) ? text(entry.description) : text(entry);
-  if (!rawDescription || BONDED_LINE.test(rawDescription)) return null;
-
-  const description = unwrapBrackets(rawDescription);
-  const statHash = isRecord(entry) ? STAT_HASH.exec(text(entry.hash))?.[1] : undefined;
-  const english = lexicon ? lexicon.toEnglishModLine(description, statHash) : description;
-  const lines = (english ?? description)
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
-  return { kind: resolveModKind(entry, fallback), lines, untranslated: english === null };
-}
-
 function collectMods(item: Json, lexicon?: PobTextLexicon): ModOutput[] {
   const seen = new Set<string>();
   const mods: ModOutput[] = [];
-  for (const [field, fallback] of MOD_FIELDS) {
-    const entries = item[field];
-    if (!Array.isArray(entries)) continue;
-    for (const entry of entries) {
-      const mod = buildModOutput(entry, fallback, lexicon);
-      if (!mod) continue;
-      const key = `${mod.kind}\u0000${mod.lines.join('\n')}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      mods.push(mod);
-    }
+  for (const modLine of readTradeItemModLines(item)) {
+    const kind = MOD_KINDS.has(modLine.category)
+      ? (modLine.category as ModKind)
+      : MOD_KINDS.has(modLine.fieldCategory)
+        ? (modLine.fieldCategory as ModKind)
+        : undefined;
+    if (!kind || BONDED_LINE.test(modLine.rawText.trim())) continue;
+
+    const statHash = modLine.statId ? STAT_HASH.exec(modLine.statId)?.[1] : undefined;
+    const english = lexicon ? lexicon.toEnglishModLine(modLine.text, statHash) : modLine.text;
+    const lines = (english ?? modLine.text)
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length === 0) continue;
+
+    const key = `${kind}\u0000${lines.join('\n')}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    mods.push({ kind, lines, untranslated: english === null });
   }
   return mods;
 }

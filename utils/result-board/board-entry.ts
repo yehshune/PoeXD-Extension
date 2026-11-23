@@ -4,8 +4,15 @@
  * 只取看板需要的欄位，不保留 token 或密語字串；缺少賣家帳號或物品名稱的結果無法放進看板。
  */
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
+import {
+  readTradeItemModData,
+  readTradeItemModLines,
+  unwrapItemMarkup,
+  type TradeItemModRoll,
+} from '@/utils/trade-item-mods';
 import type { TradeResultEntry } from '@/utils/trade-result-cache';
-import { readExtendedModData, type BoardModRoll } from './board-mods';
+
+export type BoardModRoll = TradeItemModRoll;
 
 export type SellerPresence = 'online' | 'afk' | 'offline';
 
@@ -61,47 +68,16 @@ export interface BoardEntry {
 const MAX_TEXT_LENGTH = 256;
 const MAX_MOD_LINE_LENGTH = 512;
 
-const MOD_KEYS = [
-  'enchantMods',
-  'implicitMods',
-  'explicitMods',
-  'craftedMods',
-  'fracturedMods',
-  'scourgeMods',
-  'crucibleMods',
-  'utilityMods',
-  'runeMods',
-  'desecratedMods',
-  'sanctumMods',
-  'veiledMods',
-] as const;
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const text = (value: unknown): string =>
   typeof value === 'string' && value.length <= MAX_TEXT_LENGTH ? value : '';
 
-/** PoE 2 的 `[標籤|顯示文字]` 或 `[標籤]` 標記只顯示文字 */
-const unwrapMarkup = (value: string): string => value.replace(/\[(?:[^\]|]*\|)?([^\]]*)\]/g, '$1');
-
 function readMods(item: Record<string, unknown>): readonly string[] | undefined {
-  const mods: string[] = [];
-  for (const key of MOD_KEYS) {
-    const list = item[key];
-    if (!Array.isArray(list)) continue;
-    for (const entry of list) {
-      const raw =
-        typeof entry === 'string'
-          ? entry
-          : isRecord(entry) && typeof entry.description === 'string'
-            ? entry.description
-            : '';
-      if (!raw || raw.length > MAX_MOD_LINE_LENGTH) continue;
-      const cleaned = unwrapMarkup(raw).trim();
-      if (cleaned) mods.push(cleaned);
-    }
-  }
+  const mods = readTradeItemModLines(item, { maxLineLength: MAX_MOD_LINE_LENGTH }).map(
+    (line) => line.text,
+  );
   return mods.length > 0 ? mods : undefined;
 }
 
@@ -174,9 +150,9 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
   const { item, listing } = raw;
   if (!isRecord(item) || !isRecord(listing)) return undefined;
   const seller = readSeller(listing.account);
-  const name = unwrapMarkup(text(item.name));
-  const baseType = unwrapMarkup(text(item.baseType));
-  const typeLine = unwrapMarkup(text(item.typeLine)) || baseType;
+  const name = unwrapItemMarkup(text(item.name));
+  const baseType = unwrapItemMarkup(text(item.baseType));
+  const typeLine = unwrapItemMarkup(text(item.typeLine)) || baseType;
   if (!seller || (!name && !typeLine)) return undefined;
 
   const price = readPrice(listing.price);
@@ -187,7 +163,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
   const stash = readStash(listing.stash);
   const note = readNote(item, listing.price);
   const mods = readMods(item);
-  const { modTiers, modRolls } = readExtendedModData(item);
+  const { modTiers, modRolls } = readTradeItemModData(item);
   const indexedAt = readIndexedAt(listing.indexed);
   const frameType =
     typeof item.frameType === 'number' && Number.isFinite(item.frameType)

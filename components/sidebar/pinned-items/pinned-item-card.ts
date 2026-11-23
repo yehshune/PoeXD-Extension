@@ -8,6 +8,7 @@
  * 市集漢化的結果列翻譯器才能翻譯卡片。官方改 class 名稱時需要跟進（與既有結果增強相同的依賴）。
  */
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
+import { readTradeItemModLines, unwrapItemMarkup } from '@/utils/trade-item-mods';
 
 /** 官方市集頁載入的樣式檔（檔名帶 hash，不能寫死，執行時從頁面取得） */
 export function collectOfficialStylesheetHrefs(doc: Document = document): string[] {
@@ -30,9 +31,6 @@ const isRecord = (value: unknown): value is Json =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
-
-/** PoE 2 的 `[標籤|顯示文字]` 或 `[標籤]` 標記只顯示文字 */
-const unwrapMarkup = (value: string): string => value.replace(/\[(?:[^\]|]*\|)?([^\]]*)\]/g, '$1');
 
 const RARITY_BY_FRAME_TYPE: Readonly<Record<number, string>> = {
   0: 'normal',
@@ -70,15 +68,17 @@ const VALUE_COLOURS: Readonly<Record<number, string>> = {
   1: 'var(--colour-augmented)',
 };
 
-const MOD_SECTIONS: readonly (readonly [key: string, modifier: string])[] = [
-  ['enchantMods', 'enchant'],
-  ['implicitMods', 'implicit'],
-  ['fracturedMods', 'fractured'],
-  ['explicitMods', 'explicit'],
-  ['craftedMods', 'crafted'],
-  ['desecratedMods', 'desecrated'],
-  ['runeMods', 'rune'],
-];
+/** 卡片上各詞綴區段的顯示順序（與官方市集卡片一致） */
+const MOD_SECTION_ORDER = [
+  'enchant',
+  'implicit',
+  'fractured',
+  'explicit',
+  'crafted',
+  'desecrated',
+  'rune',
+] as const;
+const MOD_SECTION_SET = new Set<string>(MOD_SECTION_ORDER);
 
 function el<K extends keyof HTMLElementTagNameMap>(
   doc: Document,
@@ -94,7 +94,7 @@ function el<K extends keyof HTMLElementTagNameMap>(
 
 function valueSpan(doc: Document, value: unknown): HTMLSpanElement | undefined {
   if (!Array.isArray(value) || typeof value[0] !== 'string') return undefined;
-  const span = el(doc, 'span', undefined, unwrapMarkup(value[0]));
+  const span = el(doc, 'span', undefined, unwrapItemMarkup(value[0]));
   const colour = typeof value[1] === 'number' ? VALUE_COLOURS[value[1]] : undefined;
   span.style.color = colour ?? VALUE_COLOURS[0]!;
   return span;
@@ -107,7 +107,7 @@ function renderProperty(
   className: string,
 ): HTMLElement | undefined {
   if (!isRecord(property)) return undefined;
-  const name = unwrapMarkup(text(property.name));
+  const name = unwrapItemMarkup(text(property.name));
   const values = Array.isArray(property.values) ? property.values : [];
   const line = el(doc, 'span', 'lc');
   if (property.displayMode === 3) {
@@ -131,32 +131,12 @@ function renderProperty(
   return row;
 }
 
-/** 官方詞綴代碼，例如 `stat.explicit.stat_3261801346`；格式不符的一律不寫進屬性 */
-const STAT_FIELD_PATTERN = /^stat\.[a-z_]+\.[A-Za-z0-9_|.+-]{1,120}$/;
-
-/** 詞綴所屬的 `extended.hashes` 分類（`explicitMods` → `explicit`） */
-function readHashList(item: Json, modifier: string): unknown[] {
-  const hashes = isRecord(item.extended) ? item.extended.hashes : undefined;
-  const list = isRecord(hashes) ? hashes[modifier] : undefined;
-  return Array.isArray(list) ? list : [];
-}
-
-/** 詞綴的官方代碼：物件詞綴帶 `hash`；字串詞綴依序對應 `extended.hashes` */
-function resolveStatField(entry: unknown, hashEntry: unknown): string | undefined {
-  const raw = isRecord(entry)
-    ? text(entry.hash)
-    : Array.isArray(hashEntry) && typeof hashEntry[0] === 'string'
-      ? `stat.${hashEntry[0]}`
-      : '';
-  return STAT_FIELD_PATTERN.test(raw) ? raw : undefined;
-}
-
 /** 一條詞綴：多行詞綴在同一個節點內以 `<br>` 分行（與官方相同，翻譯器以整條比對） */
 function renderMod(doc: Document, modifier: string, line: string, statField?: string): HTMLElement {
   const row = el(doc, 'div', `item-mod item-mod--${modifier}`);
   const span = el(doc, 'span', statField ? 's lc' : 'lc');
   if (statField) span.setAttribute('data-field', statField);
-  unwrapMarkup(line)
+  unwrapItemMarkup(line)
     .split('\n')
     .forEach((part, index) => {
       if (index > 0) span.appendChild(doc.createElement('br'));
@@ -184,8 +164,8 @@ function renderHeader(doc: Document, item: Json, rarity: string): HTMLElement {
     'div',
     `item-popup__header item-popup__header--item item-popup__header--${rarity}`,
   );
-  const name = unwrapMarkup(text(item.name));
-  const typeLine = unwrapMarkup(text(item.typeLine) || text(item.baseType));
+  const name = unwrapItemMarkup(text(item.name));
+  const typeLine = unwrapItemMarkup(text(item.typeLine) || text(item.baseType));
   const lines = [name, typeLine].filter(Boolean);
   // 兩行標題（稀有、傳奇）要用官方的雙行標題背景
   if (lines.length > 1) header.classList.add('item-popup__header--double');
@@ -225,14 +205,22 @@ function renderContent(doc: Document, item: Json): HTMLElement {
   meta.push(...requirements);
   if (meta.length) sections.push(meta);
 
-  for (const [key, modifier] of MOD_SECTIONS) {
-    // 官方詞綴可能是字串，或是 `{ description, hash, mods }` 物件
-    const hashList = readHashList(item, modifier);
-    const lines = (Array.isArray(item[key]) ? item[key] : []).flatMap((entry, index) => {
-      const line = isRecord(entry) ? text(entry.description) : text(entry);
-      return line ? [renderMod(doc, modifier, line, resolveStatField(entry, hashList[index]))] : [];
-    });
-    if (lines.length) sections.push(lines);
+  const modsBySection = new Map<string, HTMLElement[]>();
+  for (const modLine of readTradeItemModLines(item)) {
+    const section = MOD_SECTION_SET.has(modLine.category)
+      ? modLine.category
+      : MOD_SECTION_SET.has(modLine.fieldCategory)
+        ? modLine.fieldCategory
+        : undefined;
+    if (!section) continue;
+    const node = renderMod(doc, section, modLine.text, modLine.statField);
+    const bucket = modsBySection.get(section);
+    if (bucket) bucket.push(node);
+    else modsBySection.set(section, [node]);
+  }
+  for (const section of MOD_SECTION_ORDER) {
+    const lines = modsBySection.get(section);
+    if (lines?.length) sections.push(lines);
   }
 
   const flags: HTMLElement[] = [];

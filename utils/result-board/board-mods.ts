@@ -1,30 +1,19 @@
 /**
- * 搜尋結果看板的獨立詞條解析、彙整與條件篩選（階段 2）。
+ * 搜尋結果看板的獨立詞條彙整與條件篩選（階段 2）。
  *
- * 依官方 `/fetch` 的 `item.extended.mods` 拆出每條獨立詞綴（含 stat hash 組合、是否複合詞、階級），
- * 讓玩家可以區分純詞（如純 T1 物理 % 傷）與複合詞加總（如物理 % 傷 + 命中）。
+ * 詞綴與複合詞的原始 JSON 解析統一委託給 `@/utils/trade-item-mods`，
+ * 此模組專責看板選項彙整、累積階級統計與條件篩選比對。
  */
+import {
+  parseModTierCode,
+  readTradeItemModData,
+  type TradeItemModAffixKind,
+  type TradeItemModRoll,
+} from '@/utils/trade-item-mods';
 import type { BoardEntry } from './board-entry';
 
-export type BoardModAffixKind = 'prefix' | 'suffix';
-
-/** 物品上的一條獨立詞綴（對應 `item.extended.mods[category][i]`） */
-export interface BoardModRoll {
-  /** 唯一識別鍵（category + 排序去重後的 stat hash 組合） */
-  key: string;
-  /** 所屬分類，例如 `explicit`、`fractured`、`implicit`、`crafted`、`enchant` */
-  category: string;
-  /** 排序去重後的 stat hash 列表；長度 > 1 表示複合詞綴 */
-  hashes: readonly string[];
-  isHybrid: boolean;
-  /** 官方階級代碼，例如 `P1`、`S2` */
-  tier?: string;
-  /** 階級數字（1 = T1, 2 = T2...）；無數字階級時為 undefined */
-  tierNumber?: number;
-  affixKind?: BoardModAffixKind;
-  /** 詞綴原名，例如 `Merciless`、`Dictator's` */
-  name?: string;
-}
+export type BoardModAffixKind = TradeItemModAffixKind;
+export type BoardModRoll = TradeItemModRoll;
 
 /** 可供篩選的累積階級上限 */
 export const BOARD_MOD_TIER_CAPS = [1, 2, 3] as const;
@@ -52,76 +41,17 @@ export interface BoardModOption {
   tierCounts: Readonly<Record<BoardModTierCap, number>>;
 }
 
-const TIER_CODE_PATTERN = /^([PS])(\d+)$/i;
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
 /** 解析單一詞綴階級字串（例如 `P1` → prefix #1、`S3` → suffix #3） */
-export function parseTierCode(
-  tier: string | undefined,
-): { affixKind: BoardModAffixKind; tierNumber: number } | undefined {
-  if (!tier) return undefined;
-  const match = TIER_CODE_PATTERN.exec(tier.trim());
-  if (!match) return undefined;
-  const tierNumber = Number(match[2]);
-  if (!Number.isInteger(tierNumber) || tierNumber <= 0) return undefined;
-  return {
-    affixKind: match[1].toUpperCase() === 'P' ? 'prefix' : 'suffix',
-    tierNumber,
-  };
-}
+export const parseTierCode = parseModTierCode;
 
-/** 從官方 `item.extended.mods` 單次走訪擷取獨立詞條與階級／詞綴名索引 */
-export function readExtendedModData(item: Record<string, unknown>): {
-  modTiers?: readonly string[];
-  modRolls?: readonly BoardModRoll[];
-} {
-  const extended = isRecord(item.extended) ? item.extended : undefined;
-  const extendedMods = extended && isRecord(extended.mods) ? extended.mods : undefined;
-  if (!extendedMods) return {};
+/** 從官方物品 JSON 擷取獨立詞條與階級／詞綴名索引 */
+export const readExtendedModData = readTradeItemModData;
 
-  const tierTokens = new Set<string>();
-  const rolls: BoardModRoll[] = [];
-  for (const [category, list] of Object.entries(extendedMods)) {
-    if (!Array.isArray(list)) continue;
-    for (const rawMod of list) {
-      if (!isRecord(rawMod)) continue;
-      const tier = typeof rawMod.tier === 'string' && rawMod.tier.length <= 256 ? rawMod.tier.trim() : '';
-      const name = typeof rawMod.name === 'string' && rawMod.name.length <= 256 ? rawMod.name.trim() : '';
-      if (tier) tierTokens.add(tier);
-      if (name) tierTokens.add(name);
-
-      if (!Array.isArray(rawMod.magnitudes)) continue;
-      const hashSet = new Set<string>();
-      for (const mag of rawMod.magnitudes) {
-        if (isRecord(mag) && typeof mag.hash === 'string' && mag.hash.trim()) {
-          hashSet.add(mag.hash.trim());
-        }
-      }
-      if (hashSet.size === 0) continue;
-      const hashes = Array.from(hashSet).sort();
-      const parsedTier = parseTierCode(tier);
-      rolls.push({
-        key: `${category}:${hashes.join('+')}`,
-        category,
-        hashes,
-        isHybrid: hashes.length > 1,
-        ...(tier ? { tier } : {}),
-        ...(parsedTier ? parsedTier : {}),
-        ...(name ? { name } : {}),
-      });
-    }
-  }
-  return {
-    ...(tierTokens.size > 0 ? { modTiers: Array.from(tierTokens) } : {}),
-    ...(rolls.length > 0 ? { modRolls: rolls } : {}),
-  };
-}
-
-/** 從官方 `item.extended.mods` 擷取獨立詞條陣列 */
-export function readBoardModRolls(item: Record<string, unknown>): readonly BoardModRoll[] | undefined {
-  return readExtendedModData(item).modRolls;
+/** 從官方物品 JSON 擷取獨立詞條陣列 */
+export function readBoardModRolls(
+  item: Record<string, unknown>,
+): readonly BoardModRoll[] | undefined {
+  return readTradeItemModData(item).modRolls;
 }
 
 /** 判斷單件物品是否同時符合所有「必含獨立詞綴」條件 */
