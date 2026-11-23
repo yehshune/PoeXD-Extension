@@ -2,7 +2,6 @@
  * 匯入的 PoB build 與購物清單進度只存在本機（chrome.storage.local），依遊戲版本各存一份清單，
  * 不上傳、也不納入書籤匯出。存的是原始代碼，讀出時重新解碼，資料模型改版時不必搬遷。
  */
-import { isValidPoeCdnImageUrl } from './poe-cdn-url';
 import {
   LINK_OPTIONS,
   normalizeSearchDefaults,
@@ -37,8 +36,6 @@ export interface StoredPobBuild {
   /** 已完成、已移除的項目（ShoppingEntry.key） */
   done: string[];
   removed: string[];
-  /** 項目的圖片（ShoppingEntry.key → 官方 CDN 圖片網址），由搜尋結果擷取 */
-  icons: Record<string, string>;
   /** 使用者調整過的搜尋條件（ShoppingEntry.key → 調整內容） */
   searchSelections: Record<string, EntrySearchSelection>;
   /** build 整體搜尋設定（詞綴數值比例、連結條件）；只存和預設不同的欄位 */
@@ -88,7 +85,6 @@ export interface PobBuildStore {
 export const POB_BUILD_NAME_MAX_LENGTH = 60;
 export const MAX_POB_BUILDS = 20;
 const MAX_MARKED_ENTRIES = 2000;
-const MAX_ICONS = 500;
 const MAX_SEARCH_SELECTIONS = 500;
 const MAX_STATS_PER_SELECTION = 80;
 const MAX_STAT_ID_LENGTH = 160;
@@ -131,16 +127,6 @@ const toOptionalId = (value: unknown): string | undefined =>
 
 const toName = (value: unknown): string =>
   typeof value === 'string' ? value.trim().slice(0, POB_BUILD_NAME_MAX_LENGTH) : '';
-
-/** 圖片網址來自頁面，只收官方 CDN 的 https 網址 */
-const toIcons = (value: unknown): Record<string, string> =>
-  isRecord(value)
-    ? Object.fromEntries(
-        Object.entries(value)
-          .filter((entry): entry is [string, string] => isValidPoeCdnImageUrl(entry[1]))
-          .slice(0, MAX_ICONS),
-      )
-    : {};
 
 const toBound = (value: unknown): number | null | undefined => {
   if (value === null) return null;
@@ -257,7 +243,6 @@ function parseStored(value: unknown): StoredPobBuild | undefined {
     skillSetId: toOptionalId(value.skillSetId),
     done: toKeyList(value.done),
     removed: toKeyList(value.removed),
-    icons: toIcons(value.icons),
     searchSelections: toSearchSelections(value.searchSelections),
     searchDefaults: toSearchDefaults(value.searchDefaults),
     searchOverrides: toSearchOverrides(value.searchOverrides),
@@ -274,7 +259,6 @@ function applyPatch(build: StoredPobBuild, patch: StoredPobBuildPatch): StoredPo
     ...('skillSetId' in patch ? { skillSetId: toOptionalId(patch.skillSetId) } : {}),
     ...('done' in patch ? { done: toKeyList(patch.done) } : {}),
     ...('removed' in patch ? { removed: toKeyList(patch.removed) } : {}),
-    ...('icons' in patch ? { icons: toIcons(patch.icons) } : {}),
     ...('searchSelections' in patch
       ? { searchSelections: toSearchSelections(patch.searchSelections) }
       : {}),
@@ -333,7 +317,6 @@ export function createPobBuildStore(
           hideDone: false,
           done: [],
           removed: [],
-          icons: {},
           searchSelections: {},
           searchDefaults: {},
           searchOverrides: {},

@@ -54,6 +54,7 @@ const VERSION = '(poe1|poe2)';
 const PATH_RULES = [
   [new RegExp(`^${VERSION}/mods-tiers\\.json$`), (m) => `${m[1]}/game`],
   [new RegExp(`^${VERSION}/stat-aliases\\.json$`), (m) => `${m[1]}/game`],
+  [new RegExp(`^${VERSION}/item-art\\.json$`), (m) => `${m[1]}/game`],
   [
     new RegExp(
       `^${VERSION}/locales/${LOCALE}/(?:stats|items|mod-lines|stat-text-items|stat-text-passives|passive-names|result-labels)\\.json$`,

@@ -13,7 +13,7 @@ import {
   type PobBuildStorage,
   type StoredPobBuild,
 } from '@/utils/pob-build-store';
-import { createPendingIconStore, type PendingIcon } from '@/utils/pob-icon-pending';
+import { parseItemArt } from '@/utils/pob-item-art';
 import { createModLineTranslator } from '@/utils/pob-mod-translator';
 import { createTradeNameCatalog } from '@/utils/pob-shopping-list';
 import { createStatMatcher } from '@/utils/pob-stat-matcher';
@@ -78,6 +78,15 @@ const toCode = (xml: string) =>
   deflateSync(Buffer.from(xml, 'utf8')).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
 
 const ICON = 'https://web.poecdn.com/gen/image/abc/Shield.png';
+const ART_CDN = 'https://web.poecdn.com/image/Art/2DItems/';
+const ITEM_ART = parseItemArt({
+  bases: {
+    'Mosaic Kite Shield': ['Armours/Shields/ShieldStrDex5', 2, 3],
+    'Plate Vest': ['Armours/BodyArmours/BodyStr1A', 2, 3],
+    Punishment: ['Gems/Punishment', 1, 1],
+  },
+  uniques: { 'Rise of the Phoenix': ['Armours/Shields/RiseOfThePhoenix'] },
+});
 
 function createMemoryStorage(): PobBuildStorage & { data: Record<string, unknown> } {
   const data: Record<string, unknown> = {};
@@ -103,15 +112,12 @@ describe('usePobBuild', () => {
   let getLeague: ReturnType<typeof vi.fn>;
   let navigate: ReturnType<typeof vi.fn>;
   let openUrl: ReturnType<typeof vi.fn>;
-  let savePending: ReturnType<typeof vi.fn>;
   let showToast: ReturnType<typeof vi.fn>;
   let enqueueLiveSearch: ReturnType<typeof vi.fn>;
   let bookmarkAdd: ReturnType<typeof vi.fn>;
   let fetchShareCode: ReturnType<typeof vi.fn>;
   let openSharePermissionPage: ReturnType<typeof vi.fn>;
   let currentUrl: string;
-  let pendingToTake: PendingIcon | undefined;
-  let emitResultImages: ((images: string[]) => void) | undefined;
   let nextId: number;
 
   const stored = () => (storage.data[pobBuildsStorageKey('poe1')] ?? []) as StoredPobBuild[];
@@ -124,8 +130,6 @@ describe('usePobBuild', () => {
   beforeEach(() => {
     storage = createMemoryStorage();
     nextId = 0;
-    pendingToTake = undefined;
-    emitResultImages = undefined;
     loadCatalog = vi.fn().mockResolvedValue(
       createTradeNameCatalog({
         englishItems: [
@@ -148,7 +152,6 @@ describe('usePobBuild', () => {
     getLeague = vi.fn().mockReturnValue('Standard');
     navigate = vi.fn();
     openUrl = vi.fn();
-    savePending = vi.fn();
     showToast = vi.fn();
     enqueueLiveSearch = vi.fn().mockResolvedValue({ success: true, addedCount: 1 });
     bookmarkAdd = vi.fn(async (input: { name: string }) => ({ ok: true, name: input.name }));
@@ -161,7 +164,7 @@ describe('usePobBuild', () => {
         now: () => 1234,
         createId: () => `build-${++nextId}`,
       }),
-      pendingIcon: { save: savePending as never, take: async () => pendingToTake },
+      loadItemArt: async () => ITEM_ART,
       loadCatalog: loadCatalog as never,
       loadMatcher: loadMatcher as never,
       loadModTranslator: loadModTranslator as never,
@@ -171,12 +174,6 @@ describe('usePobBuild', () => {
       getOrigin: () => 'https://www.pathofexile.com',
       navigate: navigate as never,
       openUrl: openUrl as never,
-      onResultImages: (listener) => {
-        emitResultImages = listener;
-        return () => {
-          emitResultImages = undefined;
-        };
-      },
       showToast: showToast as never,
       getCurrentUrl: () => currentUrl,
       enqueueLiveSearch: enqueueLiveSearch as never,
@@ -290,7 +287,6 @@ describe('usePobBuild', () => {
           hideDone: false,
           done: [],
           removed: [],
-          icons: {},
           searchSelections: {},
           searchDefaults: {},
           searchOverrides: {},
@@ -741,9 +737,9 @@ describe('usePobBuild', () => {
 
       const gem = rowByLabel(first(pob), 'Punishment');
       expect(gem.done).toBe(true);
-      expect(gem.icon).toBe(ICON);
       expect(stored()[0].done).toEqual([gem.key]);
-      expect(stored()[0].icons).toEqual({ [gem.key]: ICON });
+      // 舊版從搜尋結果擷取的圖片不再保存
+      expect(stored()[0]).not.toHaveProperty('icons');
     });
   });
 
@@ -1345,22 +1341,6 @@ describe('usePobBuild', () => {
       expect(navigate).toHaveBeenCalledTimes(1);
     });
 
-    it('換頁前先記下這次搜尋屬於哪個項目', async () => {
-      const pob = usePobBuild('poe1', deps);
-      await pob.importCode(toCode(buildXml()));
-      const phoenix = rowByLabel(first(pob), 'Rise of the Phoenix');
-
-      pob.openSearch('build-1', phoenix, 'current');
-      expect(savePending).toHaveBeenCalledWith(
-        { buildId: 'build-1', entryKey: phoenix.key },
-        'current',
-        navigate.mock.calls[0][0],
-      );
-      expect(savePending.mock.invocationCallOrder[0]).toBeLessThan(
-        navigate.mock.invocationCallOrder[0],
-      );
-    });
-
     it('無法搜尋的項目、頁面沒有聯盟時不開啟', async () => {
       const pob = usePobBuild('poe1', deps);
       await pob.importCode(toCode(buildXml()));
@@ -1374,127 +1354,55 @@ describe('usePobBuild', () => {
       ).toBe(false);
 
       expect(navigate).not.toHaveBeenCalled();
-      expect(savePending).not.toHaveBeenCalled();
       expect(pob.errorKey.value).toBe('pobBuild.error.noLeague');
     });
   });
 
-  describe('從搜尋結果擷取圖片', () => {
-    it('頁面是從某個項目開啟的搜尋時，第一張合法的結果圖片成為該項目的圖片', async () => {
-      const original = usePobBuild('poe1', deps);
-      await original.importCode(toCode(buildXml()));
-      const phoenixKey = rowByLabel(first(original), 'Rise of the Phoenix').key;
-      pendingToTake = { buildId: 'build-1', entryKey: phoenixKey };
-
-      const reopened = usePobBuild('poe1', deps);
-      await reopened.restore();
-      expect(rowByLabel(first(reopened), 'Rise of the Phoenix').icon).toBeUndefined();
-
-      emitResultImages?.([]);
-      emitResultImages?.(['https://evil.example/x.png', ICON, 'https://web.poecdn.com/other.png']);
+  describe('物品圖片', () => {
+    it('依物品圖片對照給圖片與背包尺寸：傳奇用自己的圖、尺寸取底材；查不到的沒有圖片', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
       await flush();
-
-      expect(rowByLabel(first(reopened), 'Rise of the Phoenix').icon).toBe(ICON);
-      expect(stored()[0].icons).toEqual({ [phoenixKey]: ICON });
-      // 只取一次，之後的結果（例如翻頁）不再覆蓋
-      expect(emitResultImages).toBeUndefined();
+      expect(rowByLabel(first(pob), 'Rise of the Phoenix')).toMatchObject({
+        icon: `${ART_CDN}Armours/Shields/RiseOfThePhoenix.png`,
+        iconSize: { width: 2, height: 3 },
+      });
+      expect(rowByLabel(first(pob), 'Punishment').icon).toBe(`${ART_CDN}Gems/Punishment.png`);
+      expect(rowByLabel(first(pob), 'Not On Trade').icon).toBeUndefined();
     });
 
-    it('沒有待領取的項目時不訂閱結果圖片', async () => {
-      const original = usePobBuild('poe1', deps);
-      await original.importCode(toCode(buildXml()));
-
-      const reopened = usePobBuild('poe1', deps);
-      await reopened.restore();
-      expect(emitResultImages).toBeUndefined();
+    it('送進主控台與加入書籤時以物品圖片當封面', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      await flush();
+      const phoenix = rowByLabel(first(pob), 'Rise of the Phoenix');
+      await pob.addToBookmarks('build-1', phoenix, 'g1');
+      expect(bookmarkAdd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          coverImageUrl: `${ART_CDN}Armours/Shields/RiseOfThePhoenix.png`,
+        }),
+      );
     });
 
-    it('元件卸載時停止等待', async () => {
-      const original = usePobBuild('poe1', deps);
-      await original.importCode(toCode(buildXml()));
-      pendingToTake = { buildId: 'build-1', entryKey: 'whatever' };
-
-      const reopened = usePobBuild('poe1', deps);
-      await reopened.restore();
-      expect(emitResultImages).toBeDefined();
-      reopened.dispose();
-      expect(emitResultImages).toBeUndefined();
+    it('物品圖片對照載不到時清單照常顯示', async () => {
+      const pob = usePobBuild('poe1', { ...deps, loadItemArt: async () => undefined });
+      await pob.importCode(toCode(buildXml()));
+      await flush();
+      expect(rowByLabel(first(pob), 'Rise of the Phoenix').icon).toBeUndefined();
     });
 
-    it('resolveSearchUrl 與 trackPendingSearch 可供 <a href> 中鍵開新分頁並補記圖片擷取', async () => {
+    it('resolveSearchUrl 可供 <a href> 中鍵原生開新分頁；沒有聯盟時不報錯', async () => {
       const pob = usePobBuild('poe1', deps);
       await pob.importCode(toCode(buildXml()));
       const build = first(pob);
       const rare = rowByLabel(build, 'Rise of the Phoenix');
 
-      const url = pob.resolveSearchUrl(build.id, rare);
-      expect(url).toContain('https://www.pathofexile.com/trade/search/Standard?q=');
-
-      pob.trackPendingSearch(build.id, rare, 'new-tab');
-      expect(savePending).toHaveBeenCalledWith(
-        { buildId: build.id, entryKey: rare.key },
-        'new-tab',
-        url,
+      expect(pob.resolveSearchUrl(build.id, rare)).toContain(
+        'https://www.pathofexile.com/trade/search/Standard?q=',
       );
-      expect(navigate).not.toHaveBeenCalled();
-      expect(openUrl).not.toHaveBeenCalled();
-
       getLeague.mockReturnValue(undefined);
       expect(pob.resolveSearchUrl(build.id, rare)).toBeUndefined();
       expect(pob.errorKey.value).toBeNull();
     });
-  });
-});
-
-describe('createPendingIconStore', () => {
-  const pending = { buildId: 'b1', entryKey: 'k1' };
-  const searchUrl = 'https://www.pathofexile.com/trade/search/Standard?q=%7B%22a%22%3A1%7D';
-
-  function setup(pageUrl: string) {
-    const sessionData = new Map<string, string>();
-    const localData: Record<string, unknown> = {};
-    let now = 1_000_000;
-    const store = createPendingIconStore('poe1', {
-      session: {
-        getItem: (key) => sessionData.get(key) ?? null,
-        setItem: (key, value) => void sessionData.set(key, value),
-        removeItem: (key) => void sessionData.delete(key),
-      },
-      local: {
-        get: async (keys) =>
-          Object.fromEntries(keys.filter((k) => k in localData).map((k) => [k, localData[k]])),
-        set: async (values) => void Object.assign(localData, values),
-        remove: async (keys) => keys.forEach((key) => delete localData[key]),
-      },
-      now: () => now,
-      getPageUrl: () => pageUrl,
-    });
-    return { store, sessionData, localData, advance: (ms: number) => (now += ms) };
-  }
-
-  it('目前分頁：同一個分頁領取一次', async () => {
-    const { store } = setup('https://www.pathofexile.com/trade/search/Standard/abc');
-    store.save(pending, 'current', searchUrl);
-    expect(await store.take()).toEqual(pending);
-    expect(await store.take()).toBeUndefined();
-  });
-
-  it('新分頁：只有網址帶著同一個 q 的分頁領得到', async () => {
-    const other = setup('https://www.pathofexile.com/trade/search/Standard/other');
-    other.store.save(pending, 'new-tab', searchUrl);
-    await Promise.resolve();
-    expect(await other.store.take()).toBeUndefined();
-
-    const target = setup(searchUrl);
-    Object.assign(target.localData, other.localData);
-    expect(await target.store.take()).toEqual(pending);
-    expect(await target.store.take()).toBeUndefined();
-  });
-
-  it('超過兩分鐘就不再領取', async () => {
-    const { store, advance } = setup('https://www.pathofexile.com/trade/search/Standard/abc');
-    store.save(pending, 'current', searchUrl);
-    advance(2 * 60 * 1000 + 1);
-    expect(await store.take()).toBeUndefined();
   });
 });

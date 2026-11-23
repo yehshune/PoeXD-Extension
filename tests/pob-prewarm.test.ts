@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  capturePendingPobIconInBackground,
   decodePobBuildCached,
   loadPobReferenceData,
   prewarmPobData,
@@ -9,7 +8,6 @@ import {
 } from '@/components/sidebar/pob-build/pob-prewarm';
 import type { PobBuild } from '@/utils/pob-build';
 import type { PobBuildStore, StoredPobBuild } from '@/utils/pob-build-store';
-import type { PendingIconStore } from '@/utils/pob-icon-pending';
 import type { TradeNameCatalog } from '@/utils/pob-shopping-list';
 
 const fakeCatalog: TradeNameCatalog = {
@@ -39,7 +37,6 @@ const makeStored = (id: string, code: string): StoredPobBuild => ({
   hideDone: false,
   done: [],
   removed: [],
-  icons: {},
   searchSelections: {},
   searchDefaults: {},
   searchOverrides: {},
@@ -133,54 +130,6 @@ describe('pob-prewarm', () => {
     const recovered = await loadPobReferenceData('poe1', deps);
     expect(recovered.catalog).toBe(fakeCatalog);
     expect(loadCatalog).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not subscribe to result images when there is no pending icon', async () => {
-    const pendingIcon: PendingIconStore = {
-      save: vi.fn(),
-      take: vi.fn(async () => undefined),
-    };
-    const onResultImages = vi.fn(() => () => undefined);
-
-    const dispose = capturePendingPobIconInBackground('poe1', {
-      store: makeStore([]),
-      pendingIcon,
-      onResultImages,
-    });
-    await Promise.resolve();
-    dispose();
-
-    expect(onResultImages).not.toHaveBeenCalled();
-  });
-
-  it('captures the first valid PoE CDN image in the background and persists it', async () => {
-    const store = makeStore([makeStored('b1', 'CODE_1')]);
-    const pendingIcon: PendingIconStore = {
-      save: vi.fn(),
-      take: vi.fn(async () => ({ buildId: 'b1', entryKey: 'slot:Helmet' })),
-    };
-    let emitImages: ((images: string[]) => void) | undefined;
-    const stop = vi.fn();
-    const onResultImages = vi.fn((listener: (images: string[]) => void) => {
-      emitImages = listener;
-      return stop;
-    });
-
-    capturePendingPobIconInBackground('poe1', { store, pendingIcon, onResultImages });
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(onResultImages).toHaveBeenCalledTimes(1);
-    const validIcon = 'https://web.poecdn.com/gen/image/abc/Helmet.png';
-    emitImages?.(['https://example.com/not-cdn.png', validIcon]);
-
-    expect(stop).toHaveBeenCalledTimes(1);
-    expect(store.mutate).toHaveBeenCalledTimes(1);
-    const [buildId, mutator] = (store.mutate as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(buildId).toBe('b1');
-    expect(mutator(makeStored('b1', 'CODE_1'))).toEqual({
-      icons: { 'slot:Helmet': validIcon },
-    });
   });
 });
 

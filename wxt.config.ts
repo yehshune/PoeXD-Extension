@@ -111,6 +111,7 @@ export default defineConfig({
             'json/poe1/locales/*/mod-lines.json',
             'json/poe1/locales/*/stat-text-items.json',
             'json/poe1/stat-aliases.json',
+            'json/poe1/item-art.json',
             'json/poe1/locales/*/result-labels.json',
             'json/poe1/mercenary.json',
             'json/poe1/locales/*/mercenary.json',
@@ -124,6 +125,7 @@ export default defineConfig({
             'json/poe2/locales/*/mod-lines.json',
             'json/poe2/locales/*/stat-text-items.json',
             'json/poe2/stat-aliases.json',
+            'json/poe2/item-art.json',
             'json/poe2/locales/*/result-labels.json',
             // 市集漢化（ADR-0012）：只有 zh-TW、zh-CN
             'json/locales/*/trade-ui.json',

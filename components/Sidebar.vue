@@ -358,11 +358,7 @@ import HistoryPane from './sidebar/HistoryPane.vue';
 import StatGroupTemplatePane from './sidebar/stat-group-templates/StatGroupTemplatePane.vue';
 import ToolsPane from './sidebar/ToolsPane.vue';
 import PobBuildPane from './sidebar/pob-build/PobBuildPane.vue';
-import {
-  capturePendingPobIconInBackground,
-  prewarmPobData,
-  schedulePobIdlePrewarm,
-} from './sidebar/pob-build/pob-prewarm';
+import { prewarmPobData, schedulePobIdlePrewarm } from './sidebar/pob-build/pob-prewarm';
 import PinnedItemPane from './sidebar/pinned-items/PinnedItemPane.vue';
 import ResultBoardPane from './sidebar/result-board/ResultBoardPane.vue';
 import SettingsPane from './sidebar/SettingsPane.vue';
@@ -1279,8 +1275,6 @@ export default defineComponent({
 
     let pobPrewarmScheduled = false;
     let cancelPobIdlePrewarm: (() => void) | undefined;
-    let pobIconCaptureStarted = false;
-    let stopPobIconCapture: (() => void) | undefined;
 
     const triggerPobPrewarm = () => {
       if (
@@ -1307,10 +1301,6 @@ export default defineComponent({
       ) {
         return;
       }
-      if (!pobIconCaptureStarted) {
-        pobIconCaptureStarted = true;
-        stopPobIconCapture = capturePendingPobIconInBackground(version);
-      }
       if (pobPrewarmScheduled || isTabMounted('pob-build')) return;
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       pobPrewarmScheduled = true;
@@ -1323,8 +1313,6 @@ export default defineComponent({
     onUnmounted(() => {
       cancelPobIdlePrewarm?.();
       cancelPobIdlePrewarm = undefined;
-      stopPobIconCapture?.();
-      stopPobIconCapture = undefined;
       pageGuide.setTourContext(null);
       stopStepDemo();
       finishCollapseAnimation();

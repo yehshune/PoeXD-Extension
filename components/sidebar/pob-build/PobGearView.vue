@@ -6,6 +6,8 @@
 import { Check } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { t, type I18nKey } from '@/utils/i18n';
+import PobItemImage from './PobItemImage.vue';
+import PobSocketOverlay from './PobSocketOverlay.vue';
 import { formatPobSlot } from './pob-slot-label';
 import { GEAR_CELLS, gearLayout, type GearCellId } from './pob-gear-layout';
 import type { ShoppingRow } from './usePobBuild';
@@ -134,14 +136,22 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
           @click="row && emit('select', row, $event)"
         >
           <template v-if="row">
-            <img
+            <PobItemImage
               v-if="row.icon"
-              :src="row.icon"
-              alt=""
-              loading="lazy"
               class="pxd-gear-tile__icon"
+              :src="row.icon"
+              :layers="row.iconLayers"
+              :width="row.iconSize?.width"
+              :height="row.iconSize?.height"
             />
             <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
+            <PobSocketOverlay
+              v-if="row.sockets"
+              class="pxd-gear-tile__sockets"
+              :sockets="row.sockets"
+              :width="row.iconSize?.width"
+              :height="row.iconSize?.height"
+            />
           </template>
           <span v-else class="pxd-gear-tile__slot">{{ cellLabel(id) }}</span>
           <span
@@ -181,7 +191,14 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
           :class="[tileClass(row), { 'is-active': activeKey === row.key }]"
           @click="emit('select', row, $event)"
         >
-          <img v-if="row.icon" :src="row.icon" alt="" loading="lazy" class="pxd-gear-tile__icon" />
+          <PobItemImage
+            v-if="row.icon"
+            class="pxd-gear-tile__icon"
+            :src="row.icon"
+            :layers="row.iconLayers"
+            :width="row.iconSize?.width"
+            :height="row.iconSize?.height"
+          />
           <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
           <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
           <span
@@ -229,7 +246,14 @@ const tileTitle = (row: ShoppingRow) => `${row.label} · ${formatPobSlot(row.slo
           :class="[tileClass(row), { 'is-active': activeKey === row.key }]"
           @click="emit('select', row, $event)"
         >
-          <img v-if="row.icon" :src="row.icon" alt="" loading="lazy" class="pxd-gear-tile__icon" />
+          <PobItemImage
+            v-if="row.icon"
+            class="pxd-gear-tile__icon"
+            :src="row.icon"
+            :layers="row.iconLayers"
+            :width="row.iconSize?.width"
+            :height="row.iconSize?.height"
+          />
           <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
           <span v-if="row.count > 1" class="pxd-gear-tile__count">×{{ row.count }}</span>
           <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
@@ -341,6 +365,18 @@ button.pxd-gear-tile:focus-visible,
 .pxd-gear-tile[data-done='true'] .pxd-gear-tile__name {
   opacity: 0.35;
   filter: grayscale(0.7);
+}
+
+.pxd-gear-tile__sockets {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+/* 和遊戲一樣，平常只看圖片，滑過（或選取、鍵盤聚焦）時才顯示插槽 */
+.pxd-gear-tile:hover .pxd-gear-tile__sockets,
+.pxd-gear-tile:focus-visible .pxd-gear-tile__sockets,
+.pxd-gear-tile.is-active .pxd-gear-tile__sockets {
+  opacity: 1;
 }
 
 .pxd-gear-tile__icon {

@@ -313,6 +313,7 @@ describe('buildShoppingList', () => {
           rarity: _rarity,
           englishName: _englishName,
           searchBase: _searchBase,
+          artBase: _artBase,
           ...rest
         }) => rest,
       ),
@@ -618,5 +619,30 @@ describe('清單排序與寶石分組', () => {
     ]);
     const migrated = migrateLegacyGemKeys(build, [legacyLifetap]);
     expect(migrateLegacyGemKeys(build, migrated)).toEqual(migrated);
+  });
+});
+
+describe('插槽與圖片底材', () => {
+  it('保留 PoB 的插槽文字；傳奇記下英文底材', () => {
+    const build = parsePobBuildXml(`<PathOfBuilding>
+	<Build className="Marauder" level="90" targetVersion="3_0"/>
+	<Items activeItemSet="1">
+		<Item id="1">
+			Rarity: UNIQUE
+Rise of the Phoenix
+Mosaic Kite Shield
+Sockets: r-g  b
+Implicits: 0
+		</Item>
+		<ItemSet id="1"><Slot itemId="1" name="Weapon 2"/></ItemSet>
+	</Items>
+	<Skills/>
+</PathOfBuilding>`);
+    expect(build.itemSets[0].items[0].sockets).toBe('R-G B');
+    const [entry] = buildShoppingList(
+      build,
+      createTradeNameCatalog({ englishItems: ENGLISH_ITEMS }),
+    );
+    expect(entry).toMatchObject({ artBase: 'Mosaic Kite Shield', sockets: 'R-G B' });
   });
 });

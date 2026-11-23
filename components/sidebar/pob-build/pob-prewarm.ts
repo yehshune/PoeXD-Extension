@@ -7,16 +7,13 @@
  * - 新分頁開啟搜尋時即使側邊欄收合或停在其他分頁，也能輕量領取待擷取的結果圖片並寫回本機，
  *   不會錯過 2 分鐘有效期限。
  */
-import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
 import { getActiveDisplayLocale } from '@/utils/i18n';
 import { initialPageLoadSignal } from '@/utils/initial-page-load-signal';
 import { resolvePageLocale } from '@/utils/locale-resolution';
-import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import { parsePobBuildXml, type PobBuild } from '@/utils/pob-build';
 import { decodePobBuildCode } from '@/utils/pob-build-code';
 import { createPobBuildStore, MAX_POB_BUILDS, type PobBuildStore } from '@/utils/pob-build-store';
-import { createPendingIconStore, type PendingIconStore } from '@/utils/pob-icon-pending';
 import { loadModLineTranslator, type ModLineTranslator } from '@/utils/pob-mod-translator';
 import {
   loadTradeNameCatalog,
@@ -37,7 +34,6 @@ export interface PobReferenceData {
 
 export interface PobPrewarmDeps {
   store: PobBuildStore;
-  pendingIcon: PendingIconStore;
   loadCatalog: (version: PoeVersion, locale: string) => Promise<TradeNameCatalog>;
   loadMatcher: (version: PoeVersion) => Promise<StatMatcher>;
   loadVisceraMods?: (version: PoeVersion) => Promise<VisceraModIndex | undefined>;
@@ -48,7 +44,6 @@ export interface PobPrewarmDeps {
   getDisplayLocale: () => string;
   getPageLocale: () => string;
   decodeBuild: (code: string) => Promise<PobBuild>;
-  onResultImages: (listener: (images: string[]) => void) => () => void;
 }
 
 const MAX_DECODED_CACHE_ENTRIES = MAX_POB_BUILDS * 2;
@@ -63,7 +58,6 @@ const defaultDecodeBuild = async (code: string): Promise<PobBuild> =>
 function createDefaultPrewarmDeps(version: PoeVersion): PobPrewarmDeps {
   return {
     store: createPobBuildStore(version),
-    pendingIcon: createPendingIconStore(version),
     loadCatalog: (catalogVersion, locale) =>
       loadTradeNameCatalog(loadExtensionJson, { version: catalogVersion, locale }),
     loadMatcher: (matcherVersion) => loadStatMatcher(loadExtensionJson, matcherVersion),
@@ -73,13 +67,6 @@ function createDefaultPrewarmDeps(version: PoeVersion): PobPrewarmDeps {
     getDisplayLocale: () => getActiveDisplayLocale(),
     getPageLocale: () => resolvePageLocale(),
     decodeBuild: defaultDecodeBuild,
-    onResultImages: (listener) => {
-      const stop = listenPoeEvent('poexd-result-images', (detail) =>
-        listener(Array.isArray(detail.images) ? detail.images : []),
-      );
-      dispatchPoeEvent('poexd-request-result-images');
-      return stop;
-    },
   };
 }
 
@@ -239,45 +226,6 @@ export function schedulePobIdlePrewarm(
     cancelled = true;
     cancelIdle?.();
     cancelIdle = undefined;
-  };
-}
-
-/**
- * 輕量檢查此分頁是否有待擷取的 PoB 項目圖片：
- * 沒有待擷取項目時不掛任何事件監聽；有待擷取項目時直接寫回本機，
- * 讓新分頁即使側邊欄收合或停在其他分頁也能補齊物品圖片。
- */
-export function capturePendingPobIconInBackground(
-  version: PoeVersion,
-  overrides: Partial<Pick<PobPrewarmDeps, 'store' | 'pendingIcon' | 'onResultImages'>> = {},
-): () => void {
-  const deps = { ...createDefaultPrewarmDeps(version), ...overrides };
-  let disposed = false;
-  let stopListening: (() => void) | undefined;
-
-  void deps.pendingIcon
-    .take()
-    .then((pending) => {
-      if (disposed || !pending) return;
-      stopListening = deps.onResultImages((images) => {
-        if (disposed) return;
-        const icon = images.find((image) => isValidPoeCdnImageUrl(image));
-        if (!icon) return;
-        stopListening?.();
-        stopListening = undefined;
-        void deps.store
-          .mutate(pending.buildId, (current) => ({
-            icons: { ...current.icons, [pending.entryKey]: icon },
-          }))
-          .catch(() => undefined);
-      });
-    })
-    .catch(() => undefined);
-
-  return () => {
-    disposed = true;
-    stopListening?.();
-    stopListening = undefined;
   };
 }
 

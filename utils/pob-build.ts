@@ -26,6 +26,8 @@ export interface PobBuildItem {
   explicitMods: PobItemMod[];
   /** 最大的連結插槽數（PoE 1 的 `Sockets:` 行）；沒有插槽時省略 */
   maxLinks?: number;
+  /** PoB 的插槽文字，例如 `R-R-G B`（大寫、單一空白）；沒有插槽時省略 */
+  sockets?: string;
   /** 基底帶有的防禦類型（依 PoB 的 `…BasePercentile` 行）；沒有防禦時省略 */
   baseDefences?: PobDefence[];
   /** PoB 算好的防禦數值（含品質與詞綴）；沒有防禦時省略 */
@@ -245,9 +247,15 @@ function parseMods(lines: readonly string[]): Pick<PobBuildItem, 'implicitMods' 
   return { implicitMods, explicitMods };
 }
 
-/** 物品屬性區的 `Sockets:` 行算出最大連結數 */
-function parseMaxLinks(lines: readonly string[]): number | undefined {
+/** 物品屬性區的 `Sockets:` 行，整理成大寫、單一空白 */
+function parseSockets(lines: readonly string[]): string | undefined {
   const sockets = lines.map((line) => SOCKETS_LINE.exec(line)?.[1]).find(Boolean);
+  const normalized = sockets?.trim().toUpperCase().replace(/\s+/g, ' ');
+  return normalized ? normalized : undefined;
+}
+
+/** 插槽文字算出最大連結數 */
+function parseMaxLinks(sockets: string | undefined): number | undefined {
   if (!sockets) return undefined;
   const largest = Math.max(
     ...sockets
@@ -308,7 +316,8 @@ function parseItem(item: Element, slot: string): PobBuildItem | undefined {
   const hasBaseLine = (rarity === 'RARE' || rarity === 'UNIQUE' || rarity === 'RELIC') && next;
   const implicitsIndex = lines.findIndex((line) => IMPLICITS_LINE.test(line));
   const properties = lines.slice(0, implicitsIndex < 0 ? undefined : implicitsIndex);
-  const maxLinks = parseMaxLinks(properties);
+  const sockets = parseSockets(properties);
+  const maxLinks = parseMaxLinks(sockets);
   const baseDefences = parseBaseDefences(properties);
   const defenceValues = parseDefenceValues(properties);
   return {
@@ -318,6 +327,7 @@ function parseItem(item: Element, slot: string): PobBuildItem | undefined {
     ...(hasBaseLine && !SPEC_LINE.test(next) ? { baseType: clip(next) } : {}),
     ...parseMods(lines),
     ...(maxLinks !== undefined ? { maxLinks } : {}),
+    ...(sockets ? { sockets } : {}),
     ...(baseDefences ? { baseDefences } : {}),
     ...(defenceValues ? { defenceValues } : {}),
   };

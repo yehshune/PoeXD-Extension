@@ -58,7 +58,6 @@ const fake = {
       ? 'https://www.pathofexile.com/trade/search/Covens?q=test'
       : undefined,
   ),
-  trackPendingSearch: vi.fn(),
   setStatEnabled: vi.fn(),
   setStatBound: vi.fn(),
   setCountMin: vi.fn(),
@@ -115,6 +114,8 @@ const sampleBuild = (): BuildView => ({
           englishName: 'Leviathan Gauntlets',
           slot: 'Gloves',
           rarity: 'RARE',
+          sockets: 'R-G-B-B',
+          iconSize: { width: 2, height: 2 },
           mods: [
             { text: '+7% to Fire Damage over Time Multiplier', kind: 'implicit', searched: false },
             {
@@ -249,12 +250,19 @@ describe('PobBuildPane', () => {
     PobBuildPane = (await import('@/components/sidebar/pob-build/PobBuildPane.vue')).default;
   }, 60_000);
 
-  const mount = async () => {
+  /** 預設是裝備欄檢視；大部分測試檢查清單列，掛載後切到清單 */
+  const mount = async ({ view = 'list' }: { view?: 'list' | 'gear' } = {}) => {
     app = createApp(PobBuildPane);
     app.mount(container);
     await nextTick();
     await nextTick();
     await nextTick();
+    if (view === 'list') {
+      container
+        .querySelectorAll<HTMLElement>('[data-pob-build-view-option="list"]')
+        .forEach((option) => option.click());
+      await nextTick();
+    }
   };
   const query = <T extends Element = HTMLElement>(selector: string) =>
     container.querySelector<T>(selector);
@@ -541,7 +549,7 @@ describe('PobBuildPane', () => {
     expect(queryBody('[data-pob-build-input]')).toBeNull();
   });
 
-  it('項目顯示中文部位、寶石等級品質、擷取到的圖片與已完成狀態', async () => {
+  it('項目顯示中文部位、寶石等級品質、物品圖片（沒有時為問號空圖）與已完成狀態', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
 
@@ -550,6 +558,8 @@ describe('PobBuildPane', () => {
     expect(row(0).querySelector<HTMLImageElement>('[data-pob-build-icon]')?.src).toBe(ICON);
     expect(row(1).textContent).toContain('手套');
     expect(row(1).querySelector('[data-pob-build-icon]')).toBeNull();
+    expect(row(1).querySelector('[data-pob-build-icon-placeholder]')?.textContent).toBe('?');
+    expect(row(0).querySelector('[data-pob-build-icon-placeholder]')).toBeNull();
     expect(row(3).textContent).toContain('Lv.20 / 20%');
   });
 
@@ -978,6 +988,10 @@ describe('PobBuildPane', () => {
         await flushAsync(40);
       };
 
+      shadow
+        .querySelectorAll<HTMLElement>('[data-pob-build-view-option="list"]')
+        .forEach((option) => option.click());
+      await flushAsync();
       const rows = Array.from(shadow.querySelectorAll<HTMLElement>('[data-pob-build-row]'));
       rows[1].querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
       await flushAsync(40);
@@ -1194,13 +1208,8 @@ describe('PobBuildPane', () => {
       'https://www.pathofexile.com/trade/search/Covens?q=test',
     );
 
-    // 中鍵點擊：有 href 時由瀏覽器原生開分頁並透過 trackPendingSearch 記住待擷取圖片，不重複呼叫 openSearch
+    // 中鍵點擊：有 href 時由瀏覽器原生開分頁，不重複呼叫 openSearch
     rareLink.dispatchEvent(new MouseEvent('auxclick', { button: 1, bubbles: true }));
-    expect(fake.trackPendingSearch).toHaveBeenCalledWith(
-      'b1',
-      expect.objectContaining({ key: 'k-rare' }),
-      'new-tab',
-    );
     expect(fake.openSearch).not.toHaveBeenCalled();
 
     // Ctrl+左鍵開新分頁
@@ -1309,16 +1318,12 @@ describe('PobBuildPane', () => {
     expect(row(0).textContent).toContain('Punishment');
   });
 
-  it('可切換成裝備欄檢視：裝備依部位放進格子，寶石仍是清單，點格子開啟預覽', async () => {
+  it('預設為裝備欄檢視：裝備依部位放進格子，寶石仍是清單，點格子開啟預覽；可切回清單', async () => {
     buildsRef.value = [sampleBuild()];
-    await mount();
+    await mount({ view: 'gear' });
     const option = (value: string) =>
       query<HTMLElement>(`[data-pob-build-view-option="${value}"]`)!;
-    expect(option('list').getAttribute('data-state')).toBe('on');
-    expect(query('[data-pob-build-gear]')).toBeNull();
-
-    option('gear').click();
-    await nextTick();
+    expect(option('gear').getAttribute('data-state')).toBe('on');
     expect(query('[data-pob-build-gear]')).not.toBeNull();
     expect(query('[data-pob-build-category-filter]')).toBeNull();
     const tiles = queryAll('[data-pob-build-gear-tile]').map((el) =>
@@ -1341,6 +1346,13 @@ describe('PobBuildPane', () => {
     query<HTMLElement>('[data-pob-build-gear-tile="gloves"] [data-pob-build-gear-done]')!.click();
     expect(fake.toggleDone).toHaveBeenCalledWith('b1', 'k-rare');
 
+    // 有插槽的裝備畫出插槽（滑過時顯示）
+    expect(
+      query('[data-pob-build-gear-tile="gloves"] [data-pob-build-sockets]')?.getAttribute(
+        'data-socket-count',
+      ),
+    ).toBe('4');
+
     // 沒有詞綴可看的項目直接搜尋
     query<HTMLButtonElement>('[data-pob-build-gear-tile="weapon2"]')!.click();
     expect(fake.openSearch).toHaveBeenCalledWith(
@@ -1348,6 +1360,46 @@ describe('PobBuildPane', () => {
       expect.objectContaining({ key: 'k-unique' }),
       'current',
     );
+    // 切回清單後裝備以列顯示
+    option('list').click();
+    await nextTick();
+    expect(query('[data-pob-build-gear]')).toBeNull();
+    expect(queryAll('[data-pob-build-row]').length).toBeGreaterThan(1);
+  });
+
+  it('藥劑、寶石的三格 sprite 疊成一張圖', async () => {
+    const base = sampleBuild();
+    buildsRef.value = [
+      {
+        ...base,
+        groups: [
+          {
+            ...base.groups[0],
+            rows: [
+              {
+                ...base.groups[0].rows[1],
+                key: 'k-flask',
+                slot: 'Flask 1',
+                icon: 'https://web.poecdn.com/image/Art/2DItems/Flasks/sprint.png',
+                iconSize: { width: 1, height: 2 },
+                iconLayers: [1, 2, 0],
+              },
+            ],
+          },
+          base.groups[1],
+        ],
+      },
+    ];
+    await mount({ view: 'gear' });
+    const sprite = query('[data-pob-build-gear-tile="flask"] [data-pob-item-sprite]')!;
+    expect(
+      Array.from(sprite.querySelectorAll('[data-sprite-frame]')).map((el) =>
+        el.getAttribute('data-sprite-frame'),
+      ),
+    ).toEqual(['1', '2', '0']);
+    expect(
+      (sprite.querySelector('[data-sprite-frame="2"]') as HTMLElement).style.backgroundPosition,
+    ).toBe('100% 0px');
   });
 
   it('已完成項目沉底時於第一筆已完成列加上分隔線標記', async () => {

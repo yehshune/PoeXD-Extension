@@ -3,7 +3,7 @@
  * 搜尋結果擷取的圖片。代碼與進度都存在本機。
  */
 import { computed, shallowRef, ref, type ComputedRef, type Ref } from 'vue';
-import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
+import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { enqueueLiveSearchConnections, extensionMessaging } from '@/utils/extension-protocol';
 import type {
   LiveSearchEnqueueRequest,
@@ -11,7 +11,6 @@ import type {
 } from '@/utils/live-search-contract';
 import { getActiveDisplayLocale, t, type I18nKey } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
-import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import { parsePobBuildXml, PobBuildError, type PobBuild } from '@/utils/pob-build';
 import { decodePobBuildCode, PobBuildCodeError } from '@/utils/pob-build-code';
 import type { PobShareFetchError, PobShareFetchOutcome } from '@/utils/pob-share-fetch';
@@ -26,11 +25,7 @@ import {
   type StoredPobBuild,
   type StoredPobBuildPatch,
 } from '@/utils/pob-build-store';
-import {
-  createPendingIconStore,
-  type PendingIconStore,
-  type PobSearchOpenMode,
-} from '@/utils/pob-icon-pending';
+import { itemArtFor, loadItemArt, type ItemArtData } from '@/utils/pob-item-art';
 import {
   applyEntrySelection,
   buildShoppingList,
@@ -69,9 +64,13 @@ import { decodePobBuildCached, loadPobReferenceData } from './pob-prewarm';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
 import { initialPageLoadSignal } from '@/utils/initial-page-load-signal';
 
+/** 開啟搜尋的方式：目前分頁或新分頁 */
+export type PobSearchOpenMode = 'current' | 'new-tab';
+
 export interface UsePobBuildDeps {
   store: PobBuildStore;
-  pendingIcon: PendingIconStore;
+  /** 物品圖片對照；載不到時清單顯示空圖 */
+  loadItemArt: (version: PoeVersion) => Promise<ItemArtData | undefined>;
   loadCatalog: (version: PoeVersion, locale: string) => Promise<TradeNameCatalog>;
   loadMatcher: (version: PoeVersion) => Promise<StatMatcher>;
   /** 合成臟器拆部位用的臟器詞綴索引；沒有時臟器維持一列 */
@@ -89,8 +88,6 @@ export interface UsePobBuildDeps {
   navigate: (url: string) => void;
   /** 在新分頁開啟 */
   openUrl: (url: string) => void;
-  /** 訂閱目前頁面搜尋結果的圖片；回傳取消訂閱 */
-  onResultImages: (listener: (images: string[]) => void) => () => void;
   /** 顯示短暫提示 */
   showToast: (message: string, tone?: 'default' | 'error') => void;
   /** 目前頁面的網址（存回搜尋時讀取） */
@@ -111,7 +108,12 @@ export interface UsePobBuildDeps {
 
 export interface ShoppingRow extends ShoppingEntry {
   done: boolean;
+  /** 物品圖片（官方 CDN）；對照表沒有時省略 */
   icon?: string;
+  /** 圖片的背包格數（畫孔洞用） */
+  iconSize?: { width: number; height: number };
+  /** 圖片是三格 sprite（藥劑、寶石）時由下往上疊的格子 */
+  iconLayers?: readonly number[];
   /** 可以勾選的搜尋條件（同一個代碼的多行已合併），已套用使用者的調整 */
   filters: ShoppingStatFilter[];
   /** 「至少符合 N 項」；未設定時為全部符合 */
@@ -221,8 +223,6 @@ export interface UsePobBuild {
   openSearch(buildId: string, entry: ShoppingEntry, mode: PobSearchOpenMode): boolean;
   /** 取得該項目對應的市集搜尋網址（供 `<a href>` 右鍵／中鍵原生開啟分頁）；無法搜尋或無聯盟時回傳 undefined */
   resolveSearchUrl(buildId: string, entry: ShoppingEntry): string | undefined;
-  /** 記錄中鍵從 `<a href>` 原生開啟分頁時的待擷取結果圖片，不重複開分頁 */
-  trackPendingSearch(buildId: string, entry: ShoppingEntry, mode: PobSearchOpenMode): void;
   /** 在新分頁以線上搜尋開啟 */
   openLiveSearch(buildId: string, entry: ShoppingEntry): Promise<boolean>;
   /** 送進線上搜尋主控台，結果以提示訊息告知 */
@@ -247,7 +247,6 @@ interface Session {
   skillSetId: string;
   done: ReadonlySet<string>;
   removed: ReadonlySet<string>;
-  icons: Readonly<Record<string, string>>;
   searchSelections: Readonly<Record<string, EntrySearchSelection>>;
   searchDefaults: BuildSearchDefaults;
   searchOverrides: Readonly<Record<string, string>>;
@@ -275,7 +274,7 @@ class TooManyBuildsError extends Error {}
 function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
   return {
     store: createPobBuildStore(version),
-    pendingIcon: createPendingIconStore(version),
+    loadItemArt: (artVersion) => loadItemArt(loadExtensionJson, artVersion),
     loadCatalog: (catalogVersion, locale) =>
       loadTradeNameCatalog(loadExtensionJson, { version: catalogVersion, locale }),
     loadMatcher: (matcherVersion) => loadStatMatcher(loadExtensionJson, matcherVersion),
@@ -291,13 +290,6 @@ function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
     },
     openUrl: (url) => {
       window.open(url, '_blank', 'noopener,noreferrer');
-    },
-    onResultImages: (listener) => {
-      const stop = listenPoeEvent('poexd-result-images', (detail) =>
-        listener(Array.isArray(detail.images) ? detail.images : []),
-      );
-      dispatchPoeEvent('poexd-request-result-images');
-      return stop;
     },
     showToast: (message, tone = 'default') => {
       dispatchPoeEvent('poexd-toast', { message, tone, durationMs: 4000 });
@@ -339,14 +331,6 @@ const defaultName = (build: PobBuild): string =>
 const pickKeys = <T>(source: Readonly<Record<string, T>>, keep: ReadonlySet<string>) =>
   Object.fromEntries(Object.entries(source).filter(([key]) => keep.has(key)));
 
-/** 舊版存下的寶石 key 換成新格式；icons 這類以 key 為鍵的物件一併換 */
-const migrateKeyedRecord = <T>(build: PobBuild, source: Readonly<Record<string, T>>) =>
-  Object.fromEntries(
-    Object.entries(source).flatMap(([key, value]) =>
-      migrateLegacyGemKeys(build, [key]).map((next) => [next, value] as const),
-    ),
-  );
-
 const sameList = (left: readonly string[], right: readonly string[]) =>
   left.length === right.length && left.every((value, index) => value === right[index]);
 
@@ -365,7 +349,7 @@ const withoutKey = <T>(source: Readonly<Record<string, T>>, key: string): Record
 const sameSet = (left: ReadonlySet<string>, right: ReadonlySet<string>) =>
   left.size === right.size && [...left].every((value) => right.has(value));
 
-/** 本機存的 JSON 欄位（icons、搜尋調整）以序列化結果比較 */
+/** 本機存的 JSON 欄位（搜尋調整）以序列化結果比較 */
 const sameJson = (left: unknown, right: unknown) =>
   left === right || JSON.stringify(left) === JSON.stringify(right);
 
@@ -380,7 +364,6 @@ const isSameSession = (left: Session, right: Session): boolean =>
   left.skillSetId === right.skillSetId &&
   sameSet(left.done, right.done) &&
   sameSet(left.removed, right.removed) &&
-  sameJson(left.icons, right.icons) &&
   sameJson(left.searchSelections, right.searchSelections) &&
   sameJson(left.searchDefaults, right.searchDefaults) &&
   sameJson(left.searchOverrides, right.searchOverrides);
@@ -400,7 +383,7 @@ export function usePobBuild(
   const displayNames = shallowRef<TradeNameCatalog | undefined>(undefined);
   const errorKey = ref<I18nKey | null>(null);
   const isBusy = ref(false);
-  let stopWaitingForIcon: (() => void) | undefined;
+  const itemArt = shallowRef<ItemArtData | undefined>(undefined);
   /** 這個分頁送出、尚未寫完的變更數；有未完成的寫入時，先不拿本機資料覆蓋畫面 */
   let pendingWrites = 0;
   let resyncRequested = false;
@@ -419,6 +402,13 @@ export function usePobBuild(
    */
   const ensureData = async (): Promise<void> => {
     if (catalog.value) return;
+    // 圖片對照與名稱資料無關，背景載入；載完後清單重新計算即帶上圖片
+    void deps
+      .loadItemArt(version)
+      .then((art) => {
+        itemArt.value = art;
+      })
+      .catch(() => undefined);
     if (!hasLoaderOverrides) {
       const loaded = await loadPobReferenceData(version, deps);
       displayNames.value = loaded.displayNames;
@@ -485,6 +475,24 @@ export function usePobBuild(
     return translated ? { ...mod, text: translated } : mod;
   };
 
+  /** 圖片網址與背包尺寸（臟器組合沒有單一物品，不給圖片） */
+  const artOf = (entry: ShoppingEntry): Pick<ShoppingRow, 'icon' | 'iconSize' | 'iconLayers'> => {
+    if (!itemArt.value || entry.visceraBundle || entry.visceraPart) return {};
+    const image = itemArtFor(itemArt.value, entry);
+    if (!image) return {};
+    return {
+      icon: image.url,
+      iconSize: { width: image.width, height: image.height },
+      ...(image.layers ? { iconLayers: image.layers } : {}),
+    };
+  };
+
+  /** 書籤與主控台的封面只能是一張完整的圖，三格 sprite 不當封面 */
+  const coverOf = (entry: ShoppingEntry): string | undefined => {
+    const art = artOf(entry);
+    return art.iconLayers ? undefined : art.icon;
+  };
+
   const toRow = (session: Session, entry: ShoppingEntry): ShoppingRow => {
     const selection = session.searchSelections[entry.key];
     const defaults = session.searchDefaults;
@@ -499,7 +507,7 @@ export function usePobBuild(
           : (displayNames.value?.toTradeName(entry.englishName) ?? entry.label),
       ...(applied.mods ? { mods: applied.mods.map(localizeMod) } : {}),
       done: session.done.has(entry.key),
-      ...(session.icons[entry.key] ? { icon: session.icons[entry.key] } : {}),
+      ...artOf(entry),
       filters: entryStatFilters(entry, selection, defaults),
       ...(countMin !== undefined ? { countMin } : {}),
       pseudo: effectivePseudo(entry, selection, defaults),
@@ -627,22 +635,16 @@ export function usePobBuild(
   const migrateStored = (stored: StoredPobBuild, build: PobBuild): StoredPobBuild => {
     const done = migrateLegacyGemKeys(build, stored.done);
     const removed = migrateLegacyGemKeys(build, stored.removed);
-    const icons = migrateKeyedRecord(build, stored.icons);
-    if (
-      sameList(done, stored.done) &&
-      sameList(removed, stored.removed) &&
-      sameList(Object.keys(icons), Object.keys(stored.icons))
-    ) {
+    if (sameList(done, stored.done) && sameList(removed, stored.removed)) {
       return stored;
     }
     persist(() =>
       deps.store.mutate(stored.id, (current) => ({
         done: migrateLegacyGemKeys(build, current.done),
         removed: migrateLegacyGemKeys(build, current.removed),
-        icons: migrateKeyedRecord(build, current.icons),
       })),
     );
-    return { ...stored, done, removed, icons };
+    return { ...stored, done, removed };
   };
 
   const toSession = async (source: StoredPobBuild): Promise<Session> => {
@@ -667,7 +669,6 @@ export function usePobBuild(
       skillSetId: pick(build.skillSets, stored.skillSetId, build.activeSkillSetId),
       done: new Set(stored.done),
       removed: new Set(stored.removed),
-      icons: stored.icons,
       searchSelections: stored.searchSelections,
       searchDefaults: stored.searchDefaults,
       searchOverrides: stored.searchOverrides,
@@ -748,8 +749,6 @@ export function usePobBuild(
       : buildTradeSearchUrl({ origin, version, league, query: entry.query! });
   };
 
-  const iconOf = (buildId: string, key: string): string | undefined => find(buildId)?.icons[key];
-
   const updateOverrides = (
     buildId: string,
     change: (current: Record<string, string>) => Record<string, string>,
@@ -759,25 +758,6 @@ export function usePobBuild(
     update(buildId, { searchOverrides: change({ ...session.searchOverrides }) }, (current) => ({
       searchOverrides: change({ ...current.searchOverrides }),
     }));
-  };
-
-  /** 這個頁面是從某個項目開啟的搜尋：第一批結果圖片就是那個項目的圖片 */
-  const captureIconFromResults = async (): Promise<void> => {
-    const pending = await deps.pendingIcon.take();
-    if (!pending || !find(pending.buildId)) return;
-    stopWaitingForIcon?.();
-    stopWaitingForIcon = deps.onResultImages((images) => {
-      const icon = images.find((image) => isValidPoeCdnImageUrl(image));
-      const session = find(pending.buildId);
-      if (!icon || !session) return;
-      stopWaitingForIcon?.();
-      stopWaitingForIcon = undefined;
-      update(
-        pending.buildId,
-        { icons: { ...session.icons, [pending.entryKey]: icon } },
-        (current) => ({ icons: { ...current.icons, [pending.entryKey]: icon } }),
-      );
-    });
   };
 
   /**
@@ -879,7 +859,6 @@ export function usePobBuild(
         ),
       );
       sessions.value = restored.filter((session): session is Session => session !== undefined);
-      await captureIconFromResults();
     },
     async importCode(code) {
       isBusy.value = true;
@@ -915,13 +894,11 @@ export function usePobBuild(
         const prune = (source: {
           done: Iterable<string>;
           removed: Iterable<string>;
-          icons: Readonly<Record<string, string>>;
           searchSelections: Readonly<Record<string, EntrySearchSelection>>;
           searchOverrides: Readonly<Record<string, string>>;
         }) => ({
           done: [...source.done].filter((key) => keep.has(key)),
           removed: [...source.removed].filter((key) => keep.has(key)),
-          icons: pickKeys(source.icons, keep),
           searchSelections: pickKeys(source.searchSelections, keep),
           searchOverrides: pickKeys(source.searchOverrides, keep),
         });
@@ -1070,17 +1047,12 @@ export function usePobBuild(
     openSearch(buildId, entry, mode) {
       const url = buildEntryUrl(buildId, entry, { reportNoLeague: true });
       if (!url) return false;
-      deps.pendingIcon.save({ buildId, entryKey: entry.key }, mode, url);
       if (mode === 'current') deps.navigate(url);
       else deps.openUrl(url);
       return true;
     },
     resolveSearchUrl(buildId, entry) {
       return buildEntryUrl(buildId, entry);
-    },
-    trackPendingSearch(buildId, entry, mode) {
-      const url = buildEntryUrl(buildId, entry);
-      if (url) deps.pendingIcon.save({ buildId, entryKey: entry.key }, mode, url);
     },
     async openLiveSearch(buildId, entry) {
       const url = await resolveCodeUrl(buildId, entry);
@@ -1093,7 +1065,7 @@ export function usePobBuild(
       const session = find(buildId);
       if (!url || !session) return false;
       const name = `${session.name} · ${entry.label}`;
-      const icon = iconOf(buildId, entry.key);
+      const icon = coverOf(entry);
       try {
         const response = await deps.enqueueLiveSearch({
           gameVersion: version,
@@ -1130,7 +1102,7 @@ export function usePobBuild(
     async addToBookmarks(buildId, entry, groupId) {
       const url = await resolveCodeUrl(buildId, entry);
       if (!url) return false;
-      const icon = iconOf(buildId, entry.key);
+      const icon = coverOf(entry);
       const result = await deps.bookmarks
         .add({ groupId, name: entry.label, url, ...(icon ? { coverImageUrl: icon } : {}) })
         .catch(() => ({ ok: false as const }));
@@ -1144,8 +1116,6 @@ export function usePobBuild(
     },
     dispose() {
       unsubscribeStore();
-      stopWaitingForIcon?.();
-      stopWaitingForIcon = undefined;
       deps.bookmarks.dispose();
     },
   };

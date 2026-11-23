@@ -479,20 +479,28 @@
                       @update:model-value="toggleDone(build.id, row.key)"
                     />
 
-                    <img
-                      v-if="row.icon"
-                      :src="row.icon"
-                      alt=""
-                      loading="lazy"
-                      data-pob-build-icon
-                      class="size-[var(--control-height-sm)] shrink-0 object-contain"
-                      :class="{ 'opacity-50': row.done }"
-                    />
                     <span
-                      v-else-if="groupHasIcons(group)"
+                      v-if="row.icon"
+                      class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center"
+                      :class="{ 'opacity-50': row.done }"
+                    >
+                      <PobItemImage
+                        data-pob-build-icon
+                        class="max-h-full max-w-full object-contain"
+                        :src="row.icon"
+                        :layers="row.iconLayers"
+                        :width="row.iconSize?.width"
+                        :height="row.iconSize?.height"
+                      />
+                    </span>
+                    <span
+                      v-else
                       aria-hidden="true"
-                      class="size-[var(--control-height-sm)] shrink-0"
-                    />
+                      data-pob-build-icon-placeholder
+                      class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[length:var(--pxd-font-micro)] font-bold text-muted-foreground"
+                      :class="{ 'opacity-50': row.done }"
+                      >?</span
+                    >
 
                     <component
                       :is="canSearch(row) ? 'a' : 'button'"
@@ -825,6 +833,7 @@ import PobBuildImportDialog from './PobBuildImportDialog.vue';
 import PobBuildSearchSettings from './PobBuildSearchSettings.vue';
 import PobEntryPreviewPopover from './PobEntryPreviewPopover.vue';
 import PobGearView from './PobGearView.vue';
+import PobItemImage from './PobItemImage.vue';
 import type { PobBookmarkFolder } from './pob-bookmark-bridge';
 import { formatPobSlot } from './pob-slot-label';
 import {
@@ -883,6 +892,7 @@ export default defineComponent({
     PobBuildSearchSettings,
     PobEntryPreviewPopover,
     PobGearView,
+    PobItemImage,
     ToggleGroup,
     ToggleGroupItem,
     Radio,
@@ -1043,7 +1053,7 @@ export default defineComponent({
         .filter((group) => group.rows.length > 0);
     };
 
-    /** 清單或裝備欄檢視（每個 build 各自記住，只在本次開啟期間） */
+    /** 清單或裝備欄檢視（預設裝備欄；每個 build 各自記住，只在本次開啟期間） */
     const viewModeByBuild = ref<Record<string, ViewMode>>({});
 
     const equipmentRows = (build: BuildView): ShoppingRow[] =>
@@ -1052,7 +1062,7 @@ export default defineComponent({
     const hasEquipment = (build: BuildView) => equipmentRows(build).length > 0;
 
     const viewMode = (build: BuildView): ViewMode =>
-      hasEquipment(build) ? (viewModeByBuild.value[build.id] ?? 'list') : 'list';
+      hasEquipment(build) ? (viewModeByBuild.value[build.id] ?? 'gear') : 'list';
 
     /** 搜尋時一律用清單，才看得到符合的寶石與裝備 */
     const isGearView = (build: BuildView) => !isFiltering.value && viewMode(build) === 'gear';
@@ -1093,9 +1103,6 @@ export default defineComponent({
 
     const isGroupAllDone = (group: ShoppingGroup): boolean =>
       group.rows.length > 0 && groupDoneCount(group) === group.rows.length;
-
-    const groupHasIcons = (group: ShoppingGroup): boolean =>
-      group.rows.some((row) => Boolean(row.icon));
 
     const isFirstDoneRow = (rows: readonly ShoppingRow[], index: number): boolean =>
       Boolean(rows[index]?.done && index > 0 && !rows[index - 1]?.done);
@@ -1226,13 +1233,10 @@ export default defineComponent({
       pob.openSearch(buildId, row, 'current');
     };
 
-    /** 中鍵點擊 `<a href>`：有有效網址時由瀏覽器原生開新分頁並補記圖片擷取；無聯盟時改走 openSearch 提示錯誤 */
+    /** 中鍵點擊 `<a href>`：有有效網址時由瀏覽器原生開新分頁；無聯盟時改走 openSearch 提示錯誤 */
     const handleEntryAuxClick = (buildId: string, row: ShoppingRow, event: MouseEvent) => {
       if (event.button !== 1 || !canSearch(row)) return;
-      if (pob.resolveSearchUrl(buildId, row)) {
-        pob.trackPendingSearch(buildId, row, 'new-tab');
-        return;
-      }
+      if (pob.resolveSearchUrl(buildId, row)) return;
       pob.openSearch(buildId, row, 'new-tab');
     };
 
@@ -1385,7 +1389,6 @@ export default defineComponent({
       toggleGroupCollapsed,
       groupCountLabel,
       isGroupAllDone,
-      groupHasIcons,
       isFirstDoneRow,
       groupTitle,
       rowDetail,

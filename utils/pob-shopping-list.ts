@@ -126,6 +126,10 @@ export interface ShoppingEntry {
   visceraBundle?: true;
   /** 從合成臟器拆出、只含單一部位詞綴的項目：以市集的部位分類搜尋，詞綴全部符合 */
   visceraPart?: VisceraPart;
+  /** PoB 的插槽文字（`R-R-G B`），裝備欄畫孔洞用 */
+  sockets?: string;
+  /** 傳奇的英文底材名稱，查圖片尺寸用 */
+  artBase?: string;
   /** PoB 裝備的連結數；五連以上才有（實際是否帶入搜尋由 `effectiveLinks` 決定） */
   links?: number;
   /** 非傳奇裝備依部位推得的市集類別；有才能改用「類別＋防禦類型」搜尋 */
@@ -1039,8 +1043,11 @@ export function isSelectionDraftModified(
 }
 
 /** 五連以上才記下連結數（四連以下很容易自己做） */
-function linksOf(item: PobBuildItem): { links?: number } {
-  return item.maxLinks && item.maxLinks >= MIN_SEARCHED_LINKS ? { links: item.maxLinks } : {};
+function linksOf(item: PobBuildItem): { links?: number; sockets?: string } {
+  return {
+    ...(item.maxLinks && item.maxLinks >= MIN_SEARCHED_LINKS ? { links: item.maxLinks } : {}),
+    ...(item.sockets ? { sockets: item.sockets } : {}),
+  };
 }
 
 /** 對不到市集名稱時，去掉種類說明再試一次（`Two-Stone Ring (Cold/Lightning)`） */
@@ -1142,6 +1149,7 @@ function itemEntry(
     ...(seed !== undefined ? { suffix: String(seed) } : {}),
     slot: item.slot,
     rarity: item.rarity,
+    ...(base.english ? { artBase: base.english } : {}),
     searchBase: tradeName
       ? {
           status: INSTANT_BUYOUT_STATUS,
