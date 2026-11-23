@@ -120,10 +120,7 @@ function matchesToken(lines: readonly string[], token: string, fuzzy: boolean): 
   return false;
 }
 
-function entrySearchLines(
-  entry: BoardEntry,
-  extraLines?: readonly string[],
-): readonly string[] {
+function entrySearchLines(entry: BoardEntry, extraLines?: readonly string[]): readonly string[] {
   const lines: string[] = [];
   const push = (value: string | undefined) => {
     const normalized = value?.trim().toLowerCase();
