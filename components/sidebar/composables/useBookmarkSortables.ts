@@ -1,4 +1,4 @@
-import { nextTick, ref, watch, type Ref } from 'vue';
+import { nextTick, ref, toRaw, watch, type Ref } from 'vue';
 import Sortable from 'sortablejs';
 import type { Bookmark, BookmarkGroup } from '../bookmark-types';
 import type { BookmarkMutationIntent } from '../bookmark-model';
@@ -16,6 +16,7 @@ import {
   getVisibleFlattenedFolders,
   getFolderDepth,
   type TreeProjectionResult,
+  type VisibleFolderItem,
 } from './bookmark-tree-projection';
 import { t } from '@/utils/i18n';
 
@@ -193,6 +194,8 @@ export function resolveFolderDropSlotTarget(params: {
   draggedFolderId: string;
   projection: TreeProjectionResult;
   indentStep: number;
+  /** 拖曳期間的快取：已排除 dragged subtree 的 visible flattened folders */
+  visibleFolders?: readonly VisibleFolderItem[];
 }): FolderDropSlotTarget {
   const {
     containerEl,
@@ -247,22 +250,18 @@ export function resolveFolderDropSlotTarget(params: {
 
   // projection.position === 'after'
   // 若 targetFolder 有 visible descendants，插入線必須在整個 visible subtree 的最後一個 item 之後
-  const visibleFolders = getVisibleFlattenedFolders(
-    folders,
-    effectiveCollapsedIds,
-    draggedFolderId,
-  );
+  const visibleFolders =
+    params.visibleFolders ??
+    getVisibleFlattenedFolders(folders, effectiveCollapsedIds, draggedFolderId);
   const targetIdx = visibleFolders.findIndex((f) => f.id === projection.dropIntent.targetFolderId);
   let lastVisibleItem = targetIdx !== -1 ? visibleFolders[targetIdx] : undefined;
   if (lastVisibleItem) {
-    const subtreeIds = getFolderSubtreeIds(folders, projection.dropIntent.targetFolderId);
+    // flattened 是先序走訪：緊接在 target 之後、depth 比它深的連續項目就是它的 visible descendants
+    const targetDepth = lastVisibleItem.depth;
     for (let i = targetIdx + 1; i < visibleFolders.length; i++) {
       const item = visibleFolders[i];
-      if (subtreeIds.has(item.id)) {
-        lastVisibleItem = item;
-      } else {
-        break;
-      }
+      if (item.depth <= targetDepth) break;
+      lastVisibleItem = item;
     }
   }
 
@@ -331,6 +330,19 @@ export function resolveHitTestElement(
   return null;
 }
 
+/**
+ * 原生 HTML5 拖曳被取消（Esc，或在不接受 drop 的位置放開）時瀏覽器只觸發 dragend、不會有 drop；
+ * Sortable 兩者都會呼叫 onEnd，因此以 originalEvent.type 判斷這次拖曳是否應套用。
+ * fallback 模式（mouseup / pointerup / touchend）與未帶 originalEvent 的呼叫視為完成。
+ */
+export function isCancelledNativeDrag(event: unknown): boolean {
+  // Sortable 執行期會在 SortableEvent 上帶 originalEvent，但型別定義沒有宣告
+  if (!event || typeof event !== 'object') return false;
+  const originalEvent = (event as { originalEvent?: unknown }).originalEvent;
+  if (!originalEvent || typeof originalEvent !== 'object') return false;
+  return (originalEvent as { type?: unknown }).type === 'dragend';
+}
+
 export interface BookmarkReorderParams {
   bookmarks: readonly Bookmark[];
   groups: readonly BookmarkGroup[];
@@ -396,7 +408,10 @@ export function calculateBookmarkReorderPlacements(
   if (typeof params.newIndex === 'number' && !isNaN(params.newIndex)) {
     insertIndex = Math.max(0, Math.min(params.newIndex, targetList.length));
   }
-  targetList.splice(insertIndex, 0, { ...draggedBookmark, groupId: targetGroupId });
+  targetList.splice(insertIndex, 0, {
+    ...draggedBookmark,
+    groupId: targetGroupId,
+  });
 
   // 4. Generate deterministic placements in group order
   const placements: Array<{ id: string; groupId: string; order: number }> = [];
@@ -445,6 +460,69 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
   let dragStartX: number | null = null;
   let hoverExpandTimer: ReturnType<typeof setTimeout> | null = null;
   let hoverExpandTargetId: string | null = null;
+  let pendingDragOverPoint: {
+    draggedFolderId: string;
+    clientX: number;
+    clientY: number;
+  } | null = null;
+  let dragOverFrameId: number | null = null;
+
+  /**
+   * 單次 folder drag 期間的計算快取。
+   * 拖曳中 groups 不會變動（mutation 都在 drop 後才執行），因此 raw snapshot、dragged subtree、
+   * 縮排寬度與 visible flattened list 只需在拖曳開始或收合狀態改變時計算一次，
+   * 避免每個 dragover 都穿過 Vue reactive proxy 重建整棵樹並重新量測 DOM。
+   */
+  interface FolderDragCache {
+    source: readonly BookmarkGroup[];
+    draggedFolderId: string;
+    folders: readonly BookmarkGroup[];
+    draggedSubtreeIds: ReadonlySet<string>;
+    indentStep: number | null;
+    visibleKey: string | null;
+    visibleFolders: readonly VisibleFolderItem[];
+  }
+  let folderDragCache: FolderDragCache | null = null;
+
+  const getFolderDragCache = (draggedFolderId: string): FolderDragCache => {
+    const source = options.groups.value;
+    if (
+      folderDragCache &&
+      folderDragCache.source === source &&
+      folderDragCache.draggedFolderId === draggedFolderId
+    ) {
+      return folderDragCache;
+    }
+    const folders = toRaw(source).map((group) => toRaw(group));
+    folderDragCache = {
+      source,
+      draggedFolderId,
+      folders,
+      draggedSubtreeIds: draggedFolderId
+        ? getFolderSubtreeIds(folders, draggedFolderId)
+        : new Set<string>(),
+      indentStep: null,
+      visibleKey: null,
+      visibleFolders: [],
+    };
+    return folderDragCache;
+  };
+
+  const getCachedVisibleFolders = (
+    cache: FolderDragCache,
+    effectiveCollapsedIds: ReadonlySet<string>,
+  ): readonly VisibleFolderItem[] => {
+    const key = Array.from(effectiveCollapsedIds).sort().join('\u0000');
+    if (cache.visibleKey !== key) {
+      cache.visibleFolders = getVisibleFlattenedFolders(
+        cache.folders,
+        effectiveCollapsedIds,
+        cache.draggedFolderId,
+      );
+      cache.visibleKey = key;
+    }
+    return cache.visibleFolders;
+  };
 
   const internalTransientExpanded = ref<Set<string>>(new Set());
   const transientIds = options.transientExpandedFolderIds ?? internalTransientExpanded;
@@ -571,9 +649,9 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     }
 
     const targetFolderId = forcedTargetFolderId ?? targetContainer.getAttribute('data-group-id');
-    const subtreeIds = draggedFolderId
-      ? getFolderSubtreeIds(options.groups.value, draggedFolderId)
-      : new Set<string>();
+    const dragCache = getFolderDragCache(draggedFolderId);
+    const folders = dragCache.folders;
+    const subtreeIds = dragCache.draggedSubtreeIds;
 
     // 2. 排除無效 ID、自身與自身子樹後代
     if (!targetFolderId || targetFolderId === draggedFolderId || subtreeIds.has(targetFolderId)) {
@@ -629,7 +707,11 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     const horizontalOffset = clientX - dragStartX;
 
     // 動態解析每層縮排寬度 (支援 UI Scale / Density 變化)
-    const indentStep = options.indentationWidth ?? resolveTreeIndentationWidth(containerEl);
+    // 每次 drag 只量測一次，避免每個 dragover 都掃描全部資料夾 DOM
+    if (dragCache.indentStep === null) {
+      dragCache.indentStep = options.indentationWidth ?? resolveTreeIndentationWidth(containerEl);
+    }
+    const indentStep = dragCache.indentStep;
 
     // 取得當前 effective 收合狀態 (排除拖曳中暫時展開的 transient 集合)
     const collapsedIds = options.collapsedGroupIds?.value ?? new Set<string>();
@@ -640,14 +722,18 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       }
     }
 
+    const visibleFolders = getCachedVisibleFolders(dragCache, effectiveCollapsedIds);
+
     const projection = projectTreeDrop({
-      folders: options.groups.value,
+      folders,
       collapsedFolderIds: effectiveCollapsedIds,
       draggedFolderId,
       targetFolderId,
       dropPosition,
       horizontalOffset,
       indentationWidth: indentStep,
+      draggedSubtreeIds: subtreeIds,
+      visibleFolders,
     });
 
     if (!projection.ok) {
@@ -656,11 +742,7 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       return;
     }
 
-    const validation = resolveFolderDropPlacement(
-      options.groups.value,
-      draggedFolderId,
-      projection.dropIntent,
-    );
+    const validation = resolveFolderDropPlacement(folders, draggedFolderId, projection.dropIntent);
 
     if (!validation.ok) {
       clearFolderDropIndicator();
@@ -691,11 +773,12 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       containerEl,
       hitContainer: targetContainer,
       hitHeader: targetHeader,
-      folders: options.groups.value,
+      folders,
       effectiveCollapsedIds,
       draggedFolderId,
       projection,
       indentStep,
+      visibleFolders,
     });
 
     const currentIndent = activeContainerEl?.style.getPropertyValue('--drop-indicator-indent');
@@ -734,14 +817,53 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     }
   };
 
+  const cancelPendingDragOver = () => {
+    if (dragOverFrameId !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(dragOverFrameId);
+    }
+    dragOverFrameId = null;
+    pendingDragOverPoint = null;
+  };
+
+  /** 立即處理尚未執行的 dragover（drop 時需要以最後一個指標位置決定 intent） */
+  const flushPendingDragOver = () => {
+    const point = pendingDragOverPoint;
+    cancelPendingDragOver();
+    if (point) {
+      updateFolderDropIntentFromPoint(point.draggedFolderId, point.clientX, point.clientY);
+    }
+  };
+
+  /**
+   * 原生 dragover 不像 pointermove 會被瀏覽器合併到每個 frame，高回報率滑鼠下每秒可觸發上千次；
+   * 這裡合併成每個 animation frame 最多計算一次。
+   */
+  const scheduleDragOverUpdate = (draggedFolderId: string, clientX: number, clientY: number) => {
+    pendingDragOverPoint = { draggedFolderId, clientX, clientY };
+    if (dragOverFrameId !== null) return;
+    if (typeof requestAnimationFrame !== 'function') {
+      flushPendingDragOver();
+      return;
+    }
+    dragOverFrameId = requestAnimationFrame(() => {
+      dragOverFrameId = null;
+      flushPendingDragOver();
+    });
+  };
+
   const cleanupDragState = () => {
     cleanupPointerListeners?.();
+    cleanupDropAcceptance?.();
+    cancelPendingDragOver();
     clearHoverExpandTimer();
     transientIds.value.clear();
     dragStartX = null;
+    folderDragCache = null;
     clearFolderDropIndicator();
 
-    const searchRoots: Array<{ querySelectorAll?: typeof document.querySelectorAll }> = [];
+    const searchRoots: Array<{
+      querySelectorAll?: typeof document.querySelectorAll;
+    }> = [];
     if (options.containerRef?.value) searchRoots.push(options.containerRef.value);
     const container = getContainer();
     if (container && !searchRoots.includes(container)) searchRoots.push(container);
@@ -791,10 +913,43 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     });
   }
 
+  let cleanupDropAcceptance: (() => void) | undefined;
+
+  /**
+   * 讓整個 sidebar 清單範圍都接受 drop（Sortable 預設只在 list 元素上 preventDefault），
+   * 這樣在卡片間隙或清單邊緣放開也會產生 drop 事件；只有 Esc 或拖到 sidebar 外放開才會是 dragend 取消。
+   */
+  const installDropAcceptance = () => {
+    cleanupDropAcceptance?.();
+    if (typeof window === 'undefined') return;
+    const handleDragOver = (e: DragEvent) => {
+      const containerEl = options.containerRef?.value;
+      if (containerEl) {
+        const rect = containerEl.getBoundingClientRect();
+        if (
+          e.clientX < rect.left ||
+          e.clientX > rect.right ||
+          e.clientY < rect.top ||
+          e.clientY > rect.bottom
+        ) {
+          return;
+        }
+      }
+      if (e.cancelable) e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    };
+    window.addEventListener('dragover', handleDragOver);
+    cleanupDropAcceptance = () => {
+      window.removeEventListener('dragover', handleDragOver);
+      cleanupDropAcceptance = undefined;
+    };
+  };
+
   const startDrag = () => {
     options.showTrash();
     options.isDragging.value = true;
     options.enableDragScrollBlock();
+    installDropAcceptance();
   };
 
   const runSortableTransaction = async (performIntent?: () => Promise<boolean | void>) => {
@@ -828,6 +983,12 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       options.setDragEntity?.({ kind: 'bookmark', id: bookmarkId });
     },
     onEnd: (event) => {
+      if (isCancelledNativeDrag(event)) {
+        // 取消：不套用任何 mutation，只重繪讓 Sortable 已搬動的 DOM 回到 canonical 狀態
+        cleanupDragState();
+        scheduleAfterSortableDrop(() => runSortableTransaction());
+        return;
+      }
       const droppedOverTrash = options.isOverTrash.value;
       const bookmarkId = event.item.getAttribute('data-id');
       const targetWrapper =
@@ -961,14 +1122,20 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
             );
 
             const handlePointerMove = (e: MouseEvent) => {
+              // pointermove 已由瀏覽器按 frame 合併；同步處理並丟棄較舊的 dragover 座標
+              cancelPendingDragOver();
               updateFolderDropIntentFromPoint(draggedFolderId, e.clientX, e.clientY);
             };
             const handleDragOver = (e: DragEvent) => {
-              updateFolderDropIntentFromPoint(draggedFolderId, e.clientX, e.clientY);
+              scheduleDragOverUpdate(draggedFolderId, e.clientX, e.clientY);
             };
             if (typeof window !== 'undefined') {
-              window.addEventListener('pointermove', handlePointerMove, { passive: true });
-              window.addEventListener('dragover', handleDragOver, { passive: true });
+              window.addEventListener('pointermove', handlePointerMove, {
+                passive: true,
+              });
+              window.addEventListener('dragover', handleDragOver, {
+                passive: true,
+              });
             }
 
             cleanupPointerListeners = () => {
@@ -980,6 +1147,13 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
             };
           },
           onEnd: (event) => {
+            if (isCancelledNativeDrag(event)) {
+              // 取消：即使拖曳中曾有插入線也不移動、不刪除
+              cleanupDragState();
+              scheduleAfterSortableDrop(() => runSortableTransaction());
+              return;
+            }
+            flushPendingDragOver();
             const finalDropIntent = activeDropIntent;
             const droppedOverTrash = options.isOverTrash.value;
             const folderId = event?.item?.getAttribute?.('data-group-id');
@@ -997,7 +1171,10 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
                   );
                   if (isDirectlyDeletableEmptyFolder(impact)) {
                     await runSortableTransaction(() =>
-                      options.execute({ type: 'delete-group', groupId: folderId }),
+                      options.execute({
+                        type: 'delete-group',
+                        groupId: folderId,
+                      }),
                     );
                   } else {
                     const message =
@@ -1017,7 +1194,10 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
                     );
                     if (confirmed) {
                       await runSortableTransaction(() =>
-                        options.execute({ type: 'delete-group', groupId: folderId }),
+                        options.execute({
+                          type: 'delete-group',
+                          groupId: folderId,
+                        }),
                       );
                     } else {
                       await runSortableTransaction();
@@ -1073,5 +1253,10 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     });
   };
 
-  return { init, destroy, isReconciling, transientExpandedFolderIds: transientIds };
+  return {
+    init,
+    destroy,
+    isReconciling,
+    transientExpandedFolderIds: transientIds,
+  };
 }

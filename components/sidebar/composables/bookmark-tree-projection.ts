@@ -38,6 +38,10 @@ export interface TreeDropParams {
   horizontalOffset?: number;
   indentationWidth?: number;
   deadZone?: number;
+  /** 拖曳期間的快取：dragged folder 的 subtree ids（含自身） */
+  draggedSubtreeIds?: ReadonlySet<string>;
+  /** 拖曳期間的快取：已排除 dragged subtree 的 visible flattened folders */
+  visibleFolders?: readonly VisibleFolderItem[];
 }
 
 export interface TreeProjectionResult {
@@ -88,7 +92,8 @@ export function projectTreeDrop(params: TreeDropParams): TreeProjectionResult {
     };
   }
 
-  const draggedSubtreeIds = getFolderSubtreeIds(folders, draggedFolderId);
+  const draggedSubtreeIds =
+    params.draggedSubtreeIds ?? getFolderSubtreeIds(folders, draggedFolderId);
   if (draggedSubtreeIds.has(targetFolderId)) {
     return {
       ok: false,
@@ -102,7 +107,9 @@ export function projectTreeDrop(params: TreeDropParams): TreeProjectionResult {
     };
   }
 
-  const visibleFolders = getVisibleFlattenedFolders(folders, collapsedFolderIds, draggedFolderId);
+  const visibleFolders =
+    params.visibleFolders ??
+    getVisibleFlattenedFolders(folders, collapsedFolderIds, draggedFolderId);
 
   const targetIndex = visibleFolders.findIndex((f) => f.id === targetFolderId);
   if (targetIndex === -1) {
@@ -150,4 +157,3 @@ export function projectTreeDrop(params: TreeDropParams): TreeProjectionResult {
     indentPx: 0,
   };
 }
-

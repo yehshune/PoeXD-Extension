@@ -165,16 +165,28 @@ export function getFolderSubtreeIds<T extends { id: string; parentId?: string }>
   folders: readonly T[],
   rootFolderId: string,
 ): Set<string> {
+  // 先建 parentId → children 索引，讓整體為 O(n)；大量資料夾拖曳時每個 frame 都會呼叫
+  const childrenByParent = new Map<string, string[]>();
+  for (const folder of folders) {
+    if (folder.parentId === undefined) continue;
+    const siblings = childrenByParent.get(folder.parentId);
+    if (siblings) {
+      siblings.push(folder.id);
+    } else {
+      childrenByParent.set(folder.parentId, [folder.id]);
+    }
+  }
+
   const result = new Set<string>();
-  const queue = [rootFolderId];
-  while (queue.length > 0) {
-    const currentId = queue.shift()!;
+  const stack = [rootFolderId];
+  while (stack.length > 0) {
+    const currentId = stack.pop()!;
     if (result.has(currentId)) continue;
     result.add(currentId);
-    for (const folder of folders) {
-      if (folder.parentId === currentId && !result.has(folder.id)) {
-        queue.push(folder.id);
-      }
+    const children = childrenByParent.get(currentId);
+    if (!children) continue;
+    for (const childId of children) {
+      if (!result.has(childId)) stack.push(childId);
     }
   }
   return result;
