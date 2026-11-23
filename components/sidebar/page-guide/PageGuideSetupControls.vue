@@ -221,6 +221,21 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
           @update:scale="bindings.setFontSizeScale"
         />
       </div>
+
+      <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
+        <label
+          for="page-guide-compact-density"
+          :class="[rowLabelClass, 'cursor-pointer select-none']"
+        >
+          {{ t('settings.density.compactLabel') }}
+        </label>
+        <Switch
+          id="page-guide-compact-density"
+          :model-value="Boolean(bindings.compactDensity)"
+          data-setup-action="compact-density"
+          @update:model-value="(value: boolean) => bindings.setCompactDensity?.(value)"
+        />
+      </div>
     </template>
 
     <Button

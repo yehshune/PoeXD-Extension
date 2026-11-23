@@ -415,4 +415,47 @@ describe('PageGuideSetupControls market translation preview', () => {
     await flush();
     expect(preview()).toContain('附加 20 至 31 冰霜伤害');
   });
+
+  it('toggles compact density in the appearance setup step', async () => {
+    const state = ref<PageGuideSetupBindings>({
+      displayLocale: 'zh-TW',
+      marketTranslation: false,
+      marketTranslationBilingual: true,
+      marketTranslationResultBilingual: false,
+      reloadRequired: false,
+      sidebarPosition: 'left',
+      fontSizeScale: 1,
+      compactDensity: false,
+      resultFeatures: Object.fromEntries(
+        RESULT_FEATURE_KEYS.map((k) => [k, true]),
+      ) as ResultFeatureFlags,
+      demoCursor: null,
+      setDisplayLocale: vi.fn(),
+      setMarketTranslation: vi.fn(),
+      setMarketTranslationBilingual: vi.fn(),
+      setMarketTranslationResultBilingual: vi.fn(),
+      setSidebarPosition: vi.fn(),
+      setFontSizeScale: vi.fn(),
+      setCompactDensity: (v) => {
+        state.value = { ...state.value, compactDensity: v };
+      },
+      setResultFeature: vi.fn(),
+      replayCollapseDemo: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    mountComponent(() => h(PageGuideSetupControls, { kind: 'appearance', bindings: state.value }));
+    await flush();
+
+    const compactToggle = container.querySelector<HTMLElement>(
+      '[data-setup-action="compact-density"]',
+    );
+    expect(compactToggle).not.toBeNull();
+    expect(compactToggle?.getAttribute('aria-checked')).toBe('false');
+
+    compactToggle?.click();
+    await flush();
+    expect(state.value.compactDensity).toBe(true);
+    expect(compactToggle?.getAttribute('aria-checked')).toBe('true');
+  });
 });

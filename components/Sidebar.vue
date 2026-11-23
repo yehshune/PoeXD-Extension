@@ -1224,6 +1224,7 @@ export default defineComponent({
       reloadRequired: marketTranslationReloadRequired.value,
       sidebarPosition: sidebarPosition.value,
       fontSizeScale: fontSizeScale.value,
+      compactDensity: densityScale.value === 0.8,
       resultFeatures: resultFeatures.value,
       demoPlaying: demoPlaying.value,
       demoCursor: demoCursor.value,
@@ -1236,6 +1237,8 @@ export default defineComponent({
         void updatePreference({ sidebarPosition: value }, '側邊欄位置'),
       setFontSizeScale: (value) =>
         void updatePreference({ fontSizeScale: clampFontSizeScale(value) }, '字體大小'),
+      setCompactDensity: (value) =>
+        void updatePreference({ densityScale: value ? 0.8 : 1 }, '緊湊介面'),
       setResultFeature: (key, value) => void updatePreference({ [key]: value }, '結果列功能'),
       replayCollapseDemo: () => void playCollapseDemo(),
       replayStepDemo,
