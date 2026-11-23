@@ -191,8 +191,8 @@ export class ResultSortController {
     }
   }
 
-  /** 新一次搜尋（即使與前一次同 searchId）：清空舊一輪的官方順序，避免 default 模式覆寫最新官方 DOM */
-  handleSearchQuery(searchId: string) {
+  /** 真正的新一次 `/api/trade/search` 回應（即使與前一次同 searchId）：清空舊一輪官方順序 */
+  handleNewSearch(searchId: string) {
     if (this.isLiveOrConsole()) return;
     const isNewSearchId = searchId !== this.activeSearchId;
     this.activeSearchId = searchId;

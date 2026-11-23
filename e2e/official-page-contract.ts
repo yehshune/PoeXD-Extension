@@ -79,6 +79,12 @@ export const SEARCH_PAGE_DOM: readonly DomCheck[] = [
     usedBy: 'result-board-runtime',
     offline: true,
   },
+  {
+    id: 'result-load-more',
+    selector: '.results .load-more-btn',
+    usedBy: 'result-board-runtime（批次載入與同步過濾時暫藏底部載入鈕）',
+    offline: false,
+  },
 ];
 
 /**

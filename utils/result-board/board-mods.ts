@@ -82,6 +82,11 @@ export function matchesModConditions(
 
 const MAX_SAMPLE_NAMES = 4;
 
+const compareModOptions = (a: BoardModOption, b: BoardModOption): number =>
+  b.itemCount - a.itemCount ||
+  Number(a.isHybrid) - Number(b.isHybrid) ||
+  a.label.localeCompare(b.label);
+
 /**
  * 從已載入的看板結果彙整獨立詞條選項，並依其餘已選條件計算即時交集件數（faceted counts）。
  * 即使交集為 0，選項仍保留在清單中（件數為 0），方便玩家看清全貌並即時調整條件。
@@ -203,12 +208,7 @@ export function aggregateBoardModOptions(
     });
   }
 
-  return options.sort(
-    (a, b) =>
-      b.itemCount - a.itemCount ||
-      Number(a.isHybrid) - Number(b.isHybrid) ||
-      a.label.localeCompare(b.label),
-  );
+  return options.sort(compareModOptions);
 }
 
 /** 單行子序列模糊比對（例如「物理傷」命中「增加 179% 物理傷害」、「混抗」命中「+35% 混沌抗性」） */
@@ -249,10 +249,6 @@ export function filterModOptions(
     const aNonZero = a.itemCount > 0 ? 0 : 1;
     const bNonZero = b.itemCount > 0 ? 0 : 1;
     if (aNonZero !== bNonZero) return aNonZero - bNonZero;
-    return (
-      b.itemCount - a.itemCount ||
-      Number(a.isHybrid) - Number(b.isHybrid) ||
-      a.label.localeCompare(b.label)
-    );
+    return compareModOptions(a, b);
   });
 }

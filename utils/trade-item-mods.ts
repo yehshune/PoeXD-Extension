@@ -67,6 +67,7 @@ export const TRADE_ITEM_MOD_FIELDS: readonly (readonly [field: string, category:
   ['craftedMods', 'crafted'],
   ['crucibleMods', 'crucible'],
   ['desecratedMods', 'desecrated'],
+  ['mutatedMods', 'mutated'],
   ['utilityMods', 'utility'],
   ['sanctumMods', 'sanctum'],
   ['veiledMods', 'veiled'],
@@ -187,6 +188,29 @@ export function readTradeItemModLines(
   return lines;
 }
 
+const readMetaText = (value: unknown): string =>
+  typeof value === 'string' && value.length <= MAX_MOD_META_LENGTH ? value.trim() : '';
+
+function buildModRoll(
+  category: string,
+  hashSet: ReadonlySet<string>,
+  tier: string | undefined,
+  name: string | undefined,
+): TradeItemModRoll | undefined {
+  if (hashSet.size === 0) return undefined;
+  const hashes = Array.from(hashSet).sort();
+  const parsedTier = parseModTierCode(tier);
+  return {
+    key: `${category}:${hashes.join('+')}`,
+    category,
+    hashes,
+    isHybrid: hashes.length > 1,
+    ...(tier ? { tier } : {}),
+    ...(parsedTier ? parsedTier : {}),
+    ...(name ? { name } : {}),
+  };
+}
+
 function readLegacyExtendedMods(
   extendedMods: Record<string, unknown>,
   tierTokens: Set<string>,
@@ -196,14 +220,8 @@ function readLegacyExtendedMods(
     if (!Array.isArray(list)) continue;
     for (const rawMod of list) {
       if (!isRecord(rawMod)) continue;
-      const tier =
-        typeof rawMod.tier === 'string' && rawMod.tier.length <= MAX_MOD_META_LENGTH
-          ? rawMod.tier.trim()
-          : '';
-      const name =
-        typeof rawMod.name === 'string' && rawMod.name.length <= MAX_MOD_META_LENGTH
-          ? rawMod.name.trim()
-          : '';
+      const tier = readMetaText(rawMod.tier);
+      const name = readMetaText(rawMod.name);
       if (tier) tierTokens.add(tier);
       if (name) tierTokens.add(name);
 
@@ -214,18 +232,8 @@ function readLegacyExtendedMods(
           hashSet.add(normalizeStatHash(mag.hash));
         }
       }
-      if (hashSet.size === 0) continue;
-      const hashes = Array.from(hashSet).sort();
-      const parsedTier = parseModTierCode(tier);
-      rolls.push({
-        key: `${category}:${hashes.join('+')}`,
-        category,
-        hashes,
-        isHybrid: hashes.length > 1,
-        ...(tier ? { tier } : {}),
-        ...(parsedTier ? parsedTier : {}),
-        ...(name ? { name } : {}),
-      });
+      const roll = buildModRoll(category, hashSet, tier, name);
+      if (roll) rolls.push(roll);
     }
   }
 }
@@ -310,14 +318,8 @@ function readStructuredItemMods(
         for (let modPos = 0; modPos < entryMods.length; modPos += 1) {
           const rawMod = entryMods[modPos];
           if (!isRecord(rawMod)) continue;
-          const tier =
-            typeof rawMod.tier === 'string' && rawMod.tier.length <= MAX_MOD_META_LENGTH
-              ? rawMod.tier.trim()
-              : '';
-          const name =
-            typeof rawMod.name === 'string' && rawMod.name.length <= MAX_MOD_META_LENGTH
-              ? rawMod.name.trim()
-              : '';
+          const tier = readMetaText(rawMod.tier);
+          const name = readMetaText(rawMod.name);
           const level =
             typeof rawMod.level === 'number' && Number.isFinite(rawMod.level)
               ? rawMod.level
@@ -343,18 +345,8 @@ function readStructuredItemMods(
   }
 
   for (const group of groups.values()) {
-    if (group.hashes.size === 0) continue;
-    const hashes = Array.from(group.hashes).sort();
-    const parsedTier = parseModTierCode(group.tier);
-    rolls.push({
-      key: `${group.category}:${hashes.join('+')}`,
-      category: group.category,
-      hashes,
-      isHybrid: hashes.length > 1,
-      ...(group.tier ? { tier: group.tier } : {}),
-      ...(parsedTier ? parsedTier : {}),
-      ...(group.name ? { name: group.name } : {}),
-    });
+    const roll = buildModRoll(group.category, group.hashes, group.tier, group.name);
+    if (roll) rolls.push(roll);
   }
 }
 

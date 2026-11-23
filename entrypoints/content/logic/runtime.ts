@@ -24,6 +24,7 @@ import { initHotkeysAndTildeListeners } from './hotkeys';
 import { installSearchEnterCommit } from './search-enter-commit';
 import { connectSearchObservationSession } from './search-observation-session';
 import { mountSidebarLayout, reserveSidebarPageLayout } from './sidebar-layout';
+import { parseSearchResultSummary } from '@/utils/result-board/board-events';
 import { getTradeResultCache } from '@/utils/trade-result-cache';
 import { getResultBoardRuntime } from './result-board-runtime';
 import { isCloudflareChallenge } from '@/utils/trade-interstitial-classifier';
@@ -286,6 +287,10 @@ function registerPageContextEvents(version: PoeVersion, resultPipeline: ResultEn
       } catch (error) {
         console.error('[PoeXD] 解析攔截資料失敗:', error);
       }
+    }),
+    listenPoeEvent('poexd-search-result-summary', (detail) => {
+      const summary = parseSearchResultSummary(detail);
+      if (summary) resultPipeline.handleSearchResultSummary(summary.searchId);
     }),
   );
   // 舊版把 known stats 存在 chrome.storage（數 MB），改存記憶體後清掉

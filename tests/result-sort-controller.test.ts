@@ -371,7 +371,7 @@ describe('ResultSortController', () => {
     const controller = new ResultSortController('poe1', mockPricePresenter as any);
 
     // 第一輪搜尋：a -> b -> c
-    controller.handleSearchQuery('same-search');
+    controller.handleNewSearch('same-search');
     controller.handleFetchResponse(
       JSON.stringify({
         url: '/api/trade/fetch/a,b,c?query=same-search',
@@ -380,7 +380,7 @@ describe('ResultSortController', () => {
     );
 
     // 第二輪同條件重新搜尋（same searchId），官方順序變成 c -> a -> b
-    controller.handleSearchQuery('same-search');
+    controller.handleNewSearch('same-search');
     const rC = addRow('c');
     const rA = addRow('a');
     const rB = addRow('b');

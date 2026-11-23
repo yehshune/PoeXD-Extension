@@ -51,6 +51,7 @@ export interface ResultEnhancementPipelineOptions {
   reorderGuard?: ResultEnhancementReorderGuard;
   onFetchResponse?: (detail: string, league: string | undefined) => Promise<void> | void;
   onSearchQuery?: (searchId: string, criteria: unknown) => void;
+  onSearchResultSummary?: (searchId: string) => void;
 }
 
 /**
@@ -112,6 +113,10 @@ export class ResultEnhancementPipeline {
 
   handleSearchQuery(searchId: string, criteria: unknown) {
     this.options.onSearchQuery?.(searchId, criteria);
+  }
+
+  handleSearchResultSummary(searchId: string) {
+    this.options.onSearchResultSummary?.(searchId);
   }
 
   private stopObserving() {
@@ -338,9 +343,8 @@ export function createDefaultResultEnhancementPipeline(
       resultPin.refresh();
       externalLinks.refresh();
     },
-    onSearchQuery: (searchId, criteria) => {
-      modHighlighter.handleSearchQuery(searchId, criteria as any);
-      sortController.handleSearchQuery(searchId);
-    },
+    onSearchQuery: (searchId, criteria) =>
+      modHighlighter.handleSearchQuery(searchId, criteria as any),
+    onSearchResultSummary: (searchId) => sortController.handleNewSearch(searchId),
   });
 }

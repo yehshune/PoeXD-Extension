@@ -544,7 +544,7 @@ function setMinSellerCount(value: string | number): void {
               <SlidersHorizontal />
               <span
                 v-if="modConditions.length > 0"
-                class="absolute -top-1 -right-1 flex h-[14px] min-w-[14px] items-center justify-center rounded-full border border-background bg-primary px-[3px] text-[9px] font-bold leading-none text-primary-foreground tabular-nums"
+                class="absolute -top-1 -right-1 flex min-w-[1.25em] items-center justify-center rounded-full border border-background bg-primary px-[3px] py-px text-[length:var(--pxd-font-micro)] font-bold leading-none text-primary-foreground tabular-nums"
                 data-board-mod-filter-count
               >
                 {{ modConditions.length }}

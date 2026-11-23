@@ -289,17 +289,23 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     });
   });
 
-  const hasActiveFilters = computed(
-    () =>
+  const hasActiveFilters = computed(() => {
+    const common =
       modConditions.value.length > 0 ||
       debouncedKeyword.value.trim().length > 0 ||
+      state.value.hiddenAccounts.size > 0;
+    if (view.value === 'sellers') {
+      return common || minSellerCount.value > 0;
+    }
+    return (
+      common ||
       (conversionAvailable.value &&
         (parseBound(priceMinText.value) !== undefined ||
           parseBound(priceMaxText.value) !== undefined)) ||
       (hasMixedInstantBuyout.value && instantOnly.value) ||
-      (hasSoldEntries.value && hideSold.value) ||
-      state.value.hiddenAccounts.size > 0,
-  );
+      (hasSoldEntries.value && hideSold.value)
+    );
+  });
 
   function toggleSyncOfficialFilter(): void {
     if (!hasActiveFilters.value && !syncOfficialFilter.value) return;
@@ -309,7 +315,12 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   watch(
     [syncOfficialFilter, hasActiveFilters, view, filteredEntries, sellers, entries],
     () => {
-      if (!syncOfficialFilter.value || !hasActiveFilters.value) {
+      if (!hasActiveFilters.value) {
+        if (syncOfficialFilter.value) syncOfficialFilter.value = false;
+        runtime.syncOfficialFilter(null);
+        return;
+      }
+      if (!syncOfficialFilter.value) {
         runtime.syncOfficialFilter(null);
         return;
       }

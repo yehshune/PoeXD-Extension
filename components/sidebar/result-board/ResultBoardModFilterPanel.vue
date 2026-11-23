@@ -9,6 +9,12 @@ import { nextTick, ref, watch } from 'vue';
 import { ChevronUp, Search, X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  ScrollAreaCorner,
+  ScrollAreaRoot,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@/components/ui/scroll-area';
 import { t, type I18nKey } from '@/utils/i18n';
 import {
   BOARD_MOD_QUICK_FILTERS,
@@ -139,7 +145,7 @@ function cycleConditionTier(cond: BoardModCondition): void {
           {{ optionByKey.get(cond.key)?.label ?? cond.key }}
         </span>
         <button
-          v-if="optionByKey.get(cond.key)?.hasTiers"
+          v-if="optionByKey.get(cond.key) && hasVisibleTiers(optionByKey.get(cond.key)!)"
           type="button"
           class="shrink-0 cursor-pointer rounded-sm border border-primary/30 bg-primary/15 px-[5px] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-primary hover:bg-primary/25"
           data-board-mod-chip-tier
@@ -226,7 +232,7 @@ function cycleConditionTier(cond: BoardModCondition): void {
           v-for="mode in BOARD_MOD_QUICK_FILTERS"
           :key="mode"
           type="button"
-          class="min-h-[22px] cursor-pointer rounded-sm border px-[var(--pxd-space-sm)] py-[2px] text-[length:var(--pxd-font-micro)] font-medium leading-tight transition-colors"
+          class="cursor-pointer rounded-sm border px-[var(--pxd-space-sm)] py-[3px] text-[length:var(--pxd-font-micro)] font-medium leading-tight transition-colors"
           :class="
             quickFilter === mode
               ? 'border-primary bg-primary text-primary-foreground'
@@ -254,100 +260,107 @@ function cycleConditionTier(cond: BoardModCondition): void {
       >
         {{ t('resultBoard.modFilter.noMatch') }}
       </p>
-      <ul
-        v-else
-        class="pxd-scrollbar m-0 flex max-h-[min(240px,36vh)] list-none flex-col gap-[var(--pxd-space-xs)] overflow-y-auto p-0 pr-[2px]"
-        data-board-mod-picker-list
-      >
-        <li
-          v-for="opt in options"
-          :key="opt.key"
-          class="flex flex-col gap-[var(--pxd-space-xs)] rounded-sm border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] transition-colors"
-          :class="[
-            activeTierOf(opt.key).active
-              ? 'border-primary/40 bg-primary/10'
-              : 'border-transparent hover:bg-muted/50',
-            !activeTierOf(opt.key).active && opt.itemCount === 0 ? 'opacity-45' : '',
-          ]"
-          data-board-mod-option
-          :data-mod-key="opt.key"
-        >
-          <button
-            type="button"
-            class="flex w-full cursor-pointer items-start justify-between gap-[var(--pxd-space-sm)] border-0 bg-transparent p-0 text-left"
-            :title="optionTooltip(opt)"
-            data-board-mod-option-toggle
-            @click="emit('toggle', opt.key)"
+      <ScrollAreaRoot v-else class="relative max-h-[min(240px,36vh)] overflow-hidden">
+        <ScrollAreaViewport class="max-h-[min(240px,36vh)] w-full">
+          <ul
+            class="m-0 flex list-none flex-col gap-[var(--pxd-space-xs)] p-0 pr-[var(--pxd-space-sm)]"
+            data-board-mod-picker-list
           >
-            <span
-              class="flex-1 break-words text-[length:var(--pxd-font-caption)] leading-snug text-foreground"
+            <li
+              v-for="opt in options"
+              :key="opt.key"
+              class="flex flex-col gap-[var(--pxd-space-xs)] rounded-sm border px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] transition-colors"
+              :class="[
+                activeTierOf(opt.key).active
+                  ? 'border-primary/40 bg-primary/10'
+                  : 'border-transparent hover:bg-muted/50',
+                !activeTierOf(opt.key).active && opt.itemCount === 0 ? 'opacity-45' : '',
+              ]"
+              data-board-mod-option
+              :data-mod-key="opt.key"
             >
-              {{ opt.label }}
-            </span>
-            <span class="flex shrink-0 items-center gap-[var(--pxd-space-xs)]">
-              <span
-                v-if="categoryLabel(opt.category)"
-                class="rounded-sm border border-border px-[5px] py-px text-[length:var(--pxd-font-micro)] leading-tight text-muted-foreground"
+              <button
+                type="button"
+                class="flex w-full cursor-pointer items-start justify-between gap-[var(--pxd-space-sm)] border-0 bg-transparent p-0 text-left"
+                :title="optionTooltip(opt)"
+                data-board-mod-option-toggle
+                @click="emit('toggle', opt.key)"
               >
-                {{ categoryLabel(opt.category) }}
-              </span>
-              <span
-                class="rounded-sm px-[5px] py-px text-[length:var(--pxd-font-micro)] font-medium leading-tight"
-                :class="
-                  opt.isHybrid ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary'
-                "
-                data-board-mod-kind
-              >
-                {{
-                  opt.isHybrid ? t('resultBoard.modFilter.hybrid') : t('resultBoard.modFilter.pure')
-                }}
-              </span>
-              <span
-                class="min-w-[1.6em] text-right text-[length:var(--pxd-font-micro)] tabular-nums text-muted-foreground"
-              >
-                {{ opt.itemCount }}
-              </span>
-            </span>
-          </button>
+                <span
+                  class="flex-1 break-words text-[length:var(--pxd-font-caption)] leading-snug text-foreground"
+                >
+                  {{ opt.label }}
+                </span>
+                <span class="flex shrink-0 items-center gap-[var(--pxd-space-xs)]">
+                  <span
+                    v-if="categoryLabel(opt.category)"
+                    class="rounded-sm border border-border px-[5px] py-px text-[length:var(--pxd-font-micro)] leading-tight text-muted-foreground"
+                  >
+                    {{ categoryLabel(opt.category) }}
+                  </span>
+                  <span
+                    class="rounded-sm px-[5px] py-px text-[length:var(--pxd-font-micro)] font-medium leading-tight"
+                    :class="
+                      opt.isHybrid ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary'
+                    "
+                    data-board-mod-kind
+                  >
+                    {{
+                      opt.isHybrid
+                        ? t('resultBoard.modFilter.hybrid')
+                        : t('resultBoard.modFilter.pure')
+                    }}
+                  </span>
+                  <span
+                    class="min-w-[1.6em] text-right text-[length:var(--pxd-font-micro)] tabular-nums text-muted-foreground"
+                  >
+                    {{ opt.itemCount }}
+                  </span>
+                </span>
+              </button>
 
-          <div
-            v-if="hasVisibleTiers(opt)"
-            class="flex flex-wrap items-center gap-[var(--pxd-space-xs)]"
-          >
-            <button
-              type="button"
-              class="min-h-[22px] cursor-pointer rounded-sm border px-[6px] py-[2px] text-[length:var(--pxd-font-micro)] leading-tight tabular-nums transition-colors"
-              :class="
-                isTierSelected(opt.key, undefined)
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
-              "
-              data-board-mod-tier="any"
-              @click="emit('select', opt.key, undefined)"
-            >
-              {{ t('resultBoard.modFilter.anyTier') }} ({{ opt.itemCount }})
-            </button>
-            <button
-              v-for="cap in BOARD_MOD_TIER_CAPS"
-              :key="cap"
-              type="button"
-              :disabled="opt.tierCounts[cap] === 0"
-              class="min-h-[22px] rounded-sm border px-[6px] py-[2px] text-[length:var(--pxd-font-micro)] leading-tight tabular-nums transition-colors"
-              :class="
-                isTierSelected(opt.key, cap)
-                  ? 'cursor-pointer border-primary bg-primary text-primary-foreground'
-                  : opt.tierCounts[cap] === 0
-                    ? 'cursor-not-allowed border-border/50 bg-background/30 text-muted-foreground/45'
-                    : 'cursor-pointer border-border bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
-              "
-              :data-board-mod-tier="String(cap)"
-              @click="emit('select', opt.key, cap)"
-            >
-              {{ tierLabel(cap) }} ({{ opt.tierCounts[cap] }})
-            </button>
-          </div>
-        </li>
-      </ul>
+              <div
+                v-if="hasVisibleTiers(opt)"
+                class="flex flex-wrap items-center gap-[var(--pxd-space-xs)]"
+              >
+                <button
+                  type="button"
+                  class="cursor-pointer rounded-sm border px-[6px] py-[3px] text-[length:var(--pxd-font-micro)] leading-tight tabular-nums transition-colors"
+                  :class="
+                    isTierSelected(opt.key, undefined)
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  "
+                  data-board-mod-tier="any"
+                  @click="emit('select', opt.key, undefined)"
+                >
+                  {{ t('resultBoard.modFilter.anyTier') }} ({{ opt.itemCount }})
+                </button>
+                <button
+                  v-for="cap in BOARD_MOD_TIER_CAPS"
+                  :key="cap"
+                  type="button"
+                  :disabled="opt.tierCounts[cap] === 0"
+                  class="rounded-sm border px-[6px] py-[3px] text-[length:var(--pxd-font-micro)] leading-tight tabular-nums transition-colors"
+                  :class="
+                    isTierSelected(opt.key, cap)
+                      ? 'cursor-pointer border-primary bg-primary text-primary-foreground'
+                      : opt.tierCounts[cap] === 0
+                        ? 'cursor-not-allowed border-border/50 bg-background/30 text-muted-foreground/45'
+                        : 'cursor-pointer border-border bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  "
+                  :data-board-mod-tier="String(cap)"
+                  @click="emit('select', opt.key, cap)"
+                >
+                  {{ tierLabel(cap) }} ({{ opt.tierCounts[cap] }})
+                </button>
+              </div>
+            </li>
+          </ul>
+        </ScrollAreaViewport>
+        <ScrollBar />
+        <ScrollAreaCorner />
+      </ScrollAreaRoot>
     </div>
   </div>
 </template>
