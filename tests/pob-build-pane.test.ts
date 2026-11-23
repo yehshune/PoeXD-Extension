@@ -1403,6 +1403,16 @@ describe('PobBuildPane', () => {
     expect(liquid.style.left).toBe('-200%');
     expect(liquid.style.width).toBe('300%');
     expect(liquid.getAttribute('referrerpolicy')).toBe('no-referrer');
+
+    // 載入後發現是單張圖（寬高比不到三格）時改為直接顯示整張圖
+    const shell = sprite.querySelector('[data-sprite-frame="1"]') as HTMLImageElement;
+    Object.defineProperty(shell, 'naturalWidth', { value: 78 });
+    Object.defineProperty(shell, 'naturalHeight', { value: 156 });
+    shell.dispatchEvent(new Event('load'));
+    await nextTick();
+    const tile = query('[data-pob-build-gear-tile="flask"]')!;
+    expect(tile.querySelector('[data-pob-item-sprite]')).toBeNull();
+    expect(tile.querySelector('img')?.getAttribute('src')).toContain('Flasks/sprint');
   });
 
   it('已完成項目沉底時於第一筆已完成列加上分隔線標記', async () => {

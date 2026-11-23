@@ -21,6 +21,7 @@
         class="size-[var(--control-height-sm)] shrink-0 object-contain"
         alt=""
         draggable="false"
+        referrerpolicy="no-referrer"
         @error="ctx.handleCoverImageError"
       />
       <span

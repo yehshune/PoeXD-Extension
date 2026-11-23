@@ -57,6 +57,9 @@ describe('pob item art', () => {
       url: `${CDN}Gems/AbsolutionBlastGem.png`,
     });
     expect(
+      itemArtFor(art, { kind: 'gem', englishName: 'Absolution of the Massacre' }),
+    ).toMatchObject({ url: `${CDN}Gems/AbsolutionBlastGem.png` });
+    expect(
       itemArtFor(art, { kind: 'gem', englishName: 'Added Fire Damage Support' }),
     ).toMatchObject({ url: `${CDN}Gems/Support/AddedFireDamage.png` });
   });
@@ -66,9 +69,53 @@ describe('pob item art', () => {
       layers: [1, 2, 0],
     });
     expect(itemArtFor(art, { kind: 'gem', englishName: 'Absolution' })?.layers).toEqual([2, 0]);
+    // 輔助寶石是單張圖
+    expect(
+      itemArtFor(art, { kind: 'gem', englishName: 'Added Fire Damage Support' }),
+    ).not.toHaveProperty('layers');
     expect(
       itemArtFor(art, { kind: 'equipment', englishName: 'Royal Burgonet' }),
     ).not.toHaveProperty('layers');
+  });
+
+  it('PoE2 的圖片來自自架的 webp（官方 CDN 沒有 PoE2 新圖的固定網址）', () => {
+    const poe2 = parseItemArt(
+      {
+        bases: {
+          'Iron Ring': ['Rings/Ring1', 1, 1],
+          'Life Flask': ['Flasks/Life1', 1, 2],
+          Spark: ['Gems/Spark', 1, 1],
+        },
+        uniques: {},
+      },
+      'poe2',
+    )!;
+    expect(itemArtFor(poe2, { kind: 'equipment', englishName: 'Iron Ring' })?.url).toBe(
+      'https://yehshune.github.io/poexd-art/poe2/Rings/Ring1.webp',
+    );
+    expect(itemArtFor(poe2, { kind: 'equipment', englishName: 'Life Flask' })?.layers).toEqual([
+      1, 2, 0,
+    ]);
+    // PoE2 的寶石圖是單張，不疊圖
+    expect(itemArtFor(poe2, { kind: 'gem', englishName: 'Spark' })).not.toHaveProperty('layers');
+  });
+
+  it('路徑不是單純的檔名路徑時不產生網址', () => {
+    const odd = parseItemArt({
+      bases: {
+        Up: ['../evil', 1, 1],
+        Abs: ['//evil.example/x', 1, 1],
+        Query: ['Rings/Ring1?x=1', 1, 1],
+        Ok: ['Rings/Ring 1_A-b', 1, 1],
+      },
+      uniques: {},
+    })!;
+    for (const englishName of ['Up', 'Abs', 'Query']) {
+      expect(itemArtFor(odd, { kind: 'equipment', englishName })).toBeUndefined();
+    }
+    expect(itemArtFor(odd, { kind: 'equipment', englishName: 'Ok' })?.url).toBe(
+      `${CDN}Rings/Ring 1_A-b.png`,
+    );
   });
 
   it('格式不符的資料不採用；載入失敗回傳 undefined', async () => {
@@ -79,5 +126,10 @@ describe('pob item art', () => {
     });
     await expect(loadItemArt(loadJson, 'poe1')).resolves.toBeUndefined();
     expect(loadJson).toHaveBeenCalledWith('json/poe1/item-art.json');
+    const poe2 = await loadItemArt(
+      async () => ({ bases: { A: ['Rings/A', 1, 1] }, uniques: {} }),
+      'poe2',
+    );
+    expect(itemArtFor(poe2!, { kind: 'equipment', englishName: 'A' })?.url).toMatch(/\.webp$/);
   });
 });
