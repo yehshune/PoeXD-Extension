@@ -4,13 +4,13 @@
  * 柳條人與移植物。格子以稀有度上色；滑鼠移入開啟與清單相同的預覽，點擊直接搜尋；
  * 勾選完成用格子角落的按鈕。
  */
-import { Check } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import { Checkbox } from '@/components/ui/checkbox';
 import { t, type I18nKey } from '@/utils/i18n';
 import PobItemImage from './PobItemImage.vue';
 import PobSocketOverlay from './PobSocketOverlay.vue';
 import { formatPobSlot } from './pob-slot-label';
-import { GEAR_CELLS, gearLayout, type GearCellId } from './pob-gear-layout';
+import { GEAR_CELLS, gearLayout, type GearCell, type GearCellId } from './pob-gear-layout';
 import type { ShoppingRow, SocketContent } from './usePobBuild';
 
 const props = defineProps<{
@@ -97,6 +97,21 @@ const tileTitle = (row: ShoppingRow) =>
   ]
     .filter(Boolean)
     .join(' · ');
+
+/**
+ * 物品圖片依「物品背包格數 ÷ 裝備格數」限制上限，避免高解析度原圖（例如 PoE2 的 1×3 法杖）
+ * 在較大的 2×4 武器欄裡等比放大撐滿整格。
+ */
+const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
+  if (!row.iconSize) return undefined;
+  const itemWidth = Math.max(row.iconSize.width, 1);
+  const itemHeight = Math.max(row.iconSize.height, 1);
+  const scale = Math.min(1, cell.width / itemWidth, cell.height / itemHeight);
+  return {
+    maxWidth: `${((itemWidth * scale) / cell.width) * 100}%`,
+    maxHeight: `${((itemHeight * scale) / cell.height) * 100}%`,
+  };
+};
 </script>
 
 <template>
@@ -160,6 +175,7 @@ const tileTitle = (row: ShoppingRow) =>
               <PobItemImage
                 v-if="row.icon"
                 class="pxd-gear-tile__icon"
+                :style="tileIconStyle(row, cell)"
                 :src="row.icon"
                 :layers="row.iconLayers"
                 :width="row.iconSize?.width"
@@ -192,20 +208,19 @@ const tileTitle = (row: ShoppingRow) =>
               class="pxd-gear-tile__dot"
               :aria-label="t('pobBuild.customizedTitle')"
             />
-            <span
+            <Checkbox
               v-if="row"
-              role="checkbox"
+              as="span"
               tabindex="0"
+              :model-value="row.done"
               data-pob-build-gear-done
-              :aria-checked="row.done"
               :aria-label="t('pobBuild.doneAria', { name: row.label })"
               class="pxd-gear-tile__check"
-              @click.stop="emit('toggleDone', row.key)"
+              @click.stop
+              @keydown.space.stop
               @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
-              @keydown.space.stop.prevent="emit('toggleDone', row.key)"
-            >
-              <Check v-if="row.done" class="size-full" aria-hidden="true" />
-            </span>
+              @update:model-value="emit('toggleDone', row.key)"
+            />
           </component>
         </template>
       </div>
@@ -245,19 +260,18 @@ const tileTitle = (row: ShoppingRow) =>
               class="pxd-gear-tile__corrupted"
               :aria-label="t('pobBuild.corrupted')"
             />
-            <span
-              role="checkbox"
+            <Checkbox
+              as="span"
               tabindex="0"
+              :model-value="row.done"
               data-pob-build-gear-done
-              :aria-checked="row.done"
               :aria-label="t('pobBuild.doneAria', { name: row.label })"
               class="pxd-gear-tile__check"
-              @click.stop="emit('toggleDone', row.key)"
+              @click.stop
+              @keydown.space.stop
               @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
-              @keydown.space.stop.prevent="emit('toggleDone', row.key)"
-            >
-              <Check v-if="row.done" class="size-full" aria-hidden="true" />
-            </span>
+              @update:model-value="emit('toggleDone', row.key)"
+            />
           </button>
           <div
             v-else
@@ -313,19 +327,18 @@ const tileTitle = (row: ShoppingRow) =>
               class="pxd-gear-tile__corrupted"
               :aria-label="t('pobBuild.corrupted')"
             />
-            <span
-              role="checkbox"
+            <Checkbox
+              as="span"
               tabindex="0"
+              :model-value="row.done"
               data-pob-build-gear-done
-              :aria-checked="row.done"
               :aria-label="t('pobBuild.doneAria', { name: row.label })"
               class="pxd-gear-tile__check"
-              @click.stop="emit('toggleDone', row.key)"
+              @click.stop
+              @keydown.space.stop
               @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
-              @keydown.space.stop.prevent="emit('toggleDone', row.key)"
-            >
-              <Check v-if="row.done" class="size-full" aria-hidden="true" />
-            </span>
+              @update:model-value="emit('toggleDone', row.key)"
+            />
           </button>
         </div>
       </section>
@@ -512,26 +525,24 @@ button.pxd-gear-tile:focus-visible,
 
 .pxd-gear-tile__count {
   position: absolute;
-  bottom: 1px;
-  left: 3px;
+  bottom: 2px;
+  left: 2px;
+  padding: 0 3px;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: var(--radius-xs, 3px);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  color: var(--foreground);
   font-size: var(--pxd-font-caption);
   font-weight: 700;
+  line-height: 1.25;
   font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 
 .pxd-gear-tile__check {
   position: absolute;
   top: 2px;
   right: 2px;
-  display: flex;
-  width: 14px;
-  height: 14px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--card) 85%, transparent);
-  color: var(--primary-foreground);
   opacity: 0;
   transition: opacity 0.15s;
 }
@@ -540,10 +551,5 @@ button.pxd-gear-tile:focus-visible,
 .pxd-gear-tile__check:focus-visible,
 .pxd-gear-tile[data-done='true'] .pxd-gear-tile__check {
   opacity: 1;
-}
-
-.pxd-gear-tile[data-done='true'] .pxd-gear-tile__check {
-  border-color: var(--primary);
-  background: var(--primary);
 }
 </style>

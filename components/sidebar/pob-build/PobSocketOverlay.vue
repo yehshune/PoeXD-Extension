@@ -44,11 +44,11 @@ const itemHeight = computed(() => Math.max(props.height ?? 3, 1));
 
 const layout = computed(() => socketLayout(props.sockets, itemWidth.value, itemHeight.value));
 
-/** 圖片在格子裡顯示的寬、高佔格子的比例（object-fit: contain） */
+/** 圖片在格子裡顯示的寬、高佔格子的比例（不超過物品實際格數佔比） */
 const imageBox = computed(() => {
   const tileWidth = Math.max(props.tileWidth ?? itemWidth.value, 1);
   const tileHeight = Math.max(props.tileHeight ?? itemHeight.value, 1);
-  const scale = Math.min(tileWidth / itemWidth.value, tileHeight / itemHeight.value);
+  const scale = Math.min(1, tileWidth / itemWidth.value, tileHeight / itemHeight.value);
   return {
     width: (itemWidth.value * scale) / tileWidth,
     height: (itemHeight.value * scale) / tileHeight,

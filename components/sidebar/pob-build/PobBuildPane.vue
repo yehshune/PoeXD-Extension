@@ -1223,23 +1223,9 @@ export default defineComponent({
       previewAnchorEl.value = null;
     };
 
-    /**
-     * 預覽的錨點：清單的列橫跨整個側欄，預覽自然出現在側欄外；裝備欄的格子改用
-     * 「裝備欄的寬度、該格的高度」當錨點，預覽才不會蓋住其他格子
-     */
-    const previewAnchorFromEvent = (event: Event): PreviewAnchor | null => {
-      const anchor = rowAnchorFromEvent(event, PREVIEW_ANCHOR);
-      const gear = anchor?.closest<HTMLElement>('[data-pob-build-gear]');
-      if (!anchor || !gear || !anchor.matches('[data-pob-build-gear-tile]')) return anchor;
-      return {
-        contextElement: anchor,
-        getBoundingClientRect: () => {
-          const area = gear.getBoundingClientRect();
-          const tile = anchor.getBoundingClientRect();
-          return new DOMRect(area.left, tile.top, area.width, tile.height);
-        },
-      };
-    };
+    /** 預覽的錨點：清單為該列、裝備欄為該物品格，讓詞綴調整框直接出現在物品旁邊 */
+    const previewAnchorFromEvent = (event: Event): PreviewAnchor | null =>
+      rowAnchorFromEvent(event, PREVIEW_ANCHOR);
 
     const hoverPreview = (buildId: string, row: ShoppingRow, event: Event) => {
       clearTimeout(hoverCloseTimer);

@@ -1465,7 +1465,11 @@ describe('PobBuildPane', () => {
       'new-tab',
     );
 
-    query<HTMLElement>('[data-pob-build-gear-tile="gloves"] [data-pob-build-gear-done]')!.click();
+    const gearDone = query<HTMLElement>(
+      '[data-pob-build-gear-tile="gloves"] [data-pob-build-gear-done]',
+    )!;
+    expect(gearDone.getAttribute('data-slot')).toBe('checkbox');
+    gearDone.click();
     expect(fake.toggleDone).toHaveBeenCalledWith('b1', 'k-rare');
 
     // 有插槽的裝備畫出插槽（滑過時顯示）
@@ -1532,6 +1536,58 @@ describe('PobBuildPane', () => {
     const tile = query('[data-pob-build-gear-tile="flask"]')!;
     expect(tile.querySelector('[data-pob-item-sprite]')).toBeNull();
     expect(tile.querySelector('img')?.getAttribute('src')).toContain('Flasks/sprint');
+  });
+
+  it('裝備欄圖片與插槽依物品背包格數比例縮放，小武器不撐滿整個 2×4 武器格', async () => {
+    const base = sampleBuild();
+    buildsRef.value = [
+      {
+        ...base,
+        groups: [
+          {
+            ...base.groups[0],
+            rows: [
+              {
+                ...base.groups[0].rows[0],
+                key: 'k-wand',
+                slot: 'Weapon 1',
+                icon: ICON,
+                iconSize: { width: 1, height: 3 },
+                sockets: 'B-B-B',
+              },
+              {
+                ...base.groups[0].rows[1],
+                key: 'k-focus',
+                slot: 'Weapon 2',
+                icon: ICON,
+                iconSize: { width: 2, height: 2 },
+                sockets: undefined,
+              },
+            ],
+          },
+          base.groups[1],
+        ],
+      },
+    ];
+    await mount({ view: 'gear' });
+
+    const wandImg = query<HTMLImageElement>(
+      '[data-pob-build-gear-tile="weapon1"] .pxd-gear-tile__icon',
+    )!;
+    expect(wandImg.style.maxWidth).toBe('50%');
+    expect(wandImg.style.maxHeight).toBe('75%');
+
+    const wandSockets = query<HTMLElement>(
+      '[data-pob-build-gear-tile="weapon1"] [data-pob-build-sockets]',
+    )!;
+    expect(wandSockets.style.width).toBe('47%');
+    expect(wandSockets.style.maxHeight).toBe('73.5%');
+
+    const focusImg = query<HTMLImageElement>(
+      '[data-pob-build-gear-tile="weapon2"] .pxd-gear-tile__icon',
+    )!;
+    expect(focusImg.style.maxWidth).toBe('100%');
+    expect(focusImg.style.maxHeight).toBe('50%');
   });
 
   it('詞綴 Popover 支援一鍵放寬 -10%、清除數值，且關閉再開啟時保留未儲存草稿', async () => {
