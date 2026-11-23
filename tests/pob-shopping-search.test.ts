@@ -960,3 +960,85 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
     ).toBe(true);
   });
 });
+
+describe('Local 代碼：只有武器的攻擊類詞綴與防具的防禦類詞綴是裝備本身的數值', () => {
+  // 取自國際服 trade-stats.json：同一句話有全域與 (Local) 兩個代碼
+  const localMatcher = createStatMatcher({
+    modLines: {},
+    tradeStats: {
+      'explicit.stat_681332047': '#% increased Attack Speed',
+      'explicit.stat_210067635': '#% increased Attack Speed (Local)',
+      'explicit.stat_803737631': '+# to Accuracy Rating',
+      'explicit.stat_691932474': '+# to Accuracy Rating (Local)',
+      'explicit.stat_809229260': '+# to Armour',
+      'explicit.stat_3484657501': '+# to Armour (Local)',
+      'explicit.stat_4052037485': '+# to maximum Energy Shield (Local)',
+      'explicit.stat_3489782002': '+# to maximum Energy Shield',
+    },
+  });
+  const xml = `<?xml version="1.0"?>
+<PathOfBuilding>
+	<Build className="Duelist" ascendClassName="Slayer" level="100" targetVersion="3_0"/>
+	<Items activeItemSet="1">
+		<Item id="1">
+			Rarity: RARE
+Bramble Fist
+Legion Gloves
+Implicits: 0
+16% increased Attack Speed
++489 to Accuracy Rating
++120 to Armour
++40 to maximum Energy Shield
+		</Item>
+		<Item id="2">
+			Rarity: RARE
+Doom Edge
+Reaver Axe
+Implicits: 0
+16% increased Attack Speed
++489 to Accuracy Rating
+		</Item>
+		<Item id="3">
+			Rarity: RARE
+Agony Loop
+Amethyst Ring
+Implicits: 0
++489 to Accuracy Rating
++120 to Armour
+		</Item>
+		<ItemSet id="1">
+			<Slot itemId="1" name="Gloves"/>
+			<Slot itemId="2" name="Weapon 1"/>
+			<Slot itemId="3" name="Ring 1"/>
+		</ItemSet>
+	</Items>
+</PathOfBuilding>`;
+  const list = buildShoppingList(
+    parsePobBuildXml(xml),
+    createTradeNameCatalog({ englishItems: ['Legion Gloves', 'Reaver Axe', 'Amethyst Ring'] }),
+    {},
+    localMatcher,
+  );
+  const statsOf = (label: string) =>
+    list.find((entry) => entry.label === label)!.mods!.map((mod) => mod.stat?.id);
+
+  it('防具：攻擊速度與命中是全域代碼，護甲與能量護盾是 Local', () => {
+    expect(statsOf('Legion Gloves')).toEqual([
+      'explicit.stat_681332047',
+      'explicit.stat_803737631',
+      'explicit.stat_3484657501',
+      'explicit.stat_4052037485',
+    ]);
+  });
+
+  it('武器：攻擊類詞綴是 Local', () => {
+    expect(statsOf('Reaver Axe')).toEqual(['explicit.stat_210067635', 'explicit.stat_691932474']);
+  });
+
+  it('飾品一律是全域代碼', () => {
+    expect(statsOf('Amethyst Ring')).toEqual([
+      'explicit.stat_803737631',
+      'explicit.stat_809229260',
+    ]);
+  });
+});

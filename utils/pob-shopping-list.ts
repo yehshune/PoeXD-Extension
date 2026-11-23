@@ -34,7 +34,12 @@ import {
   type EntryCategory,
   type RareSearchMode,
 } from './pob-category-search';
-import { modLineSkeleton, type StatDomain, type StatMatcher } from './pob-stat-matcher';
+import {
+  modLineSkeleton,
+  type LocalPreference,
+  type StatDomain,
+  type StatMatcher,
+} from './pob-stat-matcher';
 import { statDomainOf, withStatDomain } from './stat-domain-order';
 import { getLocaleItemsAssetPath, tradeVersionProfiles, type PoeVersion } from './trade-context';
 
@@ -234,8 +239,10 @@ const CLUSTER_JEWEL_BASE = /Cluster Jewel$/;
 const MIN_BASE_NAME_LENGTH = 4;
 /** 連結數到這個數量才帶入搜尋（四連以下很容易自己做） */
 const MIN_SEARCHED_LINKS = 5;
-/** 裝備本身有數值的部位：同一句詞綴優先對到市集標 `(Local)` 的代碼 */
-const LOCAL_STAT_SLOT = /^(Weapon|Helmet|Body Armour|Gloves|Boots)(?: |$)/;
+/** 武器：同一句詞綴優先對到市集標 `(Local)` 的代碼 */
+const WEAPON_SLOT = /^Weapon \d(?: Swap)?$/;
+/** 防具：只有防禦類詞綴是 Local（攻擊速度、命中這類 Local 只有武器才有） */
+const ARMOUR_SLOT = /^(Helmet|Body Armour|Gloves|Boots)$/;
 const KEY_SEPARATOR = '\u0000';
 /** 清單的部位順序；有編號的部位（戒指、藥劑、護符）以前綴比對，深淵插槽跟在所屬部位後面 */
 const SLOT_ORDER: readonly string[] = [
@@ -551,7 +558,9 @@ function itemMods(
   matcher: StatMatcher | undefined,
   options: { isUnique: boolean; isClusterJewel: boolean },
 ): ShoppingMod[] {
-  const preferLocal = LOCAL_STAT_SLOT.test(item.slot);
+  const preferLocal: LocalPreference = WEAPON_SLOT.test(item.slot)
+    ? true
+    : ARMOUR_SLOT.test(item.slot) && 'defence';
   return modPlans(item).map(({ text, kind, domain }) => {
     // 工藝詞綴只對市集的 crafted 代碼：退回一般詞綴的代碼會和同代碼的隨機詞綴合併成一個條件
     const match = domain && matcher?.match(text, { preferLocal, domain });

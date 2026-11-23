@@ -29,8 +29,15 @@ export interface StatMatch {
   option?: number;
 }
 
+/**
+ * 同一句話有全域與 `(Local)` 兩個代碼時選哪一個：`true` 優先 Local（武器）、`false` 優先全域、
+ * `'defence'` 只有防禦類（護甲、閃避、能量護盾、結界、格擋）優先 Local（防具：攻擊速度、命中這類
+ * Local 只存在於武器）
+ */
+export type LocalPreference = boolean | 'defence';
+
 export interface StatMatchOptions {
-  preferLocal: boolean;
+  preferLocal: LocalPreference;
   /** 省略時為 explicit */
   domain?: StatDomain;
 }
@@ -53,11 +60,14 @@ interface Template {
   /** 句型中每個數字位置：佔位符（取值）或寫死的數字（略過） */
   slots: readonly Slot[];
   local: boolean;
+  /** Local 代碼而且是防禦類數值 */
+  localDefence: boolean;
   option?: number;
 }
 
 const DOMAINS: readonly StatDomain[] = ['explicit', 'implicit', 'enchant', 'crafted'];
 const LOCAL_MARKER = '(Local)';
+const DEFENCE_TEXT = /\b(?:Armour|Evasion|Energy Shield|Ward|Block)\b/;
 const NUMBER = /[+-]?\d+(?:\.\d+)?/g;
 /** 佔位符 `{0:d}`、`{0:+d}`、`{0:n}`（n 表示描述檔取負，顯示值是絕對值），或寫死的數字 */
 const TEMPLATE_TOKEN = /\{\d+:\+?([dn])\}|[+-]?\d+(?:\.\d+)?/g;
@@ -122,16 +132,27 @@ const addTemplate = (index: TemplateIndex, skeleton: string, template: Template)
   index.set(skeleton, [...(index.get(skeleton) ?? []), template]);
 };
 
-function choose(candidates: readonly Template[] | undefined, preferLocal: boolean) {
+function choose(candidates: readonly Template[] | undefined, preferLocal: LocalPreference) {
   if (!candidates?.length) return undefined;
+  if (preferLocal === 'defence') {
+    return (
+      candidates.find((template) => template.localDefence) ??
+      candidates.find((template) => !template.local) ??
+      candidates[0]
+    );
+  }
   return candidates.find((template) => template.local === preferLocal) ?? candidates[0];
 }
+
+const localFlags = (text: string): Pick<Template, 'local' | 'localDefence'> => {
+  const local = text.includes(LOCAL_MARKER);
+  return { local, localDefence: local && DEFENCE_TEXT.test(text) };
+};
 
 export function createStatMatcher(data: {
   modLines: Readonly<Record<string, ModLinePairs>>;
   tradeStats: TradeStatTexts;
 }): StatMatcher {
-  const isLocal = (statId: string) => tradeText(data.tradeStats, statId).includes(LOCAL_MARKER);
   const fromModLines = new Map<StatDomain, TemplateIndex>(DOMAINS.map((d) => [d, new Map()]));
   const fromTradeText = new Map<StatDomain, TemplateIndex>(DOMAINS.map((d) => [d, new Map()]));
 
@@ -147,7 +168,7 @@ export function createStatMatcher(data: {
         addTemplate(fromModLines.get(domain)!, skeleton, {
           statId,
           slots,
-          local: isLocal(statId),
+          ...localFlags(tradeText(data.tradeStats, statId)),
         });
       }
     }
@@ -158,12 +179,11 @@ export function createStatMatcher(data: {
     const text = tradeText(data.tradeStats, key);
     if (!parsed || !text || text.includes('\n')) continue;
     const [, domain, name, option] = parsed as unknown as [string, StatDomain, string, string?];
-    const local = text.includes(LOCAL_MARKER);
     const { skeleton, slots } = compileTradeText(text.replace(LOCAL_MARKER, ''));
     addTemplate(fromTradeText.get(domain)!, skeleton, {
       statId: `${domain}.${name}`,
       slots,
-      local,
+      ...localFlags(text),
       ...(option !== undefined ? { option: Number(option) } : {}),
     });
   }
