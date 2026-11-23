@@ -341,6 +341,12 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'tools.support.title': '支持开发',
   'tools.support.description': 'PoeXD 免费且开源。如果它帮你节省了时间，欢迎赞助支持后续开发。',
   'tools.support.linkLabel': '前往赞助页',
+  'tools.community.title': '社区与问题反馈',
+  'tools.community.description':
+    '加入 Discord 讨论使用问题，或到 GitHub Issues 反馈错误与功能建议。',
+  'tools.community.descriptionIssuesOnly': '到 GitHub Issues 反馈错误与功能建议。',
+  'tools.community.discordLabel': '加入 Discord',
+  'tools.community.issuesLabel': '反馈问题',
   'tools.releases.title': '改版信息',
   'tools.releases.description': '查看历次版本的更新内容与改版说明。',
   'tools.releases.linkLabel': '前往 GitHub Releases',

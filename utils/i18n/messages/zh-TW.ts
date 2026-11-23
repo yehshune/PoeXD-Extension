@@ -339,6 +339,12 @@ export const ZH_TW_MESSAGES = {
   'tools.support.title': '支持開發',
   'tools.support.description': 'PoeXD 免費且開源。如果它幫你省下時間，歡迎贊助支持後續開發。',
   'tools.support.linkLabel': '前往贊助頁',
+  'tools.community.title': '社群與問題回報',
+  'tools.community.description':
+    '加入 Discord 討論使用問題，或到 GitHub Issues 回報錯誤與功能建議。',
+  'tools.community.descriptionIssuesOnly': '到 GitHub Issues 回報錯誤與功能建議。',
+  'tools.community.discordLabel': '加入 Discord',
+  'tools.community.issuesLabel': '回報問題',
   'tools.releases.title': '改版資訊',
   'tools.releases.description': '查看歷次版本的更新內容與改版說明。',
   'tools.releases.linkLabel': '前往 GitHub Releases',

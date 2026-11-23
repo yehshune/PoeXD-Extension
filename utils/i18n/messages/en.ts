@@ -372,6 +372,12 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'tools.support.description':
     'PoeXD is free and open source. If it saves you time, you can support its development.',
   'tools.support.linkLabel': 'Open support page',
+  'tools.community.title': 'Community & Feedback',
+  'tools.community.description':
+    'Join the Discord to ask questions and chat, or report bugs and feature requests on GitHub Issues.',
+  'tools.community.descriptionIssuesOnly': 'Report bugs and feature requests on GitHub Issues.',
+  'tools.community.discordLabel': 'Join Discord',
+  'tools.community.issuesLabel': 'Report an issue',
   'tools.releases.title': 'Release Notes',
   'tools.releases.description': 'View version history and release notes on GitHub.',
   'tools.releases.linkLabel': 'View GitHub Releases',

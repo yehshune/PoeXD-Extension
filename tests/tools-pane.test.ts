@@ -9,6 +9,7 @@ import ToolsPane, {
   shouldApplyEconomyMetadata,
 } from '@/components/sidebar/ToolsPane.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
+import { DISCORD_INVITE_URL } from '@/utils/support-links';
 import { listenPoeEvent } from '@/utils/event-contracts';
 import { resetI18nStateForTests, setActiveDisplayLocalePreference } from '@/utils/i18n';
 
@@ -108,7 +109,13 @@ describe('ToolsPane & time formatters', () => {
     it('renders only the price conversion section', async () => {
       (extensionMessaging.sendMessage as any).mockImplementation(async (type: string) => {
         if (type === 'economy:getRateMetadata') {
-          return { updatedAt: null, source: 'none', ttl: 900000, hasData: false, isExpired: true };
+          return {
+            updatedAt: null,
+            source: 'none',
+            ttl: 900000,
+            hasData: false,
+            isExpired: true,
+          };
         }
         return {};
       });
@@ -145,6 +152,34 @@ describe('ToolsPane & time formatters', () => {
       expect(link.target).toBe('_blank');
       expect(link.rel).toBe('noopener noreferrer');
       expect(link.textContent).toContain('前往贊助頁');
+    });
+
+    it('links to GitHub Issues and shows Discord only when an invite URL is configured', async () => {
+      (extensionMessaging.sendMessage as any).mockImplementation(async () => ({}));
+
+      app = createApp(ToolsPane);
+      app.mount(container);
+      await nextTick();
+
+      expect(container.textContent).toContain('社群與問題回報');
+      const issuesLink = container.querySelector<HTMLAnchorElement>(
+        'a[data-community-link="github-issues"]',
+      );
+      expect(issuesLink?.href).toBe('https://github.com/yehshune/PoeXD-Extension/issues');
+      expect(issuesLink?.target).toBe('_blank');
+      expect(issuesLink?.rel).toBe('noopener noreferrer');
+
+      const discordLink = container.querySelector<HTMLAnchorElement>(
+        'a[data-community-link="discord"]',
+      );
+      if (DISCORD_INVITE_URL) {
+        expect(DISCORD_INVITE_URL).toMatch(/^https:\/\/discord\.(gg|com)\//);
+        expect(discordLink?.href).toBe(DISCORD_INVITE_URL);
+        expect(discordLink?.rel).toBe('noopener noreferrer');
+      } else {
+        expect(discordLink).toBeNull();
+        expect(container.textContent).toContain('到 GitHub Issues 回報錯誤與功能建議');
+      }
     });
 
     it('shows non-trade state when currentLeague is undefined and disables update button', async () => {

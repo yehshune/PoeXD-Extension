@@ -38,7 +38,9 @@
       >
         {{
           currentRealmLabel
-            ? t('tools.economy.unsupportedRealmWithLabel', { realm: currentRealmLabel })
+            ? t('tools.economy.unsupportedRealmWithLabel', {
+                realm: currentRealmLabel,
+              })
             : t('tools.economy.unsupportedRealm', { realm: '' })
         }}
       </p>
@@ -160,6 +162,63 @@
         </p>
       </div>
 
+      <!-- 社群與問題回報 -->
+      <div class="flex flex-col gap-[var(--pxd-space-xs)]" data-community-section>
+        <div
+          class="flex flex-wrap items-center justify-between gap-x-[var(--pxd-space-sm)] gap-y-[var(--pxd-space-xs)]"
+        >
+          <span
+            class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)] font-medium text-foreground"
+          >
+            <MessageCircle
+              class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            {{ t('tools.community.title') }}
+          </span>
+          <div class="flex flex-wrap items-center gap-x-[var(--pxd-space-sm)]">
+            <a
+              v-if="discordInviteUrl"
+              :href="discordInviteUrl"
+              data-community-link="discord"
+              target="_blank"
+              rel="noopener noreferrer"
+              :class="
+                cn(
+                  buttonVariants({ variant: 'link', size: 'sm' }),
+                  'h-auto px-0 py-0 text-[length:var(--pxd-font-caption)]',
+                )
+              "
+            >
+              {{ t('tools.community.discordLabel') }}
+              <ExternalLink class="size-3.5" aria-hidden="true" />
+            </a>
+            <a
+              :href="issuesPageUrl"
+              data-community-link="github-issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              :class="
+                cn(
+                  buttonVariants({ variant: 'link', size: 'sm' }),
+                  'h-auto px-0 py-0 text-[length:var(--pxd-font-caption)]',
+                )
+              "
+            >
+              {{ t('tools.community.issuesLabel') }}
+              <ExternalLink class="size-3.5" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+        <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
+          {{
+            discordInviteUrl
+              ? t('tools.community.description')
+              : t('tools.community.descriptionIssuesOnly')
+          }}
+        </p>
+      </div>
+
       <!-- 支持開發 -->
       <div class="flex flex-col gap-[var(--pxd-space-xs)]">
         <div
@@ -202,8 +261,23 @@
 import { computed, defineComponent, onMounted, onUnmounted, ref } from 'vue';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { RELEASES_PAGE_URL, SUPPORT_PAGE_URL } from '@/utils/support-links';
-import { Coins, Compass, ExternalLink, Heart, Info, Newspaper, Play, RefreshCw } from '@lucide/vue';
+import {
+  DISCORD_INVITE_URL,
+  ISSUES_PAGE_URL,
+  RELEASES_PAGE_URL,
+  SUPPORT_PAGE_URL,
+} from '@/utils/support-links';
+import {
+  Coins,
+  Compass,
+  ExternalLink,
+  Heart,
+  Info,
+  MessageCircle,
+  Newspaper,
+  Play,
+  RefreshCw,
+} from '@lucide/vue';
 import { usePageGuide } from './page-guide/usePageGuide';
 import SettingsSection from './settings/SettingsSection.vue';
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
@@ -359,7 +433,10 @@ export default defineComponent({
       }
       const relativeTime = formatFutureRelativeTime(expireTimestamp, nowTimestamp.value);
       const timeStr = formatTimeWithOptionalDate(expireTimestamp, nowTimestamp.value);
-      return t('tools.economy.cacheValidUntil', { time: timeStr, relative: relativeTime });
+      return t('tools.economy.cacheValidUntil', {
+        time: timeStr,
+        relative: relativeTime,
+      });
     });
 
     const lastUpdateDisplay = computed(() => {
@@ -371,7 +448,10 @@ export default defineComponent({
         nowTimestamp.value,
       );
       const relativeStr = formatRelativeTime(economyMetadata.value.updatedAt, nowTimestamp.value);
-      return t('tools.economy.timeWithRelative', { time: timeStr, relative: relativeStr });
+      return t('tools.economy.timeWithRelative', {
+        time: timeStr,
+        relative: relativeStr,
+      });
     });
 
     const lastUpdateTooltip = computed(() => {
@@ -447,7 +527,9 @@ export default defineComponent({
           } else {
             await refreshEconomyMetadata();
           }
-          dispatchPoeEvent('poexd-toast', { message: t('tools.economy.toastUpdated') });
+          dispatchPoeEvent('poexd-toast', {
+            message: t('tools.economy.toastUpdated'),
+          });
         } else {
           const errMsg = formatMessage(res.error, 'tools.economy.errorUpdateFailed');
           economyError.value = errMsg;
@@ -509,9 +591,12 @@ export default defineComponent({
       buttonVariants,
       releasesPageUrl: RELEASES_PAGE_URL,
       supportPageUrl: SUPPORT_PAGE_URL,
+      discordInviteUrl: DISCORD_INVITE_URL,
+      issuesPageUrl: ISSUES_PAGE_URL,
       Coins,
       Compass,
       Info,
+      MessageCircle,
       Newspaper,
       Heart,
       startTour: () => usePageGuide().startTour(),
