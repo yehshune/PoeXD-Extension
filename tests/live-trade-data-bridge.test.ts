@@ -146,6 +146,24 @@ describe('sendLiveTradeData（MAIN world）', () => {
     expect(liveEvents(events)).toHaveLength(2);
   });
 
+  it('頁面沒有分組 knownStats、只有 knownStatsFlat 時，退回用它推導 known stats', () => {
+    const knownStatsFlat = {
+      'pseudo.a': { id: 'pseudo.a', text: 'A', type: 'pseudo' },
+      'explicit.b': { id: 'explicit.b', text: 'B', type: 'explicit' },
+    };
+    mountVue3Trade({ propertyFilters: enFilters, knownStatsFlat });
+    const { bridge, events } = createBridge();
+
+    sendLiveTradeData(bridge);
+    sendLiveTradeData(bridge);
+    expect(liveEvents(events)).toHaveLength(1);
+    const payload = parsePoeLiveTradeData(liveEvents(events)[0].payload);
+    expect(payload?.knownStats).toEqual(knownStatsFlat);
+    expect(payload?.filters).not.toBeNull();
+    // 攤平資料沒有群組標題與 pseudo 群組，不當作市集寫法來源
+    expect(payload?.statLabels).toBeNull();
+  });
+
   it('頁面資料尚未載入時不送', () => {
     mountVue3Trade({});
     const { bridge, events } = createBridge();

@@ -107,6 +107,7 @@
 ## 待確認
 
 - 國服（`poe.game.qq.com`）的市集要求 QQ / 微信登入，第 0 階段未實測；需在 dev profile 登入後確認 `static_` 結構相同，再進行第 4 階段 e2e。
+  - 2026-11-23 補測 `static_` 結構：PoE 1（`/trade`）與 PoE 2（`/trade2`）皆為 Vue 3，根元件 proxy 有 `propertyFilters` 與分組 `knownStats`；分組攤平（重複 id 取最後一筆）與 `knownStatsFlat` 完全一致（PoE 1 17,915 筆、PoE 2 7,638 筆）。第 4 階段 e2e 尚未做。
 - 擴充不在韓服（Kakao `poe.game.daum.net`）執行，`ko` 仍只能靠打包分片。
 - 舊 Search Record 解出已被官方移除的篩選 id（例如 3.30 前的 `chart_shape`）時，即時資料沒有該 id，會退回打包資料；打包資料也移除後顯示原始 id。維持現行行為，不在此計畫處理。
 - 第二層（執行期下載 poexd-data，含詞綴階級）另立 ADR，前提是確認 `optional_host_permissions` 不會在更新時停用擴充。

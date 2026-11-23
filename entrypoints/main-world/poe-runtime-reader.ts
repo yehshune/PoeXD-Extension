@@ -80,19 +80,31 @@ let sentLiveTradeData: { propertyFilters: unknown; knownStats: unknown } | null 
 export function sendLiveTradeData(bridge: MainWorldBridge) {
   const staticData = findTradeStaticData();
   const propertyFilters = staticData?.propertyFilters;
-  const knownStats = staticData?.knownStats;
-  if (!propertyFilters && !knownStats) return;
+  // 正常只送分組的 knownStats，known stats 由 content 端推導；頁面沒有分組資料時才退回 knownStatsFlat
+  const statsSource = Array.isArray(staticData?.knownStats)
+    ? staticData?.knownStats
+    : (staticData?.knownStatsFlat ?? staticData?.knownStats);
+  if (!propertyFilters && !statsSource) return;
   if (
     sentLiveTradeData?.propertyFilters === propertyFilters &&
-    sentLiveTradeData?.knownStats === knownStats
+    sentLiveTradeData?.knownStats === statsSource
   ) {
     return;
   }
-  sentLiveTradeData = { propertyFilters, knownStats };
+  sentLiveTradeData = { propertyFilters, knownStats: statsSource };
   bridge.dispatchEvent(
     'poexd-live-trade-data',
-    serializePoeLiveTradeData({ propertyFilters, knownStats }),
+    serializePoeLiveTradeData({ propertyFilters, knownStats: toStatGroups(statsSource) }),
   );
+}
+
+/**
+ * 攤平的 knownStatsFlat 包成單一群組，讓 content 端走同一條推導路徑。
+ * 群組 id 不是 `pseudo`，市集寫法驗證會判定無效而退回打包資料，只用來推導 known stats。
+ */
+function toStatGroups(source: unknown): unknown {
+  if (Array.isArray(source) || !source || typeof source !== 'object') return source;
+  return [{ id: 'flat', entries: Object.values(source) }];
 }
 
 /** 測試用：清除已送出紀錄 */
