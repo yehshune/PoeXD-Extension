@@ -539,7 +539,7 @@ button.pxd-gear-tile:focus-visible,
   pointer-events: none;
 }
 
-.pxd-gear-tile__check {
+.pxd-gear-tile :deep(.pxd-gear-tile__check) {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -547,9 +547,9 @@ button.pxd-gear-tile:focus-visible,
   transition: opacity 0.15s;
 }
 
-.pxd-gear-tile:hover .pxd-gear-tile__check,
-.pxd-gear-tile__check:focus-visible,
-.pxd-gear-tile[data-done='true'] .pxd-gear-tile__check {
+.pxd-gear-tile:hover :deep(.pxd-gear-tile__check),
+.pxd-gear-tile :deep(.pxd-gear-tile__check:focus-visible),
+.pxd-gear-tile[data-done='true'] :deep(.pxd-gear-tile__check) {
   opacity: 1;
 }
 </style>

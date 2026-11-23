@@ -584,18 +584,10 @@ export function usePobBuild(
   const gemContents = (session: Session, slot: string): SocketContent[] =>
     gemsInSlot(session, slot).map((gem) => {
       const englishName = gem.support ? `${gem.name}${SUPPORT_NAME_SUFFIX}` : gem.name;
-      const label = displayName(englishName);
-      const skill = gem.skill ? skillLabel(gem.skill) : '';
       return {
         kind: 'gem' as const,
-        label,
-        // 連線名稱和寶石同名（主動寶石本身）時不重複顯示
-        detail: [
-          t('pobBuild.gemDetail', { level: gem.level, quality: gem.quality }),
-          skill && skill !== label && gem.skill !== gem.name ? skill : '',
-        ]
-          .filter(Boolean)
-          .join(' · '),
+        label: displayName(englishName),
+        detail: t('pobBuild.gemDetail', { level: gem.level, quality: gem.quality }),
         ...(gem.support ? { support: true } : {}),
         rowKey: gemKey(gem),
         ...contentArt('gem', gem.support ? [englishName, gem.name] : [gem.name]),

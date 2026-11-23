@@ -616,7 +616,7 @@ describe('usePobBuild', () => {
   describe('插槽內容物', () => {
     it('PoE 1 依技能組把插在該部位的寶石依序填進插槽（超過插槽數不顯示）', async () => {
       const supports = [
-        '<Skill enabled="true" slot="Weapon 2">',
+        '<Skill enabled="true" label="Auras" slot="Weapon 2">',
         '<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemEmpower" level="4" nameSpec="Empower" quality="0"/>',
         '<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemEnlighten" level="4" nameSpec="Enlighten" quality="0"/>',
         '<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemEnhance" level="4" nameSpec="Enhance" quality="0"/>',
