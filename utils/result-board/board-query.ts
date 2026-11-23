@@ -5,6 +5,7 @@
  */
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { BoardEntry } from './board-entry';
+import { matchesModConditions, type BoardModCondition } from './board-mods';
 import { convertPrice } from './board-price';
 
 export type BoardSortMode =
@@ -23,6 +24,8 @@ export interface EntryFilter {
   priceMax?: number;
   /** 額外可搜尋文字（例如官方結果列經市集漢化後的品名與詞綴行） */
   extraSearchLines?: (entry: BoardEntry) => readonly string[];
+  /** 必含獨立詞綴條件（全部皆須命中） */
+  modConditions?: readonly BoardModCondition[];
 }
 
 export function availableSortModes(conversionAvailable: boolean): BoardSortMode[] {
@@ -190,11 +193,13 @@ export function filterEntries(
 ): BoardEntry[] {
   const tokens = parseSearchTokens(filter.keyword);
   const hasTokens = tokens.include.length > 0 || tokens.exclude.length > 0;
+  const modConditions = filter.modConditions ?? [];
   return entries.filter(
     (entry) =>
       (!filter.instantBuyoutOnly || entry.instantBuyout) &&
       !filter.hiddenAccounts.has(entry.seller.account) &&
       (!hasTokens || matchesBoardEntry(entry, tokens, filter.extraSearchLines?.(entry))) &&
+      matchesModConditions(entry, modConditions) &&
       withinPrice(entry, filter, rates),
   );
 }

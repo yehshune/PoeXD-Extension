@@ -1,0 +1,291 @@
+<script setup lang="ts">
+/**
+ * 搜尋結果看板的「必含獨立詞綴」篩選面板與已選條件標籤列。
+ *
+ * 列出目前結果中實際出現的獨立詞條（自動區分純詞與複合詞），並提供累積階級上限
+ * （不限 / T1 / ≤T2 / ≤T3）與即時命中件數。
+ */
+import { nextTick, ref, watch } from 'vue';
+import { Search, X } from '@lucide/vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { t, type I18nKey } from '@/utils/i18n';
+import {
+  BOARD_MOD_TIER_CAPS,
+  type BoardModCondition,
+  type BoardModOption,
+  type BoardModTierCap,
+} from '@/utils/result-board/board-mods';
+
+const props = defineProps<{
+  open: boolean;
+  query: string;
+  options: readonly BoardModOption[];
+  allOptionCount: number;
+  optionByKey: ReadonlyMap<string, BoardModOption>;
+  conditions: readonly BoardModCondition[];
+}>();
+
+const emit = defineEmits<{
+  'update:query': [value: string];
+  select: [key: string, maxTier?: number];
+  remove: [key: string];
+  clearAll: [];
+  close: [];
+}>();
+
+const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
+
+watch(
+  () => props.open,
+  async (isOpen) => {
+    if (!isOpen) return;
+    await nextTick();
+    (searchInputRef.value?.$el as HTMLInputElement | undefined)?.focus?.();
+  },
+);
+
+const CATEGORY_LABEL_KEYS: Readonly<Record<string, I18nKey>> = {
+  fractured: 'resultBoard.modFilter.category.fractured',
+  implicit: 'resultBoard.modFilter.category.implicit',
+  crafted: 'resultBoard.modFilter.category.crafted',
+  enchant: 'resultBoard.modFilter.category.enchant',
+};
+
+function categoryLabel(category: string): string {
+  const key = CATEGORY_LABEL_KEYS[category];
+  return key ? t(key) : '';
+}
+
+function tierLabel(maxTier: number | undefined): string {
+  if (maxTier === undefined) return t('resultBoard.modFilter.anyTier');
+  if (maxTier === 1) return t('resultBoard.modFilter.tierExact', { tier: 1 });
+  return t('resultBoard.modFilter.tierUpTo', { tier: maxTier });
+}
+
+function activeTierOf(key: string): { active: boolean; maxTier?: number } {
+  const cond = props.conditions.find((item) => item.key === key);
+  return cond ? { active: true, maxTier: cond.maxTier } : { active: false };
+}
+
+function isTierSelected(key: string, maxTier: number | undefined): boolean {
+  const state = activeTierOf(key);
+  return state.active && state.maxTier === maxTier;
+}
+
+function cycleConditionTier(cond: BoardModCondition): void {
+  const opt = props.optionByKey.get(cond.key);
+  if (!opt?.hasTiers) return;
+  const candidates: (BoardModTierCap | undefined)[] = [
+    ...BOARD_MOD_TIER_CAPS.filter((cap) => opt.tierCounts[cap] > 0),
+    undefined,
+  ];
+  if (candidates.length <= 1) return;
+  const idx = candidates.indexOf(cond.maxTier as BoardModTierCap | undefined);
+  const next = candidates[(idx + 1) % candidates.length];
+  emit('select', cond.key, next);
+}
+</script>
+
+<template>
+  <div v-if="conditions.length > 0 || open" class="flex flex-col gap-[var(--pxd-space-xs)]">
+    <!-- 已啟用的必含獨立詞綴條件標籤列 -->
+    <div
+      v-if="conditions.length > 0"
+      class="flex flex-wrap items-center gap-[var(--pxd-space-xs)]"
+      data-board-mod-chips
+    >
+      <div
+        v-for="cond in conditions"
+        :key="cond.key"
+        class="inline-flex max-w-full items-center gap-[4px] rounded-md border border-primary/35 bg-primary/10 px-[6px] py-[2px] text-[length:var(--pxd-font-micro)] text-foreground"
+        data-board-mod-chip
+        :data-mod-key="cond.key"
+      >
+        <span
+          v-if="optionByKey.get(cond.key)"
+          class="shrink-0 rounded-sm bg-background/70 px-[3px] py-px text-[10px] font-medium text-muted-foreground"
+        >
+          {{
+            optionByKey.get(cond.key)!.isHybrid
+              ? t('resultBoard.modFilter.hybrid')
+              : t('resultBoard.modFilter.pure')
+          }}
+        </span>
+        <span class="truncate font-medium" :title="optionByKey.get(cond.key)?.label ?? cond.key">
+          {{ optionByKey.get(cond.key)?.label ?? cond.key }}
+        </span>
+        <button
+          v-if="optionByKey.get(cond.key)?.hasTiers"
+          type="button"
+          class="shrink-0 cursor-pointer rounded-sm border border-primary/30 bg-primary/15 px-[4px] py-px text-[10px] font-semibold text-primary hover:bg-primary/25"
+          data-board-mod-chip-tier
+          @click="cycleConditionTier(cond)"
+        >
+          {{ tierLabel(cond.maxTier) }}
+        </button>
+        <button
+          type="button"
+          class="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-sm p-[1px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          :title="t('resultBoard.modFilter.removeCondition')"
+          :aria-label="t('resultBoard.modFilter.removeCondition')"
+          data-board-mod-chip-remove
+          @click="emit('remove', cond.key)"
+        >
+          <X class="size-3" />
+        </button>
+      </div>
+      <Button
+        v-if="conditions.length > 1"
+        variant="link"
+        size="sm"
+        class="h-auto p-0 text-[length:var(--pxd-font-micro)]"
+        data-board-mod-clear-all
+        @click="emit('clearAll')"
+      >
+        {{ t('resultBoard.modFilter.clearAll') }}
+      </Button>
+    </div>
+
+    <!-- 可收合的獨立詞條選擇器 -->
+    <div
+      v-if="open"
+      class="flex flex-col gap-[var(--pxd-space-xs)] rounded-md border border-border bg-card p-[var(--pxd-space-xs)]"
+      data-board-mod-picker
+    >
+      <div class="relative flex items-center">
+        <Search
+          class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
+        />
+        <Input
+          ref="searchInputRef"
+          :model-value="query"
+          size="sm"
+          :placeholder="t('resultBoard.modFilter.searchPlaceholder')"
+          class="w-full pl-[calc(var(--input-padding-x-sm)+var(--control-icon-sm,14px)+var(--pxd-space-sm))] pr-[calc(var(--control-height-sm)+var(--pxd-space-xs))]"
+          data-board-mod-picker-search
+          @update:model-value="emit('update:query', String($event ?? ''))"
+          @keydown.esc.stop.prevent="emit('close')"
+        />
+        <Button
+          v-if="query"
+          variant="ghost"
+          size="icon-sm"
+          class="absolute right-[var(--pxd-space-xs)]"
+          :aria-label="t('common.clearSearch')"
+          @click="emit('update:query', '')"
+        >
+          <X />
+        </Button>
+      </div>
+
+      <p
+        v-if="allOptionCount === 0"
+        class="m-0 py-[var(--pxd-space-sm)] text-center text-[length:var(--pxd-font-micro)] text-muted-foreground"
+        data-board-mod-picker-empty
+      >
+        {{ t('resultBoard.modFilter.empty') }}
+      </p>
+      <p
+        v-else-if="options.length === 0"
+        class="m-0 py-[var(--pxd-space-sm)] text-center text-[length:var(--pxd-font-micro)] text-muted-foreground"
+        data-board-mod-picker-no-match
+      >
+        {{ t('resultBoard.modFilter.noMatch') }}
+      </p>
+      <ul
+        v-else
+        class="m-0 flex max-h-[240px] list-none flex-col gap-[2px] overflow-y-auto p-0"
+        data-board-mod-picker-list
+      >
+        <li
+          v-for="opt in options"
+          :key="opt.key"
+          class="flex flex-col gap-[4px] rounded-sm border px-[6px] py-[4px] transition-colors"
+          :class="
+            activeTierOf(opt.key).active
+              ? 'border-primary/40 bg-primary/10'
+              : 'border-transparent hover:bg-muted/50'
+          "
+          data-board-mod-option
+          :data-mod-key="opt.key"
+        >
+          <button
+            type="button"
+            class="flex w-full cursor-pointer items-start justify-between gap-[var(--pxd-space-xs)] border-0 bg-transparent p-0 text-left"
+            data-board-mod-option-toggle
+            @click="emit('select', opt.key, undefined)"
+          >
+            <span
+              class="flex-1 break-words text-[length:var(--pxd-font-caption)] leading-snug text-foreground"
+            >
+              {{ opt.label }}
+            </span>
+            <span class="flex shrink-0 items-center gap-[4px]">
+              <span
+                v-if="categoryLabel(opt.category)"
+                class="rounded-sm border border-border px-[4px] py-px text-[10px] leading-tight text-muted-foreground"
+              >
+                {{ categoryLabel(opt.category) }}
+              </span>
+              <span
+                class="rounded-sm px-[4px] py-px text-[10px] font-medium leading-tight"
+                :class="
+                  opt.isHybrid
+                    ? 'bg-muted text-muted-foreground'
+                    : 'bg-primary/15 text-primary'
+                "
+                data-board-mod-kind
+              >
+                {{
+                  opt.isHybrid
+                    ? t('resultBoard.modFilter.hybrid')
+                    : t('resultBoard.modFilter.pure')
+                }}
+              </span>
+              <span
+                class="min-w-[1.6em] text-right text-[length:var(--pxd-font-micro)] tabular-nums text-muted-foreground"
+              >
+                {{ opt.itemCount }}
+              </span>
+            </span>
+          </button>
+
+          <div v-if="opt.hasTiers" class="flex flex-wrap items-center gap-[4px]">
+            <button
+              type="button"
+              class="cursor-pointer rounded-sm border px-[5px] py-px text-[10px] tabular-nums transition-colors"
+              :class="
+                isTierSelected(opt.key, undefined)
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
+              "
+              data-board-mod-tier="any"
+              @click="emit('select', opt.key, undefined)"
+            >
+              {{ t('resultBoard.modFilter.anyTier') }} ({{ opt.itemCount }})
+            </button>
+            <button
+              v-for="cap in BOARD_MOD_TIER_CAPS"
+              :key="cap"
+              type="button"
+              :disabled="opt.tierCounts[cap] === 0"
+              class="rounded-sm border px-[5px] py-px text-[10px] tabular-nums transition-colors"
+              :class="
+                isTierSelected(opt.key, cap)
+                  ? 'cursor-pointer border-primary bg-primary text-primary-foreground'
+                  : opt.tierCounts[cap] === 0
+                    ? 'cursor-not-allowed border-border/50 bg-background/30 text-muted-foreground/45'
+                    : 'cursor-pointer border-border bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground'
+              "
+              :data-board-mod-tier="String(cap)"
+              @click="emit('select', opt.key, cap)"
+            >
+              {{ tierLabel(cap) }} ({{ opt.tierCounts[cap] }})
+            </button>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</template>

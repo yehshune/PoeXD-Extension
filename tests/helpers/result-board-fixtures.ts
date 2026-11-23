@@ -21,7 +21,10 @@ export interface RawResultOptions {
   explicitMods?: string[];
   implicitMods?: string[];
   fracturedMods?: string[];
-  extendedMods?: Record<string, { name?: string; tier?: string }[]>;
+  extendedMods?: Record<
+    string,
+    { name?: string; tier?: string; magnitudes?: { hash: string; min?: string; max?: string }[] }[]
+  >;
 }
 
 /** 組出一筆形狀比照官方 `/fetch` 的快取結果 */

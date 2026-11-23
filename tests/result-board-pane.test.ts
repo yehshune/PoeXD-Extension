@@ -308,6 +308,62 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     }
   });
 
+  it('filters items by independent mod and cumulative tier via the mod filter panel', async () => {
+    const PHYS = 'explicit.stat_1509134228';
+    const ACC = 'explicit.stat_691932474';
+    ingest([
+      rawResult({
+        id: 'pure-t1',
+        name: 'Pure T1 Bow',
+        extendedMods: {
+          explicit: [{ name: 'Merciless', tier: 'P1', magnitudes: [{ hash: PHYS }] }],
+        },
+      }),
+      rawResult({
+        id: 'fake-t1',
+        name: 'Hybrid Sum Bow',
+        extendedMods: {
+          explicit: [
+            { name: 'Cruel', tier: 'P3', magnitudes: [{ hash: PHYS }] },
+            { name: 'Champion', tier: 'P4', magnitudes: [{ hash: PHYS }, { hash: ACC }] },
+          ],
+        },
+      }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    // Open mod filter panel
+    container.querySelector<HTMLButtonElement>('[data-board-mod-filter-toggle]')!.click();
+    await flush();
+
+    const pureOption = container.querySelector<HTMLElement>(
+      `[data-board-mod-option][data-mod-key="explicit:${PHYS}"]`,
+    )!;
+    expect(pureOption).not.toBeNull();
+
+    // Click T1 on pure %phys -> only pure-t1 remains
+    pureOption.querySelector<HTMLButtonElement>('[data-board-mod-tier="1"]')!.click();
+    await flush();
+
+    expect(
+      Array.from(container.querySelectorAll('[data-board-entry-id]')).map((el) =>
+        el.getAttribute('data-board-entry-id'),
+      ),
+    ).toEqual(['pure-t1']);
+    expect(container.querySelector('[data-board-mod-filter-count]')?.textContent?.trim()).toBe('1');
+    expect(container.querySelectorAll('[data-board-mod-chip]')).toHaveLength(1);
+
+    // Remove condition via chip X -> both items return
+    container.querySelector<HTMLButtonElement>('[data-board-mod-chip-remove]')!.click();
+    await flush();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
+    expect(container.querySelector('[data-board-mod-filter-count]')).toBeNull();
+  });
+
   it('remembers the items / sellers view across mounts', async () => {
     ingest([rawResult({ id: 'r1', name: 'Alpha' })]);
     const mountPane = async () => {

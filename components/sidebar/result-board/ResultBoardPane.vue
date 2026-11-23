@@ -15,6 +15,7 @@ import {
   Minus,
   Plus,
   Search,
+  SlidersHorizontal,
   X,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
+import ResultBoardModFilterPanel from './ResultBoardModFilterPanel.vue';
 import ResultBoardSellerRow from './ResultBoardSellerRow.vue';
 import { currencyDisplayOf, stopMessage } from './result-board-format';
 import { useResultBoard, type BoardView } from './useResultBoard';
@@ -54,6 +56,11 @@ const {
   hideSold,
   hasSoldEntries,
   keyword,
+  modConditions,
+  modPickerQuery,
+  modOptions,
+  filteredModOptions,
+  modOptionByKey,
   priceMinText,
   priceMaxText,
   minSellerCount,
@@ -82,6 +89,7 @@ const isSortMenuOpen = ref(false);
 const isLoadMenuOpen = ref(false);
 const loadPreset = ref<BoardLoadPreset>(10);
 const isSearchVisible = ref(false);
+const isModFilterOpen = ref(false);
 const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
 const itemsListRef = ref<HTMLElement | null>(null);
 const sellersListRef = ref<HTMLElement | null>(null);
@@ -190,6 +198,18 @@ function closeSearch(): void {
   isSearchVisible.value = false;
   keyword.value = '';
   persistSearchVisible(false);
+}
+
+function toggleModFilter(): void {
+  isModFilterOpen.value = !isModFilterOpen.value;
+  if (isModFilterOpen.value) {
+    board.ensureModDictionary();
+  }
+}
+
+function closeModFilter(): void {
+  isModFilterOpen.value = false;
+  modPickerQuery.value = '';
 }
 
 const SORT_LABEL_KEYS: Readonly<Record<BoardSortMode, I18nKey>> = {
@@ -388,6 +408,25 @@ function setMinSellerCount(value: string | number): void {
             </DropdownMenuContent>
           </DropdownMenu>
           <Button
+            :variant="isModFilterOpen || modConditions.length > 0 ? 'default' : 'outline'"
+            size="icon-sm"
+            class="relative shrink-0"
+            data-board-mod-filter-toggle
+            :aria-expanded="isModFilterOpen"
+            :title="t('resultBoard.modFilter.title')"
+            :aria-label="t('resultBoard.modFilter.title')"
+            @click="toggleModFilter"
+          >
+            <SlidersHorizontal />
+            <span
+              v-if="modConditions.length > 0"
+              class="absolute -top-1 -right-1 flex h-[14px] min-w-[14px] items-center justify-center rounded-full border border-background bg-primary px-[3px] text-[9px] font-bold leading-none text-primary-foreground tabular-nums"
+              data-board-mod-filter-count
+            >
+              {{ modConditions.length }}
+            </span>
+          </Button>
+          <Button
             :variant="isSearchVisible ? 'default' : 'outline'"
             size="icon-sm"
             class="shrink-0"
@@ -443,6 +482,20 @@ function setMinSellerCount(value: string | number): void {
             <X />
           </Button>
         </div>
+
+        <ResultBoardModFilterPanel
+          :open="isModFilterOpen"
+          :query="modPickerQuery"
+          :options="filteredModOptions"
+          :all-option-count="modOptions.length"
+          :option-by-key="modOptionByKey"
+          :conditions="modConditions"
+          @update:query="modPickerQuery = $event"
+          @select="board.setModCondition"
+          @remove="board.removeModCondition"
+          @clear-all="board.clearModConditions"
+          @close="closeModFilter"
+        />
 
         <div
           v-if="

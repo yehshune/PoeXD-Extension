@@ -5,6 +5,7 @@
  */
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import type { TradeResultEntry } from '@/utils/trade-result-cache';
+import { readBoardModRolls, type BoardModRoll } from './board-mods';
 
 export type SellerPresence = 'online' | 'afk' | 'offline';
 
@@ -48,6 +49,8 @@ export interface BoardEntry {
   mods?: readonly string[];
   /** 官方 `extended.mods` 的階級與詞綴名（例如 `P1`、`S1`、`Merciless`）；看板搜尋用 */
   modTiers?: readonly string[];
+  /** 官方 `extended.mods` 拆解出的獨立詞條（含 stat hash 組合、是否複合、階級） */
+  modRolls?: readonly BoardModRoll[];
   /** 刊登時間（epoch ms） */
   indexedAt?: number;
   /** 可直接前往藏身處購買；否則需要私訊 */
@@ -203,6 +206,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
   const note = readNote(item, listing.price);
   const mods = readMods(item);
   const modTiers = readModTiers(item);
+  const modRolls = readBoardModRolls(item);
   const indexedAt = readIndexedAt(listing.indexed);
   const frameType =
     typeof item.frameType === 'number' && Number.isFinite(item.frameType)
@@ -223,6 +227,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
     ...(note ? { note } : {}),
     ...(mods ? { mods } : {}),
     ...(modTiers ? { modTiers } : {}),
+    ...(modRolls ? { modRolls } : {}),
     ...(indexedAt !== undefined ? { indexedAt } : {}),
     instantBuyout: typeof hideoutToken === 'string' && hideoutToken.length > 0,
     seller,

@@ -16,6 +16,13 @@ import { t, type I18nKey } from '@/utils/i18n';
 import { createPinnedItemClient } from '@/utils/pinned-item-client';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
+import {
+  aggregateBoardModOptions,
+  filterModOptions,
+  matchesModConditions,
+  type BoardModCondition,
+  type BoardModOption,
+} from '@/utils/result-board/board-mods';
 import { sumPrices, summarizePrices, type PriceTotal } from '@/utils/result-board/board-price';
 import {
   availableSortModes,
@@ -39,6 +46,7 @@ import {
 import { getPoeVersion, getTradeLeague } from '@/utils/trade-context';
 import { getTradePageMode } from '@/utils/trade-page-mode';
 import { getTradeResultCache } from '@/utils/trade-result-cache';
+import { loadTradeDictionaries, translateStatLines } from '@/utils/trade-stat-dictionary';
 
 export type BoardView = 'items' | 'sellers';
 
@@ -67,6 +75,11 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const hideSold = ref(false);
   const keyword = ref('');
   const debouncedKeyword = useDebouncedRef(keyword);
+  const modConditions = ref<readonly BoardModCondition[]>([]);
+  const modPickerQuery = ref('');
+  const debouncedModPickerQuery = useDebouncedRef(modPickerQuery);
+  const modDictTick = ref(0);
+  let modDictLoading = false;
   const priceMinText = ref('');
   const priceMaxText = ref('');
   const minSellerCount = ref(DEFAULT_MIN_SELLER_COUNT);
@@ -128,6 +141,60 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   });
   const hasSoldEntries = computed(() => soldIds.value.size > 0);
 
+  function ensureModDictionary(): void {
+    if (modDictLoading) return;
+    modDictLoading = true;
+    void loadTradeDictionaries(version)
+      .then(() => {
+        if (!disposed) modDictTick.value += 1;
+      })
+      .catch(() => {
+        modDictLoading = false;
+      });
+  }
+
+  const modOptions = computed<BoardModOption[]>(() => {
+    void modDictTick.value;
+    const base =
+      hasSoldEntries.value && hideSold.value
+        ? entries.value.filter((entry) => !soldIds.value.has(entry.id))
+        : entries.value;
+    return aggregateBoardModOptions(base, (hash) => translateStatLines(hash, version).join(' / '));
+  });
+
+  const filteredModOptions = computed(() =>
+    filterModOptions(modOptions.value, debouncedModPickerQuery.value),
+  );
+
+  const modOptionByKey = computed(() => {
+    const map = new Map<string, BoardModOption>();
+    for (const option of modOptions.value) map.set(option.key, option);
+    return map;
+  });
+
+  function setModCondition(key: string, maxTier?: number): void {
+    const existing = modConditions.value.find((cond) => cond.key === key);
+    if (existing && existing.maxTier === maxTier) {
+      // 再次點選相同條件時取消選取
+      modConditions.value = modConditions.value.filter((cond) => cond.key !== key);
+      return;
+    }
+    const next: BoardModCondition = maxTier === undefined ? { key } : { key, maxTier };
+    if (existing) {
+      modConditions.value = modConditions.value.map((cond) => (cond.key === key ? next : cond));
+    } else {
+      modConditions.value = [...modConditions.value, next];
+    }
+  }
+
+  function removeModCondition(key: string): void {
+    modConditions.value = modConditions.value.filter((cond) => cond.key !== key);
+  }
+
+  function clearModConditions(): void {
+    modConditions.value = [];
+  }
+
   const extraSearchLines = (entry: BoardEntry): readonly string[] =>
     runtime.readEntrySearchLines(entry.id);
 
@@ -146,6 +213,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
           priceMin: parseBound(priceMinText.value),
           priceMax: parseBound(priceMaxText.value),
           extraSearchLines,
+          modConditions: modConditions.value,
         },
         rates.value,
       ),
@@ -157,6 +225,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const sellers = computed(() => {
     const tokens = parseSearchTokens(debouncedKeyword.value);
     const hasTokens = tokens.include.length > 0 || tokens.exclude.length > 0;
+    const hasMods = modConditions.value.length > 0;
     const matched = filterSellers(
       sortSellers(aggregateSellers(entries.value, rates.value, soldIds.value)),
       {
@@ -164,10 +233,12 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
         hiddenAccounts: state.value.hiddenAccounts,
       },
     );
-    if (!hasTokens) return matched;
+    if (!hasTokens && !hasMods) return matched;
     return matched.filter((seller) =>
-      seller.entries.some((entry) =>
-        matchesBoardEntry(entry, tokens, extraSearchLines(entry)),
+      seller.entries.some(
+        (entry) =>
+          (!hasTokens || matchesBoardEntry(entry, tokens, extraSearchLines(entry))) &&
+          matchesModConditions(entry, modConditions.value),
       ),
     );
   });
@@ -353,6 +424,8 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       unpicked.value = new Set();
       expandedIds.value = new Set();
       expandedSellers.value = new Set();
+      modConditions.value = [];
+      modPickerQuery.value = '';
       snapshotCache.clear();
       travelTimers.forEach((timer) => clearTimeout(timer));
       travelTimers.clear();
@@ -425,6 +498,15 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     hideSold,
     hasSoldEntries,
     keyword,
+    modConditions,
+    modPickerQuery,
+    modOptions,
+    filteredModOptions,
+    modOptionByKey,
+    ensureModDictionary,
+    setModCondition,
+    removeModCondition,
+    clearModConditions,
     priceMinText,
     priceMaxText,
     minSellerCount,
