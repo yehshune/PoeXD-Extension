@@ -110,7 +110,11 @@ const MAX_MOD_LENGTH = 240;
 const IMPLICITS_LINE = /^Implicits:\s*(\d+)/;
 /** `Sockets: R-R-G B`：`-` 是連結，空白分開不同組 */
 const SOCKETS_LINE = /^Sockets:\s*([A-Za-z\- ]+)$/;
-const SELECTED_VARIANT_LINE = /^Selected Variant:\s*(\d+)/;
+/** 主變體與替代變體（看守之眼一顆有三條光環詞綴，各是一個變體）；PoB 最多到 Alt Variant Five */
+const SELECTED_VARIANT_LINE =
+  /^Selected (?:Alt Variant(?: Two| Three| Four| Five)?|Variant):\s*(\d+)/;
+/** 傳奇資料庫的物品會列出所有變體詞綴（看守之眼上百行），篩選前最多讀這麼多行 */
+const MAX_SCANNED_MOD_LINES = 1000;
 /** 行首的 PoB 標記，例如 `{crafted}`、`{range:0.5}`、`{variant:1,2}` */
 const MOD_TAG = /^\{([^}]*)\}/;
 /** PoB 以 `(10-20)` 表示可變數值，實際值由 `{range:x}` 決定 */
@@ -179,7 +183,10 @@ interface ParsedModLine {
   inactiveVariant: boolean;
 }
 
-function parseModLine(raw: string, selectedVariant: string | undefined): ParsedModLine {
+function parseModLine(
+  raw: string,
+  selectedVariants: ReadonlySet<string> | undefined,
+): ParsedModLine {
   let text = raw;
   let crafted = false;
   let eldritch = false;
@@ -190,8 +197,8 @@ function parseModLine(raw: string, selectedVariant: string | undefined): ParsedM
     if (name === 'crafted') crafted = true;
     if (name === 'exarch' || name === 'eater') eldritch = true;
     if (name === 'range' && Number.isFinite(Number(value))) range = Number(value);
-    if (name === 'variant' && selectedVariant !== undefined) {
-      inactiveVariant = !value.split(',').includes(selectedVariant);
+    if (name === 'variant' && selectedVariants !== undefined) {
+      inactiveVariant = !value.split(',').some((variant) => selectedVariants.has(variant));
     }
     text = text.slice(tag[0].length);
   }
@@ -210,27 +217,31 @@ function parseMods(lines: readonly string[]): Pick<PobBuildItem, 'implicitMods' 
   const implicitsIndex = lines.findIndex((line) => IMPLICITS_LINE.test(line));
   if (implicitsIndex < 0) return { implicitMods: [], explicitMods: [] };
   const implicitCount = Number(IMPLICITS_LINE.exec(lines[implicitsIndex])?.[1] ?? 0);
-  const selectedVariant = lines
+  const variants = lines
     .slice(0, implicitsIndex)
-    .map((line) => SELECTED_VARIANT_LINE.exec(line)?.[1])
-    .find(Boolean);
+    .flatMap((line) => SELECTED_VARIANT_LINE.exec(line)?.[1] ?? []);
+  const selectedVariants = variants.length ? new Set(variants) : undefined;
   // 舊版匯出沒有 {exarch}／{eater} 標記，只在屬性區寫「Searing Exarch Item」：此時非附魔的固定詞綴都是
   const eldritchItem = lines.slice(0, implicitsIndex).some((line) => ELDRITCH_ITEM_LINE.test(line));
 
   const implicitMods: PobItemMod[] = [];
   const explicitMods: PobItemMod[] = [];
-  lines.slice(implicitsIndex + 1, implicitsIndex + 1 + MAX_MODS_PER_ITEM).forEach((raw, index) => {
-    if (STATUS_LINES.has(raw)) return;
-    const mod = parseModLine(raw, selectedVariant);
-    if (!mod.text || mod.inactiveVariant) return;
-    const entry = { text: mod.text, crafted: mod.crafted };
-    if (index >= implicitCount) {
-      explicitMods.push(entry);
-      return;
-    }
-    const eldritch = mod.eldritch || (eldritchItem && !mod.crafted);
-    implicitMods.push(eldritch ? { ...entry, eldritch: true } : entry);
-  });
+  // 先篩掉沒選用的變體再限制行數：選到的變體詞綴可能排在上百行之後
+  lines
+    .slice(implicitsIndex + 1, implicitsIndex + 1 + MAX_SCANNED_MOD_LINES)
+    .forEach((raw, index) => {
+      if (STATUS_LINES.has(raw)) return;
+      if (implicitMods.length + explicitMods.length >= MAX_MODS_PER_ITEM) return;
+      const mod = parseModLine(raw, selectedVariants);
+      if (!mod.text || mod.inactiveVariant) return;
+      const entry = { text: mod.text, crafted: mod.crafted };
+      if (index >= implicitCount) {
+        explicitMods.push(entry);
+        return;
+      }
+      const eldritch = mod.eldritch || (eldritchItem && !mod.crafted);
+      implicitMods.push(eldritch ? { ...entry, eldritch: true } : entry);
+    });
   return { implicitMods, explicitMods };
 }
 

@@ -253,10 +253,41 @@
                   build.removedCount > 0 ||
                   build.progress.done > 0 ||
                   build.hideDone ||
-                  buildCategories(build).length > 1)
+                  buildCategories(build).length > 1 ||
+                  hasEquipment(build))
               "
               class="flex flex-col gap-[var(--pxd-space-sm)] border-b border-border bg-muted/20 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
             >
+              <div
+                v-if="hasEquipment(build)"
+                class="flex items-center justify-between gap-[var(--pxd-space-md)]"
+              >
+                <span
+                  class="shrink-0 text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+                >
+                  {{ t('pobBuild.view.label') }}
+                </span>
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  size="sm"
+                  class="w-[62%]"
+                  data-pob-build-view
+                  :model-value="viewMode(build)"
+                  @update:model-value="(value) => setViewMode(build.id, value)"
+                >
+                  <ToggleGroupItem
+                    v-for="mode in VIEW_MODES"
+                    :key="mode"
+                    :value="mode"
+                    class="flex-1"
+                    :data-pob-build-view-option="mode"
+                  >
+                    {{ t(mode === 'gear' ? 'pobBuild.view.gear' : 'pobBuild.view.list') }}
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+
               <div
                 v-if="build.itemSetOptions.length > 1"
                 class="flex items-center justify-between gap-[var(--pxd-space-md)]"
@@ -348,7 +379,7 @@
               </div>
 
               <div
-                v-if="buildCategories(build).length > 1"
+                v-if="buildCategories(build).length > 1 && !isGearView(build)"
                 data-pob-build-category-filter
                 class="flex flex-wrap items-center gap-[var(--pxd-space-xs)]"
               >
@@ -371,8 +402,16 @@
               </div>
             </div>
 
+            <PobGearView
+              v-if="isGearView(build)"
+              :rows="equipmentRows(build)"
+              :active-key="activePreview?.buildId === build.id ? activePreview.row.key : undefined"
+              @select="(row, event) => handleGearSelect(build.id, row, event)"
+              @toggle-done="(key) => toggleDone(build.id, key)"
+            />
+
             <p
-              v-if="filteredGroups(build).length === 0"
+              v-if="listGroups(build).length === 0 && !isGearView(build)"
               class="m-0 bg-card px-[var(--pxd-space-md)] py-[var(--pxd-space-lg)] text-center text-[length:var(--pxd-font-secondary)] text-muted-foreground"
               data-pob-build-empty
             >
@@ -384,7 +423,7 @@
             </p>
 
             <section
-              v-for="group in filteredGroups(build)"
+              v-for="group in listGroups(build)"
               :key="group.id"
               class="flex flex-col bg-card border-b border-border last:border-b-0"
               :data-pob-build-group="group.kind"
@@ -771,6 +810,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import { rowAnchorFromEvent } from '../composables/useTradeSearchPreview';
@@ -784,6 +824,7 @@ import { getFolderItemIndentLevel } from '../bookmark-tree';
 import PobBuildImportDialog from './PobBuildImportDialog.vue';
 import PobBuildSearchSettings from './PobBuildSearchSettings.vue';
 import PobEntryPreviewPopover from './PobEntryPreviewPopover.vue';
+import PobGearView from './PobGearView.vue';
 import type { PobBookmarkFolder } from './pob-bookmark-bridge';
 import { formatPobSlot } from './pob-slot-label';
 import {
@@ -803,6 +844,10 @@ const RARITY_CLASSES: Readonly<Record<string, string>> = {
   NORMAL: 'text-foreground',
 };
 const GEM_CLASS = 'text-[var(--pxd-rarity-gem)]';
+type ViewMode = 'list' | 'gear';
+const VIEW_MODES: readonly ViewMode[] = ['list', 'gear'];
+/** 預覽 Popover 的定位元素：清單的列或裝備欄的格子 */
+const PREVIEW_ANCHOR = '[data-pob-build-row], [data-pob-build-gear-tile]';
 
 export default defineComponent({
   name: 'PobBuildPane',
@@ -837,6 +882,9 @@ export default defineComponent({
     PobBuildImportDialog,
     PobBuildSearchSettings,
     PobEntryPreviewPopover,
+    PobGearView,
+    ToggleGroup,
+    ToggleGroupItem,
     Radio,
     RefreshCw,
     RotateCcw,
@@ -995,6 +1043,32 @@ export default defineComponent({
         .filter((group) => group.rows.length > 0);
     };
 
+    /** 清單或裝備欄檢視（每個 build 各自記住，只在本次開啟期間） */
+    const viewModeByBuild = ref<Record<string, ViewMode>>({});
+
+    const equipmentRows = (build: BuildView): ShoppingRow[] =>
+      build.groups.find((group) => group.kind === 'equipment')?.rows ?? [];
+
+    const hasEquipment = (build: BuildView) => equipmentRows(build).length > 0;
+
+    const viewMode = (build: BuildView): ViewMode =>
+      hasEquipment(build) ? (viewModeByBuild.value[build.id] ?? 'list') : 'list';
+
+    /** 搜尋時一律用清單，才看得到符合的寶石與裝備 */
+    const isGearView = (build: BuildView) => !isFiltering.value && viewMode(build) === 'gear';
+
+    const setViewMode = (buildId: string, value: unknown) => {
+      // ToggleGroup 再點一次已選的項目會送出空值，維持原選擇
+      if (value !== 'list' && value !== 'gear') return;
+      viewModeByBuild.value = { ...viewModeByBuild.value, [buildId]: value };
+    };
+
+    /** 清單要畫的分組：裝備欄檢視時裝備改畫在格子裡，只剩寶石 */
+    const listGroups = (build: BuildView): ShoppingGroup[] =>
+      isGearView(build)
+        ? build.groups.filter((group) => group.kind === 'gem')
+        : filteredGroups(build);
+
     const groupKey = (buildId: string, groupId: string) => `${buildId}\u0000${groupId}`;
     const isGroupCollapsed = (build: BuildView, groupId: string) =>
       !isFiltering.value &&
@@ -1071,7 +1145,11 @@ export default defineComponent({
       if (!target) return null;
       const build = visibleBuilds.value.find((entry) => entry.id === target.buildId);
       if (!build || (build.collapsed && !isFiltering.value)) return null;
-      for (const group of filteredGroups(build)) {
+      if (isGearView(build)) {
+        const found = equipmentRows(build).find((entry) => entry.key === target.key);
+        if (found) return { buildId: build.id, row: found };
+      }
+      for (const group of listGroups(build)) {
         if (isGroupCollapsed(build, group.id)) continue;
         const found = group.rows.find((entry) => entry.key === target.key);
         if (found) return { buildId: build.id, row: found };
@@ -1107,10 +1185,23 @@ export default defineComponent({
         closePreview();
         return;
       }
-      const anchor = rowAnchorFromEvent(event, '[data-pob-build-row]');
+      const anchor = rowAnchorFromEvent(event, PREVIEW_ANCHOR);
       if (!anchor) return;
       activePreviewTarget.value = { buildId, key };
       previewAnchorEl.value = anchor;
+    };
+
+    /** 裝備欄的格子：點擊開啟預覽（沒有詞綴可看時直接搜尋），Ctrl／⌘ 點擊開新分頁 */
+    const handleGearSelect = (buildId: string, row: ShoppingRow, event: MouseEvent) => {
+      if (canSearch(row) && (event.ctrlKey || event.metaKey)) {
+        pob.openSearch(buildId, row, 'new-tab');
+        return;
+      }
+      if (canPreview(row)) {
+        togglePreview(buildId, row.key, event);
+        return;
+      }
+      if (canSearch(row)) pob.openSearch(buildId, row, 'current');
     };
 
     const rowTooltip = (row: ShoppingRow) => {
@@ -1282,6 +1373,14 @@ export default defineComponent({
       setActiveCategory,
       categoryLabel,
       filteredGroups,
+      listGroups,
+      VIEW_MODES,
+      viewMode,
+      setViewMode,
+      isGearView,
+      hasEquipment,
+      equipmentRows,
+      handleGearSelect,
       isGroupCollapsed,
       toggleGroupCollapsed,
       groupCountLabel,

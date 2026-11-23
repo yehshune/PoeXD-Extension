@@ -20,6 +20,11 @@ const FIXED_SLOTS: Readonly<Record<string, I18nKey>> = {
   'Wickerman Upper Limb': 'pobBuild.slot.wickermanUpperLimb',
   'Wickerman Lower Limb': 'pobBuild.slot.wickermanLowerLimb',
   Wickerman: 'pobBuild.slot.wickerman',
+  // 新版 PoB 的柳條人部位名稱
+  Head: 'pobBuild.slot.wickermanHead',
+  Body: 'pobBuild.slot.wickermanTorso',
+  Arm: 'pobBuild.slot.wickermanUpperLimb',
+  Leg: 'pobBuild.slot.wickermanLowerLimb',
 };
 
 const NUMBERED_SLOTS: Readonly<Record<string, I18nKey>> = {

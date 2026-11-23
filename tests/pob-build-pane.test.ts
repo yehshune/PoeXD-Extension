@@ -1309,6 +1309,47 @@ describe('PobBuildPane', () => {
     expect(row(0).textContent).toContain('Punishment');
   });
 
+  it('可切換成裝備欄檢視：裝備依部位放進格子，寶石仍是清單，點格子開啟預覽', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    const option = (value: string) =>
+      query<HTMLElement>(`[data-pob-build-view-option="${value}"]`)!;
+    expect(option('list').getAttribute('data-state')).toBe('on');
+    expect(query('[data-pob-build-gear]')).toBeNull();
+
+    option('gear').click();
+    await nextTick();
+    expect(query('[data-pob-build-gear]')).not.toBeNull();
+    expect(query('[data-pob-build-category-filter]')).toBeNull();
+    const tiles = queryAll('[data-pob-build-gear-tile]').map((el) =>
+      el.getAttribute('data-pob-build-gear-tile'),
+    );
+    expect(tiles).toEqual(['helmet', 'weapon2', 'gloves']);
+    expect(query('[data-pob-build-gear-empty="weapon1"]')).not.toBeNull();
+    // 第三戒指只有裝了才佔格子
+    expect(query('[data-pob-build-gear-empty="ring3"]')).toBeNull();
+    // 裝備不再以清單列出，只剩寶石
+    expect(queryAll('[data-pob-build-row]').map((el) => el.textContent)).toEqual([
+      expect.stringContaining('Punishment'),
+    ]);
+
+    query<HTMLButtonElement>('[data-pob-build-gear-tile="gloves"]')!.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-mods]')).not.toBeNull();
+    expect(query('[data-pob-build-gear-tile="gloves"]')!.getAttribute('aria-pressed')).toBe('true');
+
+    query<HTMLElement>('[data-pob-build-gear-tile="gloves"] [data-pob-build-gear-done]')!.click();
+    expect(fake.toggleDone).toHaveBeenCalledWith('b1', 'k-rare');
+
+    // 沒有詞綴可看的項目直接搜尋
+    query<HTMLButtonElement>('[data-pob-build-gear-tile="weapon2"]')!.click();
+    expect(fake.openSearch).toHaveBeenCalledWith(
+      'b1',
+      expect.objectContaining({ key: 'k-unique' }),
+      'current',
+    );
+  });
+
   it('已完成項目沉底時於第一筆已完成列加上分隔線標記', async () => {
     const base = sampleBuild();
     const equip = base.groups[0];

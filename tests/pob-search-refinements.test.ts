@@ -300,3 +300,47 @@ describe('build 整體設定：預設改用總和詞綴', () => {
     expect(normalizeSearchDefaults({ pseudo: true })).toEqual({ pseudo: true });
   });
 });
+
+describe('PoB 傳奇資料庫的多重變體（看守之眼）', () => {
+  // 看守之眼有上百行變體詞綴，選到的光環詞綴可能在很後面；主變體與兩個替代變體各選一條
+  const fillers = Array.from(
+    { length: 60 },
+    (_, index) => `{variant:${index + 2}}+${index + 1} to Strength while affected by Anger`,
+  );
+  const watcherXml = `<?xml version="1.0"?>
+<PathOfBuilding>
+	<Build className="Duelist" level="100" targetVersion="3_0"/>
+	<Items activeItemSet="1">
+		<Item id="1">
+			Rarity: UNIQUE
+Watcher's Eye
+Prismatic Jewel
+Variant: None
+Selected Variant: 70
+Has Alt Variant: true
+Selected Alt Variant: 63
+Has Alt Variant Two: true
+Selected Alt Variant Two: 1
+Limited to: 1
+Implicits: 0
+{range:0.5}(4-6)% increased maximum Energy Shield
+${fillers.join('\n')}
+{variant:63}{range:0.5}(10-15)% increased Cast Speed while affected by Zealotry
+{variant:70}{range:0.5}(40-60)% increased Attack Damage while affected by Precision
+{variant:71}{range:0.5}+(30-50)% to Critical Strike Multiplier while affected by Anger
+		</Item>
+		<ItemSet id="1">
+			<Slot itemId="1" name="Jewel 1"/>
+		</ItemSet>
+	</Items>
+</PathOfBuilding>`;
+
+  it('列出所有選用變體的詞綴，不受前面上百行變體影響', () => {
+    const [item] = parsePobBuildXml(watcherXml).itemSets[0].items;
+    expect(item.explicitMods.map((mod) => mod.text)).toEqual([
+      '5% increased maximum Energy Shield',
+      '13% increased Cast Speed while affected by Zealotry',
+      '50% increased Attack Damage while affected by Precision',
+    ]);
+  });
+});
