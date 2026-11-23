@@ -35,7 +35,7 @@ export interface TreeDropParams {
   draggedFolderId: string;
   targetFolderId: string;
   dropPosition: 'before' | 'inside' | 'after';
-  horizontalOffset: number; // clientX - startX
+  horizontalOffset?: number;
   indentationWidth?: number;
   deadZone?: number;
 }
@@ -52,39 +52,15 @@ export interface TreeProjectionResult {
 }
 
 /**
- * 沿著 targetFolder 往上尋找指定 depth 的 ancestor 節點
- */
-function findAncestorAtDepth(
-  folders: readonly BookmarkGroup[],
-  startFolderId: string,
-  targetDepth: number,
-): BookmarkGroup | null {
-  const target = folders.find((f) => f.id === startFolderId);
-  if (!target) return null;
-  const ancestors = getFolderAncestors(folders, startFolderId);
-  const chain = [...ancestors.reverse(), target];
-  return chain[targetDepth] ?? null;
-}
-
-/**
  * 計算 Sortable Tree 投影位置與 FolderDropIntent
  *
- * 核心契約 (Explicit Drop Zones Contract)：
- * 1. dropPosition: 'inside' (卡片中央區域) 100% 由中央 target surface 直接表達「成為此 folder 的 child」，不受水平位移改寫。
- * 2. dropPosition: 'before' | 'after' (卡片頂部/底部窄邊緣) 透過 X 軸水平位移決定同級或向左 outdent 至祖先，絕不自動轉為 inside。
- * 3. projectedDepth 與 FolderDropIntent 一致反映同級插入或祖先 outdent 槽位。
+ * 核心契約 (Explicit Vertical Drop Zones Contract)：
+ * 1. 純垂直上下三區判定，完全不受水平 X 軸偏移影響（避免右側拖曳把手斜拉時誤觸階層跳動）。
+ * 2. dropPosition: 'inside' (卡片中央區域) 100% 由中央 target surface 直接表達「成為此 folder 的 child」。
+ * 3. dropPosition: 'before' | 'after' (卡片頂部/底部邊緣或卡片間隙) 直接對齊 targetItem 的同級階層 (targetItem.depth)。
  */
 export function projectTreeDrop(params: TreeDropParams): TreeProjectionResult {
-  const {
-    folders,
-    collapsedFolderIds,
-    draggedFolderId,
-    targetFolderId,
-    dropPosition,
-    horizontalOffset,
-    indentationWidth = TREE_INDENTATION_WIDTH,
-    deadZone = TREE_HORIZONTAL_DEAD_ZONE,
-  } = params;
+  const { folders, collapsedFolderIds, draggedFolderId, targetFolderId, dropPosition } = params;
 
   if (!draggedFolderId || !targetFolderId) {
     return {
@@ -99,35 +75,24 @@ export function projectTreeDrop(params: TreeDropParams): TreeProjectionResult {
     };
   }
 
-  // Self-origin horizontal outdent:
-  // Dragged folder 自身作為 gesture sensor，僅允許向左降低 depth，映射至 ancestor 的 'after' slot
   if (draggedFolderId === targetFolderId) {
-    const draggedDepth = getFolderDepth(folders, draggedFolderId);
-    const depthDelta = calculateDepthDelta(horizontalOffset, indentationWidth, deadZone);
-    const rawDepth = draggedDepth + depthDelta;
-
-    if (draggedDepth > 0 && depthDelta < 0) {
-      const clampedDepth = Math.max(0, Math.min(rawDepth, draggedDepth - 1));
-      const ancestor = findAncestorAtDepth(folders, draggedFolderId, clampedDepth);
-      if (ancestor) {
-        return {
-          ok: true,
-          targetFolderId: ancestor.id,
-          position: 'after',
-          dropIntent: {
-            targetFolderId: ancestor.id,
-            position: 'after',
-          },
-          projectedDepth: clampedDepth,
-          projectedParentId: ancestor.parentId,
-          indentPx: (clampedDepth - draggedDepth) * indentationWidth,
-        };
-      }
-    }
-
     return {
       ok: false,
-      reason: 'Self-origin gesture requires outdenting to ancestor',
+      reason: 'Cannot drop folder onto itself',
+      targetFolderId,
+      position: dropPosition,
+      dropIntent: { targetFolderId, position: dropPosition },
+      projectedDepth: 0,
+      projectedParentId: undefined,
+      indentPx: 0,
+    };
+  }
+
+  const draggedSubtreeIds = getFolderSubtreeIds(folders, draggedFolderId);
+  if (draggedSubtreeIds.has(targetFolderId)) {
+    return {
+      ok: false,
+      reason: 'Target folder is part of dragged subtree',
       targetFolderId,
       position: dropPosition,
       dropIntent: { targetFolderId, position: dropPosition },
@@ -155,7 +120,7 @@ export function projectTreeDrop(params: TreeDropParams): TreeProjectionResult {
 
   const targetItem = visibleFolders[targetIndex];
 
-  // 1. inside: 由中央 target surface 直接擁有，成為 targetItem 的直接子節點，不受水平位移影響
+  // 1. inside: 由中央 target surface 直接擁有，成為 targetItem 的直接子節點
   if (dropPosition === 'inside') {
     return {
       ok: true,
@@ -171,80 +136,18 @@ export function projectTreeDrop(params: TreeDropParams): TreeProjectionResult {
     };
   }
 
-  // 2. before: 卡片頂部邊緣，X 軸位移支援同級 (clampedDepth = targetItem.depth) 或向左 outdent (clampedDepth < targetItem.depth)
-  if (dropPosition === 'before') {
-    const draggedDepth = getFolderDepth(folders, draggedFolderId);
-    const depthDelta = calculateDepthDelta(horizontalOffset, indentationWidth, deadZone);
-    const rawDepth = Math.max(0, draggedDepth + depthDelta);
-
-    const maxDepth = targetItem.depth;
-    const minDepth = 0;
-    const clampedDepth = Math.max(minDepth, Math.min(rawDepth, maxDepth));
-
-    let finalTargetFolderId = targetItem.id;
-    let projectedParentId = targetItem.parentId;
-    if (clampedDepth < targetItem.depth) {
-      const ancestor = findAncestorAtDepth(folders, targetItem.id, clampedDepth);
-      if (ancestor) {
-        finalTargetFolderId = ancestor.id;
-        projectedParentId = ancestor.parentId;
-      }
-    }
-    const localIndentPx = (clampedDepth - targetItem.depth) * indentationWidth;
-    return {
-      ok: true,
-      targetFolderId: finalTargetFolderId,
-      position: 'before',
-      dropIntent: {
-        targetFolderId: finalTargetFolderId,
-        position: 'before',
-      },
-      projectedDepth: clampedDepth,
-      projectedParentId,
-      indentPx: localIndentPx,
-    };
-  }
-
-  // 3. after: 卡片底部邊緣，X 軸位移支援同級或向左 outdent，跳過 targetItem 子樹以決定 minDepth
-  const draggedDepth = getFolderDepth(folders, draggedFolderId);
-  const depthDelta = calculateDepthDelta(horizontalOffset, indentationWidth, deadZone);
-  const rawDepth = Math.max(0, draggedDepth + depthDelta);
-
-  const maxDepth = targetItem.depth;
-
-  const targetAncestor =
-    findAncestorAtDepth(folders, targetItem.id, Math.max(0, rawDepth)) ?? targetItem;
-  const ancestorSubtreeIds = getFolderSubtreeIds(folders, targetAncestor.id);
-  let nextItem: VisibleFolderItem | undefined;
-  for (let i = targetIndex + 1; i < visibleFolders.length; i++) {
-    if (!ancestorSubtreeIds.has(visibleFolders[i].id)) {
-      nextItem = visibleFolders[i];
-      break;
-    }
-  }
-  const minDepth = nextItem ? nextItem.depth : 0;
-  const clampedDepth = Math.max(minDepth, Math.min(rawDepth, maxDepth));
-
-  let finalTargetFolderId = targetItem.id;
-  let projectedParentId = targetItem.parentId;
-  if (clampedDepth < targetItem.depth) {
-    const ancestor = findAncestorAtDepth(folders, targetItem.id, clampedDepth);
-    if (ancestor) {
-      finalTargetFolderId = ancestor.id;
-      projectedParentId = ancestor.parentId;
-    }
-  }
-  const localIndentPx = (clampedDepth - targetItem.depth) * indentationWidth;
+  // 2. before / after: 卡片頂部或底部邊緣，直接對齊 targetItem 的同級階層 (targetItem.depth)
   return {
     ok: true,
-    targetFolderId: finalTargetFolderId,
-    position: 'after',
+    targetFolderId: targetItem.id,
+    position: dropPosition,
     dropIntent: {
-      targetFolderId: finalTargetFolderId,
-      position: 'after',
+      targetFolderId: targetItem.id,
+      position: dropPosition,
     },
-    projectedDepth: clampedDepth,
-    projectedParentId,
-    indentPx: localIndentPx,
+    projectedDepth: targetItem.depth,
+    projectedParentId: targetItem.parentId,
+    indentPx: 0,
   };
 }
+

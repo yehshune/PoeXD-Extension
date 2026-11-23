@@ -502,22 +502,64 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
 
     // 1. 解析所屬 .group-container (支援命中 header、body、直屬書籤列與內部控制項)
     let targetContainer = elem?.closest('.group-container') as HTMLElement | null;
-    if (!targetContainer && draggedFolderId) {
-      // Self-Origin Gesture Corridor:
-      // 當 pointer 維持在 dragged origin row 的垂直範圍內，向左跨入其左側 indentation gutter 時，
-      // 仍以 dragged origin 作為 gesture sensor 進行 ancestor outdent 投影
-      const originContainer = containerEl?.querySelector(
-        `.group-container[data-group-id="${draggedFolderId}"]`,
-      ) as HTMLElement | null;
-      if (originContainer) {
-        const originRect = originContainer.getBoundingClientRect();
-        if (
-          originRect.height > 0 &&
-          clientY >= originRect.top &&
-          clientY <= originRect.bottom &&
-          clientX < originRect.left
-        ) {
-          targetContainer = originContainer;
+    let forcedDropPosition: 'before' | 'after' | null = null;
+    let forcedTargetFolderId: string | null = null;
+
+    if (!targetContainer && containerEl) {
+      // Inter-card Gap Corridor:
+      // 當 pointer 位於兩個資料夾卡片之間的垂直縫隙 (gap) 時，
+      // 自動吸附至對應的目標卡片與 before/after 插入點，避免移到間隙時插入線閃退消失
+      const allContainers = Array.from(
+        containerEl.querySelectorAll<HTMLElement>('.group-container[data-group-id]'),
+      );
+      for (let i = 0; i < allContainers.length; i++) {
+        const c = allContainers[i];
+        const rect = c.getBoundingClientRect();
+        if (rect.height <= 0 || clientX < rect.left || clientX > rect.right) continue;
+
+        // Pointer 落在第一個卡片上方邊緣外一點點
+        if (i === 0 && clientY < rect.top && rect.top - clientY <= 16) {
+          targetContainer = c;
+          forcedDropPosition = 'before';
+          break;
+        }
+
+        // Pointer 落在兩個相鄰卡片之間的垂直縫隙 (gap)
+        const nextC = allContainers[i + 1];
+        if (nextC) {
+          const nextRect = nextC.getBoundingClientRect();
+          if (nextRect.height > 0 && clientY > rect.bottom && clientY < nextRect.top) {
+            const midY = (rect.bottom + nextRect.top) / 2;
+            if (clientY < midY) {
+              targetContainer = c;
+              forcedDropPosition = 'after';
+            } else if (clientX >= nextRect.left && clientX <= nextRect.right) {
+              targetContainer = nextC;
+              forcedDropPosition = 'before';
+            } else {
+              targetContainer = c;
+              forcedDropPosition = 'after';
+            }
+            break;
+          }
+        } else if (clientY > rect.bottom && clientY - rect.bottom <= 24) {
+          // Pointer 落在最後一個卡片下方邊緣外：
+          // 若最後一個卡片是子資料夾 (depth > 0) 且滑鼠再往下拉超過 8px，自動對齊最外層根資料夾 (Root after)
+          targetContainer = c;
+          forcedDropPosition = 'after';
+          const lastDepth = parseInt(c.getAttribute('data-depth') ?? '0', 10);
+          if (lastDepth > 0 && clientY - rect.bottom > 8) {
+            const rootContainers = allContainers.filter(
+              (el) =>
+                el.getAttribute('data-depth') === '0' &&
+                el.getAttribute('data-group-id') !== draggedFolderId,
+            );
+            const lastRoot = rootContainers[rootContainers.length - 1];
+            if (lastRoot) {
+              forcedTargetFolderId = lastRoot.getAttribute('data-group-id');
+            }
+          }
+          break;
         }
       }
     }
@@ -528,13 +570,13 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       return;
     }
 
-    const targetFolderId = targetContainer.getAttribute('data-group-id');
+    const targetFolderId = forcedTargetFolderId ?? targetContainer.getAttribute('data-group-id');
     const subtreeIds = draggedFolderId
       ? getFolderSubtreeIds(options.groups.value, draggedFolderId)
       : new Set<string>();
 
-    // 2. 排除無效 ID 與自身子樹後代（自身 card 僅可作為 self-origin outdent 的 gesture sensor）
-    if (!targetFolderId || (targetFolderId !== draggedFolderId && subtreeIds.has(targetFolderId))) {
+    // 2. 排除無效 ID、自身與自身子樹後代
+    if (!targetFolderId || targetFolderId === draggedFolderId || subtreeIds.has(targetFolderId)) {
       clearFolderDropIndicator();
       clearHoverExpandTimer();
       return;
@@ -571,7 +613,9 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     );
 
     let dropPosition: 'before' | 'inside' | 'after';
-    if (clientY <= cTop + edgeHeight) {
+    if (forcedDropPosition) {
+      dropPosition = forcedDropPosition;
+    } else if (clientY <= cTop + edgeHeight) {
       dropPosition = 'before';
     } else if (clientY >= cBottom - edgeHeight) {
       dropPosition = 'after';

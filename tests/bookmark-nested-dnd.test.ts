@@ -1636,16 +1636,22 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
     expect(cA1.header.classList.contains('drop-indicator-after')).toBe(true);
     expect(cA1.header.style.getPropertyValue('--drop-indicator-indent')).toBe('0px');
 
-    // 2. Drag left by -35px (clientX = 65) -> outdents to depth 0 -> after p-a (slot moves to p-a's last visible descendant cA2)
+    // 2. Drag left by -35px (clientX = 65) on cA1 -> remains strictly aligned to cA1 (depth 1) without horizontal jump
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 65, clientY: 188 }));
+    expect(cA1.header.classList.contains('drop-indicator-after')).toBe(true);
+    expect(cA1.header.style.getPropertyValue('--drop-indicator-indent')).toBe('0px');
+
+    // 3. Move to bottom edge of pA (y = 138) -> projects after p-a (slot moves to p-a's last visible descendant cA2)
+    hitElement = pA.header;
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 100, clientY: 138 }));
     expect(cA1.header.classList.contains('drop-indicator-after')).toBe(false);
     expect(cA2.header.classList.contains('drop-indicator-after')).toBe(true);
     expect(cA2.folderEl.classList.contains('drop-indicator-after')).toBe(true);
-    // Indent is relative to cA2 (depth 1), so outdenting to depth 0 gives -20px
+    // Indent is relative to cA2 (depth 1), so after p-a (depth 0) gives -20px
     expect(cA2.header.style.getPropertyValue('--drop-indicator-indent')).toBe('-20px');
     expect(cA2.folderEl.style.getPropertyValue('--drop-indicator-indent')).toBe('-20px');
 
-    // 3. Drop: executes move-folder matching the indicator (after p-a at root level)
+    // 4. Drop: executes move-folder matching the indicator (after p-a at root level)
     capturedSortableOptions.onEnd({ item: fD.folderEl });
 
     await vi.waitFor(() => {
@@ -2432,14 +2438,19 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
     // Measured gap between pB and fX is 192 - 184 = 8px -> -4px
     expect(pB.folderEl.style.getPropertyValue('--drop-indicator-offset-y')).toBe('-4px');
 
-    // 6. Test: Horizontal outdent from child to ancestor
-    // Hover on cA1 top (before cA1), then drag left by -40px (clientX = 60) -> outdents to before p-a (depth 0)
+    // 6. Test: Vertical before on child aligns directly to child regardless of horizontal offset
     hitElement = cA1.folderEl;
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 60, clientY: 50 }));
-    // Must move slot to pA before!
-    expect(cA1.folderEl.classList.contains('drop-indicator-before')).toBe(false);
-    expect(pA.folderEl.classList.contains('drop-indicator-before')).toBe(true);
-    expect(pA.folderEl.style.getPropertyValue('--drop-indicator-indent')).toBe('0px');
+    expect(cA1.folderEl.classList.contains('drop-indicator-before')).toBe(true);
+    expect(cA1.folderEl.style.getPropertyValue('--drop-indicator-indent')).toBe('0px');
+
+    // 6b. Test: Inter-card gap corridor between pA (bottom: 40) and cA1 (top: 48)
+    // When pointer is in the gap at clientY = 46 (closer to cA1.top 48) with horizontalOffset = 0 (clientX = 100),
+    // it resolves to before cA1 at depth 1 (between Parent A and Child A1)!
+    hitElement = container;
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 100, clientY: 46 }));
+    expect(cA1.folderEl.classList.contains('drop-indicator-before')).toBe(true);
+    expect(cA1.folderEl.style.getPropertyValue('--drop-indicator-indent')).toBe('0px');
 
     // 7. Test: UI Scale & Density token adaptation for row-gap
     const densityContainer = document.createElement('div');
@@ -2611,67 +2622,43 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
     });
 
     // 1. Pointer on fC self card with no horizontal outdent (clientX = 45, clientY = 110)
-    // Hits fC header -> invalid / no-op (self without horizontal outdent)
+    // Hits fC header -> invalid / no-op
     expect(realisticElementFromPoint(45, 110)).toBe(fC.header);
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 45, clientY: 110 }));
     expect(fC.folderEl.classList.contains('drop-indicator-after')).toBe(false);
     expect(fC.folderEl.classList.contains('drop-indicator-inside')).toBe(false);
     expect(fC.folderEl.classList.contains('drop-indicator-before')).toBe(false);
 
-    // 2. Pointer dragged right (clientX = 75, clientY = 110, offset = +30)
-    // Hits fC card -> invalid / no-op (no self-inside)
-    expect(realisticElementFromPoint(75, 110)).toBe(fC.header);
+    // 2. Pointer dragged right (clientX = 75, clientY = 110) or left (clientX = 17, clientY = 110) on self row
+    // Pure vertical contract: horizontal drag on self or left gutter never triggers self-outdent
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 75, clientY: 110 }));
     expect(fC.folderEl.classList.contains('drop-indicator-inside')).toBe(false);
     expect(fC.folderEl.classList.contains('drop-indicator-after')).toBe(false);
 
-    // 3. Pointer dragged left 1 level into indentation gutter (clientX = 17, offset = 17 - 45 = -28)
-    // Because clientX = 17 < fC.left (40), pointer is physically outside fC card in the left gutter!
-    // elementFromPoint hits container (.bookmark-sortable-root), NOT fC!
-    expect(realisticElementFromPoint(17, 110)).toBe(container);
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 17, clientY: 110 }));
-    // Self-origin gesture corridor recovers fC as sensor:
-    // Outdents to depth 1 (after B). B's visible subtree ends at D (depth 2).
-    // Indicator is placed after D, reflecting depth 1 (relative indent: (1 - 2) * 20 = -20px)
-    expect(fD.folderEl.classList.contains('drop-indicator-after')).toBe(true);
-    expect(fD.folderEl.style.getPropertyValue('--drop-indicator-indent')).toBe('-20px');
-    expect(fD.folderEl.style.getPropertyValue('--drop-indicator-offset-y')).toBe('-4px');
+    expect(fD.folderEl.classList.contains('drop-indicator-after')).toBe(false);
 
-    // 4. Pointer dragged left 2 levels further into gutter (clientX = -3, offset = -3 - 45 = -48)
-    // Still in left gutter outside any card -> elementFromPoint hits container
-    expect(realisticElementFromPoint(-3, 110)).toBe(container);
-    window.dispatchEvent(new MouseEvent('pointermove', { clientX: -3, clientY: 110 }));
-    // Outdents to depth 0 (after A). A's visible subtree ends at D.
-    // Indicator is placed after D, reflecting depth 0 (relative indent: (0 - 2) * 20 = -40px)
-    expect(fD.folderEl.classList.contains('drop-indicator-after')).toBe(true);
-    expect(fD.folderEl.style.getPropertyValue('--drop-indicator-indent')).toBe('-40px');
-    expect(fD.folderEl.style.getPropertyValue('--drop-indicator-offset-y')).toBe('-4px');
-
-    // 5. Pointer moves vertically out of origin row into fB's row (clientX = 45, clientY = 60)
-    // Hits fB directly (fB top: 48, bottom: 88, left: 20) -> switches to fB target gesture
+    // 3. Pointer moves vertically out of origin row into fB's row (clientX = 45, clientY = 60)
+    // Hits fB directly (fB top: 48, bottom: 88, left: 20) -> fB center zone -> inside fB
     expect(realisticElementFromPoint(45, 60)).toBe(fB.header);
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 45, clientY: 60 }));
-    // Previous indicator on fD must be cleared
-    expect(fD.folderEl.classList.contains('drop-indicator-after')).toBe(false);
-    // fB center zone -> inside fB
     expect(fB.folderEl.classList.contains('drop-indicator-inside')).toBe(true);
 
-    // 6. Pointer in fB's vertical height but in left gutter outside fB (clientX = 5, clientY = 60, fB.left = 20)
-    // Hits container, but clientY is outside fC origin row -> corridor does not trigger, indicators cleared
+    // 4. Pointer in fB's vertical height but in left gutter outside fB (clientX = 5, clientY = 60, fB.left = 20)
+    // Hits container -> indicators cleared
     expect(realisticElementFromPoint(5, 60)).toBe(container);
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 5, clientY: 60 }));
     expect(fB.folderEl.classList.contains('drop-indicator-inside')).toBe(false);
-    expect(fD.folderEl.classList.contains('drop-indicator-after')).toBe(false);
 
-    // 7. Move back to self-origin corridor at depth 0 outdent (clientX = -3, clientY = 110)
-    window.dispatchEvent(new MouseEvent('pointermove', { clientX: -3, clientY: 110 }));
+    // 5. Move vertically to fA's bottom edge (clientX = 45, clientY = 38) -> projects after A (slot on D, depth 0)
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 45, clientY: 38 }));
     expect(fD.folderEl.classList.contains('drop-indicator-after')).toBe(true);
 
-    // 8. Verify source/subtree layout footprint has not changed during gesture
+    // 6. Verify source/subtree layout footprint has not changed during gesture
     const currentOrder = Array.from(container.children).map((c) => c.getAttribute('data-group-id'));
     expect(currentOrder).toEqual(['f-a', 'f-b', 'f-c', 'f-d', 'f-e']);
 
-    // 9. Drop commits move-folder after A
+    // 7. Drop commits move-folder after A
     capturedSortableOptions.onEnd({ item: fC.folderEl });
     await vi.waitFor(() => {
       expect(execute).toHaveBeenCalledWith(
