@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MainWorldBridge } from '@/entrypoints/main-world/bridge-bootstrap';
 import { installFetchInterceptor } from '@/entrypoints/main-world/network-observer';
 import { resetTradeRequestIdleForTests } from '@/entrypoints/main-world/trade-request-idle';
+import { resetLiveTradeDataSentForTests } from '@/entrypoints/main-world/poe-runtime-reader';
 
 describe('installFetchInterceptor runtime regression', () => {
   let dispatchedEvents: Array<{ type: string; payload?: string }> = [];
@@ -43,9 +44,17 @@ describe('installFetchInterceptor runtime regression', () => {
         knownStatsFlat: {
           'stat.test': { id: 'stat.test', text: 'Test Stat', type: 'explicit' },
         },
+        knownStats: [
+          {
+            id: 'explicit',
+            label: 'Explicit',
+            entries: [{ id: 'stat.test', text: 'Test Stat', type: 'explicit' }],
+          },
+        ],
       },
     };
     document.body.appendChild(tradeEl);
+    resetLiveTradeDataSentForTests();
   });
 
   afterEach(() => {
@@ -108,7 +117,7 @@ describe('installFetchInterceptor runtime regression', () => {
     expect(triggerEvent).toBeDefined();
   });
 
-  it('官網 4 支 data API 都回應時，同一份 known stats 只送一次；內容變了才再送', async () => {
+  it('官網 4 支 data API 都回應時，同一份即時市集資料只送一次；內容變了才再送', async () => {
     const fakeDataResponse = { clone: () => ({ json: async () => ({ result: [] }) }) };
     const win = { fetch: vi.fn().mockResolvedValue(fakeDataResponse) } as unknown as Window;
     installFetchInterceptor(bridge, win);
@@ -117,20 +126,21 @@ describe('installFetchInterceptor runtime regression', () => {
       await win.fetch(`https://www.pathofexile.com/api/trade/data/${kind}`);
     }
     vi.advanceTimersByTime(501); // 500ms 延遲後再等主執行緒閒置
-    const count = () => dispatchedEvents.filter((e) => e.type === 'poexd-known-stats').length;
+    const count = () => dispatchedEvents.filter((e) => e.type === 'poexd-live-trade-data').length;
     expect(count()).toBe(1);
+    // known stats 由即時市集資料推導，不再另外序列化 knownStatsFlat
+    expect(dispatchedEvents.some((e) => e.type === 'poexd-known-stats')).toBe(false);
 
-    (tradeEl as any).__vue__.static_.knownStatsFlat['stat.new'] = {
-      id: 'stat.new',
-      text: 'New Stat',
-      type: 'explicit',
-    };
+    (tradeEl as any).__vue__.static_.knownStats = [
+      ...(tradeEl as any).__vue__.static_.knownStats,
+      { id: 'pseudo', label: 'Pseudo', entries: [] },
+    ];
     await win.fetch('https://www.pathofexile.com/api/trade/data/stats');
     vi.advanceTimersByTime(501);
     expect(count()).toBe(2);
   });
 
-  it('triggers knownStats and currentQuery dispatch after 500ms when /api/trade/data completes', async () => {
+  it('triggers live trade data and currentQuery dispatch after 500ms when /api/trade/data completes', async () => {
     const fakeDataResponse = {
       clone: () => ({
         json: async () => ({ result: [] }),
@@ -144,15 +154,15 @@ describe('installFetchInterceptor runtime regression', () => {
     await win.fetch('https://www.pathofexile.com/api/trade/data/stats');
 
     // Before timer fires
-    expect(dispatchedEvents.some((e) => e.type === 'poexd-known-stats')).toBe(false);
+    expect(dispatchedEvents.some((e) => e.type === 'poexd-live-trade-data')).toBe(false);
 
     // Fast-forward past 500ms
     vi.advanceTimersByTime(501);
 
-    const knownStatsEvent = dispatchedEvents.find((e) => e.type === 'poexd-known-stats');
-    expect(knownStatsEvent).toBeDefined();
-    const statsData = JSON.parse(knownStatsEvent!.payload!);
-    expect(statsData['stat.test']).toEqual({
+    const liveEvent = dispatchedEvents.find((e) => e.type === 'poexd-live-trade-data');
+    expect(liveEvent).toBeDefined();
+    const wire = JSON.parse(liveEvent!.payload!);
+    expect(wire.knownStats[0].entries[0]).toEqual({
       id: 'stat.test',
       text: 'Test Stat',
       type: 'explicit',

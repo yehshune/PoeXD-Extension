@@ -89,6 +89,11 @@ export interface PoeLiveTradeDataWire {
 export interface PoeLiveTradeDataPayload {
   filters: LiveTradeFilters | null;
   statLabels: LiveStatLabels | null;
+  /**
+   * 由同一份分組 knownStats 推導的 id → stat 對照（等同官方 `static_.knownStatsFlat`）。
+   * 不另外序列化 knownStatsFlat：兩者內容相同，各約 2.5～3 MB，每次載入多序列化一份很貴。
+   */
+  knownStats: PoeKnownStatsPayload | null;
 }
 
 export interface PoeAddStatFilterPayload {
@@ -224,7 +229,6 @@ export interface PoeMainToContentEventMap {
   'poexd-fetch-response': string; // Wire format: serialized JSON of PoeFetchResponsePayload
   'poexd-search-query-observed': string; // Wire format: serialized JSON of PoeSearchQueryObservedPayload
   'poexd-search-triggered': void;
-  'poexd-known-stats': string; // Wire format: serialized JSON of PoeKnownStatsPayload
   'poexd-live-trade-data': string; // Wire format: serialized JSON of PoeLiveTradeDataWire
   'poexd-equipment-type-changed': { type: string | null };
   'poexd-livesearch-command-result': string; // Wire format: serialized JSON of PoeLiveSearchCommandResultPayload
@@ -272,7 +276,6 @@ export interface PoeCrossWorldPayloadMap {
   'poexd-fetch-response': PoeFetchResponsePayload;
   'poexd-search-query-observed': PoeSearchQueryObservedPayload;
   'poexd-search-triggered': void;
-  'poexd-known-stats': PoeKnownStatsPayload;
   'poexd-live-trade-data': PoeLiveTradeDataPayload;
   'poexd-equipment-type-changed': { type: string | null };
   'poexd-livesearch-command-result': PoeLiveSearchCommandResultPayload;
@@ -509,42 +512,29 @@ export function parsePoeLiveTradeData(detail: unknown): PoeLiveTradeDataPayload 
   const wire = parsed as Partial<PoeLiveTradeDataWire>;
   const filters = parseLiveTradeFilters(wire.propertyFilters);
   const statLabels = parseLiveStatLabels(wire.knownStats);
-  return filters || statLabels ? { filters, statLabels } : undefined;
+  const knownStats = flattenKnownStats(wire.knownStats);
+  return filters || statLabels || knownStats ? { filters, statLabels, knownStats } : undefined;
 }
 
-export function serializePoeKnownStats(payload: PoeKnownStatsPayload): string {
-  return JSON.stringify(payload);
-}
-
-export function parsePoeKnownStats(detail: unknown): PoeKnownStatsPayload | undefined {
-  if (typeof detail !== 'string') return undefined;
-  try {
-    const parsed = JSON.parse(detail);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return undefined;
-    }
-    const entries = Object.entries(parsed);
-    const result: PoeKnownStatsPayload = {};
-    for (const [key, val] of entries) {
-      if (
-        !val ||
-        typeof val !== 'object' ||
-        typeof (val as any).id !== 'string' ||
-        typeof (val as any).text !== 'string' ||
-        typeof (val as any).type !== 'string'
-      ) {
-        return undefined;
+/**
+ * 分組的 knownStats（`[{ id, entries: [{ id, text, type }] }]`）→ id → stat 對照。
+ * 重複 id 以後出現的為準，與官方 `knownStatsFlat` 相同；任何條目形狀不符回傳 null。
+ */
+function flattenKnownStats(raw: unknown): PoeKnownStatsPayload | null {
+  if (!Array.isArray(raw)) return null;
+  const result: PoeKnownStatsPayload = {};
+  for (const group of raw) {
+    const entries = (group as { entries?: unknown } | null)?.entries;
+    if (!Array.isArray(entries)) return null;
+    for (const entry of entries) {
+      const { id, text, type } = (entry ?? {}) as Record<string, unknown>;
+      if (typeof id !== 'string' || typeof text !== 'string' || typeof type !== 'string') {
+        return null;
       }
-      result[key] = {
-        id: (val as any).id,
-        text: (val as any).text,
-        type: (val as any).type,
-      };
+      result[id] = { id, text, type };
     }
-    return result;
-  } catch {
-    return undefined;
   }
+  return result;
 }
 
 export function serializePoeLiveSearchRenderResult(

@@ -7,11 +7,9 @@ import {
   isPoeContentInternalEventType,
   listenPoeEvent,
   parsePoeFetchResponse,
-  parsePoeKnownStats,
   parsePoeMoveStatFilter,
   parsePoeSearchQueryObserved,
   serializePoeFetchResponse,
-  serializePoeKnownStats,
   serializePoeMoveStatFilter,
   serializePoeSearchQueryObserved,
   type PoeContentInternalEventMap,
@@ -19,7 +17,6 @@ import {
   type PoeCrossWorldEventMap,
   type PoeEventMap,
   type PoeFetchResponsePayload,
-  type PoeKnownStatsPayload,
   type PoeMainToContentEventMap,
   type PoeMoveStatFilterPayload,
   type PoeSearchQueryObservedPayload,
@@ -42,7 +39,6 @@ type ExpectedMainToContent =
   | 'poexd-fetch-response'
   | 'poexd-search-query-observed'
   | 'poexd-search-triggered'
-  | 'poexd-known-stats'
   | 'poexd-live-trade-data'
   | 'poexd-equipment-type-changed'
   | 'poexd-livesearch-command-result'
@@ -263,100 +259,6 @@ describe('Event Protocol Hardening (Phase 2)', () => {
             JSON.stringify({ fromGroup: 0.5, fromFilter: 1, toGroup: 2, toFilter: 3 }),
           ),
         ).toBeNull();
-      });
-    });
-
-    describe('poexd-known-stats', () => {
-      it('parses realistic knownStats wire fixture from Main World static data probe', () => {
-        const knownStatsFixture = JSON.stringify({
-          stat_life: {
-            id: 'explicit.stat_life',
-            text: '+# to maximum Life',
-            type: 'explicit',
-          },
-          stat_mana: {
-            id: 'explicit.stat_mana',
-            text: '+# to maximum Mana',
-            type: 'explicit',
-          },
-        });
-        const parsed = parsePoeKnownStats(knownStatsFixture);
-
-        expect(parsed).toEqual({
-          stat_life: {
-            id: 'explicit.stat_life',
-            text: '+# to maximum Life',
-            type: 'explicit',
-          },
-          stat_mana: {
-            id: 'explicit.stat_mana',
-            text: '+# to maximum Mana',
-            type: 'explicit',
-          },
-        });
-      });
-
-      it('accepts legitimate empty dictionary', () => {
-        expect(parsePoeKnownStats('{}')).toEqual({});
-      });
-
-      it('rejects payload if any entry is malformed without returning partial or empty dictionary', () => {
-        // 1. Partial invalid entry (missing fields)
-        const partialInvalidFixture = JSON.stringify({
-          stat_life: {
-            id: 'explicit.stat_life',
-            text: '+# to maximum Life',
-            type: 'explicit',
-          },
-          stat_broken: {
-            id: 'explicit.stat_broken',
-            // missing text and type
-          },
-        });
-        expect(parsePoeKnownStats(partialInvalidFixture)).toBeUndefined();
-
-        // 2. Non-object entry
-        const nonObjectEntryFixture = JSON.stringify({
-          stat_life: {
-            id: 'explicit.stat_life',
-            text: '+# to maximum Life',
-            type: 'explicit',
-          },
-          stat_broken: 'invalid string entry',
-        });
-        expect(parsePoeKnownStats(nonObjectEntryFixture)).toBeUndefined();
-
-        // 3. Null entry
-        const nullEntryFixture = JSON.stringify({
-          stat_life: {
-            id: 'explicit.stat_life',
-            text: '+# to maximum Life',
-            type: 'explicit',
-          },
-          stat_broken: null,
-        });
-        expect(parsePoeKnownStats(nullEntryFixture)).toBeUndefined();
-      });
-
-      it('rejects malformed top-level inputs for known stats', () => {
-        expect(parsePoeKnownStats(null)).toBeUndefined();
-        expect(parsePoeKnownStats('')).toBeUndefined();
-        expect(parsePoeKnownStats('bad-json')).toBeUndefined();
-        expect(parsePoeKnownStats(JSON.stringify(['array', 'not', 'allowed']))).toBeUndefined();
-        expect(parsePoeKnownStats(JSON.stringify('string not allowed'))).toBeUndefined();
-      });
-
-      it('serializes canonical known stats payload to wire JSON matching parser contract', () => {
-        const payload: PoeKnownStatsPayload = {
-          stat_life: {
-            id: 'explicit.stat_life',
-            text: '+# to maximum Life',
-            type: 'explicit',
-          },
-        };
-        const serialized = serializePoeKnownStats(payload);
-        expect(typeof serialized).toBe('string');
-        expect(parsePoeKnownStats(serialized)).toEqual(payload);
       });
     });
   });

@@ -11,12 +11,7 @@ import {
   summarizeSearchResponse,
 } from '@/utils/result-board/board-events';
 import type { MainWorldBridge } from './bridge-bootstrap';
-import {
-  getVueStore,
-  sendCurrentQuery,
-  sendKnownStats,
-  sendLiveTradeData,
-} from './poe-runtime-reader';
+import { getVueStore, sendCurrentQuery, sendLiveTradeData } from './poe-runtime-reader';
 import {
   cancelPendingSearchSubmission,
   completePendingSearchSubmission,
@@ -94,7 +89,6 @@ export function installFetchInterceptor(bridge: MainWorldBridge, win: Window = w
 
   // 同一個函式重複排入只會執行一次：官網 4 支 data API 回應時只送一次
   const sendRuntimeData = () => {
-    sendKnownStats(bridge);
     sendLiveTradeData(bridge);
     sendCurrentQuery(bridge);
   };

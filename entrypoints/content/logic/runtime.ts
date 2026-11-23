@@ -3,7 +3,6 @@ import {
   listenPoeEvent,
   initPoeEventNonce,
   startPoeEventBuffer,
-  parsePoeKnownStats,
   parsePoeLiveTradeData,
 } from '@/utils/event-contracts';
 import { injectScript } from 'wxt/utils/inject-script';
@@ -291,16 +290,6 @@ function registerPageContextEvents(version: PoeVersion, resultPipeline: ResultEn
   );
   // 舊版把 known stats 存在 chrome.storage（數 MB），改存記憶體後清掉
   void chrome.storage.local.remove('poexdKnownStats').catch(() => undefined);
-  cleanups.push(
-    listenPoeEvent('poexd-known-stats', (detail) => {
-      const stats = parsePoeKnownStats(detail);
-      if (stats) {
-        setKnownStats(stats);
-      } else {
-        console.error('[PoeXD] 解析 known-stats 失敗: 格式不符');
-      }
-    }),
-  );
   // 即時市集資料（ADR-0014）：頁面送來的內容不可信，parse 內完整驗證；
   // 遊戲版本與頁面語系由這裡自行判斷，不採用頁面送來的值
   cleanups.push(
@@ -310,7 +299,10 @@ function registerPageContextEvents(version: PoeVersion, resultPipeline: ResultEn
         console.warn('[PoeXD] 即時市集資料格式不符，改用打包資料');
         return;
       }
-      setLiveTradeData(version, { pageLocale: resolvePageLocale(), ...payload });
+      const { knownStats, ...labels } = payload;
+      // known stats 由同一份即時資料推導，不再另外接收一份序列化的 knownStatsFlat
+      if (knownStats) setKnownStats(knownStats);
+      setLiveTradeData(version, { pageLocale: resolvePageLocale(), ...labels });
     }),
   );
   // 市集漢化啟用時，背景從目標服官方 API 更新的快取也供側邊欄標籤使用（ADR-0012）
@@ -341,7 +333,6 @@ const EARLY_PAGE_EVENTS = [
   'poexd-search-query-observed',
   'poexd-search-triggered',
   'poexd-search-result-summary',
-  'poexd-known-stats',
   'poexd-live-trade-data',
 ] as const;
 

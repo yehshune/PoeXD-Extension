@@ -1,5 +1,4 @@
 import {
-  serializePoeKnownStats,
   serializePoeLiveTradeData,
   serializePoeSearchQueryObserved,
 } from '@/utils/event-protocol-types';
@@ -69,18 +68,6 @@ export function getTradeRootComponent(): HostTradeRoot | null {
 export function readKnownStatIds(): string[] | null {
   const known = findKnownStatsFlat();
   return known ? Object.keys(known) : null;
-}
-
-/** 已送出的 known stats 物件與當時的筆數；同一份資料不重送（序列化數千筆很貴） */
-const sentKnownStats = new WeakMap<object, number>();
-
-export function sendKnownStats(bridge: MainWorldBridge) {
-  const knownStatsFlat = findKnownStatsFlat();
-  if (!knownStatsFlat) return;
-  const size = Object.keys(knownStatsFlat).length;
-  if (sentKnownStats.get(knownStatsFlat) === size) return;
-  sentKnownStats.set(knownStatsFlat, size);
-  bridge.dispatchEvent('poexd-known-stats', serializePoeKnownStats(knownStatsFlat));
 }
 
 /** 已送出的即時市集資料（ADR-0014）：同一組物件不重送（knownStats 序列化約 1.6 MB） */
@@ -190,7 +177,6 @@ export function initPoeRuntimeReader(bridge: MainWorldBridge) {
       if (ready) {
         // 序列化很貴：等官方搜尋與首批結果處理完、主執行緒閒置時再送
         runWhenTradeRequestsIdle(() => {
-          sendKnownStats(bridge);
           sendLiveTradeData(bridge);
           sendCurrentQuery(bridge);
         });
@@ -198,9 +184,9 @@ export function initPoeRuntimeReader(bridge: MainWorldBridge) {
     }
   }, 300);
 
-  // 監聽側邊欄主動請求 known stats
+  // 側邊欄請求 known stats：content 端由即時市集資料推導，補送一次即可（已送過同一份時不重送）
   bridge.addListener('poexd-request-known-stats', () => {
-    sendKnownStats(bridge);
+    sendLiveTradeData(bridge);
   });
   // content script 就緒後請求即時市集資料；已送過同一份時不重送
   bridge.addListener('poexd-request-live-trade-data', () => {

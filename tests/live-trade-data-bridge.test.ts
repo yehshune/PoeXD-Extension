@@ -76,6 +76,45 @@ describe('parsePoeLiveTradeData', () => {
     expect(payload?.statLabels).not.toBeNull();
   });
 
+  it('由分組的 knownStats 推導 id → stat 對照，取代另外序列化一份 knownStatsFlat', () => {
+    const groups = [
+      {
+        id: 'pseudo',
+        label: 'Pseudo',
+        entries: [{ id: 'pseudo.a', text: 'A', type: 'pseudo' }],
+      },
+      {
+        id: 'explicit',
+        label: 'Explicit',
+        entries: [
+          { id: 'explicit.x', text: 'Area contains X', type: 'explicit' },
+          { id: 'explicit.y', text: 'Y', type: 'explicit', option: { options: [] } },
+          // 官方 knownStatsFlat 對重複 id 採後出現的寫法
+          { id: 'explicit.x', text: 'Your Maps contain X', type: 'explicit' },
+        ],
+      },
+    ];
+    const payload = parsePoeLiveTradeData(
+      serializePoeLiveTradeData({ propertyFilters: null, knownStats: groups }),
+    );
+    expect(payload?.knownStats).toEqual({
+      'pseudo.a': { id: 'pseudo.a', text: 'A', type: 'pseudo' },
+      'explicit.x': { id: 'explicit.x', text: 'Your Maps contain X', type: 'explicit' },
+      'explicit.y': { id: 'explicit.y', text: 'Y', type: 'explicit' },
+    });
+  });
+
+  it('knownStats 條目形狀不符時，推導的對照為 null', () => {
+    const groups = [
+      { id: 'pseudo', label: 'Pseudo', entries: [{ id: 'pseudo.a', text: 'A', type: 7 }] },
+    ];
+    const payload = parsePoeLiveTradeData(
+      serializePoeLiveTradeData({ propertyFilters: enFilters, knownStats: groups }),
+    );
+    expect(payload?.knownStats).toBeNull();
+    expect(payload?.filters).not.toBeNull();
+  });
+
   it.each([
     ['不是字串', { propertyFilters: enFilters }],
     ['不是 JSON', 'not-json'],
@@ -132,7 +171,7 @@ describe('initPoeRuntimeReader（MAIN world）', () => {
     vi.restoreAllMocks();
   });
 
-  it('Vue 3 頁面上輪詢就能送出 known stats 與即時市集資料', () => {
+  it('Vue 3 頁面上輪詢就能送出即時市集資料，不再另外序列化 knownStatsFlat', () => {
     mountVue3Trade({
       knownStatsFlat: { 'pseudo.a': { id: 'pseudo.a', text: 'A', type: 'pseudo' } },
       propertyFilters: enFilters,
@@ -143,8 +182,19 @@ describe('initPoeRuntimeReader（MAIN world）', () => {
     initPoeRuntimeReader(bridge);
     vi.advanceTimersByTime(301); // 輪詢命中後再等主執行緒閒置
 
-    expect(events.some((event) => event.type === 'poexd-known-stats')).toBe(true);
+    expect(events.some((event) => event.type === 'poexd-known-stats')).toBe(false);
     expect(liveEvents(events)).toHaveLength(1);
+  });
+
+  it('側邊欄請求 known stats 時補送即時市集資料（已送過就不重送）', () => {
+    mountVue3Trade({ propertyFilters: enFilters, knownStats: enStats });
+    const { bridge, events, listeners } = createBridge();
+    initPoeRuntimeReader(bridge);
+
+    listeners.get('poexd-request-known-stats')?.();
+    listeners.get('poexd-request-known-stats')?.();
+    expect(liveEvents(events)).toHaveLength(1);
+    expect(events.some((event) => event.type === 'poexd-known-stats')).toBe(false);
   });
 
   it('回應 content script 的請求；已送過同一份時不重送', () => {
