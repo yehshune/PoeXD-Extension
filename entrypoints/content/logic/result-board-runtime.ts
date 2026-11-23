@@ -65,7 +65,6 @@ export interface OfficialFilterSync {
 const STYLE_ID = 'poexd-result-board-style';
 const SHORTCUT_CLASS = 'poexd-board-shortcut';
 const LOCATE_CLASS = 'poexd-board-locate';
-const SYNC_ACTIVE_CLASS = 'poexd-board-sync-active';
 const SYNC_HIDDEN_CLASS = 'poexd-board-sync-hidden';
 const SYNC_BANNER_CLASS = 'poexd-board-sync-banner';
 const ROW_SELECTOR = '.resultset .row[data-id]';
@@ -125,10 +124,6 @@ const STYLE_CONTENT = `
     transition: outline-color 0.3s;
   }
   .resultset .row.${SYNC_HIDDEN_CLASS} {
-    display: none !important;
-  }
-  .resultset.${SYNC_ACTIVE_CLASS} .controls:has(.load-more-btn),
-  .resultset.${SYNC_ACTIVE_CLASS} .load-more-btn {
     display: none !important;
   }
   .${SYNC_BANNER_CLASS} {
@@ -571,7 +566,6 @@ export class ResultBoardRuntime {
   private applyOfficialFilterDom(filter: OfficialFilterSync): void {
     const resultset = this.doc.querySelector('.resultset');
     if (resultset) {
-      resultset.classList.add(SYNC_ACTIVE_CLASS);
       for (const row of resultset.querySelectorAll('.row[data-id]')) {
         const id = row.getAttribute('data-id');
         row.classList.toggle(SYNC_HIDDEN_CLASS, !id || !filter.matchedIds.has(id));
@@ -616,9 +610,6 @@ export class ResultBoardRuntime {
   }
 
   private clearOfficialFilterDom(): void {
-    this.doc.querySelectorAll(`.${SYNC_ACTIVE_CLASS}`).forEach((element) => {
-      element.classList.remove(SYNC_ACTIVE_CLASS);
-    });
     this.doc.querySelectorAll(`.${SYNC_HIDDEN_CLASS}`).forEach((element) => {
       element.classList.remove(SYNC_HIDDEN_CLASS);
     });

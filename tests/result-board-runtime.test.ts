@@ -496,12 +496,10 @@ describe('ResultBoardRuntime', () => {
       onReset,
     });
 
-    const resultset = document.querySelector('.resultset')!;
     const rowA = document.querySelector('[data-id="a"]')!;
     const rowB = document.querySelector('[data-id="b"]')!;
     const banner = document.querySelector('.poexd-board-sync-banner')!;
 
-    expect(resultset.classList.contains('poexd-board-sync-active')).toBe(true);
     expect(rowA.classList.contains('poexd-board-sync-hidden')).toBe(false);
     expect(rowB.classList.contains('poexd-board-sync-hidden')).toBe(true);
     expect(banner).not.toBeNull();
@@ -512,7 +510,6 @@ describe('ResultBoardRuntime', () => {
     expect(onReset).toHaveBeenCalledTimes(1);
 
     runtime.syncOfficialFilter(null);
-    expect(resultset.classList.contains('poexd-board-sync-active')).toBe(false);
     expect(rowB.classList.contains('poexd-board-sync-hidden')).toBe(false);
     expect(document.querySelector('.poexd-board-sync-banner')).toBeNull();
   });
