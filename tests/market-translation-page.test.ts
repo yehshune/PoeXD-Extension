@@ -510,7 +510,7 @@ describe('startMarketTranslationPage', () => {
     postSpy.mockRestore();
   });
 
-  it('ui、payload 與 data API 都早於 #trade 掛載時，掛上 data-v-app 後才回填並重繪', async () => {
+  it('ui、payload 與 data API 都早於 #trade 掛載時，掛上 data-v-app 後回填但不整樹重繪', async () => {
     (window as any).fetch = vi.fn(async () => new Response('{}'));
     const postSpy = vi.spyOn(window, 'postMessage').mockImplementation(() => {});
     const state = { searchBarLayouts: [{ text: 'Controls at Bottom (Default)', value: null }] };
@@ -534,7 +534,9 @@ describe('startMarketTranslationPage', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(state.searchBarLayouts[0].text).toBe('底部控制 (預設)');
-    expect(rootUpdate).toHaveBeenCalled();
+    // static_ 是 reactive：直接改欄位 Vue 就會更新用到它的元件；
+    // 剛掛載完就整樹 $forceUpdate 會讓官方首屏多渲染一次（實測約 250ms）
+    expect(rootUpdate).not.toHaveBeenCalled();
 
     host.remove();
     stop();

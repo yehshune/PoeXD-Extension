@@ -474,7 +474,11 @@ export function startMarketTranslationPage(
   /**
    * 字典與 data API 常比 `#trade` 掛載更早到（實測 ui ~140ms、data ~740ms、掛載 ~820ms），
    * 上面的觸發點全在掛載前跑完而落空。Vue 3 掛載完成時才在容器設 `data-v-app`，
-   * 監看這個屬性，掛好後立刻回填 static_ 並重繪已渲染的下拉。
+   * 監看這個屬性，掛好後立刻回填 static_。
+   *
+   * 不呼叫 forceRerenderVueApps：static_ 是 reactive，原地改欄位 Vue 就只會更新讀到它的元件；
+   * 字典通常已在模組求值前寫入 window.__，此時只剩零星欄位要補，剛掛載完整樹重繪
+   * 等於讓官方首屏再渲染一次（實測官方 Vue flush 由 ~110ms 增至 ~380ms）。
    */
   let pendingStrings: Record<string, string> | null = null;
   const watchTradeMount = (strings: Record<string, string>) => {
@@ -487,7 +491,6 @@ export function startMarketTranslationPage(
       localizeTradeStoreUi(win.document, pendingStrings);
       staticUiChecked = true;
       stopMountObserver();
-      forceRerenderVueApps(win.document);
     });
     observer.observe(win.document, {
       subtree: true,
