@@ -64,6 +64,7 @@ import {
 } from './pob-bookmark-bridge';
 import { decodePobBuildCached, loadPobReferenceData } from './pob-prewarm';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
+import { initialPageLoadSignal } from '@/utils/initial-page-load-signal';
 
 export interface UsePobBuildDeps {
   store: PobBuildStore;
@@ -98,6 +99,11 @@ export interface UsePobBuildDeps {
   fetchShareCode: (url: string) => Promise<PobShareFetchOutcome>;
   /** 開啟選用權限的授權頁 */
   openSharePermissionPage: () => Promise<boolean>;
+  /**
+   * 還原本機 build 前等官方頁面完成首次載入：對照資料解析要佔住主執行緒數百毫秒，
+   * 分頁一開就做會拖慢官方首屏。未提供時不等待。
+   */
+  waitForInitialPageLoad?: () => Promise<void>;
 }
 
 export interface ShoppingRow extends ShoppingEntry {
@@ -299,6 +305,7 @@ function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
     bookmarks: createPobBookmarkBridge(version),
     fetchShareCode: (url) => extensionMessaging.sendMessage('pobShare:fetchCode', { url }),
     openSharePermissionPage: () => extensionMessaging.sendMessage('pobShare:openPermissionPage'),
+    waitForInitialPageLoad: () => initialPageLoadSignal.wait(),
   };
 }
 
@@ -839,6 +846,7 @@ export function usePobBuild(
         return;
       }
       if (stored.length === 0) return;
+      if (!catalog.value) await deps.waitForInitialPageLoad?.();
       try {
         await ensureData();
       } catch (error) {

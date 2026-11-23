@@ -5,6 +5,7 @@ import {
   loadPobReferenceData,
   prewarmPobData,
   resetPobPrewarmCacheForTests,
+  schedulePobIdlePrewarm,
 } from '@/components/sidebar/pob-build/pob-prewarm';
 import type { PobBuild } from '@/utils/pob-build';
 import type { PobBuildStore, StoredPobBuild } from '@/utils/pob-build-store';
@@ -180,5 +181,58 @@ describe('pob-prewarm', () => {
     expect(mutator(makeStored('b1', 'CODE_1'))).toEqual({
       icons: { 'slot:Helmet': validIcon },
     });
+  });
+});
+
+describe('schedulePobIdlePrewarm', () => {
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('等官方頁面首批結果處理完，才排入閒置預熱', async () => {
+    let markLoaded!: () => void;
+    const pageLoaded = new Promise<void>((resolve) => {
+      markLoaded = resolve;
+    });
+    const idleCallbacks: (() => void)[] = [];
+    const run = vi.fn();
+    schedulePobIdlePrewarm(run, {
+      waitForInitialPageLoad: () => pageLoaded,
+      requestIdle: (callback) => {
+        idleCallbacks.push(callback);
+        return () => undefined;
+      },
+    });
+    await flush();
+    expect(idleCallbacks).toHaveLength(0);
+
+    markLoaded();
+    await flush();
+    expect(idleCallbacks).toHaveLength(1);
+    idleCallbacks[0]();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('等待期間取消就不再排程；排程後取消會取消閒置回呼', async () => {
+    let markLoaded!: () => void;
+    const pageLoaded = new Promise<void>((resolve) => {
+      markLoaded = resolve;
+    });
+    const requestIdle = vi.fn(() => () => undefined);
+    const cancel = schedulePobIdlePrewarm(vi.fn(), {
+      waitForInitialPageLoad: () => pageLoaded,
+      requestIdle,
+    });
+    cancel();
+    markLoaded();
+    await flush();
+    expect(requestIdle).not.toHaveBeenCalled();
+
+    const cancelIdle = vi.fn();
+    const cancelLater = schedulePobIdlePrewarm(vi.fn(), {
+      waitForInitialPageLoad: async () => undefined,
+      requestIdle: () => cancelIdle,
+    });
+    await flush();
+    cancelLater();
+    expect(cancelIdle).toHaveBeenCalledTimes(1);
   });
 });

@@ -185,7 +185,50 @@ describe('usePobBuild', () => {
       },
       fetchShareCode: fetchShareCode as never,
       openSharePermissionPage: openSharePermissionPage as never,
+      waitForInitialPageLoad: async () => undefined,
     };
+  });
+
+  describe('還原時機', () => {
+    it('還原本機 build 時，等官方頁面首批結果處理完才載入對照資料', async () => {
+      const original = usePobBuild('poe1', deps);
+      expect(await original.importCode(toCode(buildXml()))).toBe(true);
+      loadCatalog.mockClear();
+
+      let markLoaded!: () => void;
+      const pageLoaded = new Promise<void>((resolve) => {
+        markLoaded = resolve;
+      });
+      const reopened = usePobBuild('poe1', {
+        ...deps,
+        waitForInitialPageLoad: () => pageLoaded,
+      });
+      const restoring = reopened.restore();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(loadCatalog).not.toHaveBeenCalled();
+      expect(reopened.builds.value).toHaveLength(0);
+
+      markLoaded();
+      await restoring;
+      expect(loadCatalog).toHaveBeenCalled();
+      expect(reopened.builds.value).toHaveLength(1);
+    });
+
+    it('本機沒有 build 時不必等待也不載入資料', async () => {
+      const waitForInitialPageLoad = vi.fn(() => new Promise<void>(() => {}));
+      const pob = usePobBuild('poe1', { ...deps, waitForInitialPageLoad });
+      await pob.restore();
+      expect(waitForInitialPageLoad).not.toHaveBeenCalled();
+      expect(loadCatalog).not.toHaveBeenCalled();
+    });
+
+    it('使用者主動匯入不等官方頁面載入', async () => {
+      const pob = usePobBuild('poe1', {
+        ...deps,
+        waitForInitialPageLoad: () => new Promise<void>(() => {}),
+      });
+      expect(await pob.importCode(toCode(buildXml()))).toBe(true);
+    });
   });
 
   describe('匯入與多份 build', () => {

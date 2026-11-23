@@ -358,7 +358,11 @@ import HistoryPane from './sidebar/HistoryPane.vue';
 import StatGroupTemplatePane from './sidebar/stat-group-templates/StatGroupTemplatePane.vue';
 import ToolsPane from './sidebar/ToolsPane.vue';
 import PobBuildPane from './sidebar/pob-build/PobBuildPane.vue';
-import { capturePendingPobIconInBackground, prewarmPobData } from './sidebar/pob-build/pob-prewarm';
+import {
+  capturePendingPobIconInBackground,
+  prewarmPobData,
+  schedulePobIdlePrewarm,
+} from './sidebar/pob-build/pob-prewarm';
 import PinnedItemPane from './sidebar/pinned-items/PinnedItemPane.vue';
 import ResultBoardPane from './sidebar/result-board/ResultBoardPane.vue';
 import SettingsPane from './sidebar/SettingsPane.vue';
@@ -1310,17 +1314,10 @@ export default defineComponent({
       if (pobPrewarmScheduled || isTabMounted('pob-build')) return;
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
       pobPrewarmScheduled = true;
-      const run = () => {
+      cancelPobIdlePrewarm = schedulePobIdlePrewarm(() => {
         cancelPobIdlePrewarm = undefined;
         triggerPobPrewarm();
-      };
-      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
-        const idleId = window.requestIdleCallback(run, { timeout: 2000 });
-        cancelPobIdlePrewarm = () => window.cancelIdleCallback?.(idleId);
-      } else {
-        const timerId = setTimeout(run, 1500);
-        cancelPobIdlePrewarm = () => clearTimeout(timerId);
-      }
+      });
     });
 
     onUnmounted(() => {

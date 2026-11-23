@@ -10,6 +10,7 @@
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
 import { getActiveDisplayLocale } from '@/utils/i18n';
+import { initialPageLoadSignal } from '@/utils/initial-page-load-signal';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import { parsePobBuildXml, type PobBuild } from '@/utils/pob-build';
@@ -191,6 +192,54 @@ export function prewarmPobData(
     });
   }
   return task;
+}
+
+export interface PobIdlePrewarmScheduler {
+  waitForInitialPageLoad: () => Promise<void>;
+  /** 主執行緒閒置時呼叫 callback，回傳取消函式 */
+  requestIdle: (callback: () => void) => () => void;
+}
+
+const IDLE_PREWARM_TIMEOUT_MS = 2000;
+
+function createDefaultIdleScheduler(): PobIdlePrewarmScheduler {
+  return {
+    waitForInitialPageLoad: () => initialPageLoadSignal.wait(),
+    requestIdle: (callback) => {
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        const id = window.requestIdleCallback(callback, { timeout: IDLE_PREWARM_TIMEOUT_MS });
+        return () => window.cancelIdleCallback?.(id);
+      }
+      const id = setTimeout(callback, 1500);
+      return () => clearTimeout(id);
+    },
+  };
+}
+
+/**
+ * 排入背景閒置預熱：先等官方頁面完成首次載入，再等主執行緒閒置。
+ *
+ * 只等閒置不夠：官方在等 search / fetch 回應的網路空檔也算閒置，但預熱是一段數百毫秒的同步解析，
+ * 官方腳本一回來就得排在後面，拖慢官方元件掛載與首批結果。回傳取消函式。
+ */
+export function schedulePobIdlePrewarm(
+  run: () => void,
+  scheduler: PobIdlePrewarmScheduler = createDefaultIdleScheduler(),
+): () => void {
+  let cancelled = false;
+  let cancelIdle: (() => void) | undefined;
+  void scheduler.waitForInitialPageLoad().then(() => {
+    if (cancelled) return;
+    cancelIdle = scheduler.requestIdle(() => {
+      cancelIdle = undefined;
+      if (!cancelled) run();
+    });
+  });
+  return () => {
+    cancelled = true;
+    cancelIdle?.();
+    cancelIdle = undefined;
+  };
 }
 
 /**

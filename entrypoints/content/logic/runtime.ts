@@ -30,6 +30,7 @@ import { getResultBoardRuntime } from './result-board-runtime';
 import { isCloudflareChallenge } from '@/utils/trade-interstitial-classifier';
 import { whenTradePageReady } from './trade-page-readiness';
 import { createInitialPageLoadGate, type InitialPageLoadGate } from './initial-page-load-gate';
+import { initialPageLoadSignal } from '@/utils/initial-page-load-signal';
 import { expectsInitialSearchResults } from '@/utils/trade-search-identity';
 import { createFilterDomEnhancements } from './common';
 import { initToastHost, syncToastPreferences } from './toast-host';
@@ -256,6 +257,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
       } else {
         pageLoadGate.cancel();
       }
+      // 側邊欄的重量級背景載入（PoB 對照資料等）同樣等到這裡才開始
+      initialPageLoadSignal.markLoaded();
       preloadAffixLexicon(pageRole);
     };
     stopWaitingTradePage = whenTradePageReady(document, () => void initialize(), {
@@ -264,6 +267,8 @@ export async function runLogic(ctx: any, version: PoeVersion) {
     if (!disposed) console.log(`[PoeXD] PoeXD-Extention logic active for game version: ${version}`);
   } catch (error: any) {
     releaseEarlyEvents();
+    // 初始化失敗時不能讓等待訊號的功能永遠卡住
+    initialPageLoadSignal.markLoaded();
     if (error.message?.includes('Extension context invalidated')) {
       console.warn('[PoeXD] 擴充功能已被重新載入，請重新整理網頁以繼續使用。');
     } else {
