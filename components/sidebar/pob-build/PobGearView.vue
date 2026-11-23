@@ -29,24 +29,7 @@ const emit = defineEmits<{
 }>();
 
 const showSwap = ref(false);
-const rootEl = ref<HTMLElement | null>(null);
 
-/** 滑過插槽時顯示的內容說明（畫在格子外，才不會被格子裁掉） */
-const socketTip = ref<{ content: SocketContent; left: number; top: number } | null>(null);
-const showSocketTip = (content: SocketContent | null, element: HTMLElement | null) => {
-  const root = rootEl.value;
-  if (!content || !element || !root) {
-    socketTip.value = null;
-    return;
-  }
-  const box = element.getBoundingClientRect();
-  const origin = root.getBoundingClientRect();
-  socketTip.value = {
-    content,
-    left: box.left + box.width / 2 - origin.left,
-    top: box.top - origin.top,
-  };
-};
 const layout = computed(() => gearLayout(props.rows));
 
 /** 主裝備欄的每一格（空格也要畫出來，看得出缺哪個部位；第三戒指只有裝了才畫） */
@@ -118,25 +101,9 @@ const tileTitle = (row: ShoppingRow) =>
 
 <template>
   <div
-    ref="rootEl"
     data-pob-build-gear
     class="relative flex flex-col gap-[var(--pxd-space-sm)] bg-card p-[var(--pxd-space-md)]"
   >
-    <div
-      v-if="socketTip"
-      data-pob-build-socket-tip
-      class="pxd-socket-tip"
-      :style="{ left: `${socketTip.left}px`, top: `${socketTip.top}px` }"
-    >
-      <span
-        class="font-semibold"
-        :class="socketTip.content.kind === 'gem' ? 'text-[var(--pxd-rarity-gem)]' : ''"
-        >{{ socketTip.content.label }}</span
-      >
-      <span v-if="socketTip.content.detail" class="text-muted-foreground">{{
-        socketTip.content.detail
-      }}</span>
-    </div>
     <div class="pxd-gear-body">
       <div v-if="layout.hasSwap" class="flex justify-end">
         <div
@@ -209,7 +176,6 @@ const tileTitle = (row: ShoppingRow) =>
                 :tile-width="cell.width"
                 :tile-height="cell.height"
                 :contents="row.socketContents"
-                @hover-content="showSocketTip"
                 @select-content="(content, event) => emit('selectContent', content, event)"
               />
             </template>
@@ -376,25 +342,6 @@ const tileTitle = (row: ShoppingRow) =>
   /* aspect-ratio 預設會讓內容撐開最小高度；PoE2 的原圖較大，會把整列撐高 */
   min-height: 0;
   gap: var(--pxd-space-xs);
-}
-
-.pxd-socket-tip {
-  position: absolute;
-  z-index: var(--pxd-z-sticky);
-  display: flex;
-  max-width: 220px;
-  flex-direction: column;
-  gap: 1px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--popover, var(--card));
-  padding: 3px 6px;
-  font-size: var(--pxd-font-caption);
-  line-height: 1.3;
-  white-space: nowrap;
-  pointer-events: none;
-  transform: translate(-50%, calc(-100% - 6px));
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
 }
 
 /*

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 /**
  * 裝備欄格子上的插槽：依遊戲順序排出顏色與連結線（連結線用 SVG，插槽用 HTML 才能放圖片）。
- * 有內容物時（PoE 1 寶石、PoE 2 符文）插槽內顯示其圖片，外圈保留插槽顏色；滑過插槽時
- * 通知父層顯示內容說明。版面依物品的背包格數縮放，與圖片上的位置大致對齊。
+ * 有內容物時（PoE 1 寶石與深淵珠寶、PoE 2 符文）插槽內顯示其圖片，外圈保留插槽顏色；滑過插槽
+ * 立即以 Tooltip 顯示內容說明（reka 負責定位，貼邊時自動翻面、不超出視窗）。
+ * 版面依物品的背包格數縮放，與圖片上的位置大致對齊。
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import PobItemImage from './PobItemImage.vue';
 import { socketLayout, type SocketColor } from './pob-socket-layout';
 import type { SocketContent } from './usePobBuild';
@@ -25,8 +27,6 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  /** 滑入有內容物的插槽時帶出內容與插槽元素；離開時為 null */
-  hoverContent: [content: SocketContent | null, element: HTMLElement | null];
   /** 點有內容物的插槽（不會再觸發外層格子的點擊） */
   selectContent: [content: SocketContent, event: MouseEvent];
 }>();
@@ -96,9 +96,21 @@ const select = (index: number, event: MouseEvent) => {
   emit('selectContent', content, event);
 };
 
+/** 滑鼠所在、有內容物的插槽；Tooltip 由這裡控制，不等 reka 的延遲 */
+const hovered = ref<number | null>(null);
+/**
+ * 以側欄的捲動區當碰撞邊界：插槽貼近捲動區頂端時翻到下方，不蓋住上方的標題列與工具列
+ */
+const boundary = ref<Element | null>(null);
+const SCROLL_VIEWPORT = '[data-reka-scroll-area-viewport]';
+
 const enter = (index: number, event: MouseEvent) => {
-  const content = contentAt(index);
-  if (content) emit('hoverContent', content, event.currentTarget as HTMLElement);
+  boundary.value = (event.currentTarget as HTMLElement).closest(SCROLL_VIEWPORT);
+  hovered.value = contentAt(index) ? index : null;
+};
+
+const leave = (index: number) => {
+  if (hovered.value === index) hovered.value = null;
 };
 </script>
 
@@ -125,25 +137,49 @@ const enter = (index: number, event: MouseEvent) => {
         :y2="center(to).y"
       />
     </svg>
-    <span
+    <Tooltip
       v-for="(socket, index) in layout.sockets"
       :key="index"
-      :data-socket-color="socket.color"
-      :data-socket-filled="contentAt(index) ? 'true' : undefined"
-      class="pxd-socket"
-      :class="[COLOR_CLASS[socket.color], { 'is-filled': contentAt(index) }]"
-      :style="socketStyle(index)"
-      @mouseenter="enter(index, $event)"
-      @mouseleave="emit('hoverContent', null, null)"
-      @click="select(index, $event)"
+      :open="hovered === index"
+      :disable-hoverable-content="true"
     >
-      <PobItemImage
-        v-if="contentAt(index)?.icon"
-        class="pxd-socket__content"
-        :src="contentAt(index)!.icon!"
-        :layers="contentAt(index)!.iconLayers"
-      />
-    </span>
+      <TooltipTrigger as-child>
+        <span
+          :data-socket-color="socket.color"
+          :data-socket-filled="contentAt(index) ? 'true' : undefined"
+          class="pxd-socket"
+          :class="[COLOR_CLASS[socket.color], { 'is-filled': contentAt(index) }]"
+          :style="socketStyle(index)"
+          @mouseenter="enter(index, $event)"
+          @mouseleave="leave(index)"
+          @click="select(index, $event)"
+        >
+          <PobItemImage
+            v-if="contentAt(index)?.icon"
+            class="pxd-socket__content"
+            :src="contentAt(index)!.icon!"
+            :layers="contentAt(index)!.iconLayers"
+          />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent
+        v-if="contentAt(index)"
+        side="top"
+        :collision-padding="8"
+        :collision-boundary="boundary"
+        data-pob-build-socket-tip
+        class="flex flex-col gap-px px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] leading-snug"
+      >
+        <span
+          class="font-semibold"
+          :class="contentAt(index)!.kind === 'gem' ? 'text-[var(--pxd-rarity-gem)]' : ''"
+          >{{ contentAt(index)!.label }}</span
+        >
+        <span v-if="contentAt(index)!.detail" class="text-muted-foreground">{{
+          contentAt(index)!.detail
+        }}</span>
+      </TooltipContent>
+    </Tooltip>
   </div>
 </template>
 

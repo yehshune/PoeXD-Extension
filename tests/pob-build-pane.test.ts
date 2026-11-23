@@ -478,13 +478,14 @@ describe('PobBuildPane', () => {
     expect(sockets[0].querySelector('img')?.getAttribute('referrerpolicy')).toBe('no-referrer');
     expect(sockets[2].getAttribute('data-socket-filled')).toBeNull();
 
+    // 內容說明用 reka Tooltip（portal 到外層，由 reka 處理貼邊翻面）
     sockets[0].dispatchEvent(new MouseEvent('mouseenter'));
-    await nextTick();
-    expect(query('[data-pob-build-socket-tip]')?.textContent).toContain('懲戒');
-    expect(query('[data-pob-build-socket-tip]')?.textContent).toContain('Lv.20 / 20%');
+    await flushAsync();
+    expect(queryBody('[data-pob-build-socket-tip]')?.textContent).toContain('懲戒');
+    expect(queryBody('[data-pob-build-socket-tip]')?.textContent).toContain('Lv.20 / 20%');
     sockets[0].dispatchEvent(new MouseEvent('mouseleave'));
-    await nextTick();
-    expect(query('[data-pob-build-socket-tip]')).toBeNull();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-socket-tip]')).toBeNull();
 
     // 點插槽裡的寶石開該寶石的設定框，不觸發外層格子
     sockets[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));

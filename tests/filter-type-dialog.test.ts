@@ -7,6 +7,7 @@ import { ConfigProvider } from 'reka-ui';
 import FilterPane from '@/components/sidebar/FilterPane.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { registerTierSlotRefresher } from '@/utils/tier-slot-registry';
+import { DEFAULT_SEARCH_DEBOUNCE_MS } from '@/components/sidebar/composables/useDebouncedSearch';
 
 const source = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
 const panelSource = readFileSync('components/sidebar/ItemTypeSelectorPanel.vue', 'utf8');
@@ -45,6 +46,12 @@ global.fetch = vi.fn().mockImplementation(async () => ({
 }));
 
 beforeEach(() => mockModsData(sampleModsData));
+
+/** 種類搜尋框的防抖結束、畫面更新後再檢查 */
+const waitForSearchDebounce = async () => {
+  await new Promise((resolve) => setTimeout(resolve, DEFAULT_SEARCH_DEBOUNCE_MS + 20));
+  await nextTick();
+};
 
 describe('FilterPane Item Type Selector & Dialog (Static Contracts)', () => {
   it('eliminates legacy modal classes and custom overlays', () => {
@@ -262,10 +269,10 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     expect(portalRoot.textContent).toContain('胸甲');
     expect(portalRoot.textContent).toContain('弓');
 
-    // Filter for 弓
+    // Filter for 弓（搜尋框有防抖，等防抖結束再檢查）
     searchInput.value = '弓';
     searchInput.dispatchEvent(new Event('input'));
-    await nextTick();
+    await waitForSearchDebounce();
 
     expect(portalRoot.textContent).toContain('弓');
     expect(portalRoot.textContent).not.toContain('頭盔');
@@ -273,7 +280,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     // Filter for non-existent
     searchInput.value = 'zzzzz_not_found';
     searchInput.dispatchEvent(new Event('input'));
-    await nextTick();
+    await waitForSearchDebounce();
 
     expect(portalRoot.textContent).toContain('找不到相符的物品類別');
   });
