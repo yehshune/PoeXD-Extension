@@ -447,6 +447,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.searchSettings.rareSearch': '稀有装备搜索方式',
   'pobBuild.searchSettings.rareSearchBase': '基底',
   'pobBuild.searchSettings.rareSearchCategory': '类别＋防御类型',
+  'pobBuild.searchSettings.defenceMin': '防具带入防御数值下限',
+  'pobBuild.searchSettings.pseudo': '默认改用总和词缀',
   'pobBuild.category.armour.helmet': '头盔',
   'pobBuild.category.armour.chest': '胸甲',
   'pobBuild.category.armour.gloves': '手套',

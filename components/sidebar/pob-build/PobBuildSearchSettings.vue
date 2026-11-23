@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, type PropType } from 'vue';
+import { computed, useId, type PropType } from 'vue';
 import { SlidersHorizontal } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t, type I18nKey } from '@/utils/i18n';
 import {
@@ -55,6 +56,9 @@ const RARE_SEARCH_LABELS: Readonly<Record<RareSearchMode, I18nKey>> = {
 const statPercent = computed(() => props.defaults.statPercent ?? DEFAULT_STAT_PERCENT);
 const linkPolicy = computed(() => props.defaults.links ?? DEFAULT_LINK_POLICY);
 const rareSearch = computed(() => props.defaults.rareSearch ?? DEFAULT_RARE_SEARCH);
+const defenceMin = computed(() => props.defaults.defenceMin === true);
+const pseudo = computed(() => props.defaults.pseudo === true);
+const controlPrefix = useId();
 const isCustomized = computed(() => Object.keys(props.defaults).length > 0);
 
 function setStatPercent(value: unknown): void {
@@ -72,6 +76,11 @@ function setLinkPolicy(value: unknown): void {
 function setRareSearch(value: unknown): void {
   if (typeof value !== 'string' || !RARE_SEARCH_MODES.includes(value as RareSearchMode)) return;
   emit('change', { ...props.defaults, rareSearch: value as RareSearchMode });
+}
+
+/** 開關型設定：關閉時交給 normalizeSearchDefaults 拿掉，不存多餘的欄位 */
+function setFlag(field: 'defenceMin' | 'pseudo', value: boolean): void {
+  emit('change', { ...props.defaults, [field]: value });
 }
 
 function resetDefaults(): void {
@@ -182,6 +191,30 @@ function resetDefaults(): void {
             {{ t(RARE_SEARCH_LABELS[mode]) }}
           </ToggleGroupItem>
         </ToggleGroup>
+      </div>
+
+      <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
+        <label :for="`${controlPrefix}-defence`" class="text-muted-foreground">
+          {{ t('pobBuild.searchSettings.defenceMin') }}
+        </label>
+        <Switch
+          :id="`${controlPrefix}-defence`"
+          data-pob-build-defence-min
+          :model-value="defenceMin"
+          @update:model-value="(value: boolean) => setFlag('defenceMin', value)"
+        />
+      </div>
+
+      <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
+        <label :for="`${controlPrefix}-pseudo`" class="text-muted-foreground">
+          {{ t('pobBuild.searchSettings.pseudo') }}
+        </label>
+        <Switch
+          :id="`${controlPrefix}-pseudo`"
+          data-pob-build-pseudo-default
+          :model-value="pseudo"
+          @update:model-value="(value: boolean) => setFlag('pseudo', value)"
+        />
       </div>
 
       <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">

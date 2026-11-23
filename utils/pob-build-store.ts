@@ -188,7 +188,7 @@ export function toEntrySearchSelection(value: unknown): EntrySearchSelection | u
     countMin <= MAX_COUNT_MIN
       ? { countMin }
       : {}),
-    ...(value.pseudo === true ? { pseudo: true } : {}),
+    ...(typeof value.pseudo === 'boolean' ? { pseudo: value.pseudo } : {}),
     ...(value.links === null ||
     (typeof value.links === 'number' && LINK_OPTIONS.includes(value.links))
       ? { links: value.links }
@@ -208,6 +208,8 @@ export function toSearchDefaults(value: unknown): BuildSearchDefaults {
     ...(typeof value.statPercent === 'number' ? { statPercent: value.statPercent } : {}),
     ...(typeof value.links === 'string' ? { links: value.links as LinkPolicy } : {}),
     ...(isRareSearchMode(value.rareSearch) ? { rareSearch: value.rareSearch } : {}),
+    ...(value.defenceMin === true ? { defenceMin: true } : {}),
+    ...(value.pseudo === true ? { pseudo: true } : {}),
   });
 }
 

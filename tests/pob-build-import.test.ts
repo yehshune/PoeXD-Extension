@@ -297,6 +297,9 @@ describe('parsePobBuildXml', () => {
   });
 });
 
+/** 非傳奇裝備的搜尋都帶「非傳奇」稀有度條件 */
+const NON_UNIQUE = { type_filters: { filters: { rarity: { option: 'nonunique' } } } };
+
 describe('buildShoppingList', () => {
   const build = parsePobBuildXml(buildXml());
 
@@ -337,14 +340,14 @@ describe('buildShoppingList', () => {
         count: 1,
         label: 'Amethyst Flask',
         slot: 'Flask 1',
-        query: { status: { option: 'securable' }, type: 'Amethyst Flask' },
+        query: { status: { option: 'securable' }, type: 'Amethyst Flask', filters: NON_UNIQUE },
       },
       {
         kind: 'equipment',
         count: 1,
         label: 'Crimson Jewel',
         slot: 'Jewel',
-        query: { status: { option: 'securable' }, type: 'Crimson Jewel' },
+        query: { status: { option: 'securable' }, type: 'Crimson Jewel', filters: NON_UNIQUE },
       },
       {
         kind: 'gem',
@@ -405,6 +408,7 @@ describe('buildShoppingList', () => {
     expect(list.find((entry) => entry.slot === 'Flask 1')?.query).toEqual({
       status: { option: 'securable' },
       type: '紫晶藥劑',
+      filters: NON_UNIQUE,
     });
     expect(list.at(-1)?.query).toMatchObject({ type: '神聖呼喚輔助' });
   });

@@ -787,6 +787,24 @@ describe('PobBuildPane', () => {
     expect(fake.setSearchDefaults).toHaveBeenCalledWith('b1', { rareSearch: 'category' });
   });
 
+  it('整體搜尋設定的防禦數值下限與預設總和開關交給狀態處理', async () => {
+    buildsRef.value = [{ ...sampleBuild(), searchDefaults: { pseudo: true } }];
+    await mount();
+    query<HTMLButtonElement>('[data-pob-build-search-settings]')!.click();
+    await flushAsync();
+    const pseudo = queryBody<HTMLElement>('[data-pob-build-pseudo-default]')!;
+    expect(pseudo.getAttribute('data-state')).toBe('checked');
+    queryBody<HTMLElement>('[data-pob-build-defence-min]')!.click();
+    await nextTick();
+    expect(fake.setSearchDefaults).toHaveBeenLastCalledWith('b1', {
+      pseudo: true,
+      defenceMin: true,
+    });
+    pseudo.click();
+    await nextTick();
+    expect(fake.setSearchDefaults).toHaveBeenLastCalledWith('b1', { pseudo: false });
+  });
+
   it('build 標題的整體搜尋設定改連結條件與數值比例時交給狀態處理', async () => {
     buildsRef.value = [{ ...sampleBuild(), searchDefaults: { statPercent: 70 } }];
     await mount();

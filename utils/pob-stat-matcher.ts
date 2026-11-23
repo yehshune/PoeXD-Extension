@@ -69,6 +69,13 @@ const DOMAINS: readonly StatDomain[] = ['explicit', 'implicit', 'enchant', 'craf
 const LOCAL_MARKER = '(Local)';
 const DEFENCE_TEXT = /\b(?:Armour|Evasion|Energy Shield|Ward|Block)\b/;
 const NUMBER = /[+-]?\d+(?:\.\d+)?/g;
+/** PoB 的舊寫法或多出來的字 → 目前的市集寫法 */
+const LEGACY_REWRITES: readonly (readonly [RegExp, string])[] = [
+  // 3.25 起「Nearby」改寫成明確的距離
+  [/(Rare or Unique Enemy is) Nearby$/, '$1 within 6 metres'],
+  // PoB 在技能名稱後多寫「Skill」，市集的「Grants Level # Enduring Cry」沒有
+  [/^(Grants Level \d+ .+) Skill$/, '$1'],
+];
 /** 佔位符 `{0:d}`、`{0:+d}`、`{0:n}`（n 表示描述檔取負，顯示值是絕對值），或寫死的數字 */
 const TEMPLATE_TOKEN = /\{\d+:\+?([dn])\}|[+-]?\d+(?:\.\d+)?/g;
 /** 市集寫法的佔位符 `#`（前面可能有正負號），或寫死的數字 */
@@ -190,29 +197,44 @@ export function createStatMatcher(data: {
 
   const domainIndex = buildStatDomainIndex(Object.keys(data.tradeStats));
 
+  const matchLine = (
+    line: string,
+    { preferLocal, domain = 'explicit' }: StatMatchOptions,
+  ): StatMatch | undefined => {
+    const skeleton = modLineSkeleton(line);
+    const chosen =
+      choose(fromModLines.get(domain)?.get(skeleton), preferLocal) ??
+      choose(
+        // 選項型寫法的數字寫死，要整句相同才算
+        fromTradeText
+          .get(domain)
+          ?.get(skeleton)
+          ?.filter(
+            (template) =>
+              template.option === undefined ||
+              normalize(tradeText(data.tradeStats, `${template.statId}|${template.option}`)) ===
+                normalize(line),
+          ),
+        preferLocal,
+      );
+    if (!chosen) return undefined;
+    if (chosen.option !== undefined) return { statId: chosen.statId, option: chosen.option };
+    const value = extractValue(line, chosen.slots);
+    return { statId: chosen.statId, ...(value !== undefined ? { value } : {}) };
+  };
+
   return {
     domainsOf: (statId) => statDomainsOf(domainIndex, statId),
-    match(line, { preferLocal, domain = 'explicit' }) {
-      const skeleton = modLineSkeleton(line);
-      const chosen =
-        choose(fromModLines.get(domain)?.get(skeleton), preferLocal) ??
-        choose(
-          // 選項型寫法的數字寫死，要整句相同才算
-          fromTradeText
-            .get(domain)
-            ?.get(skeleton)
-            ?.filter(
-              (template) =>
-                template.option === undefined ||
-                normalize(tradeText(data.tradeStats, `${template.statId}|${template.option}`)) ===
-                  normalize(line),
-            ),
-          preferLocal,
-        );
-      if (!chosen) return undefined;
-      if (chosen.option !== undefined) return { statId: chosen.statId, option: chosen.option };
-      const value = extractValue(line, chosen.slots);
-      return { statId: chosen.statId, ...(value !== undefined ? { value } : {}) };
+    match(line, options) {
+      const direct = matchLine(line, options);
+      if (direct) return direct;
+      // PoB 存的是物品建立當時的文字，對不到時改成目前的市集寫法再試
+      for (const [pattern, replacement] of LEGACY_REWRITES) {
+        if (!pattern.test(line)) continue;
+        const rewritten = matchLine(line.replace(pattern, replacement), options);
+        if (rewritten) return rewritten;
+      }
+      return undefined;
     },
   };
 }

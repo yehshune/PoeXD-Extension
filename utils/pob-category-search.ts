@@ -22,6 +22,8 @@ export interface EntryCategory {
 export type RareSearchMode = 'base' | 'category';
 export const RARE_SEARCH_MODES: readonly RareSearchMode[] = ['base', 'category'];
 export const DEFAULT_RARE_SEARCH: RareSearchMode = 'base';
+/** 市集稀有度條件的「非傳奇」選項 */
+export const NON_UNIQUE_RARITY = 'nonunique';
 
 const CATEGORY_BY_SLOT: Readonly<Record<string, string>> = {
   Helmet: 'armour.helmet',
@@ -61,7 +63,26 @@ export function categoryOfItem(item: PobBuildItem, version: PoeVersion): EntryCa
   return defences.length ? { id, defences, defenceSection } : { id };
 }
 
-/** 以類別取代基底的搜尋：拿掉名稱與基底，帶入類別與每一種防禦的有無 */
+/** 基底有的防禦與 PoB 算好的數值，供「防禦數值下限」使用 */
+export interface EntryDefences {
+  section: DefenceSection;
+  values: Partial<Record<PobDefence, number>>;
+}
+
+/** 非傳奇裝備基底有的防禦數值（詞綴加上、基底沒有的防禦不算）；沒有時為 undefined */
+export function defencesOfItem(item: PobBuildItem, version: PoeVersion): EntryDefences | undefined {
+  if (item.rarity === 'UNIQUE' || item.rarity === 'RELIC') return undefined;
+  const section: DefenceSection = version === 'poe1' ? 'armour_filters' : 'equipment_filters';
+  const entries = (item.baseDefences ?? []).flatMap((defence) => {
+    const value = item.defenceValues?.[defence];
+    return value && DEFENCES_BY_SECTION[section].includes(defence)
+      ? [[defence, value] as const]
+      : [];
+  });
+  return entries.length ? { section, values: Object.fromEntries(entries) } : undefined;
+}
+
+/** 以類別取代基底的搜尋：拿掉名稱與基底，帶入類別（只搜非傳奇）與每一種防禦的有無 */
 export function categorySearchBase(
   category: EntryCategory,
   status: unknown,
@@ -83,7 +104,9 @@ export function categorySearchBase(
   return {
     status,
     filters: {
-      type_filters: { filters: { category: { option: category.id } } },
+      type_filters: {
+        filters: { category: { option: category.id }, rarity: { option: NON_UNIQUE_RARITY } },
+      },
       ...defenceFilters,
     },
   };

@@ -479,6 +479,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.searchSettings.rareSearch': 'Rare item search',
   'pobBuild.searchSettings.rareSearchBase': 'Base type',
   'pobBuild.searchSettings.rareSearchCategory': 'Category + defences',
+  'pobBuild.searchSettings.defenceMin': 'Armour defence minimums',
+  'pobBuild.searchSettings.pseudo': 'Use total mods by default',
   'pobBuild.category.armour.helmet': 'Helmet',
   'pobBuild.category.armour.chest': 'Body Armour',
   'pobBuild.category.armour.gloves': 'Gloves',

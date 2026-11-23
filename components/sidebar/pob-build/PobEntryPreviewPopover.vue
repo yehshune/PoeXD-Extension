@@ -13,6 +13,7 @@ import {
   buildEntryQuery,
   effectiveCountMin,
   effectiveLinks,
+  effectivePseudo,
   effectiveSearchBy,
   LINK_OPTIONS,
   cloneEntrySearchSelection,
@@ -116,7 +117,7 @@ const effectiveRow = computed<ShoppingRow | null>(() => {
   const filters = entryStatFilters(row, draft, defaults);
   const applied = applyEntrySelection(row, draft, defaults);
   const countMin = effectiveCountMin(row, draft);
-  const pseudo = draft.pseudo === true;
+  const pseudo = effectivePseudo(row, draft, defaults);
   return {
     ...row,
     mods: applied.mods,
@@ -340,7 +341,7 @@ function commitCountMin(event: Event): void {
 }
 
 function setPseudo(on: boolean): void {
-  mutateDraft(({ pseudo: _previous, ...draft }) => (on ? { ...draft, pseudo: true } : draft));
+  mutateDraft((draft) => ({ ...draft, pseudo: on }));
 }
 
 function relaxBounds(): void {

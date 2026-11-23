@@ -171,7 +171,8 @@ Implicits: 1
 
   it('依 Implicits 行分出固定與一般詞綴，去掉標記並略過屬性行與狀態行', () => {
     expect(gloves.implicitMods).toEqual([
-      { text: '3% increased Damage per 100 Strength', crafted: false },
+      // 屬性區標了 Searing Exarch Item：非附魔的固定詞綴是 Eldritch 固定詞綴
+      { text: '3% increased Damage per 100 Strength', crafted: false, eldritch: true },
       { text: '+7% to Fire Damage over Time Multiplier', crafted: true },
     ]);
     expect(gloves.explicitMods).toEqual([
@@ -200,6 +201,7 @@ Implicits: 1
     expect(entry.query).toEqual({
       status: { option: 'securable' },
       type: 'Leviathan Gauntlets',
+      filters: { type_filters: { filters: { rarity: { option: 'nonunique' } } } },
       stats: [
         {
           type: 'and',

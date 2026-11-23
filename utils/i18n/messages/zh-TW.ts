@@ -446,6 +446,8 @@ export const ZH_TW_MESSAGES = {
   'pobBuild.searchSettings.rareSearch': '稀有裝搜尋方式',
   'pobBuild.searchSettings.rareSearchBase': '基底',
   'pobBuild.searchSettings.rareSearchCategory': '類別＋防禦類型',
+  'pobBuild.searchSettings.defenceMin': '防具帶入防禦數值下限',
+  'pobBuild.searchSettings.pseudo': '預設改用總和詞綴',
   'pobBuild.category.armour.helmet': '頭盔',
   'pobBuild.category.armour.chest': '胸甲',
   'pobBuild.category.armour.gloves': '手套',

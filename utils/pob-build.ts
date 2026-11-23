@@ -28,6 +28,8 @@ export interface PobBuildItem {
   maxLinks?: number;
   /** 基底帶有的防禦類型（依 PoB 的 `…BasePercentile` 行）；沒有防禦時省略 */
   baseDefences?: PobDefence[];
+  /** PoB 算好的防禦數值（含品質與詞綴）；沒有防禦時省略 */
+  defenceValues?: Partial<Record<PobDefence, number>>;
 }
 
 /** 護甲、閃避、能量護盾、結界 */
@@ -37,6 +39,8 @@ export interface PobItemMod {
   text: string;
   /** PoB 的 `{crafted}` 標記：一般詞綴是工藝台詞綴（可以自己做），固定詞綴是附魔 */
   crafted: boolean;
+  /** Searing Exarch／Eater of Worlds 的固定詞綴（很難剛好對到，搜尋時預設不帶入） */
+  eldritch?: true;
 }
 
 export interface PobBuildGem {
@@ -169,6 +173,8 @@ function itemTextLines(item: Element): string[] {
 interface ParsedModLine {
   text: string;
   crafted: boolean;
+  /** PoB 的 `{exarch}`／`{eater}` 標記 */
+  eldritch: boolean;
   /** 不屬於目前選用的變體（傳奇的不同版本），不列出 */
   inactiveVariant: boolean;
 }
@@ -176,11 +182,13 @@ interface ParsedModLine {
 function parseModLine(raw: string, selectedVariant: string | undefined): ParsedModLine {
   let text = raw;
   let crafted = false;
+  let eldritch = false;
   let range = 0.5;
   let inactiveVariant = false;
   for (let tag = MOD_TAG.exec(text); tag; tag = MOD_TAG.exec(text)) {
     const [name, value = ''] = tag[1].split(':');
     if (name === 'crafted') crafted = true;
+    if (name === 'exarch' || name === 'eater') eldritch = true;
     if (name === 'range' && Number.isFinite(Number(value))) range = Number(value);
     if (name === 'variant' && selectedVariant !== undefined) {
       inactiveVariant = !value.split(',').includes(selectedVariant);
@@ -192,8 +200,10 @@ function parseModLine(raw: string, selectedVariant: string | undefined): ParsedM
     const isInteger = Number.isInteger(Number(low)) && Number.isInteger(Number(high));
     return String(isInteger ? Math.round(value) : Math.round(value * 100) / 100);
   });
-  return { text: resolved.trim().slice(0, MAX_MOD_LENGTH), crafted, inactiveVariant };
+  return { text: resolved.trim().slice(0, MAX_MOD_LENGTH), crafted, eldritch, inactiveVariant };
 }
+
+const ELDRITCH_ITEM_LINE = /^(?:Searing Exarch|Eater of Worlds) Item$/;
 
 /** `Implicits: N` 之後的 N 行是固定詞綴，其餘到狀態行為止是一般詞綴 */
 function parseMods(lines: readonly string[]): Pick<PobBuildItem, 'implicitMods' | 'explicitMods'> {
@@ -204,6 +214,8 @@ function parseMods(lines: readonly string[]): Pick<PobBuildItem, 'implicitMods' 
     .slice(0, implicitsIndex)
     .map((line) => SELECTED_VARIANT_LINE.exec(line)?.[1])
     .find(Boolean);
+  // 舊版匯出沒有 {exarch}／{eater} 標記，只在屬性區寫「Searing Exarch Item」：此時非附魔的固定詞綴都是
+  const eldritchItem = lines.slice(0, implicitsIndex).some((line) => ELDRITCH_ITEM_LINE.test(line));
 
   const implicitMods: PobItemMod[] = [];
   const explicitMods: PobItemMod[] = [];
@@ -212,8 +224,12 @@ function parseMods(lines: readonly string[]): Pick<PobBuildItem, 'implicitMods' 
     const mod = parseModLine(raw, selectedVariant);
     if (!mod.text || mod.inactiveVariant) return;
     const entry = { text: mod.text, crafted: mod.crafted };
-    if (index < implicitCount) implicitMods.push(entry);
-    else explicitMods.push(entry);
+    if (index >= implicitCount) {
+      explicitMods.push(entry);
+      return;
+    }
+    const eldritch = mod.eldritch || (eldritchItem && !mod.crafted);
+    implicitMods.push(eldritch ? { ...entry, eldritch: true } : entry);
   });
   return { implicitMods, explicitMods };
 }
@@ -258,6 +274,17 @@ function parseBaseDefences(lines: readonly string[]): PobDefence[] | undefined {
   return found.length ? found.map(({ defence }) => defence) : undefined;
 }
 
+/** 物品屬性區的防禦數值行（`Armour: 553`）；沒有任何防禦時為 undefined */
+function parseDefenceValues(
+  lines: readonly string[],
+): Partial<Record<PobDefence, number>> | undefined {
+  const entries = DEFENCE_LINES.flatMap(({ defence, value }) => {
+    const amount = lines.map((line) => Number(value.exec(line)?.[1] ?? 0)).find((n) => n > 0);
+    return amount ? [[defence, amount] as const] : [];
+  });
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
 function parseItem(item: Element, slot: string): PobBuildItem | undefined {
   const lines = itemTextLines(item);
   const rarityIndex = lines.findIndex((line) => RARITY_LINE.test(line));
@@ -272,6 +299,7 @@ function parseItem(item: Element, slot: string): PobBuildItem | undefined {
   const properties = lines.slice(0, implicitsIndex < 0 ? undefined : implicitsIndex);
   const maxLinks = parseMaxLinks(properties);
   const baseDefences = parseBaseDefences(properties);
+  const defenceValues = parseDefenceValues(properties);
   return {
     slot,
     rarity,
@@ -280,6 +308,7 @@ function parseItem(item: Element, slot: string): PobBuildItem | undefined {
     ...parseMods(lines),
     ...(maxLinks !== undefined ? { maxLinks } : {}),
     ...(baseDefences ? { baseDefences } : {}),
+    ...(defenceValues ? { defenceValues } : {}),
   };
 }
 

@@ -29,9 +29,12 @@ import {
 import {
   categoryOfItem,
   categorySearchBase,
+  defencesOfItem,
+  NON_UNIQUE_RARITY,
   DEFAULT_RARE_SEARCH,
   RARE_SEARCH_MODES,
   type EntryCategory,
+  type EntryDefences,
   type RareSearchMode,
 } from './pob-category-search';
 import {
@@ -127,6 +130,8 @@ export interface ShoppingEntry {
   links?: number;
   /** 非傳奇裝備依部位推得的市集類別；有才能改用「類別＋防禦類型」搜尋 */
   category?: EntryCategory;
+  /** 基底有的防禦與 PoB 的數值；整體設定開啟「防禦數值下限」時帶入 */
+  defences?: EntryDefences;
   /** 不含詞綴與連結條件的搜尋（名稱、基底、分類）；null 表示無法搜尋 */
   searchBase: Record<string, unknown> | null;
   /** 官方市集的 query 物件（套用使用者的選擇後）；null 表示無法搜尋 */
@@ -158,7 +163,7 @@ export interface EntrySearchSelection {
   stats?: Readonly<Record<string, StatSelection>>;
   /** 設定時改為「至少符合 N 項」 */
   countMin?: number;
-  /** 抗性、生命、能力值合併成總和條件 */
+  /** 抗性、生命、能力值合併成總和條件；省略時依 build 整體設定 */
   pseudo?: boolean;
   /** 單件的連結條件：數字為連結數下限，null 為不限；省略時依 build 整體設定 */
   links?: number | null;
@@ -183,11 +188,15 @@ export interface BuildSearchDefaults {
   links?: LinkPolicy;
   /** 稀有裝（非傳奇）以基底或類別＋防禦類型搜尋 */
   rareSearch?: RareSearchMode;
+  /** 防具帶入基底防禦的數值下限（依詞綴數值比例） */
+  defenceMin?: boolean;
+  /** 抗性、生命、能力值預設改用總和條件 */
+  pseudo?: boolean;
 }
 
 /** 只留下和預設不同、而且合法的欄位 */
 export function normalizeSearchDefaults(value: BuildSearchDefaults): BuildSearchDefaults {
-  const { statPercent, links, rareSearch } = value;
+  const { statPercent, links, rareSearch, defenceMin, pseudo } = value;
   return {
     ...(statPercent !== undefined &&
     statPercent !== DEFAULT_STAT_PERCENT &&
@@ -202,6 +211,8 @@ export function normalizeSearchDefaults(value: BuildSearchDefaults): BuildSearch
     RARE_SEARCH_MODES.includes(rareSearch)
       ? { rareSearch }
       : {}),
+    ...(defenceMin === true ? { defenceMin } : {}),
+    ...(pseudo === true ? { pseudo } : {}),
   };
 }
 
@@ -227,6 +238,10 @@ export interface ShoppingStatFilter {
 }
 
 const INSTANT_BUYOUT_STATUS = { option: 'securable' } as const;
+/** 非傳奇裝備只搜非傳奇：同基底的傳奇不會混進結果 */
+const NON_UNIQUE_FILTERS = {
+  type_filters: { filters: { rarity: { option: NON_UNIQUE_RARITY } } },
+} as const;
 const SUPPORT_SUFFIX = ' Support';
 /** 異變傳奇在 PoB 的名稱多一個前綴，市集上仍是原名 */
 const MUTATED_UNIQUE_PREFIX = /^Foulborn\s+/;
@@ -536,6 +551,7 @@ interface ModPlan {
   text: string;
   kind: ShoppingModKind;
   domain?: StatDomain;
+  eldritch?: true;
 }
 
 function modPlans(item: PobBuildItem): ModPlan[] {
@@ -543,7 +559,12 @@ function modPlans(item: PobBuildItem): ModPlan[] {
     ...item.implicitMods.map((mod) =>
       mod.crafted
         ? { text: mod.text, kind: 'enchant' as const, domain: 'enchant' as const }
-        : { text: mod.text, kind: 'implicit' as const, domain: 'implicit' as const },
+        : {
+            text: mod.text,
+            kind: 'implicit' as const,
+            domain: 'implicit' as const,
+            ...(mod.eldritch ? { eldritch: true as const } : {}),
+          },
     ),
     ...item.explicitMods.map((mod) =>
       mod.crafted
@@ -561,19 +582,19 @@ function itemMods(
   const preferLocal: LocalPreference = WEAPON_SLOT.test(item.slot)
     ? true
     : ARMOUR_SLOT.test(item.slot) && 'defence';
-  return modPlans(item).map(({ text, kind, domain }) => {
+  return modPlans(item).map(({ text, kind, domain, eldritch }) => {
     // 工藝詞綴只對市集的 crafted 代碼：退回一般詞綴的代碼會和同代碼的隨機詞綴合併成一個條件
     const match = domain && matcher?.match(text, { preferLocal, domain });
     if (!match) return { text, kind, searched: false };
     const isTimeless = TIMELESS_STAT.test(match.statId);
     // 附魔的數值是固定的（星團珠寶的天賦數、插槽數），不取八成
     const exact = isTimeless || kind === 'enchant';
-    // 工藝詞綴可以自己做，預設不帶入搜尋
+    // 工藝詞綴可以自己做、Eldritch 固定詞綴很難剛好對到，預設不帶入搜尋
     const defaultEnabled = options.isUnique
       ? isTimeless
       : kind === 'enchant'
         ? options.isClusterJewel
-        : kind !== 'crafted';
+        : kind !== 'crafted' && !eldritch;
     const domains = matcher?.domainsOf?.(match.statId) ?? [];
     const pseudo = match.option === undefined && !exact ? pseudoContributions(text) : undefined;
     const stat: ShoppingStat = {
@@ -763,9 +784,50 @@ function withLinks(
   };
 }
 
+/**
+ * 是否改用總和條件：單件設定優先，否則依 build 整體設定；臟器項目的詞綴分屬不同件，
+ * 只有單件明確開啟才合併
+ */
+export function effectivePseudo(
+  entry: Pick<ShoppingEntry, 'visceraBundle' | 'visceraPart'>,
+  selection?: EntrySearchSelection,
+  defaults?: BuildSearchDefaults,
+): boolean {
+  if (selection && typeof selection.pseudo === 'boolean') return selection.pseudo;
+  if (entry.visceraBundle || entry.visceraPart) return false;
+  return defaults?.pseudo === true;
+}
+
+/** 把防禦數值下限併進防禦條件區塊；類別搜尋已有的「至少 1」改成實際下限 */
+function withDefenceMins(
+  base: Record<string, unknown>,
+  defences: EntryDefences | undefined,
+  defaults: BuildSearchDefaults | undefined,
+): Record<string, unknown> {
+  if (!defences || defaults?.defenceMin !== true) return base;
+  const percent = defaults.statPercent ?? DEFAULT_STAT_PERCENT;
+  const mins = Object.entries(defences.values).flatMap(([defence, value]) => {
+    const { min } = defaultStatBounds(value, false, percent);
+    return min !== undefined ? [[defence, { min }] as const] : [];
+  });
+  if (mins.length === 0) return base;
+  const filters = (base.filters ?? {}) as Record<string, { filters?: Record<string, unknown> }>;
+  const section = filters[defences.section]?.filters ?? {};
+  return {
+    ...base,
+    filters: {
+      ...filters,
+      [defences.section]: { filters: { ...section, ...Object.fromEntries(mins) } },
+    },
+  };
+}
+
 /** 套用使用者的選擇與 build 整體設定組出搜尋；項目無法搜尋時回傳 null */
 export function buildEntryQuery(
-  entry: Pick<ShoppingEntry, 'mods' | 'searchBase' | 'visceraBundle' | 'links' | 'category'>,
+  entry: Pick<
+    ShoppingEntry,
+    'mods' | 'searchBase' | 'visceraBundle' | 'visceraPart' | 'links' | 'category' | 'defences'
+  >,
   selection?: EntrySearchSelection,
   defaults?: BuildSearchDefaults,
 ): Record<string, unknown> | null {
@@ -775,9 +837,13 @@ export function buildEntryQuery(
       ? categorySearchBase(entry.category, INSTANT_BUYOUT_STATUS)
       : entry.searchBase;
   if (!searchBase) return null;
-  const base = withLinks(searchBase, effectiveLinks(entry, selection, defaults));
+  const base = withDefenceMins(
+    withLinks(searchBase, effectiveLinks(entry, selection, defaults)),
+    entry.defences,
+    defaults,
+  );
   const enabled = entryStatFilters(entry, selection, defaults).filter((filter) => filter.enabled);
-  const filters = selection?.pseudo
+  const filters = effectivePseudo(entry, selection, defaults)
     ? mergeIntoPseudo(enabled, entry.mods ?? [], statRatioOf(defaults))
     : enabled.map(toQueryFilter);
   if (filters.length === 0) return base;
@@ -856,7 +922,7 @@ export function cloneEntrySearchSelection(selection?: EntrySearchSelection): Ent
   return {
     ...(stats && Object.keys(stats).length > 0 ? { stats } : {}),
     ...(selection.countMin !== undefined ? { countMin: selection.countMin } : {}),
-    ...(selection.pseudo === true ? { pseudo: true } : {}),
+    ...(typeof selection.pseudo === 'boolean' ? { pseudo: selection.pseudo } : {}),
     ...('links' in selection ? { links: selection.links ?? null } : {}),
     ...(selection.searchBy ? { searchBy: selection.searchBy } : {}),
   };
@@ -883,7 +949,9 @@ export function selectionFromRowState(
   return {
     ...(Object.keys(stats).length > 0 ? { stats } : {}),
     ...(row.countMin !== undefined ? { countMin: row.countMin } : {}),
-    ...(row.pseudo ? { pseudo: true } : {}),
+    ...(Boolean(row.pseudo) !== effectivePseudo(row, undefined, searchDefaults)
+      ? { pseudo: Boolean(row.pseudo) }
+      : {}),
   };
 }
 
@@ -926,7 +994,11 @@ export function normalizeSelectionForEntry(
     selection.countMin !== effectiveCountMin(entry)
       ? { countMin: selection.countMin }
       : {}),
-    ...(selection.pseudo === true ? { pseudo: true } : {}),
+    // 等於 build 預設（或臟器項目的預設不合併）時不算自訂
+    ...(typeof selection.pseudo === 'boolean' &&
+    selection.pseudo !== effectivePseudo(entry, undefined, searchDefaults)
+      ? { pseudo: selection.pseudo }
+      : {}),
     ...('links' in selection &&
     effectiveLinks(entry, selection, searchDefaults) !==
       effectiveLinks(entry, undefined, searchDefaults)
@@ -1039,6 +1111,7 @@ function itemEntry(
   }
   if (!isUnique) {
     const category = categoryOfItem(item, version);
+    const defences = defencesOfItem(item, version);
     return finish({
       key,
       kind: 'equipment',
@@ -1046,9 +1119,12 @@ function itemEntry(
       englishName: base.english ?? item.name,
       slot: item.slot,
       rarity: item.rarity,
-      searchBase: base.trade ? { status: INSTANT_BUYOUT_STATUS, type: base.trade } : null,
+      searchBase: base.trade
+        ? { status: INSTANT_BUYOUT_STATUS, type: base.trade, filters: NON_UNIQUE_FILTERS }
+        : null,
       ...linksOf(item),
       ...(category ? { category } : {}),
+      ...(defences ? { defences } : {}),
     });
   }
   const seed = TIMELESS_NAME_SUFFIX.test(item.name)

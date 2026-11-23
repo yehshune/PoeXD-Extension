@@ -92,6 +92,8 @@ function createMemoryStorage(): PobBuildStorage & { data: Record<string, unknown
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+/** 非傳奇裝備的搜尋都帶「非傳奇」稀有度條件 */
+const NON_UNIQUE = { type_filters: { filters: { rarity: { option: 'nonunique' } } } };
 describe('usePobBuild', () => {
   let storage: ReturnType<typeof createMemoryStorage>;
   let deps: UsePobBuildDeps;
@@ -449,6 +451,7 @@ describe('usePobBuild', () => {
       expect(rowByLabel(first(pob), 'Plate Vest').query).toEqual({
         status: { option: 'securable' },
         type: 'Plate Vest',
+        filters: NON_UNIQUE,
       });
     });
   });
@@ -479,6 +482,7 @@ describe('usePobBuild', () => {
       expect(plate.query).toEqual({
         status: { option: 'securable' },
         type: 'Plate Vest',
+        filters: NON_UNIQUE,
         stats: [{ type: 'and', filters: [{ id: 'explicit.stat_3299347043', value: { min: 80 } }] }],
       });
       expect(plate.rarity).toBe('RARE');
@@ -762,7 +766,11 @@ describe('usePobBuild', () => {
       expect(plateOf(pob).searchCustomized).toBe(true);
 
       pob.setStatEnabled('build-1', plateOf(pob).key, LIFE, false);
-      expect(plateOf(pob).query).toEqual({ status: { option: 'securable' }, type: 'Plate Vest' });
+      expect(plateOf(pob).query).toEqual({
+        status: { option: 'securable' },
+        type: 'Plate Vest',
+        filters: NON_UNIQUE,
+      });
       expect(plateOf(pob).mods?.[0].searched).toBe(false);
       await flush();
       expect(stored()[0].searchSelections).toEqual({
@@ -891,6 +899,31 @@ describe('usePobBuild', () => {
       expect(stored()[0].searchSelections[plateOf(pob).key]).toEqual({ searchBy: 'base' });
     });
 
+    it('build 整體設定：預設改用總和，單件關掉時存成 false，回到預設時不存', async () => {
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(buildXml()));
+      pob.selectItemSet('build-1', '2');
+      expect(plateOf(pob).pseudo).toBe(false);
+
+      pob.setSearchDefaults('build-1', { pseudo: true, defenceMin: true });
+      expect(first(pob).searchDefaults).toEqual({ defenceMin: true, pseudo: true });
+      expect(plateOf(pob).pseudo).toBe(true);
+
+      pob.setPseudo('build-1', plateOf(pob).key, false);
+      expect(plateOf(pob).pseudo).toBe(false);
+      await flush();
+      expect(stored()[0].searchSelections[plateOf(pob).key]).toEqual({ pseudo: false });
+
+      pob.setPseudo('build-1', plateOf(pob).key, true);
+      expect(plateOf(pob).pseudo).toBe(true);
+      await flush();
+      expect(stored()[0].searchSelections[plateOf(pob).key]).toBeUndefined();
+
+      const reopened = usePobBuild('poe1', deps);
+      await reopened.restore();
+      expect(first(reopened).searchDefaults).toEqual({ defenceMin: true, pseudo: true });
+    });
+
     it('本機存的整體設定格式不對時略過該欄', async () => {
       storage.data[pobBuildsStorageKey('poe1')] = [
         {
@@ -902,6 +935,8 @@ describe('usePobBuild', () => {
             a: { links: 9, searchBy: 'name' },
             b: { links: null },
             c: { links: 5, searchBy: 'category' },
+            d: { pseudo: false },
+            e: { pseudo: 'yes' },
           },
         },
         {
@@ -916,6 +951,7 @@ describe('usePobBuild', () => {
       expect(list[0].searchSelections).toEqual({
         b: { links: null },
         c: { links: 5, searchBy: 'category' },
+        d: { pseudo: false },
       });
       expect(list[1].searchDefaults).toEqual({
         statPercent: 60,

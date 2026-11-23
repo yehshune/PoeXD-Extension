@@ -38,6 +38,7 @@ import {
   buildTradeSearchUrl,
   effectiveCountMin,
   effectiveLinks,
+  effectivePseudo,
   effectiveSearchBy,
   type VisceraModIndex,
   entryStatFilters,
@@ -501,7 +502,7 @@ export function usePobBuild(
       ...(session.icons[entry.key] ? { icon: session.icons[entry.key] } : {}),
       filters: entryStatFilters(entry, selection, defaults),
       ...(countMin !== undefined ? { countMin } : {}),
-      pseudo: selection?.pseudo === true,
+      pseudo: effectivePseudo(entry, selection, defaults),
       ...(linksMin !== undefined ? { linksMin } : {}),
       searchBy: effectiveSearchBy(entry, selection, defaults),
       searchCustomized: selection !== undefined || session.searchOverrides[entry.key] !== undefined,
@@ -1038,8 +1039,12 @@ export function usePobBuild(
       );
     },
     setPseudo(buildId, key, on) {
+      const session = find(buildId);
+      const entry = session && entriesOf(session).find((item) => item.key === key);
+      // 等於 build 預設時不存，之後改整體設定也會跟著變
+      const fallback = entry ? effectivePseudo(entry, undefined, session.searchDefaults) : false;
       updateSelection(buildId, key, ({ pseudo: _previous, ...current }) =>
-        on ? { ...current, pseudo: true } : current,
+        on === fallback ? current : { ...current, pseudo: on },
       );
     },
     saveSelection(buildId, key, selection) {

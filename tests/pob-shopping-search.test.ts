@@ -20,6 +20,9 @@ import {
 } from '@/utils/pob-shopping-list';
 import { createStatMatcher } from '@/utils/pob-stat-matcher';
 
+/** 非傳奇裝備的搜尋都帶「非傳奇」稀有度條件 */
+const NON_UNIQUE = { type_filters: { filters: { rarity: { option: 'nonunique' } } } };
+
 // 取自 PoE1 3.30 的 mod-lines.json 與國際服 trade-stats.json（節錄）
 const matcher = createStatMatcher({
   modLines: {
@@ -250,7 +253,7 @@ describe('buildShoppingList：搜尋條件', () => {
     expect(entry('Reaver Axe').query).toEqual({
       status: { option: 'securable' },
       type: 'Reaver Axe',
-      filters: { socket_filters: { filters: { links: { min: 6 } } } },
+      filters: { ...NON_UNIQUE, socket_filters: { filters: { links: { min: 6 } } } },
       stats: [
         {
           type: 'and',
@@ -290,6 +293,7 @@ describe('buildShoppingList：搜尋條件', () => {
     expect(cluster.query).toEqual({
       status: { option: 'securable' },
       type: 'Large Cluster Jewel',
+      filters: NON_UNIQUE,
       stats: [
         {
           type: 'and',
@@ -532,6 +536,7 @@ describe('使用者調整搜尋條件', () => {
     expect(buildEntryQuery(ring, { stats })).toEqual({
       status: { option: 'securable' },
       type: 'Two-Stone Ring',
+      filters: NON_UNIQUE,
     });
   });
 
@@ -730,6 +735,7 @@ Implicits: 1
     expect(head.query).toEqual({
       status: { option: 'securable' },
       type: "Thaumaturge's Head",
+      filters: NON_UNIQUE,
       stats: [{ type: 'and', filters: [{ id: 'implicit.stat_2250533757', value: { min: 3 } }] }],
     });
   });
@@ -844,7 +850,7 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
 
   it('連結數記在項目上，不再寫死在 searchBase；五連以下沒有', () => {
     expect(axe.links).toBe(6);
-    expect(axe.searchBase).not.toHaveProperty('filters');
+    expect(axe.searchBase).not.toHaveProperty('filters.socket_filters');
     expect(kaom.links).toBeUndefined();
     expect(effectiveLinks(axe)).toBe(6);
     expect(effectiveLinks(kaom)).toBeUndefined();
@@ -854,7 +860,7 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
     expect(buildEntryQuery(axe, undefined, { statPercent: 50 })).toEqual({
       status: { option: 'securable' },
       type: 'Reaver Axe',
-      filters: sixLink,
+      filters: { ...NON_UNIQUE, ...sixLink },
       stats: [
         {
           type: 'and',
@@ -893,12 +899,14 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
     expect(effectiveLinks(fiveLink, undefined, { links: 'six' })).toBeUndefined();
     expect(effectiveLinks(axe, undefined, { links: 'six' })).toBe(6);
     expect(effectiveLinks(axe, undefined, { links: 'none' })).toBeUndefined();
-    expect(buildEntryQuery(axe, undefined, { links: 'none' })).not.toHaveProperty('filters');
+    expect(buildEntryQuery(axe, undefined, { links: 'none' })).not.toHaveProperty(
+      'filters.socket_filters',
+    );
   });
 
   it('單件的連結設定優先於 build 預設：null 為不限，數字為下限', () => {
     expect(effectiveLinks(axe, { links: null })).toBeUndefined();
-    expect(buildEntryQuery(axe, { links: null })).not.toHaveProperty('filters');
+    expect(buildEntryQuery(axe, { links: null })).not.toHaveProperty('filters.socket_filters');
     expect(effectiveLinks(axe, { links: 5 }, { links: 'none' })).toBe(5);
     expect(buildEntryQuery(axe, { links: 5 }, { links: 'none' })).toMatchObject({
       filters: { socket_filters: { filters: { links: { min: 5 } } } },
