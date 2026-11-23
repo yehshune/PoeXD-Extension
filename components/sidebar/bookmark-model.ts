@@ -10,7 +10,7 @@ import {
   type FolderDropIntent,
 } from '@/utils/bookmark-collection';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
-import { normalizeFolderColor, normalizeFolderIcon } from '@/utils/folder-icons';
+import { applyFolderAppearance } from '@/utils/folder-icons';
 import type { BookmarkInput } from '@/utils/bookmark-coordinator';
 import type { BookmarkImportMode, BookmarkTransferPayload } from '@/utils/bookmark-transfer';
 import type { SearchRecordError, SearchRecordOutcome } from '@/utils/search-records';
@@ -306,14 +306,7 @@ async function commitIntent(
     case 'set-group-appearance': {
       const group = canonical.groups.find((item) => item.id === intent.groupId);
       if (!group) return invalid(`Bookmark group ${intent.groupId} does not exist`);
-      const nextIcon = normalizeFolderIcon(intent.icon);
-      const nextColor = normalizeFolderColor(intent.color);
-      const updated: BookmarkGroup = { ...group };
-      if (nextIcon) updated.icon = nextIcon;
-      else delete updated.icon;
-      if (nextColor) updated.color = nextColor;
-      else delete updated.color;
-      return client.putGroup(updated);
+      return client.putGroup(applyFolderAppearance({ ...group }, intent));
     }
     case 'delete-group':
       return client.deleteGroup(intent.groupId);
@@ -387,17 +380,9 @@ function applyIntent(state: Projection, intent: ResolvedMutationIntent): Project
       );
       break;
     case 'set-group-appearance': {
-      const nextIcon = normalizeFolderIcon(intent.icon);
-      const nextColor = normalizeFolderColor(intent.color);
-      next.groups = next.groups.map((group) => {
-        if (group.id !== intent.groupId) return group;
-        const updated: BookmarkGroup = { ...group };
-        if (nextIcon) updated.icon = nextIcon;
-        else delete updated.icon;
-        if (nextColor) updated.color = nextColor;
-        else delete updated.color;
-        return updated;
-      });
+      next.groups = next.groups.map((group) =>
+        group.id === intent.groupId ? applyFolderAppearance({ ...group }, intent) : group,
+      );
       break;
     }
     case 'delete-group': {

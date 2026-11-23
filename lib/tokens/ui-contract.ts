@@ -140,6 +140,21 @@ export const LAYOUT_TOKENS = Object.freeze({
   coverPickerWidthVar: '--pxd-cover-picker-width',
   coverPickerMaxHeightPx: 240,
   coverPickerMaxHeightVar: '--pxd-cover-picker-max-height',
+  // Folder Icon Slot & Picker Semantic Geometry (Scale-aware, Density invariant)
+  folderIconSlotWidthPx: 32,
+  folderIconSlotWidthVar: '--pxd-folder-icon-slot-width',
+  folderIconSlotHeightPx: 24,
+  folderIconSlotHeightVar: '--pxd-folder-icon-slot-height',
+  folderIconPickerWidthPx: 368,
+  folderIconPickerWidthVar: '--pxd-folder-icon-picker-width',
+  folderIconPickerPanelHeightPx: 264,
+  folderIconPickerPanelHeightVar: '--pxd-folder-icon-picker-panel-height',
+  folderIconPickerWideThumbWidthPx: 60,
+  folderIconPickerWideThumbWidthVar: '--pxd-folder-icon-picker-wide-width',
+  folderIconPickerWideThumbHeightPx: 45,
+  folderIconPickerWideThumbHeightVar: '--pxd-folder-icon-picker-wide-height',
+  folderIconPickerSwatchSizePx: 26,
+  folderIconPickerSwatchSizeVar: '--pxd-folder-icon-picker-swatch-size',
   // Overlay & Floating UI Semantic Geometry (Scale-aware, Density invariant)
   overlayInspectWidthPx: 300,
   overlayInspectWidthVar: '--pxd-overlay-inspect-width',
@@ -605,6 +620,23 @@ export function createUiRuntimeTokenValues(
     [LAYOUT_TOKENS.coverPickerItemSizeVar]: formatPx(LAYOUT_TOKENS.coverPickerItemSizePx * scale),
     [LAYOUT_TOKENS.coverPickerWidthVar]: formatPx(LAYOUT_TOKENS.coverPickerWidthPx * scale),
     [LAYOUT_TOKENS.coverPickerMaxHeightVar]: formatPx(LAYOUT_TOKENS.coverPickerMaxHeightPx * scale),
+    [LAYOUT_TOKENS.folderIconSlotWidthVar]: formatPx(LAYOUT_TOKENS.folderIconSlotWidthPx * scale),
+    [LAYOUT_TOKENS.folderIconSlotHeightVar]: formatPx(LAYOUT_TOKENS.folderIconSlotHeightPx * scale),
+    [LAYOUT_TOKENS.folderIconPickerWidthVar]: formatPx(
+      LAYOUT_TOKENS.folderIconPickerWidthPx * scale,
+    ),
+    [LAYOUT_TOKENS.folderIconPickerPanelHeightVar]: formatPx(
+      LAYOUT_TOKENS.folderIconPickerPanelHeightPx * scale,
+    ),
+    [LAYOUT_TOKENS.folderIconPickerWideThumbWidthVar]: formatPx(
+      LAYOUT_TOKENS.folderIconPickerWideThumbWidthPx * scale,
+    ),
+    [LAYOUT_TOKENS.folderIconPickerWideThumbHeightVar]: formatPx(
+      LAYOUT_TOKENS.folderIconPickerWideThumbHeightPx * scale,
+    ),
+    [LAYOUT_TOKENS.folderIconPickerSwatchSizeVar]: formatPx(
+      LAYOUT_TOKENS.folderIconPickerSwatchSizePx * scale,
+    ),
 
     // 2.10 Overlay & Floating UI semantic geometry tokens (baseline * scale, Density invariant)
     [LAYOUT_TOKENS.overlayInspectWidthVar]: formatPx(LAYOUT_TOKENS.overlayInspectWidthPx * scale),

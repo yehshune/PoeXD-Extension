@@ -167,6 +167,22 @@ export function normalizeFolderColor(value: unknown): FolderColorId | undefined 
   return COLOR_BY_ID.has(trimmed) ? (trimmed as FolderColorId) : undefined;
 }
 
+/**
+ * 將正規化後的 `icon` 與 `color` 套用到目標資料夾物件（無效或未設定時刪除對應屬性）。
+ */
+export function applyFolderAppearance<T extends { icon?: string; color?: string }>(
+  target: T,
+  appearance: { icon?: unknown; color?: unknown },
+): T {
+  const nextIcon = normalizeFolderIcon(appearance.icon);
+  const nextColor = normalizeFolderColor(appearance.color);
+  if (nextIcon) target.icon = nextIcon;
+  else delete target.icon;
+  if (nextColor) target.color = nextColor;
+  else delete target.color;
+  return target;
+}
+
 export function getFolderImageIcons(
   category: FolderIconCategory,
   gameVersion: PoeVersion,
@@ -286,4 +302,25 @@ export function localizeAscendancyOrClassName(
   }
   // PoE 1 舊版 PoB 可能仍寫 Raider，對應至新版昇華列或舊譯名
   return (ascendancyName || className || '').trim();
+}
+
+/**
+ * 判斷已儲存的 PoB 流派名稱是否為任一語系自動產生的預設名稱（未經使用者手動改名）。
+ */
+export function isDefaultAscendancyBuildName(
+  gameVersion: PoeVersion,
+  storedName: string | undefined,
+  ascendancyName: string | undefined,
+  className: string | undefined,
+  level: number,
+): boolean {
+  if (!storedName) return true;
+  const rawEn = `${(ascendancyName || className || 'Build').trim()} Lv.${level}`;
+  if (storedName === rawEn) return true;
+  for (const loc of ['en', 'zh-TW', 'zh-CN'] as const) {
+    const label =
+      localizeAscendancyOrClassName(gameVersion, ascendancyName, className, loc) || 'Build';
+    if (storedName === `${label} Lv.${level}`) return true;
+  }
+  return false;
 }

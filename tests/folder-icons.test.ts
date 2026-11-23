@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { createUiRuntimeTokenValues, LAYOUT_TOKENS } from '@/lib/tokens';
 import {
+  applyFolderAppearance,
   findAscendancyFolderIcon,
   getFolderImageIcons,
+  isDefaultAscendancyBuildName,
   normalizeFolderColor,
   normalizeFolderIcon,
   resolveFolderIcon,
@@ -57,5 +60,51 @@ describe('folder icons catalog & helpers', () => {
     );
     expect(findAscendancyFolderIcon('poe2', 'Invoker', 'Monk')).toBe('poe2:asc:Invoker');
     expect(findAscendancyFolderIcon('poe2', undefined, 'Sorceress')).toBe('poe2:class:Sorceress');
+  });
+
+  it('recognizes default PoB build names across en, zh-TW, and zh-CN and applies folder appearance', () => {
+    expect(
+      isDefaultAscendancyBuildName('poe1', 'Chieftain Lv.97', 'Chieftain', 'Marauder', 97),
+    ).toBe(true);
+    expect(isDefaultAscendancyBuildName('poe1', '酋長 Lv.97', 'Chieftain', 'Marauder', 97)).toBe(
+      true,
+    );
+    expect(isDefaultAscendancyBuildName('poe1', '酋长 Lv.97', 'Chieftain', 'Marauder', 97)).toBe(
+      true,
+    );
+    expect(isDefaultAscendancyBuildName('poe1', 'My Custom RF', 'Chieftain', 'Marauder', 97)).toBe(
+      false,
+    );
+
+    const target: { id: string; icon?: string; color?: string } = {
+      id: 'g1',
+      icon: 'item:divine',
+      color: 'amber',
+    };
+    applyFolderAppearance(target, { icon: 'TFT', color: undefined });
+    expect(target.icon).toBeUndefined();
+    expect(target.color).toBeUndefined();
+  });
+
+  it('scales folder icon slot and picker geometry tokens with UI Scale while staying Density-invariant', () => {
+    const s085 = createUiRuntimeTokenValues({ scale: 0.85, density: 1.0 });
+    const s100 = createUiRuntimeTokenValues({ scale: 1.0, density: 1.0 });
+    const s120 = createUiRuntimeTokenValues({ scale: 1.2, density: 1.0 });
+    const sCompact = createUiRuntimeTokenValues({ scale: 1.0, density: 0.8 });
+
+    expect(s100[LAYOUT_TOKENS.folderIconSlotWidthVar]).toBe('32px');
+    expect(s100[LAYOUT_TOKENS.folderIconSlotHeightVar]).toBe('24px');
+    expect(s100[LAYOUT_TOKENS.folderIconPickerPanelHeightVar]).toBe('264px');
+
+    expect(s085[LAYOUT_TOKENS.folderIconSlotWidthVar]).toBe('27.2px');
+    expect(s120[LAYOUT_TOKENS.folderIconSlotWidthVar]).toBe('38.4px');
+    expect(s120[LAYOUT_TOKENS.folderIconPickerPanelHeightVar]).toBe('316.8px');
+
+    expect(sCompact[LAYOUT_TOKENS.folderIconSlotWidthVar]).toBe(
+      s100[LAYOUT_TOKENS.folderIconSlotWidthVar],
+    );
+    expect(sCompact[LAYOUT_TOKENS.folderIconPickerPanelHeightVar]).toBe(
+      s100[LAYOUT_TOKENS.folderIconPickerPanelHeightVar],
+    );
   });
 });

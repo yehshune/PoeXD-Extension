@@ -9,7 +9,11 @@ import type {
   LiveSearchEnqueueRequest,
   LiveSearchEnqueueResponse,
 } from '@/utils/live-search-contract';
-import { findAscendancyFolderIcon, localizeAscendancyOrClassName } from '@/utils/folder-icons';
+import {
+  findAscendancyFolderIcon,
+  isDefaultAscendancyBuildName,
+  localizeAscendancyOrClassName,
+} from '@/utils/folder-icons';
 import { getActiveDisplayLocale, t, type I18nKey } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { parsePobBuildXml, PobBuildError, type PobBuild } from '@/utils/pob-build';
@@ -363,9 +367,6 @@ function toErrorKey(error: unknown): I18nKey {
 
 const toOptions = (sets: ReadonlyArray<{ id: string; title: string }>): SetOption[] =>
   sets.map((set, index) => ({ id: set.id, title: set.title, position: index + 1 }));
-
-const legacyEnglishDefaultName = (build: PobBuild): string =>
-  `${build.ascendancy || build.className || 'Build'} Lv.${build.level}`;
 
 const defaultName = (build: PobBuild, locale = getActiveDisplayLocale()): string => {
   const classLabel =
@@ -835,10 +836,15 @@ export function usePobBuild(
       wanted: string | undefined,
       active: string,
     ) => (wanted && sets.some((set) => set.id === wanted) ? wanted : active);
-    const resolvedName =
-      !stored.name || stored.name === legacyEnglishDefaultName(build)
-        ? defaultName(build)
-        : stored.name;
+    const resolvedName = isDefaultAscendancyBuildName(
+      build.gameVersion,
+      stored.name,
+      build.ascendancy,
+      build.className,
+      build.level,
+    )
+      ? defaultName(build)
+      : stored.name;
     return {
       id: stored.id,
       name: resolvedName,
@@ -1298,6 +1304,8 @@ export function usePobBuild(
     async addToNewBuildFolder(buildId, entry) {
       const session = find(buildId);
       if (!session || !deps.bookmarks.createFolder) return false;
+      const url = await resolveCodeUrl(buildId, entry);
+      if (!url) return false;
       const folderIcon = findAscendancyFolderIcon(
         version,
         session.build.ascendancy,
@@ -1313,8 +1321,6 @@ export function usePobBuild(
         deps.showToast(t('pobBuild.toast.bookmarkFailed'), 'error');
         return false;
       }
-      const url = await resolveCodeUrl(buildId, entry);
-      if (!url) return false;
       const cover = coverOf(entry);
       const result = await deps.bookmarks
         .add({

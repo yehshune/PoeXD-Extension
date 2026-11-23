@@ -16,7 +16,7 @@ import {
 } from './bookmark-transfer-errors';
 import { parseBetterTradingExport } from './bookmark-transfer-better-trading';
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
-import { normalizeFolderColor, normalizeFolderIcon } from './folder-icons';
+import { applyFolderAppearance, normalizeFolderColor, normalizeFolderIcon } from './folder-icons';
 import {
   decodeTftBase64,
   encodeTftBase64,
@@ -534,12 +534,7 @@ export function planBookmarkTransferImport(
       mergeSubtree(incomingFolder, folderTargetGroup!);
     } else if (mode === 'replace') {
       claimedGroupIds.add(folderTargetGroup!.id);
-      const nextIcon = normalizeFolderIcon(incomingFolder.icon);
-      const nextColor = normalizeFolderColor(incomingFolder.color);
-      if (nextIcon) folderTargetGroup!.icon = nextIcon;
-      else delete folderTargetGroup!.icon;
-      if (nextColor) folderTargetGroup!.color = nextColor;
-      else delete folderTargetGroup!.color;
+      applyFolderAppearance(folderTargetGroup!, incomingFolder);
       importBookmarksIntoGroup(incomingFolder.bookmarks, folderTargetGroup!, false);
       if ('folders' in incomingFolder && Array.isArray(incomingFolder.folders)) {
         incomingFolder.folders.forEach((child: BookmarkTransferFolder, idx: number) => {

@@ -183,7 +183,7 @@ PoeXD 的尺寸架構由**四大明確劃分、職責互不混淆**的層級組�
   目前僅允許以下元件保留原生 styled `.pxd-scrollbar`（與 production code 完全一致）：
   1. `components/injected/TierDropdownHost.vue`：注入於宿主交易頁面的詞綴層級下拉清單容器。
   2. `components/sidebar/FilterPane.vue` 與 `components/sidebar/FilterSelectedPanel.vue`：內部滾動區（`modal-nav-anchors-inline` 類別導覽、`mods-scroll-container` 詞綴與 category/type 篩選清單、`selected-mods-list` 已選清單、selection list）。
-  3. `components/sidebar/BookmarkPane.vue` 內的浮層集合（`DropdownMenuSubContent` 聯盟/資料夾選單、`cover-image-grid` 封面圖示選擇網格）。
+  3. `components/sidebar/BookmarkPane.vue` 內的浮層集合（`DropdownMenuSubContent` 聯盟/資料夾選單、`cover-image-grid` 封面圖示選擇網格、`FolderIconPicker.vue` 資料夾圖示選擇網格）。
   4. `components/sidebar/search-preview/TradeSearchPreviewTooltip.vue`：Bookmark / History 共用的 Trade Search Preview 懸停浮層（依 Reka available-height 自適應高度並支援 hoverable 完整預覽滾動）。
 
 ---
@@ -384,7 +384,7 @@ User-configurable Sidebar workspace width is independent of UI Scale.
   目前僅允許以下元件保留原生 styled `.pxd-scrollbar`（與 production code 完全一致）：
   1. `components/injected/TierDropdownHost.vue`：注入於宿主交易頁面的詞綴層級下拉清單容器。
   2. `components/sidebar/FilterPane.vue` 與 `components/sidebar/FilterSelectedPanel.vue`：內部滾動區（`modal-nav-anchors-inline` 類別導覽、`mods-scroll-container` 詞綴與 category/type 篩選清單、`selected-mods-list` 已選清單、selection list）。
-  3. `components/sidebar/BookmarkPane.vue` 內的浮層集合（`DropdownMenuSubContent` 聯盟/資料夾選單、`cover-image-grid` 封面圖示選擇網格）。
+  3. `components/sidebar/BookmarkPane.vue` 內的浮層集合（`DropdownMenuSubContent` 聯盟/資料夾選單、`cover-image-grid` 封面圖示選擇網格、`FolderIconPicker.vue` 資料夾圖示選擇網格）。
   4. `components/sidebar/search-preview/TradeSearchPreviewTooltip.vue`：Bookmark / History 共用的 Trade Search Preview 懸停浮層（依 Reka available-height 自適應高度並支援 hoverable 完整預覽滾動）。
   - 任何一般側邊欄 Pane、主版面或常駐容器**嚴禁**新增 native `.pxd-scrollbar`。
   - **白名單保留依據**：上述 4 類元件（FilterPane 內部導覽與詞綴容器、TierDropdownHost 詞綴下拉浮層、BookmarkPane 浮層集合、TradeSearchPreviewTooltip 預覽浮層）因與宿主 DOM/測試契約緊密綁定，或依賴 Reka Floating UI 暫態浮層與 available-height 自適應防護，且均處於寬彈窗或暫態浮層，無側邊欄常駐工作區可用寬度擠壓問題，經確認永久保留原生 styled 滾動條。其餘側邊欄主體、Pane、常駐工作區與對話框主體一律強制使用 ScrollArea Foundation，嚴禁任意新增 native `.pxd-scrollbar`。

@@ -33,7 +33,7 @@ The expandable view of the criteria a Bookmark or History Entry's search ID enco
 _Avoid_: Hover tooltip, item preview
 
 **Bookmark Transfer**:
-A portable bookmark envelope that both PoeXD and TFT Trade Extension can read: an unprefixed `Base64(JSON.stringify({ folders }))` share code, or the same JSON as a backup file. It contains only names, search endpoints, search type, game version, Auto or pinned league, folder structure, and approved `coverImageUrl` values. It never carries query criteria, realm hosts, accounts, runtime state, or timestamps. Legacy `poexd-bm1:` / `poexd-bm2:` codes are rejected. See ADR-0007.
+A portable bookmark envelope that PoeXD can read and write (and can also import from TFT Trade Extension and Better Trading): an unprefixed `Base64(JSON.stringify({ folders }))` share code, or the same JSON as a backup file. It contains only names, search endpoints, search type, game version, Auto or pinned league, folder structure, optional folder `icon`/`color`, and approved `coverImageUrl` values. It never carries query criteria, realm hosts, accounts, runtime state, or timestamps. Legacy `poexd-bm1:` / `poexd-bm2:` codes are rejected. See ADR-0007.
 _Avoid_: Full backup, Search Record export
 
 **History Entry**:

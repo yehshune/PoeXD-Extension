@@ -56,31 +56,22 @@ const colorSpec = computed(() => getFolderColorSpec(props.color));
 const colorClass = computed(() => colorSpec.value?.textClass ?? 'text-muted-foreground');
 const slotClass = computed(() =>
   props.size === 'lg'
-    ? 'inline-flex size-[32px] shrink-0 items-center justify-center'
-    : props.size === 'md'
-      ? 'inline-flex h-[26px] w-[35px] shrink-0 items-center justify-center'
-      : 'inline-flex h-[24px] w-[32px] shrink-0 items-center justify-center',
+    ? 'inline-flex size-[var(--control-height-default,32px)] shrink-0 items-center justify-center'
+    : 'inline-flex h-[var(--pxd-folder-icon-slot-height,24px)] w-[var(--pxd-folder-icon-slot-width,32px)] shrink-0 items-center justify-center',
 );
 const iconSizeClass = computed(() =>
   props.size === 'lg'
-    ? 'size-[24px] shrink-0'
-    : props.size === 'md'
-      ? 'size-[20px] shrink-0'
-      : 'size-[20px] shrink-0',
+    ? 'size-[var(--pxd-folder-icon-slot-height,24px)] shrink-0'
+    : 'size-[var(--control-icon-lg,20px)] shrink-0',
 );
-const wideImageClass = computed(() =>
-  props.size === 'lg'
-    ? 'h-[30px] w-[40px] shrink-0 rounded-[3px] border border-border/60 object-cover'
-    : props.size === 'md'
-      ? 'h-[26px] w-[35px] shrink-0 rounded-[3px] border border-border/60 object-cover'
-      : 'h-[24px] w-[32px] shrink-0 rounded-[3px] border border-border/60 object-cover',
+const wideImageClass = computed(
+  () =>
+    'h-[var(--pxd-folder-icon-slot-height,24px)] w-[var(--pxd-folder-icon-slot-width,32px)] shrink-0 rounded-xs border border-border/60 object-cover',
 );
 const squareImageClass = computed(() =>
   props.size === 'lg'
-    ? 'size-[32px] shrink-0 object-contain'
-    : props.size === 'md'
-      ? 'size-[26px] shrink-0 object-contain'
-      : 'size-[24px] shrink-0 object-contain',
+    ? 'size-[var(--control-height-default,32px)] shrink-0 object-contain'
+    : 'size-[var(--pxd-folder-icon-slot-height,24px)] shrink-0 object-contain',
 );
 </script>
 

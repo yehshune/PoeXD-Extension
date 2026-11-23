@@ -37,8 +37,11 @@ const normalizedIcon = computed(() => normalizeFolderIcon(props.icon));
 const normalizedColor = computed(() => normalizeFolderColor(props.color));
 
 const classIcons = computed(() => getFolderImageIcons('class', props.gameVersion));
-const itemIcons = computed(() => getFolderImageIcons('item', props.gameVersion));
-const atlasIcons = computed(() => getFolderImageIcons('atlas', props.gameVersion));
+const squareTabIcons = computed(() =>
+  activeTab.value === 'item'
+    ? getFolderImageIcons('item', props.gameVersion)
+    : getFolderImageIcons('atlas', props.gameVersion),
+);
 
 const tabs = computed<Array<{ id: FolderIconPickerTab; label: string }>>(() => [
   { id: 'class', label: t('bookmark.folderIcon.tabClass') },
@@ -91,7 +94,7 @@ const resetAppearance = () => {
     <PopoverContent
       align="start"
       :side-offset="6"
-      class="w-[min(368px,calc(100vw-32px))] p-[var(--pxd-space-lg)] text-[length:var(--pxd-font-secondary)]"
+      class="w-[min(var(--pxd-folder-icon-picker-width,368px),calc(100vw-32px))] text-[length:var(--pxd-font-secondary)]"
       @click.stop
     >
       <div class="flex flex-col gap-[var(--pxd-space-md)]">
@@ -106,7 +109,7 @@ const resetAppearance = () => {
             type="button"
             role="tab"
             :aria-selected="activeTab === tab.id"
-            class="rounded px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-medium transition-colors truncate"
+            class="rounded-sm px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)] font-medium transition-colors truncate"
             :class="
               activeTab === tab.id
                 ? 'bg-background text-foreground shadow-xs'
@@ -121,7 +124,7 @@ const resetAppearance = () => {
         <!-- 職業與昇華（寬版頭像） -->
         <div
           v-if="activeTab === 'class'"
-          class="pxd-scrollbar grid h-[264px] content-start grid-cols-4 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
+          class="pxd-scrollbar grid h-[var(--pxd-folder-icon-picker-panel-height,264px)] content-start grid-cols-4 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
         >
           <button
             v-for="entry in classIcons"
@@ -138,7 +141,7 @@ const resetAppearance = () => {
           >
             <img
               :src="resolveFolderImageUrl(entry.file)"
-              class="h-[45px] w-[60px] rounded-[3px] object-cover"
+              class="h-[var(--pxd-folder-icon-picker-wide-height,45px)] w-[var(--pxd-folder-icon-picker-wide-width,60px)] rounded-xs object-cover"
               :alt="getFolderIconLabel(entry.labels, locale)"
               loading="lazy"
             />
@@ -150,40 +153,13 @@ const resetAppearance = () => {
           </button>
         </div>
 
-        <!-- 通貨與裝備 -->
+        <!-- 通貨與裝備 / 輿圖與機制（共用 5 欄方形圖片網格） -->
         <div
-          v-else-if="activeTab === 'item'"
-          class="pxd-scrollbar grid h-[264px] content-start grid-cols-5 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
+          v-else-if="activeTab === 'item' || activeTab === 'atlas'"
+          class="pxd-scrollbar grid h-[var(--pxd-folder-icon-picker-panel-height,264px)] content-start grid-cols-5 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
         >
           <button
-            v-for="entry in itemIcons"
-            :key="entry.id"
-            type="button"
-            class="flex aspect-square items-center justify-center rounded-md border p-1.5 transition-colors hover:bg-muted/70"
-            :class="
-              normalizedIcon === entry.id
-                ? 'border-primary bg-primary/10 ring-1 ring-primary'
-                : 'border-border/50 bg-card/50'
-            "
-            :title="getFolderIconLabel(entry.labels, locale)"
-            @click="selectIcon(entry.id)"
-          >
-            <img
-              :src="resolveFolderImageUrl(entry.file)"
-              class="size-full object-contain"
-              :alt="getFolderIconLabel(entry.labels, locale)"
-              loading="lazy"
-            />
-          </button>
-        </div>
-
-        <!-- 輿圖與機制 -->
-        <div
-          v-else-if="activeTab === 'atlas'"
-          class="pxd-scrollbar grid h-[264px] content-start grid-cols-5 gap-[var(--pxd-space-sm)] overflow-y-auto pr-[var(--pxd-space-xs)]"
-        >
-          <button
-            v-for="entry in atlasIcons"
+            v-for="entry in squareTabIcons"
             :key="entry.id"
             type="button"
             class="flex aspect-square items-center justify-center rounded-md border p-1.5 transition-colors hover:bg-muted/70"
@@ -207,7 +183,7 @@ const resetAppearance = () => {
         <!-- 通用：資料夾顏色 + Lucide 圖示 -->
         <div
           v-else
-          class="pxd-scrollbar flex h-[264px] flex-col gap-[var(--pxd-space-md)] overflow-y-auto pr-[var(--pxd-space-xs)]"
+          class="pxd-scrollbar flex h-[var(--pxd-folder-icon-picker-panel-height,264px)] flex-col gap-[var(--pxd-space-md)] overflow-y-auto pr-[var(--pxd-space-xs)]"
         >
           <div>
             <div
@@ -218,7 +194,7 @@ const resetAppearance = () => {
             <div class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]">
               <button
                 type="button"
-                class="flex size-[26px] items-center justify-center rounded-full border text-[length:var(--pxd-font-secondary)] transition-transform hover:scale-105"
+                class="flex size-[var(--pxd-folder-icon-picker-swatch-size,26px)] items-center justify-center rounded-full border text-[length:var(--pxd-font-secondary)] transition-transform hover:scale-105"
                 :class="
                   !normalizedColor
                     ? 'border-primary ring-1 ring-primary bg-muted text-foreground'
@@ -233,7 +209,7 @@ const resetAppearance = () => {
                 v-for="c in FOLDER_COLORS"
                 :key="c.id"
                 type="button"
-                class="size-[26px] rounded-full border transition-transform hover:scale-105"
+                class="size-[var(--pxd-folder-icon-picker-swatch-size,26px)] rounded-full border transition-transform hover:scale-105"
                 :style="{ backgroundColor: c.swatch }"
                 :class="
                   normalizedColor === c.id
@@ -274,7 +250,7 @@ const resetAppearance = () => {
 
         <!-- 底部重設 -->
         <div
-          class="flex min-h-[26px] items-center justify-between border-t border-border/60 pt-[var(--pxd-space-sm)]"
+          class="flex items-center justify-between border-t border-border/60 pt-[var(--pxd-space-sm)]"
         >
           <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground">
             {{ t('bookmark.folderIcon.hint') }}
@@ -282,12 +258,11 @@ const resetAppearance = () => {
           <Button
             variant="ghost"
             size="sm"
-            class="h-auto px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)]"
             :class="{ invisible: !normalizedIcon && !normalizedColor }"
             :disabled="!normalizedIcon && !normalizedColor"
             @click="resetAppearance"
           >
-            <RotateCcw class="size-[var(--control-icon-sm,14px)]" />
+            <RotateCcw />
             {{ t('bookmark.folderIcon.reset') }}
           </Button>
         </div>

@@ -40,7 +40,7 @@
             <FolderIcon :icon="node.folder.icon" :color="node.folder.color" :open="!isCollapsed" />
             <Palette
               v-if="ctx.editingGroupId.value === node.folder.id"
-              class="size-[12px] shrink-0 text-primary"
+              class="size-[var(--checkbox-indicator-size,12px)] shrink-0 text-primary"
             />
           </button>
         </FolderIconPicker>
