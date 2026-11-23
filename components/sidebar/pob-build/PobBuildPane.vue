@@ -686,6 +686,16 @@
                               class="w-[var(--pxd-menu-sub-width,192px)] max-h-[min(var(--pxd-menu-sub-max-height,180px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))] overflow-y-auto pxd-scrollbar"
                             >
                               <DropdownMenuItem
+                                data-pob-build-create-bookmark-folder
+                                @click="addToNewBuildFolder(build.id, row)"
+                              >
+                                <FolderPlus class="shrink-0 text-muted-foreground" />
+                                <span class="min-w-0 flex-1 truncate">{{
+                                  t('pobBuild.createBuildFolder')
+                                }}</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
                                 v-if="bookmarkFolders === null"
                                 disabled
                                 class="text-muted-foreground"
@@ -716,7 +726,7 @@
                                     class="w-[var(--pxd-space-md)] shrink-0"
                                   />
                                 </span>
-                                <Folder class="shrink-0 text-muted-foreground" />
+                                <FolderIcon :icon="folder.icon" :color="folder.color" />
                                 <span class="min-w-0 flex-1 truncate">{{ folder.name }}</span>
                               </DropdownMenuItem>
                             </DropdownMenuSubContent>
@@ -807,7 +817,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
-  Folder,
+  FolderPlus,
   Loader2,
   Pencil,
   Plus,
@@ -855,6 +865,7 @@ import type { ShoppingEntry } from '@/utils/pob-shopping-list';
 import { getPreferences } from '@/utils/preferences';
 import { DEFAULT_PREFERENCES, type SearchEntryClickAction } from '@/utils/preferences-contract';
 import { getPoeVersion } from '@/utils/trade-context';
+import FolderIcon from '../FolderIcon.vue';
 import { getFolderItemIndentLevel } from '../bookmark-tree';
 import PobBuildImportDialog from './PobBuildImportDialog.vue';
 import PobBuildSearchSettings from './PobBuildSearchSettings.vue';
@@ -913,7 +924,8 @@ export default defineComponent({
     ExternalLink,
     Eye,
     EyeOff,
-    Folder,
+    FolderIcon,
+    FolderPlus,
     Input,
     Loader2,
     Pencil,
@@ -1530,6 +1542,7 @@ export default defineComponent({
       openLiveSearch: pob.openLiveSearch,
       saveCurrentSearch: pob.saveCurrentSearch,
       addToBookmarks: pob.addToBookmarks,
+      addToNewBuildFolder: pob.addToNewBuildFolder,
     };
   },
 });

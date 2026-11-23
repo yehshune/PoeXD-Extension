@@ -253,7 +253,7 @@
                       data-slot="indent-spacer"
                     />
                   </span>
-                  <Folder class="shrink-0 text-muted-foreground" />
+                  <FolderIcon :icon="target.folder.icon" :color="target.folder.color" />
                   <span class="min-w-0 flex-1 truncate">{{ target.folder.name }}</span>
                   <span
                     v-if="bm.groupId === target.folder.id"
@@ -293,7 +293,6 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
-  Folder,
   ExternalLink,
   ArrowRight,
   Eye,
@@ -313,6 +312,7 @@ import {
   parseTradeSearchUrl,
 } from '@/utils/trade-search-identity';
 import { t } from '@/utils/i18n';
+import FolderIcon from './FolderIcon.vue';
 import type { Bookmark } from './bookmark-types';
 import {
   type BookmarkPaneContext,
@@ -340,7 +340,7 @@ export default defineComponent({
     DropdownMenuSubTrigger,
     DropdownMenuSubContent,
     DropdownMenuSeparator,
-    Folder,
+    FolderIcon,
     ExternalLink,
     ArrowRight,
     Eye,

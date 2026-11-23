@@ -1,5 +1,6 @@
 import type { PoeVersion } from './trade-context';
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
+import { normalizeFolderColor, normalizeFolderIcon } from './folder-icons';
 
 export const BOOKMARK_COLLECTION_STATE_KEY = 'poexdBookmarkCollectionStateV3';
 export const BOOKMARK_COLLECTION_STATE_KEY_V2 = 'poexdBookmarkCollectionStateV2';
@@ -39,6 +40,8 @@ export interface BookmarkFolder {
   name: string;
   order: number;
   parentId?: string;
+  icon?: string;
+  color?: string;
 }
 
 export type BookmarkCollectionGroup = BookmarkFolder;
@@ -122,7 +125,14 @@ export type BookmarkCollectionCommand =
       type: 'import-collection';
       gameVersion: PoeVersion;
       mode: 'merge' | 'overwrite';
-      groups: Array<{ id: string; name: string; order: number; parentId?: string }>;
+      groups: Array<{
+        id: string;
+        name: string;
+        order: number;
+        parentId?: string;
+        icon?: string;
+        color?: string;
+      }>;
       bookmarks: BookmarkPlacement[];
     }
   | { type: 'clear-collection'; gameVersion: PoeVersion };
@@ -927,7 +937,7 @@ export function canonicalizeBookmarkCollectionState(value: unknown): BookmarkCol
 
   return {
     schemaVersion: 3,
-    folders: (value.folders as BookmarkFolder[]).map((f) => clone(f)),
+    folders: (value.folders as BookmarkFolder[]).map((f) => normalizeStoredFolder(f)),
     bookmarks: canonicalBookmarks,
   };
 }
@@ -1038,11 +1048,13 @@ function applyCollectionCommand(
           throw new Error(check.reason ?? 'Invalid folder hierarchy');
         }
       }
+      const normalizedFolder = normalizeStoredFolder(folder);
       const index = state.folders.findIndex(
-        (item) => item.gameVersion === folder.gameVersion && item.id === folder.id,
+        (item) =>
+          item.gameVersion === normalizedFolder.gameVersion && item.id === normalizedFolder.id,
       );
-      if (index === -1) state.folders.push(clone(folder));
-      else state.folders[index] = clone(folder);
+      if (index === -1) state.folders.push(normalizedFolder);
+      else state.folders[index] = normalizedFolder;
       return [];
     }
     case 'delete-group': {
@@ -1257,7 +1269,7 @@ function applyCollectionCommand(
           )
         )
           return;
-        state.folders.push(clone(folder));
+        state.folders.push(normalizeStoredFolder(folder));
       });
       command.bookmarks.forEach((bookmark) => {
         if (
@@ -1294,6 +1306,20 @@ function applyCollectionCommand(
       return removed;
     }
   }
+}
+
+function normalizeStoredFolder(folder: BookmarkFolder): BookmarkFolder {
+  const icon = normalizeFolderIcon(folder.icon);
+  const color = normalizeFolderColor(folder.color);
+  return {
+    id: folder.id,
+    gameVersion: folder.gameVersion,
+    name: folder.name,
+    order: folder.order,
+    ...(folder.parentId !== undefined ? { parentId: folder.parentId } : {}),
+    ...(icon ? { icon } : {}),
+    ...(color ? { color } : {}),
+  };
 }
 
 function assertValidCoverImageUrl(coverImageUrl: unknown) {

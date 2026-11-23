@@ -27,11 +27,29 @@
         >
           <GripVertical class="size-[var(--control-icon-sm,14px)] shrink-0" />
         </button>
-        <FolderOpen
-          v-if="!isCollapsed"
-          class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground"
+        <FolderIconPicker
+          v-if="ctx.setFolderAppearance"
+          v-model:open="isIconPickerOpen"
+          :game-version="ctx.gameVersion ?? 'poe1'"
+          :icon="node.folder.icon"
+          :color="node.folder.color"
+          @select="handleSelectFolderAppearance"
+        >
+          <button
+            type="button"
+            class="folder-icon-trigger flex items-center justify-center shrink-0 rounded p-0.5 -m-0.5 hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary transition-colors"
+            :title="t('bookmark.folderIcon.changeTitle')"
+            @click.stop
+          >
+            <FolderIcon :icon="node.folder.icon" :color="node.folder.color" :open="!isCollapsed" />
+          </button>
+        </FolderIconPicker>
+        <FolderIcon
+          v-else
+          :icon="node.folder.icon"
+          :color="node.folder.color"
+          :open="!isCollapsed"
         />
-        <Folder v-else class="size-[var(--control-icon-sm,14px)] shrink-0 text-muted-foreground" />
 
         <template v-if="ctx.editingGroupId.value === node.folder.id">
           <Input
@@ -128,6 +146,11 @@
                 {{ t('common.rename') }}
               </DropdownMenuItem>
 
+              <DropdownMenuItem v-if="ctx.setFolderAppearance" @click="openIconPickerFromMenu">
+                <Palette class="text-muted-foreground" />
+                {{ t('bookmark.action.changeFolderIcon') }}
+              </DropdownMenuItem>
+
               <!-- 二級選單：移動到資料夾 -->
               <DropdownMenuSub
                 :open="isMoveFolderSubMenu"
@@ -174,7 +197,7 @@
                           data-slot="indent-spacer"
                         />
                       </span>
-                      <Folder class="shrink-0 text-muted-foreground" />
+                      <FolderIcon :icon="target.folder.icon" :color="target.folder.color" />
                       <span class="min-w-0 flex-1 truncate">{{ target.folder.name }}</span>
                       <span
                         v-if="node.folder.parentId === target.folder.id"
@@ -340,6 +363,7 @@ import {
   Plus,
   Radio,
   Pencil,
+  Palette,
   FolderInput,
   Trash2,
   Copy,
@@ -347,6 +371,8 @@ import {
 } from '@lucide/vue';
 import { BOOKMARK_NAME_MAX_LENGTH, getFolderSubtreeIds } from '@/utils/bookmark-collection';
 import BookmarkRow from './BookmarkRow.vue';
+import FolderIcon from './FolderIcon.vue';
+import FolderIconPicker from './FolderIconPicker.vue';
 import { t } from '@/utils/i18n';
 import type { BookmarkGroup } from './bookmark-types';
 import {
@@ -360,6 +386,8 @@ export default defineComponent({
   name: 'BookmarkFolderNode',
   components: {
     BookmarkRow,
+    FolderIcon,
+    FolderIconPicker,
     Button,
     Input,
     GripVertical,
@@ -380,6 +408,7 @@ export default defineComponent({
     Plus,
     Radio,
     Pencil,
+    Palette,
     FolderInput,
     Trash2,
     Copy,
@@ -493,6 +522,17 @@ export default defineComponent({
       void ctx.moveFolder(props.node.folder.id, targetFolderId);
     };
 
+    const isIconPickerOpen = ref(false);
+
+    const handleSelectFolderAppearance = (appearance: { icon?: string; color?: string }) => {
+      void ctx.setFolderAppearance?.(props.node.folder.id, appearance);
+    };
+
+    const openIconPickerFromMenu = () => {
+      ctx.setGroupMenuOpen(props.node.folder.id, false);
+      isIconPickerOpen.value = true;
+    };
+
     const handleMoveToRoot = () => {
       isMoveFolderSubMenu.value = false;
       ctx.setGroupMenuOpen(props.node.folder.id, false);
@@ -503,6 +543,9 @@ export default defineComponent({
       t,
       ctx,
       isGroupMenuOpen,
+      isIconPickerOpen,
+      handleSelectFolderAppearance,
+      openIconPickerFromMenu,
       folderContainerStyle,
       isMoveFolderSubMenu,
       eligibleMoveTargetFolders,

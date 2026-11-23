@@ -66,6 +66,7 @@ const fake = {
   resetSearch: vi.fn(),
   setSearchDefaults: vi.fn(),
   openSharePermissionPage: vi.fn(),
+  addToNewBuildFolder: vi.fn(async () => true),
   dispose: vi.fn(),
 } satisfies UsePobBuild;
 

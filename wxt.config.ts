@@ -129,6 +129,9 @@ export default defineConfig({
             'json/poe2/locales/*/result-labels.json',
             // 市集漢化（ADR-0012）：只有 zh-TW、zh-CN
             'json/locales/*/trade-ui.json',
+            // 書籤資料夾圖示（職業／昇華、通貨裝備、輿圖機制、模式標誌）
+            'json/folder-icons/index.json',
+            'json/folder-icons/*.webp',
           ],
           // pobb.in 翻譯腳本的資料改經 background 傳回，不列入這裡，網站便無法藉此偵測擴充
           matches: TRADE_SITE_MATCHES,

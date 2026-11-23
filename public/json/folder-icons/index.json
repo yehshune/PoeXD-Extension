@@ -1,0 +1,1477 @@
+{
+  "schemaVersion": 1,
+  "patches": {
+    "poe1": "3.30.0.4.3",
+    "poe2": "0.5.5.10"
+  },
+  "icons": [
+    {
+      "id": "poe1:class:Marauder",
+      "category": "class",
+      "file": "poe1-class-marauder.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Marauder",
+        "zh-TW": "野蠻人",
+        "zh-CN": "野蛮人"
+      },
+      "ascendancyName": "Marauder"
+    },
+    {
+      "id": "poe1:class:Ranger",
+      "category": "class",
+      "file": "poe1-class-ranger.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Ranger",
+        "zh-TW": "遊俠",
+        "zh-CN": "游侠"
+      },
+      "ascendancyName": "Ranger"
+    },
+    {
+      "id": "poe1:class:Witch",
+      "category": "class",
+      "file": "poe1-class-witch.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Witch",
+        "zh-TW": "女巫",
+        "zh-CN": "女巫"
+      },
+      "ascendancyName": "Witch"
+    },
+    {
+      "id": "poe1:class:Duelist",
+      "category": "class",
+      "file": "poe1-class-duelist.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Duelist",
+        "zh-TW": "決鬥者",
+        "zh-CN": "决斗者"
+      },
+      "ascendancyName": "Duelist"
+    },
+    {
+      "id": "poe1:class:Shadow",
+      "category": "class",
+      "file": "poe1-class-shadow.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Shadow",
+        "zh-TW": "暗影刺客",
+        "zh-CN": "暗影刺客"
+      },
+      "ascendancyName": "Shadow"
+    },
+    {
+      "id": "poe1:class:Templar",
+      "category": "class",
+      "file": "poe1-class-templar.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Templar",
+        "zh-TW": "聖堂武僧",
+        "zh-CN": "圣堂武僧"
+      },
+      "ascendancyName": "Templar"
+    },
+    {
+      "id": "poe1:class:Scion",
+      "category": "class",
+      "file": "poe1-class-scion.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Scion",
+        "zh-TW": "貴族",
+        "zh-CN": "贵族"
+      },
+      "ascendancyName": "Scion"
+    },
+    {
+      "id": "poe1:asc:Juggernaut",
+      "category": "class",
+      "file": "poe1-asc-juggernaut.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Juggernaut",
+        "zh-TW": "勇士",
+        "zh-CN": "勇士"
+      },
+      "ascendancyName": "Juggernaut"
+    },
+    {
+      "id": "poe1:asc:Berserker",
+      "category": "class",
+      "file": "poe1-asc-berserker.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Berserker",
+        "zh-TW": "暴徒",
+        "zh-CN": "暴徒"
+      },
+      "ascendancyName": "Berserker"
+    },
+    {
+      "id": "poe1:asc:Chieftain",
+      "category": "class",
+      "file": "poe1-asc-chieftain.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Chieftain",
+        "zh-TW": "酋長",
+        "zh-CN": "酋长"
+      },
+      "ascendancyName": "Chieftain"
+    },
+    {
+      "id": "poe1:asc:Warden",
+      "category": "class",
+      "file": "poe1-asc-warden.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Warden",
+        "zh-TW": "守林人",
+        "zh-CN": "守林人"
+      },
+      "ascendancyName": "Warden"
+    },
+    {
+      "id": "poe1:asc:Deadeye",
+      "category": "class",
+      "file": "poe1-asc-deadeye.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Deadeye",
+        "zh-TW": "銳眼",
+        "zh-CN": "锐眼"
+      },
+      "ascendancyName": "Deadeye"
+    },
+    {
+      "id": "poe1:asc:Pathfinder",
+      "category": "class",
+      "file": "poe1-asc-pathfinder.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Pathfinder",
+        "zh-TW": "追獵者",
+        "zh-CN": "追猎者"
+      },
+      "ascendancyName": "Pathfinder"
+    },
+    {
+      "id": "poe1:asc:Occultist",
+      "category": "class",
+      "file": "poe1-asc-occultist.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Occultist",
+        "zh-TW": "秘術家",
+        "zh-CN": "秘术家"
+      },
+      "ascendancyName": "Occultist"
+    },
+    {
+      "id": "poe1:asc:Elementalist",
+      "category": "class",
+      "file": "poe1-asc-elementalist.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Elementalist",
+        "zh-TW": "元素使",
+        "zh-CN": "元素使"
+      },
+      "ascendancyName": "Elementalist"
+    },
+    {
+      "id": "poe1:asc:Necromancer",
+      "category": "class",
+      "file": "poe1-asc-necromancer.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Necromancer",
+        "zh-TW": "死靈師",
+        "zh-CN": "死灵师"
+      },
+      "ascendancyName": "Necromancer"
+    },
+    {
+      "id": "poe1:asc:Slayer",
+      "category": "class",
+      "file": "poe1-asc-slayer.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Slayer",
+        "zh-TW": "處刑者",
+        "zh-CN": "处刑者"
+      },
+      "ascendancyName": "Slayer"
+    },
+    {
+      "id": "poe1:asc:Gladiator",
+      "category": "class",
+      "file": "poe1-asc-gladiator.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Gladiator",
+        "zh-TW": "衛士",
+        "zh-CN": "卫士"
+      },
+      "ascendancyName": "Gladiator"
+    },
+    {
+      "id": "poe1:asc:Champion",
+      "category": "class",
+      "file": "poe1-asc-champion.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Champion",
+        "zh-TW": "冠軍",
+        "zh-CN": "冠军"
+      },
+      "ascendancyName": "Champion"
+    },
+    {
+      "id": "poe1:asc:Inquisitor",
+      "category": "class",
+      "file": "poe1-asc-inquisitor.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Inquisitor",
+        "zh-TW": "判官",
+        "zh-CN": "判官"
+      },
+      "ascendancyName": "Inquisitor"
+    },
+    {
+      "id": "poe1:asc:Hierophant",
+      "category": "class",
+      "file": "poe1-asc-hierophant.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Hierophant",
+        "zh-TW": "聖宗",
+        "zh-CN": "圣宗"
+      },
+      "ascendancyName": "Hierophant"
+    },
+    {
+      "id": "poe1:asc:Guardian",
+      "category": "class",
+      "file": "poe1-asc-guardian.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Guardian",
+        "zh-TW": "守護者",
+        "zh-CN": "守护者"
+      },
+      "ascendancyName": "Guardian"
+    },
+    {
+      "id": "poe1:asc:Assassin",
+      "category": "class",
+      "file": "poe1-asc-assassin.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Assassin",
+        "zh-TW": "刺客",
+        "zh-CN": "刺客"
+      },
+      "ascendancyName": "Assassin"
+    },
+    {
+      "id": "poe1:asc:Trickster",
+      "category": "class",
+      "file": "poe1-asc-trickster.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Trickster",
+        "zh-TW": "詐欺師",
+        "zh-CN": "诈欺师"
+      },
+      "ascendancyName": "Trickster"
+    },
+    {
+      "id": "poe1:asc:Saboteur",
+      "category": "class",
+      "file": "poe1-asc-saboteur.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Saboteur",
+        "zh-TW": "破壞者",
+        "zh-CN": "破坏者"
+      },
+      "ascendancyName": "Saboteur"
+    },
+    {
+      "id": "poe1:asc:Ascendant",
+      "category": "class",
+      "file": "poe1-asc-ascendant.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Ascendant",
+        "zh-TW": "昇華使徒",
+        "zh-CN": "昇华使徒"
+      },
+      "ascendancyName": "Ascendant"
+    },
+    {
+      "id": "poe1:asc:Reliquarian",
+      "category": "class",
+      "file": "poe1-asc-reliquarian.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Reliquarian",
+        "zh-TW": "遺守使徒",
+        "zh-CN": "遗守使徒"
+      },
+      "ascendancyName": "Reliquarian"
+    },
+    {
+      "id": "poe1:asc:Luminary",
+      "category": "class",
+      "file": "poe1-asc-luminary.webp",
+      "wide": true,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Luminary",
+        "zh-TW": "輝耀使徒",
+        "zh-CN": "辉耀使徒"
+      },
+      "ascendancyName": "Luminary"
+    },
+    {
+      "id": "poe2:class:Warrior",
+      "category": "class",
+      "file": "poe2-class-warrior.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Warrior",
+        "zh-TW": "戰士",
+        "zh-CN": "战士"
+      },
+      "ascendancyName": "Warrior"
+    },
+    {
+      "id": "poe2:class:Ranger",
+      "category": "class",
+      "file": "poe2-class-ranger.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Ranger",
+        "zh-TW": "遊俠",
+        "zh-CN": "游侠"
+      },
+      "ascendancyName": "Ranger"
+    },
+    {
+      "id": "poe2:class:Huntress",
+      "category": "class",
+      "file": "poe2-class-huntress.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Huntress",
+        "zh-TW": "女獵人",
+        "zh-CN": "女猎人"
+      },
+      "ascendancyName": "Huntress"
+    },
+    {
+      "id": "poe2:class:Witch",
+      "category": "class",
+      "file": "poe2-class-witch.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Witch",
+        "zh-TW": "女巫",
+        "zh-CN": "女巫"
+      },
+      "ascendancyName": "Witch"
+    },
+    {
+      "id": "poe2:class:Sorceress",
+      "category": "class",
+      "file": "poe2-class-sorceress.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Sorceress",
+        "zh-TW": "女術者",
+        "zh-CN": "女术者"
+      },
+      "ascendancyName": "Sorceress"
+    },
+    {
+      "id": "poe2:class:Mercenary",
+      "category": "class",
+      "file": "poe2-class-mercenary.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Mercenary",
+        "zh-TW": "傭兵",
+        "zh-CN": "佣兵"
+      },
+      "ascendancyName": "Mercenary"
+    },
+    {
+      "id": "poe2:class:Monk",
+      "category": "class",
+      "file": "poe2-class-monk.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Monk",
+        "zh-TW": "僧侶",
+        "zh-CN": "僧侣"
+      },
+      "ascendancyName": "Monk"
+    },
+    {
+      "id": "poe2:class:Druid",
+      "category": "class",
+      "file": "poe2-class-druid.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Druid",
+        "zh-TW": "德魯伊",
+        "zh-CN": "德鲁伊"
+      },
+      "ascendancyName": "Druid"
+    },
+    {
+      "id": "poe2:asc:Titan",
+      "category": "class",
+      "file": "poe2-asc-titan.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Titan",
+        "zh-TW": "泰坦",
+        "zh-CN": "泰坦"
+      },
+      "ascendancyName": "Titan"
+    },
+    {
+      "id": "poe2:asc:Warbringer",
+      "category": "class",
+      "file": "poe2-asc-warbringer.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Warbringer",
+        "zh-TW": "戰爭使者",
+        "zh-CN": "战争使者"
+      },
+      "ascendancyName": "Warbringer"
+    },
+    {
+      "id": "poe2:asc:Smith of Kitava",
+      "category": "class",
+      "file": "poe2-asc-smith-of-kitava.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Smith of Kitava",
+        "zh-TW": "奇塔弗工匠",
+        "zh-CN": "奇塔弗工匠"
+      },
+      "ascendancyName": "Smith of Kitava"
+    },
+    {
+      "id": "poe2:asc:Deadeye",
+      "category": "class",
+      "file": "poe2-asc-deadeye.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Deadeye",
+        "zh-TW": "銳眼",
+        "zh-CN": "锐眼"
+      },
+      "ascendancyName": "Deadeye"
+    },
+    {
+      "id": "poe2:asc:Pathfinder",
+      "category": "class",
+      "file": "poe2-asc-pathfinder.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Pathfinder",
+        "zh-TW": "追獵者",
+        "zh-CN": "追猎者"
+      },
+      "ascendancyName": "Pathfinder"
+    },
+    {
+      "id": "poe2:asc:Amazon",
+      "category": "class",
+      "file": "poe2-asc-amazon.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Amazon",
+        "zh-TW": "亞馬遜",
+        "zh-CN": "亚马逊"
+      },
+      "ascendancyName": "Amazon"
+    },
+    {
+      "id": "poe2:asc:Spirit Walker",
+      "category": "class",
+      "file": "poe2-asc-spirit-walker.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Spirit Walker",
+        "zh-TW": "魂靈行者",
+        "zh-CN": "魂灵行者"
+      },
+      "ascendancyName": "Spirit Walker"
+    },
+    {
+      "id": "poe2:asc:Ritualist",
+      "category": "class",
+      "file": "poe2-asc-ritualist.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Ritualist",
+        "zh-TW": "儀式行者",
+        "zh-CN": "仪式行者"
+      },
+      "ascendancyName": "Ritualist"
+    },
+    {
+      "id": "poe2:asc:Infernalist",
+      "category": "class",
+      "file": "poe2-asc-infernalist.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Infernalist",
+        "zh-TW": "獄火師",
+        "zh-CN": "狱火师"
+      },
+      "ascendancyName": "Infernalist"
+    },
+    {
+      "id": "poe2:asc:Blood Mage",
+      "category": "class",
+      "file": "poe2-asc-blood-mage.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Blood Mage",
+        "zh-TW": "血法師",
+        "zh-CN": "血法师"
+      },
+      "ascendancyName": "Blood Mage"
+    },
+    {
+      "id": "poe2:asc:Lich",
+      "category": "class",
+      "file": "poe2-asc-lich.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Lich",
+        "zh-TW": "巫妖",
+        "zh-CN": "巫妖"
+      },
+      "ascendancyName": "Lich"
+    },
+    {
+      "id": "poe2:asc:Abyssal Lich",
+      "category": "class",
+      "file": "poe2-asc-abyssal-lich.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Abyssal Lich",
+        "zh-TW": "深淵妖巫",
+        "zh-CN": "深渊妖巫"
+      },
+      "ascendancyName": "Abyssal Lich"
+    },
+    {
+      "id": "poe2:asc:Stormweaver",
+      "category": "class",
+      "file": "poe2-asc-stormweaver.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Stormweaver",
+        "zh-TW": "風暴編織者",
+        "zh-CN": "风暴编织者"
+      },
+      "ascendancyName": "Stormweaver"
+    },
+    {
+      "id": "poe2:asc:Chronomancer",
+      "category": "class",
+      "file": "poe2-asc-chronomancer.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Chronomancer",
+        "zh-TW": "時空幻術師",
+        "zh-CN": "时空幻术师"
+      },
+      "ascendancyName": "Chronomancer"
+    },
+    {
+      "id": "poe2:asc:Disciple of Varashta",
+      "category": "class",
+      "file": "poe2-asc-disciple-of-varashta.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Disciple of Varashta",
+        "zh-TW": "瓦拉什塔門徒",
+        "zh-CN": "瓦拉什塔门徒"
+      },
+      "ascendancyName": "Disciple of Varashta"
+    },
+    {
+      "id": "poe2:asc:Tactician",
+      "category": "class",
+      "file": "poe2-asc-tactician.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Tactician",
+        "zh-TW": "智勇軍師",
+        "zh-CN": "智勇军师"
+      },
+      "ascendancyName": "Tactician"
+    },
+    {
+      "id": "poe2:asc:Witchhunter",
+      "category": "class",
+      "file": "poe2-asc-witchhunter.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Witchhunter",
+        "zh-TW": "女巫獵人",
+        "zh-CN": "女巫猎人"
+      },
+      "ascendancyName": "Witchhunter"
+    },
+    {
+      "id": "poe2:asc:Gemling Legionnaire",
+      "category": "class",
+      "file": "poe2-asc-gemling-legionnaire.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Gemling Legionnaire",
+        "zh-TW": "古靈軍團",
+        "zh-CN": "古灵军团"
+      },
+      "ascendancyName": "Gemling Legionnaire"
+    },
+    {
+      "id": "poe2:asc:Martial Artist",
+      "category": "class",
+      "file": "poe2-asc-martial-artist.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Martial Artist",
+        "zh-TW": "武聖",
+        "zh-CN": "武圣"
+      },
+      "ascendancyName": "Martial Artist"
+    },
+    {
+      "id": "poe2:asc:Invoker",
+      "category": "class",
+      "file": "poe2-asc-invoker.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Invoker",
+        "zh-TW": "祈靈者",
+        "zh-CN": "祈灵者"
+      },
+      "ascendancyName": "Invoker"
+    },
+    {
+      "id": "poe2:asc:Acolyte of Chayula",
+      "category": "class",
+      "file": "poe2-asc-acolyte-of-chayula.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Acolyte of Chayula",
+        "zh-TW": "夏烏拉侍僧",
+        "zh-CN": "夏乌拉侍僧"
+      },
+      "ascendancyName": "Acolyte of Chayula"
+    },
+    {
+      "id": "poe2:asc:Oracle",
+      "category": "class",
+      "file": "poe2-asc-oracle.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Oracle",
+        "zh-TW": "天啟先知",
+        "zh-CN": "天启先知"
+      },
+      "ascendancyName": "Oracle"
+    },
+    {
+      "id": "poe2:asc:Shaman",
+      "category": "class",
+      "file": "poe2-asc-shaman.webp",
+      "wide": true,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Shaman",
+        "zh-TW": "狂徒薩滿",
+        "zh-CN": "狂徒萨满"
+      },
+      "ascendancyName": "Shaman"
+    },
+    {
+      "id": "item:divine",
+      "category": "item",
+      "file": "item-divine.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Divine Orb",
+        "zh-TW": "神聖石",
+        "zh-CN": "神圣石"
+      }
+    },
+    {
+      "id": "item:chaos",
+      "category": "item",
+      "file": "item-chaos.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Chaos Orb",
+        "zh-TW": "混沌石",
+        "zh-CN": "混沌石"
+      }
+    },
+    {
+      "id": "item:exalted",
+      "category": "item",
+      "file": "item-exalted.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Exalted Orb",
+        "zh-TW": "崇高石",
+        "zh-CN": "崇高石"
+      }
+    },
+    {
+      "id": "item:mirror",
+      "category": "item",
+      "file": "item-mirror.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Mirror",
+        "zh-TW": "卡蘭德的魔鏡",
+        "zh-CN": "卡兰德的魔镜"
+      }
+    },
+    {
+      "id": "item:alchemy",
+      "category": "item",
+      "file": "item-alchemy.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Alchemy Orb",
+        "zh-TW": "點金石",
+        "zh-CN": "点金石"
+      }
+    },
+    {
+      "id": "item:vaal",
+      "category": "item",
+      "file": "item-vaal.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Vaal Orb",
+        "zh-TW": "瓦爾寶珠",
+        "zh-CN": "瓦尔宝珠"
+      }
+    },
+    {
+      "id": "item:gcp",
+      "category": "item",
+      "file": "item-gcp.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Gemcutter",
+        "zh-TW": "寶石匠的稜鏡",
+        "zh-CN": "宝石匠的棱镜"
+      }
+    },
+    {
+      "id": "item:essence",
+      "category": "item",
+      "file": "item-essence.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Essence",
+        "zh-TW": "精髓",
+        "zh-CN": "精华"
+      }
+    },
+    {
+      "id": "item:scarab",
+      "category": "item",
+      "file": "item-scarab.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Scarab",
+        "zh-TW": "聖甲蟲",
+        "zh-CN": "圣甲虫"
+      }
+    },
+    {
+      "id": "item:map",
+      "category": "item",
+      "file": "item-map.webp",
+      "wide": false,
+      "games": [
+        "poe1"
+      ],
+      "labels": {
+        "en": "Map",
+        "zh-TW": "地圖",
+        "zh-CN": "地图"
+      }
+    },
+    {
+      "id": "item:waystone",
+      "category": "item",
+      "file": "item-waystone.webp",
+      "wide": false,
+      "games": [
+        "poe2"
+      ],
+      "labels": {
+        "en": "Waystone",
+        "zh-TW": "換界石",
+        "zh-CN": "换界石"
+      }
+    },
+    {
+      "id": "item:gem",
+      "category": "item",
+      "file": "item-gem.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Skill Gem",
+        "zh-TW": "技能寶石",
+        "zh-CN": "技能宝石"
+      }
+    },
+    {
+      "id": "item:cluster-jewel",
+      "category": "item",
+      "file": "item-cluster-jewel.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Cluster Jewel",
+        "zh-TW": "星團珠寶",
+        "zh-CN": "星团珠宝"
+      }
+    },
+    {
+      "id": "item:jewel",
+      "category": "item",
+      "file": "item-jewel.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Unique Jewel",
+        "zh-TW": "傳奇珠寶",
+        "zh-CN": "传奇珠宝"
+      }
+    },
+    {
+      "id": "item:ring",
+      "category": "item",
+      "file": "item-ring.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Ring",
+        "zh-TW": "戒指",
+        "zh-CN": "戒指"
+      }
+    },
+    {
+      "id": "item:amulet",
+      "category": "item",
+      "file": "item-amulet.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Amulet",
+        "zh-TW": "項鍊",
+        "zh-CN": "项链"
+      }
+    },
+    {
+      "id": "item:belt",
+      "category": "item",
+      "file": "item-belt.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Belt",
+        "zh-TW": "腰帶",
+        "zh-CN": "腰带"
+      }
+    },
+    {
+      "id": "item:weapon",
+      "category": "item",
+      "file": "item-weapon.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Weapon",
+        "zh-TW": "武器",
+        "zh-CN": "武器"
+      }
+    },
+    {
+      "id": "item:armour",
+      "category": "item",
+      "file": "item-armour.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Body Armour",
+        "zh-TW": "胸甲",
+        "zh-CN": "胸甲"
+      }
+    },
+    {
+      "id": "item:helmet",
+      "category": "item",
+      "file": "item-helmet.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Helmet",
+        "zh-TW": "頭盔",
+        "zh-CN": "头盔"
+      }
+    },
+    {
+      "id": "item:gloves",
+      "category": "item",
+      "file": "item-gloves.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Gloves",
+        "zh-TW": "手套",
+        "zh-CN": "手套"
+      }
+    },
+    {
+      "id": "item:boots",
+      "category": "item",
+      "file": "item-boots.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Boots",
+        "zh-TW": "鞋子",
+        "zh-CN": "鞋子"
+      }
+    },
+    {
+      "id": "item:shield",
+      "category": "item",
+      "file": "item-shield.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Shield",
+        "zh-TW": "盾牌",
+        "zh-CN": "盾牌"
+      }
+    },
+    {
+      "id": "atlas:breach",
+      "category": "atlas",
+      "file": "atlas-breach.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Breach",
+        "zh-TW": "裂痕",
+        "zh-CN": "裂隙"
+      }
+    },
+    {
+      "id": "atlas:delirium",
+      "category": "atlas",
+      "file": "atlas-delirium.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Delirium",
+        "zh-TW": "譫妄",
+        "zh-CN": "惊悸迷雾"
+      }
+    },
+    {
+      "id": "atlas:expedition",
+      "category": "atlas",
+      "file": "atlas-expedition.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Expedition",
+        "zh-TW": "探險",
+        "zh-CN": "先祖秘藏"
+      }
+    },
+    {
+      "id": "atlas:ritual",
+      "category": "atlas",
+      "file": "atlas-ritual.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Ritual",
+        "zh-TW": "祭壇",
+        "zh-CN": "仪式"
+      }
+    },
+    {
+      "id": "atlas:essence",
+      "category": "atlas",
+      "file": "atlas-essence.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Essence",
+        "zh-TW": "精髓",
+        "zh-CN": "精华"
+      }
+    },
+    {
+      "id": "atlas:abyss",
+      "category": "atlas",
+      "file": "atlas-abyss.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Abyss",
+        "zh-TW": "深淵",
+        "zh-CN": "深渊"
+      }
+    },
+    {
+      "id": "atlas:incursion",
+      "category": "atlas",
+      "file": "atlas-incursion.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Incursion",
+        "zh-TW": "穿越",
+        "zh-CN": "穿越"
+      }
+    },
+    {
+      "id": "atlas:strongbox",
+      "category": "atlas",
+      "file": "atlas-strongbox.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Strongbox",
+        "zh-TW": "保險箱",
+        "zh-CN": "保险箱"
+      }
+    },
+    {
+      "id": "atlas:shrine",
+      "category": "atlas",
+      "file": "atlas-shrine.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Shrine",
+        "zh-TW": "神殿",
+        "zh-CN": "神龛"
+      }
+    },
+    {
+      "id": "atlas:rogue-exile",
+      "category": "atlas",
+      "file": "atlas-rogue-exile.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Rogue Exile",
+        "zh-TW": "盜賊流亡者",
+        "zh-CN": "盗贼流亡者"
+      }
+    },
+    {
+      "id": "atlas:boss",
+      "category": "atlas",
+      "file": "atlas-boss.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Map Boss",
+        "zh-TW": "地圖頭目",
+        "zh-CN": "地图首领"
+      }
+    },
+    {
+      "id": "atlas:unique-map",
+      "category": "atlas",
+      "file": "atlas-unique-map.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Unique Map",
+        "zh-TW": "傳奇地圖",
+        "zh-CN": "传奇地图"
+      }
+    },
+    {
+      "id": "atlas:corruption",
+      "category": "atlas",
+      "file": "atlas-corruption.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Corruption",
+        "zh-TW": "腐化",
+        "zh-CN": "腐化"
+      }
+    },
+    {
+      "id": "atlas:hideout",
+      "category": "atlas",
+      "file": "atlas-hideout.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Hideout",
+        "zh-TW": "藏身處",
+        "zh-CN": "藏身处"
+      }
+    },
+    {
+      "id": "atlas:trader",
+      "category": "atlas",
+      "file": "atlas-trader.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Trader",
+        "zh-TW": "商人",
+        "zh-CN": "商人"
+      }
+    },
+    {
+      "id": "atlas:seer",
+      "category": "atlas",
+      "file": "atlas-seer.webp",
+      "wide": false,
+      "games": [
+        "poe1",
+        "poe2"
+      ],
+      "labels": {
+        "en": "Nameless Seer",
+        "zh-TW": "無名先知",
+        "zh-CN": "无名先知"
+      }
+    }
+  ]
+}

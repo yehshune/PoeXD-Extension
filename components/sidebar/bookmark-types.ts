@@ -16,6 +16,8 @@ export interface BookmarkFolder {
   name: string;
   order: number;
   parentId?: string;
+  icon?: string;
+  color?: string;
 }
 
 export type BookmarkGroup = BookmarkFolder;

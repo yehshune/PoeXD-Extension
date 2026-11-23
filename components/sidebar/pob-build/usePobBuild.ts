@@ -9,6 +9,7 @@ import type {
   LiveSearchEnqueueRequest,
   LiveSearchEnqueueResponse,
 } from '@/utils/live-search-contract';
+import { findAscendancyFolderIcon } from '@/utils/folder-icons';
 import { getActiveDisplayLocale, t, type I18nKey } from '@/utils/i18n';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { parsePobBuildXml, PobBuildError, type PobBuild } from '@/utils/pob-build';
@@ -256,6 +257,7 @@ export interface UsePobBuild {
   saveCurrentSearch(buildId: string, entry: ShoppingEntry): boolean;
   listBookmarkFolders(): Promise<PobBookmarkFolder[]>;
   addToBookmarks(buildId: string, entry: ShoppingEntry, groupId: string): Promise<boolean>;
+  addToNewBuildFolder(buildId: string, entry: ShoppingEntry): Promise<boolean>;
   /** 停止等待搜尋結果圖片（元件卸載時呼叫） */
   dispose(): void;
 }
@@ -1265,6 +1267,43 @@ export function usePobBuild(
       const icon = coverOf(entry);
       const result = await deps.bookmarks
         .add({ groupId, name: entry.label, url, ...(icon ? { coverImageUrl: icon } : {}) })
+        .catch(() => ({ ok: false as const }));
+      deps.showToast(
+        result.ok
+          ? t('pobBuild.toast.bookmarkAdded', { name: result.name })
+          : t('pobBuild.toast.bookmarkFailed'),
+        result.ok ? 'default' : 'error',
+      );
+      return result.ok;
+    },
+    async addToNewBuildFolder(buildId, entry) {
+      const session = find(buildId);
+      if (!session || !deps.bookmarks.createFolder) return false;
+      const folderIcon = findAscendancyFolderIcon(
+        version,
+        session.build.ascendancy,
+        session.build.className,
+      );
+      const created = await deps.bookmarks
+        .createFolder({
+          name: session.name,
+          ...(folderIcon ? { icon: folderIcon } : {}),
+        })
+        .catch(() => ({ ok: false as const }));
+      if (!created.ok) {
+        deps.showToast(t('pobBuild.toast.bookmarkFailed'), 'error');
+        return false;
+      }
+      const url = await resolveCodeUrl(buildId, entry);
+      if (!url) return false;
+      const cover = coverOf(entry);
+      const result = await deps.bookmarks
+        .add({
+          groupId: created.folder.id,
+          name: entry.label,
+          url,
+          ...(cover ? { coverImageUrl: cover } : {}),
+        })
         .catch(() => ({ ok: false as const }));
       deps.showToast(
         result.ok

@@ -6,6 +6,7 @@
  */
 import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection';
 import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
+import { normalizeFolderColor, normalizeFolderIcon } from '@/utils/folder-icons';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import type { PoeVersion } from '@/utils/trade-context';
 import { createBookmarkModel, type BookmarkModel } from '../bookmark-model';
@@ -17,7 +18,19 @@ export interface PobBookmarkFolder {
   name: string;
   /** 巢狀深度，最上層為 0 */
   depth: number;
+  icon?: string;
+  color?: string;
 }
+
+export interface PobBookmarkFolderInput {
+  name: string;
+  icon?: string;
+  color?: string;
+}
+
+export type PobBookmarkFolderResult =
+  | { ok: true; folder: PobBookmarkFolder }
+  | { ok: false; message?: string };
 
 export interface PobBookmarkInput {
   groupId: string;
@@ -30,6 +43,7 @@ export type PobBookmarkResult = { ok: true; name: string } | { ok: false; messag
 
 export interface PobBookmarkBridge {
   listFolders(): Promise<PobBookmarkFolder[]>;
+  createFolder?(input: PobBookmarkFolderInput): Promise<PobBookmarkFolderResult>;
   add(input: PobBookmarkInput): Promise<PobBookmarkResult>;
   dispose(): void;
 }
@@ -61,7 +75,39 @@ export function createPobBookmarkBridge(
         id: folder.id,
         name: folder.name,
         depth,
+        ...(folder.icon ? { icon: folder.icon } : {}),
+        ...(folder.color ? { color: folder.color } : {}),
       }));
+    },
+    async createFolder(input) {
+      const connected = await ensureConnected();
+      if (!connected) return { ok: false };
+      const name = toBookmarkName(input.name);
+      if (!name) return { ok: false };
+      const rootGroups = connected.state.value.groups.filter((g) => g.parentId === undefined);
+      const order = rootGroups.length > 0 ? Math.max(...rootGroups.map((g) => g.order)) + 1 : 0;
+      const icon = normalizeFolderIcon(input.icon);
+      const color = normalizeFolderColor(input.color);
+      const group = {
+        id: `group_${Math.random().toString(36).slice(2, 11)}_${Date.now()}`,
+        name,
+        order,
+        ...(icon ? { icon } : {}),
+        ...(color ? { color } : {}),
+      };
+      const outcome = await connected.execute({ type: 'add-group', group });
+      return outcome.ok
+        ? {
+            ok: true,
+            folder: {
+              id: group.id,
+              name: group.name,
+              depth: 0,
+              ...(icon ? { icon } : {}),
+              ...(color ? { color } : {}),
+            },
+          }
+        : { ok: false, message: outcome.error.message };
     },
     async add(input) {
       const connected = await ensureConnected();

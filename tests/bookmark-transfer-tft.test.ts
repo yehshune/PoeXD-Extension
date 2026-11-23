@@ -193,7 +193,6 @@ describe('TFT Trade Extension bookmark format', () => {
         childIds: ['id3'],
         index: 0,
         isOpen: true,
-        icon: 'TFT',
         bookmarks: [
           {
             id: 'id1',
@@ -226,11 +225,39 @@ describe('TFT Trade Extension bookmark format', () => {
         childIds: [],
         index: 1,
         isOpen: true,
-        icon: 'TFT',
         bookmarks: [],
       },
     ]);
     expect(exported.poexd).toEqual({ scope: 'collection', gameVersion: 'poe1' });
+  });
+
+  it('round-trips PoeXD folder icon and color while ignoring legacy TFT icon', async () => {
+    const exported = toTftBookmarkExport({
+      kind: 'poexd-bookmarks',
+      schemaVersion: 2,
+      gameVersion: 'poe1',
+      scope: 'collection',
+      folders: [
+        {
+          name: 'Slayer Build',
+          icon: 'poe1:asc:Slayer',
+          bookmarks: [],
+          folders: [{ name: 'Currency', icon: 'lucide:star', color: 'amber', bookmarks: [] }],
+        },
+      ],
+    });
+    expect(exported.folders[0].icon).toBe('poe1:asc:Slayer');
+    expect(exported.folders[1].icon).toBe('lucide:star');
+    expect(exported.folders[1].color).toBe('amber');
+
+    const decoded = fromTftBookmarkExport(exported, { gameVersion: 'poe1' });
+    expect(decoded.folders[0].icon).toBe('poe1:asc:Slayer');
+    expect(decoded.folders[0].folders?.[0].icon).toBe('lucide:star');
+    expect(decoded.folders[0].folders?.[0].color).toBe('amber');
+
+    // TFT 舊格式帶 icon: "TFT" 匯入時應自動忽略
+    const fromLegacyTft = fromTftBookmarkExport(tftFixture, { gameVersion: 'poe1' });
+    expect(fromLegacyTft.folders[0].icon).toBeUndefined();
   });
 
   it('decodes a raw TFT share code through the public transfer decoder', async () => {

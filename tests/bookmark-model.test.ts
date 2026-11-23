@@ -659,4 +659,47 @@ describe('Bookmark pane model interface', () => {
       }),
     );
   });
+
+  it('persists and reconciles folder icon and color via set-group-appearance', async () => {
+    const adapter = setupClient();
+    vi.mocked(adapter.client.putGroup).mockImplementation(async (group) => {
+      adapter.setView({
+        ...initialView,
+        groups: [{ ...group, gameVersion: 'poe1' }],
+      });
+      return { ok: true as const, changed: true };
+    });
+    const model = createBookmarkModel(adapter.client);
+    await model.connect();
+
+    const outcome = await model.execute({
+      type: 'set-group-appearance',
+      groupId: 'group-1',
+      icon: 'poe1:asc:Slayer',
+      color: 'amber',
+    });
+
+    expect(outcome).toEqual({ ok: true, value: undefined });
+    expect(adapter.client.putGroup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'group-1',
+        icon: 'poe1:asc:Slayer',
+        color: 'amber',
+      }),
+    );
+    expect(model.state.value.groups[0]).toMatchObject({
+      id: 'group-1',
+      icon: 'poe1:asc:Slayer',
+      color: 'amber',
+    });
+
+    await model.execute({
+      type: 'set-group-appearance',
+      groupId: 'group-1',
+      icon: undefined,
+      color: undefined,
+    });
+    expect(model.state.value.groups[0].icon).toBeUndefined();
+    expect(model.state.value.groups[0].color).toBeUndefined();
+  });
 });

@@ -11,6 +11,7 @@ import { BOOKMARK_AUTO_LEAGUE, readTradeUrlLeague } from './bookmark-target';
 import { BOOKMARK_NAME_MAX_LENGTH } from './bookmark-collection';
 import { BookmarkTransferInputError } from './bookmark-transfer-errors';
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
+import { normalizeFolderColor, normalizeFolderIcon } from './folder-icons';
 import type {
   BookmarkTransferFolder,
   BookmarkTransferItem,
@@ -42,7 +43,8 @@ export interface TftFolder {
   childIds: string[];
   index: number;
   isOpen: boolean;
-  icon: string;
+  icon?: string;
+  color?: string;
   bookmarks: TftBookmark[];
 }
 
@@ -61,7 +63,6 @@ export interface TftImportOptions {
   fallbackLeague?: string;
 }
 
-const TFT_DEFAULT_ICON = 'TFT';
 const FALLBACK_LEAGUE = 'Standard';
 const MAX_ENDPOINT_LENGTH = 4096;
 
@@ -102,6 +103,8 @@ export function toTftBookmarkExport(
 
   const visit = (folder: BookmarkTransferFolder, parentId: string | null, depth: number) => {
     const id = createId();
+    const icon = normalizeFolderIcon(folder.icon);
+    const color = normalizeFolderColor(folder.color);
     const entry: TftFolder = {
       id,
       name: folder.name,
@@ -110,7 +113,8 @@ export function toTftBookmarkExport(
       childIds: [],
       index: folders.length,
       isOpen: true,
-      icon: TFT_DEFAULT_ICON,
+      ...(icon ? { icon } : {}),
+      ...(color ? { color } : {}),
       bookmarks: folder.bookmarks.map((item, idx) =>
         toTftBookmark(item, payload.gameVersion, idx, createId),
       ),
@@ -222,8 +226,12 @@ export function fromTftBookmarkExport(
     // 只保留含本版本書籤的資料夾；原本就是空的資料夾也保留，僅含其他版本書籤者略過
     const isOriginallyEmpty = allBookmarks.length === 0 && children.length === 0;
     if (bookmarks.length === 0 && subfolders.length === 0 && !isOriginallyEmpty) return undefined;
+    const icon = normalizeFolderIcon(folder.icon);
+    const color = normalizeFolderColor(folder.color);
     return {
       name: sanitizeName(folder.name, '未命名資料夾'),
+      ...(icon ? { icon } : {}),
+      ...(color ? { color } : {}),
       bookmarks,
       ...(subfolders.length > 0 ? { folders: subfolders } : {}),
     };

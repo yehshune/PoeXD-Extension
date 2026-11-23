@@ -16,6 +16,7 @@ import {
 } from './bookmark-transfer-errors';
 import { parseBetterTradingExport } from './bookmark-transfer-better-trading';
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
+import { normalizeFolderColor, normalizeFolderIcon } from './folder-icons';
 import {
   decodeTftBase64,
   encodeTftBase64,
@@ -35,6 +36,8 @@ export interface BookmarkTransferItem {
 
 export interface BookmarkTransferFolder {
   name: string;
+  icon?: string;
+  color?: string;
   bookmarks: BookmarkTransferItem[];
   folders?: BookmarkTransferFolder[];
 }
@@ -51,7 +54,14 @@ export interface BookmarkTransferPayloadV2 {
 export type BookmarkTransferPayload = BookmarkTransferPayloadV2;
 
 export interface PreparedBookmarkTransferImport {
-  groups: Array<{ id: string; name: string; order: number; parentId?: string }>;
+  groups: Array<{
+    id: string;
+    name: string;
+    order: number;
+    parentId?: string;
+    icon?: string;
+    color?: string;
+  }>;
   bookmarks: Array<
     BookmarkTransferItem & {
       id: string;
@@ -66,7 +76,14 @@ export function buildBookmarkTransfer(
   gameVersion: PoeVersion,
   scope: 'collection' | 'folder',
   collection: {
-    groups: Array<{ id: string; name: string; order: number; parentId?: string }>;
+    groups: Array<{
+      id: string;
+      name: string;
+      order: number;
+      parentId?: string;
+      icon?: string;
+      color?: string;
+    }>;
     bookmarks: Array<BookmarkTransferItem & { groupId: string; order: number }>;
   },
   groupId?: string,
@@ -90,7 +107,12 @@ export function buildBookmarkTransfer(
     );
   }
 
-  function buildExportFolder(folder: { id: string; name: string }): BookmarkTransferFolder {
+  function buildExportFolder(folder: {
+    id: string;
+    name: string;
+    icon?: string;
+    color?: string;
+  }): BookmarkTransferFolder {
     const bookmarks = collection.bookmarks
       .filter((bookmark) => bookmark.groupId === folder.id)
       .toSorted((left, right) => left.order - right.order)
@@ -100,8 +122,12 @@ export function buildBookmarkTransfer(
       .filter((child) => child.parentId === folder.id)
       .toSorted((left, right) => left.order - right.order);
 
+    const icon = normalizeFolderIcon(folder.icon);
+    const color = normalizeFolderColor(folder.color);
     const result: BookmarkTransferFolder = {
       name: folder.name,
+      ...(icon ? { icon } : {}),
+      ...(color ? { color } : {}),
       bookmarks,
     };
 
@@ -284,8 +310,14 @@ export function planBookmarkTransferImport(
   const targetGroupId = options.targetGroupId;
 
   const replaceCollection = mode === 'replace' && payload.scope === 'collection';
-  const groups: Array<{ id: string; name: string; order: number; parentId?: string }> =
-    replaceCollection ? [] : current.groups.map((group) => ({ ...group }));
+  const groups: Array<{
+    id: string;
+    name: string;
+    order: number;
+    parentId?: string;
+    icon?: string;
+    color?: string;
+  }> = replaceCollection ? [] : current.groups.map((group) => ({ ...group }));
   const bookmarks = replaceCollection ? [] : current.bookmarks.map((bookmark) => ({ ...bookmark }));
   const claimedGroupIds = new Set<string>();
 
@@ -297,7 +329,16 @@ export function planBookmarkTransferImport(
     current.bookmarks.forEach((b) => deletedBookmarkIds.add(b.id));
   }
 
-  let folderTargetGroup: { id: string; name: string; order: number; parentId?: string } | undefined;
+  let folderTargetGroup:
+    | {
+        id: string;
+        name: string;
+        order: number;
+        parentId?: string;
+        icon?: string;
+        color?: string;
+      }
+    | undefined;
   if (payload.scope === 'folder' && (mode === 'merge' || mode === 'replace')) {
     const incomingFolder = payload.folders[0];
     if (targetGroupId) {
@@ -409,12 +450,23 @@ export function planBookmarkTransferImport(
     parentId: string | undefined,
     forcedName?: string,
     siblingIndex?: number,
-  ): { id: string; name: string; order: number; parentId?: string } {
+  ): {
+    id: string;
+    name: string;
+    order: number;
+    parentId?: string;
+    icon?: string;
+    color?: string;
+  } {
+    const icon = normalizeFolderIcon(folder.icon);
+    const color = normalizeFolderColor(folder.color);
     const group = {
       id: `group:${createId()}`,
       name: forcedName ?? folder.name,
       order: siblingIndex !== undefined ? siblingIndex : getNextSiblingOrder(parentId),
       ...(parentId !== undefined ? { parentId } : {}),
+      ...(icon ? { icon } : {}),
+      ...(color ? { color } : {}),
     };
     groups.push(group);
     createdGroupIds.add(group.id);
@@ -433,9 +485,24 @@ export function planBookmarkTransferImport(
 
   function mergeSubtree(
     folder: BookmarkTransferFolder,
-    targetGroup: { id: string; name: string; order: number; parentId?: string },
+    targetGroup: {
+      id: string;
+      name: string;
+      order: number;
+      parentId?: string;
+      icon?: string;
+      color?: string;
+    },
   ) {
     claimedGroupIds.add(targetGroup.id);
+    if (!targetGroup.icon && folder.icon) {
+      const icon = normalizeFolderIcon(folder.icon);
+      if (icon) targetGroup.icon = icon;
+    }
+    if (!targetGroup.color && folder.color) {
+      const color = normalizeFolderColor(folder.color);
+      if (color) targetGroup.color = color;
+    }
     importBookmarksIntoGroup(folder.bookmarks, targetGroup, true);
 
     if (Array.isArray(folder.folders)) {
@@ -467,6 +534,12 @@ export function planBookmarkTransferImport(
       mergeSubtree(incomingFolder, folderTargetGroup!);
     } else if (mode === 'replace') {
       claimedGroupIds.add(folderTargetGroup!.id);
+      const nextIcon = normalizeFolderIcon(incomingFolder.icon);
+      const nextColor = normalizeFolderColor(incomingFolder.color);
+      if (nextIcon) folderTargetGroup!.icon = nextIcon;
+      else delete folderTargetGroup!.icon;
+      if (nextColor) folderTargetGroup!.color = nextColor;
+      else delete folderTargetGroup!.color;
       importBookmarksIntoGroup(incomingFolder.bookmarks, folderTargetGroup!, false);
       if ('folders' in incomingFolder && Array.isArray(incomingFolder.folders)) {
         incomingFolder.folders.forEach((child: BookmarkTransferFolder, idx: number) => {
@@ -742,8 +815,12 @@ export function normalizeBookmarkTransfer(value: unknown): BookmarkTransferPaylo
       return normalizeItem(bookmark, gameVersion);
     });
 
+    const icon = normalizeFolderIcon(folder.icon);
+    const color = normalizeFolderColor(folder.color);
     const result: BookmarkTransferFolder = {
       name,
+      ...(icon ? { icon } : {}),
+      ...(color ? { color } : {}),
       bookmarks,
     };
 

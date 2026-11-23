@@ -952,6 +952,18 @@ export default defineComponent({
 
     const addChildGroup = (parentFolderId: string) => addGroup(parentFolderId);
 
+    const setFolderAppearance = async (
+      groupId: string,
+      appearance: { icon?: string; color?: string },
+    ) => {
+      await executeBookmarkIntent({
+        type: 'set-group-appearance',
+        groupId,
+        icon: appearance.icon,
+        color: appearance.color,
+      });
+    };
+
     const moveFolder = async (folderId: string, targetFolderId?: string) => {
       activeGroupMenuId.value = null;
       if (targetFolderId !== undefined) {
@@ -1330,6 +1342,8 @@ export default defineComponent({
       toggleBookmarkPreview: toggleBookmarkPreviewFromEvent,
       handleBookmarkPrimaryClick,
       currentPageUrl,
+      gameVersion: version,
+      setFolderAppearance,
     });
 
     return {

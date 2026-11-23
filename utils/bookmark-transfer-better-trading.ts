@@ -125,7 +125,6 @@ function toTftFolder(
     childIds: [],
     index: 0,
     isOpen: true,
-    icon: 'TFT',
     bookmarks,
   };
 }

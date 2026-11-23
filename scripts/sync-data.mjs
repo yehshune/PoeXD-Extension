@@ -45,6 +45,7 @@ export const BATCH_IDS = Object.freeze([
   'poe1/trade-filters',
   'poe2/trade-filters',
   'market',
+  'folder-icons',
 ]);
 
 // ── 路徑白名單 ────────────────────────────────────────────
@@ -72,6 +73,8 @@ const PATH_RULES = [
     new RegExp(`^${VERSION}/locales/${LOCALE}/trade-(?:stats|static|items)\\.json$`),
     () => 'market',
   ],
+  [/^folder-icons\/index\.json$/, () => 'folder-icons'],
+  [/^folder-icons\/[a-z0-9-]+\.webp$/, () => 'folder-icons'],
 ];
 
 /** 回傳資料檔所屬批次；不在白名單內的路徑回傳 null（與 poexd-data 的 src/publish/catalog.ts 一致） */
@@ -220,6 +223,23 @@ export function validateBatchContent(batchId, filesByPath) {
     for (const [path, data] of entries) if (localeOf(path)) names[localeOf(path)] = data;
     return validateMercenaryBatch({ data: filesByPath['poe1/mercenary.json'], names });
   }
+  if (batchId === 'folder-icons') {
+    const index = filesByPath['folder-icons/index.json'];
+    if (
+      !index ||
+      index.schemaVersion !== 1 ||
+      !Array.isArray(index.icons) ||
+      index.icons.length === 0
+    ) {
+      return ['folder-icons/index.json 缺少或格式不符'];
+    }
+    const missing = [];
+    for (const icon of index.icons) {
+      const filePath = `folder-icons/${icon?.file ?? ''}`;
+      if (!(filePath in filesByPath)) missing.push(`缺少 ${filePath}`);
+    }
+    return missing;
+  }
   // 篩選翻譯與市集漢化：en 是執行期後備語系，必須存在
   const required =
     batchId === 'market'
@@ -297,7 +317,7 @@ export async function planSync(manifest, selectedBatches, io) {
         if (sha256Of(bytes) !== file.sha256)
           throw new Error(`${file.path} sha256 與 manifest 不符`);
         contents[file.path] = bytes;
-        parsed[file.path] = JSON.parse(bytes.toString('utf8'));
+        parsed[file.path] = file.path.endsWith('.json') ? JSON.parse(bytes.toString('utf8')) : true;
       }
       const errors = validateBatchContent(batchId, parsed);
       if (errors.length > 0) throw new Error(`批次不一致：\n    - ${errors.join('\n    - ')}`);

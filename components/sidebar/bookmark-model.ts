@@ -10,6 +10,7 @@ import {
   type FolderDropIntent,
 } from '@/utils/bookmark-collection';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
+import { normalizeFolderColor, normalizeFolderIcon } from '@/utils/folder-icons';
 import type { BookmarkInput } from '@/utils/bookmark-coordinator';
 import type { BookmarkImportMode, BookmarkTransferPayload } from '@/utils/bookmark-transfer';
 import type { SearchRecordError, SearchRecordOutcome } from '@/utils/search-records';
@@ -28,6 +29,7 @@ export interface BookmarkModelState {
 export type BookmarkMutationIntent =
   | { type: 'add-group'; group: BookmarkGroup }
   | { type: 'rename-group'; groupId: string; name: string }
+  | { type: 'set-group-appearance'; groupId: string; icon?: string; color?: string }
   | { type: 'delete-group'; groupId: string }
   | {
       type: 'move-folder';
@@ -152,6 +154,8 @@ export function createBookmarkModel(
             name: group.name,
             order: group.order,
             ...(group.parentId !== undefined ? { parentId: group.parentId } : {}),
+            ...(group.icon !== undefined ? { icon: group.icon } : {}),
+            ...(group.color !== undefined ? { color: group.color } : {}),
           })),
           bookmarks: result.value.bookmarks.map((bookmark) => ({
             id: bookmark.id,
@@ -299,6 +303,18 @@ async function commitIntent(
         ? client.putGroup({ ...group, name: intent.name })
         : invalid(`Bookmark group ${intent.groupId} does not exist`);
     }
+    case 'set-group-appearance': {
+      const group = canonical.groups.find((item) => item.id === intent.groupId);
+      if (!group) return invalid(`Bookmark group ${intent.groupId} does not exist`);
+      const nextIcon = normalizeFolderIcon(intent.icon);
+      const nextColor = normalizeFolderColor(intent.color);
+      const updated: BookmarkGroup = { ...group };
+      if (nextIcon) updated.icon = nextIcon;
+      else delete updated.icon;
+      if (nextColor) updated.color = nextColor;
+      else delete updated.color;
+      return client.putGroup(updated);
+    }
     case 'delete-group':
       return client.deleteGroup(intent.groupId);
     case 'move-folder':
@@ -370,6 +386,20 @@ function applyIntent(state: Projection, intent: ResolvedMutationIntent): Project
         group.id === intent.groupId ? { ...group, name: intent.name } : group,
       );
       break;
+    case 'set-group-appearance': {
+      const nextIcon = normalizeFolderIcon(intent.icon);
+      const nextColor = normalizeFolderColor(intent.color);
+      next.groups = next.groups.map((group) => {
+        if (group.id !== intent.groupId) return group;
+        const updated: BookmarkGroup = { ...group };
+        if (nextIcon) updated.icon = nextIcon;
+        else delete updated.icon;
+        if (nextColor) updated.color = nextColor;
+        else delete updated.color;
+        return updated;
+      });
+      break;
+    }
     case 'delete-group': {
       const subtreeIds = getFolderSubtreeIds(next.groups, intent.groupId);
       next.groups = next.groups.filter((group) => !subtreeIds.has(group.id));

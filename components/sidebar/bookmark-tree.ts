@@ -1,4 +1,5 @@
 import type { ComputedRef, Ref } from 'vue';
+import type { PoeVersion } from '@/utils/trade-context';
 import type { Bookmark, BookmarkGroup } from './bookmark-types';
 import type { TradeLeague } from '@/utils/trade-leagues';
 import {
@@ -92,6 +93,13 @@ export interface BookmarkPaneContext {
   handleBookmarkPrimaryClick?: (bookmark: Bookmark, event: Event) => void;
   /** 目前瀏覽器分頁的網址，用於高亮對應的書籤列。 */
   currentPageUrl?: Ref<string>;
+  /** 目前遊戲版本（決定資料夾圖示選擇器顯示的職業／昇華清單）。 */
+  gameVersion?: PoeVersion;
+  /** 設定資料夾自訂圖示與顏色。 */
+  setFolderAppearance?: (
+    groupId: string,
+    appearance: { icon?: string; color?: string },
+  ) => Promise<void>;
 }
 
 export const BOOKMARK_PANE_CONTEXT_KEY = Symbol('BookmarkPaneContext');
