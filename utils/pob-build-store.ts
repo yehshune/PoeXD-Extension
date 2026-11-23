@@ -3,7 +3,14 @@
  * 不上傳、也不納入書籤匯出。存的是原始代碼，讀出時重新解碼，資料模型改版時不必搬遷。
  */
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
-import type { EntrySearchSelection, StatSelection } from './pob-shopping-list';
+import {
+  LINK_OPTIONS,
+  normalizeSearchDefaults,
+  type BuildSearchDefaults,
+  type EntrySearchSelection,
+  type LinkPolicy,
+  type StatSelection,
+} from './pob-shopping-list';
 import { isGzipHash } from './trade-url-codec';
 import type { PoeVersion } from './trade-context';
 
@@ -33,6 +40,8 @@ export interface StoredPobBuild {
   icons: Record<string, string>;
   /** 使用者調整過的搜尋條件（ShoppingEntry.key → 調整內容） */
   searchSelections: Record<string, EntrySearchSelection>;
+  /** build 整體搜尋設定（詞綴數值比例、連結條件）；只存和預設不同的欄位 */
+  searchDefaults: BuildSearchDefaults;
   /**
    * 從市集頁面存回的搜尋（ShoppingEntry.key → 官方搜尋代碼）。有覆寫時開啟搜尋改用這個代碼，
    * 聯盟不跟著存，開啟時用目前頁面的聯盟。
@@ -179,8 +188,21 @@ export function toEntrySearchSelection(value: unknown): EntrySearchSelection | u
       ? { countMin }
       : {}),
     ...(value.pseudo === true ? { pseudo: true } : {}),
+    ...(value.links === null ||
+    (typeof value.links === 'number' && LINK_OPTIONS.includes(value.links))
+      ? { links: value.links }
+      : {}),
   };
   return Object.keys(selection).length > 0 ? selection : undefined;
+}
+
+/** build 整體設定來自本機儲存：不合法的欄位略過 */
+export function toSearchDefaults(value: unknown): BuildSearchDefaults {
+  if (!isRecord(value)) return {};
+  return normalizeSearchDefaults({
+    ...(typeof value.statPercent === 'number' ? { statPercent: value.statPercent } : {}),
+    ...(typeof value.links === 'string' ? { links: value.links as LinkPolicy } : {}),
+  });
 }
 
 const toSearchSelections = (value: unknown): Record<string, EntrySearchSelection> =>
@@ -229,6 +251,7 @@ function parseStored(value: unknown): StoredPobBuild | undefined {
     removed: toKeyList(value.removed),
     icons: toIcons(value.icons),
     searchSelections: toSearchSelections(value.searchSelections),
+    searchDefaults: toSearchDefaults(value.searchDefaults),
     searchOverrides: toSearchOverrides(value.searchOverrides),
   };
 }
@@ -246,6 +269,9 @@ function applyPatch(build: StoredPobBuild, patch: StoredPobBuildPatch): StoredPo
     ...('icons' in patch ? { icons: toIcons(patch.icons) } : {}),
     ...('searchSelections' in patch
       ? { searchSelections: toSearchSelections(patch.searchSelections) }
+      : {}),
+    ...('searchDefaults' in patch
+      ? { searchDefaults: toSearchDefaults(patch.searchDefaults) }
       : {}),
     ...('searchOverrides' in patch
       ? { searchOverrides: toSearchOverrides(patch.searchOverrides) }
@@ -301,6 +327,7 @@ export function createPobBuildStore(
           removed: [],
           icons: {},
           searchSelections: {},
+          searchDefaults: {},
           searchOverrides: {},
         };
         const builds = await list();

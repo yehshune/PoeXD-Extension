@@ -4,17 +4,21 @@ import { ExternalLink, RotateCcw, Save, Search } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t } from '@/utils/i18n';
 import {
   applyEntrySelection,
   buildEntryQuery,
   effectiveCountMin,
+  effectiveLinks,
+  LINK_OPTIONS,
   cloneEntrySearchSelection,
   entryStatFilters,
   isRequiredInCountMode,
   isSelectionDraftModified,
   normalizeSelectionForEntry,
   selectionFromRowState,
+  type BuildSearchDefaults,
   type EntrySearchSelection,
   type ShoppingMod,
 } from '@/utils/pob-shopping-list';
@@ -67,7 +71,15 @@ const props = defineProps({
   },
   rowDetailText: { type: String, default: '' },
   nameClass: { type: String, default: '' },
+  /** 所屬 build 的整體搜尋設定；草稿沒改到的條件依它計算 */
+  searchDefaults: {
+    type: Object as PropType<BuildSearchDefaults>,
+    default: () => ({}),
+  },
 });
+
+/** 連結數選項的「不限」值（ToggleGroup 只收字串） */
+const LINKS_ANY = 'any';
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
@@ -97,8 +109,9 @@ const effectiveRow = computed<ShoppingRow | null>(() => {
   if (!row) return null;
   const draft = draftSelection.value;
   if (!draft) return row;
-  const filters = entryStatFilters(row, draft);
-  const applied = applyEntrySelection(row, draft);
+  const defaults = props.searchDefaults;
+  const filters = entryStatFilters(row, draft, defaults);
+  const applied = applyEntrySelection(row, draft, defaults);
   const countMin = effectiveCountMin(row, draft);
   const pseudo = draft.pseudo === true;
   return {
@@ -107,10 +120,32 @@ const effectiveRow = computed<ShoppingRow | null>(() => {
     filters,
     countMin,
     pseudo,
-    query: buildEntryQuery(row, draft),
+    linksMin: effectiveLinks(row, draft, defaults),
+    query: buildEntryQuery(row, draft, defaults),
     searchSelection: draft,
   };
 });
+
+/** PoB 裝備五連以上（或單件已指定連結）時顯示連結條件 */
+const showLinks = computed(() =>
+  Boolean(
+    effectiveRow.value &&
+    !effectiveRow.value.searchOverride &&
+    (effectiveRow.value.links !== undefined || effectiveRow.value.linksMin !== undefined),
+  ),
+);
+
+const linksValue = computed(() =>
+  effectiveRow.value?.linksMin === undefined ? LINKS_ANY : String(effectiveRow.value.linksMin),
+);
+
+function setLinks(value: unknown): void {
+  // ToggleGroup 再點一次已選的項目會送出空值，維持原選擇
+  if (typeof value !== 'string' || value === '') return;
+  const links = value === LINKS_ANY ? null : Number(value);
+  if (links !== null && !LINK_OPTIONS.includes(links)) return;
+  mutateDraft((draft) => ({ ...draft, links }));
+}
 
 const isDraftModified = computed(() =>
   Boolean(
@@ -227,7 +262,7 @@ function mutateDraft(update: (draft: EntrySearchSelection) => EntrySearchSelecti
   if (!row) return;
   const current = draftSelection.value
     ? cloneEntrySearchSelection(draftSelection.value)
-    : selectionFromRowState(row);
+    : selectionFromRowState(row, props.searchDefaults);
   const next = update(current);
   draftSelection.value = next;
   const key = currentTargetKey();
@@ -321,7 +356,11 @@ function clearBounds(): void {
 
 function saveDraft(): void {
   if (!props.row || !draftSelection.value) return;
-  const normalized = normalizeSelectionForEntry(props.row, draftSelection.value);
+  const normalized = normalizeSelectionForEntry(
+    props.row,
+    draftSelection.value,
+    props.searchDefaults,
+  );
   const key = currentTargetKey();
   if (key) draftsByTarget.delete(key);
   draftSelection.value = null;
@@ -483,6 +522,57 @@ function handleResetSearch(): void {
         >
           {{ t('pobBuild.mods.overrideNotice') }}
         </p>
+
+        <!-- 物品條件區：連結數（PoB 五連以上） -->
+        <div
+          v-if="showLinks"
+          data-pob-build-item-filters
+          class="flex flex-col gap-[var(--pxd-space-xs)]"
+        >
+          <span class="text-[length:var(--pxd-font-section-title)] font-semibold text-foreground">
+            {{ t('pobBuild.itemFilters.title') }}
+          </span>
+          <div
+            :class="[
+              PREVIEW_CARD_CLASS,
+              'flex items-center gap-[var(--pxd-space-md)] p-[var(--pxd-space-sm)]',
+            ]"
+          >
+            <span class="shrink-0 text-[length:var(--pxd-font-secondary)] text-muted-foreground">
+              {{ t('pobBuild.itemFilters.links') }}
+            </span>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              data-pob-build-links
+              :model-value="linksValue"
+              @update:model-value="setLinks"
+            >
+              <ToggleGroupItem :value="LINKS_ANY" data-pob-build-links-option="any">
+                {{ t('pobBuild.itemFilters.linksAny') }}
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                v-for="count in LINK_OPTIONS"
+                :key="count"
+                :value="String(count)"
+                :data-pob-build-links-option="count"
+              >
+                {{ t('pobBuild.itemFilters.linksCount', { count }) }}
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <span
+              v-if="effectiveRow.links !== undefined"
+              class="ml-auto shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground"
+            >
+              {{
+                t('pobBuild.itemFilters.linksPob', {
+                  count: effectiveRow.links,
+                })
+              }}
+            </span>
+          </div>
+        </div>
 
         <!-- 詞綴清單區 -->
         <div
