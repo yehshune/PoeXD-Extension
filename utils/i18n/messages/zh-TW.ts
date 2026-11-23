@@ -365,6 +365,7 @@ export const ZH_TW_MESSAGES = {
   'pobBuild.gemFilters.title': '寶石條件',
   'pobBuild.gemFilters.level': '等級下限',
   'pobBuild.gemFilters.quality': '品質下限',
+  'pobBuild.gemFilters.sockets': '插槽數下限',
   'pobBuild.gemFilters.any': '不限',
   'pobBuild.gemFilters.pob': 'PoB：{value}',
   'pobBuild.allDoneHidden': '全部完成，已隱藏 {count} 項',

@@ -367,6 +367,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.gemFilters.title': '宝石条件',
   'pobBuild.gemFilters.level': '等级下限',
   'pobBuild.gemFilters.quality': '品质下限',
+  'pobBuild.gemFilters.sockets': '插槽数下限',
   'pobBuild.gemFilters.any': '不限',
   'pobBuild.gemFilters.pob': 'PoB：{value}',
   'pobBuild.allDoneHidden': '全部完成，已隐藏 {count} 项',

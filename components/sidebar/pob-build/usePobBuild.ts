@@ -118,8 +118,8 @@ export interface ShoppingRow extends ShoppingEntry {
   iconLayers?: readonly number[];
   /** 圖片已是官方穢生造型（不必再染色） */
   iconFoulborn?: true;
-  /** 裝備插槽裡的東西（PoE 1 寶石、PoE 2 符文），依插槽順序；沒有時省略 */
-  socketContents?: SocketContent[];
+  /** 裝備插槽裡的東西（PoE 1 寶石與深淵珠寶、PoE 2 符文），與插槽一一對應，空孔為 null；全空時省略 */
+  socketContents?: (SocketContent | null)[];
   /** 可以勾選的搜尋條件（同一個代碼的多行已合併），已套用使用者的調整 */
   filters: ShoppingStatFilter[];
   /** 「至少符合 N 項」；未設定時為全部符合 */
@@ -133,6 +133,8 @@ export interface ShoppingRow extends ShoppingEntry {
   /** 寶石實際帶入搜尋的等級／品質下限；不限時省略 */
   gemLevelMin?: number;
   gemQualityMin?: number;
+  /** PoE 2 寶石實際帶入的插槽數下限 */
+  gemSocketsMin?: number;
   /** 使用者調整過這一項的搜尋條件，或存回了市集搜尋 */
   searchCustomized: boolean;
   /** 目前已儲存的條件調整（供 Popover 建立暫存草稿使用） */
@@ -141,9 +143,9 @@ export interface ShoppingRow extends ShoppingEntry {
   searchOverride: boolean;
 }
 
-/** 插在裝備插槽裡的寶石或符文 */
+/** 插在裝備插槽裡的寶石、符文或深淵珠寶 */
 export interface SocketContent {
-  kind: 'gem' | 'rune';
+  kind: 'gem' | 'rune' | 'jewel';
   /** 顯示語言的名稱 */
   label: string;
   /** 寶石的等級／品質、所屬連線 */
@@ -151,7 +153,7 @@ export interface SocketContent {
   support?: boolean;
   icon?: string;
   iconLayers?: readonly number[];
-  /** 寶石在清單裡的列（點插槽時開這顆寶石的設定框） */
+  /** 寶石、深淵珠寶在清單裡的列（點插槽時開它的設定框） */
   rowKey?: string;
 }
 
@@ -259,6 +261,14 @@ export interface UsePobBuild {
 }
 
 /** PoB 的輔助寶石名稱不含「Support」，市集與圖片對照用的英文名稱有 */
+/** 裝備上的深淵插槽部位：`Belt Abyssal Socket 1` */
+const ABYSSAL_SLOT = /^(.+) Abyssal Socket (\d+)$/;
+/** PoB 插槽文字裡的深淵孔 */
+const ABYSS_SOCKET = 'A';
+
+/** 裝備部位 → 插在它深淵孔裡的珠寶（依孔的順序） */
+type AbyssJewels = ReadonlyMap<string, readonly SocketContent[]>;
+
 const SUPPORT_NAME_SUFFIX = ' Support';
 
 interface Session {
@@ -532,42 +542,90 @@ export function usePobBuild(
     (displayNames.value ?? catalog.value)?.toTradeName(englishName) ?? englishName;
 
   /**
-   * 插槽內容物：PoE 2 是物品上的 `Rune:` 行；PoE 1 是目前技能組裡指定插在這個部位的寶石。
-   * PoB 不記錄寶石在哪個孔，依技能組的順序填入；超過插槽數的不顯示。
+   * 插槽內容物：PoE 2 是物品上的 `Rune:` 行；PoE 1 的深淵孔放 PoB 指定插在那裡的深淵珠寶，
+   * 其他孔放目前技能組裡指定插在這個部位的寶石。PoB 不記錄寶石在哪個孔，依技能組的順序填入；
+   * 放不下的不顯示。
    */
   const socketContentsOf = (
     session: Session,
     entry: ShoppingEntry,
+    abyss: AbyssJewels,
   ): Pick<ShoppingRow, 'socketContents'> => {
     if (entry.kind === 'gem' || !entry.sockets || !entry.slot) return {};
-    const socketCount = entry.sockets.replace(/[^A-Z]/g, '').length;
-    const contents: SocketContent[] = entry.socketed
-      ? entry.socketed.map((name) => ({
-          kind: 'rune' as const,
-          label: displayName(name),
-          ...contentArt('equipment', [name]),
-        }))
-      : gemsInSlot(session, entry.slot).map((gem) => {
-          const englishName = gem.support ? `${gem.name}${SUPPORT_NAME_SUFFIX}` : gem.name;
-          const label = displayName(englishName);
-          const skill = gem.skill ? skillLabel(gem.skill) : '';
-          return {
-            kind: 'gem' as const,
-            label,
-            // 連線名稱和寶石同名（主動寶石本身）時不重複顯示
-            detail: [
-              t('pobBuild.gemDetail', { level: gem.level, quality: gem.quality }),
-              skill && skill !== label && gem.skill !== gem.name ? skill : '',
-            ]
-              .filter(Boolean)
-              .join(' · '),
-            ...(gem.support ? { support: true } : {}),
-            rowKey: gemKey(gem),
-            ...contentArt('gem', gem.support ? [englishName, gem.name] : [gem.name]),
-          };
-        });
-    const shown = contents.slice(0, socketCount);
-    return shown.length > 0 ? { socketContents: shown } : {};
+    const colors = entry.sockets.replace(/[^A-Z]/g, '').split('');
+    const contents: (SocketContent | null)[] = entry.socketed
+      ? colors.map((_, index) => {
+          const name = entry.socketed?.[index];
+          return name
+            ? {
+                kind: 'rune' as const,
+                label: displayName(name),
+                ...contentArt('equipment', [name]),
+              }
+            : null;
+        })
+      : fillSockets(colors, gemContents(session, entry.slot), abyss.get(entry.slot) ?? []);
+    return contents.some(Boolean) ? { socketContents: contents } : {};
+  };
+
+  /** 深淵孔依序放深淵珠寶，其他孔依序放寶石 */
+  const fillSockets = (
+    colors: readonly string[],
+    gems: readonly SocketContent[],
+    jewels: readonly SocketContent[],
+  ): (SocketContent | null)[] => {
+    let gemIndex = 0;
+    let jewelIndex = 0;
+    return colors.map((color) =>
+      color === ABYSS_SOCKET ? (jewels[jewelIndex++] ?? null) : (gems[gemIndex++] ?? null),
+    );
+  };
+
+  const gemContents = (session: Session, slot: string): SocketContent[] =>
+    gemsInSlot(session, slot).map((gem) => {
+      const englishName = gem.support ? `${gem.name}${SUPPORT_NAME_SUFFIX}` : gem.name;
+      const label = displayName(englishName);
+      const skill = gem.skill ? skillLabel(gem.skill) : '';
+      return {
+        kind: 'gem' as const,
+        label,
+        // 連線名稱和寶石同名（主動寶石本身）時不重複顯示
+        detail: [
+          t('pobBuild.gemDetail', { level: gem.level, quality: gem.quality }),
+          skill && skill !== label && gem.skill !== gem.name ? skill : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        ...(gem.support ? { support: true } : {}),
+        rowKey: gemKey(gem),
+        ...contentArt('gem', gem.support ? [englishName, gem.name] : [gem.name]),
+      };
+    });
+
+  /** 插在裝備深淵孔裡的珠寶：`<部位> Abyssal Socket N` → 依部位分組、依 N 排序 */
+  const abyssJewelsOf = (entries: readonly ShoppingEntry[]): AbyssJewels => {
+    const found: { parent: string; order: number; content: SocketContent }[] = [];
+    for (const entry of entries) {
+      const match = entry.slot ? ABYSSAL_SLOT.exec(entry.slot) : null;
+      if (!match) continue;
+      const art = artOf(entry);
+      found.push({
+        parent: match[1],
+        order: Number(match[2]),
+        content: {
+          kind: 'jewel',
+          label: displayNames.value?.toTradeName(entry.englishName) ?? entry.label,
+          rowKey: entry.key,
+          ...(art.icon ? { icon: art.icon } : {}),
+          ...(art.iconLayers ? { iconLayers: art.iconLayers } : {}),
+        },
+      });
+    }
+    const map = new Map<string, SocketContent[]>();
+    for (const { parent, content } of found.sort((a, b) => a.order - b.order)) {
+      map.set(parent, [...(map.get(parent) ?? []), content]);
+    }
+    return map;
   };
 
   const gemsInSlot = (session: Session, slot: string) => {
@@ -588,15 +646,16 @@ export function usePobBuild(
   const gemMinsOf = (
     entry: ShoppingEntry,
     selection: EntrySearchSelection | undefined,
-  ): Pick<ShoppingRow, 'gemLevelMin' | 'gemQualityMin'> => {
-    const { level, quality } = effectiveGemFilters(entry, selection);
+  ): Pick<ShoppingRow, 'gemLevelMin' | 'gemQualityMin' | 'gemSocketsMin'> => {
+    const { level, quality, sockets } = effectiveGemFilters(entry, selection);
     return {
       ...(level !== undefined ? { gemLevelMin: level } : {}),
       ...(quality !== undefined ? { gemQualityMin: quality } : {}),
+      ...(sockets !== undefined ? { gemSocketsMin: sockets } : {}),
     };
   };
 
-  const toRow = (session: Session, entry: ShoppingEntry): ShoppingRow => {
+  const toRow = (session: Session, entry: ShoppingEntry, abyss: AbyssJewels): ShoppingRow => {
     const selection = session.searchSelections[entry.key];
     const defaults = session.searchDefaults;
     const applied = applyEntrySelection(entry, selection, defaults);
@@ -611,7 +670,7 @@ export function usePobBuild(
       ...(applied.mods ? { mods: applied.mods.map(localizeMod) } : {}),
       done: session.done.has(entry.key),
       ...artOf(entry),
-      ...socketContentsOf(session, entry),
+      ...socketContentsOf(session, entry, abyss),
       filters: entryStatFilters(entry, selection, defaults),
       ...(countMin !== undefined ? { countMin } : {}),
       pseudo: effectivePseudo(entry, selection, defaults),
@@ -625,7 +684,11 @@ export function usePobBuild(
   };
 
   /** 依清單順序切成分組；隱藏已完成時略過已完成的項目 */
-  const toGroups = (session: Session, entries: readonly ShoppingEntry[]): ShoppingGroup[] => {
+  const toGroups = (
+    session: Session,
+    entries: readonly ShoppingEntry[],
+    abyss: AbyssJewels,
+  ): ShoppingGroup[] => {
     const groups = new Map<string, ShoppingGroup>();
     for (const entry of entries) {
       const gemGroup = entry.kind === 'gem' ? entry.gemGroup : undefined;
@@ -637,7 +700,7 @@ export function usePobBuild(
         ...(gemGroup?.skill !== undefined ? { skill: skillLabel(gemGroup.skill) } : {}),
         rows: [],
       };
-      groups.set(id, { ...group, rows: [...group.rows, toRow(session, entry)] });
+      groups.set(id, { ...group, rows: [...group.rows, toRow(session, entry, abyss)] });
     }
     return [...groups.values()]
       .map((group) => ({
@@ -659,7 +722,8 @@ export function usePobBuild(
       skillSetOptions: toOptions(session.build.skillSets),
       itemSetId: session.itemSetId,
       skillSetId: session.skillSetId,
-      groups: toGroups(session, visible),
+      // 刪掉的深淵珠寶仍插在裝備上，插槽照樣顯示
+      groups: toGroups(session, visible, abyssJewelsOf(entries)),
       progress: {
         done: visible.filter((entry) => session.done.has(entry.key)).length,
         total: visible.length,

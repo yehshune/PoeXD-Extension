@@ -19,6 +19,7 @@ import {
   LINK_OPTIONS,
   MAX_GEM_LEVEL,
   MAX_GEM_QUALITY,
+  MAX_GEM_SOCKETS,
   cloneEntrySearchSelection,
   entryStatFilters,
   isRequiredInCountMode,
@@ -123,11 +124,12 @@ const effectiveRow = computed<ShoppingRow | null>(() => {
   const countMin = effectiveCountMin(row, draft);
   const pseudo = effectivePseudo(row, draft, defaults);
   const gem = effectiveGemFilters(row, draft);
-  const { gemLevelMin: _level, gemQualityMin: _quality, ...rest } = row;
+  const { gemLevelMin: _level, gemQualityMin: _quality, gemSocketsMin: _sockets, ...rest } = row;
   return {
     ...rest,
     ...(gem.level !== undefined ? { gemLevelMin: gem.level } : {}),
     ...(gem.quality !== undefined ? { gemQualityMin: gem.quality } : {}),
+    ...(gem.sockets !== undefined ? { gemSocketsMin: gem.sockets } : {}),
     mods: applied.mods,
     filters,
     countMin,
@@ -193,10 +195,16 @@ const categoryHint = computed(() => {
 
 const isGem = computed(() => effectiveRow.value?.kind === 'gem');
 
-/** 寶石等級／品質下限：空白為不限 */
-function commitGemBound(field: 'gemLevel' | 'gemQuality', event: Event): void {
+const GEM_BOUND_MAX = {
+  gemLevel: MAX_GEM_LEVEL,
+  gemQuality: MAX_GEM_QUALITY,
+  gemSockets: MAX_GEM_SOCKETS,
+} as const;
+
+/** 寶石等級／品質／插槽數下限：空白為不限 */
+function commitGemBound(field: keyof typeof GEM_BOUND_MAX, event: Event): void {
   const raw = (event.target as HTMLInputElement).value.trim();
-  const max = field === 'gemLevel' ? MAX_GEM_LEVEL : MAX_GEM_QUALITY;
+  const max = GEM_BOUND_MAX[field];
   const value = raw === '' ? null : Math.floor(Number(raw));
   if (value !== null && (!Number.isFinite(value) || value < 0 || value > max)) return;
   mutateDraft((draft) => ({ ...draft, [field]: value === 0 ? null : value }));
@@ -637,6 +645,33 @@ function handleResetSearch(): void {
             <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums">
               {{ t('pobBuild.gemFilters.pob', { value: `${effectiveRow.quality ?? 0}%` }) }}
             </span>
+            <!-- PoE 2 技能寶石的輔助寶石插槽數（PoB 連了幾顆輔助寶石） -->
+            <template v-if="effectiveRow.gemSockets !== undefined">
+              <label
+                :for="controlId('gem-sockets')"
+                class="text-[length:var(--pxd-font-secondary)] text-muted-foreground"
+                >{{ t('pobBuild.gemFilters.sockets') }}</label
+              >
+              <Input
+                :id="controlId('gem-sockets')"
+                size="sm"
+                type="number"
+                min="0"
+                :max="MAX_GEM_SOCKETS"
+                step="1"
+                data-pob-build-gem-sockets
+                :class="PREVIEW_BOUND_INPUT_CLASS"
+                :placeholder="t('pobBuild.gemFilters.any')"
+                :model-value="effectiveRow.gemSocketsMin ?? ''"
+                @change="commitGemBound('gemSockets', $event)"
+                @keydown.enter.prevent="blurTarget"
+              />
+              <span
+                class="text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums"
+              >
+                {{ t('pobBuild.gemFilters.pob', { value: effectiveRow.gemSockets }) }}
+              </span>
+            </template>
           </div>
         </div>
 

@@ -4,7 +4,7 @@
  * - 傳奇：以名稱加基底搜尋；永恆珠寶另外帶入種子編號。
  * - 稀有、魔法、普通：以基底搜尋，並把對得到市集代碼的固定詞綴與一般詞綴帶入條件（下限預設取八成，
  *   方便找到相近而不必完全相同的裝備）；工藝詞綴可以自己做，不列入條件。附魔只有星團珠寶預設帶入。
- * - 寶石：以名稱搜尋，等級與品質帶入下限；PoE 2 的技能寶石不在市集交易，不列入。
+ * - 寶石：以名稱搜尋，等級與品質帶入下限（PoE 1、PoE 2 都有）。
  * - 身甲與雙手武器有五連以上時帶入連結數下限。
  * - 身外 Wickerman 的臟器（3.30）：放在 Wickerman 部位的臟器是普通物品，以基底搜尋、詞綴是固定詞綴。
  *   PoB 只給合併後的臟器詞綴（自訂詞綴區塊）時，依詞綴資料把每一行分到頭部／身體／手部／腿部，
@@ -116,6 +116,8 @@ export interface ShoppingEntry {
   slot?: string;
   level?: number;
   quality?: number;
+  /** PoE 2 技能寶石：PoB 裡連結的輔助寶石數（搜尋時當插槽數下限，0 為不限）；其他寶石省略 */
+  gemSockets?: number;
   /** 裝備才有：稀有度與詞綴，供介面顯示 */
   rarity?: PobItemRarity;
   mods?: ShoppingMod[];
@@ -182,11 +184,15 @@ export interface EntrySearchSelection {
   /** 寶石的等級／品質下限：數字為下限，null 為不限；省略時用 PoB 的數值 */
   gemLevel?: number | null;
   gemQuality?: number | null;
+  /** PoE 2 寶石的插槽數下限：數字為下限，null 為不限；省略時用 PoB 連結的輔助寶石數 */
+  gemSockets?: number | null;
 }
 
 /** 寶石等級與品質下限可以設定的範圍 */
 export const MAX_GEM_LEVEL = 40;
 export const MAX_GEM_QUALITY = 100;
+/** PoE 2 技能寶石最多的輔助寶石插槽數 */
+export const MAX_GEM_SOCKETS = 6;
 
 /** build 整體設定的連結條件：照 PoB（五連以上）、只帶六連、一律不帶 */
 export type LinkPolicy = 'pob' | 'six' | 'none';
@@ -839,13 +845,13 @@ function withDefenceMins(
   };
 }
 
-type GemFilterEntry = Pick<ShoppingEntry, 'kind' | 'level' | 'quality'>;
+type GemFilterEntry = Pick<ShoppingEntry, 'kind' | 'level' | 'quality' | 'gemSockets'>;
 
 /** 寶石實際帶入搜尋的等級／品質下限（使用者的調整優先，否則用 PoB 的數值）；不限的欄位省略 */
 export function effectiveGemFilters(
   entry: GemFilterEntry,
   selection?: EntrySearchSelection,
-): { level?: number; quality?: number } {
+): GemFilters {
   if (entry.kind !== 'gem') return {};
   const pick = (custom: number | null | undefined, hasCustom: boolean, pob: number | undefined) => {
     const value = hasCustom ? custom : pob;
@@ -861,24 +867,42 @@ export function effectiveGemFilters(
     selection !== undefined && 'gemQuality' in selection,
     entry.quality,
   );
+  const sockets = pick(
+    selection?.gemSockets,
+    selection !== undefined && 'gemSockets' in selection,
+    entry.gemSockets,
+  );
   return {
     ...(level !== undefined ? { level } : {}),
     ...(quality !== undefined ? { quality } : {}),
+    ...(sockets !== undefined ? { sockets } : {}),
   };
 }
 
-/** 換掉寶石搜尋的等級與品質條件（其他雜項條件保留） */
+/** 寶石實際帶入搜尋的下限；不限的欄位省略 */
+export interface GemFilters {
+  level?: number;
+  quality?: number;
+  /** PoE 2 寶石的輔助寶石插槽數 */
+  sockets?: number;
+}
+
+/** 換掉寶石搜尋的等級、品質與插槽數條件（其他雜項條件保留） */
 function withGemFilters(
   searchBase: Record<string, unknown>,
-  gem: { level?: number; quality?: number },
+  gem: GemFilters,
 ): Record<string, unknown> {
   const { filters, ...rest } = searchBase as { filters?: Record<string, any> };
   const { misc_filters: misc, ...otherGroups } = filters ?? {};
-  const { gem_level: _level, quality: _quality, ...otherMisc } = misc?.filters ?? {};
+  const {
+    gem_level: _level,
+    quality: _quality,
+    gem_sockets: _sockets,
+    ...otherMisc
+  } = misc?.filters ?? {};
   const miscFilters = {
     ...otherMisc,
-    ...(gem.level !== undefined ? { gem_level: { min: gem.level } } : {}),
-    ...(gem.quality !== undefined ? { quality: { min: gem.quality } } : {}),
+    ...gemMiscFilters(gem),
   };
   const groups = {
     ...otherGroups,
@@ -887,6 +911,15 @@ function withGemFilters(
       : {}),
   };
   return Object.keys(groups).length > 0 ? { ...rest, filters: groups } : rest;
+}
+
+/** 寶石條件 → 市集的雜項條件 */
+function gemMiscFilters(gem: GemFilters): Record<string, { min: number }> {
+  return {
+    ...(gem.level !== undefined ? { gem_level: { min: gem.level } } : {}),
+    ...(gem.quality !== undefined ? { quality: { min: gem.quality } } : {}),
+    ...(gem.sockets !== undefined ? { gem_sockets: { min: gem.sockets } } : {}),
+  };
 }
 
 /** 套用使用者的選擇與 build 整體設定組出搜尋；項目無法搜尋時回傳 null */
@@ -984,6 +1017,7 @@ export interface SelectionRowSnapshot extends Pick<
   /** 寶石實際帶入的等級／品質下限 */
   gemLevelMin?: number;
   gemQualityMin?: number;
+  gemSocketsMin?: number;
   searchSelection?: EntrySearchSelection;
 }
 
@@ -1003,6 +1037,7 @@ export function cloneEntrySearchSelection(selection?: EntrySearchSelection): Ent
     ...(selection.searchBy ? { searchBy: selection.searchBy } : {}),
     ...('gemLevel' in selection ? { gemLevel: selection.gemLevel ?? null } : {}),
     ...('gemQuality' in selection ? { gemQuality: selection.gemQuality ?? null } : {}),
+    ...('gemSockets' in selection ? { gemSockets: selection.gemSockets ?? null } : {}),
   };
 }
 
@@ -1098,7 +1133,7 @@ export function normalizeSelectionForEntry(
 function gemSelectionChanges(
   entry: Partial<GemFilterEntry>,
   selection: EntrySearchSelection,
-): Pick<EntrySearchSelection, 'gemLevel' | 'gemQuality'> {
+): Pick<EntrySearchSelection, 'gemLevel' | 'gemQuality' | 'gemSockets'> {
   if (entry.kind !== 'gem') return {};
   const gemEntry = entry as GemFilterEntry;
   const pob = effectiveGemFilters(gemEntry);
@@ -1110,18 +1145,29 @@ function gemSelectionChanges(
     ...('gemQuality' in selection && chosen.quality !== pob.quality
       ? { gemQuality: chosen.quality ?? null }
       : {}),
+    ...('gemSockets' in selection && chosen.sockets !== pob.sockets
+      ? { gemSockets: chosen.sockets ?? null }
+      : {}),
   };
 }
 
 /** 比較兩個搜尋條件快照，判斷暫存微調是否與已儲存狀態不同。 */
 type DraftSnapshot = Pick<
   SelectionRowSnapshot,
-  'filters' | 'countMin' | 'pseudo' | 'linksMin' | 'searchBy' | 'gemLevelMin' | 'gemQualityMin'
+  | 'filters'
+  | 'countMin'
+  | 'pseudo'
+  | 'linksMin'
+  | 'searchBy'
+  | 'gemLevelMin'
+  | 'gemQualityMin'
+  | 'gemSocketsMin'
 >;
 
 export function isSelectionDraftModified(saved: DraftSnapshot, draft: DraftSnapshot): boolean {
   if (saved.gemLevelMin !== draft.gemLevelMin) return true;
   if (saved.gemQualityMin !== draft.gemQualityMin) return true;
+  if (saved.gemSocketsMin !== draft.gemSocketsMin) return true;
   if (Boolean(saved.pseudo) !== Boolean(draft.pseudo)) return true;
   if ((saved.searchBy ?? 'base') !== (draft.searchBy ?? 'base')) return true;
   if (saved.linksMin !== draft.linksMin) return true;
@@ -1315,10 +1361,11 @@ function gemEntry(gem: PobBuildGem, catalog: TradeNameCatalog): ShoppingEntry {
   const supportName = `${gem.name}${SUPPORT_SUFFIX}`;
   const englishName = gem.support && catalog.toTradeName(supportName) ? supportName : gem.name;
   const tradeName = catalog.toTradeName(englishName);
-  const gemFilters = {
-    ...(gem.level > 1 ? { gem_level: { min: gem.level } } : {}),
-    ...(gem.quality > 0 ? { quality: { min: gem.quality } } : {}),
-  };
+  const gemFilters = gemMiscFilters({
+    ...(gem.level > 1 ? { level: gem.level } : {}),
+    ...(gem.quality > 0 ? { quality: gem.quality } : {}),
+    ...(gem.sockets ? { sockets: gem.sockets } : {}),
+  });
   const searchBase = tradeName
     ? {
         status: INSTANT_BUYOUT_STATUS,
@@ -1337,6 +1384,7 @@ function gemEntry(gem: PobBuildGem, catalog: TradeNameCatalog): ShoppingEntry {
     count: 1,
     level: gem.level,
     quality: gem.quality,
+    ...(gem.sockets !== undefined ? { gemSockets: gem.sockets } : {}),
     searchBase,
     query: searchBase,
   };
@@ -1374,8 +1422,7 @@ export function buildShoppingList(
       isVisceraBundleItem(item) ? splitVisceraBundle(item, matcher, options.visceraMods) : [item],
     )
     .map((item) => itemEntry(item, catalog, matcher, build.gameVersion));
-  const gems =
-    build.gameVersion === 'poe1' ? (skillSet?.gems ?? []).map((gem) => gemEntry(gem, catalog)) : [];
+  const gems = (skillSet?.gems ?? []).map((gem) => gemEntry(gem, catalog));
   // 同一套裡內容完全相同的項目（例如兩顆一樣的珠寶）共用一個 key，合併成一列並計數
   const merged = new Map<string, ShoppingEntry>();
   for (const entry of [...items, ...gems]) {

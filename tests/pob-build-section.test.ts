@@ -644,6 +644,44 @@ describe('usePobBuild', () => {
       // 沒有插槽的裝備沒有內容物
       expect(rowByLabel(first(pob), "Xoph's Heart").socketContents).toBeUndefined();
     });
+
+    it('PoE 1 深淵孔放 PoB 指定插在那裡的深淵珠寶，其他孔放寶石；空孔為 null', async () => {
+      const xml = buildXml()
+        .replace('Mosaic Kite Shield\n', 'Mosaic Kite Shield\nSockets: A-R B\n')
+        .replace(
+          '<ItemSet id="1" title="Endgame">',
+          [
+            '<Item id="5">',
+            'Rarity: RARE',
+            'Gloom Hunger',
+            'Hypnotic Eye Jewel',
+            '</Item>',
+            '<ItemSet id="1" title="Endgame">',
+            '<Slot itemId="5" name="Weapon 2 Abyssal Socket 1"/>',
+          ].join('\n'),
+        )
+        .replace(
+          '<SkillSet id="1" title="Endgame">',
+          [
+            '<SkillSet id="1" title="Endgame">',
+            '<Skill enabled="true" slot="Weapon 2">',
+            '<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemEmpower" level="4" nameSpec="Empower" quality="0"/>',
+            '</Skill>',
+          ].join('\n'),
+        );
+      const pob = usePobBuild('poe1', deps);
+      await pob.importCode(toCode(xml));
+      await flush();
+      const jewel = first(pob)
+        .groups.flatMap((group) => group.rows)
+        .find((row) => row.slot === 'Weapon 2 Abyssal Socket 1');
+      expect(jewel).toBeDefined();
+      expect(rowByLabel(first(pob), 'Rise of the Phoenix').socketContents).toEqual([
+        expect.objectContaining({ kind: 'jewel', rowKey: jewel!.key }),
+        expect.objectContaining({ kind: 'gem', label: 'Empower Support' }),
+        null,
+      ]);
+    });
   });
 
   describe('隱藏已完成與排序', () => {

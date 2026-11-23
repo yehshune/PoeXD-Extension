@@ -60,6 +60,8 @@ export interface PobBuildGem {
   slot: string;
   /** 所屬連線的名稱：PoB 的技能標籤，沒有時為該連線第一顆主動寶石 */
   skill: string;
+  /** PoE 2 技能寶石：連結的輔助寶石數（需要的插槽數，可為 0）；PoE 1 與輔助寶石省略 */
+  sockets?: number;
 }
 
 interface PobSet {
@@ -436,16 +438,38 @@ function withVisceraBundle(sets: PobItemSet[], bundle: PobBuildItem | undefined)
   );
 }
 
-/** 每一顆啟用的寶石都列出（不同連結各用一顆相同的寶石時要買兩顆），由購物清單合併計數 */
-function parseGems(skillSet: Element): PobBuildGem[] {
+/** PoE 2 武器給的預設技能（`SkillGemPlayerDefault…`）與昇華技能（`SkillGemAscendancy…`） */
+const NOT_AN_ITEM_GEM = /\/SkillGem(?:PlayerDefault|Ascendancy)/;
+
+/** 連線裡第一顆主動技能的名稱（含武器預設技能這類不列入清單的技能） */
+function activeSkillName(skill: Element): string {
+  const active = children(skill, 'Gem').find((gem) => {
+    const gemId = gem.getAttribute('gemId') ?? '';
+    return /\/SkillGem/.test(gemId) && !/Ascendancy/.test(gemId);
+  });
+  return clip(active?.getAttribute('nameSpec'));
+}
+
+/**
+ * 每一顆啟用的寶石都列出（不同連結各用一顆相同的寶石時要買兩顆），由購物清單合併計數。
+ * 插在裝備上的寶石即使在 PoB 停用（例如手動施放、不想算進 DPS）也實際佔著插槽，一樣列出
+ */
+function parseGems(skillSet: Element, version: PoeVersion): PobBuildGem[] {
   const gems: PobBuildGem[] = [];
   for (const skill of children(skillSet, 'Skill')) {
-    if (skill.getAttribute('enabled') === 'false') continue;
+    const slot = clip(skill.getAttribute('slot'));
+    if (!slot && skill.getAttribute('enabled') === 'false') continue;
     const linked = children(skill, 'Gem').flatMap((gem) => {
       const gemId = gem.getAttribute('gemId') ?? '';
       const name = clip(gem.getAttribute('nameSpec'));
-      // 沒有 gemId 的是裝備或天賦給的技能，不是可以買的寶石
-      if (!gemId || !name || gem.getAttribute('enabled') === 'false') return [];
+      // 沒有 gemId 的是裝備或天賦給的技能；PoE 2 的武器預設技能、昇華技能也有 gemId，但不是道具
+      if (
+        !gemId ||
+        NOT_AN_ITEM_GEM.test(gemId) ||
+        !name ||
+        (!slot && gem.getAttribute('enabled') === 'false')
+      )
+        return [];
       return [
         {
           name,
@@ -455,26 +479,30 @@ function parseGems(skillSet: Element): PobBuildGem[] {
         },
       ];
     });
-    const slot = clip(skill.getAttribute('slot'));
+    // 主動技能是武器預設技能（不列入）時，連線仍以它命名，不改用輔助寶石的名字
     const skillName =
       clip(skill.getAttribute('label')) ||
+      activeSkillName(skill) ||
       (linked.find((gem) => !gem.support) ?? linked[0])?.name ||
       '';
+    // PoE 2 的輔助寶石插在技能寶石上：連了幾顆，技能寶石就至少要有幾個插槽
+    const supportCount = linked.filter((gem) => gem.support).length;
+    const sockets = version === 'poe2' ? { sockets: supportCount } : {};
     for (const gem of linked) {
-      gems.push({ ...gem, slot, skill: skillName });
+      gems.push({ ...gem, ...(gem.support ? {} : sockets), slot, skill: skillName });
       if (gems.length >= MAX_GEMS_PER_SET) return gems;
     }
   }
   return gems;
 }
 
-function parseSkillSets(skills: Element | null): PobSkillSet[] {
+function parseSkillSets(skills: Element | null, version: PoeVersion): PobSkillSet[] {
   return children(skills, 'SkillSet')
     .slice(0, MAX_SETS)
     .map((set, index) => ({
       id: set.getAttribute('id') || String(index + 1),
       title: clip(set.getAttribute('title')),
-      gems: parseGems(set),
+      gems: parseGems(set, version),
     }));
 }
 
@@ -504,7 +532,7 @@ export function parsePobBuildXml(xml: string): PobBuild {
     parseItemSets(itemsElement, itemById),
     parseVisceraBundle(children(root, 'Config')[0] ?? null),
   );
-  const skillSets = parseSkillSets(skillsElement);
+  const skillSets = parseSkillSets(skillsElement, GAME_VERSION_BY_ROOT[root.tagName]);
   const treeSpecs = parseTreeSpecs(treeElement, itemById);
 
   return {

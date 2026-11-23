@@ -82,12 +82,14 @@ Viridian Jewel
 				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemPunishment" level="20" nameSpec="Punishment" quality="0"/>
 				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemLifetap" level="1" nameSpec="Lifetap" quality="0"/>
 				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemBlessedCall" level="20" nameSpec="Blessed Call" quality="20"/>
+			</Skill>
+			<Skill enabled="true">
 				<Gem enabled="false" gemId="Metadata/Items/Gems/SkillGemDisabled" level="20" nameSpec="Disabled Gem" quality="0"/>
 			</Skill>
 			<Skill enabled="true" slot="Weapon 1">
 				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemLifetap" level="1" nameSpec="Lifetap" quality="0"/>
 			</Skill>
-			<Skill enabled="false" slot="Boots">
+			<Skill enabled="false">
 				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemOff" level="20" nameSpec="Skill Off" quality="0"/>
 			</Skill>
 		</SkillSet>
@@ -226,7 +228,7 @@ describe('parsePobBuildXml', () => {
     ]);
   });
 
-  it('每組技能組只取啟用的寶石，略過裝備給的技能；不同連結各用一顆的寶石各列一次', () => {
+  it('沒插在裝備上的寶石只取啟用的，略過裝備給的技能；不同連結各用一顆的寶石各列一次', () => {
     const gloves = (name: string, level: number, quality: number, support: boolean) => ({
       name,
       level,
@@ -269,6 +271,24 @@ describe('parsePobBuildXml', () => {
         ],
       },
     ]);
+  });
+
+  it('插在裝備上的寶石即使在 PoB 停用（手動施放等）也實際佔著插槽，照樣列出', () => {
+    const xml = buildXml().replace(
+      '<Skill enabled="true" slot="Weapon 1">',
+      `<Skill enabled="false" slot="Helmet">
+				<Gem enabled="false" gemId="Metadata/Items/Gems/SkillGemSteelskin" level="20" nameSpec="Steelskin" quality="20"/>
+			</Skill>
+			<Skill enabled="true" slot="Weapon 1">`,
+    );
+    expect(parsePobBuildXml(xml).skillSets[0].gems).toContainEqual({
+      name: 'Steelskin',
+      level: 20,
+      quality: 20,
+      support: false,
+      slot: 'Helmet',
+      skill: 'Steelskin',
+    });
   });
 
   it('記下匯出當下選用的套裝；屬性對不到時退回第一組；依根元素判斷遊戲版本', () => {
@@ -432,11 +452,35 @@ describe('buildShoppingList', () => {
     });
   });
 
-  it('PoE 2 的技能寶石不在市集交易，不列入', () => {
-    const poe2 = parsePobBuildXml(buildXml({ root: 'PathOfBuilding2' }));
+  it('PoE 2 的寶石也列入；武器預設技能與昇華技能不是道具，略過', () => {
+    const xml = buildXml({ root: 'PathOfBuilding2' }).replace(
+      '<Skill enabled="true" slot="Weapon 1">',
+      `<Skill enabled="true">
+				<Gem enabled="true" gemId="Metadata/Items/Gem/SkillGemPlayerDefaultSpearThrow" level="20" nameSpec="Spear Throw" quality="0"/>
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemAscendancyVirtuousBarrier" level="20" nameSpec="Virtuous Barrier" quality="0"/>
+			</Skill>
+			<Skill enabled="true">
+				<Gem enabled="true" gemId="Metadata/Items/Gem/SkillGemPlayerDefaultSpearThrow" level="20" nameSpec="Spear Throw" quality="0"/>
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemAmbush" level="1" nameSpec="Ambush" quality="0"/>
+			</Skill>
+			<Skill enabled="true" slot="Weapon 1">`,
+    );
+    const poe2 = parsePobBuildXml(xml);
     const list = buildShoppingList(poe2, createTradeNameCatalog({ englishItems: ENGLISH_ITEMS }));
-    expect(list.some((entry) => entry.kind === 'gem')).toBe(false);
-    expect(list.length).toBe(4);
+    const gems = list.filter((entry) => entry.kind === 'gem').map((entry) => entry.englishName);
+    expect(gems).toContain('Punishment');
+    expect(gems).not.toContain('Spear Throw');
+    expect(gems).not.toContain('Virtuous Barrier');
+    // 預設技能不列入，但連在它上面的輔助寶石要買，連線仍以預設技能命名
+    expect(list.find((entry) => entry.englishName === 'Ambush')?.gemGroup).toMatchObject({
+      skill: 'Spear Throw',
+    });
+    // PoE 2 的輔助寶石插在技能寶石上：技能寶石的插槽數下限是連結的輔助寶石數
+    const punishment = list.find((entry) => entry.englishName === 'Punishment');
+    expect(punishment?.gemSockets).toBe(2);
+    expect(punishment?.searchBase).toMatchObject({
+      filters: { misc_filters: { filters: { gem_sockets: { min: 2 } } } },
+    });
   });
 
   it('可指定裝備套裝與技能組；珠寶取自同標題的天賦樹', () => {

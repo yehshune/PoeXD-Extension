@@ -137,58 +137,131 @@ const tileTitle = (row: ShoppingRow) =>
         socketTip.content.detail
       }}</span>
     </div>
-    <div v-if="layout.hasSwap" class="flex justify-end">
-      <div
-        role="group"
-        :aria-label="t('pobBuild.gear.weaponSet')"
-        class="inline-flex overflow-hidden rounded-sm border border-border text-[length:var(--pxd-font-caption)] font-bold"
-      >
-        <button
-          v-for="(swap, index) in [false, true]"
-          :key="index"
-          type="button"
-          data-pob-build-gear-swap
-          :aria-pressed="showSwap === swap"
-          class="cursor-pointer px-[var(--pxd-space-sm)] py-[1px] transition-colors"
-          :class="
-            showSwap === swap
-              ? 'bg-primary/15 text-primary'
-              : 'bg-background/60 text-muted-foreground hover:bg-muted/60'
-          "
-          @click="showSwap = swap"
+    <div class="pxd-gear-body">
+      <div v-if="layout.hasSwap" class="flex justify-end">
+        <div
+          role="group"
+          :aria-label="t('pobBuild.gear.weaponSet')"
+          class="inline-flex overflow-hidden rounded-sm border border-border text-[length:var(--pxd-font-caption)] font-bold"
         >
-          {{ swap ? 'II' : 'I' }}
-        </button>
+          <button
+            v-for="(swap, index) in [false, true]"
+            :key="index"
+            type="button"
+            data-pob-build-gear-swap
+            :aria-pressed="showSwap === swap"
+            class="cursor-pointer px-[var(--pxd-space-sm)] py-[1px] transition-colors"
+            :class="
+              showSwap === swap
+                ? 'bg-primary/15 text-primary'
+                : 'bg-background/60 text-muted-foreground hover:bg-muted/60'
+            "
+            @click="showSwap = swap"
+          >
+            {{ swap ? 'II' : 'I' }}
+          </button>
+        </div>
       </div>
-    </div>
 
-    <div data-pob-build-gear-grid class="pxd-gear-grid">
-      <template v-for="{ id, cell, row } in cells" :key="id">
-        <component
-          :is="row ? 'button' : 'div'"
-          :type="row ? 'button' : undefined"
-          :data-pob-build-gear-tile="row ? id : undefined"
-          :data-pob-build-gear-empty="row ? undefined : id"
-          :data-done="row?.done ? 'true' : undefined"
-          :aria-pressed="row ? activeKey === row.key : undefined"
-          :title="row ? tileTitle(row) : cellLabel(id)"
-          class="pxd-gear-tile"
-          :class="[
-            row ? tileClass(row) : 'pxd-gear-tile--empty',
-            {
-              'is-active': row && activeKey === row.key,
-              'pxd-gear-tile--corrupted': row?.corrupted,
-            },
-          ]"
-          :style="{
-            gridColumn: `${cell.column} / span ${cell.width}`,
-            gridRow: `${cell.row} / span ${cell.height}`,
-          }"
-          @click="row && emit('select', row, $event)"
-          @mouseenter="row && emit('hover', row, $event)"
-          @mouseleave="row && emit('leave')"
-        >
-          <template v-if="row">
+      <div data-pob-build-gear-grid class="pxd-gear-grid">
+        <template v-for="{ id, cell, row } in cells" :key="id">
+          <component
+            :is="row ? 'button' : 'div'"
+            :type="row ? 'button' : undefined"
+            :data-pob-build-gear-tile="row ? id : undefined"
+            :data-pob-build-gear-empty="row ? undefined : id"
+            :data-done="row?.done ? 'true' : undefined"
+            :aria-pressed="row ? activeKey === row.key : undefined"
+            :title="row ? tileTitle(row) : cellLabel(id)"
+            class="pxd-gear-tile"
+            :class="[
+              row ? tileClass(row) : 'pxd-gear-tile--empty',
+              {
+                'is-active': row && activeKey === row.key,
+                'pxd-gear-tile--corrupted': row?.corrupted,
+              },
+            ]"
+            :style="{
+              gridColumn: `${cell.column} / span ${cell.width}`,
+              gridRow: `${cell.row} / span ${cell.height}`,
+            }"
+            @click="row && emit('select', row, $event)"
+            @mouseenter="row && emit('hover', row, $event)"
+            @mouseleave="row && emit('leave')"
+          >
+            <template v-if="row">
+              <PobItemImage
+                v-if="row.icon"
+                class="pxd-gear-tile__icon"
+                :src="row.icon"
+                :layers="row.iconLayers"
+                :width="row.iconSize?.width"
+                :height="row.iconSize?.height"
+                :foulborn="row.foulborn && !row.iconFoulborn"
+              />
+              <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
+              <PobSocketOverlay
+                v-if="row.sockets"
+                class="pxd-gear-tile__sockets"
+                :sockets="row.sockets"
+                :width="row.iconSize?.width"
+                :height="row.iconSize?.height"
+                :tile-width="cell.width"
+                :tile-height="cell.height"
+                :contents="row.socketContents"
+                @hover-content="showSocketTip"
+                @select-content="(content, event) => emit('selectContent', content, event)"
+              />
+            </template>
+            <span v-else class="pxd-gear-tile__slot">{{ cellLabel(id) }}</span>
+            <span
+              v-if="row?.corrupted"
+              data-pob-build-gear-corrupted
+              class="pxd-gear-tile__corrupted"
+              :aria-label="t('pobBuild.corrupted')"
+            />
+            <span
+              v-if="row?.searchCustomized"
+              data-pob-build-gear-customized
+              class="pxd-gear-tile__dot"
+              :aria-label="t('pobBuild.customizedTitle')"
+            />
+            <span
+              v-if="row"
+              role="checkbox"
+              tabindex="0"
+              data-pob-build-gear-done
+              :aria-checked="row.done"
+              :aria-label="t('pobBuild.doneAria', { name: row.label })"
+              class="pxd-gear-tile__check"
+              @click.stop="emit('toggleDone', row.key)"
+              @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
+              @keydown.space.stop.prevent="emit('toggleDone', row.key)"
+            >
+              <Check v-if="row.done" class="size-full" aria-hidden="true" />
+            </span>
+          </component>
+        </template>
+      </div>
+
+      <div v-if="hasFlasks" data-pob-build-gear-flasks class="pxd-gear-row pxd-gear-row--flasks">
+        <template v-for="(row, index) in layout.flasks" :key="index">
+          <button
+            v-if="row"
+            type="button"
+            data-pob-build-gear-tile="flask"
+            :data-done="row.done ? 'true' : undefined"
+            :aria-pressed="activeKey === row.key"
+            :title="tileTitle(row)"
+            class="pxd-gear-tile pxd-gear-tile--flask"
+            :class="[
+              tileClass(row),
+              { 'is-active': activeKey === row.key, 'pxd-gear-tile--corrupted': row.corrupted },
+            ]"
+            @click="emit('select', row, $event)"
+            @mouseenter="emit('hover', row, $event)"
+            @mouseleave="emit('leave')"
+          >
             <PobItemImage
               v-if="row.icon"
               class="pxd-gear-tile__icon"
@@ -199,167 +272,98 @@ const tileTitle = (row: ShoppingRow) =>
               :foulborn="row.foulborn && !row.iconFoulborn"
             />
             <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
-            <PobSocketOverlay
-              v-if="row.sockets"
-              class="pxd-gear-tile__sockets"
-              :sockets="row.sockets"
+            <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
+            <span
+              v-if="row.corrupted"
+              data-pob-build-gear-corrupted
+              class="pxd-gear-tile__corrupted"
+              :aria-label="t('pobBuild.corrupted')"
+            />
+            <span
+              role="checkbox"
+              tabindex="0"
+              data-pob-build-gear-done
+              :aria-checked="row.done"
+              :aria-label="t('pobBuild.doneAria', { name: row.label })"
+              class="pxd-gear-tile__check"
+              @click.stop="emit('toggleDone', row.key)"
+              @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
+              @keydown.space.stop.prevent="emit('toggleDone', row.key)"
+            >
+              <Check v-if="row.done" class="size-full" aria-hidden="true" />
+            </span>
+          </button>
+          <div
+            v-else
+            data-pob-build-gear-empty="flask"
+            class="pxd-gear-tile pxd-gear-tile--flask pxd-gear-tile--empty"
+            :title="t('pobBuild.slot.flask', { n: index + 1 })"
+          />
+        </template>
+      </div>
+
+      <section
+        v-for="section in sections"
+        :key="section.id"
+        :data-pob-build-gear-section="section.id"
+        class="flex flex-col gap-[var(--pxd-space-xs)]"
+      >
+        <h5 class="m-0 text-[length:var(--pxd-font-caption)] font-semibold text-muted-foreground">
+          {{ t(section.label) }}
+        </h5>
+        <div class="pxd-gear-row">
+          <button
+            v-for="row in section.rows"
+            :key="row.key"
+            type="button"
+            :data-pob-build-gear-tile="section.id"
+            :data-done="row.done ? 'true' : undefined"
+            :aria-pressed="activeKey === row.key"
+            :title="tileTitle(row)"
+            class="pxd-gear-tile pxd-gear-tile--small"
+            :class="[
+              tileClass(row),
+              { 'is-active': activeKey === row.key, 'pxd-gear-tile--corrupted': row.corrupted },
+            ]"
+            @click="emit('select', row, $event)"
+            @mouseenter="emit('hover', row, $event)"
+            @mouseleave="emit('leave')"
+          >
+            <PobItemImage
+              v-if="row.icon"
+              class="pxd-gear-tile__icon"
+              :src="row.icon"
+              :layers="row.iconLayers"
               :width="row.iconSize?.width"
               :height="row.iconSize?.height"
-              :contents="row.socketContents"
-              @hover-content="showSocketTip"
-              @select-content="(content, event) => emit('selectContent', content, event)"
+              :foulborn="row.foulborn && !row.iconFoulborn"
             />
-          </template>
-          <span v-else class="pxd-gear-tile__slot">{{ cellLabel(id) }}</span>
-          <span
-            v-if="row?.corrupted"
-            data-pob-build-gear-corrupted
-            class="pxd-gear-tile__corrupted"
-            :aria-label="t('pobBuild.corrupted')"
-          />
-          <span
-            v-if="row?.searchCustomized"
-            data-pob-build-gear-customized
-            class="pxd-gear-tile__dot"
-            :aria-label="t('pobBuild.customizedTitle')"
-          />
-          <span
-            v-if="row"
-            role="checkbox"
-            tabindex="0"
-            data-pob-build-gear-done
-            :aria-checked="row.done"
-            :aria-label="t('pobBuild.doneAria', { name: row.label })"
-            class="pxd-gear-tile__check"
-            @click.stop="emit('toggleDone', row.key)"
-            @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
-            @keydown.space.stop.prevent="emit('toggleDone', row.key)"
-          >
-            <Check v-if="row.done" class="size-full" aria-hidden="true" />
-          </span>
-        </component>
-      </template>
+            <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
+            <span v-if="row.count > 1" class="pxd-gear-tile__count">×{{ row.count }}</span>
+            <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
+            <span
+              v-if="row.corrupted"
+              data-pob-build-gear-corrupted
+              class="pxd-gear-tile__corrupted"
+              :aria-label="t('pobBuild.corrupted')"
+            />
+            <span
+              role="checkbox"
+              tabindex="0"
+              data-pob-build-gear-done
+              :aria-checked="row.done"
+              :aria-label="t('pobBuild.doneAria', { name: row.label })"
+              class="pxd-gear-tile__check"
+              @click.stop="emit('toggleDone', row.key)"
+              @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
+              @keydown.space.stop.prevent="emit('toggleDone', row.key)"
+            >
+              <Check v-if="row.done" class="size-full" aria-hidden="true" />
+            </span>
+          </button>
+        </div>
+      </section>
     </div>
-
-    <div v-if="hasFlasks" data-pob-build-gear-flasks class="pxd-gear-row pxd-gear-row--flasks">
-      <template v-for="(row, index) in layout.flasks" :key="index">
-        <button
-          v-if="row"
-          type="button"
-          data-pob-build-gear-tile="flask"
-          :data-done="row.done ? 'true' : undefined"
-          :aria-pressed="activeKey === row.key"
-          :title="tileTitle(row)"
-          class="pxd-gear-tile pxd-gear-tile--flask"
-          :class="[
-            tileClass(row),
-            { 'is-active': activeKey === row.key, 'pxd-gear-tile--corrupted': row.corrupted },
-          ]"
-          @click="emit('select', row, $event)"
-          @mouseenter="emit('hover', row, $event)"
-          @mouseleave="emit('leave')"
-        >
-          <PobItemImage
-            v-if="row.icon"
-            class="pxd-gear-tile__icon"
-            :src="row.icon"
-            :layers="row.iconLayers"
-            :width="row.iconSize?.width"
-            :height="row.iconSize?.height"
-            :foulborn="row.foulborn && !row.iconFoulborn"
-          />
-          <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
-          <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
-          <span
-            v-if="row.corrupted"
-            data-pob-build-gear-corrupted
-            class="pxd-gear-tile__corrupted"
-            :aria-label="t('pobBuild.corrupted')"
-          />
-          <span
-            role="checkbox"
-            tabindex="0"
-            data-pob-build-gear-done
-            :aria-checked="row.done"
-            :aria-label="t('pobBuild.doneAria', { name: row.label })"
-            class="pxd-gear-tile__check"
-            @click.stop="emit('toggleDone', row.key)"
-            @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
-            @keydown.space.stop.prevent="emit('toggleDone', row.key)"
-          >
-            <Check v-if="row.done" class="size-full" aria-hidden="true" />
-          </span>
-        </button>
-        <div
-          v-else
-          data-pob-build-gear-empty="flask"
-          class="pxd-gear-tile pxd-gear-tile--flask pxd-gear-tile--empty"
-          :title="t('pobBuild.slot.flask', { n: index + 1 })"
-        />
-      </template>
-    </div>
-
-    <section
-      v-for="section in sections"
-      :key="section.id"
-      :data-pob-build-gear-section="section.id"
-      class="flex flex-col gap-[var(--pxd-space-xs)]"
-    >
-      <h5 class="m-0 text-[length:var(--pxd-font-caption)] font-semibold text-muted-foreground">
-        {{ t(section.label) }}
-      </h5>
-      <div class="pxd-gear-row">
-        <button
-          v-for="row in section.rows"
-          :key="row.key"
-          type="button"
-          :data-pob-build-gear-tile="section.id"
-          :data-done="row.done ? 'true' : undefined"
-          :aria-pressed="activeKey === row.key"
-          :title="tileTitle(row)"
-          class="pxd-gear-tile pxd-gear-tile--small"
-          :class="[
-            tileClass(row),
-            { 'is-active': activeKey === row.key, 'pxd-gear-tile--corrupted': row.corrupted },
-          ]"
-          @click="emit('select', row, $event)"
-          @mouseenter="emit('hover', row, $event)"
-          @mouseleave="emit('leave')"
-        >
-          <PobItemImage
-            v-if="row.icon"
-            class="pxd-gear-tile__icon"
-            :src="row.icon"
-            :layers="row.iconLayers"
-            :width="row.iconSize?.width"
-            :height="row.iconSize?.height"
-            :foulborn="row.foulborn && !row.iconFoulborn"
-          />
-          <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
-          <span v-if="row.count > 1" class="pxd-gear-tile__count">×{{ row.count }}</span>
-          <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
-          <span
-            v-if="row.corrupted"
-            data-pob-build-gear-corrupted
-            class="pxd-gear-tile__corrupted"
-            :aria-label="t('pobBuild.corrupted')"
-          />
-          <span
-            role="checkbox"
-            tabindex="0"
-            data-pob-build-gear-done
-            :aria-checked="row.done"
-            :aria-label="t('pobBuild.doneAria', { name: row.label })"
-            class="pxd-gear-tile__check"
-            @click.stop="emit('toggleDone', row.key)"
-            @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
-            @keydown.space.stop.prevent="emit('toggleDone', row.key)"
-          >
-            <Check v-if="row.done" class="size-full" aria-hidden="true" />
-          </span>
-        </button>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -393,9 +397,22 @@ const tileTitle = (row: ShoppingRow) =>
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
 }
 
+/*
+ * 側欄拉寬時圖片不再跟著放大：一格最大約 52px（8 格加間距約 440px），裝備欄置中
+ */
+.pxd-gear-body {
+  display: flex;
+  width: 100%;
+  max-width: 440px;
+  flex-direction: column;
+  gap: var(--pxd-space-sm);
+  margin-inline: auto;
+}
+
+/* 珠寶、護身符等一格的物品和裝備欄同一種格子大小（與戒指一樣大） */
 .pxd-gear-row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: var(--pxd-space-xs);
 }
 

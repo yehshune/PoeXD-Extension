@@ -71,4 +71,30 @@ describe('寶石等級／品質條件', () => {
     expect(toEntrySearchSelection({ gemLevel: 999, gemQuality: -1 })).toBeUndefined();
     expect(toEntrySearchSelection({ gemLevel: 2.5 })).toBeUndefined();
   });
+
+  it('PoE 2 技能寶石帶入插槽數下限（連結的輔助寶石數），可以改或不限', () => {
+    const poe2: ShoppingEntry = {
+      ...gem,
+      gemSockets: 3,
+      searchBase: {
+        status: STATUS,
+        type: 'Arc',
+        filters: {
+          misc_filters: {
+            filters: { gem_level: { min: 21 }, quality: { min: 20 }, gem_sockets: { min: 3 } },
+          },
+        },
+      },
+    };
+    expect(effectiveGemFilters(poe2)).toEqual({ level: 21, quality: 20, sockets: 3 });
+    expect(buildEntryQuery(poe2, { gemSockets: 5 })).toMatchObject({
+      filters: { misc_filters: { filters: { gem_sockets: { min: 5 } } } },
+    });
+    expect(JSON.stringify(buildEntryQuery(poe2, { gemSockets: null }))).not.toContain(
+      'gem_sockets',
+    );
+    expect(normalizeSelectionForEntry(poe2, { gemSockets: 3 })).toBeUndefined();
+    expect(toEntrySearchSelection({ gemSockets: 4 })).toEqual({ gemSockets: 4 });
+    expect(toEntrySearchSelection({ gemSockets: 9 })).toBeUndefined();
+  });
 });

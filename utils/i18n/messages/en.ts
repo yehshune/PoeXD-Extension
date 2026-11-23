@@ -398,6 +398,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.gemFilters.title': 'Gem',
   'pobBuild.gemFilters.level': 'Min level',
   'pobBuild.gemFilters.quality': 'Min quality',
+  'pobBuild.gemFilters.sockets': 'Min sockets',
   'pobBuild.gemFilters.any': 'Any',
   'pobBuild.gemFilters.pob': 'PoB: {value}',
   'pobBuild.allDoneHidden': 'All done — {count} hidden',

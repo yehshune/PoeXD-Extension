@@ -14,7 +14,14 @@ const props = defineProps<{
   /** 物品的背包格數；沒有時當作 2×3 */
   width?: number;
   height?: number;
-  contents?: readonly SocketContent[];
+  /**
+   * 格子佔的格數；和物品尺寸不同時（例如 1 格寬的武器放在 2 格寬的武器欄）圖片會等比縮放置中，
+   * 插槽要跟著圖片實際顯示的大小，不能以格子寬度換算
+   */
+  tileWidth?: number;
+  tileHeight?: number;
+  /** 與插槽一一對應，空孔為 null */
+  contents?: readonly (SocketContent | null)[];
 }>();
 
 const emit = defineEmits<{
@@ -29,8 +36,30 @@ const CELL = 10;
 const SOCKET_SIZE = 0.86;
 /** 插槽區佔物品圖片寬度的比例（以背包格數換算） */
 const AREA_WIDTH = 94;
+/** 插槽區最多佔圖片高度的比例 */
+const AREA_MAX_HEIGHT = 98;
 
-const layout = computed(() => socketLayout(props.sockets, props.width ?? 2, props.height ?? 3));
+const itemWidth = computed(() => Math.max(props.width ?? 2, 1));
+const itemHeight = computed(() => Math.max(props.height ?? 3, 1));
+
+const layout = computed(() => socketLayout(props.sockets, itemWidth.value, itemHeight.value));
+
+/** 圖片在格子裡顯示的寬、高佔格子的比例（object-fit: contain） */
+const imageBox = computed(() => {
+  const tileWidth = Math.max(props.tileWidth ?? itemWidth.value, 1);
+  const tileHeight = Math.max(props.tileHeight ?? itemHeight.value, 1);
+  const scale = Math.min(tileWidth / itemWidth.value, tileHeight / itemHeight.value);
+  return {
+    width: (itemWidth.value * scale) / tileWidth,
+    height: (itemHeight.value * scale) / tileHeight,
+  };
+});
+
+const areaStyle = computed(() => ({
+  width: `${(layout.value.columns / itemWidth.value) * imageBox.value.width * AREA_WIDTH}%`,
+  maxHeight: `${imageBox.value.height * AREA_MAX_HEIGHT}%`,
+  aspectRatio: `${layout.value.columns} / ${layout.value.rows}`,
+}));
 
 const center = (index: number) => {
   const socket = layout.value.sockets[index];
@@ -58,7 +87,7 @@ const COLOR_CLASS: Readonly<Record<SocketColor, string>> = {
   '?': 'pxd-socket--unknown',
 };
 
-const contentAt = (index: number) => props.contents?.[index];
+const contentAt = (index: number) => props.contents?.[index] ?? undefined;
 
 const select = (index: number, event: MouseEvent) => {
   const content = contentAt(index);
@@ -79,10 +108,7 @@ const enter = (index: number, event: MouseEvent) => {
     data-pob-build-sockets
     :data-socket-count="layout.sockets.length"
     class="pxd-sockets"
-    :style="{
-      width: `${(layout.columns / Math.max(width ?? 2, 1)) * AREA_WIDTH}%`,
-      aspectRatio: `${layout.columns} / ${layout.rows}`,
-    }"
+    :style="areaStyle"
   >
     <svg
       class="pxd-socket-links"
@@ -126,7 +152,6 @@ const enter = (index: number, event: MouseEvent) => {
   position: absolute;
   top: 50%;
   left: 50%;
-  max-height: 98%;
   transform: translate(-50%, -50%);
   pointer-events: none;
   filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.8));

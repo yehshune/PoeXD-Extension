@@ -6,6 +6,7 @@ import {
   LINK_OPTIONS,
   MAX_GEM_LEVEL,
   MAX_GEM_QUALITY,
+  MAX_GEM_SOCKETS,
   normalizeSearchDefaults,
   type BuildSearchDefaults,
   type EntrySearchSelection,
@@ -184,12 +185,13 @@ export function toEntrySearchSelection(value: unknown): EntrySearchSelection | u
     ...(isRareSearchMode(value.searchBy) ? { searchBy: value.searchBy } : {}),
     ...gemBound('gemLevel', value.gemLevel, MAX_GEM_LEVEL),
     ...gemBound('gemQuality', value.gemQuality, MAX_GEM_QUALITY),
+    ...gemBound('gemSockets', value.gemSockets, MAX_GEM_SOCKETS),
   };
   return Object.keys(selection).length > 0 ? selection : undefined;
 }
 
-/** 寶石等級／品質下限：整數且在範圍內，或 null（不限） */
-function gemBound<K extends 'gemLevel' | 'gemQuality'>(
+/** 寶石等級／品質／插槽數下限：整數且在範圍內，或 null（不限） */
+function gemBound<K extends 'gemLevel' | 'gemQuality' | 'gemSockets'>(
   key: K,
   value: unknown,
   max: number,

@@ -1014,9 +1014,7 @@ export default defineComponent({
     const canPreview = (row: ShoppingRow) =>
       row.kind === 'gem' ? row.query !== null : Boolean(row.mods?.length || row.searchOverride);
 
-    // PoE 2 的技能寶石不在市集交易，清單沒有寶石，技能組也就不必選
-    const showSkillSets = (build: BuildView) =>
-      version === 'poe1' && build.skillSetOptions.length > 1;
+    const showSkillSets = (build: BuildView) => build.skillSetOptions.length > 1;
 
     const setLabel = (option: SetOption): string =>
       option.title || t('pobBuild.unnamedSet', { n: option.position });
@@ -1306,14 +1304,11 @@ export default defineComponent({
       else if (canSearch(row)) pob.openSearch(buildId, row, 'current');
     };
 
-    /** 點裝備插槽裡的寶石：開關那顆寶石的設定框，位置對齊所在的裝備格 */
+    /** 點裝備插槽裡的寶石或深淵珠寶：開關它的設定框，位置對齊所在的裝備格 */
     const selectSocketContent = (build: BuildView, content: SocketContent, event: MouseEvent) => {
       const key = content.rowKey;
       if (!key) return;
-      const row = build.groups
-        .filter((group) => group.kind === 'gem')
-        .flatMap((group) => group.rows)
-        .find((entry) => entry.key === key);
+      const row = build.groups.flatMap((group) => group.rows).find((entry) => entry.key === key);
       if (!row || !canPreview(row)) return;
       togglePreview(build.id, key, event);
       if (activePreviewTarget.value?.key === key) {
