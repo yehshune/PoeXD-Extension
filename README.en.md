@@ -12,13 +12,11 @@
 
 <p align="center"><a href="./README.md">繁體中文</a> · <b>English</b></p>
 
-**PoeXD Extension** is a helper for the official Path of Exile (PoE 1 / PoE 2) trade site: it adds a
-side toolbar next to the trade page so you can watch live searches in one place, apply affixes
-quickly, organize bookmarks and PoB shopping lists, and display the international trade site in
-Chinese. A full visual walkthrough is available in the
-[User Guide (zh-TW)](https://yehshune.github.io/poexd/).
+**PoeXD Extension** is a helper for the official Path of Exile (PoE 1 / PoE 2) trade site: it adds a side toolbar next to the trade page so you can watch live searches in one place, apply affixes quickly, organize bookmarks and PoB shopping lists, and display the international trade site in Chinese.
 
-## Install and first run
+<p align="center"><a href="https://yehshune.github.io/poexd/"><b>👉 Full feature tour and screenshots: PoeXD User Guide (zh-TW)</b></a></p>
+
+## Install
 
 | Browser                          | How                                                                                                                                                                         |
 | :------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -26,165 +24,37 @@ Chinese. A full visual walkthrough is available in the
 | Microsoft Edge                   | [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/hnnpgpcnmgjbmmhgogcljbnfoklblgmb)                                                                          |
 | Manual install (no auto-update)  | Download `chromium.zip` from [Releases](https://github.com/yehshune/PoeXD-Extension/releases), unzip, enable Developer mode in `chrome://extensions/`, then "Load unpacked" |
 
-Store versions update automatically and are recommended. Firefox is not available yet.
-
-- Open the [official trade site](https://www.pathofexile.com/trade) (Taiwan and China realms are
-  also supported); the PoeXD toolbar appears on the **left** by default (switchable to the right in
-  Settings → Panel Position), or collapses down to a single PoeXD badge.
-- Click the PoeXD icon in your browser toolbar on a trade page to toggle the sidebar directly (or open quick trade links from other pages); individual modules can be toggled in the sidebar Settings.
-
-## What's new
-
-- **v1.12.0 themes & LiveSearch Console upgrades**:
-  - **Themes**: 11 built-in themes (including light ones), plus a "Custom" theme where you can tune
-    background, surface, text, primary and destructive colors and the corner radius with a live
-    preview, and share it as JSON; sidebar cards and toolbars now share one consistent style. The
-    update notice can jump straight to the settings section of each new feature.
-  - **LiveSearch Console**: edit the official notification sound and volume (including a custom
-    sound file) from the console settings, and get desktop notifications while the console is in
-    the background (one card per live search, bursts are merged). Result cards show which
-    connection they came from and can be clicked to filter, connection rows show hit counts, and
-    the results area can be cleared without stopping the live searches.
-  - **Affix selector & tiers**: the item category moves into the selector header and can be synced
-    to the official item category; recently used affixes and expand/collapse all are new. The tier
-    menu lets you select a tier range and click a value to fill it in, and now covers PoE 1
-    Synthesis, Incursion and Haunted mods and PoE 2 Sanctum mods.
-  - **Other improvements**: the Result Board can hide sold items, lets you choose how many results
-    to load per batch and groups the seller list by stash tab; the PoB shopping list is split into
-    gear / flasks / jewels / gems and can switch to pseudo totals or relax values by 10% in one
-    click; stat group templates support inline rename and an import preview; Market Translation
-    data can be refreshed manually from settings; official trade site toasts are translated too.
-- **v1.11.0 Result Board & settings redesign**:
-  - **Result Board**: gathers the results of the current search in the sidebar so you can filter,
-    sort, or switch to the seller list to find sellers holding several instant-buyout results, then
-    generate a **stash search regex** that highlights all of them in their stash at once. Load all
-    results (up to 100) through the official "load more", and expired hideout links are refreshed
-    automatically before travelling.
-  - **Settings & first run**: a single searchable settings page with per-module toggles, backup and
-    restore covering both PoE 1 and PoE 2, and "Show on page" guides; UI scale is now a fixed-step
-    menu and the sidebar is resized by dragging its edge. A tour starts automatically after the
-    first install, and the toolbar icon toggles the sidebar on trade pages. Layout, hotkey and
-    bookmark UI preferences are now shared between PoE 1 and PoE 2.
-  - **Other improvements**: pinned items gain sorting, gold fees and mod ranges, and show
-    "seller · listed age" like the Result Board; Market Translation can show English under result
-    mods; higher tiers are shown disabled when filtering by item level; price sorting yields to the
-    official sort when a result field is clicked; switching leagues with active live searches now
-    asks first.
-
-See [Releases](https://github.com/yehshune/PoeXD-Extension/releases) for the full history.
+Store versions update automatically and are recommended. Firefox is not available yet. After installing, open the [official trade site](https://www.pathofexile.com/trade) (Taiwan and China realms are also supported): the PoeXD toolbar appears on the left and a guided tour starts on first run. See [first run](https://yehshune.github.io/poexd/#first-run).
 
 ## Features
 
-See the [User Guide (zh-TW)](https://yehshune.github.io/poexd/) for step-by-step screenshots.
+| Feature                                                                                   | What it does                                                                                                                |
+| :---------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
+| [⚡ Live search console](https://yehshune.github.io/poexd/#live-search)                   | Watch several live searches in one tab with auto-reconnect, sound and desktop notifications                                 |
+| [🎯 Stat group templates & search preview](https://yehshune.github.io/poexd/#stat-groups) | Save frequent filters as groups, overlay them onto any search, preview and tweak before opening                             |
+| [🔍 Affix filter & tier tools](https://yehshune.github.io/poexd/#affix)                   | Browse affixes by item class and item level; pick a tier to fill in its value range                                         |
+| [💰 Result enhancements](https://yehshune.github.io/poexd/#results)                       | poe.ninja price conversion and sorting, affix highlights, PoB copy, PoEDB links, rune previews                              |
+| [📌 Pinned items](https://yehshune.github.io/poexd/#pinned)                               | Keep results with price and seller in the sidebar to compare later; sold items are marked                                   |
+| [🧾 Result Board](https://yehshune.github.io/poexd/#result-board)                         | Filter and sort a search's results, find sellers with several buyouts and copy a stash regex                                |
+| [🧩 PoB shopping list](https://yehshune.github.io/poexd/#pob)                             | Import PoB codes or share links, view gear as a paper doll and search each slot in one click                                |
+| [📁 Bookmarks, history & TFT interop](https://yehshune.github.io/poexd/#bookmarks)        | Nested folders with custom icons and colors, automatic history, TFT import and export                                       |
+| [🌐 Market translation](https://yehshune.github.io/poexd/#translation)                    | Show the international trade site in Traditional or Simplified Chinese, optionally bilingual                                |
+| [⚙️ Settings & FAQ](https://yehshune.github.io/poexd/#settings)                           | Themes and custom palettes, UI scale, hotkeys, module toggles, backup; see the [FAQ](https://yehshune.github.io/poexd/#faq) |
 
-### ⚡ Live search console
+## What's new
 
-Watch multiple live searches from a single tab with automatic reconnects, real-time result cards,
-in-console official sound & volume controls, and background desktop notifications. Add searches from
-bookmarks or paste trade URLs directly, group by bookmark folder, start or stop in batches, switch
-to a results-only view, filter by connection or result source badge, monitor live API rate status,
-protect the console tab from browser auto-discard, and resume your previous session after restarting
-the browser.
+**v1.13.0 PoB paper doll & Result Board mod filters**
 
-<p align="center"><img src="./docs/store/images/en/screenshot-4.jpg" width="80%" alt="Live search console"></p>
+- **PoB shopping list**: a new paper-doll gear view (now the default) follows the in-game equipment layout with item art, sockets and links, socketed gems / runes / abyss jewels, and corrupted and foulborn marks. Rare items can be searched by category plus defence type, with defence minimums, a pseudo-totals default and a non-unique filter so same-base uniques stay out.
+- **Result Board**: required mod and tier filters, better keyword search, and an opt-in sync that filters the official result list as well.
+- **Bookmarks**: folders get custom icons and colors; dragging now uses vertical drop zones, stays smooth with large trees, and pressing `Esc` cancels a drag without moving anything.
+- **Other improvements**: localized PoB class names with ascendancy icons; empty filter results show the active filters with a reset button; the page guide's appearance step can toggle compact density.
 
-### 🎯 Stat group templates and search preview
+Full history is on [Releases](https://github.com/yehshune/PoeXD-Extension/releases).
 
-Save common conditions (e.g. "Life + total elemental resistance") as groups and overlay them on the
-current search without overwriting other filters, with one-click undo and share-code / backup-file
-import and export. Clicking a bookmark or history entry's name opens **Search Preview** first (click
-the arrow beside the name to open the search directly), where you can tune values, switch condition
-group types, overlay individual affixes, or overwrite the bookmark.
+## Feedback
 
-<p align="center">
-  <img src="./docs/store/images/en/screenshot-3.jpg" width="49%" alt="Stat group templates">
-  <img src="./docs/store/images/en/screenshot-2.jpg" width="49%" alt="Search preview and overlay">
-</p>
-
-### 🔍 Affix filter and tier tools
-
-Open the affix selector beside official filter groups to browse prefixes and suffixes by item class
-and item level range, then apply checked stats to the official filters in one go. Tier buttons next
-to each filter fill in value ranges (switch mod groups on the left when a stat has multiple sources
-on the item class), and affixes can be dragged to reorder or move between groups. PoE 2 tablets,
-waystones and radius jewels are supported.
-
-### 💰 Result enhancements
-
-- **Converted prices & sorting**: convert listed prices using poe.ninja rates and sort by converted
-  price (international realm).
-- **Affix highlight & quick filter**: highlight matching affixes; hover a mod on a result card to
-  reveal `+AND` / `+NOT` buttons that add the stat to your filters without triggering a search.
-- **PoB copy & PoEDB links**: hover the top-left of a result card to copy English **PoB** item text
-  (automatically mapped to English on Taiwan/China realms) or open the item's **PoEDB** page.
-- **PoE 2 rune-override estimates**: estimate DPS and defence after rune overrides and sort results.
-
-### 📌 Pinned items
-
-Pin a result from its hover toolbar to save the item with its price, seller and listing time to
-the sidebar, then compare it later as an official-style card; works on search pages, live search
-and the LiveSearch Console. Filter, drag to reorder or drag out to unpin; sold items are marked as
-sold, and instant-buyout items can travel to the seller's hideout. Up to 50 pins per game version,
-stored locally in your browser.
-
-### 🧾 Result Board
-
-Gathers the results the current search has already retrieved on a normal search page into the
-sidebar (open it from the sidebar or the "Board" button next to the official result count) without
-changing the official result list.
-
-- **Item list**: filter and sort by price or listing time; click a result to scroll to and
-  highlight the official row, travel to the hideout or pin it.
-- **Seller list**: sellers ordered by instant-buyout count and converted total, to buy several
-  results in one hideout visit. Pick the items to buy to see a subtotal and a **stash search regex**
-  that highlights them in the seller's stash (only guaranteed to tell them apart from that seller's
-  other loaded results; you are warned when it cannot).
-- **Load more**: always goes through the official "load more" button, one batch or all at once (the
-  official cap is 100); visited and sold results are marked. The board keeps nothing once you start
-  another search; pin results you want to keep.
-
-### 🧩 PoB shopping list
-
-Paste Path of Building export codes or `poe.ninja`, `pobb.in` and `pastebin` share links (the latter
-two require granting access to those sites; codes stay local in your browser) to organize multiple
-builds by gear slot and gems, with gear-set and skill-group switching. Translates mods (including
-legacy wording) and lets you tune criteria before searching, bookmarking or sending to the
-LiveSearch Console.
-
-### 📁 Bookmarks, history and TFT interop
-
-- Tree folders with drag and drop, cover images and hover previews.
-- Highlights the bookmark matching the current page and lets you overwrite existing bookmarks with
-  the current search; bookmarks automatically follow your current realm and league.
-- Automatic search history, plus bookmark import/export with TFT Trade Extension (with a diff
-  preview before importing).
-
-<p align="center"><img src="./docs/store/images/en/screenshot-1.jpg" width="80%" alt="Bookmark tree"></p>
-
-### 🌐 Market translation
-
-Display the international trade site UI, filters and search results in Chinese (Traditional Chinese
-for Taiwan-realm terminology or Simplified Chinese for China-realm terminology) without altering the
-underlying search query. Enable **Bilingual** mode to show Chinese and English together in affix,
-currency and item dropdowns so you can search in either language, and optionally show English under
-result mods. When enabled alongside `pobb.in`
-permission, `pobb.in` share pages are also translated to Chinese.
-
-### ⚙️ Settings, hotkeys and FAQ
-
-- Adjustable panel position (left by default, switchable to right), theme (11 built-in presets and
-  custom color/radius editor) and UI zoom; resize the sidebar by dragging its edge. Settings can be
-  searched, feature modules toggled individually, and preferences backed up, restored or reset for
-  both PoE 1 and PoE 2.
-- A guided tour starts after the first install and can be replayed with "Take the tour" in Tools & Info;
-  settings offer "Show on page" to point at the control they affect.
-- Fuzzy search for item names and filters (auto `~`), customizable focus / clear search hotkeys
-  (`Backspace` to clear, `Esc` to cancel), and optional item names in browser tab titles.
-- Extension UI in Traditional Chinese, Simplified Chinese and English; affix data covers all 11
-  languages of the official trade site.
-- More troubleshooting tips are listed in the [FAQ (zh-TW)](https://yehshune.github.io/poexd/#faq).
-
-<p align="center"><img src="./docs/store/images/en/screenshot-5.jpg" width="80%" alt="Settings"></p>
+Report bugs and feature requests on [GitHub Issues](https://github.com/yehshune/PoeXD-Extension/issues). Including the extension version, browser, PoE 1 or 2, realm (International / Taiwan / China) and steps to reproduce helps a lot. Never post your `POESESSID` or other cookies.
 
 ## Privacy
 

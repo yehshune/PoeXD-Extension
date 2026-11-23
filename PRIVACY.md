@@ -1,6 +1,6 @@
 # Privacy Policy / 隱私權政策
 
-Effective date / 生效日期：2026-11-18
+Effective date / 生效日期：2026-11-24
 
 - [English](#english)
 - [繁體中文](#繁體中文)
@@ -35,6 +35,7 @@ Uninstalling the extension deletes all of this data.
 | Official trade sites (`pathofexile.com`, `pathofexile.tw`, `poe.game.qq.com`) and their CDNs (`web.poecdn.com`, `webtw.poecdn.com`, `poecdn.game.qq.com`) | While you use the trade site (and in the background when Market Translation is enabled) | The same trade queries and live search connections the official site makes on your behalf; when Market Translation is enabled, public official trade data and UI dictionary files (`translate.zh_TW.js` / `translate.zh_CN.js`) are fetched and cached locally |
 | `poe.ninja`                                                                                                                                               | When price conversion is enabled on the International realm                             | The league name, to fetch public currency exchange rates                                                                                                                                                                                                       |
 | PoB share sites (`poe.ninja`, and `pobb.in` / `pastebin.com` only after you grant the optional permission)                                                | When you paste a share link into the PoB shopping list                                  | A request for the raw PoB code of the link you pasted, without cookies; nothing else is sent, and the code is stored only on your device                                                                                                                       |
+| `yehshune.github.io/poexd-art` (static PoE 2 item images hosted by the developer on GitHub Pages)                                                         | When the PoB shopping list shows PoE 2 item art                                         | A plain image request for the item picture, sent without a Referer; nothing about your build or account is sent                                                                                                                                                |
 
 ### Data sharing
 
@@ -74,6 +75,7 @@ PoeXD Extension（以下稱「本擴充功能」）是《流亡黯道》官方�
 | 官方交易網站（`pathofexile.com`、`pathofexile.tw`、`poe.game.qq.com`）與其 CDN（`web.poecdn.com`、`webtw.poecdn.com`、`poecdn.game.qq.com`） | 你使用交易網站時（以及啟用市集漢化時於背景更新） | 與官方網站代你送出的相同交易查詢與即時搜尋連線；啟用市集漢化時會抓取官方公開交易資料與介面字典檔（`translate.zh_TW.js` / `translate.zh_CN.js`）並快取於本機 |
 | `poe.ninja`                                                                                                                                  | 在國際服啟用價格換算時                           | 聯盟名稱，用於取得公開的通貨匯率                                                                                                                            |
 | PoB 分享網站（`poe.ninja`；`pobb.in`、`pastebin.com` 需你先允許選用權限）                                                                    | 你在 PoB 購物清單貼上分享網址時                  | 以不帶 cookie 的請求取回你貼上的那個分享的 PoB 代碼，不傳送其他資料；代碼只存在你的裝置                                                                     |
+| `yehshune.github.io/poexd-art`（開發者放在 GitHub Pages 的 PoE 2 物品靜態圖片）                                                              | PoB 購物清單顯示 PoE 2 物品圖片時                | 單純的圖片請求，不帶 Referer；不會傳送你的 build 或帳號資料                                                                                                 |
 
 ### 資料分享
 
