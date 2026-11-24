@@ -168,17 +168,32 @@ export function createLiveSearchPrimarySession(
     });
     desktopNotifier = desktop;
 
-    const resolveSourceName = (ownerKey: string): string | undefined => {
-      const snap = sourceController?.read();
-      const fromSession = snap?.sessionConnections?.find((item) => item.canonicalKey === ownerKey);
-      if (fromSession?.name) return fromSession.name;
-      if (snap?.groups) {
-        for (const group of snap.groups) {
-          const found = group.items.find((item) => item.canonicalKey === ownerKey);
-          if (found?.name) return found.name;
+    // 來源名稱查表：source controller 的 read() 每次都重建整份快照（解析全部書籤 URL），
+    // 結果來源標籤每次同步會對每一列查名稱，直接呼叫 read() 會讓主控台每次互動卡上數秒。
+    // 因此只在 source 快照通知時重建一次查表，查名稱為 O(1)。
+    let sourceNames: ReadonlyMap<string, string> | null = null;
+    const buildSourceNames = (
+      snap: ReturnType<LiveSearchSourceController['read']>,
+    ): ReadonlyMap<string, string> => {
+      const names = new Map<string, string>();
+      for (const group of snap.groups ?? []) {
+        for (const item of group.items) {
+          if (item.canonicalKey && item.name && !names.has(item.canonicalKey)) {
+            names.set(item.canonicalKey, item.name);
+          }
         }
       }
-      return undefined;
+      // 本次工作階段的連線名稱優先於書籤群組內的名稱
+      for (const item of snap.sessionConnections ?? []) {
+        if (item.canonicalKey && item.name) names.set(item.canonicalKey, item.name);
+      }
+      return names;
+    };
+    const resolveSourceName = (ownerKey: string): string | undefined => {
+      // 尚未收到快照通知（或 controller 不支援訂閱）時才退回即時讀取
+      const names =
+        sourceNames ?? (sourceController ? buildSourceNames(sourceController.read()) : null);
+      return names?.get(ownerKey);
     };
 
     const badge = f.createResultSourceBadge({
@@ -227,7 +242,8 @@ export function createLiveSearchPrimarySession(
     sourceController = sources;
     unsubSourceBadgeSync =
       typeof sources.subscribe === 'function'
-        ? sources.subscribe(() => {
+        ? sources.subscribe((snapshot) => {
+            sourceNames = buildSourceNames(snapshot);
             badge.syncAll();
           })
         : null;

@@ -253,7 +253,7 @@ describe('createLiveSearchPrimarySession', () => {
     const events: string[] = [];
     const { factories } = createRecordingFactories(events);
     let capturedRuntimeOpts: any;
-    const sourceListener: { fn: (() => void) | null } = { fn: null };
+    const sourceListener: { fn: ((snapshot: unknown) => void) | null } = { fn: null };
     const badge = {
       record: vi.fn(),
       syncAll: vi.fn(),
@@ -279,7 +279,7 @@ describe('createLiveSearchPrimarySession', () => {
         createSourceController: () =>
           ({
             read: () => ({ sessionConnections: [], groups: [] }),
-            subscribe: (fn: () => void) => {
+            subscribe: (fn: (snapshot: unknown) => void) => {
               sourceListener.fn = fn;
               return () => {
                 sourceListener.fn = null;
@@ -298,12 +298,71 @@ describe('createLiveSearchPrimarySession', () => {
     expect(badge.clear).toHaveBeenCalledTimes(1);
 
     // 來源（如書籤更名）變動時應同步重刷卡片來源標籤
-    sourceListener.fn?.();
+    sourceListener.fn?.({ sessionConnections: [], groups: [] });
     expect(badge.syncAll).toHaveBeenCalledTimes(1);
 
     session.dispose();
     expect(badge.dispose).toHaveBeenCalledTimes(1);
     expect(sourceListener.fn).toBeNull();
+  });
+
+  it('來源標籤查名稱使用快照通知建立的查表，不會每列重建整份 source 快照', () => {
+    const events: string[] = [];
+    const { factories } = createRecordingFactories(events);
+    let badgeOpts: any;
+    let sourceListener: ((snapshot: unknown) => void) | null = null;
+    const read = vi.fn(() => ({
+      sessionConnections: [],
+      groups: [{ items: [{ canonicalKey: 'k1', name: '舊名稱' }] }],
+    }));
+
+    const session = createLiveSearchPrimarySession({
+      version: 'poe1',
+      preferences: createStubPreferences(),
+      resultCache: { ingestResult: vi.fn() },
+      doc: stubDoc,
+      factories: {
+        ...factories,
+        createResultSourceBadge: (opts) => {
+          badgeOpts = opts;
+          return { record: vi.fn(), syncAll: vi.fn(), clear: vi.fn(), dispose: vi.fn() };
+        },
+        createRuntime: () => ({ subscribe: () => () => {}, dispose: vi.fn() }) as any,
+        createSourceController: () =>
+          ({
+            read,
+            subscribe: (fn: (snapshot: unknown) => void) => {
+              sourceListener = fn;
+              fn(read());
+              return () => {};
+            },
+            enqueueIncomingConnections: vi.fn(),
+            dispose: vi.fn(),
+          }) as any,
+      },
+    });
+
+    read.mockClear();
+    for (let i = 0; i < 100; i++) expect(badgeOpts.resolveSourceName('k1')).toBe('舊名稱');
+    expect(read).not.toHaveBeenCalled();
+
+    // 快照通知（如更名）後查表隨之更新；工作階段連線名稱優先
+    sourceListener!({
+      sessionConnections: [{ canonicalKey: 'k1', name: '本次連線' }],
+      groups: [
+        {
+          items: [
+            { canonicalKey: 'k1', name: '新名稱' },
+            { canonicalKey: 'k2', name: 'B' },
+          ],
+        },
+      ],
+    });
+    expect(badgeOpts.resolveSourceName('k1')).toBe('本次連線');
+    expect(badgeOpts.resolveSourceName('k2')).toBe('B');
+    expect(badgeOpts.resolveSourceName('missing')).toBeUndefined();
+
+    session.dispose();
   });
 
   it('點擊桌面通知時透過 liveSearch:focusPrimary 聚焦主控台，而非呼叫會開新分頁的 liveSearch:openPrimary', () => {

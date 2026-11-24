@@ -453,6 +453,32 @@ describe('LiveSearch Console Host Guard & Network Safety Net', () => {
     expect(officialLiveWsCreated).toBe(true);
   });
 
+  it('結果區內的 DOM 變動不觸發全頁重掃；結果區外的變動仍會重新套用守衛', async () => {
+    document.body.innerHTML = buildOfficialTradeDomFixture();
+    const guard = createLiveSearchConsoleHostGuard({ doc: document, dispatchGuardState: () => {} });
+    guard.start();
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const scanSpy = vi.spyOn(document, 'querySelectorAll');
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    document.getElementById('official-resultset')!.appendChild(row);
+    row.classList.add('hover');
+    await flush();
+    expect(scanSpy).not.toHaveBeenCalled();
+
+    const statusBar = document.getElementById('statusBar')!;
+    statusBar.removeAttribute('data-poexd-console-hidden');
+    statusBar.style.removeProperty('display');
+    document.getElementById('host-wrapper')!.appendChild(document.createElement('div'));
+    await flush();
+    expect(scanSpy).toHaveBeenCalled();
+    expect(statusBar.getAttribute('data-poexd-console-hidden')).toBe('true');
+    expect(statusBar.style.display).toBe('none');
+
+    guard.dispose();
+  });
+
   it('3. Main World Network Safety Net: 啟用守衛時阻擋 /api/trade*/search (fetch & XHR)，但不阻擋 /api/trade*/fetch，且停用後恢復', async () => {
     const listeners = new Map<string, (payload: any) => void>();
     const mockBridge: MainWorldBridge = {

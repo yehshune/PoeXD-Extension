@@ -443,7 +443,12 @@ export function createLiveSearchConsoleHostGuard(
 
     const root = doc.documentElement || doc.body;
     if (root && typeof MutationObserver !== 'undefined') {
-      observer = new MutationObserver(() => {
+      // 結果區（新結果列、來源標籤、hover class）變動最頻繁卻與官方搜尋介面無關；
+      // 整批變動都落在保留的結果區內時跳過全頁重掃，避免結果多時每次互動都卡頓。
+      observer = new MutationObserver((records) => {
+        if (records.length > 0 && records.every((r) => isInsidePreservedSurface(r.target))) {
+          return;
+        }
         scanAndGuardControls();
       });
       observer.observe(root, {

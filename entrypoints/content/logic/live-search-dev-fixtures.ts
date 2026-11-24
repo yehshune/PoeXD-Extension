@@ -18,15 +18,16 @@ const FAKE_BASES = [
   { typeLine: 'Two-Stone Ring', icon: 'Art/2DItems/Rings/TopazSapphire.png', w: 1, h: 1 },
 ] as const;
 
+// 官方 /fetch 新版格式的詞綴為物件並附 stat hash；hash 取 PoE 1 實際 stat id，僅供官方卡片渲染
 const FAKE_MODS = [
-  '+85 to maximum Life',
-  '+42% to Fire Resistance',
-  '+38% to Cold Resistance',
-  '+31% to Lightning Resistance',
-  '+45 to Intelligence',
-  '12% increased Movement Speed',
-  '+60 to maximum Energy Shield',
-];
+  { text: '+85 to maximum Life', stat: 'stat_3299347043', min: '80', max: '89' },
+  { text: '+42% to Fire Resistance', stat: 'stat_3372524247', min: '42', max: '45' },
+  { text: '+38% to Cold Resistance', stat: 'stat_4220027924', min: '36', max: '41' },
+  { text: '+31% to Lightning Resistance', stat: 'stat_1671376347', min: '30', max: '35' },
+  { text: '+45 to Intelligence', stat: 'stat_328541901', min: '43', max: '50' },
+  { text: '12% increased Movement Speed', stat: 'stat_2250533757', min: '10', max: '14' },
+  { text: '+60 to maximum Energy Shield', stat: 'stat_3489782002', min: '56', max: '67' },
+] as const;
 
 export const DEV_FALLBACK_SEARCH_IDS = ['devFakeSearchA', 'devFakeSearchB', 'devFakeSearchC'];
 
@@ -40,6 +41,12 @@ export function buildFallbackDevOwners(
   }));
 }
 
+/**
+ * 官方結果卡片以 `item.extended` 為渲染前提（缺少時整張卡片不渲染，2026-11-24 實機確認），
+ * 因此假資料比照新版 /fetch：詞綴為 `{ description, domain, hash, mods }`，並附 rarity、
+ * frameTypeId、extended（hashes 與 base64 物品文字）與 listing.fee。
+ * 不附 hideout_token，避免誤點「前往藏身處」時以假 token 呼叫官方 API。
+ */
 export function buildFakeTradeResult(
   index: number,
   league: string,
@@ -53,13 +60,28 @@ export function buildFakeTradeResult(
   );
   const id = `devfake${now.toString(36)}${index.toString(36).padStart(4, '0')}`;
   const amount = 1 + (index % 50);
+  const name = `Dev Fake ${index}`;
+  const ilvl = 80 + (index % 7);
+  const note = `~price ${amount} chaos`;
+  const itemText = [
+    'Rarity: Rare',
+    name,
+    base.typeLine,
+    '--------',
+    `Item Level: ${ilvl}`,
+    '--------',
+    ...mods.map((mod) => mod.text),
+    '--------',
+    `Note: ${note}`,
+    '',
+  ].join('\r\n');
   return {
     id,
     listing: {
       method: 'psapi',
       indexed: new Date(now - index * 1000).toISOString(),
-      stash: { name: `~price ${amount} chaos`, x: index % 12, y: index % 12 },
-      whisper: `@DevTester Hi, I would like to buy your Dev Fake ${index} listed for {0} in ${league}`,
+      stash: { name: note, x: index % 12, y: index % 12 },
+      whisper: `@DevTester Hi, I would like to buy your ${name} listed for {0} in ${league}`,
       account: {
         name: 'DevTester#0000',
         online: { league },
@@ -68,6 +90,7 @@ export function buildFakeTradeResult(
         realm: gameVersion === 'poe2' ? 'poe2' : 'pc',
       },
       price: { type: '~price', amount, currency: 'chaos' },
+      fee: amount * 10,
     },
     item: {
       verified: true,
@@ -76,13 +99,27 @@ export function buildFakeTradeResult(
       icon: `https://web.poecdn.com/image/${base.icon}`,
       league,
       id: `${id}item`,
-      name: `Dev Fake ${index}`,
+      name,
       typeLine: base.typeLine,
       baseType: base.typeLine,
+      rarity: 'Rare',
       identified: true,
-      ilvl: 80 + (index % 7),
+      ilvl,
+      note,
       frameType: 2,
-      explicitMods: mods,
+      frameTypeId: 'Rare',
+      explicitMods: mods.map((mod) => ({
+        description: mod.text,
+        domain: 'explicit',
+        hash: `stat.explicit.${mod.stat}`,
+        mods: [{ magnitudes: [{ min: mod.min, max: mod.max }] }],
+      })),
+      extended: {
+        hashes: {
+          explicit: mods.map((mod, modIndex) => [`explicit.${mod.stat}`, [modIndex]]),
+        },
+        text: btoa(itemText),
+      },
     },
   };
 }

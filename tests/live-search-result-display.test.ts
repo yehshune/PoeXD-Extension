@@ -150,6 +150,26 @@ describe('Dev 假資料', () => {
     });
   });
 
+  it('比照新版 /fetch 格式，帶官方卡片渲染所需的 extended、rarity 與物件詞綴', () => {
+    const [{ itemData }] = buildFakeTradeResults(
+      1,
+      'Standard',
+      'poe1',
+      buildFallbackDevOwners('poe1', 'Standard'),
+      1_000,
+    );
+    const item = (itemData as any).item;
+    expect(item).toMatchObject({ rarity: 'Rare', frameTypeId: 'Rare' });
+    expect(item.explicitMods[0]).toMatchObject({
+      description: expect.any(String),
+      domain: 'explicit',
+      hash: expect.stringMatching(/^stat\.explicit\.stat_\d+$/),
+    });
+    expect(item.extended.hashes.explicit).toHaveLength(item.explicitMods.length);
+    expect(atob(item.extended.text)).toContain(item.explicitMods[0].description);
+    expect((itemData as any).listing.hideout_token).toBeUndefined();
+  });
+
   it('沒有連線歸屬時不產生資料，且數量有上限', () => {
     expect(buildFakeTradeResults(5, 'Standard', 'poe1', [])).toEqual([]);
     expect(
