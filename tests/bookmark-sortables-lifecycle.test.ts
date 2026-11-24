@@ -11,6 +11,9 @@ import {
   useBookmarkSortables,
   calculateBookmarkReorderPlacements,
 } from '@/components/sidebar/composables/useBookmarkSortables';
+import { createBookmarkWorkspace } from '@/components/sidebar/bookmark-workspace';
+import { createFakeBookmarkWorkspaceHost } from '@/components/sidebar/bookmark-workspace/fake-host';
+import { createFakeBookmarkModel } from './helpers/fake-bookmark-model';
 
 describe('bookmark Sortable drag lifecycle', () => {
   beforeEach(() => {
@@ -569,6 +572,163 @@ describe('bookmark Sortable drag lifecycle', () => {
       expect(mockDestroy1).not.toHaveBeenCalled();
       // only wrapper3 is created!
       expect(createSortable).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Reactive workspace sync & drag deferral', () => {
+    it('syncs sortables reactively when workspace finishes loading and when folders collapse/expand', async () => {
+      const destroy1 = vi.fn();
+      const destroy2 = vi.fn();
+      const wrapper1 = { id: 'w1', getAttribute: () => 'g1' } as any;
+      const wrapper2 = { id: 'w2', getAttribute: () => 'g2' } as any;
+      let currentWrappers = [wrapper1, wrapper2];
+
+      createSortable.mockImplementation((el: any) => {
+        if (el === wrapper1) return { destroy: destroy1, option: vi.fn() };
+        if (el === wrapper2) return { destroy: destroy2, option: vi.fn() };
+        return { destroy: vi.fn(), option: vi.fn() };
+      });
+
+      vi.stubGlobal('document', {
+        querySelector: () => null,
+        querySelectorAll: (selector: string) =>
+          selector === '.bookmark-list-wrapper' ? currentWrappers : [],
+      });
+
+      const isDragging = ref(false);
+      const model = createFakeBookmarkModel({
+        groups: [
+          { id: 'g1', name: 'Folder 1', order: 0 },
+          { id: 'g2', name: 'Folder 2', order: 1 },
+        ],
+      });
+      const workspace = createBookmarkWorkspace(createFakeBookmarkWorkspaceHost(), {
+        version: 'poe1',
+        model,
+        isDragging,
+      });
+
+      const controller = useBookmarkSortables({
+        bookmarks: workspace.tree.bookmarks,
+        groups: workspace.tree.groups,
+        listRenderKey: ref(0),
+        isDragging,
+        isOverTrash: ref(false),
+        beginDrag: vi.fn(),
+        endDrag: vi.fn(),
+        execute: workspace.execute,
+        isDragEnabled: workspace.tree.isBookmarkDragEnabled,
+        collapsedGroupIds: workspace.tree.collapsedGroupIds,
+        transientExpandedFolderIds: workspace.tree.transientExpandedFolderIds,
+        syncSource: workspace.tree.sortableKey,
+        isLoading: workspace.tree.isLoading,
+      });
+
+      // Before start(), workspace is still loading so Sortable must not initialize
+      expect(createSortable).not.toHaveBeenCalled();
+
+      // Starting workspace flips isLoading true -> false, triggering a single reactive sync
+      await workspace.start();
+      await nextTick();
+      await nextTick();
+      expect(createSortable).toHaveBeenCalledTimes(2);
+
+      // Collapsing g2 reactively prunes wrapper2 without any imperative init() call
+      currentWrappers = [wrapper1];
+      createSortable.mockClear();
+      await workspace.tree.toggleGroupCollapse('g2');
+      await nextTick();
+      await nextTick();
+      expect(destroy2).toHaveBeenCalledOnce();
+      expect(destroy1).not.toHaveBeenCalled();
+      expect(createSortable).not.toHaveBeenCalled();
+
+      // Expanding g2 reactively binds wrapper2 without any imperative init() call
+      currentWrappers = [wrapper1, wrapper2];
+      await workspace.tree.toggleGroupCollapse('g2');
+      await nextTick();
+      await nextTick();
+      expect(createSortable).toHaveBeenCalledTimes(1);
+
+      controller.destroy();
+      workspace.dispose();
+    });
+
+    it('defers sortable rebuild while a drag is active and flushes once drag ends', async () => {
+      const destroy1 = vi.fn();
+      const destroy2 = vi.fn();
+      const wrapper1 = { id: 'w1', getAttribute: () => 'g1' } as any;
+      const wrapper2 = { id: 'w2', getAttribute: () => 'g2' } as any;
+      let currentWrappers = [wrapper1, wrapper2];
+
+      createSortable.mockImplementation((el: any) => {
+        if (el === wrapper1) return { destroy: destroy1, option: vi.fn() };
+        if (el === wrapper2) return { destroy: destroy2, option: vi.fn() };
+        return { destroy: vi.fn(), option: vi.fn() };
+      });
+
+      vi.stubGlobal('document', {
+        querySelector: () => null,
+        querySelectorAll: (selector: string) =>
+          selector === '.bookmark-list-wrapper' ? currentWrappers : [],
+      });
+
+      const isDragging = ref(false);
+      const model = createFakeBookmarkModel({
+        groups: [
+          { id: 'g1', name: 'Folder 1', order: 0 },
+          { id: 'g2', name: 'Folder 2', order: 1 },
+        ],
+      });
+      const workspace = createBookmarkWorkspace(createFakeBookmarkWorkspaceHost(), {
+        version: 'poe1',
+        model,
+        isDragging,
+      });
+
+      const controller = useBookmarkSortables({
+        bookmarks: workspace.tree.bookmarks,
+        groups: workspace.tree.groups,
+        listRenderKey: ref(0),
+        isDragging,
+        isOverTrash: ref(false),
+        beginDrag: vi.fn(),
+        endDrag: vi.fn(),
+        execute: workspace.execute,
+        isDragEnabled: workspace.tree.isBookmarkDragEnabled,
+        collapsedGroupIds: workspace.tree.collapsedGroupIds,
+        transientExpandedFolderIds: workspace.tree.transientExpandedFolderIds,
+        syncSource: workspace.tree.sortableKey,
+        isLoading: workspace.tree.isLoading,
+      });
+
+      await workspace.start();
+      await nextTick();
+      await nextTick();
+      expect(createSortable).toHaveBeenCalledTimes(2);
+
+      // Begin drag and collapse g2 during active drag
+      isDragging.value = true;
+      currentWrappers = [wrapper1];
+      createSortable.mockClear();
+      await workspace.tree.toggleGroupCollapse('g2');
+      await nextTick();
+      await nextTick();
+
+      // Must NOT destroy or rebuild while drag is active
+      expect(destroy1).not.toHaveBeenCalled();
+      expect(destroy2).not.toHaveBeenCalled();
+      expect(createSortable).not.toHaveBeenCalled();
+
+      // Once drag ends, the deferred rebuild runs and prunes wrapper2
+      isDragging.value = false;
+      await nextTick();
+      await nextTick();
+      expect(destroy2).toHaveBeenCalledOnce();
+      expect(destroy1).not.toHaveBeenCalled();
+
+      controller.destroy();
+      workspace.dispose();
     });
   });
 });

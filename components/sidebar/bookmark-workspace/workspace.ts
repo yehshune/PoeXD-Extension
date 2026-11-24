@@ -53,8 +53,6 @@ export interface BookmarkWorkspaceOptions {
   /** 目前是否正在拖曳（由 Pane 的 DragTrashSession 提供）。 */
   isDragging?: Readonly<Ref<boolean>>;
   isDraggingBookmark?: Readonly<Ref<boolean>>;
-  /** 樹的版面（展開／新增子項）改變後通知；預計由反應式 sortable 同步取代。 */
-  onLayoutChange?: () => void | Promise<void>;
 }
 
 export interface BookmarkWorkspacePreferences {
@@ -551,7 +549,6 @@ export function createBookmarkWorkspace(
 
     // 自動展開該資料夾，確保能看到新書籤
     await collapse.reveal(groupId);
-    await options.onLayoutChange?.();
   };
 
   // 以目前頁面的搜尋覆蓋現有書籤（保留書籤名稱、既有封面、位置與自訂設定，無確認框）

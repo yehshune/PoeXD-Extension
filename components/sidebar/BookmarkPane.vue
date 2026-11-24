@@ -296,7 +296,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onUnmounted, computed, watch, provide } from 'vue';
+import { defineComponent, ref, onUnmounted, computed, provide } from 'vue';
 import { t } from '@/utils/i18n';
 import SidebarPane from './layout/SidebarPane.vue';
 import SidebarEmptyState from './layout/SidebarEmptyState.vue';
@@ -389,7 +389,6 @@ export default defineComponent({
   setup() {
     const sidebarPaneRef = ref<any>(null);
     const paneRoot = computed(() => (sidebarPaneRef.value?.$el as HTMLElement | null) ?? null);
-    let initSortable = async () => {};
     const version = getPoeVersion();
     const listRenderKey = ref(0);
     let stopPreferences: (() => void) | undefined;
@@ -411,7 +410,6 @@ export default defineComponent({
       version,
       isDragging,
       isDraggingBookmark,
-      onLayoutChange: () => initSortable(),
       alongside: async () => {
         const preferencesOutcome = await getPreferences(version);
         if (!preferencesOutcome.ok) throw new Error(preferencesOutcome.error.message);
@@ -437,6 +435,8 @@ export default defineComponent({
       isDragEnabled: tree.isBookmarkDragEnabled,
       collapsedGroupIds: tree.collapsedGroupIds,
       transientExpandedFolderIds: tree.transientExpandedFolderIds,
+      syncSource: tree.sortableKey,
+      isLoading: tree.isLoading,
     });
 
     const liveFolderDeleteImpact = computed(() => {
@@ -449,21 +449,11 @@ export default defineComponent({
         activeDragEntity.value.id,
       );
     });
-    initSortable = sortableController.init;
-    const destroySortables = sortableController.destroy;
-
-    watch(
-      [tree.sortableKey, tree.isLoading],
-      ([, loading]) => {
-        if (!loading) void initSortable();
-      },
-      { flush: 'post' },
-    );
 
     onUnmounted(() => {
       stopPreferences?.();
       stopPreferences = undefined;
-      destroySortables();
+      sortableController.destroy();
     });
 
     const isImportDialogOpen = ref(false);

@@ -39,6 +39,10 @@ export interface BookmarkSortableOptions {
   transientExpandedFolderIds?: Ref<Set<string>>;
   onTransientExpand?: (folderId: string) => void;
   indentationWidth?: number;
+  /** Workspace 樹狀態簽章；變動時自動同步 Sortable，拖曳中延後到拖曳結束。 */
+  syncSource?: Readonly<Ref<string>>;
+  /** Workspace 是否仍在初始載入；載入完成後才會觸發反應式同步。 */
+  isLoading?: Readonly<Ref<boolean>>;
 }
 
 function readCssVarNumber(el: HTMLElement, varName: string): number {
@@ -808,8 +812,10 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     },
   });
 
+  let pendingSync = false;
   const init = async () => {
     if (isReconciling.value) return;
+    pendingSync = false;
     if (!isEnabled()) {
       destroy();
       return;
@@ -1017,6 +1023,33 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       }
     });
   };
+
+  if (options.syncSource) {
+    const loadingRef = options.isLoading ?? ref(false);
+    watch(
+      [options.syncSource, loadingRef],
+      ([, loading]) => {
+        if (loading) return;
+        if (options.isDragging.value) {
+          pendingSync = true;
+          return;
+        }
+        pendingSync = false;
+        void init();
+      },
+      { flush: 'post' },
+    );
+    watch(
+      options.isDragging,
+      (dragging) => {
+        if (!dragging && pendingSync && !loadingRef.value) {
+          pendingSync = false;
+          void init();
+        }
+      },
+      { flush: 'post' },
+    );
+  }
 
   return {
     init,

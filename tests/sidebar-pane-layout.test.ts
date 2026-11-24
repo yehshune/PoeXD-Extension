@@ -689,13 +689,10 @@ describe('BookmarkPane SidebarPane integration and SortableJS contract', () => {
   it('initializes SortableJS via a single path without double-init on initial mount', async () => {
     const freshBookmarkSource = readFileSync('components/sidebar/BookmarkPane.vue', 'utf8');
 
-    // Static contract: onMounted finally block must not invoke initSortable directly
-    expect(freshBookmarkSource).not.toMatch(/finally\s*\{[^}]*initSortable\(\)/);
-
-    // Watcher must handle loading false post-flush
-    expect(freshBookmarkSource).toContain('watch(');
-    expect(freshBookmarkSource).toContain('[tree.sortableKey, tree.isLoading]');
-    expect(freshBookmarkSource).toContain('if (!loading) void initSortable();');
+    // Static contract: no initSortable forward declaration or imperative call in BookmarkPane
+    expect(freshBookmarkSource).not.toContain('initSortable');
+    expect(freshBookmarkSource).toContain('syncSource: tree.sortableKey');
+    expect(freshBookmarkSource).toContain('isLoading: tree.isLoading');
 
     // Runtime verification: loading true -> false produces exactly one init pass
     mockBookmarkCollection = {
