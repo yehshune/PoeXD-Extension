@@ -8,6 +8,8 @@ import TierDropdownHost from '@/components/injected/TierDropdownHost.vue';
 import {
   syncTierSlots,
   clearTierSlots,
+  clearTierCategorySelectionTarget,
+  getTierCategorySelectionTarget,
   registerTierSlotRefresher,
   refreshTierSlot,
   refreshAndReopenTierSlot,
@@ -21,7 +23,7 @@ import { tierMenuDemoSlotKey, tierTriggerDemoSlotKey } from '@/utils/page-guide-
 import {
   removeTierSlotArtifacts,
   cleanAllTierSlotArtifacts,
-} from '@/entrypoints/content/logic/injected-controls';
+} from '@/entrypoints/content/logic/tier-slot-controller';
 
 describe('TierDropdownHost (Native Reka + Vue Teleport & Foundation Compliance)', () => {
   let shadowHost: HTMLElement;
@@ -1565,13 +1567,13 @@ describe('Chromium Regressions (Native Reka + Vue Teleport Phase 3)', () => {
       expect(filterA.getAttribute('data-poexd-category')).toBe('bow');
 
       // 驗證 B: selecting target snapshot 攜帶 currentCategory
-      const selectingTarget = (window as any).__poexd_selecting_target__;
+      const selectingTarget = getTierCategorySelectionTarget();
       expect(selectingTarget).toBeTruthy();
-      expect(selectingTarget.slotKey).toBe('slot-1');
-      expect(selectingTarget.currentCategory).toBe('bow');
+      expect(selectingTarget?.slotKey).toBe('slot-1');
+      expect(selectingTarget?.currentCategory).toBe('bow');
 
       // 4. 模擬使用者取消/關閉 Dialog -> 再次點開 A 的 Tier trigger，A 仍為「弓 (點選切換)」
-      (window as any).__poexd_selecting_target__ = null;
+      clearTierCategorySelectionTarget();
       await refreshTierSlot('slot-1');
       await nextTick();
       triggerA?.click();

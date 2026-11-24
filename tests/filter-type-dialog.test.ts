@@ -6,7 +6,12 @@ import { createApp, defineComponent, h, nextTick } from 'vue';
 import { ConfigProvider } from 'reka-ui';
 import FilterPane from '@/components/sidebar/FilterPane.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
-import { registerTierSlotRefresher } from '@/utils/tier-slot-registry';
+import {
+  clearTierCategorySelectionTarget,
+  getTierCategorySelectionTarget,
+  registerTierSlotRefresher,
+  setTierCategorySelectionTarget,
+} from '@/utils/tier-slot-registry';
 import { DEFAULT_SEARCH_DEBOUNCE_MS } from '@/components/sidebar/composables/useDebouncedSearch';
 
 const source = readFileSync('components/sidebar/FilterPane.vue', 'utf8');
@@ -188,7 +193,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
   };
 
   beforeEach(() => {
-    delete (window as any).__poexd_selecting_target__;
+    clearTierCategorySelectionTarget();
   });
 
   afterEach(() => {
@@ -198,7 +203,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     if (host && host.parentNode) {
       host.parentNode.removeChild(host);
     }
-    delete (window as any).__poexd_selecting_target__;
+    clearTierCategorySelectionTarget();
     vi.restoreAllMocks();
   });
 
@@ -314,7 +319,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
       availableTypes: ['body-armour', 'helmet', 'bow'],
       currentCategory: 'bow',
     };
-    (window as any).__poexd_selecting_target__ = targetPayload;
+    setTierCategorySelectionTarget(targetPayload);
 
     const updateEventSpy = vi.fn();
     const removeListener = listenPoeEvent('poexd-update-stat-category', (data) => {
@@ -340,6 +345,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     expect(updateEventSpy).toHaveBeenCalledWith({
       groupIndex: 1,
       filterIndex: 2,
+      bindingId: '',
       category: 'helmet',
     });
 
@@ -359,7 +365,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
       groupIndex: 0,
       filterIndex: 0,
     };
-    (window as any).__poexd_selecting_target__ = targetPayload;
+    setTierCategorySelectionTarget(targetPayload);
 
     const closeAffixModalSpy = vi.fn();
     const removeListener = listenPoeEvent('poexd-close-affix-modal', () => {
@@ -382,7 +388,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
 
     // Type Dialog does not touch Affix Dialog
     expect(closeAffixModalSpy).not.toHaveBeenCalled();
-    expect((window as any).__poexd_selecting_target__).toBeNull();
+    expect(getTierCategorySelectionTarget()).toBeNull();
 
     removeListener();
   });
@@ -399,11 +405,11 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
       return false;
     });
 
-    (window as any).__poexd_selecting_target__ = {
+    setTierCategorySelectionTarget({
       slotKey: 'slot-test-key',
       groupIndex: 0,
       filterIndex: 0,
-    };
+    });
 
     const triggerBtn = appRoot.querySelector(
       '.custom-select-container button',
@@ -425,10 +431,10 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
   it('H. closes Dialog and does not dispatch poexd-close-affix-modal on Escape dismiss with selecting target', async () => {
     await mountFilterPane();
 
-    (window as any).__poexd_selecting_target__ = {
+    setTierCategorySelectionTarget({
       groupIndex: 3,
       filterIndex: 1,
-    };
+    });
 
     const closeSpy = vi.fn();
     const removeListener = listenPoeEvent('poexd-close-affix-modal', () => {
@@ -451,7 +457,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
 
     expect(portalRoot.querySelector('[data-slot="dialog-content"]')).toBeNull();
     expect(closeSpy).not.toHaveBeenCalled();
-    expect((window as any).__poexd_selecting_target__).toBeNull();
+    expect(getTierCategorySelectionTarget()).toBeNull();
 
     removeListener();
   });
@@ -459,10 +465,10 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
   it('I. closes Dialog and does not dispatch poexd-close-affix-modal on built-in close button', async () => {
     await mountFilterPane();
 
-    (window as any).__poexd_selecting_target__ = {
+    setTierCategorySelectionTarget({
       groupIndex: 2,
       filterIndex: 0,
-    };
+    });
 
     const closeSpy = vi.fn();
     const removeListener = listenPoeEvent('poexd-close-affix-modal', () => {
@@ -484,7 +490,7 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
 
     expect(portalRoot.querySelector('[data-slot="dialog-content"]')).toBeNull();
     expect(closeSpy).not.toHaveBeenCalled();
-    expect((window as any).__poexd_selecting_target__).toBeNull();
+    expect(getTierCategorySelectionTarget()).toBeNull();
 
     removeListener();
   });

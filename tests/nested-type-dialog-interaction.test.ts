@@ -4,7 +4,12 @@ import { mockModsData } from './helpers/mock-mods-data';
 import { createApp, nextTick } from 'vue';
 import Sidebar from '@/components/Sidebar.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
-import { registerTierSlotRefresher } from '@/utils/tier-slot-registry';
+import {
+  clearTierCategorySelectionTarget,
+  getTierCategorySelectionTarget,
+  registerTierSlotRefresher,
+  setTierCategorySelectionTarget,
+} from '@/utils/tier-slot-registry';
 
 // Mock other unrelated sidebar panes to isolate Sidebar + real FilterPane
 vi.mock('@/components/sidebar/BookmarkPane.vue', () => ({
@@ -65,7 +70,7 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
   let portalRoot: HTMLElement | null = null;
 
   beforeEach(() => {
-    delete (window as any).__poexd_selecting_target__;
+    clearTierCategorySelectionTarget();
     host = document.createElement('div');
     host.id = 'poexd-test-host';
     document.body.appendChild(host);
@@ -88,7 +93,7 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
       host.parentNode.removeChild(host);
       host = null;
     }
-    delete (window as any).__poexd_selecting_target__;
+    clearTierCategorySelectionTarget();
     vi.restoreAllMocks();
   });
 
@@ -139,12 +144,12 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
       return false;
     });
 
-    (window as any).__poexd_selecting_target__ = {
+    setTierCategorySelectionTarget({
       slotKey: 'slot-nested-test',
       groupIndex: 0,
       filterIndex: 1,
       availableTypes: ['body-armour', 'bow'],
-    };
+    });
 
     const modalActiveEvents: boolean[] = [];
     const removeModalActiveListener = listenPoeEvent('poexd-modal-active-changed', (active) => {
@@ -206,6 +211,7 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
     expect(updatedStatCategoryEvent).toEqual({
       groupIndex: 0,
       filterIndex: 1,
+      bindingId: '',
       category: 'bow',
     });
 
@@ -278,12 +284,12 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
     expect(modalActiveEvents).toEqual([true]);
 
     // 2. 在 Affix Dialog 已開啟情況下，喚起 Type Dialog
-    (window as any).__poexd_selecting_target__ = {
+    setTierCategorySelectionTarget({
       slotKey: 'slot-nested-2',
       groupIndex: 0,
       filterIndex: 1,
       availableTypes: ['body-armour', 'bow'],
-    };
+    });
 
     dispatchPoeEvent('poexd-trigger-select-type-modal');
     await nextTick();
@@ -372,12 +378,12 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
     expect(modalActiveEvents).toEqual([true]);
 
     // 2. 從 Affix 內開啟 Type Dialog
-    (window as any).__poexd_selecting_target__ = {
+    setTierCategorySelectionTarget({
       slotKey: 'slot-nested-3',
       groupIndex: 0,
       filterIndex: 1,
       availableTypes: ['body-armour', 'bow'],
-    };
+    });
 
     dispatchPoeEvent('poexd-trigger-select-type-modal');
     await nextTick();
@@ -387,7 +393,7 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
     // 3. 確認：Affix = open, Type = open
     expect(isAffixDialogOpen()).toBe(true);
     expect(isTypeDialogOpen()).toBe(true);
-    expect((window as any).__poexd_selecting_target__).toBeTruthy();
+    expect(getTierCategorySelectionTarget()).toBeTruthy();
 
     // 4. 使用真實 window keydown Escape
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -400,7 +406,7 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
     // 6. 驗證：Type = closed, Affix = open, selecting target 正常清除, modal-active 沒有變 false
     expect(isTypeDialogOpen()).toBe(false);
     expect(isAffixDialogOpen()).toBe(true);
-    expect((window as any).__poexd_selecting_target__).toBeNull();
+    expect(getTierCategorySelectionTarget()).toBeNull();
     expect(modalActiveEvents).toEqual([true]);
 
     // 7. 再送第二次 ESC
@@ -471,12 +477,12 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
     await new Promise((r) => setTimeout(r, 80));
 
     // 2. 開啟 Type Dialog
-    (window as any).__poexd_selecting_target__ = {
+    setTierCategorySelectionTarget({
       slotKey: 'slot-nested-4',
       groupIndex: 0,
       filterIndex: 1,
       availableTypes: ['body-armour'],
-    };
+    });
     dispatchPoeEvent('poexd-trigger-select-type-modal');
     await nextTick();
     await new Promise((r) => setTimeout(r, 80));
@@ -547,7 +553,7 @@ describe('Integration Regression: T-tier Dropdown -> 選擇物品類別 -> Direc
 
     expect(isTypeDialogOpen()).toBe(false);
     expect(isAffixDialogOpen()).toBe(true);
-    expect((window as any).__poexd_selecting_target__).toBeNull();
+    expect(getTierCategorySelectionTarget()).toBeNull();
     expect(modalActiveEvents).toEqual([true]);
 
     // ESC #3 -> 關閉 Affix Dialog

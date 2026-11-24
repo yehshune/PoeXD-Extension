@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  createInjectedControls,
+  createTierSlotController,
   createTierSlotDomainData,
-} from '@/entrypoints/content/logic/injected-controls';
+} from '@/entrypoints/content/logic/tier-slot-controller';
 import {
   createTierDomainService,
   filterTiersByCategory,
@@ -13,7 +13,12 @@ import {
   resolveTargetAffinitiesByStatId,
   resolveTierModEligibility,
 } from '@/entrypoints/content/logic/tier-domain-service';
-import { activeTierSlots, clearTierSlots } from '@/utils/tier-slot-registry';
+import {
+  activeTierSlots,
+  clearTierCategorySelectionTarget,
+  clearTierSlots,
+  getTierCategorySelectionTarget,
+} from '@/utils/tier-slot-registry';
 import { listenPoeEvent } from '@/utils/event-contracts';
 
 describe('Tier slot eligibility & dropdown empty-state contracts', () => {
@@ -64,7 +69,7 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
   afterEach(() => {
     clearTierSlots();
     document.body.innerHTML = '';
-    delete (window as any).__poexd_selecting_target__;
+    clearTierCategorySelectionTarget();
   });
 
   describe('1. 詞綴完全沒有任何 usable item type (Regression 1)', () => {
@@ -90,13 +95,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue({});
       vi.spyOn(tierDomainService, 'findModTiersByStatId').mockReturnValue(corruptedOnlyTiers);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
 
       // DOM 內不應存在 slot
       expect(filterEl.querySelector('.poexd-tier-trigger-slot')).toBeNull();
@@ -127,13 +132,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue({});
       vi.spyOn(tierDomainService, 'findModTiersByStatId').mockReturnValue(singleCorruptedTier);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
 
       // DOM 內應建立 slot
       expect(filterEl.querySelector('.poexd-tier-trigger-slot')).not.toBeNull();
@@ -171,13 +176,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue({});
       vi.spyOn(tierDomainService, 'findModTiersByStatId').mockReturnValue(noTypesTiers);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
 
       // 不建立 T slot
       expect(filterEl.querySelector('.poexd-tier-trigger-slot')).toBeNull();
@@ -209,13 +214,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue({});
       vi.spyOn(tierDomainService, 'findModTiersByStatId').mockReturnValue(singleTierNoValues);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
 
       expect(filterEl.querySelector('.poexd-tier-trigger-slot')).toBeNull();
       expect(activeTierSlots.value).toHaveLength(0);
@@ -246,13 +251,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue({});
       vi.spyOn(tierDomainService, 'findModTiersByStatId').mockReturnValue(multiTypeTiers);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
 
       // T 按鈕 / slot 必須存在
       const slotEl = filterEl.querySelector<HTMLElement>('.poexd-tier-trigger-slot');
@@ -288,13 +293,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue({});
       vi.spyOn(tierDomainService, 'findModTiersByStatId').mockReturnValue(multiTypeTiers);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
       const slotData = activeTierSlots.value[0];
 
       let modalTriggered = false;
@@ -306,7 +311,7 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       slotData.onSelect(switchItem);
 
       expect(modalTriggered).toBe(true);
-      expect((window as any).__poexd_selecting_target__).toMatchObject({
+      expect(getTierCategorySelectionTarget()).toMatchObject({
         availableTypes: ['helmet', 'gloves'],
         currentCategory: 'ring',
       });
@@ -339,14 +344,14 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue({});
       vi.spyOn(tierDomainService, 'findModTiersByStatId').mockReturnValue(multiTypeTiers);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
       // 初始: ring 狀態
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
       expect(activeTierSlots.value[0].items.some((i) => i.id === 'no-category-tiers')).toBe(true);
 
       const slotKey = activeTierSlots.value[0].key;
@@ -355,7 +360,7 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       filterEl.setAttribute('data-poexd-category', 'helmet');
 
       // 觸發 refresh
-      const refreshed = await injectedControls.refreshTierSlotDomain(slotKey);
+      const refreshed = await tierSlotController.refreshSlot(slotKey);
       expect(refreshed).toBe(true);
 
       const refreshedSlot = activeTierSlots.value.find((s) => s.key === slotKey);
@@ -396,13 +401,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue({});
       vi.spyOn(tierDomainService, 'findModTiersByStatId').mockReturnValue(singleUsableTypeTiers);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
 
       expect(activeTierSlots.value).toHaveLength(1);
       const items = activeTierSlots.value[0].items;
@@ -440,13 +445,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue({});
       vi.spyOn(tierDomainService, 'findModTiersByStatId').mockReturnValue(multiTypeTiers);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
 
       expect(activeTierSlots.value).toHaveLength(1);
       const items = activeTierSlots.value[0].items;
@@ -470,7 +475,7 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       activeTierSlots.value[0].onSelect(triggerItem);
 
       expect(modalFired).toBe(true);
-      expect((window as any).__poexd_selecting_target__).toMatchObject({
+      expect(getTierCategorySelectionTarget()).toMatchObject({
         availableTypes: ['helmet', 'gloves', 'boots'],
         currentCategory: '',
       });
@@ -744,13 +749,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue(rawMods);
       vi.spyOn(tierDomainService, 'getRawModsData').mockReturnValue(rawMods);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe2',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
 
       // 驗證 slot 已建立
       expect(activeTierSlots.value).toHaveLength(1);
@@ -889,13 +894,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue(rawMods);
       vi.spyOn(tierDomainService, 'getRawModsData').mockReturnValue(rawMods);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe2',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
       const slot = activeTierSlots.value[0];
 
       // 1. 同時存在 mod_group_option（純粹詞綴預設啟用）與純粹詞綴之階級 (T1 Lv.75, T2 Lv.2)
@@ -940,7 +945,7 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
 
       // 3. 若 DOM 預先帶有 data-poexd-mod-group（由詞綴選擇器加入複合詞綴時寫入），初始開啟直接對應複合分組而非最上方純粹分組
       minInput.value = '';
-      await injectedControls.injectTierSelectorButtons(2);
+      await tierSlotController.sync(2);
       const restoredSlot = activeTierSlots.value[0];
       const restoredGroups = restoredSlot.items.filter((i) => i.type === 'mod_group_option');
       expect(restoredGroups[0].isActive).toBe(false);
@@ -1243,13 +1248,13 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue(rawMods);
       vi.spyOn(tierDomainService, 'getRawModsData').mockReturnValue(rawMods);
 
-      const injectedControls = createInjectedControls({
+      const tierSlotController = createTierSlotController({
         version: 'poe1',
         tierDomainService,
         isCurrentGeneration: () => true,
       });
 
-      await injectedControls.injectTierSelectorButtons(1);
+      await tierSlotController.sync(1);
       const slot = activeTierSlots.value[0];
 
       const groupOptions = slot.items.filter((i) => i.type === 'mod_group_option');

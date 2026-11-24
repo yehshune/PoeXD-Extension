@@ -1,11 +1,16 @@
 import { type PoeVersion } from '@/utils/trade-context';
-import { listenPoeEvent } from '@/utils/event-contracts';
 import { registerTierSlotRefresher } from '@/utils/tier-slot-registry';
 import { syncPageThemeBridge, cleanupPageThemeBridge } from '@/lib/theme/page-theme-bridge';
 import { createTierDomainService } from './tier-domain-service';
 import { createFilterDragDrop } from './filter-drag-drop';
 import { createInjectedControls } from './injected-controls';
 import { createFilterObserver } from './filter-observer';
+import {
+  cleanSendToConsoleButtons,
+  injectSendToConsoleButton,
+  updateSendToConsoleButtonsLocale,
+} from './send-to-console';
+import { createTierSlotController } from './tier-slot-controller';
 import {
   cleanStatGroupTemplateSlots,
   injectStatGroupTemplateSlots,
@@ -28,14 +33,13 @@ export function createFilterDomEnhancements(version: PoeVersion): FilterDomEnhan
   let tierHelperEnabled = true;
   let affixSelectorEnabled = true;
   let unregisterRefresher: (() => void) | undefined;
-  let categoryUpdateListener: (() => void) | undefined;
 
   const isCurrentGeneration = (gen: number): boolean => gen === generation;
 
   const tierDomainService = createTierDomainService(version);
   const filterDragDrop = createFilterDragDrop();
-
-  const injectedControls = createInjectedControls({
+  const injectedControls = createInjectedControls({ version });
+  const tierSlotController = createTierSlotController({
     version,
     tierDomainService,
     isCurrentGeneration,
@@ -48,9 +52,9 @@ export function createFilterDomEnhancements(version: PoeVersion): FilterDomEnhan
       if (affixSelectorEnabled) {
         injectedControls.injectFilterGroupButtons();
       }
-      injectedControls.injectSendToConsoleButton();
+      injectSendToConsoleButton(version);
       if (tierHelperEnabled) {
-        void injectedControls.injectTierSelectorButtons(gen);
+        void tierSlotController.sync(gen);
       }
       filterDragDrop.sync();
       injectStatGroupTemplateSlots();
@@ -59,9 +63,9 @@ export function createFilterDomEnhancements(version: PoeVersion): FilterDomEnhan
 
   const reset = (): void => {
     filterObserver.stop();
-    injectedControls.cleanAllTierSlotArtifacts();
+    tierSlotController.clear();
     injectedControls.cleanFilterGroupButtons();
-    injectedControls.cleanSendToConsoleButtons();
+    cleanSendToConsoleButtons();
     filterDragDrop.cleanup();
     cleanStatGroupTemplateSlots();
   };
@@ -75,7 +79,7 @@ export function createFilterDomEnhancements(version: PoeVersion): FilterDomEnhan
       syncPageThemeBridge();
 
       unregisterRefresher = registerTierSlotRefresher((slotKey) =>
-        injectedControls.refreshTierSlotDomain(slotKey),
+        tierSlotController.refreshSlot(slotKey),
       );
 
       if (editorEnabled) {
@@ -115,9 +119,9 @@ export function createFilterDomEnhancements(version: PoeVersion): FilterDomEnhan
       if (enabled === tierHelperEnabled) return;
       tierHelperEnabled = enabled;
       if (!enabled) {
-        injectedControls.cleanAllTierSlotArtifacts();
+        tierSlotController.clear();
       } else if (initialized && editorEnabled) {
-        void injectedControls.injectTierSelectorButtons(generation);
+        void tierSlotController.sync(generation);
       }
     },
 
@@ -136,9 +140,10 @@ export function createFilterDomEnhancements(version: PoeVersion): FilterDomEnhan
     },
 
     refreshAffixDisplayLocale(): void {
-      injectedControls.updateInjectedControlsLocale?.();
+      injectedControls.updateInjectedControlsLocale();
+      updateSendToConsoleButtonsLocale();
       if (initialized && editorEnabled && tierHelperEnabled) {
-        void injectedControls.injectTierSelectorButtons(generation);
+        void tierSlotController.sync(generation);
       }
     },
   };

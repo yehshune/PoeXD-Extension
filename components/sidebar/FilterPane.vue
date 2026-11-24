@@ -458,7 +458,12 @@ import { ArrowUpRight, ChevronsDownUp, ChevronsUpDown } from '@lucide/vue';
 import { useModSelection } from './composables/useModSelection';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { resolveOfficialCategoryOption } from '@/utils/official-category-resolver';
-import { refreshAndReopenTierSlot } from '@/utils/tier-slot-registry';
+import {
+  clearTierCategorySelectionTarget,
+  getTierCategorySelectionTarget,
+  refreshAndReopenTierSlot,
+  type TierCategorySelectionTarget,
+} from '@/utils/tier-slot-registry';
 import { getPoeVersion } from '@/utils/trade-context';
 import {
   resolveFallbackQueryForUnmatchedMod,
@@ -679,7 +684,7 @@ export default defineComponent({
     const debouncedTypeSearchQuery = useDebouncedRef(typeSearchQuery);
     const typePopoverPanelRef = ref<InstanceType<typeof ItemTypeSelectorPanel> | null>(null);
     const typeDialogPanelRef = ref<InstanceType<typeof ItemTypeSelectorPanel> | null>(null);
-    const poexdSelectingTarget = ref<any>(null);
+    const poexdSelectingTarget = ref<TierCategorySelectionTarget | null>(null);
     const forceCenteredTypeDialog = ref(false);
     const recentTypes = ref<string[]>([]);
 
@@ -702,13 +707,13 @@ export default defineComponent({
       isSelectDropdownOpen.value = false;
       forceCenteredTypeDialog.value = false;
       poexdSelectingTarget.value = null;
-      (window as any).__poexd_selecting_target__ = null;
+      clearTierCategorySelectionTarget();
     };
 
     watch(isSelectDropdownOpen, (isOpen) => {
       emit('type-dialog-open-changed', isOpen);
       if (isOpen) {
-        poexdSelectingTarget.value = (window as any).__poexd_selecting_target__ || null;
+        poexdSelectingTarget.value = getTierCategorySelectionTarget();
         if (affixDemoMode.value) return;
         setTimeout(() => {
           const panel = useCenteredTypeDialog.value
@@ -719,7 +724,7 @@ export default defineComponent({
         }, 100);
       } else {
         poexdSelectingTarget.value = null;
-        (window as any).__poexd_selecting_target__ = null;
+        clearTierCategorySelectionTarget();
       }
     });
 
@@ -967,9 +972,9 @@ export default defineComponent({
 
     // 點擊選取自訂類別選項
     const selectTypeOption = async (type: string) => {
-      const target = poexdSelectingTarget.value || (window as any).__poexd_selecting_target__;
+      const target = poexdSelectingTarget.value || getTierCategorySelectionTarget();
       poexdSelectingTarget.value = null;
-      (window as any).__poexd_selecting_target__ = null;
+      clearTierCategorySelectionTarget();
       isSelectDropdownOpen.value = false;
 
       if (target) {
@@ -979,7 +984,7 @@ export default defineComponent({
         dispatchPoeEvent('poexd-update-stat-category', {
           groupIndex,
           filterIndex,
-          bindingId,
+          bindingId: bindingId ?? '',
           category: type,
         });
 

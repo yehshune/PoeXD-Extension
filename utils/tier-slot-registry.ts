@@ -87,6 +87,29 @@ export interface TierSlotDescriptor {
   getCurrentValues?: () => { min: string; max: string };
 }
 
+export interface TierCategorySelectionTarget {
+  slotKey?: string;
+  groupIndex: number;
+  filterIndex: number;
+  bindingId?: string;
+  availableTypes?: string[];
+  currentCategory?: string;
+}
+
+let categorySelectionTarget: TierCategorySelectionTarget | null = null;
+
+export function setTierCategorySelectionTarget(target: TierCategorySelectionTarget | null): void {
+  categorySelectionTarget = target;
+}
+
+export function getTierCategorySelectionTarget(): TierCategorySelectionTarget | null {
+  return categorySelectionTarget;
+}
+
+export function clearTierCategorySelectionTarget(): void {
+  categorySelectionTarget = null;
+}
+
 /**
  * 集中管理所有活躍的 PoE 詞綴行 Teleport 槽位與 Tier 項目
  */

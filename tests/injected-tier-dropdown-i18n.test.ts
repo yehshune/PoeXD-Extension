@@ -8,10 +8,12 @@ import {
   clearTierSlots,
   type TierDropdownItemSpec,
 } from '@/utils/tier-slot-registry';
+import { createInjectedControls } from '@/entrypoints/content/logic/injected-controls';
 import {
-  createInjectedControls,
-  createTierSlotDomainData,
-} from '@/entrypoints/content/logic/injected-controls';
+  injectSendToConsoleButton,
+  updateSendToConsoleButtonsLocale,
+} from '@/entrypoints/content/logic/send-to-console';
+import { createTierSlotDomainData } from '@/entrypoints/content/logic/tier-slot-controller';
 import { createTierDomainService } from '@/entrypoints/content/logic/tier-domain-service';
 import {
   setActiveDisplayLocalePreference,
@@ -116,14 +118,11 @@ describe('Seam 2: In-Page Tier Dropdown (`TierDropdownHost.vue`) & Search Form I
     advancedPane.appendChild(filterGroup);
     document.body.appendChild(advancedPane);
 
-    const tierDomainService = createTierDomainService('poe2');
     const injected = createInjectedControls({
       version: 'poe2',
-      tierDomainService,
-      isCurrentGeneration: () => true,
     });
 
-    injected.injectSendToConsoleButton();
+    injectSendToConsoleButton('poe2');
     injected.injectFilterGroupButtons();
 
     const consoleBtn = searchPanel.querySelector<HTMLButtonElement>('.poexd-send-to-console-btn');
@@ -140,7 +139,8 @@ describe('Seam 2: In-Page Tier Dropdown (`TierDropdownHost.vue`) & Search Form I
 
     // Switch to English
     setActiveDisplayLocale('en');
-    injected.updateInjectedControlsLocale?.();
+    injected.updateInjectedControlsLocale();
+    updateSendToConsoleButtonsLocale();
 
     expect(consoleBtn?.textContent).toBe('Send to Console');
     expect(consoleBtn?.title).toBe('Send current search criteria to LiveSearch Console');
@@ -149,7 +149,8 @@ describe('Seam 2: In-Page Tier Dropdown (`TierDropdownHost.vue`) & Search Form I
 
     // Switch to Simplified Chinese
     setActiveDisplayLocale('zh-CN');
-    injected.updateInjectedControlsLocale?.();
+    injected.updateInjectedControlsLocale();
+    updateSendToConsoleButtonsLocale();
 
     expect(consoleBtn?.textContent).toBe('送入主控台');
     expect(consoleBtn?.title).toBe('将当前搜索条件送入实时搜索控制台监听');
@@ -283,13 +284,7 @@ describe('Seam 2: In-Page Tier Dropdown (`TierDropdownHost.vue`) & Search Form I
     searchPanel.appendChild(controlsRight);
     document.body.appendChild(searchPanel);
 
-    const tierDomainService = createTierDomainService('poe2');
-    const injected = createInjectedControls({
-      version: 'poe2',
-      tierDomainService,
-      isCurrentGeneration: () => true,
-    });
-    injected.injectSendToConsoleButton();
+    injectSendToConsoleButton('poe2');
 
     const btn = searchPanel.querySelector<HTMLButtonElement>('.poexd-send-to-console-btn')!;
     const toasts: unknown[] = [];
