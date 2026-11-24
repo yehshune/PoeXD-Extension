@@ -13,9 +13,7 @@
           @click="addGroup()"
         >
           <FolderPlus />
-          <span class="pxd-toolbar-btn-text truncate">{{
-            t('bookmark.action.newFolder')
-          }}</span>
+          <span class="pxd-toolbar-btn-text truncate">{{ t('bookmark.action.newFolder') }}</span>
         </Button>
         <div class="flex items-center gap-[var(--pxd-space-sm)] shrink-0">
           <Button
@@ -246,7 +244,7 @@
 
       <!-- 拖曳刪除垃圾桶區 -->
       <DragTrashZone
-        :ref="(c: any) => (trashZone = c ? c.$el : null)"
+        :ref="setTrashZoneRef"
         :visible="isDragging"
         :over-trash="isOverTrash"
         :sidebar-position="sidebarPosition"
@@ -345,17 +343,12 @@ import {
   Download,
   RefreshCw,
 } from '@lucide/vue';
-import {
-  calculateDragTrashPosition,
-  hideDragTrash,
-  showDragTrash,
-  useDragTrash,
-} from './composables/useDragTrash';
+import { useDragTrash, type DragTrashSession } from './composables/useDragTrash';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import type { Bookmark, BookmarkGroup } from './bookmark-types';
 import { createBookmarkModel, type BookmarkMutationIntent } from './bookmark-model';
 import { readBookmarkTargetContext, resolveBookmarkUrl } from '@/utils/bookmark-target';
-import { useBookmarkSortables } from './composables/useBookmarkSortables';
+import { useBookmarkSortables, type BookmarkDragEntity } from './composables/useBookmarkSortables';
 import { rowAnchorFromEvent, useTradeSearchPreview } from './composables/useTradeSearchPreview';
 import {
   isLegacyTradeSearchUrl,
@@ -497,30 +490,19 @@ export default defineComponent({
     });
     const isBookmarkDragEnabled = computed(() => searchQuery.value.trim() === '');
     const listRenderKey = ref(0);
-    let trashCleanup: (() => void) | null = null;
 
-    // 導入拖曳垃圾桶 Composable
+    // 導入拖曳垃圾桶 Composable（trashZone 由 setTrashZoneRef 綁定並自動管理監聽與清理）
     const {
-      trashZone,
+      setTrashZoneRef,
       isDragging,
       isOverTrash,
       activeDragEntity,
-      setDragEntity,
       trashStyle,
-      enableDragScrollBlock,
-      disableDragScrollBlock,
-      setupTrashListeners,
-    } = useDragTrash('.bookmark-accordion-list');
+      beginDrag,
+      endDrag,
+    }: DragTrashSession<BookmarkDragEntity> = useDragTrash('.bookmark-accordion-list');
 
     const isDraggingBookmark = computed(() => activeDragEntity.value?.kind === 'bookmark');
-
-    const showTrash = () => {
-      if (!trashZone.value) return;
-      showDragTrash(trashZone.value);
-    };
-    const hideTrash = () => {
-      if (trashZone.value) hideDragTrash(trashZone.value);
-    };
 
     // 當前作用中選單狀態
     const {
@@ -597,19 +579,15 @@ export default defineComponent({
       bookmarks,
       groups,
       listRenderKey,
-      trashZone,
       isDragging,
       isOverTrash,
-      enableDragScrollBlock,
-      disableDragScrollBlock,
-      showTrash,
-      hideTrash,
+      beginDrag,
+      endDrag,
       execute: executeBookmarkIntent,
       containerRef: paneRoot,
       isDragEnabled: isBookmarkDragEnabled,
       collapsedGroupIds,
       transientExpandedFolderIds,
-      setDragEntity,
     });
 
     const liveFolderDeleteImpact = computed(() => {
@@ -640,17 +618,6 @@ export default defineComponent({
       },
       { flush: 'post' },
     );
-
-    // 監聽拖曳垃圾桶 DOM
-    watch(trashZone, (newVal) => {
-      if (trashCleanup) {
-        trashCleanup();
-        trashCleanup = null;
-      }
-      if (newVal) {
-        trashCleanup = setupTrashListeners(newVal);
-      }
-    });
 
     // 封面管理 Composable
     const {
@@ -762,10 +729,6 @@ export default defineComponent({
       stopPreferences?.();
       stopPreferences = undefined;
       destroySortables();
-      if (trashCleanup) {
-        trashCleanup();
-      }
-      disableDragScrollBlock();
     });
 
     const isImportDialogOpen = ref(false);
@@ -1426,7 +1389,7 @@ export default defineComponent({
       confirmReplaceLeague,
       formatTradeLeagueText,
       trashStyle,
-      trashZone,
+      setTrashZoneRef,
       isOverTrash,
       activeDragEntity,
       liveFolderDeleteImpact,

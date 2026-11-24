@@ -316,7 +316,7 @@
 
       <!-- 拖曳刪除垃圾桶區 -->
       <DragTrashZone
-        :ref="(c: any) => (trashZone = c ? (c.$el ?? c) : null)"
+        :ref="setTrashZoneRef"
         data-test="live-search-drag-trash"
         :visible="isDragging"
         :over-trash="isOverTrash"
@@ -366,7 +366,7 @@ import {
   useLiveSearchGroups,
 } from './live-search/useLiveSearchGroups';
 import { resolveBatchEnableToast, resolveBatchStopToast } from './live-search-presentation';
-import { hideDragTrash, showDragTrash, useDragTrash } from './composables/useDragTrash';
+import { useDragTrash } from './composables/useDragTrash';
 import { useTradeSearchPreview } from './composables/useTradeSearchPreview';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import {
@@ -794,32 +794,20 @@ watch(
   { immediate: true },
 );
 
+interface DraggingConnection {
+  item: LiveSearchSourceItem;
+  groupId: string;
+}
+
 const {
-  trashZone,
+  setTrashZoneRef,
   isDragging,
   isOverTrash,
+  activeDragEntity: draggingConnection,
   trashStyle,
-  enableDragScrollBlock,
-  disableDragScrollBlock,
-  setupTrashListeners,
-} = useDragTrash('[data-test="search-connections-list"]');
-
-let trashCleanup: (() => void) | null = null;
-const draggingConnection = ref<{ item: LiveSearchSourceItem; groupId: string } | null>(null);
-
-watch(
-  trashZone,
-  (newEl) => {
-    if (trashCleanup) {
-      trashCleanup();
-      trashCleanup = null;
-    }
-    if (newEl) {
-      trashCleanup = setupTrashListeners(newEl);
-    }
-  },
-  { immediate: true },
-);
+  beginDrag,
+  endDrag,
+} = useDragTrash<DraggingConnection>('[data-test="search-connections-list"]');
 
 function handleConnectionDragStart(item: LiveSearchSourceItem, groupId: string, event: DragEvent) {
   if (!item.removable) {
@@ -836,14 +824,7 @@ function handleConnectionDragStart(item: LiveSearchSourceItem, groupId: string, 
     } catch {}
   }
 
-  draggingConnection.value = { item, groupId };
-  isDragging.value = true;
-  isOverTrash.value = false;
-  if (trashZone.value) {
-    trashZone.value.classList.remove('drag-hover');
-    showDragTrash(trashZone.value);
-  }
-  enableDragScrollBlock();
+  beginDrag({ item, groupId });
 }
 
 function completeTrashDropIfActive() {
@@ -864,14 +845,7 @@ function handleConnectionDragEnd() {
   if (isOverTrash.value && draggingConnection.value) {
     completeTrashDropIfActive();
   }
-  draggingConnection.value = null;
-  isDragging.value = false;
-  isOverTrash.value = false;
-  if (trashZone.value) {
-    trashZone.value.classList.remove('drag-hover');
-    hideDragTrash(trashZone.value);
-  }
-  disableDragScrollBlock();
+  endDrag();
 }
 
 watch(
@@ -904,11 +878,6 @@ function handleEnableSound() {
 }
 
 onUnmounted(() => {
-  if (trashCleanup) {
-    trashCleanup();
-    trashCleanup = null;
-  }
-  disableDragScrollBlock();
   clearScopedActivePreview();
   stopResumeSub?.();
   stopResumeSub = null;

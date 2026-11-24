@@ -1,6 +1,30 @@
-import { ref, computed } from 'vue';
+import {
+  computed,
+  getCurrentInstance,
+  getCurrentScope,
+  onScopeDispose,
+  onUnmounted,
+  ref,
+  shallowRef,
+  watch,
+  type ComputedRef,
+  type Ref,
+  type ShallowRef,
+} from 'vue';
 
 type SidebarRect = Pick<DOMRect, 'left' | 'right'>;
+
+export interface DragTrashSession<TEntity = unknown> {
+  trashZone: Ref<HTMLElement | null>;
+  setTrashZoneRef: (target: unknown) => void;
+  isDragging: Ref<boolean>;
+  isOverTrash: Ref<boolean>;
+  activeDragEntity: ShallowRef<TEntity | null>;
+  trashStyle: ComputedRef<Record<string, string>>;
+  beginDrag: (entity?: TEntity) => void;
+  endDrag: () => void;
+  dispose: () => void;
+}
 
 export function calculateDragTrashPosition(
   sidebarRect: SidebarRect,
@@ -50,24 +74,34 @@ export function scheduleAfterSortableDrop(work: () => void | Promise<void>) {
   setTimeout(() => void work(), 0);
 }
 
-export type DragKind = 'folder' | 'bookmark';
-
-export interface ActiveDragEntity {
-  kind: DragKind;
-  id: string;
+function resolveTrashZoneElement(target: unknown): HTMLElement | null {
+  if (!target) return null;
+  if (typeof HTMLElement !== 'undefined' && target instanceof HTMLElement) {
+    return target;
+  }
+  if (typeof target === 'object' && '$el' in target) {
+    const el = (target as { $el?: unknown }).$el;
+    if (typeof HTMLElement !== 'undefined') {
+      return el instanceof HTMLElement ? el : null;
+    }
+    return (el as HTMLElement | null) ?? null;
+  }
+  return null;
 }
 
-export function useDragTrash(listContainerSelector: string) {
+export function useDragTrash<TEntity = unknown>(
+  listContainerSelector: string,
+): DragTrashSession<TEntity> {
   const isDragging = ref(false);
   const isOverTrash = ref(false);
   const trashZone = ref<HTMLElement | null>(null);
-  const activeDragEntity = ref<ActiveDragEntity | null>(null);
+  const activeDragEntity = shallowRef<TEntity | null>(null);
 
-  const setDragEntity = (entity: ActiveDragEntity | null) => {
-    activeDragEntity.value = entity;
+  const setTrashZoneRef = (target: unknown) => {
+    trashZone.value = resolveTrashZoneElement(target);
   };
 
-  const trashStyle = computed(() => {
+  const trashStyle = computed<Record<string, string>>(() => {
     void isDragging.value;
     const sidebar = trashZone.value?.closest<HTMLElement>('.pxd-sidebar-wrapper');
     if (!sidebar) return {};
@@ -86,26 +120,30 @@ export function useDragTrash(listContainerSelector: string) {
     if (isInsideList) {
       return; // 放行列表內部的滾動
     }
-    const target = e.target as HTMLElement;
+    const target = e.target as HTMLElement | null;
     if (target && target.closest && target.closest(listContainerSelector)) {
       return; // 相容性 fallback
     }
     e.preventDefault();
   };
 
+  let isScrollBlocked = false;
+
   const enableDragScrollBlock = () => {
+    if (isScrollBlocked || typeof window === 'undefined') return;
     window.addEventListener('wheel', preventDefaultScroll, { passive: false });
     window.addEventListener('touchmove', preventDefaultScroll, { passive: false });
+    isScrollBlocked = true;
   };
 
   const disableDragScrollBlock = () => {
+    if (!isScrollBlocked || typeof window === 'undefined') return;
     window.removeEventListener('wheel', preventDefaultScroll);
     window.removeEventListener('touchmove', preventDefaultScroll);
+    isScrollBlocked = false;
   };
 
-  const setupTrashListeners = (trashEl: HTMLElement) => {
-    if (!trashEl) return () => {};
-
+  const attachTrashListeners = (trashEl: HTMLElement) => {
     const onDragEnter = (e: DragEvent) => {
       e.preventDefault();
       trashEl.classList.add('drag-hover');
@@ -136,32 +174,88 @@ export function useDragTrash(listContainerSelector: string) {
       e.preventDefault();
     };
 
-    if (!trashEl.dataset.hasDragListeners) {
-      trashEl.addEventListener('dragenter', onDragEnter);
-      trashEl.addEventListener('dragover', onDragOver);
-      trashEl.addEventListener('dragleave', onDragLeave);
-      trashEl.addEventListener('drop', onDrop);
-      trashEl.dataset.hasDragListeners = 'true';
-    }
+    trashEl.addEventListener('dragenter', onDragEnter);
+    trashEl.addEventListener('dragover', onDragOver);
+    trashEl.addEventListener('dragleave', onDragLeave);
+    trashEl.addEventListener('drop', onDrop);
 
     return () => {
       trashEl.removeEventListener('dragenter', onDragEnter);
       trashEl.removeEventListener('dragover', onDragOver);
       trashEl.removeEventListener('dragleave', onDragLeave);
       trashEl.removeEventListener('drop', onDrop);
-      delete trashEl.dataset.hasDragListeners;
     };
   };
 
+  let trashCleanup: (() => void) | null = null;
+  let boundTrashEl: HTMLElement | null = null;
+
+  const detachTrashListeners = () => {
+    if (boundTrashEl) {
+      hideDragTrash(boundTrashEl);
+      boundTrashEl.classList.remove('drag-hover');
+    }
+    trashCleanup?.();
+    trashCleanup = null;
+    boundTrashEl = null;
+  };
+
+  const stopTrashWatch = watch(
+    trashZone,
+    (el) => {
+      if (el === boundTrashEl) return;
+      detachTrashListeners();
+      if (el) {
+        boundTrashEl = el;
+        trashCleanup = attachTrashListeners(el);
+      }
+    },
+    { immediate: true, flush: 'sync' },
+  );
+
+  const beginDrag = (entity?: TEntity) => {
+    activeDragEntity.value = entity ?? null;
+    isDragging.value = true;
+    isOverTrash.value = false;
+    if (trashZone.value) {
+      trashZone.value.classList.remove('drag-hover');
+      showDragTrash(trashZone.value);
+    }
+    enableDragScrollBlock();
+  };
+
+  const endDrag = () => {
+    if (trashZone.value) {
+      hideDragTrash(trashZone.value);
+      trashZone.value.classList.remove('drag-hover');
+    }
+    isDragging.value = false;
+    isOverTrash.value = false;
+    activeDragEntity.value = null;
+    disableDragScrollBlock();
+  };
+
+  const dispose = () => {
+    endDrag();
+    stopTrashWatch();
+    detachTrashListeners();
+  };
+
+  if (getCurrentInstance()) {
+    onUnmounted(dispose);
+  } else if (getCurrentScope()) {
+    onScopeDispose(dispose);
+  }
+
   return {
     trashZone,
+    setTrashZoneRef,
     isDragging,
     isOverTrash,
     activeDragEntity,
-    setDragEntity,
     trashStyle,
-    enableDragScrollBlock,
-    disableDragScrollBlock,
-    setupTrashListeners,
+    beginDrag,
+    endDrag,
+    dispose,
   };
 }

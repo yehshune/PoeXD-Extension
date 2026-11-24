@@ -1,13 +1,60 @@
+// @vitest-environment happy-dom
 import { readFileSync } from 'node:fs';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createApp, defineComponent, h } from 'vue';
 import {
   calculateDragTrashPosition,
   hideDragTrash,
   showDragTrash,
   scheduleAfterSortableDrop,
+  useDragTrash,
 } from '@/components/sidebar/composables/useDragTrash';
 
+function createDragTrashDomFixture() {
+  const sidebar = document.createElement('div');
+  sidebar.className = 'pxd-sidebar-wrapper';
+  sidebar.getBoundingClientRect = () =>
+    ({
+      left: 0,
+      right: 372,
+      top: 0,
+      bottom: 800,
+      width: 372,
+      height: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }) as DOMRect;
+
+  const list = document.createElement('div');
+  list.className = 'test-scroll-list';
+  sidebar.appendChild(list);
+
+  const trash = document.createElement('div');
+  trash.className = 'drag-trash-zone';
+  trash.getBoundingClientRect = () =>
+    ({
+      left: 384,
+      right: 474,
+      top: 80,
+      bottom: 680,
+      width: 90,
+      height: 600,
+      x: 384,
+      y: 80,
+      toJSON: () => ({}),
+    }) as DOMRect;
+  sidebar.appendChild(trash);
+
+  document.body.appendChild(sidebar);
+  return { sidebar, list, trash };
+}
+
 describe('drag trash lifecycle', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
   it('anchors the trash zone to the rendered sidebar edge', () => {
     const rect = { left: 1100, right: 1440 };
 
@@ -67,6 +114,162 @@ describe('drag trash lifecycle', () => {
 
     expect(style).toMatchObject({ left: '384px', right: 'auto' });
     expect(add).toHaveBeenCalledWith('sidebar-left');
+  });
+
+  it('unwraps HTMLElement, Vue component $el, and null via setTrashZoneRef', () => {
+    const { trash } = createDragTrashDomFixture();
+    const session = useDragTrash('.test-scroll-list');
+
+    session.setTrashZoneRef({ $el: trash });
+    expect(session.trashZone.value).toBe(trash);
+
+    session.setTrashZoneRef(null);
+    expect(session.trashZone.value).toBeNull();
+
+    session.setTrashZoneRef(trash);
+    expect(session.trashZone.value).toBe(trash);
+
+    session.dispose();
+  });
+
+  it('coordinates beginDrag, generic entity tracking, hover bounds, scroll lock, and endDrag', () => {
+    const { list, trash } = createDragTrashDomFixture();
+    type CustomEntity = { kind: 'item'; id: string };
+    const session = useDragTrash<CustomEntity>('.test-scroll-list');
+    session.setTrashZoneRef(trash);
+
+    session.beginDrag({ kind: 'item', id: 'entry-1' });
+    expect(session.isDragging.value).toBe(true);
+    expect(session.isOverTrash.value).toBe(false);
+    expect(session.activeDragEntity.value).toEqual({ kind: 'item', id: 'entry-1' });
+    expect(trash.classList.contains('visible')).toBe(true);
+    expect(session.trashStyle.value).toEqual({ left: '384px', right: 'auto' });
+
+    // Window scroll outside list is blocked; inside list is permitted
+    const outsideWheel = new Event('wheel', { cancelable: true, bubbles: true });
+    window.dispatchEvent(outsideWheel);
+    expect(outsideWheel.defaultPrevented).toBe(true);
+
+    const insideWheel = new Event('wheel', { cancelable: true, bubbles: true });
+    list.dispatchEvent(insideWheel);
+    expect(insideWheel.defaultPrevented).toBe(false);
+
+    // Drag enter highlights trash
+    const enterEvent = new Event('dragenter', { cancelable: true });
+    trash.dispatchEvent(enterEvent);
+    expect(enterEvent.defaultPrevented).toBe(true);
+    expect(session.isOverTrash.value).toBe(true);
+    expect(trash.classList.contains('drag-hover')).toBe(true);
+
+    // Drag leave inside rect keeps hover active
+    const innerLeave = new MouseEvent('dragleave', { clientX: 400, clientY: 200 });
+    trash.dispatchEvent(innerLeave);
+    expect(session.isOverTrash.value).toBe(true);
+    expect(trash.classList.contains('drag-hover')).toBe(true);
+
+    // Drag leave outside rect clears hover
+    const outerLeave = new MouseEvent('dragleave', { clientX: 100, clientY: 200 });
+    trash.dispatchEvent(outerLeave);
+    expect(session.isOverTrash.value).toBe(false);
+    expect(trash.classList.contains('drag-hover')).toBe(false);
+
+    // Re-hover then endDrag clears everything and unlocks scroll
+    trash.dispatchEvent(new Event('dragover', { cancelable: true }));
+    expect(session.isOverTrash.value).toBe(true);
+    session.endDrag();
+
+    expect(session.isDragging.value).toBe(false);
+    expect(session.isOverTrash.value).toBe(false);
+    expect(session.activeDragEntity.value).toBeNull();
+    expect(trash.classList.contains('visible')).toBe(false);
+    expect(trash.classList.contains('drag-hover')).toBe(false);
+
+    const afterEndWheel = new Event('wheel', { cancelable: true, bubbles: true });
+    window.dispatchEvent(afterEndWheel);
+    expect(afterEndWheel.defaultPrevented).toBe(false);
+
+    session.dispose();
+  });
+
+  it('cleans up active drag state, listeners, and scroll lock on explicit dispose() mid-drag', () => {
+    const { trash } = createDragTrashDomFixture();
+    const session = useDragTrash<{ id: string }>('.test-scroll-list');
+    session.setTrashZoneRef(trash);
+
+    session.beginDrag({ id: 'live-0' });
+    trash.dispatchEvent(new Event('dragenter', { cancelable: true }));
+    expect(session.isDragging.value).toBe(true);
+    expect(session.isOverTrash.value).toBe(true);
+    expect(trash.classList.contains('visible')).toBe(true);
+    expect(trash.classList.contains('drag-hover')).toBe(true);
+
+    session.dispose();
+
+    expect(session.isDragging.value).toBe(false);
+    expect(session.isOverTrash.value).toBe(false);
+    expect(session.activeDragEntity.value).toBeNull();
+    expect(trash.classList.contains('visible')).toBe(false);
+    expect(trash.classList.contains('drag-hover')).toBe(false);
+
+    const wheelEvent = new Event('wheel', { cancelable: true, bubbles: true });
+    window.dispatchEvent(wheelEvent);
+    expect(wheelEvent.defaultPrevented).toBe(false);
+
+    trash.dispatchEvent(new Event('dragenter', { cancelable: true }));
+    expect(session.isOverTrash.value).toBe(false);
+    expect(trash.classList.contains('drag-hover')).toBe(false);
+  });
+
+  it('cleans up drag state, classes, listeners, and scroll lock when template ref clears before component unmount', () => {
+    let session: ReturnType<typeof useDragTrash<{ id: string }>> | undefined;
+    let mountedTrashEl: HTMLElement | null = null;
+
+    const Host = defineComponent({
+      setup() {
+        session = useDragTrash<{ id: string }>('.test-scroll-list');
+        return () =>
+          h('div', { class: 'pxd-sidebar-wrapper' }, [
+            h('div', {
+              class: 'drag-trash-zone',
+              ref: (el: unknown) => {
+                if (el instanceof HTMLElement) mountedTrashEl = el;
+                session!.setTrashZoneRef(el);
+              },
+            }),
+          ]);
+      },
+    });
+
+    const mountRoot = document.createElement('div');
+    document.body.appendChild(mountRoot);
+    const app = createApp(Host);
+    app.mount(mountRoot);
+
+    const trash = mountedTrashEl!;
+    expect(trash).toBeInstanceOf(HTMLElement);
+
+    session!.beginDrag({ id: 'live-1' });
+    trash.dispatchEvent(new Event('dragenter', { cancelable: true }));
+    expect(session!.isDragging.value).toBe(true);
+    expect(session!.isOverTrash.value).toBe(true);
+    expect(trash.classList.contains('visible')).toBe(true);
+    expect(trash.classList.contains('drag-hover')).toBe(true);
+
+    app.unmount();
+
+    expect(session!.isDragging.value).toBe(false);
+    expect(session!.isOverTrash.value).toBe(false);
+    expect(session!.activeDragEntity.value).toBeNull();
+    expect(trash.classList.contains('visible')).toBe(false);
+    expect(trash.classList.contains('drag-hover')).toBe(false);
+
+    const wheelEvent = new Event('wheel', { cancelable: true, bubbles: true });
+    window.dispatchEvent(wheelEvent);
+    expect(wheelEvent.defaultPrevented).toBe(false);
+
+    trash.dispatchEvent(new Event('dragenter', { cancelable: true }));
+    expect(session!.isOverTrash.value).toBe(false);
+    expect(trash.classList.contains('drag-hover')).toBe(false);
   });
 
   it('uses shadcn semantic destructive vocabulary and theme shadow instead of invalid hsl', () => {

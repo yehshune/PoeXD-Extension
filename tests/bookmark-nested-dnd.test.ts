@@ -370,13 +370,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks,
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(true),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
     } as any);
 
@@ -428,13 +425,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks,
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(true),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
     } as any);
 
@@ -656,13 +650,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks,
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
     } as any);
@@ -772,13 +763,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
     } as any);
@@ -910,13 +898,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute: vi.fn(),
       containerRef: ref(container),
       collapsedGroupIds: collapse.collapsedGroupIds,
@@ -988,13 +973,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups: ref([{ id: 'folder-dragged', name: 'Dragged', order: 0 }]),
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute: vi.fn(),
       containerRef: ref(container),
     } as any);
@@ -1157,13 +1139,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
       elementFromPoint: customElementFromPoint,
@@ -1256,13 +1235,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
       elementFromPoint: () => null, // No target element hit
@@ -1343,13 +1319,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
     } as any);
@@ -1471,13 +1444,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
       elementFromPoint: () => hitElement,
@@ -1610,13 +1580,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
       elementFromPoint: () => hitElement,
@@ -1723,13 +1690,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks,
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
       elementFromPoint: () => f1Header,
@@ -1822,13 +1786,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([{ id: 'b-1', name: 'BM 1', groupId: 'f-parent', order: 0 }]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
       elementFromPoint: () => activeHitElement,
@@ -1929,13 +1890,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups: ref([{ id: 'f-1', name: 'Folder 1', order: 0 }]),
       listRenderKey: ref(0),
-      trashZone: ref(trashZone),
       isDragging: ref(false),
       isOverTrash,
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute: vi.fn(),
       containerRef: ref(container),
     } as any);
@@ -2018,8 +1976,15 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
     const isOverTrash = ref(false);
     const isDragging = ref(false);
     let currentDragEntity: any = null;
-    const setDragEntity = vi.fn((entity) => {
-      currentDragEntity = entity;
+    const beginDrag = vi.fn((entity) => {
+      currentDragEntity = entity ?? null;
+      isDragging.value = true;
+    });
+    const endDrag = vi.fn(() => {
+      currentDragEntity = null;
+      isDragging.value = false;
+      isOverTrash.value = false;
+      trashZone.classList.remove('drag-hover');
     });
     const executeMock = vi.fn().mockResolvedValue(true);
 
@@ -2038,16 +2003,12 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks,
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(trashZone),
       isDragging,
       isOverTrash,
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag,
+      endDrag,
       execute: executeMock,
       containerRef: ref(container),
-      setDragEntity,
     } as any);
 
     await sortables.init();
@@ -2061,7 +2022,7 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
     expect(fParent.classList.contains('dragging-subtree-origin')).toBe(true);
     expect(fChild.classList.contains('dragging-subtree-descendant')).toBe(true);
     expect(fSibling.classList.contains('dragging-subtree-descendant')).toBe(false);
-    expect(setDragEntity).toHaveBeenCalledWith({ kind: 'folder', id: 'p' });
+    expect(beginDrag).toHaveBeenCalledWith({ kind: 'folder', id: 'p' });
     expect(currentDragEntity).toEqual({ kind: 'folder', id: 'p' });
 
     // 2. Derive canonical delete impact for Parent
@@ -2116,7 +2077,7 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       item: bmItem,
       originalEvent: { clientX: 50 },
     });
-    expect(setDragEntity).toHaveBeenCalledWith({ kind: 'bookmark', id: 'b-1' });
+    expect(beginDrag).toHaveBeenCalledWith({ kind: 'bookmark', id: 'b-1' });
     expect(fParent.classList.contains('dragging-subtree-origin')).toBe(false);
     expect(fChild.classList.contains('dragging-subtree-descendant')).toBe(false);
 
@@ -2178,9 +2139,6 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
     const isOverTrash = ref(false);
     const isDragging = ref(false);
     let activeEntity: any = null;
-    const setDragEntity = vi.fn((e) => {
-      activeEntity = e;
-    });
     const executeMock = vi.fn().mockResolvedValue(true);
     const poexdConfirmMock = vi.fn();
     (window as any).poexdConfirm = poexdConfirmMock;
@@ -2191,25 +2149,29 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
     ]);
     const bookmarks = ref([{ id: 'bm-test', groupId: 'f-root', name: 'BM', order: 0 }]);
 
-    const disableDragScrollBlock = vi.fn();
-    const hideTrash = vi.fn(() => {
+    const beginDrag = vi.fn((entity) => {
+      activeEntity = entity ?? null;
+      isDragging.value = true;
+      trashZone.classList.add('visible');
+    });
+    const endDrag = vi.fn(() => {
+      activeEntity = null;
+      isDragging.value = false;
+      isOverTrash.value = false;
       trashZone.classList.remove('visible');
+      trashZone.classList.remove('drag-hover');
     });
 
     const sortables = useBookmarkSortables({
       bookmarks,
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(trashZone),
       isDragging,
       isOverTrash,
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock,
-      showTrash: () => trashZone.classList.add('visible'),
-      hideTrash,
+      beginDrag,
+      endDrag,
       execute: executeMock,
       containerRef: ref(container),
-      setDragEntity,
     } as any);
 
     await sortables.init();
@@ -2242,7 +2204,7 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
     expect(isOverTrash.value).toBe(false);
     expect(trashZone.classList.contains('drag-hover')).toBe(false);
     expect(trashZone.classList.contains('visible')).toBe(false);
-    expect(disableDragScrollBlock).toHaveBeenCalled();
+    expect(endDrag).toHaveBeenCalled();
     expect(activeEntity).toBeNull();
     expect(executeMock).not.toHaveBeenCalled();
     expect(poexdConfirmMock).not.toHaveBeenCalled();
@@ -2366,13 +2328,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
       elementFromPoint: () => hitElement,
@@ -2591,13 +2550,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks: ref([]),
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
       containerRef: ref(container),
       elementFromPoint: realisticElementFromPoint,
@@ -2750,13 +2706,10 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       bookmarks,
       groups,
       listRenderKey: ref(0),
-      trashZone: ref(trashZone),
       isDragging,
       isOverTrash,
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute: executeMock,
       containerRef: ref(container),
     } as any);

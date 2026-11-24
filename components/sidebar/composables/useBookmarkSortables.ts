@@ -2,8 +2,8 @@ import { nextTick, ref, toRaw, watch, type Ref } from 'vue';
 import Sortable from 'sortablejs';
 import type { Bookmark, BookmarkGroup } from '../bookmark-types';
 import type { BookmarkMutationIntent } from '../bookmark-model';
-import { scheduleAfterSortableDrop, type ActiveDragEntity } from './useDragTrash';
-import { createSidebarDragScrollOptions } from './sidebar-drag-scroll';
+import { scheduleAfterSortableDrop } from './useDragTrash';
+import { createSidebarDragScrollOptions } from './useSortableTrashList';
 import {
   getFolderDeleteImpact,
   isDirectlyDeletableEmptyFolder,
@@ -16,17 +16,21 @@ import {
 } from './bookmark-folder-drop-planner';
 import { t } from '@/utils/i18n';
 
+export type BookmarkDragKind = 'folder' | 'bookmark';
+
+export interface BookmarkDragEntity {
+  kind: BookmarkDragKind;
+  id: string;
+}
+
 export interface BookmarkSortableOptions {
   bookmarks: Readonly<Ref<readonly Bookmark[]>>;
   groups: Readonly<Ref<readonly BookmarkGroup[]>>;
   listRenderKey: Ref<number>;
-  trashZone: Ref<HTMLElement | null>;
-  isDragging: Ref<boolean>;
-  isOverTrash: Ref<boolean>;
-  enableDragScrollBlock: () => void;
-  disableDragScrollBlock: () => void;
-  showTrash: () => void;
-  hideTrash: () => void;
+  isDragging: Readonly<Ref<boolean>>;
+  isOverTrash: Readonly<Ref<boolean>>;
+  beginDrag: (entity?: BookmarkDragEntity) => void;
+  endDrag: () => void;
   execute: (intent: BookmarkMutationIntent) => Promise<boolean>;
   containerRef?: Readonly<Ref<HTMLElement | null>>;
   isDragEnabled?: Readonly<Ref<boolean>>;
@@ -35,7 +39,6 @@ export interface BookmarkSortableOptions {
   transientExpandedFolderIds?: Ref<Set<string>>;
   onTransientExpand?: (folderId: string) => void;
   indentationWidth?: number;
-  setDragEntity?: (entity: ActiveDragEntity | null) => void;
 }
 
 function readCssVarNumber(el: HTMLElement, varName: string): number {
@@ -652,12 +655,7 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       }
     }
 
-    options.hideTrash();
-    options.isDragging.value = false;
-    options.isOverTrash.value = false;
-    options.trashZone.value?.classList.remove('drag-hover');
-    options.disableDragScrollBlock();
-    options.setDragEntity?.(null);
+    options.endDrag();
 
     bookmarkSortableMap.forEach((sb) =>
       sb.option('group', {
@@ -717,10 +715,8 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     };
   };
 
-  const startDrag = () => {
-    options.showTrash();
-    options.isDragging.value = true;
-    options.enableDragScrollBlock();
+  const startDrag = (entity?: BookmarkDragEntity) => {
+    options.beginDrag(entity);
     installDropAcceptance();
   };
 
@@ -750,9 +746,8 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     preventOnFilter: false,
     ...createSidebarDragScrollOptions(accordion),
     onStart: (event) => {
-      startDrag();
       const bookmarkId = event?.item?.getAttribute?.('data-id') ?? '';
-      options.setDragEntity?.({ kind: 'bookmark', id: bookmarkId });
+      startDrag({ kind: 'bookmark', id: bookmarkId });
     },
     onEnd: (event) => {
       if (isCancelledNativeDrag(event)) {
@@ -864,11 +859,10 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
           preventOnFilter: false,
           ...createSidebarDragScrollOptions(accordion),
           onStart: (event) => {
-            startDrag();
+            const draggedFolderId = event?.item?.getAttribute?.('data-group-id') ?? '';
+            startDrag({ kind: 'folder', id: draggedFolderId });
             clearFolderDropIndicator();
             event?.item?.classList?.add('dragging-subtree-origin');
-            const draggedFolderId = event?.item?.getAttribute?.('data-group-id') ?? '';
-            options.setDragEntity?.({ kind: 'folder', id: draggedFolderId });
 
             // 保持 subtree 視覺回饋：標記被拖曳項自身的所有後代子資料夾 DOM，保留原始 layout footprint
             const subtreeIds = draggedFolderId

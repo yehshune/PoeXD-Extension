@@ -4,7 +4,7 @@ import { t } from '@/utils/i18n';
 
 /**
  * 側邊欄拖曳刪除的垃圾桶：拖曳開始時從側邊欄外側滑出。
- * 拖放偵測由 `useDragTrash().setupTrashListeners` 綁在根元素上；懸停文字可用預設 slot 覆寫。
+ * 拖放偵測由 `useDragTrash().setTrashZoneRef` 綁在根元素上；懸停文字可用預設 slot 覆寫。
  */
 defineProps<{
   visible: boolean;

@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import Sortable from 'sortablejs';
+import { computed, nextTick, ref, watch } from 'vue';
 import {
   ArrowUpDown,
   Check,
@@ -31,15 +30,8 @@ import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
 import DragTrashZone from '../layout/DragTrashZone.vue';
-import {
-  hideDragTrash,
-  scheduleAfterSortableDrop,
-  showDragTrash,
-  useDragTrash,
-} from '../composables/useDragTrash';
-import { createSidebarDragScrollOptions } from '../composables/sidebar-drag-scroll';
+import { useSortableTrashList } from '../composables/useSortableTrashList';
 import { useDebouncedRef } from '../composables/useDebouncedSearch';
-import { moveTemplateId } from '../stat-group-templates/template-order';
 import { requestResultTranslation } from '@/utils/market-result-translation-request';
 import ResultPriceLabel from '../result-row/ResultPriceLabel.vue';
 import ResultSummaryRow from '../result-row/ResultSummaryRow.vue';
@@ -129,106 +121,28 @@ function closeSearch() {
   searchQuery.value = '';
 }
 
-const {
-  trashZone,
-  isDragging,
-  isOverTrash,
-  trashStyle,
-  enableDragScrollBlock,
-  disableDragScrollBlock,
-  setupTrashListeners,
-} = useDragTrash(LIST_SCROLL_SELECTOR);
-
-let sortable: Sortable | null = null;
-
-function endDrag() {
-  if (trashZone.value) {
-    hideDragTrash(trashZone.value);
-    trashZone.value.classList.remove('drag-hover');
-  }
-  isDragging.value = false;
-  isOverTrash.value = false;
-  disableDragScrollBlock();
-}
+const hasVisibleItems = computed(() => visibleItems.value.length > 0);
 
 /**
  * 整張釘選卡都可以拖曳：拖到別的位置排序，拖到垃圾桶取消釘選。
  * 按鈕與連結不會開始拖曳（各自有點擊行為），展開改由卡片右側的展開按鈕切換。
  * 只顯示目前聯盟時排序的是看得到的這幾筆，其他聯盟的釘選維持原位（見 applyPinnedOrder）。
  */
-function initSortable() {
-  sortable?.destroy();
-  sortable = null;
-  if (!listRef.value) return;
-  sortable = Sortable.create(listRef.value, {
-    animation: 200,
-    draggable: ROW_SELECTOR,
-    handle: '[data-pinned-item-toggle]',
-    ghostClass: 'sortable-ghost',
-    filter: 'button, a, input, label',
-    preventOnFilter: false,
-    disabled: !canDrag.value,
-    ...createSidebarDragScrollOptions(listRef.value.closest<HTMLElement>(LIST_SCROLL_SELECTOR)),
-    onStart: () => {
-      if (trashZone.value) showDragTrash(trashZone.value);
-      isDragging.value = true;
-      enableDragScrollBlock();
-    },
-    onEnd: (event) => {
-      const droppedOverTrash = isOverTrash.value;
-      const { oldIndex, newIndex, item, from } = event;
-      const itemId = item.dataset.pinnedItemId;
-      endDrag();
-      if (typeof oldIndex !== 'number') return;
-      // 先把 DOM 還原，交由 Vue 依資料重新渲染，避免 Sortable 與 Vue 的 DOM 狀態不一致
-      if (typeof newIndex === 'number' && newIndex !== oldIndex) {
-        const reference = from.children[oldIndex < newIndex ? oldIndex : oldIndex + 1] ?? null;
-        from.insertBefore(item, reference);
-      }
-      const ids = visibleItems.value.map((entry) => entry.id);
-      const target = visibleItems.value.find((entry) => entry.id === itemId);
-      scheduleAfterSortableDrop(async () => {
-        if (droppedOverTrash) {
-          if (target) await unpin(target);
-          return;
-        }
-        if (typeof newIndex !== 'number' || newIndex === oldIndex) return;
-        await reorder(moveTemplateId(ids, oldIndex, newIndex));
-      });
-    },
-  });
-}
-
-function setTrashZoneRef(component: unknown) {
-  trashZone.value = (component as { $el?: HTMLElement } | null)?.$el ?? null;
-}
-
-let trashCleanup: (() => void) | null = null;
-watch(trashZone, (el) => {
-  trashCleanup?.();
-  trashCleanup = el ? setupTrashListeners(el) : null;
-});
-
-watch(canDrag, (enabled) => sortable?.option('disabled', !enabled));
-watch(
-  () => visibleItems.value.length > 0,
-  async () => {
-    await nextTick();
-    initSortable();
+const { setTrashZoneRef, isDragging, isOverTrash, trashStyle } = useSortableTrashList({
+  listRef,
+  scrollSelector: LIST_SCROLL_SELECTOR,
+  draggableSelector: ROW_SELECTOR,
+  handle: '[data-pinned-item-toggle]',
+  filter: 'button, a, input, label',
+  canDrag,
+  hasItems: hasVisibleItems,
+  getItemId: (el) => el.dataset.pinnedItemId,
+  getOrderedIds: () => visibleItems.value.map((entry) => entry.id),
+  onReorder: (nextIds) => reorder(nextIds),
+  onTrashDrop: async (itemId) => {
+    const target = visibleItems.value.find((entry) => entry.id === itemId);
+    if (target) await unpin(target);
   },
-);
-
-onMounted(async () => {
-  await nextTick();
-  initSortable();
-});
-
-onUnmounted(() => {
-  sortable?.destroy();
-  sortable = null;
-  trashCleanup?.();
-  trashCleanup = null;
-  disableDragScrollBlock();
 });
 
 // 名稱以 `.item-popup__header-line` 標記，市集漢化會像結果列一樣翻譯（清單本身沒有 `poexd*` class）

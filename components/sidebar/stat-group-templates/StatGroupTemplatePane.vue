@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import Sortable from 'sortablejs';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { Eye, Pencil, SlidersHorizontal, Trash2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,13 +16,7 @@ import {
   usePinnedPreview,
   type TradeSearchPreviewData,
 } from '../composables/useTradeSearchPreview';
-import {
-  hideDragTrash,
-  scheduleAfterSortableDrop,
-  showDragTrash,
-  useDragTrash,
-} from '../composables/useDragTrash';
-import { createSidebarDragScrollOptions } from '../composables/sidebar-drag-scroll';
+import { useSortableTrashList } from '../composables/useSortableTrashList';
 import { useDebouncedRef } from '../composables/useDebouncedSearch';
 import {
   STAT_GROUP_TEMPLATE_NAME_MAX_LENGTH,
@@ -37,7 +30,6 @@ import {
   formatCompactStatGroupChip,
   summarizeOverlayCriteria,
 } from '@/components/injected/criteria-overlay-labels';
-import { moveTemplateId } from './template-order';
 import { t } from '@/utils/i18n';
 import StatGroupTemplateToolbar from './StatGroupTemplateToolbar.vue';
 
@@ -74,15 +66,23 @@ const visibleTemplates = computed(() =>
 /** 搜尋中或行內編輯名稱時停用排序與拖曳刪除，避免誤觸與錯位。 */
 const canDrag = computed(() => query.value.trim() === '' && editingTemplateId.value === null);
 
-const {
-  trashZone,
-  isDragging,
-  isOverTrash,
-  trashStyle,
-  enableDragScrollBlock,
-  disableDragScrollBlock,
-  setupTrashListeners,
-} = useDragTrash(LIST_SCROLL_SELECTOR);
+const hasVisibleTemplates = computed(() => visibleTemplates.value.length > 0);
+
+const { setTrashZoneRef, isDragging, isOverTrash, trashStyle } = useSortableTrashList({
+  listRef,
+  scrollSelector: LIST_SCROLL_SELECTOR,
+  draggableSelector: ROW_SELECTOR,
+  filter: 'input',
+  canDrag,
+  hasItems: hasVisibleTemplates,
+  getItemId: (el) => el.dataset.templateId,
+  getOrderedIds: () => templates.value.map((template) => template.id),
+  onReorder: (nextIds) => manager.reorderTemplates(nextIds),
+  onTrashDrop: async (templateId) => {
+    const target = templates.value.find((template) => template.id === templateId);
+    if (target) await manager.removeTemplate(target);
+  },
+});
 
 const preview = usePinnedPreview<StatGroupTemplate>({ disabled: isDragging });
 
@@ -192,95 +192,12 @@ watch(templates, (list) => {
   else if (latest !== active) preview.activeItem.value = latest;
 });
 
-let sortable: Sortable | null = null;
-
-function endDrag() {
-  if (trashZone.value) {
-    hideDragTrash(trashZone.value);
-    trashZone.value.classList.remove('drag-hover');
-  }
-  isDragging.value = false;
-  isOverTrash.value = false;
-  disableDragScrollBlock();
-}
-
-function initSortable() {
-  sortable?.destroy();
-  sortable = null;
-  if (!listRef.value) return;
-  sortable = Sortable.create(listRef.value, {
-    animation: 200,
-    draggable: ROW_SELECTOR,
-    ghostClass: 'sortable-ghost',
-    filter: 'input',
-    preventOnFilter: false,
-    disabled: !canDrag.value,
-    ...createSidebarDragScrollOptions(listRef.value.closest<HTMLElement>(LIST_SCROLL_SELECTOR)),
-    onStart: () => {
-      if (trashZone.value) showDragTrash(trashZone.value);
-      isDragging.value = true;
-      enableDragScrollBlock();
-    },
-    onEnd: (event) => {
-      const droppedOverTrash = isOverTrash.value;
-      const { oldIndex, newIndex, item, from } = event;
-      const templateId = item.dataset.templateId;
-      endDrag();
-      if (typeof oldIndex !== 'number') return;
-      // 先把 DOM 還原，交由 Vue 依資料重新渲染，避免 Sortable 與 Vue 的 DOM 狀態不一致
-      if (typeof newIndex === 'number' && newIndex !== oldIndex) {
-        const reference = from.children[oldIndex < newIndex ? oldIndex : oldIndex + 1] ?? null;
-        from.insertBefore(item, reference);
-      }
-      const target = templates.value.find((t) => t.id === templateId);
-      scheduleAfterSortableDrop(async () => {
-        if (droppedOverTrash) {
-          if (target) await manager.removeTemplate(target);
-          return;
-        }
-        if (typeof newIndex !== 'number' || newIndex === oldIndex) return;
-        const ids = templates.value.map((t) => t.id);
-        await manager.reorderTemplates(moveTemplateId(ids, oldIndex, newIndex));
-      });
-    },
-  });
-}
-
-function setTrashZoneRef(component: unknown) {
-  trashZone.value = (component as { $el?: HTMLElement } | null)?.$el ?? null;
-}
-
-let trashCleanup: (() => void) | null = null;
-watch(trashZone, (el) => {
-  trashCleanup?.();
-  trashCleanup = el ? setupTrashListeners(el) : null;
-});
-
-watch(canDrag, (enabled) => sortable?.option('disabled', !enabled));
-watch(
-  () => visibleTemplates.value.length > 0,
-  async () => {
-    await nextTick();
-    initSortable();
-  },
-);
-
 onMounted(async () => {
-  await nextTick();
-  initSortable();
   try {
     await loadTradeDictionaries(manager.version);
   } catch (error) {
     console.warn('[PoeXD] 詞綴字典載入失敗，改以原始 ID 顯示:', error);
   }
-});
-
-onUnmounted(() => {
-  endDrag();
-  sortable?.destroy();
-  sortable = null;
-  trashCleanup?.();
-  trashCleanup = null;
 });
 </script>
 

@@ -118,29 +118,26 @@ describe('bookmark Sortable drag lifecycle', () => {
       querySelectorAll: (selector: string) =>
         selector === '.group-container' ? [{ getAttribute: () => 'folder' }] : [],
     });
-    const showTrash = vi.fn();
-    const hideTrash = vi.fn();
+    const beginDrag = vi.fn();
+    const endDrag = vi.fn();
     const execute = vi.fn(async () => true);
     const controller = useBookmarkSortables({
       bookmarks: ref([]),
       groups: ref([{ id: 'folder', name: 'Folder', order: 0 }]),
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
+      beginDrag,
+      endDrag,
       execute,
-      showTrash,
-      hideTrash,
     } as any);
 
     await controller.init();
     sortableOptions.onStart();
-    expect(showTrash).toHaveBeenCalledOnce();
+    expect(beginDrag).toHaveBeenCalledOnce();
 
     sortableOptions.onEnd({ item: { getAttribute: () => 'folder' } } as any);
-    expect(hideTrash).toHaveBeenCalledOnce();
+    expect(endDrag).toHaveBeenCalledOnce();
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -184,14 +181,11 @@ describe('bookmark Sortable drag lifecycle', () => {
       bookmarks,
       groups,
       listRenderKey,
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
     } as any);
 
     await controller.init();
@@ -244,14 +238,11 @@ describe('bookmark Sortable drag lifecycle', () => {
       bookmarks,
       groups: ref([]),
       listRenderKey,
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(true),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
     } as any);
 
     await controller.init();
@@ -298,14 +289,11 @@ describe('bookmark Sortable drag lifecycle', () => {
       bookmarks,
       groups: ref([]),
       listRenderKey,
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(true),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
     } as any);
 
     await controller.init();
@@ -345,14 +333,11 @@ describe('bookmark Sortable drag lifecycle', () => {
       ]),
       groups: ref([{ id: 'group-1', name: 'G1', order: 0 }]),
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(true),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute,
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
     } as any);
 
     await controller.init();
@@ -412,14 +397,11 @@ describe('bookmark Sortable drag lifecycle', () => {
       bookmarks: ref([]),
       groups: ref([{ id: 'folder-1', name: 'Folder 1', order: 0 }]),
       listRenderKey: ref(0),
-      trashZone: ref(null),
       isDragging: ref(false),
       isOverTrash: ref(false),
-      enableDragScrollBlock: vi.fn(),
-      disableDragScrollBlock: vi.fn(),
+      beginDrag: vi.fn(),
+      endDrag: vi.fn(),
       execute: vi.fn(async () => true),
-      showTrash: vi.fn(),
-      hideTrash: vi.fn(),
     } as any);
 
     await controller.init();
@@ -462,14 +444,11 @@ describe('bookmark Sortable drag lifecycle', () => {
         bookmarks: ref([]),
         groups: ref([{ id: 'g-1', name: 'G1', order: 0 }]),
         listRenderKey: ref(0),
-        trashZone: ref(null),
         isDragging: ref(false),
         isOverTrash: ref(false),
-        enableDragScrollBlock: vi.fn(),
-        disableDragScrollBlock: vi.fn(),
+        beginDrag: vi.fn(),
+        endDrag: vi.fn(),
         execute: vi.fn(async () => true),
-        showTrash: vi.fn(),
-        hideTrash: vi.fn(),
         isDragEnabled,
       } as any);
 
@@ -499,14 +478,11 @@ describe('bookmark Sortable drag lifecycle', () => {
         bookmarks: ref([]),
         groups: ref([{ id: 'g-1', name: 'G1', order: 0 }]),
         listRenderKey: ref(0),
-        trashZone: ref(null),
         isDragging: ref(false),
         isOverTrash: ref(false),
-        enableDragScrollBlock: vi.fn(),
-        disableDragScrollBlock: vi.fn(),
+        beginDrag: vi.fn(),
+        endDrag: vi.fn(),
         execute: vi.fn(async () => true),
-        showTrash: vi.fn(),
-        hideTrash: vi.fn(),
         isDragEnabled,
       } as any);
 
@@ -561,14 +537,11 @@ describe('bookmark Sortable drag lifecycle', () => {
           { id: 'group-3', name: 'G3', order: 2 },
         ]),
         listRenderKey: ref(0),
-        trashZone: ref(null),
         isDragging: ref(false),
         isOverTrash: ref(false),
-        enableDragScrollBlock: vi.fn(),
-        disableDragScrollBlock: vi.fn(),
+        beginDrag: vi.fn(),
+        endDrag: vi.fn(),
         execute: vi.fn(async () => true),
-        showTrash: vi.fn(),
-        hideTrash: vi.fn(),
       } as any);
 
       // 1. Initial mount of folder 1 and 2
