@@ -11,7 +11,7 @@
       <button
         type="button"
         data-test="btn-toggle-dropped-items"
-        class="flex items-center gap-1.5 min-w-0 flex-1 text-left font-medium text-amber-600 dark:text-amber-400 hover:opacity-85 transition-opacity cursor-pointer"
+        class="flex items-center gap-[var(--pxd-space-xs)] min-w-0 flex-1 text-left font-medium text-amber-600 dark:text-amber-400 hover:opacity-85 transition-opacity cursor-pointer"
         :aria-expanded="isExpanded"
         @click="isExpanded = !isExpanded"
       >
@@ -26,88 +26,102 @@
         />
       </button>
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         data-test="btn-clear-dropped-items"
-        class="shrink-0 px-1.5 py-0.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+        class="shrink-0 text-[length:var(--pxd-font-caption)] text-muted-foreground hover:text-foreground"
         @click="emit('clear-all')"
       >
         {{ t('liveSearch.dropped.clearAll') }}
-      </button>
+      </Button>
     </div>
 
-    <!-- 展開清單 -->
-    <div
+    <!-- 展開清單（採用專案標準 ScrollArea Foundation） -->
+    <ScrollAreaRoot
       v-show="isExpanded"
       data-test="dropped-items-list"
-      class="flex flex-col divide-y divide-border/50 border-t border-amber-500/20 max-h-[160px] overflow-y-auto bg-card/60"
+      class="border-t border-amber-500/20 bg-card/60 max-h-[10rem] overflow-hidden"
     >
-      <div
-        v-for="item in items"
-        :key="item.id"
-        data-test="dropped-item-row"
-        :data-dropped-id="item.id"
-        class="flex items-center justify-between gap-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] py-1.5"
-      >
-        <div class="min-w-0 flex-1 flex flex-col gap-0.5">
-          <span
-            data-test="dropped-item-source"
-            class="truncate font-medium text-foreground"
-            :title="resolveItemName(item)"
+      <ScrollAreaViewport class="max-h-[10rem] w-full">
+        <div class="flex flex-col divide-y divide-border/50">
+          <div
+            v-for="item in items"
+            :key="item.id"
+            data-test="dropped-item-row"
+            :data-dropped-id="item.id"
+            class="flex items-center justify-between gap-[var(--pxd-space-xs)] px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)]"
           >
-            {{ resolveItemName(item) }}
-          </span>
-          <span class="truncate text-muted-foreground font-mono text-[11px]">
-            {{ formatReceivedAgo(item.receivedAt) }} · {{ formatReason(item.reason) }}
-            <template v-if="item.status === 'failed'">
-              · <span class="text-destructive">{{ t('liveSearch.dropped.failed') }}</span>
-            </template>
-          </span>
-        </div>
+            <div class="min-w-0 flex-1 flex flex-col gap-0.5">
+              <span
+                data-test="dropped-item-source"
+                class="truncate font-medium text-foreground"
+                :title="resolveItemName(item)"
+              >
+                {{ resolveItemName(item) }}
+              </span>
+              <span
+                class="truncate text-muted-foreground font-mono text-[length:var(--pxd-font-micro)]"
+              >
+                {{ formatReceivedAgo(item.receivedAt) }} · {{ formatReason(item.reason) }}
+                <template v-if="item.status === 'failed'">
+                  · <span class="text-destructive">{{ t('liveSearch.dropped.failed') }}</span>
+                </template>
+              </span>
+            </div>
 
-        <div class="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            data-test="btn-fetch-dropped-item"
-            :disabled="item.status === 'fetching'"
-            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm border border-border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            @click="emit('fetch-item', item.id)"
-          >
-            <Loader2
-              v-if="item.status === 'fetching'"
-              class="size-3 animate-spin"
-              aria-hidden="true"
-            />
-            <Download v-else class="size-3" aria-hidden="true" />
-            <span>
-              {{
-                item.status === 'fetching'
-                  ? t('liveSearch.dropped.fetching')
-                  : t('liveSearch.dropped.fetchBtn')
-              }}
-            </span>
-          </button>
+            <div class="flex items-center gap-[var(--pxd-space-xs)] shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-test="btn-fetch-dropped-item"
+                :disabled="item.status === 'fetching'"
+                class="text-[length:var(--pxd-font-caption)]"
+                @click="emit('fetch-item', item.id)"
+              >
+                <Loader2
+                  v-if="item.status === 'fetching'"
+                  class="animate-spin"
+                  aria-hidden="true"
+                />
+                <Download v-else aria-hidden="true" />
+                <span>
+                  {{
+                    item.status === 'fetching'
+                      ? t('liveSearch.dropped.fetching')
+                      : t('liveSearch.dropped.fetchBtn')
+                  }}
+                </span>
+              </Button>
 
-          <button
-            type="button"
-            data-test="btn-dismiss-dropped-item"
-            :disabled="item.status === 'fetching'"
-            :title="t('liveSearch.dropped.dismissTitle')"
-            :aria-label="t('liveSearch.dropped.dismissTitle')"
-            class="inline-flex items-center justify-center p-0.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            @click="emit('dismiss-item', item.id)"
-          >
-            <X class="size-3" aria-hidden="true" />
-          </button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                data-test="btn-dismiss-dropped-item"
+                :disabled="item.status === 'fetching'"
+                :title="t('liveSearch.dropped.dismissTitle')"
+                :aria-label="t('liveSearch.dropped.dismissTitle')"
+                @click="emit('dismiss-item', item.id)"
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </ScrollAreaViewport>
+      <ScrollBar />
+    </ScrollAreaRoot>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onUnmounted, ref, watch, type PropType } from 'vue';
 import { AlertTriangle, ChevronDown, Download, Loader2, X } from '@lucide/vue';
+import { Button } from '@/components/ui/button';
+import { ScrollAreaRoot, ScrollAreaViewport, ScrollBar } from '@/components/ui/scroll-area';
 import { t } from '@/utils/i18n';
 import type { LiveSearchDroppedItem, LiveSearchDroppedReason } from '@/utils/live-search-contract';
 

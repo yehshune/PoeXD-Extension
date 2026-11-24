@@ -33,6 +33,8 @@ export interface LiveSearchFetchRateGateTimer {
 export interface LiveSearchFetchRequestOptions {
   shouldAbort?: () => boolean;
   onRegisterCancel?: (cancelWait: () => void) => void;
+  /** 覆寫單次請求的 429 內部重試次數（例如設為 0 交由外層排程器依最新優先 / TTL 決定重排或略過） */
+  maxRateLimitRetries?: number;
 }
 
 export interface LiveSearchFetchRateGateOptions {
@@ -414,7 +416,12 @@ export class LiveSearchFetchRateGate implements ILiveSearchFetchRateGate {
       return null;
     }
 
-    for (let attempt = 0; attempt <= this.maxRateLimitRetries; attempt++) {
+    const maxRetries =
+      typeof options?.maxRateLimitRetries === 'number' && options.maxRateLimitRetries >= 0
+        ? options.maxRateLimitRetries
+        : this.maxRateLimitRetries;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const admitted = await this.waitForAdmission(options);
       if (!admitted) {
         return null;
@@ -430,7 +437,7 @@ export class LiveSearchFetchRateGate implements ILiveSearchFetchRateGate {
         return null;
       }
 
-      if (response.status === 429 && attempt < this.maxRateLimitRetries) {
+      if (response.status === 429 && attempt < maxRetries) {
         continue;
       }
 

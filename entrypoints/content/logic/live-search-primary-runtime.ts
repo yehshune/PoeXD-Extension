@@ -56,7 +56,7 @@ export interface LiveSearchPrimaryRuntimeOptions {
   getMaxDisplayedResults?: () => number | undefined;
   /** 速率受限排隊時的抓取順序（'newest' 最新優先 / 'oldest' 依序；預設 'newest'） */
   getFetchOrder?: () => LiveSearchFetchOrder | undefined;
-  /** 待抓取物品的新鮮度上限（秒）；0 代表不丟棄（預設 15） */
+  /** 待抓取物品的新鮮度上限（秒）；0 代表不丟棄（預設 3） */
   getTokenMaxAgeSec?: () => number | undefined;
   /** 取得目前時間戳（毫秒），預設 Date.now，供測試注入 */
   now?: () => number;
@@ -132,7 +132,14 @@ interface PipelineTask {
   token: string;
   epoch: number;
   receivedAt: number;
+  rateLimitRetries?: number;
 }
+
+type FetchTradeItemResult =
+  | { ok: true; itemData: unknown }
+  | { ok: false; status?: number; error: string };
+
+const MAX_PIPELINE_429_RETRIES = 1;
 
 interface ManualDroppedTask {
   droppedItemId: string;
@@ -1029,10 +1036,14 @@ export class LiveSearchPrimaryRuntime {
     this.emitResultTokenAccepted(subCtx);
   }
 
-  private emitResultDelivered(subCtx: SubscriptionContext): void {
-    if (!this.onResultDelivered) return;
+  private emitOwnerEvent(
+    listener: ((event: LiveSearchResultTokenAcceptedEvent) => void) | undefined,
+    subCtx: SubscriptionContext,
+    label: string,
+  ): void {
+    if (!listener) return;
     try {
-      this.onResultDelivered({
+      listener({
         ownerKey: getTradeSearchCanonicalKey({
           gameVersion: this.gameVersion,
           league: subCtx.subscription.league,
@@ -1041,28 +1052,18 @@ export class LiveSearchPrimaryRuntime {
       });
     } catch (err) {
       console.error(
-        '[PoeXD LiveSearch] Result delivered listener failed:',
+        `[PoeXD LiveSearch] ${label} listener failed:`,
         err instanceof Error ? err.name : 'unknown error',
       );
     }
   }
 
+  private emitResultDelivered(subCtx: SubscriptionContext): void {
+    this.emitOwnerEvent(this.onResultDelivered, subCtx, 'Result delivered');
+  }
+
   private emitResultTokenAccepted(subCtx: SubscriptionContext): void {
-    if (!this.onResultTokenAccepted) return;
-    try {
-      this.onResultTokenAccepted({
-        ownerKey: getTradeSearchCanonicalKey({
-          gameVersion: this.gameVersion,
-          league: subCtx.subscription.league,
-          searchId: subCtx.subscription.searchId,
-        }),
-      });
-    } catch (err) {
-      console.error(
-        '[PoeXD LiveSearch] Result token listener failed:',
-        err instanceof Error ? err.name : 'unknown error',
-      );
-    }
+    this.emitOwnerEvent(this.onResultTokenAccepted, subCtx, 'Result token');
   }
 
   private enqueueTask(task: PipelineTask): void {
@@ -1138,26 +1139,19 @@ export class LiveSearchPrimaryRuntime {
     }
   }
 
-  private async executeManualDroppedTask(task: ManualDroppedTask): Promise<void> {
-    const item = this.droppedItems.find((entry) => entry.id === task.droppedItemId);
-    if (!item || this.disposed) {
-      task.resolve({ success: false, error: 'Dropped item no longer available' });
-      return;
-    }
-
-    const fetchUrl = this.buildFetchUrl(item.gameVersion, item.token, item.searchId);
-    const taskEpoch = this.clearEpoch;
-
-    const markFailed = (error: string) => {
-      const target = this.droppedItems.find((entry) => entry.id === task.droppedItemId);
-      if (target) {
-        target.status = 'failed';
-        this.notifyListeners();
-      }
-      task.resolve({ success: false, error });
-    };
-
-    let itemData: unknown = null;
+  /**
+   * 共用 `/fetch` 抓取與解析流程（供一般推播任務與手動補抓共用）
+   */
+  private async fetchTradeItemPayload(input: {
+    gameVersion: PoeVersion;
+    token: string;
+    searchId: string;
+    league: string;
+    shouldAbort: () => boolean;
+    onRegisterCancel?: (cancelWait: () => void) => void;
+    maxRateLimitRetries?: number;
+  }): Promise<FetchTradeItemResult> {
+    const fetchUrl = this.buildFetchUrl(input.gameVersion, input.token, input.searchId);
     try {
       const response = await this.fetchRateGate.fetch(
         fetchUrl,
@@ -1169,13 +1163,17 @@ export class LiveSearchPrimaryRuntime {
           },
         },
         {
-          shouldAbort: () => this.disposed,
+          shouldAbort: input.shouldAbort,
+          onRegisterCancel: input.onRegisterCancel,
+          maxRateLimitRetries: input.maxRateLimitRetries,
         },
       );
 
-      if (!response || !response.ok) {
-        markFailed(response ? `HTTP ${response.status}` : 'Fetch cancelled');
-        return;
+      if (!response) {
+        return { ok: false, error: 'Fetch cancelled' };
+      }
+      if (!response.ok) {
+        return { ok: false, status: response.status, error: `HTTP ${response.status}` };
       }
 
       const json = await response.json();
@@ -1185,22 +1183,54 @@ export class LiveSearchPrimaryRuntime {
         !Array.isArray(json.result) ||
         json.result.length === 0
       ) {
-        markFailed('Item no longer available');
-        return;
+        return { ok: false, error: 'Item no longer available' };
       }
 
-      itemData = json.result[0];
+      const itemData = json.result[0];
       try {
         this.onResultFetched?.({
           itemData,
-          searchId: item.searchId,
-          league: item.league,
+          searchId: input.searchId,
+          league: input.league,
         });
       } catch (error) {
         console.error('[PoeXD LiveSearch] Error in result fetched listener:', error);
       }
+
+      return { ok: true, itemData };
     } catch (err) {
-      markFailed(err instanceof Error ? err.message : 'Fetch failed');
+      return { ok: false, error: err instanceof Error ? err.message : 'Fetch failed' };
+    }
+  }
+
+  private async executeManualDroppedTask(task: ManualDroppedTask): Promise<void> {
+    const item = this.droppedItems.find((entry) => entry.id === task.droppedItemId);
+    if (!item || this.disposed) {
+      task.resolve({ success: false, error: 'Dropped item no longer available' });
+      return;
+    }
+
+    const taskEpoch = this.clearEpoch;
+
+    const markFailed = (error: string) => {
+      const target = this.droppedItems.find((entry) => entry.id === task.droppedItemId);
+      if (target) {
+        target.status = 'failed';
+        this.notifyListeners();
+      }
+      task.resolve({ success: false, error });
+    };
+
+    const fetched = await this.fetchTradeItemPayload({
+      gameVersion: item.gameVersion,
+      token: item.token,
+      searchId: item.searchId,
+      league: item.league,
+      shouldAbort: () => this.disposed,
+    });
+
+    if (!fetched.ok) {
+      markFailed(fetched.error);
       return;
     }
 
@@ -1215,7 +1245,7 @@ export class LiveSearchPrimaryRuntime {
         batchId,
         sourceSearchId: item.searchId,
         token: item.token,
-        itemData,
+        itemData: fetched.itemData,
         ownerKey: item.ownerKey,
         expectedEpoch: taskEpoch,
       });
@@ -1236,16 +1266,16 @@ export class LiveSearchPrimaryRuntime {
       }
       this.notifyListeners();
       task.resolve({ success: true });
-    } catch (err) {
-      markFailed(err instanceof Error ? err.message : 'Render failed');
+    } catch {
+      markFailed('Render failed');
     }
   }
 
   /**
    * 執行單一 Pipeline 任務:
-   * 1. 透過 LiveSearchFetchRateGate 發送官方 HTTP /fetch (帶 query 與 X-Requested-With)
+   * 1. 透過 LiveSearchFetchRateGate 發送官方 HTTP /fetch（設 maxRateLimitRetries: 0，遇 429 交回排程器依新鮮度與優先權重算）
    * 2. 成功則計算 cumulative total，呼叫 Host Client 注入
-   * 3. Host Client 回報成功後才遞增 total、移除 pending 並標記 processed
+   * 3. Host Client 回報成功後才遞增 total、移除 pending、標記 processed 並觸發 onResultDelivered
    * 4. 任何失敗均移除 pending 但不標記 processed，允許未來重試
    */
   private async executePipelineTask(task: PipelineTask): Promise<void> {
@@ -1255,63 +1285,59 @@ export class LiveSearchPrimaryRuntime {
       return;
     }
 
-    // 1. PoeXD 經由 FetchRateGate 發起 HTTP /fetch
-    const fetchUrl = this.buildFetchUrl(
-      subCtx.subscription.gameVersion,
+    // 1. PoeXD 經由 FetchRateGate 發起 HTTP /fetch（429 不在 gate 內阻塞重試，交回 processQueue 統一排程）
+    const fetched = await this.fetchTradeItemPayload({
+      gameVersion: subCtx.subscription.gameVersion,
       token,
-      subCtx.subscription.searchId,
-    );
+      searchId: subCtx.subscription.searchId,
+      league: subCtx.subscription.league,
+      shouldAbort: () => this.disposed || subCtx.subscription.status === 'closed',
+      onRegisterCancel: (cancelWait) => {
+        subCtx.activeCancelWait = cancelWait;
+      },
+      maxRateLimitRetries: 0,
+    });
+    subCtx.activeCancelWait = undefined;
 
-    let itemData: unknown = null;
-    try {
-      const response = await this.fetchRateGate.fetch(
-        fetchUrl,
-        {
-          method: 'GET',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            Accept: 'application/json',
-          },
-        },
-        {
-          shouldAbort: () => this.disposed || subCtx.subscription.status === 'closed',
-          onRegisterCancel: (cancelWait) => {
-            subCtx.activeCancelWait = cancelWait;
-          },
-        },
-      );
-      subCtx.activeCancelWait = undefined;
-
-      if (!response || !response.ok) {
-        // Fetch 被取消或失敗：移除 pending，不累積 total，不標記 processed (允許重試)
-        subCtx.pendingTokens.delete(token);
-        return;
-      }
-
-      const json = await response.json();
+    if (!fetched.ok) {
       if (
-        !json ||
-        typeof json !== 'object' ||
-        !Array.isArray(json.result) ||
-        json.result.length === 0
+        fetched.status === 429 &&
+        !this.disposed &&
+        subCtx.subscription.status !== 'closed' &&
+        taskEpoch === this.clearEpoch
       ) {
-        subCtx.pendingTokens.delete(token);
-        return;
+        const nowMs = this.now();
+        const maxAgeMs = this.readTokenMaxAgeMs();
+        const nextAllowedAtMs = this.fetchRateGate.getStateSnapshot().nextAllowedAtMs;
+
+        if (
+          maxAgeMs > 0 &&
+          nextAllowedAtMs > nowMs &&
+          nextAllowedAtMs - task.receivedAt > maxAgeMs
+        ) {
+          subCtx.pendingTokens.delete(token);
+          this.recordDroppedItem({
+            subCtx,
+            token,
+            receivedAt: task.receivedAt,
+            droppedAt: nowMs,
+            reason: 'rate-limit-cooldown',
+          });
+          this.notifyListeners();
+          return;
+        }
+
+        const retriesSoFar = task.rateLimitRetries ?? 0;
+        if (retriesSoFar < MAX_PIPELINE_429_RETRIES) {
+          this.queue.unshift({
+            ...task,
+            rateLimitRetries: retriesSoFar + 1,
+          });
+          return;
+        }
       }
 
-      itemData = json.result[0];
-      try {
-        this.onResultFetched?.({
-          itemData,
-          searchId: subCtx.subscription.searchId,
-          league: subCtx.subscription.league,
-        });
-      } catch (error) {
-        console.error('[PoeXD LiveSearch] Error in result fetched listener:', error);
-      }
-    } catch {
-      // 網路例外：移除 pending，不累積 total，不標記 processed
-      subCtx.activeCancelWait = undefined;
+      // Fetch 被取消或失敗：移除 pending，不累積 total，不標記 processed (允許重試)
       subCtx.pendingTokens.delete(token);
       return;
     }
@@ -1329,7 +1355,7 @@ export class LiveSearchPrimaryRuntime {
         batchId,
         sourceSearchId: subCtx.subscription.searchId,
         token,
-        itemData,
+        itemData: fetched.itemData,
         ownerKey: getTradeSearchCanonicalKey({
           gameVersion: this.gameVersion,
           league: subCtx.subscription.league,

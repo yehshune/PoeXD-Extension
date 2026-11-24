@@ -75,6 +75,8 @@
   - **主控台顯示偏好（Preferences SSOT）**：
     - 所有持久化主控台顯示偏好統一整合進既有 `PreferencesModule` / `Preferences` / `DEFAULT_PREFERENCES` / `getPreferenceStorageKey()`（維持 PoE 1 / PoE 2 分版本規則，不另建獨立 storage）：
       - `liveSearchMaxDisplayedResults: 50 | 100 | 200 | 500`（預設 `100`）：結果展示區最多保留筆數，超過時淘汰最舊結果；官方上方顯示之筆數即為實際保留數（依連線篩選時為該連線筆數）。主控台不提供技術診斷顯示。
+      - `liveSearchFetchOrder: 'newest' | 'oldest'`（預設 `'newest'`）：速率受限解禁後的排隊抓取順序，預設最新優先（LIFO），可切換為依序抓取（FIFO）。
+      - `liveSearchTokenMaxAgeSec: number`（整數 `0–300`，預設 `3`）：待抓取物品的新鮮度上限（秒）；超過上限或剩餘速率冷卻大於上限時直接移入「已略過」區（`0` 表示不略過），使用者可於主控台隨時手動補抓。
   - **搜尋連線清單操作階層與降噪規範 (Search Connections Action Hierarchy & Noise Reduction)**：
     - **單一主要狀態操作按鈕 (Single Status-Action Button)**：每筆連線右側只保留一個整合狀態與動作的 icon-only 按鈕（套用既有 `Button size="icon-sm"` 與標準 icon-button 幾何，具備明確 `title` 與 `aria-label`）：未啟用為「啟用」（Lucide `Play`），監聽中為綠色呼吸燈之「暫停監聽」（Lucide `Pause`），連線中/重連中為 disabled 的旋轉 `Loader2`（取消連線收納於 `⋯` 選單），異常為「重試」（Lucide `RotateCcw`）；從「本次連線」或「上次連線」移除（以及拖曳至 `DragTrashZone` 垃圾桶移除）僅移除主控台連線紀錄，絕不刪除持久化書籤。
     - **進行中狀態視覺語言**：connecting / reconnecting 採用 Lucide `Loader2` 旋轉動畫圖示呈現進行中狀態，不使用 Unicode 符號；active 項目維持微強調與呼吸動畫，使運行中連線比 inactive 項目更易於辨識。
@@ -107,11 +109,14 @@
 - **PoeXD HTTP /fetch Ownership**：
   - PoeXD 是官方 HTTP `/fetch` 的唯一擁有者與發起者。
   - 嚴格帶上對應的 `query=subscription.searchId`（PoE 2 加 `&realm=poe2`）與 `X-Requested-With: XMLHttpRequest`。
-- **Cumulative Total 與 FIFO 序列化 Queue**：
-  - 透過 FIFO 佇列確保並發 WebSocket 訊息以確定順序進入 Host Adapter。
+- **Cumulative Total、序列化排程與已略過區（LIFO / TTL / 手動補抓）**：
+  - 透過單一序列化佇列確保並發 WebSocket 訊息有序進入 Host Adapter，避免競態。
+  - 進入速率限制冷卻時，先等 Rate Gate 解禁並清理超過 `liveSearchTokenMaxAgeSec` 的過期項目，再依 `liveSearchFetchOrder`（預設最新優先 LIFO，可切換為依序 FIFO）取出下一筆；剩餘冷卻超過新鮮度上限時，新進與排隊中註定過期的項目會即時移入 `droppedItems`（「已略過」區，最多保留 50 筆）。
+  - 遇 HTTP 429 時由 Runtime 依新鮮度上限決定立即略過或放回佇列等待解禁重排（最多重試 1 次），不於 Rate Gate 內部死等阻塞佇列。
+  - 手動補抓（`fetchDroppedItem`）進入高優先權佇列、不受新鮮度上限限制，仍經由 Rate Gate 准入。
   - 每次 render 使用獨立生成之 `batchId`。
   - 傳入 Host Adapter 之 `total` 為展示區實際保留筆數（與 `maxResults` 同步淘汰最舊者；依連線篩選時為該連線筆數），Cumulative Total 僅作為診斷用累計渲染數。
-  - 唯有在 Host Adapter 回報成功後，才遞增累計計數並登記結果歸屬；失敗則計數不變。
+  - 唯有在 Host Adapter 回報成功後，才遞增累計計數、登記結果歸屬並觸發 `onResultDelivered`（音效／桌面通知）；失敗則計數不變。
 - **HostClient 即時取消防護與純記憶體生命週期 (ADR-0004)**：
   - `LiveSearchHostClient.dispose()` 即刻取消定時器、移除監聽並 resolve pending Promise，杜絕懸掛。
   - Subscriptions、WebSockets、佇列與暫存 token 僅存於分頁記憶體中，嚴禁持久化。

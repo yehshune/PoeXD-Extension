@@ -1199,9 +1199,6 @@ export const ZH_TW_MESSAGES = {
   'liveSearch.settings.fetchOrderDesc':
     '速率受限解禁後，選擇優先抓取最新上架的物品，或依收到順序逐筆補抓。',
   'liveSearch.settings.tokenMaxAgeLabel': '過期略過上限',
-  'liveSearch.settings.tokenMaxAgeOff': '不略過',
-  'liveSearch.settings.tokenMaxAgeSeconds': '{seconds} 秒',
-  'liveSearch.settings.tokenMaxAgeCustomLabel': '自訂秒數（0 = 不略過）',
   'liveSearch.settings.tokenMaxAgeUnitSec': '秒',
   'liveSearch.settings.tokenMaxAgeDecreaseAria': '減少過期略過秒數',
   'liveSearch.settings.tokenMaxAgeIncreaseAria': '增加過期略過秒數',

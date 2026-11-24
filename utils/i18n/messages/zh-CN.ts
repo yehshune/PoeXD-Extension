@@ -1201,9 +1201,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.settings.fetchOrderDesc':
     '速率受限解禁后，选择优先抓取最新上架的物品，或按收到顺序逐条补抓。',
   'liveSearch.settings.tokenMaxAgeLabel': '过期略过上限',
-  'liveSearch.settings.tokenMaxAgeOff': '不略过',
-  'liveSearch.settings.tokenMaxAgeSeconds': '{seconds} 秒',
-  'liveSearch.settings.tokenMaxAgeCustomLabel': '自定义秒数（0 = 不略过）',
   'liveSearch.settings.tokenMaxAgeUnitSec': '秒',
   'liveSearch.settings.tokenMaxAgeDecreaseAria': '减少过期略过秒数',
   'liveSearch.settings.tokenMaxAgeIncreaseAria': '增加过期略过秒数',

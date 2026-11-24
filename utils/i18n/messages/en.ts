@@ -1278,9 +1278,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.settings.fetchOrderDesc':
     'After rate-limit cooldown, fetch either the newest listings first or in arrival order.',
   'liveSearch.settings.tokenMaxAgeLabel': 'Drop stale listings after',
-  'liveSearch.settings.tokenMaxAgeOff': 'Never',
-  'liveSearch.settings.tokenMaxAgeSeconds': '{seconds}s',
-  'liveSearch.settings.tokenMaxAgeCustomLabel': 'Custom seconds (0 = never)',
   'liveSearch.settings.tokenMaxAgeUnitSec': 's',
   'liveSearch.settings.tokenMaxAgeDecreaseAria': 'Decrease stale threshold seconds',
   'liveSearch.settings.tokenMaxAgeIncreaseAria': 'Increase stale threshold seconds',

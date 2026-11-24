@@ -1227,4 +1227,92 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
     runtime.dismissDroppedItem(expiredItem.id);
     expect(runtime.getSnapshot().droppedItems).toBeUndefined();
   });
+
+  it('HTTP 429 does not block processQueue: immediately drops stale 429/queued tokens and lets manual fetch & newest token run first on admission', async () => {
+    const clock = new ManualTimerClock();
+    const hostClient = new FakeHostClient();
+    const sockets: FakeWebSocket[] = [];
+    const fetchOrder: string[] = [];
+
+    const rateGate = new LiveSearchFetchRateGate({
+      timer: clock,
+      fetchClient: async (url) => {
+        fetchOrder.push(url);
+        if (fetchOrder.length === 1) {
+          // 第 1 筆就撞到 HTTP 429，Retry-After: 30s（遠超 3s 新鮮度上限）
+          return new Response(
+            JSON.stringify({ error: { code: 3, message: 'Rate limit exceeded' } }),
+            {
+              status: 429,
+              headers: {
+                'Retry-After': '30',
+                'X-Rate-Limit-Rules': 'Account',
+                'X-Rate-Limit-Account': '5:5:30',
+                'X-Rate-Limit-Account-State': '6:5:30',
+              },
+            },
+          );
+        }
+        return new Response(JSON.stringify({ result: [{ id: `item_${fetchOrder.length}` }] }), {
+          status: 200,
+          headers: {
+            'X-Rate-Limit-Rules': 'Account',
+            'X-Rate-Limit-Account': '5:5:30',
+            'X-Rate-Limit-Account-State': '1:5:0',
+          },
+        });
+      },
+    });
+
+    const runtime = new LiveSearchPrimaryRuntime('poe1', {
+      hostClient,
+      webSocketFactory: (url) => {
+        const ws = new FakeWebSocket(url);
+        sockets.push(ws);
+        return ws as unknown as WebSocket;
+      },
+      fetchRateGate: rateGate,
+      getFetchOrder: () => 'newest',
+      getTokenMaxAgeSec: () => 3,
+      now: () => clock.now(),
+      origin: 'https://www.pathofexile.com',
+      openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
+    });
+
+    await runtime.addSubscription(createSub('sub_A', 'search_A'));
+    await flushMicrotasks();
+    const ws = sockets[0]!;
+
+    // tk_429 與 tk_queued 同時到達，tk_429 撞到 429 (30s)
+    ws.simulateMessage(JSON.stringify({ result: 'tk_429' }));
+    ws.simulateMessage(JSON.stringify({ result: 'tk_queued' }));
+    await flushMicrotasks(8);
+
+    // 兩筆註定等不到 30s 解禁的項目都必須立刻進入 droppedItems（不必等 30s）
+    const droppedNow = runtime.getSnapshot().droppedItems ?? [];
+    expect(droppedNow.map((d) => d.token).sort()).toEqual(['tk_429', 'tk_queued']);
+    expect(fetchOrder).toHaveLength(1);
+
+    // 使用者在冷卻期間對 tk_queued 點擊手動補抓
+    const manualTarget = droppedNow.find((d) => d.token === 'tk_queued')!;
+    const manualPromise = runtime.fetchDroppedItem(manualTarget.id);
+    await flushMicrotasks();
+
+    // 在 30s 冷卻最後 1 秒（t=29s）來了一筆新鮮的 tk_fresh
+    clock.advanceBy(29000);
+    ws.simulateMessage(JSON.stringify({ result: 'tk_fresh' }));
+    await flushMicrotasks();
+
+    // 再過 1 秒解禁（t=30s）：手動補抓優先，接著抓 tk_fresh，絕不重打已被略過的 tk_429
+    clock.advanceBy(1000);
+    await flushMicrotasks(16);
+
+    const manualRes = await manualPromise;
+    expect(manualRes.success).toBe(true);
+    expect(fetchOrder).toEqual([
+      'https://www.pathofexile.com/api/trade/fetch/tk_429?query=search_A',
+      'https://www.pathofexile.com/api/trade/fetch/tk_queued?query=search_A',
+      'https://www.pathofexile.com/api/trade/fetch/tk_fresh?query=search_A',
+    ]);
+  });
 });
