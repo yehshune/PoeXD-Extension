@@ -58,10 +58,6 @@ const fake = {
       ? 'https://www.pathofexile.com/trade/search/Covens?q=test'
       : undefined,
   ),
-  setStatEnabled: vi.fn(),
-  setStatBound: vi.fn(),
-  setCountMin: vi.fn(),
-  setPseudo: vi.fn(),
   saveSelection: vi.fn(),
   resetSearch: vi.fn(),
   setSearchDefaults: vi.fn(),
@@ -724,7 +720,6 @@ describe('PobBuildPane', () => {
     toggles[1].click();
     await nextTick();
     // 暫存模式不會直接觸發寫入
-    expect(fake.setStatEnabled).not.toHaveBeenCalled();
     expect(fake.saveSelection).not.toHaveBeenCalled();
     expect(queryBody('[data-pob-build-save-selection]')?.textContent?.trim()).toBe('存回條件');
     expect(queryBody('[data-pob-build-discard-draft]')?.textContent?.trim()).toBe('還原');

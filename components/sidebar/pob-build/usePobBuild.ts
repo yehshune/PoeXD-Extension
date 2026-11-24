@@ -32,29 +32,25 @@ import {
 } from '@/utils/pob-build-store';
 import { itemArtFor, loadItemArt, type ItemArtData } from '@/utils/pob-item-art';
 import {
-  applyEntrySelection,
+  normalizeSearchDefaults,
+  resolveEntrySearch,
+  type BuildSearchDefaults,
+  type EntrySearchSelection,
+  type RareSearchMode,
+  type ShoppingStatFilter,
+} from '@/utils/pob-entry-search';
+import {
   buildShoppingList,
   buildTradeCodeUrl,
   buildTradeSearchUrl,
-  effectiveCountMin,
-  effectiveGemFilters,
-  effectiveLinks,
-  effectivePseudo,
-  effectiveSearchBy,
-  type VisceraModIndex,
-  entryStatFilters,
   gemKey,
   loadTradeNameCatalog,
   migrateLegacyGemKeys,
-  normalizeSearchDefaults,
-  type BuildSearchDefaults,
-  type EntrySearchSelection,
   type ShoppingEntry,
   type ShoppingMod,
-  type ShoppingStatFilter,
   type TradeNameCatalog,
+  type VisceraModIndex,
 } from '@/utils/pob-shopping-list';
-import type { RareSearchMode } from '@/utils/pob-category-search';
 import { loadModLineTranslator, type ModLineTranslator } from '@/utils/pob-mod-translator';
 import { loadStatMatcher, type StatMatcher } from '@/utils/pob-stat-matcher';
 import { loadVisceraModIndex } from '@/utils/pob-viscera-parts';
@@ -127,6 +123,8 @@ export interface ShoppingRow extends ShoppingEntry {
   socketContents?: (SocketContent | null)[];
   /** 可以勾選的搜尋條件（同一個代碼的多行已合併），已套用使用者的調整 */
   filters: ShoppingStatFilter[];
+  /** 參與「至少符合 N 項」的已啟用條件數（已涵蓋合成臟器例外） */
+  countableFilterCount?: number;
   /** 「至少符合 N 項」；未設定時為全部符合 */
   countMin?: number;
   /** 抗性、生命、能力值改用總和條件 */
@@ -232,19 +230,6 @@ export interface UsePobBuild {
   removeEntry(buildId: string, key: string): void;
   /** 把目前套裝中移除的項目全部放回清單 */
   restoreRemoved(buildId: string): void;
-  /** 勾選或取消某個搜尋條件 */
-  setStatEnabled(buildId: string, key: string, statId: string, enabled: boolean): void;
-  /** 修改某個搜尋條件的下限或上限；null 表示不設 */
-  setStatBound(
-    buildId: string,
-    key: string,
-    statId: string,
-    bound: StatBound,
-    value: number | null,
-  ): void;
-  /** 設定「至少符合 N 項」；undefined 表示全部符合 */
-  setCountMin(buildId: string, key: string, countMin: number | undefined): void;
-  setPseudo(buildId: string, key: string, on: boolean): void;
   /** 整批將 Popover 微調後的搜尋條件存回此項目（undefined 表示回到預設） */
   saveSelection(buildId: string, key: string, selection: EntrySearchSelection | undefined): void;
   /** 清掉這一項的搜尋調整，回到預設 */
@@ -647,40 +632,20 @@ export function usePobBuild(
     return art.iconLayers ? undefined : art.icon;
   };
 
-  const gemMinsOf = (
-    entry: ShoppingEntry,
-    selection: EntrySearchSelection | undefined,
-  ): Pick<ShoppingRow, 'gemLevelMin' | 'gemQualityMin' | 'gemSocketsMin'> => {
-    const { level, quality, sockets } = effectiveGemFilters(entry, selection);
-    return {
-      ...(level !== undefined ? { gemLevelMin: level } : {}),
-      ...(quality !== undefined ? { gemQualityMin: quality } : {}),
-      ...(sockets !== undefined ? { gemSocketsMin: sockets } : {}),
-    };
-  };
-
   const toRow = (session: Session, entry: ShoppingEntry, abyss: AbyssJewels): ShoppingRow => {
     const selection = session.searchSelections[entry.key];
-    const defaults = session.searchDefaults;
-    const applied = applyEntrySelection(entry, selection, defaults);
-    const countMin = effectiveCountMin(entry, selection);
-    const linksMin = effectiveLinks(entry, selection, defaults);
+    const resolved = resolveEntrySearch(entry, selection, session.searchDefaults);
     return {
-      ...applied,
+      ...entry,
+      ...resolved,
       label:
         entry.visceraBundle || entry.visceraPart
           ? t('pobBuild.viscera.bundle')
           : (displayNames.value?.toTradeName(entry.englishName) ?? entry.label),
-      ...(applied.mods ? { mods: applied.mods.map(localizeMod) } : {}),
+      ...(resolved.mods ? { mods: resolved.mods.map(localizeMod) } : {}),
       done: session.done.has(entry.key),
       ...artOf(entry),
       ...socketContentsOf(session, entry, abyss),
-      filters: entryStatFilters(entry, selection, defaults),
-      ...(countMin !== undefined ? { countMin } : {}),
-      pseudo: effectivePseudo(entry, selection, defaults),
-      ...(linksMin !== undefined ? { linksMin } : {}),
-      searchBy: effectiveSearchBy(entry, selection, defaults),
-      ...gemMinsOf(entry, selection),
       searchCustomized: selection !== undefined || session.searchOverrides[entry.key] !== undefined,
       ...(selection ? { searchSelection: selection } : {}),
       searchOverride: session.searchOverrides[entry.key] !== undefined,
@@ -882,17 +847,6 @@ export function usePobBuild(
       searchSelections: merge(current.searchSelections),
     }));
   };
-
-  const updateStat = (
-    buildId: string,
-    key: string,
-    statId: string,
-    change: Record<string, unknown>,
-  ) =>
-    updateSelection(buildId, key, (current) => ({
-      ...current,
-      stats: { ...current.stats, [statId]: { ...current.stats?.[statId], ...change } },
-    }));
 
   /** 目前頁面的聯盟；沒有時記下錯誤並回傳 undefined */
   const requireLeague = (): string | undefined => {
@@ -1202,27 +1156,6 @@ export function usePobBuild(
       update(buildId, { removed: new Set(keepRemoved(session.removed)) }, (stored) => ({
         removed: keepRemoved(stored.removed),
       }));
-    },
-    setStatEnabled(buildId, key, statId, enabled) {
-      updateStat(buildId, key, statId, { enabled });
-    },
-    setStatBound(buildId, key, statId, bound, value) {
-      if (value !== null && !Number.isFinite(value)) return;
-      updateStat(buildId, key, statId, { [bound]: value });
-    },
-    setCountMin(buildId, key, countMin) {
-      updateSelection(buildId, key, ({ countMin: _previous, ...current }) =>
-        countMin === undefined ? current : { ...current, countMin },
-      );
-    },
-    setPseudo(buildId, key, on) {
-      const session = find(buildId);
-      const entry = session && entriesOf(session).find((item) => item.key === key);
-      // 等於 build 預設時不存，之後改整體設定也會跟著變
-      const fallback = entry ? effectivePseudo(entry, undefined, session.searchDefaults) : false;
-      updateSelection(buildId, key, ({ pseudo: _previous, ...current }) =>
-        on === fallback ? current : { ...current, pseudo: on },
-      );
     },
     saveSelection(buildId, key, selection) {
       const session = find(buildId);

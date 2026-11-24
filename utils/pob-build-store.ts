@@ -8,12 +8,13 @@ import {
   MAX_GEM_QUALITY,
   MAX_GEM_SOCKETS,
   normalizeSearchDefaults,
+  RARE_SEARCH_MODES,
   type BuildSearchDefaults,
   type EntrySearchSelection,
   type LinkPolicy,
+  type RareSearchMode,
   type StatSelection,
-} from './pob-shopping-list';
-import { RARE_SEARCH_MODES, type RareSearchMode } from './pob-category-search';
+} from './pob-entry-search';
 import { isGzipHash } from './trade-url-codec';
 import type { PoeVersion } from './trade-context';
 

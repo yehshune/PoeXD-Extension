@@ -7,29 +7,26 @@ import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t, type I18nKey } from '@/utils/i18n';
 import type { PobDefence } from '@/utils/pob-build';
-import { RARE_SEARCH_MODES, type RareSearchMode } from '@/utils/pob-category-search';
 import {
-  applyEntrySelection,
-  buildEntryQuery,
-  effectiveCountMin,
-  effectiveGemFilters,
-  effectiveLinks,
-  effectivePseudo,
-  effectiveSearchBy,
+  clearSelectionBounds,
+  cloneEntrySearchSelection,
+  hasEnabledNumericBounds as checkEnabledNumericBounds,
+  hasRelaxableNumericBounds as checkRelaxableNumericBounds,
+  isSelectionDraftModified,
   LINK_OPTIONS,
   MAX_GEM_LEVEL,
   MAX_GEM_QUALITY,
   MAX_GEM_SOCKETS,
-  cloneEntrySearchSelection,
-  entryStatFilters,
-  isRequiredInCountMode,
-  isSelectionDraftModified,
   normalizeSelectionForEntry,
+  RARE_SEARCH_MODES,
+  relaxSelectionBounds,
+  resolveEntrySearch,
   selectionFromRowState,
   type BuildSearchDefaults,
   type EntrySearchSelection,
+  type RareSearchMode,
   type ShoppingMod,
-} from '@/utils/pob-shopping-list';
+} from '@/utils/pob-entry-search';
 import { statDomainOf } from '@/utils/stat-domain-order';
 import ItemPreviewHeader from '../item-preview/ItemPreviewHeader.vue';
 import ItemPreviewPopover from '../item-preview/ItemPreviewPopover.vue';
@@ -118,25 +115,18 @@ const effectiveRow = computed<ShoppingRow | null>(() => {
   if (!row) return null;
   const draft = draftSelection.value;
   if (!draft) return row;
-  const defaults = props.searchDefaults;
-  const filters = entryStatFilters(row, draft, defaults);
-  const applied = applyEntrySelection(row, draft, defaults);
-  const countMin = effectiveCountMin(row, draft);
-  const pseudo = effectivePseudo(row, draft, defaults);
-  const gem = effectiveGemFilters(row, draft);
-  const { gemLevelMin: _level, gemQualityMin: _quality, gemSocketsMin: _sockets, ...rest } = row;
+  const {
+    countMin: _countMin,
+    linksMin: _linksMin,
+    gemLevelMin: _level,
+    gemQualityMin: _quality,
+    gemSocketsMin: _sockets,
+    ...rest
+  } = row;
+  const resolved = resolveEntrySearch(row, draft, props.searchDefaults);
   return {
     ...rest,
-    ...(gem.level !== undefined ? { gemLevelMin: gem.level } : {}),
-    ...(gem.quality !== undefined ? { gemQualityMin: gem.quality } : {}),
-    ...(gem.sockets !== undefined ? { gemSocketsMin: gem.sockets } : {}),
-    mods: applied.mods,
-    filters,
-    countMin,
-    pseudo,
-    linksMin: effectiveLinks(row, draft, defaults),
-    searchBy: effectiveSearchBy(row, draft, defaults),
-    query: buildEntryQuery(row, draft, defaults),
+    ...resolved,
     searchSelection: draft,
   };
 });
@@ -281,33 +271,25 @@ const searchedModCount = computed(
   () => effectiveRow.value?.mods?.filter((mod) => mod.searched).length ?? 0,
 );
 
-/** 參與「至少符合 N 項」的條件數（固定詞綴與附魔一定要符合，不算在內） */
-const enabledCount = computed(
-  () =>
-    effectiveRow.value?.filters.filter(
-      (filter) => filter.enabled && !isRequiredInCountMode(filter.id),
-    ).length ?? 0,
-);
+/** 參與「至少符合 N 項」的條件數（已由 resolveEntrySearch 涵蓋合成臟器例外） */
+const enabledCount = computed(() => {
+  const row = effectiveRow.value;
+  if (!row) return 0;
+  return (
+    row.countableFilterCount ??
+    resolveEntrySearch(row, row.searchSelection, props.searchDefaults).countableFilterCount
+  );
+});
 
 const hasPseudo = computed(
   () => effectiveRow.value?.mods?.some((mod) => mod.stat?.pseudo) ?? false,
 );
 
-/** 上下限鎖定為同一個精確值（如星團天賦數、插槽數、永恆珠寶種子碼）不應被「-10%」放寬 */
-function isExactLockedBound(filter: { min?: number; max?: number }): boolean {
-  return filter.min !== undefined && filter.max !== undefined && filter.min === filter.max;
-}
-
 const hasEnabledNumericBounds = computed(() =>
   Boolean(
     effectiveRow.value &&
     !effectiveRow.value.searchOverride &&
-    effectiveRow.value.filters.some(
-      (filter) =>
-        filter.enabled &&
-        filter.value !== undefined &&
-        (filter.min !== undefined || filter.max !== undefined),
-    ),
+    checkEnabledNumericBounds(effectiveRow.value.filters),
   ),
 );
 
@@ -315,13 +297,7 @@ const hasRelaxableNumericBounds = computed(() =>
   Boolean(
     effectiveRow.value &&
     !effectiveRow.value.searchOverride &&
-    effectiveRow.value.filters.some(
-      (filter) =>
-        filter.enabled &&
-        filter.value !== undefined &&
-        (filter.min !== undefined || filter.max !== undefined) &&
-        !isExactLockedBound(filter),
-    ),
+    checkRelaxableNumericBounds(effectiveRow.value.filters),
   ),
 );
 
@@ -394,47 +370,13 @@ function setPseudo(on: boolean): void {
 function relaxBounds(): void {
   const row = effectiveRow.value;
   if (!row || row.searchOverride) return;
-  mutateDraft((draft) => {
-    const nextStats = { ...draft.stats };
-    for (const filter of row.filters) {
-      if (!filter.enabled || filter.value === undefined) continue;
-      if (filter.min === undefined && filter.max === undefined) continue;
-      if (isExactLockedBound(filter)) continue;
-      const entry = { ...nextStats[filter.key] };
-      if (filter.min !== undefined) {
-        entry.min =
-          filter.min > 0
-            ? Math.floor(filter.min * 0.9)
-            : filter.min < 0
-              ? Math.floor(filter.min * 1.1)
-              : 0;
-      }
-      if (filter.max !== undefined) {
-        entry.max =
-          filter.max < 0
-            ? Math.ceil(filter.max * 0.9)
-            : filter.max > 0
-              ? Math.ceil(filter.max * 1.1)
-              : 0;
-      }
-      nextStats[filter.key] = entry;
-    }
-    return { ...draft, stats: nextStats };
-  });
+  mutateDraft((draft) => relaxSelectionBounds(draft, row.filters));
 }
 
 function clearBounds(): void {
   const row = effectiveRow.value;
   if (!row || row.searchOverride) return;
-  mutateDraft((draft) => {
-    const nextStats = { ...draft.stats };
-    for (const filter of row.filters) {
-      if (!filter.enabled || filter.value === undefined) continue;
-      if (filter.min === undefined && filter.max === undefined) continue;
-      nextStats[filter.key] = { ...nextStats[filter.key], min: null, max: null };
-    }
-    return { ...draft, stats: nextStats };
-  });
+  mutateDraft((draft) => clearSelectionBounds(draft, row.filters));
 }
 
 function saveDraft(): void {

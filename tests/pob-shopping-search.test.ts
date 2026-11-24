@@ -2,20 +2,18 @@
 import { describe, expect, it } from 'vitest';
 import { parsePobBuildXml } from '@/utils/pob-build';
 import {
-  applyEntrySelection,
-  buildEntryQuery,
-  buildShoppingList,
   cloneEntrySearchSelection,
-  createTradeNameCatalog,
-  assignVisceraParts,
-  createVisceraModIndex,
-  defaultStatBounds,
-  effectiveLinks,
-  entryStatFilters,
   isSelectionDraftModified,
   normalizeSelectionForEntry,
-  pseudoContributions,
+  resolveEntrySearch,
   selectionFromRowState,
+} from '@/utils/pob-entry-search';
+import {
+  assignVisceraParts,
+  buildShoppingList,
+  createTradeNameCatalog,
+  createVisceraModIndex,
+  pseudoContributions,
   type ShoppingEntry,
 } from '@/utils/pob-shopping-list';
 import { createStatMatcher } from '@/utils/pob-stat-matcher';
@@ -113,26 +111,61 @@ describe('createStatMatcher：網域與市集寫法', () => {
   });
 });
 
-describe('defaultStatBounds', () => {
+describe('resolveEntrySearch：預設數值範圍', () => {
+  const boundsOf = (value: number | undefined, exact = false, statPercent?: number) => {
+    const [filter] = resolveEntrySearch(
+      {
+        searchBase: { type: 'Ring' },
+        mods: [
+          {
+            text: 'mod',
+            kind: 'explicit',
+            searched: true,
+            stat: {
+              id: 'explicit.stat_test',
+              ...(value !== undefined ? { value } : {}),
+              ...(exact ? { exact } : {}),
+              defaultEnabled: true,
+            },
+          },
+        ],
+      },
+      undefined,
+      statPercent !== undefined ? { statPercent } : undefined,
+    ).filters;
+    return {
+      ...(filter.min !== undefined ? { min: filter.min } : {}),
+      ...(filter.max !== undefined ? { max: filter.max } : {}),
+    };
+  };
+
   it('正數取八成當下限，整數捨去到整數', () => {
-    expect(defaultStatBounds(100)).toEqual({ min: 80 });
-    expect(defaultStatBounds(40.5)).toEqual({ min: 32 });
+    expect(boundsOf(100)).toEqual({ min: 80 });
+    expect(boundsOf(40.5)).toEqual({ min: 32 });
   });
 
   it('小於 10 的非整數保留一位小數，不會變成沒有數值', () => {
-    expect(defaultStatBounds(0.5)).toEqual({ min: 0.4 });
-    expect(defaultStatBounds(1.5)).toEqual({ min: 1.2 });
+    expect(boundsOf(0.5)).toEqual({ min: 0.4 });
+    expect(boundsOf(1.5)).toEqual({ min: 1.2 });
   });
 
   it('負數取八成當上限', () => {
-    expect(defaultStatBounds(-12)).toEqual({ max: -9 });
-    expect(defaultStatBounds(-0.5)).toEqual({ max: -0.4 });
+    expect(boundsOf(-12)).toEqual({ max: -9 });
+    expect(boundsOf(-0.5)).toEqual({ max: -0.4 });
   });
 
   it('精確數值上下限相同；沒有數值或算出 0 時不設範圍', () => {
-    expect(defaultStatBounds(16137, true)).toEqual({ min: 16137, max: 16137 });
-    expect(defaultStatBounds(undefined)).toEqual({});
-    expect(defaultStatBounds(1)).toEqual({});
+    expect(boundsOf(16137, true)).toEqual({ min: 16137, max: 16137 });
+    expect(boundsOf(undefined)).toEqual({});
+    expect(boundsOf(1)).toEqual({});
+  });
+
+  it('依整體比例計算下限；100% 為原值', () => {
+    expect(boundsOf(129, false, 50)).toEqual({ min: 64 });
+    expect(boundsOf(129, false, 100)).toEqual({ min: 129 });
+    expect(boundsOf(-12, false, 50)).toEqual({ max: -6 });
+    expect(boundsOf(0.5, false, 50)).toEqual({ min: 0.2 });
+    expect(boundsOf(8, true, 50)).toEqual({ min: 8, max: 8 });
   });
 });
 
@@ -335,7 +368,7 @@ describe('buildShoppingList：搜尋條件', () => {
     });
     expect(kaom.mods?.[0].stat).toMatchObject({ id: 'explicit.stat_3299347043', value: 500 });
     expect(
-      buildEntryQuery(kaom, { stats: { 'explicit.stat_3299347043': { enabled: true } } }),
+      resolveEntrySearch(kaom, { stats: { 'explicit.stat_3299347043': { enabled: true } } }).query,
     ).toMatchObject({
       stats: [{ type: 'and', filters: [{ id: 'explicit.stat_3299347043', value: { min: 400 } }] }],
     });
@@ -346,8 +379,8 @@ describe('使用者調整搜尋條件', () => {
   const list = buildShoppingList(parsePobBuildXml(xml), catalog, {}, matcher);
   const ring = list.find((item) => item.label === 'Two-Stone Ring')!;
 
-  it('entryStatFilters 列出合併後的條件與預設範圍', () => {
-    expect(entryStatFilters(ring)).toEqual([
+  it('resolveEntrySearch 列出合併後的條件與預設範圍', () => {
+    expect(resolveEntrySearch(ring).filters).toEqual([
       {
         id: 'implicit.stat_4277795662',
         key: 'implicit.stat_4277795662',
@@ -395,33 +428,31 @@ describe('使用者調整搜尋條件', () => {
   it('切換網域：搜尋改用新前綴、以原代碼記住；不在可切換清單的前綴不採用', () => {
     const life = 'explicit.stat_3299347043';
     const switched = { stats: { [life]: { domain: 'implicit' } } };
-    expect(entryStatFilters(ring, switched)[1]).toMatchObject({
+    const resolved = resolveEntrySearch(ring, switched);
+    expect(resolved.filters[1]).toMatchObject({
       id: 'implicit.stat_3299347043',
       key: life,
     });
     expect(
-      (buildEntryQuery(ring, switched)?.stats as Array<{ filters: Array<{ id: string }> }>)[0]
-        .filters[1].id,
+      (resolved.query?.stats as Array<{ filters: Array<{ id: string }> }>)[0].filters[1].id,
     ).toBe('implicit.stat_3299347043');
     // 切換後勾選狀態仍對應原本那一行
-    expect(
-      applyEntrySelection(ring, switched).mods?.find((mod) => mod.stat?.id === life)?.searched,
-    ).toBe(true);
+    expect(resolved.mods?.find((mod) => mod.stat?.id === life)?.searched).toBe(true);
     expect(normalizeSelectionForEntry(ring, switched)).toEqual(switched);
     // 從畫面狀態推回草稿時保留切換
-    const row = { ...ring, filters: entryStatFilters(ring, switched) };
+    const row = { ...ring, filters: resolved.filters };
     expect(selectionFromRowState(row)).toEqual(switched);
 
     // 清單外的前綴、切回原前綴：都視為沒有切換
     for (const domain of ['fractured', 'explicit']) {
       const selection = { stats: { [life]: { domain } } };
-      expect(entryStatFilters(ring, selection)[1].id).toBe(life);
+      expect(resolveEntrySearch(ring, selection).filters[1].id).toBe(life);
       expect(normalizeSelectionForEntry(ring, selection)).toBeUndefined();
     }
   });
 
   it('取消勾選、改下限、清掉下限、設定上限', () => {
-    const query = buildEntryQuery(ring, {
+    const { query } = resolveEntrySearch(ring, {
       stats: {
         'implicit.stat_4277795662': { enabled: false },
         'explicit.stat_3299347043': { min: 100 },
@@ -443,7 +474,9 @@ describe('使用者調整搜尋條件', () => {
   });
 
   it('至少符合 N 項：固定詞綴仍必須符合，N 超過一般詞綴數時以一般詞綴數為準', () => {
-    expect(buildEntryQuery(ring, { countMin: 3 })?.stats).toEqual([
+    const resolved = resolveEntrySearch(ring, { countMin: 3 });
+    expect(resolved.countableFilterCount).toBe(4);
+    expect(resolved.query?.stats).toEqual([
       { type: 'and', filters: [{ id: 'implicit.stat_4277795662', value: { min: 12 } }] },
       {
         type: 'count',
@@ -456,7 +489,7 @@ describe('使用者調整搜尋條件', () => {
         ],
       },
     ]);
-    expect(buildEntryQuery(ring, { countMin: 99 })?.stats).toMatchObject([
+    expect(resolveEntrySearch(ring, { countMin: 99 }).query?.stats).toMatchObject([
       { type: 'and' },
       { type: 'count', value: { min: 4 } },
     ]);
@@ -466,15 +499,15 @@ describe('使用者調整搜尋條件', () => {
     const cluster = buildShoppingList(parsePobBuildXml(xml), catalog, {}, matcher).find(
       (item) => item.label === 'Large Cluster Jewel',
     )!;
-    const stats = buildEntryQuery(cluster, {
+    const stats = resolveEntrySearch(cluster, {
       countMin: 1,
       stats: { 'explicit.stat_3944525413': { enabled: false } },
-    })?.stats as Array<{ type: string }>;
+    }).query?.stats as Array<{ type: string }>;
     expect(stats.map((group) => group.type)).toEqual(['and']);
   });
 
   it('總和條件：勾選的抗性與生命換成總和，下限取八成；固定詞綴另外保留', () => {
-    expect(buildEntryQuery(ring, { pseudo: true })?.stats).toEqual([
+    expect(resolveEntrySearch(ring, { pseudo: true }).query?.stats).toEqual([
       {
         type: 'and',
         filters: [
@@ -500,20 +533,21 @@ describe('使用者調整搜尋條件', () => {
       ),
     };
     const filters = (
-      buildEntryQuery(withFractured, {
+      resolveEntrySearch(withFractured, {
         pseudo: true,
         stats: { [life]: { domain: 'fractured' } },
-      })?.stats as Array<{ filters: Array<{ id: string; value?: { min?: number } }> }>
+      }).query?.stats as Array<{ filters: Array<{ id: string; value?: { min?: number } }> }>
     )[0].filters;
     expect(filters).toContainEqual({ id: 'pseudo.pseudo_total_life', value: { min: 91 } });
     expect(filters).toContainEqual({ id: 'fractured.stat_3299347043', value: { min: 91 } });
   });
 
   it('總和條件：使用者調整過的那一行以他填的下限計入總和，清空視為 0', () => {
-    const fire = entryStatFilters(ring).find((filter) => filter.value === 46)!;
+    const fire = resolveEntrySearch(ring).filters.find((filter) => filter.value === 46)!;
     const totalResist = (min: number | null) =>
       (
-        buildEntryQuery(ring, { pseudo: true, stats: { [fire.id]: { min } } })?.stats as Array<{
+        resolveEntrySearch(ring, { pseudo: true, stats: { [fire.id]: { min } } }).query
+          ?.stats as Array<{
           filters: Array<{ id: string; value?: { min?: number } }>;
         }>
       )[0].filters.find((filter) => filter.id === 'pseudo.pseudo_total_elemental_resistance');
@@ -531,24 +565,24 @@ describe('使用者調整搜尋條件', () => {
 
   it('全部取消勾選時只剩基底搜尋', () => {
     const stats = Object.fromEntries(
-      entryStatFilters(ring).map((filter) => [filter.id, { enabled: false }]),
+      resolveEntrySearch(ring).filters.map((filter) => [filter.id, { enabled: false }]),
     );
-    expect(buildEntryQuery(ring, { stats })).toEqual({
+    expect(resolveEntrySearch(ring, { stats }).query).toEqual({
       status: { option: 'securable' },
       type: 'Two-Stone Ring',
       filters: NON_UNIQUE,
     });
   });
 
-  it('applyEntrySelection 同步每一行是否帶入搜尋', () => {
-    const applied = applyEntrySelection(ring, {
+  it('resolveEntrySearch 同步每一行是否帶入搜尋', () => {
+    const resolved = resolveEntrySearch(ring, {
       stats: { 'explicit.stat_3299347043': { enabled: false } },
     });
-    expect(applied.mods?.map((mod) => mod.searched)).toEqual([true, false, true, true, true]);
-    expect(applied.query).toEqual(
-      buildEntryQuery(ring, { stats: { 'explicit.stat_3299347043': { enabled: false } } }),
-    );
-    expect(applyEntrySelection(ring, undefined)).toBe(ring);
+    expect(resolved.mods?.map((mod) => mod.searched)).toEqual([true, false, true, true, true]);
+    expect(resolved.query).toMatchObject({
+      type: 'Two-Stone Ring',
+    });
+    expect(resolveEntrySearch(ring, undefined).query).toEqual(ring.query);
   });
 
   it('cloneEntrySearchSelection / selectionFromRowState / normalizeSelectionForEntry / isSelectionDraftModified 處理草稿與預設比較', () => {
@@ -562,7 +596,7 @@ describe('使用者調整搜尋條件', () => {
     expect(cloned).not.toBe(original);
     expect(cloned.stats).not.toBe(original.stats);
 
-    const baseFilters = entryStatFilters(ring);
+    const baseFilters = resolveEntrySearch(ring).filters;
     const derived = selectionFromRowState({
       mods: ring.mods,
       searchBase: ring.searchBase,
@@ -663,10 +697,10 @@ Gain 5% of Physical Damage as Extra Fire Damage
         },
       ],
     });
-    // 使用者改成至少 2 項時照用
-    expect(buildEntryQuery(bundle, { countMin: 2 })?.stats).toMatchObject([
-      { type: 'count', value: { min: 2 } },
-    ]);
+    // 使用者改成至少 2 項時照用；合成臟器的固定詞綴也算進 countableFilterCount
+    const resolvedBundle = resolveEntrySearch(bundle, { countMin: 2 });
+    expect(resolvedBundle.countableFilterCount).toBe(2);
+    expect(resolvedBundle.query?.stats).toMatchObject([{ type: 'count', value: { min: 2 } }]);
     // 等於預設的至少 1 項不算自訂，存回時拿掉
     expect(normalizeSelectionForEntry(bundle, { countMin: 1 })).toBeUndefined();
     expect(normalizeSelectionForEntry(bundle, { countMin: 2 })).toEqual({ countMin: 2 });
@@ -814,13 +848,14 @@ Implicits: 0
         domains: ['explicit', 'crafted'],
       },
     });
-    expect(entryStatFilters(ring).map((filter) => [filter.id, filter.enabled])).toEqual([
+    expect(resolveEntrySearch(ring).filters.map((filter) => [filter.id, filter.enabled])).toEqual([
       ['explicit.stat_3299347043', true],
       ['crafted.stat_3299347043', false],
     ]);
     // 勾選後帶入搜尋
     expect(
-      buildEntryQuery(ring, { stats: { 'crafted.stat_3299347043': { enabled: true } } })?.stats,
+      resolveEntrySearch(ring, { stats: { 'crafted.stat_3299347043': { enabled: true } } }).query
+        ?.stats,
     ).toEqual([
       {
         type: 'and',
@@ -840,24 +875,16 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
   const PHYS = 'explicit.stat_1509134228';
   const sixLink = { socket_filters: { filters: { links: { min: 6 } } } };
 
-  it('defaultStatBounds 依比例計算下限；100% 為原值', () => {
-    expect(defaultStatBounds(129, false, 50)).toEqual({ min: 64 });
-    expect(defaultStatBounds(129, false, 100)).toEqual({ min: 129 });
-    expect(defaultStatBounds(-12, false, 50)).toEqual({ max: -6 });
-    expect(defaultStatBounds(0.5, false, 50)).toEqual({ min: 0.2 });
-    expect(defaultStatBounds(8, true, 50)).toEqual({ min: 8, max: 8 });
-  });
-
   it('連結數記在項目上，不再寫死在 searchBase；五連以下沒有', () => {
     expect(axe.links).toBe(6);
     expect(axe.searchBase).not.toHaveProperty('filters.socket_filters');
     expect(kaom.links).toBeUndefined();
-    expect(effectiveLinks(axe)).toBe(6);
-    expect(effectiveLinks(kaom)).toBeUndefined();
+    expect(resolveEntrySearch(axe).linksMin).toBe(6);
+    expect(resolveEntrySearch(kaom).linksMin).toBeUndefined();
   });
 
   it('數值比例套用到沒調整過的條件，調整過的維持使用者填的值', () => {
-    expect(buildEntryQuery(axe, undefined, { statPercent: 50 })).toEqual({
+    expect(resolveEntrySearch(axe, undefined, { statPercent: 50 }).query).toEqual({
       status: { option: 'securable' },
       type: 'Reaver Axe',
       filters: { ...NON_UNIQUE, ...sixLink },
@@ -872,7 +899,11 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
         },
       ],
     });
-    const filters = entryStatFilters(axe, { stats: { [PHYS]: { min: 120 } } }, { statPercent: 50 });
+    const { filters } = resolveEntrySearch(
+      axe,
+      { stats: { [PHYS]: { min: 120 } } },
+      { statPercent: 50 },
+    );
     expect(filters.find((filter) => filter.key === PHYS)).toMatchObject({
       min: 120,
     });
@@ -881,10 +912,10 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
 
   it('總和條件的下限也依比例計算', () => {
     const ring = list.find((item) => item.label === 'Two-Stone Ring')!;
-    const life = entryStatFilters(ring).find(
+    const life = resolveEntrySearch(ring).filters.find(
       (filter) => filter.key === 'explicit.stat_3299347043',
     )!;
-    const query = buildEntryQuery(ring, { pseudo: true }, { statPercent: 50 }) as {
+    const query = resolveEntrySearch(ring, { pseudo: true }, { statPercent: 50 }).query as {
       stats: { filters: { id: string; value?: { min?: number } }[] }[];
     };
     expect(query.stats[0].filters).toContainEqual({
@@ -895,20 +926,21 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
 
   it('連結條件：照 PoB、只帶六連、一律不帶', () => {
     const fiveLink = { ...axe, links: 5 };
-    expect(effectiveLinks(fiveLink, undefined, { links: 'pob' })).toBe(5);
-    expect(effectiveLinks(fiveLink, undefined, { links: 'six' })).toBeUndefined();
-    expect(effectiveLinks(axe, undefined, { links: 'six' })).toBe(6);
-    expect(effectiveLinks(axe, undefined, { links: 'none' })).toBeUndefined();
-    expect(buildEntryQuery(axe, undefined, { links: 'none' })).not.toHaveProperty(
-      'filters.socket_filters',
-    );
+    expect(resolveEntrySearch(fiveLink, undefined, { links: 'pob' }).linksMin).toBe(5);
+    expect(resolveEntrySearch(fiveLink, undefined, { links: 'six' }).linksMin).toBeUndefined();
+    expect(resolveEntrySearch(axe, undefined, { links: 'six' }).linksMin).toBe(6);
+    const noLinks = resolveEntrySearch(axe, undefined, { links: 'none' });
+    expect(noLinks.linksMin).toBeUndefined();
+    expect(noLinks.query).not.toHaveProperty('filters.socket_filters');
   });
 
   it('單件的連結設定優先於 build 預設：null 為不限，數字為下限', () => {
-    expect(effectiveLinks(axe, { links: null })).toBeUndefined();
-    expect(buildEntryQuery(axe, { links: null })).not.toHaveProperty('filters.socket_filters');
-    expect(effectiveLinks(axe, { links: 5 }, { links: 'none' })).toBe(5);
-    expect(buildEntryQuery(axe, { links: 5 }, { links: 'none' })).toMatchObject({
+    const anyLinks = resolveEntrySearch(axe, { links: null });
+    expect(anyLinks.linksMin).toBeUndefined();
+    expect(anyLinks.query).not.toHaveProperty('filters.socket_filters');
+    const forcedFive = resolveEntrySearch(axe, { links: 5 }, { links: 'none' });
+    expect(forcedFive.linksMin).toBe(5);
+    expect(forcedFive.query).toMatchObject({
       filters: { socket_filters: { filters: { links: { min: 5 } } } },
     });
   });
@@ -923,7 +955,7 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
         },
       },
     };
-    expect(buildEntryQuery(entry)).toMatchObject({
+    expect(resolveEntrySearch(entry).query).toMatchObject({
       filters: {
         type_filters: { filters: { category: { option: 'weapon' } } },
         ...sixLink,
@@ -931,10 +963,17 @@ describe('build 整體設定：詞綴數值比例與連結條件', () => {
     });
   });
 
-  it('applyEntrySelection：沒有調整但 build 設定不是預設時重新計算搜尋', () => {
-    const applied = applyEntrySelection(axe, undefined, { statPercent: 50 });
-    expect(applied.query).toEqual(buildEntryQuery(axe, undefined, { statPercent: 50 }));
-    expect(applyEntrySelection(axe, undefined)).toBe(axe);
+  it('resolveEntrySearch：沒有調整但 build 設定不是預設時重新計算搜尋', () => {
+    const resolved = resolveEntrySearch(axe, undefined, { statPercent: 50 });
+    expect(resolved.query).toMatchObject({
+      stats: [
+        {
+          type: 'and',
+          filters: [{ id: PHYS, value: { min: 64 } }, expect.anything(), expect.anything()],
+        },
+      ],
+    });
+    expect(resolveEntrySearch(axe, undefined).query).toEqual(axe.query);
   });
 
   it('normalizeSelectionForEntry：等於 build 預設的連結與下限會被精簡', () => {

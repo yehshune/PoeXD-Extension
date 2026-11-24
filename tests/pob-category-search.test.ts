@@ -2,14 +2,15 @@
 import { describe, expect, it } from 'vitest';
 import { parsePobBuildXml } from '@/utils/pob-build';
 import {
-  buildEntryQuery,
-  buildShoppingList,
   cloneEntrySearchSelection,
-  createTradeNameCatalog,
-  effectiveSearchBy,
   isSelectionDraftModified,
   normalizeSearchDefaults,
   normalizeSelectionForEntry,
+  resolveEntrySearch,
+} from '@/utils/pob-entry-search';
+import {
+  buildShoppingList,
+  createTradeNameCatalog,
   type ShoppingEntry,
 } from '@/utils/pob-shopping-list';
 
@@ -142,13 +143,13 @@ describe('buildShoppingList：類別搜尋', () => {
   });
 
   it('預設仍以基底搜尋', () => {
-    expect(effectiveSearchBy(entry('Paladin Crown'))).toBe('base');
+    expect(resolveEntrySearch(entry('Paladin Crown')).searchBy).toBe('base');
     expect(entry('Paladin Crown').query).toMatchObject({ type: 'Paladin Crown' });
   });
 
   it('類別模式：拿掉基底，帶入類別與防禦類型（有的至少 1、沒有的為 0）', () => {
     const helmet = entry('Paladin Crown');
-    const query = buildEntryQuery(helmet, { searchBy: 'category' });
+    const { query } = resolveEntrySearch(helmet, { searchBy: 'category' });
     expect(query).not.toHaveProperty('type');
     expect(query).toMatchObject({
       status: { option: 'securable' },
@@ -162,7 +163,9 @@ describe('buildShoppingList：類別搜尋', () => {
   });
 
   it('飾品的類別搜尋沒有防禦條件', () => {
-    const query = buildEntryQuery(entry('Amethyst Ring'), undefined, { rareSearch: 'category' });
+    const { query } = resolveEntrySearch(entry('Amethyst Ring'), undefined, {
+      rareSearch: 'category',
+    });
     expect(query).toMatchObject({
       filters: { type_filters: { filters: { category: { option: 'accessory.ring' } } } },
     });
@@ -173,17 +176,20 @@ describe('buildShoppingList：類別搜尋', () => {
 
   it('build 預設為類別時，沒有類別的項目維持基底；單件設定優先', () => {
     const defaults = { rareSearch: 'category' as const };
-    expect(effectiveSearchBy(entry('Reaver Axe'), undefined, defaults)).toBe('base');
-    expect(effectiveSearchBy(entry('Paladin Crown'), undefined, defaults)).toBe('category');
-    expect(effectiveSearchBy(entry('Paladin Crown'), { searchBy: 'base' }, defaults)).toBe('base');
-    expect(buildEntryQuery(entry('Paladin Crown'), { searchBy: 'base' }, defaults)).toMatchObject({
+    expect(resolveEntrySearch(entry('Reaver Axe'), undefined, defaults).searchBy).toBe('base');
+    expect(resolveEntrySearch(entry('Paladin Crown'), undefined, defaults).searchBy).toBe(
+      'category',
+    );
+    const overridden = resolveEntrySearch(entry('Paladin Crown'), { searchBy: 'base' }, defaults);
+    expect(overridden.searchBy).toBe('base');
+    expect(overridden.query).toMatchObject({
       type: 'Paladin Crown',
     });
   });
 
   it('類別模式也保留連結條件', () => {
     const helmet = { ...entry('Paladin Crown'), links: 6 };
-    expect(buildEntryQuery(helmet, { searchBy: 'category' })).toMatchObject({
+    expect(resolveEntrySearch(helmet, { searchBy: 'category' }).query).toMatchObject({
       filters: {
         type_filters: { filters: { category: { option: 'armour.helmet' } } },
         socket_filters: { filters: { links: { min: 6 } } },
@@ -199,13 +205,14 @@ describe('buildShoppingList：類別搜尋', () => {
       defences: ['ar', 'es'],
       defenceSection: 'equipment_filters',
     });
-    expect(buildEntryQuery(helmet, { searchBy: 'category' })).toMatchObject({
+    const resolved = resolveEntrySearch(helmet, { searchBy: 'category' });
+    expect(resolved.query).toMatchObject({
       filters: {
         equipment_filters: { filters: { ar: { min: 1 }, es: { min: 1 }, ev: { max: 0 } } },
       },
     });
     const section = (
-      buildEntryQuery(helmet, { searchBy: 'category' }) as {
+      resolved.query as {
         filters: { equipment_filters: { filters: Record<string, unknown> } };
       }
     ).filters.equipment_filters.filters;

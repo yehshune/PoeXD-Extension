@@ -15,17 +15,15 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t, type I18nKey } from '@/utils/i18n';
 import {
   DEFAULT_LINK_POLICY,
+  DEFAULT_RARE_SEARCH,
   DEFAULT_STAT_PERCENT,
   LINK_POLICIES,
+  RARE_SEARCH_MODES,
   STAT_PERCENT_OPTIONS,
   type BuildSearchDefaults,
   type LinkPolicy,
-} from '@/utils/pob-shopping-list';
-import {
-  DEFAULT_RARE_SEARCH,
-  RARE_SEARCH_MODES,
   type RareSearchMode,
-} from '@/utils/pob-category-search';
+} from '@/utils/pob-entry-search';
 
 /** build 卡片標題的整體搜尋設定：詞綴數值比例、連結條件與稀有裝搜尋方式；單件預覽改過的條件不受影響 */
 const props = defineProps({

@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { toEntrySearchSelection } from '@/utils/pob-build-store';
 import {
-  buildEntryQuery,
   cloneEntrySearchSelection,
-  effectiveGemFilters,
   isSelectionDraftModified,
   normalizeSelectionForEntry,
-  type ShoppingEntry,
-} from '@/utils/pob-shopping-list';
+  resolveEntrySearch,
+} from '@/utils/pob-entry-search';
+import type { ShoppingEntry } from '@/utils/pob-shopping-list';
 
 const STATUS = { option: 'securable' };
 
@@ -29,21 +28,27 @@ const gem: ShoppingEntry = {
 
 describe('寶石等級／品質條件', () => {
   it('預設帶入 PoB 的等級與品質下限', () => {
-    expect(effectiveGemFilters(gem)).toEqual({ level: 21, quality: 20 });
-    expect(buildEntryQuery(gem)).toEqual(gem.searchBase);
+    const resolved = resolveEntrySearch(gem);
+    expect({
+      level: resolved.gemLevelMin,
+      quality: resolved.gemQualityMin,
+    }).toEqual({ level: 21, quality: 20 });
+    expect(resolved.query).toEqual(gem.searchBase);
   });
 
   it('可以改下限或改成不限', () => {
-    expect(buildEntryQuery(gem, { gemLevel: 20, gemQuality: null })).toEqual({
+    expect(resolveEntrySearch(gem, { gemLevel: 20, gemQuality: null }).query).toEqual({
       status: STATUS,
       type: 'Arc',
       filters: { misc_filters: { filters: { gem_level: { min: 20 } } } },
     });
-    expect(buildEntryQuery(gem, { gemLevel: null, gemQuality: null })).toEqual({
+    expect(resolveEntrySearch(gem, { gemLevel: null, gemQuality: null }).query).toEqual({
       status: STATUS,
       type: 'Arc',
     });
-    expect(effectiveGemFilters(gem, { gemLevel: null })).toEqual({ quality: 20 });
+    const clearedLevel = resolveEntrySearch(gem, { gemLevel: null });
+    expect(clearedLevel.gemLevelMin).toBeUndefined();
+    expect(clearedLevel.gemQualityMin).toBe(20);
   });
 
   it('只保留和 PoB 不同的調整；草稿比較包含寶石條件', () => {
@@ -88,8 +93,13 @@ describe('寶石等級／品質條件', () => {
         },
       },
     };
-    expect(effectiveGemFilters(poe2)).toEqual({ level: 21, quality: 20, sockets: 3 });
-    expect(buildEntryQuery(poe2, { gemSockets: 5, gemQuality: 15 })).toEqual({
+    const baseResolved = resolveEntrySearch(poe2);
+    expect({
+      level: baseResolved.gemLevelMin,
+      quality: baseResolved.gemQualityMin,
+      sockets: baseResolved.gemSocketsMin,
+    }).toEqual({ level: 21, quality: 20, sockets: 3 });
+    expect(resolveEntrySearch(poe2, { gemSockets: 5, gemQuality: 15 }).query).toEqual({
       status: STATUS,
       type: 'Arc',
       filters: {
@@ -97,14 +107,14 @@ describe('寶石等級／品質條件', () => {
         misc_filters: { filters: { gem_level: { min: 21 }, gem_sockets: { min: 5 } } },
       },
     });
-    expect(buildEntryQuery(poe2, { gemQuality: null })).toEqual({
+    expect(resolveEntrySearch(poe2, { gemQuality: null }).query).toEqual({
       status: STATUS,
       type: 'Arc',
       filters: {
         misc_filters: { filters: { gem_level: { min: 21 }, gem_sockets: { min: 3 } } },
       },
     });
-    expect(JSON.stringify(buildEntryQuery(poe2, { gemSockets: null }))).not.toContain(
+    expect(JSON.stringify(resolveEntrySearch(poe2, { gemSockets: null }).query)).not.toContain(
       'gem_sockets',
     );
     expect(normalizeSelectionForEntry(poe2, { gemSockets: 3 })).toBeUndefined();

@@ -732,7 +732,7 @@ describe('usePobBuild', () => {
       pob.toggleDone('build-1', helmetKey);
       pob.selectItemSet('build-1', '2');
       const plateKey = rowByLabel(first(pob), 'Plate Vest').key;
-      pob.setPseudo('build-1', plateKey, true);
+      pob.saveSelection('build-1', plateKey, { pseudo: true });
       pob.selectItemSet('build-1', '1');
       await flush();
 
@@ -824,13 +824,15 @@ describe('usePobBuild', () => {
         { id: LIFE, key: LIFE, value: 100, enabled: true, min: 80, customized: false },
       ]);
 
-      pob.setStatBound('build-1', plateOf(pob).key, LIFE, 'min', 95);
+      pob.saveSelection('build-1', plateOf(pob).key, { stats: { [LIFE]: { min: 95 } } });
       expect(plateOf(pob).query).toMatchObject({
         stats: [{ filters: [{ id: LIFE, value: { min: 95 } }] }],
       });
       expect(plateOf(pob).searchCustomized).toBe(true);
 
-      pob.setStatEnabled('build-1', plateOf(pob).key, LIFE, false);
+      pob.saveSelection('build-1', plateOf(pob).key, {
+        stats: { [LIFE]: { min: 95, enabled: false } },
+      });
       expect(plateOf(pob).query).toEqual({
         status: { option: 'securable' },
         type: 'Plate Vest',
@@ -855,17 +857,17 @@ describe('usePobBuild', () => {
       pob.selectItemSet('build-1', '2');
       const key = plateOf(pob).key;
 
-      pob.setCountMin('build-1', key, 1);
+      pob.saveSelection('build-1', key, { countMin: 1 });
       expect(plateOf(pob).countMin).toBe(1);
       expect(plateOf(pob).query).toMatchObject({ stats: [{ type: 'count', value: { min: 1 } }] });
 
-      pob.setPseudo('build-1', key, true);
+      pob.saveSelection('build-1', key, { countMin: 1, pseudo: true });
       expect(plateOf(pob).pseudo).toBe(true);
       expect(plateOf(pob).query).toMatchObject({
         stats: [{ filters: [{ id: 'pseudo.pseudo_total_life', value: { min: 80 } }] }],
       });
 
-      pob.setCountMin('build-1', key, undefined);
+      pob.saveSelection('build-1', key, { pseudo: true });
       expect(plateOf(pob).countMin).toBeUndefined();
 
       pob.resetSearch('build-1', key);
@@ -927,7 +929,7 @@ describe('usePobBuild', () => {
       });
 
       // 單件調整過的下限不跟著整體設定變
-      pob.setStatBound('build-1', plateOf(pob).key, LIFE, 'min', 95);
+      pob.saveSelection('build-1', plateOf(pob).key, { stats: { [LIFE]: { min: 95 } } });
       pob.setSearchDefaults('build-1', { statPercent: 70 });
       expect(plateOf(pob).filters[0]).toMatchObject({ min: 95 });
       await flush();
@@ -974,12 +976,12 @@ describe('usePobBuild', () => {
       expect(first(pob).searchDefaults).toEqual({ defenceMin: true, pseudo: true });
       expect(plateOf(pob).pseudo).toBe(true);
 
-      pob.setPseudo('build-1', plateOf(pob).key, false);
+      pob.saveSelection('build-1', plateOf(pob).key, { pseudo: false });
       expect(plateOf(pob).pseudo).toBe(false);
       await flush();
       expect(stored()[0].searchSelections[plateOf(pob).key]).toEqual({ pseudo: false });
 
-      pob.setPseudo('build-1', plateOf(pob).key, true);
+      pob.saveSelection('build-1', plateOf(pob).key, undefined);
       expect(plateOf(pob).pseudo).toBe(true);
       await flush();
       expect(stored()[0].searchSelections[plateOf(pob).key]).toBeUndefined();
@@ -1029,7 +1031,7 @@ describe('usePobBuild', () => {
       const pob = usePobBuild('poe1', deps);
       await pob.importCode(toCode(buildXml()));
       pob.selectItemSet('build-1', '2');
-      pob.setStatBound('build-1', plateOf(pob).key, LIFE, 'min', 120);
+      pob.saveSelection('build-1', plateOf(pob).key, { stats: { [LIFE]: { min: 120 } } });
       pob.openSearch('build-1', plateOf(pob), 'current');
       const url = new URL(navigate.mock.calls[0][0] as string);
       expect(JSON.parse(url.searchParams.get('q')!).query.stats[0].filters).toEqual([

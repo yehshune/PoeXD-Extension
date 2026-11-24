@@ -2,13 +2,14 @@
 import { describe, expect, it } from 'vitest';
 import { parsePobBuildXml } from '@/utils/pob-build';
 import {
-  buildEntryQuery,
-  buildShoppingList,
   cloneEntrySearchSelection,
-  createTradeNameCatalog,
-  effectivePseudo,
   normalizeSearchDefaults,
   normalizeSelectionForEntry,
+  resolveEntrySearch,
+} from '@/utils/pob-entry-search';
+import {
+  buildShoppingList,
+  createTradeNameCatalog,
   type ShoppingEntry,
 } from '@/utils/pob-shopping-list';
 import { createStatMatcher } from '@/utils/pob-stat-matcher';
@@ -148,7 +149,9 @@ describe('稀有度：非傳奇裝備只搜非傳奇', () => {
   });
 
   it('以類別搜尋時，類別與非傳奇條件放在同一個區塊', () => {
-    expect(buildEntryQuery(entry('Legion Gloves'), { searchBy: 'category' })).toMatchObject({
+    expect(
+      resolveEntrySearch(entry('Legion Gloves'), { searchBy: 'category' }).query,
+    ).toMatchObject({
       filters: {
         type_filters: {
           filters: { category: { option: 'armour.gloves' }, rarity: { option: 'nonunique' } },
@@ -232,19 +235,21 @@ Implicits: 0
   });
 
   it('開啟後依詞綴數值比例帶入下限', () => {
-    expect(buildEntryQuery(gloves, undefined, { defenceMin: true })).toMatchObject({
+    expect(resolveEntrySearch(gloves, undefined, { defenceMin: true }).query).toMatchObject({
       filters: { armour_filters: { filters: { ar: { min: 442 } } } },
     });
-    expect(buildEntryQuery(gloves, undefined, { defenceMin: true, statPercent: 50 })).toMatchObject(
-      { filters: { armour_filters: { filters: { ar: { min: 276 } } } } },
-    );
-    expect(buildEntryQuery(ring, undefined, { defenceMin: true })).not.toHaveProperty(
+    expect(
+      resolveEntrySearch(gloves, undefined, { defenceMin: true, statPercent: 50 }).query,
+    ).toMatchObject({ filters: { armour_filters: { filters: { ar: { min: 276 } } } } });
+    expect(resolveEntrySearch(ring, undefined, { defenceMin: true }).query).not.toHaveProperty(
       'filters.armour_filters',
     );
   });
 
   it('和類別搜尋的防禦條件合併：基底有的防禦改成數值下限，沒有的維持 0', () => {
-    expect(buildEntryQuery(gloves, { searchBy: 'category' }, { defenceMin: true })).toMatchObject({
+    expect(
+      resolveEntrySearch(gloves, { searchBy: 'category' }, { defenceMin: true }).query,
+    ).toMatchObject({
       filters: {
         armour_filters: {
           filters: { ar: { min: 442 }, ev: { max: 0 }, es: { max: 0 }, ward: { max: 0 } },
@@ -255,7 +260,7 @@ Implicits: 0
 
   it('PoE 2 的防禦條件放在 equipment_filters', () => {
     const poe2 = listOf('PathOfBuilding2').find((item) => item.label === 'Titan Gauntlets')!;
-    expect(buildEntryQuery(poe2, undefined, { defenceMin: true })).toMatchObject({
+    expect(resolveEntrySearch(poe2, undefined, { defenceMin: true }).query).toMatchObject({
       filters: { equipment_filters: { filters: { ar: { min: 442 } } } },
     });
   });
@@ -270,10 +275,11 @@ describe('build 整體設定：預設改用總和詞綴', () => {
   const belt = () => entry('Leather Belt');
 
   it('build 預設開啟時，沒調整過的項目改用總和；單件可以關掉', () => {
-    expect(effectivePseudo(belt())).toBe(false);
-    expect(effectivePseudo(belt(), undefined, { pseudo: true })).toBe(true);
-    expect(effectivePseudo(belt(), { pseudo: false }, { pseudo: true })).toBe(false);
-    const query = buildEntryQuery(belt(), undefined, { pseudo: true }) as {
+    expect(resolveEntrySearch(belt()).pseudo).toBe(false);
+    const defaultOn = resolveEntrySearch(belt(), undefined, { pseudo: true });
+    expect(defaultOn.pseudo).toBe(true);
+    expect(resolveEntrySearch(belt(), { pseudo: false }, { pseudo: true }).pseudo).toBe(false);
+    const query = defaultOn.query as {
       stats: { filters: { id: string }[] }[];
     };
     const ids = query.stats[0].filters.map((filter) => filter.id);
