@@ -182,16 +182,7 @@ describe('usePobBuild', () => {
     });
     deps = {
       store,
-      dataLoader: createPobDataLoader({
-        listStoredBuilds: () => store.list(),
-        loadItemArt: async () => ITEM_ART,
-        loadCatalog: loadCatalog as never,
-        loadMatcher: loadMatcher as never,
-        loadVisceraMods: async () => undefined,
-        loadModTranslator: loadModTranslator as never,
-        getDisplayLocale: () => 'zh-TW',
-        getPageLocale: () => 'en',
-      }),
+      dataLoader: makeDataLoader({ listStoredBuilds: () => store.list() }),
       getLeague: getLeague as never,
       getOrigin: () => 'https://www.pathofexile.com',
       navigate: navigate as never,
@@ -269,6 +260,7 @@ describe('usePobBuild', () => {
       });
       const reopened = usePobBuild('poe1', {
         ...deps,
+        dataLoader: makeDataLoader(),
         waitForInitialPageLoad: () => pageLoaded,
       });
       const restoring = reopened.restore();
@@ -380,7 +372,7 @@ describe('usePobBuild', () => {
       original.removeEntry('build-1', rowByLabel(first(original), "Xoph's Heart").key);
       await flush();
 
-      const reopened = usePobBuild('poe1', deps);
+      const reopened = usePobBuild('poe1', { ...deps, dataLoader: makeDataLoader() });
       await reopened.restore();
       const build = first(reopened);
       expect(build.itemSetId).toBe('2');
@@ -397,7 +389,7 @@ describe('usePobBuild', () => {
         ...stored(),
       ];
 
-      const reopened = usePobBuild('poe1', deps);
+      const reopened = usePobBuild('poe1', { ...deps, dataLoader: makeDataLoader() });
       await reopened.restore();
       expect(reopened.builds.value.map((build) => build.id)).toEqual(['build-1']);
       expect(reopened.errorKey.value).toBeNull();
@@ -894,7 +886,7 @@ describe('usePobBuild', () => {
       });
 
       // 重新開啟時讀回調整
-      const reopened = usePobBuild('poe1', deps);
+      const reopened = usePobBuild('poe1', { ...deps, dataLoader: makeDataLoader() });
       await reopened.restore();
       reopened.selectItemSet('build-1', '2');
       expect(plateOf(reopened).filters[0]).toMatchObject({ enabled: false, min: 95 });
@@ -984,7 +976,7 @@ describe('usePobBuild', () => {
       await flush();
       expect(stored()[0].searchDefaults).toEqual({ statPercent: 70 });
 
-      const reopened = usePobBuild('poe1', deps);
+      const reopened = usePobBuild('poe1', { ...deps, dataLoader: makeDataLoader() });
       await reopened.restore();
       expect(first(reopened).searchDefaults).toEqual({ statPercent: 70 });
 
@@ -1035,7 +1027,7 @@ describe('usePobBuild', () => {
       await flush();
       expect(stored()[0].searchSelections[plateOf(pob).key]).toBeUndefined();
 
-      const reopened = usePobBuild('poe1', deps);
+      const reopened = usePobBuild('poe1', { ...deps, dataLoader: makeDataLoader() });
       await reopened.restore();
       expect(first(reopened).searchDefaults).toEqual({ defenceMin: true, pseudo: true });
     });

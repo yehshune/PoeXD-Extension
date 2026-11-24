@@ -160,6 +160,44 @@ describe('createPobDataLoader', () => {
     expect(diffLocaleMocks.loadCatalog.mock.calls.map((call) => call[1])).toEqual(['en', 'zh-TW']);
   });
 
+  it('degrades optional reference shards to undefined without blocking catalog', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const visceraError = new Error('viscera unavailable');
+      const mocks = makeAdapter({
+        getPageLocale: () => 'en',
+        getDisplayLocale: () => 'zh-TW',
+        loadCatalog: vi.fn(async (_version, locale) => {
+          if (locale === 'zh-TW') throw new Error('display catalog unavailable');
+          return fakeCatalog;
+        }),
+        loadMatcher: vi.fn(async () => {
+          throw new Error('matcher unavailable');
+        }),
+        loadModTranslator: vi.fn(async () => {
+          throw new Error('translator unavailable');
+        }),
+        loadVisceraMods: vi.fn(async () => {
+          throw visceraError;
+        }),
+      });
+      const loader = createPobDataLoader(mocks.adapter);
+
+      const data = await loader.loadReferenceData('poe1');
+
+      expect(data).toEqual({
+        catalog: fakeCatalog,
+        matcher: undefined,
+        modTranslator: undefined,
+        displayNames: undefined,
+        visceraMods: undefined,
+      });
+      expect(warnSpy).toHaveBeenCalledWith('[PoeXD] viscera part data unavailable', visceraError);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   it('evicts failed reference data and item art loads so retries can succeed', async () => {
     let catalogAttempt = 0;
     const loadCatalog = vi.fn(async () => {

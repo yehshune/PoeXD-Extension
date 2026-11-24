@@ -96,6 +96,29 @@ function createDefaultAdapter(): PobDataLoaderAdapter {
   };
 }
 
+function memoizeAsync<K, V>(
+  cache: Map<K, Promise<V>>,
+  key: K,
+  load: () => Promise<V>,
+  maxEntries?: number,
+): Promise<V> {
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const task = load();
+  if (maxEntries !== undefined && cache.size >= maxEntries) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey !== undefined) cache.delete(oldestKey);
+  }
+  cache.set(key, task);
+  task.catch(() => {
+    if (cache.get(key) === task) {
+      cache.delete(key);
+    }
+  });
+  return task;
+}
+
 export function createPobDataLoader(overrides: Partial<PobDataLoaderAdapter> = {}): PobDataLoader {
   const adapter: PobDataLoaderAdapter = { ...createDefaultAdapter(), ...overrides };
   const referenceDataCache = new Map<string, Promise<PobReferenceData>>();
@@ -107,69 +130,39 @@ export function createPobDataLoader(overrides: Partial<PobDataLoaderAdapter> = {
     const pageLocale = adapter.getPageLocale();
     const displayLocale = adapter.getDisplayLocale();
     const cacheKey = `${version}|${pageLocale}|${displayLocale}`;
-    const cached = referenceDataCache.get(cacheKey);
-    if (cached) return cached;
-
-    const task = Promise.all([
-      adapter.loadCatalog(version, pageLocale),
-      adapter.loadMatcher(version).catch(() => undefined),
-      adapter.loadModTranslator(version, displayLocale).catch(() => undefined),
-      // 顯示語言和頁面區服不同時（例如國際服頁面配中文介面），名稱另外用顯示語言呈現
-      displayLocale === pageLocale
-        ? undefined
-        : adapter.loadCatalog(version, displayLocale).catch(() => undefined),
-      adapter.loadVisceraMods(version).catch((error: unknown) => {
-        console.warn('[PoeXD] viscera part data unavailable', error);
-        return undefined;
-      }),
-    ]).then(([catalog, matcher, modTranslator, displayNames, visceraMods]): PobReferenceData => ({
-      catalog,
-      matcher,
-      modTranslator,
-      displayNames,
-      visceraMods,
-    }));
-
-    referenceDataCache.set(cacheKey, task);
-    task.catch(() => {
-      if (referenceDataCache.get(cacheKey) === task) {
-        referenceDataCache.delete(cacheKey);
-      }
-    });
-    return task;
+    return memoizeAsync(referenceDataCache, cacheKey, () =>
+      Promise.all([
+        adapter.loadCatalog(version, pageLocale),
+        adapter.loadMatcher(version).catch(() => undefined),
+        adapter.loadModTranslator(version, displayLocale).catch(() => undefined),
+        // 顯示語言和頁面區服不同時（例如國際服頁面配中文介面），名稱另外用顯示語言呈現
+        displayLocale === pageLocale
+          ? undefined
+          : adapter.loadCatalog(version, displayLocale).catch(() => undefined),
+        adapter.loadVisceraMods(version).catch((error: unknown) => {
+          console.warn('[PoeXD] viscera part data unavailable', error);
+          return undefined;
+        }),
+      ]).then(([catalog, matcher, modTranslator, displayNames, visceraMods]): PobReferenceData => ({
+        catalog,
+        matcher,
+        modTranslator,
+        displayNames,
+        visceraMods,
+      })),
+    );
   };
 
-  const loadItemArt = (version: PoeVersion): Promise<ItemArtData | undefined> => {
-    const cached = itemArtCache.get(version);
-    if (cached) return cached;
+  const loadItemArt = (version: PoeVersion): Promise<ItemArtData | undefined> =>
+    memoizeAsync(itemArtCache, version, () => adapter.loadItemArt(version));
 
-    const task = adapter.loadItemArt(version);
-    itemArtCache.set(version, task);
-    task.catch(() => {
-      if (itemArtCache.get(version) === task) {
-        itemArtCache.delete(version);
-      }
-    });
-    return task;
-  };
-
-  const decodeBuild = (code: string): Promise<PobBuild> => {
-    const cached = decodedBuildCache.get(code);
-    if (cached) return cached;
-
-    const task = adapter.decodeBuild(code);
-    if (decodedBuildCache.size >= MAX_DECODED_CACHE_ENTRIES) {
-      const oldestKey = decodedBuildCache.keys().next().value;
-      if (oldestKey !== undefined) decodedBuildCache.delete(oldestKey);
-    }
-    decodedBuildCache.set(code, task);
-    task.catch(() => {
-      if (decodedBuildCache.get(code) === task) {
-        decodedBuildCache.delete(code);
-      }
-    });
-    return task;
-  };
+  const decodeBuild = (code: string): Promise<PobBuild> =>
+    memoizeAsync(
+      decodedBuildCache,
+      code,
+      () => adapter.decodeBuild(code),
+      MAX_DECODED_CACHE_ENTRIES,
+    );
 
   const prewarm = (version: PoeVersion): Promise<void> => {
     const existing = inflightPrewarm.get(version);
