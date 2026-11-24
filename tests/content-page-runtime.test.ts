@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createContentPageRuntime } from '@/entrypoints/content/logic/runtime';
 import { DEFAULT_PREFERENCES, type PreferencesLoadOutcome } from '@/utils/preferences';
-import {
-  createDeferred,
-  createFakeRuntimeHarness,
-} from './helpers/content-page-runtime-harness';
+import { createDeferred, createFakeRuntimeHarness } from './helpers/content-page-runtime-harness';
 
 describe('ContentPageRuntime', () => {
   it('aborts before injecting interceptor or reading preferences on Cloudflare challenge pages', async () => {
@@ -79,7 +76,10 @@ describe('ContentPageRuntime', () => {
     // 2. LiveSearch Primary role: resultBoard stays false even after preference updates,
     //    creates/disposes LiveSearchPrimarySession, cancels pageLoadGate, skips idle prewarm
     const primary = createFakeRuntimeHarness({
-      getPageRole: vi.fn(async () => ({ role: 'live-search-primary' as const, arrivalSignal: true })),
+      getPageRole: vi.fn(async () => ({
+        role: 'live-search-primary' as const,
+        arrivalSignal: true,
+      })),
     });
     const primaryRuntime = createContentPageRuntime({
       ctx: primary.ctx,

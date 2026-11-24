@@ -252,7 +252,10 @@ describe('Bookmark Workspace — covers', () => {
       expect(model.intents).toHaveLength(0);
 
       // 選取合法 URL 正常派發
-      await workspace.actions.selectBookmarkCover(dummyBookmark, 'https://web.poecdn.com/legit.png');
+      await workspace.actions.selectBookmarkCover(
+        dummyBookmark,
+        'https://web.poecdn.com/legit.png',
+      );
       expect(model.intents).toEqual([
         {
           type: 'set-bookmark-cover',

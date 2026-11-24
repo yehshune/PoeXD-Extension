@@ -55,10 +55,7 @@ describe('Bookmark Workspace — search', () => {
     },
   ];
 
-  const setup = (
-    groups: BookmarkGroup[] = dummyGroups,
-    bookmarks: Bookmark[] = dummyBookmarks,
-  ) =>
+  const setup = (groups: BookmarkGroup[] = dummyGroups, bookmarks: Bookmark[] = dummyBookmarks) =>
     createBookmarkWorkspace(createFakeBookmarkWorkspaceHost(), {
       version: 'poe1',
       model: createFakeBookmarkModel({ groups, bookmarks }),

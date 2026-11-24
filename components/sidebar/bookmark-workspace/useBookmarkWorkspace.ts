@@ -11,7 +11,8 @@ import {
 import type { BookmarkWorkspaceHost } from './host';
 
 export interface UseBookmarkWorkspaceOptions
-  extends Partial<Pick<BookmarkWorkspaceOptions, 'version' | 'model'>>,
+  extends
+    Partial<Pick<BookmarkWorkspaceOptions, 'version' | 'model'>>,
     Pick<BookmarkWorkspaceOptions, 'isDragging' | 'isDraggingBookmark'> {
   host?: BookmarkWorkspaceHost;
   /** 與資料載入並行的工作（例如 Preference 載入）。 */

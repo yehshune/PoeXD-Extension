@@ -59,9 +59,7 @@ export function createBookmarkCollapse(deps: BookmarkCollapseDeps) {
   };
 
   const descendantsOf = (rootFolderId: string): string[] =>
-    Array.from(getFolderSubtreeIds(groups.value, rootFolderId)).filter(
-      (id) => id !== rootFolderId,
-    );
+    Array.from(getFolderSubtreeIds(groups.value, rootFolderId)).filter((id) => id !== rootFolderId);
 
   const toggleGroupCollapse = async (id: string): Promise<void> => {
     if (isEditing && isEditing(id)) return;

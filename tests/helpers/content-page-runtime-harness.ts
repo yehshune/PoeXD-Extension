@@ -3,11 +3,7 @@ import type { FilterDomEnhancements } from '@/entrypoints/content/logic/common';
 import type { LiveSearchPrimarySession } from '@/entrypoints/content/logic/live-search-primary-session';
 import type { ResultEnhancementPipeline } from '@/entrypoints/content/logic/result-enhancement-pipeline';
 import type { ContentPageRuntimeDeps } from '@/entrypoints/content/logic/runtime';
-import {
-  DEFAULT_PREFERENCES,
-  type Preferences,
-  type PreferencesModule,
-} from '@/utils/preferences';
+import { DEFAULT_PREFERENCES, type Preferences, type PreferencesModule } from '@/utils/preferences';
 import type { TradeResultCache } from '@/utils/trade-result-cache';
 
 export function createDeferred<T = void>() {

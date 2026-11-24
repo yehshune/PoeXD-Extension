@@ -279,7 +279,10 @@
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem variant="destructive" @click="actions.confirmDeleteGroup(node.folder)">
+              <DropdownMenuItem
+                variant="destructive"
+                @click="actions.confirmDeleteGroup(node.folder)"
+              >
                 <Trash2 class="text-destructive" />
                 {{ t('bookmark.action.deleteFolder') }}
               </DropdownMenuItem>

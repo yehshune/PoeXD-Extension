@@ -350,7 +350,9 @@ export function createBookmarkWorkspace(
 
   const sendFolderToLiveSearchConsole = async (folder: BookmarkGroup) => {
     menus.closeAllMenus();
-    const subtreeFolderIds = new Set(getFolderSubtreeIds(groups.value as BookmarkGroup[], folder.id));
+    const subtreeFolderIds = new Set(
+      getFolderSubtreeIds(groups.value as BookmarkGroup[], folder.id),
+    );
     const targetBookmarks = bookmarks.value.filter((bm) => subtreeFolderIds.has(bm.groupId));
     if (targetBookmarks.length === 0) {
       host.feedback.toast(t('bookmark.toast.folderNoBookmarks'));
@@ -460,7 +462,11 @@ export function createBookmarkWorkspace(
   // 刪除資料夾時直接一併刪除書籤及子資料夾（提示完整 cascade 範圍；真正的空 leaf folder 則直接刪除不彈窗）
   const confirmDeleteGroup = async (group: BookmarkGroup) => {
     menus.activeGroupMenuId.value = null;
-    const impact = getFolderDeleteImpact(groups.value as BookmarkGroup[], bookmarks.value, group.id);
+    const impact = getFolderDeleteImpact(
+      groups.value as BookmarkGroup[],
+      bookmarks.value,
+      group.id,
+    );
     if (!isDirectlyDeletableEmptyFolder(impact)) {
       const message =
         impact.descendantFolderCount > 0

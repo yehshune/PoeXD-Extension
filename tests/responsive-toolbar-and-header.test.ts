@@ -11,10 +11,7 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
     'components/sidebar/stat-group-templates/StatGroupTemplateToolbar.vue',
     'utf8',
   );
-  const pobBuildPaneSource = readFileSync(
-    'components/sidebar/pob-build/PobBuildPane.vue',
-    'utf8',
-  );
+  const pobBuildPaneSource = readFileSync('components/sidebar/pob-build/PobBuildPane.vue', 'utf8');
   const settingsPaneSource = readFileSync('components/sidebar/SettingsPane.vue', 'utf8');
   const toggleIndexSource = readFileSync('components/ui/toggle/index.ts', 'utf8');
   const mainCssSource = readFileSync('assets/main.css', 'utf8');

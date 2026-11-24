@@ -60,7 +60,10 @@ export interface ContentPageRuntimeDeps {
   initToastHost: typeof initToastHost;
   syncToastPreferences: typeof syncToastPreferences;
   getTradeResultCache: () => TradeResultCache;
-  getResultBoardRuntime: () => Pick<ResultBoardRuntime, 'setEnabled' | 'ensureShortcut' | 'cleanup'>;
+  getResultBoardRuntime: () => Pick<
+    ResultBoardRuntime,
+    'setEnabled' | 'ensureShortcut' | 'cleanup'
+  >;
   createResultEnhancementPipeline: (
     version: PoeVersion,
     resultCache: TradeResultCache,
