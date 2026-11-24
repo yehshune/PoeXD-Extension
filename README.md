@@ -41,16 +41,7 @@
 | [🌐 市集漢化](https://yehshune.github.io/poexd/#translation)                | 國際服市集顯示為繁體／簡體中文，可中英並列                                                                  |
 | [⚙️ 設定與常見問題](https://yehshune.github.io/poexd/#settings)             | 主題與自訂配色、介面縮放、快捷鍵、模組開關、備份還原；另見[常見問題](https://yehshune.github.io/poexd/#faq) |
 
-## 最新更新
-
-**v1.13.0 PoB 裝備紙娃娃與結果看板詞綴篩選**
-
-- **PoB 購物清單**：新增依遊戲裝備欄位排列的紙娃娃檢視（預設），顯示物品圖片、插槽連線與鑲嵌的寶石／符文／深淵珠寶，並標示已汙染與穢生；稀有裝可改依「類別＋防禦類型」搜尋，可設定防禦最低值與預設改用總和詞綴，非傳奇裝備會自動排除同底傳奇。
-- **搜尋結果看板**：新增必要詞綴與 T 階篩選、關鍵字搜尋升級，並可選擇同步過濾左側官方列表。
-- **書籤**：資料夾可自訂圖示與顏色；拖曳改以上下區塊判定更穩定，大量資料夾時更流暢，按 `Esc` 取消拖曳不會再誤移動。
-- **其他改進**：PoB 職業名稱中文化並顯示昇華圖示；側邊欄篩選沒有結果時會顯示目前條件並可一鍵重設；頁面導覽的外觀步驟可直接切換緊湊介面。
-
-歷代更新紀錄見 [Releases](https://github.com/yehshune/PoeXD-Extension/releases)。
+更新紀錄見 [Releases](https://github.com/yehshune/PoeXD-Extension/releases)。
 
 ## 問題回報
 

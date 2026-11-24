@@ -41,16 +41,7 @@ Store versions update automatically and are recommended. Firefox is not availabl
 | [🌐 Market translation](https://yehshune.github.io/poexd/#translation)                    | Show the international trade site in Traditional or Simplified Chinese, optionally bilingual                                |
 | [⚙️ Settings & FAQ](https://yehshune.github.io/poexd/#settings)                           | Themes and custom palettes, UI scale, hotkeys, module toggles, backup; see the [FAQ](https://yehshune.github.io/poexd/#faq) |
 
-## What's new
-
-**v1.13.0 PoB paper doll & Result Board mod filters**
-
-- **PoB shopping list**: a new paper-doll gear view (now the default) follows the in-game equipment layout with item art, sockets and links, socketed gems / runes / abyss jewels, and corrupted and foulborn marks. Rare items can be searched by category plus defence type, with defence minimums, a pseudo-totals default and a non-unique filter so same-base uniques stay out.
-- **Result Board**: required mod and tier filters, better keyword search, and an opt-in sync that filters the official result list as well.
-- **Bookmarks**: folders get custom icons and colors; dragging now uses vertical drop zones, stays smooth with large trees, and pressing `Esc` cancels a drag without moving anything.
-- **Other improvements**: localized PoB class names with ascendancy icons; empty filter results show the active filters with a reset button; the page guide's appearance step can toggle compact density.
-
-Full history is on [Releases](https://github.com/yehshune/PoeXD-Extension/releases).
+Release notes are on [Releases](https://github.com/yehshune/PoeXD-Extension/releases).
 
 ## Feedback
 
