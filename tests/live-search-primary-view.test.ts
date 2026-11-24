@@ -769,8 +769,14 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         container.querySelector('[data-test="rate-limit-details"]')?.textContent || '';
       expect(detailsText).toContain('帳號');
       expect(detailsText).toContain('2 / 3');
-      expect(detailsText).toContain('統計區間 4 秒');
-      expect(detailsText).toContain('冷卻時間 60 秒');
+      expect(detailsText).toContain('近 4 秒');
+      expect(detailsText).toContain('近 12 秒');
+      expect(detailsText).toContain('近 30 秒');
+      expect(detailsText).toContain('0 秒前更新');
+      const firstWindow = container.querySelector('[data-test="rate-limit-window"]');
+      expect(firstWindow?.getAttribute('title')).toBe(
+        '最近 4 秒內最多 3 次；超過會被禁止請求 1 分鐘',
+      );
       expect(detailsText).toContain('3 / 6');
       expect(detailsText.toLowerCase()).toContain('customrule');
       expect(detailsText).toContain('4 / 10');
@@ -786,7 +792,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         container.querySelector('[data-test="rate-limit-next-allowed"]')?.textContent?.trim(),
       ).toBe('下一次可請求：15 秒');
       expect(container.querySelector('[data-test="rate-limit-details"]')?.textContent).toContain(
-        '冷卻剩餘 15 秒',
+        '限制中，剩 15 秒',
       );
 
       // 釋放 sleep 完成重試後，恢復正常
@@ -874,11 +880,11 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           container.querySelector('[data-test="rate-limit-next-allowed"]')?.textContent?.trim(),
         ).toBe('下一次可請求：15 秒');
         expect(container.querySelector('[data-test="rate-limit-details"]')?.textContent).toContain(
-          '冷卻剩餘 15 秒',
+          '限制中，剩 15 秒',
         );
-        expect(container.querySelector('[data-test="rate-limit-details"]')?.textContent).toContain(
-          '區間剩餘 4 秒',
-        );
+        expect(
+          container.querySelector('[data-test="rate-limit-window"]')?.getAttribute('data-state'),
+        ).toBe('restricted');
 
         // 之後沒有任何新 response，時間往後經過 15 秒，等待 UI 倒數計時器 tick
         currentNowMs += 15_000;
@@ -892,12 +898,16 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         expect(
           container.querySelector('[data-test="rate-limit-next-allowed"]')?.textContent?.trim(),
         ).toBe('下一次可請求：立即');
-        expect(container.querySelector('[data-test="rate-limit-details"]')?.textContent).toContain(
-          '冷卻剩餘 0 秒',
-        );
-        expect(container.querySelector('[data-test="rate-limit-details"]')?.textContent).toContain(
-          '區間剩餘 0 秒',
-        );
+        // 限制倒數歸零；距上次更新 15 秒已超過 4 秒區間，次數確定已滑出區間
+        const decayedText =
+          container.querySelector('[data-test="rate-limit-details"]')?.textContent || '';
+        expect(decayedText).not.toContain('限制中');
+        expect(decayedText).toContain('0 / 12');
+        expect(decayedText).toContain('已過區間');
+        expect(decayedText).toContain('15 秒前更新');
+        expect(
+          container.querySelector('[data-test="rate-limit-window"]')?.getAttribute('data-state'),
+        ).toBe('expired');
 
         unmount();
       } finally {

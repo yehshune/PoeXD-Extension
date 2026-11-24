@@ -150,7 +150,7 @@ describe('Pure Rate Header Parser', () => {
     expect(parsed.rules).toEqual([
       {
         rule: 'account',
-        windows: [{ limit: 12, window: 4, cooldown: 60, used: 3, windowLeft: 4, cooldownLeft: 0 }],
+        windows: [{ limit: 12, window: 4, cooldown: 60, used: 3, cooldownLeft: 0 }],
       },
     ]);
     expect(parsed.retryAfterMs).toBeNull();
@@ -167,9 +167,9 @@ describe('Pure Rate Header Parser', () => {
     expect(parsed.ruleNames).toEqual(['ip']);
     expect(parsed.rules).toHaveLength(1);
     expect(parsed.rules[0]!.windows).toEqual([
-      { limit: 12, window: 4, cooldown: 60, used: 2, windowLeft: 4, cooldownLeft: 0 },
-      { limit: 16, window: 12, cooldown: 300, used: 5, windowLeft: 12, cooldownLeft: 0 },
-      { limit: 30, window: 60, cooldown: 900, used: 10, windowLeft: 60, cooldownLeft: 0 },
+      { limit: 12, window: 4, cooldown: 60, used: 2, cooldownLeft: 0 },
+      { limit: 16, window: 12, cooldown: 300, used: 5, cooldownLeft: 0 },
+      { limit: 30, window: 60, cooldown: 900, used: 10, cooldownLeft: 0 },
     ]);
   });
 
@@ -192,7 +192,7 @@ describe('Pure Rate Header Parser', () => {
       window: 10,
       cooldown: 120,
       used: 19,
-      windowLeft: 10,
+
       cooldownLeft: 0,
     });
   });
@@ -210,9 +210,7 @@ describe('Pure Rate Header Parser', () => {
     expect(parsedMissingState.rules).toEqual([
       {
         rule: 'ip',
-        windows: [
-          { limit: 16, window: 12, cooldown: 300, used: 4, windowLeft: 12, cooldownLeft: 0 },
-        ],
+        windows: [{ limit: 16, window: 12, cooldown: 300, used: 4, cooldownLeft: 0 }],
       },
     ]);
 
@@ -221,9 +219,7 @@ describe('Pure Rate Header Parser', () => {
       '12:abc:60,16:12:300,0:60:60,40:60:120',
       '1:4:0,6:12:0,2:60:0',
     );
-    expect(windows).toEqual([
-      { limit: 16, window: 12, cooldown: 300, used: 6, windowLeft: 12, cooldownLeft: 0 },
-    ]);
+    expect(windows).toEqual([{ limit: 16, window: 12, cooldown: 300, used: 6, cooldownLeft: 0 }]);
   });
 
   it('parses Retry-After and missing headers safely', () => {
@@ -287,7 +283,7 @@ describe('LiveSearchFetchRateGate Behavioral Contract', () => {
         callTimestamps.push({ url, at: clock.now() });
         step++;
         if (step === 1) {
-          // Exhausted window: used = 12, limit = 12, windowLeft = 4s
+          // Exhausted window: used = 12, limit = 12, window = 4s
           return new Response('{}', {
             status: 200,
             headers: {
@@ -887,7 +883,7 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
     expect(runtime.getSnapshot().rateLimit).toEqual({
       policy: 'trade-fetch-request-limit',
       rules: {
-        account: [{ limit: 12, window: 4, cooldown: 60, used: 3, windowLeft: 4, cooldownLeft: 0 }],
+        account: [{ limit: 12, window: 4, cooldown: 60, used: 3, cooldownLeft: 0 }],
       },
       nextAllowedAtMs: 0,
       observedAtMs: 1000,
@@ -908,7 +904,7 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
       window: 4,
       cooldown: 60,
       used: 13,
-      windowLeft: 4,
+
       cooldownLeft: 45,
     });
     expect(snapDuringCooldown.rateLimit.rules.customquota?.[0]).toEqual({
@@ -916,7 +912,7 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
       window: 10,
       cooldown: 120,
       used: 20,
-      windowLeft: 10,
+
       cooldownLeft: 60,
     });
 

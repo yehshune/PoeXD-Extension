@@ -131,9 +131,11 @@ function createHeaderLookup(headers: HeaderSource): {
 /**
  * 解析單一 rule 的 limit 與 state 標頭配對。
  *
- * 沿用 PoeXD 既有的 GGG 標頭語意：
+ * GGG 標頭語意：
  * - x-rate-limit-{rule}: limit:window:cooldown[,limit:window:cooldown...]
- * - x-rate-limit-{rule}-state: used:windowLeft:cooldownLeft[,used:windowLeft:cooldownLeft...]
+ * - x-rate-limit-{rule}-state: used:window:cooldownLeft[,used:window:cooldownLeft...]
+ *   state 中間欄是該區間的長度（與 limit 標頭相同），不是區間剩餘秒數；
+ *   次數為滾動區間內的請求數，伺服器不提供各筆何時過期。
  *
  * 若缺少任一標頭、window 數量不一致或單一 window 數字格式損毀，安全忽略無效項目且絕不拋出例外。
  */
@@ -162,7 +164,7 @@ export function parseRateLimitWindowPair(
     const windowSec = parseStrictNonNegativeNumber(limitParts[1]);
     const cooldown = parseStrictNonNegativeNumber(limitParts[2]);
     const used = parseStrictNonNegativeNumber(stateParts[0]);
-    const windowLeft = parseStrictNonNegativeNumber(stateParts[1]);
+    const statePeriod = parseStrictNonNegativeNumber(stateParts[1]);
     const cooldownLeft = parseStrictNonNegativeNumber(stateParts[2]);
 
     if (
@@ -170,7 +172,7 @@ export function parseRateLimitWindowPair(
       windowSec === null ||
       cooldown === null ||
       used === null ||
-      windowLeft === null ||
+      statePeriod === null ||
       cooldownLeft === null ||
       limit <= 0 ||
       windowSec <= 0
@@ -183,7 +185,6 @@ export function parseRateLimitWindowPair(
       window: windowSec,
       cooldown,
       used,
-      windowLeft,
       cooldownLeft,
     });
   }
@@ -288,7 +289,7 @@ export function parseTradeRateLimitHeaders(
  *
  * 准入規則：
  * 1. Active restriction: 任一 window 之 cooldownLeft > 0 時，等待最大有效 cooldown。
- * 2. Window exhausted: 任一 window 之 used >= limit 時，等待該 window 重置（windowLeft 或 window），429 時並納入 cooldown。
+ * 2. Window exhausted: 任一 window 之 used >= limit 時，等待整個區間長度（滾動區間無法得知最舊一筆何時過期）。
  * 3. Retry-After: 若存在合法 Retry-After，與 window 推導出的等待時間取較大（較保守）值。
  */
 export function computeRateLimitWaitMs(
@@ -307,16 +308,7 @@ export function computeRateLimitWaitMs(
       if (win.cooldownLeft > 0) {
         maxWaitMs = Math.max(maxWaitMs, Math.ceil(win.cooldownLeft * 1000));
       } else if (win.used >= win.limit) {
-        let exhaustedWaitSec = 0;
-        if (status === 429 && parsed.retryAfterMs === null) {
-          exhaustedWaitSec =
-            win.windowLeft > 0 ? win.windowLeft : win.cooldown > 0 ? win.cooldown : win.window;
-        } else {
-          exhaustedWaitSec = win.windowLeft > 0 ? win.windowLeft : win.window;
-        }
-        if (exhaustedWaitSec > 0) {
-          maxWaitMs = Math.max(maxWaitMs, Math.ceil(exhaustedWaitSec * 1000));
-        }
+        maxWaitMs = Math.max(maxWaitMs, Math.ceil(win.window * 1000));
       }
     }
   }

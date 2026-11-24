@@ -159,8 +159,17 @@
     class="flex flex-col gap-[var(--pxd-space-xs)] p-[var(--pxd-space-sm)] rounded-md border border-border bg-card/60 text-[length:var(--pxd-font-caption)]"
   >
     <div class="flex items-center justify-between gap-[var(--pxd-space-sm)] text-muted-foreground">
-      <span class="truncate"> {{ t('liveSearch.primary.rateStatusTitle') }} </span>
-      <span data-test="rate-limit-next-allowed" class="shrink-0 font-mono">
+      <span class="truncate">
+        {{ t('liveSearch.primary.rateStatusTitle') }}
+        <span v-if="rateObservedAgeLabel" data-test="rate-limit-updated-ago" class="ml-1">
+          · {{ rateObservedAgeLabel }}
+        </span>
+      </span>
+      <span
+        data-test="rate-limit-next-allowed"
+        class="shrink-0 font-mono"
+        :class="isRateWaiting ? 'text-amber-500' : ''"
+      >
         {{
           t('liveSearch.primary.rateNextRequest', {
             time:
@@ -189,23 +198,42 @@
       <span data-test="rate-limit-rule-name" class="font-semibold text-foreground">
         {{ formatRuleName(ruleName) }}
       </span>
+      <!-- 同一規則的各區間共用一個 grid：標籤欄依最長文字（如「近 3 小時」）撐開且各列對齊 -->
       <div
-        v-for="(win, idx) in windows"
-        :key="idx"
-        data-test="rate-limit-window"
-        class="grid grid-cols-2 gap-x-[var(--pxd-space-xs)] gap-y-0.5 font-mono text-muted-foreground"
+        class="grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-center gap-x-[var(--pxd-space-sm)] gap-y-0.5 font-mono"
       >
-        <span class="text-foreground font-semibold">{{
-          t('liveSearch.rateLimit.used', { used: win.used, limit: win.limit })
-        }}</span>
-        <span>{{ t('liveSearch.rateLimit.window', { seconds: win.window }) }}</span>
-        <span>{{ t('liveSearch.rateLimit.windowLeft', { seconds: win.windowLeft }) }}</span>
-        <span>{{ t('liveSearch.rateLimit.cooldown', { seconds: win.cooldown }) }}</span>
-        <span class="col-span-2">{{
-          t('liveSearch.rateLimit.cooldownLeft', { seconds: win.cooldownLeft })
-        }}</span>
+        <div
+          v-for="(win, idx) in windows"
+          :key="idx"
+          data-test="rate-limit-window"
+          :data-state="win.state"
+          :title="win.title"
+          class="contents"
+        >
+          <span class="text-muted-foreground whitespace-nowrap" :title="win.title">{{
+            win.label
+          }}</span>
+          <span class="h-1.5 rounded-full bg-muted overflow-hidden" :title="win.title">
+            <span
+              class="block h-full rounded-full transition-[width] duration-300"
+              :class="win.barClass"
+              :style="{ width: `${win.percent}%` }"
+            />
+          </span>
+          <span class="text-right whitespace-nowrap" :class="win.textClass" :title="win.title">
+            {{ win.usageText }}
+            <span v-if="win.statusText" class="ml-1">{{ win.statusText }}</span>
+          </span>
+        </div>
       </div>
     </div>
+    <p
+      v-if="rateRuleEntries.length > 0"
+      data-test="rate-limit-note"
+      class="m-0 text-muted-foreground leading-snug"
+    >
+      {{ t('liveSearch.rateLimit.note') }}
+    </p>
   </div>
 </template>
 
@@ -304,55 +332,57 @@ function clearCountdownTimer() {
   }
 }
 
-function computeRateCountdownEndAtMs(
-  rateLimit: Readonly<LiveSearchPrimaryViewSnapshot['rateLimit']> | undefined,
-): number {
+type RateLimitSnapshot = Readonly<LiveSearchPrimaryViewSnapshot['rateLimit']> | undefined;
+
+/**
+ * GGG 的 `X-Rate-Limit-{rule}-State` 為「目前次數:區間長度:限制剩餘秒數」。
+ * 次數是滾動區間內的請求數，伺服器不會告知每筆何時過期，因此只有「限制剩餘」能在本地倒數；
+ * 次數維持最後一次 fetch 回應的值，僅在距上次更新超過整個區間時才確定已歸零。
+ */
+function computeCooldownEndAtMs(rateLimit: RateLimitSnapshot): number {
   if (!rateLimit) return 0;
   let endAtMs = rateLimit.nextAllowedAtMs ?? 0;
   const observedAtMs = rateLimit.observedAtMs;
-  if (typeof observedAtMs === 'number' && observedAtMs > 0 && rateLimit.rules) {
-    let maxWindowOrCooldownSec = 0;
-    for (const windows of Object.values(rateLimit.rules)) {
+  if (typeof observedAtMs === 'number' && observedAtMs > 0) {
+    for (const windows of Object.values(rateLimit.rules ?? {})) {
       if (!Array.isArray(windows)) continue;
       for (const win of windows) {
-        if (win.windowLeft > maxWindowOrCooldownSec) {
-          maxWindowOrCooldownSec = win.windowLeft;
-        }
-        if (win.cooldownLeft > maxWindowOrCooldownSec) {
-          maxWindowOrCooldownSec = win.cooldownLeft;
+        if (win.cooldownLeft > 0) {
+          endAtMs = Math.max(endAtMs, observedAtMs + win.cooldownLeft * 1000);
         }
       }
-    }
-    if (maxWindowOrCooldownSec > 0) {
-      endAtMs = Math.max(endAtMs, observedAtMs + maxWindowOrCooldownSec * 1000);
     }
   }
   return endAtMs;
 }
 
-function syncCountdownTimer(
-  rateLimit: Readonly<LiveSearchPrimaryViewSnapshot['rateLimit']> | undefined,
-) {
+function hasObservedRateData(rateLimit: RateLimitSnapshot): boolean {
+  return typeof rateLimit?.observedAtMs === 'number' && rateLimit.observedAtMs > 0;
+}
+
+/** 等待中、限制倒數中，或明細展開（顯示「幾秒前更新」）時才需要每 250ms 更新 */
+function shouldTick(rateLimit: RateLimitSnapshot): boolean {
+  if (computeCooldownEndAtMs(rateLimit) > nowMs.value) return true;
+  return isRateDetailsOpen.value && hasObservedRateData(rateLimit);
+}
+
+function syncCountdownTimer(rateLimit: RateLimitSnapshot) {
   nowMs.value = Date.now();
-  const targetEndAtMs = computeRateCountdownEndAtMs(rateLimit);
-  if (targetEndAtMs > nowMs.value) {
-    if (countdownTimer === null) {
-      countdownTimer = setInterval(() => {
-        nowMs.value = Date.now();
-        if (nowMs.value >= computeRateCountdownEndAtMs(props.rateLimit)) {
-          clearCountdownTimer();
-        }
-      }, 250);
-    }
-  } else {
+  if (!shouldTick(rateLimit)) {
     clearCountdownTimer();
+    return;
   }
+  if (countdownTimer !== null) return;
+  countdownTimer = setInterval(() => {
+    nowMs.value = Date.now();
+    if (!shouldTick(props.rateLimit)) clearCountdownTimer();
+  }, 250);
 }
 
 watch(
-  () => props.rateLimit,
-  (newRateLimit) => {
-    syncCountdownTimer(newRateLimit);
+  [() => props.rateLimit, isRateDetailsOpen],
+  () => {
+    syncCountdownTimer(props.rateLimit);
   },
   { immediate: true, flush: 'sync' },
 );
@@ -368,25 +398,98 @@ const remainingWaitSeconds = computed(() => {
   return diffMs > 0 ? Math.ceil(diffMs / 1000) : 0;
 });
 
-const rateRuleEntries = computed<Array<[string, TradeRateLimitWindow[]]>>(() => {
-  const rateLimit = props.rateLimit;
-  const rules = rateLimit?.rules;
+function formatSpan(seconds: number): string {
+  const n = Math.max(0, Math.round(seconds));
+  if (n >= 3600 && n % 3600 === 0) return t('liveSearch.rateLimit.unitHours', { n: n / 3600 });
+  if (n >= 60 && n % 60 === 0) return t('liveSearch.rateLimit.unitMinutes', { n: n / 60 });
+  return t('liveSearch.rateLimit.unitSeconds', { n });
+}
+
+/** 「幾秒前更新」：一分鐘內以秒、一小時內以分鐘、其餘以小時（無條件捨去） */
+function formatAge(seconds: number): string {
+  const n = Math.max(0, Math.floor(seconds));
+  if (n < 60) return t('liveSearch.rateLimit.unitSeconds', { n });
+  if (n < 3600) return t('liveSearch.rateLimit.unitMinutes', { n: Math.floor(n / 60) });
+  return t('liveSearch.rateLimit.unitHours', { n: Math.floor(n / 3600) });
+}
+
+const rateElapsedSeconds = computed(() => {
+  const observedAtMs = props.rateLimit?.observedAtMs;
+  if (typeof observedAtMs !== 'number' || observedAtMs <= 0) return null;
+  return Math.max(0, nowMs.value - observedAtMs) / 1000;
+});
+
+const rateObservedAgeLabel = computed(() => {
+  const elapsed = rateElapsedSeconds.value;
+  if (elapsed === null || rateRuleEntries.value.length === 0) return '';
+  return t('liveSearch.rateLimit.updatedAgo', { age: formatAge(elapsed) });
+});
+
+interface RateWindowView {
+  label: string;
+  title: string;
+  usageText: string;
+  statusText: string;
+  percent: number;
+  state: 'restricted' | 'expired' | 'high' | 'normal';
+  barClass: string;
+  textClass: string;
+}
+
+function buildWindowView(win: TradeRateLimitWindow, elapsedSeconds: number): RateWindowView {
+  const span = formatSpan(win.window);
+  const title = t('liveSearch.rateLimit.windowTitle', {
+    span,
+    limit: win.limit,
+    cooldown: formatSpan(win.cooldown),
+  });
+  const base = { label: t('liveSearch.rateLimit.windowLabel', { span }), title };
+  const cooldownLeft = Math.ceil(Math.max(0, win.cooldownLeft - elapsedSeconds));
+  if (cooldownLeft > 0) {
+    return {
+      ...base,
+      usageText: `${win.used} / ${win.limit}`,
+      statusText: t('liveSearch.rateLimit.restricted', { seconds: cooldownLeft }),
+      percent: 100,
+      state: 'restricted',
+      barClass: 'bg-red-500',
+      textClass: 'text-red-500',
+    };
+  }
+  // 距上次更新已超過整個區間：當時計入的請求都已滑出區間
+  if (elapsedSeconds >= win.window) {
+    return {
+      ...base,
+      title: `${title}
+${t('liveSearch.rateLimit.expiredTitle', { span })}`,
+      usageText: `0 / ${win.limit}`,
+      statusText: t('liveSearch.rateLimit.expired'),
+      percent: 0,
+      state: 'expired',
+      barClass: 'bg-emerald-500',
+      textClass: 'text-muted-foreground',
+    };
+  }
+  const ratio = win.limit > 0 ? win.used / win.limit : 0;
+  const high = ratio >= 0.8;
+  return {
+    ...base,
+    usageText: `${win.used} / ${win.limit}`,
+    statusText: '',
+    percent: Math.min(100, Math.round(ratio * 100)),
+    state: high ? 'high' : 'normal',
+    barClass: high ? 'bg-amber-500' : 'bg-emerald-500',
+    textClass: high ? 'text-amber-500' : 'text-foreground',
+  };
+}
+
+const rateRuleEntries = computed<Array<[string, RateWindowView[]]>>(() => {
+  const rules = props.rateLimit?.rules;
   if (!rules) return [];
-  const observedAtMs = rateLimit?.observedAtMs;
-  const elapsedSeconds =
-    typeof observedAtMs === 'number' && observedAtMs > 0
-      ? Math.floor(Math.max(0, nowMs.value - observedAtMs) / 1000)
-      : 0;
+  const elapsed = rateElapsedSeconds.value ?? 0;
   return Object.entries(rules)
     .filter(([, windows]) => Array.isArray(windows) && windows.length > 0)
-    .map(([ruleName, windows]) => [
-      ruleName,
-      windows.map((win) => ({
-        ...win,
-        windowLeft: Math.max(0, win.windowLeft - elapsedSeconds),
-        cooldownLeft: Math.max(0, win.cooldownLeft - elapsedSeconds),
-      })),
-    ]);
+    .map(([ruleName, windows]) => [ruleName, windows.map((win) => buildWindowView(win, elapsed))]);
 });
 
 const isRateWaiting = computed(() => {

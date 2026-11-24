@@ -237,8 +237,9 @@ export interface TradeRateLimitWindow {
   limit: number;
   window: number;
   cooldown: number;
+  /** 滾動區間（window 秒）內已計入的請求數 */
   used: number;
-  windowLeft: number;
+  /** 目前生效中的限制剩餘秒數（觀察當下） */
   cooldownLeft: number;
 }
 
