@@ -8,6 +8,8 @@ import {
 } from '@/entrypoints/content/logic/live-search-primary-exit-guard';
 import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
 import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-search-primary-runtime';
+import { createContentPageRuntime } from '@/entrypoints/content/logic/runtime';
+import { createFakeRuntimeHarness } from './helpers/content-page-runtime-harness';
 import type {
   EnsureContainerOptions,
   HostCommandOutcome,
@@ -265,7 +267,7 @@ describe('LiveSearch Primary Exit Guard Contract Tests', () => {
   });
 
   describe('7. Composition Root Contract in runtime.ts', () => {
-    it('verifies runtime.ts only creates exit guard for live-search-primary role', () => {
+    it('verifies runtime.ts only creates and disposes LiveSearchPrimarySession for live-search-primary role', async () => {
       const runtimeContent = readFileSync(
         resolve(process.cwd(), 'entrypoints/content/logic/runtime.ts'),
         'utf-8',
@@ -279,17 +281,43 @@ describe('LiveSearch Primary Exit Guard Contract Tests', () => {
       expect(runtimeContent).not.toContain('createLiveSearchPrimaryExitGuard');
       expect(sessionContent).toMatch(/createExitGuard:\s*createLiveSearchPrimaryExitGuard/);
 
-      // Session 僅在 pageRole === 'live-search-primary' 分支中建立
-      const primaryBranchMatch = runtimeContent.match(
-        /if\s*\(\s*pageRole\s*===\s*['"]live-search-primary['"]\s*\)\s*\{[\s\S]*?createLiveSearchPrimarySession\(/,
-      );
-      expect(primaryBranchMatch).not.toBeNull();
-      expect(runtimeContent.match(/createLiveSearchPrimarySession\(/g)).toHaveLength(1);
+      // Normal 角色不得建立 LiveSearchPrimarySession
+      const normalSessionFactory = vi.fn();
+      const normalHarness = createFakeRuntimeHarness({
+        getPageRole: async () => ({ role: 'normal', arrivalSignal: false }),
+        createLiveSearchPrimarySession: normalSessionFactory,
+      });
+      normalHarness.pageLoadGateDeferred.resolve();
+      const normalRuntime = createContentPageRuntime({
+        ctx: normalHarness.ctx,
+        version: 'poe1',
+        deps: normalHarness.deps,
+      });
+      await normalRuntime.start();
+      expect(normalSessionFactory).not.toHaveBeenCalled();
+      normalRuntime.dispose();
 
-      // cleanupAll 釋放 session，session.dispose() 釋放 exit guard
-      // （釋放順序與冪等性見 live-search-primary-session.test.ts）
-      expect(runtimeContent).toContain('liveSearchSession?.dispose()');
-      expect(sessionContent).toMatch(/exitGuard\??\.dispose\(\)/);
+      // live-search-primary 角色建立一次 session，且 runtime.dispose() 釋放之
+      const disposeSession = vi.fn();
+      const primarySessionFactory = vi.fn(() => ({
+        console: {},
+        dispose: disposeSession,
+      }));
+      const primaryHarness = createFakeRuntimeHarness({
+        getPageRole: async () => ({ role: 'live-search-primary', arrivalSignal: false }),
+        createLiveSearchPrimarySession: primarySessionFactory,
+      });
+      const primaryRuntime = createContentPageRuntime({
+        ctx: primaryHarness.ctx,
+        version: 'poe1',
+        deps: primaryHarness.deps,
+      });
+      await primaryRuntime.start();
+      expect(primarySessionFactory).toHaveBeenCalledTimes(1);
+      expect(disposeSession).not.toHaveBeenCalled();
+
+      primaryRuntime.dispose();
+      expect(disposeSession).toHaveBeenCalledTimes(1);
     });
   });
 });
