@@ -96,7 +96,11 @@ export class ResultBoardRuntime {
       isComplete: () => this.isComplete(),
       currentSearchId: () => this.session.getState().searchId,
     });
-    this.dom = new ResultBoardDom(this.doc);
+    this.dom = new ResultBoardDom({
+      doc: this.doc,
+      isEnabled: () => this.enabled,
+      markSold: (id) => this.session.markSold(id),
+    });
     this.travelController = new ResultBoardTravel({
       doc: this.doc,
       now: this.now,
@@ -186,7 +190,7 @@ export class ResultBoardRuntime {
 
   /** 同步暫時過濾左側官方結果列（純 CSS 隱藏未命中列＋頂部還原橫條） */
   syncOfficialFilter(filter: OfficialFilterSync | null): void {
-    this.dom.syncOfficialFilter(filter, this.enabled, (id) => this.session.markSold(id));
+    this.dom.syncOfficialFilter(filter);
   }
 
   /** 擷取展開檢視用的官方卡片快照（封裝官方 DOM 與快取讀取，避免 UI 直接跨 seam 擷取） */
@@ -219,14 +223,13 @@ export class ResultBoardRuntime {
 
   private attach(): void {
     this.dom.ensureStyle();
-    const onSold = (id: string) => this.session.markSold(id);
     this.cleanups = [
       listenPoeEvent('poexd-search-result-summary', (detail) => {
         const summary = parseSearchResultSummary(detail);
         if (!summary) return;
         this.session.setSummary(summary);
         this.ensureShortcut();
-        this.dom.ensureGoneObserver(onSold);
+        this.dom.ensureGoneObserver();
       }),
       listenPoeEvent('poexd-fetch-response', (detail) => this.handleFetchResponse(detail)),
       listenPoeEvent('poexd-fetch-failed', (detail) => {
@@ -240,7 +243,7 @@ export class ResultBoardRuntime {
       this.cache.subscribe(() => {
         this.session.observeFetch(this.lastFetchSearchId);
         this.ensureShortcut();
-        this.dom.ensureGoneObserver(onSold);
+        this.dom.ensureGoneObserver();
         this.scheduleCurrencyScan();
       }),
       this.session.subscribe((state) => {
@@ -256,7 +259,7 @@ export class ResultBoardRuntime {
     );
     this.adoptSearchFromUrl();
     this.ensureShortcut();
-    this.dom.ensureGoneObserver(onSold);
+    this.dom.ensureGoneObserver();
     this.scanCurrencies();
   }
 
@@ -308,7 +311,7 @@ export class ResultBoardRuntime {
     for (const id of missingIds) {
       if (knownIds.has(id)) this.session.markSold(id);
     }
-    if (this.enabled) this.dom.ensureGoneObserver((id) => this.session.markSold(id));
+    this.dom.ensureGoneObserver();
     this.resolveBatch({ kind: 'loaded' });
   }
 

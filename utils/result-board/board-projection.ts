@@ -175,27 +175,8 @@ export function projectBoardView(input: BoardViewProjectionInput): BoardViewProj
   const hasTokens = tokens.include.length > 0 || tokens.exclude.length > 0;
   const hasMods = modConditions.length > 0;
 
-  // 物品清單：先套用 hideSold，再經由共同關鍵字／詞綴條件與物品清單專屬條件
-  const filteredEntries = sortEntries(
-    filterEntries(
-      visibleEntries,
-      {
-        instantBuyoutOnly: hasMixedInstantBuyout && instantOnly,
-        keyword,
-        hiddenAccounts,
-        priceMin,
-        priceMax,
-        extraSearchLines,
-        modConditions,
-      },
-      rates,
-    ),
-    sortMode,
-    rates,
-  );
-
-  // 賣家清單：一律保留已售出結果，只套用共同關鍵字與詞綴條件，再做賣家聚合與門檻篩選
-  const sellerSourceEntries =
+  // 單一共同過濾通道：關鍵字與獨立詞綴條件對每筆結果只計算一次
+  const sharedEntries =
     hasTokens || hasMods
       ? entries.filter(
           (entry) =>
@@ -204,7 +185,29 @@ export function projectBoardView(input: BoardViewProjectionInput): BoardViewProj
         )
       : entries;
 
-  const sellers = filterSellers(sortSellers(aggregateSellers(sellerSourceEntries, rates, soldIds)), {
+  // 物品清單：從共同通道結果再套用 hideSold、instantOnly、隱藏賣家、價格區間與排序
+  const itemSourceEntries =
+    hasSoldEntries && hideSold
+      ? sharedEntries.filter((entry) => !soldIds.has(entry.id))
+      : sharedEntries;
+
+  const filteredEntries = sortEntries(
+    filterEntries(
+      itemSourceEntries,
+      {
+        instantBuyoutOnly: hasMixedInstantBuyout && instantOnly,
+        hiddenAccounts,
+        priceMin,
+        priceMax,
+      },
+      rates,
+    ),
+    sortMode,
+    rates,
+  );
+
+  // 賣家清單：直接吃共同通道結果（一律保留已售出結果），再做賣家聚合與門檻篩選
+  const sellers = filterSellers(sortSellers(aggregateSellers(sharedEntries, rates, soldIds)), {
     minInstantBuyout: minSellerCount,
     hiddenAccounts,
   });

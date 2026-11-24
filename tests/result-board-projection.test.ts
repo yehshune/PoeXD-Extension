@@ -363,15 +363,32 @@ describe('board-projection: seller aggregation, sorting, filtering and item-vs-s
     });
   });
 
-  it('preserves sold items in Seller list under hideSold both with and without keyword/mod filters, while Item list hides them', () => {
+  it('preserves sold items in Seller list under hideSold with no filters, keyword filters, and modConditions, while Item list hides them', () => {
+    const PHYS_HASH = 'explicit.stat_1509134228';
     const list = entries([
-      { id: 's1', account: 'Vendor#1', name: 'Imperial Bow', amount: 50 },
-      { id: 's2', account: 'Vendor#1', name: 'Imperial Bow', amount: 50 },
+      {
+        id: 's1',
+        account: 'Vendor#1',
+        name: 'Imperial Bow',
+        amount: 50,
+        extendedMods: {
+          explicit: [{ name: 'Merciless', tier: 'P1', magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }] }],
+        },
+      },
+      {
+        id: 's2',
+        account: 'Vendor#1',
+        name: 'Imperial Bow',
+        amount: 50,
+        extendedMods: {
+          explicit: [{ name: 'Merciless', tier: 'P1', magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }] }],
+        },
+      },
       { id: 'o1', account: 'Other#2', name: 'Amethyst Ring', amount: 10 },
     ]);
     const marks = { s1: 'sold' as const };
 
-    // Without keyword: Item list hides s1, Seller list keeps Vendor#1 at totalInstantBuyoutCount = 2
+    // Without keyword/mods: Item list hides s1, Seller list keeps Vendor#1 at totalInstantBuyoutCount = 2
     const noKeyword = project(list, {
       view: 'sellers',
       marks,
@@ -396,6 +413,21 @@ describe('board-projection: seller aggregation, sorting, filtering and item-vs-s
     expect(withKeyword.sellers[0].totalInstantBuyoutCount).toBe(2);
     expect(withKeyword.sellers[0].instantBuyoutCount).toBe(1);
     expect(Array.from(withKeyword.matchedIds)).toEqual(['s1', 's2']);
+
+    // With modConditions + hideSold: Item list hides s1, Seller list STILL keeps Vendor#1 at totalInstantBuyoutCount = 2
+    const physKey = noKeyword.modOptions.find((o) => !o.isHybrid && o.hashes[0] === PHYS_HASH)!.key;
+    const withMods = project(list, {
+      view: 'sellers',
+      marks,
+      hideSold: true,
+      modConditions: [{ key: physKey, maxTier: 1 }],
+      minSellerCount: 2,
+    });
+    expect(ids(withMods.filteredEntries)).toEqual(['s2']);
+    expect(withMods.sellers.map((s) => s.account)).toEqual(['Vendor#1']);
+    expect(withMods.sellers[0].totalInstantBuyoutCount).toBe(2);
+    expect(withMods.sellers[0].instantBuyoutCount).toBe(1);
+    expect(Array.from(withMods.matchedIds)).toEqual(['s1', 's2']);
   });
 
   it('projects seller stash groups lazily sorted by price with sold items and all-sold tabs sunk', () => {

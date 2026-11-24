@@ -194,7 +194,7 @@ export function aggregateBoardModOptions(
 }
 
 /** 單行子序列模糊比對（例如「物理傷」命中「增加 179% 物理傷害」、「混抗」命中「+35% 混沌抗性」） */
-export function isSubsequence(needle: string, haystack: string): boolean {
+function isSubsequence(needle: string, haystack: string): boolean {
   if (needle.length > haystack.length) return false;
   let j = 0;
   for (let i = 0; i < haystack.length && j < needle.length; i += 1) {

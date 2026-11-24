@@ -164,13 +164,22 @@ export function findLoadMoreButton(doc: Document): HTMLElement | null {
   return button;
 }
 
+export interface ResultBoardDomDeps {
+  doc: Document;
+  isEnabled: () => boolean;
+  markSold: (id: string) => void;
+}
+
 export class ResultBoardDom {
+  private readonly doc: Document;
   private readonly highlightTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private goneObserver: MutationObserver | undefined;
   private observedResultset: Element | null = null;
   private officialFilter: OfficialFilterSync | null = null;
 
-  constructor(private readonly doc: Document) {}
+  constructor(private readonly deps: ResultBoardDomDeps) {
+    this.doc = deps.doc;
+  }
 
   ensureStyle(): void {
     if (this.doc.getElementById(STYLE_ID)) return;
@@ -244,23 +253,20 @@ export class ResultBoardDom {
   }
 
   /** 同步暫時過濾左側官方結果列（純 CSS 隱藏未命中列＋頂部還原橫條） */
-  syncOfficialFilter(
-    filter: OfficialFilterSync | null,
-    enabled: boolean,
-    onSold: (id: string) => void,
-  ): void {
+  syncOfficialFilter(filter: OfficialFilterSync | null): void {
     this.officialFilter = filter;
     if (!filter) {
       this.clearOfficialFilterDom();
       return;
     }
     this.ensureStyle();
-    if (enabled) this.ensureGoneObserver(onSold);
+    if (this.deps.isEnabled()) this.ensureGoneObserver();
     this.applyOfficialFilterDom(filter);
   }
 
   /** 只觀察 `.resultset` 的 `.row` 新增與 `class` 變更，同步官方「Item no longer available」(.gone) */
-  ensureGoneObserver(onSold: (id: string) => void): void {
+  ensureGoneObserver(): void {
+    if (!this.deps.isEnabled()) return;
     const resultset = this.doc.querySelector('.resultset');
     if (!resultset) {
       this.disconnectGoneObserver();
@@ -271,9 +277,7 @@ export class ResultBoardDom {
     this.observedResultset = resultset;
     const Observer = this.doc.defaultView?.MutationObserver ?? globalThis.MutationObserver;
     if (typeof Observer === 'function') {
-      this.goneObserver = new Observer((mutations) =>
-        this.handleResultsetMutations(mutations, onSold),
-      );
+      this.goneObserver = new Observer((mutations) => this.handleResultsetMutations(mutations));
       this.goneObserver.observe(resultset, {
         childList: true,
         subtree: true,
@@ -281,7 +285,7 @@ export class ResultBoardDom {
         attributeFilter: ['class'],
       });
     }
-    this.scanGoneRows(resultset, onSold);
+    this.scanGoneRows(resultset);
   }
 
   disconnectGoneObserver(): void {
@@ -356,21 +360,19 @@ export class ResultBoardDom {
     this.doc.querySelectorAll(`.${SYNC_BANNER_CLASS}`).forEach((element) => element.remove());
   }
 
-  private handleResultsetMutations(
-    mutations: readonly MutationRecord[],
-    onSold: (id: string) => void,
-  ): void {
+  private markRowIfGone(el: Element): boolean {
+    if (!el.classList.contains('row') || !el.classList.contains('gone')) return false;
+    const id = el.getAttribute('data-id');
+    if (id) this.deps.markSold(id);
+    return true;
+  }
+
+  private handleResultsetMutations(mutations: readonly MutationRecord[]): void {
     let addedRow = false;
     for (const mutation of mutations) {
       if (mutation.type === 'attributes') {
         const target = mutation.target;
-        if (target.nodeType === 1) {
-          const el = target as Element;
-          if (el.classList.contains('row') && el.classList.contains('gone')) {
-            const id = el.getAttribute('data-id');
-            if (id) onSold(id);
-          }
-        }
+        if (target.nodeType === 1) this.markRowIfGone(target as Element);
         continue;
       }
       if (mutation.type === 'childList') {
@@ -378,12 +380,7 @@ export class ResultBoardDom {
           if (node.nodeType !== 1) continue;
           const el = node as Element;
           if (el.classList.contains('row')) addedRow = true;
-          if (el.classList.contains('row') && el.classList.contains('gone')) {
-            const id = el.getAttribute('data-id');
-            if (id) onSold(id);
-          } else {
-            this.scanGoneRows(el, onSold);
-          }
+          if (!this.markRowIfGone(el)) this.scanGoneRows(el);
         }
       }
     }
@@ -392,10 +389,10 @@ export class ResultBoardDom {
     }
   }
 
-  private scanGoneRows(root: Element, onSold: (id: string) => void): void {
+  private scanGoneRows(root: Element): void {
     for (const row of root.querySelectorAll(GONE_ROW_SELECTOR)) {
       const id = row.getAttribute('data-id');
-      if (id) onSold(id);
+      if (id) this.deps.markSold(id);
     }
   }
 }

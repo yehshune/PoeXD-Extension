@@ -5,7 +5,6 @@
  */
 import { convertPrice, type CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { BoardEntry } from './board-entry';
-import { isSubsequence, matchesModConditions, type BoardModCondition } from './board-mods';
 
 export type BoardSortMode =
   | 'official'
@@ -16,15 +15,10 @@ export type BoardSortMode =
 
 export interface EntryFilter {
   instantBuyoutOnly: boolean;
-  keyword: string;
   hiddenAccounts: ReadonlySet<string>;
   /** 以匯率快照的主通貨計，只在有匯率時套用 */
   priceMin?: number;
   priceMax?: number;
-  /** 額外可搜尋文字（例如官方結果列經市集漢化後的品名與詞綴行） */
-  extraSearchLines?: (entry: BoardEntry) => readonly string[];
-  /** 必含獨立詞綴條件（全部皆須命中） */
-  modConditions?: readonly BoardModCondition[];
 }
 
 export function availableSortModes(conversionAvailable: boolean): BoardSortMode[] {
@@ -108,6 +102,15 @@ export function parseSearchTokens(keyword: string): ParsedSearchTokens {
   return { include, exclude };
 }
 
+function isSubsequence(needle: string, haystack: string): boolean {
+  if (needle.length > haystack.length) return false;
+  let j = 0;
+  for (let i = 0; i < haystack.length && j < needle.length; i += 1) {
+    if (haystack[i] === needle[j]) j += 1;
+  }
+  return j === needle.length;
+}
+
 function matchesToken(lines: readonly string[], token: string, fuzzy: boolean): boolean {
   for (const line of lines) {
     if (line.includes(token)) return true;
@@ -177,15 +180,10 @@ export function filterEntries(
   filter: EntryFilter,
   rates: CurrencyRateSnapshot | undefined,
 ): BoardEntry[] {
-  const tokens = parseSearchTokens(filter.keyword);
-  const hasTokens = tokens.include.length > 0 || tokens.exclude.length > 0;
-  const modConditions = filter.modConditions ?? [];
   return entries.filter(
     (entry) =>
       (!filter.instantBuyoutOnly || entry.instantBuyout) &&
       !filter.hiddenAccounts.has(entry.seller.account) &&
-      (!hasTokens || matchesBoardEntry(entry, tokens, filter.extraSearchLines?.(entry))) &&
-      matchesModConditions(entry, modConditions) &&
       withinPrice(entry, filter, rates),
   );
 }

@@ -193,10 +193,28 @@ describe('ResultBoardRuntime', () => {
 
     dispatchPoeEvent('poexd-search-result-summary', summary(10, 's2'));
     expect(runtime.getTravelStates()).toEqual({});
+
+    // Sold mark clears travel state immediately
+    await expect(runtime.travel('a')).resolves.toBe('travelled');
+    expect(runtime.getTravelStates()).toEqual({ a: 'traveling' });
+    dispatchPoeEvent('poexd-whisper-outcome', serializeWhisperOutcome({ status: 404, code: 1 }));
+    expect(runtime.session.getState().marks).toEqual({ a: 'sold' });
+    expect(runtime.getTravelStates()).toEqual({});
+
+    // Detach (setEnabled(false)) clears active travel state
+    await expect(runtime.travel('b')).resolves.toBe('travelled');
+    expect(runtime.getTravelStates()).toEqual({ b: 'traveling' });
+    runtime.setEnabled(false);
+    expect(runtime.getTravelStates()).toEqual({});
+
     expect(snapshots).toEqual([
       { a: 'traveling' },
       {},
       { b: 'refreshing' },
+      { b: 'traveling' },
+      {},
+      { a: 'traveling' },
+      {},
       { b: 'traveling' },
       {},
     ]);
