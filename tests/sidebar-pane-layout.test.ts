@@ -360,12 +360,12 @@ describe('HistoryPane shadcn migration & runtime integration', () => {
     const menuTrigger = container.querySelector('[data-history-menu]');
     expect(menuTrigger?.getAttribute('title')).toBe('歷史紀錄操作');
 
-    // Verifies action buttons (ExternalLink and Delete) exist
+    // Verifies action buttons (ExternalLink and row menu) exist
     const newTabBtn = container.querySelector('button[title="在新分頁開啟"]');
     expect(newTabBtn).not.toBeNull();
 
-    const deleteBtn = container.querySelector('button[title="刪除此紀錄"]');
-    expect(deleteBtn).not.toBeNull();
+    const rowMenuBtn = container.querySelector('[data-test="history-row-menu"]');
+    expect(rowMenuBtn).not.toBeNull();
   });
 });
 

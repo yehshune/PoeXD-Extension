@@ -131,6 +131,17 @@ describe('history-presentation helpers', () => {
     expect(hint).toContain('≤ 50 divine');
     expect(hint).toContain('≥ 80');
   });
+
+  it('suppresses fallback suggestedName hint when it duplicates the entry display title', async () => {
+    const hash = await encodeQueryToGzipBase64Url({
+      query: {
+        type: 'Amethyst Ring',
+      },
+    });
+    const url = `https://www.pathofexile.com/trade/search/Standard/${hash}`;
+    expect(await deriveHistoryCriteriaHint(url, 'poe1', 'Amethyst Ring')).toBe('');
+    expect(await deriveHistoryCriteriaHint(url, 'poe1', '未命名搜尋')).toBe('Amethyst Ring');
+  });
 });
 
 describe('restore-history-entry command', () => {

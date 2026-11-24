@@ -162,7 +162,18 @@ function formatStatHint(
   return cleanLabel;
 }
 
-export async function deriveHistoryCriteriaHint(url: string, version: PoeVersion): Promise<string> {
+function normalizeComparableText(text: string): string {
+  return text
+    .replace(/[()（）\[\]【】]/g, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+export async function deriveHistoryCriteriaHint(
+  url: string,
+  version: PoeVersion,
+  displayName?: string,
+): Promise<string> {
   if (!url || isLegacyTradeSearchUrl(url)) return '';
   try {
     const decoded = await decodeTradeSearchUrl(url);
@@ -188,7 +199,13 @@ export async function deriveHistoryCriteriaHint(url: string, version: PoeVersion
     }
 
     if (parts.length === 0 && meta.suggestedName?.trim()) {
-      parts.push(meta.suggestedName.trim());
+      const candidate = meta.suggestedName.trim();
+      const isSameAsTitle =
+        Boolean(displayName) &&
+        normalizeComparableText(candidate) === normalizeComparableText(displayName!);
+      if (!isSameAsTitle) {
+        parts.push(candidate);
+      }
     }
 
     return parts.slice(0, 2).join(' · ');

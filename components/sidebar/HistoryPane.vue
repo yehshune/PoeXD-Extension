@@ -268,74 +268,78 @@
                 >
                   <ExternalLink />
                 </Button>
-                <DropdownMenu v-if="flattenedBookmarkFolders.length > 1 && !isBookmarked(h)">
+                <DropdownMenu>
                   <DropdownMenuTrigger as-child>
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      :disabled="isLegacyTradeSearchUrl(h.url)"
-                      :title="t('common.addToBookmarks')"
-                      data-test="history-bookmark-picker"
+                      :title="t('bookmark.folder.menuTitle')"
+                      :aria-label="t('bookmark.folder.menuTitle')"
+                      data-test="history-row-menu"
                       @click.stop
                     >
-                      <BookmarkPlus />
+                      <MoreVertical />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" class="w-[var(--pxd-menu-sub-width,192px)]">
-                    <DropdownMenuItem
-                      v-for="item in flattenedBookmarkFolders"
-                      :key="item.folder.id"
-                      data-test="history-bookmark-folder-option"
-                      @click="saveHistoryToBookmark(h, item.folder.id)"
-                    >
-                      <span
-                        v-if="getFolderItemIndentLevel(item.depth) > 0"
-                        class="flex shrink-0 items-center -mr-[var(--control-gap-sm)]"
-                        aria-hidden="true"
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuSub v-if="flattenedBookmarkFolders.length > 1 && !isBookmarked(h)">
+                      <DropdownMenuSubTrigger
+                        :disabled="isLegacyTradeSearchUrl(h.url)"
+                        data-test="history-bookmark-picker"
                       >
-                        <span
-                          v-for="step in getFolderItemIndentLevel(item.depth)"
-                          :key="step"
-                          class="w-[var(--pxd-space-md)] shrink-0"
-                        />
-                      </span>
-                      <FolderIcon :icon="item.folder.icon" :color="item.folder.color" />
-                      <span class="min-w-0 flex-1 truncate">{{ item.folder.name }}</span>
+                        <BookmarkPlus class="text-muted-foreground" />
+                        {{ t('common.addToBookmarks') }}
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent class="w-[var(--pxd-menu-sub-width,192px)]">
+                        <DropdownMenuItem
+                          v-for="item in flattenedBookmarkFolders"
+                          :key="item.folder.id"
+                          data-test="history-bookmark-folder-option"
+                          @click="saveHistoryToBookmark(h, item.folder.id)"
+                        >
+                          <span
+                            v-if="getFolderItemIndentLevel(item.depth) > 0"
+                            class="flex shrink-0 items-center -mr-[var(--control-gap-sm)]"
+                            aria-hidden="true"
+                          >
+                            <span
+                              v-for="step in getFolderItemIndentLevel(item.depth)"
+                              :key="step"
+                              class="w-[var(--pxd-space-md)] shrink-0"
+                            />
+                          </span>
+                          <FolderIcon :icon="item.folder.icon" :color="item.folder.color" />
+                          <span class="min-w-0 flex-1 truncate">{{ item.folder.name }}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuItem
+                      v-else
+                      :disabled="isLegacyTradeSearchUrl(h.url) || isBookmarked(h)"
+                      data-test="history-bookmark-add"
+                      @click="saveHistoryToBookmark(h)"
+                    >
+                      <BookmarkCheck v-if="isBookmarked(h)" class="text-primary" />
+                      <BookmarkPlus v-else class="text-muted-foreground" />
+                      {{
+                        isBookmarked(h) ? t('history.row.bookmarked') : t('common.addToBookmarks')
+                      }}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem data-test="history-copy-link" @click="copyHistoryLink(h.url)">
+                      <Link2 class="text-muted-foreground" />
+                      {{ t('history.row.copyLink') }}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      data-test="history-delete"
+                      @click="deleteHistory(h.id)"
+                    >
+                      <Trash2 class="text-destructive" />
+                      {{ t('history.row.delete') }}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button
-                  v-else
-                  variant="ghost"
-                  size="icon-sm"
-                  :disabled="isLegacyTradeSearchUrl(h.url) || isBookmarked(h)"
-                  :class="isBookmarked(h) ? 'text-primary' : undefined"
-                  :title="
-                    isBookmarked(h) ? t('history.row.bookmarked') : t('common.addToBookmarks')
-                  "
-                  data-test="history-bookmark-add"
-                  @click.stop="saveHistoryToBookmark(h)"
-                >
-                  <BookmarkCheck v-if="isBookmarked(h)" />
-                  <BookmarkPlus v-else />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  :title="t('history.row.copyLink')"
-                  data-test="history-copy-link"
-                  @click.stop="copyHistoryLink(h.url)"
-                >
-                  <Link2 />
-                </Button>
-                <Button
-                  variant="ghost-destructive"
-                  size="icon-sm"
-                  :title="t('history.row.delete')"
-                  @click.stop="deleteHistory(h.id)"
-                >
-                  <X />
-                </Button>
               </div>
             </div>
           </template>
@@ -387,6 +391,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import SidebarPane from './layout/SidebarPane.vue';
@@ -451,6 +458,9 @@ export default defineComponent({
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
     FolderIcon,
     MoreVertical,
@@ -541,7 +551,11 @@ export default defineComponent({
     const filteredHistory = computed(() => {
       const query = trimmedSearchQuery.value.toLowerCase();
       if (!query) return history.value;
-      return history.value.filter((h) => getHistoryName(h).toLowerCase().includes(query));
+      return history.value.filter((h) => {
+        if (getHistoryName(h).toLowerCase().includes(query)) return true;
+        const hint = criteriaHintByUrl[h.url];
+        return Boolean(hint && hint.toLowerCase().includes(query));
+      });
     });
 
     const groupedHistory = computed(() => groupHistoryEntriesByTime(filteredHistory.value));
@@ -570,7 +584,7 @@ export default defineComponent({
           if (!ids.has(entry.id)) continue;
           if (entry.url in criteriaHintByUrl || inFlightHintUrls.has(entry.url)) continue;
           inFlightHintUrls.add(entry.url);
-          void deriveHistoryCriteriaHint(entry.url, version)
+          void deriveHistoryCriteriaHint(entry.url, version, getHistoryName(entry))
             .then((hint) => {
               if (!isUnmounted) {
                 criteriaHintByUrl[entry.url] = hint;

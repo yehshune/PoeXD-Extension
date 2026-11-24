@@ -298,9 +298,9 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(timestamp?.className).toContain('text-[length:var(--pxd-font-micro)]');
 
       // Row action buttons use icon-sm
-      // 預覽（或前往）、新分頁、加入書籤、複製連結、刪除
+      // 預覽（或前往）、新分頁、⋮ 操作選單
       const actionButtons = itemRows[0].querySelectorAll('button');
-      expect(actionButtons.length).toBe(5);
+      expect(actionButtons.length).toBe(3);
       actionButtons.forEach((btn) => {
         expect(btn.className).toContain('size-[var(--control-height-sm)]');
         expect(btn.className).not.toContain('size-5');
@@ -374,14 +374,12 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       (window as any).poexdConfirm = confirmSpy;
 
       app = createApp(HistoryPane);
-      app.mount(container);
+      const vm: any = app.mount(container);
       await flushPromises();
       await nextTick();
 
-      const deleteBtn = container.querySelector('button[title="刪除此紀錄"]') as HTMLButtonElement;
-      expect(deleteBtn).not.toBeNull();
-      deleteBtn.click();
-      await nextTick();
+      expect(container.querySelector('[data-test="history-row-menu"]')).not.toBeNull();
+      await vm.deleteHistory('hist-1');
       await nextTick();
 
       expect(confirmSpy).not.toHaveBeenCalled();
@@ -519,7 +517,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       ];
 
       app = createApp(HistoryPane);
-      app.mount(container);
+      const vm: any = app.mount(container);
       await flushPromises();
       await nextTick();
 
@@ -527,21 +525,13 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(rows[0].querySelector('[data-test="history-bookmarked-indicator"]')).not.toBeNull();
       expect(rows[1].querySelector('[data-test="history-bookmarked-indicator"]')).toBeNull();
 
-      // Already-bookmarked row disables add button to prevent duplicate bookmark creation
-      const bookmarkedBtn = rows[0].querySelector(
-        '[data-test="history-bookmark-add"]',
-      ) as HTMLButtonElement;
-      expect(bookmarkedBtn.disabled).toBe(true);
-      bookmarkedBtn.click();
+      // Already-bookmarked row does not create duplicate bookmark
+      await vm.saveHistoryToBookmark(historyEntriesMock.value[0]);
       await flushPromises();
       expect(putBookmarkMock).toHaveBeenCalledTimes(0);
 
-      // Clicking save bookmark on the second entry saves directly into the single folder
-      const addBtn = rows[1].querySelector(
-        '[data-test="history-bookmark-add"]',
-      ) as HTMLButtonElement;
-      expect(addBtn).not.toBeNull();
-      addBtn.click();
+      // Saving the second entry adds it into the single folder
+      await vm.saveHistoryToBookmark(historyEntriesMock.value[1]);
       await flushPromises();
       await nextTick();
 
@@ -558,14 +548,11 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
 
     it('auto-creates default folder when saving history to bookmark with no existing folders', async () => {
       app = createApp(HistoryPane);
-      app.mount(container);
+      const vm: any = app.mount(container);
       await flushPromises();
       await nextTick();
 
-      const addBtn = container.querySelector(
-        '[data-test="history-bookmark-add"]',
-      ) as HTMLButtonElement;
-      addBtn.click();
+      await vm.saveHistoryToBookmark(historyEntriesMock.value[0]);
       await flushPromises();
       await nextTick();
 
@@ -573,22 +560,22 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(putBookmarkMock).toHaveBeenCalledTimes(1);
     });
 
-    it('renders folder picker trigger when multiple bookmark folders exist', async () => {
+    it('exposes flattened bookmark folders for multi-folder row submenu', async () => {
       bookmarkGroupsMock.value = [
         { id: 'g-1', name: '主力裝備', order: 0 },
         { id: 'g-2', name: '通貨材料', order: 1 },
       ];
 
       app = createApp(HistoryPane);
-      app.mount(container);
+      const vm: any = app.mount(container);
       await flushPromises();
       await nextTick();
 
-      expect(container.querySelector('[data-test="history-bookmark-picker"]')).not.toBeNull();
-      expect(container.querySelector('[data-test="history-bookmark-add"]')).toBeNull();
+      expect(vm.flattenedBookmarkFolders).toHaveLength(2);
+      expect(container.querySelector('[data-test="history-row-menu"]')).not.toBeNull();
     });
 
-    it('copies history URL to clipboard when clicking copy link button', async () => {
+    it('copies history URL to clipboard via copyHistoryLink', async () => {
       const writeText = vi.fn(async () => {});
       Object.defineProperty(navigator, 'clipboard', {
         value: { writeText },
@@ -596,15 +583,11 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       });
 
       app = createApp(HistoryPane);
-      app.mount(container);
+      const vm: any = app.mount(container);
       await flushPromises();
       await nextTick();
 
-      const copyBtn = container.querySelector(
-        '[data-test="history-copy-link"]',
-      ) as HTMLButtonElement;
-      expect(copyBtn).not.toBeNull();
-      copyBtn.click();
+      await vm.copyHistoryLink(historyEntriesMock.value[0].url);
       await flushPromises();
 
       expect(writeText).toHaveBeenCalledWith(
@@ -659,12 +642,11 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
 
     it('shows undo bar after deleting an entry and restores it on undo click', async () => {
       app = createApp(HistoryPane);
-      app.mount(container);
+      const vm: any = app.mount(container);
       await flushPromises();
       await nextTick();
 
-      const deleteBtn = container.querySelector('button[title="刪除此紀錄"]') as HTMLButtonElement;
-      deleteBtn.click();
+      await vm.deleteHistory('hist-1');
       await flushPromises();
       await nextTick();
 
