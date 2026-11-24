@@ -36,8 +36,6 @@ export interface FolderDropPlanInput {
 
 export interface FolderDropPlan {
   dropIntent: FolderDropIntent;
-  projectedDepth: number;
-  projectedParentId: string | undefined;
   /** Folder card that owns the visual drop indicator. */
   slotFolderId: string;
   indicatorPosition: FolderDropPosition;
@@ -86,14 +84,7 @@ function resolveGapTarget(
       const nextRect = nextC.rect;
       if (nextRect.height > 0 && pointer.y > rect.bottom && pointer.y < nextRect.top) {
         const midY = (rect.bottom + nextRect.top) / 2;
-        if (pointer.y < midY) {
-          return {
-            targetCard: c,
-            forcedDropPosition: 'after',
-            forcedTargetFolderId: null,
-          };
-        }
-        if (pointer.x >= nextRect.left && pointer.x <= nextRect.right) {
+        if (pointer.y >= midY && pointer.x >= nextRect.left && pointer.x <= nextRect.right) {
           return {
             targetCard: nextC,
             forcedDropPosition: 'before',
@@ -221,7 +212,6 @@ export function createFolderDropSession(
       position: dropPosition,
     };
     const projectedDepth = dropPosition === 'inside' ? targetItem.depth + 1 : targetItem.depth;
-    const projectedParentId = dropPosition === 'inside' ? targetItem.id : targetItem.parentId;
 
     const validation = resolveFolderDropPlacement(folders, draggedFolderId, dropIntent);
     if (!validation.ok) return null;
@@ -241,13 +231,10 @@ export function createFolderDropSession(
     }
 
     const shouldAutoExpand =
-      input.collapsedFolderIds.has(targetFolderId) &&
-      (dropPosition === 'inside' || projectedParentId === targetFolderId);
+      input.collapsedFolderIds.has(targetFolderId) && dropPosition === 'inside';
 
     return {
       dropIntent,
-      projectedDepth,
-      projectedParentId,
       slotFolderId,
       indicatorPosition: dropPosition,
       indentSteps,

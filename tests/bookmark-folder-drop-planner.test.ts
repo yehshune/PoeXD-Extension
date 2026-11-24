@@ -4,11 +4,6 @@ import {
   createFolderDropSession,
   type FolderCardGeometry,
 } from '@/components/sidebar/composables/bookmark-folder-drop-planner';
-import {
-  getFlattenedFolderTree,
-  getFolderItemIndentLevel,
-  TREE_MENU_MAX_INDENT_DEPTH,
-} from '@/components/sidebar/bookmark-tree';
 import { resolveFolderDropPlacement } from '@/utils/bookmark-collection';
 
 function makeCard(
@@ -66,8 +61,6 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
         });
         expect(beforePlan).toEqual({
           dropIntent: { targetFolderId: 'root-2', position: 'before' },
-          projectedDepth: 0,
-          projectedParentId: undefined,
           slotFolderId: 'root-2',
           indicatorPosition: 'before',
           indentSteps: 0,
@@ -82,8 +75,6 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
         });
         expect(insidePlan).toEqual({
           dropIntent: { targetFolderId: 'root-2', position: 'inside' },
-          projectedDepth: 1,
-          projectedParentId: 'root-2',
           slotFolderId: 'root-2',
           indicatorPosition: 'inside',
           indentSteps: 0,
@@ -98,8 +89,6 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
         });
         expect(afterPlan).toEqual({
           dropIntent: { targetFolderId: 'root-2', position: 'after' },
-          projectedDepth: 0,
-          projectedParentId: undefined,
           slotFolderId: 'root-2',
           indicatorPosition: 'after',
           indentSteps: 0,
@@ -141,7 +130,7 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
       ).toBe('after');
     });
 
-    it('aligns nested target before/after with target depth and inside with target depth + 1', () => {
+    it('targets nested folders cleanly for before and inside without horizontal offsets', () => {
       const session = createFolderDropSession(sampleFolders, 'root-3');
       const nestedCard = makeCard('child-1-2', 1, 144, 40);
 
@@ -151,8 +140,8 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
         cards: [nestedCard],
         collapsedFolderIds: new Set(),
       });
-      expect(beforePlan?.projectedDepth).toBe(1);
-      expect(beforePlan?.projectedParentId).toBe('root-1');
+      expect(beforePlan?.dropIntent).toEqual({ targetFolderId: 'child-1-2', position: 'before' });
+      expect(beforePlan?.indentSteps).toBe(0);
 
       const insidePlan = session.plan({
         pointer: { x: 100, y: 164 },
@@ -160,8 +149,8 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
         cards: [nestedCard],
         collapsedFolderIds: new Set(),
       });
-      expect(insidePlan?.projectedDepth).toBe(2);
-      expect(insidePlan?.projectedParentId).toBe('child-1-2');
+      expect(insidePlan?.dropIntent).toEqual({ targetFolderId: 'child-1-2', position: 'inside' });
+      expect(insidePlan?.indentSteps).toBe(0);
     });
   });
 
@@ -228,7 +217,6 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
         collapsedFolderIds: new Set(),
       });
       expect(nearBottom?.dropIntent).toEqual({ targetFolderId: 'child-2-1', position: 'after' });
-      expect(nearBottom?.projectedDepth).toBe(1);
       expect(nearBottom?.indentSteps).toBe(0);
 
       // More than 8px (and <= 24px) below last child -> promotes to after last root (root-2),
@@ -240,7 +228,6 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
         collapsedFolderIds: new Set(),
       });
       expect(outdentedBottom?.dropIntent).toEqual({ targetFolderId: 'root-2', position: 'after' });
-      expect(outdentedBottom?.projectedDepth).toBe(0);
       expect(outdentedBottom?.slotFolderId).toBe('child-2-1');
       expect(outdentedBottom?.indentSteps).toBe(-1);
 
@@ -269,8 +256,6 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
       });
       expect(planAfterRoot1).toEqual({
         dropIntent: { targetFolderId: 'root-1', position: 'after' },
-        projectedDepth: 0,
-        projectedParentId: undefined,
         slotFolderId: 'child-1-2',
         indicatorPosition: 'after',
         indentSteps: -1,
@@ -380,6 +365,36 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
       ).toBeNull();
     });
 
+    it('fails closed when canonical resolveFolderDropPlacement rejects the candidate move', () => {
+      // 1. Missing draggedFolderId reaches resolveFolderDropPlacement and fails closed
+      const missingDraggedSession = createFolderDropSession(sampleFolders, 'non-existent-folder');
+      expect(
+        missingDraggedSession.plan({
+          pointer: { x: 100, y: 20 },
+          hitFolderId: 'root-1',
+          cards: defaultCards,
+          collapsedFolderIds: new Set(),
+        }),
+      ).toBeNull();
+
+      // 2. Cross-gameVersion nesting is rejected by canMoveFolder inside resolveFolderDropPlacement
+      const mixedVersionFolders = [
+        { id: 'poe1-root', name: 'PoE 1 Root', order: 0, gameVersion: 'poe1' },
+        { id: 'poe2-root', name: 'PoE 2 Root', order: 1, gameVersion: 'poe2' },
+      ] as unknown as BookmarkGroup[];
+      const mixedCards = [makeCard('poe1-root', 0, 0, 40), makeCard('poe2-root', 0, 48, 40)];
+      const crossVersionSession = createFolderDropSession(mixedVersionFolders, 'poe1-root');
+
+      expect(
+        crossVersionSession.plan({
+          pointer: { x: 100, y: 68 },
+          hitFolderId: 'poe2-root',
+          cards: mixedCards,
+          collapsedFolderIds: new Set(),
+        }),
+      ).toBeNull();
+    });
+
     it('every non-null plan produces a dropIntent accepted by resolveFolderDropPlacement', () => {
       const session = createFolderDropSession(sampleFolders, 'root-3');
       const queries = [
@@ -402,48 +417,6 @@ describe('Bookmark Folder Drop Planner (Per-Drag Session)', () => {
         const placement = resolveFolderDropPlacement(sampleFolders, 'root-3', plan!.dropIntent);
         expect(placement.ok).toBe(true);
       }
-    });
-  });
-
-  describe('Move Target Projection (getFlattenedFolderTree & getFolderItemIndentLevel)', () => {
-    const deepFolders: BookmarkGroup[] = [
-      { id: 'l1', name: 'L1', order: 0 },
-      { id: 'l2', name: 'L2', parentId: 'l1', order: 0 },
-      { id: 'l3', name: 'L3', parentId: 'l2', order: 0 },
-      { id: 'l4', name: 'L4', parentId: 'l3', order: 0 },
-      { id: 'l5', name: 'L5', parentId: 'l4', order: 0 },
-      { id: 'l6', name: 'L6', parentId: 'l5', order: 0 },
-      { id: 'r2', name: 'R2', order: 1 },
-      { id: 'r2-c1', name: 'R2-C1', parentId: 'r2', order: 0 },
-    ];
-
-    it('projects deep canonical hierarchy into DFS ordered list with accurate depth', () => {
-      const targets = getFlattenedFolderTree(deepFolders);
-
-      expect(targets.map((t) => ({ id: t.folder.id, depth: t.depth }))).toEqual([
-        { id: 'l1', depth: 0 },
-        { id: 'l2', depth: 1 },
-        { id: 'l3', depth: 2 },
-        { id: 'l4', depth: 3 },
-        { id: 'l5', depth: 4 },
-        { id: 'l6', depth: 5 },
-        { id: 'r2', depth: 0 },
-        { id: 'r2-c1', depth: 1 },
-      ]);
-    });
-
-    it('excludes self and all descendants while preserving valid sibling and ancestor hierarchy', () => {
-      const targets = getFlattenedFolderTree(deepFolders, 'l3');
-
-      expect(targets.map((t) => t.folder.id)).toEqual(['l1', 'l2', 'r2', 'r2-c1']);
-    });
-
-    it('clamps indentation level accurately without unbounded growth at deep levels', () => {
-      expect(getFolderItemIndentLevel(0)).toBe(0);
-      expect(getFolderItemIndentLevel(-1)).toBe(0);
-      expect(getFolderItemIndentLevel(1)).toBe(1);
-      expect(getFolderItemIndentLevel(6)).toBe(6);
-      expect(getFolderItemIndentLevel(10)).toBe(TREE_MENU_MAX_INDENT_DEPTH);
     });
   });
 });

@@ -374,12 +374,16 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     return activeDropSession;
   };
 
-  const readCardGeometry = (container: HTMLElement): FolderCardGeometry | null => {
+  const findGroupHeader = (container: HTMLElement): HTMLElement | null =>
+    (container.querySelector(':scope > .group-header-row') as HTMLElement | null) ??
+    (container.querySelector('.group-header-row') as HTMLElement | null);
+
+  const readCardGeometry = (
+    container: HTMLElement,
+    header: HTMLElement | null = findGroupHeader(container),
+  ): FolderCardGeometry | null => {
     const folderId = container.getAttribute('data-group-id');
     if (!folderId) return null;
-    const header =
-      (container.querySelector(':scope > .group-header-row') as HTMLElement | null) ??
-      (container.querySelector('.group-header-row') as HTMLElement | null);
     const containerRect = container.getBoundingClientRect();
     const headerRect = header?.getBoundingClientRect();
     const rect =
@@ -462,15 +466,13 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     let cards: FolderCardGeometry[] = [];
 
     if (targetContainer) {
-      const targetHeader =
-        (targetContainer.querySelector(':scope > .group-header-row') as HTMLElement | null) ??
-        (targetContainer.querySelector('.group-header-row') as HTMLElement | null);
+      const targetHeader = findGroupHeader(targetContainer);
       if (!targetHeader) {
         clearFolderDropIndicator();
         clearHoverExpandTimer();
         return;
       }
-      const hitGeometry = readCardGeometry(targetContainer);
+      const hitGeometry = readCardGeometry(targetContainer, targetHeader);
       if (!hitGeometry) {
         clearFolderDropIndicator();
         clearHoverExpandTimer();
@@ -482,7 +484,7 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       cards = Array.from(
         containerEl.querySelectorAll<HTMLElement>('.group-container[data-group-id]'),
       )
-        .map(readCardGeometry)
+        .map((container) => readCardGeometry(container))
         .filter((card): card is FolderCardGeometry => card !== null);
     } else {
       clearFolderDropIndicator();
@@ -544,9 +546,7 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       clearFolderDropIndicator();
       return;
     }
-    const slotHeader =
-      (slotContainer.querySelector(':scope > .group-header-row') as HTMLElement | null) ??
-      (slotContainer.querySelector('.group-header-row') as HTMLElement | null);
+    const slotHeader = findGroupHeader(slotContainer);
 
     const indentPx = plan.indentSteps * sessionHolder.indentStep;
     const indicatorPosition = plan.indicatorPosition;

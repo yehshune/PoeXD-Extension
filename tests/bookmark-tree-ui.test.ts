@@ -5,7 +5,12 @@ import { createApp, defineComponent, h, nextTick, ref } from 'vue';
 import { ConfigProvider } from 'reka-ui';
 import Sortable from 'sortablejs';
 import BookmarkPane from '@/components/sidebar/BookmarkPane.vue';
-import { buildFolderTree } from '@/components/sidebar/bookmark-tree';
+import {
+  buildFolderTree,
+  getFlattenedFolderTree,
+  getFolderItemIndentLevel,
+  TREE_MENU_MAX_INDENT_DEPTH,
+} from '@/components/sidebar/bookmark-tree';
 import type { Bookmark, BookmarkGroup } from '@/components/sidebar/bookmark-types';
 import type { TradeLeague } from '@/utils/trade-leagues';
 
@@ -741,6 +746,48 @@ describe('Bookmark Tree UI & Hierarchy Semantics', () => {
       const renameInput = appRoot.querySelector<HTMLInputElement>('.group-header-row input');
       expect(renameInput).not.toBeNull();
       expect(renameInput?.value).toBe('新資料夾');
+    });
+  });
+
+  describe('Move Target Projection (getFlattenedFolderTree & getFolderItemIndentLevel)', () => {
+    const deepFolders: BookmarkGroup[] = [
+      { id: 'l1', name: 'L1', order: 0 },
+      { id: 'l2', name: 'L2', parentId: 'l1', order: 0 },
+      { id: 'l3', name: 'L3', parentId: 'l2', order: 0 },
+      { id: 'l4', name: 'L4', parentId: 'l3', order: 0 },
+      { id: 'l5', name: 'L5', parentId: 'l4', order: 0 },
+      { id: 'l6', name: 'L6', parentId: 'l5', order: 0 },
+      { id: 'r2', name: 'R2', order: 1 },
+      { id: 'r2-c1', name: 'R2-C1', parentId: 'r2', order: 0 },
+    ];
+
+    it('projects deep canonical hierarchy into DFS ordered list with accurate depth', () => {
+      const targets = getFlattenedFolderTree(deepFolders);
+
+      expect(targets.map((t) => ({ id: t.folder.id, depth: t.depth }))).toEqual([
+        { id: 'l1', depth: 0 },
+        { id: 'l2', depth: 1 },
+        { id: 'l3', depth: 2 },
+        { id: 'l4', depth: 3 },
+        { id: 'l5', depth: 4 },
+        { id: 'l6', depth: 5 },
+        { id: 'r2', depth: 0 },
+        { id: 'r2-c1', depth: 1 },
+      ]);
+    });
+
+    it('excludes self and all descendants while preserving valid sibling and ancestor hierarchy', () => {
+      const targets = getFlattenedFolderTree(deepFolders, 'l3');
+
+      expect(targets.map((t) => t.folder.id)).toEqual(['l1', 'l2', 'r2', 'r2-c1']);
+    });
+
+    it('clamps indentation level accurately without unbounded growth at deep levels', () => {
+      expect(getFolderItemIndentLevel(0)).toBe(0);
+      expect(getFolderItemIndentLevel(-1)).toBe(0);
+      expect(getFolderItemIndentLevel(1)).toBe(1);
+      expect(getFolderItemIndentLevel(6)).toBe(6);
+      expect(getFolderItemIndentLevel(10)).toBe(TREE_MENU_MAX_INDENT_DEPTH);
     });
   });
 });
