@@ -11,6 +11,10 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
     'components/sidebar/stat-group-templates/StatGroupTemplateToolbar.vue',
     'utf8',
   );
+  const pobBuildPaneSource = readFileSync(
+    'components/sidebar/pob-build/PobBuildPane.vue',
+    'utf8',
+  );
   const settingsPaneSource = readFileSync('components/sidebar/SettingsPane.vue', 'utf8');
   const toggleIndexSource = readFileSync('components/ui/toggle/index.ts', 'utf8');
   const mainCssSource = readFileSync('assets/main.css', 'utf8');
@@ -64,26 +68,29 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
   });
 
   describe('3. BookmarkPane Top Controls Toolbar (Item 2)', () => {
-    it('constrains top toolbar row with w-full max-w-full min-w-0', () => {
+    it('constrains top toolbar row with w-full max-w-full min-w-0 and allows primary button to shrink', () => {
       expect(bookmarkPaneSource).toMatch(
         /class="flex items-center gap-\[var\(--pxd-space-sm\)\] pb-\[var\(--pxd-space-md\)\] w-full max-w-full min-w-0"/,
       );
-    });
-
-    it('provides FolderPlus icon and pxd-toolbar-btn-text label for New Folder button', () => {
       expect(bookmarkPaneSource).toMatch(
-        /<FolderPlus \/>[\s\S]*?<span class="pxd-toolbar-btn-text ml-1\.5 truncate">/,
+        /<Button[^>]*class="min-w-0 flex-1 font-bold"[\s\S]*?<FolderPlus \/>/,
       );
     });
 
-    it('provides ChevronsUpDown icon and pxd-toolbar-btn-text label for Expand/Collapse button', () => {
+    it('provides FolderPlus icon and pxd-toolbar-btn-text label without redundant ml-1.5', () => {
       expect(bookmarkPaneSource).toMatch(
-        /<ChevronsUpDown \/>[\s\S]*?<span class="pxd-toolbar-btn-text ml-1\.5 truncate">/,
+        /<FolderPlus \/>[\s\S]*?<span class="pxd-toolbar-btn-text truncate">/,
+      );
+    });
+
+    it('provides ChevronsUpDown icon and pxd-toolbar-btn-text label without redundant ml-1.5', () => {
+      expect(bookmarkPaneSource).toMatch(
+        /<ChevronsUpDown \/>[\s\S]*?<span class="pxd-toolbar-btn-text truncate">/,
       );
     });
   });
 
-  describe('4. History and Affix Group Top Controls (Item 3)', () => {
+  describe('4. History, PoB Build, and Affix Group Top Controls (Item 3)', () => {
     it('HistoryPane: constrains top row with search input and keeps recording toggle + Clear All inside the ⋮ menu', () => {
       expect(historyPaneSource).toMatch(
         /class="flex items-center justify-between gap-\[var\(--pxd-space-sm\)\] pb-\[var\(--pxd-space-md\)\] w-full min-w-0"/,
@@ -95,21 +102,45 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
       );
     });
 
+    it('PobBuildPane: constrains toolbar, keeps primary button shrinkable, avoids redundant ml-1.5, and marks icon button shrink-0', () => {
+      expect(pobBuildPaneSource).toMatch(
+        /<Button[^>]*class="min-w-0 flex-1 font-bold"[\s\S]*?data-pob-build-add/,
+      );
+      expect(pobBuildPaneSource).toMatch(
+        /<Plus \/>[\s\S]*?<span class="pxd-toolbar-btn-text truncate">/,
+      );
+      expect(pobBuildPaneSource).toMatch(
+        /<ChevronsUpDown \/>[\s\S]*?<span class="pxd-toolbar-btn-text truncate">/,
+      );
+      expect(pobBuildPaneSource).toMatch(
+        /size="icon-sm"[\s\S]*?class="shrink-0"[\s\S]*?data-pob-build-search-toggle/,
+      );
+    });
+
     it('StatGroupTemplateToolbar: constrains toolbar, equips Save Current with BookmarkPlus and Undo with Undo2 and responsive labels', () => {
       expect(statGroupToolbarSource).toMatch(
         /class="flex items-center gap-\[var\(--pxd-space-sm\)\] pb-\[var\(--pxd-space-md\)\] w-full max-w-full min-w-0"/,
       );
       expect(statGroupToolbarSource).toMatch(
-        /<BookmarkPlus \/>[\s\S]*?<span class="pxd-toolbar-btn-text ml-1\.5 truncate">/,
+        /<Button[^>]*class="min-w-0 flex-1 font-bold"[\s\S]*?data-test="stat-group-template-save-current"/,
       );
       expect(statGroupToolbarSource).toMatch(
-        /<Undo2 \/>[\s\S]*?<span class="pxd-toolbar-btn-text ml-1\.5 truncate">/,
+        /<BookmarkPlus \/>[\s\S]*?<span class="pxd-toolbar-btn-text truncate">/,
+      );
+      expect(statGroupToolbarSource).toMatch(
+        /<Undo2 \/>[\s\S]*?<span class="pxd-toolbar-btn-text truncate">/,
+      );
+      expect(statGroupToolbarSource).toMatch(
+        /size="icon-sm"[\s\S]*?class="shrink-0"[\s\S]*?data-test="stat-group-template-search-toggle"/,
+      );
+      expect(statGroupToolbarSource).toMatch(
+        /size="icon-sm"[\s\S]*?class="shrink-0"[\s\S]*?data-test="stat-group-template-menu"/,
       );
     });
 
-    it('assets/main.css: defines container query hiding pxd-toolbar-btn-text on small widths', () => {
+    it('assets/main.css: defines scale-aware em container query hiding pxd-toolbar-btn-text on small widths', () => {
       expect(mainCssSource).toMatch(
-        /@container\s*\(max-width:\s*300px\)\s*\{\s*\.pxd-toolbar-btn-text\s*\{\s*display:\s*none\s*!important;\s*\}\s*\}/,
+        /@container\s*\(max-width:\s*25em\)\s*\{\s*\.pxd-toolbar-btn-text\s*\{\s*display:\s*none\s*!important;\s*\}\s*\}/,
       );
     });
   });

@@ -696,8 +696,10 @@
   }
 }
 
-/* 2. Top Controls Toolbar (Bookmark, History, Affix Group) */
-@container (max-width: 300px) {
+/* 2. Top Controls Toolbar (Bookmark, PobBuild, Affix Group)
+   以 em（相對於容器繼承的 --pxd-font-secondary，100% 基準 12px → 25em = 300px）
+   讓門檻隨 UI Scale 等比縮放（110% → 330px、120% → 360px） */
+@container (max-width: 25em) {
   .pxd-toolbar-btn-text {
     display: none !important;
   }

@@ -8,12 +8,12 @@
         <Button
           variant="outline"
           size="sm"
-          class="flex-1 font-bold"
+          class="min-w-0 flex-1 font-bold"
           :title="t('bookmark.action.newFolder')"
           @click="addGroup()"
         >
           <FolderPlus />
-          <span class="pxd-toolbar-btn-text ml-1.5 truncate">{{
+          <span class="pxd-toolbar-btn-text truncate">{{
             t('bookmark.action.newFolder')
           }}</span>
         </Button>
@@ -26,7 +26,7 @@
             @click="toggleExpandAll"
           >
             <ChevronsUpDown />
-            <span class="pxd-toolbar-btn-text ml-1.5 truncate">
+            <span class="pxd-toolbar-btn-text truncate">
               {{ isAllCollapsed ? t('common.expandAll') : t('common.collapseAll') }}
             </span>
           </Button>

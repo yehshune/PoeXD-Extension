@@ -118,7 +118,7 @@ function downloadBackup() {
       @click="manager.beginSaveTemplate()"
     >
       <BookmarkPlus />
-      <span class="pxd-toolbar-btn-text ml-1.5 truncate">{{
+      <span class="pxd-toolbar-btn-text truncate">{{
         t('statGroupTemplate.toolbar.saveCurrent')
       }}</span>
     </Button>
@@ -132,11 +132,12 @@ function downloadBackup() {
       @click="manager.undo()"
     >
       <Undo2 />
-      <span class="pxd-toolbar-btn-text ml-1.5 truncate">{{ t('common.undo') }}</span>
+      <span class="pxd-toolbar-btn-text truncate">{{ t('common.undo') }}</span>
     </Button>
     <Button
       :variant="isSearchVisible ? 'default' : 'outline'"
       size="icon-sm"
+      class="shrink-0"
       data-test="stat-group-template-search-toggle"
       :title="
         isSearchVisible
@@ -152,6 +153,7 @@ function downloadBackup() {
         <Button
           variant="outline"
           size="icon-sm"
+          class="shrink-0"
           :title="t('statGroupTemplate.toolbar.menuTooltip')"
           data-test="stat-group-template-menu"
         >

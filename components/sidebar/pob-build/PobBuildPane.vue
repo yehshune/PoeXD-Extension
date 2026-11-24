@@ -13,7 +13,7 @@
           @click="openImportDialog"
         >
           <Plus />
-          <span class="pxd-toolbar-btn-text ml-1.5 truncate">{{ t('pobBuild.addBuildBtn') }}</span>
+          <span class="pxd-toolbar-btn-text truncate">{{ t('pobBuild.addBuildBtn') }}</span>
         </Button>
 
         <Button
@@ -26,7 +26,7 @@
           @click="toggleExpandAll"
         >
           <ChevronsUpDown />
-          <span class="pxd-toolbar-btn-text ml-1.5 truncate">
+          <span class="pxd-toolbar-btn-text truncate">
             {{ isAllCollapsed ? t('common.expandAll') : t('common.collapseAll') }}
           </span>
         </Button>
@@ -34,6 +34,7 @@
         <Button
           :variant="isSearchVisible ? 'default' : 'outline'"
           size="icon-sm"
+          class="shrink-0"
           data-pob-build-search-toggle
           :disabled="builds.length === 0 && !isSearchVisible"
           :title="isSearchVisible ? t('bookmark.search.closeTooltip') : t('pobBuild.searchTooltip')"
