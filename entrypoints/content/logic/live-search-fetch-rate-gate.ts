@@ -48,6 +48,7 @@ export interface ILiveSearchFetchRateGate {
     init?: RequestInit,
     options?: LiveSearchFetchRequestOptions,
   ): Promise<Response | null>;
+  waitForAdmission?(options?: LiveSearchFetchRequestOptions): Promise<boolean>;
   getStateSnapshot(): Readonly<TradeRateLimitStateSnapshot>;
   read?(): Readonly<TradeRateLimitStateSnapshot>;
   subscribe?(listener: (snapshot: Readonly<TradeRateLimitStateSnapshot>) => void): () => void;
@@ -489,7 +490,7 @@ export class LiveSearchFetchRateGate implements ILiveSearchFetchRateGate {
     }
   }
 
-  private waitForAdmission(options?: LiveSearchFetchRequestOptions): Promise<boolean> {
+  public waitForAdmission(options?: LiveSearchFetchRequestOptions): Promise<boolean> {
     if (this.disposed || options?.shouldAbort?.()) {
       return Promise.resolve(false);
     }

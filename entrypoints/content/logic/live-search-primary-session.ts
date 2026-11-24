@@ -192,7 +192,10 @@ export function createLiveSearchPrimarySession(
     const resolveSourceName = (ownerKey: string): string | undefined => {
       // 尚未收到快照通知（或 controller 不支援訂閱）時才退回即時讀取
       const names =
-        sourceNames ?? (sourceController ? buildSourceNames(sourceController.read()) : null);
+        sourceNames ??
+        (typeof sourceController?.read === 'function'
+          ? buildSourceNames(sourceController.read())
+          : null);
       return names?.get(ownerKey);
     };
 
@@ -211,7 +214,9 @@ export function createLiveSearchPrimarySession(
 
     primaryRuntime = f.createRuntime(version, {
       getMaxDisplayedResults: () => preferences.read().liveSearchMaxDisplayedResults,
-      onResultTokenAccepted: (event) => {
+      getFetchOrder: () => preferences.read().liveSearchFetchOrder,
+      getTokenMaxAgeSec: () => preferences.read().liveSearchTokenMaxAgeSec,
+      onResultDelivered: (event) => {
         notifier.notify();
         desktop.notify({
           ownerKey: event?.ownerKey,

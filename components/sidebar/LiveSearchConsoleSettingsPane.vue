@@ -39,6 +39,111 @@
           </p>
         </SettingsSection>
 
+        <!-- 速率限制與抓取策略：排隊順序與過期略過上限 -->
+        <SettingsSection
+          section-id="live-search-rate-limit-policy"
+          :title="t('liveSearch.settings.rateLimitPolicyTitle')"
+          :icon="Gauge"
+        >
+          <div class="flex flex-col gap-[var(--pxd-space-xs)]">
+            <span class="text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground">
+              {{ t('liveSearch.settings.fetchOrderLabel') }}
+            </span>
+            <ToggleGroup
+              type="single"
+              :model-value="liveSearchFetchOrder"
+              variant="outline"
+              size="sm"
+              data-test="pref-fetch-order"
+              class="w-full grid grid-cols-2 gap-0"
+              :aria-label="t('liveSearch.settings.fetchOrderLabel')"
+              @update:model-value="handleUpdateFetchOrder"
+            >
+              <ToggleGroupItem
+                value="newest"
+                data-test="pref-fetch-order-newest"
+                class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
+              >
+                {{ t('liveSearch.settings.fetchOrderNewest') }}
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="oldest"
+                data-test="pref-fetch-order-oldest"
+                class="text-[length:var(--pxd-font-caption)] px-1 w-full justify-center"
+              >
+                {{ t('liveSearch.settings.fetchOrderOldest') }}
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <p
+              class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground"
+            >
+              {{ t('liveSearch.settings.fetchOrderDesc') }}
+            </p>
+          </div>
+
+          <SettingsRow
+            :label="t('liveSearch.settings.tokenMaxAgeLabel')"
+            :description="t('liveSearch.settings.tokenMaxAgeDesc')"
+            control-id="live-search-token-max-age-input"
+          >
+            <template #default="{ describedBy }">
+              <div class="flex items-center gap-[var(--pxd-space-xs)] shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  data-test="pref-token-max-age-decrease"
+                  :disabled="liveSearchTokenMaxAgeSec <= LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.min"
+                  :aria-label="t('liveSearch.settings.tokenMaxAgeDecreaseAria')"
+                  :title="t('liveSearch.settings.tokenMaxAgeDecreaseAria')"
+                  @click="stepTokenMaxAge(-1)"
+                >
+                  <Minus />
+                </Button>
+                <label
+                  class="box-border flex h-[var(--control-height-sm,1.75rem)] shrink-0 cursor-text items-center gap-[2px] rounded-md border border-input bg-background px-[var(--input-padding-x-sm,8px)] shadow-sm transition-colors focus-within:outline-none focus-within:ring-1 focus-within:ring-ring"
+                >
+                  <input
+                    id="live-search-token-max-age-input"
+                    type="number"
+                    inputmode="numeric"
+                    :value="tokenMaxAgeInput"
+                    :min="LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.min"
+                    :max="LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.max"
+                    step="1"
+                    :aria-label="t('liveSearch.settings.tokenMaxAgeLabel')"
+                    :aria-describedby="describedBy"
+                    data-test="pref-token-max-age-input"
+                    class="m-0 w-[3.6ch] min-w-0 appearance-none border-0 bg-transparent p-0 text-right font-[inherit] text-[length:var(--control-font-sm,12px)] text-foreground tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none"
+                    @input="tokenMaxAgeInput = ($event.target as HTMLInputElement).value"
+                    @change="handleCommitCustomTokenMaxAge"
+                    @blur="handleCommitCustomTokenMaxAge"
+                    @keydown.enter.prevent="handleCommitCustomTokenMaxAge"
+                  />
+                  <span
+                    aria-hidden="true"
+                    class="shrink-0 select-none text-[length:var(--pxd-font-caption)] leading-none text-muted-foreground"
+                  >
+                    {{ t('liveSearch.settings.tokenMaxAgeUnitSec') }}
+                  </span>
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  data-test="pref-token-max-age-increase"
+                  :disabled="liveSearchTokenMaxAgeSec >= LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.max"
+                  :aria-label="t('liveSearch.settings.tokenMaxAgeIncreaseAria')"
+                  :title="t('liveSearch.settings.tokenMaxAgeIncreaseAria')"
+                  @click="stepTokenMaxAge(1)"
+                >
+                  <Plus />
+                </Button>
+              </div>
+            </template>
+          </SettingsRow>
+        </SettingsSection>
+
         <!-- 通知音效（ADR-0016）：播放官方 <audio>，可直接於主控台讀寫官網音量與音效設定 -->
         <SettingsSection
           section-id="live-search-sound"
@@ -339,8 +444,11 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Bell,
   BellRing,
+  Gauge,
   ListOrdered,
+  Minus,
   Play,
+  Plus,
   RotateCcw,
   Upload,
   Volume2,
@@ -357,11 +465,14 @@ import {
 import {
   DEFAULT_PREFERENCES,
   LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES,
+  LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS,
   getPreferences,
   type Preferences,
   type PreferencesModule,
+  type LiveSearchFetchOrder,
   type LiveSearchResumeMode,
   type LiveSearchMaxDisplayedResults,
+  type LiveSearchTokenMaxAgeSec,
 } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
 import { t, type I18nKey } from '@/utils/i18n';
@@ -413,6 +524,11 @@ const liveSearchResumeMode = ref<LiveSearchResumeMode>(DEFAULT_PREFERENCES.liveS
 const liveSearchMaxDisplayedResults = ref<LiveSearchMaxDisplayedResults>(
   DEFAULT_PREFERENCES.liveSearchMaxDisplayedResults,
 );
+const liveSearchFetchOrder = ref<LiveSearchFetchOrder>(DEFAULT_PREFERENCES.liveSearchFetchOrder);
+const liveSearchTokenMaxAgeSec = ref<LiveSearchTokenMaxAgeSec>(
+  DEFAULT_PREFERENCES.liveSearchTokenMaxAgeSec,
+);
+const tokenMaxAgeInput = ref<string>(String(DEFAULT_PREFERENCES.liveSearchTokenMaxAgeSec));
 const liveSearchSoundEnabled = ref<boolean>(DEFAULT_PREFERENCES.liveSearchSoundEnabled);
 const liveSearchDesktopNotificationEnabled = ref<boolean>(
   DEFAULT_PREFERENCES.liveSearchDesktopNotificationEnabled,
@@ -511,6 +627,11 @@ function applyPreferences(snapshot: Readonly<Preferences>) {
     snapshot.liveSearchResumeMode ?? DEFAULT_PREFERENCES.liveSearchResumeMode;
   liveSearchMaxDisplayedResults.value =
     snapshot.liveSearchMaxDisplayedResults ?? DEFAULT_PREFERENCES.liveSearchMaxDisplayedResults;
+  liveSearchFetchOrder.value =
+    snapshot.liveSearchFetchOrder ?? DEFAULT_PREFERENCES.liveSearchFetchOrder;
+  liveSearchTokenMaxAgeSec.value =
+    snapshot.liveSearchTokenMaxAgeSec ?? DEFAULT_PREFERENCES.liveSearchTokenMaxAgeSec;
+  tokenMaxAgeInput.value = String(liveSearchTokenMaxAgeSec.value);
   liveSearchSoundEnabled.value =
     snapshot.liveSearchSoundEnabled ?? DEFAULT_PREFERENCES.liveSearchSoundEnabled;
   liveSearchDesktopNotificationEnabled.value =
@@ -616,6 +737,8 @@ async function updatePreference<
   K extends
     | 'liveSearchResumeMode'
     | 'liveSearchMaxDisplayedResults'
+    | 'liveSearchFetchOrder'
+    | 'liveSearchTokenMaxAgeSec'
     | 'liveSearchSoundEnabled'
     | 'liveSearchDesktopNotificationEnabled',
 >(key: K, value: Preferences[K]) {
@@ -638,6 +761,41 @@ async function handleUpdateMaxResults(val: unknown) {
   if (match === undefined) return;
   liveSearchMaxDisplayedResults.value = match;
   await updatePreference('liveSearchMaxDisplayedResults', match);
+}
+
+async function handleUpdateFetchOrder(val: unknown) {
+  if (val !== 'newest' && val !== 'oldest') return;
+  liveSearchFetchOrder.value = val;
+  await updatePreference('liveSearchFetchOrder', val);
+}
+
+async function applyTokenMaxAge(seconds: number) {
+  const clamped = Math.min(
+    LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.max,
+    Math.max(LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.min, Math.round(seconds)),
+  );
+  liveSearchTokenMaxAgeSec.value = clamped;
+  tokenMaxAgeInput.value = String(clamped);
+  await updatePreference('liveSearchTokenMaxAgeSec', clamped);
+}
+
+async function stepTokenMaxAge(delta: number) {
+  await applyTokenMaxAge(liveSearchTokenMaxAgeSec.value + delta);
+}
+
+async function handleCommitCustomTokenMaxAge(event?: Event) {
+  const targetValue = (event?.target as HTMLInputElement | null)?.value;
+  const raw = String(targetValue ?? tokenMaxAgeInput.value).trim();
+  if (!raw) {
+    tokenMaxAgeInput.value = String(liveSearchTokenMaxAgeSec.value);
+    return;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    tokenMaxAgeInput.value = String(liveSearchTokenMaxAgeSec.value);
+    return;
+  }
+  await applyTokenMaxAge(parsed);
 }
 
 async function handleUpdateSoundEnabled(val: unknown) {

@@ -73,6 +73,18 @@ export function createLiveSearchPrimaryController(
       await runtime.clearResults();
     },
 
+    async fetchDroppedItem(droppedItemId: string) {
+      return runtime.fetchDroppedItem(droppedItemId);
+    },
+
+    dismissDroppedItem(droppedItemId: string): void {
+      runtime.dismissDroppedItem(droppedItemId);
+    },
+
+    clearDroppedItems(): void {
+      runtime.clearDroppedItems();
+    },
+
     ...(import.meta.env.DEV
       ? {
           async injectDevResults(count, owners) {

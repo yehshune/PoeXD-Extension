@@ -525,6 +525,8 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
         return ws as unknown as WebSocket;
       },
       fetchRateGate: rateGate,
+      getFetchOrder: () => 'oldest',
+      getTokenMaxAgeSec: () => 0,
       origin: 'https://www.pathofexile.com',
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
     });
@@ -602,6 +604,8 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
         return ws as unknown as WebSocket;
       },
       fetchRateGate: rateGate,
+      getFetchOrder: () => 'oldest',
+      getTokenMaxAgeSec: () => 0,
       origin: 'https://www.pathofexile.com',
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
     });
@@ -671,6 +675,8 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
         return ws as unknown as WebSocket;
       },
       fetchRateGate: rateGate,
+      getFetchOrder: () => 'oldest',
+      getTokenMaxAgeSec: () => 0,
       origin: 'https://www.pathofexile.com',
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
     });
@@ -746,6 +752,8 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
         return ws as unknown as WebSocket;
       },
       fetchRateGate: rateGate,
+      getFetchOrder: () => 'oldest',
+      getTokenMaxAgeSec: () => 0,
       origin: 'https://www.pathofexile.com',
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
     });
@@ -855,6 +863,8 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
         return ws as unknown as WebSocket;
       },
       fetchRateGate: rateGate,
+      getFetchOrder: () => 'oldest',
+      getTokenMaxAgeSec: () => 0,
       origin: 'https://www.pathofexile.com',
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
     });
@@ -949,5 +959,272 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
     expect(observedSnapshots.length).toBe(countAtDispose);
     expect(rateGateEventsAfterDispose).toHaveLength(0);
     expect(rateGate.read().policy).toBe('trade-fetch-request-limit');
+  });
+
+  it('newest-first (LIFO): waits for rate gate admission first, then fetches newest queued token first', async () => {
+    const clock = new ManualTimerClock();
+    const hostClient = new FakeHostClient();
+    const sockets: FakeWebSocket[] = [];
+    const fetchOrder: string[] = [];
+    const deliveredEvents: Array<{ ownerKey: string }> = [];
+
+    const rateGate = new LiveSearchFetchRateGate({
+      timer: clock,
+      fetchClient: async (url) => {
+        fetchOrder.push(url);
+        if (fetchOrder.length === 1) {
+          return new Response(JSON.stringify({ result: [{ id: 'item_1' }] }), {
+            status: 200,
+            headers: {
+              'X-Rate-Limit-Rules': 'Account',
+              'X-Rate-Limit-Account': '5:5:60',
+              'X-Rate-Limit-Account-State': '5:5:0',
+            },
+          });
+        }
+        return new Response(JSON.stringify({ result: [{ id: `item_${fetchOrder.length}` }] }), {
+          status: 200,
+          headers: {
+            'X-Rate-Limit-Rules': 'Account',
+            'X-Rate-Limit-Account': '5:5:60',
+            'X-Rate-Limit-Account-State': '1:5:0',
+          },
+        });
+      },
+    });
+
+    const runtime = new LiveSearchPrimaryRuntime('poe1', {
+      hostClient,
+      webSocketFactory: (url) => {
+        const ws = new FakeWebSocket(url);
+        sockets.push(ws);
+        return ws as unknown as WebSocket;
+      },
+      fetchRateGate: rateGate,
+      getFetchOrder: () => 'newest',
+      getTokenMaxAgeSec: () => 15,
+      now: () => clock.now(),
+      onResultDelivered: (event) => deliveredEvents.push(event),
+      origin: 'https://www.pathofexile.com',
+      openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
+    });
+
+    await runtime.addSubscription(createSub('sub_A', 'search_A'));
+    await flushMicrotasks();
+    const ws = sockets[0]!;
+
+    // tk_1 立即抓取並觸發 5s 冷卻；tk_2、tk_3 在冷卻中依序到達
+    ws.simulateMessage(JSON.stringify({ result: 'tk_1' }));
+    await flushMicrotasks(6);
+    expect(deliveredEvents).toHaveLength(1);
+
+    ws.simulateMessage(JSON.stringify({ result: 'tk_2' }));
+    clock.advanceBy(1000);
+    ws.simulateMessage(JSON.stringify({ result: 'tk_3' }));
+    await flushMicrotasks();
+
+    // 冷卻未解禁：尚未抓取 tk_2/tk_3，音效尚未觸發第二次
+    expect(fetchOrder).toHaveLength(1);
+    expect(deliveredEvents).toHaveLength(1);
+
+    // 4000ms 後解禁：先抓最新 tk_3，再抓 tk_2
+    clock.advanceBy(4000);
+    await flushMicrotasks(12);
+
+    expect(fetchOrder).toEqual([
+      'https://www.pathofexile.com/api/trade/fetch/tk_1?query=search_A',
+      'https://www.pathofexile.com/api/trade/fetch/tk_3?query=search_A',
+      'https://www.pathofexile.com/api/trade/fetch/tk_2?query=search_A',
+    ]);
+    expect(deliveredEvents).toHaveLength(3);
+  });
+
+  it('drops tokens immediately when remaining cooldown exceeds tokenMaxAgeSec, and drops expired queued tokens after admission', async () => {
+    const clock = new ManualTimerClock();
+    const hostClient = new FakeHostClient();
+    const sockets: FakeWebSocket[] = [];
+    const fetchOrder: string[] = [];
+    const deliveredEvents: Array<{ ownerKey: string }> = [];
+
+    const rateGate = new LiveSearchFetchRateGate({
+      timer: clock,
+      fetchClient: async (url) => {
+        fetchOrder.push(url);
+        if (fetchOrder.length === 1) {
+          // 觸發 30s 冷卻（超過 15s 新鮮度上限）
+          return new Response(JSON.stringify({ result: [{ id: 'item_1' }] }), {
+            status: 200,
+            headers: {
+              'X-Rate-Limit-Rules': 'Account',
+              'X-Rate-Limit-Account': '5:5:30',
+              'X-Rate-Limit-Account-State': '5:5:30',
+            },
+          });
+        }
+        return new Response(JSON.stringify({ result: [{ id: `item_${fetchOrder.length}` }] }), {
+          status: 200,
+          headers: {
+            'X-Rate-Limit-Rules': 'Account',
+            'X-Rate-Limit-Account': '5:5:30',
+            'X-Rate-Limit-Account-State': '1:5:0',
+          },
+        });
+      },
+    });
+
+    const runtime = new LiveSearchPrimaryRuntime('poe1', {
+      hostClient,
+      webSocketFactory: (url) => {
+        const ws = new FakeWebSocket(url);
+        sockets.push(ws);
+        return ws as unknown as WebSocket;
+      },
+      fetchRateGate: rateGate,
+      getFetchOrder: () => 'newest',
+      getTokenMaxAgeSec: () => 15,
+      now: () => clock.now(),
+      onResultDelivered: (event) => deliveredEvents.push(event),
+      origin: 'https://www.pathofexile.com',
+      openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
+    });
+
+    await runtime.addSubscription(createSub('sub_A', 'search_A'));
+    await flushMicrotasks();
+    const ws = sockets[0]!;
+
+    // 第 1 筆觸發 30s 冷卻
+    ws.simulateMessage(JSON.stringify({ result: 'tk_first' }));
+    await flushMicrotasks(6);
+    expect(deliveredEvents).toHaveLength(1);
+
+    // 此時剩餘冷卻 30s > 15s：新收到的 tk_too_old 應立即移入 droppedItems，不觸發音效
+    ws.simulateMessage(JSON.stringify({ result: 'tk_too_old' }));
+    await flushMicrotasks();
+
+    const droppedSnap = runtime.getSnapshot().droppedItems ?? [];
+    expect(droppedSnap).toHaveLength(1);
+    expect(droppedSnap[0]?.token).toBe('tk_too_old');
+    expect(droppedSnap[0]?.reason).toBe('rate-limit-cooldown');
+    expect(deliveredEvents).toHaveLength(1);
+
+    // 前進 20s（剩餘冷卻 10s <= 15s）：此時收到的 tk_fresh 應進入佇列等待解禁
+    clock.advanceBy(20000);
+    ws.simulateMessage(JSON.stringify({ result: 'tk_fresh' }));
+    await flushMicrotasks();
+    expect(runtime.getSnapshot().droppedItems).toHaveLength(1);
+
+    // 再前進 10s 解禁：應抓取 tk_fresh 並觸發音效
+    clock.advanceBy(10000);
+    await flushMicrotasks(12);
+
+    expect(fetchOrder).toEqual([
+      'https://www.pathofexile.com/api/trade/fetch/tk_first?query=search_A',
+      'https://www.pathofexile.com/api/trade/fetch/tk_fresh?query=search_A',
+    ]);
+    expect(deliveredEvents).toHaveLength(2);
+  });
+
+  it('manual fetch of a dropped item bypasses TTL, respects rate gate, removes on success, and marks failed on empty response', async () => {
+    const clock = new ManualTimerClock();
+    const hostClient = new FakeHostClient();
+    const sockets: FakeWebSocket[] = [];
+    const fetchOrder: string[] = [];
+    const deliveredEvents: Array<{ ownerKey: string }> = [];
+
+    const rateGate = new LiveSearchFetchRateGate({
+      timer: clock,
+      fetchClient: async (url) => {
+        fetchOrder.push(url);
+        if (url.includes('tk_init')) {
+          return new Response(JSON.stringify({ result: [{ id: 'item_init' }] }), {
+            status: 200,
+            headers: {
+              'X-Rate-Limit-Rules': 'Account',
+              'X-Rate-Limit-Account': '5:5:30',
+              'X-Rate-Limit-Account-State': '5:5:30',
+            },
+          });
+        }
+        if (url.includes('tk_expired_on_server')) {
+          return new Response(JSON.stringify({ result: [] }), {
+            status: 200,
+            headers: {
+              'X-Rate-Limit-Rules': 'Account',
+              'X-Rate-Limit-Account': '5:5:30',
+              'X-Rate-Limit-Account-State': '1:5:0',
+            },
+          });
+        }
+        return new Response(JSON.stringify({ result: [{ id: 'item_recovered' }] }), {
+          status: 200,
+          headers: {
+            'X-Rate-Limit-Rules': 'Account',
+            'X-Rate-Limit-Account': '5:5:30',
+            'X-Rate-Limit-Account-State': '1:5:0',
+          },
+        });
+      },
+    });
+
+    const runtime = new LiveSearchPrimaryRuntime('poe1', {
+      hostClient,
+      webSocketFactory: (url) => {
+        const ws = new FakeWebSocket(url);
+        sockets.push(ws);
+        return ws as unknown as WebSocket;
+      },
+      fetchRateGate: rateGate,
+      getFetchOrder: () => 'newest',
+      getTokenMaxAgeSec: () => 15,
+      now: () => clock.now(),
+      onResultDelivered: (event) => deliveredEvents.push(event),
+      origin: 'https://www.pathofexile.com',
+      openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
+    });
+
+    await runtime.addSubscription(createSub('sub_A', 'search_A'));
+    await flushMicrotasks();
+    const ws = sockets[0]!;
+
+    ws.simulateMessage(JSON.stringify({ result: 'tk_init' }));
+    await flushMicrotasks(6);
+
+    ws.simulateMessage(JSON.stringify({ result: 'tk_recoverable' }));
+    ws.simulateMessage(JSON.stringify({ result: 'tk_expired_on_server' }));
+    await flushMicrotasks();
+
+    const dropped = runtime.getSnapshot().droppedItems ?? [];
+    expect(dropped).toHaveLength(2);
+    const expiredItem = dropped.find((d) => d.token === 'tk_expired_on_server')!;
+    const recoverableItem = dropped.find((d) => d.token === 'tk_recoverable')!;
+
+    // 尚在 30s 冷卻中手動觸發補抓：應進入 fetching 狀態並等冷卻解禁
+    const recoverPromise = runtime.fetchDroppedItem(recoverableItem.id);
+    const expiredPromise = runtime.fetchDroppedItem(expiredItem.id);
+    await flushMicrotasks();
+
+    expect(
+      runtime.getSnapshot().droppedItems?.find((d) => d.id === recoverableItem.id)?.status,
+    ).toBe('fetching');
+    expect(fetchOrder).toHaveLength(1);
+
+    // 30s 後解禁：兩筆手動補抓依序執行
+    clock.advanceBy(30000);
+    await flushMicrotasks(16);
+
+    const [recoverRes, expiredRes] = await Promise.all([recoverPromise, expiredPromise]);
+    expect(recoverRes.success).toBe(true);
+    expect(expiredRes.success).toBe(false);
+
+    // 成功的已從 droppedItems 移除，失敗的標記為 failed；手動補抓不觸發自動推播音效
+    const afterDropped = runtime.getSnapshot().droppedItems ?? [];
+    expect(afterDropped).toHaveLength(1);
+    expect(afterDropped[0]?.id).toBe(expiredItem.id);
+    expect(afterDropped[0]?.status).toBe('failed');
+    expect(deliveredEvents).toHaveLength(1);
+
+    // dismissDroppedItem 可移除失敗項目
+    runtime.dismissDroppedItem(expiredItem.id);
+    expect(runtime.getSnapshot().droppedItems).toBeUndefined();
   });
 });

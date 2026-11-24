@@ -46,6 +46,16 @@
           @clear-results="handleClearResults"
         />
 
+        <!-- 速率限制略過項目區（有略過紀錄時才顯示，支援手動補抓與清除） -->
+        <LiveSearchDroppedPanel
+          v-if="droppedItems.length > 0"
+          :items="droppedItems"
+          :resolve-source-name="resolveDroppedSourceName"
+          @fetch-item="handleFetchDroppedItem"
+          @dismiss-item="handleDismissDroppedItem"
+          @clear-all="handleClearDroppedItems"
+        />
+
         <!-- 搜尋與狀態篩選固定主要工具列 -->
         <div data-test="search-connections-toolbar" class="flex flex-col gap-[var(--pxd-space-sm)]">
           <div class="flex items-center gap-[var(--pxd-space-xs)]">
@@ -359,6 +369,7 @@ import DragTrashZone from './layout/DragTrashZone.vue';
 import SidebarEmptyState from './layout/SidebarEmptyState.vue';
 import SidebarFilterEmptyState from './layout/SidebarFilterEmptyState.vue';
 import LiveSearchStatusHeader from './live-search/LiveSearchStatusHeader.vue';
+import LiveSearchDroppedPanel from './live-search/LiveSearchDroppedPanel.vue';
 import LiveSearchGroupSection from './live-search/LiveSearchGroupSection.vue';
 import { useLiveSearchMenuState } from './live-search/useLiveSearchMenuState';
 import {
@@ -722,6 +733,31 @@ const errorSubscriptionCount = computed(() => {
   }
   return count;
 });
+
+const droppedItems = computed(() => snapshot.value?.droppedItems ?? []);
+
+function resolveDroppedSourceName(ownerKey: string): string | undefined {
+  for (const group of normalizedGroups.value) {
+    for (const item of group.items) {
+      if (item.canonicalKey === ownerKey && item.name) {
+        return item.name;
+      }
+    }
+  }
+  return undefined;
+}
+
+async function handleFetchDroppedItem(droppedItemId: string) {
+  await props.controller?.fetchDroppedItem?.(droppedItemId);
+}
+
+function handleDismissDroppedItem(droppedItemId: string) {
+  props.controller?.dismissDroppedItem?.(droppedItemId);
+}
+
+function handleClearDroppedItems() {
+  props.controller?.clearDroppedItems?.();
+}
 
 watch([visibleGroups, collapsedGroupIds, isSwitchingLeague], () => {
   if (!activeEntityKey.value) return;

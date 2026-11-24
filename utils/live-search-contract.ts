@@ -250,12 +250,37 @@ export interface TradeRateLimitStateSnapshot {
   observedAtMs?: number;
 }
 
+export type LiveSearchDroppedReason = 'expired' | 'rate-limit-cooldown';
+export type LiveSearchDroppedItemStatus = 'dropped' | 'fetching' | 'failed';
+
+export interface LiveSearchDroppedItem {
+  id: string;
+  subscriptionId: string;
+  ownerKey: string;
+  searchId: string;
+  league: string;
+  gameVersion: PoeVersion;
+  sourceName?: string;
+  token: string;
+  receivedAt: number;
+  droppedAt: number;
+  reason: LiveSearchDroppedReason;
+  status: LiveSearchDroppedItemStatus;
+}
+
+export interface LiveSearchFetchDroppedOutcome {
+  success: boolean;
+  error?: string;
+}
+
 export interface LiveSearchPrimaryViewSnapshot {
   gameVersion: PoeVersion;
   runtimeLeague: string | null;
   cumulativeRenderedTotal: number;
   subscriptions: Readonly<LiveSearchSubscription>[];
   rateLimit: Readonly<TradeRateLimitStateSnapshot>;
+  /** 因速率限制等待過久或已過期而被略過的待抓取項目（最新在前） */
+  droppedItems?: readonly Readonly<LiveSearchDroppedItem>[];
   /** 目前僅顯示此連線（canonical key）的結果；省略表示顯示全部 */
   resultFilterKey?: string;
   /** 目前展示區保留的總結果數（不受單一連線篩選影響） */
@@ -289,6 +314,12 @@ export interface LiveSearchPrimaryController {
   setResultFilter?(canonicalKey: string | null): void;
   /** 清空展示區結果但不中斷任何監聽連線 */
   clearResults?(): Promise<void>;
+  /** 手動補抓一筆被速率限制略過的項目（高優先權、不受過期時間限制，仍經由 Rate Gate） */
+  fetchDroppedItem?(droppedItemId: string): Promise<LiveSearchFetchDroppedOutcome>;
+  /** 移除單筆已丟棄紀錄 */
+  dismissDroppedItem?(droppedItemId: string): void;
+  /** 清空所有已丟棄紀錄 */
+  clearDroppedItems?(): void;
   /** 開發模式專用：注入假結果至官方展示區（不連線、不 fetch） */
   injectDevResults?(
     count: number,

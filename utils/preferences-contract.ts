@@ -123,6 +123,17 @@ export const LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES = [50, 100, 200, 500] as c
 export type LiveSearchMaxDisplayedResults =
   (typeof LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES)[number];
 
+/** 主控台在速率受限排隊時的抓取順序：最新優先（LIFO）或依序（FIFO）。 */
+export const LIVE_SEARCH_FETCH_ORDER_VALUES = ['newest', 'oldest'] as const;
+export type LiveSearchFetchOrder = (typeof LIVE_SEARCH_FETCH_ORDER_VALUES)[number];
+
+/** 主控台待抓取物品的新鮮度上限（秒）有效範圍；0 代表不過期丟棄。 */
+export const LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS = Object.freeze({
+  min: 0,
+  max: 300,
+});
+export type LiveSearchTokenMaxAgeSec = number;
+
 export const SUPPORTED_LOCALES = [
   'en',
   'zh-TW',
@@ -208,11 +219,15 @@ export interface Preferences {
   hotkeyFocus: string;
   /** 主控台桌面通知：背景或未聚焦時透過瀏覽器原生 Notification API 提示新結果 */
   liveSearchDesktopNotificationEnabled: boolean;
+  /** 主控台在速率受限排隊時的抓取順序 */
+  liveSearchFetchOrder: LiveSearchFetchOrder;
   liveSearchMaxDisplayedResults: LiveSearchMaxDisplayedResults;
   liveSearchResumeMode: LiveSearchResumeMode;
   liveSearchSelectedLeague: string;
   /** 主控台通知音效（ADR-0016）：播放官方 <audio>，音效與音量跟隨官方設定 */
   liveSearchSoundEnabled: boolean;
+  /** 主控台待抓取物品的新鮮度上限（秒）；0 代表不丟棄 */
+  liveSearchTokenMaxAgeSec: LiveSearchTokenMaxAgeSec;
   /** 市集漢化（ADR-0012）：國際服英文市集頁以 Display Locale 的繁中或簡中顯示 */
   marketTranslation: boolean;
   /** 市集漢化的下拉選單（詞綴、通貨、物品）顯示成「中文 (English)」，中英文都搜得到 */
@@ -258,10 +273,12 @@ export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
   hotkeyClear: '\\',
   hotkeyFocus: '/',
   liveSearchDesktopNotificationEnabled: false,
+  liveSearchFetchOrder: 'newest',
   liveSearchMaxDisplayedResults: 100,
   liveSearchResumeMode: 'prompt',
   liveSearchSelectedLeague: '',
   liveSearchSoundEnabled: true,
+  liveSearchTokenMaxAgeSec: 3,
   marketTranslation: false,
   marketTranslationBilingual: true,
   marketTranslationResultBilingual: false,

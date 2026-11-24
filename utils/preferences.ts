@@ -10,8 +10,10 @@ import {
   LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES,
   migrateLegacyDisplayLocale,
   FONT_SIZE_SCALE_BOUNDS,
+  LIVE_SEARCH_FETCH_ORDER_VALUES,
   LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES,
   LIVE_SEARCH_RESUME_MODES,
+  LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS,
   SIDEBAR_POSITIONS,
   SIDEBAR_WIDTH_BOUNDS,
   getPreferenceStorageKey,
@@ -94,10 +96,19 @@ function isValidPreference(name: keyof Preferences, value: unknown) {
   if (name === 'themeCustomOverrides') return isValidThemeOverridesJson(value);
   if (name === 'displayLocale')
     return (DISPLAY_LOCALE_VALUES as readonly unknown[]).includes(value);
+  if (name === 'liveSearchFetchOrder')
+    return (LIVE_SEARCH_FETCH_ORDER_VALUES as readonly unknown[]).includes(value);
   if (name === 'liveSearchMaxDisplayedResults')
     return (LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES as readonly unknown[]).includes(value);
   if (name === 'liveSearchResumeMode')
     return (LIVE_SEARCH_RESUME_MODES as readonly unknown[]).includes(value);
+  if (name === 'liveSearchTokenMaxAgeSec')
+    return (
+      typeof value === 'number' &&
+      Number.isInteger(value) &&
+      value >= LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.min &&
+      value <= LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.max
+    );
   if (name === 'searchEntryClickAction')
     return (SEARCH_ENTRY_CLICK_ACTIONS as readonly unknown[]).includes(value);
   if (name === 'addBookmarkBtnPosition')

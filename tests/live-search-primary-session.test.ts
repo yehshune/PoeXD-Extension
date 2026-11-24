@@ -110,8 +110,8 @@ describe('createLiveSearchPrimarySession', () => {
     expect(soundOpts.isEnabled()).toBe(true);
     expect(runtimeOpts.getMaxDisplayedResults()).toBe(120);
 
-    // 驗證 onResultTokenAccepted -> Console Sound Notification
-    runtimeOpts.onResultTokenAccepted();
+    // 驗證 onResultDelivered -> Console Sound Notification（實際抓取渲染後才響）
+    runtimeOpts.onResultDelivered({ ownerKey: 'poe1|standard|abcd1234ef' });
     expect(soundNotify).toHaveBeenCalledTimes(1);
 
     // 驗證 onResultFetched -> TradeResultCache

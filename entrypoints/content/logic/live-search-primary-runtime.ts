@@ -10,11 +10,15 @@ import {
 } from './live-search-result-filter';
 import {
   validateSubscriptionIdentity,
+  type LiveSearchDroppedItem,
+  type LiveSearchDroppedReason,
+  type LiveSearchFetchDroppedOutcome,
   type LiveSearchSubscription,
   type AddSubscriptionOutcome,
   type LiveSearchRetryOutcome,
   type LiveSearchPrimaryViewSnapshot,
 } from '@/utils/live-search-contract';
+import type { LiveSearchFetchOrder } from '@/utils/preferences-contract';
 import {
   LiveSearchHostClient,
   type HostCommandOutcome,
@@ -50,12 +54,23 @@ export interface LiveSearchPrimaryRuntimeOptions {
   random?: () => number;
   /** 結果展示區最多保留筆數（每次渲染時讀取，可隨偏好設定即時變更） */
   getMaxDisplayedResults?: () => number | undefined;
+  /** 速率受限排隊時的抓取順序（'newest' 最新優先 / 'oldest' 依序；預設 'newest'） */
+  getFetchOrder?: () => LiveSearchFetchOrder | undefined;
+  /** 待抓取物品的新鮮度上限（秒）；0 代表不丟棄（預設 15） */
+  getTokenMaxAgeSec?: () => number | undefined;
+  /** 取得目前時間戳（毫秒），預設 Date.now，供測試注入 */
+  now?: () => number;
   resultFilter?: LiveSearchResultFilter;
   /**
-   * 連線收到新的結果 token（通過 dedup、送進 /fetch 佇列之前）時呼叫，供主控台通知音效使用（ADR-0016）。
+   * 連線收到新的結果 token（通過 dedup、送進 /fetch 佇列之前）時呼叫。
    * 監聽者拋出的例外會被隔離，不影響 pipeline。
    */
   onResultTokenAccepted?: (event: LiveSearchResultTokenAcceptedEvent) => void;
+  /**
+   * 自動推播的結果實際完成 `/fetch` 並成功渲染進官方展示區後呼叫，供主控台音效與桌面通知使用。
+   * 監聽者拋出的例外會被隔離，不影響 pipeline。
+   */
+  onResultDelivered?: (event: LiveSearchResultTokenAcceptedEvent) => void;
   /**
    * `/fetch` 取得結果、渲染進官方展示區之前呼叫，供共用結果快取（PoB 複製、釘選）使用。
    * 監聽者拋出的例外會被隔離，不影響 pipeline。
@@ -116,7 +131,17 @@ interface PipelineTask {
   subCtx: SubscriptionContext;
   token: string;
   epoch: number;
+  receivedAt: number;
 }
+
+interface ManualDroppedTask {
+  droppedItemId: string;
+  resolve: (outcome: LiveSearchFetchDroppedOutcome) => void;
+}
+
+const DEFAULT_FETCH_ORDER: LiveSearchFetchOrder = 'newest';
+const DEFAULT_TOKEN_MAX_AGE_SEC = 3;
+const MAX_DROPPED_ITEMS = 50;
 
 export type { AddSubscriptionOutcome, LiveSearchRetryOutcome };
 
@@ -148,8 +173,12 @@ export class LiveSearchPrimaryRuntime {
   private readonly scheduler?: LiveSearchConnectionSessionScheduler;
   private readonly random?: () => number;
   private readonly getMaxDisplayedResults?: () => number | undefined;
+  private readonly getFetchOrder?: () => LiveSearchFetchOrder | undefined;
+  private readonly getTokenMaxAgeSec?: () => number | undefined;
+  private readonly now: () => number;
   private readonly resultFilter: LiveSearchResultFilter;
   private readonly onResultTokenAccepted?: (event: LiveSearchResultTokenAcceptedEvent) => void;
+  private readonly onResultDelivered?: (event: LiveSearchResultTokenAcceptedEvent) => void;
   private readonly onResultFetched?: (event: LiveSearchResultFetchedEvent) => void;
   private readonly onResultRendered?: (event: LiveSearchResultRenderedEvent) => void;
   private readonly onResultsCleared?: () => void;
@@ -162,6 +191,10 @@ export class LiveSearchPrimaryRuntime {
 
   private subscriptions = new Map<string, SubscriptionContext>();
   private queue: PipelineTask[] = [];
+  private priorityQueue: ManualDroppedTask[] = [];
+  private droppedItems: LiveSearchDroppedItem[] = [];
+  private droppedSeq = 0;
+  private activeQueueWaitCancel?: () => void;
   private isProcessingQueue = false;
   private addSubscriptionMutex: Promise<unknown> = Promise.resolve();
   private disposed = false;
@@ -212,11 +245,36 @@ export class LiveSearchPrimaryRuntime {
     this.scheduler = options?.scheduler;
     this.random = options?.random;
     this.getMaxDisplayedResults = options?.getMaxDisplayedResults;
+    this.getFetchOrder = options?.getFetchOrder;
+    this.getTokenMaxAgeSec = options?.getTokenMaxAgeSec;
+    this.now = options?.now ?? (() => Date.now());
     this.resultFilter = options?.resultFilter ?? createLiveSearchResultFilter();
     this.onResultTokenAccepted = options?.onResultTokenAccepted;
+    this.onResultDelivered = options?.onResultDelivered;
     this.onResultFetched = options?.onResultFetched;
     this.onResultRendered = options?.onResultRendered;
     this.onResultsCleared = options?.onResultsCleared;
+  }
+
+  private readFetchOrder(): LiveSearchFetchOrder {
+    try {
+      const value = this.getFetchOrder?.();
+      return value === 'oldest' || value === 'newest' ? value : DEFAULT_FETCH_ORDER;
+    } catch {
+      return DEFAULT_FETCH_ORDER;
+    }
+  }
+
+  private readTokenMaxAgeMs(): number {
+    try {
+      const value = this.getTokenMaxAgeSec?.();
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+        return value * 1000;
+      }
+      return DEFAULT_TOKEN_MAX_AGE_SEC * 1000;
+    } catch {
+      return DEFAULT_TOKEN_MAX_AGE_SEC * 1000;
+    }
   }
 
   private readMaxDisplayedResults(): number | undefined {
@@ -395,6 +453,9 @@ export class LiveSearchPrimaryRuntime {
       cumulativeRenderedTotal: this.cumulativeRenderedTotal,
       subscriptions: this.getSubscriptions(),
       rateLimit: this.fetchRateGate.getStateSnapshot(),
+      ...(this.droppedItems.length > 0
+        ? { droppedItems: this.droppedItems.map((item) => ({ ...item })) }
+        : {}),
       ...(displayedResultCount > 0 ? { displayedResultCount } : {}),
       ...(displayedResultCount > 0 && resultCountsByOwner ? { resultCountsByOwner } : {}),
       ...(resultFilterKey ? { resultFilterKey } : {}),
@@ -663,6 +724,10 @@ export class LiveSearchPrimaryRuntime {
       }
       this.subscriptions.clear();
       this.queue = [];
+      this.cancelPendingManualTasks('Cancelled due to teardown');
+      this.activeQueueWaitCancel?.();
+      this.activeQueueWaitCancel = undefined;
+      this.droppedItems = [];
       this.runtimeLeague = null;
       this.clearEpoch += 1;
       this.resetDisplayedResultsState();
@@ -768,6 +833,10 @@ export class LiveSearchPrimaryRuntime {
     }
     this.subscriptions.clear();
     this.queue = [];
+    this.cancelPendingManualTasks('Runtime disposed');
+    this.activeQueueWaitCancel?.();
+    this.activeQueueWaitCancel = undefined;
+    this.droppedItems = [];
     this.resultFilter.dispose();
     this.hostClient.dispose();
     this.notifyListeners();
@@ -775,8 +844,150 @@ export class LiveSearchPrimaryRuntime {
   }
 
   /**
+   * 手動補抓一筆被速率限制略過的項目（高優先權、不受新鮮度過期限制，仍走 Rate Gate）
+   */
+  public fetchDroppedItem(droppedItemId: string): Promise<LiveSearchFetchDroppedOutcome> {
+    if (this.disposed) {
+      return Promise.resolve({ success: false, error: 'Runtime already disposed' });
+    }
+    const cleanId = typeof droppedItemId === 'string' ? droppedItemId.trim() : '';
+    const item = this.droppedItems.find((entry) => entry.id === cleanId);
+    if (!item) {
+      return Promise.resolve({ success: false, error: 'Dropped item not found' });
+    }
+    if (item.status === 'fetching') {
+      return Promise.resolve({ success: false, error: 'Dropped item is already fetching' });
+    }
+
+    item.status = 'fetching';
+    this.notifyListeners();
+
+    return new Promise<LiveSearchFetchDroppedOutcome>((resolve) => {
+      this.priorityQueue.push({ droppedItemId: cleanId, resolve });
+      void this.processQueue();
+    });
+  }
+
+  /** 移除單筆已丟棄紀錄 */
+  public dismissDroppedItem(droppedItemId: string): void {
+    if (this.disposed) return;
+    const cleanId = typeof droppedItemId === 'string' ? droppedItemId.trim() : '';
+    const idx = this.droppedItems.findIndex((entry) => entry.id === cleanId);
+    if (idx === -1) return;
+    this.droppedItems.splice(idx, 1);
+    this.notifyListeners();
+  }
+
+  /** 清空所有非補抓中的已丟棄紀錄 */
+  public clearDroppedItems(): void {
+    if (this.disposed || this.droppedItems.length === 0) return;
+    const next = this.droppedItems.filter((entry) => entry.status === 'fetching');
+    if (next.length === this.droppedItems.length) return;
+    this.droppedItems = next;
+    this.notifyListeners();
+  }
+
+  private cancelPendingManualTasks(reason: string): void {
+    if (this.priorityQueue.length === 0) return;
+    const pending = this.priorityQueue.splice(0, this.priorityQueue.length);
+    for (const task of pending) {
+      task.resolve({ success: false, error: reason });
+    }
+  }
+
+  private recordDroppedItem(input: {
+    subCtx: SubscriptionContext;
+    token: string;
+    receivedAt: number;
+    droppedAt: number;
+    reason: LiveSearchDroppedReason;
+  }): void {
+    const ownerKey = getTradeSearchCanonicalKey({
+      gameVersion: this.gameVersion,
+      league: input.subCtx.subscription.league,
+      searchId: input.subCtx.subscription.searchId,
+    });
+    const existingIdx = this.droppedItems.findIndex(
+      (entry) =>
+        entry.subscriptionId === input.subCtx.subscription.id && entry.token === input.token,
+    );
+    if (existingIdx !== -1) {
+      this.droppedItems.splice(existingIdx, 1);
+    }
+    const droppedItem: LiveSearchDroppedItem = {
+      id: `drop_${input.droppedAt}_${++this.droppedSeq}`,
+      subscriptionId: input.subCtx.subscription.id,
+      ownerKey,
+      searchId: input.subCtx.subscription.searchId,
+      league: input.subCtx.subscription.league,
+      gameVersion: input.subCtx.subscription.gameVersion,
+      ...(input.subCtx.subscription.name ? { sourceName: input.subCtx.subscription.name } : {}),
+      token: input.token,
+      receivedAt: input.receivedAt,
+      droppedAt: input.droppedAt,
+      reason: input.reason,
+      status: 'dropped',
+    };
+    this.droppedItems.unshift(droppedItem);
+    if (this.droppedItems.length > MAX_DROPPED_ITEMS) {
+      this.droppedItems.length = MAX_DROPPED_ITEMS;
+    }
+  }
+
+  private pruneExpiredQueueTasks(nowMs: number, nextAllowedAtMs: number): void {
+    const maxAgeMs = this.readTokenMaxAgeMs();
+    if (this.queue.length === 0) return;
+
+    let droppedAny = false;
+    const kept: PipelineTask[] = [];
+
+    for (const task of this.queue) {
+      if (task.subCtx.subscription.status === 'closed' || task.epoch !== this.clearEpoch) {
+        task.subCtx.pendingTokens.delete(task.token);
+        continue;
+      }
+
+      if (maxAgeMs > 0) {
+        if (nowMs - task.receivedAt > maxAgeMs) {
+          task.subCtx.pendingTokens.delete(task.token);
+          this.recordDroppedItem({
+            subCtx: task.subCtx,
+            token: task.token,
+            receivedAt: task.receivedAt,
+            droppedAt: nowMs,
+            reason: 'expired',
+          });
+          droppedAny = true;
+          continue;
+        }
+
+        if (nextAllowedAtMs > nowMs && nextAllowedAtMs - task.receivedAt > maxAgeMs) {
+          task.subCtx.pendingTokens.delete(task.token);
+          this.recordDroppedItem({
+            subCtx: task.subCtx,
+            token: task.token,
+            receivedAt: task.receivedAt,
+            droppedAt: nowMs,
+            reason: 'rate-limit-cooldown',
+          });
+          droppedAny = true;
+          continue;
+        }
+      }
+
+      kept.push(task);
+    }
+
+    this.queue = kept;
+    if (droppedAny) {
+      this.notifyListeners();
+    }
+  }
+
+  /**
    * 處理 Connection Session 交付之 Token
    * 執行 Source-Scoped Dedup (pendingTokens, processedTokens)
+   * 若處於速率限制且剩餘冷卻已超過新鮮度上限，立即移入已丟棄清單讓使用者知悉
    */
   private handleReceivedToken(subCtx: SubscriptionContext, token: string): void {
     if (this.disposed || subCtx.subscription.status === 'closed') return;
@@ -787,17 +998,53 @@ export class LiveSearchPrimaryRuntime {
       return;
     }
 
+    const nowMs = this.now();
+    const maxAgeMs = this.readTokenMaxAgeMs();
+    if (maxAgeMs > 0) {
+      const nextAllowedAtMs = this.fetchRateGate.getStateSnapshot().nextAllowedAtMs;
+      if (nextAllowedAtMs > nowMs && nextAllowedAtMs - nowMs > maxAgeMs) {
+        this.recordDroppedItem({
+          subCtx,
+          token,
+          receivedAt: nowMs,
+          droppedAt: nowMs,
+          reason: 'rate-limit-cooldown',
+        });
+        this.notifyListeners();
+        return;
+      }
+    }
+
     // 標記為 pending，避免在 in-flight 期間被重複推入佇列
     subCtx.pendingTokens.add(token);
 
-    // 推入序列化 Pipeline Queue（記錄入佇列當下 clearEpoch，供清空結果時丟棄過期任務）
+    // 推入序列化 Pipeline Queue（記錄入佇列當下 clearEpoch 與 receivedAt）
     this.enqueueTask({
       subCtx,
       token,
       epoch: this.clearEpoch,
+      receivedAt: nowMs,
     });
 
     this.emitResultTokenAccepted(subCtx);
+  }
+
+  private emitResultDelivered(subCtx: SubscriptionContext): void {
+    if (!this.onResultDelivered) return;
+    try {
+      this.onResultDelivered({
+        ownerKey: getTradeSearchCanonicalKey({
+          gameVersion: this.gameVersion,
+          league: subCtx.subscription.league,
+          searchId: subCtx.subscription.searchId,
+        }),
+      });
+    } catch (err) {
+      console.error(
+        '[PoeXD LiveSearch] Result delivered listener failed:',
+        err instanceof Error ? err.name : 'unknown error',
+      );
+    }
   }
 
   private emitResultTokenAccepted(subCtx: SubscriptionContext): void {
@@ -824,15 +1071,57 @@ export class LiveSearchPrimaryRuntime {
   }
 
   /**
-   * 序列化處理佇列 (FIFO)，避免多 WebSocket 同時收到 token 時破壞順序與 cumulative total
+   * 序列化處理佇列，手動補抓優先；一般任務先等 Rate Gate 解禁並清理過期項目，再依偏好（最新優先 LIFO 或依序 FIFO）取出執行
    */
   private async processQueue(): Promise<void> {
     if (this.isProcessingQueue || this.disposed) return;
     this.isProcessingQueue = true;
 
     try {
-      while (this.queue.length > 0 && !this.disposed) {
-        const task = this.queue.shift();
+      while ((this.priorityQueue.length > 0 || this.queue.length > 0) && !this.disposed) {
+        const nowBeforeWait = this.now();
+        const nextAllowedBeforeWait = this.fetchRateGate.getStateSnapshot().nextAllowedAtMs;
+        this.pruneExpiredQueueTasks(nowBeforeWait, nextAllowedBeforeWait);
+
+        if (this.priorityQueue.length === 0 && this.queue.length === 0) {
+          break;
+        }
+
+        if (
+          typeof this.fetchRateGate.waitForAdmission === 'function' &&
+          nextAllowedBeforeWait > nowBeforeWait
+        ) {
+          const admitted = await this.fetchRateGate.waitForAdmission({
+            shouldAbort: () =>
+              this.disposed || (this.priorityQueue.length === 0 && this.queue.length === 0),
+            onRegisterCancel: (cancelWait) => {
+              this.activeQueueWaitCancel = cancelWait;
+            },
+          });
+          this.activeQueueWaitCancel = undefined;
+          if (!admitted || this.disposed) {
+            continue;
+          }
+          this.pruneExpiredQueueTasks(
+            this.now(),
+            this.fetchRateGate.getStateSnapshot().nextAllowedAtMs,
+          );
+        }
+
+        if (this.priorityQueue.length > 0) {
+          const manualTask = this.priorityQueue.shift();
+          if (manualTask) {
+            await this.executeManualDroppedTask(manualTask);
+          }
+          continue;
+        }
+
+        if (this.queue.length === 0) {
+          break;
+        }
+
+        const fetchOrder = this.readFetchOrder();
+        const task = fetchOrder === 'oldest' ? this.queue.shift() : this.queue.pop();
         if (!task) break;
 
         // 若該 subscription 已被移除或關閉，跳過此任務並清理 pending 狀態
@@ -844,7 +1133,111 @@ export class LiveSearchPrimaryRuntime {
         await this.executePipelineTask(task);
       }
     } finally {
+      this.activeQueueWaitCancel = undefined;
       this.isProcessingQueue = false;
+    }
+  }
+
+  private async executeManualDroppedTask(task: ManualDroppedTask): Promise<void> {
+    const item = this.droppedItems.find((entry) => entry.id === task.droppedItemId);
+    if (!item || this.disposed) {
+      task.resolve({ success: false, error: 'Dropped item no longer available' });
+      return;
+    }
+
+    const fetchUrl = this.buildFetchUrl(item.gameVersion, item.token, item.searchId);
+    const taskEpoch = this.clearEpoch;
+
+    const markFailed = (error: string) => {
+      const target = this.droppedItems.find((entry) => entry.id === task.droppedItemId);
+      if (target) {
+        target.status = 'failed';
+        this.notifyListeners();
+      }
+      task.resolve({ success: false, error });
+    };
+
+    let itemData: unknown = null;
+    try {
+      const response = await this.fetchRateGate.fetch(
+        fetchUrl,
+        {
+          method: 'GET',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            Accept: 'application/json',
+          },
+        },
+        {
+          shouldAbort: () => this.disposed,
+        },
+      );
+
+      if (!response || !response.ok) {
+        markFailed(response ? `HTTP ${response.status}` : 'Fetch cancelled');
+        return;
+      }
+
+      const json = await response.json();
+      if (
+        !json ||
+        typeof json !== 'object' ||
+        !Array.isArray(json.result) ||
+        json.result.length === 0
+      ) {
+        markFailed('Item no longer available');
+        return;
+      }
+
+      itemData = json.result[0];
+      try {
+        this.onResultFetched?.({
+          itemData,
+          searchId: item.searchId,
+          league: item.league,
+        });
+      } catch (error) {
+        console.error('[PoeXD LiveSearch] Error in result fetched listener:', error);
+      }
+    } catch (err) {
+      markFailed(err instanceof Error ? err.message : 'Fetch failed');
+      return;
+    }
+
+    if (this.disposed || taskEpoch !== this.clearEpoch) {
+      markFailed('Cancelled');
+      return;
+    }
+
+    const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    try {
+      const rendered = await this.renderIntoHost({
+        batchId,
+        sourceSearchId: item.searchId,
+        token: item.token,
+        itemData,
+        ownerKey: item.ownerKey,
+        expectedEpoch: taskEpoch,
+      });
+
+      if (!rendered) {
+        markFailed('Render failed');
+        return;
+      }
+
+      const idx = this.droppedItems.findIndex((entry) => entry.id === task.droppedItemId);
+      if (idx !== -1) {
+        this.droppedItems.splice(idx, 1);
+      }
+      const subCtx = this.subscriptions.get(item.subscriptionId);
+      if (subCtx) {
+        subCtx.pendingTokens.delete(item.token);
+        subCtx.processedTokens.add(item.token);
+      }
+      this.notifyListeners();
+      task.resolve({ success: true });
+    } catch (err) {
+      markFailed(err instanceof Error ? err.message : 'Render failed');
     }
   }
 
@@ -946,9 +1339,10 @@ export class LiveSearchPrimaryRuntime {
       });
 
       if (rendered) {
-        // 唯有在 Host 回報成功後，才遞增 cumulative total 並轉入 processedTokens
+        // 唯有在 Host 回報成功後，才遞增 cumulative total、轉入 processedTokens 並通知已實際抓取渲染
         subCtx.pendingTokens.delete(token);
         subCtx.processedTokens.add(token);
+        this.emitResultDelivered(subCtx);
         this.notifyListeners();
       } else {
         // Host 回報失敗：移除 pending，total 不變，允許重試
