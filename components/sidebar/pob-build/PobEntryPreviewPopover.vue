@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, type PropType } from 'vue';
+import { computed, type PropType } from 'vue';
 import { ExternalLink, RotateCcw, Save, Search } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,21 +8,16 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t, type I18nKey } from '@/utils/i18n';
 import type { PobDefence } from '@/utils/pob-build';
 import {
-  applyResolvedEntrySearch,
   clearSelectionBounds,
-  cloneEntrySearchSelection,
   hasEnabledNumericBounds as checkEnabledNumericBounds,
   hasRelaxableNumericBounds as checkRelaxableNumericBounds,
-  isSelectionDraftModified,
   LINK_OPTIONS,
   MAX_GEM_LEVEL,
   MAX_GEM_QUALITY,
   MAX_GEM_SOCKETS,
-  normalizeSelectionForEntry,
   RARE_SEARCH_MODES,
   relaxSelectionBounds,
   resolveEntrySearch,
-  selectionFromRowState,
   type BuildSearchDefaults,
   type EntrySearchSelection,
   type RareSearchMode,
@@ -43,6 +38,7 @@ import {
   type PreviewAnchor,
 } from '../item-preview/preview-classes';
 import type { ShoppingRow, StatBound } from './usePobBuild';
+import { canSearchPobRow } from './usePobWorkspaceSession';
 
 /** PoB 項目的詞綴群組只有兩種：全部符合（且）或至少符合 N 項（計數） */
 const POB_GROUP_TYPES = ['and', 'count'] as const;
@@ -72,10 +68,13 @@ const props = defineProps({
     default: null,
   },
   buildId: { type: String, default: '' },
-  row: {
+  /** 由 usePobWorkspaceSession 推導出的有效項目（已套用進行中的草稿） */
+  effectiveRow: {
     type: Object as PropType<ShoppingRow | null>,
     default: null,
   },
+  /** 目前草稿與已儲存狀態是否有差異 */
+  isDraftModified: { type: Boolean, default: false },
   rowDetailText: { type: String, default: '' },
   nameClass: { type: String, default: '' },
   /** 所屬 build 的整體搜尋設定；草稿沒改到的條件依它計算 */
@@ -90,49 +89,24 @@ const LINKS_ANY = 'any';
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
-  (e: 'save-selection', selection: EntrySearchSelection | undefined): void;
+  (e: 'update-draft', update: (draft: EntrySearchSelection) => EntrySearchSelection): void;
+  (e: 'save-draft'): void;
+  (e: 'discard-draft'): void;
   (e: 'reset-search'): void;
   (e: 'open-search', mode: 'current' | 'new-tab', row: ShoppingRow): void;
 }>();
 
-/** Popover 內的暫存微調草稿；未微調為 null，依項目暫存於工作階段，避免誤關視窗遺失調整。 */
-const draftsByTarget = new Map<string, EntrySearchSelection>();
-const draftSelection = ref<EntrySearchSelection | null>(null);
-
-const currentTargetKey = () => (props.row ? `${props.buildId}\u0000${props.row.key}` : '');
-
-watch(
-  [() => props.open, () => props.buildId, () => props.row?.key],
-  () => {
-    const key = currentTargetKey();
-    const saved = key ? draftsByTarget.get(key) : undefined;
-    draftSelection.value = saved ? cloneEntrySearchSelection(saved) : null;
-  },
-  { immediate: true },
-);
-
-const effectiveRow = computed<ShoppingRow | null>(() => {
-  const row = props.row;
-  if (!row) return null;
-  const draft = draftSelection.value;
-  if (!draft) return row;
-  return {
-    ...applyResolvedEntrySearch(row, resolveEntrySearch(row, draft, props.searchDefaults)),
-    searchSelection: draft,
-  };
-});
-
 /** PoB 裝備五連以上（或單件已指定連結）時顯示連結條件 */
 const showLinks = computed(() =>
   Boolean(
-    effectiveRow.value &&
-    !effectiveRow.value.searchOverride &&
-    (effectiveRow.value.links !== undefined || effectiveRow.value.linksMin !== undefined),
+    props.effectiveRow &&
+    !props.effectiveRow.searchOverride &&
+    (props.effectiveRow.links !== undefined || props.effectiveRow.linksMin !== undefined),
   ),
 );
 
 const linksValue = computed(() =>
-  effectiveRow.value?.linksMin === undefined ? LINKS_ANY : String(effectiveRow.value.linksMin),
+  props.effectiveRow?.linksMin === undefined ? LINKS_ANY : String(props.effectiveRow.linksMin),
 );
 
 function setLinks(value: unknown): void {
@@ -145,12 +119,12 @@ function setLinks(value: unknown): void {
 
 /** 有市集類別的非傳奇裝備可以改以類別＋防禦類型搜尋 */
 const showSearchBy = computed(() =>
-  Boolean(effectiveRow.value?.category && !effectiveRow.value.searchOverride),
+  Boolean(props.effectiveRow?.category && !props.effectiveRow.searchOverride),
 );
 
 const showItemFilters = computed(() => showLinks.value || showSearchBy.value);
 
-const searchByValue = computed<RareSearchMode>(() => effectiveRow.value?.searchBy ?? 'base');
+const searchByValue = computed<RareSearchMode>(() => props.effectiveRow?.searchBy ?? 'base');
 
 const SEARCH_BY_LABELS: Readonly<Record<RareSearchMode, I18nKey>> = {
   base: 'pobBuild.itemFilters.searchByBase',
@@ -164,7 +138,7 @@ function setSearchBy(value: unknown): void {
 
 /** 類別搜尋時的說明：「頭盔・護甲／能量護盾」；沒有防禦條件時只有類別 */
 const categoryHint = computed(() => {
-  const category = effectiveRow.value?.category;
+  const category = props.effectiveRow?.category;
   if (!category || searchByValue.value !== 'category') return '';
   const name = t(`pobBuild.category.${category.id}` as I18nKey);
   if (!category.defences?.length) return name;
@@ -174,7 +148,7 @@ const categoryHint = computed(() => {
   return t('pobBuild.itemFilters.categoryHint', { category: name, defences });
 });
 
-const isGem = computed(() => effectiveRow.value?.kind === 'gem');
+const isGem = computed(() => props.effectiveRow?.kind === 'gem');
 
 const GEM_BOUND_MAX = {
   gemLevel: MAX_GEM_LEVEL,
@@ -185,7 +159,7 @@ const GEM_BOUND_MAX = {
 /** 寶石等級／品質／插槽數下限：空白為不限 */
 function commitGemBound(field: keyof typeof GEM_BOUND_MAX, event: Event): void {
   const input = event.target as HTMLInputElement;
-  const row = effectiveRow.value;
+  const row = props.effectiveRow;
   if (!row || row.searchOverride) return;
   const currentValue =
     field === 'gemLevel'
@@ -205,31 +179,23 @@ function commitGemBound(field: keyof typeof GEM_BOUND_MAX, event: Event): void {
   mutateDraft((draft) => ({ ...draft, [field]: next }));
 }
 
-const isDraftModified = computed(() =>
-  Boolean(
-    props.row && effectiveRow.value && isSelectionDraftModified(props.row, effectiveRow.value),
-  ),
-);
-
 const canSearch = computed(() =>
-  Boolean(
-    effectiveRow.value && (effectiveRow.value.searchOverride || effectiveRow.value.query !== null),
-  ),
+  Boolean(props.effectiveRow && canSearchPobRow(props.effectiveRow)),
 );
 
 const queryType = computed(() => {
-  const type = effectiveRow.value?.query?.type;
+  const type = props.effectiveRow?.query?.type;
   return typeof type === 'string' && type.trim() ? type.trim() : '';
 });
 
 const itemCardBase = computed(() => {
-  const row = effectiveRow.value;
+  const row = props.effectiveRow;
   if (!row) return '';
   return queryType.value && queryType.value !== row.label ? queryType.value : '';
 });
 
 const showEnglishSubtitle = computed(() => {
-  const row = effectiveRow.value;
+  const row = props.effectiveRow;
   return Boolean(
     row?.englishName && row.englishName !== row.label && row.englishName !== itemCardBase.value,
   );
@@ -237,7 +203,7 @@ const showEnglishSubtitle = computed(() => {
 
 /** 展開後的每一行詞綴。同一個代碼的多行是同一個條件，數值輸入只放在第一行。 */
 const modLines = computed<ModLine[]>(() => {
-  const row = effectiveRow.value;
+  const row = props.effectiveRow;
   if (!row?.mods) return [];
   const seen = new Set<string>();
   return row.mods.map((mod, index) => {
@@ -259,12 +225,12 @@ const modLines = computed<ModLine[]>(() => {
 });
 
 const searchedModCount = computed(
-  () => effectiveRow.value?.mods?.filter((mod) => mod.searched).length ?? 0,
+  () => props.effectiveRow?.mods?.filter((mod) => mod.searched).length ?? 0,
 );
 
 /** 參與「至少符合 N 項」的條件數（已由 resolveEntrySearch 涵蓋合成臟器例外） */
 const enabledCount = computed(() => {
-  const row = effectiveRow.value;
+  const row = props.effectiveRow;
   if (!row) return 0;
   return (
     row.countableFilterCount ??
@@ -273,27 +239,27 @@ const enabledCount = computed(() => {
 });
 
 const hasPseudo = computed(
-  () => effectiveRow.value?.mods?.some((mod) => mod.stat?.pseudo) ?? false,
+  () => props.effectiveRow?.mods?.some((mod) => mod.stat?.pseudo) ?? false,
 );
 
 const hasEnabledNumericBounds = computed(() =>
   Boolean(
-    effectiveRow.value &&
-    !effectiveRow.value.searchOverride &&
-    checkEnabledNumericBounds(effectiveRow.value.filters),
+    props.effectiveRow &&
+    !props.effectiveRow.searchOverride &&
+    checkEnabledNumericBounds(props.effectiveRow.filters),
   ),
 );
 
 const hasRelaxableNumericBounds = computed(() =>
   Boolean(
-    effectiveRow.value &&
-    !effectiveRow.value.searchOverride &&
-    checkRelaxableNumericBounds(effectiveRow.value.filters),
+    props.effectiveRow &&
+    !props.effectiveRow.searchOverride &&
+    checkRelaxableNumericBounds(props.effectiveRow.filters),
   ),
 );
 
 function controlId(name: string): string {
-  const raw = `${props.buildId}\u0000${props.row?.key ?? ''}`;
+  const raw = `${props.buildId}\u0000${props.effectiveRow?.key ?? ''}`;
   return `pob-popover-${name}-${Array.from(raw, (char) => char.charCodeAt(0).toString(36)).join('')}`;
 }
 
@@ -302,15 +268,8 @@ function blurTarget(event: Event): void {
 }
 
 function mutateDraft(update: (draft: EntrySearchSelection) => EntrySearchSelection): void {
-  const row = props.row;
-  if (!row) return;
-  const current = draftSelection.value
-    ? cloneEntrySearchSelection(draftSelection.value)
-    : selectionFromRowState(row, props.searchDefaults);
-  const next = update(current);
-  draftSelection.value = next;
-  const key = currentTargetKey();
-  if (key) draftsByTarget.set(key, cloneEntrySearchSelection(next));
+  if (!props.effectiveRow) return;
+  emit('update-draft', update);
 }
 
 function setStatEnabled(statId: string, enabled: boolean): void {
@@ -346,7 +305,7 @@ function commitCountMin(event: Event): void {
   const input = event.target as HTMLInputElement;
   const value = Math.floor(Number(input.value));
   if (!Number.isFinite(value) || value < 1) {
-    const current = effectiveRow.value?.countMin;
+    const current = props.effectiveRow?.countMin;
     input.value = current === undefined ? '' : String(current);
     return;
   }
@@ -359,50 +318,16 @@ function setPseudo(on: boolean): void {
 }
 
 function relaxBounds(): void {
-  const row = effectiveRow.value;
+  const row = props.effectiveRow;
   if (!row || row.searchOverride) return;
   mutateDraft((draft) => relaxSelectionBounds(draft, row.filters));
 }
 
 function clearBounds(): void {
-  const row = effectiveRow.value;
+  const row = props.effectiveRow;
   if (!row || row.searchOverride) return;
   mutateDraft((draft) => clearSelectionBounds(draft, row.filters));
 }
-
-function saveDraft(): void {
-  if (!props.row || !draftSelection.value) return;
-  const normalized = normalizeSelectionForEntry(
-    props.row,
-    draftSelection.value,
-    props.searchDefaults,
-  );
-  const key = currentTargetKey();
-  if (key) draftsByTarget.delete(key);
-  draftSelection.value = null;
-  emit('save-selection', normalized);
-}
-
-function discardDraft(): void {
-  const key = currentTargetKey();
-  if (key) draftsByTarget.delete(key);
-  draftSelection.value = null;
-}
-
-function handleResetSearch(): void {
-  const key = currentTargetKey();
-  if (key) draftsByTarget.delete(key);
-  draftSelection.value = null;
-  emit('reset-search');
-}
-
-function clearDraft(buildId: string, rowKey: string): void {
-  const key = `${buildId}\u0000${rowKey}`;
-  draftsByTarget.delete(key);
-  if (key === currentTargetKey()) draftSelection.value = null;
-}
-
-defineExpose({ clearDraft });
 </script>
 
 <template>
@@ -467,7 +392,7 @@ defineExpose({ clearDraft });
           class="ml-auto border-primary/50 bg-primary/10 px-[var(--pxd-space-sm)] text-primary shadow-none"
           data-pob-build-save-selection
           :title="t('pobBuild.mods.saveSelectionTitle')"
-          @click="saveDraft"
+          @click="emit('save-draft')"
         >
           <Save aria-hidden="true" />
           {{ t('pobBuild.mods.saveSelection') }}
@@ -480,7 +405,7 @@ defineExpose({ clearDraft });
           data-pob-build-discard-draft
           :title="t('searchPreview.action.resetTuneTitle')"
           :aria-label="t('searchPreview.action.resetTune')"
-          @click="discardDraft"
+          @click="emit('discard-draft')"
         >
           <RotateCcw aria-hidden="true" />
           <span class="sr-only">{{ t('searchPreview.action.resetTune') }}</span>
@@ -491,7 +416,7 @@ defineExpose({ clearDraft });
           size="sm"
           class="ml-auto px-[var(--pxd-space-sm)]"
           data-pob-build-reset-search
-          @click="handleResetSearch"
+          @click="emit('reset-search')"
         >
           <RotateCcw aria-hidden="true" />
           {{ t('pobBuild.mods.reset') }}

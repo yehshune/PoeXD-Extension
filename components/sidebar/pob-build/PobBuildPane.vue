@@ -762,12 +762,12 @@
       </p>
 
       <PobEntryPreviewPopover
-        ref="previewPopoverRef"
         :open="isPreviewOpen"
         :side="sidebarPosition === 'left' ? 'right' : 'left'"
-        :reference="previewAnchorEl"
+        :reference="previewAnchor"
         :build-id="activePreview?.buildId ?? ''"
-        :row="activePreview?.row ?? null"
+        :effective-row="activeEffectiveRow"
+        :is-draft-modified="isActiveDraftModified"
         :row-detail-text="activePreview ? rowDetail(activePreview.row) : ''"
         :name-class="activePreview ? nameClass(activePreview.row) : ''"
         :search-defaults="activePreviewDefaults"
@@ -776,10 +776,9 @@
         @pointerdown="pinPreview"
         @focusin="pinPreview"
         @update:open="(open) => !open && closePreview()"
-        @save-selection="
-          (selection) =>
-            activePreview && saveSelection(activePreview.buildId, activePreview.row.key, selection)
-        "
+        @update-draft="updateActiveDraft"
+        @save-draft="saveActiveDraft"
+        @discard-draft="discardActiveDraft"
         @reset-search="
           () => activePreview && resetSearch(activePreview.buildId, activePreview.row.key)
         "
@@ -808,7 +807,6 @@ import {
   onMounted,
   onUnmounted,
   ref,
-  watch,
   type PropType,
 } from 'vue';
 import { useDebouncedRef } from '../composables/useDebouncedSearch';
@@ -886,6 +884,11 @@ import {
   type ShoppingRow,
   type SocketContent,
 } from './usePobBuild';
+import {
+  usePobWorkspaceSession,
+  VIEW_MODES,
+  type ShoppingCategory,
+} from './usePobWorkspaceSession';
 
 // 稀有度與技能寶石顏色統一引用 CSS 語意變數，自動隨明暗配色切換高對比色票
 const RARITY_CLASSES: Readonly<Record<string, string>> = {
@@ -896,8 +899,6 @@ const RARITY_CLASSES: Readonly<Record<string, string>> = {
   NORMAL: 'text-foreground',
 };
 const GEM_CLASS = 'text-[var(--pxd-rarity-gem)]';
-type ViewMode = 'list' | 'gear';
-const VIEW_MODES: readonly ViewMode[] = ['list', 'gear'];
 /** 預覽 Popover 的定位元素：清單的列或裝備欄的格子 */
 const PREVIEW_ANCHOR = '[data-pob-build-row], [data-pob-build-gear-tile]';
 
@@ -972,17 +973,8 @@ export default defineComponent({
     const searchQuery = ref('');
     const debouncedSearchQuery = useDebouncedRef(searchQuery);
     const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
-    const previewPopoverRef = ref<{ clearDraft: (buildId: string, rowKey: string) => void } | null>(
-      null,
-    );
     const renamingId = ref<string | null>(null);
     const renameInput = ref('');
-    /** 目前在右側 Popover 檢視／調整詞綴的項目 */
-    /** `fromSocket`：從插槽點開的寶石，所屬分組收合時也照樣顯示 */
-    const activePreviewTarget = ref<{ buildId: string; key: string; fromSocket?: boolean } | null>(
-      null,
-    );
-    const previewAnchorEl = ref<PreviewAnchor | null>(null);
     /** 目前開啟「更多動作」選單的那一列 */
     const openMenuRow = ref<string | null>(null);
     /** 目前開啟操作選單的那份 build */
@@ -1030,14 +1022,6 @@ export default defineComponent({
       DEFAULT_PREFERENCES.searchEntryClickAction,
     );
 
-    /** 有存回的搜尋或有條件時才能送主控台、加書籤 */
-    const canSearch = (row: ShoppingRow) => row.searchOverride || row.query !== null;
-    /** 有詞綴、存回搜尋，或是可以搜尋的寶石（調整等級／品質）時才提供預覽／微調彈窗 */
-    const canPreview = (row: ShoppingRow) =>
-      row.kind === 'gem'
-        ? Boolean(row.query !== null || row.searchOverride)
-        : Boolean(row.mods?.length || row.searchOverride);
-
     const showSkillSets = (build: BuildView) => build.skillSetOptions.length > 1;
 
     const setLabel = (option: SetOption): string =>
@@ -1046,43 +1030,6 @@ export default defineComponent({
     const activeSetLabel = (options: readonly SetOption[], activeId: string): string => {
       const found = options.find((option) => option.id === activeId);
       return found ? setLabel(found) : '';
-    };
-
-    /** 群組收合狀態（key = `${buildId}\0${groupId}`）；只在這個工作階段內記憶 */
-    const collapsedGroups = ref<ReadonlySet<string>>(new Set());
-    type ShoppingCategory = 'all' | 'gear' | 'flask' | 'jewel' | 'gem';
-    const CATEGORY_ORDER: readonly Exclude<ShoppingCategory, 'all'>[] = [
-      'gear',
-      'flask',
-      'jewel',
-      'gem',
-    ];
-    const activeCategoryByBuild = ref<Record<string, ShoppingCategory>>({});
-
-    const entryCategory = (entry: ShoppingEntry): Exclude<ShoppingCategory, 'all'> => {
-      if (entry.kind === 'gem') return 'gem';
-      const slot = entry.slot ?? '';
-      if (slot.startsWith('Flask')) return 'flask';
-      if (slot.includes('Jewel') || slot.includes('Abyssal Socket')) return 'jewel';
-      return 'gear';
-    };
-
-    const buildCategories = (build: BuildView): Exclude<ShoppingCategory, 'all'>[] => {
-      const present = new Set<Exclude<ShoppingCategory, 'all'>>();
-      for (const group of build.groups) {
-        for (const row of group.rows) present.add(entryCategory(row));
-      }
-      return CATEGORY_ORDER.filter((cat) => present.has(cat));
-    };
-
-    const activeCategory = (build: BuildView): ShoppingCategory => {
-      const selected = activeCategoryByBuild.value[build.id] ?? 'all';
-      if (selected === 'all') return 'all';
-      return buildCategories(build).includes(selected) ? selected : 'all';
-    };
-
-    const setActiveCategory = (buildId: string, category: ShoppingCategory) => {
-      activeCategoryByBuild.value = { ...activeCategoryByBuild.value, [buildId]: category };
     };
 
     const categoryLabel = (category: ShoppingCategory): string => {
@@ -1094,59 +1041,6 @@ export default defineComponent({
         gem: 'pobBuild.category.gem',
       };
       return t(keys[category]);
-    };
-
-    const filteredGroups = (build: BuildView): ShoppingGroup[] => {
-      if (isFiltering.value) return build.groups;
-      const category = activeCategory(build);
-      if (category === 'all') return build.groups;
-      return build.groups
-        .map((group) => ({
-          ...group,
-          rows: group.rows.filter((row) => entryCategory(row) === category),
-        }))
-        .filter((group) => group.rows.length > 0);
-    };
-
-    /** 清單或裝備欄檢視（預設裝備欄；每個 build 各自記住，只在本次開啟期間） */
-    const viewModeByBuild = ref<Record<string, ViewMode>>({});
-
-    const equipmentRows = (build: BuildView): ShoppingRow[] =>
-      build.groups.find((group) => group.kind === 'equipment')?.rows ?? [];
-
-    const hasEquipment = (build: BuildView) => equipmentRows(build).length > 0;
-
-    const viewMode = (build: BuildView): ViewMode =>
-      hasEquipment(build) ? (viewModeByBuild.value[build.id] ?? 'gear') : 'list';
-
-    /** 搜尋時一律用清單，才看得到符合的寶石與裝備 */
-    const isGearView = (build: BuildView) => !isFiltering.value && viewMode(build) === 'gear';
-
-    const setViewMode = (buildId: string, value: unknown) => {
-      // ToggleGroup 再點一次已選的項目會送出空值，維持原選擇
-      if (value !== 'list' && value !== 'gear') return;
-      if (activePreviewTarget.value?.buildId === buildId) closePreview();
-      viewModeByBuild.value = { ...viewModeByBuild.value, [buildId]: value };
-    };
-
-    /** 清單要畫的分組：裝備欄檢視時裝備改畫在格子裡，只剩寶石 */
-    const listGroups = (build: BuildView): ShoppingGroup[] =>
-      isGearView(build)
-        ? build.groups.filter((group) => group.kind === 'gem')
-        : filteredGroups(build);
-
-    const groupKey = (buildId: string, groupId: string) => `${buildId}\u0000${groupId}`;
-    const isGroupCollapsed = (build: BuildView, groupId: string) =>
-      !isFiltering.value &&
-      activeCategory(build) === 'all' &&
-      collapsedGroups.value.has(groupKey(build.id, groupId));
-
-    const toggleGroupCollapsed = (buildId: string, groupId: string) => {
-      const key = groupKey(buildId, groupId);
-      const next = new Set(collapsedGroups.value);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      collapsedGroups.value = next;
     };
 
     const groupDoneCount = (group: ShoppingGroup): number =>
@@ -1175,78 +1069,16 @@ export default defineComponent({
     const nameClass = (entry: ShoppingEntry): string =>
       entry.kind === 'gem' ? GEM_CLASS : (RARITY_CLASSES[entry.rarity ?? 'NORMAL'] ?? '');
 
-    const isFiltering = computed(() => debouncedSearchQuery.value.trim().length > 0);
-
-    const visibleBuilds = computed<BuildView[]>(() => {
-      const needle = debouncedSearchQuery.value.trim().toLowerCase();
-      if (!needle) return pob.builds.value;
-      return pob.builds.value
-        .map((build) => ({
-          ...build,
-          groups: build.groups
-            .map((group) => ({
-              ...group,
-              rows: group.rows.filter(
-                (entry) =>
-                  entry.label.toLowerCase().includes(needle) ||
-                  // 名稱以顯示語言呈現，英文原名也要找得到
-                  entry.englishName.toLowerCase().includes(needle) ||
-                  rowDetail(entry).toLowerCase().includes(needle),
-              ),
-            }))
-            .filter((group) => group.rows.length > 0),
-        }))
-        .filter((build) => build.groups.length > 0);
+    const workspace = usePobWorkspaceSession<PreviewAnchor>({
+      builds: pob.builds,
+      searchQuery: debouncedSearchQuery,
+      formatRowDetail: rowDetail,
     });
 
-    /** 由可見清單即時查出目前預覽的項目，詞綴／數值更新時 Popover 同步反映，列消失時自動關閉 */
-    const activePreview = computed<{ buildId: string; row: ShoppingRow } | null>(() => {
-      const target = activePreviewTarget.value;
-      if (!target) return null;
-      const build = visibleBuilds.value.find((entry) => entry.id === target.buildId);
-      if (!build || (build.collapsed && !isFiltering.value)) return null;
-      if (isGearView(build)) {
-        const found = equipmentRows(build).find((entry) => entry.key === target.key);
-        if (found) return { buildId: build.id, row: found };
-      }
-      for (const group of listGroups(build)) {
-        if (isGroupCollapsed(build, group.id) && !target.fromSocket) continue;
-        const found = group.rows.find((entry) => entry.key === target.key);
-        if (found) return { buildId: build.id, row: found };
-      }
-      return null;
-    });
-
-    /** 預覽中的項目所屬 build 的整體搜尋設定 */
-    const activePreviewDefaults = computed(
-      () =>
-        pob.builds.value.find((build) => build.id === activePreview.value?.buildId)
-          ?.searchDefaults ?? {},
-    );
-
-    const isPreviewOpen = computed(() => activePreview.value !== null);
-
-    /**
-     * 滑鼠移入格子（或清單的圖示、調整按鈕）稍停即開啟預覽；移進預覽框只暫停關閉，移出照常
-     * 收合。點擊格子或在預覽框內操作（pointerdown／focusin）才會固定開著，固定時不受其他項
-     * 目的 hover 干擾，直到點外面、按關閉或再點一次。
-     */
-    const HOVER_OPEN_DELAY = 260;
-    const HOVER_CLOSE_DELAY = 200;
-    let hoverOpenTimer: ReturnType<typeof setTimeout> | undefined;
-    let hoverCloseTimer: ReturnType<typeof setTimeout> | undefined;
-    const previewPinned = ref(false);
-
-    const clearHoverTimers = () => {
-      clearTimeout(hoverOpenTimer);
-      clearTimeout(hoverCloseTimer);
-    };
-
-    const closePreview = () => {
-      clearHoverTimers();
-      previewPinned.value = false;
-      activePreviewTarget.value = null;
-      previewAnchorEl.value = null;
+    const setViewMode = (buildId: string, value: unknown) => {
+      // ToggleGroup 再點一次已選的項目會送出空值，維持原選擇
+      if (value !== 'list' && value !== 'gear') return;
+      workspace.setViewMode(buildId, value);
     };
 
     /** 預覽的錨點：清單為該列、裝備欄為該物品格，讓詞綴調整框直接出現在物品旁邊 */
@@ -1254,66 +1086,11 @@ export default defineComponent({
       rowAnchorFromEvent(event, PREVIEW_ANCHOR);
 
     const hoverPreview = (buildId: string, row: ShoppingRow, event: Event) => {
-      clearTimeout(hoverCloseTimer);
-      if (previewPinned.value || !canPreview(row) || isPreviewActive(buildId, row.key)) return;
-      // 事件的 currentTarget 只在處理當下有效，先找好定位元素
-      const anchor = previewAnchorFromEvent(event);
-      if (!anchor) return;
-      clearTimeout(hoverOpenTimer);
-      hoverOpenTimer = setTimeout(() => {
-        if (previewPinned.value) return;
-        activePreviewTarget.value = { buildId, key: row.key };
-        previewAnchorEl.value = anchor;
-      }, HOVER_OPEN_DELAY);
+      workspace.hoverPreview(buildId, row, previewAnchorFromEvent(event));
     };
-
-    const enterPreviewCard = () => {
-      clearTimeout(hoverCloseTimer);
-    };
-
-    const leavePreviewTrigger = () => {
-      clearTimeout(hoverOpenTimer);
-      if (previewPinned.value || !activePreviewTarget.value) return;
-      clearTimeout(hoverCloseTimer);
-      hoverCloseTimer = setTimeout(() => {
-        if (!previewPinned.value) closePreview();
-      }, HOVER_CLOSE_DELAY);
-    };
-
-    const pinPreview = () => {
-      clearTimeout(hoverCloseTimer);
-      previewPinned.value = true;
-    };
-
-    watch(activePreview, (value) => {
-      if (!value && activePreviewTarget.value) {
-        closePreview();
-      }
-    });
-
-    // 進入或離開搜尋過濾時，裝備欄與清單檢視會互換、原錨點脫離 DOM，先收合預覽
-    watch(isFiltering, () => {
-      if (activePreviewTarget.value) closePreview();
-    });
-
-    const isPreviewActive = (buildId: string, key: string) =>
-      activePreview.value?.buildId === buildId && activePreview.value?.row.key === key;
 
     const togglePreview = (buildId: string, key: string, event: Event) => {
-      if (isPreviewActive(buildId, key)) {
-        if (!previewPinned.value) {
-          pinPreview();
-          return;
-        }
-        closePreview();
-        return;
-      }
-      const anchor = previewAnchorFromEvent(event);
-      if (!anchor) return;
-      clearHoverTimers();
-      previewPinned.value = true;
-      activePreviewTarget.value = { buildId, key };
-      previewAnchorEl.value = anchor;
+      workspace.togglePreview(buildId, key, previewAnchorFromEvent(event));
     };
 
     /**
@@ -1321,29 +1098,26 @@ export default defineComponent({
      * 沒有可調的條件時點擊直接搜尋
      */
     const handleGearSelect = (buildId: string, row: ShoppingRow, event: Event) => {
-      if (canSearch(row) && event instanceof MouseEvent && (event.ctrlKey || event.metaKey)) {
+      if (
+        workspace.canSearch(row) &&
+        event instanceof MouseEvent &&
+        (event.ctrlKey || event.metaKey)
+      ) {
         pob.openSearch(buildId, row, 'new-tab');
         return;
       }
-      if (canPreview(row)) togglePreview(buildId, row.key, event);
-      else if (canSearch(row)) pob.openSearch(buildId, row, 'current');
+      if (workspace.canPreview(row)) togglePreview(buildId, row.key, event);
+      else if (workspace.canSearch(row)) pob.openSearch(buildId, row, 'current');
     };
 
     /** 點裝備插槽裡的寶石或深淵珠寶：開關它的設定框，位置對齊所在的裝備格 */
     const selectSocketContent = (build: BuildView, content: SocketContent, event: Event) => {
-      const key = content.rowKey;
-      if (!key) return;
-      const row = build.groups.flatMap((group) => group.rows).find((entry) => entry.key === key);
-      if (!row || !canPreview(row)) return;
-      togglePreview(build.id, key, event);
-      if (activePreviewTarget.value?.key === key) {
-        activePreviewTarget.value = { ...activePreviewTarget.value, fromSocket: true };
-      }
+      workspace.selectSocketContent(build, content, previewAnchorFromEvent(event));
     };
 
     const rowTooltip = (row: ShoppingRow) => {
-      if (!canSearch(row)) return t('pobBuild.noSearchTitle');
-      if (searchEntryClickAction.value === 'preview' && canPreview(row)) {
+      if (!workspace.canSearch(row)) return t('pobBuild.noSearchTitle');
+      if (searchEntryClickAction.value === 'preview' && workspace.canPreview(row)) {
         return t('pobBuild.toggleModsTitle');
       }
       return t('pobBuild.searchTitle');
@@ -1351,12 +1125,12 @@ export default defineComponent({
 
     /** 左鍵／Enter 點擊項目：與書籤、歷史一致，依搜尋點擊設定切換預覽或直接前往搜尋 */
     const handleEntryPrimaryClick = (buildId: string, row: ShoppingRow, event: Event) => {
-      if (!canSearch(row)) return;
+      if (!workspace.canSearch(row)) return;
       if (event instanceof MouseEvent && (event.ctrlKey || event.metaKey)) {
         pob.openSearch(buildId, row, 'new-tab');
         return;
       }
-      if (searchEntryClickAction.value === 'preview' && canPreview(row)) {
+      if (searchEntryClickAction.value === 'preview' && workspace.canPreview(row)) {
         togglePreview(buildId, row.key, event);
         return;
       }
@@ -1365,7 +1139,7 @@ export default defineComponent({
 
     /** 中鍵點擊 `<a href>`：有有效網址時由瀏覽器原生開新分頁；無聯盟時改走 openSearch 提示錯誤 */
     const handleEntryAuxClick = (buildId: string, row: ShoppingRow, event: MouseEvent) => {
-      if (event.button !== 1 || !canSearch(row)) return;
+      if (event.button !== 1 || !workspace.canSearch(row)) return;
       if (pob.resolveSearchUrl(buildId, row)) return;
       pob.openSearch(buildId, row, 'new-tab');
     };
@@ -1456,26 +1230,30 @@ export default defineComponent({
       }
     });
     onUnmounted(() => {
-      clearHoverTimers();
+      workspace.dispose();
       disposed = true;
       stopPreferences?.();
       stopPreferences = undefined;
       pob.dispose();
     });
 
+    const saveActiveDraft = () => {
+      const saved = workspace.saveActiveDraft();
+      if (saved) pob.saveSelection(saved.buildId, saved.rowKey, saved.selection);
+    };
+
     const resetSearch = (buildId: string, key: string) => {
-      previewPopoverRef.value?.clearDraft(buildId, key);
+      workspace.clearDraft(buildId, key);
       pob.resetSearch(buildId, key);
     };
 
     const saveCurrentSearch = (buildId: string, row: ShoppingRow) => {
-      previewPopoverRef.value?.clearDraft(buildId, row.key);
+      workspace.clearDraft(buildId, row.key);
       pob.saveCurrentSearch(buildId, row);
     };
 
     return {
       t,
-      previewPopoverRef,
       NAME_MAX_LENGTH: POB_BUILD_NAME_MAX_LENGTH,
       isLoading,
       isImportOpen,
@@ -1485,22 +1263,27 @@ export default defineComponent({
       searchInputRef,
       renamingId,
       renameInput,
-      isFiltering,
-      visibleBuilds,
+      isFiltering: workspace.isFiltering,
+      visibleBuilds: workspace.visibleBuilds,
       isAllCollapsed,
-      activePreview,
-      previewAnchorEl,
-      isPreviewOpen,
-      isPreviewActive,
+      activePreview: workspace.activePreview,
+      activeEffectiveRow: workspace.activeEffectiveRow,
+      isActiveDraftModified: workspace.isActiveDraftModified,
+      previewAnchor: workspace.previewAnchor,
+      isPreviewOpen: workspace.isPreviewOpen,
+      isPreviewActive: workspace.isPreviewActive,
       togglePreview,
-      closePreview,
+      closePreview: workspace.closePreview,
       hoverPreview,
-      enterPreviewCard,
-      leavePreviewTrigger,
-      pinPreview,
+      enterPreviewCard: workspace.enterPreviewCard,
+      leavePreviewTrigger: workspace.leavePreviewTrigger,
+      pinPreview: workspace.pinPreview,
+      updateActiveDraft: workspace.updateActiveDraft,
+      saveActiveDraft,
+      discardActiveDraft: workspace.discardActiveDraft,
       searchEntryClickAction,
-      canSearch,
-      canPreview,
+      canSearch: workspace.canSearch,
+      canPreview: workspace.canPreview,
       rowTooltip,
       handleEntryPrimaryClick,
       handleEntryAuxClick,
@@ -1509,7 +1292,7 @@ export default defineComponent({
       isSettingsOpen,
       setSettingsOpen,
       isHeaderActive,
-      activePreviewDefaults,
+      activePreviewDefaults: workspace.activePreviewDefaults,
       setSearchDefaults: pob.setSearchDefaults,
       isMenuOpen,
       setMenuOpen,
@@ -1518,22 +1301,21 @@ export default defineComponent({
       showSkillSets,
       setLabel,
       activeSetLabel,
-      buildCategories,
-      activeCategory,
-      setActiveCategory,
+      buildCategories: workspace.buildCategories,
+      activeCategory: workspace.activeCategory,
+      setActiveCategory: workspace.setActiveCategory,
       categoryLabel,
-      filteredGroups,
-      listGroups,
+      listGroups: workspace.listGroups,
       VIEW_MODES,
-      viewMode,
+      viewMode: workspace.viewMode,
       setViewMode,
-      isGearView,
-      hasEquipment,
-      equipmentRows,
+      isGearView: workspace.isGearView,
+      hasEquipment: workspace.hasEquipment,
+      equipmentRows: workspace.equipmentRows,
       handleGearSelect,
       selectSocketContent,
-      isGroupCollapsed,
-      toggleGroupCollapsed,
+      isGroupCollapsed: workspace.isGroupCollapsed,
+      toggleGroupCollapsed: workspace.toggleGroupCollapsed,
       groupCountLabel,
       isGroupAllDone,
       groupTitle,
@@ -1560,7 +1342,6 @@ export default defineComponent({
       restoreRemoved: pob.restoreRemoved,
       openSearch: pob.openSearch,
       resolveSearchUrl: pob.resolveSearchUrl,
-      saveSelection: pob.saveSelection,
       resetSearch,
       setHideDone: pob.setHideDone,
       openSharePermissionPage: pob.openSharePermissionPage,
