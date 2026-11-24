@@ -71,6 +71,7 @@ export type SearchRecordCommand =
   | { type: 'set-history-enabled'; gameVersion: PoeVersion; enabled: boolean }
   | { type: 'delete-history-entry'; entryId: string }
   | { type: 'delete-history-entries'; entryIds: string[] }
+  | { type: 'clear-unbookmarked-history'; gameVersion: PoeVersion }
   | { type: 'restore-history-entry'; entry: HistoryEntry }
   | { type: 'clear-history'; gameVersion: PoeVersion }
   | {
@@ -462,6 +463,21 @@ function applyCommand(
       const idSet = new Set(command.entryIds);
       if (idSet.size === 0) return false;
       const next = state.historyEntries.filter((entry) => !idSet.has(entry.id));
+      if (next.length === state.historyEntries.length) return false;
+      state.historyEntries = next;
+      return true;
+    }
+    case 'clear-unbookmarked-history': {
+      assertGameVersion(command.gameVersion);
+      const bookmarkedIds = new Set(
+        state.bookmarkReferences
+          .filter((reference) => reference.gameVersion === command.gameVersion)
+          .map((reference) => reference.searchRecordId),
+      );
+      const next = state.historyEntries.filter(
+        (entry) =>
+          entry.gameVersion !== command.gameVersion || bookmarkedIds.has(entry.searchRecordId),
+      );
       if (next.length === state.historyEntries.length) return false;
       state.historyEntries = next;
       return true;

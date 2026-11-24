@@ -1204,6 +1204,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'history.toast.copyFailed': 'Failed to copy link',
   'history.toast.bookmarkFailed': 'Failed to add bookmark',
   'history.toast.deleted': 'Deleted "{name}"',
+  'history.toast.undoFailed': 'Failed to restore entry',
   'history.toast.clearedInvalid': 'Cleared {count} invalid entries',
   'history.toast.clearedUnbookmarked': 'Cleared {count} unbookmarked entries',
   'searchPreview.statGroup.disabled': 'Disabled',

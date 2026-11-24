@@ -44,6 +44,23 @@ vi.mock('@/utils/search-record-messaging', () => ({
           enabled: historyEnabledMock.value,
         });
       }
+      if (cmd.type === 'clear-unbookmarked-history') {
+        const bookmarkedRecordIds = new Set(
+          bookmarksMock.value.map((bm) => bm.searchRecordId).filter(Boolean),
+        );
+        const bookmarkedUrls = new Set(
+          bookmarksMock.value.map((bm) => bm.url?.replace(/\/live\/?$/i, '')).filter(Boolean),
+        );
+        historyEntriesMock.value = historyEntriesMock.value.filter(
+          (h) =>
+            (h.searchRecordId && bookmarkedRecordIds.has(h.searchRecordId)) ||
+            bookmarkedUrls.has(h.url?.replace(/\/live\/?$/i, '')),
+        );
+        onSnapshotCallback?.({
+          history: historyEntriesMock.value,
+          enabled: historyEnabledMock.value,
+        });
+      }
       if (cmd.type === 'restore-history-entry') {
         historyEntriesMock.value = [cmd.entry, ...historyEntriesMock.value].sort(
           (a, b) => (b.visitedAt ?? 0) - (a.visitedAt ?? 0),
@@ -235,10 +252,10 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       await flushPromises();
       await nextTick();
 
-      // Search input uses body font token
+      // Search input uses Input primitive (size="sm")
       const searchInput = container.querySelector('[data-history-search]') as HTMLInputElement;
       expect(searchInput).not.toBeNull();
-      expect(searchInput.className).toContain('text-[length:var(--pxd-font-body)]');
+      expect(searchInput.getAttribute('data-slot')).toBe('input');
 
       // Recording toggle & Clear All live behind the ⋮ trigger; no checkbox or red button in toolbar
       expect(container.querySelector('label[for="enable-history"]')).toBeNull();
@@ -509,6 +526,15 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       const rows = Array.from(container.querySelectorAll('.history-row-item'));
       expect(rows[0].querySelector('[data-test="history-bookmarked-indicator"]')).not.toBeNull();
       expect(rows[1].querySelector('[data-test="history-bookmarked-indicator"]')).toBeNull();
+
+      // Already-bookmarked row disables add button to prevent duplicate bookmark creation
+      const bookmarkedBtn = rows[0].querySelector(
+        '[data-test="history-bookmark-add"]',
+      ) as HTMLButtonElement;
+      expect(bookmarkedBtn.disabled).toBe(true);
+      bookmarkedBtn.click();
+      await flushPromises();
+      expect(putBookmarkMock).toHaveBeenCalledTimes(0);
 
       // Clicking save bookmark on the second entry saves directly into the single folder
       const addBtn = rows[1].querySelector(

@@ -19,8 +19,6 @@ export interface HistoryTimeGroup {
   entries: HistoryEntry[];
 }
 
-const MS_PER_DAY = 86_400_000;
-
 export function isLiveTradeSearchUrl(urlValue: string): boolean {
   if (typeof urlValue !== 'string' || !urlValue) return false;
   try {
@@ -78,8 +76,8 @@ export function groupHistoryEntriesByTime(
 ): HistoryTimeGroup[] {
   const now = new Date(nowMs);
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startOfYesterday = startOfToday - MS_PER_DAY;
-  const startOfLast7Days = startOfToday - 6 * MS_PER_DAY;
+  const startOfYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime();
+  const startOfLast7Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6).getTime();
 
   const buckets: Record<HistoryTimeGroupKey, HistoryEntry[]> = {
     today: [],

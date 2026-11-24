@@ -5,26 +5,24 @@
       <div
         class="flex items-center justify-between gap-[var(--pxd-space-sm)] pb-[var(--pxd-space-md)] w-full min-w-0"
       >
-        <div
-          class="flex flex-1 min-w-0 items-center h-[var(--control-height-sm)] rounded-md border border-input bg-transparent px-[var(--input-padding-x-sm)] gap-[var(--pxd-space-sm)] focus-within:ring-1 focus-within:ring-ring"
-        >
+        <div class="relative flex flex-1 min-w-0 items-center">
           <Search
-            class="shrink-0 size-[var(--control-icon-sm,14px)] text-muted-foreground pointer-events-none"
+            class="pointer-events-none absolute left-[var(--input-padding-x-sm)] size-[var(--control-icon-sm,14px)] text-muted-foreground"
           />
-          <input
+          <Input
             v-model="searchQuery"
-            type="text"
+            size="sm"
             :placeholder="t('history.search.placeholder')"
             :aria-label="t('history.search.placeholder')"
             data-history-search
-            class="min-w-0 flex-1 bg-transparent border-0 p-0 text-[length:var(--pxd-font-body)] text-foreground placeholder:text-muted-foreground focus:outline-none"
+            class="w-full pl-[var(--control-height-sm)] pr-[var(--control-height-sm)]"
             @keydown.esc.stop.prevent="searchQuery = ''"
           />
           <Button
             v-if="searchQuery"
             variant="ghost"
             size="icon-sm"
-            class="shrink-0 -mr-[var(--pxd-space-xs)]"
+            class="absolute right-0"
             data-history-search-clear
             :title="t('common.clearSearch')"
             :aria-label="t('common.clearSearch')"
@@ -70,7 +68,7 @@
             </DropdownMenuItem>
             <DropdownMenuItem
               data-history-action="clear-unbookmarked"
-              :disabled="unbookmarkedHistoryEntries.length === 0"
+              :disabled="!bookmarksLoaded || unbookmarkedHistoryEntries.length === 0"
               @click="clearUnbookmarkedHistory"
             >
               <Trash2 class="text-muted-foreground" />
@@ -207,7 +205,7 @@
                 <span
                   v-if="getOtherLeague(h)"
                   data-test="history-league-badge"
-                  class="shrink-0 max-w-20 truncate rounded-sm bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
+                  class="shrink-0 max-w-[7.5em] truncate rounded-sm bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
                   :title="t('history.row.otherLeagueTooltip', { league: getOtherLeague(h) ?? '' })"
                 >
                   {{ getOtherLeague(h) }}
@@ -270,27 +268,20 @@
                 >
                   <ExternalLink />
                 </Button>
-                <DropdownMenu v-if="flattenedBookmarkFolders.length > 1">
+                <DropdownMenu v-if="flattenedBookmarkFolders.length > 1 && !isBookmarked(h)">
                   <DropdownMenuTrigger as-child>
                     <Button
                       variant="ghost"
                       size="icon-sm"
                       :disabled="isLegacyTradeSearchUrl(h.url)"
-                      :class="isBookmarked(h) ? 'text-primary' : undefined"
-                      :title="
-                        isBookmarked(h) ? t('history.row.bookmarked') : t('common.addToBookmarks')
-                      "
+                      :title="t('common.addToBookmarks')"
                       data-test="history-bookmark-picker"
                       @click.stop
                     >
-                      <BookmarkCheck v-if="isBookmarked(h)" />
-                      <BookmarkPlus v-else />
+                      <BookmarkPlus />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    class="w-[var(--pxd-menu-sub-width,192px)] max-h-[var(--pxd-menu-max-height,240px)] overflow-y-auto pxd-scrollbar"
-                  >
+                  <DropdownMenuContent align="end" class="w-[var(--pxd-menu-sub-width,192px)]">
                     <DropdownMenuItem
                       v-for="item in flattenedBookmarkFolders"
                       :key="item.folder.id"
@@ -317,7 +308,7 @@
                   v-else
                   variant="ghost"
                   size="icon-sm"
-                  :disabled="isLegacyTradeSearchUrl(h.url)"
+                  :disabled="isLegacyTradeSearchUrl(h.url) || isBookmarked(h)"
                   :class="isBookmarked(h) ? 'text-primary' : undefined"
                   :title="
                     isBookmarked(h) ? t('history.row.bookmarked') : t('common.addToBookmarks')
@@ -388,6 +379,7 @@
 <script lang="ts">
 import { computed, defineComponent, reactive, ref, watch, onMounted, onUnmounted } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import {
   DropdownMenu,
@@ -416,7 +408,11 @@ import {
 } from '@lucide/vue';
 import { getPoeVersion } from '@/utils/trade-context';
 import { createChromeSearchRecordClient } from '@/utils/search-record-messaging';
-import { MAX_HISTORY_ENTRIES, type HistoryEntry } from '@/utils/search-records';
+import {
+  MAX_HISTORY_ENTRIES,
+  type HistoryEntry,
+  type SearchRecordCommand,
+} from '@/utils/search-records';
 import { createHistoryDomainFeed } from './history-domain-feed';
 import {
   deriveHistoryCriteriaHint,
@@ -462,6 +458,7 @@ export default defineComponent({
     SidebarEmptyState,
     SidebarFilterEmptyState,
     Button,
+    Input,
     Separator,
     ArrowRight,
     BookmarkCheck,
@@ -485,6 +482,7 @@ export default defineComponent({
     const searchQuery = ref('');
     const bookmarks = ref<BookmarkViewItem[]>([]);
     const bookmarkGroups = ref<BookmarkCollectionGroup[]>([]);
+    const bookmarksLoaded = ref(false);
     const sidebarPosition = ref<'left' | 'right'>('left');
     const searchEntryClickAction = ref<SearchEntryClickAction>(
       DEFAULT_PREFERENCES.searchEntryClickAction,
@@ -517,6 +515,12 @@ export default defineComponent({
     const flattenedBookmarkFolders = computed(() => getFlattenedFolderTree(bookmarkGroups.value));
 
     const findMatchedBookmark = (h: HistoryEntry) => {
+      if (h.searchRecordId) {
+        const byRecordId = bookmarks.value.find(
+          (bm) => bm && bm.searchRecordId && bm.searchRecordId === h.searchRecordId,
+        );
+        if (byRecordId) return byRecordId;
+      }
       const cleanHUrl = stripLiveSuffix(h.url);
       return bookmarks.value.find((bm) => bm && stripLiveSuffix(bm.url) === cleanHUrl);
     };
@@ -642,6 +646,7 @@ export default defineComponent({
       if (result.ok) {
         bookmarks.value = result.value.bookmarks ?? [];
         bookmarkGroups.value = result.value.groups ?? [];
+        bookmarksLoaded.value = true;
       }
     };
 
@@ -702,7 +707,7 @@ export default defineComponent({
     };
 
     const saveHistoryToBookmark = async (h: HistoryEntry, explicitGroupId?: string) => {
-      if (isLegacyTradeSearchUrl(h.url)) return;
+      if (isLegacyTradeSearchUrl(h.url) || isBookmarked(h)) return;
       let targetGroupId = explicitGroupId;
       if (!targetGroupId) {
         if (bookmarkGroups.value.length > 0) {
@@ -761,7 +766,7 @@ export default defineComponent({
         console.error('[PoeXD] 刪除歷史失敗:', outcome.error);
         return;
       }
-      if (target) {
+      if (target && !isUnmounted) {
         clearPendingUndo();
         pendingUndoEntry.value = { ...target };
         undoTimer = setTimeout(() => {
@@ -785,38 +790,49 @@ export default defineComponent({
       await domainFeed.refresh();
       if (!outcome.ok) {
         console.error('[PoeXD] 復原歷史失敗:', outcome.error);
+        showToast(t('history.toast.undoFailed'), 'error');
       }
+    };
+
+    const runBulkCleanup = async (
+      command: SearchRecordCommand,
+      successMessage: string,
+      errorLabel: string,
+    ) => {
+      clearPendingUndo();
+      const outcome = await client.execute(command);
+      await domainFeed.refresh();
+      if (!outcome.ok) {
+        console.error(`[PoeXD] ${errorLabel}:`, outcome.error);
+        return;
+      }
+      showToast(successMessage);
     };
 
     const clearInvalidHistory = async () => {
       const entryIds = invalidHistoryEntries.value.map((h) => h.id);
       if (entryIds.length === 0) return;
-      clearPendingUndo();
-      const outcome = await client.execute({ type: 'delete-history-entries', entryIds });
-      await domainFeed.refresh();
-      if (!outcome.ok) {
-        console.error('[PoeXD] 清除無效歷史失敗:', outcome.error);
-        return;
-      }
-      showToast(t('history.toast.clearedInvalid', { count: entryIds.length }));
+      await runBulkCleanup(
+        { type: 'delete-history-entries', entryIds },
+        t('history.toast.clearedInvalid', { count: entryIds.length }),
+        '清除無效歷史失敗',
+      );
     };
 
     const clearUnbookmarkedHistory = async () => {
-      const entryIds = unbookmarkedHistoryEntries.value.map((h) => h.id);
-      if (entryIds.length === 0) return;
+      if (!bookmarksLoaded.value) return;
+      const count = unbookmarkedHistoryEntries.value.length;
+      if (count === 0) return;
       const confirmed = await (window as any).poexdConfirm?.(
-        t('history.dialog.clearUnbookmarkedConfirm', { count: entryIds.length }),
+        t('history.dialog.clearUnbookmarkedConfirm', { count }),
         t('history.dialog.clearUnbookmarkedTitle'),
       );
       if (!confirmed) return;
-      clearPendingUndo();
-      const outcome = await client.execute({ type: 'delete-history-entries', entryIds });
-      await domainFeed.refresh();
-      if (!outcome.ok) {
-        console.error('[PoeXD] 清除未收藏歷史失敗:', outcome.error);
-        return;
-      }
-      showToast(t('history.toast.clearedUnbookmarked', { count: entryIds.length }));
+      await runBulkCleanup(
+        { type: 'clear-unbookmarked-history', gameVersion: version },
+        t('history.toast.clearedUnbookmarked', { count }),
+        '清除未收藏歷史失敗',
+      );
     };
 
     const clearAllHistory = async () => {
@@ -880,6 +896,7 @@ export default defineComponent({
       groupedHistory,
       invalidHistoryEntries,
       unbookmarkedHistoryEntries,
+      bookmarksLoaded,
       maxHistoryEntries: MAX_HISTORY_ENTRIES,
       searchQuery,
       trimmedSearchQuery,

@@ -203,4 +203,42 @@ describe('restore-history-entry command', () => {
     expect(after.ok && after.value).toHaveLength(1);
     expect(after.ok && after.value[0].name).toBe('Entry one');
   });
+
+  it('clears only unbookmarked history entries atomically using state.bookmarkReferences', async () => {
+    const storage = createInMemorySearchRecordStorage();
+    const mod = createSearchRecordModule(storage);
+    await mod.initialize();
+
+    const bookmarkedUrl = 'https://www.pathofexile.com/trade/search/Standard/H4sIkeep';
+    const unbookmarkedUrl = 'https://www.pathofexile.com/trade/search/Standard/H4sIdrop';
+
+    await mod.execute({
+      type: 'record-history',
+      identity: { gameVersion: 'poe1', url: bookmarkedUrl },
+      entry: { name: 'Bookmarked Entry', url: bookmarkedUrl },
+    });
+    await mod.execute({
+      type: 'record-history',
+      identity: { gameVersion: 'poe1', url: unbookmarkedUrl },
+      entry: { name: 'Unbookmarked Entry', url: unbookmarkedUrl },
+    });
+    await mod.execute({
+      type: 'put-bookmark-reference',
+      bookmark: {
+        id: 'bm-1',
+        identity: { gameVersion: 'poe1', url: bookmarkedUrl },
+        url: bookmarkedUrl,
+      },
+    });
+
+    const outcome = await mod.execute({
+      type: 'clear-unbookmarked-history',
+      gameVersion: 'poe1',
+    });
+    expect(outcome.ok && outcome.changed).toBe(true);
+
+    const after = await mod.read({ type: 'get-history-view', gameVersion: 'poe1' });
+    expect(after.ok && after.value).toHaveLength(1);
+    expect(after.ok && after.value[0].name).toBe('Bookmarked Entry');
+  });
 });

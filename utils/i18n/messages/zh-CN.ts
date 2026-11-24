@@ -1133,6 +1133,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'history.toast.copyFailed': '复制链接失败',
   'history.toast.bookmarkFailed': '加入书签失败',
   'history.toast.deleted': '已删除「{name}」',
+  'history.toast.undoFailed': '撤销记录失败',
   'history.toast.clearedInvalid': '已清除 {count} 条无效记录',
   'history.toast.clearedUnbookmarked': '已清除 {count} 条未收藏记录',
   'searchPreview.statGroup.disabled': '停用',

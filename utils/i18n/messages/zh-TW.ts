@@ -1131,6 +1131,7 @@ export const ZH_TW_MESSAGES = {
   'history.toast.copyFailed': '複製連結失敗',
   'history.toast.bookmarkFailed': '加入書籤失敗',
   'history.toast.deleted': '已刪除「{name}」',
+  'history.toast.undoFailed': '復原紀錄失敗',
   'history.toast.clearedInvalid': '已清除 {count} 筆無效紀錄',
   'history.toast.clearedUnbookmarked': '已清除 {count} 筆未收藏紀錄',
   'searchPreview.statGroup.disabled': '停用',
