@@ -1049,4 +1049,52 @@ Implicits: 0
       'explicit.stat_809229260',
     ]);
   });
+
+  it('副手盾牌僅防禦為 Local、箭袋全為全域代碼', () => {
+    const offhandXml = `<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+	<Build level="90"/>
+	<Items activeItemSet="1">
+		<Item id="1">
+			Rarity: RARE
+Viper Ward
+Titanium Spirit Shield
+EnergyShieldBasePercentile: 1
+Implicits: 0
+10% increased Attack Speed
++100 to maximum Energy Shield
+		</Item>
+		<Item id="2">
+			Rarity: RARE
+Bramble Quiver
+Broadhead Arrow Quiver
+Implicits: 0
+10% increased Attack Speed
++489 to Accuracy Rating
+		</Item>
+		<ItemSet id="1">
+			<Slot itemId="1" name="Weapon 2"/>
+			<Slot itemId="2" name="Weapon 2 Swap"/>
+		</ItemSet>
+	</Items>
+</PathOfBuilding>`;
+    const offhandList = buildShoppingList(
+      parsePobBuildXml(offhandXml),
+      createTradeNameCatalog({
+        englishItems: ['Titanium Spirit Shield', 'Broadhead Arrow Quiver'],
+      }),
+      {},
+      localMatcher,
+    );
+    const of = (label: string) =>
+      offhandList.find((entry) => entry.label === label)!.mods!.map((mod) => mod.stat?.id);
+    expect(of('Titanium Spirit Shield')).toEqual([
+      'explicit.stat_681332047',
+      'explicit.stat_4052037485',
+    ]);
+    expect(of('Broadhead Arrow Quiver')).toEqual([
+      'explicit.stat_681332047',
+      'explicit.stat_803737631',
+    ]);
+  });
 });

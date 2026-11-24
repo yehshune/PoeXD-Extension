@@ -150,7 +150,7 @@ const STATUS_LINES = new Set([
 ]);
 const JEWEL_SLOT = 'Jewel';
 const CORRUPTED_LINES = new Set(['Corrupted', 'Twice Corrupted']);
-const FOULBORN_NAME = /^Foulborn\s+/;
+export const FOULBORN_NAME = /^Foulborn\s+/;
 /** PoE 2 插槽內容物：`Rune: Thrud's Might`（靈魂核心、護符偶像也用同一個欄位） */
 const RUNE_LINE = /^Rune:\s*(.+)$/;
 const MAX_SOCKETED = 6;
@@ -442,8 +442,9 @@ function withVisceraBundle(sets: PobItemSet[], bundle: PobBuildItem | undefined)
 const NOT_AN_ITEM_GEM = /\/SkillGem(?:PlayerDefault|Ascendancy)/;
 
 /** 連線裡第一顆主動技能的名稱（含武器預設技能這類不列入清單的技能） */
-function activeSkillName(skill: Element): string {
+function activeSkillName(skill: Element, includeDisabled: boolean): string {
   const active = children(skill, 'Gem').find((gem) => {
+    if (!includeDisabled && gem.getAttribute('enabled') === 'false') return false;
     const gemId = gem.getAttribute('gemId') ?? '';
     return /\/SkillGem/.test(gemId) && !/Ascendancy/.test(gemId);
   });
@@ -482,7 +483,7 @@ function parseGems(skillSet: Element, version: PoeVersion): PobBuildGem[] {
     // 主動技能是武器預設技能（不列入）時，連線仍以它命名，不改用輔助寶石的名字
     const skillName =
       clip(skill.getAttribute('label')) ||
-      activeSkillName(skill) ||
+      activeSkillName(skill, Boolean(slot)) ||
       (linked.find((gem) => !gem.support) ?? linked[0])?.name ||
       '';
     // PoE 2 的輔助寶石插在技能寶石上：連了幾顆，技能寶石就至少要有幾個插槽

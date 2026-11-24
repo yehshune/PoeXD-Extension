@@ -34,7 +34,7 @@ const CATEGORY_BY_SLOT: Readonly<Record<string, string>> = {
   Belt: 'accessory.belt',
 };
 const RING_SLOT = /^Ring \d+$/;
-const OFF_HAND_SLOT = /^Weapon 2(?: Swap)?$/;
+export const OFF_HAND_SLOT = /^Weapon 2(?: Swap)?$/;
 
 const DEFENCES_BY_SECTION: Readonly<Record<DefenceSection, readonly PobDefence[]>> = {
   armour_filters: ['ar', 'ev', 'es', 'ward'],

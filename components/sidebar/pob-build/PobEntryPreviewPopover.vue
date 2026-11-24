@@ -203,11 +203,25 @@ const GEM_BOUND_MAX = {
 
 /** 寶石等級／品質／插槽數下限：空白為不限 */
 function commitGemBound(field: keyof typeof GEM_BOUND_MAX, event: Event): void {
-  const raw = (event.target as HTMLInputElement).value.trim();
+  const input = event.target as HTMLInputElement;
+  const row = effectiveRow.value;
+  if (!row || row.searchOverride) return;
+  const currentValue =
+    field === 'gemLevel'
+      ? row.gemLevelMin
+      : field === 'gemQuality'
+        ? row.gemQualityMin
+        : row.gemSocketsMin;
+  const raw = input.value.trim();
   const max = GEM_BOUND_MAX[field];
   const value = raw === '' ? null : Math.floor(Number(raw));
-  if (value !== null && (!Number.isFinite(value) || value < 0 || value > max)) return;
-  mutateDraft((draft) => ({ ...draft, [field]: value === 0 ? null : value }));
+  if (value !== null && (!Number.isFinite(value) || value < 0 || value > max)) {
+    input.value = currentValue === undefined ? '' : String(currentValue);
+    return;
+  }
+  const next = value === 0 ? null : value;
+  input.value = next === null ? '' : String(next);
+  mutateDraft((draft) => ({ ...draft, [field]: next }));
 }
 
 const isDraftModified = computed(() =>
@@ -362,8 +376,14 @@ function toggleCountMode(on: boolean): void {
 }
 
 function commitCountMin(event: Event): void {
-  const value = Math.floor(Number((event.target as HTMLInputElement).value));
-  if (!Number.isFinite(value) || value < 1) return;
+  const input = event.target as HTMLInputElement;
+  const value = Math.floor(Number(input.value));
+  if (!Number.isFinite(value) || value < 1) {
+    const current = effectiveRow.value?.countMin;
+    input.value = current === undefined ? '' : String(current);
+    return;
+  }
+  input.value = String(value);
   mutateDraft((draft) => ({ ...draft, countMin: value }));
 }
 
@@ -442,6 +462,14 @@ function handleResetSearch(): void {
   draftSelection.value = null;
   emit('reset-search');
 }
+
+function clearDraft(buildId: string, rowKey: string): void {
+  const key = `${buildId}\u0000${rowKey}`;
+  draftsByTarget.delete(key);
+  if (key === currentTargetKey()) draftSelection.value = null;
+}
+
+defineExpose({ clearDraft });
 </script>
 
 <template>
@@ -475,7 +503,7 @@ function handleResetSearch(): void {
         :class="PREVIEW_TOOLBAR_CLASS"
       >
         <Button
-          v-if="effectiveRow.query"
+          v-if="canSearch"
           variant="secondary"
           size="sm"
           class="border-transparent px-[var(--pxd-space-sm)] shadow-none"
@@ -487,7 +515,7 @@ function handleResetSearch(): void {
           {{ t('pobBuild.searchCurrentBtn') }}
         </Button>
         <Button
-          v-if="effectiveRow.query"
+          v-if="canSearch"
           variant="ghost"
           size="icon-sm"
           class="shrink-0 text-foreground/80"
@@ -614,6 +642,7 @@ function handleResetSearch(): void {
               :max="MAX_GEM_LEVEL"
               step="1"
               data-pob-build-gem-level
+              :disabled="effectiveRow.searchOverride"
               :class="PREVIEW_BOUND_INPUT_CLASS"
               :placeholder="t('pobBuild.gemFilters.any')"
               :model-value="effectiveRow.gemLevelMin ?? ''"
@@ -636,6 +665,7 @@ function handleResetSearch(): void {
               :max="MAX_GEM_QUALITY"
               step="1"
               data-pob-build-gem-quality
+              :disabled="effectiveRow.searchOverride"
               :class="PREVIEW_BOUND_INPUT_CLASS"
               :placeholder="t('pobBuild.gemFilters.any')"
               :model-value="effectiveRow.gemQualityMin ?? ''"
@@ -660,6 +690,7 @@ function handleResetSearch(): void {
                 :max="MAX_GEM_SOCKETS"
                 step="1"
                 data-pob-build-gem-sockets
+                :disabled="effectiveRow.searchOverride"
                 :class="PREVIEW_BOUND_INPUT_CLASS"
                 :placeholder="t('pobBuild.gemFilters.any')"
                 :model-value="effectiveRow.gemSocketsMin ?? ''"

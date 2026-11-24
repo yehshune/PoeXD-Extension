@@ -210,6 +210,8 @@
   --pxd-rarity-gem: oklch(0.7 0.1 190);
   --pxd-rarity-currency: oklch(0.74 0.06 82);
   --pxd-rarity-divination: oklch(0.72 0.12 225);
+  --pxd-foulborn: oklch(0.68 0.2 305);
+  --pxd-corrupted: oklch(0.62 0.22 27);
 }
 
 :host([data-poexd-theme='modern-dark']),
@@ -526,6 +528,8 @@
   --pxd-rarity-gem: oklch(0.45 0.115 190);
   --pxd-rarity-currency: oklch(0.48 0.085 75);
   --pxd-rarity-divination: oklch(0.46 0.14 230);
+  --pxd-foulborn: oklch(0.47 0.2 305);
+  --pxd-corrupted: oklch(0.5 0.22 27);
 }
 
 /* PoeXD 統一自訂 Native Scrollbar: Chromium 使用 ::-webkit-scrollbar-* 完整控制（不設 scrollbar-width/color 避免 Chromium 忽略 webkit 滾動條而顯示 Windows 箭頭） */

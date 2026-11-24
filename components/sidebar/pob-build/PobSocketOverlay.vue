@@ -29,7 +29,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   /** 點有內容物的插槽（不會再觸發外層格子的點擊） */
-  selectContent: [content: SocketContent, event: MouseEvent];
+  selectContent: [content: SocketContent, event: Event];
 }>();
 
 const CELL = 10;
@@ -89,7 +89,7 @@ const COLOR_CLASS: Readonly<Record<SocketColor, string>> = {
 
 const contentAt = (index: number) => props.contents?.[index] ?? undefined;
 
-const select = (index: number, event: MouseEvent) => {
+const select = (index: number, event: Event) => {
   const content = contentAt(index);
   if (!content) return;
   event.stopPropagation();
@@ -104,7 +104,7 @@ const hovered = ref<number | null>(null);
 const boundary = ref<Element | null>(null);
 const SCROLL_VIEWPORT = '[data-reka-scroll-area-viewport]';
 
-const enter = (index: number, event: MouseEvent) => {
+const enter = (index: number, event: Event) => {
   boundary.value = (event.currentTarget as HTMLElement).closest(SCROLL_VIEWPORT);
   hovered.value = contentAt(index) ? index : null;
 };
@@ -147,12 +147,19 @@ const leave = (index: number) => {
         <span
           :data-socket-color="socket.color"
           :data-socket-filled="contentAt(index) ? 'true' : undefined"
+          :role="contentAt(index) ? 'button' : undefined"
+          :tabindex="contentAt(index) ? 0 : undefined"
+          :aria-label="contentAt(index)?.label"
           class="pxd-socket"
           :class="[COLOR_CLASS[socket.color], { 'is-filled': contentAt(index) }]"
           :style="socketStyle(index)"
           @mouseenter="enter(index, $event)"
           @mouseleave="leave(index)"
+          @focus="enter(index, $event)"
+          @blur="leave(index)"
           @click="select(index, $event)"
+          @keydown.enter.stop.prevent="select(index, $event)"
+          @keydown.space.stop.prevent="select(index, $event)"
         >
           <PobItemImage
             v-if="contentAt(index)?.icon"

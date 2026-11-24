@@ -412,6 +412,7 @@
               @leave="leavePreviewTrigger"
               @toggle-done="(key) => toggleDone(build.id, key)"
               @select-content="(content, event) => selectSocketContent(build, content, event)"
+              @weapon-set-change="closePreview"
             />
 
             <p
@@ -540,13 +541,13 @@
                         <span
                           v-if="row.foulborn"
                           data-pob-build-foulborn
-                          class="shrink-0 text-[length:var(--pxd-font-caption)] font-semibold text-[oklch(0.68_0.2_305)]"
+                          class="shrink-0 text-[length:var(--pxd-font-caption)] font-semibold text-[var(--pxd-foulborn)]"
                           >{{ t('pobBuild.foulborn') }}</span
                         >
                         <span
                           v-if="row.corrupted"
                           data-pob-build-corrupted
-                          class="shrink-0 text-[length:var(--pxd-font-caption)] font-semibold text-[oklch(0.62_0.22_27)]"
+                          class="shrink-0 text-[length:var(--pxd-font-caption)] font-semibold text-[var(--pxd-corrupted)]"
                           >{{ t('pobBuild.corrupted') }}</span
                         >
                         <span
@@ -761,6 +762,7 @@
       </p>
 
       <PobEntryPreviewPopover
+        ref="previewPopoverRef"
         :open="isPreviewOpen"
         :side="sidebarPosition === 'left' ? 'right' : 'left'"
         :reference="previewAnchorEl"
@@ -970,6 +972,9 @@ export default defineComponent({
     const searchQuery = ref('');
     const debouncedSearchQuery = useDebouncedRef(searchQuery);
     const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
+    const previewPopoverRef = ref<{ clearDraft: (buildId: string, rowKey: string) => void } | null>(
+      null,
+    );
     const renamingId = ref<string | null>(null);
     const renameInput = ref('');
     /** 目前在右側 Popover 檢視／調整詞綴的項目 */
@@ -1029,7 +1034,9 @@ export default defineComponent({
     const canSearch = (row: ShoppingRow) => row.searchOverride || row.query !== null;
     /** 有詞綴、存回搜尋，或是可以搜尋的寶石（調整等級／品質）時才提供預覽／微調彈窗 */
     const canPreview = (row: ShoppingRow) =>
-      row.kind === 'gem' ? row.query !== null : Boolean(row.mods?.length || row.searchOverride);
+      row.kind === 'gem'
+        ? Boolean(row.query !== null || row.searchOverride)
+        : Boolean(row.mods?.length || row.searchOverride);
 
     const showSkillSets = (build: BuildView) => build.skillSetOptions.length > 1;
 
@@ -1118,6 +1125,7 @@ export default defineComponent({
     const setViewMode = (buildId: string, value: unknown) => {
       // ToggleGroup 再點一次已選的項目會送出空值，維持原選擇
       if (value !== 'list' && value !== 'gear') return;
+      if (activePreviewTarget.value?.buildId === buildId) closePreview();
       viewModeByBuild.value = { ...viewModeByBuild.value, [buildId]: value };
     };
 
@@ -1283,6 +1291,11 @@ export default defineComponent({
       }
     });
 
+    // 進入或離開搜尋過濾時，裝備欄與清單檢視會互換、原錨點脫離 DOM，先收合預覽
+    watch(isFiltering, () => {
+      if (activePreviewTarget.value) closePreview();
+    });
+
     const isPreviewActive = (buildId: string, key: string) =>
       activePreview.value?.buildId === buildId && activePreview.value?.row.key === key;
 
@@ -1307,8 +1320,8 @@ export default defineComponent({
      * 裝備欄的格子：滑鼠移入稍停就開預覽，點擊則開關預覽（固定開著）；Ctrl／⌘ 點擊開新分頁搜尋。
      * 沒有可調的條件時點擊直接搜尋
      */
-    const handleGearSelect = (buildId: string, row: ShoppingRow, event: MouseEvent) => {
-      if (canSearch(row) && (event.ctrlKey || event.metaKey)) {
+    const handleGearSelect = (buildId: string, row: ShoppingRow, event: Event) => {
+      if (canSearch(row) && event instanceof MouseEvent && (event.ctrlKey || event.metaKey)) {
         pob.openSearch(buildId, row, 'new-tab');
         return;
       }
@@ -1317,7 +1330,7 @@ export default defineComponent({
     };
 
     /** 點裝備插槽裡的寶石或深淵珠寶：開關它的設定框，位置對齊所在的裝備格 */
-    const selectSocketContent = (build: BuildView, content: SocketContent, event: MouseEvent) => {
+    const selectSocketContent = (build: BuildView, content: SocketContent, event: Event) => {
       const key = content.rowKey;
       if (!key) return;
       const row = build.groups.flatMap((group) => group.rows).find((entry) => entry.key === key);
@@ -1450,8 +1463,19 @@ export default defineComponent({
       pob.dispose();
     });
 
+    const resetSearch = (buildId: string, key: string) => {
+      previewPopoverRef.value?.clearDraft(buildId, key);
+      pob.resetSearch(buildId, key);
+    };
+
+    const saveCurrentSearch = (buildId: string, row: ShoppingRow) => {
+      previewPopoverRef.value?.clearDraft(buildId, row.key);
+      pob.saveCurrentSearch(buildId, row);
+    };
+
     return {
       t,
+      previewPopoverRef,
       NAME_MAX_LENGTH: POB_BUILD_NAME_MAX_LENGTH,
       isLoading,
       isImportOpen,
@@ -1537,12 +1561,12 @@ export default defineComponent({
       openSearch: pob.openSearch,
       resolveSearchUrl: pob.resolveSearchUrl,
       saveSelection: pob.saveSelection,
-      resetSearch: pob.resetSearch,
+      resetSearch,
       setHideDone: pob.setHideDone,
       openSharePermissionPage: pob.openSharePermissionPage,
       sendToLiveSearch: pob.sendToLiveSearch,
       openLiveSearch: pob.openLiveSearch,
-      saveCurrentSearch: pob.saveCurrentSearch,
+      saveCurrentSearch,
       addToBookmarks: pob.addToBookmarks,
       addToNewBuildFolder: pob.addToNewBuildFolder,
     };

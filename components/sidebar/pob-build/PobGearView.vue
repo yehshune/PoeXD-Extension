@@ -26,13 +26,15 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  select: [row: ShoppingRow, event: MouseEvent];
+  select: [row: ShoppingRow, event: Event];
   /** 滑鼠移入／移出有物品的格子（開關預覽） */
   hover: [row: ShoppingRow, event: MouseEvent];
   leave: [];
   toggleDone: [key: string];
   /** 點插槽裡的寶石（開該寶石的設定框） */
-  selectContent: [content: SocketContent, event: MouseEvent];
+  selectContent: [content: SocketContent, event: Event];
+  /** 切換主副武器組（通知外層關閉已開啟的預覽，避免錨點脫離 DOM） */
+  weaponSetChange: [];
 }>();
 
 const showSwap = ref(false);
@@ -106,7 +108,11 @@ const tileTitle = (row: ShoppingRow) =>
     .join(' · ');
 
 const onWeaponSetChange = (value: unknown) => {
-  if (value === '1' || value === '2') showSwap.value = value === '2';
+  if (value !== '1' && value !== '2') return;
+  const next = value === '2';
+  if (next === showSwap.value) return;
+  showSwap.value = next;
+  emit('weaponSetChange');
 };
 
 /**
@@ -148,14 +154,14 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
             <ToggleGroupItem
               value="1"
               data-pob-build-gear-swap
-              class="px-[var(--pxd-space-sm)] font-bold"
+              class="px-[var(--button-padding-x-sm)] font-bold"
             >
               I
             </ToggleGroupItem>
             <ToggleGroupItem
               value="2"
               data-pob-build-gear-swap
-              class="px-[var(--pxd-space-sm)] font-bold"
+              class="px-[var(--button-padding-x-sm)] font-bold"
             >
               II
             </ToggleGroupItem>
@@ -165,9 +171,9 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
 
       <div data-pob-build-gear-grid class="pxd-gear-grid">
         <template v-for="{ id, cell, row } in cells" :key="id">
-          <component
-            :is="row ? 'button' : 'div'"
-            :type="row ? 'button' : undefined"
+          <div
+            :role="row ? 'button' : undefined"
+            :tabindex="row ? 0 : undefined"
             :data-pob-build-gear-tile="row ? id : undefined"
             :data-pob-build-gear-empty="row ? undefined : id"
             :data-done="row?.done ? 'true' : undefined"
@@ -186,6 +192,8 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
               gridRow: `${cell.row} / span ${cell.height}`,
             }"
             @click="row && emit('select', row, $event)"
+            @keydown.enter.self.prevent="row && emit('select', row, $event)"
+            @keydown.space.self.prevent="row && emit('select', row, $event)"
             @mouseenter="row && emit('hover', row, $event)"
             @mouseleave="row && emit('leave')"
           >
@@ -228,26 +236,23 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
             />
             <Checkbox
               v-if="row"
-              as="span"
-              tabindex="0"
               :model-value="row.done"
               data-pob-build-gear-done
               :aria-label="t('pobBuild.doneAria', { name: row.label })"
               class="pxd-gear-tile__check"
               @click.stop
-              @keydown.space.stop
-              @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
               @update:model-value="emit('toggleDone', row.key)"
             />
-          </component>
+          </div>
         </template>
       </div>
 
       <div v-if="hasFlasks" data-pob-build-gear-flasks class="pxd-gear-row pxd-gear-row--flasks">
         <template v-for="(row, index) in layout.flasks" :key="index">
-          <button
+          <div
             v-if="row"
-            type="button"
+            role="button"
+            tabindex="0"
             data-pob-build-gear-tile="flask"
             :data-done="row.done ? 'true' : undefined"
             :aria-pressed="activeKey === row.key"
@@ -258,6 +263,8 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
               { 'is-active': activeKey === row.key, 'pxd-gear-tile--corrupted': row.corrupted },
             ]"
             @click="emit('select', row, $event)"
+            @keydown.enter.self.prevent="emit('select', row, $event)"
+            @keydown.space.self.prevent="emit('select', row, $event)"
             @mouseenter="emit('hover', row, $event)"
             @mouseleave="emit('leave')"
           >
@@ -271,7 +278,12 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
               :foulborn="row.foulborn && !row.iconFoulborn"
             />
             <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
-            <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
+            <span
+              v-if="row.searchCustomized"
+              data-pob-build-gear-customized
+              class="pxd-gear-tile__dot"
+              :aria-label="t('pobBuild.customizedTitle')"
+            />
             <span
               v-if="row.corrupted"
               data-pob-build-gear-corrupted
@@ -279,18 +291,14 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
               :aria-label="t('pobBuild.corrupted')"
             />
             <Checkbox
-              as="span"
-              tabindex="0"
               :model-value="row.done"
               data-pob-build-gear-done
               :aria-label="t('pobBuild.doneAria', { name: row.label })"
               class="pxd-gear-tile__check"
               @click.stop
-              @keydown.space.stop
-              @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
               @update:model-value="emit('toggleDone', row.key)"
             />
-          </button>
+          </div>
           <div
             v-else
             data-pob-build-gear-empty="flask"
@@ -310,10 +318,11 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
           {{ t(section.label) }}
         </h5>
         <div class="pxd-gear-row">
-          <button
+          <div
             v-for="row in section.rows"
             :key="row.key"
-            type="button"
+            role="button"
+            tabindex="0"
             :data-pob-build-gear-tile="section.id"
             :data-done="row.done ? 'true' : undefined"
             :aria-pressed="activeKey === row.key"
@@ -324,6 +333,8 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
               { 'is-active': activeKey === row.key, 'pxd-gear-tile--corrupted': row.corrupted },
             ]"
             @click="emit('select', row, $event)"
+            @keydown.enter.self.prevent="emit('select', row, $event)"
+            @keydown.space.self.prevent="emit('select', row, $event)"
             @mouseenter="emit('hover', row, $event)"
             @mouseleave="emit('leave')"
           >
@@ -338,7 +349,12 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
             />
             <span v-else class="pxd-gear-tile__name">{{ row.label }}</span>
             <span v-if="row.count > 1" class="pxd-gear-tile__count">×{{ row.count }}</span>
-            <span v-if="row.searchCustomized" class="pxd-gear-tile__dot" />
+            <span
+              v-if="row.searchCustomized"
+              data-pob-build-gear-customized
+              class="pxd-gear-tile__dot"
+              :aria-label="t('pobBuild.customizedTitle')"
+            />
             <span
               v-if="row.corrupted"
               data-pob-build-gear-corrupted
@@ -346,18 +362,14 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
               :aria-label="t('pobBuild.corrupted')"
             />
             <Checkbox
-              as="span"
-              tabindex="0"
               :model-value="row.done"
               data-pob-build-gear-done
               :aria-label="t('pobBuild.doneAria', { name: row.label })"
               class="pxd-gear-tile__check"
               @click.stop
-              @keydown.space.stop
-              @keydown.enter.stop.prevent="emit('toggleDone', row.key)"
               @update:model-value="emit('toggleDone', row.key)"
             />
-          </button>
+          </div>
         </div>
       </section>
     </div>
@@ -402,7 +414,6 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
 
 .pxd-gear-tile {
   --pxd-gear-accent: var(--border);
-  --pxd-corrupted: oklch(0.55 0.21 27);
   position: relative;
   display: flex;
   min-width: 0;
@@ -429,12 +440,17 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
     opacity 0.15s;
 }
 
-button.pxd-gear-tile:hover {
+.pxd-gear-tile[data-pob-build-gear-tile]:hover {
   border-color: var(--pxd-gear-accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--pxd-gear-accent) 45%, transparent);
 }
 
-button.pxd-gear-tile:focus-visible,
+.pxd-gear-tile[data-pob-build-gear-tile]:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 1px var(--ring);
+}
+
 .pxd-gear-tile.is-active {
   outline: none;
   border-color: var(--primary);
@@ -479,6 +495,7 @@ button.pxd-gear-tile:focus-visible,
 /* 和遊戲一樣，平常只看圖片，滑過（或選取、鍵盤聚焦）時才顯示插槽 */
 .pxd-gear-tile:hover .pxd-gear-tile__sockets,
 .pxd-gear-tile:focus-visible .pxd-gear-tile__sockets,
+.pxd-gear-tile:focus-within .pxd-gear-tile__sockets,
 .pxd-gear-tile.is-active .pxd-gear-tile__sockets {
   opacity: 1;
 }
@@ -547,7 +564,7 @@ button.pxd-gear-tile:focus-visible,
   left: 2px;
   padding: 0 3px;
   border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-  border-radius: var(--radius-xs, 3px);
+  border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--card) 88%, transparent);
   color: var(--foreground);
   font-size: var(--pxd-font-caption);

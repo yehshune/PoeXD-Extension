@@ -147,6 +147,52 @@ describe('pob item art', () => {
     );
   });
 
+  it('名稱含 of 的轉換寶石只剝除最後一段後綴', () => {
+    const gemArt = parseItemArt({
+      bases: {
+        'Rain of Arrows': ['Gems/RainOfArrows', 1, 1],
+        'Eye of Winter': ['Gems/EyeOfWinter', 1, 1],
+        'Wave of Conviction': ['Gems/WaveOfConviction', 1, 1],
+      },
+      uniques: {},
+    })!;
+    expect(
+      itemArtFor(gemArt, { kind: 'gem', englishName: 'Rain of Arrows of Artillery' })?.url,
+    ).toBe(`${CDN}Gems/RainOfArrows.png`);
+    expect(itemArtFor(gemArt, { kind: 'gem', englishName: 'Eye of Winter of Finality' })?.url).toBe(
+      `${CDN}Gems/EyeOfWinter.png`,
+    );
+    expect(
+      itemArtFor(gemArt, { kind: 'gem', englishName: 'Wave of Conviction of Trarthus' })?.url,
+    ).toBe(`${CDN}Gems/WaveOfConviction.png`);
+  });
+
+  it('欄位不是陣列、尺寸非有限數或傳奇路徑無效時安全降級', () => {
+    const malformed = parseItemArt({
+      bases: {
+        Str: 'not-a-tuple',
+        Inf: ['Rings/Ring1', Number.POSITIVE_INFINITY, Number.NaN],
+        Plate: ['Armours/Plate', 2, 3],
+      },
+      uniques: {
+        BadStr: 'abc',
+        BadPath: ['../evil'],
+      },
+    })!;
+    expect(itemArtFor(malformed, { kind: 'equipment', englishName: 'Str' })).toBeUndefined();
+    expect(itemArtFor(malformed, { kind: 'equipment', englishName: 'Inf' })).toEqual({
+      url: `${CDN}Rings/Ring1.png`,
+      width: 1,
+      height: 1,
+    });
+    expect(
+      itemArtFor(malformed, { kind: 'unique', englishName: 'BadStr', artBase: 'Plate' })?.url,
+    ).toBe(`${CDN}Armours/Plate.png`);
+    expect(
+      itemArtFor(malformed, { kind: 'unique', englishName: 'BadPath', artBase: 'Plate' })?.url,
+    ).toBe(`${CDN}Armours/Plate.png`);
+  });
+
   it('格式不符的資料不採用；載入失敗回傳 undefined', async () => {
     expect(parseItemArt(null)).toBeUndefined();
     expect(parseItemArt({ bases: [], uniques: {} })).toBeUndefined();

@@ -1664,4 +1664,53 @@ describe('PobBuildPane', () => {
     expect(queryBody('[data-pob-build-relax-bounds]')).toBeNull();
     expect(queryBody('[data-pob-build-clear-bounds]')).not.toBeNull();
   });
+
+  it('裝備欄切換清單檢視時自動關閉已開啟的預覽，避免錨點脫離 DOM', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount({ view: 'gear' });
+    query<HTMLElement>('[data-pob-build-gear-tile="gloves"]')!.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-mods-popover]')).not.toBeNull();
+
+    query<HTMLElement>('[data-pob-build-view-option="list"]')!.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
+  });
+
+  it('僅有 searchOverride 的項目在預覽框仍顯示搜尋按鈕，且鎖定寶石條件輸入', async () => {
+    const overriddenBuild = sampleBuild();
+    const gemRowData = overriddenBuild.groups[1].rows[0];
+    gemRowData.query = null;
+    gemRowData.searchOverride = true;
+    gemRowData.searchCustomized = true;
+    buildsRef.value = [overriddenBuild];
+    await mount();
+
+    const gemRow = queryAll('[data-pob-build-row]').find((el) =>
+      el.textContent?.includes('Punishment'),
+    )!;
+    gemRow.querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+    expect(queryBody('[data-pob-build-popover-search]')).not.toBeNull();
+    expect(queryBody('[data-pob-build-popover-new-tab]')).not.toBeNull();
+    expect(queryBody<HTMLInputElement>('[data-pob-build-gem-level]')?.disabled).toBe(true);
+    expect(queryBody<HTMLInputElement>('[data-pob-build-gem-quality]')?.disabled).toBe(true);
+  });
+
+  it('寶石條件輸入超出範圍時還原回原值，不殘留在輸入框內', async () => {
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    const gemRow = queryAll('[data-pob-build-row]').find((el) =>
+      el.textContent?.includes('Punishment'),
+    )!;
+    gemRow.querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    await flushAsync();
+
+    const levelInput = queryBody<HTMLInputElement>('[data-pob-build-gem-level]')!;
+    const before = levelInput.value;
+    levelInput.value = '999';
+    levelInput.dispatchEvent(new Event('change'));
+    await nextTick();
+    expect(levelInput.value).toBe(before);
+  });
 });

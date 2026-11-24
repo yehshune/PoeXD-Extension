@@ -18,6 +18,7 @@
  * 市集名稱的項目仍列出，但沒有搜尋（`query` 為 null），不會用猜的名稱去搜。
  */
 import {
+  FOULBORN_NAME,
   VISCERA_BUNDLE_NAME,
   VISCERA_BUNDLE_SLOT,
   type PobBuild,
@@ -32,6 +33,7 @@ import {
   defencesOfItem,
   NON_UNIQUE_RARITY,
   DEFAULT_RARE_SEARCH,
+  OFF_HAND_SLOT,
   RARE_SEARCH_MODES,
   type EntryCategory,
   type EntryDefences,
@@ -118,6 +120,8 @@ export interface ShoppingEntry {
   quality?: number;
   /** PoE 2 技能寶石：PoB 裡連結的輔助寶石數（搜尋時當插槽數下限，0 為不限）；其他寶石省略 */
   gemSockets?: number;
+  /** 寶石品質在市集 query 的過濾區塊（PoE 1 為 misc_filters，PoE 2 為 type_filters） */
+  gemQualitySection?: GemQualitySection;
   /** 裝備才有：稀有度與詞綴，供介面顯示 */
   rarity?: PobItemRarity;
   mods?: ShoppingMod[];
@@ -267,7 +271,9 @@ const NON_UNIQUE_FILTERS = {
 } as const;
 const SUPPORT_SUFFIX = ' Support';
 /** 異變傳奇在 PoB 的名稱多一個前綴，市集上仍是原名 */
-const MUTATED_UNIQUE_PREFIX = /^Foulborn\s+/;
+const MUTATED_UNIQUE_PREFIX = FOULBORN_NAME;
+/** 箭袋在 PoB 放在 Weapon 2，但沒有任何 `(Local)` 詞綴 */
+const QUIVER_BASE = /\bQuiver$/i;
 /** PoB 的永恆珠寶名稱後面接種子編號等資訊：`Lethal Pride 16137; 8; Duelist` */
 const TIMELESS_NAME_SUFFIX = /\s+\d+;.*$/;
 /** 基底名稱後的種類說明：`Two-Stone Ring (Cold/Lightning)`，市集上只有基底名稱 */
@@ -597,14 +603,22 @@ function modPlans(item: PobBuildItem): ModPlan[] {
   ];
 }
 
+function localPreferenceFor(item: PobBuildItem): LocalPreference {
+  if (OFF_HAND_SLOT.test(item.slot)) {
+    if (item.baseDefences?.length || item.defenceValues) return 'defence';
+    if (QUIVER_BASE.test(item.baseType ?? item.name)) return false;
+    return true;
+  }
+  if (WEAPON_SLOT.test(item.slot)) return true;
+  return ARMOUR_SLOT.test(item.slot) && 'defence';
+}
+
 function itemMods(
   item: PobBuildItem,
   matcher: StatMatcher | undefined,
   options: { isUnique: boolean; isClusterJewel: boolean },
 ): ShoppingMod[] {
-  const preferLocal: LocalPreference = WEAPON_SLOT.test(item.slot)
-    ? true
-    : ARMOUR_SLOT.test(item.slot) && 'defence';
+  const preferLocal = localPreferenceFor(item);
   return modPlans(item).map(({ text, kind, domain, eldritch }) => {
     // 工藝詞綴只對市集的 crafted 代碼：退回一般詞綴的代碼會和同代碼的隨機詞綴合併成一個條件
     const match = domain && matcher?.match(text, { preferLocal, domain });
@@ -845,7 +859,13 @@ function withDefenceMins(
   };
 }
 
-type GemFilterEntry = Pick<ShoppingEntry, 'kind' | 'level' | 'quality' | 'gemSockets'>;
+/** 寶石品質在市集 query 裡的區塊：PoE 1 是雜項過濾，PoE 2 是類型過濾 */
+export type GemQualitySection = 'misc_filters' | 'type_filters';
+
+type GemFilterEntry = Pick<
+  ShoppingEntry,
+  'kind' | 'level' | 'quality' | 'gemSockets' | 'gemQualitySection'
+>;
 
 /** 寶石實際帶入搜尋的等級／品質下限（使用者的調整優先，否則用 PoB 的數值）；不限的欄位省略 */
 export function effectiveGemFilters(
@@ -887,25 +907,37 @@ export interface GemFilters {
   sockets?: number;
 }
 
-/** 換掉寶石搜尋的等級、品質與插槽數條件（其他雜項條件保留） */
+/** 換掉寶石搜尋的等級、品質與插槽數條件（其他條件保留） */
 function withGemFilters(
   searchBase: Record<string, unknown>,
   gem: GemFilters,
+  qualitySection: GemQualitySection = 'misc_filters',
 ): Record<string, unknown> {
   const { filters, ...rest } = searchBase as { filters?: Record<string, any> };
-  const { misc_filters: misc, ...otherGroups } = filters ?? {};
+  const { misc_filters: misc, type_filters: typeGroup, ...otherGroups } = filters ?? {};
   const {
     gem_level: _level,
-    quality: _quality,
+    quality: _miscQuality,
     gem_sockets: _sockets,
     ...otherMisc
   } = misc?.filters ?? {};
   const miscFilters = {
     ...otherMisc,
-    ...gemMiscFilters(gem),
+    ...gemMiscFilters(gem, qualitySection),
   };
+  let nextTypeGroup = typeGroup;
+  if (qualitySection === 'type_filters') {
+    const { quality: _typeQuality, ...otherType } = typeGroup?.filters ?? {};
+    const typeFilters = {
+      ...otherType,
+      ...(gem.quality !== undefined ? { quality: { min: gem.quality } } : {}),
+    };
+    nextTypeGroup =
+      Object.keys(typeFilters).length > 0 ? { ...typeGroup, filters: typeFilters } : undefined;
+  }
   const groups = {
     ...otherGroups,
+    ...(nextTypeGroup ? { type_filters: nextTypeGroup } : {}),
     ...(Object.keys(miscFilters).length > 0
       ? { misc_filters: { ...misc, filters: miscFilters } }
       : {}),
@@ -914,10 +946,15 @@ function withGemFilters(
 }
 
 /** 寶石條件 → 市集的雜項條件 */
-function gemMiscFilters(gem: GemFilters): Record<string, { min: number }> {
+function gemMiscFilters(
+  gem: GemFilters,
+  qualitySection: GemQualitySection = 'misc_filters',
+): Record<string, { min: number }> {
   return {
     ...(gem.level !== undefined ? { gem_level: { min: gem.level } } : {}),
-    ...(gem.quality !== undefined ? { quality: { min: gem.quality } } : {}),
+    ...(qualitySection === 'misc_filters' && gem.quality !== undefined
+      ? { quality: { min: gem.quality } }
+      : {}),
     ...(gem.sockets !== undefined ? { gem_sockets: { min: gem.sockets } } : {}),
   };
 }
@@ -934,7 +971,11 @@ export function buildEntryQuery(
 ): Record<string, unknown> | null {
   if (entry.kind === 'gem') {
     return entry.searchBase
-      ? withGemFilters(entry.searchBase, effectiveGemFilters(entry as GemFilterEntry, selection))
+      ? withGemFilters(
+          entry.searchBase,
+          effectiveGemFilters(entry as GemFilterEntry, selection),
+          entry.gemQualitySection,
+        )
       : null;
   }
   // 類別搜尋不需要基底名稱，對不到市集基底名稱的項目也能搜
@@ -1003,10 +1044,13 @@ export function applyEntrySelection(
   };
 }
 
-export interface SelectionRowSnapshot extends Pick<
-  ShoppingEntry,
-  'mods' | 'searchBase' | 'visceraBundle' | 'links' | 'category'
-> {
+export interface SelectionRowSnapshot
+  extends
+    Pick<
+      ShoppingEntry,
+      'mods' | 'searchBase' | 'visceraBundle' | 'visceraPart' | 'links' | 'category'
+    >,
+    Partial<GemFilterEntry> {
   filters?: readonly ShoppingStatFilter[];
   countMin?: number;
   pseudo?: boolean;
@@ -1059,18 +1103,34 @@ export function selectionFromRowState(
     if (filter.max !== base.max) change.max = filter.max ?? null;
     if (Object.keys(change).length > 0) stats[base.key] = change;
   });
+  const defaultLinks = effectiveLinks(row, undefined, searchDefaults);
+  const defaultSearchBy = effectiveSearchBy(row, undefined, searchDefaults);
+  const defaultGem = row.kind === 'gem' ? effectiveGemFilters(row as GemFilterEntry) : undefined;
   return {
     ...(Object.keys(stats).length > 0 ? { stats } : {}),
     ...(row.countMin !== undefined ? { countMin: row.countMin } : {}),
     ...(Boolean(row.pseudo) !== effectivePseudo(row, undefined, searchDefaults)
       ? { pseudo: Boolean(row.pseudo) }
       : {}),
+    ...((row.links !== undefined || row.linksMin !== undefined) && row.linksMin !== defaultLinks
+      ? { links: row.linksMin ?? null }
+      : {}),
+    ...(row.searchBy && row.searchBy !== defaultSearchBy ? { searchBy: row.searchBy } : {}),
+    ...(defaultGem && row.gemLevelMin !== defaultGem.level
+      ? { gemLevel: row.gemLevelMin ?? null }
+      : {}),
+    ...(defaultGem && row.gemQualityMin !== defaultGem.quality
+      ? { gemQuality: row.gemQualityMin ?? null }
+      : {}),
+    ...(defaultGem && row.gemSocketsMin !== defaultGem.sockets
+      ? { gemSockets: row.gemSocketsMin ?? null }
+      : {}),
   };
 }
 
 /** 僅保留相對於預設值（PoB 加上 build 整體設定）有差異的欄位；全部回到預設時回傳 undefined。 */
 export function normalizeSelectionForEntry(
-  entry: Pick<ShoppingEntry, 'mods' | 'visceraBundle' | 'links' | 'category'> &
+  entry: Pick<ShoppingEntry, 'mods' | 'visceraBundle' | 'visceraPart' | 'links' | 'category'> &
     Partial<GemFilterEntry>,
   selection: EntrySearchSelection | undefined,
   searchDefaults?: BuildSearchDefaults,
@@ -1356,24 +1416,23 @@ export function migrateLegacyGemKeys(build: PobBuild, keys: readonly string[]): 
   return [...new Set(keys.flatMap((key) => [...(replacements.get(key) ?? [key])]))];
 }
 
-function gemEntry(gem: PobBuildGem, catalog: TradeNameCatalog): ShoppingEntry {
+function gemEntry(
+  gem: PobBuildGem,
+  catalog: TradeNameCatalog,
+  version: PoeVersion = 'poe1',
+): ShoppingEntry {
   // PoB 的輔助寶石名稱不含「Support」，市集上有
   const supportName = `${gem.name}${SUPPORT_SUFFIX}`;
   const englishName = gem.support && catalog.toTradeName(supportName) ? supportName : gem.name;
   const tradeName = catalog.toTradeName(englishName);
-  const gemFilters = gemMiscFilters({
+  const qualitySection: GemQualitySection = version === 'poe2' ? 'type_filters' : 'misc_filters';
+  const gemFilters: GemFilters = {
     ...(gem.level > 1 ? { level: gem.level } : {}),
     ...(gem.quality > 0 ? { quality: gem.quality } : {}),
     ...(gem.sockets ? { sockets: gem.sockets } : {}),
-  });
+  };
   const searchBase = tradeName
-    ? {
-        status: INSTANT_BUYOUT_STATUS,
-        type: tradeName,
-        ...(Object.keys(gemFilters).length > 0
-          ? { filters: { misc_filters: { filters: gemFilters } } }
-          : {}),
-      }
+    ? withGemFilters({ status: INSTANT_BUYOUT_STATUS, type: tradeName }, gemFilters, qualitySection)
     : null;
   return {
     key: gemKey(gem),
@@ -1385,6 +1444,7 @@ function gemEntry(gem: PobBuildGem, catalog: TradeNameCatalog): ShoppingEntry {
     level: gem.level,
     quality: gem.quality,
     ...(gem.sockets !== undefined ? { gemSockets: gem.sockets } : {}),
+    ...(qualitySection === 'type_filters' ? { gemQualitySection: qualitySection } : {}),
     searchBase,
     query: searchBase,
   };
@@ -1422,7 +1482,7 @@ export function buildShoppingList(
       isVisceraBundleItem(item) ? splitVisceraBundle(item, matcher, options.visceraMods) : [item],
     )
     .map((item) => itemEntry(item, catalog, matcher, build.gameVersion));
-  const gems = (skillSet?.gems ?? []).map((gem) => gemEntry(gem, catalog));
+  const gems = (skillSet?.gems ?? []).map((gem) => gemEntry(gem, catalog, build.gameVersion));
   // 同一套裡內容完全相同的項目（例如兩顆一樣的珠寶）共用一個 key，合併成一列並計數
   const merged = new Map<string, ShoppingEntry>();
   for (const entry of [...items, ...gems]) {

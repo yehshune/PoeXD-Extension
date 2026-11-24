@@ -60,7 +60,10 @@ export function createPobBookmarkBridge(
 
   const ensureConnected = async (): Promise<BookmarkModel | undefined> => {
     model ??= createModel();
-    connecting ??= model.connect().then((outcome) => outcome.ok);
+    connecting ??= model.connect().then(
+      (outcome) => outcome.ok,
+      () => false,
+    );
     if (await connecting) return model;
     // 連線失敗時下次再試，不把失敗結果留住
     connecting = undefined;

@@ -88,6 +88,13 @@ describe('createPobBookmarkBridge', () => {
     });
     // 連線失敗不留住結果，下次會重試
     expect(offline.connect).toHaveBeenCalledTimes(2);
+
+    const flaky = createFakeModel();
+    flaky.connect.mockRejectedValueOnce(new Error('disconnected'));
+    const flakyBridge = createPobBookmarkBridge('poe1', () => flaky.model);
+    expect(await flakyBridge.listFolders()).toEqual([]);
+    expect(await flakyBridge.listFolders()).toHaveLength(2);
+    expect(flaky.connect).toHaveBeenCalledTimes(2);
   });
 
   it('書籤儲存回報錯誤時帶出訊息；dispose 釋放模型', async () => {

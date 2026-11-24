@@ -47,7 +47,7 @@ const checkSprite = (event: Event) => {
 <template>
   <span
     v-if="showSprite"
-    role="img"
+    aria-hidden="true"
     data-pob-item-sprite
     class="pxd-item-sprite"
     :class="{ 'pxd-item--foulborn': foulborn }"

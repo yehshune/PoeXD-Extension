@@ -72,7 +72,7 @@ const ART_SOURCES: Readonly<Record<PoeVersion, ArtSource>> = {
 /** 遊戲美術路徑只有英數、底線、連字號、撇號、空白與 `/` 分隔的段落 */
 const SAFE_ART_PATH = /^[A-Za-z0-9_' -]+(?:\/[A-Za-z0-9_' -]+)*$/;
 /** 轉換寶石（`Absolution of Inspiring`）沒有自己的物品，圖片沿用原寶石 */
-const TRANSFIGURED_SUFFIX = / of (?:the )?[A-Z][A-Za-z' ]+$/;
+const TRANSFIGURED_SUFFIX = / of (?:the )?(?=[A-Z])(?:(?! of )[A-Za-z' ])+$/;
 
 /**
  * 穢生造型是 GGG 伺服器產生的圖片，網址的參數與雜湊由 poe.ninja 提供、poexd-data 照抄，
@@ -107,15 +107,15 @@ function imageOf(
   const layers = source.sprites.find(([pattern]) => pattern.test(path))?.[1];
   return {
     url: `${source.prefix}${path}${source.suffix}`,
-    width: typeof width === 'number' && width > 0 ? width : 1,
-    height: typeof height === 'number' && height > 0 ? height : 1,
+    width: typeof width === 'number' && Number.isFinite(width) && width > 0 ? width : 1,
+    height: typeof height === 'number' && Number.isFinite(height) && height > 0 ? height : 1,
     ...(layers ? { layers } : {}),
   };
 }
 
 const baseImage = (art: ItemArtData, name: string | undefined): ItemArtImage | undefined => {
   const base = name && Object.hasOwn(art.bases, name) ? art.bases[name] : undefined;
-  return base ? imageOf(art.source, base[0], base[1], base[2]) : undefined;
+  return Array.isArray(base) ? imageOf(art.source, base[0], base[1], base[2]) : undefined;
 };
 
 function foulbornImage(
@@ -145,11 +145,12 @@ export function itemArtFor(art: ItemArtData, query: ItemArtQuery): ItemArtImage 
       ? art.uniques[query.englishName]
       : undefined;
     const base = baseImage(art, query.artBase);
-    const image = !unique
-      ? base
+    const uniqueImage = !Array.isArray(unique)
+      ? undefined
       : unique.length === 3
         ? imageOf(art.source, unique[0], unique[1], unique[2])
         : imageOf(art.source, unique[0], base?.width, base?.height);
+    const image = uniqueImage ?? base;
     return query.foulborn ? (foulbornImage(art, query.englishName, image) ?? image) : image;
   }
   return baseImage(art, query.englishName);

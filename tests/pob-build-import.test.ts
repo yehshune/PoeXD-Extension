@@ -763,4 +763,52 @@ Implicits: 1
       'Soul Core of Quipolatl',
     ]);
   });
+
+  it('未指定部位的技能連線命名略過已停用的主動寶石', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+  <Build level="90"/>
+  <Skills activeSkillSet="1">
+    <SkillSet id="1">
+      <Skill enabled="true">
+        <Gem nameSpec="Disabled Skill" gemId="Metadata/Items/Gems/SkillGemDisabled" level="20" quality="0" enabled="false"/>
+        <Gem nameSpec="Arc" gemId="Metadata/Items/Gems/SkillGemArc" level="20" quality="0" enabled="true"/>
+      </Skill>
+    </SkillSet>
+  </Skills>
+</PathOfBuilding>`;
+    const build = parsePobBuildXml(xml);
+    expect(build.skillSets[0].gems).toHaveLength(1);
+    expect(build.skillSets[0].gems[0].skill).toBe('Arc');
+  });
+
+  it('PoE 2 寶石的品質下限寫入 type_filters 而非 misc_filters', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding2>
+  <Build level="90"/>
+  <Skills activeSkillSet="1">
+    <SkillSet id="1">
+      <Skill enabled="true">
+        <Gem nameSpec="Spark" gemId="Metadata/Items/Gems/SkillGemSpark" level="20" quality="15" enabled="true"/>
+        <Gem nameSpec="Arcane Tempo" gemId="Metadata/Items/Gems/SupportGemArcaneTempo" level="1" quality="0" enabled="true"/>
+      </Skill>
+    </SkillSet>
+  </Skills>
+</PathOfBuilding2>`;
+    const build = parsePobBuildXml(xml);
+    const list = buildShoppingList(
+      build,
+      createTradeNameCatalog({ englishItems: ['Spark', 'Arcane Tempo Support'] }),
+    );
+    const spark = list.find((entry) => entry.englishName === 'Spark')!;
+    expect(spark.gemQualitySection).toBe('type_filters');
+    expect(spark.query).toEqual({
+      status: { option: 'securable' },
+      type: 'Spark',
+      filters: {
+        type_filters: { filters: { quality: { min: 15 } } },
+        misc_filters: { filters: { gem_level: { min: 20 }, gem_sockets: { min: 1 } } },
+      },
+    });
+  });
 });

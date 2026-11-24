@@ -757,8 +757,9 @@ export function usePobBuild(
    * 包住一段「寫入本機並更新畫面」的工作：進行中不讓跨分頁同步覆蓋畫面，
    * 全部結束後若期間有變更通知，再從本機重新同步一次。
    */
-  const withPendingWrite = async <T>(task: () => Promise<T>): Promise<T> => {
+  const withPendingWrite = async <T>(task: () => Promise<T>, invalidateSync = true): Promise<T> => {
     pendingWrites += 1;
+    if (invalidateSync) syncGeneration += 1;
     try {
       return await task();
     } finally {
@@ -771,9 +772,9 @@ export function usePobBuild(
   };
 
   /** 排入一個寫入本機的工作；失敗時提示使用者並在之後以本機內容重新同步 */
-  const persist = (task: () => Promise<unknown>) => {
+  const persist = (task: () => Promise<unknown>, invalidateSync = true) => {
     // 錯誤在 withPendingWrite 結束前處理，重新同步的旗標才來得及在寫入收尾時生效
-    void withPendingWrite(() => task().catch(reportStorageError));
+    void withPendingWrite(() => task().catch(reportStorageError), invalidateSync);
   };
 
   /**
@@ -816,11 +817,13 @@ export function usePobBuild(
     if (sameList(done, stored.done) && sameList(removed, stored.removed)) {
       return stored;
     }
-    persist(() =>
-      deps.store.mutate(stored.id, (current) => ({
-        done: migrateLegacyGemKeys(build, current.done),
-        removed: migrateLegacyGemKeys(build, current.removed),
-      })),
+    persist(
+      () =>
+        deps.store.mutate(stored.id, (current) => ({
+          done: migrateLegacyGemKeys(build, current.done),
+          removed: migrateLegacyGemKeys(build, current.removed),
+        })),
+      false,
     );
     return { ...stored, done, removed };
   };
@@ -1011,6 +1014,7 @@ export function usePobBuild(
     errorKey,
     isBusy,
     async restore() {
+      let generation = ++syncGeneration;
       let stored: StoredPobBuild[];
       try {
         stored = await deps.store.list();
@@ -1021,6 +1025,11 @@ export function usePobBuild(
       if (stored.length === 0) return;
       if (!catalog.value && deps.waitForInitialPageLoad) {
         await deps.waitForInitialPageLoad();
+        if (pendingWrites > 0) {
+          resyncRequested = true;
+          return;
+        }
+        generation = ++syncGeneration;
         // 等待可能長達數秒，期間使用者可能已匯入或刪除 build：重讀，免得用舊清單蓋掉畫面
         try {
           stored = await deps.store.list();
@@ -1045,6 +1054,10 @@ export function usePobBuild(
           }),
         ),
       );
+      if (generation !== syncGeneration) {
+        resyncRequested = true;
+        return;
+      }
       sessions.value = restored.filter((session): session is Session => session !== undefined);
     },
     async importCode(code) {
