@@ -290,7 +290,9 @@
                         <BookmarkPlus class="text-muted-foreground" />
                         {{ t('common.addToBookmarks') }}
                       </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent class="w-[var(--pxd-menu-sub-width,192px)]">
+                      <DropdownMenuSubContent
+                        class="w-[var(--pxd-menu-sub-width,192px)] overflow-y-auto pxd-scrollbar"
+                      >
                         <DropdownMenuItem
                           v-for="item in flattenedBookmarkFolders"
                           :key="item.folder.id"
