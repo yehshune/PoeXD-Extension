@@ -58,10 +58,14 @@ describe('Sidebar pane lifecycle', () => {
       new URL('../components/sidebar/BookmarkPane.vue', import.meta.url),
       'utf8',
     );
+    const workspaceSource = readFileSync(
+      new URL('../components/sidebar/bookmark-workspace/workspace.ts', import.meta.url),
+      'utf8',
+    );
 
     expect(bookmarkSource).toMatch(/v-if="isLoading"[\s\S]*?class="empty-state/);
     expect(bookmarkSource).toMatch(/v-else-if="groups\.length === 0"[\s\S]*?class="empty-state/);
-    expect(bookmarkSource).toContain('isLoading.value = false;');
+    expect(workspaceSource).toContain('isLoading.value = false;');
   });
 
   it.each(panes)('keeps %s mounted while switching tabs', (component, tab) => {

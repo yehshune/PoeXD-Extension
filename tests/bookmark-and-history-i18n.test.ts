@@ -10,7 +10,7 @@ import { setActiveDisplayLocale, resetI18nStateForTests, t } from '@/utils/i18n'
 import {
   formatTradeLeagueText,
   AUTO_TRADE_LEAGUE,
-} from '@/components/sidebar/composables/useBookmarkLeagues';
+} from '@/components/sidebar/bookmark-workspace';
 import { ref } from 'vue';
 
 vi.mock('@/utils/search-record-messaging', () => ({

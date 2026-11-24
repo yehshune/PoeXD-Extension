@@ -7,11 +7,12 @@ import BookmarkPane from '@/components/sidebar/BookmarkPane.vue';
 import type { TradeLeague } from '@/utils/trade-leagues';
 
 const source = readFileSync('components/sidebar/BookmarkPane.vue', 'utf8');
-const menuStateSource = readFileSync(
-  'components/sidebar/composables/useBookmarkMenuState.ts',
+const menuStateSource = readFileSync('components/sidebar/bookmark-workspace/menus.ts', 'utf8');
+const leaguesSource = readFileSync('components/sidebar/bookmark-workspace/leagues.ts', 'utf8');
+const chromeHostSource = readFileSync(
+  'components/sidebar/bookmark-workspace/chrome-host.ts',
   'utf8',
 );
-const leaguesSource = readFileSync('components/sidebar/composables/useBookmarkLeagues.ts', 'utf8');
 
 vi.mock('sortablejs', () => ({
   default: {
@@ -129,8 +130,7 @@ describe('Bookmark transfer controls (Static Contracts)', () => {
 
   it('provides ensureTradeLeaguesLoaded and uses programmatic closeAllMenus', () => {
     expect(source).toContain('ensureTradeLeaguesLoaded');
-    expect(source).toContain('useBookmarkMenuState');
-    expect(source).toContain('useBookmarkLeagues');
+    expect(source).toContain('useBookmarkWorkspace');
     expect(leaguesSource).toContain('const ensureTradeLeaguesLoaded = async ()');
 
     const closeFnStart = menuStateSource.indexOf('const closeAllMenus = () =>');
@@ -144,16 +144,16 @@ describe('Bookmark transfer controls (Static Contracts)', () => {
 
   it('delegates toast notifications to global poexd-toast and removes local toast-tip', () => {
     expect(source).not.toContain('class="toast-tip');
-    expect(source).toContain("dispatchPoeEvent('poexd-toast'");
+    expect(chromeHostSource).toContain("dispatchPoeEvent('poexd-toast'");
   });
 
   it('renders the replace-league confirmation as plain text', () => {
     expect(leaguesSource).toMatch(
-      /poexdConfirm\([\s\S]*?t\('bookmark\.league\.dialogTitle'\),?\s*\)/,
+      /host\.feedback\.confirm\([\s\S]*?t\('bookmark\.league\.dialogTitle'\),?\s*\)/,
     );
     expect(leaguesSource).not.toContain('<strong>');
     expect(leaguesSource).not.toMatch(
-      /poexdConfirm\([\s\S]*?t\('bookmark\.league\.dialogTitle'\),\s*true/,
+      /host\.feedback\.confirm\([\s\S]*?t\('bookmark\.league\.dialogTitle'\),\s*true/,
     );
   });
   it('retains generic Dropdown primitive floating z-index token while consumer specifies high z-index', () => {

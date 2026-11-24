@@ -3,13 +3,13 @@ import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection';
 import type { Bookmark, BookmarkGroup } from '../bookmark-types';
 import type { BookmarkMutationIntent } from '../bookmark-model';
 
-export interface UseBookmarkEditingOptions {
+export interface BookmarkEditingDeps {
   executeBookmarkIntent: (intent: BookmarkMutationIntent) => Promise<boolean>;
   activeGroupMenuId: Ref<string | null>;
   activeBookmarkMenuId: Ref<string | null>;
 }
 
-export function useBookmarkEditing(options: UseBookmarkEditingOptions) {
+export function createBookmarkEditing(options: BookmarkEditingDeps) {
   const { executeBookmarkIntent, activeGroupMenuId, activeBookmarkMenuId } = options;
 
   // 重新命名狀態 (資料夾)

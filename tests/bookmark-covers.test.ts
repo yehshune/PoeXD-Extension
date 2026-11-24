@@ -1,16 +1,18 @@
-// @vitest-environment happy-dom
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { defineComponent, h, ref } from 'vue';
-import { useBookmarkCovers } from '@/components/sidebar/composables/useBookmarkCovers';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createBookmarkWorkspace } from '@/components/sidebar/bookmark-workspace';
+import {
+  createFakeBookmarkWorkspaceHost,
+  type FakeBookmarkWorkspaceHost,
+} from '@/components/sidebar/bookmark-workspace/fake-host';
 import type { Bookmark } from '@/components/sidebar/bookmark-types';
-import { dispatchPoeEvent } from '@/utils/event-contracts';
 import {
   isBookmarkCollectionState,
   createBookmarkCollectionModule,
 } from '@/utils/bookmark-collection';
 import { createBookmarkModel } from '@/components/sidebar/bookmark-model';
+import { createFakeBookmarkModel } from './helpers/fake-bookmark-model';
 
-describe('useBookmarkCovers', () => {
+describe('Bookmark Workspace — covers', () => {
   const dummyBookmark: Bookmark = {
     id: 'bm-1',
     name: 'Chaos Orb',
@@ -20,334 +22,245 @@ describe('useBookmarkCovers', () => {
     order: 0,
   };
 
-  beforeEach(() => {
-    (window as any).poexdAlert = vi.fn(async () => {});
+  let activeWorkspaces: Array<{ dispose: () => void }> = [];
+
+  const setup = async (hostOverrides: Partial<FakeBookmarkWorkspaceHost['state']> = {}) => {
+    const host = createFakeBookmarkWorkspaceHost(hostOverrides);
+    const model = createFakeBookmarkModel({
+      groups: [{ id: 'group-1', name: '預設', order: 0 }],
+      bookmarks: [dummyBookmark],
+    });
+    const workspace = createBookmarkWorkspace(host, { version: 'poe1', model });
+    activeWorkspaces.push(workspace);
+    await workspace.start();
+    return { host, model, workspace };
+  };
+
+  afterEach(() => {
+    activeWorkspaces.forEach((ws) => ws.dispose());
+    activeWorkspaces = [];
   });
 
-  it('correctly compares same search pages', () => {
-    const executeBookmarkIntent = vi.fn(async () => true);
-    const covers = useBookmarkCovers({
-      executeBookmarkIntent,
-      activeBookmarkMenuId: ref('bm-1'),
-      isMoveSubMenu: ref(false),
-      isCoverSubMenu: ref(false),
-      closeAllMenus: vi.fn(),
+  it('matches captured result images by search page URL (including /live suffix)', async () => {
+    const { host, workspace } = await setup({
+      location: { url: 'https://www.pathofexile.com/trade/search/Standard/other', title: 'Trade' },
     });
 
-    expect(
-      covers.sameSearchPage(
-        'https://www.pathofexile.com/trade/search/Standard/abc',
-        'https://www.pathofexile.com/trade/search/Standard/abc',
-      ),
-    ).toBe(true);
-
-    // Live suffix stripping
-    expect(
-      covers.sameSearchPage(
-        'https://www.pathofexile.com/trade/search/Standard/abc/live',
-        'https://www.pathofexile.com/trade/search/Standard/abc',
-      ),
-    ).toBe(true);
-
-    // Different search ID
-    expect(
-      covers.sameSearchPage(
-        'https://www.pathofexile.com/trade/search/Standard/abc',
-        'https://www.pathofexile.com/trade/search/Standard/def',
-      ),
-    ).toBe(false);
-
-    // Empty URL
-    expect(covers.sameSearchPage('', 'https://www.pathofexile.com/trade/search/Standard/abc')).toBe(
-      false,
-    );
-  });
-
-  it('validates cover image URLs against allowed host and protocol', () => {
-    const covers = useBookmarkCovers({
-      executeBookmarkIntent: vi.fn(async () => true),
-      activeBookmarkMenuId: ref('bm-1'),
-      isMoveSubMenu: ref(false),
-      isCoverSubMenu: ref(false),
-      closeAllMenus: vi.fn(),
+    host.emitCoverCapture({
+      url: 'https://www.pathofexile.com/trade/search/Standard/chaos/live',
+      images: ['https://web.poecdn.com/chaos.png', 'https://web.poecdn.com/exalt.png'],
     });
 
-    // Allowed PoE CDN hosts
-    expect(covers.isValidCoverUrl('https://web.poecdn.com/image.png')).toBe(true);
-    expect(covers.isValidCoverUrl('https://webtw.poecdn.com/image.png')).toBe(true);
-    expect(
-      covers.isValidCoverUrl(
-        'https://poecdn.game.qq.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvQmVyZWtzUGFzcyIsInciOjEsImgiOjEsInNjYWxlIjoxfV0/efb7743eeb/BereksPass.png',
-      ),
-    ).toBe(true);
-    expect(covers.isValidCoverUrl('https://game.qq.com/image.png')).toBe(false);
-    expect(covers.isValidCoverUrl('https://evil.poecdn.game.qq.com/image.png')).toBe(false);
-    expect(covers.isValidCoverUrl('http://poecdn.game.qq.com/image.png')).toBe(false);
-
-    // Arbitrary external HTTPS URLs rejected
-    expect(covers.isValidCoverUrl('https://evil.com/image.png')).toBe(false);
-    expect(covers.isValidCoverUrl('https://google.com/image.png')).toBe(false);
-    expect(covers.isValidCoverUrl('https://sub.web.poecdn.com/image.png')).toBe(false);
-
-    // Dangerous protocols rejected
-    expect(covers.isValidCoverUrl('javascript:alert(1)')).toBe(false);
-    expect(covers.isValidCoverUrl('data:image/png;base64,AAAA')).toBe(false);
-    expect(covers.isValidCoverUrl('http://web.poecdn.com/image.png')).toBe(false);
-
-    // Malformed and length limit
-    expect(covers.isValidCoverUrl('not-a-url')).toBe(false);
-    expect(covers.isValidCoverUrl('')).toBe(false);
-    expect(covers.isValidCoverUrl(null as any)).toBe(false);
-    expect(covers.isValidCoverUrl(`https://web.poecdn.com/${'a'.repeat(4090)}`)).toBe(false);
-  });
-
-  it('matches result images based on URL', () => {
-    const covers = useBookmarkCovers({
-      executeBookmarkIntent: vi.fn(async () => true),
-      activeBookmarkMenuId: ref('bm-1'),
-      isMoveSubMenu: ref(false),
-      isCoverSubMenu: ref(false),
-      closeAllMenus: vi.fn(),
-    });
-
-    covers.resultImagesUrl.value = 'https://www.pathofexile.com/trade/search/Standard/chaos';
-    covers.resultImages.value = [
-      'https://web.poecdn.com/chaos.png',
-      'https://web.poecdn.com/exalt.png',
-    ];
-
-    const matched = covers.getResultImagesForBookmark(dummyBookmark);
-    expect(matched).toEqual([
+    expect(workspace.actions.getResultImagesForBookmark(dummyBookmark)).toEqual([
       'https://web.poecdn.com/chaos.png',
       'https://web.poecdn.com/exalt.png',
     ]);
+
+    // Different search ID should not match captured images from an unrelated search
+    const otherBookmark: Bookmark = {
+      ...dummyBookmark,
+      id: 'bm-2',
+      url: 'https://www.pathofexile.com/trade/search/Standard/def',
+    };
+    expect(workspace.actions.getResultImagesForBookmark(otherBookmark)).toEqual([]);
   });
 
-  it('does not fall back to stale result images from a previous search', () => {
-    window.history.replaceState({}, '', '/trade/search/Standard/empty-search');
-    const covers = useBookmarkCovers({
-      executeBookmarkIntent: vi.fn(async () => true),
-      activeBookmarkMenuId: ref('bm-1'),
-      isMoveSubMenu: ref(false),
-      isCoverSubMenu: ref(false),
-      closeAllMenus: vi.fn(),
+  it('validates cover image URLs against allowed PoE CDN hosts and protocol', async () => {
+    const { host, workspace } = await setup();
+
+    const validUrls = [
+      'https://web.poecdn.com/image.png',
+      'https://webtw.poecdn.com/image.png',
+      'https://poecdn.game.qq.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvQmVyZWtzUGFzcyIsInciOjEsImgiOjEsInNjYWxlIjoxfV0/efb7743eeb/BereksPass.png',
+    ];
+    const invalidUrls: unknown[] = [
+      'https://game.qq.com/image.png',
+      'https://evil.poecdn.game.qq.com/image.png',
+      'http://poecdn.game.qq.com/image.png',
+      'https://evil.com/image.png',
+      'https://google.com/image.png',
+      'https://sub.web.poecdn.com/image.png',
+      'javascript:alert(1)',
+      'data:image/png;base64,AAAA',
+      'http://web.poecdn.com/image.png',
+      'not-a-url',
+      '',
+      null,
+      `https://web.poecdn.com/${'a'.repeat(4090)}`,
+    ];
+
+    host.emitCoverCapture({
+      url: dummyBookmark.url,
+      images: [...validUrls, ...invalidUrls],
     });
 
-    covers.resultImagesUrl.value = 'https://www.pathofexile.com/trade/search/Standard/old-search';
-    covers.resultImages.value = ['https://web.poecdn.com/old.png'];
+    expect(workspace.actions.getResultImagesForBookmark(dummyBookmark)).toEqual(validUrls);
+  });
+
+  it('does not fall back to stale result images from a previous search', async () => {
+    const currentUrl = 'https://www.pathofexile.com/trade/search/Standard/empty-search';
+    const { host, workspace } = await setup({
+      location: { url: currentUrl, title: 'Trade' },
+    });
+
+    host.emitCoverCapture({
+      url: 'https://www.pathofexile.com/trade/search/Standard/old-search',
+      images: ['https://web.poecdn.com/old.png'],
+    });
 
     expect(
-      covers.getResultImagesForUrl(`${window.location.origin}/trade/search/Standard/empty-search`),
+      workspace.actions.getResultImagesForBookmark({ ...dummyBookmark, url: currentUrl }),
     ).toEqual([]);
   });
 
-  it('explicit cover open succeeds and opens submenu when images exist', async () => {
-    const activeBookmarkMenuId = ref<string | null>('bm-1');
-    const isMoveSubMenu = ref(true);
-    const isCoverSubMenu = ref(false);
-
-    const covers = useBookmarkCovers({
-      executeBookmarkIntent: vi.fn(async () => true),
-      activeBookmarkMenuId,
-      isMoveSubMenu,
-      isCoverSubMenu,
-      closeAllMenus: vi.fn(),
+  it('falls back to current page DOM cover images via host when no capture exists', async () => {
+    const currentUrl = 'https://www.pathofexile.com/trade/search/Standard/chaos';
+    const { workspace } = await setup({
+      location: { url: currentUrl, title: 'Trade' },
+      resultCoverImages: ['https://web.poecdn.com/dom-cover.png', 'https://evil.com/ignored.png'],
     });
 
-    covers.resultImagesUrl.value = dummyBookmark.url;
-    covers.resultImages.value = ['https://web.poecdn.com/chaos.png'];
+    expect(workspace.actions.getResultImagesForBookmark(dummyBookmark)).toEqual([
+      'https://web.poecdn.com/dom-cover.png',
+    ]);
+  });
 
-    await covers.requestOpenCoverSubMenu(dummyBookmark);
+  it('explicit cover open succeeds and opens submenu when images exist', async () => {
+    const { host, workspace } = await setup();
 
-    expect(isMoveSubMenu.value).toBe(false);
-    expect(isCoverSubMenu.value).toBe(true);
-    expect(activeBookmarkMenuId.value).toBe('bm-1');
-    expect((window as any).poexdAlert).not.toHaveBeenCalled();
+    workspace.menus.setBookmarkMenuOpen('bm-1', true);
+    workspace.menus.setMoveSubMenuOpen(true);
+
+    host.emitCoverCapture({
+      url: dummyBookmark.url,
+      images: ['https://web.poecdn.com/chaos.png'],
+    });
+
+    await workspace.menus.requestOpenCoverSubMenu(dummyBookmark);
+
+    expect(workspace.menus.isMoveSubMenu.value).toBe(false);
+    expect(workspace.menus.isCoverSubMenu.value).toBe(true);
+    expect(workspace.menus.activeBookmarkMenuId.value).toBe('bm-1');
+    expect(host.state.alerts).toHaveLength(0);
   });
 
   it('explicit cover open does not alert and opens cover submenu while keeping active menu when no images exist', async () => {
-    const activeBookmarkMenuId = ref<string | null>('bm-1');
-    const isMoveSubMenu = ref(false);
-    const isCoverSubMenu = ref(false);
+    const { host, workspace } = await setup();
 
-    const covers = useBookmarkCovers({
-      executeBookmarkIntent: vi.fn(async () => true),
-      activeBookmarkMenuId,
-      isMoveSubMenu,
-      isCoverSubMenu,
-      closeAllMenus: vi.fn(),
-    });
+    workspace.menus.setBookmarkMenuOpen('bm-1', true);
 
-    // No result images
-    covers.resultImagesUrl.value = '';
-    covers.resultImages.value = [];
+    await workspace.menus.requestOpenCoverSubMenu(dummyBookmark);
 
-    await covers.requestOpenCoverSubMenu(dummyBookmark);
-
-    expect(isCoverSubMenu.value).toBe(true);
-    expect(isMoveSubMenu.value).toBe(false);
-    expect(activeBookmarkMenuId.value).toBe('bm-1');
-    expect((window as any).poexdAlert).not.toHaveBeenCalled();
+    expect(workspace.menus.isCoverSubMenu.value).toBe(true);
+    expect(workspace.menus.isMoveSubMenu.value).toBe(false);
+    expect(workspace.menus.activeBookmarkMenuId.value).toBe('bm-1');
+    expect(host.state.alerts).toHaveLength(0);
   });
 
-  it('hover does not automatically trigger cover availability check or alert in this composable', () => {
-    const activeBookmarkMenuId = ref<string | null>('bm-1');
-    const isCoverSubMenu = ref(false);
+  it('hover does not automatically trigger cover availability check or alert', async () => {
+    const { host, workspace } = await setup();
 
-    useBookmarkCovers({
-      executeBookmarkIntent: vi.fn(async () => true),
-      activeBookmarkMenuId,
-      isMoveSubMenu: ref(false),
-      isCoverSubMenu,
-      closeAllMenus: vi.fn(),
-    });
+    workspace.menus.setBookmarkMenuOpen('bm-1', true);
+    workspace.menus.setCoverSubMenuOpen(true);
 
-    // Merely creating composable does not trigger alert or open submenu
-    expect(isCoverSubMenu.value).toBe(false);
-    expect((window as any).poexdAlert).not.toHaveBeenCalled();
+    expect(workspace.menus.isCoverSubMenu.value).toBe(false);
+    expect(host.state.alerts).toHaveLength(0);
   });
 
   it('triggers select cover mutation and closes all menus on success', async () => {
-    const executeBookmarkIntent = vi.fn(async () => true);
-    const closeAllMenus = vi.fn();
+    const { model, workspace } = await setup();
 
-    const covers = useBookmarkCovers({
-      executeBookmarkIntent,
-      activeBookmarkMenuId: ref('bm-1'),
-      isMoveSubMenu: ref(false),
-      isCoverSubMenu: ref(true),
-      closeAllMenus,
-    });
+    workspace.menus.setBookmarkMenuOpen('bm-1', true);
+    await workspace.menus.requestOpenCoverSubMenu(dummyBookmark);
 
-    await covers.selectBookmarkCover(dummyBookmark, 'https://web.poecdn.com/chaos.png');
+    await workspace.actions.selectBookmarkCover(dummyBookmark, 'https://web.poecdn.com/chaos.png');
 
-    expect(executeBookmarkIntent).toHaveBeenCalledWith({
-      type: 'set-bookmark-cover',
-      bookmarkId: 'bm-1',
-      coverImageUrl: 'https://web.poecdn.com/chaos.png',
-    });
-    expect(closeAllMenus).toHaveBeenCalled();
+    expect(model.intents).toEqual([
+      {
+        type: 'set-bookmark-cover',
+        bookmarkId: 'bm-1',
+        coverImageUrl: 'https://web.poecdn.com/chaos.png',
+      },
+    ]);
+    expect(workspace.menus.activeBookmarkMenuId.value).toBeNull();
+    expect(workspace.menus.isCoverSubMenu.value).toBe(false);
   });
 
   it('triggers remove cover mutation and closes all menus on success', async () => {
-    const executeBookmarkIntent = vi.fn(async () => true);
-    const closeAllMenus = vi.fn();
+    const { model, workspace } = await setup();
 
-    const covers = useBookmarkCovers({
-      executeBookmarkIntent,
-      activeBookmarkMenuId: ref('bm-1'),
-      isMoveSubMenu: ref(false),
-      isCoverSubMenu: ref(true),
-      closeAllMenus,
-    });
+    workspace.menus.setBookmarkMenuOpen('bm-1', true);
+    await workspace.menus.requestOpenCoverSubMenu(dummyBookmark);
 
-    await covers.removeBookmarkCover(dummyBookmark);
+    await workspace.actions.removeBookmarkCover(dummyBookmark);
 
-    expect(executeBookmarkIntent).toHaveBeenCalledWith({
-      type: 'set-bookmark-cover',
-      bookmarkId: 'bm-1',
-    });
-    expect(closeAllMenus).toHaveBeenCalled();
+    expect(model.intents).toEqual([
+      {
+        type: 'set-bookmark-cover',
+        bookmarkId: 'bm-1',
+      },
+    ]);
+    expect(workspace.menus.activeBookmarkMenuId.value).toBeNull();
+    expect(workspace.menus.isCoverSubMenu.value).toBe(false);
   });
 
   it('prevents concurrent duplicate requestOpenCoverSubMenu execution via guard', async () => {
-    let resolveFirst: () => void;
-    const firstPromise = new Promise<void>((resolve) => {
-      resolveFirst = resolve;
-    });
+    const { host, workspace } = await setup();
+    const initialRequests = host.state.coverCaptureRequests;
 
-    const covers = useBookmarkCovers({
-      executeBookmarkIntent: vi.fn(async () => true),
-      activeBookmarkMenuId: ref('bm-1'),
-      isMoveSubMenu: ref(false),
-      isCoverSubMenu: ref(false),
-      closeAllMenus: vi.fn(),
-    });
+    await Promise.all([
+      workspace.menus.requestOpenCoverSubMenu(dummyBookmark),
+      workspace.menus.requestOpenCoverSubMenu(dummyBookmark),
+    ]);
 
-    // Simulate in-flight check
-    covers.isCoverSubmenuChecking.value = true;
-
-    // Second call should bail out early
-    await covers.requestOpenCoverSubMenu(dummyBookmark);
-    expect((window as any).poexdAlert).not.toHaveBeenCalled();
-
-    covers.isCoverSubmenuChecking.value = false;
+    expect(host.state.coverCaptureRequests).toBe(initialRequests + 1);
+    expect(host.state.alerts).toHaveLength(0);
   });
 
   describe('Bookmark Cover URL Trust Boundary & Canonical Contract', () => {
-    it('filters forged result-images to retain only valid PoE CDN URLs and drops arbitrary/dangerous URLs', () => {
-      let coversInstance: ReturnType<typeof useBookmarkCovers> | undefined;
-      const TestComponent = defineComponent({
-        setup() {
-          coversInstance = useBookmarkCovers({
-            executeBookmarkIntent: vi.fn(async () => true),
-            activeBookmarkMenuId: ref('bm-1'),
-            isMoveSubMenu: ref(false),
-            isCoverSubMenu: ref(false),
-            closeAllMenus: vi.fn(),
-          });
-          return () => h('div');
-        },
-      });
+    it('filters forged result-images to retain only valid PoE CDN URLs and drops arbitrary/dangerous URLs', async () => {
+      const { host, workspace } = await setup();
 
-      // 掛載組件以觸發 onMounted 中的 listener
-      const { createApp } = require('vue');
-      const root = document.createElement('div');
-      const app = createApp(TestComponent);
-      app.mount(root);
-
-      try {
-        // 模擬 Host Page 偽造 poexd-result-images 事件
-        dispatchPoeEvent('poexd-result-images', {
-          url: 'https://www.pathofexile.com/trade/search/Standard/chaos',
-          images: [
-            'https://web.poecdn.com/image-1.png',
-            'https://webtw.poecdn.com/image-2.png',
-            'https://evil.com/malicious.png',
-            'https://google.com/test.png',
-            'javascript:alert(1)',
-            'data:image/png;base64,bad',
-          ],
-        });
-
-        // 斷言：只接受合法 PoE CDN URL
-        expect(coversInstance!.resultImages.value).toEqual([
+      host.emitCoverCapture({
+        url: 'https://www.pathofexile.com/trade/search/Standard/chaos',
+        images: [
           'https://web.poecdn.com/image-1.png',
           'https://webtw.poecdn.com/image-2.png',
-        ]);
-      } finally {
-        app.unmount();
-      }
+          'https://evil.com/malicious.png',
+          'https://google.com/test.png',
+          'javascript:alert(1)',
+          'data:image/png;base64,bad',
+        ],
+      });
+
+      expect(workspace.actions.getResultImagesForBookmark(dummyBookmark)).toEqual([
+        'https://web.poecdn.com/image-1.png',
+        'https://webtw.poecdn.com/image-2.png',
+      ]);
     });
 
     it('selectBookmarkCover rejects arbitrary or dangerous URL and does not dispatch mutation intent', async () => {
-      const executeBookmarkIntent = vi.fn(async () => true);
-      const closeAllMenus = vi.fn();
-
-      const covers = useBookmarkCovers({
-        executeBookmarkIntent,
-        activeBookmarkMenuId: ref('bm-1'),
-        isMoveSubMenu: ref(false),
-        isCoverSubMenu: ref(false),
-        closeAllMenus,
-      });
+      const { model, workspace } = await setup();
+      workspace.menus.setBookmarkMenuOpen('bm-1', true);
 
       // 嘗試選取惡意 URL
-      await covers.selectBookmarkCover(dummyBookmark, 'https://evil.com/hacked.png');
-      expect(executeBookmarkIntent).not.toHaveBeenCalled();
-      expect(closeAllMenus).not.toHaveBeenCalled();
+      await workspace.actions.selectBookmarkCover(dummyBookmark, 'https://evil.com/hacked.png');
+      expect(model.intents).toHaveLength(0);
+      expect(workspace.menus.activeBookmarkMenuId.value).toBe('bm-1');
 
-      await covers.selectBookmarkCover(dummyBookmark, 'javascript:alert(1)');
-      expect(executeBookmarkIntent).not.toHaveBeenCalled();
+      await workspace.actions.selectBookmarkCover(dummyBookmark, 'javascript:alert(1)');
+      expect(model.intents).toHaveLength(0);
 
       // 選取合法 URL 正常派發
-      await covers.selectBookmarkCover(dummyBookmark, 'https://web.poecdn.com/legit.png');
-      expect(executeBookmarkIntent).toHaveBeenCalledWith({
-        type: 'set-bookmark-cover',
-        bookmarkId: 'bm-1',
-        coverImageUrl: 'https://web.poecdn.com/legit.png',
-      });
-      expect(closeAllMenus).toHaveBeenCalled();
+      await workspace.actions.selectBookmarkCover(dummyBookmark, 'https://web.poecdn.com/legit.png');
+      expect(model.intents).toEqual([
+        {
+          type: 'set-bookmark-cover',
+          bookmarkId: 'bm-1',
+          coverImageUrl: 'https://web.poecdn.com/legit.png',
+        },
+      ]);
+      expect(workspace.menus.activeBookmarkMenuId.value).toBeNull();
     });
 
     it('prevents illegal set-bookmark-cover from writing to canonical state via model and collection', async () => {

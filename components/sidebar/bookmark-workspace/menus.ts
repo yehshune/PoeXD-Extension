@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 
-export function useBookmarkMenuState() {
+/** Workspace 內部的選單狀態部件。 */
+export function createBookmarkMenus() {
   const isTransferMenuOpen = ref(false);
   const activeGroupMenuId = ref<string | null>(null);
   const activeBookmarkMenuId = ref<string | null>(null);

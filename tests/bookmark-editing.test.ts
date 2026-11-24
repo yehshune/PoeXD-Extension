@@ -1,10 +1,10 @@
-// @vitest-environment happy-dom
-import { describe, expect, it, vi } from 'vitest';
-import { ref } from 'vue';
-import { useBookmarkEditing } from '@/components/sidebar/composables/useBookmarkEditing';
+import { describe, expect, it } from 'vitest';
+import { createBookmarkWorkspace } from '@/components/sidebar/bookmark-workspace';
+import { createFakeBookmarkWorkspaceHost } from '@/components/sidebar/bookmark-workspace/fake-host';
 import type { Bookmark, BookmarkGroup } from '@/components/sidebar/bookmark-types';
+import { createFakeBookmarkModel } from './helpers/fake-bookmark-model';
 
-describe('useBookmarkEditing', () => {
+describe('Bookmark Workspace — editing', () => {
   const dummyGroup: BookmarkGroup = {
     id: 'group-1',
     name: 'Currency',
@@ -20,185 +20,142 @@ describe('useBookmarkEditing', () => {
     order: 0,
   };
 
-  it('starts group rename and closes activeGroupMenuId', () => {
-    const activeGroupMenuId = ref<string | null>('group-1');
-    const activeBookmarkMenuId = ref<string | null>(null);
-    const executeBookmarkIntent = vi.fn(async () => true);
-
-    const editing = useBookmarkEditing({
-      executeBookmarkIntent,
-      activeGroupMenuId,
-      activeBookmarkMenuId,
+  const setup = () => {
+    const host = createFakeBookmarkWorkspaceHost();
+    const model = createFakeBookmarkModel({
+      groups: [dummyGroup],
+      bookmarks: [dummyBookmark],
     });
+    const workspace = createBookmarkWorkspace(host, { version: 'poe1', model });
+    return { host, model, workspace };
+  };
 
-    editing.startRenameGroup(dummyGroup);
+  it('starts group rename and closes activeGroupMenuId', () => {
+    const { workspace } = setup();
+    workspace.menus.setGroupMenuOpen('group-1', true);
 
-    expect(activeGroupMenuId.value).toBeNull();
-    expect(editing.editingGroupId.value).toBe('group-1');
-    expect(editing.editingGroupName.value).toBe('Currency');
+    workspace.editing.startRenameGroup(dummyGroup);
+
+    expect(workspace.menus.activeGroupMenuId.value).toBeNull();
+    expect(workspace.editing.editingGroupId.value).toBe('group-1');
+    expect(workspace.editing.editingGroupName.value).toBe('Currency');
   });
 
   it('saves group rename with trimmed non-empty name on success', async () => {
-    const activeGroupMenuId = ref<string | null>(null);
-    const activeBookmarkMenuId = ref<string | null>(null);
-    const executeBookmarkIntent = vi.fn(async () => true);
+    const { model, workspace } = setup();
 
-    const editing = useBookmarkEditing({
-      executeBookmarkIntent,
-      activeGroupMenuId,
-      activeBookmarkMenuId,
-    });
+    workspace.editing.startRenameGroup(dummyGroup);
+    workspace.editing.editingGroupName.value = '  New Currency Name  ';
 
-    editing.startRenameGroup(dummyGroup);
-    editing.editingGroupName.value = '  New Currency Name  ';
+    await workspace.editing.saveRenameGroup();
 
-    await editing.saveRenameGroup();
-
-    expect(executeBookmarkIntent).toHaveBeenCalledWith({
-      type: 'rename-group',
-      groupId: 'group-1',
-      name: 'New Currency Name',
-    });
-    expect(editing.editingGroupId.value).toBeNull();
+    expect(model.intents).toEqual([
+      {
+        type: 'rename-group',
+        groupId: 'group-1',
+        name: 'New Currency Name',
+      },
+    ]);
+    expect(workspace.editing.editingGroupId.value).toBeNull();
   });
 
   it('does not dispatch rename-group if name trims to empty string', async () => {
-    const executeBookmarkIntent = vi.fn(async () => true);
+    const { model, workspace } = setup();
 
-    const editing = useBookmarkEditing({
-      executeBookmarkIntent,
-      activeGroupMenuId: ref(null),
-      activeBookmarkMenuId: ref(null),
-    });
+    workspace.editing.startRenameGroup(dummyGroup);
+    workspace.editing.editingGroupName.value = '   ';
 
-    editing.startRenameGroup(dummyGroup);
-    editing.editingGroupName.value = '   ';
+    await workspace.editing.saveRenameGroup();
 
-    await editing.saveRenameGroup();
-
-    expect(executeBookmarkIntent).not.toHaveBeenCalled();
-    expect(editing.editingGroupId.value).toBeNull();
+    expect(model.intents).toHaveLength(0);
+    expect(workspace.editing.editingGroupId.value).toBeNull();
   });
 
   it('preserves editingGroupId if rename-group mutation fails', async () => {
-    const executeBookmarkIntent = vi.fn(async () => false);
+    const { host, model, workspace } = setup();
+    model.failWith('write rejected');
 
-    const editing = useBookmarkEditing({
-      executeBookmarkIntent,
-      activeGroupMenuId: ref(null),
-      activeBookmarkMenuId: ref(null),
-    });
+    workspace.editing.startRenameGroup(dummyGroup);
+    workspace.editing.editingGroupName.value = 'Updated Name';
 
-    editing.startRenameGroup(dummyGroup);
-    editing.editingGroupName.value = 'Updated Name';
+    await workspace.editing.saveRenameGroup();
 
-    await editing.saveRenameGroup();
-
-    expect(executeBookmarkIntent).toHaveBeenCalledTimes(1);
-    expect(editing.editingGroupId.value).toBe('group-1');
+    expect(model.intents).toHaveLength(1);
+    expect(workspace.editing.editingGroupId.value).toBe('group-1');
+    expect(host.state.alerts).toHaveLength(1);
   });
 
   it('starts bookmark rename and closes activeBookmarkMenuId', () => {
-    const activeGroupMenuId = ref<string | null>(null);
-    const activeBookmarkMenuId = ref<string | null>('bm-1');
-    const executeBookmarkIntent = vi.fn(async () => true);
+    const { workspace } = setup();
+    workspace.menus.setBookmarkMenuOpen('bm-1', true);
 
-    const editing = useBookmarkEditing({
-      executeBookmarkIntent,
-      activeGroupMenuId,
-      activeBookmarkMenuId,
-    });
+    workspace.editing.startRenameBookmark(dummyBookmark);
 
-    editing.startRenameBookmark(dummyBookmark);
-
-    expect(activeBookmarkMenuId.value).toBeNull();
-    expect(editing.editingBookmarkId.value).toBe('bm-1');
-    expect(editing.editingBookmarkName.value).toBe('Exalted Orb');
+    expect(workspace.menus.activeBookmarkMenuId.value).toBeNull();
+    expect(workspace.editing.editingBookmarkId.value).toBe('bm-1');
+    expect(workspace.editing.editingBookmarkName.value).toBe('Exalted Orb');
   });
 
   it('saves bookmark rename with trimmed non-empty name on success', async () => {
-    const activeGroupMenuId = ref<string | null>(null);
-    const activeBookmarkMenuId = ref<string | null>(null);
-    const executeBookmarkIntent = vi.fn(async () => true);
+    const { model, workspace } = setup();
 
-    const editing = useBookmarkEditing({
-      executeBookmarkIntent,
-      activeGroupMenuId,
-      activeBookmarkMenuId,
-    });
+    workspace.editing.startRenameBookmark(dummyBookmark);
+    workspace.editing.editingBookmarkName.value = '  Divine Orb  ';
 
-    editing.startRenameBookmark(dummyBookmark);
-    editing.editingBookmarkName.value = '  Divine Orb  ';
+    await workspace.editing.saveRenameBookmark();
 
-    await editing.saveRenameBookmark();
-
-    expect(executeBookmarkIntent).toHaveBeenCalledWith({
-      type: 'rename-bookmark',
-      bookmarkId: 'bm-1',
-      name: 'Divine Orb',
-    });
-    expect(editing.editingBookmarkId.value).toBeNull();
+    expect(model.intents).toEqual([
+      {
+        type: 'rename-bookmark',
+        bookmarkId: 'bm-1',
+        name: 'Divine Orb',
+      },
+    ]);
+    expect(workspace.editing.editingBookmarkId.value).toBeNull();
   });
 
   it('does not dispatch rename-bookmark if name trims to empty string', async () => {
-    const executeBookmarkIntent = vi.fn(async () => true);
+    const { model, workspace } = setup();
 
-    const editing = useBookmarkEditing({
-      executeBookmarkIntent,
-      activeGroupMenuId: ref(null),
-      activeBookmarkMenuId: ref(null),
-    });
+    workspace.editing.startRenameBookmark(dummyBookmark);
+    workspace.editing.editingBookmarkName.value = '   ';
 
-    editing.startRenameBookmark(dummyBookmark);
-    editing.editingBookmarkName.value = '   ';
+    await workspace.editing.saveRenameBookmark();
 
-    await editing.saveRenameBookmark();
-
-    expect(executeBookmarkIntent).not.toHaveBeenCalled();
-    expect(editing.editingBookmarkId.value).toBeNull();
+    expect(model.intents).toHaveLength(0);
+    expect(workspace.editing.editingBookmarkId.value).toBeNull();
   });
 
   it('preserves editingBookmarkId if rename-bookmark mutation fails', async () => {
-    const executeBookmarkIntent = vi.fn(async () => false);
+    const { host, model, workspace } = setup();
+    model.failWith('write rejected');
 
-    const editing = useBookmarkEditing({
-      executeBookmarkIntent,
-      activeGroupMenuId: ref(null),
-      activeBookmarkMenuId: ref(null),
-    });
+    workspace.editing.startRenameBookmark(dummyBookmark);
+    workspace.editing.editingBookmarkName.value = 'Updated Bookmark';
 
-    editing.startRenameBookmark(dummyBookmark);
-    editing.editingBookmarkName.value = 'Updated Bookmark';
+    await workspace.editing.saveRenameBookmark();
 
-    await editing.saveRenameBookmark();
-
-    expect(executeBookmarkIntent).toHaveBeenCalledTimes(1);
-    expect(editing.editingBookmarkId.value).toBe('bm-1');
+    expect(model.intents).toHaveLength(1);
+    expect(workspace.editing.editingBookmarkId.value).toBe('bm-1');
+    expect(host.state.alerts).toHaveLength(1);
   });
 
   it('does not dispatch rename-group or rename-bookmark if name exceeds BOOKMARK_NAME_MAX_LENGTH (200)', async () => {
-    const executeBookmarkIntent = vi.fn(async () => true);
-
-    const editing = useBookmarkEditing({
-      executeBookmarkIntent,
-      activeGroupMenuId: ref(null),
-      activeBookmarkMenuId: ref(null),
-    });
-
+    const { model, workspace } = setup();
     const tooLongName = 'X'.repeat(201);
 
     // Group rename with 201 chars
-    editing.startRenameGroup(dummyGroup);
-    editing.editingGroupName.value = tooLongName;
-    await editing.saveRenameGroup();
-    expect(executeBookmarkIntent).not.toHaveBeenCalled();
-    expect(editing.editingGroupId.value).toBeNull();
+    workspace.editing.startRenameGroup(dummyGroup);
+    workspace.editing.editingGroupName.value = tooLongName;
+    await workspace.editing.saveRenameGroup();
+    expect(model.intents).toHaveLength(0);
+    expect(workspace.editing.editingGroupId.value).toBeNull();
 
     // Bookmark rename with 201 chars
-    editing.startRenameBookmark(dummyBookmark);
-    editing.editingBookmarkName.value = tooLongName;
-    await editing.saveRenameBookmark();
-    expect(executeBookmarkIntent).not.toHaveBeenCalled();
-    expect(editing.editingBookmarkId.value).toBeNull();
+    workspace.editing.startRenameBookmark(dummyBookmark);
+    workspace.editing.editingBookmarkName.value = tooLongName;
+    await workspace.editing.saveRenameBookmark();
+    expect(model.intents).toHaveLength(0);
+    expect(workspace.editing.editingBookmarkId.value).toBeNull();
   });
 });

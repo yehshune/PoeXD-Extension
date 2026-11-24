@@ -1,25 +1,17 @@
-import {
-  ref,
-  computed,
-  nextTick,
-  onMounted,
-  onUnmounted,
-  getCurrentInstance,
-  type Ref,
-  type ComputedRef,
-} from 'vue';
+import { ref, computed, nextTick, type Ref, type ComputedRef } from 'vue';
 import type { Bookmark, BookmarkGroup } from '../bookmark-types';
 import { getFolderAncestors } from '@/utils/bookmark-collection';
-import { useDebouncedRef } from './useDebouncedSearch';
+import { useDebouncedRef } from '../composables/useDebouncedSearch';
 
 const EMPTY_BOOKMARKS: readonly Bookmark[] = Object.freeze([]);
 
-export interface UseBookmarkSearchOptions {
+export interface BookmarkSearchDeps {
   groups: Ref<readonly BookmarkGroup[]> | ComputedRef<readonly BookmarkGroup[]>;
   bookmarks: Ref<readonly Bookmark[]> | ComputedRef<readonly Bookmark[]>;
 }
 
-export function useBookmarkSearch(options: UseBookmarkSearchOptions) {
+/** Workspace 內部的搜尋部件。 */
+export function createBookmarkSearch(options: BookmarkSearchDeps) {
   const { groups, bookmarks } = options;
 
   const searchQuery = ref('');
@@ -55,19 +47,12 @@ export function useBookmarkSearch(options: UseBookmarkSearchOptions) {
     }
   };
 
-  if (getCurrentInstance()) {
-    onMounted(() => {
-      if (typeof window !== 'undefined') {
-        window.addEventListener('keydown', handleKeydown);
-      }
-    });
-
-    onUnmounted(() => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('keydown', handleKeydown);
-      }
-    });
-  }
+  /** 監聽 Escape 關閉搜尋；回傳取消監聽。 */
+  const watchKeyboard = (): (() => void) => {
+    if (typeof window === 'undefined') return () => {};
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  };
 
   const filteredGroups = computed<readonly BookmarkGroup[]>(() => {
     const query = debouncedSearchQuery.value.trim().toLowerCase();
@@ -141,6 +126,7 @@ export function useBookmarkSearch(options: UseBookmarkSearchOptions) {
     closeSearch,
     toggleSearch,
     handleKeydown,
+    watchKeyboard,
     filteredGroups,
     getFilteredGroupBookmarks,
   };

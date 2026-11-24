@@ -694,7 +694,7 @@ describe('BookmarkPane SidebarPane integration and SortableJS contract', () => {
 
     // Watcher must handle loading false post-flush
     expect(freshBookmarkSource).toContain('watch(');
-    expect(freshBookmarkSource).toContain('[sortableStructure, isLoading]');
+    expect(freshBookmarkSource).toContain('[tree.sortableKey, tree.isLoading]');
     expect(freshBookmarkSource).toContain('if (!loading) void initSortable();');
 
     // Runtime verification: loading true -> false produces exactly one init pass

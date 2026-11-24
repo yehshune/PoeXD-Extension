@@ -368,12 +368,16 @@ describe('Global Toast Host Contract', () => {
         path.resolve(__dirname, '../components/sidebar/BookmarkPane.vue'),
         'utf-8',
       );
+      const chromeHostSource = readFileSync(
+        path.resolve(__dirname, '../components/sidebar/bookmark-workspace/chrome-host.ts'),
+        'utf-8',
+      );
       expect(bookmarkSource).not.toContain('toastMessage');
       expect(bookmarkSource).not.toContain('toastTimer');
       expect(bookmarkSource).not.toContain('toast-tip');
       expect(bookmarkSource).not.toContain('toast-fade');
-      expect(bookmarkSource).toMatch(
-        /const showToast = \(message: string\) =>\s*\{[\s\S]*?dispatchPoeEvent\('poexd-toast'/,
+      expect(chromeHostSource).toMatch(
+        /toast\(message, tone = 'default'\)\s*\{[\s\S]*?dispatchPoeEvent\('poexd-toast'/,
       );
     });
 

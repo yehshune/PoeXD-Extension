@@ -10,10 +10,7 @@ import { dispatchPoeEvent } from '@/utils/event-contracts';
 
 const source = readFileSync('components/sidebar/BookmarkPane.vue', 'utf8');
 const nodeSource = readBookmarkNodeSource();
-const menuStateSource = readFileSync(
-  'components/sidebar/composables/useBookmarkMenuState.ts',
-  'utf8',
-);
+const menuStateSource = readFileSync('components/sidebar/bookmark-workspace/menus.ts', 'utf8');
 const contentSource = readFileSync('components/ui/dropdown-menu/DropdownMenuContent.vue', 'utf8');
 const subContentSource = readFileSync(
   'components/ui/dropdown-menu/DropdownMenuSubContent.vue',
@@ -141,7 +138,7 @@ describe('Bookmark Menu (Static Contracts & Legacy Cleanup)', () => {
   it('J. removes global window click menu lifecycle listener', () => {
     expect(source).not.toContain("window.addEventListener('click', closeAllMenus)");
     expect(source).not.toContain("window.removeEventListener('click', closeAllMenus)");
-    expect(source).toContain('useBookmarkMenuState');
+    expect(source).toContain('useBookmarkWorkspace');
 
     const closeFnStart = menuStateSource.indexOf('const closeAllMenus = () =>');
     expect(closeFnStart).toBeGreaterThan(0);

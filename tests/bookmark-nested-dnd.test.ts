@@ -876,14 +876,14 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       { id: 'folder-dragged', name: 'Dragged', order: 1 },
     ]);
 
-    const { useBookmarkCollapse } =
-      await import('@/components/sidebar/composables/useBookmarkCollapse');
-    const collapse = useBookmarkCollapse({
+    const { createBookmarkCollapse } =
+      await import('@/components/sidebar/bookmark-workspace/collapse');
+    const collapse = createBookmarkCollapse({
       groups,
       searchQuery: ref(''),
       storageKey: 'poexdBookmarkCollapsedGroups',
     });
-    await collapse.loadCollapsedGroups();
+    await collapse.load();
 
     // 初始狀態：folder-target 是收合的
     expect(collapse.isGroupCollapsed('folder-target')).toBe(true);
