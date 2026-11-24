@@ -23,9 +23,12 @@ const SYNC_HIDDEN_CLASS = 'poexd-board-sync-hidden';
 const SYNC_BANNER_CLASS = 'poexd-board-sync-banner';
 export const ROW_SELECTOR = '.resultset .row[data-id]';
 const GONE_ROW_SELECTOR = '.row[data-id].gone';
-/** 官方結果列上可納入看板搜尋的文字節點（品名、基底、詞綴、階級，排除按鈕與 UI 雜訊） */
+/**
+ * 官方結果列上可納入看板搜尋的文字節點（品名、基底、詞綴、階級，排除按鈕與 UI 雜訊）。
+ * 品名與基底在三種版型都位於 `.item-popup__header-line`（2026-11-24 實機確認，已無 `.itemHeader`）。
+ */
 const ENTRY_SEARCH_TEXT_SELECTOR =
-  '.itemHeader .lc, .item-popup__header-line, .s.lc, [data-field^="stat."], .lc.l.pr, .lc.l.su';
+  '.item-popup__header-line, .s.lc, [data-field^="stat."], .lc.l.pr, .lc.l.su';
 const NATIVE_LAYOUT_BTN_SELECTOR = '.layout-btn';
 const NATIVE_LAYOUT_GAP_PX = 8;
 const NATIVE_LAYOUT_PITCH_PX = 38;

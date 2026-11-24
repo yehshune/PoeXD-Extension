@@ -109,14 +109,8 @@ export const RESULT_ROW_DOM: readonly DomCheck[] = [
   {
     id: 'row-item-header',
     selector: '.item-popup__header-line',
-    usedBy: 'market-result-translator, result-board-runtime',
+    usedBy: 'market-result-translator, result-board-runtime（看板品名搜尋，含漢化後品名）',
     offline: true,
-  },
-  {
-    id: 'row-item-header-lc',
-    selector: '.itemHeader .lc',
-    usedBy: 'result-board-runtime（看板漢化品名搜尋）',
-    offline: false,
   },
   {
     id: 'row-stat-field',

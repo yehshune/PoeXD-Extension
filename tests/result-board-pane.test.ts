@@ -249,12 +249,12 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     resultset.className = 'resultset';
     resultset.innerHTML = `
       <div class="row" data-id="r1">
-        <div class="itemHeader"><span class="lc">帝國之弓</span></div>
+        <div class="item-popup__header"><div class="item-popup__header-line">勝利之弓</div><div class="item-popup__header-line">帝國之弓</div></div>
         <span class="s lc">增加 179% 物理傷害</span>
         <span class="lc l pr">P1</span>
       </div>
       <div class="row" data-id="r2">
-        <div class="itemHeader"><span class="lc">紫晶戒指</span></div>
+        <div class="item-popup__header"><div class="item-popup__header-line">奇蹟之環</div><div class="item-popup__header-line">紫晶戒指</div></div>
         <span class="s lc">+23% 混沌抗性</span>
       </div>
     `;
@@ -287,6 +287,17 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
       await flush();
 
       const input = container.querySelector<HTMLInputElement>('[data-board-keyword]')!;
+      // 漢化後的品名（官方 .item-popup__header-line）也能搜尋
+      input.value = '紫晶';
+      input.dispatchEvent(new Event('input'));
+      await new Promise((r) => setTimeout(r, 180));
+      await flush();
+      expect(
+        Array.from(container.querySelectorAll('[data-board-entry-id]')).map((el) =>
+          el.getAttribute('data-board-entry-id'),
+        ),
+      ).toEqual(['r2']);
+
       input.value = '物理傷 p1';
       input.dispatchEvent(new Event('input'));
       await new Promise((r) => setTimeout(r, 180));
