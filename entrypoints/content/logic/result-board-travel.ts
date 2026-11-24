@@ -30,12 +30,7 @@ export const TRAVEL_COOLDOWN_MS = 1_200;
  * - `busy`：連結過期、但正在載入更多，重新整理的 fetch 會和載入混在一起，先不處理
  * - `refresh-failed`：重新整理後按鈕仍未恢復（逾時、結果列消失或已下架）
  */
-export type TravelOutcome =
-  | 'travelled'
-  | 'in-progress'
-  | 'unavailable'
-  | 'busy'
-  | 'refresh-failed';
+export type TravelOutcome = 'travelled' | 'in-progress' | 'unavailable' | 'busy' | 'refresh-failed';
 
 export type TravelPhase = 'refreshing' | 'traveling';
 export type TravelStateMap = Readonly<Record<string, TravelPhase>>;
@@ -181,7 +176,11 @@ export class ResultBoardTravel {
       const row = findOfficialRow(id, this.deps.doc);
       if (!row) return undefined;
       const button = findTravelButton(row);
-      if (!row.classList.contains('refreshing') && !isExpiredButton(button) && isUsableButton(button)) {
+      if (
+        !row.classList.contains('refreshing') &&
+        !isExpiredButton(button) &&
+        isUsableButton(button)
+      ) {
         return button;
       }
     }

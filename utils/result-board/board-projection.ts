@@ -225,8 +225,7 @@ export function projectBoardView(input: BoardViewProjectionInput): BoardViewProj
 
   const priceSummary = summarizePrices(entries, rates);
 
-  const commonFiltersActive =
-    hasMods || keyword.trim().length > 0 || hiddenAccounts.size > 0;
+  const commonFiltersActive = hasMods || keyword.trim().length > 0 || hiddenAccounts.size > 0;
   const hasActiveFilters =
     view === 'sellers'
       ? commonFiltersActive || minSellerCount > 0

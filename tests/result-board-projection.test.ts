@@ -18,10 +18,7 @@ function entries(list: RawResultOptions[]): BoardEntry[] {
 
 const ids = (list: readonly BoardEntry[]) => list.map((entry) => entry.id);
 
-function project(
-  list: readonly BoardEntry[],
-  overrides: Partial<BoardViewProjectionInput> = {},
-) {
+function project(list: readonly BoardEntry[], overrides: Partial<BoardViewProjectionInput> = {}) {
   return projectBoardView({
     entries: list,
     marks: {},
@@ -147,9 +144,9 @@ describe('board-projection: item sorting and filtering', () => {
       'b',
       'd',
     ]);
-    expect(
-      ids(project(list, { sortMode: 'price-asc', rates: undefined }).filteredEntries),
-    ).toEqual(['a', 'b', 'c', 'd']);
+    expect(ids(project(list, { sortMode: 'price-asc', rates: undefined }).filteredEntries)).toEqual(
+      ['a', 'b', 'c', 'd'],
+    );
     expect(ids(project(list, { sortMode: 'indexed-desc' }).filteredEntries)).toEqual([
       'b',
       'c',
@@ -202,9 +199,10 @@ describe('board-projection: item sorting and filtering', () => {
     expect(ids(project(list, { keyword: 'circlet' }).filteredEntries)).toEqual(['c']);
     expect(ids(project(list, { keyword: 'bob' }).filteredEntries)).toEqual(['b']);
     expect(ids(project(list, { keyword: 'frost' }).filteredEntries)).toEqual(['a']);
-    expect(
-      ids(project(list, { hiddenAccounts: new Set(['Alice#1']) }).filteredEntries),
-    ).toEqual(['b', 'c']);
+    expect(ids(project(list, { hiddenAccounts: new Set(['Alice#1']) }).filteredEntries)).toEqual([
+      'b',
+      'c',
+    ]);
     expect(ids(project(list, { priceMin: 100 }).filteredEntries)).toEqual(['a']);
     expect(ids(project(list, { priceMax: 100 }).filteredEntries)).toEqual(['b']);
     expect(ids(project(list, { priceMin: 100, rates: undefined }).filteredEntries)).toEqual([
@@ -271,10 +269,35 @@ describe('board-projection: item sorting and filtering', () => {
 describe('board-projection: seller aggregation, sorting, filtering and item-vs-seller parity', () => {
   it('groups characters per account, calculates totals/ranges/presence, and sorts sellers', () => {
     const list = entries([
-      { id: 'a', account: 'A#1', character: 'Old', indexed: '2026-11-18T00:00:00Z', amount: 1, currency: 'divine', online: 'offline' },
+      {
+        id: 'a',
+        account: 'A#1',
+        character: 'Old',
+        indexed: '2026-11-18T00:00:00Z',
+        amount: 1,
+        currency: 'divine',
+        online: 'offline',
+      },
       { id: 'b', account: 'B#2', amount: 50, currency: 'chaos' },
-      { id: 'c', account: 'A#1', character: 'New', indexed: '2026-11-19T00:00:00Z', amount: 50, currency: 'chaos', online: 'afk' },
-      { id: 'd', account: 'A#1', character: 'Old', indexed: '2026-11-17T00:00:00Z', amount: 999, currency: 'chaos', instantBuyout: false, online: 'offline' },
+      {
+        id: 'c',
+        account: 'A#1',
+        character: 'New',
+        indexed: '2026-11-19T00:00:00Z',
+        amount: 50,
+        currency: 'chaos',
+        online: 'afk',
+      },
+      {
+        id: 'd',
+        account: 'A#1',
+        character: 'Old',
+        indexed: '2026-11-17T00:00:00Z',
+        amount: 999,
+        currency: 'chaos',
+        instantBuyout: false,
+        online: 'offline',
+      },
     ]);
 
     const { sellers } = project(list, { view: 'sellers' });
@@ -285,7 +308,10 @@ describe('board-projection: seller aggregation, sorting, filtering and item-vs-s
       presence: 'afk',
       instantBuyoutCount: 2,
       total: { kind: 'converted', currency: 'chaos', amount: 250, unconverted: 0 },
-      priceRange: { min: { amount: 50, currency: 'chaos' }, max: { amount: 999, currency: 'chaos' } },
+      priceRange: {
+        min: { amount: 50, currency: 'chaos' },
+        max: { amount: 999, currency: 'chaos' },
+      },
     });
   });
 
@@ -372,7 +398,13 @@ describe('board-projection: seller aggregation, sorting, filtering and item-vs-s
         name: 'Imperial Bow',
         amount: 50,
         extendedMods: {
-          explicit: [{ name: 'Merciless', tier: 'P1', magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }] }],
+          explicit: [
+            {
+              name: 'Merciless',
+              tier: 'P1',
+              magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }],
+            },
+          ],
         },
       },
       {
@@ -381,7 +413,13 @@ describe('board-projection: seller aggregation, sorting, filtering and item-vs-s
         name: 'Imperial Bow',
         amount: 50,
         extendedMods: {
-          explicit: [{ name: 'Merciless', tier: 'P1', magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }] }],
+          explicit: [
+            {
+              name: 'Merciless',
+              tier: 'P1',
+              magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }],
+            },
+          ],
         },
       },
       { id: 'o1', account: 'Other#2', name: 'Amethyst Ring', amount: 10 },
@@ -476,8 +514,16 @@ describe('board-projection: independent mod options, faceted counts, and structu
           id: 'pure-t1',
           extendedMods: {
             explicit: [
-              { name: 'Merciless', tier: 'P1', magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }] },
-              { name: 'of Celebration', tier: 'S1', magnitudes: [{ hash: ASPD_HASH, min: '17', max: '19' }] },
+              {
+                name: 'Merciless',
+                tier: 'P1',
+                magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }],
+              },
+              {
+                name: 'of Celebration',
+                tier: 'S1',
+                magnitudes: [{ hash: ASPD_HASH, min: '17', max: '19' }],
+              },
             ],
           },
         }),
@@ -488,7 +534,11 @@ describe('board-projection: independent mod options, faceted counts, and structu
           id: 'pure-t1-plus-hybrid',
           extendedMods: {
             explicit: [
-              { name: 'Merciless', tier: 'P1', magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }] },
+              {
+                name: 'Merciless',
+                tier: 'P1',
+                magnitudes: [{ hash: PHYS_HASH, min: '170', max: '179' }],
+              },
               {
                 name: 'Squire',
                 tier: 'P8',
@@ -507,7 +557,11 @@ describe('board-projection: independent mod options, faceted counts, and structu
           id: 'fake-t1-p3-p4',
           extendedMods: {
             explicit: [
-              { name: 'Cruel', tier: 'P3', magnitudes: [{ hash: PHYS_HASH, min: '135', max: '154' }] },
+              {
+                name: 'Cruel',
+                tier: 'P3',
+                magnitudes: [{ hash: PHYS_HASH, min: '135', max: '154' }],
+              },
               {
                 name: 'Champion',
                 tier: 'P4',
@@ -639,8 +693,18 @@ describe('board-projection: independent mod options, faceted counts, and structu
               domain: 'explicit',
               hash: `stat.${PHYS_HASH}`,
               mods: [
-                { name: "Conqueror's", tier: 'P3', level: 60, magnitudes: [{ min: '55', max: '64' }] },
-                { name: 'Merciless', tier: 'P1', level: 83, magnitudes: [{ min: '170', max: '179' }] },
+                {
+                  name: "Conqueror's",
+                  tier: 'P3',
+                  level: 60,
+                  magnitudes: [{ min: '55', max: '64' }],
+                },
+                {
+                  name: 'Merciless',
+                  tier: 'P1',
+                  level: 83,
+                  magnitudes: [{ min: '170', max: '179' }],
+                },
               ],
             },
             {
@@ -648,7 +712,12 @@ describe('board-projection: independent mod options, faceted counts, and structu
               domain: 'explicit',
               hash: `stat.${ACC_HASH}`,
               mods: [
-                { name: "Conqueror's", tier: 'P3', level: 60, magnitudes: [{ min: '124', max: '149' }] },
+                {
+                  name: "Conqueror's",
+                  tier: 'P3',
+                  level: 60,
+                  magnitudes: [{ min: '124', max: '149' }],
+                },
               ],
             },
             {
@@ -657,7 +726,12 @@ describe('board-projection: independent mod options, faceted counts, and structu
               hash: 'stat.fractured.stat_210067635',
               flags: { fractured: true },
               mods: [
-                { name: 'of Celebration', tier: 'S1', level: 82, magnitudes: [{ min: '17', max: '19' }] },
+                {
+                  name: 'of Celebration',
+                  tier: 'S1',
+                  level: 82,
+                  magnitudes: [{ min: '17', max: '19' }],
+                },
               ],
             },
           ],
@@ -691,7 +765,12 @@ describe('board-projection: independent mod options, faceted counts, and structu
               hash: `stat.${PHYS_HASH}`,
               mods: [
                 { name: 'Cruel', tier: 'P3', level: 60, magnitudes: [{ min: '135', max: '154' }] },
-                { name: "Champion's", tier: 'P4', level: 46, magnitudes: [{ min: '45', max: '54' }] },
+                {
+                  name: "Champion's",
+                  tier: 'P4',
+                  level: 46,
+                  magnitudes: [{ min: '45', max: '54' }],
+                },
               ],
             },
             {
@@ -699,7 +778,12 @@ describe('board-projection: independent mod options, faceted counts, and structu
               domain: 'explicit',
               hash: `stat.${ACC_HASH}`,
               mods: [
-                { name: "Champion's", tier: 'P4', level: 46, magnitudes: [{ min: '98', max: '123' }] },
+                {
+                  name: "Champion's",
+                  tier: 'P4',
+                  level: 46,
+                  magnitudes: [{ min: '98', max: '123' }],
+                },
               ],
             },
           ],
