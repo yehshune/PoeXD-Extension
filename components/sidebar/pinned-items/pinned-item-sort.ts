@@ -2,10 +2,10 @@ import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import {
   PRICE_COMPARISON_CURRENCIES,
   compareListingPrice,
+  convertPrice,
   type CurrencyRateSnapshot,
   type PriceComparison,
 } from '@/utils/price-comparison';
-import { convertPrice } from '@/utils/result-board/board-price';
 import type { PoeVersion } from '@/utils/trade-context';
 
 export const PINNED_SORT_MODES = ['custom', 'newest', 'price-asc', 'price-desc'] as const;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** 以通貨圖示呈現 `PriceTotal`（換算總價或分幣種加總） */
 import { t } from '@/utils/i18n';
-import type { PriceTotal } from '@/utils/result-board/board-price';
+import type { PriceTotal } from '@/utils/result-board/board-projection';
 import type { CurrencyDisplay } from '@/utils/result-board/board-session';
 import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
 

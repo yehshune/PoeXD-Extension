@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { t, type I18nKey } from '@/utils/i18n';
 import { requestResultTranslation } from '@/utils/market-result-translation-request';
-import type { BoardSortMode } from '@/utils/result-board/board-query';
+import type { BoardSortMode } from '@/utils/result-board/board-projection';
 import { createVersionedStorageKeys } from '@/utils/storage-contracts';
 import { getPoeVersion } from '@/utils/trade-context';
 import SidebarPane from '../layout/SidebarPane.vue';

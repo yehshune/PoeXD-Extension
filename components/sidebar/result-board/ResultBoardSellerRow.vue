@@ -21,10 +21,12 @@ import { t } from '@/utils/i18n';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
-import type { PriceTotal } from '@/utils/result-board/board-price';
-import { sortEntries } from '@/utils/result-board/board-query';
+import {
+  projectSellerStashGroups,
+  type PriceTotal,
+  type SellerSummary,
+} from '@/utils/result-board/board-projection';
 import type { BoardMark, CurrencyDisplay } from '@/utils/result-board/board-session';
-import { groupSellerEntriesByStash, type SellerSummary } from '@/utils/result-board/board-sellers';
 import type { StashRegexResult } from '@/utils/result-board/stash-regex';
 import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
 import BoardTotalAmount from './BoardTotalAmount.vue';
@@ -76,14 +78,10 @@ const soldIds = computed(() => {
   return ids;
 });
 
-/** 展開後依價格由低到高（無法比較時維持官方順序），再依倉庫分頁分區且把已售出沉底 */
-const orderedEntries = computed(() =>
-  sortEntries(props.seller.entries, props.rates ? 'price-asc' : 'official', props.rates),
-);
-
+/** 展開後按需依價格由低到高（無法比較時維持官方順序）並依倉庫分頁分區，已售出沉底 */
 const stashSections = computed(() => {
   if (!open.value) return [];
-  return groupSellerEntriesByStash(orderedEntries.value, soldIds.value).map((group) => {
+  return projectSellerStashGroups(props.seller, props.rates, soldIds.value).map((group) => {
     const buyable = group.entries.filter(
       (entry) => entry.instantBuyout && !soldIds.value.has(entry.id),
     );

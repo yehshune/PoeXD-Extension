@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ResultBoardRuntime,
+  TRAVEL_COOLDOWN_MS,
   TRAVEL_REFRESH_TIMEOUT_MS,
 } from '@/entrypoints/content/logic/result-board-runtime';
 import {
@@ -152,15 +153,54 @@ describe('ResultBoardRuntime', () => {
   it('travels through the official button and marks visited only after whisper succeeds', async () => {
     dispatchPoeEvent('poexd-search-result-summary', summary(20));
     await expect(runtime.travel('a')).resolves.toBe('travelled');
+    expect(runtime.getTravelStates()).toEqual({ a: 'traveling' });
+    // Duplicate click while traveling is ignored
+    await expect(runtime.travel('a')).resolves.toBe('in-progress');
     expect(runtime.session.getState().marks).toEqual({});
     dispatchPoeEvent(
       'poexd-whisper-outcome',
       serializeWhisperOutcome({ status: 200, success: true }),
     );
     expect(runtime.session.getState().marks).toEqual({ a: 'visited' });
+    // Marking visited clears travel state immediately
+    expect(runtime.getTravelStates()).toEqual({});
     document.querySelector('[data-id="b"] .direct-btn')!.classList.add('disabled');
     await expect(runtime.travel('b')).resolves.toBe('unavailable');
     await expect(runtime.travel('missing')).resolves.toBe('unavailable');
+  });
+
+  it('tracks refreshing/traveling phases through subscribeTravelStates, expires cooldown, and resets on search change', async () => {
+    const snapshots: Array<Record<string, string>> = [];
+    const unsubscribe = runtime.subscribeTravelStates((states) => {
+      snapshots.push({ ...states });
+    });
+
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    await expect(runtime.travel('a')).resolves.toBe('travelled');
+    expect(runtime.getTravelStates()).toEqual({ a: 'traveling' });
+    vi.advanceTimersByTime(TRAVEL_COOLDOWN_MS);
+    expect(runtime.getTravelStates()).toEqual({});
+
+    // Refreshing -> traveling -> cleared on search change
+    expire('b', (row, button) => {
+      setTimeout(restore(row, button), 200);
+    });
+    const pending = runtime.travel('b');
+    expect(runtime.getTravelStates()).toEqual({ b: 'refreshing' });
+    await vi.advanceTimersByTimeAsync(300);
+    await expect(pending).resolves.toBe('travelled');
+    expect(runtime.getTravelStates()).toEqual({ b: 'traveling' });
+
+    dispatchPoeEvent('poexd-search-result-summary', summary(10, 's2'));
+    expect(runtime.getTravelStates()).toEqual({});
+    expect(snapshots).toEqual([
+      { a: 'traveling' },
+      {},
+      { b: 'refreshing' },
+      { b: 'traveling' },
+      {},
+    ]);
+    unsubscribe();
   });
 
   /** 比照官方：連結過期時按鈕為 `expired disabled`，結果列上有「重新整理」 */

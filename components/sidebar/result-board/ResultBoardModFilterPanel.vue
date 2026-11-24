@@ -24,7 +24,7 @@ import {
   type BoardModOption,
   type BoardModQuickFilter,
   type BoardModTierCap,
-} from '@/utils/result-board/board-mods';
+} from '@/utils/result-board/board-projection';
 
 const props = defineProps<{
   open: boolean;

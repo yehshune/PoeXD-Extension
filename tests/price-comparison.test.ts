@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   compareListingPrice,
+  convertPrice,
   createResultPriceComparisons,
   parseCurrencyRateSnapshot,
 } from '@/utils/price-comparison';
@@ -95,5 +96,17 @@ describe('price comparison', () => {
     expect(
       compareListingPrice('poe1', snapshot, { amount: Number.NaN, currency: 'divine' }),
     ).toBeNull();
+  });
+
+  it('converts prices to primary currency and rejects missing, unknown, inherited, or non-finite values', () => {
+    const rates = { primary: 'chaos', rates: { chaos: 1, divine: 200 } };
+    expect(convertPrice({ amount: 2, currency: 'divine' }, rates)).toBe(400);
+    expect(convertPrice({ amount: 30, currency: 'chaos' }, rates)).toBe(30);
+    expect(convertPrice({ amount: 2, currency: 'divine' }, undefined)).toBeUndefined();
+    expect(convertPrice(undefined, rates)).toBeUndefined();
+    expect(convertPrice({ amount: 2, currency: 'mirror' }, rates)).toBeUndefined();
+    expect(convertPrice({ amount: 2, currency: 'constructor' }, rates)).toBeUndefined();
+    expect(convertPrice({ amount: 2, currency: '__proto__' }, rates)).toBeUndefined();
+    expect(convertPrice({ amount: 1e308, currency: 'divine' }, rates)).toBeUndefined();
   });
 });

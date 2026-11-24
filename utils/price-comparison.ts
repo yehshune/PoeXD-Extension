@@ -85,6 +85,20 @@ function sanitizeRates(value: Record<string, unknown>) {
   );
 }
 
+/** 換算成匯率快照的主通貨；無法換算時為 undefined */
+export function convertPrice(
+  price: ListingPrice | undefined,
+  rates: CurrencyRateSnapshot | undefined,
+): number | undefined {
+  if (!price || !rates) return undefined;
+  // 通貨名稱來自不可信輸入：只讀自有屬性，避免 `constructor` 等原型屬性
+  if (!Object.hasOwn(rates.rates, price.currency)) return undefined;
+  const rate = rates.rates[price.currency];
+  if (!Number.isFinite(rate) || rate <= 0) return undefined;
+  const value = price.amount * rate;
+  return Number.isFinite(value) ? value : undefined;
+}
+
 export function compareListingPrice(
   version: PoeVersion,
   snapshot: CurrencyRateSnapshot | undefined,

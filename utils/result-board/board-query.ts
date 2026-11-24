@@ -3,10 +3,9 @@
  *
  * 價格排序與價格篩選需要匯率；沒有匯率時不提供價格排序，價格區間也不套用。
  */
-import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
+import { convertPrice, type CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { BoardEntry } from './board-entry';
 import { isSubsequence, matchesModConditions, type BoardModCondition } from './board-mods';
-import { convertPrice } from './board-price';
 
 export type BoardSortMode =
   | 'official'

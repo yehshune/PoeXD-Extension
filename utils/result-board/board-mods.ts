@@ -4,12 +4,7 @@
  * 詞綴與複合詞的原始 JSON 解析統一委託給 `@/utils/trade-item-mods`，
  * 此模組專責看板選項彙整、累積階級統計與條件篩選比對。
  */
-import {
-  parseModTierCode,
-  readTradeItemModData,
-  type TradeItemModAffixKind,
-  type TradeItemModRoll,
-} from '@/utils/trade-item-mods';
+import type { TradeItemModAffixKind, TradeItemModRoll } from '@/utils/trade-item-mods';
 import type { BoardEntry } from './board-entry';
 
 export type BoardModAffixKind = TradeItemModAffixKind;
@@ -47,19 +42,6 @@ export interface BoardModOption {
   bestTier?: string;
   /** 目前結果中出現過的詞綴原名（如 `Merciless`、`Conqueror's`），供 tooltip 提示 */
   sampleNames: readonly string[];
-}
-
-/** 解析單一詞綴階級字串（例如 `P1` → prefix #1、`S3` → suffix #3） */
-export const parseTierCode = parseModTierCode;
-
-/** 從官方物品 JSON 擷取獨立詞條與階級／詞綴名索引 */
-export const readExtendedModData = readTradeItemModData;
-
-/** 從官方物品 JSON 擷取獨立詞條陣列 */
-export function readBoardModRolls(
-  item: Record<string, unknown>,
-): readonly BoardModRoll[] | undefined {
-  return readTradeItemModData(item).modRolls;
 }
 
 /** 判斷單件物品是否同時符合所有「必含獨立詞綴」條件 */

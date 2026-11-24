@@ -5,7 +5,7 @@ import { getActiveUiLocale, t, type I18nKey } from '@/utils/i18n';
 import type { BoardEntry, BoardPrice } from '@/utils/result-board/board-entry';
 import type { LoadStopReason } from '@/utils/result-board/board-loader';
 import { PRICE_COMPARISON_CURRENCIES } from '@/utils/price-comparison';
-import type { PriceTotal } from '@/utils/result-board/board-price';
+import type { PriceTotal } from '@/utils/result-board/board-projection';
 import type { CurrencyDisplay } from '@/utils/result-board/board-session';
 import { RARITY_COLOURS, resolveRarityClass } from '../pinned-items/pinned-item-card';
 

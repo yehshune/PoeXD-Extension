@@ -1,6 +1,6 @@
 /**
- * 搜尋結果看板 pane 的狀態與動作。看板資料來自 `ResultBoardRuntime`（頁面接線），
- * 篩選、排序、勾選等檢視狀態只存在這個 pane 的記憶體，換搜尋時重設勾選。
+ * 搜尋結果看板 pane 的狀態與動作。看板資料與前往狀態來自 `ResultBoardRuntime`，
+ * 投影計算統一委託給 `board-projection`，篩選、排序、勾選等檢視狀態只存在這個 pane 的記憶體。
  */
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
 import {
@@ -17,29 +17,16 @@ import { createPinnedItemClient } from '@/utils/pinned-item-client';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
 import {
-  aggregateBoardModOptions,
-  filterModOptions,
-  matchesModConditions,
+  projectBoardView,
+  sumPrices,
   type BoardModCondition,
-  type BoardModOption,
   type BoardModQuickFilter,
   type BoardModTierCap,
-} from '@/utils/result-board/board-mods';
-import { sumPrices, summarizePrices, type PriceTotal } from '@/utils/result-board/board-price';
-import {
-  availableSortModes,
-  filterEntries,
-  matchesBoardEntry,
-  parseSearchTokens,
-  sortEntries,
   type BoardSortMode,
-} from '@/utils/result-board/board-query';
-import {
-  aggregateSellers,
-  filterSellers,
-  sortSellers,
+  type BoardView,
+  type PriceTotal,
   type SellerSummary,
-} from '@/utils/result-board/board-sellers';
+} from '@/utils/result-board/board-projection';
 import {
   buildStashRegex,
   STASH_SEARCH_MAX_LENGTH,
@@ -54,7 +41,7 @@ import {
   translateStatLines,
 } from '@/utils/trade-stat-dictionary';
 
-export type BoardView = 'items' | 'sellers';
+export type { BoardView };
 
 export const DEFAULT_MIN_SELLER_COUNT = 2;
 
@@ -69,10 +56,19 @@ export function parseBound(value: string): number | undefined {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+const TRAVEL_FAILURE: Readonly<
+  Record<Exclude<TravelOutcome, 'travelled' | 'in-progress'>, I18nKey>
+> = {
+  unavailable: 'resultBoard.travelUnavailable',
+  busy: 'resultBoard.travelBusy',
+  'refresh-failed': 'resultBoard.travelRefreshFailed',
+};
+
 export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRuntime()) {
   const version = getPoeVersion();
   const state = shallowRef(runtime.session.getState());
   const loaderState = shallowRef(runtime.loader.getState());
+  const travelStates = shallowRef(runtime.getTravelStates());
   const isLiveMode = ref(getTradePageMode() === 'live');
 
   const view = ref<BoardView>('items');
@@ -97,9 +93,6 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const expandedSellers = ref<ReadonlySet<string>>(new Set());
   /** 釘選清單同步來的已釘選 id，用來在看板上高亮 Pin 按鈕 */
   const pinnedIds = ref<ReadonlySet<string>>(new Set());
-  /** 正在重新整理或前往藏身處中的結果 id */
-  const travelStates = ref<Readonly<Record<string, 'refreshing' | 'traveling'>>>({});
-  const travelTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   let disposed = false;
   const cleanups: (() => void)[] = [];
@@ -123,31 +116,10 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   });
 
   const entries = computed(() => state.value.ledger.entries);
-  const hasMixedInstantBuyout = computed(() => {
-    let hasInstant = false;
-    let hasWhisperOnly = false;
-    for (const entry of entries.value) {
-      if (entry.instantBuyout) hasInstant = true;
-      else hasWhisperOnly = true;
-      if (hasInstant && hasWhisperOnly) return true;
-    }
-    return false;
-  });
-  const conversionAvailable = computed(() => rates.value !== undefined);
-  const sortModes = computed(() => availableSortModes(conversionAvailable.value));
   const listedCount = computed(() => {
     const summary = state.value.summary;
     return summary ? Math.min(summary.resultCount, OFFICIAL_RESULT_CAP) : undefined;
   });
-
-  const soldIds = computed(() => {
-    const ids = new Set<string>();
-    for (const [id, mark] of Object.entries(state.value.marks)) {
-      if (mark === 'sold') ids.add(id);
-    }
-    return ids;
-  });
-  const hasSoldEntries = computed(() => soldIds.value.size > 0);
 
   function ensureModDictionary(): void {
     if (modDictLoading) return;
@@ -160,38 +132,6 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
         modDictLoading = false;
       });
   }
-
-  const visibleEntries = computed(() =>
-    hasSoldEntries.value && hideSold.value
-      ? entries.value.filter((entry) => !soldIds.value.has(entry.id))
-      : entries.value,
-  );
-
-  const modOptions = computed<BoardModOption[]>(() => {
-    void modDictTick.value;
-    return aggregateBoardModOptions(
-      visibleEntries.value,
-      (hash) => translateStatLines(hash, version).join(' / '),
-      modConditions.value,
-    );
-  });
-
-  const selectedModKeys = computed(() => new Set(modConditions.value.map((cond) => cond.key)));
-
-  const filteredModOptions = computed(() =>
-    filterModOptions(
-      modOptions.value,
-      debouncedModPickerQuery.value,
-      modQuickFilter.value,
-      selectedModKeys.value,
-    ),
-  );
-
-  const modOptionByKey = computed(() => {
-    const map = new Map<string, BoardModOption>();
-    for (const option of modOptions.value) map.set(option.key, option);
-    return map;
-  });
 
   function setModCondition(key: string, maxTier?: BoardModTierCap): void {
     const existing = modConditions.value.find((cond) => cond.key === key);
@@ -249,63 +189,40 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     return lines;
   };
 
-  const filteredEntries = computed(() => {
+  const projection = computed(() => {
     void modDictTick.value;
-    return sortEntries(
-      filterEntries(
-        visibleEntries.value,
-        {
-          instantBuyoutOnly: hasMixedInstantBuyout.value && instantOnly.value,
-          keyword: debouncedKeyword.value,
-          hiddenAccounts: state.value.hiddenAccounts,
-          priceMin: parseBound(priceMinText.value),
-          priceMax: parseBound(priceMaxText.value),
-          extraSearchLines,
-          modConditions: modConditions.value,
-        },
-        rates.value,
-      ),
-      sortMode.value,
-      rates.value,
-    );
-  });
-
-  const sellers = computed(() => {
-    void modDictTick.value;
-    const tokens = parseSearchTokens(debouncedKeyword.value);
-    const hasTokens = tokens.include.length > 0 || tokens.exclude.length > 0;
-    const hasMods = modConditions.value.length > 0;
-    const sourceEntries =
-      hasTokens || hasMods
-        ? visibleEntries.value.filter(
-            (entry) =>
-              (!hasTokens || matchesBoardEntry(entry, tokens, extraSearchLines(entry))) &&
-              matchesModConditions(entry, modConditions.value),
-          )
-        : entries.value;
-    return filterSellers(sortSellers(aggregateSellers(sourceEntries, rates.value, soldIds.value)), {
-      minInstantBuyout: minSellerCount.value,
+    return projectBoardView({
+      entries: entries.value,
+      marks: state.value.marks,
       hiddenAccounts: state.value.hiddenAccounts,
+      view: view.value,
+      sortMode: sortMode.value,
+      instantOnly: instantOnly.value,
+      hideSold: hideSold.value,
+      keyword: debouncedKeyword.value,
+      priceMin: parseBound(priceMinText.value),
+      priceMax: parseBound(priceMaxText.value),
+      minSellerCount: minSellerCount.value,
+      modConditions: modConditions.value,
+      modPickerQuery: debouncedModPickerQuery.value,
+      modQuickFilter: modQuickFilter.value,
+      rates: rates.value,
+      extraSearchLines,
+      resolveStatLabel: (hash) => translateStatLines(hash, version).join(' / '),
     });
   });
 
-  const hasActiveFilters = computed(() => {
-    const common =
-      modConditions.value.length > 0 ||
-      debouncedKeyword.value.trim().length > 0 ||
-      state.value.hiddenAccounts.size > 0;
-    if (view.value === 'sellers') {
-      return common || minSellerCount.value > 0;
-    }
-    return (
-      common ||
-      (conversionAvailable.value &&
-        (parseBound(priceMinText.value) !== undefined ||
-          parseBound(priceMaxText.value) !== undefined)) ||
-      (hasMixedInstantBuyout.value && instantOnly.value) ||
-      (hasSoldEntries.value && hideSold.value)
-    );
-  });
+  const hasSoldEntries = computed(() => projection.value.hasSoldEntries);
+  const hasMixedInstantBuyout = computed(() => projection.value.hasMixedInstantBuyout);
+  const conversionAvailable = computed(() => projection.value.conversionAvailable);
+  const sortModes = computed(() => projection.value.sortModes);
+  const filteredEntries = computed(() => projection.value.filteredEntries);
+  const sellers = computed(() => projection.value.sellers);
+  const modOptions = computed(() => projection.value.modOptions);
+  const filteredModOptions = computed(() => projection.value.filteredModOptions);
+  const modOptionByKey = computed(() => projection.value.modOptionByKey);
+  const priceSummary = computed(() => projection.value.priceSummary);
+  const hasActiveFilters = computed(() => projection.value.hasActiveFilters);
 
   function toggleSyncOfficialFilter(): void {
     if (!hasActiveFilters.value && !syncOfficialFilter.value) return;
@@ -313,9 +230,9 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   }
 
   watch(
-    [syncOfficialFilter, hasActiveFilters, view, filteredEntries, sellers, entries],
+    [syncOfficialFilter, projection, entries],
     () => {
-      if (!hasActiveFilters.value) {
+      if (!projection.value.hasActiveFilters) {
         if (syncOfficialFilter.value) syncOfficialFilter.value = false;
         runtime.syncOfficialFilter(null);
         return;
@@ -324,13 +241,8 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
         runtime.syncOfficialFilter(null);
         return;
       }
-      const matchedIds = new Set(
-        view.value === 'items'
-          ? filteredEntries.value.map((entry) => entry.id)
-          : sellers.value.flatMap((seller) => seller.entries.map((entry) => entry.id)),
-      );
       runtime.syncOfficialFilter({
-        matchedIds,
+        matchedIds: projection.value.matchedIds,
         totalCount: entries.value.length,
         onReset: () => {
           syncOfficialFilter.value = false;
@@ -339,8 +251,6 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     },
     { flush: 'post' },
   );
-
-  const priceSummary = computed(() => summarizePrices(entries.value, rates.value));
 
   const isPicked = (entry: BoardEntry): boolean =>
     entry.instantBuyout && state.value.marks[entry.id] !== 'sold' && !unpicked.value.has(entry.id);
@@ -462,36 +372,16 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const locate = (id: string) => {
     if (!runtime.locate(id)) notify('resultBoard.locateFailed');
   };
-  const TRAVEL_FAILURE: Readonly<Record<Exclude<TravelOutcome, 'travelled'>, I18nKey>> = {
-    unavailable: 'resultBoard.travelUnavailable',
-    busy: 'resultBoard.travelBusy',
-    'refresh-failed': 'resultBoard.travelRefreshFailed',
-  };
-  const setTravelState = (id: string, next: 'refreshing' | 'traveling' | undefined) => {
-    clearTimeout(travelTimers.get(id));
-    travelTimers.delete(id);
-    const { [id]: _removed, ...rest } = travelStates.value;
-    travelStates.value = next ? { ...rest, [id]: next } : rest;
-  };
 
   const travel = async (id: string) => {
-    if (travelStates.value[id]) return;
-    setTravelState(id, 'traveling');
     const outcome = await runtime.travel(id, () => {
-      setTravelState(id, 'refreshing');
       notify('resultBoard.travelRefreshing', 'default');
     });
-    if (outcome !== 'travelled') {
-      setTravelState(id, undefined);
+    if (outcome !== 'travelled' && outcome !== 'in-progress') {
       notify(TRAVEL_FAILURE[outcome]);
-      return;
     }
-    setTravelState(id, 'traveling');
-    travelTimers.set(
-      id,
-      setTimeout(() => setTravelState(id, undefined), 1_200),
-    );
   };
+
   const travelSeller = async (seller: SellerSummary) => {
     const target =
       pickedOf(seller)[0] ??
@@ -502,18 +392,10 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     }
     await travel(target.id);
   };
+
   const pin = (id: string) => {
     if (!runtime.pin(id)) notify('resultBoard.pinUnavailable');
   };
-
-  watch(
-    () => state.value.marks,
-    (marks) => {
-      for (const id of Object.keys(travelStates.value)) {
-        if (marks[id]) setTravelState(id, undefined);
-      }
-    },
-  );
 
   watch(
     () => `${state.value.searchId}:${state.value.startedAt}`,
@@ -526,9 +408,6 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       modQuickFilter.value = 'all';
       syncOfficialFilter.value = false;
       snapshotCache.clear();
-      travelTimers.forEach((timer) => clearTimeout(timer));
-      travelTimers.clear();
-      travelStates.value = {};
       isLiveMode.value = getTradePageMode() === 'live';
       void ensureRates();
     },
@@ -553,9 +432,13 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
       runtime.loader.subscribe((next) => {
         loaderState.value = next;
       }),
+      runtime.subscribeTravelStates((next) => {
+        travelStates.value = next;
+      }),
     );
     state.value = runtime.session.getState();
     loaderState.value = runtime.loader.getState();
+    travelStates.value = runtime.getTravelStates();
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
       const pinnedClient = createPinnedItemClient(version);
       if (chrome.storage.onChanged?.addListener) {
@@ -578,8 +461,6 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     disposed = true;
     runtime.syncOfficialFilter(null);
     snapshotCache.clear();
-    travelTimers.forEach((timer) => clearTimeout(timer));
-    travelTimers.clear();
     cleanups.forEach((cleanup) => cleanup());
   });
 
