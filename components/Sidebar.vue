@@ -358,7 +358,7 @@ import HistoryPane from './sidebar/HistoryPane.vue';
 import StatGroupTemplatePane from './sidebar/stat-group-templates/StatGroupTemplatePane.vue';
 import ToolsPane from './sidebar/ToolsPane.vue';
 import PobBuildPane from './sidebar/pob-build/PobBuildPane.vue';
-import { prewarmPobData, schedulePobIdlePrewarm } from './sidebar/pob-build/pob-prewarm';
+import { defaultPobDataLoader, schedulePobIdlePrewarm } from './sidebar/pob-build/pob-data-loader';
 import PinnedItemPane from './sidebar/pinned-items/PinnedItemPane.vue';
 import ResultBoardPane from './sidebar/result-board/ResultBoardPane.vue';
 import SettingsPane from './sidebar/SettingsPane.vue';
@@ -1295,7 +1295,7 @@ export default defineComponent({
       }
       cancelPobIdlePrewarm?.();
       cancelPobIdlePrewarm = undefined;
-      void prewarmPobData(version);
+      void defaultPobDataLoader.prewarm(version);
     };
 
     const handleNavTabIntent = (tabId: string) => {

@@ -15,9 +15,8 @@ import {
   localizeAscendancyOrClassName,
 } from '@/utils/folder-icons';
 import { getActiveDisplayLocale, t, type I18nKey } from '@/utils/i18n';
-import { resolvePageLocale } from '@/utils/locale-resolution';
-import { parsePobBuildXml, PobBuildError, type PobBuild } from '@/utils/pob-build';
-import { decodePobBuildCode, PobBuildCodeError } from '@/utils/pob-build-code';
+import { PobBuildError, type PobBuild } from '@/utils/pob-build';
+import { PobBuildCodeError } from '@/utils/pob-build-code';
 import type { PobShareFetchError, PobShareFetchOutcome } from '@/utils/pob-share-fetch';
 import { looksLikePobShareUrl } from '@/utils/pob-share-url';
 import {
@@ -30,7 +29,7 @@ import {
   type StoredPobBuild,
   type StoredPobBuildPatch,
 } from '@/utils/pob-build-store';
-import { itemArtFor, loadItemArt, type ItemArtData } from '@/utils/pob-item-art';
+import { itemArtFor, type ItemArtData } from '@/utils/pob-item-art';
 import {
   normalizeSearchDefaults,
   resolveEntrySearch,
@@ -44,16 +43,14 @@ import {
   buildTradeCodeUrl,
   buildTradeSearchUrl,
   gemKey,
-  loadTradeNameCatalog,
   migrateLegacyGemKeys,
   type ShoppingEntry,
   type ShoppingMod,
   type TradeNameCatalog,
   type VisceraModIndex,
 } from '@/utils/pob-shopping-list';
-import { loadModLineTranslator, type ModLineTranslator } from '@/utils/pob-mod-translator';
-import { loadStatMatcher, type StatMatcher } from '@/utils/pob-stat-matcher';
-import { loadVisceraModIndex } from '@/utils/pob-viscera-parts';
+import type { ModLineTranslator } from '@/utils/pob-mod-translator';
+import type { StatMatcher } from '@/utils/pob-stat-matcher';
 import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
 import { parseTradeSearchUrl } from '@/utils/trade-search-identity';
 import { encodeQueryToGzipBase64Url } from '@/utils/trade-url-codec';
@@ -63,8 +60,7 @@ import {
   type PobBookmarkBridge,
   type PobBookmarkFolder,
 } from './pob-bookmark-bridge';
-import { decodePobBuildCached, loadPobReferenceData } from './pob-prewarm';
-import { loadExtensionJson } from '@/utils/extension-json-cache';
+import { defaultPobDataLoader, type PobDataLoader } from './pob-data-loader';
 import { initialPageLoadSignal } from '@/utils/initial-page-load-signal';
 
 /** 開啟搜尋的方式：目前分頁或新分頁 */
@@ -72,19 +68,8 @@ export type PobSearchOpenMode = 'current' | 'new-tab';
 
 export interface UsePobBuildDeps {
   store: PobBuildStore;
-  /** 物品圖片對照；載不到時清單顯示空圖 */
-  loadItemArt: (version: PoeVersion) => Promise<ItemArtData | undefined>;
-  loadCatalog: (version: PoeVersion, locale: string) => Promise<TradeNameCatalog>;
-  loadMatcher: (version: PoeVersion) => Promise<StatMatcher>;
-  /** 合成臟器拆部位用的臟器詞綴索引；沒有時臟器維持一列 */
-  loadVisceraMods?: (version: PoeVersion) => Promise<VisceraModIndex | undefined>;
-  /** 把 PoB 的英文詞綴翻成顯示語言；該語言沒有對照資料時回傳 undefined */
-  loadModTranslator: (
-    version: PoeVersion,
-    locale: string,
-  ) => Promise<ModLineTranslator | undefined>;
-  getDisplayLocale: () => string;
-  getPageLocale: () => string;
+  /** 對照資料、物品圖片與 build 解碼快取載入器 */
+  dataLoader: PobDataLoader;
   getLeague: () => string | undefined;
   getOrigin: () => string;
   /** 在目前分頁開啟 */
@@ -303,15 +288,7 @@ class TooManyBuildsError extends Error {}
 function createDefaultDeps(version: PoeVersion): UsePobBuildDeps {
   return {
     store: createPobBuildStore(version),
-    loadItemArt: (artVersion) => loadItemArt(loadExtensionJson, artVersion),
-    loadCatalog: (catalogVersion, locale) =>
-      loadTradeNameCatalog(loadExtensionJson, { version: catalogVersion, locale }),
-    loadMatcher: (matcherVersion) => loadStatMatcher(loadExtensionJson, matcherVersion),
-    loadVisceraMods: (modsVersion) => loadVisceraModIndex(modsVersion),
-    loadModTranslator: (translatorVersion, locale) =>
-      loadModLineTranslator(loadExtensionJson, { version: translatorVersion, locale }),
-    getDisplayLocale: () => getActiveDisplayLocale(),
-    getPageLocale: () => resolvePageLocale(),
+    dataLoader: defaultPobDataLoader,
     getLeague: () => getTradeLeague(window.location.pathname),
     getOrigin: () => window.location.origin,
     navigate: (url) => {
@@ -423,55 +400,25 @@ export function usePobBuild(
   /** 每次開始同步遞增；同步算完時不是最新一次就捨棄結果 */
   let syncGeneration = 0;
 
-  const hasLoaderOverrides =
-    'loadCatalog' in overrides ||
-    'loadMatcher' in overrides ||
-    'loadVisceraMods' in overrides ||
-    'loadModTranslator' in overrides;
-
   /**
    * 名稱資料必要（載不到就無法搜尋）。詞綴對應與翻譯載不到時仍可用，只是稀有裝少了詞綴條件、
-   * 詞綴維持英文。使用預設載入器時與背景預熱共用快取，切進分頁時直接命中。
+   * 詞綴維持英文。一律透過 dataLoader 載入，與背景預熱共用快取。
    */
   const ensureData = async (): Promise<void> => {
     if (catalog.value) return;
     // 圖片對照與名稱資料無關，背景載入；載完後清單重新計算即帶上圖片
-    void deps
+    void deps.dataLoader
       .loadItemArt(version)
       .then((art) => {
         itemArt.value = art;
       })
       .catch(() => undefined);
-    if (!hasLoaderOverrides) {
-      const loaded = await loadPobReferenceData(version, deps);
-      displayNames.value = loaded.displayNames;
-      catalog.value = loaded.catalog;
-      matcher.value = loaded.matcher;
-      visceraMods.value = loaded.visceraMods;
-      modTranslator.value = loaded.modTranslator;
-      return;
-    }
-    const pageLocale = deps.getPageLocale();
-    const displayLocale = deps.getDisplayLocale();
-    const [loadedCatalog, loadedMatcher, loadedTranslator, loadedDisplayNames, loadedParts] =
-      await Promise.all([
-        deps.loadCatalog(version, pageLocale),
-        deps.loadMatcher(version).catch(() => undefined),
-        deps.loadModTranslator(version, displayLocale).catch(() => undefined),
-        // 顯示語言和頁面區服不同時（例如國際服頁面配中文介面），名稱另外用顯示語言呈現
-        displayLocale === pageLocale
-          ? undefined
-          : deps.loadCatalog(version, displayLocale).catch(() => undefined),
-        deps.loadVisceraMods?.(version).catch((error: unknown) => {
-          console.warn('[PoeXD] viscera part data unavailable', error);
-          return undefined;
-        }),
-      ]);
-    displayNames.value = loadedDisplayNames;
-    catalog.value = loadedCatalog;
-    matcher.value = loadedMatcher;
-    visceraMods.value = loadedParts;
-    modTranslator.value = loadedTranslator;
+    const loaded = await deps.dataLoader.loadReferenceData(version);
+    displayNames.value = loaded.displayNames;
+    catalog.value = loaded.catalog;
+    matcher.value = loaded.matcher;
+    visceraMods.value = loaded.visceraMods;
+    modTranslator.value = loaded.modTranslator;
   };
 
   const listFor = (build: PobBuild, itemSetId: string, skillSetId: string): ShoppingEntry[] =>
@@ -768,9 +715,7 @@ export function usePobBuild(
 
   /** 解開代碼並確認遊戲版本與目前頁面相同 */
   const decodeBuild = async (code: string): Promise<PobBuild> => {
-    const build = hasLoaderOverrides
-      ? parsePobBuildXml(await decodePobBuildCode(code))
-      : await decodePobBuildCached(code);
+    const build = await deps.dataLoader.decodeBuild(code);
     if (build.gameVersion !== version) throw new VersionMismatchError();
     return build;
   };

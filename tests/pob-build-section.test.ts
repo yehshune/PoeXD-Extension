@@ -2,6 +2,10 @@
 import { deflateSync } from 'node:zlib';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  createPobDataLoader,
+  type PobDataLoaderAdapter,
+} from '@/components/sidebar/pob-build/pob-data-loader';
+import {
   usePobBuild,
   type BuildView,
   type UsePobBuild,
@@ -127,6 +131,19 @@ describe('usePobBuild', () => {
   const rowByLabel = (build: BuildView, label: string) =>
     build.groups.flatMap((group) => group.rows).find((row) => row.label === label)!;
 
+  const makeDataLoader = (overrides: Partial<PobDataLoaderAdapter> = {}) =>
+    createPobDataLoader({
+      listStoredBuilds: () => deps.store.list(),
+      loadItemArt: async () => ITEM_ART,
+      loadCatalog: loadCatalog as never,
+      loadMatcher: loadMatcher as never,
+      loadVisceraMods: async () => undefined,
+      loadModTranslator: loadModTranslator as never,
+      getDisplayLocale: () => 'zh-TW',
+      getPageLocale: () => 'en',
+      ...overrides,
+    });
+
   beforeEach(() => {
     storage = createMemoryStorage();
     nextId = 0;
@@ -158,18 +175,23 @@ describe('usePobBuild', () => {
     currentUrl = 'https://www.pathofexile.com/trade/search/Standard';
     fetchShareCode = vi.fn();
     openSharePermissionPage = vi.fn().mockResolvedValue(true);
+    const store = createPobBuildStore('poe1', {
+      storage,
+      now: () => 1234,
+      createId: () => `build-${++nextId}`,
+    });
     deps = {
-      store: createPobBuildStore('poe1', {
-        storage,
-        now: () => 1234,
-        createId: () => `build-${++nextId}`,
+      store,
+      dataLoader: createPobDataLoader({
+        listStoredBuilds: () => store.list(),
+        loadItemArt: async () => ITEM_ART,
+        loadCatalog: loadCatalog as never,
+        loadMatcher: loadMatcher as never,
+        loadVisceraMods: async () => undefined,
+        loadModTranslator: loadModTranslator as never,
+        getDisplayLocale: () => 'zh-TW',
+        getPageLocale: () => 'en',
       }),
-      loadItemArt: async () => ITEM_ART,
-      loadCatalog: loadCatalog as never,
-      loadMatcher: loadMatcher as never,
-      loadModTranslator: loadModTranslator as never,
-      getDisplayLocale: () => 'zh-TW',
-      getPageLocale: () => 'en',
       getLeague: getLeague as never,
       getOrigin: () => 'https://www.pathofexile.com',
       navigate: navigate as never,
@@ -200,6 +222,7 @@ describe('usePobBuild', () => {
       });
       const reopened = usePobBuild('poe1', {
         ...deps,
+        dataLoader: makeDataLoader(),
         waitForInitialPageLoad: () => pageLoaded,
       });
       const restoring = reopened.restore();
@@ -211,6 +234,29 @@ describe('usePobBuild', () => {
       await restoring;
       expect(loadCatalog).toHaveBeenCalled();
       expect(reopened.builds.value).toHaveLength(1);
+    });
+
+    it('預熱共用 dataLoader 後，usePobBuild.restore() 直接命中快取不再重複載入', async () => {
+      const original = usePobBuild('poe1', deps);
+      expect(await original.importCode(toCode(buildXml()))).toBe(true);
+      loadCatalog.mockClear();
+      loadMatcher.mockClear();
+      loadModTranslator.mockClear();
+
+      const sharedLoader = makeDataLoader();
+      await sharedLoader.prewarm('poe1');
+      expect(loadCatalog).toHaveBeenCalledTimes(2);
+      expect(loadMatcher).toHaveBeenCalledTimes(1);
+
+      const reopened = usePobBuild('poe1', {
+        ...deps,
+        dataLoader: sharedLoader,
+      });
+      await reopened.restore();
+
+      expect(reopened.builds.value).toHaveLength(1);
+      expect(loadCatalog).toHaveBeenCalledTimes(2);
+      expect(loadMatcher).toHaveBeenCalledTimes(1);
     });
 
     it('等待期間匯入的 build，還原完成後不會被等待前的舊清單蓋掉', async () => {
@@ -541,7 +587,10 @@ describe('usePobBuild', () => {
     });
 
     it('顯示語言與頁面區服相同時不重複載入名稱資料', async () => {
-      const sameLocale = usePobBuild('poe1', { ...deps, getDisplayLocale: () => 'en' });
+      const sameLocale = usePobBuild('poe1', {
+        ...deps,
+        dataLoader: makeDataLoader({ getDisplayLocale: () => 'en' }),
+      });
       await sameLocale.importCode(toCode(buildXml()));
       expect(loadCatalog).toHaveBeenCalledTimes(1);
     });
@@ -1456,7 +1505,10 @@ describe('usePobBuild', () => {
     });
 
     it('物品圖片對照載不到時清單照常顯示', async () => {
-      const pob = usePobBuild('poe1', { ...deps, loadItemArt: async () => undefined });
+      const pob = usePobBuild('poe1', {
+        ...deps,
+        dataLoader: makeDataLoader({ loadItemArt: async () => undefined }),
+      });
       await pob.importCode(toCode(buildXml()));
       await flush();
       expect(rowByLabel(first(pob), 'Rise of the Phoenix').icon).toBeUndefined();
