@@ -47,13 +47,6 @@ export function createBookmarkSearch(options: BookmarkSearchDeps) {
     }
   };
 
-  /** 監聽 Escape 關閉搜尋；回傳取消監聽。 */
-  const watchKeyboard = (): (() => void) => {
-    if (typeof window === 'undefined') return () => {};
-    window.addEventListener('keydown', handleKeydown);
-    return () => window.removeEventListener('keydown', handleKeydown);
-  };
-
   const filteredGroups = computed<readonly BookmarkGroup[]>(() => {
     const query = debouncedSearchQuery.value.trim().toLowerCase();
     if (!query) return groups.value;
@@ -126,7 +119,6 @@ export function createBookmarkSearch(options: BookmarkSearchDeps) {
     closeSearch,
     toggleSearch,
     handleKeydown,
-    watchKeyboard,
     filteredGroups,
     getFilteredGroupBookmarks,
   };

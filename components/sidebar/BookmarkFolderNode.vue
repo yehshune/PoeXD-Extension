@@ -231,7 +231,7 @@
                 {{ t('bookmark.action.sendFolderToConsole') }}
               </DropdownMenuItem>
 
-              <DropdownMenuItem @click="actions.copyTransfer('folder', node.folder.id)">
+              <DropdownMenuItem @click="$emit('share-folder', node.folder.id)">
                 <Copy class="text-muted-foreground" />
                 <!-- 分享此資料夾 -->
                 {{ t('bookmark.action.shareFolder') }}
@@ -436,6 +436,7 @@ export default defineComponent({
       required: true,
     },
   },
+  emits: ['share-folder'],
   setup(props) {
     const workspace = inject(BOOKMARK_PANE_CONTEXT_KEY);
     if (!workspace) {

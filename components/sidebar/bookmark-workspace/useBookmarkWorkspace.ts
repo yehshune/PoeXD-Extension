@@ -29,8 +29,18 @@ export function useBookmarkWorkspace(options: UseBookmarkWorkspaceOptions = {}):
     isDraggingBookmark: options.isDraggingBookmark,
   });
 
-  onMounted(() => workspace.start({ alongside: options.alongside?.() }));
-  onUnmounted(() => workspace.dispose());
+  onMounted(() => {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', workspace.tree.search.handleKeydown);
+    }
+    void workspace.start({ alongside: options.alongside?.() });
+  });
+  onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('keydown', workspace.tree.search.handleKeydown);
+    }
+    workspace.dispose();
+  });
 
   return workspace;
 }

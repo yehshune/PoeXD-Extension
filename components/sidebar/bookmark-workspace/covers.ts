@@ -60,14 +60,20 @@ export function createBookmarkCovers(deps: BookmarkCoversDeps) {
 
   const getResultImagesForUrl = (url: string): string[] => {
     const candidates: string[] = [];
+    const appendUnique = (images: readonly string[]) => {
+      for (const img of images) {
+        if (!candidates.includes(img)) candidates.push(img);
+      }
+    };
+    let domImages: string[] | null = null;
+    const readDomImages = () => (domImages ??= extractCoverImagesFromDom());
+
     if (sameSearchPage(resultImagesUrl.value, url)) {
-      candidates.push(...resultImages.value);
+      appendUnique(resultImages.value);
     }
     const currentUrl = currentTabInfo.value.url || host.navigation.readLocation().url;
     if (sameSearchPage(currentUrl, url)) {
-      for (const img of extractCoverImagesFromDom()) {
-        if (!candidates.includes(img)) candidates.push(img);
-      }
+      appendUnique(readDomImages());
     }
     if (candidates.length === 0) {
       const left = parseTradeSearchUrl(currentUrl);
@@ -75,13 +81,9 @@ export function createBookmarkCovers(deps: BookmarkCoversDeps) {
       if (!left || !right || left.gameVersion === right.gameVersion) {
         // 只沿用「目前頁面」的結果圖片；舊搜尋留下的快取不可當作封面候選
         if (resultImages.value.length > 0 && sameSearchPage(resultImagesUrl.value, currentUrl)) {
-          for (const img of resultImages.value) {
-            if (!candidates.includes(img)) candidates.push(img);
-          }
+          appendUnique(resultImages.value);
         }
-        for (const img of extractCoverImagesFromDom()) {
-          if (!candidates.includes(img)) candidates.push(img);
-        }
+        appendUnique(readDomImages());
       }
     }
     return candidates;

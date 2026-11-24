@@ -214,6 +214,7 @@
                   v-for="item in visibleFolderNodes"
                   :key="item.folder.id"
                   :node="item"
+                  @share-folder="copyTransfer('folder', $event)"
                 />
               </div>
             </template>
@@ -341,8 +342,16 @@ import { useDragTrash, type DragTrashSession } from './composables/useDragTrash'
 import type { BookmarkGroup } from './bookmark-types';
 import { useBookmarkSortables, type BookmarkDragEntity } from './composables/useBookmarkSortables';
 import { getFolderDeleteImpact } from '@/utils/bookmark-collection';
+import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
+import { describeBookmarkImportFailure } from '@/utils/bookmark-transfer-messages';
+import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { getPreferences } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
+import { createBookmarkModel } from './bookmark-model';
+import {
+  createBookmarkTransferWorkflow,
+  createBrowserBookmarkTransferHost,
+} from './bookmark-transfer-workflow';
 import { useBookmarkWorkspace } from './bookmark-workspace';
 import BookmarkImportDialog from './BookmarkImportDialog.vue';
 import TradeSearchPreviewPopover from './search-preview/TradeSearchPreviewPopover.vue';
@@ -406,8 +415,11 @@ export default defineComponent({
 
     const isDraggingBookmark = computed(() => activeDragEntity.value?.kind === 'bookmark');
 
+    const model = createBookmarkModel(createChromeBookmarkClient(version));
+
     const workspace = useBookmarkWorkspace({
       version,
+      model,
       isDragging,
       isDraggingBookmark,
       alongside: async () => {
@@ -456,6 +468,20 @@ export default defineComponent({
       sortableController.destroy();
     });
 
+    // ── Bookmark Transfer（位於 Pane，不進入 Workspace）─────────────
+    const transferWorkflow = createBookmarkTransferWorkflow({
+      model,
+      host: createBrowserBookmarkTransferHost({
+        closeMenus: menus.closeAll,
+        showToast: (message) =>
+          dispatchPoeEvent('poexd-toast', { message, tone: 'default', durationMs: 3000 }),
+      }),
+    });
+    const copyTransfer = (scope: 'collection' | 'folder', groupId?: string) =>
+      transferWorkflow.run({ type: 'copy', scope, groupId });
+    // 下載與分享碼使用相同的 Bookmark Transfer envelope。
+    const exportBookmarks = () => transferWorkflow.run({ type: 'download' });
+
     const isImportDialogOpen = ref(false);
     const openImportDialog = () => {
       menus.closeAll();
@@ -467,7 +493,26 @@ export default defineComponent({
       mode: BookmarkImportMode;
       targetGroupId?: string;
     }) => {
-      await workspace.importTransfer(event);
+      const outcome = await model.execute({
+        type: 'import-transfer',
+        payload: event.payload,
+        mode: event.mode,
+        targetGroupId: event.targetGroupId,
+      });
+      if (outcome.ok) {
+        dispatchPoeEvent('poexd-toast', {
+          message: t('bookmark.toast.imported'),
+          tone: 'default',
+          durationMs: 3000,
+        });
+      } else {
+        await (window as any).poexdAlert(
+          t('bookmark.dialog.importFailureMessage', {
+            error: describeBookmarkImportFailure(outcome.error),
+          }),
+          t('bookmark.dialog.importFailureTitle'),
+        );
+      }
       workspace.refresh();
     };
 
@@ -502,8 +547,8 @@ export default defineComponent({
       handleTransferTriggerPointerDown: menus.handleTransferTriggerPointerDown,
       handleTriggerClick: menus.handleTriggerClick,
       addGroup: actions.addGroup,
-      copyTransfer: actions.copyTransfer,
-      exportBookmarks: actions.exportBookmarks,
+      copyTransfer,
+      exportBookmarks,
       ensureTradeLeaguesLoaded: actions.ensureTradeLeaguesLoaded,
       isLeagueLoading: actions.isLeagueLoading,
       leagueLoadError: actions.leagueLoadError,

@@ -85,36 +85,39 @@ export function createBookmarkMenus() {
     }
   };
 
+  const dismissOnTriggerPointerDown = (
+    isOpen: boolean,
+    event: PointerEvent | MouseEvent,
+    close: () => void,
+  ) => {
+    if (!isOpen) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIgnoreClick();
+    close();
+  };
+
   const handleTransferTriggerPointerDown = (event: PointerEvent | MouseEvent) => {
-    if (isTransferMenuOpen.value) {
-      event.preventDefault();
-      event.stopPropagation();
-      setIgnoreClick();
+    dismissOnTriggerPointerDown(isTransferMenuOpen.value, event, () => {
       isTransferMenuOpen.value = false;
-    }
+    });
   };
 
   const handleGroupTriggerPointerDown = (groupId: string, event: PointerEvent | MouseEvent) => {
-    if (activeGroupMenuId.value === groupId) {
-      event.preventDefault();
-      event.stopPropagation();
-      setIgnoreClick();
+    dismissOnTriggerPointerDown(activeGroupMenuId.value === groupId, event, () => {
       activeGroupMenuId.value = null;
-    }
+    });
   };
 
   const handleBookmarkTriggerPointerDown = (
     bookmarkId: string,
     event: PointerEvent | MouseEvent,
   ) => {
-    if (activeBookmarkMenuId.value === bookmarkId) {
-      event.preventDefault();
-      event.stopPropagation();
-      setIgnoreClick();
+    dismissOnTriggerPointerDown(activeBookmarkMenuId.value === bookmarkId, event, () => {
       activeBookmarkMenuId.value = null;
       isMoveSubMenu.value = false;
       isCoverSubMenu.value = false;
-    }
+    });
   };
 
   return {

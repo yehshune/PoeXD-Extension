@@ -23,19 +23,15 @@ import {
   isGenericTradePageTitle,
 } from '@/utils/trade-url-codec';
 import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
-import { downloadTextFile } from '@/utils/download-file';
 import {
   DEFAULT_PREFERENCES,
   type BookmarkButtonPosition,
   type SearchEntryClickAction,
 } from '@/utils/preferences-contract';
 import type { PoeVersion } from '@/utils/trade-context';
-import { describeBookmarkImportFailure } from '@/utils/bookmark-transfer-messages';
-import type { BookmarkImportMode, BookmarkTransferPayload } from '@/utils/bookmark-transfer';
 import type { BookmarkModel, BookmarkMutationIntent } from '../bookmark-model';
 import type { Bookmark, BookmarkGroup } from '../bookmark-types';
 import { buildFolderTree, type FolderTreeNode } from '../bookmark-tree';
-import { createBookmarkTransferWorkflow } from '../bookmark-transfer-workflow';
 import { resolveSingleEnqueueToast } from '../live-search-presentation';
 import { rowAnchorFromEvent, useTradeSearchPreview } from '../composables/useTradeSearchPreview';
 import type { BookmarkWorkspaceHost } from './host';
@@ -239,12 +235,22 @@ export function createBookmarkWorkspace(
   };
 
   // ── 開啟書籤 ───────────────────────────────────────────────────
-  // 開啟時以當下網域與聯盟重新解析，避免投影後頁面已切換聯盟
+  // 開啟時以 Host 目前頁面的網域與聯盟重新解析，避免投影後頁面已切換聯盟
+  const readHostTargetContext = () => {
+    const rawUrl = host.navigation.readLocation().url;
+    if (!rawUrl) return {};
+    try {
+      return readBookmarkTargetContext(new URL(rawUrl));
+    } catch {
+      return {};
+    }
+  };
+
   const resolveOpenUrl = (bookmark: Bookmark) =>
     resolveBookmarkUrl(
       bookmark.canonicalUrl ?? bookmark.url,
       { leaguePinned: bookmark.leaguePinned },
-      readBookmarkTargetContext(),
+      readHostTargetContext(),
     );
 
   const openBookmark = (bookmark: Bookmark) => {
@@ -387,9 +393,8 @@ export function createBookmarkWorkspace(
 
   // ── 資料夾 ─────────────────────────────────────────────────────
   // 新增資料夾（若有 parentId 則為子資料夾，否則為 root folder）
-  const addGroup = async (parentId?: unknown) => {
-    const resolvedParentId = typeof parentId === 'string' ? parentId : undefined;
-    const siblings = groups.value.filter((g) => g.parentId === resolvedParentId);
+  const addGroup = async (parentId?: string) => {
+    const siblings = groups.value.filter((g) => g.parentId === parentId);
     const baseName = t('bookmark.defaultFolderName');
     let name = baseName;
     let counter = 1;
@@ -403,12 +408,12 @@ export function createBookmarkWorkspace(
       id: 'group_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now(),
       name,
       order,
-      ...(resolvedParentId !== undefined ? { parentId: resolvedParentId } : {}),
+      ...(parentId !== undefined ? { parentId } : {}),
     };
 
     if (!(await execute({ type: 'add-group', group: newGrp }))) return;
 
-    if (resolvedParentId) await collapse.reveal(resolvedParentId);
+    if (parentId) await collapse.reveal(parentId);
     if (groups.value.some((g) => g.id === newGrp.id)) {
       editing.startRenameGroup(newGrp);
     }
@@ -593,45 +598,6 @@ export function createBookmarkWorkspace(
     menus.activeBookmarkMenuId.value = null;
   };
 
-  // ── Bookmark Transfer（import 對話框與 import 流程留在 Pane）────
-  const transferWorkflow = createBookmarkTransferWorkflow({
-    model,
-    host: {
-      closeMenus: menus.closeAllMenus,
-      showAlert: (message, title) => host.feedback.alert(message, title),
-      showToast: (message) => host.feedback.toast(message),
-      writeClipboard: (text) => navigator.clipboard.writeText(text),
-      downloadFile: downloadTextFile,
-    },
-  });
-  const copyTransfer = (scope: 'collection' | 'folder', groupId?: string) =>
-    transferWorkflow.run({ type: 'copy', scope, groupId });
-  // 下載與分享碼使用相同的 Bookmark Transfer envelope。
-  const exportBookmarks = () => transferWorkflow.run({ type: 'download' });
-
-  const importTransfer = async (event: {
-    payload: BookmarkTransferPayload;
-    mode: BookmarkImportMode;
-    targetGroupId?: string;
-  }) => {
-    const outcome = await model.execute({
-      type: 'import-transfer',
-      payload: event.payload,
-      mode: event.mode,
-      targetGroupId: event.targetGroupId,
-    });
-    if (outcome.ok) {
-      host.feedback.toast(t('bookmark.toast.imported'));
-    } else {
-      await host.feedback.alert(
-        t('bookmark.dialog.importFailureMessage', {
-          error: describeBookmarkImportFailure(outcome.error),
-        }),
-        t('bookmark.dialog.importFailureTitle'),
-      );
-    }
-  };
-
   // ── 生命週期 ───────────────────────────────────────────────────
   const stops: Array<() => void> = [];
   let disposed = false;
@@ -643,7 +609,6 @@ export function createBookmarkWorkspace(
   /** 載入資料並開始監聽；`alongside` 與資料載入並行，全部完成才結束載入狀態。 */
   const start = async (startOptions: { alongside?: Promise<unknown> } = {}): Promise<void> => {
     track(covers.startCapture());
-    track(search.watchKeyboard());
     track(collapse.watchStorage());
     try {
       const [, bookmarkOutcome] = await Promise.all([
@@ -673,7 +638,6 @@ export function createBookmarkWorkspace(
     /** 匯入完成等情況後，重新解析 Bookmark 目標網址並同步目前頁面路由。 */
     refresh: syncCurrentPageRoute,
     setPreferences,
-    importTransfer,
 
     tree: {
       groups: groups as ComputedRef<readonly BookmarkGroup[]>,
@@ -695,17 +659,17 @@ export function createBookmarkWorkspace(
       hasSubtreeFolders: collapse.hasSubtreeFolders,
       isSubtreeAllCollapsed: collapse.isSubtreeAllCollapsed,
       toggleSubtreeCollapse: collapse.toggleSubtreeCollapse,
-      collapsedGroupIds: collapse.collapsedGroupIds,
+      collapsedGroupIds: readonly(collapse.collapsedGroupIds),
       transientExpandedFolderIds,
       isBookmarkDragEnabled,
       sortableKey,
-      addBookmarkBtnPosition,
-      sidebarPosition,
+      addBookmarkBtnPosition: readonly(addBookmarkBtnPosition),
+      sidebarPosition: readonly(sidebarPosition),
       gameVersion: version,
-      currentPageUrl,
+      currentPageUrl: readonly(currentPageUrl),
       search: {
         query: search.searchQuery,
-        isVisible: search.isSearchVisible,
+        isVisible: readonly(search.isSearchVisible),
         inputRef: search.searchInputRef,
         open: search.openSearch,
         close: search.closeSearch,
@@ -761,25 +725,23 @@ export function createBookmarkWorkspace(
       handleBookmarkPrimaryClick,
       sendBookmarkToLiveSearchConsole,
       sendFolderToLiveSearchConsole,
-      copyTransfer,
-      exportBookmarks,
       // 封面
       getResultImagesForBookmark: covers.getResultImagesForBookmark,
       selectBookmarkCover: covers.selectBookmarkCover,
       removeBookmarkCover: covers.removeBookmarkCover,
       handleCoverImageError: covers.handleCoverImageError,
       // 聯盟
-      tradeLeagues: leagues.tradeLeagues,
-      isLeagueLoading: leagues.isLeagueLoading,
-      leagueLoadError: leagues.leagueLoadError,
+      tradeLeagues: readonly(leagues.tradeLeagues),
+      isLeagueLoading: readonly(leagues.isLeagueLoading),
+      leagueLoadError: readonly(leagues.leagueLoadError),
       ensureTradeLeaguesLoaded: leagues.ensureTradeLeaguesLoaded,
       confirmReplaceLeague: leagues.confirmReplaceLeague,
       formatTradeLeagueText: leagues.formatTradeLeagueText,
     },
 
     preview: {
-      enableBookmarkTooltip,
-      searchEntryClickAction,
+      enableBookmarkTooltip: readonly(enableBookmarkTooltip),
+      searchEntryClickAction: readonly(searchEntryClickAction),
       activeBookmarkId,
       activePreviewData,
       activeRawQuery,
@@ -788,7 +750,7 @@ export function createBookmarkWorkspace(
       isOpen: isPreviewOpen,
       close: closePreview,
       canOpenPreviewSearch,
-      isOverwriting: isOverwritingPreview,
+      isOverwriting: readonly(isOverwritingPreview),
       toggleBookmarkPreview: toggleBookmarkPreviewFromEvent,
       handlePreviewOpenChange,
       handleOpenPreviewSearch,
