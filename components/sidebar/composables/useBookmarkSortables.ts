@@ -5,19 +5,15 @@ import type { BookmarkMutationIntent } from '../bookmark-model';
 import { scheduleAfterSortableDrop, type ActiveDragEntity } from './useDragTrash';
 import { createSidebarDragScrollOptions } from './sidebar-drag-scroll';
 import {
-  getFolderSubtreeIds,
   getFolderDeleteImpact,
   isDirectlyDeletableEmptyFolder,
-  resolveFolderDropPlacement,
   type FolderDropIntent,
 } from '@/utils/bookmark-collection';
 import {
-  projectTreeDrop,
-  getVisibleFlattenedFolders,
-  getFolderDepth,
-  type TreeProjectionResult,
-  type VisibleFolderItem,
-} from './bookmark-tree-projection';
+  createFolderDropSession,
+  type FolderCardGeometry,
+  type FolderDropSession,
+} from './bookmark-folder-drop-planner';
 import { t } from '@/utils/i18n';
 
 export interface BookmarkSortableOptions {
@@ -172,121 +168,6 @@ export function resolveFolderRowGap(
     if (tokenMd > 0) return tokenMd;
   }
   return 8;
-}
-
-export interface FolderDropSlotTarget {
-  slotContainer: HTMLElement;
-  slotHeader: HTMLElement | null;
-  indicatorPosition: 'before' | 'inside' | 'after';
-  indentPx: number;
-  offsetY: number;
-}
-
-/**
- * 依據最終 projection 結果解析出實際放置的 Slot 卡片與幾何定位
- */
-export function resolveFolderDropSlotTarget(params: {
-  containerEl: HTMLElement | null;
-  hitContainer: HTMLElement;
-  hitHeader: HTMLElement | null;
-  folders: readonly BookmarkGroup[];
-  effectiveCollapsedIds: ReadonlySet<string>;
-  draggedFolderId: string;
-  projection: TreeProjectionResult;
-  indentStep: number;
-  /** 拖曳期間的快取：已排除 dragged subtree 的 visible flattened folders */
-  visibleFolders?: readonly VisibleFolderItem[];
-}): FolderDropSlotTarget {
-  const {
-    containerEl,
-    hitContainer,
-    hitHeader,
-    folders,
-    effectiveCollapsedIds,
-    draggedFolderId,
-    projection,
-    indentStep,
-  } = params;
-
-  if (projection.position === 'inside') {
-    const slotFolderId = projection.dropIntent.targetFolderId;
-    const slotContainer =
-      (containerEl?.querySelector(
-        `.group-container[data-group-id="${slotFolderId}"]`,
-      ) as HTMLElement | null) ?? hitContainer;
-    const slotHeader =
-      (slotContainer.querySelector('.group-header-row') as HTMLElement | null) ?? hitHeader;
-    return {
-      slotContainer,
-      slotHeader,
-      indicatorPosition: 'inside',
-      indentPx: 0,
-      offsetY: 0,
-    };
-  }
-
-  if (projection.position === 'before') {
-    const slotFolderId = projection.dropIntent.targetFolderId;
-    const slotContainer =
-      (containerEl?.querySelector(
-        `.group-container[data-group-id="${slotFolderId}"]`,
-      ) as HTMLElement | null) ?? hitContainer;
-    const slotHeader =
-      (slotContainer.querySelector('.group-header-row') as HTMLElement | null) ?? hitHeader;
-    const rawDepthAttr = slotContainer.getAttribute('data-depth');
-    const slotDepth =
-      rawDepthAttr !== null ? parseInt(rawDepthAttr, 10) : getFolderDepth(folders, slotFolderId);
-    const indentPx = (projection.projectedDepth - slotDepth) * indentStep;
-    const gap = resolveFolderRowGap(containerEl, slotContainer, 'before');
-    const offsetY = -(gap / 2);
-    return {
-      slotContainer,
-      slotHeader,
-      indicatorPosition: 'before',
-      indentPx,
-      offsetY,
-    };
-  }
-
-  // projection.position === 'after'
-  // 若 targetFolder 有 visible descendants，插入線必須在整個 visible subtree 的最後一個 item 之後
-  const visibleFolders =
-    params.visibleFolders ??
-    getVisibleFlattenedFolders(folders, effectiveCollapsedIds, draggedFolderId);
-  const targetIdx = visibleFolders.findIndex((f) => f.id === projection.dropIntent.targetFolderId);
-  let lastVisibleItem = targetIdx !== -1 ? visibleFolders[targetIdx] : undefined;
-  if (lastVisibleItem) {
-    // flattened 是先序走訪：緊接在 target 之後、depth 比它深的連續項目就是它的 visible descendants
-    const targetDepth = lastVisibleItem.depth;
-    for (let i = targetIdx + 1; i < visibleFolders.length; i++) {
-      const item = visibleFolders[i];
-      if (item.depth <= targetDepth) break;
-      lastVisibleItem = item;
-    }
-  }
-
-  const slotFolderId = lastVisibleItem ? lastVisibleItem.id : projection.dropIntent.targetFolderId;
-  const slotContainer =
-    (containerEl?.querySelector(
-      `.group-container[data-group-id="${slotFolderId}"]`,
-    ) as HTMLElement | null) ?? hitContainer;
-  const slotHeader =
-    (slotContainer.querySelector('.group-header-row') as HTMLElement | null) ?? hitHeader;
-  const rawDepthAttr = slotContainer.getAttribute('data-depth');
-  const slotDepth =
-    lastVisibleItem?.depth ??
-    (rawDepthAttr !== null ? parseInt(rawDepthAttr, 10) : getFolderDepth(folders, slotFolderId));
-  const indentPx = (projection.projectedDepth - slotDepth) * indentStep;
-  const gap = resolveFolderRowGap(containerEl, slotContainer, 'after');
-  const offsetY = -(gap / 2);
-
-  return {
-    slotContainer,
-    slotHeader,
-    indicatorPosition: 'after',
-    indentPx,
-    offsetY,
-  };
 }
 
 export function resolveHitTestElement(
@@ -457,7 +338,6 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
   let activeIndicatorEl: HTMLElement | null = null;
   let activeContainerEl: HTMLElement | null = null;
   let cleanupPointerListeners: (() => void) | undefined;
-  let dragStartX: number | null = null;
   let hoverExpandTimer: ReturnType<typeof setTimeout> | null = null;
   let hoverExpandTargetId: string | null = null;
   let pendingDragOverPoint: {
@@ -467,61 +347,60 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
   } | null = null;
   let dragOverFrameId: number | null = null;
 
-  /**
-   * 單次 folder drag 期間的計算快取。
-   * 拖曳中 groups 不會變動（mutation 都在 drop 後才執行），因此 raw snapshot、dragged subtree、
-   * 縮排寬度與 visible flattened list 只需在拖曳開始或收合狀態改變時計算一次，
-   * 避免每個 dragover 都穿過 Vue reactive proxy 重建整棵樹並重新量測 DOM。
-   */
-  interface FolderDragCache {
+  interface ActiveDropSessionHolder {
     source: readonly BookmarkGroup[];
     draggedFolderId: string;
-    folders: readonly BookmarkGroup[];
-    draggedSubtreeIds: ReadonlySet<string>;
+    session: FolderDropSession;
     indentStep: number | null;
-    visibleKey: string | null;
-    visibleFolders: readonly VisibleFolderItem[];
   }
-  let folderDragCache: FolderDragCache | null = null;
+  let activeDropSession: ActiveDropSessionHolder | null = null;
 
-  const getFolderDragCache = (draggedFolderId: string): FolderDragCache => {
+  const getFolderDropSession = (draggedFolderId: string): ActiveDropSessionHolder => {
     const source = options.groups.value;
     if (
-      folderDragCache &&
-      folderDragCache.source === source &&
-      folderDragCache.draggedFolderId === draggedFolderId
+      activeDropSession &&
+      activeDropSession.source === source &&
+      activeDropSession.draggedFolderId === draggedFolderId
     ) {
-      return folderDragCache;
+      return activeDropSession;
     }
     const folders = toRaw(source).map((group) => toRaw(group));
-    folderDragCache = {
+    activeDropSession = {
       source,
       draggedFolderId,
-      folders,
-      draggedSubtreeIds: draggedFolderId
-        ? getFolderSubtreeIds(folders, draggedFolderId)
-        : new Set<string>(),
+      session: createFolderDropSession(folders, draggedFolderId),
       indentStep: null,
-      visibleKey: null,
-      visibleFolders: [],
     };
-    return folderDragCache;
+    return activeDropSession;
   };
 
-  const getCachedVisibleFolders = (
-    cache: FolderDragCache,
-    effectiveCollapsedIds: ReadonlySet<string>,
-  ): readonly VisibleFolderItem[] => {
-    const key = Array.from(effectiveCollapsedIds).sort().join('\u0000');
-    if (cache.visibleKey !== key) {
-      cache.visibleFolders = getVisibleFlattenedFolders(
-        cache.folders,
-        effectiveCollapsedIds,
-        cache.draggedFolderId,
-      );
-      cache.visibleKey = key;
-    }
-    return cache.visibleFolders;
+  const readCardGeometry = (container: HTMLElement): FolderCardGeometry | null => {
+    const folderId = container.getAttribute('data-group-id');
+    if (!folderId) return null;
+    const header =
+      (container.querySelector(':scope > .group-header-row') as HTMLElement | null) ??
+      (container.querySelector('.group-header-row') as HTMLElement | null);
+    const containerRect = container.getBoundingClientRect();
+    const headerRect = header?.getBoundingClientRect();
+    const rect =
+      containerRect.height > 0
+        ? containerRect
+        : headerRect && headerRect.height > 0
+          ? headerRect
+          : containerRect;
+    const depth = parseInt(container.getAttribute('data-depth') ?? '0', 10);
+    return {
+      folderId,
+      depth: Number.isNaN(depth) ? 0 : depth,
+      rect: {
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        height: rect.height,
+      },
+      headerHeight: headerRect?.height,
+    };
   };
 
   const internalTransientExpanded = ref<Set<string>>(new Set());
@@ -577,141 +456,39 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
 
     const containerEl = options.containerRef?.value ?? (getContainer() as HTMLElement | null);
     const elem = resolveHitTestElement(containerEl, clientX, clientY, options.elementFromPoint);
+    const targetContainer = elem?.closest('.group-container') as HTMLElement | null;
 
-    // 1. 解析所屬 .group-container (支援命中 header、body、直屬書籤列與內部控制項)
-    let targetContainer = elem?.closest('.group-container') as HTMLElement | null;
-    let forcedDropPosition: 'before' | 'after' | null = null;
-    let forcedTargetFolderId: string | null = null;
+    let hitFolderId: string | null = null;
+    let cards: FolderCardGeometry[] = [];
 
-    if (!targetContainer && containerEl) {
-      // Inter-card Gap Corridor:
-      // 當 pointer 位於兩個資料夾卡片之間的垂直縫隙 (gap) 時，
-      // 自動吸附至對應的目標卡片與 before/after 插入點，避免移到間隙時插入線閃退消失
-      const allContainers = Array.from(
-        containerEl.querySelectorAll<HTMLElement>('.group-container[data-group-id]'),
-      );
-      for (let i = 0; i < allContainers.length; i++) {
-        const c = allContainers[i];
-        const rect = c.getBoundingClientRect();
-        if (rect.height <= 0 || clientX < rect.left || clientX > rect.right) continue;
-
-        // Pointer 落在第一個卡片上方邊緣外一點點
-        if (i === 0 && clientY < rect.top && rect.top - clientY <= 16) {
-          targetContainer = c;
-          forcedDropPosition = 'before';
-          break;
-        }
-
-        // Pointer 落在兩個相鄰卡片之間的垂直縫隙 (gap)
-        const nextC = allContainers[i + 1];
-        if (nextC) {
-          const nextRect = nextC.getBoundingClientRect();
-          if (nextRect.height > 0 && clientY > rect.bottom && clientY < nextRect.top) {
-            const midY = (rect.bottom + nextRect.top) / 2;
-            if (clientY < midY) {
-              targetContainer = c;
-              forcedDropPosition = 'after';
-            } else if (clientX >= nextRect.left && clientX <= nextRect.right) {
-              targetContainer = nextC;
-              forcedDropPosition = 'before';
-            } else {
-              targetContainer = c;
-              forcedDropPosition = 'after';
-            }
-            break;
-          }
-        } else if (clientY > rect.bottom && clientY - rect.bottom <= 24) {
-          // Pointer 落在最後一個卡片下方邊緣外：
-          // 若最後一個卡片是子資料夾 (depth > 0) 且滑鼠再往下拉超過 8px，自動對齊最外層根資料夾 (Root after)
-          targetContainer = c;
-          forcedDropPosition = 'after';
-          const lastDepth = parseInt(c.getAttribute('data-depth') ?? '0', 10);
-          if (lastDepth > 0 && clientY - rect.bottom > 8) {
-            const rootContainers = allContainers.filter(
-              (el) =>
-                el.getAttribute('data-depth') === '0' &&
-                el.getAttribute('data-group-id') !== draggedFolderId,
-            );
-            const lastRoot = rootContainers[rootContainers.length - 1];
-            if (lastRoot) {
-              forcedTargetFolderId = lastRoot.getAttribute('data-group-id');
-            }
-          }
-          break;
-        }
+    if (targetContainer) {
+      const targetHeader =
+        (targetContainer.querySelector(':scope > .group-header-row') as HTMLElement | null) ??
+        (targetContainer.querySelector('.group-header-row') as HTMLElement | null);
+      if (!targetHeader) {
+        clearFolderDropIndicator();
+        clearHoverExpandTimer();
+        return;
       }
-    }
-
-    if (!targetContainer) {
-      clearFolderDropIndicator();
-      clearHoverExpandTimer();
-      return;
-    }
-
-    const targetFolderId = forcedTargetFolderId ?? targetContainer.getAttribute('data-group-id');
-    const dragCache = getFolderDragCache(draggedFolderId);
-    const folders = dragCache.folders;
-    const subtreeIds = dragCache.draggedSubtreeIds;
-
-    // 2. 排除無效 ID、自身與自身子樹後代
-    if (!targetFolderId || targetFolderId === draggedFolderId || subtreeIds.has(targetFolderId)) {
-      clearFolderDropIndicator();
-      clearHoverExpandTimer();
-      return;
-    }
-
-    const targetHeader =
-      (targetContainer.querySelector(':scope > .group-header-row') as HTMLElement | null) ??
-      (targetContainer.querySelector('.group-header-row') as HTMLElement | null);
-    if (!targetHeader) {
-      clearFolderDropIndicator();
-      clearHoverExpandTimer();
-      return;
-    }
-
-    const containerRect = targetContainer.getBoundingClientRect();
-    const headerRect = targetHeader.getBoundingClientRect();
-
-    const cTop = containerRect.height > 0 ? containerRect.top : headerRect.top;
-    const cBottom = containerRect.height > 0 ? containerRect.bottom : headerRect.bottom;
-    const cHeight = containerRect.height > 0 ? containerRect.height : headerRect.height;
-    const baseRowHeight = headerRect.height > 0 ? headerRect.height : cHeight > 0 ? cHeight : 40;
-
-    if (cHeight <= 0) {
-      clearFolderDropIndicator();
-      clearHoverExpandTimer();
-      return;
-    }
-
-    // 3. 計算 edge insertion zone 與 inside surface
-    // Scale / Density 自適應：以標題行高的一定比例決定窄 edge，上限不超過 card 高度 1/3
-    const edgeHeight = Math.max(
-      4,
-      Math.min(Math.round(baseRowHeight * 0.25), Math.floor(cHeight / 3)),
-    );
-
-    let dropPosition: 'before' | 'inside' | 'after';
-    if (forcedDropPosition) {
-      dropPosition = forcedDropPosition;
-    } else if (clientY <= cTop + edgeHeight) {
-      dropPosition = 'before';
-    } else if (clientY >= cBottom - edgeHeight) {
-      dropPosition = 'after';
+      const hitGeometry = readCardGeometry(targetContainer);
+      if (!hitGeometry) {
+        clearFolderDropIndicator();
+        clearHoverExpandTimer();
+        return;
+      }
+      hitFolderId = hitGeometry.folderId;
+      cards = [hitGeometry];
+    } else if (containerEl) {
+      cards = Array.from(
+        containerEl.querySelectorAll<HTMLElement>('.group-container[data-group-id]'),
+      )
+        .map(readCardGeometry)
+        .filter((card): card is FolderCardGeometry => card !== null);
     } else {
-      dropPosition = 'inside';
+      clearFolderDropIndicator();
+      clearHoverExpandTimer();
+      return;
     }
-
-    if (dragStartX === null) {
-      dragStartX = clientX;
-    }
-    const horizontalOffset = clientX - dragStartX;
-
-    // 動態解析每層縮排寬度 (支援 UI Scale / Density 變化)
-    // 每次 drag 只量測一次，避免每個 dragover 都掃描全部資料夾 DOM
-    if (dragCache.indentStep === null) {
-      dragCache.indentStep = options.indentationWidth ?? resolveTreeIndentationWidth(containerEl);
-    }
-    const indentStep = dragCache.indentStep;
 
     // 取得當前 effective 收合狀態 (排除拖曳中暫時展開的 transient 集合)
     const collapsedIds = options.collapsedGroupIds?.value ?? new Set<string>();
@@ -722,39 +499,23 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       }
     }
 
-    const visibleFolders = getCachedVisibleFolders(dragCache, effectiveCollapsedIds);
-
-    const projection = projectTreeDrop({
-      folders,
+    const sessionHolder = getFolderDropSession(draggedFolderId);
+    const plan = sessionHolder.session.plan({
+      pointer: { x: clientX, y: clientY },
+      hitFolderId,
+      cards,
       collapsedFolderIds: effectiveCollapsedIds,
-      draggedFolderId,
-      targetFolderId,
-      dropPosition,
-      horizontalOffset,
-      indentationWidth: indentStep,
-      draggedSubtreeIds: subtreeIds,
-      visibleFolders,
     });
 
-    if (!projection.ok) {
-      clearFolderDropIndicator();
-      clearHoverExpandTimer();
-      return;
-    }
-
-    const validation = resolveFolderDropPlacement(folders, draggedFolderId, projection.dropIntent);
-
-    if (!validation.ok) {
+    if (!plan) {
       clearFolderDropIndicator();
       clearHoverExpandTimer();
       return;
     }
 
     // Transient auto-expand: 僅影響本次 drag，不寫 storage，不重置 Sortable
-    if (
-      effectiveCollapsedIds.has(targetFolderId) &&
-      (projection.position === 'inside' || projection.projectedParentId === targetFolderId)
-    ) {
+    const targetFolderId = plan.dropIntent.targetFolderId;
+    if (plan.shouldAutoExpand) {
       if (hoverExpandTargetId !== targetFolderId) {
         clearHoverExpandTimer();
         hoverExpandTargetId = targetFolderId;
@@ -769,51 +530,63 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
       clearHoverExpandTimer();
     }
 
-    const slotTarget = resolveFolderDropSlotTarget({
-      containerEl,
-      hitContainer: targetContainer,
-      hitHeader: targetHeader,
-      folders,
-      effectiveCollapsedIds,
-      draggedFolderId,
-      projection,
-      indentStep,
-      visibleFolders,
-    });
+    // 動態解析每層縮排寬度 (每次 drag 只量測一次，供 after 展開子樹負縮排使用)
+    if (sessionHolder.indentStep === null) {
+      sessionHolder.indentStep =
+        options.indentationWidth ?? resolveTreeIndentationWidth(containerEl);
+    }
+
+    const slotContainer =
+      (containerEl?.querySelector(
+        `.group-container[data-group-id="${plan.slotFolderId}"]`,
+      ) as HTMLElement | null) ?? targetContainer;
+    if (!slotContainer) {
+      clearFolderDropIndicator();
+      return;
+    }
+    const slotHeader =
+      (slotContainer.querySelector(':scope > .group-header-row') as HTMLElement | null) ??
+      (slotContainer.querySelector('.group-header-row') as HTMLElement | null);
+
+    const indentPx = plan.indentSteps * sessionHolder.indentStep;
+    const indicatorPosition = plan.indicatorPosition;
+    const offsetY =
+      indicatorPosition === 'inside'
+        ? 0
+        : -(resolveFolderRowGap(containerEl, slotContainer, indicatorPosition) / 2);
 
     const currentIndent = activeContainerEl?.style.getPropertyValue('--drop-indicator-indent');
     const currentOffsetY = activeContainerEl?.style.getPropertyValue('--drop-indicator-offset-y');
-    const newIndent = `${slotTarget.indentPx}px`;
-    const newOffsetY = `${slotTarget.offsetY}px`;
-    const indicatorPosition = slotTarget.indicatorPosition;
+    const newIndent = `${indentPx}px`;
+    const newOffsetY = `${offsetY}px`;
 
     if (
-      activeContainerEl !== slotTarget.slotContainer ||
-      activeIndicatorEl !== slotTarget.slotHeader ||
-      activeDropIntent?.position !== projection.dropIntent.position ||
-      activeDropIntent?.targetFolderId !== projection.dropIntent.targetFolderId ||
+      activeContainerEl !== slotContainer ||
+      activeIndicatorEl !== slotHeader ||
+      activeDropIntent?.position !== plan.dropIntent.position ||
+      activeDropIntent?.targetFolderId !== plan.dropIntent.targetFolderId ||
       currentIndent !== newIndent ||
       (indicatorPosition !== 'inside' && currentOffsetY !== newOffsetY)
     ) {
       clearFolderDropIndicator();
 
-      slotTarget.slotContainer.classList.add(`drop-indicator-${indicatorPosition}`);
-      slotTarget.slotContainer.style.setProperty('--drop-indicator-indent', newIndent);
+      slotContainer.classList.add(`drop-indicator-${indicatorPosition}`);
+      slotContainer.style.setProperty('--drop-indicator-indent', newIndent);
       if (indicatorPosition !== 'inside') {
-        slotTarget.slotContainer.style.setProperty('--drop-indicator-offset-y', newOffsetY);
+        slotContainer.style.setProperty('--drop-indicator-offset-y', newOffsetY);
       }
 
-      if (slotTarget.slotHeader) {
-        slotTarget.slotHeader.classList.add(`drop-indicator-${indicatorPosition}`);
-        slotTarget.slotHeader.style.setProperty('--drop-indicator-indent', newIndent);
+      if (slotHeader) {
+        slotHeader.classList.add(`drop-indicator-${indicatorPosition}`);
+        slotHeader.style.setProperty('--drop-indicator-indent', newIndent);
         if (indicatorPosition !== 'inside') {
-          slotTarget.slotHeader.style.setProperty('--drop-indicator-offset-y', newOffsetY);
+          slotHeader.style.setProperty('--drop-indicator-offset-y', newOffsetY);
         }
       }
 
-      activeContainerEl = slotTarget.slotContainer;
-      activeIndicatorEl = slotTarget.slotHeader;
-      activeDropIntent = projection.dropIntent;
+      activeContainerEl = slotContainer;
+      activeIndicatorEl = slotHeader;
+      activeDropIntent = plan.dropIntent;
     }
   };
 
@@ -857,8 +630,7 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
     cancelPendingDragOver();
     clearHoverExpandTimer();
     transientIds.value.clear();
-    dragStartX = null;
-    folderDragCache = null;
+    activeDropSession = null;
     clearFolderDropIndicator();
 
     const searchRoots: Array<{
@@ -1094,14 +866,13 @@ export function useBookmarkSortables(options: BookmarkSortableOptions) {
           onStart: (event) => {
             startDrag();
             clearFolderDropIndicator();
-            dragStartX = ((event as any)?.originalEvent as MouseEvent)?.clientX ?? null;
             event?.item?.classList?.add('dragging-subtree-origin');
             const draggedFolderId = event?.item?.getAttribute?.('data-group-id') ?? '';
             options.setDragEntity?.({ kind: 'folder', id: draggedFolderId });
 
             // 保持 subtree 視覺回饋：標記被拖曳項自身的所有後代子資料夾 DOM，保留原始 layout footprint
             const subtreeIds = draggedFolderId
-              ? getFolderSubtreeIds(options.groups.value, draggedFolderId)
+              ? getFolderDropSession(draggedFolderId).session.draggedSubtreeIds
               : new Set<string>();
 
             if (subtreeIds.size > 1 && typeof folderRoot?.querySelectorAll === 'function') {
