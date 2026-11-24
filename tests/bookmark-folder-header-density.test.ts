@@ -204,7 +204,7 @@ describe('Bookmark Folder Header & Density Ownership Contracts', () => {
 
       // Uses conditional render with editingGroupId and isDragging
       expect(source).toContain(
-        'v-if="ctx.editingGroupId.value !== node.folder.id && !ctx.isDragging.value"',
+        'v-if="editing.editingGroupId.value !== node.folder.id && !tree.isDragging.value"',
       );
     });
 

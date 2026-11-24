@@ -8,9 +8,12 @@ import HistoryPane from '@/components/sidebar/HistoryPane.vue';
 import { BOOKMARK_PANE_CONTEXT_KEY } from '@/components/sidebar/bookmark-tree';
 import { setActiveDisplayLocale, resetI18nStateForTests, t } from '@/utils/i18n';
 import {
+  createBookmarkWorkspace,
   formatTradeLeagueText,
   AUTO_TRADE_LEAGUE,
 } from '@/components/sidebar/bookmark-workspace';
+import { createFakeBookmarkWorkspaceHost } from '@/components/sidebar/bookmark-workspace/fake-host';
+import { createFakeBookmarkModel } from './helpers/fake-bookmark-model';
 import { ref } from 'vue';
 
 vi.mock('@/utils/search-record-messaging', () => ({
@@ -133,42 +136,14 @@ describe('Bookmarks, History & Bookmark Import i18n (Seam 4)', () => {
       const host = document.createElement('div');
       document.body.appendChild(host);
 
-      const fakeContext = {
-        activeGroupMenuId: ref(null),
-        setGroupMenuOpen: vi.fn(),
-        getFilteredGroupBookmarks: vi.fn(() => []),
-        groups: ref([{ id: 'g1', name: 'My Custom Folder', order: 0 }]),
-        bookmarks: ref([]),
-        addBookmarkBtnPosition: ref('bottom' as const),
-        isDragging: ref(false),
-        isDraggingBookmark: ref(false),
-        editingGroupId: ref(null),
-        editingGroupName: ref(''),
-        editingBookmarkId: ref(null),
-        editingBookmarkName: ref(''),
-        isGroupCollapsed: vi.fn(() => false),
-        toggleGroupCollapse: vi.fn(),
-        hasSubtreeFolders: vi.fn(() => false),
-        isSubtreeAllCollapsed: vi.fn(() => false),
-        toggleSubtreeCollapse: vi.fn(),
-        startRenameGroup: vi.fn(),
-        moveFolder: vi.fn(),
-        getFolderPath: vi.fn(() => 'My Custom Folder'),
-        sendFolderToLiveSearchConsole: vi.fn(),
-        copyTransfer: vi.fn(),
-        ensureTradeLeaguesLoaded: vi.fn(),
-        tradeLeagues: ref([]),
-        isLeagueLoading: ref(false),
-        leagueLoadError: ref(null),
-        confirmReplaceLeague: vi.fn(),
-        confirmDeleteGroup: vi.fn(),
-        addBookmarkToGroup: vi.fn(),
-        handleGroupTriggerPointerDown: vi.fn(),
-        handleTriggerClick: vi.fn(),
-        activeBookmarkMenuId: ref(null),
-        isMoveSubMenu: ref(false),
-        isCoverSubMenu: ref(false),
-      };
+      const workspace = createBookmarkWorkspace(createFakeBookmarkWorkspaceHost(), {
+        version: 'poe1',
+        model: createFakeBookmarkModel({
+          groups: [{ id: 'g1', name: 'My Custom Folder', order: 0 }],
+          bookmarks: [],
+        }),
+      });
+      workspace.setPreferences({ addBookmarkBtnPosition: 'bottom' });
 
       const app = createApp({
         render() {
@@ -180,7 +155,7 @@ describe('Bookmarks, History & Bookmark Import i18n (Seam 4)', () => {
           });
         },
       });
-      app.provide(BOOKMARK_PANE_CONTEXT_KEY, fakeContext);
+      app.provide(BOOKMARK_PANE_CONTEXT_KEY, workspace);
       app.mount(host);
       await nextTick();
 

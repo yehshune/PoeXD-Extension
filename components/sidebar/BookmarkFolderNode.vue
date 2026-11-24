@@ -12,16 +12,15 @@
         'relative flex items-center justify-between cursor-pointer select-none border-0 border-solid border-l-2 border-l-primary bg-card hover:bg-muted/50 has-[[data-state=open]]:bg-muted/50 py-[var(--pxd-bookmark-folder-header-padding-y)] px-[var(--pxd-space-lg)]',
         isBodyVisible ? 'rounded-t-md border-b border-border' : 'rounded-md',
         {
-          collapsed: ctx.isGroupCollapsed(node.folder.id),
+          collapsed: tree.isGroupCollapsed(node.folder.id),
         },
       ]"
-      @click="ctx.toggleGroupCollapse(node.folder.id)"
+      @click="tree.toggleGroupCollapse(node.folder.id)"
     >
       <div class="flex w-full min-w-0 items-center gap-[var(--pxd-space-md)]">
         <FolderIconPicker
-          v-if="ctx.setFolderAppearance"
           v-model:open="isIconPickerOpen"
-          :game-version="ctx.gameVersion ?? 'poe1'"
+          :game-version="tree.gameVersion"
           :icon="node.folder.icon"
           :color="node.folder.color"
           @select="handleSelectFolderAppearance"
@@ -31,7 +30,7 @@
             class="folder-icon-trigger relative flex items-center justify-center shrink-0 rounded px-1 py-0.5 -mx-1 -my-0.5 hover:bg-muted/80 hover:ring-1 hover:ring-border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary transition-all cursor-pointer"
             :class="{
               'bg-primary/10 ring-1 ring-dashed ring-primary/70 gap-1':
-                ctx.editingGroupId.value === node.folder.id,
+                editing.editingGroupId.value === node.folder.id,
             }"
             :title="t('bookmark.folderIcon.changeTitle')"
             @mousedown.prevent
@@ -39,28 +38,22 @@
           >
             <FolderIcon :icon="node.folder.icon" :color="node.folder.color" :open="!isCollapsed" />
             <Palette
-              v-if="ctx.editingGroupId.value === node.folder.id"
+              v-if="editing.editingGroupId.value === node.folder.id"
               class="size-[var(--checkbox-indicator-size,12px)] shrink-0 text-primary"
             />
           </button>
         </FolderIconPicker>
-        <FolderIcon
-          v-else
-          :icon="node.folder.icon"
-          :color="node.folder.color"
-          :open="!isCollapsed"
-        />
 
-        <template v-if="ctx.editingGroupId.value === node.folder.id">
+        <template v-if="editing.editingGroupId.value === node.folder.id">
           <Input
-            v-model="ctx.editingGroupName.value"
+            v-model="editing.editingGroupName.value"
             v-focus
             :maxlength="BOOKMARK_NAME_MAX_LENGTH"
             size="sm"
             class="w-full min-w-0"
-            @keyup.enter="ctx.saveRenameGroup"
-            @keyup.escape="ctx.editingGroupId.value = null"
-            @blur="ctx.saveRenameGroup"
+            @keyup.enter="editing.saveRenameGroup"
+            @keyup.escape="editing.editingGroupId.value = null"
+            @blur="editing.saveRenameGroup"
             @click.stop
           />
         </template>
@@ -77,7 +70,7 @@
       </div>
 
       <div
-        v-if="ctx.editingGroupId.value !== node.folder.id && !ctx.isDragging.value"
+        v-if="editing.editingGroupId.value !== node.folder.id && !tree.isDragging.value"
         class="group-actions pxd-hover-actions-overlay [--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_50%,var(--card))] absolute inset-y-0 right-0 rounded-r-[inherit] z-(--pxd-z-raised) pr-[var(--pxd-space-lg)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto flex items-center gap-[var(--pxd-space-sm)]"
       >
         <!-- 拖曳排序把手（隨懸停動作列一併浮現，不佔用左側圖示對齊空間） -->
@@ -100,7 +93,7 @@
           :title="
             t('bookmark.folder.addCurrentPageTitle') /* title=&quot;新增當前網頁到此資料夾&quot; */
           "
-          @click.stop="ctx.addBookmarkToGroup(node.folder.id)"
+          @click.stop="actions.addBookmarkToGroup(node.folder.id)"
         >
           <Plus />
         </Button>
@@ -113,8 +106,8 @@
                 variant="ghost"
                 size="icon-sm"
                 :title="t('bookmark.folder.menuTitle') /* title=&quot;操作選單&quot; */"
-                @pointerdown.capture="ctx.handleGroupTriggerPointerDown(node.folder.id, $event)"
-                @click.capture="ctx.handleTriggerClick"
+                @pointerdown.capture="menus.handleGroupTriggerPointerDown(node.folder.id, $event)"
+                @click.capture="menus.handleTriggerClick"
                 @click.stop
               >
                 <MoreVertical />
@@ -126,38 +119,38 @@
               align="end"
               @close-auto-focus="
                 (e) => {
-                  if (ctx.editingGroupId.value) e.preventDefault();
+                  if (editing.editingGroupId.value) e.preventDefault();
                 }
               "
             >
-              <DropdownMenuItem @click="ctx.addChildFolder(node.folder.id)">
+              <DropdownMenuItem @click="actions.addChildFolder(node.folder.id)">
                 <FolderPlus class="text-muted-foreground" />
                 {{ t('bookmark.action.newSubfolder') }}
               </DropdownMenuItem>
 
               <DropdownMenuItem
-                v-if="ctx.hasSubtreeFolders(node.folder.id)"
-                @click="ctx.toggleSubtreeCollapse(node.folder.id)"
+                v-if="tree.hasSubtreeFolders(node.folder.id)"
+                @click="tree.toggleSubtreeCollapse(node.folder.id)"
               >
                 <FolderOpen
-                  v-if="ctx.isSubtreeAllCollapsed(node.folder.id)"
+                  v-if="tree.isSubtreeAllCollapsed(node.folder.id)"
                   class="text-muted-foreground"
                 />
                 <FolderClosed v-else class="text-muted-foreground" />
                 {{
-                  ctx.isSubtreeAllCollapsed(node.folder.id)
+                  tree.isSubtreeAllCollapsed(node.folder.id)
                     ? t('bookmark.action.expandAllSubfolders')
                     : t('bookmark.action.collapseAllSubfolders')
                 }}
               </DropdownMenuItem>
 
-              <DropdownMenuItem @click="ctx.startRenameGroup(node.folder)">
+              <DropdownMenuItem @click="editing.startRenameGroup(node.folder)">
                 <Pencil class="text-muted-foreground" />
                 <!-- 重新命名 -->
                 {{ t('common.rename') }}
               </DropdownMenuItem>
 
-              <DropdownMenuItem v-if="ctx.setFolderAppearance" @click="openIconPickerFromMenu">
+              <DropdownMenuItem @click="openIconPickerFromMenu">
                 <Palette class="text-muted-foreground" />
                 {{ t('bookmark.action.changeFolderIcon') }}
               </DropdownMenuItem>
@@ -193,7 +186,7 @@
                       :key="target.folder.id"
                       :disabled="node.folder.parentId === target.folder.id"
                       :selected="node.folder.parentId === target.folder.id"
-                      :title="ctx.getFolderPath(target.folder.id)"
+                      :title="tree.getFolderPath(target.folder.id)"
                       @click="handleMoveFolder(target.folder.id)"
                     >
                       <span
@@ -231,15 +224,14 @@
               <DropdownMenuSeparator />
 
               <DropdownMenuItem
-                v-if="ctx.sendFolderToLiveSearchConsole"
                 data-test="folder-send-to-live-search-console"
-                @click="ctx.sendFolderToLiveSearchConsole(node.folder)"
+                @click="actions.sendFolderToLiveSearchConsole(node.folder)"
               >
                 <Radio class="text-primary" />
                 {{ t('bookmark.action.sendFolderToConsole') }}
               </DropdownMenuItem>
 
-              <DropdownMenuItem @click="ctx.copyTransfer('folder', node.folder.id)">
+              <DropdownMenuItem @click="actions.copyTransfer('folder', node.folder.id)">
                 <Copy class="text-muted-foreground" />
                 <!-- 分享此資料夾 -->
                 {{ t('bookmark.action.shareFolder') }}
@@ -248,11 +240,11 @@
               <DropdownMenuSub
                 @update:open="
                   (open) => {
-                    if (open) ctx.ensureTradeLeaguesLoaded();
+                    if (open) actions.ensureTradeLeaguesLoaded();
                   }
                 "
               >
-                <DropdownMenuSubTrigger @mouseenter="ctx.ensureTradeLeaguesLoaded">
+                <DropdownMenuSubTrigger @mouseenter="actions.ensureTradeLeaguesLoaded">
                   <RefreshCw class="text-muted-foreground" />
                   <!-- 替換此資料夾聯盟 -->
                   {{ t('bookmark.action.replaceFolderLeague') }}
@@ -261,25 +253,25 @@
                   class="w-[var(--pxd-menu-sub-width,192px)] max-h-60 max-h-[min(var(--pxd-menu-max-height,240px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))] overflow-y-auto pxd-scrollbar"
                 >
                   <div
-                    v-if="ctx.isLeagueLoading.value"
+                    v-if="actions.isLeagueLoading.value"
                     class="league-menu-status text-muted-foreground py-[var(--pxd-space-sm)] px-[var(--pxd-space-lg)] text-[length:var(--pxd-font-caption)] whitespace-nowrap"
                   >
                     {{ t('bookmark.transfer.loadingLeagues') }}
                   </div>
                   <div
-                    v-else-if="ctx.leagueLoadError.value"
+                    v-else-if="actions.leagueLoadError.value"
                     class="league-menu-status error text-destructive py-[var(--pxd-space-sm)] px-[var(--pxd-space-lg)] text-[length:var(--pxd-font-caption)] break-words"
                   >
-                    {{ ctx.leagueLoadError.value }}
+                    {{ actions.leagueLoadError.value }}
                   </div>
                   <DropdownMenuItem
-                    v-for="league in ctx.tradeLeagues.value"
+                    v-for="league in actions.tradeLeagues.value"
                     :key="league.id"
-                    :title="ctx.formatTradeLeagueText(league)"
-                    @click="ctx.confirmReplaceLeague('folder', league, node.folder)"
+                    :title="actions.formatTradeLeagueText(league)"
+                    @click="actions.confirmReplaceLeague('folder', league, node.folder)"
                   >
                     <span class="min-w-0 flex-1 truncate">{{
-                      ctx.formatTradeLeagueText(league)
+                      actions.formatTradeLeagueText(league)
                     }}</span>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
@@ -287,7 +279,7 @@
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem variant="destructive" @click="ctx.confirmDeleteGroup(node.folder)">
+              <DropdownMenuItem variant="destructive" @click="actions.confirmDeleteGroup(node.folder)">
                 <Trash2 class="text-destructive" />
                 {{ t('bookmark.action.deleteFolder') }}
               </DropdownMenuItem>
@@ -299,7 +291,7 @@
 
     <!-- 資料夾內容（僅包含內部直接書籤，子資料夾改為外部同層平鋪視覺樹） -->
     <div
-      v-if="!ctx.isGroupCollapsed(node.folder.id)"
+      v-if="!tree.isGroupCollapsed(node.folder.id)"
       v-show="isBodyVisible"
       class="group-body rounded-b-md pr-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)] bg-card"
       :class="[
@@ -339,7 +331,7 @@
           size="sm"
           class="w-full font-bold"
           :title="t('bookmark.folder.addCurrentPageTitle')"
-          @click.stop="ctx.addBookmarkToGroup(node.folder.id)"
+          @click.stop="actions.addBookmarkToGroup(node.folder.id)"
         >
           <!-- ＋ 新增當前網頁 -->
           <span>{{ t('bookmark.folder.addCurrentPage') }}</span>
@@ -387,7 +379,6 @@ import FolderIconPicker from './FolderIconPicker.vue';
 import { t } from '@/utils/i18n';
 import type { BookmarkGroup } from './bookmark-types';
 import {
-  type BookmarkPaneContext,
   BOOKMARK_PANE_CONTEXT_KEY,
   getFlattenedFolderTree,
   getFolderItemIndentLevel,
@@ -446,35 +437,34 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const ctx = inject<BookmarkPaneContext>(BOOKMARK_PANE_CONTEXT_KEY);
-    if (!ctx) {
+    const workspace = inject(BOOKMARK_PANE_CONTEXT_KEY);
+    if (!workspace) {
       throw new Error('BookmarkFolderNode must be used within BookmarkPane');
     }
+    const { tree, editing, menus, actions } = workspace;
 
     const isGroupMenuOpen = computed({
-      get: () => ctx.activeGroupMenuId.value === props.node.folder.id,
-      set: (open) => ctx.setGroupMenuOpen(props.node.folder.id, open),
+      get: () => menus.activeGroupMenuId.value === props.node.folder.id,
+      set: (open) => menus.setGroupMenuOpen(props.node.folder.id, open),
     });
 
-    const directBookmarks = computed(() =>
-      ctx.getFilteredGroupBookmarks ? ctx.getFilteredGroupBookmarks(props.node.folder.id) : [],
-    );
+    const directBookmarks = computed(() => tree.getFilteredGroupBookmarks(props.node.folder.id));
 
-    const isCollapsed = computed(() => ctx.isGroupCollapsed(props.node.folder.id));
+    const isCollapsed = computed(() => tree.isGroupCollapsed(props.node.folder.id));
 
-    const hasChildFolders = computed(
-      () => ctx.groups.value?.some((g) => g.parentId === props.node.folder.id) ?? false,
+    const hasChildFolders = computed(() =>
+      tree.groups.value.some((g) => g.parentId === props.node.folder.id),
     );
 
     const folderCountDisplay = computed(() => {
       const directCount = directBookmarks.value.length;
-      if (!isCollapsed.value || !hasChildFolders.value || !ctx.groups.value) {
+      if (!isCollapsed.value || !hasChildFolders.value) {
         return directCount;
       }
-      const subtreeIds = getFolderSubtreeIds(ctx.groups.value, props.node.folder.id);
+      const subtreeIds = getFolderSubtreeIds(tree.groups.value, props.node.folder.id);
       let total = 0;
       for (const folderId of subtreeIds) {
-        total += ctx.getFilteredGroupBookmarks ? ctx.getFilteredGroupBookmarks(folderId).length : 0;
+        total += tree.getFilteredGroupBookmarks(folderId).length;
       }
       return total;
     });
@@ -484,17 +474,17 @@ export default defineComponent({
     );
 
     const shouldShowHeaderAdd = computed(
-      () => ctx.addBookmarkBtnPosition.value === 'top' || isParentWithoutBookmarks.value,
+      () => tree.addBookmarkBtnPosition.value === 'top' || isParentWithoutBookmarks.value,
     );
 
     const shouldShowBottomAdd = computed(
-      () => ctx.addBookmarkBtnPosition.value === 'bottom' && !isParentWithoutBookmarks.value,
+      () => tree.addBookmarkBtnPosition.value === 'bottom' && !isParentWithoutBookmarks.value,
     );
 
-    const isDraggingBookmark = computed(() => ctx.isDraggingBookmark?.value ?? false);
+    const isDraggingBookmark = computed(() => tree.isDraggingBookmark.value);
 
     const isBodyVisible = computed(() => {
-      if (ctx.isGroupCollapsed(props.node.folder.id)) return false;
+      if (tree.isGroupCollapsed(props.node.folder.id)) return false;
       if (isParentWithoutBookmarks.value) {
         return isDraggingBookmark.value;
       }
@@ -521,38 +511,41 @@ export default defineComponent({
     const isMoveFolderSubMenu = ref(false);
 
     const eligibleMoveTargetFolders = computed(() =>
-      getFlattenedFolderTree(ctx.groups.value, props.node.folder.id),
+      getFlattenedFolderTree(tree.groups.value, props.node.folder.id),
     );
 
     const handleMoveFolder = (targetFolderId: string) => {
       isMoveFolderSubMenu.value = false;
       if (props.node.folder.parentId === targetFolderId) {
-        ctx.setGroupMenuOpen(props.node.folder.id, false);
+        menus.setGroupMenuOpen(props.node.folder.id, false);
         return;
       }
-      void ctx.moveFolder(props.node.folder.id, targetFolderId);
+      void actions.moveFolder(props.node.folder.id, targetFolderId);
     };
 
     const isIconPickerOpen = ref(false);
 
     const handleSelectFolderAppearance = (appearance: { icon?: string; color?: string }) => {
-      void ctx.setFolderAppearance?.(props.node.folder.id, appearance);
+      void actions.setFolderAppearance(props.node.folder.id, appearance);
     };
 
     const openIconPickerFromMenu = () => {
-      ctx.setGroupMenuOpen(props.node.folder.id, false);
+      menus.setGroupMenuOpen(props.node.folder.id, false);
       isIconPickerOpen.value = true;
     };
 
     const handleMoveToRoot = () => {
       isMoveFolderSubMenu.value = false;
-      ctx.setGroupMenuOpen(props.node.folder.id, false);
-      void ctx.moveFolder(props.node.folder.id, undefined);
+      menus.setGroupMenuOpen(props.node.folder.id, false);
+      void actions.moveFolder(props.node.folder.id, undefined);
     };
 
     return {
       t,
-      ctx,
+      tree,
+      editing,
+      menus,
+      actions,
       isGroupMenuOpen,
       isIconPickerOpen,
       handleSelectFolderAppearance,

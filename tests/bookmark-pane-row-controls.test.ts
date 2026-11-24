@@ -102,22 +102,22 @@ describe('Business Layer Migration Phase 2B — BookmarkPane Group / Bookmark Ro
 
     it('uses Input size="sm" for Group Rename without manual geometry or focus-visible:ring-0', () => {
       expect(bookmarkFolderNodeSource).toMatch(
-        /<Input[^>]*v-model="ctx\.editingGroupName\.value"[^>]*size="sm"[^>]*class="w-full min-w-0"/,
+        /<Input[^>]*v-model="editing\.editingGroupName\.value"[^>]*size="sm"[^>]*class="w-full min-w-0"/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-model="ctx\.editingGroupName\.value"[^>]*h-\[calc/,
+        /v-model="editing\.editingGroupName\.value"[^>]*h-\[calc/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-model="ctx\.editingGroupName\.value"[^>]*px-1\.5/,
+        /v-model="editing\.editingGroupName\.value"[^>]*px-1\.5/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-model="ctx\.editingGroupName\.value"[^>]*py-0\.5/,
+        /v-model="editing\.editingGroupName\.value"[^>]*py-0\.5/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-model="ctx\.editingGroupName\.value"[^>]*rounded-none/,
+        /v-model="editing\.editingGroupName\.value"[^>]*rounded-none/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-model="ctx\.editingGroupName\.value"[^>]*focus-visible:ring-0/,
+        /v-model="editing\.editingGroupName\.value"[^>]*focus-visible:ring-0/,
       );
     });
 
@@ -149,16 +149,16 @@ describe('Business Layer Migration Phase 2B — BookmarkPane Group / Bookmark Ro
   describe('2. Static Source Contracts: Bookmark Row Items & Actions', () => {
     it('uses Input size="sm" for Bookmark Rename with full-width w-full min-w-0 without manual height, density, or focus-visible:ring-0', () => {
       expect(bookmarkFolderNodeSource).toMatch(
-        /<Input[^>]*v-model="ctx\.editingBookmarkName\.value"[^>]*size="sm"[^>]*class="w-full min-w-0"/,
+        /<Input[^>]*v-model="editing\.editingBookmarkName\.value"[^>]*size="sm"[^>]*class="w-full min-w-0"/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-model="ctx\.editingBookmarkName\.value"[^>]*w-\[90%\]/,
+        /v-model="editing\.editingBookmarkName\.value"[^>]*w-\[90%\]/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-model="ctx\.editingBookmarkName\.value"[^>]*h-\[calc/,
+        /v-model="editing\.editingBookmarkName\.value"[^>]*h-\[calc/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-model="ctx\.editingBookmarkName\.value"[^>]*focus-visible:ring-0/,
+        /v-model="editing\.editingBookmarkName\.value"[^>]*focus-visible:ring-0/,
       );
     });
 
@@ -174,7 +174,7 @@ describe('Business Layer Migration Phase 2B — BookmarkPane Group / Bookmark Ro
       expect(bookmarkFolderNodeSource).toMatch(
         /<Button[^>]*variant="ghost"[^>]*size="icon-sm"[^>]*title=(?:"|&quot;)在新分頁開啟(?:"|&quot;)/,
       );
-      expect(bookmarkFolderNodeSource).toMatch(/@click\.stop="ctx\.openBookmarkNewTab\(bm\)"/);
+      expect(bookmarkFolderNodeSource).toMatch(/@click\.stop="actions\.openBookmarkNewTab\(bm\)"/);
 
       // Bookmark context menu button
       expect(bookmarkFolderNodeSource).toMatch(
@@ -192,10 +192,10 @@ describe('Business Layer Migration Phase 2B — BookmarkPane Group / Bookmark Ro
         /v-if="shouldShowBottomAdd"[\s\S]*?<Button[^>]*variant="secondary"[^>]*size="sm"[^>]*class="w-full font-bold"/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-if="ctx\.addBookmarkBtnPosition\.value === 'bottom'"[\s\S]*?h-auto/,
+        /v-if="tree\.addBookmarkBtnPosition\.value === 'bottom'"[\s\S]*?h-auto/,
       );
       expect(bookmarkFolderNodeSource).not.toMatch(
-        /v-if="ctx\.addBookmarkBtnPosition\.value === 'bottom'"[\s\S]*?py-\[calc/,
+        /v-if="tree\.addBookmarkBtnPosition\.value === 'bottom'"[\s\S]*?py-\[calc/,
       );
     });
   });

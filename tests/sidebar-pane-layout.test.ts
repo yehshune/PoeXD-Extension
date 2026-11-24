@@ -529,12 +529,12 @@ describe('BookmarkPane SidebarPane integration and SortableJS contract', () => {
 
     // Group Header actions
     expect(freshNodeSource).toMatch(/title=(?:"|&quot;)新增當前網頁到此資料夾(?:"|&quot;)/);
-    expect(freshNodeSource).toContain('@click.stop="ctx.addBookmarkToGroup(node.folder.id)"');
+    expect(freshNodeSource).toContain('@click.stop="actions.addBookmarkToGroup(node.folder.id)"');
     expect(freshNodeSource).toContain('v-model:open="isGroupMenuOpen"');
 
     // Bookmark Row actions
     expect(freshNodeSource).toMatch(/title=(?:"|&quot;)在新分頁開啟(?:"|&quot;)/);
-    expect(freshNodeSource).toContain('@click.stop="ctx.openBookmarkNewTab(bm)"');
+    expect(freshNodeSource).toContain('@click.stop="actions.openBookmarkNewTab(bm)"');
     expect(freshNodeSource).toContain(':open="isMenuOpen"');
     expect(freshNodeSource).toContain(':data-id="bm.id"');
 
@@ -547,12 +547,12 @@ describe('BookmarkPane SidebarPane integration and SortableJS contract', () => {
     );
 
     // Inline rename contracts on shadcn Input
-    expect(freshNodeSource).toContain('v-model="ctx.editingGroupName.value"');
-    expect(freshNodeSource).toContain('@keyup.enter="ctx.saveRenameGroup"');
-    expect(freshNodeSource).toContain('@keyup.escape="ctx.editingGroupId.value = null"');
-    expect(freshNodeSource).toContain('v-model="ctx.editingBookmarkName.value"');
-    expect(freshNodeSource).toContain('@keyup.enter="ctx.saveRenameBookmark"');
-    expect(freshNodeSource).toContain('@keyup.escape="ctx.editingBookmarkId.value = null"');
+    expect(freshNodeSource).toContain('v-model="editing.editingGroupName.value"');
+    expect(freshNodeSource).toContain('@keyup.enter="editing.saveRenameGroup"');
+    expect(freshNodeSource).toContain('@keyup.escape="editing.editingGroupId.value = null"');
+    expect(freshNodeSource).toContain('v-model="editing.editingBookmarkName.value"');
+    expect(freshNodeSource).toContain('@keyup.enter="editing.saveRenameBookmark"');
+    expect(freshNodeSource).toContain('@keyup.escape="editing.editingBookmarkId.value = null"');
   });
 
   it('cleans up replaced visual CSS rules and legacy dropdown styles', () => {
@@ -617,7 +617,7 @@ describe('BookmarkPane SidebarPane integration and SortableJS contract', () => {
     // Bottom add action uses shadcn Button with click handler
     expect(freshNodeSource).toContain('＋ 新增當前網頁');
     expect(freshNodeSource).toMatch(
-      /<Button[^>]*@click\.stop="ctx\.addBookmarkToGroup\(node\.folder\.id\)"[^>]*>[\s\S]*?＋ 新增當前網頁/,
+      /<Button[^>]*@click\.stop="actions\.addBookmarkToGroup\(node\.folder\.id\)"[^>]*>[\s\S]*?＋ 新增當前網頁/,
     );
   });
 

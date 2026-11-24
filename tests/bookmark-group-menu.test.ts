@@ -167,7 +167,7 @@ describe('Group Menu (Static Contracts)', () => {
 
   it('migrates Bookmark menu to controlled Dropdown primitives', () => {
     expect(source).toContain(':open="isMenuOpen"');
-    expect(source).toContain('@update:open="(open) => ctx.setBookmarkMenuOpen(bm.id, open)"');
+    expect(source).toContain('@update:open="(open) => menus.setBookmarkMenuOpen(bm.id, open)"');
     expect(source).not.toContain('class="poe-dropdown-menu bookmark-menu"');
     expect(source).not.toContain('toggleBookmarkMenu');
     expect(source).toContain('在新分頁開啟');

@@ -447,34 +447,26 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
       .default;
     const { BOOKMARK_PANE_CONTEXT_KEY } = await import('@/components/sidebar/bookmark-tree');
 
+    const { createBookmarkWorkspace } = await import('@/components/sidebar/bookmark-workspace');
+    const { createFakeBookmarkWorkspaceHost } =
+      await import('@/components/sidebar/bookmark-workspace/fake-host');
+    const { createFakeBookmarkModel } = await import('./helpers/fake-bookmark-model');
+
     const toggleGroupCollapseSpy = vi.fn();
+    const workspace = createBookmarkWorkspace(createFakeBookmarkWorkspaceHost(), {
+      version: 'poe1',
+      model: createFakeBookmarkModel({
+        groups: [{ id: 'folder-1', name: 'Test Folder', order: 0 }],
+        bookmarks: [],
+      }),
+    });
+    workspace.setPreferences({ addBookmarkBtnPosition: 'top', sidebarPosition: 'right' });
     const mockCtx = {
-      activeTab: ref('bookmarks'),
-      sidebarPosition: ref('right'),
-      bookmarks: ref([]),
-      groups: ref([{ id: 'folder-1', name: 'Test Folder', order: 0 }]),
-      activeBookmarkId: ref(null),
-      activePreviewData: ref(null),
-      activeGroupMenuId: ref(null),
-      activeBookmarkMenuId: ref(null),
-      isMoveSubMenu: ref(false),
-      isCoverSubMenu: ref(false),
-      setGroupMenuOpen: vi.fn(),
-      setBookmarkMenuOpen: vi.fn(),
-      setMoveSubMenuOpen: vi.fn(),
-      setCoverSubMenuOpen: vi.fn(),
-      isGroupCollapsed: vi.fn(() => false),
-      toggleGroupCollapse: toggleGroupCollapseSpy,
-      editingGroupId: ref(null),
-      editingGroupName: ref(''),
-      editingBookmarkId: ref(null),
-      editingBookmarkName: ref(''),
-      isDragging: ref(false),
-      addBookmarkBtnPosition: ref('top'),
-      getFilteredGroupBookmarks: vi.fn(() => []),
-      tradeLeagues: ref([]),
-      isLeagueLoading: ref(false),
-      leagueLoadError: ref(null),
+      ...workspace,
+      tree: {
+        ...workspace.tree,
+        toggleGroupCollapse: toggleGroupCollapseSpy,
+      },
     };
 
     const container = document.createElement('div');

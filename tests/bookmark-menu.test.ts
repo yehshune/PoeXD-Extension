@@ -160,9 +160,9 @@ describe('Bookmark Menu (Static Contracts & Legacy Cleanup)', () => {
 
   it('uses controlled shadcn / Reka Dropdown primitives with custom z-index', () => {
     expect(nodeSource).toContain(':open="isMenuOpen"');
-    expect(nodeSource).toContain('@update:open="(open) => ctx.setBookmarkMenuOpen(bm.id, open)"');
+    expect(nodeSource).toContain('@update:open="(open) => menus.setBookmarkMenuOpen(bm.id, open)"');
     expect(nodeSource).toMatch(
-      /@close-auto-focus="[\s\S]*?if\s*\(ctx\.editingBookmarkId\.value\)\s*e\.preventDefault\(\);?[\s\S]*?"/,
+      /@close-auto-focus="[\s\S]*?if\s*\(editing\.editingBookmarkId\.value\)\s*e\.preventDefault\(\);?[\s\S]*?"/,
     );
     expect(nodeSource).toContain('<DropdownMenuSub');
     expect(nodeSource).toContain('<DropdownMenuSubTrigger');

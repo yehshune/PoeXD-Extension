@@ -22,7 +22,7 @@
         alt=""
         draggable="false"
         referrerpolicy="no-referrer"
-        @error="ctx.handleCoverImageError"
+        @error="actions.handleCoverImageError"
       />
       <span
         v-else
@@ -31,14 +31,14 @@
       >
       <Input
         v-if="isEditing"
-        v-model="ctx.editingBookmarkName.value"
+        v-model="editing.editingBookmarkName.value"
         v-focus
         :maxlength="BOOKMARK_NAME_MAX_LENGTH"
         size="sm"
         class="w-full min-w-0"
-        @keyup.enter="ctx.saveRenameBookmark"
-        @keyup.escape="ctx.editingBookmarkId.value = null"
-        @blur="ctx.saveRenameBookmark"
+        @keyup.enter="editing.saveRenameBookmark"
+        @keyup.escape="editing.editingBookmarkId.value = null"
+        @blur="editing.saveRenameBookmark"
         @click.stop
       />
       <a
@@ -79,24 +79,24 @@
       "
     >
       <Button
-        v-if="ctx.searchEntryClickAction?.value === 'preview'"
+        v-if="preview.searchEntryClickAction.value === 'preview'"
         variant="ghost"
         size="icon-sm"
         :title="t('bookmark.row.openSearch')"
         data-test="bookmark-open"
-        @click.stop="ctx.openBookmark(bm)"
+        @click.stop="actions.openBookmark(bm)"
         @pointerdown.stop
       >
         <ArrowRight />
       </Button>
       <Button
-        v-else-if="ctx.toggleBookmarkPreview && ctx.enableBookmarkTooltip?.value !== false"
+        v-else-if="preview.enableBookmarkTooltip.value !== false"
         variant="ghost"
         size="icon-sm"
         :class="isPreviewActive ? 'text-primary bg-primary/15' : undefined"
         :title="t('bookmark.row.previewSearch')"
         data-test="bookmark-preview-toggle"
-        @click.stop="ctx.toggleBookmarkPreview(bm, $event)"
+        @click.stop="preview.toggleBookmarkPreview(bm, $event)"
         @pointerdown.stop
       >
         <Eye />
@@ -105,7 +105,7 @@
         variant="ghost"
         size="icon-sm"
         :title="t('common.openNewTab') /* title=&quot;在新分頁開啟&quot; */"
-        @click.stop="ctx.openBookmarkNewTab(bm)"
+        @click.stop="actions.openBookmarkNewTab(bm)"
         @pointerdown.stop
       >
         <ExternalLink />
@@ -113,15 +113,15 @@
       <div class="dropdown-menu-container relative inline-block">
         <DropdownMenu
           :open="isMenuOpen"
-          @update:open="(open) => ctx.setBookmarkMenuOpen(bm.id, open)"
+          @update:open="(open) => menus.setBookmarkMenuOpen(bm.id, open)"
         >
           <DropdownMenuTrigger as-child>
             <Button
               variant="ghost"
               size="icon-sm"
               :title="t('bookmark.folder.menuTitle') /* title=&quot;操作選單&quot; */"
-              @pointerdown.capture="ctx.handleBookmarkTriggerPointerDown(bm.id, $event)"
-              @click.capture="ctx.handleTriggerClick"
+              @pointerdown.capture="menus.handleBookmarkTriggerPointerDown(bm.id, $event)"
+              @click.capture="menus.handleTriggerClick"
               @click.stop
             >
               <MoreVertical />
@@ -134,26 +134,25 @@
             class="max-h-[min(calc(var(--pxd-menu-max-height,240px)_*_1.5),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))]"
             @close-auto-focus="
               (e) => {
-                if (ctx.editingBookmarkId.value) e.preventDefault();
+                if (editing.editingBookmarkId.value) e.preventDefault();
               }
             "
           >
-            <DropdownMenuItem @click="ctx.openBookmarkNewTab(bm)">
+            <DropdownMenuItem @click="actions.openBookmarkNewTab(bm)">
               <ExternalLink class="text-muted-foreground" />
               <!-- 在新分頁開啟 -->
               {{ t('common.openNewTab') }}
             </DropdownMenuItem>
 
             <DropdownMenuItem
-              v-if="ctx.sendBookmarkToLiveSearchConsole"
               data-test="bookmark-send-to-live-search-console"
-              @click="ctx.sendBookmarkToLiveSearchConsole(bm)"
+              @click="actions.sendBookmarkToLiveSearchConsole(bm)"
             >
               <Radio class="text-primary" />
               {{ t('common.sendToConsole') }}
             </DropdownMenuItem>
 
-            <DropdownMenuItem @click="ctx.openBookmarkLiveSearch(bm)">
+            <DropdownMenuItem @click="actions.openBookmarkLiveSearch(bm)">
               <Radio class="text-muted-foreground" />
               <!-- 使用線上搜尋開啟 -->
               {{ t('common.openLiveSearch') }}
@@ -163,25 +162,25 @@
 
             <DropdownMenuItem
               data-test="bookmark-overwrite-current"
-              @click="ctx.overwriteBookmark(bm)"
+              @click="actions.overwriteBookmark(bm)"
             >
               <RefreshCw class="text-muted-foreground" />
               {{ t('bookmark.row.overwriteWithCurrent') }}
             </DropdownMenuItem>
 
-            <DropdownMenuItem @click="ctx.startRenameBookmark(bm)">
+            <DropdownMenuItem @click="editing.startRenameBookmark(bm)">
               <Pencil class="text-muted-foreground" />
               {{ t('common.rename') }}
             </DropdownMenuItem>
 
             <!-- 二級選單：更換封面 -->
             <DropdownMenuSub
-              :open="ctx.isCoverSubMenu.value"
-              @update:open="ctx.setCoverSubMenuOpen"
+              :open="menus.isCoverSubMenu.value"
+              @update:open="menus.setCoverSubMenuOpen"
             >
               <DropdownMenuSubTrigger
-                @click.stop="ctx.requestOpenCoverSubMenu(bm)"
-                @keydown="ctx.handleCoverSubmenuKeydown($event, bm)"
+                @click.stop="menus.requestOpenCoverSubMenu(bm)"
+                @keydown="menus.handleCoverSubmenuKeydown($event, bm)"
               >
                 <Image class="text-muted-foreground" />
                 <!-- 更換封面 -->
@@ -189,22 +188,22 @@
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent class="w-[var(--pxd-cover-picker-width,272px)] p-1.5">
                 <div
-                  v-if="ctx.getResultImagesForBookmark(bm).length > 0"
+                  v-if="actions.getResultImagesForBookmark(bm).length > 0"
                   class="cover-image-grid grid grid-cols-4 gap-[var(--pxd-space-sm)] max-h-[min(var(--pxd-cover-picker-max-height,240px),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))] p-[var(--pxd-space-sm)] overflow-y-auto pxd-scrollbar"
                 >
                   <DropdownMenuItem
-                    v-for="imageUrl in ctx.getResultImagesForBookmark(bm)"
+                    v-for="imageUrl in actions.getResultImagesForBookmark(bm)"
                     :key="imageUrl"
                     class="cover-image-option w-full max-w-[var(--pxd-cover-picker-item-size,56px)] aspect-square min-h-0 h-auto p-0.5 justify-center"
                     :selected="bm.coverImageUrl === imageUrl"
                     :title="t('bookmark.row.setCover')"
-                    @click="ctx.selectBookmarkCover(bm, imageUrl)"
+                    @click="actions.selectBookmarkCover(bm, imageUrl)"
                   >
                     <img
                       :src="imageUrl"
                       alt=""
                       class="size-full object-contain"
-                      @error="ctx.handleCoverImageError"
+                      @error="actions.handleCoverImageError"
                     />
                   </DropdownMenuItem>
                 </div>
@@ -218,13 +217,16 @@
               </DropdownMenuSubContent>
             </DropdownMenuSub>
 
-            <DropdownMenuItem v-if="bm.coverImageUrl" @click="ctx.removeBookmarkCover(bm)">
+            <DropdownMenuItem v-if="bm.coverImageUrl" @click="actions.removeBookmarkCover(bm)">
               <ImageOff class="text-muted-foreground" />
               {{ t('bookmark.row.removeCover') }}
             </DropdownMenuItem>
 
             <!-- 二級選單：移動到資料夾 -->
-            <DropdownMenuSub :open="ctx.isMoveSubMenu.value" @update:open="ctx.setMoveSubMenuOpen">
+            <DropdownMenuSub
+              :open="menus.isMoveSubMenu.value"
+              @update:open="menus.setMoveSubMenuOpen"
+            >
               <DropdownMenuSubTrigger>
                 <FolderInput class="text-muted-foreground" />
                 <!-- 移動到資料夾 -->
@@ -238,8 +240,8 @@
                   :key="target.folder.id"
                   :disabled="bm.groupId === target.folder.id"
                   :selected="bm.groupId === target.folder.id"
-                  :title="ctx.getFolderPath(target.folder.id)"
-                  @click="ctx.moveBookmark(bm.id, target.folder.id)"
+                  :title="tree.getFolderPath(target.folder.id)"
+                  @click="actions.moveBookmark(bm.id, target.folder.id)"
                 >
                   <span
                     v-if="getFolderItemIndentLevel(target.depth) > 0"
@@ -267,7 +269,7 @@
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuItem variant="destructive" @click="ctx.deleteBookmark(bm.id)">
+            <DropdownMenuItem variant="destructive" @click="actions.deleteBookmark(bm.id)">
               <Trash2 class="text-destructive" />
               {{ t('bookmark.action.deleteBookmark') }}
             </DropdownMenuItem>
@@ -315,7 +317,6 @@ import { t } from '@/utils/i18n';
 import FolderIcon from './FolderIcon.vue';
 import type { Bookmark } from './bookmark-types';
 import {
-  type BookmarkPaneContext,
   BOOKMARK_PANE_CONTEXT_KEY,
   getFlattenedFolderTree,
   getFolderItemIndentLevel,
@@ -371,49 +372,50 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const ctx = inject<BookmarkPaneContext>(BOOKMARK_PANE_CONTEXT_KEY);
-    if (!ctx) {
+    const workspace = inject(BOOKMARK_PANE_CONTEXT_KEY);
+    if (!workspace) {
       throw new Error('BookmarkRow must be used within BookmarkPane');
     }
+    const { tree, editing, menus, actions, preview } = workspace;
 
     const bm = computed(() => props.bookmark);
-    const isEditing = computed(() => ctx.editingBookmarkId.value === props.bookmark.id);
-    const isMenuOpen = computed(() => ctx.activeBookmarkMenuId.value === props.bookmark.id);
+    const isEditing = computed(() => editing.editingBookmarkId.value === props.bookmark.id);
+    const isMenuOpen = computed(() => menus.activeBookmarkMenuId.value === props.bookmark.id);
     const isLegacyUrl = computed(() => isLegacyTradeSearchUrl(props.bookmark.url));
     const isCurrentBookmark = computed(() => {
-      const currentUrl = ctx.currentPageUrl?.value;
+      const currentUrl = tree.currentPageUrl.value;
       return currentUrl ? isSameTradeSearchPageUrl(currentUrl, props.bookmark.url) : false;
     });
     const pinnedLeagueLabel = computed(() => {
       if (!props.bookmark.leaguePinned) return '';
       return parseTradeSearchUrl(props.bookmark.canonicalUrl ?? props.bookmark.url)?.league ?? '';
     });
-    const isPreviewActive = computed(() => ctx.activeBookmarkId?.value === props.bookmark.id);
+    const isPreviewActive = computed(() => preview.activeBookmarkId.value === props.bookmark.id);
     const actionsActivated = ref(false);
 
     // 短路順序刻意讓尚未互動的列不追蹤 isDragging，拖曳開始時不會連帶重繪全部書籤列。
     const showActions = computed(
       () =>
-        (actionsActivated.value || isMenuOpen.value) && !isEditing.value && !ctx.isDragging.value,
+        (actionsActivated.value || isMenuOpen.value) && !isEditing.value && !tree.isDragging.value,
     );
 
-    const moveTargetFolders = computed(() => getFlattenedFolderTree(ctx.groups.value));
+    const moveTargetFolders = computed(() => getFlattenedFolderTree(tree.groups.value));
 
     const activateActions = () => {
       actionsActivated.value = true;
     };
 
     const handlePrimaryClick = (event: Event) => {
-      if (ctx.handleBookmarkPrimaryClick) {
-        ctx.handleBookmarkPrimaryClick(props.bookmark, event);
-      } else {
-        ctx.openBookmark(props.bookmark);
-      }
+      actions.handleBookmarkPrimaryClick(props.bookmark, event);
     };
 
     return {
       t,
-      ctx,
+      tree,
+      editing,
+      menus,
+      actions,
+      preview,
       bm,
       isEditing,
       isMenuOpen,

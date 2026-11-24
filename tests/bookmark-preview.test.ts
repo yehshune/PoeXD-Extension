@@ -685,7 +685,7 @@ describe('Bookmark hover preview Runtime Tooltip & DOM contract', () => {
     // BookmarkFolderNode is decoupled: no hover preview, toggling goes through the shared context
     expect(bookmarkNodeSource).not.toContain('<TradeSearchPreviewTooltip');
     expect(bookmarkNodeSource).not.toContain('@mouseenter="ctx.handleBookmarkMouseEnter');
-    expect(bookmarkNodeSource).toContain('ctx.toggleBookmarkPreview(bm, $event)');
+    expect(bookmarkNodeSource).toContain('preview.toggleBookmarkPreview(bm, $event)');
 
     // TradeSearchPreviewTooltip encapsulates generic Tooltip primitive and Popper positioning SSOT
     expect(tooltipSource).toMatch(/<TooltipTrigger\s+as-child>[\s\S]*?<slot\s*\/>/);

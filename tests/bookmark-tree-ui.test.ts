@@ -638,40 +638,22 @@ describe('Bookmark Tree UI & Hierarchy Semantics', () => {
         .default;
       const { BOOKMARK_PANE_CONTEXT_KEY } = await import('@/components/sidebar/bookmark-tree');
 
-      const mockCtx = {
-        addBookmarkBtnPosition: ref('top'),
-        groups: ref([
-          { id: 'g-parent', name: 'Parent', order: 0 },
-          { id: 'g-child', name: 'Child', order: 0, parentId: 'g-parent' },
-        ]),
-        bookmarks: ref([]),
-        isDragging: ref(false),
-        isDraggingBookmark: ref(false),
-        activeBookmarkId: ref(null),
-        activePreviewData: ref(null),
-        activeGroupMenuId: ref(null),
-        activeBookmarkMenuId: ref(null),
-        editingGroupId: ref(null),
-        editingGroupName: ref(''),
-        editingBookmarkId: ref(null),
-        editingBookmarkName: ref(''),
-        getFilteredGroupBookmarks: vi.fn(() => []),
-        isGroupCollapsed: vi.fn(() => false),
-        toggleGroupCollapse: vi.fn(),
-        setGroupMenuOpen: vi.fn(),
-        setBookmarkMenuOpen: vi.fn(),
-        handleGroupTriggerPointerDown: vi.fn(),
-        handleBookmarkTriggerPointerDown: vi.fn(),
-        handleTriggerClick: vi.fn(),
-        addBookmarkToGroup: vi.fn(),
-        addChildFolder: vi.fn(),
-        startRenameGroup: vi.fn(),
-        confirmDeleteGroup: vi.fn(),
-        hasSubtreeFolders: vi.fn(() => true),
-        isSubtreeAllCollapsed: vi.fn(() => false),
-        toggleSubtreeCollapse: vi.fn(),
-        sidebarPosition: ref('left'),
-      };
+      const { createBookmarkWorkspace } = await import('@/components/sidebar/bookmark-workspace');
+      const { createFakeBookmarkWorkspaceHost } =
+        await import('@/components/sidebar/bookmark-workspace/fake-host');
+      const { createFakeBookmarkModel } = await import('./helpers/fake-bookmark-model');
+
+      const mockCtx = createBookmarkWorkspace(createFakeBookmarkWorkspaceHost(), {
+        version: 'poe1',
+        model: createFakeBookmarkModel({
+          groups: [
+            { id: 'g-parent', name: 'Parent', order: 0 },
+            { id: 'g-child', name: 'Child', order: 0, parentId: 'g-parent' },
+          ],
+          bookmarks: [],
+        }),
+      });
+      mockCtx.setPreferences({ addBookmarkBtnPosition: 'top', sidebarPosition: 'left' });
 
       const container = document.createElement('div');
       const Harness = defineComponent({
