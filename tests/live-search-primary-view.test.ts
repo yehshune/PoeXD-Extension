@@ -5009,4 +5009,100 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       sourceController2.dispose();
     });
   });
+
+  it('opens the trade search page in a new tab from the item menu and hides it for invalid URLs', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    try {
+      const controller = createLiveSearchPrimaryController(runtime);
+      const mockSnapshot: LiveSearchSourceSnapshot = {
+        loading: false,
+        selectedLeague: 'Standard',
+        availableLeagues: ['Standard'],
+        isSwitchingLeague: false,
+        leagueResolved: true,
+        groups: [
+          {
+            id: 'g1',
+            name: '裝備',
+            kind: 'bookmark',
+            items: [
+              {
+                kind: 'bookmark',
+                id: 'bmk_valid',
+                name: '三相戒指',
+                url: 'https://www.pathofexile.com/trade/search/Standard/H4sIvalid123/live',
+                canonicalIdentity: {
+                  gameVersion: 'poe1',
+                  league: 'standard',
+                  searchId: 'H4sIvalid123',
+                },
+                canonicalKey: 'poe1:standard:H4sIvalid123',
+                compatibility: 'compatible',
+                groupId: 'g1',
+                groupName: '裝備',
+                status: 'active',
+                pending: false,
+                removable: true,
+              },
+              {
+                kind: 'bookmark',
+                id: 'bmk_invalid',
+                name: '無效連結',
+                url: 'https://example.com/not-a-trade-url',
+                canonicalIdentity: null,
+                canonicalKey: null,
+                compatibility: 'invalid-url',
+                groupId: 'g1',
+                groupName: '裝備',
+                status: 'idle',
+                pending: false,
+                removable: false,
+              },
+            ],
+          },
+        ],
+      };
+
+      const sourceController = {
+        read: () => mockSnapshot,
+        subscribe: (listener: (snap: Readonly<LiveSearchSourceSnapshot>) => void) => {
+          listener(mockSnapshot);
+          return () => {};
+        },
+        dispose: () => {},
+      } as unknown as LiveSearchSourceController;
+
+      const { container, unmount } = mountComponent({ controller, sourceController });
+      await flushAsync();
+
+      const validMenuBtn = container.querySelector(
+        '[data-test="btn-item-menu-bmk_valid"]',
+      ) as HTMLButtonElement;
+      expect(validMenuBtn).not.toBeNull();
+      expect(container.querySelector('[data-test="btn-item-menu-bmk_invalid"]')).toBeNull();
+
+      validMenuBtn.click();
+      await flushAsync();
+
+      const openNewTabBtn = document.body.querySelector(
+        '[data-test="btn-open-new-tab-bmk_valid"]',
+      ) as HTMLElement;
+      expect(openNewTabBtn).not.toBeNull();
+      expect(openNewTabBtn.textContent?.trim()).toBe('在新分頁開啟');
+
+      openNewTabBtn.click();
+      await flushAsync();
+
+      expect(openSpy).toHaveBeenCalledTimes(1);
+      expect(openSpy).toHaveBeenCalledWith(
+        'https://www.pathofexile.com/trade/search/Standard/H4sIvalid123',
+        '_blank',
+        'noopener,noreferrer',
+      );
+
+      unmount();
+    } finally {
+      openSpy.mockRestore();
+    }
+  });
 });

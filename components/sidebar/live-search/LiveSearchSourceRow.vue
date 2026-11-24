@@ -171,7 +171,7 @@
           </Button>
         </template>
 
-        <!-- 次要操作選單 [⋯]：連線中取消或移除連線 -->
+        <!-- 次要操作選單 [⋯]：新分頁開啟、連線中取消或移除連線 -->
         <DropdownMenu
           v-if="hasItemSecondaryActions(item)"
           :open="isItemMenuOpen"
@@ -195,6 +195,14 @@
           </DropdownMenuTrigger>
 
           <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              v-if="canOpenItemUrl(item)"
+              :data-test="`btn-open-new-tab-${item.id}`"
+              @click="emit('open-new-tab', item)"
+            >
+              <ExternalLink class="text-muted-foreground" />
+              {{ t('common.openNewTab') }}
+            </DropdownMenuItem>
             <DropdownMenuItem
               v-if="item.status === 'connecting' || item.status === 'reconnecting'"
               :data-test="`btn-stop-${item.id}`"
@@ -234,7 +242,7 @@
 
 <script setup lang="ts">
 import { computed, type PropType } from 'vue';
-import { Loader2, MoreHorizontal, Pause, Play, RotateCcw } from '@lucide/vue';
+import { ExternalLink, Loader2, MoreHorizontal, Pause, Play, RotateCcw } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -247,6 +255,7 @@ import TradeSearchPreviewTooltip from '../search-preview/TradeSearchPreviewToolt
 import type { TradeSearchPreviewData } from '../composables/useTradeSearchPreview';
 import { isItemActiveOrError } from './useLiveSearchGroups';
 import { t } from '@/utils/i18n';
+import { parseTradeSearchUrl } from '@/utils/trade-search-identity';
 import type { LiveSearchSubscriptionStatus } from '@/utils/live-search-contract';
 import {
   PREVIOUS_CONNECTIONS_GROUP_ID,
@@ -311,6 +320,7 @@ const emit = defineEmits<{
   (e: 'enable', sourceId: string): void;
   (e: 'stop', item: LiveSearchSourceItem): void;
   (e: 'retry', item: LiveSearchSourceItem): void;
+  (e: 'open-new-tab', item: LiveSearchSourceItem): void;
   (e: 'remove', item: LiveSearchSourceItem, groupId: string): void;
   (e: 'menu-open-change', itemId: string, open: boolean): void;
   (e: 'menu-trigger-pointerdown', itemId: string, event: PointerEvent | MouseEvent): void;
@@ -347,8 +357,18 @@ function isItemConnectingOrPending(item: LiveSearchSourceItem): boolean {
   return Boolean(item.pending) || item.status === 'connecting' || item.status === 'reconnecting';
 }
 
+function canOpenItemUrl(item: LiveSearchSourceItem): boolean {
+  if (item.compatibility === 'invalid-url') return false;
+  return Boolean(parseTradeSearchUrl(item.url));
+}
+
 function hasItemSecondaryActions(item: LiveSearchSourceItem): boolean {
-  return Boolean(item.removable || item.status === 'connecting' || item.status === 'reconnecting');
+  return Boolean(
+    canOpenItemUrl(item) ||
+    item.removable ||
+    item.status === 'connecting' ||
+    item.status === 'reconnecting',
+  );
 }
 
 function getItemStatusText(item: LiveSearchSourceItem): string {

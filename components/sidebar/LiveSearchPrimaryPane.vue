@@ -302,6 +302,7 @@
                 @enable-source="handleEnableSource"
                 @stop-source="handleStopSource"
                 @retry-source="handleRetrySource"
+                @open-source-new-tab="handleOpenSourceNewTab"
                 @remove-source="handleRemoveSource"
                 @item-menu-open-change="setItemMenuOpen"
                 @item-menu-trigger-pointerdown="handleItemTriggerPointerDown"
@@ -376,6 +377,7 @@ import {
   type PreferencesModule,
 } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
+import { parseTradeSearchUrl, stripLiveSuffix } from '@/utils/trade-search-identity';
 import { t } from '@/utils/i18n';
 import type {
   LiveSearchPrimaryController,
@@ -1042,6 +1044,13 @@ function handleStopSource(item: LiveSearchSourceItem) {
   if (props.controller && item.subscriptionId) {
     props.controller.remove(item.subscriptionId);
   }
+}
+
+function handleOpenSourceNewTab(item: LiveSearchSourceItem) {
+  closeAllMenus();
+  if (item.compatibility === 'invalid-url' || !parseTradeSearchUrl(item.url)) return;
+  const targetUrl = stripLiveSuffix(item.url);
+  window.open(targetUrl, '_blank', 'noopener,noreferrer');
 }
 
 function handleRemoveSource(item: LiveSearchSourceItem, groupId: string) {
