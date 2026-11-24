@@ -32,10 +32,8 @@ import {
   NON_UNIQUE_RARITY,
   OFF_HAND_SLOT,
   resolveEntrySearch,
-  withGemFilters,
   type EntryCategory,
   type EntryDefences,
-  type GemFilters,
   type GemQualitySection,
   type PseudoContribution,
   type ShoppingEntryKind,
@@ -493,6 +491,10 @@ function itemMods(
   });
 }
 
+/**
+ * 裝備的連結數與外觀：五連以上才記下連結數（四連以下很容易自己做）；插槽、內容物、
+ * 汙染與穢生給介面顯示
+ */
 function itemTraitsOf(
   item: PobBuildItem,
 ): Pick<ShoppingEntry, 'links' | 'sockets' | 'socketed' | 'corrupted' | 'foulborn'> {
@@ -505,6 +507,7 @@ function itemTraitsOf(
   };
 }
 
+/** 對不到市集名稱時，去掉種類說明再試一次（`Two-Stone Ring (Cold/Lightning)`） */
 function resolveBase(
   englishBase: string | undefined,
   catalog: TradeNameCatalog,
@@ -640,6 +643,7 @@ const gemGroupOf = (gem: PobBuildGem): ShoppingGemGroup =>
 export const gemKey = (gem: PobBuildGem): string =>
   ['gem', gemGroupOf(gem).id, gem.name, gem.level, gem.quality].join(KEY_SEPARATOR);
 
+/** 寶石分組前的 key（不含分組），舊版存下的進度用這個格式 */
 const legacyGemKey = (gem: PobBuildGem): string =>
   ['gem', gem.name, gem.level, gem.quality].join(KEY_SEPARATOR);
 
@@ -661,21 +665,14 @@ function gemEntry(
   catalog: TradeNameCatalog,
   version: PoeVersion = 'poe1',
 ): ShoppingEntry {
+  // PoB 的輔助寶石名稱不含「Support」，市集上有
   const supportName = `${gem.name}${SUPPORT_SUFFIX}`;
   const englishName = gem.support && catalog.toTradeName(supportName) ? supportName : gem.name;
   const tradeName = catalog.toTradeName(englishName);
   const qualitySection: GemQualitySection = version === 'poe2' ? 'type_filters' : 'misc_filters';
-  const gemFilters: GemFilters = {
-    ...(gem.level > 1 ? { level: gem.level } : {}),
-    ...(gem.quality > 0 ? { quality: gem.quality } : {}),
-    ...(gem.sockets ? { sockets: gem.sockets } : {}),
-  };
-  const searchBase = tradeName
-    ? withGemFilters({ status: INSTANT_BUYOUT_STATUS, type: tradeName }, gemFilters, qualitySection)
-    : null;
-  return {
+  const baseEntry = {
     key: gemKey(gem),
-    kind: 'gem',
+    kind: 'gem' as const,
     gemGroup: gemGroupOf(gem),
     label: tradeName ?? gem.name,
     englishName,
@@ -684,11 +681,20 @@ function gemEntry(
     quality: gem.quality,
     ...(gem.sockets !== undefined ? { gemSockets: gem.sockets } : {}),
     ...(qualitySection === 'type_filters' ? { gemQualitySection: qualitySection } : {}),
-    searchBase,
-    query: searchBase,
+    searchBase: tradeName ? { status: INSTANT_BUYOUT_STATUS, type: tradeName } : null,
+  };
+  const query = resolveEntrySearch(baseEntry).query;
+  return {
+    ...baseEntry,
+    searchBase: query,
+    query,
   };
 }
 
+/**
+ * 珠寶插在天賦樹上，不屬於裝備套裝。沿用 PoB 配置組合的慣例：與裝備套裝同標題的天賦樹
+ * 就是同一個階段；沒有同標題的就用匯出當下選用的那一份。
+ */
 function jewelsFor(build: PobBuild, itemSet: PobItemSet | undefined): PobBuildItem[] {
   const sameTitle = itemSet?.title
     ? build.treeSpecs.find((spec) => spec.title === itemSet.title)
@@ -718,11 +724,14 @@ export function buildShoppingList(
     )
     .map((item) => itemEntry(item, catalog, matcher, build.gameVersion));
   const gems = (skillSet?.gems ?? []).map((gem) => gemEntry(gem, catalog, build.gameVersion));
+  // 同一套裡內容完全相同的項目（例如兩顆一樣的珠寶）共用一個 key，合併成一列並計數
   const merged = new Map<string, ShoppingEntry>();
   for (const entry of [...items, ...gems]) {
     const existing = merged.get(entry.key);
     merged.set(entry.key, existing ? { ...existing, count: existing.count + 1 } : entry);
   }
+  // 裝備依部位排序（傳奇與其他裝備不再分開）；寶石依分組的部位排序，沒有部位的連線在最後，
+  // 分組內維持 PoB 的順序。sort 是穩定排序，同部位維持原本的先後
   const entries = [...merged.values()];
   const equipment = entries
     .filter((entry) => entry.kind !== 'gem')

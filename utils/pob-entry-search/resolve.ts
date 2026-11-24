@@ -510,3 +510,19 @@ export function resolveEntrySearch(
     query,
   };
 }
+
+/** 將 `resolveEntrySearch` 的結果套用到既有列上，確保已被清空的選用欄位不會殘留舊值 */
+export function applyResolvedEntrySearch<T extends Partial<ResolvedEntrySearch>>(
+  target: T,
+  resolved: ResolvedEntrySearch,
+): T & ResolvedEntrySearch {
+  const {
+    countMin: _countMin,
+    linksMin: _linksMin,
+    gemLevelMin: _gemLevelMin,
+    gemQualityMin: _gemQualityMin,
+    gemSocketsMin: _gemSocketsMin,
+    ...rest
+  } = target;
+  return { ...(rest as T), ...resolved };
+}

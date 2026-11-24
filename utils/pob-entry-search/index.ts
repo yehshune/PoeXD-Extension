@@ -15,7 +15,6 @@ export {
   OFF_HAND_SLOT,
   RARE_SEARCH_MODES,
   STAT_PERCENT_OPTIONS,
-  VISCERA_BUNDLE_COUNT_MIN,
   type BuildSearchDefaults,
   type DefenceSection,
   type EntryCategory,
@@ -38,11 +37,11 @@ export {
 } from './types';
 
 export {
+  applyResolvedEntrySearch,
   categoryOfItem,
   defencesOfItem,
   normalizeSearchDefaults,
   resolveEntrySearch,
-  withGemFilters,
 } from './resolve';
 
 export {

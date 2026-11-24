@@ -216,25 +216,26 @@ function isExactLockedBound(filter: { min?: number; max?: number }): boolean {
   return filter.min !== undefined && filter.max !== undefined && filter.min === filter.max;
 }
 
+function hasNumericBounds(filter: ShoppingStatFilter): boolean {
+  return (
+    filter.enabled &&
+    filter.value !== undefined &&
+    (filter.min !== undefined || filter.max !== undefined)
+  );
+}
+
+function isRelaxableFilter(filter: ShoppingStatFilter): boolean {
+  return hasNumericBounds(filter) && !isExactLockedBound(filter);
+}
+
 /** 檢查是否至少有一個已啟用且帶數值上下限的詞綴條件 */
 export function hasEnabledNumericBounds(filters: readonly ShoppingStatFilter[]): boolean {
-  return filters.some(
-    (filter) =>
-      filter.enabled &&
-      filter.value !== undefined &&
-      (filter.min !== undefined || filter.max !== undefined),
-  );
+  return filters.some(hasNumericBounds);
 }
 
 /** 檢查是否至少有一個可被「-10%」放寬的已啟用數值條件（排除精確鎖定） */
 export function hasRelaxableNumericBounds(filters: readonly ShoppingStatFilter[]): boolean {
-  return filters.some(
-    (filter) =>
-      filter.enabled &&
-      filter.value !== undefined &&
-      (filter.min !== undefined || filter.max !== undefined) &&
-      !isExactLockedBound(filter),
-  );
+  return filters.some(isRelaxableFilter);
 }
 
 /** 將已啟用且非精確鎖定的數值上下限放寬 10%（正數下限降 10%、負數上限升 10% 等） */
@@ -244,9 +245,7 @@ export function relaxSelectionBounds(
 ): EntrySearchSelection {
   const nextStats: Record<string, StatSelection> = { ...draft.stats };
   for (const filter of filters) {
-    if (!filter.enabled || filter.value === undefined) continue;
-    if (filter.min === undefined && filter.max === undefined) continue;
-    if (isExactLockedBound(filter)) continue;
+    if (!isRelaxableFilter(filter)) continue;
     const entry: StatSelection = { ...nextStats[filter.key] };
     if (filter.min !== undefined) {
       entry.min =
@@ -276,8 +275,7 @@ export function clearSelectionBounds(
 ): EntrySearchSelection {
   const nextStats: Record<string, StatSelection> = { ...draft.stats };
   for (const filter of filters) {
-    if (!filter.enabled || filter.value === undefined) continue;
-    if (filter.min === undefined && filter.max === undefined) continue;
+    if (!hasNumericBounds(filter)) continue;
     nextStats[filter.key] = { ...nextStats[filter.key], min: null, max: null };
   }
   return { ...draft, stats: nextStats };

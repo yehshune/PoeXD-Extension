@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyResolvedEntrySearch,
   clearSelectionBounds,
   hasEnabledNumericBounds,
   hasRelaxableNumericBounds,
@@ -97,6 +98,12 @@ describe('pob-entry-search：放寬／清除上下限與 countableFilterCount', 
         stat: { id: 'implicit.stat_2', value: 20, defaultEnabled: true },
       },
       {
+        text: 'Adds 8 Passive Skills',
+        kind: 'enchant' as const,
+        searched: true,
+        stat: { id: 'enchant.stat_cluster', value: 8, exact: true, defaultEnabled: true },
+      },
+      {
         text: '+80 to maximum Life',
         kind: 'explicit' as const,
         searched: true,
@@ -110,9 +117,37 @@ describe('pob-entry-search：放寬／清除上下限與 countableFilterCount', 
     const bundle = resolveEntrySearch({
       searchBase: { filters: { type_filters: { filters: { category: { option: 'viscera' } } } } },
       visceraBundle: true,
-      mods,
+      mods: mods.filter((mod) => mod.kind !== 'enchant'),
     });
     expect(bundle.countableFilterCount).toBe(3);
+  });
+
+  it('applyResolvedEntrySearch 會清掉已被移除的選用欄位，避免殘留舊值', () => {
+    const previous = {
+      searchBase: { type: 'Arc' },
+      kind: 'gem' as const,
+      level: 21,
+      quality: 20,
+      countMin: 2,
+      linksMin: 6,
+      gemLevelMin: 21,
+      gemQualityMin: 20,
+      gemSocketsMin: 3,
+      filters: [],
+      countableFilterCount: 0,
+      pseudo: false,
+      searchBy: 'base' as const,
+      query: { type: 'Arc' },
+    };
+    const next = applyResolvedEntrySearch(
+      previous,
+      resolveEntrySearch(previous, { gemLevel: null, gemQuality: null }),
+    );
+    expect(next.countMin).toBeUndefined();
+    expect(next.linksMin).toBeUndefined();
+    expect(next.gemLevelMin).toBeUndefined();
+    expect(next.gemQualityMin).toBeUndefined();
+    expect(next.gemSocketsMin).toBeUndefined();
   });
 
   it('resolveEntrySearch 保留已在地化的詞綴文字，只更新 searched 狀態', () => {

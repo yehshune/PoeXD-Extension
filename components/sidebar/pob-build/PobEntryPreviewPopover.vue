@@ -8,6 +8,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t, type I18nKey } from '@/utils/i18n';
 import type { PobDefence } from '@/utils/pob-build';
 import {
+  applyResolvedEntrySearch,
   clearSelectionBounds,
   cloneEntrySearchSelection,
   hasEnabledNumericBounds as checkEnabledNumericBounds,
@@ -115,18 +116,8 @@ const effectiveRow = computed<ShoppingRow | null>(() => {
   if (!row) return null;
   const draft = draftSelection.value;
   if (!draft) return row;
-  const {
-    countMin: _countMin,
-    linksMin: _linksMin,
-    gemLevelMin: _level,
-    gemQualityMin: _quality,
-    gemSocketsMin: _sockets,
-    ...rest
-  } = row;
-  const resolved = resolveEntrySearch(row, draft, props.searchDefaults);
   return {
-    ...rest,
-    ...resolved,
+    ...applyResolvedEntrySearch(row, resolveEntrySearch(row, draft, props.searchDefaults)),
     searchSelection: draft,
   };
 });
