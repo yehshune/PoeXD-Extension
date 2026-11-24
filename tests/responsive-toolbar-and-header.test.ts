@@ -84,11 +84,12 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
   });
 
   describe('4. History and Affix Group Top Controls (Item 3)', () => {
-    it('HistoryPane: constrains top row, truncates label, and keeps Clear All with Trash2 inside the ⋮ menu', () => {
+    it('HistoryPane: constrains top row with search input and keeps recording toggle + Clear All inside the ⋮ menu', () => {
       expect(historyPaneSource).toMatch(
         /class="flex items-center justify-between gap-\[var\(--pxd-space-sm\)\] pb-\[var\(--pxd-space-md\)\] w-full min-w-0"/,
       );
-      expect(historyPaneSource).toMatch(/for="enable-history"[^>]*class="[^"]*min-w-0 truncate"/);
+      expect(historyPaneSource).toContain('data-history-search');
+      expect(historyPaneSource).toContain('data-history-action="toggle-recording"');
       expect(historyPaneSource).toMatch(
         /<DropdownMenuItem[\s\S]*?<Trash2 class="text-destructive" \/>[\s\S]*?<\/DropdownMenuItem>/,
       );

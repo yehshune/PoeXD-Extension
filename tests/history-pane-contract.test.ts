@@ -5,6 +5,16 @@ import { createApp, nextTick, ref } from 'vue';
 
 const historyEntriesMock = ref<any[]>([]);
 const historyEnabledMock = ref(true);
+const bookmarksMock = ref<any[]>([]);
+const bookmarkGroupsMock = ref<any[]>([]);
+const putBookmarkMock = vi.fn(async (bm: any) => {
+  bookmarksMock.value = [...bookmarksMock.value, bm];
+  return { ok: true, changed: true };
+});
+const putGroupMock = vi.fn(async (group: any) => {
+  bookmarkGroupsMock.value = [...bookmarkGroupsMock.value, group];
+  return { ok: true, changed: true };
+});
 let onSnapshotCallback: ((s: any) => void) | null = null;
 
 vi.mock('@/utils/trade-context', async (importOriginal) => ({
@@ -26,6 +36,23 @@ vi.mock('@/utils/search-record-messaging', () => ({
           enabled: historyEnabledMock.value,
         });
       }
+      if (cmd.type === 'delete-history-entries') {
+        const idSet = new Set(cmd.entryIds);
+        historyEntriesMock.value = historyEntriesMock.value.filter((h) => !idSet.has(h.id));
+        onSnapshotCallback?.({
+          history: historyEntriesMock.value,
+          enabled: historyEnabledMock.value,
+        });
+      }
+      if (cmd.type === 'restore-history-entry') {
+        historyEntriesMock.value = [cmd.entry, ...historyEntriesMock.value].sort(
+          (a, b) => (b.visitedAt ?? 0) - (a.visitedAt ?? 0),
+        );
+        onSnapshotCallback?.({
+          history: historyEntriesMock.value,
+          enabled: historyEnabledMock.value,
+        });
+      }
       if (cmd.type === 'set-history-enabled') {
         historyEnabledMock.value = cmd.enabled;
         onSnapshotCallback?.({ history: historyEntriesMock.value, enabled: cmd.enabled });
@@ -37,7 +64,12 @@ vi.mock('@/utils/search-record-messaging', () => ({
 
 vi.mock('@/utils/bookmark-messaging', () => ({
   createChromeBookmarkClient: () => ({
-    readCollection: vi.fn(async () => ({ ok: true, value: { bookmarks: [] } })),
+    readCollection: vi.fn(async () => ({
+      ok: true,
+      value: { bookmarks: bookmarksMock.value, groups: bookmarkGroupsMock.value },
+    })),
+    putBookmark: putBookmarkMock,
+    putGroup: putGroupMock,
     subscribe: vi.fn(() => () => {}),
   }),
 }));
@@ -153,6 +185,10 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       container = document.createElement('div');
       document.body.appendChild(container);
       historyEnabledMock.value = true;
+      bookmarksMock.value = [];
+      bookmarkGroupsMock.value = [];
+      putBookmarkMock.mockClear();
+      putGroupMock.mockClear();
       historyEntriesMock.value = [
         {
           id: 'hist-1',
@@ -193,18 +229,19 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(badgeOf(rows[1])).toBe('已失效');
     });
 
-    it('renders Header with Checkbox and a ⋮ menu trigger aligned to size="icon-sm"', async () => {
+    it('renders Header with search input and a ⋮ menu trigger aligned to size="icon-sm"', async () => {
       app = createApp(HistoryPane);
       app.mount(container);
       await flushPromises();
       await nextTick();
 
-      // Checkbox label uses body font token
-      const label = container.querySelector('label[for="enable-history"]');
-      expect(label).not.toBeNull();
-      expect(label?.className).toContain('text-[length:var(--pxd-font-body)]');
+      // Search input uses body font token
+      const searchInput = container.querySelector('[data-history-search]') as HTMLInputElement;
+      expect(searchInput).not.toBeNull();
+      expect(searchInput.className).toContain('text-[length:var(--pxd-font-body)]');
 
-      // Clear All lives behind the ⋮ trigger; no red button in the toolbar
+      // Recording toggle & Clear All live behind the ⋮ trigger; no checkbox or red button in toolbar
+      expect(container.querySelector('label[for="enable-history"]')).toBeNull();
       expect(container.querySelector('button[title="清除所有搜尋歷史"]')).toBeNull();
       const menuTrigger = container.querySelector('[data-history-menu]') as HTMLButtonElement;
       expect(menuTrigger).not.toBeNull();
@@ -244,9 +281,9 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(timestamp?.className).toContain('text-[length:var(--pxd-font-micro)]');
 
       // Row action buttons use icon-sm
-      // 預覽（或前往）、新分頁、刪除
+      // 預覽（或前往）、新分頁、加入書籤、複製連結、刪除
       const actionButtons = itemRows[0].querySelectorAll('button');
-      expect(actionButtons.length).toBe(3);
+      expect(actionButtons.length).toBe(5);
       actionButtons.forEach((btn) => {
         expect(btn.className).toContain('size-[var(--control-height-sm)]');
         expect(btn.className).not.toContain('size-5');
@@ -285,7 +322,7 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       expect(container.textContent).toContain('已停止記錄新搜尋，既有歷史仍可查看與清理');
     });
 
-    it('retains existing history entries, action buttons, and the clear-all menu when history is disabled', async () => {
+    it('retains existing history entries, action buttons, resume button, and menu when history is disabled', async () => {
       historyEnabledMock.value = false;
       // historyEntriesMock has 2 items from beforeEach
       app = createApp(HistoryPane);
@@ -293,12 +330,10 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       await flushPromises();
       await nextTick();
 
-      // Checkbox label reflects accurate scope
-      const label = container.querySelector('label[for="enable-history"]');
-      expect(label?.textContent?.trim()).toBe('記錄搜尋歷史');
-
-      // Status notice is visible
+      // Status notice & quick resume button are visible
       expect(container.textContent).toContain('已停止記錄新搜尋，既有歷史仍可查看與清理');
+      const resumeBtn = container.querySelector('[data-history-resume]') as HTMLButtonElement;
+      expect(resumeBtn).not.toBeNull();
 
       // Rows are NOT hidden; 2 rows are fully rendered
       const itemRows = container.querySelectorAll(
@@ -308,6 +343,13 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
 
       // Clear all menu remains available
       expect(container.querySelector('[data-history-menu]')).not.toBeNull();
+
+      // Clicking resume re-enables history recording
+      resumeBtn.click();
+      await flushPromises();
+      await nextTick();
+      expect(historyEnabledMock.value).toBe(true);
+      expect(container.querySelector('[data-history-stopped-notice]')).toBeNull();
     });
 
     it('deletes single history entry directly without confirmation', async () => {
@@ -406,6 +448,282 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       // Toggling hist-dup-1 again closes it
       vm.toggleHistoryPreview(historyEntriesMock.value[0], clickOn());
       expect(vm.previewHistory).toBeNull();
+    });
+
+    it('filters history entries by search query and shows filter empty state with reset', async () => {
+      app = createApp(HistoryPane);
+      const vm: any = app.mount(container);
+      await flushPromises();
+      await nextTick();
+
+      vm.searchQuery = '獵首';
+      await nextTick();
+      expect(container.querySelectorAll('.history-row-item')).toHaveLength(1);
+      expect(container.querySelector('.history-row-item a')?.textContent?.trim()).toBe(
+        '獵首 皮革腰帶',
+      );
+
+      vm.searchQuery = '不存在的裝備';
+      await nextTick();
+      expect(container.querySelectorAll('.history-row-item')).toHaveLength(0);
+      expect(container.textContent).toContain('找不到相符的歷史紀錄');
+
+      const resetBtn = container.querySelector('[data-filter-empty-reset]') as HTMLButtonElement;
+      expect(resetBtn).not.toBeNull();
+      resetBtn.click();
+      await nextTick();
+      expect(container.querySelectorAll('.history-row-item')).toHaveLength(2);
+    });
+
+    it('shows bookmarked indicator for saved entries and saves unbookmarked entries with one click', async () => {
+      bookmarkGroupsMock.value = [{ id: 'g-1', name: '主力裝備', order: 0 }];
+      bookmarksMock.value = [
+        {
+          id: 'bm-existing',
+          name: '已存獵首',
+          groupId: 'g-1',
+          order: 0,
+          url: 'https://www.pathofexile.com/trade/search/Standard/H4sItest1',
+        },
+      ];
+      historyEntriesMock.value = [
+        {
+          id: 'hist-1',
+          url: 'https://www.pathofexile.com/trade/search/Standard/H4sItest1',
+          name: '獵首 皮革腰帶',
+          visitedAt: Date.now() - 5000,
+        },
+        {
+          id: 'hist-2',
+          url: 'https://www.pathofexile.com/trade/search/Standard/H4sItest2',
+          name: '魔血 重革腰帶',
+          visitedAt: Date.now() - 3600000,
+        },
+      ];
+
+      app = createApp(HistoryPane);
+      app.mount(container);
+      await flushPromises();
+      await nextTick();
+
+      const rows = Array.from(container.querySelectorAll('.history-row-item'));
+      expect(rows[0].querySelector('[data-test="history-bookmarked-indicator"]')).not.toBeNull();
+      expect(rows[1].querySelector('[data-test="history-bookmarked-indicator"]')).toBeNull();
+
+      // Clicking save bookmark on the second entry saves directly into the single folder
+      const addBtn = rows[1].querySelector(
+        '[data-test="history-bookmark-add"]',
+      ) as HTMLButtonElement;
+      expect(addBtn).not.toBeNull();
+      addBtn.click();
+      await flushPromises();
+      await nextTick();
+
+      expect(putBookmarkMock).toHaveBeenCalledTimes(1);
+      expect(putBookmarkMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: '魔血 重革腰帶',
+          groupId: 'g-1',
+          url: 'https://www.pathofexile.com/trade/search/Standard/H4sItest2',
+        }),
+      );
+      expect(rows[1].querySelector('[data-test="history-bookmarked-indicator"]')).not.toBeNull();
+    });
+
+    it('auto-creates default folder when saving history to bookmark with no existing folders', async () => {
+      app = createApp(HistoryPane);
+      app.mount(container);
+      await flushPromises();
+      await nextTick();
+
+      const addBtn = container.querySelector(
+        '[data-test="history-bookmark-add"]',
+      ) as HTMLButtonElement;
+      addBtn.click();
+      await flushPromises();
+      await nextTick();
+
+      expect(putGroupMock).toHaveBeenCalledTimes(1);
+      expect(putBookmarkMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders folder picker trigger when multiple bookmark folders exist', async () => {
+      bookmarkGroupsMock.value = [
+        { id: 'g-1', name: '主力裝備', order: 0 },
+        { id: 'g-2', name: '通貨材料', order: 1 },
+      ];
+
+      app = createApp(HistoryPane);
+      app.mount(container);
+      await flushPromises();
+      await nextTick();
+
+      expect(container.querySelector('[data-test="history-bookmark-picker"]')).not.toBeNull();
+      expect(container.querySelector('[data-test="history-bookmark-add"]')).toBeNull();
+    });
+
+    it('copies history URL to clipboard when clicking copy link button', async () => {
+      const writeText = vi.fn(async () => {});
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      });
+
+      app = createApp(HistoryPane);
+      app.mount(container);
+      await flushPromises();
+      await nextTick();
+
+      const copyBtn = container.querySelector(
+        '[data-test="history-copy-link"]',
+      ) as HTMLButtonElement;
+      expect(copyBtn).not.toBeNull();
+      copyBtn.click();
+      await flushPromises();
+
+      expect(writeText).toHaveBeenCalledWith(
+        'https://www.pathofexile.com/trade/search/Standard/H4sItest1',
+      );
+    });
+
+    it('groups history entries by time and renders Live and non-current league badges', async () => {
+      const prevUrl = window.location.href;
+      (window as any).happyDOM?.setURL(
+        'https://www.pathofexile.com/trade/search/Standard/H4sItoday',
+      );
+      try {
+        const now = Date.now();
+        historyEntriesMock.value = [
+          {
+            id: 'hist-today-live',
+            url: 'https://www.pathofexile.com/trade/search/Standard/H4sItoday/live',
+            name: '即時搜尋裝備',
+            visitedAt: now - 5000,
+          },
+          {
+            id: 'hist-older-league',
+            url: 'https://www.pathofexile.com/trade/search/Settlers/H4sIolder',
+            name: '舊賽季裝備',
+            visitedAt: now - 10 * 86_400_000,
+          },
+        ];
+
+        app = createApp(HistoryPane);
+        app.mount(container);
+        await flushPromises();
+        await nextTick();
+
+        const groups = Array.from(container.querySelectorAll('[data-history-group]'));
+        expect(groups.map((g) => g.getAttribute('data-history-group'))).toEqual(['today', 'older']);
+
+        const todayRow = container.querySelector('[data-history-id="hist-today-live"]');
+        expect(todayRow?.getAttribute('data-current')).toBe('true');
+        expect(todayRow?.querySelector('[data-test="history-live-badge"]')).not.toBeNull();
+        expect(todayRow?.querySelector('[data-test="history-league-badge"]')).toBeNull();
+
+        const olderRow = container.querySelector('[data-history-id="hist-older-league"]');
+        expect(olderRow?.getAttribute('data-current')).toBeNull();
+        expect(
+          olderRow?.querySelector('[data-test="history-league-badge"]')?.textContent?.trim(),
+        ).toBe('Settlers');
+      } finally {
+        (window as any).happyDOM?.setURL(prevUrl);
+      }
+    });
+
+    it('shows undo bar after deleting an entry and restores it on undo click', async () => {
+      app = createApp(HistoryPane);
+      app.mount(container);
+      await flushPromises();
+      await nextTick();
+
+      const deleteBtn = container.querySelector('button[title="刪除此紀錄"]') as HTMLButtonElement;
+      deleteBtn.click();
+      await flushPromises();
+      await nextTick();
+
+      expect(historyEntriesMock.value).toHaveLength(1);
+      const undoBar = container.querySelector('[data-history-undo-bar]');
+      expect(undoBar).not.toBeNull();
+      expect(undoBar?.textContent).toContain('獵首 皮革腰帶');
+
+      const undoBtn = container.querySelector('[data-history-undo-btn]') as HTMLButtonElement;
+      undoBtn.click();
+      await flushPromises();
+      await nextTick();
+
+      expect(historyEntriesMock.value).toHaveLength(2);
+      expect(container.querySelector('[data-history-undo-bar]')).toBeNull();
+    });
+
+    it('renders capacity count and clears invalid or unbookmarked entries selectively', async () => {
+      bookmarksMock.value = [
+        {
+          id: 'bm-1',
+          name: '已收藏獵首',
+          groupId: 'g-1',
+          order: 0,
+          url: 'https://www.pathofexile.com/trade/search/Standard/H4sItest1',
+        },
+      ];
+      historyEntriesMock.value = [
+        {
+          id: 'hist-valid-bookmarked',
+          url: 'https://www.pathofexile.com/trade/search/Standard/H4sItest1',
+          name: '獵首 皮革腰帶',
+          visitedAt: Date.now() - 1000,
+        },
+        {
+          id: 'hist-valid-unbookmarked',
+          url: 'https://www.pathofexile.com/trade/search/Standard/H4sItest2',
+          name: '魔血 重革腰帶',
+          visitedAt: Date.now() - 2000,
+        },
+        {
+          id: 'hist-legacy-invalid',
+          url: 'https://www.pathofexile.com/trade/search/Standard/short123',
+          name: '舊短碼裝備',
+          visitedAt: Date.now() - 3000,
+        },
+      ];
+
+      const confirmSpy = vi.fn(async () => false);
+      (window as any).poexdConfirm = confirmSpy;
+
+      app = createApp(HistoryPane);
+      const vm: any = app.mount(container);
+      await flushPromises();
+      await nextTick();
+
+      const capacity = container.querySelector('[data-history-capacity]');
+      expect(capacity?.textContent?.trim()).toBe('共 3 / 50 筆紀錄');
+
+      // Clearing invalid entries removes only legacy entry without confirmation
+      await vm.clearInvalidHistory();
+      await nextTick();
+      expect(confirmSpy).not.toHaveBeenCalled();
+      expect(historyEntriesMock.value.map((h) => h.id)).toEqual([
+        'hist-valid-bookmarked',
+        'hist-valid-unbookmarked',
+      ]);
+      expect(container.querySelector('[data-history-capacity]')?.textContent?.trim()).toBe(
+        '共 2 / 50 筆紀錄',
+      );
+
+      // Clearing unbookmarked respects cancel first
+      await vm.clearUnbookmarkedHistory();
+      await nextTick();
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(historyEntriesMock.value).toHaveLength(2);
+
+      // Confirming removes only unbookmarked entry, preserving bookmarked entry
+      confirmSpy.mockResolvedValueOnce(true);
+      await vm.clearUnbookmarkedHistory();
+      await nextTick();
+      expect(historyEntriesMock.value.map((h) => h.id)).toEqual(['hist-valid-bookmarked']);
+      expect(container.querySelector('[data-history-capacity]')?.textContent?.trim()).toBe(
+        '共 1 / 50 筆紀錄',
+      );
     });
   });
 });

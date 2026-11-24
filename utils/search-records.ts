@@ -4,6 +4,7 @@ import { parseTradeSearchUrl, withTradeLeague } from './trade-search-identity';
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
 
 export const SEARCH_RECORD_STATE_KEY = 'poexdSearchRecordStateV1';
+export const MAX_HISTORY_ENTRIES = 50;
 
 export interface SearchRecordIdentityInput {
   gameVersion: PoeVersion;
@@ -69,6 +70,8 @@ export type SearchRecordCommand =
     }
   | { type: 'set-history-enabled'; gameVersion: PoeVersion; enabled: boolean }
   | { type: 'delete-history-entry'; entryId: string }
+  | { type: 'delete-history-entries'; entryIds: string[] }
+  | { type: 'restore-history-entry'; entry: HistoryEntry }
   | { type: 'clear-history'; gameVersion: PoeVersion }
   | {
       type: 'put-bookmark-reference';
@@ -455,6 +458,41 @@ function applyCommand(
       state.historyEntries = next;
       return true;
     }
+    case 'delete-history-entries': {
+      const idSet = new Set(command.entryIds);
+      if (idSet.size === 0) return false;
+      const next = state.historyEntries.filter((entry) => !idSet.has(entry.id));
+      if (next.length === state.historyEntries.length) return false;
+      state.historyEntries = next;
+      return true;
+    }
+    case 'restore-history-entry': {
+      const identity = canonicalizeIdentity({
+        gameVersion: command.entry.gameVersion,
+        url: command.entry.url,
+      });
+      assertValidSearchRecordIcon(command.entry.icon);
+      const visitedAt = isFiniteTimestamp(command.entry.visitedAt)
+        ? command.entry.visitedAt
+        : now();
+      upsertRecord(
+        state,
+        identity,
+        {
+          name: command.entry.name,
+          icon: command.entry.icon,
+          url: command.entry.url,
+        },
+        visitedAt,
+      );
+      putHistoryEntry(state, identity, {
+        name: command.entry.name,
+        url: command.entry.url,
+        ...(command.entry.icon ? { icon: command.entry.icon } : {}),
+        visitedAt,
+      });
+      return true;
+    }
     case 'clear-history': {
       const next = state.historyEntries.filter(
         (entry) => entry.gameVersion !== command.gameVersion,
@@ -730,7 +768,7 @@ function putHistoryEntry(
   const sameVersion = state.historyEntries
     .filter((item) => item.gameVersion === identity.gameVersion)
     .sort((left, right) => right.visitedAt - left.visitedAt)
-    .slice(0, 50);
+    .slice(0, MAX_HISTORY_ENTRIES);
   const otherVersion = state.historyEntries.filter(
     (item) => item.gameVersion !== identity.gameVersion,
   );

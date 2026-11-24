@@ -298,7 +298,7 @@ describe('HistoryPane shadcn migration & runtime integration', () => {
     }
   });
 
-  it('renders with SidebarPane and uses shadcn Checkbox, Separator without legacy classes', async () => {
+  it('renders with SidebarPane and uses search input, menu trigger, and Separator without legacy classes', async () => {
     app = createApp(HistoryPane);
     app.mount(container);
     await nextTick();
@@ -310,12 +310,11 @@ describe('HistoryPane shadcn migration & runtime integration', () => {
     expect(container.querySelector('[data-slot="sidebar-pane-fixed"]')).not.toBeNull();
     expect(container.querySelector('[data-slot="sidebar-pane-scroll"]')).not.toBeNull();
 
-    // 2. Verifies shadcn Checkbox exists
-    const checkbox = container.querySelector('[data-slot="checkbox"]');
-    expect(checkbox).not.toBeNull();
-    expect(checkbox?.className).toContain(FORM_INDICATOR_SPECS.checkbox.sizeClass);
-    const indicator = checkbox?.querySelector('[data-slot="checkbox-indicator"]');
-    expect(indicator).not.toBeNull();
+    // 2. Verifies search input and menu trigger exist
+    const searchInput = container.querySelector('[data-history-search]');
+    expect(searchInput).not.toBeNull();
+    const menuTrigger = container.querySelector('[data-history-menu]');
+    expect(menuTrigger).not.toBeNull();
 
     // 3. Verifies shadcn Separator exists
     const separator = container.querySelector('[data-slot="separator"]');

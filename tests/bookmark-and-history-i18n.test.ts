@@ -107,19 +107,20 @@ describe('Bookmarks, History & Bookmark Import i18n (Seam 4)', () => {
       await nextTick();
 
       // zh-TW default
-      expect(host.textContent).toContain('記錄搜尋歷史');
+      const searchInput = host.querySelector('[data-history-search]') as HTMLInputElement;
+      expect(searchInput?.placeholder).toBe('搜尋歷史紀錄...');
       expect(host.textContent).toContain('尚無歷史搜尋紀錄');
 
       // zh-CN
       setActiveDisplayLocale('zh-CN');
       await nextTick();
-      expect(host.textContent).toContain('记录搜索历史');
+      expect(searchInput?.placeholder).toBe('搜索历史记录...');
       expect(host.textContent).toContain('暂无历史搜索记录');
 
       // en
       setActiveDisplayLocale('en');
       await nextTick();
-      expect(host.textContent).toContain('Record search history');
+      expect(searchInput?.placeholder).toBe('Search history...');
       expect(host.textContent).toContain('No search history yet');
 
       app.unmount();
