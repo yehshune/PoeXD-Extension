@@ -14,9 +14,8 @@ import {
   validateSubscriptionIdentity,
   type LiveSearchDevInjectOutcome,
   type LiveSearchDevResultOwner,
-  type LiveSearchDroppedItem,
+  type LiveSearchDroppedGroup,
   type LiveSearchDroppedReason,
-  type LiveSearchFetchDroppedOutcome,
   type LiveSearchPrimaryController,
   type LiveSearchSubscription,
   type AddSubscriptionOutcome,
@@ -48,6 +47,7 @@ import {
 import {
   buildLiveSearchWebSocketUrl,
   fetchLiveSearchItem,
+  readLiveSearchTokenExpiry,
   type LiveSearchItemFetchRequest,
   type LiveSearchItemFetchResult,
 } from './live-search-trade-endpoint';
@@ -151,14 +151,14 @@ interface PipelineTask {
 
 const MAX_PIPELINE_429_RETRIES = 1;
 
-interface ManualDroppedTask {
-  droppedItemId: string;
-  resolve: (outcome: LiveSearchFetchDroppedOutcome) => void;
-}
+/**
+ * 官方 `Date` 標頭只有秒精度、換算 token `exp` 時也有網路延遲；
+ * 判斷 token 過期時多留這段寬限，寧可多抓一次也不誤丟還有效的 token。
+ */
+const TOKEN_EXPIRY_GRACE_MS = 1000;
 
 const DEFAULT_FETCH_ORDER: LiveSearchFetchOrder = 'newest';
 const DEFAULT_TOKEN_MAX_AGE_SEC = 3;
-const MAX_DROPPED_ITEMS = 50;
 
 export type { AddSubscriptionOutcome, LiveSearchRetryOutcome };
 
@@ -213,9 +213,9 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
 
   private subscriptions = new Map<string, SubscriptionContext>();
   private queue: PipelineTask[] = [];
-  private priorityQueue: ManualDroppedTask[] = [];
-  private droppedItems: LiveSearchDroppedItem[] = [];
-  private droppedSeq = 0;
+  /** 官方時鐘減本地時鐘（由 /fetch 回應的 Date 標頭量得）；尚未量到前不以 token exp 判斷過期 */
+  private serverClockOffsetMs: number | null = null;
+  private droppedGroups = new Map<string, LiveSearchDroppedGroup>();
   private activeQueueWaitCancel?: () => void;
   private isProcessingQueue = false;
   private addSubscriptionMutex: Promise<unknown> = Promise.resolve();
@@ -313,6 +313,27 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
     } catch {
       return DEFAULT_TOKEN_MAX_AGE_SEC * 1000;
     }
+  }
+
+  /**
+   * 這筆 token 最晚何時之前抓取才有意義（本地時鐘毫秒）：取使用者的新鮮度上限
+   * （0 表示不限）與官方 JWT `exp`（換算成本地時間並加寬限）兩者較早者；都沒有時為 Infinity。
+   */
+  private tokenDeadlineMs(token: string, receivedAt: number): number {
+    const maxAgeMs = this.readTokenMaxAgeMs();
+    const freshnessDeadline = maxAgeMs > 0 ? receivedAt + maxAgeMs : Infinity;
+    const expiry = readLiveSearchTokenExpiry(token);
+    const expiryDeadline =
+      expiry !== null && this.serverClockOffsetMs !== null
+        ? expiry - this.serverClockOffsetMs + TOKEN_EXPIRY_GRACE_MS
+        : Infinity;
+    return Math.min(freshnessDeadline, expiryDeadline);
+  }
+
+  /** 以官方回應的 Date 標頭校正官方時鐘差 */
+  private recordServerDate(serverDateMs: number | undefined): void {
+    if (serverDateMs === undefined) return;
+    this.serverClockOffsetMs = serverDateMs - this.now();
   }
 
   private readMaxDisplayedResults(): number | undefined {
@@ -495,9 +516,7 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
       cumulativeRenderedTotal: this.cumulativeRenderedTotal,
       subscriptions: this.getSubscriptions(),
       rateLimit: this.fetchRateGate.getStateSnapshot(),
-      ...(this.droppedItems.length > 0
-        ? { droppedItems: this.droppedItems.map((item) => ({ ...item })) }
-        : {}),
+      ...(this.droppedGroups.size > 0 ? { droppedGroups: this.readDroppedGroups() } : {}),
       ...(displayedResultCount > 0 ? { displayedResultCount } : {}),
       ...(displayedResultCount > 0 && resultCountsByOwner ? { resultCountsByOwner } : {}),
       ...(resultFilterKey ? { resultFilterKey } : {}),
@@ -816,10 +835,9 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
       }
       this.subscriptions.clear();
       this.queue = [];
-      this.cancelPendingManualTasks('Cancelled due to teardown');
       this.activeQueueWaitCancel?.();
       this.activeQueueWaitCancel = undefined;
-      this.droppedItems = [];
+      this.droppedGroups = new Map();
       this.runtimeLeague = null;
       this.clearEpoch += 1;
       this.resetDisplayedResultsState();
@@ -925,109 +943,84 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
     }
     this.subscriptions.clear();
     this.queue = [];
-    this.cancelPendingManualTasks('Runtime disposed');
     this.activeQueueWaitCancel?.();
     this.activeQueueWaitCancel = undefined;
-    this.droppedItems = [];
+    this.droppedGroups = new Map();
     this.resultFilter.dispose();
     this.hostClient.dispose();
     this.notifyListeners();
     this.listeners.clear();
   }
 
-  /**
-   * 手動補抓一筆被速率限制略過的項目（高優先權、不受新鮮度過期限制，仍走 Rate Gate）
-   */
-  public fetchDroppedItem(droppedItemId: string): Promise<LiveSearchFetchDroppedOutcome> {
-    if (this.disposed) {
-      return Promise.resolve({ success: false, error: 'Runtime already disposed' });
-    }
-    const cleanId = typeof droppedItemId === 'string' ? droppedItemId.trim() : '';
-    const item = this.droppedItems.find((entry) => entry.id === cleanId);
-    if (!item) {
-      return Promise.resolve({ success: false, error: 'Dropped item not found' });
-    }
-    if (item.status === 'fetching') {
-      return Promise.resolve({ success: false, error: 'Dropped item is already fetching' });
-    }
-
-    item.status = 'fetching';
-    this.notifyListeners();
-
-    return new Promise<LiveSearchFetchDroppedOutcome>((resolve) => {
-      this.priorityQueue.push({ droppedItemId: cleanId, resolve });
-      void this.processQueue();
-    });
-  }
-
-  /** 移除單筆已丟棄紀錄 */
-  public dismissDroppedItem(droppedItemId: string): void {
-    if (this.disposed) return;
-    const cleanId = typeof droppedItemId === 'string' ? droppedItemId.trim() : '';
-    const idx = this.droppedItems.findIndex((entry) => entry.id === cleanId);
-    if (idx === -1) return;
-    this.droppedItems.splice(idx, 1);
+  /** 清除單一搜尋（canonical key）的已略過計數 */
+  public dismissDroppedGroup(ownerKey: string): void {
+    if (this.disposed || typeof ownerKey !== 'string') return;
+    if (!this.droppedGroups.has(ownerKey)) return;
+    const next = new Map(this.droppedGroups);
+    next.delete(ownerKey);
+    this.droppedGroups = next;
     this.notifyListeners();
   }
 
-  /** 清空所有非補抓中的已丟棄紀錄 */
-  public clearDroppedItems(): void {
-    if (this.disposed || this.droppedItems.length === 0) return;
-    const next = this.droppedItems.filter((entry) => entry.status === 'fetching');
-    if (next.length === this.droppedItems.length) return;
-    this.droppedItems = next;
+  /** 清除所有已略過計數 */
+  public clearDroppedGroups(): void {
+    if (this.disposed || this.droppedGroups.size === 0) return;
+    this.droppedGroups = new Map();
     this.notifyListeners();
   }
 
-  private cancelPendingManualTasks(reason: string): void {
-    if (this.priorityQueue.length === 0) return;
-    const pending = this.priorityQueue.splice(0, this.priorityQueue.length);
-    for (const task of pending) {
-      task.resolve({ success: false, error: reason });
-    }
+  /** 最近略過者在前 */
+  private readDroppedGroups(): Readonly<LiveSearchDroppedGroup>[] {
+    return [...this.droppedGroups.values()]
+      .sort((a, b) => b.lastDroppedAt - a.lastDroppedAt)
+      .map((group) => ({ ...group, counts: { ...group.counts } }));
   }
 
-  private recordDroppedItem(input: {
+  private countDroppedToken(input: {
     subCtx: SubscriptionContext;
-    token: string;
-    receivedAt: number;
     droppedAt: number;
     reason: LiveSearchDroppedReason;
   }): void {
+    const { subscription } = input.subCtx;
     const ownerKey = getTradeSearchCanonicalKey({
       gameVersion: this.gameVersion,
-      league: input.subCtx.subscription.league,
-      searchId: input.subCtx.subscription.searchId,
+      league: subscription.league,
+      searchId: subscription.searchId,
     });
-    const existingIdx = this.droppedItems.findIndex(
-      (entry) =>
-        entry.subscriptionId === input.subCtx.subscription.id && entry.token === input.token,
-    );
-    if (existingIdx !== -1) {
-      this.droppedItems.splice(existingIdx, 1);
-    }
-    const droppedItem: LiveSearchDroppedItem = {
-      id: `drop_${input.droppedAt}_${++this.droppedSeq}`,
-      subscriptionId: input.subCtx.subscription.id,
+    const previous = this.droppedGroups.get(ownerKey);
+    const counts = previous?.counts ?? { expired: 0, 'rate-limit-cooldown': 0 };
+    const sourceName = subscription.name || previous?.sourceName;
+    const next = new Map(this.droppedGroups);
+    next.set(ownerKey, {
       ownerKey,
-      searchId: input.subCtx.subscription.searchId,
-      league: input.subCtx.subscription.league,
-      gameVersion: input.subCtx.subscription.gameVersion,
-      ...(input.subCtx.subscription.name ? { sourceName: input.subCtx.subscription.name } : {}),
-      token: input.token,
-      receivedAt: input.receivedAt,
-      droppedAt: input.droppedAt,
-      reason: input.reason,
-      status: 'dropped',
-    };
-    this.droppedItems.unshift(droppedItem);
-    if (this.droppedItems.length > MAX_DROPPED_ITEMS) {
-      this.droppedItems.length = MAX_DROPPED_ITEMS;
-    }
+      searchId: subscription.searchId,
+      league: subscription.league,
+      gameVersion: subscription.gameVersion,
+      ...(sourceName ? { sourceName } : {}),
+      total: (previous?.total ?? 0) + 1,
+      counts: { ...counts, [input.reason]: counts[input.reason] + 1 },
+      lastDroppedAt: input.droppedAt,
+    });
+    this.droppedGroups = next;
+  }
+
+  /**
+   * 這筆 token 現在還值不值得抓：已過期限回 'expired'；仍在冷卻且解禁時已過期限回
+   * 'rate-limit-cooldown'（等不到，不必空等）；否則回 null。
+   */
+  private classifyStaleToken(
+    token: string,
+    receivedAt: number,
+    nowMs: number,
+    nextAllowedAtMs: number,
+  ): LiveSearchDroppedReason | null {
+    const deadline = this.tokenDeadlineMs(token, receivedAt);
+    if (nowMs > deadline) return 'expired';
+    if (nextAllowedAtMs > nowMs && nextAllowedAtMs > deadline) return 'rate-limit-cooldown';
+    return null;
   }
 
   private pruneExpiredQueueTasks(nowMs: number, nextAllowedAtMs: number): void {
-    const maxAgeMs = this.readTokenMaxAgeMs();
     if (this.queue.length === 0) return;
 
     let droppedAny = false;
@@ -1039,32 +1032,16 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
         continue;
       }
 
-      if (maxAgeMs > 0) {
-        if (nowMs - task.receivedAt > maxAgeMs) {
-          task.subCtx.pendingTokens.delete(task.token);
-          this.recordDroppedItem({
-            subCtx: task.subCtx,
-            token: task.token,
-            receivedAt: task.receivedAt,
-            droppedAt: nowMs,
-            reason: 'expired',
-          });
-          droppedAny = true;
-          continue;
-        }
-
-        if (nextAllowedAtMs > nowMs && nextAllowedAtMs - task.receivedAt > maxAgeMs) {
-          task.subCtx.pendingTokens.delete(task.token);
-          this.recordDroppedItem({
-            subCtx: task.subCtx,
-            token: task.token,
-            receivedAt: task.receivedAt,
-            droppedAt: nowMs,
-            reason: 'rate-limit-cooldown',
-          });
-          droppedAny = true;
-          continue;
-        }
+      const reason = this.classifyStaleToken(task.token, task.receivedAt, nowMs, nextAllowedAtMs);
+      if (reason) {
+        task.subCtx.pendingTokens.delete(task.token);
+        this.countDroppedToken({
+          subCtx: task.subCtx,
+          droppedAt: nowMs,
+          reason,
+        });
+        droppedAny = true;
+        continue;
       }
 
       kept.push(task);
@@ -1091,20 +1068,16 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
     }
 
     const nowMs = this.now();
-    const maxAgeMs = this.readTokenMaxAgeMs();
-    if (maxAgeMs > 0) {
-      const nextAllowedAtMs = this.fetchRateGate.getStateSnapshot().nextAllowedAtMs;
-      if (nextAllowedAtMs > nowMs && nextAllowedAtMs - nowMs > maxAgeMs) {
-        this.recordDroppedItem({
-          subCtx,
-          token,
-          receivedAt: nowMs,
-          droppedAt: nowMs,
-          reason: 'rate-limit-cooldown',
-        });
-        this.notifyListeners();
-        return;
-      }
+    const nextAllowedAtMs = this.fetchRateGate.getStateSnapshot().nextAllowedAtMs;
+    const staleReason = this.classifyStaleToken(token, nowMs, nowMs, nextAllowedAtMs);
+    if (staleReason) {
+      this.countDroppedToken({
+        subCtx,
+        droppedAt: nowMs,
+        reason: staleReason,
+      });
+      this.notifyListeners();
+      return;
     }
 
     // 標記為 pending，避免在 in-flight 期間被重複推入佇列
@@ -1164,12 +1137,12 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
     this.isProcessingQueue = true;
 
     try {
-      while ((this.priorityQueue.length > 0 || this.queue.length > 0) && !this.disposed) {
+      while (this.queue.length > 0 && !this.disposed) {
         const nowBeforeWait = this.now();
         const nextAllowedBeforeWait = this.fetchRateGate.getStateSnapshot().nextAllowedAtMs;
         this.pruneExpiredQueueTasks(nowBeforeWait, nextAllowedBeforeWait);
 
-        if (this.priorityQueue.length === 0 && this.queue.length === 0) {
+        if (this.queue.length === 0) {
           break;
         }
 
@@ -1178,8 +1151,7 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
           nextAllowedBeforeWait > nowBeforeWait
         ) {
           const admitted = await this.fetchRateGate.waitForAdmission({
-            shouldAbort: () =>
-              this.disposed || (this.priorityQueue.length === 0 && this.queue.length === 0),
+            shouldAbort: () => this.disposed || this.queue.length === 0,
             onRegisterCancel: (cancelWait) => {
               this.activeQueueWaitCancel = cancelWait;
             },
@@ -1192,14 +1164,6 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
             this.now(),
             this.fetchRateGate.getStateSnapshot().nextAllowedAtMs,
           );
-        }
-
-        if (this.priorityQueue.length > 0) {
-          const manualTask = this.priorityQueue.shift();
-          if (manualTask) {
-            await this.executeManualDroppedTask(manualTask);
-          }
-          continue;
         }
 
         if (this.queue.length === 0) {
@@ -1224,13 +1188,12 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
     }
   }
 
-  /**
-   * 共用 `/fetch` 抓取與解析流程（供一般推播任務與手動補抓共用）
-   */
+  /** `/fetch` 抓取：順便以回應的 Date 標頭校正官方時鐘，成功時通知 onResultFetched */
   private async fetchTradeItemPayload(
     input: LiveSearchItemFetchRequest & { league: string },
   ): Promise<LiveSearchItemFetchResult> {
     const fetched = await fetchLiveSearchItem(this.fetchRateGate, this.origin, input);
+    this.recordServerDate(fetched.serverDateMs);
     if (fetched.ok) {
       try {
         this.onResultFetched?.({
@@ -1243,74 +1206,6 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
       }
     }
     return fetched;
-  }
-
-  private async executeManualDroppedTask(task: ManualDroppedTask): Promise<void> {
-    const item = this.droppedItems.find((entry) => entry.id === task.droppedItemId);
-    if (!item || this.disposed) {
-      task.resolve({ success: false, error: 'Dropped item no longer available' });
-      return;
-    }
-
-    const taskEpoch = this.clearEpoch;
-
-    const markFailed = (error: string) => {
-      const target = this.droppedItems.find((entry) => entry.id === task.droppedItemId);
-      if (target) {
-        target.status = 'failed';
-        this.notifyListeners();
-      }
-      task.resolve({ success: false, error });
-    };
-
-    const fetched = await this.fetchTradeItemPayload({
-      gameVersion: item.gameVersion,
-      token: item.token,
-      searchId: item.searchId,
-      league: item.league,
-      shouldAbort: () => this.disposed,
-    });
-
-    if (!fetched.ok) {
-      markFailed(fetched.error);
-      return;
-    }
-
-    if (this.disposed || taskEpoch !== this.clearEpoch) {
-      markFailed('Cancelled');
-      return;
-    }
-
-    const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    try {
-      const rendered = await this.renderIntoHost({
-        batchId,
-        sourceSearchId: item.searchId,
-        token: item.token,
-        itemData: fetched.itemData,
-        ownerKey: item.ownerKey,
-        expectedEpoch: taskEpoch,
-      });
-
-      if (!rendered) {
-        markFailed('Render failed');
-        return;
-      }
-
-      const idx = this.droppedItems.findIndex((entry) => entry.id === task.droppedItemId);
-      if (idx !== -1) {
-        this.droppedItems.splice(idx, 1);
-      }
-      const subCtx = this.subscriptions.get(item.subscriptionId);
-      if (subCtx) {
-        subCtx.pendingTokens.delete(item.token);
-        subCtx.processedTokens.add(item.token);
-      }
-      this.notifyListeners();
-      task.resolve({ success: true });
-    } catch {
-      markFailed('Render failed');
-    }
   }
 
   /**
@@ -1342,6 +1237,23 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
     subCtx.activeCancelWait = undefined;
 
     if (!fetched.ok) {
+      // 官方判定 token 已過期（推播 token 只有數秒效期）：記入已略過，讓使用者知道漏了這筆
+      if (
+        fetched.kind === 'token-rejected' &&
+        !this.disposed &&
+        subCtx.subscription.status !== 'closed' &&
+        taskEpoch === this.clearEpoch
+      ) {
+        subCtx.pendingTokens.delete(token);
+        this.countDroppedToken({
+          subCtx,
+          droppedAt: this.now(),
+          reason: 'expired',
+        });
+        this.notifyListeners();
+        return;
+      }
+
       if (
         fetched.status === 429 &&
         !this.disposed &&
@@ -1349,21 +1261,15 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
         taskEpoch === this.clearEpoch
       ) {
         const nowMs = this.now();
-        const maxAgeMs = this.readTokenMaxAgeMs();
         const nextAllowedAtMs = this.fetchRateGate.getStateSnapshot().nextAllowedAtMs;
+        const staleReason = this.classifyStaleToken(token, task.receivedAt, nowMs, nextAllowedAtMs);
 
-        if (
-          maxAgeMs > 0 &&
-          nextAllowedAtMs > nowMs &&
-          nextAllowedAtMs - task.receivedAt > maxAgeMs
-        ) {
+        if (staleReason) {
           subCtx.pendingTokens.delete(token);
-          this.recordDroppedItem({
+          this.countDroppedToken({
             subCtx,
-            token,
-            receivedAt: task.receivedAt,
             droppedAt: nowMs,
-            reason: 'rate-limit-cooldown',
+            reason: staleReason,
           });
           this.notifyListeners();
           return;

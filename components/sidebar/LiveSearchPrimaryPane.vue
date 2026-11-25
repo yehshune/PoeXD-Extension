@@ -46,14 +46,13 @@
           @clear-results="handleClearResults"
         />
 
-        <!-- 速率限制略過項目區（有略過紀錄時才顯示，支援手動補抓與清除） -->
+        <!-- 速率限制略過項目區（依搜尋彙總計數；推播 token 只有數秒效期，僅供知悉與清除） -->
         <LiveSearchDroppedPanel
-          v-if="droppedItems.length > 0"
-          :items="droppedItems"
+          v-if="droppedGroups.length > 0"
+          :groups="droppedGroups"
           :resolve-source-name="resolveDroppedSourceName"
-          @fetch-item="handleFetchDroppedItem"
-          @dismiss-item="handleDismissDroppedItem"
-          @clear-all="handleClearDroppedItems"
+          @dismiss-group="handleDismissDroppedGroup"
+          @clear-all="handleClearDroppedGroups"
         />
 
         <!-- 搜尋與狀態篩選固定主要工具列 -->
@@ -734,7 +733,7 @@ const errorSubscriptionCount = computed(() => {
   return count;
 });
 
-const droppedItems = computed(() => snapshot.value?.droppedItems ?? []);
+const droppedGroups = computed(() => snapshot.value?.droppedGroups ?? []);
 
 function resolveDroppedSourceName(ownerKey: string): string | undefined {
   for (const group of normalizedGroups.value) {
@@ -747,16 +746,12 @@ function resolveDroppedSourceName(ownerKey: string): string | undefined {
   return undefined;
 }
 
-async function handleFetchDroppedItem(droppedItemId: string) {
-  await props.controller?.fetchDroppedItem?.(droppedItemId);
+function handleDismissDroppedGroup(ownerKey: string) {
+  props.controller?.dismissDroppedGroup?.(ownerKey);
 }
 
-function handleDismissDroppedItem(droppedItemId: string) {
-  props.controller?.dismissDroppedItem?.(droppedItemId);
-}
-
-function handleClearDroppedItems() {
-  props.controller?.clearDroppedItems?.();
+function handleClearDroppedGroups() {
+  props.controller?.clearDroppedGroups?.();
 }
 
 watch([visibleGroups, collapsedGroupIds, isSwitchingLeague], () => {

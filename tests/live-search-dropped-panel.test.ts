@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp, nextTick, type App } from 'vue';
 import LiveSearchDroppedPanel from '@/components/sidebar/live-search/LiveSearchDroppedPanel.vue';
 import LiveSearchConsoleSettingsPane from '@/components/sidebar/LiveSearchConsoleSettingsPane.vue';
-import type { LiveSearchDroppedItem } from '@/utils/live-search-contract';
+import type { LiveSearchDroppedGroup } from '@/utils/live-search-contract';
 import { DEFAULT_PREFERENCES, type Preferences, type PreferencesModule } from '@/utils/preferences';
 
 let app: App | undefined;
@@ -17,20 +17,16 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function makeDroppedItem(overrides?: Partial<LiveSearchDroppedItem>): LiveSearchDroppedItem {
+function makeDroppedGroup(overrides?: Partial<LiveSearchDroppedGroup>): LiveSearchDroppedGroup {
   return {
-    id: 'drop_1',
-    subscriptionId: 'sub_1',
     ownerKey: 'poe1|standard|search_a',
     searchId: 'search_A',
     league: 'Standard',
     gameVersion: 'poe1',
     sourceName: '高價珠寶',
-    token: 'tk_1',
-    receivedAt: Date.now() - 12_000,
-    droppedAt: Date.now() - 10_000,
-    reason: 'rate-limit-cooldown',
-    status: 'dropped',
+    total: 3,
+    counts: { 'rate-limit-cooldown': 3, expired: 0 },
+    lastDroppedAt: Date.now() - 10_000,
     ...overrides,
   };
 }
@@ -53,18 +49,17 @@ function createFakePreferences(): PreferencesModule {
 }
 
 describe('LiveSearchDroppedPanel', () => {
-  it('renders nothing when there are no dropped items', () => {
+  it('renders nothing when there are no dropped groups', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
-    app = createApp(LiveSearchDroppedPanel, { items: [] });
+    app = createApp(LiveSearchDroppedPanel, { groups: [] });
     app.mount(container);
 
     expect(container.querySelector('[data-test="dropped-items-panel"]')).toBeNull();
   });
 
-  it('expands to show dropped items and emits fetch, dismiss, and clear events', async () => {
-    const onFetchItem = vi.fn();
-    const onDismissItem = vi.fn();
+  it('sums counts per search, shows the reason breakdown, and emits dismiss and clear events', async () => {
+    const onDismissGroup = vi.fn();
     const onClearAll = vi.fn();
     const resolveSourceName = vi.fn((key: string) =>
       key === 'poe1|standard|search_a' ? '覆寫名稱' : undefined,
@@ -73,18 +68,26 @@ describe('LiveSearchDroppedPanel', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     app = createApp(LiveSearchDroppedPanel, {
-      items: [
-        makeDroppedItem({ id: 'drop_1', status: 'dropped' }),
-        makeDroppedItem({ id: 'drop_2', status: 'failed', reason: 'expired' }),
+      groups: [
+        makeDroppedGroup(),
+        makeDroppedGroup({
+          ownerKey: 'poe1|standard|search_b',
+          searchId: 'search_B',
+          sourceName: undefined,
+          total: 2,
+          counts: { 'rate-limit-cooldown': 1, expired: 1 },
+        }),
       ],
       resolveSourceName,
-      'onFetch-item': onFetchItem,
-      'onDismiss-item': onDismissItem,
+      'onDismiss-group': onDismissGroup,
       'onClear-all': onClearAll,
     });
     app.mount(container);
 
     expect(container.querySelector('[data-test="dropped-items-panel"]')).not.toBeNull();
+    expect(container.querySelector('[data-test="dropped-items-count"]')?.textContent).toContain(
+      '5',
+    );
     const list = container.querySelector('[data-test="dropped-items-list"]') as HTMLElement;
     expect(list.style.display).toBe('none');
 
@@ -94,17 +97,26 @@ describe('LiveSearchDroppedPanel', () => {
     await nextTick();
     expect(list.style.display).not.toBe('none');
 
-    const rows = Array.from(container.querySelectorAll('[data-test="dropped-item-row"]'));
+    const rows = Array.from(container.querySelectorAll('[data-test="dropped-group-row"]'));
     expect(rows).toHaveLength(2);
-    expect(rows[0]!.querySelector('[data-test="dropped-item-source"]')?.textContent?.trim()).toBe(
-      '覆寫名稱',
-    );
+    const text = (row: Element, testId: string) =>
+      row.querySelector(`[data-test="${testId}"]`)?.textContent?.trim();
+    expect(text(rows[0]!, 'dropped-group-source')).toBe('覆寫名稱');
+    expect(text(rows[0]!, 'dropped-group-total')).toBe('3');
+    // 只列出有發生的原因：第 1 列只有冷卻過久，第 2 列兩種原因都有
+    const separators = (row: Element) => text(row, 'dropped-group-breakdown')?.split('·').length;
+    expect(separators(rows[0]!)).toBe(2);
+    expect(separators(rows[1]!)).toBe(3);
+    expect(text(rows[1]!, 'dropped-group-source')).toBe('search_B');
+    expect(text(rows[1]!, 'dropped-group-total')).toBe('2');
 
-    (rows[0]!.querySelector('[data-test="btn-fetch-dropped-item"]') as HTMLButtonElement).click();
-    expect(onFetchItem).toHaveBeenCalledWith('drop_1');
+    // 推播 token 只有數秒效期，略過的項目無法補抓，不提供補抓按鈕
+    expect(container.querySelector('[data-test="btn-fetch-dropped-item"]')).toBeNull();
 
-    (rows[1]!.querySelector('[data-test="btn-dismiss-dropped-item"]') as HTMLButtonElement).click();
-    expect(onDismissItem).toHaveBeenCalledWith('drop_2');
+    (
+      rows[1]!.querySelector('[data-test="btn-dismiss-dropped-group"]') as HTMLButtonElement
+    ).click();
+    expect(onDismissGroup).toHaveBeenCalledWith('poe1|standard|search_b');
 
     (container.querySelector('[data-test="btn-clear-dropped-items"]') as HTMLButtonElement).click();
     expect(onClearAll).toHaveBeenCalledTimes(1);

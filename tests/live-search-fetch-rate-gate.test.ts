@@ -1097,21 +1097,22 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
     await flushMicrotasks(6);
     expect(deliveredEvents).toHaveLength(1);
 
-    // 此時剩餘冷卻 30s > 15s：新收到的 tk_too_old 應立即移入 droppedItems，不觸發音效
+    // 此時剩餘冷卻 30s > 15s：新收到的 tk_too_old 應立即計入已略過，不觸發音效
     ws.simulateMessage(JSON.stringify({ result: 'tk_too_old' }));
     await flushMicrotasks();
 
-    const droppedSnap = runtime.getSnapshot().droppedItems ?? [];
+    const droppedSnap = runtime.getSnapshot().droppedGroups ?? [];
     expect(droppedSnap).toHaveLength(1);
-    expect(droppedSnap[0]?.token).toBe('tk_too_old');
-    expect(droppedSnap[0]?.reason).toBe('rate-limit-cooldown');
+    expect(droppedSnap[0]?.searchId).toBe('search_A');
+    expect(droppedSnap[0]?.total).toBe(1);
+    expect(droppedSnap[0]?.counts).toEqual({ 'rate-limit-cooldown': 1, expired: 0 });
     expect(deliveredEvents).toHaveLength(1);
 
     // 前進 20s（剩餘冷卻 10s <= 15s）：此時收到的 tk_fresh 應進入佇列等待解禁
     clock.advanceBy(20000);
     ws.simulateMessage(JSON.stringify({ result: 'tk_fresh' }));
     await flushMicrotasks();
-    expect(runtime.getSnapshot().droppedItems).toHaveLength(1);
+    expect(runtime.getSnapshot().droppedGroups?.[0]?.total).toBe(1);
 
     // 再前進 10s 解禁：應抓取 tk_fresh 並觸發音效
     clock.advanceBy(10000);
@@ -1124,43 +1125,147 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
     expect(deliveredEvents).toHaveLength(2);
   });
 
-  it('manual fetch of a dropped item bypasses TTL, respects rate gate, removes on success, and marks failed on empty response', async () => {
+  it('records a token the server rejects as invalid as an expired dropped item, and ignores sold items', async () => {
     const clock = new ManualTimerClock();
     const hostClient = new FakeHostClient();
     const sockets: FakeWebSocket[] = [];
     const fetchOrder: string[] = [];
-    const deliveredEvents: Array<{ ownerKey: string }> = [];
 
     const rateGate = new LiveSearchFetchRateGate({
       timer: clock,
       fetchClient: async (url) => {
         fetchOrder.push(url);
-        if (url.includes('tk_init')) {
-          return new Response(JSON.stringify({ result: [{ id: 'item_init' }] }), {
-            status: 200,
-            headers: {
-              'X-Rate-Limit-Rules': 'Account',
-              'X-Rate-Limit-Account': '5:5:30',
-              'X-Rate-Limit-Account-State': '5:5:30',
-            },
-          });
+        if (url.includes('tk_rejected')) {
+          return new Response(
+            JSON.stringify({ error: { code: 2, message: 'Invalid query; Token is invalid' } }),
+            { status: 400 },
+          );
         }
-        if (url.includes('tk_expired_on_server')) {
-          return new Response(JSON.stringify({ result: [] }), {
-            status: 200,
-            headers: {
-              'X-Rate-Limit-Rules': 'Account',
-              'X-Rate-Limit-Account': '5:5:30',
-              'X-Rate-Limit-Account-State': '1:5:0',
-            },
-          });
+        if (url.includes('tk_sold')) {
+          return new Response(JSON.stringify({ result: [null] }), { status: 200 });
         }
-        return new Response(JSON.stringify({ result: [{ id: 'item_recovered' }] }), {
+        return new Response(JSON.stringify({ result: [{ id: 'item_ok' }] }), { status: 200 });
+      },
+    });
+
+    const runtime = new LiveSearchPrimaryRuntime('poe1', {
+      hostClient,
+      webSocketFactory: (url) => {
+        const ws = new FakeWebSocket(url);
+        sockets.push(ws);
+        return ws as unknown as WebSocket;
+      },
+      fetchRateGate: rateGate,
+      getFetchOrder: () => 'oldest',
+      getTokenMaxAgeSec: () => 15,
+      now: () => clock.now(),
+      origin: 'https://www.pathofexile.com',
+      openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
+    });
+
+    await runtime.addSubscription(createSub('sub_A', 'search_A'));
+    await flushMicrotasks();
+    const ws = sockets[0]!;
+
+    ws.simulateMessage(JSON.stringify({ result: 'tk_rejected' }));
+    ws.simulateMessage(JSON.stringify({ result: 'tk_sold' }));
+    ws.simulateMessage(JSON.stringify({ result: 'tk_ok' }));
+    await flushMicrotasks(16);
+
+    expect(fetchOrder).toHaveLength(3);
+    // 官方判定 token 無效：記入已略過（過期）；物品已售出則不記，也不交給 Host 渲染
+    const dropped = runtime.getSnapshot().droppedGroups ?? [];
+    expect(dropped.map((group) => [group.total, group.counts])).toEqual([
+      [1, { expired: 1, 'rate-limit-cooldown': 0 }],
+    ]);
+    expect(hostClient.renderCalls.map((call) => call.token)).toEqual(['tk_ok']);
+  });
+
+  it('counts dropped tokens per search and lets one search or all of them be cleared', async () => {
+    const clock = new ManualTimerClock();
+    const hostClient = new FakeHostClient();
+    const sockets: FakeWebSocket[] = [];
+
+    const rateGate = new LiveSearchFetchRateGate({
+      timer: clock,
+      fetchClient: async () =>
+        new Response(
+          JSON.stringify({ error: { code: 2, message: 'Invalid query; Token is invalid' } }),
+          { status: 400 },
+        ),
+    });
+
+    const runtime = new LiveSearchPrimaryRuntime('poe1', {
+      hostClient,
+      webSocketFactory: (url) => {
+        const ws = new FakeWebSocket(url);
+        sockets.push(ws);
+        return ws as unknown as WebSocket;
+      },
+      fetchRateGate: rateGate,
+      getFetchOrder: () => 'oldest',
+      getTokenMaxAgeSec: () => 15,
+      now: () => clock.now(),
+      origin: 'https://www.pathofexile.com',
+      openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
+    });
+
+    await runtime.addSubscription(createSub('sub_A', 'search_A'));
+    await runtime.addSubscription(createSub('sub_B', 'search_B'));
+    await flushMicrotasks();
+    const [wsA, wsB] = sockets;
+
+    wsA!.simulateMessage(JSON.stringify({ result: 'tk_a1' }));
+    wsA!.simulateMessage(JSON.stringify({ result: 'tk_a2' }));
+    await flushMicrotasks(16);
+    clock.advanceBy(1000);
+    wsB!.simulateMessage(JSON.stringify({ result: 'tk_b1' }));
+    await flushMicrotasks(16);
+
+    const groups = runtime.getSnapshot().droppedGroups ?? [];
+    // 最近略過的搜尋在前
+    expect(groups.map((group) => [group.searchId, group.total])).toEqual([
+      ['search_B', 1],
+      ['search_A', 2],
+    ]);
+
+    runtime.dismissDroppedGroup(groups[1]!.ownerKey);
+    expect(runtime.getSnapshot().droppedGroups?.map((group) => group.searchId)).toEqual([
+      'search_B',
+    ]);
+
+    runtime.clearDroppedGroups();
+    expect(runtime.getSnapshot().droppedGroups).toBeUndefined();
+  });
+
+  it('drops JWT tokens whose official exp passes before the rate gate reopens, using the server Date header', async () => {
+    const clock = new ManualTimerClock();
+    const hostClient = new FakeHostClient();
+    const sockets: FakeWebSocket[] = [];
+    const fetchOrder: string[] = [];
+    /** 官方時鐘比本地快 5 秒 */
+    const serverAheadMs = 5000;
+    const serverNowMs = () => clock.now() + serverAheadMs;
+    const jwt = (name: string, expiresInMs: number) => {
+      const encode = (value: object) =>
+        btoa(JSON.stringify(value)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+      const exp = Math.floor((serverNowMs() + expiresInMs) / 1000);
+      return `${encode({ typ: 'JWT', alg: 'ES256' })}.${encode({ iss: name, exp })}.sig`;
+    };
+
+    const rateGate = new LiveSearchFetchRateGate({
+      timer: clock,
+      fetchClient: async (url) => {
+        fetchOrder.push(url);
+        // 第 1 筆用光額度：之後冷卻 30s；回應帶官方 Date 標頭供校正時鐘
+        const exhausted = fetchOrder.length === 1;
+        return new Response(JSON.stringify({ result: [{ id: `item_${fetchOrder.length}` }] }), {
           status: 200,
           headers: {
+            Date: new Date(serverNowMs()).toUTCString(),
             'X-Rate-Limit-Rules': 'Account',
             'X-Rate-Limit-Account': '5:5:30',
-            'X-Rate-Limit-Account-State': '1:5:0',
+            'X-Rate-Limit-Account-State': exhausted ? '5:5:30' : '1:5:0',
           },
         });
       },
@@ -1174,10 +1279,10 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
         return ws as unknown as WebSocket;
       },
       fetchRateGate: rateGate,
-      getFetchOrder: () => 'newest',
-      getTokenMaxAgeSec: () => 15,
+      getFetchOrder: () => 'oldest',
+      // 新鮮度上限設得很寬，證明略過是依 token 自帶的 exp
+      getTokenMaxAgeSec: () => 300,
       now: () => clock.now(),
-      onResultDelivered: (event) => deliveredEvents.push(event),
       origin: 'https://www.pathofexile.com',
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
     });
@@ -1187,48 +1292,29 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
     const ws = sockets[0]!;
 
     ws.simulateMessage(JSON.stringify({ result: 'tk_init' }));
-    await flushMicrotasks(6);
-
-    ws.simulateMessage(JSON.stringify({ result: 'tk_recoverable' }));
-    ws.simulateMessage(JSON.stringify({ result: 'tk_expired_on_server' }));
-    await flushMicrotasks();
-
-    const dropped = runtime.getSnapshot().droppedItems ?? [];
-    expect(dropped).toHaveLength(2);
-    const expiredItem = dropped.find((d) => d.token === 'tk_expired_on_server')!;
-    const recoverableItem = dropped.find((d) => d.token === 'tk_recoverable')!;
-
-    // 尚在 30s 冷卻中手動觸發補抓：應進入 fetching 狀態並等冷卻解禁
-    const recoverPromise = runtime.fetchDroppedItem(recoverableItem.id);
-    const expiredPromise = runtime.fetchDroppedItem(expiredItem.id);
-    await flushMicrotasks();
-
-    expect(
-      runtime.getSnapshot().droppedItems?.find((d) => d.id === recoverableItem.id)?.status,
-    ).toBe('fetching');
+    await flushMicrotasks(8);
     expect(fetchOrder).toHaveLength(1);
 
-    // 30s 後解禁：兩筆手動補抓依序執行
+    // 冷卻 30s：7 秒效期的 token 等不到解禁，立即略過；120 秒效期的 token 排隊等待
+    const shortLived = jwt('short', 7000);
+    const longLived = jwt('long', 120000);
+    ws.simulateMessage(JSON.stringify({ result: shortLived }));
+    ws.simulateMessage(JSON.stringify({ result: longLived }));
+    await flushMicrotasks();
+
+    const dropped = runtime.getSnapshot().droppedGroups ?? [];
+    expect(dropped.map((group) => [group.total, group.counts])).toEqual([
+      [1, { expired: 0, 'rate-limit-cooldown': 1 }],
+    ]);
+
     clock.advanceBy(30000);
     await flushMicrotasks(16);
 
-    const [recoverRes, expiredRes] = await Promise.all([recoverPromise, expiredPromise]);
-    expect(recoverRes.success).toBe(true);
-    expect(expiredRes.success).toBe(false);
-
-    // 成功的已從 droppedItems 移除，失敗的標記為 failed；手動補抓不觸發自動推播音效
-    const afterDropped = runtime.getSnapshot().droppedItems ?? [];
-    expect(afterDropped).toHaveLength(1);
-    expect(afterDropped[0]?.id).toBe(expiredItem.id);
-    expect(afterDropped[0]?.status).toBe('failed');
-    expect(deliveredEvents).toHaveLength(1);
-
-    // dismissDroppedItem 可移除失敗項目
-    runtime.dismissDroppedItem(expiredItem.id);
-    expect(runtime.getSnapshot().droppedItems).toBeUndefined();
+    expect(fetchOrder).toHaveLength(2);
+    expect(fetchOrder[1]).toContain(encodeURIComponent(longLived));
   });
 
-  it('HTTP 429 does not block processQueue: immediately drops stale 429/queued tokens and lets manual fetch & newest token run first on admission', async () => {
+  it('HTTP 429 does not block processQueue: immediately drops stale 429/queued tokens and lets the newest token run first on admission', async () => {
     const clock = new ManualTimerClock();
     const hostClient = new FakeHostClient();
     const sockets: FakeWebSocket[] = [];
@@ -1288,30 +1374,22 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
     ws.simulateMessage(JSON.stringify({ result: 'tk_queued' }));
     await flushMicrotasks(8);
 
-    // 兩筆註定等不到 30s 解禁的項目都必須立刻進入 droppedItems（不必等 30s）
-    const droppedNow = runtime.getSnapshot().droppedItems ?? [];
-    expect(droppedNow.map((d) => d.token).sort()).toEqual(['tk_429', 'tk_queued']);
+    // 兩筆註定等不到 30s 解禁的項目都必須立刻計入已略過（不必等 30s）
+    const droppedNow = runtime.getSnapshot().droppedGroups ?? [];
+    expect(droppedNow.map((group) => group.total)).toEqual([2]);
     expect(fetchOrder).toHaveLength(1);
-
-    // 使用者在冷卻期間對 tk_queued 點擊手動補抓
-    const manualTarget = droppedNow.find((d) => d.token === 'tk_queued')!;
-    const manualPromise = runtime.fetchDroppedItem(manualTarget.id);
-    await flushMicrotasks();
 
     // 在 30s 冷卻最後 1 秒（t=29s）來了一筆新鮮的 tk_fresh
     clock.advanceBy(29000);
     ws.simulateMessage(JSON.stringify({ result: 'tk_fresh' }));
     await flushMicrotasks();
 
-    // 再過 1 秒解禁（t=30s）：手動補抓優先，接著抓 tk_fresh，絕不重打已被略過的 tk_429
+    // 再過 1 秒解禁（t=30s）：抓 tk_fresh，絕不重打已被略過的 tk_429 與 tk_queued
     clock.advanceBy(1000);
     await flushMicrotasks(16);
 
-    const manualRes = await manualPromise;
-    expect(manualRes.success).toBe(true);
     expect(fetchOrder).toEqual([
       'https://www.pathofexile.com/api/trade/fetch/tk_429?query=search_A',
-      'https://www.pathofexile.com/api/trade/fetch/tk_queued?query=search_A',
       'https://www.pathofexile.com/api/trade/fetch/tk_fresh?query=search_A',
     ]);
   });
