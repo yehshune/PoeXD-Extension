@@ -2,7 +2,7 @@
  * 市集漢化（Market Translation，ADR-0012）的共用判定：何時翻譯、翻成哪個語系、分片放在哪裡。
  * 純函式、不持有狀態，isolated world 與測試共用；MAIN world 腳本不 import 這支（避免打包 i18n 相依）。
  */
-import type { DisplayLocalePreference } from './preferences-contract';
+import type { DisplayLocalePreference, Preferences } from './preferences-contract';
 import { resolveDisplayLocale, type LocaleResolutionInput } from './locale-resolution';
 
 export const MARKET_TRANSLATION_LOCALES = ['zh-TW', 'zh-CN'] as const;
@@ -50,6 +50,53 @@ export function resolveMarketTranslationLocale(
     browserLanguages: input.browserLanguages,
   });
   return isMarketTranslationLocale(resolved) ? resolved : null;
+}
+
+export interface EffectiveMarketTranslationState {
+  readonly locale: MarketTranslationLocale | null;
+  readonly bilingual: boolean;
+}
+
+export type MarketTranslationPreferenceSnapshot = Partial<
+  Pick<Preferences, 'marketTranslation' | 'displayLocale' | 'marketTranslationBilingual'>
+>;
+
+export interface MarketTranslationContext {
+  hostname: string;
+  browserLocale: string;
+  browserLanguages?: readonly string[];
+}
+
+/** 計算指定偏好快照與執行環境下實際生效的市集漢化狀態（語系與下拉中英並列）。 */
+export function resolveEffectiveMarketTranslationState(
+  snapshot: Readonly<MarketTranslationPreferenceSnapshot>,
+  context: MarketTranslationContext,
+): EffectiveMarketTranslationState {
+  const locale = resolveMarketTranslationLocale({
+    enabled: snapshot.marketTranslation === true,
+    displayLocale: snapshot.displayLocale ?? 'auto',
+    hostname: context.hostname,
+    browserLocale: context.browserLocale,
+    browserLanguages: context.browserLanguages,
+  });
+  return {
+    locale,
+    bilingual: locale !== null && snapshot.marketTranslationBilingual !== false,
+  };
+}
+
+/** 比較頁面載入基準與目前偏好的有效市集漢化狀態，判斷是否需重新整理頁面才會生效。 */
+export function isMarketTranslationReloadRequired(
+  baseline: Readonly<MarketTranslationPreferenceSnapshot>,
+  current: Readonly<MarketTranslationPreferenceSnapshot>,
+  context: MarketTranslationContext,
+): boolean {
+  const baselineState = resolveEffectiveMarketTranslationState(baseline, context);
+  const currentState = resolveEffectiveMarketTranslationState(current, context);
+  return (
+    baselineState.locale !== currentState.locale ||
+    baselineState.bilingual !== currentState.bilingual
+  );
 }
 
 export function getMarketUiAssetPath(locale: MarketTranslationLocale): string {

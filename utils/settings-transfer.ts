@@ -1,5 +1,6 @@
 import {
   DEFAULT_PREFERENCES,
+  PREFERENCE_NAMES,
   isGlobalPreference,
   type GlobalPreferences,
   type Preferences,
@@ -10,7 +11,6 @@ import type { PoeVersion } from './trade-context';
 
 export const SETTINGS_EXPORT_FORMAT = 'poexd-settings';
 const SCHEMA_VERSION = 2;
-const PREFERENCE_NAMES = Object.keys(DEFAULT_PREFERENCES) as Array<keyof Preferences>;
 const PREFERENCE_NAME_SET = new Set<string>(PREFERENCE_NAMES);
 
 export interface SettingsExportV1 {

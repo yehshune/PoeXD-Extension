@@ -368,10 +368,8 @@ import LiveSearchConsoleSettingsPane from './sidebar/LiveSearchConsoleSettingsPa
 import TemporarySearchDialog from './sidebar/TemporarySearchDialog.vue';
 import UpdateNotice from './sidebar/UpdateNotice.vue';
 import { getReleaseHighlights, type SettingsFocusRequest } from '@/utils/release-highlights';
-import SidebarNavRail, {
-  type LiveSearchPrimaryTab,
-  type SidebarNavTab,
-} from './sidebar/layout/SidebarNavRail.vue';
+import SidebarNavRail, { type LiveSearchPrimaryTab } from './sidebar/layout/SidebarNavRail.vue';
+import { SIDEBAR_NAV_TABS } from './sidebar/sidebar-module-presentation';
 import SidebarGlobalDialog from './sidebar/layout/SidebarGlobalDialog.vue';
 import TierDropdownHost from './injected/TierDropdownHost.vue';
 import PageGuideHost from './sidebar/page-guide/PageGuideHost.vue';
@@ -390,7 +388,7 @@ import {
 import { clampFontSizeScale } from '@/utils/appearance-preferences';
 import { FONT_SIZE_SCALE_PREVIEW_KEY } from './sidebar/settings/font-size-preview';
 import { affixDemoMode } from '@/utils/page-guide-demo-state';
-import { resolveMarketTranslationLocale } from '@/utils/market-translation';
+import { isMarketTranslationReloadRequired } from '@/utils/market-translation';
 import { getPageLoadPreferences } from '@/utils/page-load-preferences';
 import StatGroupTemplateHost from './injected/StatGroupTemplateHost.vue';
 import MercenaryPickerHost from './injected/mercenary/MercenaryPickerHost.vue';
@@ -421,9 +419,11 @@ import {
 import {
   DEFAULT_SIDEBAR_MODULE_PREFERENCES,
   SIDEBAR_MODULE_PREFERENCE_KEYS,
+  isSidebarFixedTab,
   isSidebarModuleEnabled,
   resolveActivePaneTab,
   resolveVisiblePaneTabs,
+  usesSidebarPaneScroll,
   type SidebarModuleId,
   type SettingsSectionId,
   type SidebarModulePreferenceKey,
@@ -444,17 +444,7 @@ import {
 } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import {
-  ChevronLeft,
-  Bookmark,
-  History,
-  Settings,
-  CircleHelp,
-  SlidersHorizontal,
-  ShoppingCart,
-  Pin,
-  LayoutList,
-} from '@lucide/vue';
+import { ChevronLeft } from '@lucide/vue';
 import ToolboxIcon from '@/components/ui/ToolboxIcon.vue';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import { t } from '@/utils/i18n';
@@ -603,22 +593,9 @@ export default defineComponent({
       DEFAULT_PREFERENCES.marketTranslationResultBilingual,
     );
     const displayLocale = ref<Preferences['displayLocale']>('auto');
-    /** 本頁載入時的漢化狀態（語系與下拉中英並列）；之後變動需重新整理才會套用到官網頁面 */
-    let pageLoadMarketState: { locale: string | null; bilingual: boolean } | null = null;
+    /** 本頁載入時的偏好基準；之後市集漢化有效狀態變動需重新整理才會套用到官網頁面 */
+    let pageLoadMarketBaseline: Readonly<Preferences> | null = null;
     const marketTranslationReloadRequired = ref(false);
-    const computeEffectiveMarketState = (snapshot: Readonly<Preferences>) => {
-      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-      const locale = resolveMarketTranslationLocale({
-        enabled: snapshot.marketTranslation === true,
-        displayLocale: snapshot.displayLocale ?? 'auto',
-        hostname,
-        browserLocale: detectBrowserLocale(),
-      });
-      return {
-        locale,
-        bilingual: locale !== null && snapshot.marketTranslationBilingual !== false,
-      };
-    };
     const showExpandHint = computed(
       () => pageRole.value === 'normal' && isCollapsed.value && onboarding.value.expandHintPending,
     );
@@ -741,65 +718,8 @@ export default defineComponent({
       chrome.storage.local.set({ [activeTabKey]: newVal });
     });
 
-    // 導覽列分頁圖示
-    const tabs: SidebarNavTab[] = [
-      {
-        id: 'bookmark',
-        get name() {
-          return t('sidebar.nav.bookmarks');
-        },
-        icon: Bookmark,
-      },
-      {
-        id: 'history',
-        get name() {
-          return t('sidebar.nav.history');
-        },
-        icon: History,
-      },
-      {
-        id: 'stat-group-template',
-        get name() {
-          return t('sidebar.nav.statGroupTemplates');
-        },
-        icon: SlidersHorizontal,
-      },
-      {
-        id: 'pob-build',
-        get name() {
-          return t('sidebar.nav.pobBuild');
-        },
-        icon: ShoppingCart,
-      },
-      {
-        id: 'pinned-items',
-        get name() {
-          return t('sidebar.nav.pinnedItems');
-        },
-        icon: Pin,
-      },
-      {
-        id: 'result-board',
-        get name() {
-          return t('sidebar.nav.resultBoard');
-        },
-        icon: LayoutList,
-      },
-      {
-        id: 'tools',
-        get name() {
-          return t('sidebar.nav.tools');
-        },
-        icon: CircleHelp,
-      },
-      {
-        id: 'settings',
-        get name() {
-          return t('sidebar.nav.settings');
-        },
-        icon: Settings,
-      },
-    ];
+    // 導覽列分頁圖示與名稱由 sidebar-modules / sidebar-module-presentation 單一來源推導
+    const tabs = SIDEBAR_NAV_TABS;
 
     const activeTabName = computed(() => {
       if (pageRole.value === 'live-search-primary') {
@@ -812,7 +732,7 @@ export default defineComponent({
     });
 
     const navModuleTabs = computed(() =>
-      tabs.filter((tab) => tab.id !== 'settings' && tab.id !== 'tools' && isTabVisible(tab.id)),
+      tabs.filter((tab) => !isSidebarFixedTab(tab.id) && isTabVisible(tab.id)),
     );
     const toolsTab = tabs.find((tab) => tab.id === 'tools');
     const settingsTab = tabs.find((tab) => tab.id === 'settings');
@@ -830,16 +750,7 @@ export default defineComponent({
       }
     });
 
-    const usesPaneScroll = computed(
-      () =>
-        activeTab.value === 'history' ||
-        activeTab.value === 'bookmark' ||
-        activeTab.value === 'stat-group-template' ||
-        activeTab.value === 'pob-build' ||
-        activeTab.value === 'pinned-items' ||
-        activeTab.value === 'result-board' ||
-        activeTab.value === 'settings',
-    );
+    const usesPaneScroll = computed(() => usesSidebarPaneScroll(activeTab.value));
 
     let handleStorageChange: ((changes: any) => void) | null = null;
     let stopPreferences: (() => void) | undefined;
@@ -888,16 +799,17 @@ export default defineComponent({
         ) {
           modulePrefs.value = nextModulePrefs;
         }
-        const currentMarketState = computeEffectiveMarketState(snapshot);
-        if (pageLoadMarketState === null) {
-          const pageLoad = getPageLoadPreferences();
-          pageLoadMarketState = pageLoad
-            ? computeEffectiveMarketState(pageLoad)
-            : currentMarketState;
+        if (pageLoadMarketBaseline === null) {
+          pageLoadMarketBaseline = getPageLoadPreferences() ?? snapshot;
         }
-        marketTranslationReloadRequired.value =
-          currentMarketState.locale !== pageLoadMarketState.locale ||
-          currentMarketState.bilingual !== pageLoadMarketState.bilingual;
+        marketTranslationReloadRequired.value = isMarketTranslationReloadRequired(
+          pageLoadMarketBaseline,
+          snapshot,
+          {
+            hostname: typeof window !== 'undefined' ? window.location.hostname : '',
+            browserLocale: detectBrowserLocale(),
+          },
+        );
       });
 
       stopOnboarding = onboardingStore.subscribe((state) => {

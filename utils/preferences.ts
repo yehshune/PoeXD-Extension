@@ -1,31 +1,16 @@
 import type { PoeVersion } from './trade-context';
 import {
-  BOOKMARK_BUTTON_POSITIONS,
-  COLLAPSED_TAB_TOP_BOUNDS,
-  SEARCH_ENTRY_CLICK_ACTIONS,
-  DENSITY_SCALE_VALUES,
-  DISPLAY_LOCALE_VALUES,
   DEFAULT_PREFERENCES,
-  LEGACY_DISPLAY_LOCALE_KEYS,
   LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES,
-  migrateLegacyDisplayLocale,
-  FONT_SIZE_SCALE_BOUNDS,
-  LIVE_SEARCH_FETCH_ORDER_VALUES,
-  LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES,
-  LIVE_SEARCH_RESUME_MODES,
-  LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS,
-  SIDEBAR_POSITIONS,
-  SIDEBAR_WIDTH_BOUNDS,
+  PREFERENCE_NAMES,
+  PREFERENCE_SCHEMA,
   getPreferenceStorageKey,
   isGlobalPreference,
-  isValidThemeId,
-  isValidThemeOverridesJson,
-  normalizeThemeId,
-  normalizeThemeOverridesJson,
-  type BookmarkButtonPosition,
-  type DisplayLocalePreference,
+  isValidPreference,
+  normalizePreference,
+  type LegacyVersionedGlobalPreferenceName,
+  type PreferenceDescriptor,
   type Preferences,
-  type SidebarPosition,
 } from './preferences-contract';
 
 export * from './preferences-contract';
@@ -59,97 +44,6 @@ export type PreferencesUpdateOutcome =
 export type PreferencesLoadOutcome =
   | { ok: true; value: PreferencesModule }
   | { ok: false; error: { code: 'unavailable'; message: string } };
-
-const PREFERENCE_NAMES = Object.keys(DEFAULT_PREFERENCES) as Array<keyof Preferences>;
-const BOOLEAN_PREFERENCES = new Set<keyof Preferences>([
-  'enableAffixSelector',
-  'enableAutoTitle',
-  'enableBookmarkTooltip',
-  'enableFilterTilde',
-  'enableHotkeys',
-  'enableItemNormalizer',
-  'enablePriceComparison',
-  'enablePureBackground',
-  'enableResultExternalLinks',
-  'enableResultModHighlight',
-  'enableResultModQuickFilter',
-  'enableResultPobCopy',
-  'enableSearchTilde',
-  'enableTierHelper',
-  'liveSearchDesktopNotificationEnabled',
-  'liveSearchSoundEnabled',
-  'marketTranslation',
-  'marketTranslationBilingual',
-  'marketTranslationResultBilingual',
-  'sidebarModuleBookmarks',
-  'sidebarModuleHistory',
-  'sidebarModuleLiveSearch',
-  'sidebarModulePinnedItems',
-  'sidebarModulePobBuild',
-  'sidebarModuleResultBoard',
-  'sidebarModuleStatGroupTemplates',
-]);
-
-function isValidPreference(name: keyof Preferences, value: unknown) {
-  if (BOOLEAN_PREFERENCES.has(name)) return typeof value === 'boolean';
-  if (name === 'theme') return isValidThemeId(value);
-  if (name === 'themeCustomOverrides') return isValidThemeOverridesJson(value);
-  if (name === 'displayLocale')
-    return (DISPLAY_LOCALE_VALUES as readonly unknown[]).includes(value);
-  if (name === 'liveSearchFetchOrder')
-    return (LIVE_SEARCH_FETCH_ORDER_VALUES as readonly unknown[]).includes(value);
-  if (name === 'liveSearchMaxDisplayedResults')
-    return (LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES as readonly unknown[]).includes(value);
-  if (name === 'liveSearchResumeMode')
-    return (LIVE_SEARCH_RESUME_MODES as readonly unknown[]).includes(value);
-  if (name === 'liveSearchTokenMaxAgeSec')
-    return (
-      typeof value === 'number' &&
-      Number.isInteger(value) &&
-      value >= LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.min &&
-      value <= LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.max
-    );
-  if (name === 'searchEntryClickAction')
-    return (SEARCH_ENTRY_CLICK_ACTIONS as readonly unknown[]).includes(value);
-  if (name === 'addBookmarkBtnPosition')
-    return (BOOKMARK_BUTTON_POSITIONS as readonly unknown[]).includes(value);
-  if (name === 'sidebarPosition') return (SIDEBAR_POSITIONS as readonly unknown[]).includes(value);
-  if (name === 'densityScale') return (DENSITY_SCALE_VALUES as readonly unknown[]).includes(value);
-  if (name === 'fontSizeScale')
-    return (
-      typeof value === 'number' &&
-      value >= FONT_SIZE_SCALE_BOUNDS.min &&
-      value <= FONT_SIZE_SCALE_BOUNDS.max
-    );
-  if (name === 'sidebarWidth')
-    return (
-      typeof value === 'number' &&
-      value >= SIDEBAR_WIDTH_BOUNDS.min &&
-      value <= SIDEBAR_WIDTH_BOUNDS.max
-    );
-  if (name === 'collapsedTabTop')
-    return (
-      typeof value === 'number' &&
-      Number.isFinite(value) &&
-      value >= COLLAPSED_TAB_TOP_BOUNDS.min &&
-      value <= COLLAPSED_TAB_TOP_BOUNDS.max
-    );
-  if (name === 'hotkeyFocus' || name === 'hotkeyClear' || name === 'liveSearchSelectedLeague')
-    return typeof value === 'string';
-  return typeof value === 'string' && value.length > 0;
-}
-
-function normalizePreference(name: keyof Preferences, value: unknown) {
-  if (name === 'theme') return normalizeThemeId(value);
-  if (name === 'themeCustomOverrides') return normalizeThemeOverridesJson(value);
-  if (name === 'densityScale') {
-    if ((DENSITY_SCALE_VALUES as readonly unknown[]).includes(value)) return value;
-    if (value === 0.7 || value === 0.85) return 0.8;
-    if (value === 1.15) return 1;
-    return DEFAULT_PREFERENCES.densityScale;
-  }
-  return isValidPreference(name, value) ? value : DEFAULT_PREFERENCES[name];
-}
 
 function freezePreferences(preferences: Preferences): Readonly<Preferences> {
   return Object.freeze(preferences);
@@ -231,13 +125,15 @@ export function getPreferences(version: PoeVersion): Promise<PreferencesLoadOutc
   return loading;
 }
 
-type LegacyVersionedGlobalPreferenceName =
-  (typeof LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES)[number];
-
 const OTHER_VERSION: Readonly<Record<PoeVersion, PoeVersion>> = {
   poe1: 'poe2',
   poe2: 'poe1',
 };
+
+const CUSTOM_LEGACY_KEYS: readonly string[] = PREFERENCE_NAMES.flatMap((name) => {
+  const descriptor = PREFERENCE_SCHEMA[name] as PreferenceDescriptor<unknown>;
+  return descriptor.legacyKeys ?? [];
+});
 
 function migrateLegacyGlobalField(
   name: LegacyVersionedGlobalPreferenceName,
@@ -246,7 +142,7 @@ function migrateLegacyGlobalField(
   loaded: Preferences,
   repairs: Record<string, unknown>,
 ): boolean {
-  if (stored[name] !== undefined) return false;
+  if (stored[name] !== undefined || name in repairs) return false;
   for (const candidateVersion of candidateVersions) {
     const legacyValue = stored[`${name}_${candidateVersion}`];
     if (legacyValue === undefined) continue;
@@ -274,7 +170,7 @@ export async function createPreferencesModule(
       ...new Set([
         ...keys,
         ...PREFERENCE_NAMES,
-        ...LEGACY_DISPLAY_LOCALE_KEYS,
+        ...CUSTOM_LEGACY_KEYS,
         ...legacyVersionedGlobalKeys,
       ]),
     ]);
@@ -298,11 +194,16 @@ export async function createPreferencesModule(
         }
       }
     }
-    if (stored.displayLocale === undefined) {
-      const migrated = migrateLegacyDisplayLocale(stored);
+    for (const name of PREFERENCE_NAMES) {
+      const descriptor = PREFERENCE_SCHEMA[name] as PreferenceDescriptor<unknown>;
+      if (!descriptor.legacyMigrate) continue;
+      const key = getPreferenceStorageKey(name, version);
+      if (stored[key] !== undefined || key in repairs) continue;
+      const migrated = descriptor.legacyMigrate(stored);
       if (migrated !== undefined) {
-        loaded.displayLocale = migrated;
-        repairs.displayLocale = migrated;
+        const normalized = normalizePreference(name, migrated);
+        loaded[name] = normalized as never;
+        repairs[key] = normalized;
       }
     }
 

@@ -60,61 +60,6 @@ export const FONT_SIZE_SCALE_BOUNDS = Object.freeze({
 
 export const FONT_SIZE_PERCENT_STEP = 5;
 
-export const GLOBAL_PREFERENCE_NAMES = [
-  'theme',
-  'themeCustomOverrides',
-  'displayLocale',
-  'marketTranslation',
-  'marketTranslationBilingual',
-  'marketTranslationResultBilingual',
-  'collapsedTabTop',
-  'sidebarPosition',
-  'sidebarWidth',
-  'fontSizeScale',
-  'densityScale',
-  'enablePureBackground',
-  'enableAutoTitle',
-  'enableHotkeys',
-  'hotkeyFocus',
-  'hotkeyClear',
-  'enableSearchTilde',
-  'enableFilterTilde',
-  'addBookmarkBtnPosition',
-  'searchEntryClickAction',
-  'enableBookmarkTooltip',
-] as const;
-export type GlobalPreferenceName = (typeof GLOBAL_PREFERENCE_NAMES)[number];
-export type VersionedPreferenceName = Exclude<keyof Preferences, GlobalPreferenceName>;
-export type GlobalPreferences = Pick<Preferences, GlobalPreferenceName>;
-export type VersionedPreferences = Pick<Preferences, VersionedPreferenceName>;
-
-/** 曾經依遊戲版本（`${name}_poe1` / `${name}_poe2`）儲存、現已併入全域的偏好名稱 */
-export const LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES = [
-  'collapsedTabTop',
-  'sidebarPosition',
-  'sidebarWidth',
-  'fontSizeScale',
-  'densityScale',
-  'enablePureBackground',
-  'enableAutoTitle',
-  'enableHotkeys',
-  'hotkeyFocus',
-  'hotkeyClear',
-  'enableSearchTilde',
-  'enableFilterTilde',
-  'addBookmarkBtnPosition',
-  'searchEntryClickAction',
-  'enableBookmarkTooltip',
-] as const satisfies readonly GlobalPreferenceName[];
-
-export function isGlobalPreference(name: string): name is GlobalPreferenceName {
-  return (GLOBAL_PREFERENCE_NAMES as readonly string[]).includes(name);
-}
-
-export function getPreferenceStorageKey(name: keyof Preferences, version: PoeVersion): string {
-  return isGlobalPreference(name) ? name : `${name}_${version}`;
-}
-
 export const LIVE_SEARCH_RESUME_MODES = ['off', 'prompt', 'auto'] as const;
 export type LiveSearchResumeMode = (typeof LIVE_SEARCH_RESUME_MODES)[number];
 
@@ -250,48 +195,359 @@ export interface Preferences {
   themeCustomOverrides: string;
 }
 
-export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze({
-  addBookmarkBtnPosition: 'top',
-  collapsedTabTop: 100,
-  densityScale: 1,
-  displayLocale: 'auto',
-  enableAffixSelector: true,
-  enableAutoTitle: true,
-  enableBookmarkTooltip: true,
-  enableFilterTilde: true,
-  enableHotkeys: true,
-  enableItemNormalizer: true,
-  enablePriceComparison: true,
-  enablePureBackground: true,
-  enableResultExternalLinks: true,
-  enableResultModHighlight: true,
-  enableResultModQuickFilter: true,
-  enableResultPobCopy: true,
-  enableSearchTilde: true,
-  enableTierHelper: true,
-  fontSizeScale: 1,
-  hotkeyClear: '\\',
-  hotkeyFocus: '/',
-  liveSearchDesktopNotificationEnabled: false,
-  liveSearchFetchOrder: 'newest',
-  liveSearchMaxDisplayedResults: 100,
-  liveSearchResumeMode: 'prompt',
-  liveSearchSelectedLeague: '',
-  liveSearchSoundEnabled: true,
-  liveSearchTokenMaxAgeSec: 3,
-  marketTranslation: false,
-  marketTranslationBilingual: true,
-  marketTranslationResultBilingual: false,
-  searchEntryClickAction: 'preview',
-  sidebarModuleBookmarks: true,
-  sidebarModuleHistory: true,
-  sidebarModuleLiveSearch: true,
-  sidebarModulePinnedItems: true,
-  sidebarModulePobBuild: true,
-  sidebarModuleResultBoard: true,
-  sidebarModuleStatGroupTemplates: true,
-  sidebarPosition: 'left',
-  sidebarWidth: 380,
-  theme: DEFAULT_THEME_ID,
-  themeCustomOverrides: DEFAULT_THEME_OVERRIDES_JSON,
-});
+export type PreferenceScope = 'global' | 'versioned';
+
+export interface PreferenceDescriptor<T> {
+  readonly scope: PreferenceScope;
+  readonly default: T;
+  readonly validate: (value: unknown) => boolean;
+  readonly normalize?: (value: unknown) => T;
+  /** 標記曾經依遊戲版本（`${name}_poe1` / `${name}_poe2`）儲存、現已併入全域的偏好 */
+  readonly legacyVersionedGlobal?: true;
+  /** 需於初始化時一併讀取的舊版儲存 key */
+  readonly legacyKeys?: readonly string[];
+  /** 當目前 key 未設定時，從舊版儲存資料推導遷移值；無需遷移時回傳 undefined */
+  readonly legacyMigrate?: (stored: Readonly<Record<string, unknown>>) => T | undefined;
+}
+
+type PreferenceSchemaMap = {
+  readonly [K in keyof Preferences]: PreferenceDescriptor<Preferences[K]>;
+};
+
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
+const isString = (value: unknown): value is string => typeof value === 'string';
+const isOneOf =
+  <T extends readonly unknown[]>(values: T) =>
+  (value: unknown): value is T[number] =>
+    values.includes(value);
+const isFiniteNumberInRange =
+  (bounds: Readonly<{ min: number; max: number }>) =>
+  (value: unknown): value is number =>
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= bounds.min &&
+    value <= bounds.max;
+const isIntegerInRange =
+  (bounds: Readonly<{ min: number; max: number }>) =>
+  (value: unknown): value is number =>
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= bounds.min &&
+    value <= bounds.max;
+
+const isDensityScale = isOneOf(DENSITY_SCALE_VALUES);
+const normalizeDensityScale = (value: unknown): number => {
+  if (isDensityScale(value)) return value;
+  if (value === 0.7 || value === 0.85) return 0.8;
+  if (value === 1.15) return 1;
+  return 1;
+};
+
+/**
+ * 單一宣告式 Preference schema：集中宣告每個偏好的 scope、預設值、驗證器、
+ * 正規化與舊版遷移規則；預設值表、全域白名單與驗證邏輯皆由此推導。
+ */
+export const PREFERENCE_SCHEMA = Object.freeze({
+  theme: {
+    scope: 'global',
+    default: DEFAULT_THEME_ID,
+    validate: isValidThemeId,
+    normalize: normalizeThemeId,
+  },
+  themeCustomOverrides: {
+    scope: 'global',
+    default: DEFAULT_THEME_OVERRIDES_JSON,
+    validate: isValidThemeOverridesJson,
+    normalize: normalizeThemeOverridesJson,
+  },
+  displayLocale: {
+    scope: 'global',
+    default: 'auto',
+    validate: isDisplayLocalePreference,
+    legacyKeys: LEGACY_DISPLAY_LOCALE_KEYS,
+    legacyMigrate: migrateLegacyDisplayLocale,
+  },
+  marketTranslation: {
+    scope: 'global',
+    default: false,
+    validate: isBoolean,
+  },
+  marketTranslationBilingual: {
+    scope: 'global',
+    default: true,
+    validate: isBoolean,
+  },
+  marketTranslationResultBilingual: {
+    scope: 'global',
+    default: false,
+    validate: isBoolean,
+  },
+  collapsedTabTop: {
+    scope: 'global',
+    default: 100,
+    validate: isFiniteNumberInRange(COLLAPSED_TAB_TOP_BOUNDS),
+    legacyVersionedGlobal: true,
+  },
+  sidebarPosition: {
+    scope: 'global',
+    default: 'left',
+    validate: isOneOf(SIDEBAR_POSITIONS),
+    legacyVersionedGlobal: true,
+  },
+  sidebarWidth: {
+    scope: 'global',
+    default: 380,
+    validate: isFiniteNumberInRange(SIDEBAR_WIDTH_BOUNDS),
+    legacyVersionedGlobal: true,
+  },
+  fontSizeScale: {
+    scope: 'global',
+    default: 1,
+    validate: isFiniteNumberInRange(FONT_SIZE_SCALE_BOUNDS),
+    legacyVersionedGlobal: true,
+  },
+  densityScale: {
+    scope: 'global',
+    default: 1,
+    validate: isDensityScale,
+    normalize: normalizeDensityScale,
+    legacyVersionedGlobal: true,
+  },
+  enablePureBackground: {
+    scope: 'global',
+    default: true,
+    validate: isBoolean,
+    legacyVersionedGlobal: true,
+  },
+  enableAutoTitle: {
+    scope: 'global',
+    default: true,
+    validate: isBoolean,
+    legacyVersionedGlobal: true,
+  },
+  enableHotkeys: {
+    scope: 'global',
+    default: true,
+    validate: isBoolean,
+    legacyVersionedGlobal: true,
+  },
+  hotkeyFocus: {
+    scope: 'global',
+    default: '/',
+    validate: isString,
+    legacyVersionedGlobal: true,
+  },
+  hotkeyClear: {
+    scope: 'global',
+    default: '\\',
+    validate: isString,
+    legacyVersionedGlobal: true,
+  },
+  enableSearchTilde: {
+    scope: 'global',
+    default: true,
+    validate: isBoolean,
+    legacyVersionedGlobal: true,
+  },
+  enableFilterTilde: {
+    scope: 'global',
+    default: true,
+    validate: isBoolean,
+    legacyVersionedGlobal: true,
+  },
+  addBookmarkBtnPosition: {
+    scope: 'global',
+    default: 'top',
+    validate: isOneOf(BOOKMARK_BUTTON_POSITIONS),
+    legacyVersionedGlobal: true,
+  },
+  searchEntryClickAction: {
+    scope: 'global',
+    default: 'preview',
+    validate: isOneOf(SEARCH_ENTRY_CLICK_ACTIONS),
+    legacyVersionedGlobal: true,
+  },
+  enableBookmarkTooltip: {
+    scope: 'global',
+    default: true,
+    validate: isBoolean,
+    legacyVersionedGlobal: true,
+  },
+  enableAffixSelector: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  enableItemNormalizer: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  enablePriceComparison: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  enableResultExternalLinks: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  enableResultModHighlight: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  enableResultModQuickFilter: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  enableResultPobCopy: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  enableTierHelper: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  liveSearchDesktopNotificationEnabled: {
+    scope: 'versioned',
+    default: false,
+    validate: isBoolean,
+  },
+  liveSearchFetchOrder: {
+    scope: 'versioned',
+    default: 'newest',
+    validate: isOneOf(LIVE_SEARCH_FETCH_ORDER_VALUES),
+  },
+  liveSearchMaxDisplayedResults: {
+    scope: 'versioned',
+    default: 100,
+    validate: isOneOf(LIVE_SEARCH_MAX_DISPLAYED_RESULTS_VALUES),
+  },
+  liveSearchResumeMode: {
+    scope: 'versioned',
+    default: 'prompt',
+    validate: isOneOf(LIVE_SEARCH_RESUME_MODES),
+  },
+  liveSearchSelectedLeague: {
+    scope: 'versioned',
+    default: '',
+    validate: isString,
+  },
+  liveSearchSoundEnabled: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  liveSearchTokenMaxAgeSec: {
+    scope: 'versioned',
+    default: 3,
+    validate: isIntegerInRange(LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS),
+  },
+  sidebarModuleBookmarks: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  sidebarModuleHistory: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  sidebarModuleLiveSearch: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  sidebarModulePinnedItems: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  sidebarModulePobBuild: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  sidebarModuleResultBoard: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+  sidebarModuleStatGroupTemplates: {
+    scope: 'versioned',
+    default: true,
+    validate: isBoolean,
+  },
+} as const satisfies PreferenceSchemaMap);
+
+type PreferenceSchema = typeof PREFERENCE_SCHEMA;
+
+export type PreferenceName = keyof Preferences;
+export type GlobalPreferenceName = {
+  [K in keyof PreferenceSchema]: PreferenceSchema[K]['scope'] extends 'global' ? K : never;
+}[keyof PreferenceSchema];
+export type VersionedPreferenceName = Exclude<PreferenceName, GlobalPreferenceName>;
+export type LegacyVersionedGlobalPreferenceName = {
+  [K in keyof PreferenceSchema]: PreferenceSchema[K] extends { legacyVersionedGlobal: true }
+    ? K
+    : never;
+}[keyof PreferenceSchema];
+export type GlobalPreferences = Pick<Preferences, GlobalPreferenceName>;
+export type VersionedPreferences = Pick<Preferences, VersionedPreferenceName>;
+
+export const PREFERENCE_NAMES: readonly PreferenceName[] = Object.freeze(
+  Object.keys(PREFERENCE_SCHEMA) as PreferenceName[],
+);
+
+export const DEFAULT_PREFERENCES: Readonly<Preferences> = Object.freeze(
+  Object.fromEntries(
+    PREFERENCE_NAMES.map((name) => [name, PREFERENCE_SCHEMA[name].default]),
+  ) as unknown as Preferences,
+);
+
+export const GLOBAL_PREFERENCE_NAMES: readonly GlobalPreferenceName[] = Object.freeze(
+  PREFERENCE_NAMES.filter(
+    (name): name is GlobalPreferenceName => PREFERENCE_SCHEMA[name].scope === 'global',
+  ),
+);
+
+const GLOBAL_PREFERENCE_NAME_SET = new Set<string>(GLOBAL_PREFERENCE_NAMES);
+
+/** 曾經依遊戲版本（`${name}_poe1` / `${name}_poe2`）儲存、現已併入全域的偏好名稱 */
+export const LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES: readonly LegacyVersionedGlobalPreferenceName[] =
+  Object.freeze(
+    PREFERENCE_NAMES.filter(
+      (name): name is LegacyVersionedGlobalPreferenceName =>
+        'legacyVersionedGlobal' in PREFERENCE_SCHEMA[name] &&
+        PREFERENCE_SCHEMA[name].legacyVersionedGlobal === true,
+    ),
+  );
+
+export function isGlobalPreference(name: string): name is GlobalPreferenceName {
+  return GLOBAL_PREFERENCE_NAME_SET.has(name);
+}
+
+export function getPreferenceStorageKey(name: keyof Preferences, version: PoeVersion): string {
+  return isGlobalPreference(name) ? name : `${name}_${version}`;
+}
+
+const PREFERENCE_SCHEMA_MAP: PreferenceSchemaMap = PREFERENCE_SCHEMA;
+
+export function isValidPreference(name: keyof Preferences, value: unknown): boolean {
+  if (!Object.prototype.hasOwnProperty.call(PREFERENCE_SCHEMA, name)) return false;
+  return PREFERENCE_SCHEMA_MAP[name].validate(value);
+}
+
+export function normalizePreference<K extends keyof Preferences>(
+  name: K,
+  value: unknown,
+): Preferences[K] {
+  const descriptor = PREFERENCE_SCHEMA_MAP[name];
+  if (descriptor.normalize) return descriptor.normalize(value);
+  return descriptor.validate(value) ? (value as Preferences[K]) : descriptor.default;
+}

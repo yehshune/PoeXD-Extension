@@ -848,9 +848,10 @@ import {
 } from './settings/settings-ui-metadata';
 import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
 import { clampFontSizeScale } from '@/utils/appearance-preferences';
-import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
+import { detectBrowserLocale, resolvePreferredChineseLocale } from '@/utils/locale-resolution';
 import {
   isMarketTranslationDisplayLocale,
+  isMarketTranslationReloadRequired,
   resolveMarketTranslationLocale,
 } from '@/utils/market-translation';
 import { getPreferences, type PreferencesModule } from '@/utils/preferences';
@@ -937,7 +938,7 @@ export default defineComponent({
       }),
     );
 
-    let pageLoadMarketState: { locale: string | null; bilingual: boolean } | null = null;
+    let pageLoadMarketBaseline: Readonly<Preferences> | null = null;
     const marketTranslationReloadRequired = ref(false);
     const marketTranslationRefreshing = ref(false);
     const marketTranslationRefreshStatus = ref<'idle' | 'updated' | 'failed'>('idle');
@@ -969,19 +970,6 @@ export default defineComponent({
       } finally {
         marketTranslationRefreshing.value = false;
       }
-    };
-
-    const computeEffectiveMarketState = (snapshot: Readonly<Preferences>) => {
-      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-      const locale = resolveMarketTranslationLocale({
-        enabled: snapshot.marketTranslation === true,
-        displayLocale: snapshot.displayLocale,
-        hostname,
-      });
-      return {
-        locale,
-        bilingual: locale !== null && snapshot.marketTranslationBilingual === true,
-      };
     };
 
     const reloadPage = () => {
@@ -1048,15 +1036,18 @@ export default defineComponent({
     const applyPreferences = (snapshot: Readonly<Preferences>) => {
       Object.assign(preferenceState, snapshot);
       setActiveDisplayLocalePreference(snapshot.displayLocale);
-      const currentMarketState = computeEffectiveMarketState(snapshot);
-      if (pageLoadMarketState === null) {
+      if (pageLoadMarketBaseline === null) {
         // 設定分頁第一次打開才掛載：基準要用開頁時的偏好，不是掛載當下的
-        const pageLoad = getPageLoadPreferences();
-        pageLoadMarketState = pageLoad ? computeEffectiveMarketState(pageLoad) : currentMarketState;
+        pageLoadMarketBaseline = getPageLoadPreferences() ?? snapshot;
       }
-      marketTranslationReloadRequired.value =
-        currentMarketState.locale !== pageLoadMarketState.locale ||
-        currentMarketState.bilingual !== pageLoadMarketState.bilingual;
+      marketTranslationReloadRequired.value = isMarketTranslationReloadRequired(
+        pageLoadMarketBaseline,
+        snapshot,
+        {
+          hostname: typeof window !== 'undefined' ? window.location.hostname : '',
+          browserLocale: detectBrowserLocale(),
+        },
+      );
     };
 
     const updatePreferences = async (changes: Partial<Preferences>) => {

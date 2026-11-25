@@ -9,12 +9,18 @@ import {
   DISPLAY_LOCALE_VALUES,
   FONT_SIZE_PERCENT_STEP,
   FONT_SIZE_SCALE_BOUNDS,
+  GLOBAL_PREFERENCE_NAMES,
+  LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES,
+  PREFERENCE_NAMES,
+  PREFERENCE_SCHEMA,
   SIDEBAR_POSITIONS,
   SIDEBAR_WIDTH_BOUNDS,
   SUPPORTED_AFFIX_LOCALES,
   SUPPORTED_LOCALES,
   SUPPORTED_UI_LOCALES,
-  GLOBAL_PREFERENCE_NAMES,
+  isValidPreference,
+  normalizePreference,
+  type Preferences,
 } from '@/utils/preferences-contract';
 
 describe('Preferences Domain Contract', () => {
@@ -151,5 +157,50 @@ describe('Preferences Domain Contract', () => {
       'utf-8',
     );
     expect(planner).toContain('FONT_SIZE_SCALE_BOUNDS');
+  });
+
+  it('derives schema integrity: every default validates and round-trips through normalizePreference', () => {
+    expect(Object.isFrozen(PREFERENCE_SCHEMA)).toBe(true);
+    expect(Object.isFrozen(PREFERENCE_NAMES)).toBe(true);
+    expect(Object.isFrozen(GLOBAL_PREFERENCE_NAMES)).toBe(true);
+    expect(Object.isFrozen(LEGACY_VERSIONED_GLOBAL_PREFERENCE_NAMES)).toBe(true);
+    expect([...PREFERENCE_NAMES].sort()).toEqual(Object.keys(DEFAULT_PREFERENCES).sort());
+
+    for (const name of PREFERENCE_NAMES) {
+      const defaultValue = DEFAULT_PREFERENCES[name];
+      expect(isValidPreference(name, defaultValue)).toBe(true);
+      expect(normalizePreference(name, defaultValue)).toBe(defaultValue);
+    }
+  });
+
+  it('rejects unknown keys, prototype keys, and wrong-typed values without falling through to string acceptance', () => {
+    expect(isValidPreference('unknownPreference' as keyof Preferences, 'non-empty-string')).toBe(
+      false,
+    );
+    expect(isValidPreference('toString' as keyof Preferences, 'non-empty-string')).toBe(false);
+    expect(isValidPreference('constructor' as keyof Preferences, 'non-empty-string')).toBe(false);
+
+    expect(isValidPreference('enableHotkeys', 'true')).toBe(false);
+    expect(isValidPreference('sidebarWidth', '400')).toBe(false);
+    expect(isValidPreference('sidebarWidth', Number.NaN)).toBe(false);
+    expect(isValidPreference('collapsedTabTop', Number.POSITIVE_INFINITY)).toBe(false);
+    expect(isValidPreference('liveSearchTokenMaxAgeSec', 3.5)).toBe(false);
+    expect(isValidPreference('liveSearchTokenMaxAgeSec', -1)).toBe(false);
+    expect(isValidPreference('liveSearchTokenMaxAgeSec', 301)).toBe(false);
+    expect(isValidPreference('displayLocale', 'klingon')).toBe(false);
+    expect(isValidPreference('hotkeyFocus', 123)).toBe(false);
+    expect(isValidPreference('hotkeyFocus', '')).toBe(true);
+  });
+
+  it('normalizes legacy densityScale, theme, and themeCustomOverrides via PREFERENCE_SCHEMA', () => {
+    expect(normalizePreference('densityScale', 0.7)).toBe(0.8);
+    expect(normalizePreference('densityScale', 0.85)).toBe(0.8);
+    expect(normalizePreference('densityScale', 1.15)).toBe(1);
+    expect(normalizePreference('densityScale', 'compact')).toBe(1);
+    expect(normalizePreference('theme', 'invalid-theme')).toBe(DEFAULT_PREFERENCES.theme);
+    expect(normalizePreference('themeCustomOverrides', 'not-json')).toBe(
+      DEFAULT_PREFERENCES.themeCustomOverrides,
+    );
+    expect(normalizePreference('sidebarWidth', 9999)).toBe(DEFAULT_PREFERENCES.sidebarWidth);
   });
 });

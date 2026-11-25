@@ -1,35 +1,5 @@
+import type { I18nKey } from './i18n';
 import type { Preferences } from './preferences-contract';
-
-/**
- * Sidebar Module：側邊欄導覽列上可由使用者開關的功能分頁或入口。
- * 關閉後導覽列不再顯示該圖示，對應的頁面注入 UI 也一併停用（見各 runtime 消費端）。
- * 工具與資訊、系統設定是固定分頁，不屬於 Sidebar Module。
- */
-export const SIDEBAR_MODULE_IDS = [
-  'bookmark',
-  'history',
-  'stat-group-template',
-  'pob-build',
-  'pinned-items',
-  'result-board',
-  'live-search',
-] as const;
-export type SidebarModuleId = (typeof SIDEBAR_MODULE_IDS)[number];
-
-export const SIDEBAR_FIXED_TAB_IDS = ['tools', 'settings'] as const;
-export type SidebarFixedTabId = (typeof SIDEBAR_FIXED_TAB_IDS)[number];
-
-/** live-search 是開啟主控台的入口按鈕，不是分頁，所以不在可切換的分頁清單內。 */
-export type SidebarPaneTabId = Exclude<SidebarModuleId, 'live-search'> | SidebarFixedTabId;
-
-export type SidebarModulePreferenceKey =
-  | 'sidebarModuleBookmarks'
-  | 'sidebarModuleHistory'
-  | 'sidebarModuleStatGroupTemplates'
-  | 'sidebarModulePobBuild'
-  | 'sidebarModulePinnedItems'
-  | 'sidebarModuleResultBoard'
-  | 'sidebarModuleLiveSearch';
 
 /** 設定分頁中的區塊 id；模組可指向與它相關的設定區塊，讓使用者一鍵跳過去。 */
 export const SETTINGS_SECTION_IDS = [
@@ -42,29 +12,171 @@ export const SETTINGS_SECTION_IDS = [
 ] as const;
 export type SettingsSectionId = (typeof SETTINGS_SECTION_IDS)[number];
 
-export interface SidebarModuleDefinition {
-  id: SidebarModuleId;
-  preferenceKey: SidebarModulePreferenceKey;
-  /** 與此模組相關的設定區塊；沒有專屬設定時為 null */
-  settingsSection: SettingsSectionId | null;
+export type SidebarDescriptorKind = 'module-tab' | 'action' | 'fixed-tab';
+export type SidebarTabScrollMode = 'pane' | 'shell';
+
+type BooleanPreferenceKey = {
+  [K in keyof Preferences]: Preferences[K] extends boolean ? K : never;
+}[keyof Preferences];
+
+interface SidebarDescriptorBase {
+  readonly id: string;
+  readonly kind: SidebarDescriptorKind;
+  readonly labelKey: I18nKey;
 }
 
-export const SIDEBAR_MODULES: readonly SidebarModuleDefinition[] = Object.freeze([
-  { id: 'bookmark', preferenceKey: 'sidebarModuleBookmarks', settingsSection: 'bookmarks' },
-  { id: 'history', preferenceKey: 'sidebarModuleHistory', settingsSection: 'bookmarks' },
+interface SidebarModuleTabDescriptorShape extends SidebarDescriptorBase {
+  readonly kind: 'module-tab';
+  readonly preferenceKey: BooleanPreferenceKey;
+  readonly settingsSection: SettingsSectionId | null;
+  readonly scrollMode: SidebarTabScrollMode;
+  readonly descriptionKey: I18nKey;
+}
+
+interface SidebarModuleActionDescriptorShape extends SidebarDescriptorBase {
+  readonly kind: 'action';
+  readonly preferenceKey: BooleanPreferenceKey;
+  readonly settingsSection: SettingsSectionId | null;
+  readonly descriptionKey: I18nKey;
+}
+
+interface SidebarFixedTabDescriptorShape extends SidebarDescriptorBase {
+  readonly kind: 'fixed-tab';
+  readonly scrollMode: SidebarTabScrollMode;
+}
+
+type SidebarDescriptorShape =
+  | SidebarModuleTabDescriptorShape
+  | SidebarModuleActionDescriptorShape
+  | SidebarFixedTabDescriptorShape;
+
+/**
+ * Sidebar 模組與固定分頁的單一宣告式描述表（純資料，不含 Vue / icon 相依）。
+ *
+ * - `module-tab`：可由使用者開關的功能分頁（關閉後導覽列不再顯示，對應頁面注入 UI 亦停用）
+ * - `action`：可由使用者開關的外部入口按鈕（如 `live-search`，非 pane 分頁）
+ * - `fixed-tab`：固定分頁（`tools`、`settings`），不屬於可開關的 Sidebar Module
+ */
+export const SIDEBAR_DESCRIPTORS = Object.freeze([
+  {
+    id: 'bookmark',
+    kind: 'module-tab',
+    preferenceKey: 'sidebarModuleBookmarks',
+    settingsSection: 'bookmarks',
+    scrollMode: 'pane',
+    labelKey: 'sidebar.nav.bookmarks',
+    descriptionKey: 'settings.modules.item.bookmark.description',
+  },
+  {
+    id: 'history',
+    kind: 'module-tab',
+    preferenceKey: 'sidebarModuleHistory',
+    settingsSection: 'bookmarks',
+    scrollMode: 'pane',
+    labelKey: 'sidebar.nav.history',
+    descriptionKey: 'settings.modules.item.history.description',
+  },
   {
     id: 'stat-group-template',
+    kind: 'module-tab',
     preferenceKey: 'sidebarModuleStatGroupTemplates',
     settingsSection: null,
+    scrollMode: 'pane',
+    labelKey: 'sidebar.nav.statGroupTemplates',
+    descriptionKey: 'settings.modules.item.stat-group-template.description',
   },
-  { id: 'pob-build', preferenceKey: 'sidebarModulePobBuild', settingsSection: 'bookmarks' },
-  { id: 'pinned-items', preferenceKey: 'sidebarModulePinnedItems', settingsSection: null },
-  { id: 'result-board', preferenceKey: 'sidebarModuleResultBoard', settingsSection: null },
-  { id: 'live-search', preferenceKey: 'sidebarModuleLiveSearch', settingsSection: null },
-] satisfies SidebarModuleDefinition[]);
+  {
+    id: 'pob-build',
+    kind: 'module-tab',
+    preferenceKey: 'sidebarModulePobBuild',
+    settingsSection: 'bookmarks',
+    scrollMode: 'pane',
+    labelKey: 'sidebar.nav.pobBuild',
+    descriptionKey: 'settings.modules.item.pob-build.description',
+  },
+  {
+    id: 'pinned-items',
+    kind: 'module-tab',
+    preferenceKey: 'sidebarModulePinnedItems',
+    settingsSection: null,
+    scrollMode: 'pane',
+    labelKey: 'sidebar.nav.pinnedItems',
+    descriptionKey: 'settings.modules.item.pinned-items.description',
+  },
+  {
+    id: 'result-board',
+    kind: 'module-tab',
+    preferenceKey: 'sidebarModuleResultBoard',
+    settingsSection: null,
+    scrollMode: 'pane',
+    labelKey: 'sidebar.nav.resultBoard',
+    descriptionKey: 'settings.modules.item.result-board.description',
+  },
+  {
+    id: 'live-search',
+    kind: 'action',
+    preferenceKey: 'sidebarModuleLiveSearch',
+    settingsSection: null,
+    labelKey: 'settings.modules.item.live-search.label',
+    descriptionKey: 'settings.modules.item.live-search.description',
+  },
+  {
+    id: 'tools',
+    kind: 'fixed-tab',
+    scrollMode: 'shell',
+    labelKey: 'sidebar.nav.tools',
+  },
+  {
+    id: 'settings',
+    kind: 'fixed-tab',
+    scrollMode: 'pane',
+    labelKey: 'sidebar.nav.settings',
+  },
+] as const satisfies readonly SidebarDescriptorShape[]);
 
-export const SIDEBAR_MODULE_PREFERENCE_KEYS: readonly SidebarModulePreferenceKey[] =
-  SIDEBAR_MODULES.map((module) => module.preferenceKey);
+export type SidebarDescriptor = (typeof SIDEBAR_DESCRIPTORS)[number];
+export type SidebarDescriptorId = SidebarDescriptor['id'];
+export type SidebarModuleDefinition = Extract<
+  SidebarDescriptor,
+  { readonly kind: 'module-tab' | 'action' }
+>;
+export type SidebarFixedTabDescriptor = Extract<SidebarDescriptor, { readonly kind: 'fixed-tab' }>;
+export type SidebarPaneTabDescriptor = Extract<
+  SidebarDescriptor,
+  { readonly kind: 'module-tab' | 'fixed-tab' }
+>;
+
+export type SidebarModuleId = SidebarModuleDefinition['id'];
+export type SidebarFixedTabId = SidebarFixedTabDescriptor['id'];
+/** live-search 是開啟主控台的入口按鈕，不是分頁，所以不在可切換的分頁清單內。 */
+export type SidebarPaneTabId = SidebarPaneTabDescriptor['id'];
+export type SidebarModulePreferenceKey = SidebarModuleDefinition['preferenceKey'];
+
+export const SIDEBAR_MODULES: readonly SidebarModuleDefinition[] = Object.freeze(
+  SIDEBAR_DESCRIPTORS.filter(
+    (descriptor): descriptor is SidebarModuleDefinition => descriptor.kind !== 'fixed-tab',
+  ),
+);
+
+export const SIDEBAR_MODULE_IDS: readonly SidebarModuleId[] = Object.freeze(
+  SIDEBAR_MODULES.map((module) => module.id),
+);
+
+export const SIDEBAR_FIXED_TAB_IDS: readonly SidebarFixedTabId[] = Object.freeze(
+  SIDEBAR_DESCRIPTORS.filter(
+    (descriptor): descriptor is SidebarFixedTabDescriptor => descriptor.kind === 'fixed-tab',
+  ).map((descriptor) => descriptor.id),
+);
+
+export const SIDEBAR_PANE_TABS: readonly SidebarPaneTabDescriptor[] = Object.freeze(
+  SIDEBAR_DESCRIPTORS.filter(
+    (descriptor): descriptor is SidebarPaneTabDescriptor => descriptor.kind !== 'action',
+  ),
+);
+
+export const SIDEBAR_MODULE_PREFERENCE_KEYS: readonly SidebarModulePreferenceKey[] = Object.freeze(
+  SIDEBAR_MODULES.map((module) => module.preferenceKey),
+);
 
 export const DEFAULT_SIDEBAR_MODULE_PREFERENCES: Readonly<
   Record<SidebarModulePreferenceKey, boolean>
@@ -75,7 +187,23 @@ export const DEFAULT_SIDEBAR_MODULE_PREFERENCES: Readonly<
   >,
 );
 
+const PANE_SCROLL_TAB_IDS = new Set<string>(
+  SIDEBAR_PANE_TABS.filter((tab) => tab.scrollMode === 'pane').map((tab) => tab.id),
+);
+
+const FIXED_TAB_ID_SET = new Set<string>(SIDEBAR_FIXED_TAB_IDS);
+
 type ModulePreferences = Pick<Preferences, SidebarModulePreferenceKey>;
+
+/** 指定分頁是否為固定分頁（`tools`、`settings`）。 */
+export function isSidebarFixedTab(tabId: string): tabId is SidebarFixedTabId {
+  return FIXED_TAB_ID_SET.has(tabId);
+}
+
+/** 指定分頁是否由子元件自身的 SidebarPane 負責捲動（而非外層 Sidebar ScrollArea）。 */
+export function usesSidebarPaneScroll(tabId: string): boolean {
+  return PANE_SCROLL_TAB_IDS.has(tabId);
+}
 
 export function getSidebarModule(id: SidebarModuleId): SidebarModuleDefinition {
   const found = SIDEBAR_MODULES.find((module) => module.id === id);
@@ -89,10 +217,9 @@ export function isSidebarModuleEnabled(prefs: ModulePreferences, id: SidebarModu
 
 /** 依導覽列顯示順序回傳目前可見的分頁 id（啟用中的模組分頁，加上固定分頁）。 */
 export function resolveVisiblePaneTabs(prefs: ModulePreferences): readonly SidebarPaneTabId[] {
-  const moduleTabs = SIDEBAR_MODULES.filter(
-    (module) => module.id !== 'live-search' && prefs[module.preferenceKey] !== false,
-  ).map((module) => module.id as SidebarPaneTabId);
-  return [...moduleTabs, ...SIDEBAR_FIXED_TAB_IDS];
+  return SIDEBAR_PANE_TABS.filter(
+    (tab) => tab.kind === 'fixed-tab' || prefs[tab.preferenceKey] !== false,
+  ).map((tab) => tab.id);
 }
 
 /**
@@ -105,9 +232,7 @@ export function resolveActivePaneTab(
 ): SidebarPaneTabId {
   const visible = resolveVisiblePaneTabs(prefs);
   if ((visible as readonly string[]).includes(requested)) return requested as SidebarPaneTabId;
-  const firstModuleTab = visible.find(
-    (tab) => !(SIDEBAR_FIXED_TAB_IDS as readonly string[]).includes(tab),
-  );
+  const firstModuleTab = visible.find((tab) => !FIXED_TAB_ID_SET.has(tab));
   return firstModuleTab ?? 'settings';
 }
 

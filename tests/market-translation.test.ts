@@ -4,6 +4,8 @@ import {
   readMarketDropdownLocale,
   getMarketUiAssetPath,
   isMarketTranslationHost,
+  isMarketTranslationReloadRequired,
+  resolveEffectiveMarketTranslationState,
   resolveMarketTranslationLocale,
 } from '@/utils/market-translation';
 
@@ -121,5 +123,124 @@ describe('markMarketTranslationActive／readMarketDropdownLocale', () => {
     const target = doc();
     target.documentElement.dataset.poexdMarketDropdownLocale = 'ja';
     expect(readMarketDropdownLocale(target)).toBeNull();
+  });
+});
+
+describe('resolveEffectiveMarketTranslationState／isMarketTranslationReloadRequired', () => {
+  const intlZhTw = { hostname: 'www.pathofexile.com', browserLocale: 'zh-TW' };
+  const intlEnUs = { hostname: 'www.pathofexile.com', browserLocale: 'en-US' };
+  const twRealm = { hostname: 'pathofexile.tw', browserLocale: 'zh-TW' };
+
+  it('將未指定的 marketTranslationBilingual 視為啟用（與預設值 true 一致），停用翻譯時 bilingual 為 false', () => {
+    expect(
+      resolveEffectiveMarketTranslationState(
+        { marketTranslation: true, displayLocale: 'zh-TW', marketTranslationBilingual: undefined },
+        intlEnUs,
+      ),
+    ).toEqual({ locale: 'zh-TW', bilingual: true });
+
+    expect(
+      resolveEffectiveMarketTranslationState(
+        { marketTranslation: true, displayLocale: 'zh-CN', marketTranslationBilingual: false },
+        intlEnUs,
+      ),
+    ).toEqual({ locale: 'zh-CN', bilingual: false });
+
+    expect(
+      resolveEffectiveMarketTranslationState(
+        { marketTranslation: false, displayLocale: 'zh-TW', marketTranslationBilingual: true },
+        intlEnUs,
+      ),
+    ).toEqual({ locale: null, bilingual: false });
+  });
+
+  it('依明確傳入的 browserLocale 解析 displayLocale: auto', () => {
+    expect(
+      resolveEffectiveMarketTranslationState(
+        { marketTranslation: true, displayLocale: 'auto' },
+        intlZhTw,
+      ),
+    ).toEqual({ locale: 'zh-TW', bilingual: true });
+
+    expect(
+      resolveEffectiveMarketTranslationState(
+        { marketTranslation: true, displayLocale: 'auto' },
+        intlEnUs,
+      ),
+    ).toEqual({ locale: null, bilingual: false });
+  });
+
+  it('偵測市集漢化開關、Display Locale 與下拉中英並列切換是否需要重新整理', () => {
+    const offBase = {
+      marketTranslation: false,
+      displayLocale: 'auto' as const,
+      marketTranslationBilingual: true,
+    };
+    const onTwAuto = {
+      marketTranslation: true,
+      displayLocale: 'auto' as const,
+      marketTranslationBilingual: undefined,
+    };
+    const onTwExplicit = {
+      marketTranslation: true,
+      displayLocale: 'zh-TW' as const,
+      marketTranslationBilingual: true,
+    };
+    const onCn = {
+      marketTranslation: true,
+      displayLocale: 'zh-CN' as const,
+      marketTranslationBilingual: true,
+    };
+    const onTwMono = {
+      marketTranslation: true,
+      displayLocale: 'zh-TW' as const,
+      marketTranslationBilingual: false,
+    };
+
+    // 開關市集漢化
+    expect(isMarketTranslationReloadRequired(offBase, onTwAuto, intlZhTw)).toBe(true);
+    expect(isMarketTranslationReloadRequired(offBase, offBase, intlZhTw)).toBe(false);
+
+    // auto（瀏覽器 zh-TW）與明確 zh-TW、以及 undefined 與 true 的 bilingual 皆為相同有效狀態
+    expect(isMarketTranslationReloadRequired(onTwAuto, onTwExplicit, intlZhTw)).toBe(false);
+
+    // 切換目標中文語系或切換下拉中英並列需重新整理
+    expect(isMarketTranslationReloadRequired(onTwExplicit, onCn, intlZhTw)).toBe(true);
+    expect(isMarketTranslationReloadRequired(onTwAuto, onTwMono, intlZhTw)).toBe(true);
+    expect(isMarketTranslationReloadRequired(onTwExplicit, onTwMono, intlZhTw)).toBe(true);
+
+    // 未啟用漢化時切換 bilingual 不需重新整理
+    expect(
+      isMarketTranslationReloadRequired(
+        { marketTranslation: false, displayLocale: 'zh-TW', marketTranslationBilingual: true },
+        { marketTranslation: false, displayLocale: 'zh-TW', marketTranslationBilingual: false },
+        intlZhTw,
+      ),
+    ).toBe(false);
+  });
+
+  it('非國際服（例如台服或日服）一律不需要重新整理', () => {
+    const baseline = {
+      marketTranslation: false,
+      displayLocale: 'en' as const,
+      marketTranslationBilingual: true,
+    };
+    const current = {
+      marketTranslation: true,
+      displayLocale: 'zh-TW' as const,
+      marketTranslationBilingual: false,
+    };
+
+    expect(resolveEffectiveMarketTranslationState(current, twRealm)).toEqual({
+      locale: null,
+      bilingual: false,
+    });
+    expect(isMarketTranslationReloadRequired(baseline, current, twRealm)).toBe(false);
+    expect(
+      isMarketTranslationReloadRequired(baseline, current, {
+        hostname: 'jp.pathofexile.com',
+        browserLocale: 'zh-TW',
+      }),
+    ).toBe(false);
   });
 });
