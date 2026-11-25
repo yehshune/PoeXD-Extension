@@ -107,7 +107,7 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
         /<Plus \/>[\s\S]*?<span class="pxd-toolbar-btn-text truncate">/,
       );
       expect(pobBuildPaneSource).toMatch(
-        /<ChevronsUpDown \/>[\s\S]*?<span class="pxd-toolbar-btn-text truncate">/,
+        /<ChevronsDownUp \/>[\s\S]*?<span class="pxd-toolbar-btn-text truncate">/,
       );
       expect(pobBuildPaneSource).toMatch(
         /size="icon-sm"[\s\S]*?class="shrink-0"[\s\S]*?data-pob-build-search-toggle/,
