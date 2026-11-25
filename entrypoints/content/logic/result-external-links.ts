@@ -29,7 +29,6 @@ export { RESULT_EXTERNAL_LINKS_CLASS };
 
 export class ResultExternalLinksAdapter {
   private enabled = false;
-  private scopeActive = true;
 
   constructor(
     private readonly version: PoeVersion,
@@ -38,35 +37,21 @@ export class ResultExternalLinksAdapter {
     private readonly exporter: PobItemExporter,
   ) {}
 
-  private isActive(): boolean {
-    return this.enabled && this.scopeActive;
-  }
-
   setEnabled(enabled: boolean): void {
     if (enabled === this.enabled) return;
     this.enabled = enabled;
-    if (this.isActive()) this.refresh();
+    if (enabled) this.refresh();
     else this.removeInjected();
   }
 
-  onScopeActiveChange(active: boolean): void {
-    if (active === this.scopeActive) return;
-    this.scopeActive = active;
-    if (!this.isActive()) {
-      this.removeInjected();
-    } else {
-      this.refresh();
-    }
-  }
-
   refresh(): void {
-    if (!this.isActive()) return;
+    if (!this.enabled) return;
     const root = this.port.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
   apply(container: Element): void {
-    if (!this.isActive()) return;
+    if (!this.enabled) return;
     let injected = false;
     for (const row of collectResultRows(container)) {
       const id = resolveRowId(row);

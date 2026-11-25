@@ -648,7 +648,7 @@ describe('ResultEnhancementHost', () => {
     expect(document.getElementById('poexd-result-left-actions-style')).toBeNull();
   });
 
-  it('釘選按鈕與詞綴高亮屬 scope: always，在 live 與 live-search-primary 下維持運作，其餘 search-normal 完整清理', async () => {
+  it('釘選、PoB、PoEDB 與詞綴高亮屬 scope: always，在 live 與 live-search-primary 下維持運作，價格換算／快篩／排序完整清理', async () => {
     const harness = createFakeHostHarness();
     activeHost = harness.host;
     mountTradeDom(makeRowHtml('r1', { priceCurrencyIcon: true }) + makeRowHtml('r2'));
@@ -682,26 +682,26 @@ describe('ResultEnhancementHost', () => {
     expect(document.querySelector('.poexd-filter-mod-highlight')).not.toBeNull();
     expect(document.querySelector('.poexd-total-controls')).not.toBeNull();
 
-    // 切換為 live-search-primary -> 所有 search-normal 清理，always（釘選、高亮）保留；
-    // 即使在非一般搜尋下再次呼叫 applyPreferences 也不會把 PoB / PoEDB 重新注入
+    // 切換為 live-search-primary -> 價格換算／快篩／排序清理，always（釘選、PoB、PoEDB、高亮）保留
     harness.host.setPageRole('live-search-primary');
     await harness.host.applyPreferences(makePrefs());
-    expect(document.querySelector(`.${RESULT_POB_COPY_BUTTON_CLASS}`)).toBeNull();
-    expect(document.querySelector(`.${RESULT_EXTERNAL_LINKS_CLASS}`)).toBeNull();
     expect(document.querySelector(`.${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS}`)).toBeNull();
     expect(document.querySelector('.poexd-price-comparison')).toBeNull();
     expect(document.querySelector('.poexd-total-controls')).toBeNull();
+    expect(document.querySelector(`.${RESULT_POB_COPY_BUTTON_CLASS}`)).not.toBeNull();
+    expect(document.querySelector(`.${RESULT_EXTERNAL_LINKS_CLASS}`)).not.toBeNull();
     expect(document.querySelector(`.${RESULT_PIN_BUTTON_CLASS}`)).not.toBeNull();
     expect(document.querySelector('.poexd-filter-mod-highlight')).not.toBeNull();
 
-    // 切回 normal 再切換為 live 模式 -> 同樣清理所有 search-normal，保留 always
+    // 切回 normal 再切換為 live 模式 -> 同樣不顯示價格換算／快篩／排序，保留 PoB、PoEDB、釘選與高亮
     harness.host.setPageRole('normal');
     harness.host.setPageMode('live');
     await harness.host.applyPreferences(makePrefs());
-    expect(document.querySelector(`.${RESULT_POB_COPY_BUTTON_CLASS}`)).toBeNull();
-    expect(document.querySelector(`.${RESULT_EXTERNAL_LINKS_CLASS}`)).toBeNull();
     expect(document.querySelector(`.${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS}`)).toBeNull();
+    expect(document.querySelector('.poexd-price-comparison')).toBeNull();
     expect(document.querySelector('.poexd-total-controls')).toBeNull();
+    expect(document.querySelector(`.${RESULT_POB_COPY_BUTTON_CLASS}`)).not.toBeNull();
+    expect(document.querySelector(`.${RESULT_EXTERNAL_LINKS_CLASS}`)).not.toBeNull();
     expect(document.querySelector(`.${RESULT_PIN_BUTTON_CLASS}`)).not.toBeNull();
     expect(document.querySelector('.poexd-filter-mod-highlight')).not.toBeNull();
 

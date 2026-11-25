@@ -171,23 +171,23 @@ export class ResultEnhancementHost {
         cleanup: () => this.modQuickFilterAdapter.cleanup(),
       },
       {
-        scope: 'search-normal',
+        // PoB 複製在一般搜尋、即時搜尋與主控台皆提供（共用 TradeResultCache，見 ADR-0017）
+        scope: 'always',
         apply: (target) => this.pobCopyAdapter.apply(target),
         applyPreferences: (snapshot) => {
           this.pobCopyAdapter.setEnabled(snapshot.enableResultPobCopy);
           this.pobCopyAdapter.refreshLocale();
         },
-        onScopeActiveChange: (active) => this.pobCopyAdapter.onScopeActiveChange(active),
         cleanup: () => this.pobCopyAdapter.cleanup(),
       },
       {
-        scope: 'search-normal',
+        // PoEDB 外部連結在一般搜尋、即時搜尋與主控台皆提供
+        scope: 'always',
         apply: (target) => this.externalLinksAdapter.apply(target),
         applyPreferences: (snapshot) => {
           this.externalLinksAdapter.setEnabled(snapshot.enableResultExternalLinks);
           this.externalLinksAdapter.refreshLocale();
         },
-        onScopeActiveChange: (active) => this.externalLinksAdapter.onScopeActiveChange(active),
         cleanup: () => this.externalLinksAdapter.cleanup(),
       },
       {
@@ -261,24 +261,22 @@ export class ResultEnhancementHost {
       sourceSearchId: parsed.searchId,
     });
 
-    if (this.isSearchNormal()) {
-      if (parsed.searchId) {
-        const isNewSearch = parsed.searchId !== this.activeSearchId;
-        this.activeSearchId = parsed.searchId;
-        const batch: ResultFetchBatch = {
-          searchId: parsed.searchId,
-          league,
-          results: parsed.results,
-          isNewSearch,
-        };
-        this.normalizerAdapter.onFetchBatch(batch);
-        this.sortAdapter.onFetchBatch(batch);
-        await this.priceAdapter.onFetchBatch(batch);
-      }
-      this.pobCopyAdapter.refresh();
-      this.externalLinksAdapter.refresh();
+    if (this.isSearchNormal() && parsed.searchId) {
+      const isNewSearch = parsed.searchId !== this.activeSearchId;
+      this.activeSearchId = parsed.searchId;
+      const batch: ResultFetchBatch = {
+        searchId: parsed.searchId,
+        league,
+        results: parsed.results,
+        isNewSearch,
+      };
+      this.normalizerAdapter.onFetchBatch(batch);
+      this.sortAdapter.onFetchBatch(batch);
+      await this.priceAdapter.onFetchBatch(batch);
     }
 
+    this.pobCopyAdapter.refresh();
+    this.externalLinksAdapter.refresh();
     this.pinAdapter.refresh();
   }
 

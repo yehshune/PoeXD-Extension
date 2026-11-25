@@ -25,7 +25,6 @@ export { RESULT_POB_COPY_BUTTON_CLASS };
 
 export class ResultPobCopyAdapter {
   private enabled = false;
-  private scopeActive = true;
 
   constructor(
     private readonly doc: Document,
@@ -33,38 +32,24 @@ export class ResultPobCopyAdapter {
     private readonly exporter: PobItemExporter,
   ) {}
 
-  private isActive(): boolean {
-    return this.enabled && this.scopeActive;
-  }
-
   setEnabled(enabled: boolean): void {
     if (enabled === this.enabled) return;
     this.enabled = enabled;
-    if (!this.isActive()) {
+    if (!enabled) {
       this.removeInjected();
       return;
     }
     this.refresh();
   }
 
-  onScopeActiveChange(active: boolean): void {
-    if (active === this.scopeActive) return;
-    this.scopeActive = active;
-    if (!this.isActive()) {
-      this.removeInjected();
-    } else {
-      this.refresh();
-    }
-  }
-
   refresh(): void {
-    if (!this.isActive()) return;
+    if (!this.enabled) return;
     const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
   apply(container: Element): void {
-    if (!this.isActive()) return;
+    if (!this.enabled) return;
     let injected = false;
     for (const row of collectResultRows(container)) {
       const id = resolveRowId(row);
