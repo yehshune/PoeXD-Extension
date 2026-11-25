@@ -1171,14 +1171,17 @@ describe('PobBuildPane', () => {
     expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
   });
 
-  it('build 可收合、全部展開/收合、搜尋過濾、改名，刪除使用 poexdConfirm 確認', async () => {
+  it('build 可收合、全部收合（不提供全部展開）、搜尋過濾、改名，刪除使用 poexdConfirm 確認', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
 
     query<HTMLButtonElement>('[data-pob-build-toggle]')!.click();
     expect(fake.toggleCollapsed).toHaveBeenCalledWith('b1');
 
-    query<HTMLButtonElement>('[data-pob-build-expand-all]')!.click();
+    const collapseAllBtn = query<HTMLButtonElement>('[data-pob-build-collapse-all]')!;
+    expect(collapseAllBtn.disabled).toBe(false);
+    expect(collapseAllBtn.textContent).toContain('全部收合');
+    collapseAllBtn.click();
     expect(fake.toggleCollapsed).toHaveBeenCalledTimes(2);
 
     query<HTMLButtonElement>('[data-pob-build-search-toggle]')!.click();
@@ -1188,12 +1191,15 @@ describe('PobBuildPane', () => {
     filterInput.dispatchEvent(new Event('input'));
     await new Promise((r) => setTimeout(r, 180));
     await nextTick();
+    expect(collapseAllBtn.disabled).toBe(true);
     expect(queryAll('[data-pob-build-row]')).toHaveLength(1);
     expect(row(0).textContent).toContain('Punishment');
 
     filterInput.value = '';
     filterInput.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
     await nextTick();
+    expect(collapseAllBtn.disabled).toBe(false);
 
     await openBuildMenu();
     await clickMenuItem('[data-pob-build-rename]');
@@ -1221,6 +1227,26 @@ describe('PobBuildPane', () => {
     await flushAsync();
     expect(confirmSpy).toHaveBeenCalledTimes(2);
     expect(fake.removeBuild).toHaveBeenCalledWith('b1');
+  });
+
+  it('全部收合僅收起展開中的 build，全收合時停用且維持全部收合文案', async () => {
+    buildsRef.value = [
+      sampleBuild(),
+      { ...sampleBuild(), id: 'b2', name: '已收合流派', collapsed: true },
+    ];
+    await mount();
+
+    const collapseAllBtn = query<HTMLButtonElement>('[data-pob-build-collapse-all]')!;
+    expect(collapseAllBtn.disabled).toBe(false);
+    collapseAllBtn.click();
+    expect(fake.toggleCollapsed).toHaveBeenCalledTimes(1);
+    expect(fake.toggleCollapsed).toHaveBeenCalledWith('b1');
+
+    buildsRef.value = buildsRef.value.map((build) => ({ ...build, collapsed: true }));
+    await nextTick();
+    expect(collapseAllBtn.disabled).toBe(true);
+    expect(collapseAllBtn.textContent).toContain('全部收合');
+    expect(collapseAllBtn.textContent).not.toContain('全部展開');
   });
 
   it('收合的 build 只顯示標題列', async () => {

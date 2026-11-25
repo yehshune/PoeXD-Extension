@@ -20,14 +20,14 @@
           variant="outline"
           size="sm"
           class="font-bold shrink-0"
-          data-pob-build-expand-all
-          :disabled="builds.length === 0"
-          :title="isAllCollapsed ? t('common.expandAll') : t('common.collapseAll')"
-          @click="toggleExpandAll"
+          data-pob-build-collapse-all
+          :disabled="!hasExpandedBuild || isFiltering"
+          :title="t('common.collapseAll')"
+          @click="collapseAll"
         >
-          <ChevronsUpDown />
+          <ChevronsDownUp />
           <span class="pxd-toolbar-btn-text truncate">
-            {{ isAllCollapsed ? t('common.expandAll') : t('common.collapseAll') }}
+            {{ t('common.collapseAll') }}
           </span>
         </Button>
 
@@ -443,7 +443,7 @@
                 :aria-expanded="!isGroupCollapsed(build, group.id)"
                 :aria-label="t('pobBuild.toggleGroupAria', { name: groupTitle(group) })"
                 :class="{ 'border-b border-border': !isGroupCollapsed(build, group.id) }"
-                class="m-0 flex cursor-pointer items-center justify-between gap-[var(--pxd-space-sm)] bg-muted/35 hover:bg-muted/55 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-body)] font-bold text-foreground select-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                class="m-0 flex cursor-pointer items-center justify-between gap-[var(--pxd-space-sm)] bg-[color-mix(in_srgb,var(--muted)_35%,var(--card))] hover:bg-[color-mix(in_srgb,var(--muted)_55%,var(--card))] px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-body)] font-bold text-foreground select-none transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 @click="toggleGroupCollapsed(build.id, group.id)"
                 @keydown.enter.prevent="toggleGroupCollapsed(build.id, group.id)"
                 @keydown.space.prevent="toggleGroupCollapsed(build.id, group.id)"
@@ -815,7 +815,7 @@ import {
   ArrowRight,
   BookmarkPlus,
   ChevronDown,
-  ChevronsUpDown,
+  ChevronsDownUp,
   Ellipsis,
   ExternalLink,
   Eye,
@@ -922,7 +922,7 @@ export default defineComponent({
     Button,
     Checkbox,
     ChevronDown,
-    ChevronsUpDown,
+    ChevronsDownUp,
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -1150,14 +1150,11 @@ export default defineComponent({
       pob.openSearch(buildId, row, 'new-tab');
     };
 
-    const isAllCollapsed = computed(
-      () => pob.builds.value.length > 0 && pob.builds.value.every((build) => build.collapsed),
-    );
+    const hasExpandedBuild = computed(() => pob.builds.value.some((build) => !build.collapsed));
 
-    const toggleExpandAll = () => {
-      const targetCollapsed = !isAllCollapsed.value;
+    const collapseAll = () => {
       pob.builds.value
-        .filter((build) => build.collapsed !== targetCollapsed)
+        .filter((build) => !build.collapsed)
         .forEach((build) => pob.toggleCollapsed(build.id));
     };
 
@@ -1317,7 +1314,7 @@ export default defineComponent({
       renameInput,
       isFiltering: workspace.isFiltering,
       visibleBuilds: workspace.visibleBuilds,
-      isAllCollapsed,
+      hasExpandedBuild,
       activePreview: workspace.activePreview,
       activeEffectiveRow: workspace.activeEffectiveRow,
       isActiveDraftModified: workspace.isActiveDraftModified,
@@ -1379,7 +1376,7 @@ export default defineComponent({
       openImportDialog,
       openUpdateDialog,
       handleImport,
-      toggleExpandAll,
+      collapseAll,
       toggleSearch,
       closeSearch,
       startRename,
