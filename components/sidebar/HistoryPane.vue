@@ -195,41 +195,56 @@
                     {{ getCriteriaHint(h) }}
                   </span>
                 </div>
-                <span
-                  v-if="isLiveTradeSearchUrl(h.url)"
-                  data-test="history-live-badge"
-                  class="shrink-0 rounded-sm bg-primary/15 px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] font-medium text-primary group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
+                <div
+                  data-test="history-row-meta"
+                  class="flex shrink-0 items-center gap-[var(--pxd-space-sm)]"
                 >
-                  {{ t('history.row.liveBadge') }}
-                </span>
-                <span
-                  v-if="getOtherLeague(h)"
-                  data-test="history-league-badge"
-                  class="shrink-0 max-w-[7.5em] truncate rounded-sm bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
-                  :title="t('history.row.otherLeagueTooltip', { league: getOtherLeague(h) ?? '' })"
-                >
-                  {{ getOtherLeague(h) }}
-                </span>
-                <span
-                  v-if="isBookmarked(h)"
-                  data-test="history-bookmarked-indicator"
-                  class="inline-flex shrink-0 items-center text-primary group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
-                  :title="t('history.row.bookmarked')"
-                  :aria-label="t('history.row.bookmarked')"
-                >
-                  <BookmarkCheck class="size-[var(--control-icon-sm,14px)]" />
-                </span>
-                <span
-                  v-if="isLegacyTradeSearchUrl(h.url)"
-                  class="legacy-search-badge shrink-0 text-[length:var(--pxd-font-micro)] text-destructive"
-                  :title="t('history.invalidTooltip')"
-                  >{{ t('common.invalid') }}</span
-                >
-                <span
-                  class="shrink-0 text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
-                >
-                  {{ formatTime(h.visitedAt) }}
-                </span>
+                  <span
+                    v-if="isLiveTradeSearchUrl(h.url)"
+                    data-test="history-live-badge"
+                    class="shrink-0 rounded-sm bg-primary/15 px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] font-medium text-primary group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
+                  >
+                    {{ t('history.row.liveBadge') }}
+                  </span>
+                  <span
+                    v-if="getOtherLeague(h)"
+                    data-test="history-league-badge"
+                    class="shrink-0 max-w-[7.5em] truncate rounded-sm bg-muted px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
+                    :title="
+                      t('history.row.otherLeagueTooltip', { league: getOtherLeague(h) ?? '' })
+                    "
+                  >
+                    {{ getOtherLeague(h) }}
+                  </span>
+                  <span
+                    v-if="isLegacyTradeSearchUrl(h.url)"
+                    class="legacy-search-badge shrink-0 text-[length:var(--pxd-font-micro)] text-destructive"
+                    :title="t('history.invalidTooltip')"
+                    >{{ t('common.invalid') }}</span
+                  >
+                  <span
+                    data-test="history-timestamp"
+                    class="shrink-0 text-right leading-none tabular-nums text-[length:var(--pxd-font-micro)] text-muted-foreground group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
+                  >
+                    {{ formatTime(h.visitedAt) }}
+                  </span>
+                  <span
+                    v-if="hasBookmarkedHistory"
+                    data-test="history-bookmarked-slot"
+                    :aria-hidden="isBookmarked(h) ? undefined : 'true'"
+                    class="inline-flex size-[var(--control-icon-sm,14px)] shrink-0 items-center justify-center group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
+                  >
+                    <span
+                      v-if="isBookmarked(h)"
+                      data-test="history-bookmarked-indicator"
+                      class="inline-flex items-center text-primary"
+                      :title="t('history.row.bookmarked')"
+                      :aria-label="t('history.row.bookmarked')"
+                    >
+                      <BookmarkCheck class="size-[var(--control-icon-sm,14px)]" />
+                    </span>
+                  </span>
+                </div>
               </div>
               <div
                 :class="
@@ -645,6 +660,8 @@ export default defineComponent({
       history.value.filter((h) => !isBookmarked(h)),
     );
 
+    const hasBookmarkedHistory = computed(() => filteredHistory.value.some((h) => isBookmarked(h)));
+
     const disambiguationEntryIds = computed(() =>
       findDisambiguationEntryIds(filteredHistory.value, getHistoryName, version),
     );
@@ -990,6 +1007,7 @@ export default defineComponent({
       groupedHistory,
       invalidHistoryEntries,
       unbookmarkedHistoryEntries,
+      hasBookmarkedHistory,
       bookmarksLoaded,
       maxHistoryEntries: MAX_HISTORY_ENTRIES,
       searchQuery,

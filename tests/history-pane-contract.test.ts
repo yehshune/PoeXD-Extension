@@ -525,6 +525,15 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
       const rows = Array.from(container.querySelectorAll('.history-row-item'));
       expect(rows[0].querySelector('[data-test="history-bookmarked-indicator"]')).not.toBeNull();
       expect(rows[1].querySelector('[data-test="history-bookmarked-indicator"]')).toBeNull();
+      // 右側固定槽位：時間在書籤圖示之前，未收藏列在同清單有收藏時保留等寬槽位以對齊時間與圖示
+      const row0MetaChildren = Array.from(
+        rows[0].querySelector('[data-test="history-row-meta"]')?.children ?? [],
+      ).map((el) => el.getAttribute('data-test'));
+      expect(row0MetaChildren).toEqual(['history-timestamp', 'history-bookmarked-slot']);
+      expect(rows[1].querySelector('[data-test="history-bookmarked-slot"]')).not.toBeNull();
+      expect(
+        rows[1].querySelector('[data-test="history-bookmarked-slot"]')?.getAttribute('aria-hidden'),
+      ).toBe('true');
 
       // Already-bookmarked row does not create duplicate bookmark
       await vm.saveHistoryToBookmark(historyEntriesMock.value[0]);
