@@ -19,7 +19,7 @@ poexd-data 依序請求各語言官方市集網域的 `/api/trade/data/{filters,
 | --------------------------- | ----------------------------------- |
 | en                          | www.pathofexile.com                 |
 | zh-TW                       | pathofexile.tw                      |
-| zh-CN                       | poe.game.qq.com（騰訊國服）         |
+| zh-CN                       | poe.game.qq.com（騰訊服）           |
 | ja / ru / de / fr / es / th | {jp,ru,de,fr,es,th}.pathofexile.com |
 | pt                          | br.pathofexile.com                  |
 | ko                          | poe.game.daum.net（Kakao）          |
@@ -71,5 +71,5 @@ poexd-data 依序請求各語言官方市集網域的 `/api/trade/data/{filters,
 - `trade-stats.json` 也是擴充端「市集寫法」的來源（`utils/trade-label-resolver.ts`）：詞綴選擇器的單一詞綴標籤與市集篩選列的詞綴，優先用該語系市集的文字，正負向因此跟市集一致；中文市集回傳的仍是英文時視為沒有翻譯，改用 poexd-data 的 `statTemplates`。
 - 介面字典只當資料解析（`__['鍵'] = '值';`），不執行；出現無法辨識的行就整份拒絕。官方未翻譯（值等於鍵）的條目略過。
 - stats 的同一個 id 可能出現多次且文字不同，這時依 API 出現順序存成陣列，出現次數與國際服不同就略過該 id；static 的 id 跨群組會重複，所以依群組分層。
-- 國服網域從海外連線時好時壞：介面字典會改試 `poe.game.qq.com`，stats / static 失敗時沿用上一版檔案。
+- 騰訊服網域從中國境外連線時好時壞：介面字典會改試 `poe.game.qq.com`，stats / static 失敗時沿用上一版檔案。
 - 格式：`trade-ui.json` 為 `{ schemaVersion, locale, source, strings }`；`trade-stats.json` 為 `{ schemaVersion, gameVersion, locale, source, labels, stats, options }`；`trade-static.json` 為 `{ schemaVersion, gameVersion, locale, source, labels, entries }`。

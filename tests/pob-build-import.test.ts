@@ -418,7 +418,7 @@ describe('buildShoppingList', () => {
     ]);
   });
 
-  it('在地化頁面：名稱換成該區服的市集名稱', () => {
+  it('在地化頁面：名稱換成該伺服器的市集名稱', () => {
     const list = buildShoppingList(
       build,
       createTradeNameCatalog({ englishItems: ENGLISH_ITEMS, localizedItems: TW_ITEMS }),

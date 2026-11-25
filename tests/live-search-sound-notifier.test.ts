@@ -296,7 +296,7 @@ describe('LiveSearchSoundNotifier', () => {
     });
   });
 
-  it('updateOfficialSound 可切換內建與自訂音效，保留原本區服 CDN origin', () => {
+  it('updateOfficialSound 可切換內建與自訂音效，保留原本伺服器 CDN origin', () => {
     const { audio, storage, notifier } = setup();
     audio.src = 'https://web.poecdn.tw/audio/trade/pulse.mp3';
 
@@ -330,7 +330,7 @@ describe('LiveSearchSoundNotifier', () => {
       name: 'alert.mp3',
     });
 
-    // 從自訂切回內建音效時仍使用原區服 CDN
+    // 從自訂切回內建音效時仍使用原伺服器 CDN
     const chime = notifier.updateOfficialSound({
       file: 'audio/trade/chime.mp3',
       custom: false,
@@ -356,7 +356,7 @@ describe('LiveSearchSoundNotifier', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
-  it('初始即為自訂音效時，切回內建音效透過 detectCdnOrigin 解析區服 CDN', () => {
+  it('初始即為自訂音效時，切回內建音效透過 detectCdnOrigin 解析伺服器 CDN', () => {
     const { audio, notifier } = setup({
       detectCdnOrigin: () => 'https://web.poecdn.tw',
     });

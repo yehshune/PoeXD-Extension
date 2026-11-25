@@ -2,7 +2,7 @@
  * PoB 購物清單的物品圖片：poexd-data 的 `item-art.json`（遊戲資料表的「名稱 → 美術路徑、背包尺寸」）
  * 接上官方 CDN 的圖片網址。不再需要先開過搜尋、從結果擷取圖片。
  *
- * PoE1：各區服的市集都能載入國際服 CDN 的圖片，所以一律使用 `web.poecdn.com`。
+ * PoE1：各伺服器的市集都能載入國際服 CDN 的圖片，所以一律使用 `web.poecdn.com`。
  * PoE2：新圖在官方 CDN 沒有固定網址，改用 poexd-data 自遊戲檔轉出、放在 GitHub Pages 的 webp。
  * 網址的主機固定寫在這裡，資料只提供路徑，且路徑必須是單純的檔名路徑。
  */

@@ -191,7 +191,7 @@ export const ZH_TW_MESSAGES = {
   'settings.resultPobCopy.label': '複製 PoB 物品文字',
   'settings.resultPobCopy.infoAria': '複製 PoB 物品文字說明',
   'settings.resultPobCopy.tooltip':
-    '滑鼠懸浮於搜尋結果時，於左上角顯示 PoB 按鈕，一鍵複製可貼到 Path of Building 的英文物品文字；台服與國服頁面會自動轉成英文',
+    '滑鼠懸浮於搜尋結果時，於左上角顯示 PoB 按鈕，一鍵複製可貼到 Path of Building 的英文物品文字；台服與騰訊服頁面會自動轉成英文',
 
   'settings.pureBackground.label': '隱藏官方網頁背景',
   'settings.pureBackground.infoAria': '隱藏官方網頁背景說明',
@@ -200,7 +200,7 @@ export const ZH_TW_MESSAGES = {
   'settings.marketTranslation.label': '市集漢化',
   'settings.marketTranslation.infoAria': '市集漢化說明',
   'settings.marketTranslation.tooltip':
-    '把國際服英文市集的介面、篩選器與搜尋結果顯示成中文，依「語言」設定採用台服（繁體）或國服（簡體）的官方用語。只改變顯示、不影響搜尋內容；切換後重新整理頁面生效',
+    '把國際服英文市集的介面、篩選器與搜尋結果顯示成中文，依「語言」設定採用台服（繁體）或騰訊服（簡體）的官方用語。只改變顯示、不影響搜尋內容；切換後重新整理頁面生效',
   'settings.marketTranslation.bilingualGroup': '中英並列',
   'settings.marketTranslationBilingual.label': '篩選下拉選單',
   'settings.marketTranslationBilingual.description': '顯示「中文 (English)」，打英文也搜得到',
@@ -288,7 +288,7 @@ export const ZH_TW_MESSAGES = {
   'popup.notTrade.notice': '目前分頁非官方交易站，請前往官方交易市集使用完整功能：',
   'popup.notTrade.realm.international': '國際服',
   'popup.notTrade.realm.garena-tw': '台服',
-  'popup.notTrade.realm.tencent': '國服（騰訊）',
+  'popup.notTrade.realm.tencent': '騰訊服',
   'popup.notTrade.poe1ShortTitle': 'PoE 1',
   'popup.notTrade.poe2ShortTitle': 'PoE 2',
   'popup.notTrade.openAction': '前往 →',
@@ -302,7 +302,7 @@ export const ZH_TW_MESSAGES = {
   'popup.module.enableItemNormalizer.description': '搜尋結果頂欄提供自訂符文覆寫與數值標準化',
   'popup.module.enablePureBackground.description': '去除官方網頁背景圖片轉為純黑以提升對比',
   'popup.module.enableAutoTitle.description': '以目前搜尋道具名稱動態替換分頁標題',
-  'popup.module.marketTranslation.description': '國際服英文市集以台服或國服官方用語顯示中文',
+  'popup.module.marketTranslation.description': '國際服英文市集以台服或騰訊服官方用語顯示中文',
 
   // Tools Pane - Relative Time
   'tools.time.justNow': '剛剛',

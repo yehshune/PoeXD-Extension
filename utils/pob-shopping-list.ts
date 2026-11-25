@@ -13,7 +13,7 @@
  *
  * 單筆條目的條件解析、草稿微調與市集 query 組裝由 `pob-entry-search` 模組負責。
  *
- * PoB 的名稱是英文；市集搜尋要用頁面所在區服的名稱，由 `TradeNameCatalog` 轉換。對不到
+ * PoB 的名稱是英文；市集搜尋要用頁面所在伺服器的名稱，由 `TradeNameCatalog` 轉換。對不到
  * 市集名稱的項目仍列出，但沒有搜尋（`query` 為 null），不會用猜的名稱去搜。
  */
 import {
@@ -59,7 +59,7 @@ export type {
 };
 
 export interface TradeNameCatalog {
-  /** 英文物品名 → 頁面區服的市集名稱；不是市集上的物品時為 undefined */
+  /** 英文物品名 → 頁面伺服器的市集名稱；不是市集上的物品時為 undefined */
   toTradeName(english: string): string | undefined;
   /** 從含詞綴的完整名稱裡找出基底（取最長的相符名稱） */
   findBaseType(fullName: string): string | undefined;
@@ -78,9 +78,9 @@ export interface ShoppingEntry {
    */
   key: string;
   kind: ShoppingEntryKind;
-  /** 頁面區服的市集名稱（搜尋用的就是這個）；對不到時為 PoB 的英文名稱 */
+  /** 頁面伺服器的市集名稱（搜尋用的就是這個）；對不到時為 PoB 的英文名稱 */
   label: string;
-  /** 英文名稱，介面用它換成顯示語言的名稱（顯示語言可以和頁面區服不同） */
+  /** 英文名稱，介面用它換成顯示語言的名稱（顯示語言可以和頁面伺服器不同） */
   englishName: string;
   /** 名稱後的補充（永恆珠寶的種子編號） */
   suffix?: string;

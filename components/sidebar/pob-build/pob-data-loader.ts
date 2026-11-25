@@ -135,7 +135,7 @@ export function createPobDataLoader(overrides: Partial<PobDataLoaderAdapter> = {
         adapter.loadCatalog(version, pageLocale),
         adapter.loadMatcher(version).catch(() => undefined),
         adapter.loadModTranslator(version, displayLocale).catch(() => undefined),
-        // 顯示語言和頁面區服不同時（例如國際服頁面配中文介面），名稱另外用顯示語言呈現
+        // 顯示語言和頁面伺服器不同時（例如國際服頁面配中文介面），名稱另外用顯示語言呈現
         displayLocale === pageLocale
           ? undefined
           : adapter.loadCatalog(version, displayLocale).catch(() => undefined),

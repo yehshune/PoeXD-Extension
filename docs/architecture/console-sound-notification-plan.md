@@ -18,7 +18,7 @@
 | lscache 音量             | `localStorage['lscache-tradewoop']`（PoE 2 為 `lscache-trade2woop`），JSON `{ file, volume, custom, name }`                                   | 鍵不存在或格式不符：音量 50    |
 | 自動播放（背景開啟分頁） | 未互動過的分頁 `play()` 拋 `NotAllowedError`，`navigator.userActivation.hasBeenActive === false`                                              | 顯示「點一下主控台以啟用音效」 |
 
-國服（`poe.game.qq.com`）需要登入，`<audio>` 元素與 lscache 鍵待補測。
+騰訊服（`poe.game.qq.com`）需要登入，`<audio>` 元素與 lscache 鍵待補測。
 
 ---
 
@@ -56,7 +56,7 @@
 | 重新載入主控台              | 重新載入後 `hasBeenActive` 仍為 true（同一分頁已互動過），不會被擋                                                                                     |
 | 真實結果觸發                | 未實測（需要有實際命中的連線）；由 `tests/live-search-primary-runtime.test.ts` 的訊號測試與 notifier 單元測試涵蓋                                      |
 
-台服、國服與 Firefox 未測。
+台服、騰訊服與 Firefox 未測。
 
 ## 下一步（另行規劃）
 

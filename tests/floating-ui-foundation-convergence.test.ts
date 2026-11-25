@@ -99,7 +99,7 @@ describe('LiveSearch Floating UI Scale / Density Foundation Convergence', () => 
                         h(TooltipTrigger, { asChild: true }, { default: () => h('span', 'info') }),
                         h(TooltipContent, null, {
                           default: () =>
-                            '把國際服英文市集的介面、篩選器與搜尋結果顯示成中文，依「語言」設定採用台服（繁體）或國服（簡體）的官方用語。',
+                            '把國際服英文市集的介面、篩選器與搜尋結果顯示成中文，依「語言」設定採用台服（繁體）或騰訊服（簡體）的官方用語。',
                         }),
                       ],
                     },

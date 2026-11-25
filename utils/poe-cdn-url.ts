@@ -7,7 +7,7 @@ export const GOLD_COIN_ICON_URL =
 export const ALLOWED_POE_CDN_HOSTNAMES = Object.freeze([
   'web.poecdn.com',
   'webtw.poecdn.com',
-  // 國服（騰訊）交易市集的物品圖片 CDN
+  // 騰訊服交易市集的物品圖片 CDN
   'poecdn.game.qq.com',
 ] as const);
 

@@ -193,7 +193,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.resultPobCopy.label': '复制 PoB 物品文字',
   'settings.resultPobCopy.infoAria': '复制 PoB 物品文字说明',
   'settings.resultPobCopy.tooltip':
-    '鼠标悬停于搜索结果时，在左上角显示 PoB 按钮，一键复制可粘贴到 Path of Building 的英文物品文字；台服与国服页面会自动转成英文',
+    '鼠标悬停于搜索结果时，在左上角显示 PoB 按钮，一键复制可粘贴到 Path of Building 的英文物品文字；台服与腾讯服页面会自动转成英文',
 
   'settings.pureBackground.label': '隐藏官方网页背景',
   'settings.pureBackground.infoAria': '隐藏官方网页背景说明',
@@ -202,7 +202,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslation.label': '市集汉化',
   'settings.marketTranslation.infoAria': '市集汉化说明',
   'settings.marketTranslation.tooltip':
-    '把国际服英文市集的界面、筛选器与搜索结果显示为中文，依「语言」设置采用台服（繁体）或国服（简体）的官方用语。只改变显示、不影响搜索内容；切换后刷新页面生效',
+    '把国际服英文市集的界面、筛选器与搜索结果显示为中文，依「语言」设置采用台服（繁体）或腾讯服（简体）的官方用语。只改变显示、不影响搜索内容；切换后刷新页面生效',
   'settings.marketTranslation.bilingualGroup': '中英并列',
   'settings.marketTranslationBilingual.label': '筛选下拉菜单',
   'settings.marketTranslationBilingual.description': '显示「中文 (English)」，打英文也搜得到',
@@ -290,7 +290,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'popup.notTrade.notice': '当前标签页非官方交易站，请前往官方交易市集使用完整功能：',
   'popup.notTrade.realm.international': '国际服',
   'popup.notTrade.realm.garena-tw': '台服',
-  'popup.notTrade.realm.tencent': '国服（腾讯）',
+  'popup.notTrade.realm.tencent': '腾讯服',
   'popup.notTrade.poe1ShortTitle': 'PoE 1',
   'popup.notTrade.poe2ShortTitle': 'PoE 2',
   'popup.notTrade.openAction': '前往 →',
@@ -304,7 +304,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'popup.module.enableItemNormalizer.description': '搜索结果顶栏提供自定义符文覆写与数值标准化',
   'popup.module.enablePureBackground.description': '移除官方网页背景图片转为纯黑以提升对比',
   'popup.module.enableAutoTitle.description': '以当前搜索物品名称动态替换标签页标题',
-  'popup.module.marketTranslation.description': '国际服英文市集以台服或国服官方用语显示中文',
+  'popup.module.marketTranslation.description': '国际服英文市集以台服或腾讯服官方用语显示中文',
 
   // Tools Pane - Relative Time
   'tools.time.justNow': '刚刚',

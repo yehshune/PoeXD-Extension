@@ -99,7 +99,7 @@ function collectOptions(filterId: string, option: unknown): Record<string, strin
       assignUnique(options, String(id), text, `${filterId} 選項`);
     } else return fail(`${filterId} 選項 id 型別不符`);
   }
-  // 各網域的預設選項不一致（例如國服 PoE 1 的 null 是「任何」、priced 另有明確選項），
+  // 各網域的預設選項不一致（例如騰訊服 PoE 1 的 null 是「任何」、priced 另有明確選項），
   // 只有在沒有明確選項時才把 null 對應到查詢值
   const nullId = NULL_OPTION_IDS[filterId];
   if (nullId && !(nullId in options) && nullTexts.length === 1) options[nullId] = nullTexts[0];

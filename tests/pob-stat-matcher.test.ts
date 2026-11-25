@@ -481,7 +481,7 @@ describe('loadModLineTranslator：隨擴充發佈的資料分片', () => {
   const loadJson = async (path: string) =>
     JSON.parse(await readFile(resolve(__dirname, '../public', path), 'utf8')) as unknown;
 
-  it('PoE 1 台服與國服可翻譯常見詞綴', async () => {
+  it('PoE 1 台服與騰訊服可翻譯常見詞綴', async () => {
     const tw = await loadModLineTranslator(loadJson, { version: 'poe1', locale: 'zh-TW' });
     expect(tw?.translate('+100 to maximum Life')).toBe('+100 最大生命');
     expect(tw?.translate('Adds 65 to 119 Cold Damage')).toBe('附加 65 至 119 冰冷傷害');

@@ -6,7 +6,7 @@ import type { CategoryGroup, TypeInfo, TypeRowConfig } from './typeMaps';
  * PoE 1 物品類別定義。
  *
  * - 類別鍵與 poexd-data 的 PoE 1 gear-type 鍵一一對應。
- * - 名稱以三地區官方市集分類用語為準（國際服、台服、國服）。
+ * - 名稱以三伺服器官方市集分類用語為準（國際服、台服、騰訊服）。
  * - 魔符（保護）防具是獨立基底，不屬於頭部／手套／鞋子大類，因此獨立成類別。
  */
 
@@ -303,7 +303,7 @@ const ENDGAME_DEFS: Readonly<Record<string, CategoryDef>> = {
 
 /**
  * 臟器（3.30 新增）：依部位分成頭、手、身體、腿，與官方市集的 viscera.* 子分類一致。
- * 國服尚未上線這個版本，沒有官方簡中用語，先顯示英文（不從繁中轉換，見 ADR-0012）。
+ * 騰訊服尚未上線這個版本，沒有官方簡中用語，先顯示英文（不從繁中轉換，見 ADR-0012）。
  */
 const VISCERA_CAT = ['臟器', 'Viscera'];
 

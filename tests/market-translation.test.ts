@@ -14,7 +14,7 @@ describe('isMarketTranslationHost', () => {
     expect(isMarketTranslationHost('WWW.PathOfExile.com')).toBe(true);
   });
 
-  it('在地化子網域、台服、國服與其他網站一律不處理', () => {
+  it('在地化子網域、台服、騰訊服與其他網站一律不處理', () => {
     for (const host of [
       'jp.pathofexile.com',
       'ru.pathofexile.com',

@@ -154,7 +154,7 @@ describe('Popup App Component (Quick Trade Links, Theme Token & Locale Reactivit
       ),
     ).toEqual(['international', 'tencent']);
     expect(container.textContent).toContain('国际服');
-    expect(container.textContent).toContain('国服（腾讯）');
+    expect(container.textContent).toContain('腾讯服');
 
     const openQqPoe1Btn = container.querySelector(
       '[data-open-realm="tencent"][data-open-trade="poe1"]',

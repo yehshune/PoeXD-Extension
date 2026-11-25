@@ -66,7 +66,7 @@ export interface LiveSearchSoundNotifierOptions {
   findAudio?: () => HTMLAudioElement | null;
   readStorage?: (key: string) => string | null;
   writeStorage?: (key: string, value: string) => void;
-  /** 當 `<audio>.src` 初始即為自訂 `data:` URL 時，用來偵測目前區服的 CDN origin */
+  /** 當 `<audio>.src` 初始即為自訂 `data:` URL 時，用來偵測目前伺服器的 CDN origin */
   detectCdnOrigin?: () => string | null;
   /** 監聽使用者互動以解除「被擋下」狀態 */
   activationTarget?: Pick<EventTarget, 'addEventListener' | 'removeEventListener'>;

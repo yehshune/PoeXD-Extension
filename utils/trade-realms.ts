@@ -3,7 +3,7 @@
  *
  * - 國際服：`www.pathofexile.com` 與各語系子網域（`ru.`、`br.`、`th.`、`de.`、`fr.`、`es.`、`jp.`、`kr.` 等）
  * - 台服：`pathofexile.tw`
- * - 國服（騰訊）：`poe.game.qq.com`
+ * - 騰訊服：`poe.game.qq.com`
  */
 
 import type { I18nKey } from './i18n/messages/zh-TW';
@@ -182,7 +182,7 @@ export interface QuickTradeRealmsInput {
  * 依擴充語言設定與瀏覽器語系決定非官網 Popover 顯示的市集連結組合：
  * - `displayLocale` 為 `auto` 時依瀏覽器語系解析；否則直接使用設定的目標語系
  * - 繁中 (`zh-TW`)：國際服英文 (`www.pathofexile.com`) + 台服 (`pathofexile.tw`)
- * - 簡中 (`zh-CN`)：國際服英文 (`www.pathofexile.com`) + 國服（騰訊 `poe.game.qq.com`）
+ * - 簡中 (`zh-CN`)：國際服英文 (`www.pathofexile.com`) + 騰訊服 (`poe.game.qq.com`)
  * - 其他語系：僅顯示該語系對應的國際服子網域（例如 `en` → `www`、`ja` → `jp`、`pt` → `br`）
  */
 export function resolveQuickTradeRealms(

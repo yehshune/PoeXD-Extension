@@ -11,7 +11,7 @@ export const PREVIEW_POPOVER_CLASS =
 export const PREVIEW_TOOLBAR_CLASS =
   'flex min-w-0 shrink-0 flex-nowrap items-center gap-[var(--pxd-space-xs)] border-b border-border/60 bg-muted/20 px-[var(--pxd-pane-padding)] py-[var(--pxd-space-xs)]';
 
-/** 標題列的標籤（區服、聯盟、種子編號、件數等）：以柔和底色區隔，不加硬邊框 */
+/** 標題列的標籤（伺服器、聯盟、種子編號、件數等）：以柔和底色區隔，不加硬邊框 */
 export const PREVIEW_TAG_CLASS = {
   secondary:
     'whitespace-nowrap rounded-sm bg-secondary px-[var(--pxd-space-xs)] py-0.5 text-[length:var(--pxd-font-caption)] font-medium text-secondary-foreground',

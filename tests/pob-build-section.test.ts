@@ -340,7 +340,7 @@ describe('usePobBuild', () => {
       await pob.importCode(toCode(buildXml({ ascendancy: 'Juggernaut' })));
 
       expect(pob.builds.value.map((build) => build.name)).toEqual(['勇士 Lv.97', '酋長 Lv.97']);
-      // 名稱資料只載入一次（頁面區服與顯示語言各一份），第二次匯入不重複載入
+      // 名稱資料只載入一次（頁面伺服器與顯示語言各一份），第二次匯入不重複載入
       expect(loadCatalog).toHaveBeenCalledTimes(2);
 
       pob.toggleDone('build-1', rowByLabel(pob.builds.value[1], 'Punishment').key);
@@ -545,7 +545,7 @@ describe('usePobBuild', () => {
       });
     });
 
-    it('名稱以顯示語言呈現，搜尋仍用頁面區服的名稱', async () => {
+    it('名稱以顯示語言呈現，搜尋仍用頁面伺服器的名稱', async () => {
       loadCatalog.mockImplementation(async (_version: string, locale: string) =>
         createTradeNameCatalog({
           englishItems: ['Plate Vest', "Xoph's Heart", 'Amber Amulet', 'Punishment'],
@@ -567,7 +567,7 @@ describe('usePobBuild', () => {
       expect(rowByLabel(first(pob), '鍍金鎧甲').query).toMatchObject({ type: 'Plate Vest' });
     });
 
-    it('顯示語言的名稱資料載不到、或該名稱沒有譯名時，維持頁面區服的名稱', async () => {
+    it('顯示語言的名稱資料載不到、或該名稱沒有譯名時，維持頁面伺服器的名稱', async () => {
       loadCatalog.mockImplementation(async (_version: string, locale: string) => {
         if (locale !== 'en') throw new Error('HTTP 404');
         return createTradeNameCatalog({ englishItems: ['Plate Vest', 'Punishment'] });
@@ -578,7 +578,7 @@ describe('usePobBuild', () => {
       expect(labels(first(pob))).toContain('Plate Vest');
     });
 
-    it('顯示語言與頁面區服相同時不重複載入名稱資料', async () => {
+    it('顯示語言與頁面伺服器相同時不重複載入名稱資料', async () => {
       const sameLocale = usePobBuild('poe1', {
         ...deps,
         dataLoader: makeDataLoader({ getDisplayLocale: () => 'en' }),

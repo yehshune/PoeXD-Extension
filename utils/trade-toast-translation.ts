@@ -2,7 +2,7 @@
  * 官方交易網站 toast 與 Trade API 錯誤訊息的中文化。
  *
  * 兩層查找：
- * 1. 先查官方 `trade-ui.json`（台服／國服前端字典），可直接復用官方譯文（如 `Item no longer available`）。
+ * 1. 先查官方 `trade-ui.json`（台服／騰訊服前端字典），可直接復用官方譯文（如 `Item no longer available`）。
  * 2. 查不到時再對照常見 Trade API 後端錯誤字典與帶參數樣板（例如限速剩餘秒數、帳號未在遊戲中）。
  *
  * 供兩處共用：

@@ -24,7 +24,7 @@
 | Microsoft Edge            | [Edge 附加元件](https://microsoftedge.microsoft.com/addons/detail/hnnpgpcnmgjbmmhgogcljbnfoklblgmb)                                                                           |
 | 手動安裝（不會自動更新）  | 到 [Releases](https://github.com/yehshune/PoeXD-Extension/releases) 下載 `chromium.zip` 解壓縮，在 `chrome://extensions/` 開啟「開發人員模式」→「載入未封裝項目」選擇該資料夾 |
 
-商店版會自動更新，建議優先使用；Firefox 目前不提供。裝好後開啟[官方交易網站](https://www.pathofexile.com/trade)（台服、國服也支援），頁面左側就會出現 PoeXD 側邊工具列，首次使用會自動開始導覽，詳見[安裝與初次使用](https://yehshune.github.io/poexd/#first-run)。
+商店版會自動更新，建議優先使用；Firefox 目前不提供。裝好後開啟[官方交易網站](https://www.pathofexile.com/trade)（台服、騰訊服也支援），頁面左側就會出現 PoeXD 側邊工具列，首次使用會自動開始導覽，詳見[安裝與初次使用](https://yehshune.github.io/poexd/#first-run)。
 
 ## 功能一覽
 
@@ -45,7 +45,7 @@
 
 ## 問題回報
 
-遇到錯誤或有功能建議，請到 [GitHub Issues](https://github.com/yehshune/PoeXD-Extension/issues) 回報，附上擴充版本、瀏覽器、PoE 1 或 2、伺服器（國際服／台服／國服）與重現步驟會更快處理。回報時請不要貼出 `POESESSID` 等 cookie。
+遇到錯誤或有功能建議，請到 [GitHub Issues](https://github.com/yehshune/PoeXD-Extension/issues) 回報，附上擴充版本、瀏覽器、PoE 1 或 2、伺服器（國際服／台服／騰訊服）與重現步驟會更快處理。回報時請不要貼出 `POESESSID` 等 cookie。
 
 ## 隱私
 
