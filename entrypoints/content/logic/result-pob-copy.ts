@@ -1,135 +1,83 @@
 /**
- * 結果卡片的「複製 PoB 物品文字」按鈕。
+ * 結果卡片的「複製 PoB 物品文字」內部 adapter。
  *
- * 物品資料來自攔截到的官方 fetch 回應（頁面送來的內容，視為不可信輸入，只取字串與數值組字）。
- * 頁面不是英文時才載入英文反查字典；字典載不到（該語系沒有資料）就不複製並告知原因。
+ * 物品資料來自共用的 `TradeResultCache`，實際複製與英文反查委派給無 DOM 的 `PobItemExporter`。
  */
-import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
-import { resolvePageLocale } from '@/utils/locale-resolution';
-import {
-  buildPobItemText,
-  isPobExportableItem,
-  type PobItemText,
-  type PobTextLexicon,
-} from '@/utils/pob-item-text';
-import { loadPobTextLexicon } from '@/utils/pob-text-lexicon';
-import type { PoeVersion } from '@/utils/trade-context';
-
+import { isPobExportableItem } from '@/utils/pob-item-text';
+import type { PobItemExporter } from '@/utils/pob-item-export';
+import type { TradeResultCache } from '@/utils/trade-result-cache';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 import {
   RESULT_LEFT_ACTION_BUTTON_CLASS,
+  RESULT_POB_COPY_BUTTON_CLASS,
+  ensureResultEnhancementStyle,
+  removeResultEnhancementStyle,
+} from './result-enhancement-styles';
+import {
+  collectResultRows,
   mountLeftAction,
   removeLeftActionsByClass,
+  resolveRowId,
 } from './result-left-actions';
-import { loadExtensionJson } from '@/utils/extension-json-cache';
-import { TradeResultCache } from '@/utils/trade-result-cache';
-import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
-const STYLE_ID = 'poexd-result-pob-copy-style';
-const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
+export { RESULT_POB_COPY_BUTTON_CLASS };
 
-export const RESULT_POB_COPY_BUTTON_CLASS = 'poexd-pob-copy-btn';
-
-export interface ResultPobCopyDeps {
-  getPageLocale: () => string;
-  loadLexicon: (version: PoeVersion, locale: string) => Promise<PobTextLexicon>;
-  writeClipboard: (text: string) => Promise<void>;
-  notify: (message: string, tone: 'success' | 'error') => void;
-}
-
-const defaultDeps: ResultPobCopyDeps = {
-  getPageLocale: () => resolvePageLocale(),
-  loadLexicon: (version, locale) => loadPobTextLexicon(loadExtensionJson, { version, locale }),
-  writeClipboard: (text) => navigator.clipboard.writeText(text),
-  notify: (message, tone) => dispatchPoeEvent('poexd-toast', { message, tone }),
-};
-
-// 顏色一律用 oklch()（主題契約不允許原始 hex 色碼）
-const STYLE_CONTENT = `
-  .${RESULT_POB_COPY_BUTTON_CLASS} {
-    order: 1 !important;
-    color: oklch(0.858 0.068 82.8) !important;
-  }
-
-  .${RESULT_POB_COPY_BUTTON_CLASS}:hover {
-    border-color: oklch(0.58 0.08 82.8) !important;
-  }
-`;
-
-const resolveRowId = (row: Element): string =>
-  row.getAttribute('data-id') || row.getAttribute('id') || '';
-
-function describeResult(result: PobItemText): string {
-  const notes = [
-    result.untranslatedLines > 0
-      ? t('resultPobCopy.toast.noteUntranslated', { count: result.untranslatedLines })
-      : '',
-    result.baseTypeUncertain ? t('resultPobCopy.toast.noteBaseUncertain') : '',
-  ].filter(Boolean);
-  return [t('resultPobCopy.toast.copied'), ...notes].join(t('resultPobCopy.toast.noteSeparator'));
-}
-
-export class ResultPobCopy {
+export class ResultPobCopyAdapter {
   private enabled = false;
-  private lexicon?: { locale: string; promise: Promise<PobTextLexicon | undefined> };
-  private readonly deps: ResultPobCopyDeps;
+  private scopeActive = true;
 
-  /**
-   * @param cache 物品資料來源；runtime 傳入頁面共用的快取（見 `trade-result-cache.ts`）
-   */
   constructor(
-    private readonly version: PoeVersion,
-    deps: Partial<ResultPobCopyDeps> = {},
-    private readonly cache: TradeResultCache = new TradeResultCache(),
-  ) {
-    this.deps = { ...defaultDeps, ...deps };
-  }
+    private readonly doc: Document,
+    private readonly cache: TradeResultCache,
+    private readonly exporter: PobItemExporter,
+  ) {}
 
-  /** 把官方 fetch 回應加入快取並補上按鈕（測試與獨立使用時的入口） */
-  handleFetchResponse(detail: string): void {
-    this.cache.ingestFetchResponse(detail);
-    this.refresh();
-  }
-
-  /** 快取有新結果後，替已在畫面上的結果補上按鈕 */
-  refresh(): void {
-    if (this.enabled && typeof document !== 'undefined') {
-      const root = document.querySelector(TRADE_RESULTS_SELECTOR);
-      if (root) this.apply(root);
-    }
+  private isActive(): boolean {
+    return this.enabled && this.scopeActive;
   }
 
   setEnabled(enabled: boolean): void {
     if (enabled === this.enabled) return;
     this.enabled = enabled;
-    if (typeof document === 'undefined') return;
-    if (!enabled) {
+    if (!this.isActive()) {
       this.removeInjected();
       return;
     }
-    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
+    this.refresh();
+  }
+
+  onScopeActiveChange(active: boolean): void {
+    if (active === this.scopeActive) return;
+    this.scopeActive = active;
+    if (!this.isActive()) {
+      this.removeInjected();
+    } else {
+      this.refresh();
+    }
+  }
+
+  refresh(): void {
+    if (!this.isActive()) return;
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
   apply(container: Element): void {
-    if (!this.enabled) return;
-    const rows = Array.from(container.querySelectorAll(ITEM_ROW_SELECTOR));
-    if (container.matches?.(ITEM_ROW_SELECTOR)) rows.unshift(container);
-
+    if (!this.isActive()) return;
     let injected = false;
-    for (const row of rows) {
+    for (const row of collectResultRows(container)) {
       const id = resolveRowId(row);
-      if (!id || this.getItem(id) === undefined) continue;
+      if (!id || !isPobExportableItem(this.cache.get(id)?.item)) continue;
       if (row.querySelector(`.${RESULT_POB_COPY_BUTTON_CLASS}`)) continue;
-      mountLeftAction(row, this.createButton(id));
+      mountLeftAction(row, this.createButton(id), this.doc);
       injected = true;
     }
-    if (injected) this.ensureStyle();
+    if (injected) ensureResultEnhancementStyle('pob-copy', this.doc);
   }
 
   refreshLocale(): void {
-    if (typeof document === 'undefined') return;
-    document.querySelectorAll(`.${RESULT_POB_COPY_BUTTON_CLASS}`).forEach((button) => {
+    this.doc.querySelectorAll(`.${RESULT_POB_COPY_BUTTON_CLASS}`).forEach((button) => {
       button.textContent = t('resultPobCopy.button');
       button.setAttribute('title', t('resultPobCopy.title'));
     });
@@ -137,59 +85,12 @@ export class ResultPobCopy {
 
   cleanup(): void {
     this.enabled = false;
-    this.lexicon = undefined;
-    if (typeof document === 'undefined') return;
+    this.exporter.clearCache();
     this.removeInjected();
   }
 
-  /** 把指定結果的 PoB 文字寫入剪貼簿並回報結果；按鈕點擊與測試共用 */
-  async copy(resultId: string): Promise<void> {
-    await this.copyItem(this.getItem(resultId));
-  }
-
-  /**
-   * 把指定物品 JSON 的 PoB 文字寫入剪貼簿（釘選卡片也用這個入口）。
-   * @param locale 物品 JSON 的語系；釘選快照傳入釘選當時的頁面語系
-   */
-  async copyItem(item: unknown, locale = this.deps.getPageLocale()): Promise<void> {
-    try {
-      if (!isPobExportableItem(item)) throw new Error(t('resultPobCopy.error.itemMissing'));
-
-      const lexicon = locale === 'en' ? undefined : await this.getEnglishLexicon(locale);
-      if (locale !== 'en' && !lexicon) {
-        this.deps.notify(t('resultPobCopy.toast.unsupportedLocale'), 'error');
-        return;
-      }
-
-      const result = buildPobItemText(item, { version: this.version, lexicon });
-      if (!result) throw new Error(t('resultPobCopy.error.itemMissing'));
-      await this.deps.writeClipboard(result.text);
-      this.deps.notify(describeResult(result), 'success');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.deps.notify(t('resultPobCopy.toast.failed', { message }), 'error');
-    }
-  }
-
-  /** 可匯出 PoB 文字的物品（普通、魔法、稀有、傳奇裝備）；其餘回傳 undefined */
-  getItem(resultId: string): unknown {
-    const item = this.cache.get(resultId)?.item;
-    return isPobExportableItem(item) ? item : undefined;
-  }
-
-  /** 頁面語系的英文反查字典（載入一次後快取）；該語系沒有資料時為 undefined */
-  getEnglishLexicon(locale: string): Promise<PobTextLexicon | undefined> {
-    if (this.lexicon?.locale === locale) return this.lexicon.promise;
-    const promise = this.deps.loadLexicon(this.version, locale).catch((error: unknown) => {
-      console.warn('[PoeXD] PoB 英文反查字典載入失敗:', error);
-      return undefined;
-    });
-    this.lexicon = { locale, promise };
-    return promise;
-  }
-
   private createButton(resultId: string): HTMLButtonElement {
-    const button = document.createElement('button');
+    const button = this.doc.createElement('button');
     button.type = 'button';
     button.className = `${RESULT_LEFT_ACTION_BUTTON_CLASS} ${RESULT_POB_COPY_BUTTON_CLASS}`;
     button.textContent = t('resultPobCopy.button');
@@ -197,26 +98,13 @@ export class ResultPobCopy {
     button.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      void this.copy(resultId);
+      void this.exporter.copyItem(this.cache.get(resultId)?.item);
     });
     return button;
   }
 
-  private ensureStyle(): void {
-    ensureResultPobCopyStyle();
-  }
-
   private removeInjected(): void {
-    removeLeftActionsByClass(RESULT_POB_COPY_BUTTON_CLASS);
-    removeTradeResultStyle(STYLE_ID);
+    removeLeftActionsByClass(RESULT_POB_COPY_BUTTON_CLASS, this.doc);
+    removeResultEnhancementStyle('pob-copy', this.doc);
   }
-}
-
-/** 注入按鈕樣式；導覽的示意結果列也會呼叫，確保頁面還沒有結果時樣式已存在 */
-export function ensureResultPobCopyStyle(): void {
-  if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = STYLE_CONTENT;
-  (document.head ?? document.documentElement).appendChild(style);
 }

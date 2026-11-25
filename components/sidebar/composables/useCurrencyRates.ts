@@ -1,5 +1,5 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue';
-import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-price-presenter';
+import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-enhancement-host-port';
 import { getPreferences } from '@/utils/preferences';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
 import type { PoeVersion } from '@/utils/trade-context';

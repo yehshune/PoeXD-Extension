@@ -27,7 +27,7 @@ import type {
   SearchRecordReadOutcome,
 } from '@/utils/search-records';
 import { registerEconomyBackgroundHandlers, type EconomyRateService } from '@/utils/economy';
-import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-price-presenter';
+import { fetchCurrencyRates } from '@/entrypoints/content/logic/result-enhancement-host-port';
 import fs from 'node:fs';
 import path from 'node:path';
 

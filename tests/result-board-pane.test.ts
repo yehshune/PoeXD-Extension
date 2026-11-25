@@ -45,9 +45,11 @@ vi.mock('@/entrypoints/content/logic/result-board-runtime', async (importOrigina
   };
 });
 
-vi.mock('@/entrypoints/content/logic/result-price-presenter', async (importOriginal) => {
+vi.mock('@/entrypoints/content/logic/result-enhancement-host-port', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@/entrypoints/content/logic/result-price-presenter')>();
+    await importOriginal<
+      typeof import('@/entrypoints/content/logic/result-enhancement-host-port')
+    >();
   return {
     ...actual,
     fetchCurrencyRates: mockFetchCurrencyRates,

@@ -12,17 +12,16 @@ export const TRADE_RESULTS_SELECTOR = `.results:not([${PAGE_GUIDE_MOCK_ATTR}])`;
  */
 export const PAGE_GUIDE_MOCK_Z_INDEX = '2147483645';
 
-export function hasPageGuideMock(): boolean {
-  return (
-    typeof document !== 'undefined' &&
-    document.querySelectorAll(`[${PAGE_GUIDE_MOCK_ATTR}]`).length > 0
-  );
+export function hasPageGuideMock(doc?: Document): boolean {
+  const targetDoc = doc ?? (typeof document !== 'undefined' ? document : undefined);
+  return Boolean(targetDoc && targetDoc.querySelectorAll(`[${PAGE_GUIDE_MOCK_ATTR}]`).length > 0);
 }
 
 /** 清理結果強化樣式；導覽示意列顯示時保留樣式以免示意列破版 */
-export function removeTradeResultStyle(styleId: string): void {
-  if (typeof document === 'undefined' || hasPageGuideMock()) return;
-  document.getElementById(styleId)?.remove();
+export function removeTradeResultStyle(styleId: string, doc?: Document): void {
+  const targetDoc = doc ?? (typeof document !== 'undefined' ? document : undefined);
+  if (!targetDoc || hasPageGuideMock(targetDoc)) return;
+  targetDoc.getElementById(styleId)?.remove();
 }
 
 export interface OfficialRowCurrency {

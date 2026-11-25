@@ -1,97 +1,72 @@
 /**
- * 結果卡片左上角 hover 工具列（位於官方重整按鈕右側，供 PoB 複製、PoEDB 等按鈕共用）。
+ * 結果列共用 DOM 輔助：列識別、列掃描與左上角 hover 工具列（`.left`）掛載點。
  */
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+import {
+  RESULT_LEFT_ACTION_BUTTON_CLASS,
+  RESULT_LEFT_ACTIONS_CLASS,
+  ensureResultEnhancementStyle,
+  removeResultEnhancementStyle,
+} from './result-enhancement-styles';
 
-import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
-import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+export { RESULT_LEFT_ACTION_BUTTON_CLASS, RESULT_LEFT_ACTIONS_CLASS };
 
-const STYLE_ID = 'poexd-result-left-actions-style';
 const BUTTON_HOST_SELECTOR = '.left';
+export const RESULT_ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
 
-export const RESULT_LEFT_ACTIONS_CLASS = 'poexd-left-actions';
-export const RESULT_LEFT_ACTION_BUTTON_CLASS = 'poexd-left-actions-btn';
+export function resolveRowId(row: Element): string {
+  return row.getAttribute('data-id') || row.getAttribute('id') || '';
+}
 
-// 顏色一律用 oklch()（主題契約不允許原始 hex 色碼）
-const STYLE_CONTENT = `
-  .${RESULT_LEFT_ACTIONS_CLASS} {
-    position: absolute !important;
-    top: 8px !important;
-    left: 44px !important;
-    z-index: 2 !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 4px !important;
-    height: 30px !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    transition: opacity 0.12s ease, visibility 0.12s ease !important;
+export function resolveMappedRowId<T>(row: Element, map: Record<string, T>): string | undefined {
+  const candidates = [row.getAttribute('data-id'), row.getAttribute('id')];
+  return candidates.find((candidate) => candidate && map[candidate]) || undefined;
+}
+
+export function collectResultRows(container: Element): Element[] {
+  const rows = Array.from(container.querySelectorAll(RESULT_ITEM_ROW_SELECTOR)).filter(
+    (r) => !r.matches?.('.row-total, .controls'),
+  );
+  if (
+    container.matches?.(RESULT_ITEM_ROW_SELECTOR) &&
+    !container.matches?.('.row-total, .controls')
+  ) {
+    rows.unshift(container);
   }
-
-  .row:hover .${RESULT_LEFT_ACTIONS_CLASS},
-  .row[${PAGE_GUIDE_REVEAL_ATTR}] .${RESULT_LEFT_ACTIONS_CLASS},
-  .${RESULT_LEFT_ACTIONS_CLASS}:has(:focus-visible) {
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-  }
-
-  .${RESULT_LEFT_ACTION_BUTTON_CLASS} {
-    appearance: none !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    height: 20px !important;
-    padding: 0 5px !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-    border: 1px solid oklch(0.387 0 0) !important;
-    background: oklch(0.252 0 0 / 0.96) !important;
-    font-family: FontinSmallcaps, Verdana, Arial, Helvetica, sans-serif !important;
-    font-size: 11px !important;
-    line-height: 1 !important;
-    letter-spacing: 0.03em !important;
-    cursor: pointer !important;
-    white-space: nowrap !important;
-    transition: border-color 0.12s ease !important;
-  }
-`;
-
-export function ensureLeftActionsStyle(): void {
-  if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = STYLE_CONTENT;
-  (document.head ?? document.documentElement).appendChild(style);
+  return rows;
 }
 
 /** 將單一功能節點掛載到結果列 `.left` 的左上角 hover 工具列 */
-export function mountLeftAction(row: Element, action: HTMLElement): void {
+export function mountLeftAction(row: Element, action: HTMLElement, doc?: Document): void {
+  const targetDoc =
+    doc ?? row.ownerDocument ?? (typeof document !== 'undefined' ? document : undefined);
+  if (!targetDoc) return;
   const host = row.querySelector(BUTTON_HOST_SELECTOR) ?? row;
   let strip = host.querySelector(`.${RESULT_LEFT_ACTIONS_CLASS}`) as HTMLElement | null;
   if (!strip) {
-    strip = document.createElement('div');
+    strip = targetDoc.createElement('div');
     strip.className = RESULT_LEFT_ACTIONS_CLASS;
     host.appendChild(strip);
   }
   strip.appendChild(action);
-  ensureLeftActionsStyle();
+  ensureResultEnhancementStyle('left-actions', targetDoc);
 }
 
 /** 依 class 名稱移除功能節點（略過導覽示意列），並在工具列清空時一併清理容器與樣式 */
-export function removeLeftActionsByClass(className: string): void {
-  if (typeof document === 'undefined' || !className) return;
+export function removeLeftActionsByClass(className: string, doc?: Document): void {
+  const targetDoc = doc ?? (typeof document !== 'undefined' ? document : undefined);
+  if (!targetDoc || !className) return;
   const escaped =
     typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
       ? CSS.escape(className)
       : className;
-  document.querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${escaped}`).forEach((el) => el.remove());
-  document
+  targetDoc.querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${escaped}`).forEach((el) => el.remove());
+  targetDoc
     .querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${RESULT_LEFT_ACTIONS_CLASS}`)
     .forEach((strip) => {
       if (strip.children.length === 0) strip.remove();
     });
-  if (document.querySelectorAll(`.${RESULT_LEFT_ACTIONS_CLASS}`).length === 0) {
-    removeTradeResultStyle(STYLE_ID);
+  if (targetDoc.querySelectorAll(`.${RESULT_LEFT_ACTIONS_CLASS}`).length === 0) {
+    removeResultEnhancementStyle('left-actions', targetDoc);
   }
 }

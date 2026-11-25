@@ -13,7 +13,7 @@ import {
 import { usePageGuide } from '@/components/sidebar/page-guide/usePageGuide';
 import { PAGE_GUIDE_TOUR_STEPS } from '@/components/sidebar/page-guide/page-guide-tour';
 import { removeLeftActionsByClass } from '@/entrypoints/content/logic/result-left-actions';
-import { ResultModHighlighter } from '@/entrypoints/content/logic/result-mod-highlighter';
+import { removeAllResultEnhancementStyles } from '@/entrypoints/content/logic/result-enhancement-styles';
 import { createResultTranslator } from '@/utils/market-result-translator';
 import { resetI18nStateForTests, setActiveDisplayLocalePreference } from '@/utils/i18n';
 
@@ -284,8 +284,7 @@ describe('PageGuideOfficialResult', () => {
     await flush();
 
     removeLeftActionsByClass('poexd-pob-copy-btn');
-    const highlighter = new ResultModHighlighter();
-    highlighter.cleanup();
+    removeAllResultEnhancementStyles();
 
     const mock = document.querySelector<HTMLElement>('[data-poexd-guide-mock]')!;
     expect(mock.querySelector('.poexd-pob-copy-btn')).not.toBeNull();

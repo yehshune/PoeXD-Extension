@@ -1,15 +1,28 @@
-import { createSvgIcon, type SvgIconSpec } from '@/utils/safe-dom';
-import type { PoeVersion } from '@/utils/trade-context';
-import {
-  getTradePageMode,
-  isLiveOrConsoleTradePage,
-  type TradePageMode,
-} from '@/utils/trade-page-mode';
-import type { TradePageRole } from '@/utils/live-search-contract';
-import { parsePoeFetchResultBatch } from '@/utils/event-contracts';
-import type { ResultPricePresenter } from './result-price-presenter';
+/**
+ * 結果列排序內部 adapter。
+ *
+ * 專注於排序模式狀態、原始順序追蹤、LIS 最小 DOM 移動與 `isReordering` / `recentlyMovedRows` 守衛；
+ * 工具列與下拉選單 DOM 委派給 `result-sort-toolbar.ts`，並由 Host 統一協調價格與符文標準化資料。
+ */
 import { t } from '@/utils/i18n';
+import type { SvgIconSpec } from '@/utils/safe-dom';
+import type { PoeVersion } from '@/utils/trade-context';
 import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+import type { ResultFetchBatch } from './result-enhancement-host-port';
+import {
+  ensureResultEnhancementStyle,
+  removeResultEnhancementStyle,
+} from './result-enhancement-styles';
+import { collectResultRows, resolveRowId } from './result-left-actions';
+import {
+  closeOpenPopovers,
+  mountOrUpdateSortToolbar,
+  removeSortToolbar,
+  syncSortToolbarStates,
+  type ToolbarDropdownOption,
+  type ToolbarDropdownSpec,
+  type ToolbarDropdownState,
+} from './result-sort-toolbar';
 
 export type SortMode =
   | 'default'
@@ -24,18 +37,12 @@ export type SortMode =
   | 'potential_es'
   | 'cp_ratio';
 
-export interface SortExtraControlOption {
-  key: string;
-  label: string;
-  onSelect: () => void;
-}
-
 export interface SortExtraControl {
   readonly type: 'weapon' | 'armour';
   getIcon(): SvgIconSpec;
   getTitle(): string;
   getHeader(): string;
-  getOptions(): SortExtraControlOption[];
+  getOptions(): ToolbarDropdownOption[];
   getState(): {
     currentKey: string;
     titleText: string;
@@ -44,7 +51,12 @@ export interface SortExtraControl {
   };
 }
 
-export interface SortStatProvider {
+export interface SortPriceSource {
+  isEnabled(): boolean;
+  getPrimaryPrice(id: string): number | undefined;
+}
+
+export interface SortStatSource {
   isActive(): boolean;
   getSortMetric(mode: SortMode, id: string): number | undefined;
   getLeadingControls(): SortExtraControl[];
@@ -95,8 +107,6 @@ const SORT_SVG: SvgIconSpec = {
   paths: ['m3 16 4 4 4-4', 'M7 20V4', 'm21 8-4-4-4 4', 'M17 4v16'],
 };
 
-const STYLE_ID = 'poexd-result-sort-controls-style';
-
 /** 官方結果列上可點擊排序的欄位（詞綴、報價、物品等級等），點下去官方會帶新的 sort 重新查詢 */
 const OFFICIAL_SORT_FIELD_SELECTOR = `${TRADE_RESULTS_SELECTOR} .row .s[data-field]`;
 
@@ -125,98 +135,76 @@ function getSortModeOptions(includeStatModes: boolean): Array<{
   ];
 }
 
-export class ResultSortController {
+export class ResultSortControllerAdapter {
   private enabled = true;
-  private pageMode: TradePageMode = typeof window !== 'undefined' ? getTradePageMode() : 'search';
-  private pageRole: TradePageRole = 'normal';
+  private scopeActive = true;
   private activeSearchId?: string;
   private originalOrder: string[] = [];
   private hasReorderedDom = false;
   private sortMode: SortMode = 'default';
-  private statProvider?: SortStatProvider;
-  private unsubRates?: () => void;
   private recentlyMovedRows = new Set<Element>();
   private hasRegisteredGlobalClick = false;
   public isReordering = false;
 
   constructor(
     private readonly version: PoeVersion,
-    private readonly pricePresenter?: ResultPricePresenter,
-    statProvider?: SortStatProvider,
-  ) {
-    this.statProvider = statProvider;
-    if (typeof pricePresenter?.onRatesUpdated === 'function') {
-      this.unsubRates = pricePresenter.onRatesUpdated(() => this.handleRatesUpdated());
-    }
-  }
+    private readonly doc: Document,
+    private readonly priceSource: SortPriceSource,
+    private readonly statSource: SortStatSource,
+  ) {}
 
-  registerStatProvider(provider: SortStatProvider) {
-    this.statProvider = provider;
-  }
-
-  public isRecentlyMovedRow(node: Node): boolean {
+  isRecentlyMovedRow(node: Node): boolean {
     return this.recentlyMovedRows.has(node as Element);
   }
 
-  public isLiveOrConsole(): boolean {
-    return isLiveOrConsoleTradePage(this.pageMode, this.pageRole);
-  }
-
   private hasActiveStats(): boolean {
-    return this.version === 'poe2' && Boolean(this.statProvider?.isActive());
+    return this.version === 'poe2' && this.statSource.isActive();
   }
 
   private isFeatureActive(): boolean {
-    if (!this.enabled || this.isLiveOrConsole()) return false;
+    if (!this.enabled || !this.scopeActive) return false;
     if (this.version === 'poe1') {
-      return Boolean(this.pricePresenter?.isEnabled());
+      return this.priceSource.isEnabled();
     }
-    return this.hasActiveStats() || Boolean(this.pricePresenter?.isEnabled());
+    return this.hasActiveStats() || this.priceSource.isEnabled();
   }
 
-  private handleRatesUpdated() {
+  onRatesUpdated(): void {
     if (!this.isFeatureActive() || !isPriceDependentSortMode(this.sortMode)) return;
-    const root = getResultsRoot();
-    if (root) {
-      this.reorderDomRows(root);
-    }
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
+    if (root) this.reorderDomRows(root);
   }
 
-  onMetricsChanged() {
+  onMetricsChanged(): void {
     if (!this.isFeatureActive()) return;
     this.updateControlsState();
-    const root = getResultsRoot();
-    if (root) {
-      this.reorderDomRows(root);
-    }
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
+    if (root) this.reorderDomRows(root);
   }
 
   /** 真正的新一次 `/api/trade/search` 回應（即使與前一次同 searchId）：清空舊一輪官方順序 */
-  handleNewSearch(searchId: string) {
-    if (this.isLiveOrConsole()) return;
+  handleNewSearch(searchId: string): void {
+    if (!this.scopeActive) return;
     const isNewSearchId = searchId !== this.activeSearchId;
     this.activeSearchId = searchId;
     this.originalOrder = [];
     this.hasReorderedDom = false;
     if (isNewSearchId) {
-      removeSortControls();
+      removeSortToolbar(this.doc);
     }
   }
 
-  handleFetchResponse(detail: string) {
-    if (this.isLiveOrConsole()) return;
-    const batch = parsePoeFetchResultBatch(detail);
-    if (!batch?.searchId) return;
-    const { searchId, results } = batch;
+  onFetchBatch(batch: ResultFetchBatch): void {
+    if (!this.scopeActive) return;
 
-    if (searchId !== this.activeSearchId) {
-      this.activeSearchId = searchId;
+    if (batch.isNewSearch || batch.searchId !== this.activeSearchId) {
+      this.activeSearchId = batch.searchId;
       this.originalOrder = [];
       this.hasReorderedDom = false;
-      removeSortControls();
+      removeSortToolbar(this.doc);
     }
 
-    results.forEach((res) => {
+    batch.results.forEach((res) => {
       if (!res || typeof res !== 'object') return;
       const { id } = res as { id?: unknown };
       if (typeof id === 'string' && !this.originalOrder.includes(id)) {
@@ -224,35 +212,29 @@ export class ResultSortController {
       }
     });
 
-    const root = getResultsRoot();
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (root && this.isFeatureActive()) {
       this.apply(root);
     }
   }
 
-  private deactivateAndRestore() {
-    const root = getResultsRoot();
-    if (root) this.restoreOriginalDomOrder(root);
-    removeSortControls();
-  }
-
-  setEnabled(enabled: boolean) {
+  setEnabled(enabled: boolean): void {
     this.enabled = enabled;
     if (!this.isFeatureActive()) {
       this.deactivateAndRestore();
       return;
     }
-    const root = getResultsRoot();
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
-  syncSupport() {
+  syncSupport(): void {
     if (!this.isFeatureActive()) {
       this.deactivateAndRestore();
       return;
     }
 
-    const priceDisabled = Boolean(this.pricePresenter && !this.pricePresenter.isEnabled());
+    const priceDisabled = !this.priceSource.isEnabled();
     const statsDisabled = !this.hasActiveStats();
     if (
       (priceDisabled && isPriceDependentSortMode(this.sortMode)) ||
@@ -261,7 +243,7 @@ export class ResultSortController {
       this.restoreOriginalDomOrder();
     }
 
-    const root = getResultsRoot();
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) {
       this.apply(root);
     } else {
@@ -269,109 +251,71 @@ export class ResultSortController {
     }
   }
 
-  private restoreOriginalDomOrder(container?: Element | null) {
-    this.sortMode = 'default';
-    if (this.originalOrder.length === 0) return;
-    const root = container || getResultsRoot();
-    if (root) {
-      this.reorderDomRows(root);
-    }
-    this.originalOrder = [];
-  }
-
-  private resetForLiveOrConsole() {
-    this.restoreOriginalDomOrder();
-    removeSortControls();
-  }
-
-  setPageRole(role: TradePageRole) {
-    if (role === this.pageRole) return;
-    this.pageRole = role;
-    if (this.isLiveOrConsole()) {
-      this.resetForLiveOrConsole();
+  onScopeActiveChange(active: boolean): void {
+    if (active === this.scopeActive) return;
+    this.scopeActive = active;
+    if (!active) {
+      this.deactivateAndRestore();
     }
   }
 
-  setPageMode(mode: TradePageMode) {
-    if (mode === this.pageMode) return;
-    this.pageMode = mode;
-    if (this.isLiveOrConsole()) {
-      this.resetForLiveOrConsole();
-    }
-  }
-
-  setSortMode(mode: SortMode) {
+  setSortMode(mode: SortMode): void {
     if (!this.isFeatureActive()) return;
-    if (
-      isPriceDependentSortMode(mode) &&
-      (!this.pricePresenter || !this.pricePresenter.isEnabled())
-    ) {
-      return;
-    }
-    if (isStatDependentSortMode(mode) && !this.hasActiveStats()) {
-      return;
-    }
+    if (isPriceDependentSortMode(mode) && !this.priceSource.isEnabled()) return;
+    if (isStatDependentSortMode(mode) && !this.hasActiveStats()) return;
+
     this.sortMode = mode;
     this.updateControlsState();
-    const root = getResultsRoot();
-    if (root) {
-      this.reorderDomRows(root);
-    }
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
+    if (root) this.reorderDomRows(root);
   }
 
-  apply(_container: Element) {
+  apply(_container: Element): void {
     if (!this.isFeatureActive() || this.isReordering) {
-      if (this.isLiveOrConsole()) {
-        removeSortControls();
+      if (!this.scopeActive) {
+        removeSortToolbar(this.doc);
       }
       return;
     }
 
-    this.ensureRowTotalControls();
+    this.ensureToolbar();
 
-    const resultsRoot = getResultsRoot();
+    const resultsRoot = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (resultsRoot) {
       this.reorderDomRows(resultsRoot);
     }
 
-    ensureSortControlsStyle();
+    ensureResultEnhancementStyle('sort-controls', this.doc);
   }
 
-  applyBatch(rows: Element[]) {
+  applyBatch(rows: Element[]): void {
     if (rows.length === 0) return;
     this.apply(rows[0]);
   }
 
-  refreshLocale() {
+  refreshLocale(): void {
     if (!this.isFeatureActive()) return;
     this.updateControlsState();
-    const root = getResultsRoot();
-    if (root) {
-      this.apply(root);
-    }
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
+    if (root) this.apply(root);
   }
 
-  cleanup() {
-    this.unsubRates?.();
-    this.unsubRates = undefined;
+  cleanup(): void {
     this.recentlyMovedRows.clear();
     this.restoreOriginalDomOrder();
     this.enabled = false;
     this.isReordering = false;
     this.activeSearchId = undefined;
     this.originalOrder = [];
-    removeSortControls();
+    removeSortToolbar(this.doc);
     this.unregisterGlobalClick();
-    document.getElementById(STYLE_ID)?.remove();
+    removeResultEnhancementStyle('sort-controls', this.doc);
 
-    const root =
-      typeof document !== 'undefined'
-        ? (document.querySelector(TRADE_RESULTS_SELECTOR) as HTMLElement | null)
-        : null;
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR) as HTMLElement | null;
     if (root) {
       root.style.display = '';
       root.style.flexDirection = '';
-      const rows = resultRows(root);
+      const rows = collectResultRows(root);
       const rowsContainer = getRowsContainer(root);
       if (rowsContainer) {
         rowsContainer.style.display = '';
@@ -386,47 +330,93 @@ export class ResultSortController {
     }
   }
 
-  private ensureRowTotalControls() {
-    const rowTotal = document.querySelector('.row.row-total');
-    const resultsContainer = document.querySelector(TRADE_RESULTS_SELECTOR);
-    const targetParent = rowTotal || resultsContainer;
-    if (!targetParent) return;
+  private deactivateAndRestore(): void {
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
+    if (root) this.restoreOriginalDomOrder(root);
+    removeSortToolbar(this.doc);
+  }
 
+  private restoreOriginalDomOrder(container?: Element | null): void {
+    this.sortMode = 'default';
+    if (this.originalOrder.length === 0) return;
+    const root = container || this.doc.querySelector(TRADE_RESULTS_SELECTOR);
+    if (root) {
+      this.reorderDomRows(root);
+    }
+    this.originalOrder = [];
+  }
+
+  private ensureToolbar(): void {
     const includeStats = this.hasActiveStats();
-    const expectedStatsFlag = includeStats ? '1' : '0';
+    const specs: ToolbarDropdownSpec[] = [];
 
-    let controls = document.querySelector('.poexd-total-controls') as HTMLElement | null;
-    if (
-      controls &&
-      ((controls.dataset?.poexdVersion && controls.dataset.poexdVersion !== this.version) ||
-        (controls.dataset?.poexdHasStats && controls.dataset.poexdHasStats !== expectedStatsFlag))
-    ) {
-      controls.remove();
-      controls = null;
-    }
-
-    if (!controls) {
-      controls = this.buildRowTotalControls(includeStats);
-      if (rowTotal) {
-        rowTotal.prepend(controls);
-      } else if (resultsContainer) {
-        resultsContainer.insertAdjacentElement('beforebegin', controls);
+    if (includeStats) {
+      for (const extra of this.statSource.getLeadingControls()) {
+        specs.push({
+          type: extra.type,
+          icon: extra.getIcon(),
+          title: extra.getTitle(),
+          header: extra.getHeader(),
+          options: extra.getOptions(),
+        });
       }
-    } else if (rowTotal && controls.parentElement !== rowTotal) {
-      rowTotal.prepend(controls);
     }
 
-    if (rowTotal) syncWithNativeLayoutButtons(controls, rowTotal);
+    specs.push({
+      type: 'sort',
+      icon: SORT_SVG,
+      title: t('normalizer.btn.sortTitle'),
+      header: t('normalizer.btn.sortHeader'),
+      options: getSortModeOptions(includeStats).map((opt) => ({
+        key: opt.key,
+        label: opt.label,
+        onSelect: () => this.setSortMode(opt.key),
+      })),
+    });
+
+    const controls = mountOrUpdateSortToolbar(this.doc, this.version, includeStats, specs);
+    if (!controls) return;
     this.registerGlobalClick();
     this.updateControlsState();
+  }
+
+  private updateControlsState(): void {
+    const includeStats = this.hasActiveStats();
+    const states: ToolbarDropdownState[] = [];
+
+    if (includeStats) {
+      for (const extra of this.statSource.getLeadingControls()) {
+        const state = extra.getState();
+        states.push({
+          type: extra.type,
+          currentKey: state.currentKey,
+          options: extra.getOptions(),
+          titleText: state.titleText,
+          headerText: state.headerText,
+          isActive: state.isActive,
+        });
+      }
+    }
+
+    const sortOptions = getSortModeOptions(includeStats);
+    const currentSortOpt = sortOptions.find((o) => o.key === this.sortMode);
+    states.push({
+      type: 'sort',
+      currentKey: this.sortMode,
+      options: sortOptions,
+      titleText: t('normalizer.activeSort', { label: currentSortOpt?.label || '' }),
+      headerText: t('normalizer.btn.sortHeader'),
+      isActive: this.sortMode !== 'default',
+      hiddenKeys: !this.priceSource.isEnabled() ? PRICE_DEPENDENT_SORT_MODES : undefined,
+    });
+
+    syncSortToolbarStates(this.doc, states);
   }
 
   private readonly globalClickHandler = (e: MouseEvent) => {
     const target = e.target as HTMLElement | null;
     if (!target?.closest('.poexd-btn-wrapper')) {
-      document.querySelectorAll('.poexd-popover.poexd-open').forEach((el) => {
-        el.classList.remove('poexd-open');
-      });
+      closeOpenPopovers(this.doc);
     }
   };
 
@@ -443,220 +433,39 @@ export class ResultSortController {
     this.updateControlsState();
   };
 
-  private registerGlobalClick() {
+  private registerGlobalClick(): void {
     if (this.hasRegisteredGlobalClick) return;
-    if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return;
+    if (typeof this.doc.addEventListener !== 'function') return;
     this.hasRegisteredGlobalClick = true;
-    document.addEventListener('click', this.globalClickHandler);
-    document.addEventListener('click', this.officialSortClickHandler, true);
+    this.doc.addEventListener('click', this.globalClickHandler);
+    this.doc.addEventListener('click', this.officialSortClickHandler, true);
   }
 
-  private unregisterGlobalClick() {
+  private unregisterGlobalClick(): void {
     if (!this.hasRegisteredGlobalClick) return;
-    if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
-      document.removeEventListener('click', this.globalClickHandler);
-      document.removeEventListener('click', this.officialSortClickHandler, true);
+    if (typeof this.doc.removeEventListener === 'function') {
+      this.doc.removeEventListener('click', this.globalClickHandler);
+      this.doc.removeEventListener('click', this.officialSortClickHandler, true);
     }
     this.hasRegisteredGlobalClick = false;
   }
 
-  private buildRowTotalControls(includeStats: boolean): HTMLElement {
-    const container = document.createElement('div');
-    container.className = 'poexd-total-controls';
-    if (container.dataset) {
-      container.dataset.poexdVersion = this.version;
-      container.dataset.poexdHasStats = includeStats ? '1' : '0';
-    }
-
-    if (includeStats && this.statProvider) {
-      for (const extra of this.statProvider.getLeadingControls()) {
-        container.appendChild(
-          this.createControlDropdown(
-            extra.type,
-            extra.getIcon(),
-            extra.getTitle(),
-            extra.getHeader(),
-            extra.getOptions(),
-          ),
-        );
-      }
-    }
-
-    const sortItems = getSortModeOptions(includeStats).map((opt) => ({
-      key: opt.key,
-      label: opt.label,
-      onSelect: () => this.setSortMode(opt.key),
-    }));
-    container.appendChild(
-      this.createControlDropdown(
-        'sort',
-        SORT_SVG,
-        t('normalizer.btn.sortTitle'),
-        t('normalizer.btn.sortHeader'),
-        sortItems,
-      ),
-    );
-
-    return container;
-  }
-
-  private createControlDropdown(
-    type: 'weapon' | 'armour' | 'sort',
-    svgIcon: SvgIconSpec,
-    title: string,
-    headerText: string,
-    items: Array<{ key: string; label: string; onSelect: () => void }>,
-  ): HTMLElement {
-    const wrapper = document.createElement('div');
-    wrapper.className = `poexd-btn-wrapper poexd-${type}-wrapper`;
-    wrapper.setAttribute('data-control', type);
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `poexd-icon-btn poexd-${type}-btn`;
-    btn.setAttribute('title', title);
-    btn.appendChild(createSvgIcon(svgIcon));
-
-    const popover = document.createElement('div');
-    popover.className = `poexd-popover poexd-${type}-popover`;
-
-    const header = document.createElement('div');
-    header.className = 'poexd-popover-header';
-    header.textContent = headerText;
-    popover.appendChild(header);
-
-    for (const item of items) {
-      const itemEl = document.createElement('div');
-      itemEl.className = 'poexd-popover-item';
-      itemEl.setAttribute('data-value', item.key);
-      const labelEl = document.createElement('span');
-      labelEl.textContent = item.label;
-      const checkMark = document.createElement('span');
-      checkMark.className = 'poexd-check-mark';
-      itemEl.append(labelEl, checkMark);
-      itemEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        item.onSelect();
-        popover.classList.remove('poexd-open');
-      });
-      popover.appendChild(itemEl);
-    }
-
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isOpen = popover.classList.contains('poexd-open');
-      document.querySelectorAll('.poexd-popover.poexd-open').forEach((el) => {
-        el.classList.remove('poexd-open');
-      });
-      if (!isOpen) {
-        popover.classList.add('poexd-open');
-      }
-    });
-
-    wrapper.appendChild(btn);
-    wrapper.appendChild(popover);
-    return wrapper;
-  }
-
-  private updateControlState(
-    controls: Element,
-    type: 'weapon' | 'armour' | 'sort',
-    currentKey: string,
-    options: Array<{ key: string; label: string }>,
-    titleText: string,
-    headerText: string,
-    isActive: boolean,
-    hiddenKeys?: ReadonlySet<string>,
-  ) {
-    const btn = controls.querySelector(`.poexd-${type}-btn`) as HTMLElement | null;
-    if (btn) {
-      btn.setAttribute('title', titleText);
-      btn.classList.toggle('poexd-active', isActive);
-    }
-    const header = controls.querySelector(`.poexd-${type}-popover .poexd-popover-header`);
-    if (header) {
-      header.textContent = headerText;
-    }
-    controls.querySelectorAll(`.poexd-${type}-popover .poexd-popover-item`).forEach((item) => {
-      const val = item.getAttribute('data-value');
-      const isHidden = Boolean(hiddenKeys && val && hiddenKeys.has(val as SortMode));
-      const htmlItem = item as HTMLElement;
-      if (htmlItem.style) {
-        htmlItem.style.display = isHidden ? 'none' : '';
-      }
-      const isSelected = val === currentKey;
-      item.classList.toggle('poexd-selected', isSelected);
-      const opt = options.find((o) => o.key === val);
-      const textSpan = item.querySelector('span');
-      if (textSpan && opt) {
-        textSpan.textContent = opt.label;
-      }
-      const check = item.querySelector('.poexd-check-mark');
-      if (check) check.textContent = isSelected ? '✓' : '';
-    });
-  }
-
-  private updateControlsState() {
-    const controls = document.querySelector('.poexd-total-controls');
-    if (!controls) return;
-
-    const includeStats = this.hasActiveStats();
-    if (includeStats && this.statProvider) {
-      for (const extra of this.statProvider.getLeadingControls()) {
-        const state = extra.getState();
-        this.updateControlState(
-          controls,
-          extra.type,
-          state.currentKey,
-          extra.getOptions(),
-          state.titleText,
-          state.headerText,
-          state.isActive,
-        );
-      }
-    }
-
-    const sortOptions = getSortModeOptions(includeStats);
-    const currentSortOpt = sortOptions.find((o) => o.key === this.sortMode);
-    const hiddenSortKeys =
-      !this.pricePresenter || !this.pricePresenter.isEnabled()
-        ? PRICE_DEPENDENT_SORT_MODES
-        : undefined;
-    this.updateControlState(
-      controls,
-      'sort',
-      this.sortMode,
-      sortOptions,
-      t('normalizer.activeSort', { label: currentSortOpt?.label || '' }),
-      t('normalizer.btn.sortHeader'),
-      this.sortMode !== 'default',
-      hiddenSortKeys,
-    );
-  }
-
   /**
    * 真實 DOM 物理排序
-   * 絕不修改容器的 display 與 flexDirection，100% 完整相容官方 layout-immersion、compact 與 compact-two 排版。
+   * 絕不修改容器的 display 與 flexDirection，完整相容官方 layout-immersion、compact 與 compact-two 排版。
    * 透過 isReordering 與 recentlyMovedRows 避免 MutationObserver 重入，並保留 Vue 未載入佔位註解位置。
    */
-  private reorderDomRows(container: Element) {
+  private reorderDomRows(container: Element): void {
     if (this.isReordering) return;
-    if (this.isLiveOrConsole() && this.originalOrder.length === 0) return;
-    if (
-      isPriceDependentSortMode(this.sortMode) &&
-      (!this.pricePresenter || !this.pricePresenter.isEnabled())
-    ) {
-      return;
-    }
-    if (isStatDependentSortMode(this.sortMode) && !this.hasActiveStats()) {
-      return;
-    }
-    const rows = resultRows(container);
+    if (!this.scopeActive && this.originalOrder.length === 0) return;
+    if (isPriceDependentSortMode(this.sortMode) && !this.priceSource.isEnabled()) return;
+    if (isStatDependentSortMode(this.sortMode) && !this.hasActiveStats()) return;
+
+    const rows = collectResultRows(container);
     if (rows.length === 0) return;
 
     const rowsContainer = getRowsContainer(container);
 
-    // 清理先前可能殘留之 display / flex / order 行內樣式，確保官方原生版型 100% 生效
     if (rowsContainer.style.display || rowsContainer.style.flexDirection) {
       rowsContainer.style.display = '';
       rowsContainer.style.flexDirection = '';
@@ -700,7 +509,7 @@ export class ResultSortController {
       const direction = this.sortMode === 'price_asc' ? 'asc' : 'desc';
       const items = rows.map((row) => {
         const id = resolveRowId(row);
-        const price = this.pricePresenter?.getPrimaryPrice(id);
+        const price = this.priceSource.getPrimaryPrice(id);
         const val =
           typeof price === 'number' && Number.isFinite(price) && price > 0 ? price : undefined;
         return { row, val };
@@ -711,10 +520,10 @@ export class ResultSortController {
       this.hasReorderedDom = true;
       const items = rows.map((row) => {
         const id = resolveRowId(row);
-        const rawStat = this.statProvider?.getSortMetric(this.sortMode, id);
+        const rawStat = this.statSource.getSortMetric(this.sortMode, id);
         let val = rawStat;
         if (this.sortMode === 'cp_ratio' && rawStat !== undefined) {
-          const price = this.pricePresenter?.getPrimaryPrice(id);
+          const price = this.priceSource.getPrimaryPrice(id);
           val =
             typeof price === 'number' && Number.isFinite(price) && price > 0 ? rawStat / price : 0;
         }
@@ -807,59 +616,11 @@ function getRowsContainer(container: Element): HTMLElement {
   return container as HTMLElement;
 }
 
-export function resultRows(container: Element): Element[] {
-  const rows = Array.from(container.querySelectorAll('.row[data-id], .row[id]')).filter(
-    (r) => !r.matches?.('.row-total, .controls'),
-  );
-  if (
-    container.matches?.('.row[data-id], .row[id]') &&
-    !container.matches?.('.row-total, .controls')
-  ) {
-    rows.unshift(container);
-  }
-  return rows;
-}
-
-function resolveRowId(row: Element): string {
-  return row.getAttribute('data-id') || row.getAttribute('id') || '';
-}
-
-export function getResultsRoot(): Element | null {
-  return typeof document !== 'undefined' ? document.querySelector(TRADE_RESULTS_SELECTOR) : null;
-}
-
 function compareOptionalMetricDesc(a: number | undefined, b: number | undefined): number {
   if (a === undefined && b === undefined) return 0;
   if (a === undefined) return 1;
   if (b === undefined) return -1;
   return b - a;
-}
-
-function removeSortControls() {
-  if (typeof document === 'undefined') return;
-  document
-    .querySelectorAll('.poexd-results-toolbar, .poexd-total-controls')
-    .forEach((el) => el.remove());
-}
-
-function syncWithNativeLayoutButtons(controls: HTMLElement, rowTotal: Element) {
-  if (controls.dataset?.poexdLayoutSynced === '1') return;
-  const nativeBtn = rowTotal.querySelector<HTMLElement>('.layout-btn');
-  if (!nativeBtn) return;
-  const size = nativeBtn.offsetHeight;
-  if (!Number.isFinite(size) || size < 16 || size > 64) return;
-  const top = Number.isFinite(nativeBtn.offsetTop) ? nativeBtn.offsetTop : 0;
-  const sizeValue = `${size}px`;
-  const topValue = `${top}px`;
-  if (controls.style.getPropertyValue('--poexd-native-btn-size') !== sizeValue) {
-    controls.style.setProperty('--poexd-native-btn-size', sizeValue);
-  }
-  if (controls.style.getPropertyValue('--poexd-native-btn-top') !== topValue) {
-    controls.style.setProperty('--poexd-native-btn-top', topValue);
-  }
-  if (controls.dataset) {
-    controls.dataset.poexdLayoutSynced = '1';
-  }
 }
 
 function computeLongestIncreasingPositions(values: number[]): Set<number> {
@@ -890,156 +651,4 @@ function computeLongestIncreasingPositions(values: number[]): Set<number> {
     cur = prevPos[cur];
   }
   return kept;
-}
-
-function ensureSortControlsStyle() {
-  if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = `
-    .poexd-total-controls {
-      --poexd-fx-bg: oklch(0.19 0.005 250 / 0.92);
-      --poexd-fx-surface: oklch(0.235 0.005 250 / 0.96);
-      --poexd-fx-surface-hover: oklch(0.295 0.006 250);
-      --poexd-fx-border: oklch(0.387 0 0);
-      --poexd-fx-border-strong: oklch(0.52 0.04 76);
-      --poexd-fx-fg: oklch(0.913 0 0);
-      --poexd-fx-gold: oklch(0.858 0.068 82.8);
-      --poexd-fx-muted: oklch(0.67 0.048 76);
-      --poexd-fx-primary: oklch(0.45 0.075 268);
-      --poexd-fx-primary-bg: oklch(0.295 0.062 246 / 0.96);
-      --poexd-fx-primary-bg-hover: oklch(0.345 0.075 246);
-      --poexd-fx-accent-fg: oklch(0.95 0.025 82);
-      --poexd-fx-radius: 0px;
-      --poexd-fx-font: Verdana, Arial, Helvetica, sans-serif;
-      --poexd-fx-font-display: FontinSmallcaps, Verdana, Arial, Helvetica, sans-serif;
-      --poexd-native-btn-size: 30px;
-      --poexd-native-btn-top: 0px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      z-index: 50;
-      margin: 0 12px 0 0;
-      flex-shrink: 0;
-      font-family: var(--poexd-fx-font);
-      line-height: 1;
-    }
-    .row.row-total > .poexd-total-controls {
-      position: absolute;
-      top: var(--poexd-native-btn-top);
-      left: 8px;
-      height: var(--poexd-native-btn-size);
-      margin: 0;
-    }
-    .poexd-total-controls .poexd-btn-wrapper {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      height: 100%;
-    }
-    .poexd-total-controls .poexd-icon-btn {
-      all: unset;
-      box-sizing: border-box;
-      width: var(--poexd-native-btn-size);
-      height: var(--poexd-native-btn-size);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--poexd-fx-bg);
-      border: 1px solid oklch(0.35 0.018 76 / 0.85);
-      border-radius: var(--poexd-fx-radius);
-      color: var(--poexd-fx-muted);
-      cursor: pointer;
-      box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.05);
-      transition:
-        background-color 0.12s ease,
-        border-color 0.12s ease,
-        color 0.12s ease;
-    }
-    .poexd-total-controls .poexd-icon-btn:hover {
-      background: var(--poexd-fx-surface-hover);
-      border-color: var(--poexd-fx-border-strong);
-      color: var(--poexd-fx-gold);
-    }
-    .poexd-total-controls .poexd-icon-btn:focus-visible {
-      outline: 1px solid var(--poexd-fx-gold);
-      outline-offset: 1px;
-    }
-    .poexd-total-controls .poexd-icon-btn.poexd-active {
-      background: var(--poexd-fx-primary-bg);
-      border-color: var(--poexd-fx-primary);
-      color: var(--poexd-fx-gold);
-    }
-    .poexd-total-controls .poexd-icon-btn.poexd-active:hover {
-      background: var(--poexd-fx-primary-bg-hover);
-      border-color: oklch(0.58 0.085 268);
-      color: var(--poexd-fx-accent-fg);
-    }
-    .poexd-total-controls .poexd-icon-btn svg {
-      width: 15px;
-      height: 15px;
-      pointer-events: none;
-    }
-    .poexd-total-controls .poexd-popover {
-      display: none;
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      min-width: 220px;
-      box-sizing: border-box;
-      background: oklch(0.175 0.005 250 / 0.98);
-      border: 1px solid var(--poexd-fx-border);
-      border-radius: var(--poexd-fx-radius);
-      padding: 3px;
-      box-shadow: 0 8px 22px oklch(0 0 0 / 0.72);
-      z-index: 99999;
-      font-family: var(--poexd-fx-font);
-      text-align: left;
-    }
-    .poexd-total-controls .poexd-popover.poexd-open {
-      display: block;
-    }
-    .poexd-total-controls .poexd-popover-header {
-      margin: 0 -3px 3px;
-      padding: 5px 10px;
-      font-family: var(--poexd-fx-font-display);
-      font-size: 11px;
-      font-weight: 400;
-      line-height: 1.3;
-      color: var(--poexd-fx-muted);
-      border-bottom: 1px solid oklch(0.32 0.012 76 / 0.7);
-      letter-spacing: 0.04em;
-    }
-    .poexd-total-controls .poexd-popover-item {
-      padding: 5px 8px;
-      border-radius: var(--poexd-fx-radius);
-      font-size: 12px;
-      line-height: 1.4;
-      color: var(--poexd-fx-fg);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      transition:
-        background-color 0.12s ease,
-        color 0.12s ease;
-      user-select: none;
-      white-space: nowrap;
-    }
-    .poexd-total-controls .poexd-popover-item:hover {
-      background: var(--poexd-fx-primary-bg);
-      color: var(--poexd-fx-accent-fg);
-    }
-    .poexd-total-controls .poexd-popover-item.poexd-selected {
-      color: var(--poexd-fx-gold);
-      font-weight: 600;
-    }
-    .poexd-total-controls .poexd-check-mark {
-      font-size: 12px;
-      color: var(--poexd-fx-gold);
-      font-weight: 700;
-      margin-left: 12px;
-    }
-  `;
-  document.head.appendChild(style);
 }

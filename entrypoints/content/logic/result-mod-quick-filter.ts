@@ -1,145 +1,28 @@
 import { type CriteriaOverlayFormSnapshot } from '@/utils/criteria-overlay';
-import { planAddStatToGroupKind, type QuickStatFilterGroupKind } from '@/utils/stat-quick-filter';
-import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
-import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
-import { getKnownStatsRef } from '@/utils/known-stats-store';
-import type { TradePageRole } from '@/utils/live-search-contract';
-import type { TradePageMode } from '@/utils/trade-page-mode';
+import { planAddStatToGroupKind, type QuickStatFilterGroupKind } from '@/utils/stat-quick-filter';
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+import type { ResultEnhancementHostPort } from './result-enhancement-host-port';
 import {
-  createPoeEventCriteriaOverlayChannel,
-  type CriteriaOverlayPageChannel,
-} from './criteria-overlay-manager';
-import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
-import { RESULT_MOD_ENGLISH_SUBTITLE_CLASS } from '@/utils/market-result-translator';
-import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+  RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS,
+  RESULT_MOD_QUICK_FILTER_BUTTON_CLASS,
+  RESULT_MOD_QUICK_FILTER_GROUP_ATTR,
+  RESULT_MOD_QUICK_FILTER_HOST_CLASS,
+  ensureResultEnhancementStyle,
+  removeResultEnhancementStyle,
+} from './result-enhancement-styles';
+import { collectResultRows, RESULT_ITEM_ROW_SELECTOR } from './result-left-actions';
 
-const STYLE_ID = 'poexd-result-mod-quick-filter-style';
-const RESULTS_CONTAINER_SELECTOR = TRADE_RESULTS_SELECTOR;
-const ITEM_ROW_SELECTOR = '.row[data-id], .row[id]';
-const ROW_SELECTOR = `${RESULTS_CONTAINER_SELECTOR} .row[data-id], ${RESULTS_CONTAINER_SELECTOR} .row[id]`;
+export {
+  RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS,
+  RESULT_MOD_QUICK_FILTER_BUTTON_CLASS,
+  RESULT_MOD_QUICK_FILTER_HOST_CLASS,
+};
+
+const ROW_SELECTOR = `${TRADE_RESULTS_SELECTOR} .row[data-id], ${TRADE_RESULTS_SELECTOR} .row[id]`;
 const MOD_FIELD_SELECTOR = '[data-field^="stat."]';
 const STAT_FIELD_PREFIX = 'stat.';
-
-export const RESULT_MOD_QUICK_FILTER_HOST_CLASS = 'poexd-result-mod-host';
-export const RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS = 'poexd-result-mod-actions';
-export const RESULT_MOD_QUICK_FILTER_BUTTON_CLASS = 'poexd-result-mod-btn';
 const STAT_ID_ATTR = 'data-poexd-stat-id';
-const GROUP_KIND_ATTR = 'data-poexd-quick-group';
-
-export interface ResultModQuickFilterOptions {
-  channel?: CriteriaOverlayPageChannel;
-  isSearchFormUrl?: (url: string) => boolean;
-  resolveStatText?: (statId: string) => string | undefined;
-}
-
-function buildStyleContent(): string {
-  // Use oklch() exclusively (theme contract forbids raw hex colors).
-  // Hover reveals actions on the right and shifts official .lc.l / .lc.r markers aside.
-  return `
-    .${RESULT_MOD_QUICK_FILTER_HOST_CLASS} {
-      position: relative !important;
-    }
-
-    .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
-      position: absolute !important;
-      right: 6px !important;
-      top: 50% !important;
-      transform: translateY(-50%) !important;
-      z-index: 6 !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      gap: 4px !important;
-      padding: 0 !important;
-      border-radius: 0 !important;
-      background: transparent !important;
-      box-shadow: none !important;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.12s ease;
-    }
-
-    .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS},
-    .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
-      opacity: 1 !important;
-      pointer-events: auto !important;
-    }
-
-    .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:has(> .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}) > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
-      top: 0 !important;
-      transform: none !important;
-    }
-
-    #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:has(> .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}) > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
-      top: -1px !important;
-    }
-
-    #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:has(> .${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}) > .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS} {
-      top: 1.5px !important;
-    }
-
-    #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .lc.l,
-    #trade .results.compact .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .lc.l {
-      right: 112px !important;
-    }
-
-    #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}:hover > .lc.r,
-    #trade .results:not(.compact) .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}[${PAGE_GUIDE_REVEAL_ATTR}] > .lc.r {
-      right: 112px !important;
-    }
-
-    .${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS} {
-      appearance: none !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      height: 19px !important;
-      padding: 0 6px !important;
-      border-radius: 0 !important;
-      border: 1px solid oklch(0.387 0 0) !important;
-      background: oklch(0.252 0 0 / 0.96) !important;
-      color: oklch(0.858 0.068 82.8) !important;
-      box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.06) !important;
-      font-family: FontinSmallcaps, Verdana, Arial, Helvetica, sans-serif !important;
-      font-size: 11px !important;
-      font-weight: 400 !important;
-      line-height: 1 !important;
-      letter-spacing: 0.03em !important;
-      cursor: pointer !important;
-      white-space: nowrap !important;
-      transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease !important;
-    }
-
-    .${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}[${GROUP_KIND_ATTR}="and"] {
-      background: oklch(0.285 0.055 246 / 0.96) !important;
-      border-color: oklch(0.45 0.075 268) !important;
-      color: oklch(0.913 0 0) !important;
-    }
-
-    .${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}[${GROUP_KIND_ATTR}="and"]:hover:not(:disabled) {
-      background: oklch(0.345 0.075 246) !important;
-      border-color: oklch(0.58 0.08 260) !important;
-      color: oklch(0.96 0.03 83) !important;
-    }
-
-    .${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}[${GROUP_KIND_ATTR}="not"] {
-      background: oklch(0.255 0.052 20 / 0.96) !important;
-      border-color: oklch(0.43 0.082 22) !important;
-      color: oklch(0.89 0.04 80) !important;
-    }
-
-    .${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}[${GROUP_KIND_ATTR}="not"]:hover:not(:disabled) {
-      background: oklch(0.325 0.078 20) !important;
-      border-color: oklch(0.56 0.105 22) !important;
-      color: oklch(0.96 0.03 83) !important;
-    }
-
-    .${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}:disabled {
-      opacity: 0.55 !important;
-      cursor: progress !important;
-    }
-  `;
-}
 
 function extractStatId(fieldValue: string | null): string | null {
   if (!fieldValue || !fieldValue.startsWith(STAT_FIELD_PREFIX)) return null;
@@ -158,57 +41,16 @@ function stopEvent(event: Event): void {
   event.stopPropagation();
 }
 
-function showQuickFilterToast(
-  message: string,
-  tone: 'default' | 'success' | 'error' = 'default',
-): void {
-  dispatchPoeEvent('poexd-toast', { message, tone });
-}
-
-export class ResultModQuickFilter {
-  private enabled = true;
-  private pageMode: TradePageMode = 'search';
-  private pageRole: TradePageRole = 'normal';
+export class ResultModQuickFilterAdapter {
+  private enabled = false;
+  private scopeActive = true;
   private busy = false;
-  private styleEl: HTMLStyleElement | null = null;
-  private readonly channel: CriteriaOverlayPageChannel;
-  private readonly isSearchFormUrl: (url: string) => boolean;
-  private readonly resolveStatText: (statId: string) => string | undefined;
 
-  constructor(options: ResultModQuickFilterOptions = {}) {
-    this.channel = options.channel ?? createPoeEventCriteriaOverlayChannel();
-    this.isSearchFormUrl = options.isSearchFormUrl ?? isTradeSearchFormUrl;
-    this.resolveStatText =
-      options.resolveStatText ?? ((statId) => getKnownStatsRef().value[statId]?.text);
-  }
+  constructor(private readonly port: ResultEnhancementHostPort) {}
 
   private isActive(): boolean {
-    if (!this.enabled) return false;
-    if (this.pageMode !== 'search') return false;
-    if (this.pageRole === 'live-search-primary') return false;
-    if (typeof window !== 'undefined' && !this.isSearchFormUrl(window.location.href)) return false;
-    return true;
-  }
-
-  private ensureStyles(): void {
-    if (typeof document === 'undefined' || !document.head) return;
-    if (!this.styleEl) {
-      const existing = document.getElementById(STYLE_ID);
-      this.styleEl =
-        existing instanceof HTMLStyleElement ? existing : document.createElement('style');
-      this.styleEl.id = STYLE_ID;
-      this.styleEl.textContent = buildStyleContent();
-    }
-    if (!this.styleEl.isConnected) {
-      document.head.appendChild(this.styleEl);
-    }
-  }
-
-  private removeStyles(): void {
-    removeTradeResultStyle(STYLE_ID);
-    if (typeof document === 'undefined' || !document.getElementById(STYLE_ID)) {
-      this.styleEl = null;
-    }
+    if (!this.enabled || !this.scopeActive) return false;
+    return this.port.overlayChannel.isSearchFormUrl(this.port.getPageContext().href);
   }
 
   private syncActiveState(): void {
@@ -225,69 +67,57 @@ export class ResultModQuickFilter {
     this.syncActiveState();
   }
 
-  setPageMode(mode: TradePageMode): void {
-    if (this.pageMode === mode) return;
-    this.pageMode = mode;
-    this.syncActiveState();
-  }
-
-  setPageRole(role: TradePageRole): void {
-    if (this.pageRole === role) return;
-    this.pageRole = role;
+  onScopeActiveChange(active: boolean): void {
+    if (this.scopeActive === active) return;
+    this.scopeActive = active;
     this.syncActiveState();
   }
 
   refreshLocale(): void {
-    if (typeof document === 'undefined') return;
-    this.syncButtonsLocale(document);
+    this.syncButtonsLocale(this.port.doc);
   }
 
   apply(root?: Element): void {
-    if (typeof document === 'undefined') return;
     if (!this.isActive()) {
       this.clearAllInjected();
       return;
     }
-    this.ensureStyles();
+    ensureResultEnhancementStyle('mod-quick-filter', this.port.doc);
     for (const row of this.collectTargetRows(root)) {
       this.applyToRow(row);
     }
   }
 
   cleanup(): void {
+    this.enabled = false;
     this.clearAllInjected();
-    this.removeStyles();
+    removeResultEnhancementStyle('mod-quick-filter', this.port.doc);
   }
 
   private applyAll(): void {
-    if (typeof document === 'undefined') return;
-    this.ensureStyles();
-    document.querySelectorAll(ROW_SELECTOR).forEach((row) => this.applyToRow(row));
+    ensureResultEnhancementStyle('mod-quick-filter', this.port.doc);
+    this.port.doc.querySelectorAll(ROW_SELECTOR).forEach((row) => this.applyToRow(row));
   }
 
   private clearAllInjected(): void {
-    if (typeof document === 'undefined') return;
-    document
+    this.port.doc
       .querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS}`)
       .forEach((el) => el.remove());
-    document
+    this.port.doc
       .querySelectorAll(`${TRADE_RESULTS_SELECTOR} .${RESULT_MOD_QUICK_FILTER_HOST_CLASS}`)
       .forEach((el) => el.classList.remove(RESULT_MOD_QUICK_FILTER_HOST_CLASS));
   }
 
   private collectTargetRows(root?: Element): Element[] {
     if (!root) {
-      return Array.from(document.querySelectorAll(ROW_SELECTOR));
+      return Array.from(this.port.doc.querySelectorAll(ROW_SELECTOR));
     }
-    if (root.closest(RESULTS_CONTAINER_SELECTOR)) {
-      const rows: Element[] = [];
-      if (root.matches(ITEM_ROW_SELECTOR)) {
-        rows.push(root);
-      }
-      rows.push(...root.querySelectorAll(ITEM_ROW_SELECTOR));
-      return rows;
+    if (root.closest(TRADE_RESULTS_SELECTOR)) {
+      return collectResultRows(root);
     }
-    return Array.from(root.querySelectorAll(ROW_SELECTOR));
+    return Array.from(root.querySelectorAll(ROW_SELECTOR)).filter(
+      (row) => row.matches?.(RESULT_ITEM_ROW_SELECTOR) ?? true,
+    );
   }
 
   private applyToRow(row: Element): void {
@@ -297,7 +127,7 @@ export class ResultModQuickFilter {
       if (!statId) return;
 
       const host = fieldEl.parentElement;
-      if (!(host instanceof HTMLElement) || host === row || !row.contains(host)) return;
+      if (!host || host === row || !row.contains(host)) return;
 
       host.classList.add(RESULT_MOD_QUICK_FILTER_HOST_CLASS);
       const existing = host.querySelector<HTMLElement>(
@@ -308,12 +138,12 @@ export class ResultModQuickFilter {
         this.syncButtonsLocale(existing);
         return;
       }
-      host.appendChild(this.createActionsElement(host, statId));
+      host.appendChild(this.createActionsElement(host as HTMLElement, statId));
     });
   }
 
   private createActionsElement(host: HTMLElement, statId: string): HTMLElement {
-    const container = document.createElement('span');
+    const container = this.port.doc.createElement('span');
     container.className = RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS;
     container.setAttribute(STAT_ID_ATTR, statId);
     container.addEventListener('pointerdown', stopEvent);
@@ -330,10 +160,10 @@ export class ResultModQuickFilter {
     container: HTMLElement,
     kind: QuickStatFilterGroupKind,
   ): HTMLButtonElement {
-    const button = document.createElement('button');
+    const button = this.port.doc.createElement('button');
     button.type = 'button';
     button.className = RESULT_MOD_QUICK_FILTER_BUTTON_CLASS;
-    button.setAttribute(GROUP_KIND_ATTR, kind);
+    button.setAttribute(RESULT_MOD_QUICK_FILTER_GROUP_ATTR, kind);
     this.updateButtonLocale(button, kind);
 
     button.addEventListener('pointerdown', stopEvent);
@@ -361,10 +191,12 @@ export class ResultModQuickFilter {
   private syncButtonsLocale(root: ParentNode): void {
     root
       .querySelectorAll<HTMLButtonElement>(
-        `.${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}[${GROUP_KIND_ATTR}]`,
+        `.${RESULT_MOD_QUICK_FILTER_BUTTON_CLASS}[${RESULT_MOD_QUICK_FILTER_GROUP_ATTR}]`,
       )
       .forEach((button) => {
-        const kind = button.getAttribute(GROUP_KIND_ATTR) as QuickStatFilterGroupKind | null;
+        const kind = button.getAttribute(
+          RESULT_MOD_QUICK_FILTER_GROUP_ATTR,
+        ) as QuickStatFilterGroupKind | null;
         if (kind === 'and' || kind === 'not') {
           this.updateButtonLocale(button, kind);
         }
@@ -372,7 +204,7 @@ export class ResultModQuickFilter {
   }
 
   private resolveDisplayText(host: HTMLElement, statId: string): string {
-    const knownText = this.resolveStatText(statId);
+    const knownText = this.port.overlayChannel.resolveStatText(statId);
     if (knownText) return formatModDisplayText(knownText);
     const expectedField = `${STAT_FIELD_PREFIX}${statId}`;
     const fieldEl = Array.from(host.querySelectorAll(MOD_FIELD_SELECTOR)).find(
@@ -406,7 +238,7 @@ export class ResultModQuickFilter {
     );
 
     try {
-      const { snapshot, knownStatIds } = await this.channel.read();
+      const { snapshot, knownStatIds } = await this.port.overlayChannel.read();
       const plan = planAddStatToGroupKind(
         snapshot as CriteriaOverlayFormSnapshot,
         targetGroup,
@@ -415,7 +247,7 @@ export class ResultModQuickFilter {
       );
 
       if (plan.status === 'unknown') {
-        showQuickFilterToast(
+        this.port.notify(
           t('resultModQuickFilter.toast.unknownStat', { text: displayText }),
           'error',
         );
@@ -423,17 +255,18 @@ export class ResultModQuickFilter {
       }
 
       if (plan.status === 'already-exists') {
-        showQuickFilterToast(
+        this.port.notify(
           t('resultModQuickFilter.toast.alreadyExists', {
             text: displayText,
             group: groupLabel,
           }),
+          'default',
         );
         return;
       }
 
-      await this.channel.commit(plan.ops);
-      showQuickFilterToast(
+      await this.port.overlayChannel.commit(plan.ops);
+      this.port.notify(
         t(
           plan.status === 'enabled'
             ? 'resultModQuickFilter.toast.enabled'
@@ -444,7 +277,7 @@ export class ResultModQuickFilter {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      showQuickFilterToast(t('resultModQuickFilter.toast.failed', { message }), 'error');
+      this.port.notify(t('resultModQuickFilter.toast.failed', { message }), 'error');
     } finally {
       this.busy = false;
       if (container.isConnected) {
@@ -452,14 +285,4 @@ export class ResultModQuickFilter {
       }
     }
   }
-}
-
-/** 注入快篩按鈕樣式；導覽的示意結果列也會呼叫，確保頁面還沒有結果時樣式已存在 */
-export function ensureResultModQuickFilterStyle(): void {
-  if (typeof document === 'undefined' || !document.head) return;
-  if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = buildStyleContent();
-  document.head.appendChild(style);
 }

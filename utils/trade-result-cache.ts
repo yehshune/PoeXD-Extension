@@ -52,9 +52,14 @@ export class TradeResultCache {
     const results = isRecord(data) ? data.result : undefined;
     if (!payload || !Array.isArray(results)) return false;
     const sourceSearchId = readQueryParam(payload.url);
+    return this.ingestBatch(results, { ...context, sourceSearchId });
+  }
+
+  /** 加入已解析的一批結果陣列（供 Host 單次解析後寫入，避免重複 JSON.parse） */
+  ingestBatch(results: readonly unknown[], context: TradeResultContext = {}): boolean {
     let added = false;
     for (const raw of results) {
-      added = this.ingestResult(raw, { ...context, sourceSearchId }) || added;
+      added = this.ingestResult(raw, context) || added;
     }
     if (added) this.notify();
     return added;

@@ -4,7 +4,7 @@
  */
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue';
 import { useCurrencyRates } from '@/components/sidebar/composables/useCurrencyRates';
-import { ResultPobCopy } from '@/entrypoints/content/logic/result-pob-copy';
+import { createPobItemExporter, type PobItemExporter } from '@/utils/pob-item-export';
 import { LiveSearchFetchRateGate } from '@/entrypoints/content/logic/live-search-fetch-rate-gate';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { getActiveUiLocale, t, type I18nKey } from '@/utils/i18n';
@@ -69,7 +69,7 @@ export function usePinnedItems() {
     version,
     resolveLeague: () => currentLeague,
   });
-  let pobCopy: ResultPobCopy | undefined;
+  let pobExporter: PobItemExporter | undefined;
   let unsubscribe: (() => void) | undefined;
 
   const visibleItems = computed(() =>
@@ -187,8 +187,8 @@ export function usePinnedItems() {
   }
 
   async function copyPob(item: PinnedItemSnapshot) {
-    pobCopy ??= new ResultPobCopy(version);
-    await pobCopy.copyItem(item.item, item.locale);
+    pobExporter ??= createPobItemExporter(version);
+    await pobExporter.copyItem(item.item, item.locale);
   }
 
   function openSource(item: PinnedItemSnapshot) {

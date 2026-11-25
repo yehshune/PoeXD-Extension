@@ -1,27 +1,34 @@
-import { removeTradeResultStyle, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
-type UnknownRecord = Record<string, any>;
+import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
+import {
+  ensureResultEnhancementStyle,
+  removeResultEnhancementStyle,
+} from './result-enhancement-styles';
 
-export class ResultModHighlighter {
+type UnknownRecord = Record<string, unknown>;
+
+export class ResultModHighlighterAdapter {
   private enabled = false;
   private activeStatIds = new Set<string>();
 
-  handleSearchQuery(_searchId: string, criteria: unknown) {
+  constructor(private readonly doc: Document) {}
+
+  handleSearchQuery(_searchId: string, criteria: unknown): void {
     this.activeStatIds = extractEnabledStatIds(criteria);
-    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
-  setEnabled(enabled: boolean) {
+  setEnabled(enabled: boolean): void {
     this.enabled = enabled;
     if (!enabled) {
-      removeHighlights();
+      this.removeHighlights();
       return;
     }
-    const root = document.querySelector(TRADE_RESULTS_SELECTOR);
+    const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
   }
 
-  apply(container: Element) {
+  apply(container: Element): void {
     if (!this.enabled) return;
 
     const targets = new Map<Element, boolean>();
@@ -39,58 +46,42 @@ export class ResultModHighlighter {
     targets.forEach((shouldHighlight, target) => {
       target.classList.toggle('poexd-filter-mod-highlight', shouldHighlight);
     });
-    ensureHighlightStyle();
+    ensureResultEnhancementStyle('mod-highlight', this.doc);
   }
 
-  cleanup() {
+  cleanup(): void {
     this.enabled = false;
     this.activeStatIds.clear();
-    removeHighlights();
-    removeTradeResultStyle('poexd-filter-mod-highlight-style');
+    this.removeHighlights();
+    removeResultEnhancementStyle('mod-highlight', this.doc);
+  }
+
+  private removeHighlights(): void {
+    this.doc
+      .querySelector(TRADE_RESULTS_SELECTOR)
+      ?.querySelectorAll('.poexd-filter-mod-highlight')
+      .forEach((element) => {
+        element.classList.remove('poexd-filter-mod-highlight');
+      });
   }
 }
 
-export function extractEnabledStatIds(criteria: unknown) {
+export function extractEnabledStatIds(criteria: unknown): Set<string> {
   const stats = isRecord(criteria) && Array.isArray(criteria.stats) ? criteria.stats : [];
   const ids = new Set<string>();
   stats.forEach((group) => {
     if (!isRecord(group) || group.disabled === true || !Array.isArray(group.filters)) return;
     group.filters.forEach((filter: unknown) => {
-      if (isRecord(filter) && filter.disabled !== true && typeof filter.id === 'string')
+      if (isRecord(filter) && filter.disabled !== true && typeof filter.id === 'string') {
         ids.add(filter.id);
+      }
     });
   });
   return ids;
 }
 
-function normalizeDataFieldId(dataField: string) {
+function normalizeDataFieldId(dataField: string): string {
   return dataField.startsWith('stat.') ? dataField.slice('stat.'.length) : dataField;
-}
-
-function removeHighlights() {
-  document
-    .querySelector(TRADE_RESULTS_SELECTOR)
-    ?.querySelectorAll('.poexd-filter-mod-highlight')
-    .forEach((element) => {
-      element.classList.remove('poexd-filter-mod-highlight');
-    });
-}
-
-export function ensureHighlightStyle() {
-  const existing = document.getElementById('poexd-filter-mod-highlight-style');
-  if (existing) return;
-  const style = document.createElement('style');
-  style.id = 'poexd-filter-mod-highlight-style';
-  style.textContent = `
-    .poexd-filter-mod-highlight {
-      box-shadow: 0 0 20px oklch(0.70 0.12 265 / 0.25), 0 10px 30px oklch(0.10 0.02 265 / 0.6);
-      background-color: oklch(0.25 0.05 260 / 0.53);
-      border: 1px solid oklch(0.85 0.08 265 / 0.65);
-      padding: 5px;
-      margin: 5px 0;
-    }
-  `;
-  (document.head || document.documentElement).appendChild(style);
 }
 
 function isRecord(value: unknown): value is UnknownRecord {
