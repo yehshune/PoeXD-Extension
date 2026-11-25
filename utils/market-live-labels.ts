@@ -14,7 +14,7 @@ import {
   getMarketLiveDataCacheKey,
   readValidMarketLiveDataCache,
   type MarketLiveDataCache,
-} from './market-translation-live';
+} from './market-live-cache';
 import { resolveStoredDisplayLocale } from './preferences-contract';
 import type { PoeVersion } from './trade-context';
 

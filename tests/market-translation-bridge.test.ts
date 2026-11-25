@@ -9,7 +9,7 @@ import {
   getMarketLiveDataCacheKey,
   getMarketLiveEnglishCacheKey,
   getMarketLiveUiCacheKey,
-} from '@/utils/market-translation-live';
+} from '@/utils/market-live-cache';
 import {
   MARKET_MESSAGE_SOURCE,
   createRequestMessage,

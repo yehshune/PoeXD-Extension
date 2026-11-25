@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
 import type { BookmarkModel } from '@/components/sidebar/bookmark-model';
 import { createPobBookmarkBridge } from '@/components/sidebar/pob-build/pob-bookmark-bridge';
-import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection';
+import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection-schema';
 
 const ICON = 'https://web.poecdn.com/gen/image/abc/Shield.png';
 

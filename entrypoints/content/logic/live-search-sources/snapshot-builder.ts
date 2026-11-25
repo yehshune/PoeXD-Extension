@@ -1,5 +1,5 @@
 import type { BookmarkCollectionView } from '@/utils/bookmark-coordinator';
-import { buildFolderTree, type FolderTreeNode } from '@/utils/bookmark-collection';
+import { buildFolderTree, type FolderTreeNode } from '@/utils/bookmark-folder-tree';
 import { t } from '@/utils/i18n';
 import {
   getTradeSearchCanonicalKey,

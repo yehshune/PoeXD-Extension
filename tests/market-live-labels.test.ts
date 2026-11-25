@@ -5,7 +5,7 @@ import {
   MARKET_LIVE_SCHEMA_VERSION,
   getMarketLiveDataCacheKey,
   type MarketLiveDataCache,
-} from '../utils/market-translation-live';
+} from '../utils/market-live-cache';
 import {
   type LiveTradeDataSnapshot,
   getOfficialStatLabel,

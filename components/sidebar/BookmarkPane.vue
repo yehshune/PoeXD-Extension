@@ -341,7 +341,7 @@ import {
 import { useDragTrash, type DragTrashSession } from './composables/useDragTrash';
 import type { BookmarkGroup } from './bookmark-types';
 import { useBookmarkSortables, type BookmarkDragEntity } from './composables/useBookmarkSortables';
-import { getFolderDeleteImpact } from '@/utils/bookmark-collection';
+import { getFolderDeleteImpact } from '@/utils/bookmark-folder-tree';
 import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
 import { describeBookmarkImportFailure } from '@/utils/bookmark-transfer-messages';
 import { dispatchPoeEvent } from '@/utils/event-contracts';

@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue';
-import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection';
+import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection-schema';
 import type { Bookmark, BookmarkGroup } from '../bookmark-types';
 import type { BookmarkMutationIntent } from '../bookmark-model';
 

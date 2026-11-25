@@ -39,6 +39,12 @@ import {
   LiveSearchFetchRateGate,
   type ILiveSearchFetchRateGate,
 } from './live-search-fetch-rate-gate';
+import {
+  buildLiveSearchWebSocketUrl,
+  fetchLiveSearchItem,
+  type LiveSearchItemFetchRequest,
+  type LiveSearchItemFetchResult,
+} from './live-search-trade-endpoint';
 
 export interface LiveSearchPrimaryRuntimeOptions {
   hostClient?: ILiveSearchHostClient;
@@ -134,10 +140,6 @@ interface PipelineTask {
   receivedAt: number;
   rateLimitRetries?: number;
 }
-
-type FetchTradeItemResult =
-  | { ok: true; itemData: unknown }
-  | { ok: false; status?: number; error: string };
 
 const MAX_PIPELINE_429_RETRIES = 1;
 
@@ -628,7 +630,8 @@ export class LiveSearchPrimaryRuntime {
     }
 
     // 2. 建立專屬 Connection Session 與 SubscriptionContext
-    const wsUrl = this.buildWebSocketUrl(
+    const wsUrl = buildLiveSearchWebSocketUrl(
+      this.origin,
       subscription.gameVersion,
       subscription.league.trim(),
       subscription.searchId.trim(),
@@ -1142,65 +1145,22 @@ export class LiveSearchPrimaryRuntime {
   /**
    * 共用 `/fetch` 抓取與解析流程（供一般推播任務與手動補抓共用）
    */
-  private async fetchTradeItemPayload(input: {
-    gameVersion: PoeVersion;
-    token: string;
-    searchId: string;
-    league: string;
-    shouldAbort: () => boolean;
-    onRegisterCancel?: (cancelWait: () => void) => void;
-    maxRateLimitRetries?: number;
-  }): Promise<FetchTradeItemResult> {
-    const fetchUrl = this.buildFetchUrl(input.gameVersion, input.token, input.searchId);
-    try {
-      const response = await this.fetchRateGate.fetch(
-        fetchUrl,
-        {
-          method: 'GET',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            Accept: 'application/json',
-          },
-        },
-        {
-          shouldAbort: input.shouldAbort,
-          onRegisterCancel: input.onRegisterCancel,
-          maxRateLimitRetries: input.maxRateLimitRetries,
-        },
-      );
-
-      if (!response) {
-        return { ok: false, error: 'Fetch cancelled' };
-      }
-      if (!response.ok) {
-        return { ok: false, status: response.status, error: `HTTP ${response.status}` };
-      }
-
-      const json = await response.json();
-      if (
-        !json ||
-        typeof json !== 'object' ||
-        !Array.isArray(json.result) ||
-        json.result.length === 0
-      ) {
-        return { ok: false, error: 'Item no longer available' };
-      }
-
-      const itemData = json.result[0];
+  private async fetchTradeItemPayload(
+    input: LiveSearchItemFetchRequest & { league: string },
+  ): Promise<LiveSearchItemFetchResult> {
+    const fetched = await fetchLiveSearchItem(this.fetchRateGate, this.origin, input);
+    if (fetched.ok) {
       try {
         this.onResultFetched?.({
-          itemData,
+          itemData: fetched.itemData,
           searchId: input.searchId,
           league: input.league,
         });
       } catch (error) {
         console.error('[PoeXD LiveSearch] Error in result fetched listener:', error);
       }
-
-      return { ok: true, itemData };
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : 'Fetch failed' };
     }
+    return fetched;
   }
 
   private async executeManualDroppedTask(task: ManualDroppedTask): Promise<void> {
@@ -1378,35 +1338,5 @@ export class LiveSearchPrimaryRuntime {
       // 例外發生：移除 pending，total 不變，允許重試
       subCtx.pendingTokens.delete(token);
     }
-  }
-
-  /**
-   * 依據遊戲版本與 Origin 組裝 WebSocket 網址
-   */
-  private buildWebSocketUrl(gameVersion: PoeVersion, league: string, searchId: string): string {
-    const isHttps = this.origin.startsWith('https:');
-    const wsProto = isHttps ? 'wss:' : 'ws:';
-    const host = this.origin.replace(/^https?:\/\//, '');
-
-    const encodedLeague = encodeURIComponent(league);
-    const encodedSearchId = encodeURIComponent(searchId);
-
-    if (gameVersion === 'poe2') {
-      return `${wsProto}//${host}/api/trade2/live/poe2/${encodedLeague}/${encodedSearchId}`;
-    }
-    return `${wsProto}//${host}/api/trade/live/${encodedLeague}/${encodedSearchId}`;
-  }
-
-  /**
-   * 依據遊戲版本組裝 HTTP /fetch 網址 (遵循官方契約)
-   */
-  private buildFetchUrl(gameVersion: PoeVersion, token: string, searchId: string): string {
-    const encodedToken = encodeURIComponent(token);
-    const encodedSearchId = encodeURIComponent(searchId);
-
-    if (gameVersion === 'poe2') {
-      return `${this.origin}/api/trade2/fetch/${encodedToken}?query=${encodedSearchId}&realm=poe2`;
-    }
-    return `${this.origin}/api/trade/fetch/${encodedToken}?query=${encodedSearchId}`;
   }
 }

@@ -5,10 +5,8 @@ import {
   type FakeBookmarkWorkspaceHost,
 } from '@/components/sidebar/bookmark-workspace/fake-host';
 import type { Bookmark } from '@/components/sidebar/bookmark-types';
-import {
-  isBookmarkCollectionState,
-  createBookmarkCollectionModule,
-} from '@/utils/bookmark-collection';
+import { createBookmarkCollectionModule } from '@/utils/bookmark-collection';
+import { isBookmarkCollectionState } from '@/utils/bookmark-collection-schema';
 import { createBookmarkModel } from '@/components/sidebar/bookmark-model';
 import { createFakeBookmarkModel } from './helpers/fake-bookmark-model';
 

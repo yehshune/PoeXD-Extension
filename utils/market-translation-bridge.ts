@@ -11,6 +11,7 @@ import {
   type MarketTranslationLocale,
 } from './market-translation';
 import { loadMarketTradeDictionary, type MarketLiveEnglishData } from './market-translation-assets';
+import type { MarketTranslationRefreshRequest } from './market-translation-live';
 import {
   getMarketLiveDataCacheKey,
   getMarketLiveEnglishCacheKey,
@@ -23,8 +24,7 @@ import {
   readValidMarketLiveEnglishCache,
   readValidMarketLiveUiCache,
   resolveMarketLiveEnglishData,
-  type MarketTranslationRefreshRequest,
-} from './market-translation-live';
+} from './market-live-cache';
 import { getPoeVersion, type PoeVersion } from './trade-context';
 import {
   MARKET_MESSAGE_SOURCE,

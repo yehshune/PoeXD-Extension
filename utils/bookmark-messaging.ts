@@ -1,8 +1,5 @@
-import type {
-  BookmarkCollectionGroup,
-  BookmarkReorderPlacement,
-  FolderDropIntent,
-} from './bookmark-collection';
+import type { BookmarkCollectionGroup, BookmarkReorderPlacement } from './bookmark-collection';
+import type { FolderDropIntent } from './bookmark-folder-tree';
 import type {
   BookmarkChange,
   BookmarkCollectionView,

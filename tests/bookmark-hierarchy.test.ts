@@ -2,23 +2,27 @@ import { describe, expect, it } from 'vitest';
 import {
   BOOKMARK_COLLECTION_STATE_KEY,
   BOOKMARK_COLLECTION_STATE_KEY_V2,
-  canMoveFolder,
   createBookmarkCollectionModule,
-  getFolderSubtreeIds,
-  getSubtreeBookmarkIds,
-  getFolderDeleteImpact,
-  isDirectlyDeletableEmptyFolder,
-  isBookmarkCollectionState,
-  isBookmarkCollectionStateV3,
-  isCanonicalBookmarkCollectionStateV3,
-  canonicalizeBookmarkCollectionState,
-  formatFolderPath,
-  getFolderPathNames,
-  migrateBookmarkCollectionStateV2ToV3,
   type BookmarkCollectionState,
   type BookmarkCollectionStateV2,
   type BookmarkFolder,
 } from '@/utils/bookmark-collection';
+import {
+  canMoveFolder,
+  getFolderSubtreeIds,
+  getSubtreeBookmarkIds,
+  getFolderDeleteImpact,
+  isDirectlyDeletableEmptyFolder,
+  formatFolderPath,
+  getFolderPathNames,
+} from '@/utils/bookmark-folder-tree';
+import {
+  isBookmarkCollectionState,
+  isBookmarkCollectionStateV3,
+  isCanonicalBookmarkCollectionStateV3,
+  canonicalizeBookmarkCollectionState,
+  migrateBookmarkCollectionStateV2ToV3,
+} from '@/utils/bookmark-collection-schema';
 import {
   createBackgroundBookmarkCoordinator,
   createInMemoryBookmarkCoordinatorStorage,

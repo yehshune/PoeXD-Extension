@@ -10,11 +10,10 @@ vi.mock('sortablejs', () => ({
 
 import {
   createBookmarkCollectionModule,
-  resolveFolderDropPlacement,
   type BookmarkCollectionState,
   type BookmarkFolder,
-  type FolderDropIntent,
 } from '@/utils/bookmark-collection';
+import { resolveFolderDropPlacement, type FolderDropIntent } from '@/utils/bookmark-folder-tree';
 import { createBookmarkModel } from '@/components/sidebar/bookmark-model';
 import {
   calculateBookmarkReorderPlacements,
@@ -2018,7 +2017,7 @@ describe('Bookmark Nested DnD (Phase D Domain & Placement Contracts)', () => {
     expect(currentDragEntity).toEqual({ kind: 'folder', id: 'p' });
 
     // 2. Derive canonical delete impact for Parent
-    const { getFolderDeleteImpact } = await import('@/utils/bookmark-collection');
+    const { getFolderDeleteImpact } = await import('@/utils/bookmark-folder-tree');
     const impact = getFolderDeleteImpact(groups.value, bookmarks.value, 'p');
     expect(impact.totalFolderCount).toBe(2);
     expect(impact.descendantFolderCount).toBe(1);

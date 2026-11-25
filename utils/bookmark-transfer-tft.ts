@@ -8,7 +8,7 @@ import type { PoeVersion } from './trade-context';
 import { decodeRepeatedly, parseTradePath } from './trade-context';
 import { DEFAULT_TRADE_ORIGIN } from './trade-realms';
 import { BOOKMARK_AUTO_LEAGUE, readTradeUrlLeague } from './bookmark-target';
-import { BOOKMARK_NAME_MAX_LENGTH } from './bookmark-collection';
+import { BOOKMARK_NAME_MAX_LENGTH } from './bookmark-collection-schema';
 import { BookmarkTransferInputError } from './bookmark-transfer-errors';
 import { isValidPoeCdnImageUrl } from './poe-cdn-url';
 import { normalizeFolderColor, normalizeFolderIcon } from './folder-icons';

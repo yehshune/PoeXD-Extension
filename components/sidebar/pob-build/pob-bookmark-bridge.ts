@@ -4,7 +4,7 @@
  * 書籤資料由背景統一保存並廣播變更，這裡另建一個 bookmark model 連上同一份資料；新增後書籤面板
  * 會收到變更通知自行更新，PoB 面板不直接碰書籤儲存。模型在第一次使用時才連線。
  */
-import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection';
+import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection-schema';
 import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
 import { normalizeFolderColor, normalizeFolderIcon } from '@/utils/folder-icons';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';

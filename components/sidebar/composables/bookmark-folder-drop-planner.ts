@@ -6,7 +6,7 @@ import {
   type FolderDropIntent,
   type FolderDropPosition,
   type VisibleFolderItem,
-} from '@/utils/bookmark-collection';
+} from '@/utils/bookmark-folder-tree';
 
 export interface FolderCardRect {
   top: number;

@@ -12,7 +12,7 @@ import {
   getFlattenedFolderTree,
   type FlattenedFolderTarget as GenericFlattenedFolderTarget,
   type FolderTreeNode as GenericFolderTreeNode,
-} from '@/utils/bookmark-collection';
+} from '@/utils/bookmark-folder-tree';
 
 export type FolderTreeNode = GenericFolderTreeNode<BookmarkGroup>;
 export type FlattenedFolderTarget = GenericFlattenedFolderTarget<BookmarkGroup>;

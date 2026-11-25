@@ -5,7 +5,7 @@ import type {
 } from '@/entrypoints/content/logic/live-search-sources';
 import type { LiveSearchEnqueueResponse } from '@/utils/live-search-contract';
 import type { ResumableInspectItem } from './LiveSearchResumeInspectPopover.vue';
-import { formatFolderPath } from '@/utils/bookmark-collection';
+import { formatFolderPath } from '@/utils/bookmark-folder-tree';
 import { formatMessage, t } from '@/utils/i18n';
 
 /**

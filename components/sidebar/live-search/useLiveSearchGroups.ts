@@ -1,6 +1,6 @@
 import { computed, ref, type Ref } from 'vue';
 import { useDebouncedRef } from '@/components/sidebar/composables/useDebouncedSearch';
-import { getFolderAncestors, getFolderDepth } from '@/utils/bookmark-collection';
+import { getFolderAncestors, getFolderDepth } from '@/utils/bookmark-folder-tree';
 import { t } from '@/utils/i18n';
 import type { LiveSearchSubscriptionStatus } from '@/utils/live-search-contract';
 import {

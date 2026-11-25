@@ -2,13 +2,13 @@ import { computed, readonly, ref, type ComputedRef, type Ref } from 'vue';
 import { t, formatMessage } from '@/utils/i18n';
 import { createVersionedStorageKeys } from '@/utils/storage-contracts';
 import { readBookmarkTargetContext, resolveBookmarkUrl } from '@/utils/bookmark-target';
+import { sanitizeBookmarkName } from '@/utils/bookmark-collection-schema';
 import {
   getFolderDeleteImpact,
   getFolderSubtreeIds,
   isDirectlyDeletableEmptyFolder,
   formatFolderPath,
-  sanitizeBookmarkName,
-} from '@/utils/bookmark-collection';
+} from '@/utils/bookmark-folder-tree';
 import {
   isLegacyTradeSearchUrl,
   isSameTradeSearchPageUrl,

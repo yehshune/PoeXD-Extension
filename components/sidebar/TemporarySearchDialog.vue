@@ -21,7 +21,7 @@ import { FORM_INDICATOR_SPECS } from '@/lib/tokens';
 import { decodeTradeSearchUrl, extractQueryMetadata } from '@/utils/trade-url-codec';
 import { parseTradeSearchUrl, stripLiveSuffix } from '@/utils/trade-search-identity';
 import { loadTradeDictionaries } from '@/utils/trade-stat-dictionary';
-import { formatFolderPath } from '@/utils/bookmark-collection';
+import { formatFolderPath } from '@/utils/bookmark-folder-tree';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import { resolveBatchEnableToast } from './live-search-presentation';

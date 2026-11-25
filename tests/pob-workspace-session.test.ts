@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { nextTick, ref } from 'vue';
-import type { BuildView, ShoppingRow } from '@/components/sidebar/pob-build/usePobBuild';
+import type { BuildView, ShoppingRow } from '@/components/sidebar/pob-build/pob-build-view';
 import {
   HOVER_OPEN_DELAY_MS,
   HOVER_WARM_WINDOW_MS,

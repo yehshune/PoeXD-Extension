@@ -877,14 +877,14 @@ import PobGearView from './PobGearView.vue';
 import PobItemImage from './PobItemImage.vue';
 import type { PobBookmarkFolder } from './pob-bookmark-bridge';
 import { formatPobSlot } from './pob-slot-label';
-import {
-  usePobBuild,
-  type BuildView,
-  type SetOption,
-  type ShoppingGroup,
-  type ShoppingRow,
-  type SocketContent,
-} from './usePobBuild';
+import { usePobBuild } from './usePobBuild';
+import type {
+  BuildView,
+  SetOption,
+  ShoppingGroup,
+  ShoppingRow,
+  SocketContent,
+} from './pob-build-view';
 import {
   usePobWorkspaceSession,
   VIEW_MODES,

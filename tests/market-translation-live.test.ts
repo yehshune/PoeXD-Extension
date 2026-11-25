@@ -1,27 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  MARKET_LIVE_ALL_CACHE_KEYS,
   MARKET_LIVE_ERROR_COOLDOWN_MS,
-  MARKET_LIVE_TTL_MS,
-  alignLiveStatsWithEnglish,
-  alignLiveTradeItemsWithEnglish,
-  clearMarketTranslationLiveCache,
   createMarketTranslationLiveService,
+  type MarketLiveHttpClient,
+  type MarketLiveStorage,
+} from '@/utils/market-translation-live';
+import {
+  MARKET_LIVE_ALL_CACHE_KEYS,
+  MARKET_LIVE_TTL_MS,
+  clearMarketTranslationLiveCache,
   getMarketLiveDataCacheKey,
   getMarketLiveEnglishCacheKey,
   getMarketLiveErrorCacheKey,
   getMarketLiveUiCacheKey,
   mergeMarketTradeDictionary,
   mergeMarketUiStrings,
+} from '@/utils/market-live-cache';
+import {
+  alignLiveStatsWithEnglish,
+  alignLiveTradeItemsWithEnglish,
   parseOfficialEnglishTradeItems,
   parseOfficialTradeFilters,
   parseOfficialTradeItems,
   parseOfficialTradeStatic,
   parseOfficialTradeStats,
   parseOfficialTranslateJs,
-  type MarketLiveHttpClient,
-  type MarketLiveStorage,
-} from '@/utils/market-translation-live';
+} from '@/utils/market-live-parsers';
 
 function buildTranslateJs(count = 110, extraLines: string[] = []): string {
   const lines = [

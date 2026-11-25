@@ -375,7 +375,8 @@ import {
   Copy,
   RefreshCw,
 } from '@lucide/vue';
-import { BOOKMARK_NAME_MAX_LENGTH, getFolderSubtreeIds } from '@/utils/bookmark-collection';
+import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection-schema';
+import { getFolderSubtreeIds } from '@/utils/bookmark-folder-tree';
 import BookmarkRow from './BookmarkRow.vue';
 import FolderIcon from './FolderIcon.vue';
 import FolderIconPicker from './FolderIconPicker.vue';

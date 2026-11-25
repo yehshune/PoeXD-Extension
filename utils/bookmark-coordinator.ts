@@ -2,17 +2,8 @@ import { planRejectedStorageBackups } from './rejected-storage-backup';
 import {
   BOOKMARK_COLLECTION_STATE_KEY,
   BOOKMARK_COLLECTION_STATE_KEY_V2,
-  canonicalizeBookmarkCollectionState,
   createBookmarkCollectionModule,
   createDefaultBookmarkCollectionState,
-  isBookmarkCollectionState,
-  isBookmarkCollectionStateV3,
-  isBookmarkCollectionStateV2,
-  isCanonicalBookmarkCollectionStateV3,
-  isCompatBookmarkCollectionStateV3,
-  migrateBookmarkCollectionStateV2ToV3,
-  getSubtreeBookmarkIds,
-  type FolderDropIntent,
   type BookmarkCollectionGroup,
   type BookmarkCollectionItem,
   type BookmarkCollectionModule,
@@ -21,6 +12,16 @@ import {
   type BookmarkReorderPlacement,
   type BookmarkCollectionState,
 } from './bookmark-collection';
+import {
+  canonicalizeBookmarkCollectionState,
+  isBookmarkCollectionState,
+  isBookmarkCollectionStateV3,
+  isBookmarkCollectionStateV2,
+  isCanonicalBookmarkCollectionStateV3,
+  isCompatBookmarkCollectionStateV3,
+  migrateBookmarkCollectionStateV2ToV3,
+} from './bookmark-collection-schema';
+import { getSubtreeBookmarkIds, type FolderDropIntent } from './bookmark-folder-tree';
 import type { PoeVersion } from './trade-context';
 import { BOOKMARK_AUTO_LEAGUE } from './bookmark-target';
 import {

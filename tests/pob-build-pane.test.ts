@@ -2,7 +2,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computed, createApp, h, nextTick, ref, type App, type Component } from 'vue';
 import { ConfigProvider } from 'reka-ui';
-import type { BuildView, UsePobBuild } from '@/components/sidebar/pob-build/usePobBuild';
+import type { UsePobBuild } from '@/components/sidebar/pob-build/usePobBuild';
+import type { BuildView } from '@/components/sidebar/pob-build/pob-build-view';
 import { resetI18nStateForTests } from '@/utils/i18n';
 
 vi.mock('@/utils/trade-context', () => ({ getPoeVersion: () => 'poe1' }));

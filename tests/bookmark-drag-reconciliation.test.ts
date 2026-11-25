@@ -3,7 +3,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { createApp, defineComponent, h, nextTick } from 'vue';
 import { ConfigProvider } from 'reka-ui';
 import BookmarkPane from '@/components/sidebar/BookmarkPane.vue';
-import { resolveFolderDropPlacement } from '@/utils/bookmark-collection';
+import { resolveFolderDropPlacement } from '@/utils/bookmark-folder-tree';
 
 const sortableInstances: Array<{ element: HTMLElement; options: any }> = [];
 

@@ -8,7 +8,7 @@ import {
   getFolderDeleteImpact,
   isDirectlyDeletableEmptyFolder,
   type FolderDropIntent,
-} from '@/utils/bookmark-collection';
+} from '@/utils/bookmark-folder-tree';
 import {
   createFolderDropSession,
   type FolderCardGeometry,

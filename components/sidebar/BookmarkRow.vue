@@ -307,7 +307,7 @@ import {
   FolderInput,
   Trash2,
 } from '@lucide/vue';
-import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection';
+import { BOOKMARK_NAME_MAX_LENGTH } from '@/utils/bookmark-collection-schema';
 import {
   isLegacyTradeSearchUrl,
   isSameTradeSearchPageUrl,

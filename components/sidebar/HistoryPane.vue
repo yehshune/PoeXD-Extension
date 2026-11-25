@@ -433,11 +433,9 @@ import {
   isLiveTradeSearchUrl,
 } from './history-presentation';
 import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
-import {
-  getFlattenedFolderTree,
-  sanitizeBookmarkName,
-  type BookmarkCollectionGroup,
-} from '@/utils/bookmark-collection';
+import type { BookmarkCollectionGroup } from '@/utils/bookmark-collection';
+import { sanitizeBookmarkName } from '@/utils/bookmark-collection-schema';
+import { getFlattenedFolderTree } from '@/utils/bookmark-folder-tree';
 import type { BookmarkViewItem } from '@/utils/bookmark-coordinator';
 import { getFolderItemIndentLevel } from './bookmark-tree';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';

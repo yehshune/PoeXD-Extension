@@ -7,10 +7,10 @@ import {
 } from '@/components/sidebar/pob-build/pob-data-loader';
 import {
   usePobBuild,
-  type BuildView,
   type UsePobBuild,
   type UsePobBuildDeps,
 } from '@/components/sidebar/pob-build/usePobBuild';
+import type { BuildView } from '@/components/sidebar/pob-build/pob-build-view';
 import {
   createPobBuildStore,
   pobBuildsStorageKey,

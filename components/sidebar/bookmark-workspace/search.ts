@@ -1,6 +1,6 @@
 import { ref, computed, nextTick, type Ref, type ComputedRef } from 'vue';
 import type { Bookmark, BookmarkGroup } from '../bookmark-types';
-import { getFolderAncestors } from '@/utils/bookmark-collection';
+import { getFolderAncestors } from '@/utils/bookmark-folder-tree';
 import { useDebouncedRef } from '../composables/useDebouncedSearch';
 
 const EMPTY_BOOKMARKS: readonly Bookmark[] = Object.freeze([]);

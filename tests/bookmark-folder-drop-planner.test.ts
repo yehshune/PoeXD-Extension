@@ -4,7 +4,7 @@ import {
   createFolderDropSession,
   type FolderCardGeometry,
 } from '@/components/sidebar/composables/bookmark-folder-drop-planner';
-import { resolveFolderDropPlacement } from '@/utils/bookmark-collection';
+import { resolveFolderDropPlacement } from '@/utils/bookmark-folder-tree';
 
 function makeCard(
   folderId: string,

@@ -4,12 +4,9 @@ import {
   parseTradeSearchUrl,
   stripLiveSuffix,
 } from './trade-search-identity';
-import {
-  BOOKMARK_NAME_MAX_LENGTH,
-  formatFolderPath,
-  getFolderSubtreeIds,
-  validateFolderHierarchy,
-} from './bookmark-collection';
+import { BOOKMARK_NAME_MAX_LENGTH } from './bookmark-collection-schema';
+import { formatFolderPath, getFolderSubtreeIds } from './bookmark-folder-tree';
+import { validateFolderHierarchy } from './bookmark-collection-schema';
 import {
   BookmarkTransferInputError,
   toBookmarkTransferInputError,

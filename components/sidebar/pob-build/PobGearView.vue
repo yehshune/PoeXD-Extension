@@ -18,7 +18,7 @@ import {
   type GearCell,
   type GearCellId,
 } from './pob-gear-layout';
-import type { ShoppingRow, SocketContent } from './usePobBuild';
+import type { ShoppingRow, SocketContent } from './pob-build-view';
 
 const props = defineProps<{
   rows: readonly ShoppingRow[];

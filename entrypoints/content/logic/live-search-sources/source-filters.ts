@@ -1,4 +1,4 @@
-import { buildFolderTree, type FolderTreeNode } from '@/utils/bookmark-collection';
+import { buildFolderTree, type FolderTreeNode } from '@/utils/bookmark-folder-tree';
 import { t } from '@/utils/i18n';
 import type { PoeVersion } from '@/utils/trade-context';
 import {

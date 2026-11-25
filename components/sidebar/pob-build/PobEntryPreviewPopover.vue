@@ -37,7 +37,7 @@ import {
   PREVIEW_TOOLBAR_CLASS,
   type PreviewAnchor,
 } from '../item-preview/preview-classes';
-import type { ShoppingRow, StatBound } from './usePobBuild';
+import type { ShoppingRow, StatBound } from './pob-build-view';
 import { canSearchPobRow } from './usePobWorkspaceSession';
 
 /** PoB 項目的詞綴群組只有兩種：全部符合（且）或至少符合 N 項（計數） */

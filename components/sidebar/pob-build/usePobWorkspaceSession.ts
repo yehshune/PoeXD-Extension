@@ -10,7 +10,7 @@ import {
   type EntrySearchSelection,
 } from '@/utils/pob-entry-search';
 import type { ShoppingEntry } from '@/utils/pob-shopping-list';
-import type { BuildView, ShoppingGroup, ShoppingRow, SocketContent } from './usePobBuild';
+import type { BuildView, ShoppingGroup, ShoppingRow, SocketContent } from './pob-build-view';
 
 export type ShoppingCategory = 'all' | 'gear' | 'flask' | 'jewel' | 'gem';
 export type ConcreteShoppingCategory = Exclude<ShoppingCategory, 'all'>;

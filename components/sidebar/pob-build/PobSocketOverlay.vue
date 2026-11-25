@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import PobItemImage from './PobItemImage.vue';
 import { fitItemInTile } from './pob-gear-layout';
 import { socketLayout, type SocketColor } from './pob-socket-layout';
-import type { SocketContent } from './usePobBuild';
+import type { SocketContent } from './pob-build-view';
 
 const props = defineProps<{
   sockets: string;

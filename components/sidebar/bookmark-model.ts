@@ -1,14 +1,12 @@
 import { readonly, ref, type DeepReadonly, type Ref } from 'vue';
 import type { BookmarkClient } from '@/utils/bookmark-messaging';
+import { getNextBookmarkOrder, type BookmarkReorderPlacement } from '@/utils/bookmark-collection';
+import { BOOKMARK_NAME_MAX_LENGTH, isValidBookmarkName } from '@/utils/bookmark-collection-schema';
 import {
-  BOOKMARK_NAME_MAX_LENGTH,
-  isValidBookmarkName,
   getFolderSubtreeIds,
-  getNextBookmarkOrder,
   resolveFolderDropPlacement,
-  type BookmarkReorderPlacement,
   type FolderDropIntent,
-} from '@/utils/bookmark-collection';
+} from '@/utils/bookmark-folder-tree';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import { applyFolderAppearance } from '@/utils/folder-icons';
 import type { BookmarkInput } from '@/utils/bookmark-coordinator';

@@ -26,10 +26,8 @@ import { createPinnedItemStore } from '@/utils/pinned-items';
 import { LiveSearchCoordinator } from '@/utils/live-search-coordinator';
 import { TRADE_PAGE_MATCH_PATTERNS } from '@/utils/trade-realms';
 import { registerLiveSearchBackgroundHandlers } from '@/utils/live-search-messaging';
-import {
-  clearMarketTranslationLiveCache,
-  registerMarketTranslationBackgroundHandlers,
-} from '@/utils/market-translation-live';
+import { registerMarketTranslationBackgroundHandlers } from '@/utils/market-translation-live';
+import { clearMarketTranslationLiveCache } from '@/utils/market-live-cache';
 import { registerActionSidebarToggle } from '@/utils/action-sidebar-toggle';
 import {
   createInstallOnboardingState,

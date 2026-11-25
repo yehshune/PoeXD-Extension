@@ -1,6 +1,6 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue';
 import type { BookmarkGroup } from '../bookmark-types';
-import { getFolderSubtreeIds } from '@/utils/bookmark-collection';
+import { getFolderSubtreeIds } from '@/utils/bookmark-folder-tree';
 
 export interface BookmarkStorageChange<T = unknown> {
   oldValue?: T;
