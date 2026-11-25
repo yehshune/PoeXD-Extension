@@ -64,6 +64,7 @@ test.describe('搜尋結果看板', () => {
     await expect(sidebar.locator(`[data-board-seller="${repeatName}"]`)).toContainText(
       `${repeatCount} instant buyout`,
     );
+    await sidebar.locator('[data-board-min-count-toggle]').click();
     await sidebar.getByRole('button', { name: 'Decrease minimum instant buyout count' }).click();
     await expect(sellers).toHaveCount(sellerCounts.size);
 
