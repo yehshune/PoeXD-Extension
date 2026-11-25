@@ -17,6 +17,7 @@ import {
   type ActionResult,
   type ResultLayout,
 } from './official-actions.ts';
+import { readExtensionStorage } from './extension-storage.ts';
 import { captureResponses } from './network-capture.ts';
 import { snapshotStore, summarizeTradePage } from './page-probes.ts';
 import {
@@ -48,6 +49,7 @@ const HELP = `用法：pnpm poe <command> [參數] [--tab N]
   net [--filter /api/] [--seconds 10] [--file x.js] [--max-body 600] [--full-url]
                             監聽分頁的網路回應（含擴充發出的請求）；--file 在監聽期間於主世界執行，
                             用來觸發要觀察的請求（本身不發請求，觸發的動作可能會）
+  ext-storage [key ...]     讀擴充的 chrome.storage.local；不給 key 時列出所有 key
 
 會發官方請求（注意速率限制）：
   open <url|poe1|poe2|searchId> [--new]
@@ -216,6 +218,8 @@ async function main(): Promise<void> {
     if (args.command === 'status') return status(conn, args);
     if (args.command === 'open') return open(conn, args);
     if (args.command === 'close-trade') return closeTrade(conn);
+    if (args.command === 'ext-storage')
+      return print(await readExtensionStorage(conn.browser, args.positionals));
     const command = PAGE_COMMANDS[args.command ?? ''];
     if (!command) throw new Error(`未知的指令「${args.command}」，執行 pnpm poe help 查看`);
     const page = await requireTradePage(conn.browser, flagInt(args, 'tab'));
