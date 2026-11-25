@@ -4,6 +4,7 @@ import { useFilterData } from '@/components/sidebar/composables/useFilterData';
 import type { ModTier } from '@/components/sidebar/types';
 import { resetI18nStateForTests, setActiveDisplayLocale } from '@/utils/i18n';
 import { setAffixLexiconMockData } from '@/utils/affix-lexicon';
+import { publishedStats } from './helpers/game-data-fixtures';
 import { resetTradeLabelsForTests, setTradeLabelTestData } from '@/utils/trade-label-resolver';
 
 const tier = (overrides: Partial<ModTier>): ModTier => ({
@@ -87,8 +88,7 @@ describe('選擇器的詞綴標籤', () => {
 
   it('官方沒有翻譯時改用詞綴字典的市集標準寫法，而不是最低階級的遊戲文字', () => {
     setTradeLabelTestData({ version: 'poe2', officialStats: { 'zh-TW': { stats: {} } } });
-    setAffixLexiconMockData(
-      'poe2',
+    const published = publishedStats(
       {
         typeTable: [['gloves']],
         groups: ['#% reduced attribute requirements'],
@@ -113,6 +113,7 @@ describe('選擇器的詞綴標籤', () => {
         },
       },
     );
+    setAffixLexiconMockData('poe2', published.modsTiers, published.stats);
     const [group] = groupsFor({
       g: [
         tier({

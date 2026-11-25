@@ -21,6 +21,7 @@ import { loadTradeDictionaries, translateStatLines } from '@/utils/trade-stat-di
 import { translateStat } from '@/utils/trade-label-resolver';
 import { createTierDomainService } from '@/entrypoints/content/logic/tier-domain-service';
 import { useFilterData } from '@/components/sidebar/composables/useFilterData';
+import { publishedStats } from './helpers/game-data-fixtures';
 
 describe('Seam 2A: Page Locale & Affix Display Locale resolution', () => {
   it('resolves pageLocale from official hostnames and subdomains', () => {
@@ -290,6 +291,14 @@ const SHARD_RU: LocaleStatsShard = {
   },
 };
 
+/** fetch 回傳的發布格式（ADR-0019）：索引在 mods-tiers.json，stats.json 只有模板陣列 */
+const PUBLISHED = publishedStats(SAMPLE_MODS_TIERS, {
+  en: SHARD_EN,
+  'zh-TW': SHARD_ZH_TW,
+  'zh-CN': SHARD_ZH_CN,
+  ru: SHARD_RU,
+});
+
 describe('Seam 2B: Unified Affix Lexicon deduplication, prefix fallback & localized tier service', () => {
   beforeEach(() => {
     resetAffixLexiconCacheForTests();
@@ -304,16 +313,16 @@ describe('Seam 2B: Unified Affix Lexicon deduplication, prefix fallback & locali
         const url = String(input);
         requestedUrls.push(url);
         if (url.endsWith('poe2/mods-tiers.json')) {
-          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.modsTiers), { status: 200 });
         }
         if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
-          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats['zh-TW']), { status: 200 });
         }
         if (url.endsWith('poe2/locales/en/stats.json')) {
-          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.en), { status: 200 });
         }
         if (url.endsWith('poe2/locales/ru/stats.json')) {
-          return new Response(JSON.stringify(SHARD_RU), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.ru), { status: 200 });
         }
         return new Response(JSON.stringify({}), { status: 200 });
       }),
@@ -346,13 +355,13 @@ describe('Seam 2B: Unified Affix Lexicon deduplication, prefix fallback & locali
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.endsWith('poe2/mods-tiers.json')) {
-          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.modsTiers), { status: 200 });
         }
         if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
-          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats['zh-TW']), { status: 200 });
         }
         if (url.endsWith('poe2/locales/en/stats.json')) {
-          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.en), { status: 200 });
         }
         return new Response(JSON.stringify({}), { status: 200 });
       }),
@@ -387,19 +396,19 @@ describe('Seam 2B: Unified Affix Lexicon deduplication, prefix fallback & locali
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.endsWith('poe2/mods-tiers.json')) {
-          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.modsTiers), { status: 200 });
         }
         if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
-          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats['zh-TW']), { status: 200 });
         }
         if (url.endsWith('poe2/locales/zh-CN/stats.json')) {
-          return new Response(JSON.stringify(SHARD_ZH_CN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats['zh-CN']), { status: 200 });
         }
         if (url.endsWith('poe2/locales/en/stats.json')) {
-          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.en), { status: 200 });
         }
         if (url.endsWith('poe2/locales/ru/stats.json')) {
-          return new Response(JSON.stringify(SHARD_RU), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.ru), { status: 200 });
         }
         return new Response(JSON.stringify({}), { status: 200 });
       }),
@@ -443,65 +452,8 @@ describe('Seam 2B: Unified Affix Lexicon deduplication, prefix fallback & locali
     expect(translateStat('explicit.stat_3299347043', 'poe2')).toBe('# 最大生命(簡)');
   });
 
-  it('loads schemaVersion 2 data (shared template index in mods-tiers.json, templates-only locale shards)', async () => {
-    const shards = { en: SHARD_EN, 'zh-TW': SHARD_ZH_TW, ru: SHARD_RU };
-    const locales = Object.keys(shards) as Array<keyof typeof shards>;
-    const keys: string[] = [];
-    const intern = (texts: string[]) => {
-      const key = JSON.stringify(texts);
-      if (!keys.includes(key)) keys.push(key);
-      return keys.indexOf(key);
-    };
-    const tierTemplates = SHARD_EN.tierTemplates.map((_, tier) =>
-      intern(locales.map((l) => shards[l].templates[shards[l].tierTemplates[tier]])),
-    );
-    const statTemplates = Object.fromEntries(
-      Object.keys(SHARD_EN.statTemplates).map((id) => [
-        id,
-        intern(locales.map((l) => shards[l].templates[shards[l].statTemplates[id]])),
-      ]),
-    );
-    const modsTiers = {
-      schemaVersion: 2,
-      ...SAMPLE_MODS_TIERS,
-      templateCount: keys.length,
-      tierTemplates,
-      statTemplates,
-    };
-    const shardV2 = (locale: (typeof locales)[number]) => ({
-      schemaVersion: 2,
-      patch: SAMPLE_MODS_TIERS.patch,
-      locale,
-      templates: keys.map((key) => JSON.parse(key)[locales.indexOf(locale)]),
-    });
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.endsWith('poe2/mods-tiers.json')) return new Response(JSON.stringify(modsTiers));
-        for (const locale of locales) {
-          if (url.endsWith(`poe2/locales/${locale}/stats.json`)) {
-            return new Response(JSON.stringify(shardV2(locale)));
-          }
-        }
-        return new Response(JSON.stringify({}));
-      }),
-    );
-
-    const tierService = createTierDomainService('poe2');
-    setActiveDisplayLocalePreference('zh-TW');
-    await tierService.loadModsData(0, () => true);
-    expect(translateStat('explicit.stat_3299347043', 'poe2')).toBe('# 最大生命');
-    expect(translateStatLines('explicit.stat_speed', 'poe2')).toEqual(['增加 #% 攻擊速度', '# 命中值']);
-
-    setActiveDisplayLocalePreference('ru');
-    await ensureAffixLexiconLoaded('poe2');
-    const ruTiers = tierService.findModTiersByStatId('explicit.stat_3299347043')!;
-    expect(ruTiers[0].displayKey).toBe('+(10-19) к максимуму здоровья');
-  });
-
-  it('rejects a schemaVersion 2 shard whose template count does not match mods-tiers.json', async () => {
-    const modsTiers = { schemaVersion: 2, ...SAMPLE_MODS_TIERS, templateCount: 9, tierTemplates: [0, 0, 1, 2], statTemplates: {} };
+  it('rejects a stats shard whose template count does not match mods-tiers.json', async () => {
+    const modsTiers = { ...PUBLISHED.modsTiers, templateCount: 9 };
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
@@ -588,13 +540,13 @@ describe('Seam 2C: useFilterData multilingual search, lazy pageLocale fallbackQu
         const url = String(input);
         requestedUrls.push(url);
         if (url.endsWith('poe2/mods-tiers.json')) {
-          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.modsTiers), { status: 200 });
         }
         if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
-          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats['zh-TW']), { status: 200 });
         }
         if (url.endsWith('poe2/locales/en/stats.json')) {
-          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.en), { status: 200 });
         }
         return new Response(JSON.stringify({}), { status: 200 });
       }),
@@ -625,13 +577,13 @@ describe('Seam 2C: useFilterData multilingual search, lazy pageLocale fallbackQu
         const url = String(input);
         requestedUrls.push(url);
         if (url.endsWith('poe2/mods-tiers.json')) {
-          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.modsTiers), { status: 200 });
         }
         if (url.endsWith('poe2/locales/ru/stats.json')) {
-          return new Response(JSON.stringify(SHARD_RU), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.ru), { status: 200 });
         }
         if (url.endsWith('poe2/locales/en/stats.json')) {
-          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.en), { status: 200 });
         }
         return new Response(JSON.stringify({}), { status: 200 });
       }),
@@ -660,16 +612,16 @@ describe('Seam 2C: useFilterData multilingual search, lazy pageLocale fallbackQu
         const url = String(input);
         requestedUrls.push(url);
         if (url.endsWith('poe2/mods-tiers.json')) {
-          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.modsTiers), { status: 200 });
         }
         if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
-          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats['zh-TW']), { status: 200 });
         }
         if (url.endsWith('poe2/locales/en/stats.json')) {
-          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.en), { status: 200 });
         }
         if (url.endsWith('poe2/locales/ru/stats.json')) {
-          return new Response(JSON.stringify(SHARD_RU), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.ru), { status: 200 });
         }
         return new Response(JSON.stringify({}), { status: 200 });
       }),
@@ -706,13 +658,13 @@ describe('Seam 2C: useFilterData multilingual search, lazy pageLocale fallbackQu
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.endsWith('poe2/mods-tiers.json')) {
-          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.modsTiers), { status: 200 });
         }
         if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
-          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats['zh-TW']), { status: 200 });
         }
         if (url.endsWith('poe2/locales/en/stats.json')) {
-          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.en), { status: 200 });
         }
         return new Response(JSON.stringify({}), { status: 200 });
       }),
@@ -735,16 +687,16 @@ describe('Seam 2C: useFilterData multilingual search, lazy pageLocale fallbackQu
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.endsWith('poe2/mods-tiers.json')) {
-          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.modsTiers), { status: 200 });
         }
         if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
-          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats['zh-TW']), { status: 200 });
         }
         if (url.endsWith('poe2/locales/en/stats.json')) {
-          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.en), { status: 200 });
         }
         if (url.endsWith('poe2/locales/ru/stats.json')) {
-          return new Response(JSON.stringify(SHARD_RU), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.ru), { status: 200 });
         }
         return new Response(JSON.stringify({}), { status: 200 });
       }),
@@ -772,13 +724,13 @@ describe('Seam 2C: useFilterData multilingual search, lazy pageLocale fallbackQu
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.endsWith('poe2/mods-tiers.json')) {
-          return new Response(JSON.stringify(SAMPLE_MODS_TIERS), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.modsTiers), { status: 200 });
         }
         if (url.endsWith('poe2/locales/zh-TW/stats.json')) {
-          return new Response(JSON.stringify(SHARD_ZH_TW), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats['zh-TW']), { status: 200 });
         }
         if (url.endsWith('poe2/locales/en/stats.json')) {
-          return new Response(JSON.stringify(SHARD_EN), { status: 200 });
+          return new Response(JSON.stringify(PUBLISHED.stats.en), { status: 200 });
         }
         return new Response(JSON.stringify({}), { status: 200 });
       }),

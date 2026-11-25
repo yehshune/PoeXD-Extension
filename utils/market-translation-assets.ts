@@ -5,7 +5,6 @@
  * 各類分片獨立載入：任一類失敗或格式不符時只略過那一類，該類下拉選單維持英文。
  */
 import type { MarketTradeDictionary } from './market-translation-data';
-import type { ModLinePairs } from './market-mod-lines';
 import { loadPairedLineShard } from './paired-line-shards';
 import type { NameParts } from './market-result-labels';
 import type { ResultTranslatorData } from './market-result-translator';
@@ -127,12 +126,6 @@ export async function loadMarketTradeDictionary(
   };
 }
 
-function parseModLines(data: unknown, locale: string): Record<string, ModLinePairs> {
-  const shard = requireMarketShard(data, locale, 'mod-lines.json');
-  if (!isRecord(shard.lines)) throw new Error('mod-lines.json 格式錯誤');
-  return shard.lines as Record<string, ModLinePairs>;
-}
-
 export function parseResultLabels(data: unknown, locale: string) {
   const shard = requireMarketShard(data, locale, 'result-labels.json');
   if (!isRecord(shard.labels) || !Array.isArray(shard.templates)) {
@@ -192,9 +185,7 @@ export async function loadResultTranslatorData(
 ): Promise<ResultTranslatorData> {
   const { version, locale, dictionary, ui, liveEn } = options;
   const [modLines, englishStats, englishFilters, resultLabels] = await Promise.allSettled([
-    loadPairedLineShard(loadJson, 'mod-lines', version, locale).then((data) =>
-      parseModLines(data, locale),
-    ),
+    loadPairedLineShard(loadJson, 'mod-lines', version, locale).then((shard) => shard.lines),
     loadJson(getLocaleTradeStatsAssetPath(version, 'en')).then(parseEnglishStats),
     loadJson(getLocaleTradeFiltersAssetPath(version, 'en')),
     loadJson(getLocaleResultLabelsAssetPath(version, locale)).then((data) =>

@@ -4,7 +4,6 @@ import {
   ensureAffixLexiconLoaded,
   isLocaleShardCached,
   resetAffixLexiconCacheForTests,
-  type LocaleStatsShard,
   type ModsTiersArtifact,
 } from '@/utils/affix-lexicon';
 import {
@@ -15,7 +14,11 @@ import {
 import { resetI18nStateForTests, setActiveDisplayLocale } from '@/utils/i18n';
 
 const MODS_TIERS: ModsTiersArtifact = {
+  schemaVersion: 2,
   patch: '0.5.5.7',
+  templateCount: 1,
+  tierTemplates: [0],
+  statTemplates: { 'explicit.stat_3299347043': 0 },
   typeTable: [['ring']],
   groups: ['+# to maximum Life'],
   tiers: [
@@ -33,11 +36,11 @@ const MODS_TIERS: ModsTiersArtifact = {
   ],
 };
 
-const statsShard = (patch: string, tierCount = 1): LocaleStatsShard => ({
+const statsShard = (patch: string, locale: string) => ({
+  schemaVersion: 2,
   patch,
+  locale,
   templates: ['{0:+d} 最大生命'],
-  tierTemplates: Array.from({ length: tierCount }, () => 0),
-  statTemplates: { 'explicit.stat_3299347043': 0 },
 });
 
 function stubFetch(routes: Record<string, unknown>) {
@@ -79,8 +82,8 @@ describe('Game data shard compatibility at load time', () => {
   it('rejects a stats shard built from a different patch than mods-tiers.json', async () => {
     stubFetch({
       'poe2/mods-tiers.json': MODS_TIERS,
-      'poe2/locales/zh-TW/stats.json': statsShard('0.5.4.0'),
-      'poe2/locales/en/stats.json': statsShard('0.5.5.7'),
+      'poe2/locales/zh-TW/stats.json': statsShard('0.5.4.0', 'zh-TW'),
+      'poe2/locales/en/stats.json': statsShard('0.5.5.7', 'en'),
     });
     await ensureAffixLexiconLoaded('poe2');
     expect(isLocaleShardCached('poe2', 'zh-TW')).toBe(false);

@@ -206,8 +206,8 @@ function acceptStatsShard(
 }
 
 /**
- * 語系分片轉成 LocaleStatsShard。schemaVersion 2 的分片只有模板陣列，接上 mods-tiers.json 的共用索引；
- * 已帶索引的舊格式原樣使用。模板數與 mods-tiers 的 templateCount 不同時代表不是同一次建置，拒絕。
+ * 語系分片（只有模板陣列）接上 mods-tiers.json 的共用索引，轉成 LocaleStatsShard。
+ * 模板數與 mods-tiers 的 templateCount 不同時代表不是同一次建置，拒絕。
  */
 function toLocaleStatsShard(
   json: unknown,
@@ -215,11 +215,8 @@ function toLocaleStatsShard(
   locale: SupportedAffixLocale,
 ): LocaleStatsShard | null {
   if (!json || typeof json !== 'object') return null;
-  const shard = json as Partial<LocaleStatsShard> & { schemaVersion?: number };
+  const shard = json as { schemaVersion?: unknown; patch?: string; templates?: unknown };
   if (!Array.isArray(shard.templates)) return null;
-  if (Array.isArray(shard.tierTemplates) && shard.statTemplates && typeof shard.statTemplates === 'object') {
-    return shard as LocaleStatsShard;
-  }
   if (shard.schemaVersion !== 2 || !artifact?.tierTemplates || !artifact.statTemplates) return null;
   if (shard.templates.length !== artifact.templateCount) {
     console.warn(
@@ -279,8 +276,8 @@ export function isModsTiersArtifact(data: unknown): data is ModsTiersArtifact {
 export function setAffixLexiconMockData(
   version: PoeVersion,
   modsDataOrArtifact: ModsTiersArtifact | Record<string, any> | null,
-  /** 語系分片：已帶索引的 LocaleStatsShard，或 schemaVersion 2 的原始 stats.json（接上 artifact 的共用索引） */
-  shards?: Partial<Record<SupportedAffixLocale, LocaleStatsShard | unknown>>,
+  /** 語系的原始 stats.json，接上 artifact 的共用索引 */
+  shards?: Partial<Record<SupportedAffixLocale, unknown>>,
 ) {
   const state = getOrCreateState(version);
   state.artifactPromise = null;

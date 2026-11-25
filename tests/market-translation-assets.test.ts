@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { publishedLines } from './helpers/game-data-fixtures';
 import {
   loadMarketTradeDictionary,
   loadResultTranslatorData,
@@ -94,13 +95,13 @@ describe('loadMarketTradeDictionary', () => {
 });
 
 describe('loadResultTranslatorData', () => {
+  const MOD_LINES = publishedLines(
+    { 'zh-TW': { '1': [['{0:d}% increased Spirit', '增加 {0:d}% 精魂']] } },
+    '0.5.5.8',
+  );
   const RESULT_ASSETS: Record<string, unknown> = {
-    'json/poe2/locales/zh-TW/mod-lines.json': {
-      schemaVersion: 1,
-      patch: '0.5.5.8',
-      locale: 'zh-TW',
-      lines: { '1': [['{0:d}% increased Spirit', '增加 {0:d}% 精魂']] },
-    },
+    'json/poe2/locales/en/mod-lines.json': MOD_LINES.en,
+    'json/poe2/locales/zh-TW/mod-lines.json': MOD_LINES['zh-TW'],
     'json/poe2/locales/en/trade-stats.json': {
       schemaVersion: 1,
       locale: 'en',
@@ -194,11 +195,7 @@ describe('loadResultTranslatorData', () => {
   it('分片缺少或語系不符時該部分為空', async () => {
     const assets = {
       ...RESULT_ASSETS,
-      'json/poe2/locales/zh-TW/mod-lines.json': {
-        schemaVersion: 1,
-        locale: 'zh-CN',
-        lines: {},
-      },
+      'json/poe2/locales/zh-TW/mod-lines.json': { ...MOD_LINES['zh-TW'], locale: 'zh-CN' },
       'json/poe2/locales/zh-TW/result-labels.json': {
         schemaVersion: 1,
         locale: 'zh-TW',

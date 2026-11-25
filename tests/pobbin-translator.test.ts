@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { publishedLines } from './helpers/game-data-fixtures';
 import { deflateSync } from 'node:zlib';
 import { describe, expect, it, vi } from 'vitest';
 import { createLabelLookup } from '@/utils/market-result-labels';
@@ -436,8 +437,15 @@ describe('detectPobbinGameVersion', () => {
 });
 
 describe('loadPobbinTranslatorData', () => {
+  const passiveLines = (locale: string) =>
+    publishedLines({
+      [locale]: {
+        '42': [['Maximum Life becomes 1, Immune to Chaos Damage', '最大生命變為 1，免疫混沌傷害']],
+      },
+    });
   const assets = (locale: string): Record<string, unknown> => ({
-    [`json/poe1/locales/${locale}/mod-lines.json`]: { lines: {} },
+    'json/poe1/locales/en/mod-lines.json': publishedLines({ [locale]: {} }).en,
+    [`json/poe1/locales/${locale}/mod-lines.json`]: publishedLines({ [locale]: {} })[locale],
     'json/poe1/locales/en/items.json': { items: ['Herald of Ash'] },
     [`json/poe1/locales/${locale}/items.json`]: { items: ['灰燼之捷'] },
     'json/poe1/locales/en/trade-stats.json': {
@@ -446,11 +454,8 @@ describe('loadPobbinTranslatorData', () => {
     [`json/poe1/locales/${locale}/trade-stats.json`]: {
       stats: { 'enchant.stat_1': '配置 卓越的表現' },
     },
-    [`json/poe1/locales/${locale}/stat-text-passives.json`]: {
-      lines: {
-        '42': [['Maximum Life becomes 1, Immune to Chaos Damage', '最大生命變為 1，免疫混沌傷害']],
-      },
-    },
+    'json/poe1/locales/en/stat-text-passives.json': passiveLines(locale).en,
+    [`json/poe1/locales/${locale}/stat-text-passives.json`]: passiveLines(locale)[locale],
     'json/poe1/locales/zh-TW/passive-names.json': {
       names: {
         'Chaos Inoculation': '異靈之體',

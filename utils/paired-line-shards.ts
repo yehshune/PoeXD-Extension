@@ -4,7 +4,7 @@
  * `mod-lines.json`、`stat-text-items.json`、`stat-text-passives.json` 發布時把英文模板抽到
  * `locales/en/<file>`（`lines: { hash: 英文模板[] }`），各語系檔只存與英文以位置對齊的譯文
  * （`lines: { hash: (譯文模板 | null)[] }`）。這裡把兩份合回 `[英文, 譯文]` 句型對，
- * 呼叫端拿到的內容與舊格式（schemaVersion 1）完全相同，後續解析不必區分格式。
+ * 呼叫端直接拿到句型對。
  */
 import type { ModLinePairs } from './market-mod-lines';
 import {
@@ -20,7 +20,6 @@ type LoadJson = (path: string) => Promise<unknown>;
 type Json = Record<string, unknown>;
 
 export const ALIGNED_LINES_SCHEMA_VERSION = 2;
-const PAIRED_LINES_SCHEMA_VERSION = 1;
 const ENGLISH_LOCALE = 'en';
 
 /** 呼叫時才取路徑函式，模組載入時不讀 trade-context 的匯出 */
@@ -30,9 +29,8 @@ const ASSET_PATHS: Record<PairedLineFile, (version: PoeVersion, locale: string) 
   'stat-text-passives': (version, locale) => getLocalePassiveStatTextAssetPath(version, locale),
 };
 
-/** 還原後的分片：與舊格式相同的 `[英文, 譯文]` 句型對 */
+/** 還原後的分片：`[英文, 譯文]` 句型對 */
 export interface PairedLineShard {
-  schemaVersion: typeof PAIRED_LINES_SCHEMA_VERSION;
   patch?: string;
   locale: string;
   lines: Record<string, ModLinePairs>;
@@ -85,8 +83,7 @@ export async function loadEnglishLines(
 
 /**
  * 載入某語系的句型分片並還原成 `[英文, 譯文]`。
- * 不是 schemaVersion 2 的分片（舊格式，已是句型對）原樣回傳，由呼叫端照舊解析；en 分片缺少、格式不符或與語系分片
- * 來自不同 patch 時 reject，與直接載入失敗的處理相同。
+ * 語系分片或 en 分片缺少、格式不符，或兩者來自不同 patch 時 reject，與直接載入失敗的處理相同。
  */
 export async function loadPairedLineShard(
   loadJson: LoadJson,
@@ -94,11 +91,9 @@ export async function loadPairedLineShard(
   version: PoeVersion,
   locale: string,
 ): Promise<PairedLineShard> {
-  const localized = await loadJson(ASSET_PATHS[file](version, locale));
-  if (isRecord(localized) && localized.schemaVersion !== ALIGNED_LINES_SCHEMA_VERSION) {
-    return localized as unknown as PairedLineShard;
-  }
-  const shard = requireAlignedShard(localized, `${file}.json (${locale})`);
+  const shard = requireAlignedShard(
+    await loadJson(ASSET_PATHS[file](version, locale)),
+    `${file}.json (${locale})`);
   const english = requireAlignedShard(
     await loadJson(ASSET_PATHS[file](version, ENGLISH_LOCALE)),
     `${file}.json (en)`,
@@ -106,10 +101,10 @@ export async function loadPairedLineShard(
   if (english.patch !== shard.patch) {
     throw new Error(`${file}.json (en) patch ${String(english.patch)} ≠ ${String(shard.patch)}`);
   }
+  if (shard.locale !== locale) throw new Error(`${file}.json (${locale}) 語系不符`);
   return {
-    schemaVersion: PAIRED_LINES_SCHEMA_VERSION,
     ...(typeof shard.patch === 'string' ? { patch: shard.patch } : {}),
-    locale: String(shard.locale),
+    locale,
     lines: joinAlignedLines(
       english.lines as Record<string, readonly string[]>,
       shard.lines as Record<string, ReadonlyArray<string | null>>,
