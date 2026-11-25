@@ -34,6 +34,8 @@ e2e/.results
 e2e/.report
 e2e/.results-offline
 e2e/.report-offline
+e2e/.shots
+.claude/settings.local.json
 
 # Local test data & captures
 *.test-dump.json

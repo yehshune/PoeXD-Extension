@@ -32,7 +32,7 @@ test.describe('「新增屬性組合」旁的常用詞綴群組選單', () => {
     await expect(menu).toBeVisible();
     await expect(menu.getByText('將目前詞綴群組存為常用…')).toBeVisible();
     await expect(menu.getByText('復原上次套用')).toBeVisible();
-    await expect(menu.getByText('管理常用詞綴群組…')).toBeVisible();
+    await expect(menu.getByText('管理常用詞綴群組...')).toBeVisible();
     await tradePage.keyboard.press('Escape');
     await expect(menu).toBeHidden();
   });

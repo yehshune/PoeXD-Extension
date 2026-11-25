@@ -20,6 +20,7 @@
     "e2e": "playwright test -c e2e/playwright.config.ts",
     "e2e:offline": "wxt build -b chrome && playwright test -c e2e/offline/playwright.config.ts",
     "e2e:canary": "node e2e/canary/official-page-canary.ts",
+    "poe": "node e2e/live/cli.ts",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
