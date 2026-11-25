@@ -1,19 +1,11 @@
-import {
-  parsePoeCriteriaOverlayCommit,
-  parsePoeCriteriaOverlayRead,
-  parsePoeCriteriaOverlaySync,
-  serializePoeCriteriaOverlayCommitResult,
-  serializePoeCriteriaOverlayReadResult,
-  serializePoeCriteriaOverlaySyncResult,
-  type PoeCriteriaOverlaySyncDiagnostics,
-} from '@/utils/event-protocol-types';
+import { rpcFail, type RpcDiagnostics } from '@/utils/cross-world-rpc';
 import type { MainWorldBridge } from './bridge-bootstrap';
 import { mainWorldSearchForm as form, readCriteriaOverlaySnapshot } from './main-world-search-form';
 import { getTradeRootComponent, getVueStore, readKnownStatIds } from './poe-runtime-reader';
 
 export type CriteriaOverlaySyncOutcome =
-  | { ok: true; url: string; diagnostics: PoeCriteriaOverlaySyncDiagnostics }
-  | { ok: false; error: string; diagnostics: PoeCriteriaOverlaySyncDiagnostics };
+  | { ok: true; url: string; diagnostics: RpcDiagnostics }
+  | { ok: false; error: string; diagnostics: RpcDiagnostics };
 
 /** 只取路由前兩段（例如 `trade/search`），不帶聯盟與查詢內容。 */
 function describeRoute(pathname: string): string {
@@ -35,7 +27,7 @@ export async function syncCriteriaOverlayFormToUrl(): Promise<CriteriaOverlaySyn
   const before = window.location.href;
   const store = getVueStore();
   const root = getTradeRootComponent();
-  const diagnostics: PoeCriteriaOverlaySyncDiagnostics = {
+  const diagnostics: RpcDiagnostics = {
     route: describeRoute(window.location.pathname),
     storeFound: !!store,
     rootFound: !!root,
@@ -78,75 +70,30 @@ export async function syncCriteriaOverlayFormToUrl(): Promise<CriteriaOverlaySyn
 }
 
 export function initCriteriaOverlayAdapter(bridge: MainWorldBridge) {
-  const unsubRead = bridge.addListener('poexd-criteria-overlay-read', (detail) => {
-    const request = parsePoeCriteriaOverlayRead(detail);
-    if (!request) return;
-    let snapshot: Record<string, unknown> | null = null;
-    let error: string | undefined;
-    try {
-      snapshot = readCriteriaOverlaySnapshot(getVueStore());
-      if (!snapshot) error = 'FORM_STATE_NOT_FOUND';
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-    }
-    bridge.dispatchEvent(
-      'poexd-criteria-overlay-read-result',
-      serializePoeCriteriaOverlayReadResult({
-        requestId: request.requestId,
-        snapshot,
-        knownStatIds: snapshot ? readKnownStatIds() : null,
-        ...(error ? { error } : {}),
-      }),
-    );
+  const unsubRead = bridge.handle('criteria-overlay.read', () => {
+    const snapshot = readCriteriaOverlaySnapshot(getVueStore());
+    if (!snapshot) return rpcFail('FORM_STATE_NOT_FOUND', 'FORM_STATE_NOT_FOUND');
+    return {
+      snapshot,
+      knownStatIds: readKnownStatIds(),
+    };
   });
 
-  const unsubCommit = bridge.addListener('poexd-criteria-overlay-commit', async (detail) => {
-    const request = parsePoeCriteriaOverlayCommit(detail);
-    if (!request) return;
-    let error: string | undefined;
-    try {
-      await form.applyOverlayOps(request.ops);
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-    }
-    bridge.dispatchEvent(
-      'poexd-criteria-overlay-commit-result',
-      serializePoeCriteriaOverlayCommitResult({
-        requestId: request.requestId,
-        success: !error,
-        ...(error ? { error } : {}),
-      }),
-    );
+  const unsubCommit = bridge.handle('criteria-overlay.commit', async ({ ops }) => {
+    await form.applyOverlayOps(ops);
+    return null;
   });
 
-  const unsubSync = bridge.addListener('poexd-criteria-overlay-sync', async (detail) => {
-    const request = parsePoeCriteriaOverlaySync(detail);
-    if (!request) return;
-    let outcome: CriteriaOverlaySyncOutcome;
+  const unsubSync = bridge.handle('criteria-overlay.sync', async () => {
     try {
-      outcome = await syncCriteriaOverlayFormToUrl();
+      const outcome = await syncCriteriaOverlayFormToUrl();
+      if (outcome.ok) return { url: outcome.url };
+      return rpcFail(outcome.error, outcome.error, outcome.diagnostics);
     } catch (cause) {
-      // 任何未預期的例外都要回覆，否則 Content World 只能等到逾時
       console.error('[PoeXD] 同步搜尋表單到網址時發生未預期錯誤:', cause);
-      outcome = {
-        ok: false,
-        error: cause instanceof Error && cause.message ? cause.message : 'SYNC_FAILED',
-        diagnostics: {},
-      };
+      const message = cause instanceof Error && cause.message ? cause.message : 'SYNC_FAILED';
+      return rpcFail(message, message, {});
     }
-    bridge.dispatchEvent(
-      'poexd-criteria-overlay-sync-result',
-      serializePoeCriteriaOverlaySyncResult(
-        outcome.ok
-          ? { requestId: request.requestId, success: true, url: outcome.url }
-          : {
-              requestId: request.requestId,
-              success: false,
-              error: outcome.error,
-              diagnostics: outcome.diagnostics,
-            },
-      ),
-    );
   });
 
   return () => {

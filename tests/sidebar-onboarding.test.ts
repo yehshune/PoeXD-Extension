@@ -38,9 +38,17 @@ vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
 }));
 
 // 沒有官方頁面可回應導覽的示範請求，直接回報沒做
-vi.mock('@/utils/page-guide-demo-channel', () => ({
-  requestPageGuideDemo: vi.fn(async () => false),
-}));
+vi.mock('@/utils/cross-world-rpc', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/cross-world-rpc')>();
+  return {
+    ...actual,
+    requestMainWorld: vi.fn(async () => ({
+      ok: false as const,
+      code: 'TIMEOUT' as const,
+      error: 'mocked',
+    })),
+  };
+});
 
 let snapshot: Record<string, unknown> = {};
 const updatePreferencesSpy = vi.fn(async () => ({ ok: true, changed: true }));

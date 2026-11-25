@@ -1,7 +1,7 @@
 import { computed, nextTick, reactive, shallowRef } from 'vue';
+import { requestMainWorld, type PageGuideDemoAction } from '@/utils/cross-world-rpc';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
-import { requestPageGuideDemo, type PageGuideDemoAction } from '@/utils/page-guide-demo-channel';
 import { clearResultReveal, revealFirstResult } from '@/utils/page-guide-reveal';
 import {
   PAGE_GUIDE_TOUR_STEPS,
@@ -46,9 +46,18 @@ function prefersReducedMotion(): boolean {
     : false;
 }
 
+const PAGE_GUIDE_DEMO_TIMEOUT_MS = 3000;
+
 const defaultDeps: PageGuideDeps = {
   steps: PAGE_GUIDE_TOUR_STEPS,
-  requestDemo: requestPageGuideDemo,
+  requestDemo: async (action) =>
+    (
+      await requestMainWorld(
+        'page-guide.demo',
+        { action },
+        { timeoutMs: PAGE_GUIDE_DEMO_TIMEOUT_MS },
+      )
+    ).ok,
   notify: (message) => dispatchPoeEvent('poexd-toast', { message }),
   wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   scrollIntoView: (el) =>

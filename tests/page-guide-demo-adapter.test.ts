@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createPageGuideDemo,
   DEMO_STAT_CATEGORY,
+  initPageGuideDemoAdapter,
   pickDemoStatId,
 } from '@/entrypoints/main-world/page-guide-demo-adapter';
 import {
@@ -10,13 +11,9 @@ import {
   setFilterModGroup,
 } from '@/entrypoints/main-world/category-binding-manager';
 import { createMainWorldSearchForm } from '@/entrypoints/main-world/main-world-search-form';
+import { requestMainWorld } from '@/utils/cross-world-rpc';
 import { findFirstTierSlotKey } from '@/utils/page-guide-demo-state';
-import {
-  parsePoePageGuideDemo,
-  parsePoePageGuideDemoResult,
-  serializePoePageGuideDemo,
-  serializePoePageGuideDemoResult,
-} from '@/utils/event-protocol-types';
+import { setupTestMainWorldBridge } from './helpers/main-world-bridge-harness';
 
 vi.mock('@/entrypoints/main-world/poe-runtime-reader', () => ({
   getVueStore: () => null,
@@ -182,21 +179,36 @@ describe('findFirstTierSlotKey', () => {
   });
 });
 
-describe('page guide demo protocol', () => {
-  it('round-trips requests and results', () => {
-    const request = { requestId: 'r1', action: 'add-stat-filter' as const };
-    expect(parsePoePageGuideDemo(serializePoePageGuideDemo(request))).toEqual(request);
-    const result = { requestId: 'r1', success: false, error: 'X' };
-    expect(parsePoePageGuideDemoResult(serializePoePageGuideDemoResult(result))).toEqual(result);
+describe('initPageGuideDemoAdapter over Cross-World RPC', () => {
+  let teardown: (() => void) | null = null;
+
+  afterEach(() => {
+    teardown?.();
+    teardown = null;
   });
 
-  it('rejects malformed payloads', () => {
-    expect(parsePoePageGuideDemo('{"requestId":"r","action":"save"}')).toBeUndefined();
-    expect(parsePoePageGuideDemo('{"requestId":"r","action":"show-filters"}')).toEqual({
-      requestId: 'r',
-      action: 'show-filters',
+  it('handles restore over Cross-World RPC and rejects invalid actions with INVALID_REQUEST', async () => {
+    const bridge = setupTestMainWorldBridge('page-guide-demo-nonce');
+    teardown = initPageGuideDemoAdapter(bridge);
+
+    expect(await requestMainWorld('page-guide.demo', { action: 'restore' })).toEqual({
+      ok: true,
+      data: null,
     });
-    expect(parsePoePageGuideDemo('not json')).toBeUndefined();
-    expect(parsePoePageGuideDemoResult('{"requestId":1}')).toBeUndefined();
+    expect(await requestMainWorld('page-guide.demo', { action: 'save' as any })).toMatchObject({
+      ok: false,
+      code: 'INVALID_REQUEST',
+    });
+  });
+
+  it('surfaces FORM_STATE_NOT_FOUND when no official store is mounted', async () => {
+    const bridge = setupTestMainWorldBridge('page-guide-demo-nonce');
+    teardown = initPageGuideDemoAdapter(bridge);
+
+    const outcome = await requestMainWorld('page-guide.demo', { action: 'show-filters' });
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: 'FORM_STATE_NOT_FOUND',
+    });
   });
 });

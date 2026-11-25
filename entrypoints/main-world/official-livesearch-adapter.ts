@@ -1,14 +1,11 @@
-import type {
-  PoeLiveSearchCommandResultPayload,
-  PoeLiveSearchEnsureContainerPayload,
-  PoeLiveSearchRenderResultPayload,
-  PoeLiveSearchResetUnreadPayload,
-  PoeLiveSearchSyncTotalPayload,
-} from '@/utils/event-protocol-types';
 import {
-  parsePoeLiveSearchRenderResult,
-  serializePoeLiveSearchCommandResult,
-} from '@/utils/event-protocol-types';
+  rpcFail,
+  type LiveSearchEnsureContainerRequest,
+  type LiveSearchRenderResultRequest,
+  type LiveSearchResetUnreadRequest,
+  type LiveSearchSyncTotalRequest,
+  type RpcHandlerFailure,
+} from '@/utils/cross-world-rpc';
 import type { MainWorldBridge } from './bridge-bootstrap';
 import type { HostResultBatch, HostSearchObject, HostVuexStore } from './host-types';
 import { getVueStore } from './poe-runtime-reader';
@@ -55,7 +52,7 @@ export interface EnsureDisplayContainerResult {
  * - 建立後以實際 Store State 驗證，絕不依賴假性 fallback
  */
 export function ensureDisplayContainer(
-  params: PoeLiveSearchEnsureContainerPayload,
+  params: LiveSearchEnsureContainerRequest,
   store?: HostVuexStore | null,
 ): EnsureDisplayContainerResult {
   if (!params || typeof params.localId !== 'string' || !params.localId.trim()) {
@@ -259,7 +256,7 @@ export interface RenderFetchedResultOutcome {
  * 4. 驗證必要 mutations 與 _withCommit 存在，任何失敗時透過 _withCommit 完整還原 pre-transaction state
  */
 export function renderFetchedResult(
-  params: PoeLiveSearchRenderResultPayload,
+  params: LiveSearchRenderResultRequest,
   store?: HostVuexStore | null,
 ): RenderFetchedResultOutcome {
   if (!params || typeof params !== 'object') {
@@ -456,7 +453,7 @@ export interface ResetUnreadHitsOutcome {
  * 2. 必須確認 localId 對應目前 active search 容器，否則拒絕且零 mutation
  */
 export function resetUnreadHits(
-  params: PoeLiveSearchResetUnreadPayload,
+  params: LiveSearchResetUnreadRequest,
   store?: HostVuexStore | null,
 ): ResetUnreadHitsOutcome {
   if (!params || typeof params.localId !== 'string' || !params.localId.trim()) {
@@ -502,7 +499,7 @@ export interface SyncDisplayTotalOutcome {
  * 僅作用於 PoeXD 建立之展示容器，不觸及其他官方搜尋。
  */
 export function syncDisplayTotal(
-  params: PoeLiveSearchSyncTotalPayload,
+  params: LiveSearchSyncTotalRequest,
   store?: HostVuexStore | null,
 ): SyncDisplayTotalOutcome {
   if (!params || typeof params.localId !== 'string' || !params.localId.trim()) {
@@ -539,162 +536,90 @@ export function initOfficialLiveSearchAdapter(
   storeProvider: () => HostVuexStore | null = getVueStore,
 ): () => void {
   const unsubs: Array<() => void> = [];
+  const activeTimers = new Set<ReturnType<typeof setInterval>>();
 
-  // 1. 建立/重用 Display Container
+  const runEnsure = (
+    payload: LiveSearchEnsureContainerRequest,
+    store: HostVuexStore | null,
+  ): { localId: string } | RpcHandlerFailure => {
+    const res = ensureDisplayContainer(payload, store);
+    if (!res.success) {
+      return rpcFail('ENSURE_CONTAINER_FAILED', res.error ?? 'Ensure container failed');
+    }
+    return { localId: res.localId };
+  };
+
+  // 1. 建立/重用 Display Container（使用預設 storeProvider 且尚未就緒時保留 4000ms 冷啟動輪詢）
   unsubs.push(
-    bridge.addListener('poexd-livesearch-ensure-container', (payload) => {
-      const dispatchOutcome = (res: EnsureDisplayContainerResult) => {
-        if (payload?.requestId) {
-          const resultPayload: PoeLiveSearchCommandResultPayload = {
-            requestId: payload.requestId,
-            command: 'ensure-container',
-            success: res.success,
-            error: res.error,
-          };
-          bridge.dispatchEvent(
-            'poexd-livesearch-command-result',
-            serializePoeLiveSearchCommandResult(resultPayload),
-          );
-        }
-      };
-
-      const executeWithStore = (store: HostVuexStore | null) => {
-        let res: EnsureDisplayContainerResult;
-        try {
-          res = ensureDisplayContainer(payload, store);
-        } catch (err) {
-          res = {
-            success: false,
-            localId: payload?.localId || '',
-            error: `Unhandled ensure error: ${err instanceof Error ? err.message : String(err)}`,
-          };
-        }
-        dispatchOutcome(res);
-      };
-
+    bridge.handle('livesearch.ensure-container', (payload) => {
       const initialStore = storeProvider();
       if (initialStore || storeProvider !== getVueStore) {
-        executeWithStore(initialStore);
-        return;
+        return runEnsure(payload, initialStore);
       }
 
       // 冷啟動初期官方 Vuex store（Vue 3：#trade.__vue_app__.config.globalProperties.$store）可能尚在掛載中，短暫輪詢等待其就緒
-      const startTime = Date.now();
-      const pollTimer = setInterval(() => {
-        const readyStore = storeProvider();
-        if (readyStore || Date.now() - startTime >= 4000) {
-          clearInterval(pollTimer);
-          executeWithStore(readyStore);
-        }
-      }, 50);
+      return new Promise<{ localId: string } | RpcHandlerFailure>((resolve) => {
+        const startTime = Date.now();
+        const pollTimer = setInterval(() => {
+          const readyStore = storeProvider();
+          if (readyStore || Date.now() - startTime >= 4000) {
+            clearInterval(pollTimer);
+            activeTimers.delete(pollTimer);
+            try {
+              resolve(runEnsure(payload, readyStore));
+            } catch (err) {
+              resolve(
+                rpcFail(
+                  'ENSURE_CONTAINER_FAILED',
+                  `Unhandled ensure error: ${err instanceof Error ? err.message : String(err)}`,
+                ),
+              );
+            }
+          }
+        }, 50);
+        activeTimers.add(pollTimer);
+      });
     }),
   );
 
-  // 2. 單一跨 world 命令：Render Fetched Result
+  // 2. 單一跨 world 命令：Render Fetched Result（必須嚴格同步，禁止 async / await）
   unsubs.push(
-    bridge.addListener('poexd-livesearch-render-result', (wireString) => {
-      let parsed: PoeLiveSearchRenderResultPayload | undefined;
-      try {
-        parsed = parsePoeLiveSearchRenderResult(wireString);
-      } catch {
-        // 安全忽略 JSON parse 例外
+    bridge.handle('livesearch.render-result', (payload) => {
+      const res = renderFetchedResult(payload, storeProvider());
+      if (!res.success) {
+        return rpcFail('RENDER_RESULT_FAILED', res.error ?? 'Render result failed');
       }
-
-      if (!parsed) {
-        const resultPayload: PoeLiveSearchCommandResultPayload = {
-          command: 'render-result',
-          success: false,
-          error: 'Malformed render-result wire payload',
-        };
-        bridge.dispatchEvent(
-          'poexd-livesearch-command-result',
-          serializePoeLiveSearchCommandResult(resultPayload),
-        );
-        return;
-      }
-
-      let res: RenderFetchedResultOutcome;
-      try {
-        res = renderFetchedResult(parsed, storeProvider());
-      } catch (err) {
-        res = {
-          success: false,
-          error: `Unhandled render error: ${err instanceof Error ? err.message : String(err)}`,
-        };
-      }
-
-      if (parsed.requestId) {
-        const resultPayload: PoeLiveSearchCommandResultPayload = {
-          requestId: parsed.requestId,
-          command: 'render-result',
-          success: res.success,
-          error: res.error,
-        };
-        bridge.dispatchEvent(
-          'poexd-livesearch-command-result',
-          serializePoeLiveSearchCommandResult(resultPayload),
-        );
-      }
+      return null;
     }),
   );
 
   // 3. 重置未讀提示
   unsubs.push(
-    bridge.addListener('poexd-livesearch-reset-unread', (payload) => {
-      let res: ResetUnreadHitsOutcome;
-      try {
-        res = resetUnreadHits(payload, storeProvider());
-      } catch (err) {
-        res = {
-          success: false,
-          error: `Unhandled reset-unread error: ${err instanceof Error ? err.message : String(err)}`,
-        };
+    bridge.handle('livesearch.reset-unread', (payload) => {
+      const res = resetUnreadHits(payload, storeProvider());
+      if (!res.success) {
+        return rpcFail('RESET_UNREAD_FAILED', res.error ?? 'Reset unread failed');
       }
-
-      if (payload?.requestId) {
-        const resultPayload: PoeLiveSearchCommandResultPayload = {
-          requestId: payload.requestId,
-          command: 'reset-unread',
-          success: res.success,
-          error: res.error,
-        };
-        bridge.dispatchEvent(
-          'poexd-livesearch-command-result',
-          serializePoeLiveSearchCommandResult(resultPayload),
-        );
-      }
+      return null;
     }),
   );
 
   // 4. 同步展示總數（依連線篩選連動）
   unsubs.push(
-    bridge.addListener('poexd-livesearch-sync-total', (payload) => {
-      let res: SyncDisplayTotalOutcome;
-      try {
-        res = syncDisplayTotal(payload, storeProvider());
-      } catch (err) {
-        res = {
-          success: false,
-          error: `Unhandled sync-total error: ${err instanceof Error ? err.message : String(err)}`,
-        };
+    bridge.handle('livesearch.sync-total', (payload) => {
+      const res = syncDisplayTotal(payload, storeProvider());
+      if (!res.success) {
+        return rpcFail('SYNC_TOTAL_FAILED', res.error ?? 'Sync total failed');
       }
-
-      if (payload?.requestId) {
-        const resultPayload: PoeLiveSearchCommandResultPayload = {
-          requestId: payload.requestId,
-          command: 'sync-total',
-          success: res.success,
-          error: res.error,
-        };
-        bridge.dispatchEvent(
-          'poexd-livesearch-command-result',
-          serializePoeLiveSearchCommandResult(resultPayload),
-        );
-      }
+      return null;
     }),
   );
 
   return () => {
+    for (const timer of activeTimers) {
+      clearInterval(timer);
+    }
+    activeTimers.clear();
     for (const unsub of unsubs) {
       unsub();
     }

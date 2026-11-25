@@ -1,7 +1,3 @@
-import {
-  parsePoePageGuideDemo,
-  serializePoePageGuideDemoResult,
-} from '@/utils/event-protocol-types';
 import type { MainWorldBridge } from './bridge-bootstrap';
 import type { HostFilterGroup } from './host-types';
 import { mainWorldSearchForm, type MainWorldSearchForm } from './main-world-search-form';
@@ -62,25 +58,11 @@ export function createPageGuideDemo(form: MainWorldSearchForm) {
 export function initPageGuideDemoAdapter(bridge: MainWorldBridge) {
   const demo = createPageGuideDemo(mainWorldSearchForm);
 
-  const unsubscribe = bridge.addListener('poexd-page-guide-demo', (detail) => {
-    const request = parsePoePageGuideDemo(detail);
-    if (!request) return;
-    let error: string | undefined;
-    try {
-      if (request.action === 'show-filters') demo.showFilters();
-      else if (request.action === 'add-stat-filter') demo.addStatFilter();
-      else demo.restore();
-    } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
-    }
-    bridge.dispatchEvent(
-      'poexd-page-guide-demo-result',
-      serializePoePageGuideDemoResult({
-        requestId: request.requestId,
-        success: !error,
-        ...(error ? { error } : {}),
-      }),
-    );
+  const unsubscribe = bridge.handle('page-guide.demo', ({ action }) => {
+    if (action === 'show-filters') demo.showFilters();
+    else if (action === 'add-stat-filter') demo.addStatFilter();
+    else demo.restore();
+    return null;
   });
 
   // 離開頁面前一定還原，避免官方把示範條件存進本機狀態

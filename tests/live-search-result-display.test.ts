@@ -20,11 +20,9 @@ import type {
   ILiveSearchHostClient,
   RenderResultOptions,
 } from '@/entrypoints/content/logic/live-search-host-client';
-import {
-  parsePoeLiveSearchCommandResult,
-  parsePoeLiveSearchRenderResult,
-} from '@/utils/event-protocol-types';
+import { requestMainWorld } from '@/utils/cross-world-rpc';
 import type { SyncTotalOptions } from '@/entrypoints/content/logic/live-search-host-client';
+import { setupTestMainWorldBridge } from './helpers/main-world-bridge-harness';
 import { createInMemoryPreferencesStorage, createPreferencesModule } from '@/utils/preferences';
 
 function makeStore(): HostVuexStore {
@@ -73,9 +71,8 @@ describe('trimOldestBatches（展示筆數上限）', () => {
   });
 });
 
-describe('render payload maxResults', () => {
+describe('render payload maxResults (Cross-World RPC seam)', () => {
   const base = {
-    requestId: 'r',
     localId: 'l',
     batchId: 'b',
     sourceSearchId: 's',
@@ -84,16 +81,27 @@ describe('render payload maxResults', () => {
     total: 1,
   };
 
-  it('保留合法的正整數上限', () => {
-    expect(
-      parsePoeLiveSearchRenderResult(JSON.stringify({ ...base, maxResults: 100 })),
-    ).toMatchObject({ maxResults: 100 });
-  });
+  it('保留合法的正整數上限並拒絕非法上限', async () => {
+    const bridge = setupTestMainWorldBridge('result-display-max-results-nonce');
+    let capturedMaxResults: number | undefined;
+    const unsub = bridge.handle('livesearch.render-result', (payload) => {
+      capturedMaxResults = payload.maxResults;
+      return null;
+    });
 
-  it('丟棄非法上限', () => {
-    const parsed = parsePoeLiveSearchRenderResult(JSON.stringify({ ...base, maxResults: -1 }));
-    expect(parsed).toBeDefined();
-    expect(parsed).not.toHaveProperty('maxResults');
+    const okOutcome = await requestMainWorld('livesearch.render-result', {
+      ...base,
+      maxResults: 100,
+    });
+    expect(okOutcome).toEqual({ ok: true, data: null });
+    expect(capturedMaxResults).toBe(100);
+
+    const invalidOutcome = await requestMainWorld('livesearch.render-result', {
+      ...base,
+      maxResults: -1,
+    });
+    expect(invalidOutcome).toMatchObject({ ok: false, code: 'INVALID_REQUEST' });
+    unsub();
   });
 });
 
@@ -273,10 +281,20 @@ describe('官方上方顯示筆數（實際保留數，與篩選連動）', () =
     expect(container.total).toBe(2);
   });
 
-  it('command result 接受 sync-total', () => {
-    expect(
-      parsePoeLiveSearchCommandResult(JSON.stringify({ command: 'sync-total', success: true })),
-    ).toMatchObject({ command: 'sync-total', success: true });
+  it('Cross-World RPC 接受 livesearch.sync-total', async () => {
+    const bridge = setupTestMainWorldBridge('result-display-sync-total-nonce');
+    let capturedTotal: number | undefined;
+    const unsub = bridge.handle('livesearch.sync-total', (payload) => {
+      capturedTotal = payload.total;
+      return null;
+    });
+    const outcome = await requestMainWorld('livesearch.sync-total', {
+      localId: 'display',
+      total: 42,
+    });
+    expect(outcome).toEqual({ ok: true, data: null });
+    expect(capturedTotal).toBe(42);
+    unsub();
   });
 
   it('渲染時 total 不超過上限，篩選時為該連線筆數並立即同步', async () => {

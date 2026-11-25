@@ -21,17 +21,9 @@ import {
   type CriteriaOverlayPageChannel,
   type StatGroupTemplate,
 } from '@/entrypoints/content/logic/criteria-overlay-manager';
-import {
-  dispatchPoeEvent,
-  initPoeEventNonce,
-  listenPoeEvent,
-  parsePoeCriteriaOverlayCommit,
-  parsePoeCriteriaOverlayRead,
-  parsePoeCriteriaOverlaySync,
-  serializePoeCriteriaOverlayCommitResult,
-  serializePoeCriteriaOverlayReadResult,
-  serializePoeCriteriaOverlaySyncResult,
-} from '@/utils/event-contracts';
+import type { MainWorldBridge } from '@/entrypoints/main-world/bridge-bootstrap';
+import { rpcFail } from '@/utils/cross-world-rpc';
+import { setupTestMainWorldBridge } from './helpers/main-world-bridge-harness';
 import { t } from '@/utils/i18n';
 import { isTradeSearchFormUrl } from '@/utils/trade-search-identity';
 
@@ -400,31 +392,20 @@ describe('createCriteriaOverlayManager — Stat Group Template storage & transfe
 });
 
 describe('createPoeEventCriteriaOverlayChannel & syncSearchFormToUrl', () => {
-  beforeEach(() => initPoeEventNonce('nonce-1'));
+  let bridge: MainWorldBridge;
 
-  it('round-trips read and commit requests over page events', async () => {
-    const stopRead = listenPoeEvent('poexd-criteria-overlay-read', (detail) => {
-      const request = parsePoeCriteriaOverlayRead(detail)!;
-      dispatchPoeEvent(
-        'poexd-criteria-overlay-read-result',
-        serializePoeCriteriaOverlayReadResult({
-          requestId: request.requestId,
-          snapshot: defaultFormSnapshot,
-          knownStatIds: ['explicit.stat_1'],
-        }),
-      );
-    });
-    const stopCommit = listenPoeEvent('poexd-criteria-overlay-commit', (detail) => {
-      const request = parsePoeCriteriaOverlayCommit(detail)!;
-      dispatchPoeEvent(
-        'poexd-criteria-overlay-commit-result',
-        serializePoeCriteriaOverlayCommitResult({
-          requestId: request.requestId,
-          success: false,
-          error: 'boom',
-        }),
-      );
-    });
+  beforeEach(() => {
+    bridge = setupTestMainWorldBridge('criteria-overlay-channel-nonce');
+  });
+
+  it('round-trips read and commit requests over Cross-World RPC', async () => {
+    const stopRead = bridge.handle('criteria-overlay.read', () => ({
+      snapshot: defaultFormSnapshot,
+      knownStatIds: ['explicit.stat_1'],
+    }));
+    const stopCommit = bridge.handle('criteria-overlay.commit', () =>
+      rpcFail('COMMIT_FAILED', 'boom'),
+    );
 
     const channel = createPoeEventCriteriaOverlayChannel(500);
     const read = await channel.read();
@@ -437,8 +418,10 @@ describe('createPoeEventCriteriaOverlayChannel & syncSearchFormToUrl', () => {
   });
 
   it('rejects when the main world does not answer', async () => {
+    const stopRead = bridge.handle('criteria-overlay.read', () => new Promise(() => {}));
     const channel = createPoeEventCriteriaOverlayChannel(10);
     await expect(channel.read()).rejects.toThrow('沒有回應');
+    stopRead();
   });
 
   it('summarizes changes and skips in describeCriteriaOverlayReport', () => {
@@ -457,21 +440,10 @@ describe('createPoeEventCriteriaOverlayChannel & syncSearchFormToUrl', () => {
   });
 
   describe('channel.syncToUrl', () => {
-    function answerSync(reply: Record<string, unknown>) {
-      return listenPoeEvent('poexd-criteria-overlay-sync', (detail) => {
-        const request = parsePoeCriteriaOverlaySync(detail)!;
-        dispatchPoeEvent(
-          'poexd-criteria-overlay-sync-result',
-          serializePoeCriteriaOverlaySyncResult({ requestId: request.requestId, ...reply } as any),
-        );
-      });
-    }
-
     it('returns the URL the main world reports after saving', async () => {
-      const stop = answerSync({
-        success: true,
+      const stop = bridge.handle('criteria-overlay.sync', () => ({
         url: 'https://www.pathofexile.com/trade/search/S/new',
-      });
+      }));
       await expect(createPoeEventCriteriaOverlayChannel(500).syncToUrl()).resolves.toBe(
         'https://www.pathofexile.com/trade/search/S/new',
       );
@@ -479,11 +451,9 @@ describe('createPoeEventCriteriaOverlayChannel & syncSearchFormToUrl', () => {
     });
 
     it('translates main-world error codes and keeps diagnostics', async () => {
-      const stop = answerSync({
-        success: false,
-        error: 'PAGE_NOT_LOADED',
-        diagnostics: { loaded: false, rootFound: true },
-      });
+      const stop = bridge.handle('criteria-overlay.sync', () =>
+        rpcFail('PAGE_NOT_LOADED', 'PAGE_NOT_LOADED', { loaded: false, rootFound: true }),
+      );
       const error = await createPoeEventCriteriaOverlayChannel(500)
         .syncToUrl()
         .catch((e) => e);
@@ -495,11 +465,13 @@ describe('createPoeEventCriteriaOverlayChannel & syncSearchFormToUrl', () => {
     });
 
     it('reports NO_RESPONSE when the main world never answers', async () => {
+      const stop = bridge.handle('criteria-overlay.sync', () => new Promise(() => {}));
       const error = await createPoeEventCriteriaOverlayChannel(10)
         .syncToUrl()
         .catch((e) => e);
       expect(error.code).toBe('NO_RESPONSE');
       expect(error.message).toBe(t('criteriaOverlay.session.noResponse'));
+      stop();
     });
   });
 

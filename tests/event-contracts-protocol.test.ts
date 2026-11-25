@@ -41,14 +41,10 @@ type ExpectedMainToContent =
   | 'poexd-search-triggered'
   | 'poexd-live-trade-data'
   | 'poexd-equipment-type-changed'
-  | 'poexd-livesearch-command-result'
-  | 'poexd-criteria-overlay-read-result'
-  | 'poexd-criteria-overlay-commit-result'
-  | 'poexd-criteria-overlay-sync-result'
-  | 'poexd-page-guide-demo-result'
   | 'poexd-search-result-summary'
   | 'poexd-fetch-failed'
-  | 'poexd-whisper-outcome';
+  | 'poexd-whisper-outcome'
+  | 'poexd-rpc-response';
 type _MainToContentExact = Assert<Equal<MainToContentKeys, ExpectedMainToContent>>;
 
 type ExpectedContentToMain =
@@ -59,15 +55,8 @@ type ExpectedContentToMain =
   | 'poexd-add-stat-filter'
   | 'poexd-update-stat-category'
   | 'poexd-move-stat-filter'
-  | 'poexd-livesearch-ensure-container'
-  | 'poexd-livesearch-render-result'
-  | 'poexd-livesearch-reset-unread'
-  | 'poexd-livesearch-sync-total'
   | 'poexd-livesearch-console-guard'
-  | 'poexd-criteria-overlay-read'
-  | 'poexd-criteria-overlay-commit'
-  | 'poexd-criteria-overlay-sync'
-  | 'poexd-page-guide-demo';
+  | 'poexd-rpc-request';
 type _ContentToMainExact = Assert<Equal<ContentToMainKeys, ExpectedContentToMain>>;
 
 type ExpectedInternal =
@@ -369,16 +358,16 @@ describe('Event Protocol Hardening (Phase 2)', () => {
 
     it('keeps cross-world events on window for the main-world bridge', () => {
       const pageObserver = vi.fn();
-      window.addEventListener('poexd-livesearch-command-result', pageObserver);
-      dispatchPoeEvent('poexd-livesearch-command-result', '{}');
+      window.addEventListener('poexd-rpc-response', pageObserver);
+      dispatchPoeEvent('poexd-rpc-response', '{}');
       expect(pageObserver).toHaveBeenCalledTimes(1);
-      window.removeEventListener('poexd-livesearch-command-result', pageObserver);
+      window.removeEventListener('poexd-rpc-response', pageObserver);
     });
 
     it('classifies only content-internal event names as internal', () => {
       expect(isPoeContentInternalEventType('poexd-trigger-dialog')).toBe(true);
       expect(isPoeContentInternalEventType('poexd-fetch-response')).toBe(false);
-      expect(isPoeContentInternalEventType('poexd-livesearch-command-result')).toBe(false);
+      expect(isPoeContentInternalEventType('poexd-rpc-response')).toBe(false);
     });
   });
 });

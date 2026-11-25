@@ -15,11 +15,9 @@ import {
   type RenderResultOptions,
   type ResetUnreadOptions,
 } from '@/entrypoints/content/logic/live-search-host-client';
-import { dispatchPoeEvent, initPoeEventNonce, listenPoeEvent } from '@/utils/event-contracts';
-import {
-  parsePoeLiveSearchRenderResult,
-  serializePoeLiveSearchCommandResult,
-} from '@/utils/event-protocol-types';
+import type { MainWorldBridge } from '@/entrypoints/main-world/bridge-bootstrap';
+import { rpcFail } from '@/utils/cross-world-rpc';
+import { setupTestMainWorldBridge } from './helpers/main-world-bridge-harness';
 
 // -------------------------------------------------------------
 // Mock / Fake 基礎設施
@@ -1178,26 +1176,43 @@ describe('LiveSearch Primary Runtime & Subscription Pipeline', () => {
   // 10. LiveSearchHostClient Bridge 通訊協議與 Dispose 取消防護
   // -----------------------------------------------------------
   describe('LiveSearchHostClient Bridge Protocol & Dispose Cleanup', () => {
-    const testNonce = 'nonce_host_client_test';
+    let bridge: MainWorldBridge;
 
     beforeEach(() => {
-      initPoeEventNonce(testNonce);
+      bridge = setupTestMainWorldBridge('nonce_host_client_test');
     });
 
-    it('ensureContainer 發送正確事件並於收到配對 requestId 時 resolve', async () => {
+    it('將 Main World 結構化失敗（rpcFail）映射為 HostCommandOutcome', async () => {
+      const client = new LiveSearchHostClient();
+      const unsub = bridge.handle('livesearch.render-result', () =>
+        rpcFail('RENDER_RESULT_FAILED', 'Display container not found: display_missing'),
+      );
+
+      const outcome = await client.renderResult({
+        localId: 'display_missing',
+        batchId: 'batch_err',
+        sourceSearchId: 'search_err',
+        token: 'tok_err',
+        itemData: { id: 'item_err' },
+        total: 1,
+      });
+
+      unsub();
+      client.dispose();
+
+      expect(outcome).toEqual({
+        success: false,
+        error: 'Display container not found: display_missing',
+      });
+    });
+
+    it('ensureContainer 透過 Cross-World RPC 傳送請求並於收到回應時 resolve', async () => {
       const client = new LiveSearchHostClient();
       let capturedPayload: any = null;
 
-      const unsub = listenPoeEvent('poexd-livesearch-ensure-container', (payload) => {
+      const unsub = bridge.handle('livesearch.ensure-container', (payload) => {
         capturedPayload = payload;
-        dispatchPoeEvent(
-          'poexd-livesearch-command-result',
-          serializePoeLiveSearchCommandResult({
-            requestId: payload.requestId,
-            command: 'ensure-container',
-            success: true,
-          }),
-        );
+        return { localId: payload.localId };
       });
 
       const outcome = await client.ensureContainer({
@@ -1215,21 +1230,13 @@ describe('LiveSearch Primary Runtime & Subscription Pipeline', () => {
       expect(capturedPayload.realm).toBe('pc');
     });
 
-    it('renderResult 序列化 wireString 並於收到配對 requestId 時 resolve', async () => {
+    it('renderResult 透過 Cross-World RPC 傳送並於收到回應時 resolve', async () => {
       const client = new LiveSearchHostClient();
-      let capturedWireString: string | null = null;
+      let capturedPayload: any = null;
 
-      const unsub = listenPoeEvent('poexd-livesearch-render-result', (wireString) => {
-        capturedWireString = wireString;
-        const parsed = parsePoeLiveSearchRenderResult(wireString);
-        dispatchPoeEvent(
-          'poexd-livesearch-command-result',
-          serializePoeLiveSearchCommandResult({
-            requestId: parsed?.requestId,
-            command: 'render-result',
-            success: true,
-          }),
-        );
+      const unsub = bridge.handle('livesearch.render-result', (payload) => {
+        capturedPayload = payload;
+        return null;
       });
 
       const outcome = await client.renderResult({
@@ -1245,12 +1252,12 @@ describe('LiveSearch Primary Runtime & Subscription Pipeline', () => {
       client.dispose();
 
       expect(outcome.success).toBe(true);
-      const parsed = parsePoeLiveSearchRenderResult(capturedWireString);
-      expect(parsed?.token).toBe('token_999');
-      expect(parsed?.total).toBe(5);
+      expect(capturedPayload?.token).toBe('token_999');
+      expect(capturedPayload?.total).toBe(5);
     });
 
     it('dispose() 能立即取消 pending command，清除計時器且 Promise 立即結束不懸掛', async () => {
+      const unsub = bridge.handle('livesearch.ensure-container', () => new Promise(() => {}));
       const client = new LiveSearchHostClient();
 
       const pendingPromise = client.ensureContainer({
@@ -1263,11 +1270,13 @@ describe('LiveSearch Primary Runtime & Subscription Pipeline', () => {
       client.dispose();
 
       const outcome = await pendingPromise;
+      unsub();
       expect(outcome.success).toBe(false);
       expect(outcome.error).toBe('Host client disposed');
     });
 
     it('逾時未收到回應時安全回傳 success: false 與逾時訊息', async () => {
+      const unsub = bridge.handle('livesearch.ensure-container', () => new Promise(() => {}));
       const client = new LiveSearchHostClient();
 
       const outcome = await client.ensureContainer({
@@ -1277,6 +1286,7 @@ describe('LiveSearch Primary Runtime & Subscription Pipeline', () => {
         timeoutMs: 50,
       });
 
+      unsub();
       client.dispose();
 
       expect(outcome.success).toBe(false);

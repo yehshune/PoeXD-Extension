@@ -487,6 +487,7 @@ describe('LiveSearch Console Host Guard & Network Safety Net', () => {
         listeners.set(eventName, handler);
         return () => listeners.delete(eventName);
       }),
+      handle: vi.fn(() => () => {}),
     };
 
     const originalFetchSpy = vi.fn(async (input: any) => {

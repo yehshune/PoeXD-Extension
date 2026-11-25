@@ -1,3 +1,8 @@
+import {
+  createMainWorldRpcDispatcher,
+  type RpcMethod,
+  type RpcMethodHandler,
+} from '@/utils/cross-world-rpc';
 import type {
   PoeContentToMainEventMap,
   PoeMainToContentEventMap,
@@ -13,6 +18,7 @@ export interface MainWorldBridge {
     type: K,
     callback: (payload: PoeContentToMainEventMap[K]) => void,
   ) => () => void;
+  handle: <M extends RpcMethod>(method: M, handler: RpcMethodHandler<M>) => () => void;
 }
 
 function hasUrlChanged(
@@ -197,8 +203,11 @@ export function bootstrapBridge(options?: {
 
   dispatchEvent('poexd-history-changed');
 
+  const rpc = createMainWorldRpcDispatcher({ dispatchEvent, addListener });
+
   return {
     dispatchEvent,
     addListener,
+    handle: rpc.handle,
   };
 }

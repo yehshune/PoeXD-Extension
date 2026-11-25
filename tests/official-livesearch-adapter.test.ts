@@ -9,10 +9,8 @@ import {
   renderFetchedResult,
   resetUnreadHits,
 } from '@/entrypoints/main-world/official-livesearch-adapter';
-import {
-  parsePoeLiveSearchCommandResult,
-  serializePoeLiveSearchRenderResult,
-} from '@/utils/event-protocol-types';
+import { requestMainWorld } from '@/utils/cross-world-rpc';
+import { setupTestMainWorldBridge } from './helpers/main-world-bridge-harness';
 
 describe('OfficialLiveSearchAdapter Foundation (Phase 2B)', () => {
   let mockStore: HostVuexStore;
@@ -923,70 +921,40 @@ describe('OfficialLiveSearchAdapter Foundation (Phase 2B)', () => {
     });
   });
 
-  describe('5. Cross-World Bridge Integration', () => {
-    let bridgeListeners: Map<string, (payload: any) => void>;
-    let dispatchedEvents: Array<{ type: string; payload: any }>;
-    let mockBridge: MainWorldBridge;
+  describe('5. Cross-World Bridge Integration (Cross-World RPC seam)', () => {
+    let bridge: MainWorldBridge;
     let teardown: () => void;
 
     beforeEach(() => {
-      bridgeListeners = new Map();
-      dispatchedEvents = [];
-
-      mockBridge = {
-        dispatchEvent: vi.fn((type: string, ...args: any[]) => {
-          dispatchedEvents.push({ type, payload: args[0] });
-        }),
-        addListener: vi.fn((type: string, handler: (payload: any) => void) => {
-          bridgeListeners.set(type, handler);
-          return () => bridgeListeners.delete(type);
-        }),
-      } as unknown as MainWorldBridge;
-
-      teardown = initOfficialLiveSearchAdapter(mockBridge, () => mockStore);
+      bridge = setupTestMainWorldBridge('official-livesearch-adapter-nonce');
+      teardown = initOfficialLiveSearchAdapter(bridge, () => mockStore);
     });
 
     afterEach(() => {
       teardown();
     });
 
-    it('handles poexd-livesearch-ensure-container and dispatches command-result', () => {
-      const handler = bridgeListeners.get('poexd-livesearch-ensure-container');
-      expect(handler).toBeDefined();
-
-      handler!({
-        requestId: 'req_ensure_1',
+    it('handles livesearch.ensure-container over Cross-World RPC', async () => {
+      const outcome = await requestMainWorld('livesearch.ensure-container', {
         localId: 'poexd_bridge_container',
         league: 'Standard',
         realm: 'pc',
       });
 
       expect(mockStore.commit).toHaveBeenCalledWith('addSearchQuery', expect.anything());
-
-      const resultEvent = dispatchedEvents.find(
-        (e) => e.type === 'poexd-livesearch-command-result',
-      );
-      expect(resultEvent).toBeDefined();
-      const parsed = parsePoeLiveSearchCommandResult(resultEvent!.payload);
-      expect(parsed).toEqual({
-        requestId: 'req_ensure_1',
-        command: 'ensure-container',
-        success: true,
+      expect(outcome).toEqual({
+        ok: true,
+        data: { localId: 'poexd_bridge_container' },
       });
     });
 
-    it('handles poexd-livesearch-render-result with wire serialization and dispatches paired command-result', () => {
-      // 先確保容器存在
+    it('handles livesearch.render-result synchronously over Cross-World RPC', async () => {
       ensureDisplayContainer(
         { localId: 'bridge_display_container', league: 'Standard', realm: 'pc' },
         mockStore,
       );
 
-      const handler = bridgeListeners.get('poexd-livesearch-render-result');
-      expect(handler).toBeDefined();
-
-      const wirePayload = serializePoeLiveSearchRenderResult({
-        requestId: 'req_render_1',
+      const outcome = await requestMainWorld('livesearch.render-result', {
         localId: 'bridge_display_container',
         batchId: 'bridge_batch_1',
         sourceSearchId: 'src_search_bridge',
@@ -995,8 +963,6 @@ describe('OfficialLiveSearchAdapter Foundation (Phase 2B)', () => {
         total: 1,
       });
 
-      handler!(wirePayload);
-
       expect(mockStore.commit).toHaveBeenCalledWith('addSearchResult', expect.anything());
       expect(mockStore.commit).toHaveBeenCalledWith(
         'setItemForSearchResult',
@@ -1004,35 +970,26 @@ describe('OfficialLiveSearchAdapter Foundation (Phase 2B)', () => {
           itemId: 'item_raw_id',
         }),
       );
+      expect(outcome).toEqual({ ok: true, data: null });
+    });
 
-      const resultEvent = dispatchedEvents.find(
-        (e) => e.type === 'poexd-livesearch-command-result',
-      );
-      expect(resultEvent).toBeDefined();
-      const parsed = parsePoeLiveSearchCommandResult(resultEvent!.payload);
-      expect(parsed).toEqual({
-        requestId: 'req_render_1',
-        command: 'render-result',
-        success: true,
+    it('rejects malformed render-result payload immediately with INVALID_REQUEST', async () => {
+      const outcome = await requestMainWorld('livesearch.render-result', {
+        localId: '',
+        batchId: '',
+        sourceSearchId: '',
+        token: '',
+        itemData: null,
+        total: -1,
+      });
+
+      expect(outcome).toMatchObject({
+        ok: false,
+        code: 'INVALID_REQUEST',
       });
     });
 
-    it('rejects malformed render-result wire payload safely without crashing', () => {
-      const handler = bridgeListeners.get('poexd-livesearch-render-result');
-      expect(handler).toBeDefined();
-
-      handler!('not_a_valid_json_string');
-
-      const resultEvent = dispatchedEvents.find(
-        (e) => e.type === 'poexd-livesearch-command-result',
-      );
-      expect(resultEvent).toBeDefined();
-      const parsed = parsePoeLiveSearchCommandResult(resultEvent!.payload);
-      expect(parsed?.success).toBe(false);
-      expect(parsed?.error).toContain('Malformed');
-    });
-
-    it('dispatches failed command-result without uncaught exception when setItemForSearchResult throws', () => {
+    it('returns structured failure without uncaught exception when setItemForSearchResult throws', async () => {
       ensureDisplayContainer(
         { localId: 'bridge_display_container_fail', league: 'Standard', realm: 'pc' },
         mockStore,
@@ -1046,11 +1003,7 @@ describe('OfficialLiveSearchAdapter Foundation (Phase 2B)', () => {
         origCommit(type, payload);
       });
 
-      const handler = bridgeListeners.get('poexd-livesearch-render-result');
-      expect(handler).toBeDefined();
-
-      const wirePayload = serializePoeLiveSearchRenderResult({
-        requestId: 'req_render_fail_1',
+      const outcome = await requestMainWorld('livesearch.render-result', {
         localId: 'bridge_display_container_fail',
         batchId: 'bridge_batch_fail',
         sourceSearchId: 'src_search_fail',
@@ -1059,19 +1012,10 @@ describe('OfficialLiveSearchAdapter Foundation (Phase 2B)', () => {
         total: 1,
       });
 
-      // 不會向外拋出未捕獲例外
-      expect(() => handler!(wirePayload)).not.toThrow();
-
-      // 關鍵驗證：bridge 依然正確 dispatch 對應 requestId 的 failed command-result
-      const resultEvent = dispatchedEvents.find((e) => {
-        if (e.type !== 'poexd-livesearch-command-result') return false;
-        const p = parsePoeLiveSearchCommandResult(e.payload);
-        return p?.requestId === 'req_render_fail_1';
-      });
-      expect(resultEvent).toBeDefined();
-      const parsed = parsePoeLiveSearchCommandResult(resultEvent!.payload);
-      expect(parsed?.success).toBe(false);
-      expect(parsed?.error).toContain('Simulated bridge setItem error');
+      expect(outcome.ok).toBe(false);
+      if (!outcome.ok) {
+        expect(outcome.error).toContain('Simulated bridge setItem error');
+      }
     });
   });
 });

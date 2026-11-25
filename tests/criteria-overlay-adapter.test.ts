@@ -6,15 +6,9 @@ import {
   executeCriteriaOverlayOps,
   readCriteriaOverlaySnapshot,
 } from '@/entrypoints/main-world/main-world-search-form';
-import {
-  parsePoeCriteriaOverlayCommitResult,
-  parsePoeCriteriaOverlayReadResult,
-  parsePoeCriteriaOverlaySyncResult,
-  serializePoeCriteriaOverlayCommit,
-  serializePoeCriteriaOverlayRead,
-  serializePoeCriteriaOverlaySync,
-} from '@/utils/event-protocol-types';
+import { requestMainWorld } from '@/utils/cross-world-rpc';
 import type { CriteriaOverlayOp } from '@/utils/criteria-overlay';
+import { setupTestMainWorldBridge } from './helpers/main-world-bridge-harness';
 
 function createStore() {
   const persistent = {
@@ -160,23 +154,13 @@ describe('executeCriteriaOverlayOps', () => {
 });
 
 describe('initCriteriaOverlayAdapter', () => {
-  let listeners: Map<string, (payload: any) => void>;
-  let dispatched: Array<[string, any]>;
   let bridge: MainWorldBridge;
   let teardown: (() => void) | null = null;
   let store: ReturnType<typeof createStore>;
   let root: { save: ReturnType<typeof vi.fn>; loaded?: boolean };
 
   beforeEach(() => {
-    listeners = new Map();
-    dispatched = [];
-    bridge = {
-      dispatchEvent: (type: string, payload: any) => dispatched.push([type, payload]),
-      addListener: (type: string, handler: (payload: any) => void) => {
-        listeners.set(type, handler);
-        return () => listeners.delete(type);
-      },
-    } as unknown as MainWorldBridge;
+    bridge = setupTestMainWorldBridge('criteria-overlay-adapter-nonce');
     store = createStore();
     root = { save: vi.fn() };
     document.body.innerHTML = '<div id="trade"></div>';
@@ -193,15 +177,12 @@ describe('initCriteriaOverlayAdapter', () => {
     document.body.innerHTML = '';
   });
 
-  it('answers a read request with the form snapshot', () => {
-    listeners.get('poexd-criteria-overlay-read')!(
-      serializePoeCriteriaOverlayRead({ requestId: 'r1' }),
-    );
-    const [type, payload] = dispatched[0];
-    expect(type).toBe('poexd-criteria-overlay-read-result');
-    const result = parsePoeCriteriaOverlayReadResult(payload);
-    expect(result?.requestId).toBe('r1');
-    expect((result?.snapshot as any).type).toBe('Gold Ring');
+  it('answers a read request with the form snapshot over Cross-World RPC', async () => {
+    const outcome = await requestMainWorld('criteria-overlay.read', undefined);
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      expect((outcome.data.snapshot as any).type).toBe('Gold Ring');
+    }
   });
 
   it('replies only after the official async save() has written the URL', async () => {
@@ -212,38 +193,29 @@ describe('initCriteriaOverlayAdapter', () => {
           finishSave = resolve;
         }),
     );
-    listeners.get('poexd-criteria-overlay-commit')!(
-      serializePoeCriteriaOverlayCommit({
-        requestId: 'c3',
-        ops: [{ kind: 'setStatus', status: 'online' }],
-      }),
-    );
+    let settled = false;
+    const pending = requestMainWorld('criteria-overlay.commit', {
+      ops: [{ kind: 'setStatus', status: 'online' }],
+    }).then((res) => {
+      settled = true;
+      return res;
+    });
     await Promise.resolve();
     expect(root.save).toHaveBeenCalledWith(true);
-    expect(dispatched).toEqual([]);
+    expect(settled).toBe(false);
 
     finishSave();
-    await vi.waitFor(() => expect(dispatched).toHaveLength(1));
-    expect(parsePoeCriteriaOverlayCommitResult(dispatched[0][1])).toEqual({
-      requestId: 'c3',
-      success: true,
-    });
+    const outcome = await pending;
+    expect(outcome).toEqual({ ok: true, data: null });
   });
 
   it('executes a valid commit and reports success', async () => {
-    listeners.get('poexd-criteria-overlay-commit')!(
-      serializePoeCriteriaOverlayCommit({
-        requestId: 'c1',
-        ops: [{ kind: 'setStatus', status: 'online' }],
-      }),
-    );
-    await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+    const outcome = await requestMainWorld('criteria-overlay.commit', {
+      ops: [{ kind: 'setStatus', status: 'online' }],
+    });
     expect(store.commit).toHaveBeenCalledWith('setStatus', 'online');
     expect(root.save).toHaveBeenCalledWith(true);
-    expect(parsePoeCriteriaOverlayCommitResult(dispatched[0][1])).toEqual({
-      requestId: 'c1',
-      success: true,
-    });
+    expect(outcome).toEqual({ ok: true, data: null });
   });
 
   describe('sync', () => {
@@ -255,9 +227,6 @@ describe('initCriteriaOverlayAdapter', () => {
       (root as any).updateUrl = updateUrl;
     });
     afterEach(() => errorSpy.mockRestore());
-
-    const requestSync = (requestId: string) =>
-      listeners.get('poexd-criteria-overlay-sync')!(serializePoeCriteriaOverlaySync({ requestId }));
 
     it('writes the URL with the official updateUrl() so the search is not marked dirty', async () => {
       let finishUpdate!: () => void;
@@ -271,45 +240,41 @@ describe('initCriteriaOverlayAdapter', () => {
             };
           }),
       );
-      requestSync('s1');
+      let settled = false;
+      const pending = requestMainWorld('criteria-overlay.sync', undefined).then((res) => {
+        settled = true;
+        return res;
+      });
       await Promise.resolve();
       expect(updateUrl).toHaveBeenCalledOnce();
       expect(root.save).not.toHaveBeenCalled();
       expect(store.commit).not.toHaveBeenCalled();
-      expect(dispatched).toEqual([]);
+      expect(settled).toBe(false);
 
       finishUpdate();
-      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
-      const [type, payload] = dispatched[0];
-      expect(type).toBe('poexd-criteria-overlay-sync-result');
-      expect(parsePoeCriteriaOverlaySyncResult(payload)).toEqual({
-        requestId: 's1',
-        success: true,
-        url: window.location.href,
+      const outcome = await pending;
+      expect(outcome).toEqual({
+        ok: true,
+        data: { url: window.location.href },
       });
       expect(window.location.pathname).toBe('/trade/search/Standard/synced');
     });
 
     it('falls back to save(true) when the official page has no updateUrl()', async () => {
       (root as any).updateUrl = undefined;
-      requestSync('s5');
-      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+      const outcome = await requestMainWorld('criteria-overlay.sync', undefined);
       expect(root.save).toHaveBeenCalledWith(true);
-      expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
-        requestId: 's5',
-        success: true,
-      });
+      expect(outcome).toMatchObject({ ok: true, data: { url: expect.any(String) } });
     });
 
     it('refuses to report success while the official page has not loaded', async () => {
       root.loaded = false;
-      requestSync('s2');
-      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
+      const outcome = await requestMainWorld('criteria-overlay.sync', undefined);
       expect(updateUrl).not.toHaveBeenCalled();
       expect(root.save).not.toHaveBeenCalled();
-      expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
-        requestId: 's2',
-        success: false,
+      expect(outcome).toMatchObject({
+        ok: false,
+        code: 'PAGE_NOT_LOADED',
         error: 'PAGE_NOT_LOADED',
         diagnostics: {
           storeFound: true,
@@ -325,31 +290,31 @@ describe('initCriteriaOverlayAdapter', () => {
     it('reports TRADE_ROOT_NOT_FOUND instead of silently skipping the URL write', async () => {
       (root as any).updateUrl = undefined;
       (root as any).save = undefined;
-      requestSync('s3');
-      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
-      expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
-        success: false,
+      const outcome = await requestMainWorld('criteria-overlay.sync', undefined);
+      expect(outcome).toMatchObject({
+        ok: false,
+        code: 'TRADE_ROOT_NOT_FOUND',
         error: 'TRADE_ROOT_NOT_FOUND',
       });
     });
 
     it('passes the official URL write error through', async () => {
       updateUrl.mockRejectedValue(new Error('CompressionStream failed'));
-      requestSync('s4');
-      await vi.waitFor(() => expect(dispatched).toHaveLength(1));
-      expect(parsePoeCriteriaOverlaySyncResult(dispatched[0][1])).toMatchObject({
-        success: false,
+      const outcome = await requestMainWorld('criteria-overlay.sync', undefined);
+      expect(outcome).toMatchObject({
+        ok: false,
+        code: 'CompressionStream failed',
         error: 'CompressionStream failed',
         diagnostics: { method: 'updateUrl' },
       });
     });
   });
 
-  it('ignores commits containing ops outside the whitelist', () => {
-    listeners.get('poexd-criteria-overlay-commit')!(
-      JSON.stringify({ requestId: 'c2', ops: [{ kind: 'clearSearchForm' }] }),
-    );
+  it('rejects commits containing ops outside the whitelist with INVALID_REQUEST', async () => {
+    const outcome = await requestMainWorld('criteria-overlay.commit', {
+      ops: [{ kind: 'clearSearchForm' } as any],
+    });
     expect(store.commit).not.toHaveBeenCalled();
-    expect(dispatched).toEqual([]);
+    expect(outcome).toMatchObject({ ok: false, code: 'INVALID_REQUEST' });
   });
 });

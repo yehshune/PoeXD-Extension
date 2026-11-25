@@ -1,4 +1,3 @@
-import { parseCriteriaOverlayOps, type CriteriaOverlayOp } from './criteria-overlay';
 import {
   parseLiveStatLabels,
   parseLiveTradeFilters,
@@ -114,106 +113,8 @@ export interface PoeUpdateStatCategoryPayload {
   filterIndex?: number;
 }
 
-export interface PoeLiveSearchEnsureContainerPayload {
-  requestId?: string;
-  localId: string;
-  league: string;
-  realm: 'pc' | 'poe2';
-  resetResults?: boolean;
-}
-
-export interface PoeLiveSearchRenderResultPayload {
-  requestId?: string;
-  localId: string;
-  batchId: string;
-  sourceSearchId: string;
-  token: string;
-  itemData: unknown;
-  total: number;
-  /** 結果展示區最多保留筆數；超過時由 Host Adapter 淘汰最舊的批次。省略表示不限制。 */
-  maxResults?: number;
-}
-
-export interface PoeLiveSearchResetUnreadPayload {
-  requestId?: string;
-  localId: string;
-}
-
-/** 同步展示容器的結果總數（官方上方顯示的筆數），例如依連線篩選切換時。 */
-export interface PoeLiveSearchSyncTotalPayload {
-  requestId?: string;
-  localId: string;
-  total: number;
-}
-
 export interface PoeLiveSearchConsoleGuardPayload {
   active: boolean;
-}
-
-export interface PoeCriteriaOverlayReadPayload {
-  requestId: string;
-}
-
-export interface PoeCriteriaOverlayReadResultPayload {
-  requestId: string;
-  /** 官方 `state.persistent` 中與條件相關欄位的 JSON 快照；讀取失敗時為 null。 */
-  snapshot: Record<string, unknown> | null;
-  /** 官方已知的 stat id；無法取得時為 null。 */
-  knownStatIds: string[] | null;
-  error?: string;
-}
-
-export interface PoeCriteriaOverlayCommitPayload {
-  requestId: string;
-  ops: CriteriaOverlayOp[];
-}
-
-export interface PoeCriteriaOverlayCommitResultPayload {
-  requestId: string;
-  success: boolean;
-  error?: string;
-}
-
-/** 請 Main World 以官方 `updateUrl()`（退回 `save(true)`）把目前搜尋表單寫進網址（不修改表單）。 */
-export interface PoeCriteriaOverlaySyncPayload {
-  requestId: string;
-}
-
-/** 同步失敗時的診斷資訊（只含布林與路由名稱，不含查詢內容）。 */
-export type PoeCriteriaOverlaySyncDiagnostics = Record<string, string | number | boolean | null>;
-
-export interface PoeCriteriaOverlaySyncResultPayload {
-  requestId: string;
-  success: boolean;
-  /** 官方寫完網址後的 `location.href`；失敗時省略。 */
-  url?: string;
-  error?: string;
-  diagnostics?: PoeCriteriaOverlaySyncDiagnostics;
-}
-
-/**
- * 頁面導覽的示範狀態：暫時展開收起的篩選面板、在官方表單加入一個詞綴篩選，
- * 讓導覽能指到詞綴選擇器與 T 階按鈕，結束時還原成原本的樣子。
- * 不呼叫官方 save，因此不改網址、不送出搜尋。
- */
-export type PoePageGuideDemoAction = 'show-filters' | 'add-stat-filter' | 'restore';
-
-export interface PoePageGuideDemoPayload {
-  requestId: string;
-  action: PoePageGuideDemoAction;
-}
-
-export interface PoePageGuideDemoResultPayload {
-  requestId: string;
-  success: boolean;
-  error?: string;
-}
-
-export interface PoeLiveSearchCommandResultPayload {
-  requestId?: string;
-  command: 'ensure-container' | 'render-result' | 'reset-unread' | 'sync-total';
-  success: boolean;
-  error?: string;
 }
 
 // -------------------------------------------------------------
@@ -221,7 +122,7 @@ export interface PoeLiveSearchCommandResultPayload {
 // -------------------------------------------------------------
 
 /**
- * Main World -> Content World (15 個事件)
+ * Main World -> Content World (10 個事件)
  * 帶有 JSON 結構之事件在 CustomEvent 傳輸時採用 serialized JSON string 以維持 wire 相容。
  */
 export interface PoeMainToContentEventMap {
@@ -231,18 +132,14 @@ export interface PoeMainToContentEventMap {
   'poexd-search-triggered': void;
   'poexd-live-trade-data': string; // Wire format: serialized JSON of PoeLiveTradeDataWire
   'poexd-equipment-type-changed': { type: string | null };
-  'poexd-livesearch-command-result': string; // Wire format: serialized JSON of PoeLiveSearchCommandResultPayload
-  'poexd-criteria-overlay-read-result': string; // Wire format: serialized JSON of PoeCriteriaOverlayReadResultPayload
-  'poexd-criteria-overlay-commit-result': string; // Wire format: serialized JSON of PoeCriteriaOverlayCommitResultPayload
-  'poexd-criteria-overlay-sync-result': string; // Wire format: serialized JSON of PoeCriteriaOverlaySyncResultPayload
-  'poexd-page-guide-demo-result': string; // Wire format: serialized JSON of PoePageGuideDemoResultPayload
   'poexd-search-result-summary': string; // Wire format: serialized JSON of SearchResultSummary
   'poexd-fetch-failed': string; // Wire format: serialized JSON of FetchFailure
   'poexd-whisper-outcome': string; // Wire format: serialized JSON of WhisperOutcome
+  'poexd-rpc-response': string; // Wire format: serialized JSON of Cross-World RPC response envelope
 }
 
 /**
- * Content World -> Main World (15 個事件)
+ * Content World -> Main World (9 個事件)
  */
 export interface PoeContentToMainEventMap {
   'poexd-request-known-stats': void;
@@ -252,19 +149,12 @@ export interface PoeContentToMainEventMap {
   'poexd-add-stat-filter': PoeAddStatFilterPayload;
   'poexd-update-stat-category': PoeUpdateStatCategoryPayload;
   'poexd-move-stat-filter': string; // Wire format: serialized JSON of PoeMoveStatFilterPayload
-  'poexd-livesearch-ensure-container': PoeLiveSearchEnsureContainerPayload;
-  'poexd-livesearch-render-result': string; // Wire format: serialized JSON of PoeLiveSearchRenderResultPayload
-  'poexd-livesearch-reset-unread': PoeLiveSearchResetUnreadPayload;
-  'poexd-livesearch-sync-total': PoeLiveSearchSyncTotalPayload;
   'poexd-livesearch-console-guard': PoeLiveSearchConsoleGuardPayload;
-  'poexd-criteria-overlay-read': string; // Wire format: serialized JSON of PoeCriteriaOverlayReadPayload
-  'poexd-criteria-overlay-commit': string; // Wire format: serialized JSON of PoeCriteriaOverlayCommitPayload
-  'poexd-criteria-overlay-sync': string; // Wire format: serialized JSON of PoeCriteriaOverlaySyncPayload
-  'poexd-page-guide-demo': string; // Wire format: serialized JSON of PoePageGuideDemoPayload
+  'poexd-rpc-request': string; // Wire format: serialized JSON of Cross-World RPC request envelope
 }
 
 /**
- * 30 個跨世界通訊事件合約（Main World <-> Content World）
+ * 19 個跨世界通訊事件合約（Main World <-> Content World）
  */
 export type PoeCrossWorldEventMap = PoeMainToContentEventMap & PoeContentToMainEventMap;
 
@@ -278,7 +168,6 @@ export interface PoeCrossWorldPayloadMap {
   'poexd-search-triggered': void;
   'poexd-live-trade-data': PoeLiveTradeDataPayload;
   'poexd-equipment-type-changed': { type: string | null };
-  'poexd-livesearch-command-result': PoeLiveSearchCommandResultPayload;
   'poexd-request-known-stats': void;
   'poexd-request-live-trade-data': void;
   'poexd-request-official-category': void;
@@ -286,22 +175,12 @@ export interface PoeCrossWorldPayloadMap {
   'poexd-add-stat-filter': PoeAddStatFilterPayload;
   'poexd-update-stat-category': PoeUpdateStatCategoryPayload;
   'poexd-move-stat-filter': PoeMoveStatFilterPayload;
-  'poexd-livesearch-ensure-container': PoeLiveSearchEnsureContainerPayload;
-  'poexd-livesearch-render-result': PoeLiveSearchRenderResultPayload;
-  'poexd-livesearch-reset-unread': PoeLiveSearchResetUnreadPayload;
-  'poexd-livesearch-sync-total': PoeLiveSearchSyncTotalPayload;
   'poexd-livesearch-console-guard': PoeLiveSearchConsoleGuardPayload;
-  'poexd-criteria-overlay-read': PoeCriteriaOverlayReadPayload;
-  'poexd-criteria-overlay-read-result': PoeCriteriaOverlayReadResultPayload;
-  'poexd-criteria-overlay-commit': PoeCriteriaOverlayCommitPayload;
-  'poexd-criteria-overlay-commit-result': PoeCriteriaOverlayCommitResultPayload;
-  'poexd-criteria-overlay-sync': PoeCriteriaOverlaySyncPayload;
-  'poexd-criteria-overlay-sync-result': PoeCriteriaOverlaySyncResultPayload;
-  'poexd-page-guide-demo': PoePageGuideDemoPayload;
-  'poexd-page-guide-demo-result': PoePageGuideDemoResultPayload;
   'poexd-search-result-summary': SearchResultSummary;
   'poexd-fetch-failed': FetchFailure;
   'poexd-whisper-outcome': WhisperOutcome;
+  'poexd-rpc-request': string;
+  'poexd-rpc-response': string;
 }
 
 // -------------------------------------------------------------
@@ -535,265 +414,4 @@ function flattenKnownStats(raw: unknown): PoeKnownStatsPayload | null {
     }
   }
   return result;
-}
-
-export function serializePoeLiveSearchRenderResult(
-  payload: PoeLiveSearchRenderResultPayload,
-): string {
-  return JSON.stringify(payload);
-}
-
-export function parsePoeLiveSearchRenderResult(
-  detail: unknown,
-): PoeLiveSearchRenderResultPayload | undefined {
-  if (typeof detail !== 'string') return undefined;
-  try {
-    const parsed = JSON.parse(detail);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return undefined;
-    }
-    const { requestId, localId, batchId, sourceSearchId, token, itemData, total, maxResults } =
-      parsed as Record<string, unknown>;
-
-    if (
-      typeof localId !== 'string' ||
-      !localId.trim() ||
-      typeof batchId !== 'string' ||
-      !batchId.trim() ||
-      typeof sourceSearchId !== 'string' ||
-      !sourceSearchId.trim() ||
-      typeof token !== 'string' ||
-      !token.trim() ||
-      typeof total !== 'number' ||
-      !Number.isFinite(total) ||
-      total < 0 ||
-      itemData === null ||
-      itemData === undefined
-    ) {
-      return undefined;
-    }
-
-    return {
-      requestId: typeof requestId === 'string' ? requestId : undefined,
-      localId: localId.trim(),
-      batchId: batchId.trim(),
-      sourceSearchId: sourceSearchId.trim(),
-      token: token.trim(),
-      itemData,
-      total,
-      ...(typeof maxResults === 'number' && Number.isInteger(maxResults) && maxResults > 0
-        ? { maxResults }
-        : {}),
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-export function serializePoeLiveSearchCommandResult(
-  payload: PoeLiveSearchCommandResultPayload,
-): string {
-  return JSON.stringify(payload);
-}
-
-export function parsePoeLiveSearchCommandResult(
-  detail: unknown,
-): PoeLiveSearchCommandResultPayload | undefined {
-  if (typeof detail !== 'string') return undefined;
-  try {
-    const parsed = JSON.parse(detail);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return undefined;
-    }
-    const { requestId, command, success, error } = parsed as Record<string, unknown>;
-    const validCommands = ['ensure-container', 'render-result', 'reset-unread', 'sync-total'];
-    if (
-      typeof command !== 'string' ||
-      !validCommands.includes(command) ||
-      typeof success !== 'boolean'
-    ) {
-      return undefined;
-    }
-    return {
-      requestId: typeof requestId === 'string' ? requestId : undefined,
-      command: command as 'ensure-container' | 'render-result' | 'reset-unread' | 'sync-total',
-      success,
-      error: typeof error === 'string' ? error : undefined,
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-// -------------------------------------------------------------
-// Criteria Overlay codecs（見 ADR-0009、ADR-0010）
-// -------------------------------------------------------------
-
-function parseJsonRecord(detail: unknown): Record<string, unknown> | undefined {
-  if (typeof detail !== 'string') return undefined;
-  try {
-    const parsed = JSON.parse(detail);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function readRequestId(record: Record<string, unknown>): string | undefined {
-  return typeof record.requestId === 'string' && record.requestId !== ''
-    ? record.requestId
-    : undefined;
-}
-
-export function serializePoeCriteriaOverlayRead(payload: PoeCriteriaOverlayReadPayload): string {
-  return JSON.stringify(payload);
-}
-
-export function parsePoeCriteriaOverlayRead(
-  detail: unknown,
-): PoeCriteriaOverlayReadPayload | undefined {
-  const record = parseJsonRecord(detail);
-  const requestId = record && readRequestId(record);
-  return requestId ? { requestId } : undefined;
-}
-
-export function serializePoeCriteriaOverlayReadResult(
-  payload: PoeCriteriaOverlayReadResultPayload,
-): string {
-  return JSON.stringify(payload);
-}
-
-export function parsePoeCriteriaOverlayReadResult(
-  detail: unknown,
-): PoeCriteriaOverlayReadResultPayload | undefined {
-  const record = parseJsonRecord(detail);
-  const requestId = record && readRequestId(record);
-  if (!record || !requestId) return undefined;
-  const { snapshot, knownStatIds, error } = record;
-  const validSnapshot =
-    snapshot === null || (typeof snapshot === 'object' && !Array.isArray(snapshot));
-  const validKnown =
-    knownStatIds === null ||
-    (Array.isArray(knownStatIds) && knownStatIds.every((id) => typeof id === 'string'));
-  if (!validSnapshot || !validKnown) return undefined;
-  return {
-    requestId,
-    snapshot: snapshot as Record<string, unknown> | null,
-    knownStatIds: knownStatIds as string[] | null,
-    ...(typeof error === 'string' ? { error } : {}),
-  };
-}
-
-export function serializePoeCriteriaOverlayCommit(
-  payload: PoeCriteriaOverlayCommitPayload,
-): string {
-  return JSON.stringify(payload);
-}
-
-export function parsePoeCriteriaOverlayCommit(
-  detail: unknown,
-): PoeCriteriaOverlayCommitPayload | undefined {
-  const record = parseJsonRecord(detail);
-  const requestId = record && readRequestId(record);
-  const ops = record && parseCriteriaOverlayOps(record.ops);
-  return requestId && ops ? { requestId, ops } : undefined;
-}
-
-export function serializePoeCriteriaOverlayCommitResult(
-  payload: PoeCriteriaOverlayCommitResultPayload,
-): string {
-  return JSON.stringify(payload);
-}
-
-export function parsePoeCriteriaOverlayCommitResult(
-  detail: unknown,
-): PoeCriteriaOverlayCommitResultPayload | undefined {
-  const record = parseJsonRecord(detail);
-  const requestId = record && readRequestId(record);
-  if (!record || !requestId || typeof record.success !== 'boolean') return undefined;
-  return {
-    requestId,
-    success: record.success,
-    ...(typeof record.error === 'string' ? { error: record.error } : {}),
-  };
-}
-
-export function serializePoeCriteriaOverlaySync(payload: PoeCriteriaOverlaySyncPayload): string {
-  return JSON.stringify(payload);
-}
-
-export function parsePoeCriteriaOverlaySync(
-  detail: unknown,
-): PoeCriteriaOverlaySyncPayload | undefined {
-  const record = parseJsonRecord(detail);
-  const requestId = record && readRequestId(record);
-  return requestId ? { requestId } : undefined;
-}
-
-export function serializePoeCriteriaOverlaySyncResult(
-  payload: PoeCriteriaOverlaySyncResultPayload,
-): string {
-  return JSON.stringify(payload);
-}
-
-function parseSyncDiagnostics(value: unknown): PoeCriteriaOverlaySyncDiagnostics | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-  const entries = Object.entries(value).filter(
-    ([, v]) => v === null || ['string', 'number', 'boolean'].includes(typeof v),
-  );
-  return Object.fromEntries(entries) as PoeCriteriaOverlaySyncDiagnostics;
-}
-
-export function parsePoeCriteriaOverlaySyncResult(
-  detail: unknown,
-): PoeCriteriaOverlaySyncResultPayload | undefined {
-  const record = parseJsonRecord(detail);
-  const requestId = record && readRequestId(record);
-  if (!record || !requestId || typeof record.success !== 'boolean') return undefined;
-  if (record.success && typeof record.url !== 'string') return undefined;
-  const diagnostics = parseSyncDiagnostics(record.diagnostics);
-  return {
-    requestId,
-    success: record.success,
-    ...(typeof record.url === 'string' ? { url: record.url } : {}),
-    ...(typeof record.error === 'string' ? { error: record.error } : {}),
-    ...(diagnostics ? { diagnostics } : {}),
-  };
-}
-
-export function serializePoePageGuideDemo(payload: PoePageGuideDemoPayload): string {
-  return JSON.stringify(payload);
-}
-
-const PAGE_GUIDE_DEMO_ACTIONS: readonly PoePageGuideDemoAction[] = [
-  'show-filters',
-  'add-stat-filter',
-  'restore',
-];
-
-export function parsePoePageGuideDemo(detail: unknown): PoePageGuideDemoPayload | undefined {
-  const record = parseJsonRecord(detail);
-  const requestId = record && readRequestId(record);
-  const action = record?.action;
-  if (!requestId || !PAGE_GUIDE_DEMO_ACTIONS.includes(action as PoePageGuideDemoAction)) {
-    return undefined;
-  }
-  return { requestId, action: action as PoePageGuideDemoAction };
-}
-
-export function serializePoePageGuideDemoResult(payload: PoePageGuideDemoResultPayload): string {
-  return JSON.stringify(payload);
-}
-
-export function parsePoePageGuideDemoResult(
-  detail: unknown,
-): PoePageGuideDemoResultPayload | undefined {
-  const record = parseJsonRecord(detail);
-  const requestId = record && readRequestId(record);
-  if (!record || !requestId || typeof record.success !== 'boolean') return undefined;
-  return {
-    requestId,
-    success: record.success,
-    ...(typeof record.error === 'string' ? { error: record.error } : {}),
-  };
 }
