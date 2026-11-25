@@ -38,6 +38,19 @@ describe('搜尋條件鍵', () => {
     expect(fingerprintTradeQuery(null)).toBeNull();
   });
 
+  it('includeSort 時排序不同即視為不同條件，欄位順序仍無關', () => {
+    const withSort = { includeSort: true };
+    expect(fingerprintTradeQuery(QUERIES.A1, withSort)).not.toBe(
+      fingerprintTradeQuery(QUERIES.A2, withSort),
+    );
+    expect(
+      fingerprintTradeQuery(
+        { sort: { price: 'asc' }, query: { type: 'Ring', status: { option: 'online' } } },
+        withSort,
+      ),
+    ).toBe(fingerprintTradeQuery(QUERIES.A1, withSort));
+  });
+
   it('解碼失敗時退回 canonical key，且結果會快取', async () => {
     const resolver = createTradeSearchCriteriaKeyResolver(decode);
     expect(resolver.peek(id('X'))).toBeUndefined();

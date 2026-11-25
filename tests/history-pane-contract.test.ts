@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { readFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { createApp, nextTick, ref } from 'vue';
 
@@ -544,6 +545,74 @@ describe('Phase 1B: HistoryPane UI Contract & Migration', () => {
         }),
       );
       expect(rows[1].querySelector('[data-test="history-bookmarked-indicator"]')).not.toBeNull();
+    });
+
+    it('matches a bookmark whose search ID encodes the same query with a different compressor', async () => {
+      // 書籤：瀏覽器壓縮（OS byte 0x0a）；歷史：官方伺服器重新壓縮（OS byte 0x03、不同壓縮等級）
+      const query = {
+        query: { status: { option: 'online' }, name: 'Headhunter' },
+        sort: { price: 'asc' },
+      };
+      const encode = (value: unknown, level: number, osByte: number) => {
+        const bytes = gzipSync(Buffer.from(JSON.stringify(value)), { level });
+        bytes[9] = osByte;
+        return bytes.toString('base64url');
+      };
+      const bookmarkId = encode(query, 6, 0x0a);
+      const historyId = encode(query, 9, 0x03);
+      const otherSortId = encode({ ...query, sort: { price: 'desc' } }, 9, 0x03);
+      expect(bookmarkId).not.toBe(historyId);
+
+      bookmarkGroupsMock.value = [{ id: 'g-1', name: '主力裝備', order: 0 }];
+      bookmarksMock.value = [
+        {
+          id: 'bm-hh',
+          name: '我的獵首',
+          groupId: 'g-1',
+          order: 0,
+          url: `https://www.pathofexile.com/trade/search/Standard/${bookmarkId}`,
+          searchRecordId: `poe1:standard:${bookmarkId}`,
+        },
+      ];
+      historyEntriesMock.value = [
+        {
+          id: 'hist-server-id',
+          searchRecordId: `poe1:standard:${historyId}`,
+          url: `https://www.pathofexile.com/trade/search/Standard/${historyId}`,
+          name: '獵首 皮革腰帶',
+          visitedAt: Date.now() - 1000,
+        },
+        {
+          id: 'hist-other-sort',
+          searchRecordId: `poe1:standard:${otherSortId}`,
+          url: `https://www.pathofexile.com/trade/search/Standard/${otherSortId}`,
+          name: '獵首 皮革腰帶',
+          visitedAt: Date.now() - 2000,
+        },
+      ];
+      const confirmSpy = vi.fn(async () => true);
+      (window as any).poexdConfirm = confirmSpy;
+
+      app = createApp(HistoryPane);
+      const vm: any = app.mount(container);
+      await vi.waitFor(() => {
+        expect(
+          container.querySelector(
+            '[data-history-id="hist-server-id"] [data-test="history-bookmarked-indicator"]',
+          ),
+        ).not.toBeNull();
+      });
+      expect(
+        container.querySelector(
+          '[data-history-id="hist-other-sort"] [data-test="history-bookmarked-indicator"]',
+        ),
+      ).toBeNull();
+      expect(vm.getHistoryName(historyEntriesMock.value[0])).toBe('我的獵首');
+
+      await vm.clearUnbookmarkedHistory();
+      await flushPromises();
+      expect(confirmSpy).toHaveBeenCalledTimes(1);
+      expect(historyEntriesMock.value.map((h) => h.id)).toEqual(['hist-server-id']);
     });
 
     it('auto-creates default folder when saving history to bookmark with no existing folders', async () => {

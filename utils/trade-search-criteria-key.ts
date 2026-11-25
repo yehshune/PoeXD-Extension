@@ -44,9 +44,21 @@ function hashString(input: string): string {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
-/** 將解碼後的查詢 JSON 正規化為與排序、欄位順序無關的指紋。 */
-export function fingerprintTradeQuery(decoded: unknown): string | null {
+export interface TradeQueryFingerprintOptions {
+  /**
+   * 是否把排序（`sort`）納入指紋。預設不納入（即時搜尋去重用）；
+   * 比對書籤時要納入，因為排序不同時開出來的結果順序也不同。
+   */
+  includeSort?: boolean;
+}
+
+/** 將解碼後的查詢 JSON 正規化為與欄位順序（預設也與排序）無關的指紋。 */
+export function fingerprintTradeQuery(
+  decoded: unknown,
+  options: TradeQueryFingerprintOptions = {},
+): string | null {
   if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return null;
+  if (options.includeSort) return hashString(stableSerialize(decoded));
   const { sort: _sort, ...criteria } = decoded as Record<string, unknown>;
   return hashString(stableSerialize(criteria));
 }
@@ -69,6 +81,7 @@ export interface TradeSearchCriteriaKeyResolver {
 
 export function createTradeSearchCriteriaKeyResolver(
   decode: (searchId: string) => Promise<unknown> = decodeGzipBase64UrlToQuery,
+  options: TradeQueryFingerprintOptions = {},
 ): TradeSearchCriteriaKeyResolver {
   const fingerprintBySearchId = new Map<string, string | null>();
   const inflight = new Map<string, Promise<string | null>>();
@@ -81,7 +94,7 @@ export function createTradeSearchCriteriaKeyResolver(
     const task = Promise.resolve()
       .then(() => decode(searchId))
       .then(
-        (decoded) => fingerprintTradeQuery(decoded),
+        (decoded) => fingerprintTradeQuery(decoded, options),
         () => null,
       )
       .then((fingerprint) => {

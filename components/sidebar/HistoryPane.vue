@@ -440,7 +440,12 @@ import type { BookmarkViewItem } from '@/utils/bookmark-coordinator';
 import { getFolderItemIndentLevel } from './bookmark-tree';
 import { isValidPoeCdnImageUrl } from '@/utils/poe-cdn-url';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
-import { isLegacyTradeSearchUrl, stripLiveSuffix } from '@/utils/trade-search-identity';
+import {
+  isLegacyTradeSearchUrl,
+  parseTradeSearchUrl,
+  stripLiveSuffix,
+} from '@/utils/trade-search-identity';
+import { createTradeSearchCriteriaKeyResolver } from '@/utils/trade-search-criteria-key';
 import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
 import { getPreferences } from '@/utils/preferences';
 import TradeSearchPreviewPopover from './search-preview/TradeSearchPreviewPopover.vue';
@@ -524,15 +529,87 @@ export default defineComponent({
 
     const flattenedBookmarkFolders = computed(() => getFlattenedFolderTree(bookmarkGroups.value));
 
-    const findMatchedBookmark = (h: HistoryEntry) => {
-      if (h.searchRecordId) {
-        const byRecordId = bookmarks.value.find(
-          (bm) => bm && bm.searchRecordId && bm.searchRecordId === h.searchRecordId,
-        );
-        if (byRecordId) return byRecordId;
+    // 同一組條件可能有多個搜尋 ID：網址列與書籤是瀏覽器壓縮的，歷史記的是官方伺服器重新壓縮的。
+    // 因此除了 ID／網址完全相同之外，再以解碼後的查詢內容（含排序）比對。解碼結果依搜尋 ID 快取。
+    const criteriaKeyResolver = createTradeSearchCriteriaKeyResolver(undefined, {
+      includeSort: true,
+    });
+    const criteriaKeysRevision = ref(0);
+    let criteriaKeysReady: Promise<void> = Promise.resolve();
+
+    const peekCriteriaKey = (url: string) => {
+      const identity = parseTradeSearchUrl(stripLiveSuffix(url));
+      return identity ? criteriaKeyResolver.peek(identity) : undefined;
+    };
+
+    const bookmarkLookup = computed(() => {
+      void criteriaKeysRevision.value;
+      const byRecordId = new Map<string, BookmarkViewItem>();
+      const byCleanUrl = new Map<string, BookmarkViewItem>();
+      const byCriteriaKey = new Map<string, BookmarkViewItem>();
+      for (const bm of bookmarks.value) {
+        if (!bm) continue;
+        if (bm.searchRecordId && !byRecordId.has(bm.searchRecordId)) {
+          byRecordId.set(bm.searchRecordId, bm);
+        }
+        if (bm.url) {
+          const cleanUrl = stripLiveSuffix(bm.url);
+          if (!byCleanUrl.has(cleanUrl)) byCleanUrl.set(cleanUrl, bm);
+          const key = peekCriteriaKey(bm.url);
+          if (key && !byCriteriaKey.has(key)) byCriteriaKey.set(key, bm);
+        }
       }
-      const cleanHUrl = stripLiveSuffix(h.url);
-      return bookmarks.value.find((bm) => bm && stripLiveSuffix(bm.url) === cleanHUrl);
+      return { byRecordId, byCleanUrl, byCriteriaKey };
+    });
+
+    watch(
+      [history, bookmarks],
+      ([entries, bms]) => {
+        if (entries.length === 0 || bms.length === 0) return;
+        const { byRecordId, byCleanUrl } = bookmarkLookup.value;
+        const unmatchedHistoryIdentities = entries
+          .filter((h) => {
+            if (h.searchRecordId && byRecordId.has(h.searchRecordId)) return false;
+            return !byCleanUrl.has(stripLiveSuffix(h.url));
+          })
+          .map((h) => parseTradeSearchUrl(stripLiveSuffix(h.url)))
+          .filter((identity): identity is NonNullable<typeof identity> => Boolean(identity));
+        if (unmatchedHistoryIdentities.length === 0) return;
+
+        const targetLeagues = new Set(
+          unmatchedHistoryIdentities.map((id) => `${id.gameVersion}:${id.league}`),
+        );
+        const candidateBookmarkIdentities = bms
+          .map((bm) => (bm?.url ? parseTradeSearchUrl(stripLiveSuffix(bm.url)) : undefined))
+          .filter(
+            (identity): identity is NonNullable<typeof identity> =>
+              identity !== undefined &&
+              targetLeagues.has(`${identity.gameVersion}:${identity.league}`),
+          );
+        const pending = [...unmatchedHistoryIdentities, ...candidateBookmarkIdentities].filter(
+          (identity) => !criteriaKeyResolver.peek(identity),
+        );
+        if (pending.length === 0) return;
+
+        const prev = criteriaKeysReady;
+        const next = criteriaKeyResolver.resolveMany(pending).then(() => {
+          if (!isUnmounted) criteriaKeysRevision.value += 1;
+        });
+        criteriaKeysReady = Promise.all([prev, next]).then(() => undefined);
+      },
+      { immediate: true },
+    );
+
+    const findMatchedBookmark = (h: HistoryEntry) => {
+      const { byRecordId, byCleanUrl, byCriteriaKey } = bookmarkLookup.value;
+      if (h.searchRecordId) {
+        const matchedByRecord = byRecordId.get(h.searchRecordId);
+        if (matchedByRecord) return matchedByRecord;
+      }
+      const matchedByUrl = byCleanUrl.get(stripLiveSuffix(h.url));
+      if (matchedByUrl) return matchedByUrl;
+      const key = peekCriteriaKey(h.url);
+      return key ? byCriteriaKey.get(key) : undefined;
     };
 
     const isBookmarked = (h: HistoryEntry) => Boolean(findMatchedBookmark(h));
@@ -835,7 +912,10 @@ export default defineComponent({
 
     const clearUnbookmarkedHistory = async () => {
       if (!bookmarksLoaded.value) return;
-      const count = unbookmarkedHistoryEntries.value.length;
+      // 等條件比對解析完，避免把「ID 不同但條件相同」的已收藏紀錄當成未收藏刪掉
+      await criteriaKeysReady;
+      const entryIds = unbookmarkedHistoryEntries.value.map((h) => h.id);
+      const count = entryIds.length;
       if (count === 0) return;
       const confirmed = await (window as any).poexdConfirm?.(
         t('history.dialog.clearUnbookmarkedConfirm', { count }),
@@ -843,7 +923,7 @@ export default defineComponent({
       );
       if (!confirmed) return;
       await runBulkCleanup(
-        { type: 'clear-unbookmarked-history', gameVersion: version },
+        { type: 'delete-history-entries', entryIds },
         t('history.toast.clearedUnbookmarked', { count }),
         '清除未收藏歷史失敗',
       );
