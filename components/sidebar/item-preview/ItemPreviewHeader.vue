@@ -25,7 +25,7 @@ const emit = defineEmits<{ close: [] }>();
     <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-xs)]">
       <Pin
         v-if="pinned"
-        class="size-3.5 shrink-0 text-primary"
+        class="size-[var(--control-icon-sm)] shrink-0 text-primary"
         data-test="preview-pinned-indicator"
         aria-hidden="true"
       />

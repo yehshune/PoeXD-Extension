@@ -1492,7 +1492,7 @@ describe('PobBuildPane', () => {
     window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt' }));
     await nextTick();
     expect(query('[data-pob-build-gear]')?.getAttribute('data-reveal-sockets')).toBeNull();
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Alt' }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'AltGraph' }));
     await nextTick();
     expect(query('[data-pob-build-gear]')?.getAttribute('data-reveal-sockets')).toBe('true');
     window.dispatchEvent(new Event('blur'));

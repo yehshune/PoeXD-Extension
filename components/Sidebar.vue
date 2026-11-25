@@ -174,6 +174,7 @@
                   v-if="isTabMounted('pob-build') && isTabVisible('pob-build')"
                   v-show="activeTab === 'pob-build'"
                   :sidebar-position="sidebarPosition"
+                  :active="!isCollapsed && activeTab === 'pob-build'"
                 />
                 <PinnedItemPane
                   v-if="isTabMounted('pinned-items') && isTabVisible('pinned-items')"

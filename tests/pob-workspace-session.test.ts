@@ -472,11 +472,16 @@ describe('usePobWorkspaceSession', () => {
       timers.advanceBy(HOVER_OPEN_DELAY_MS);
       expect(session.isPreviewActive('b1', 'k-gloves')).toBe(true);
       expect(session.previewPinned.value).toBe(false);
+      expect(session.isPreviewPinned('b1', 'k-gloves')).toBe(false);
+      expect(session.pinnedPreviewKey('b1')).toBeUndefined();
 
       // Toggle while hovered -> pins instead of closing
       session.togglePreview('b1', 'k-gloves', 'anchor-gloves');
       expect(session.previewPinned.value).toBe(true);
       expect(session.isPreviewActive('b1', 'k-gloves')).toBe(true);
+      expect(session.isPreviewPinned('b1', 'k-gloves')).toBe(true);
+      expect(session.pinnedPreviewKey('b1')).toBe('k-gloves');
+      expect(session.pinnedPreviewKey('b2')).toBeUndefined();
 
       // Leaving trigger or hovering another item does not replace or close pinned preview
       session.leavePreviewTrigger();

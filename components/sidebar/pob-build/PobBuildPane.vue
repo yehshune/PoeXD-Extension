@@ -407,11 +407,7 @@
             <PobGearView
               v-if="isGearView(build)"
               :rows="equipmentRows(build)"
-              :active-key="
-                previewPinned && activePreview?.buildId === build.id
-                  ? activePreview.row.key
-                  : undefined
-              "
+              :active-key="pinnedPreviewKey(build.id)"
               :reveal-sockets="isAltHeld"
               @select="(row, event) => handleGearSelect(build.id, row, event)"
               @hover="(row, event) => hoverPreview(build.id, row, event)"
@@ -487,15 +483,22 @@
                     />
 
                     <span
-                      v-if="row.icon"
-                      data-pob-build-icon-hover
+                      :aria-hidden="row.icon ? undefined : 'true'"
+                      :data-pob-build-icon-hover="row.icon ? '' : undefined"
+                      :data-pob-build-icon-placeholder="row.icon ? undefined : ''"
                       class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center"
-                      :class="{ 'opacity-50': row.done, 'cursor-pointer': canPreview(row) }"
+                      :class="{
+                        'opacity-50': row.done,
+                        'cursor-pointer': canPreview(row),
+                        'rounded-sm border border-border bg-muted text-[length:var(--pxd-font-micro)] font-bold text-muted-foreground':
+                          !row.icon,
+                      }"
                       @click.stop="canPreview(row) && togglePreview(build.id, row.key, $event)"
                       @mouseenter="hoverPreview(build.id, row, $event)"
                       @mouseleave="leavePreviewTrigger"
                     >
                       <PobItemImage
+                        v-if="row.icon"
                         data-pob-build-icon
                         class="max-h-full max-w-full object-contain"
                         :src="row.icon"
@@ -504,18 +507,8 @@
                         :height="row.iconSize?.height"
                         :foulborn="row.foulborn && !row.iconFoulborn"
                       />
+                      <template v-else>?</template>
                     </span>
-                    <span
-                      v-else
-                      aria-hidden="true"
-                      data-pob-build-icon-placeholder
-                      class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[length:var(--pxd-font-micro)] font-bold text-muted-foreground"
-                      :class="{ 'opacity-50': row.done, 'cursor-pointer': canPreview(row) }"
-                      @click.stop="canPreview(row) && togglePreview(build.id, row.key, $event)"
-                      @mouseenter="hoverPreview(build.id, row, $event)"
-                      @mouseleave="leavePreviewTrigger"
-                      >?</span
-                    >
 
                     <component
                       :is="canSearch(row) ? 'a' : 'button'"
@@ -814,6 +807,7 @@ import {
   onMounted,
   onUnmounted,
   ref,
+  watch,
   type PropType,
 } from 'vue';
 import { useDebouncedRef } from '../composables/useDebouncedSearch';
@@ -916,6 +910,11 @@ export default defineComponent({
       type: String as PropType<'left' | 'right'>,
       default: 'left',
     },
+    /** 此分頁是否正處於可見狀態（v-show 隱藏或側欄收合時為 false，停用全域 Alt 監聽） */
+    active: {
+      type: Boolean,
+      default: true,
+    },
   },
   components: {
     ArrowRight,
@@ -969,7 +968,7 @@ export default defineComponent({
     Trash2,
     X,
   },
-  setup() {
+  setup(props) {
     const version = getPoeVersion();
     const pob = usePobBuild(version);
     const isLoading = ref(true);
@@ -1087,9 +1086,6 @@ export default defineComponent({
       if (value !== 'list' && value !== 'gear') return;
       workspace.setViewMode(buildId, value);
     };
-
-    const isPreviewPinned = (buildId: string, key: string): boolean =>
-      workspace.previewPinned.value && workspace.isPreviewActive(buildId, key);
 
     /** 預覽的錨點：清單為該列、裝備欄為該物品格，讓詞綴調整框直接出現在物品旁邊 */
     const previewAnchorFromEvent = (event: Event): PreviewAnchor | null =>
@@ -1223,26 +1219,54 @@ export default defineComponent({
       pob.removeBuild(build.id);
     };
 
-    /** 按住 Alt 鍵時，裝備欄同步顯示所有裝備的插槽技能與鑲嵌物 */
+    /** 按住 Alt／AltGraph 鍵時，裝備欄同步顯示所有裝備的插槽技能與鑲嵌物（僅在分頁可見時啟用） */
     const isAltHeld = ref(false);
+    const isAltKey = (event: KeyboardEvent) => event.key === 'Alt' || event.key === 'AltGraph';
     const handleAltKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Alt') isAltHeld.value = true;
+      if (isAltKey(event)) isAltHeld.value = true;
     };
     const handleAltKeyUp = (event: KeyboardEvent) => {
-      if (event.key === 'Alt') isAltHeld.value = false;
+      if (isAltKey(event)) isAltHeld.value = false;
     };
     const clearAltHeld = () => {
       isAltHeld.value = false;
     };
 
-    let stopPreferences: (() => void) | undefined;
-    let disposed = false;
-
-    onMounted(async () => {
+    let altListenersAttached = false;
+    const attachAltListeners = () => {
+      if (altListenersAttached) return;
+      altListenersAttached = true;
       window.addEventListener('keydown', handleAltKeyDown);
       window.addEventListener('keyup', handleAltKeyUp);
       window.addEventListener('blur', clearAltHeld);
       document.addEventListener('visibilitychange', clearAltHeld);
+    };
+    const detachAltListeners = () => {
+      if (!altListenersAttached) return;
+      altListenersAttached = false;
+      window.removeEventListener('keydown', handleAltKeyDown);
+      window.removeEventListener('keyup', handleAltKeyUp);
+      window.removeEventListener('blur', clearAltHeld);
+      document.removeEventListener('visibilitychange', clearAltHeld);
+      isAltHeld.value = false;
+    };
+
+    let mounted = false;
+    watch(
+      () => props.active,
+      (active) => {
+        if (!mounted) return;
+        if (active) attachAltListeners();
+        else detachAltListeners();
+      },
+    );
+
+    let stopPreferences: (() => void) | undefined;
+    let disposed = false;
+
+    onMounted(async () => {
+      mounted = true;
+      if (props.active) attachAltListeners();
       void getPreferences(version).then((outcome) => {
         if (disposed || !outcome.ok) return;
         stopPreferences = outcome.value.subscribe((snapshot) => {
@@ -1256,11 +1280,8 @@ export default defineComponent({
       }
     });
     onUnmounted(() => {
-      window.removeEventListener('keydown', handleAltKeyDown);
-      window.removeEventListener('keyup', handleAltKeyUp);
-      window.removeEventListener('blur', clearAltHeld);
-      document.removeEventListener('visibilitychange', clearAltHeld);
-      isAltHeld.value = false;
+      mounted = false;
+      detachAltListeners();
       workspace.dispose();
       disposed = true;
       stopPreferences?.();
@@ -1303,7 +1324,8 @@ export default defineComponent({
       previewAnchor: workspace.previewAnchor,
       isPreviewOpen: workspace.isPreviewOpen,
       previewPinned: workspace.previewPinned,
-      isPreviewPinned,
+      isPreviewPinned: workspace.isPreviewPinned,
+      pinnedPreviewKey: workspace.pinnedPreviewKey,
       isPreviewActive: workspace.isPreviewActive,
       togglePreview,
       closePreview: workspace.closePreview,

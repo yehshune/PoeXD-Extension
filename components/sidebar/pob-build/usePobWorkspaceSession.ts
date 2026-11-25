@@ -85,6 +85,8 @@ export interface PobWorkspaceSession<TAnchor = unknown> {
   activePreviewDefaults: ComputedRef<BuildSearchDefaults>;
   isPreviewOpen: ComputedRef<boolean>;
   isPreviewActive: (buildId: string, key: string) => boolean;
+  isPreviewPinned: (buildId: string, key: string) => boolean;
+  pinnedPreviewKey: (buildId: string) => string | undefined;
   hoverPreview: (buildId: string, row: ShoppingRow, anchor: TAnchor | null) => void;
   leavePreviewTrigger: () => void;
   pinPreview: () => void;
@@ -294,6 +296,14 @@ export function usePobWorkspaceSession<TAnchor = unknown>(
 
   const isPreviewActive = (buildId: string, key: string): boolean =>
     activePreview.value?.buildId === buildId && activePreview.value?.row.key === key;
+
+  const isPreviewPinned = (buildId: string, key: string): boolean =>
+    previewPinned.value && isPreviewActive(buildId, key);
+
+  const pinnedPreviewKey = (buildId: string): string | undefined =>
+    previewPinned.value && activePreview.value?.buildId === buildId
+      ? activePreview.value.row.key
+      : undefined;
 
   const closePreview = () => {
     clearHoverOpenTimer();
@@ -506,6 +516,8 @@ export function usePobWorkspaceSession<TAnchor = unknown>(
     activePreviewDefaults,
     isPreviewOpen,
     isPreviewActive,
+    isPreviewPinned,
+    pinnedPreviewKey,
     hoverPreview,
     leavePreviewTrigger,
     pinPreview,
