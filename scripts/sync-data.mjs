@@ -8,7 +8,8 @@
  *
  * 依 manifest.json 驗證每個檔案的 sha256 與大小，再依批次檢查一致性（同一 patch、索引對齊），
  * 通過的批次整批寫入；任一批次失敗時該批次不寫入，並以非零狀態結束。
- * 只接受白名單路徑：manifest 裡其他檔案（atlas、icons 等）一律忽略。
+ * 哪些檔案屬於哪個批次由 poexd-data 的 catalog 決定（manifest 每個檔案帶 batch）；不認得的批次一律忽略，
+ * 已知批次的路徑必須安全且在該批次自己的目錄底下（見 checkDataPath）。
  *
  * 用法：
  *   node scripts/sync-data.mjs                       最新 gh-pages commit
@@ -48,40 +49,36 @@ export const BATCH_IDS = Object.freeze([
   'folder-icons',
 ]);
 
-// ── 路徑白名單 ────────────────────────────────────────────
+// ── 路徑檢查 ──────────────────────────────────────────────
+//
+// 哪些檔案屬於哪個批次只由 poexd-data 的 src/publish/catalog.ts 決定（manifest 每個檔案帶 batch）；
+// 這裡不再維護同一份檔名清單，只做與檔名無關的安全檢查：批次必須是已知的、路徑必須安全，
+// 且只能落在該批次自己的目錄底下。新增資料檔時只需改 poexd-data。
 
-const LOCALE = '[A-Za-z]{2}(?:-[A-Za-z]{2})?';
-const VERSION = '(poe1|poe2)';
-const PATH_RULES = [
-  [new RegExp(`^${VERSION}/mods-tiers\\.json$`), (m) => `${m[1]}/game`],
-  [new RegExp(`^${VERSION}/stat-aliases\\.json$`), (m) => `${m[1]}/game`],
-  [new RegExp(`^${VERSION}/item-art\\.json$`), (m) => `${m[1]}/game`],
-  [
-    new RegExp(
-      `^${VERSION}/locales/${LOCALE}/(?:stats|items|mod-lines|stat-text-items|stat-text-passives|passive-names|result-labels)\\.json$`,
-    ),
-    (m) => `${m[1]}/game`,
-  ],
-  [/^poe1\/mercenary\.json$/, () => 'poe1/mercenary'],
-  [new RegExp(`^poe1/locales/${LOCALE}/mercenary\\.json$`), () => 'poe1/mercenary'],
-  [
-    new RegExp(`^${VERSION}/locales/${LOCALE}/trade-filters\\.json$`),
-    (m) => `${m[1]}/trade-filters`,
-  ],
-  [new RegExp(`^locales/${LOCALE}/trade-ui\\.json$`), () => 'market'],
-  [
-    new RegExp(`^${VERSION}/locales/${LOCALE}/trade-(?:stats|static|items)\\.json$`),
-    () => 'market',
-  ],
-  [/^folder-icons\/index\.json$/, () => 'folder-icons'],
-  [/^folder-icons\/[a-z0-9-]+\.webp$/, () => 'folder-icons'],
-];
+/** 每段路徑：英數開頭（排除 . 與 ..），只含英數、點、底線、連字號 */
+const SAFE_PATH = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 
-/** 回傳資料檔所屬批次；不在白名單內的路徑回傳 null（與 poexd-data 的 src/publish/catalog.ts 一致） */
-export function batchOfDataPath(path) {
-  for (const [pattern, toBatch] of PATH_RULES) {
-    const match = pattern.exec(path);
-    if (match) return toBatch(match);
+/** 各批次可寫入的目錄與副檔名 */
+const BATCH_SCOPES = Object.freeze({
+  'poe1/game': { roots: ['poe1/'], extensions: ['.json'] },
+  'poe2/game': { roots: ['poe2/'], extensions: ['.json'] },
+  'poe1/mercenary': { roots: ['poe1/'], extensions: ['.json'] },
+  'poe1/trade-filters': { roots: ['poe1/locales/'], extensions: ['.json'] },
+  'poe2/trade-filters': { roots: ['poe2/locales/'], extensions: ['.json'] },
+  market: { roots: ['locales/', 'poe1/locales/', 'poe2/locales/'], extensions: ['.json'] },
+  'folder-icons': { roots: ['folder-icons/'], extensions: ['.json', '.webp'] },
+});
+
+/** 檢查資料檔路徑能否寫入該批次；可以時回傳 null，否則回傳原因 */
+export function checkDataPath(path, batchId) {
+  const scope = BATCH_SCOPES[batchId];
+  if (!scope) return `未知的批次 ${batchId}`;
+  if (typeof path !== 'string' || !SAFE_PATH.test(path)) return `路徑不安全：${path}`;
+  if (!scope.roots.some((root) => path.startsWith(root))) {
+    return `${path} 不在批次 ${batchId} 的目錄（${scope.roots.join('、')}）`;
+  }
+  if (!scope.extensions.some((extension) => path.endsWith(extension))) {
+    return `${path} 的副檔名不是 ${scope.extensions.join('、')}`;
   }
   return null;
 }
@@ -313,7 +310,11 @@ export function validateBatchContent(batchId, filesByPath) {
 
 // ── manifest ─────────────────────────────────────────────
 
-/** 檢查 manifest 結構，回傳以批次分組的檔案清單；路徑或批次對不上白名單時拒絕整份 manifest */
+/**
+ * 檢查 manifest 結構，回傳以批次分組的檔案清單。
+ * 不認得的批次略過（poexd-data 之後新增、擴充還用不到的資料）；已知批次的檔案路徑不安全或
+ * 超出該批次的目錄時拒絕整份 manifest。
+ */
 export function parseManifest(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw))
     throw new Error('manifest.json 格式錯誤');
@@ -327,18 +328,17 @@ export function parseManifest(raw) {
   }
   const batches = {};
   for (const [path, entry] of Object.entries(raw.files)) {
-    const expected = batchOfDataPath(path);
-    if (!expected) continue;
-    if (entry?.batch !== expected) {
-      throw new Error(`manifest.json 中 ${path} 的批次為 ${entry?.batch}，預期 ${expected}`);
-    }
+    const batchId = entry?.batch;
+    if (!BATCH_IDS.includes(batchId)) continue;
+    const pathError = checkDataPath(path, batchId);
+    if (pathError) throw new Error(`manifest.json 中 ${path}：${pathError}`);
     if (typeof entry.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(entry.sha256)) {
       throw new Error(`manifest.json 中 ${path} 缺少有效的 sha256`);
     }
     if (!Number.isInteger(entry.bytes) || entry.bytes <= 0 || entry.bytes > MAX_FILE_BYTES) {
       throw new Error(`manifest.json 中 ${path} 的大小無效：${entry.bytes}`);
     }
-    (batches[expected] ??= []).push({ path, sha256: entry.sha256, bytes: entry.bytes });
+    (batches[batchId] ??= []).push({ path, sha256: entry.sha256, bytes: entry.bytes });
   }
   return {
     generatedAt: typeof raw.generatedAt === 'string' ? raw.generatedAt : undefined,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BATCH_IDS,
-  batchOfDataPath,
+  checkDataPath,
   parseArgs,
   parseManifest,
   planSync,
@@ -74,6 +74,16 @@ function publishedFiles() {
   return files;
 }
 
+/** 模擬 poexd-data 的 catalog：fixture 裡每個發布檔案的批次（atlas 不在發布清單） */
+function publishedBatchOf(path) {
+  if (path.startsWith('folder-icons/')) return 'folder-icons';
+  if (path.startsWith('locales/') || /\/trade-(?:stats|static|items)\.json$/.test(path)) return 'market';
+  if (path.endsWith('/trade-filters.json')) return `${path.split('/')[0]}/trade-filters`;
+  if (path.includes('mercenary')) return 'poe1/mercenary';
+  if (path.includes('atlas')) return null;
+  return `${path.split('/')[0]}/game`;
+}
+
 function manifestOf(files, extra = {}) {
   return {
     manifestVersion: 1,
@@ -85,11 +95,11 @@ function manifestOf(files, extra = {}) {
     },
     files: Object.fromEntries(
       Object.entries(files)
-        .filter(([path]) => batchOfDataPath(path))
+        .filter(([path]) => publishedBatchOf(path))
         .map(([path, bytes]) => [
           path,
           {
-            batch: batchOfDataPath(path),
+            batch: publishedBatchOf(path),
             sha256: sha256Of(bytes),
             bytes: bytes.length,
           },
@@ -107,40 +117,46 @@ const io = (files, local = {}) => ({
   readLocal: async (path) => local[path] ?? null,
 });
 
-describe('batchOfDataPath', () => {
-  it('maps every bundled data file to its batch', () => {
-    expect(batchOfDataPath('poe1/mods-tiers.json')).toBe('poe1/game');
-    expect(batchOfDataPath('poe2/locales/zh-CN/mod-lines.json')).toBe('poe2/game');
-    expect(batchOfDataPath('poe1/locales/zh-TW/stat-text-items.json')).toBe('poe1/game');
-    expect(batchOfDataPath('poe1/locales/zh-TW/stat-text.json')).toBeNull();
-    expect(batchOfDataPath('poe2/stat-aliases.json')).toBe('poe2/game');
-    expect(batchOfDataPath('poe1/item-art.json')).toBe('poe1/game');
-    expect(batchOfDataPath('poe1/locales/ja/mercenary.json')).toBe('poe1/mercenary');
-    expect(batchOfDataPath('poe2/locales/ko/trade-filters.json')).toBe('poe2/trade-filters');
-    expect(batchOfDataPath('locales/zh-CN/trade-ui.json')).toBe('market');
-    expect(batchOfDataPath('poe1/locales/en/trade-static.json')).toBe('market');
-    expect(batchOfDataPath('poe1/locales/zh-TW/trade-items.json')).toBe('market');
+describe('checkDataPath', () => {
+  it('accepts any safe file under the batch root, so new files need no change here', () => {
+    expect(checkDataPath('poe1/mods-tiers.json', 'poe1/game')).toBeNull();
+    expect(checkDataPath('poe2/locales/zh-CN/some-new-shard.json', 'poe2/game')).toBeNull();
+    expect(checkDataPath('poe1/locales/ja/mercenary.json', 'poe1/mercenary')).toBeNull();
+    expect(checkDataPath('poe2/locales/ko/trade-filters.json', 'poe2/trade-filters')).toBeNull();
+    expect(checkDataPath('locales/zh-CN/trade-ui.json', 'market')).toBeNull();
+    expect(checkDataPath('poe1/locales/en/trade-static.json', 'market')).toBeNull();
+    expect(checkDataPath('folder-icons/witch.webp', 'folder-icons')).toBeNull();
   });
 
-  it('rejects anything outside the whitelist, including traversal attempts', () => {
+  it('rejects unsafe paths: traversal, absolute, backslashes, hidden segments, other file types', () => {
     for (const path of [
-      'manifest.json',
-      'version.json',
-      'poe2/atlas_maps.json',
-      'poe2/mercenary.json',
       '../package.json',
       'poe1/locales/../../package.json',
       'poe1/locales/en/stats.json/../../x.json',
+      'poe1/./mods-tiers.json',
       '/etc/passwd',
       'poe1\\mods-tiers.json',
+      'poe1//mods-tiers.json',
+      'poe1/.hidden.json',
+      'poe1/script.js',
+      'poe1/locales/en/stats.json ',
     ]) {
-      expect(batchOfDataPath(path), path).toBeNull();
+      expect(checkDataPath(path, 'poe1/game'), path).not.toBeNull();
     }
+  });
+
+  it('keeps each batch inside its own root', () => {
+    expect(checkDataPath('poe2/mods-tiers.json', 'poe1/game')).not.toBeNull();
+    expect(checkDataPath('folder-icons/index.json', 'poe1/game')).not.toBeNull();
+    expect(checkDataPath('poe2/mercenary.json', 'poe1/mercenary')).not.toBeNull();
+    expect(checkDataPath('poe1/mods-tiers.json', 'poe1/trade-filters')).not.toBeNull();
+    expect(checkDataPath('folder-icons/x.json', 'market')).not.toBeNull();
+    expect(checkDataPath('poe1/x.webp', 'poe1/game')).not.toBeNull();
   });
 });
 
 describe('parseManifest', () => {
-  it('groups whitelisted files by batch and ignores the rest', () => {
+  it('groups files by their published batch and ignores unknown batches', () => {
     const manifest = parseManifest(manifestOf(publishedFiles()));
     expect(Object.keys(manifest.batches).sort()).toEqual([...BATCH_IDS].sort());
     expect(manifest.sourceCommit).toBe('a'.repeat(40));
@@ -156,8 +172,14 @@ describe('parseManifest', () => {
       'manifestVersion',
     );
     const tampered = manifestOf(publishedFiles());
-    tampered.files['poe1/mods-tiers.json'].batch = 'market';
-    expect(() => parseManifest(tampered)).toThrow('預期 poe1/game');
+    tampered.files['poe1/mods-tiers.json'].batch = 'folder-icons';
+    expect(() => parseManifest(tampered)).toThrow('poe1/mods-tiers.json');
+    const traversal = manifestOf(publishedFiles());
+    traversal.files['poe1/../../package.json'] = { ...traversal.files['poe1/mods-tiers.json'] };
+    expect(() => parseManifest(traversal)).toThrow('package.json');
+    const future = manifestOf(publishedFiles());
+    future.files['poe3/new.json'] = { ...future.files['poe1/mods-tiers.json'], batch: 'poe3/game' };
+    expect(Object.values(parseManifest(future).batches).flat().some((file) => file.path === 'poe3/new.json')).toBe(false);
   });
 
   it('rejects invalid hashes and sizes', () => {
