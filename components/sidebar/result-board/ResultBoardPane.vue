@@ -37,7 +37,7 @@ import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
 import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
-import ResultBoardMinCountStepper from './ResultBoardMinCountStepper.vue';
+import ResultBoardMinCountFilter from './ResultBoardMinCountFilter.vue';
 import ResultBoardModFilterPanel from './ResultBoardModFilterPanel.vue';
 import ResultBoardPriceChip from './ResultBoardPriceChip.vue';
 import ResultBoardPriceFilter from './ResultBoardPriceFilter.vue';
@@ -467,15 +467,10 @@ function resetAllFilters(): void {
             </Button>
           </div>
 
-          <ResultBoardMinCountStepper
-            v-if="view === 'sellers'"
-            v-model="minSellerCount"
-            class="order-3 basis-full @[460px]:order-2 @[460px]:basis-auto"
-          />
-
           <div
             class="order-2 ml-auto flex shrink-0 items-center gap-[var(--pxd-space-sm)] @[460px]:order-3"
           >
+            <ResultBoardMinCountFilter v-if="view === 'sellers'" v-model="minSellerCount" />
             <ResultBoardPriceFilter
               v-if="view === 'items' && conversionAvailable"
               v-model:min="priceMinText"

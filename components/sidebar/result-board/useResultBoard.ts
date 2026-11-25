@@ -349,11 +349,14 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     expandedIds.value = next;
   }
 
+  /**
+   * 一次只展開一位賣家：展開另一位時收合其他人，避免清單攤得太長。
+   * 「全部展開」是明確要求，仍會同時展開所有賣家。
+   */
   function toggleSellerExpanded(account: string): void {
-    const next = new Set(expandedSellers.value);
-    if (next.has(account)) next.delete(account);
-    else next.add(account);
-    expandedSellers.value = next;
+    expandedSellers.value = expandedSellers.value.has(account)
+      ? new Set([...expandedSellers.value].filter((item) => item !== account))
+      : new Set([account]);
   }
 
   function toggleExpandAll(): void {
@@ -385,9 +388,7 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
         tone: 'default',
       });
     }
-    if (!expandedSellers.value.has(account)) {
-      expandedSellers.value = new Set([...expandedSellers.value, account]);
-    }
+    expandedSellers.value = new Set([account]);
     view.value = 'sellers';
   }
 

@@ -74,16 +74,14 @@ const converted = computed(() => {
 });
 
 /**
- * 灰色資訊：格位（賣家清單）· 刊登多久前 · 購買狀態。
- * 賣家帳號不放外層（物品清單改在展開明細顯示），需私訊／AFK／離線以顏色區分。
+ * 灰色資訊：刊登多久前 · 購買狀態。
+ * 物品清單不放賣家帳號（改在展開明細）；賣家清單不放上架時間（賣家層級已顯示）與格位（改在展開明細）。
+ * 需私訊／AFK／離線以顏色區分。
  */
 const metaParts = computed<MetaPart[]>(() => {
-  const { seller, stash, instantBuyout } = props.entry;
+  const { seller, instantBuyout } = props.entry;
   const parts: MetaPart[] = [];
-  if (props.pickable && stash?.x !== undefined && stash?.y !== undefined) {
-    parts.push({ text: t('resultBoard.stash.coords', { x: stash.x + 1, y: stash.y + 1 }) });
-  }
-  const age = formatAge(props.entry.indexedAt);
+  const age = props.pickable ? '' : formatAge(props.entry.indexedAt);
   if (age) parts.push({ text: age });
   if (!instantBuyout) {
     parts.push({ text: t('common.whisperOnly'), tone: 'caution' });
@@ -95,6 +93,26 @@ const metaParts = computed<MetaPart[]>(() => {
   }
   return parts;
 });
+
+/** 賣家清單展開明細的格位（1-based） */
+const coordsText = computed(() => {
+  const { stash } = props.entry;
+  return props.pickable && stash?.x !== undefined && stash?.y !== undefined
+    ? t('resultBoard.stash.coords', { x: stash.x + 1, y: stash.y + 1 })
+    : '';
+});
+
+/**
+ * 賣家清單中可勾選卻沒勾的物品輕微淡化，讓「被排除的那幾件」一眼可見；
+ * 淡化程度比已售出輕，兩者不會混在一起。
+ */
+const isUnpicked = computed(
+  () =>
+    props.mark !== 'sold' &&
+    props.pickable === true &&
+    props.entry.instantBuyout &&
+    props.picked !== true,
+);
 
 /** 與賣家清單標題一致：角色名稱優先，和帳號不同時附上帳號 */
 const sellerName = computed(() => {
@@ -188,6 +206,8 @@ onBeforeUnmount(stopObserving);
     <ResultSummaryRow
       :icon="entry.icon"
       :dimmed="mark === 'sold'"
+      :class="isUnpicked ? 'opacity-80' : ''"
+      :data-board-entry-unpicked="isUnpicked ? '' : undefined"
       :expanded="expanded"
       :title="toggleLabel"
       data-board-entry-toggle
@@ -197,6 +217,7 @@ onBeforeUnmount(stopObserving);
         <span class="flex shrink-0" @click.stop @keydown.stop>
           <Checkbox
             :model-value="picked"
+            class="pxd-pick-checkbox"
             :disabled="!entry.instantBuyout || mark === 'sold'"
             :aria-label="t('resultBoard.seller.pick')"
             data-board-pick
@@ -268,9 +289,12 @@ onBeforeUnmount(stopObserving);
       </template>
       <template #expanded-details>
         <div
-          v-if="feeText || sellerName"
+          v-if="feeText || sellerName || coordsText"
           class="flex flex-col gap-[2px] text-[length:var(--pxd-font-micro)] leading-snug text-muted-foreground"
         >
+          <span v-if="coordsText" class="tabular-nums" data-board-entry-coords>{{
+            coordsText
+          }}</span>
           <span v-if="sellerName" class="truncate" data-board-entry-seller>{{
             t('common.sellerLabel', { name: sellerName })
           }}</span>

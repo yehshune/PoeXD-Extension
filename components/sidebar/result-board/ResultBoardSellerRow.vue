@@ -1,22 +1,12 @@
 <script setup lang="ts">
 /**
  * 看板賣家清單的一位賣家：以獨立卡片呈現，提供一鍵前往藏身處；展開後依倉庫分頁分區顯示，
- * 支援分頁整頁勾選，並為每個倉庫分頁各自產生精簡的倉庫搜尋 regex。
+ * 支援分頁整頁勾選，並為每個倉庫分頁各自產生精簡的倉庫搜尋 regex（見 `ResultBoardStashGroup`）。
+ * 展開區只放標題列沒有的資訊：部分勾選時的勾選總價，以及各倉庫分頁。
  */
 import { computed, ref } from 'vue';
-import {
-  Archive,
-  ChevronDown,
-  ChevronUp,
-  CircleHelp,
-  Copy,
-  EyeOff,
-  Home,
-  Loader2,
-  TriangleAlert,
-} from '@lucide/vue';
+import { ChevronDown, ChevronUp, EyeOff, Home, Loader2 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/utils/i18n';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import type { CurrencyRateSnapshot } from '@/utils/price-comparison';
@@ -30,8 +20,9 @@ import type { BoardMark, CurrencyDisplay } from '@/utils/result-board/board-sess
 import type { StashRegexResult } from '@/utils/result-board/stash-regex';
 import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
 import BoardTotalAmount from './BoardTotalAmount.vue';
-import ResultBoardItemRow from './ResultBoardItemRow.vue';
-import { formatAmount } from './result-board-format';
+import ResultBoardStashGroup from './ResultBoardStashGroup.vue';
+import type { StashSection } from './stash-section';
+import { formatAge, formatAmount } from './result-board-format';
 
 const props = defineProps<{
   seller: SellerSummary;
@@ -79,7 +70,7 @@ const soldIds = computed(() => {
 });
 
 /** 展開後按需依價格由低到高（無法比較時維持官方順序）並依倉庫分頁分區，已售出沉底 */
-const stashSections = computed(() => {
+const stashSections = computed<StashSection[]>(() => {
   if (!open.value) return [];
   return projectSellerStashGroups(props.seller, props.rates, soldIds.value).map((group) => {
     const buyable = group.entries.filter(
@@ -106,6 +97,15 @@ const distinctAccount = computed(() =>
     : '',
 );
 
+/** 最近一筆仍可購買的刊登時間：同一位賣家的物品通常一起上架，只在賣家層級顯示一次；已售出的不算 */
+const listedAge = computed(() => {
+  const times = props.seller.entries
+    .filter((entry) => !soldIds.value.has(entry.id))
+    .map((entry) => entry.indexedAt)
+    .filter((value): value is number => value !== undefined);
+  return times.length > 0 ? formatAge(Math.max(...times)) : '';
+});
+
 const extraMeta = computed(() =>
   [
     props.seller.stashTabCount > 1
@@ -114,6 +114,7 @@ const extraMeta = computed(() =>
     props.seller.soldCount > 0 && !props.seller.allSold
       ? t('resultBoard.seller.soldCount', { count: props.seller.soldCount })
       : '',
+    listedAge.value ? t('resultBoard.seller.listedAt', { age: listedAge.value }) : '',
   ].filter(Boolean),
 );
 
@@ -137,24 +138,15 @@ const totalPrefix = computed(() => t('resultBoard.seller.total', { total: '' }).
 const pickedPrefix = computed(() =>
   t('resultBoard.seller.picked', { count: props.pickedEntries.length, total: '' }).trim(),
 );
+/** 全部可直購的都勾選時，勾選總價等於標題列的總價，不必再顯示一次 */
+const showPickedSummary = computed(
+  () =>
+    props.seller.instantBuyoutCount > 0 &&
+    props.pickedEntries.length !== props.seller.instantBuyoutCount,
+);
 const sellerBusy = computed(() =>
   props.seller.entries.some((entry) => Boolean(props.travelStates[entry.id])),
 );
-
-function warningsOf(regex: StashRegexResult | undefined): string[] {
-  if (!regex) return [];
-  return [
-    regex.ambiguousIds.length > 0
-      ? t('resultBoard.regex.ambiguous', { count: regex.ambiguousIds.length })
-      : '',
-    regex.unpricedIds.length > 0
-      ? t('resultBoard.regex.unpriced', { count: regex.unpricedIds.length })
-      : '',
-    regex.tooLongIds.length > 0
-      ? t('resultBoard.regex.tooLong', { count: regex.tooLongIds.length })
-      : '',
-  ].filter(Boolean);
-}
 
 const visited = computed(() =>
   props.seller.entries.some((entry) => props.marks[entry.id] === 'visited'),
@@ -172,7 +164,7 @@ const allSold = computed(
   <li
     class="overflow-hidden rounded-md border bg-card"
     :class="[
-      open ? 'border-primary/40 shadow-sm' : 'border-border hover:border-border/80',
+      open ? 'border-foreground/25 shadow-sm' : 'border-border hover:border-border/80',
       allSold ? 'opacity-60' : '',
     ]"
     :data-board-seller="seller.account"
@@ -217,7 +209,9 @@ const allSold = computed(
           <span
             v-if="seller.priceRange"
             class="inline-flex shrink-0 items-center gap-[3px] tabular-nums"
+            data-board-seller-price-range
           >
+            <span>{{ t('resultBoard.seller.unitPrice') }}</span>
             <BoardCurrencyAmount
               v-if="isSameRangeValue"
               :amount="seller.priceRange.min.amount"
@@ -269,7 +263,12 @@ const allSold = computed(
         </span>
       </div>
       <div
-        class="pxd-hover-actions-overlay absolute inset-y-0 right-[calc(var(--pxd-space-md)+var(--control-height-sm))] z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/header:opacity-100 group-hover/header:pointer-events-auto"
+        class="pxd-hover-actions-overlay absolute inset-y-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-xs)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/header:opacity-100 group-hover/header:pointer-events-auto"
+        :class="
+          open
+            ? 'right-[calc(var(--pxd-space-md)+var(--control-height-sm)*2+var(--pxd-space-sm))]'
+            : 'right-[calc(var(--pxd-space-md)+var(--control-height-sm))]'
+        "
       >
         <Button
           variant="ghost"
@@ -283,6 +282,7 @@ const allSold = computed(
           <EyeOff />
         </Button>
         <Button
+          v-if="!open"
           variant="ghost"
           size="icon-sm"
           class="shrink-0"
@@ -296,6 +296,21 @@ const allSold = computed(
           <Home v-else />
         </Button>
       </div>
+      <!-- 展開時前往藏身處固定顯示在標題列（取代原本展開區的大按鈕） -->
+      <Button
+        v-if="open"
+        variant="secondary"
+        size="icon-sm"
+        class="relative z-(--pxd-z-raised) shrink-0"
+        :disabled="seller.instantBuyoutCount === 0 || sellerBusy"
+        :title="t('common.travelToHideout')"
+        :aria-label="t('common.travelToHideout')"
+        data-board-seller-travel
+        @click="emit('travelSeller')"
+      >
+        <Loader2 v-if="sellerBusy" class="animate-spin" />
+        <Home v-else />
+      </Button>
       <Button
         variant="ghost"
         size="icon-sm"
@@ -307,148 +322,35 @@ const allSold = computed(
         <ChevronDown v-else />
       </Button>
     </div>
-    <div
-      v-if="open"
-      class="flex flex-col gap-[var(--pxd-space-sm)] border-t border-border bg-muted/15 px-[var(--pxd-space-sm)] py-[var(--pxd-space-sm)]"
-    >
-      <div
-        class="flex items-center justify-between gap-[var(--pxd-space-sm)] px-[var(--pxd-space-xs)] py-[var(--pxd-space-xs)]"
+    <div v-if="open" class="flex flex-col border-0 border-t border-border">
+      <p
+        v-if="showPickedSummary"
+        class="m-0 inline-flex flex-wrap items-center gap-[4px] px-[var(--pxd-space-md)] pt-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] font-medium text-primary tabular-nums"
+        data-board-seller-picked
       >
-        <p
-          class="m-0 inline-flex flex-wrap items-center gap-[4px] text-[length:var(--pxd-font-body)] font-medium text-foreground tabular-nums"
-          data-board-seller-picked
-        >
-          <span>{{ pickedPrefix }}</span>
-          <BoardTotalAmount :total="pickedTotal" :currencies="currencies" />
-        </p>
-        <Button
-          variant="secondary"
-          size="sm"
-          class="shrink-0"
-          :disabled="seller.instantBuyoutCount === 0 || sellerBusy"
-          data-board-seller-expanded-travel
-          @click="emit('travelSeller')"
-        >
-          <Loader2 v-if="sellerBusy" class="animate-spin" />
-          <Home v-else />
-          {{ t('common.travelToHideout') }}
-        </Button>
-      </div>
-      <div
+        <span>{{ pickedPrefix }}</span>
+        <BoardTotalAmount :total="pickedTotal" :currencies="currencies" />
+      </p>
+      <ResultBoardStashGroup
         v-for="group in stashSections"
         :key="group.key"
-        class="overflow-hidden rounded-md border border-border/80 bg-card"
-        :class="group.allSold ? 'opacity-65' : ''"
-        data-board-stash-group
-        :data-board-stash-name="group.stashName ?? ''"
-      >
-        <div
-          class="flex items-center justify-between gap-[var(--pxd-space-xs)] border-b border-border/60 bg-muted/35 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
-        >
-          <div class="flex min-w-0 items-center gap-[var(--pxd-space-sm)]">
-            <Checkbox
-              v-if="group.instantBuyoutCount > 0"
-              :model-value="group.pickState"
-              :aria-label="t('resultBoard.stash.toggleAll')"
-              data-board-stash-pick
-              @update:model-value="emit('pickGroup', group.entries)"
-            />
-            <Archive class="size-[var(--control-icon-sm)] shrink-0 text-muted-foreground" />
-            <span class="truncate text-[length:var(--pxd-font-body)] font-semibold text-foreground">
-              {{
-                group.stashName
-                  ? t('resultBoard.stash.tab', { name: group.stashName })
-                  : t('resultBoard.stash.unknown')
-              }}
-            </span>
-          </div>
-          <div class="flex shrink-0 items-center gap-[var(--pxd-space-xs)]">
-            <span class="text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums">
-              ({{ group.entries.length }})
-            </span>
-            <span
-              v-if="group.regex"
-              class="inline-flex text-muted-foreground/80"
-              :title="t('resultBoard.regex.hint')"
-              :aria-label="t('resultBoard.regex.hint')"
-            >
-              <CircleHelp class="size-[var(--control-icon-sm)]" />
-            </span>
-          </div>
-        </div>
-        <section
-          v-if="group.regex"
-          class="flex flex-col gap-[var(--pxd-space-xs)] border-b border-border/60 bg-card/70 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
-          data-board-stash-regex
-        >
-          <p
-            v-if="group.regex.parts.length === 0"
-            class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground"
-            data-board-stash-regex-empty
-          >
-            {{ t('resultBoard.regex.empty') }}
-          </p>
-          <div
-            v-for="(part, index) in group.regex.parts"
-            :key="index"
-            class="flex items-start gap-[var(--pxd-space-xs)]"
-            data-board-stash-regex-part
-          >
-            <span
-              v-if="group.regex.parts.length > 1"
-              class="shrink-0 pt-[2px] text-[length:var(--pxd-font-caption)] text-muted-foreground tabular-nums"
-              >{{
-                t('resultBoard.regex.part', { index: index + 1, count: group.regex.parts.length })
-              }}</span
-            >
-            <code
-              class="pxd-scrollbar max-h-[4.8em] min-w-0 flex-1 overflow-y-auto break-words rounded-sm bg-muted/40 px-[var(--pxd-space-xs)] py-[2px] font-mono text-[length:var(--pxd-font-caption)] select-all"
-              >{{ part }}</code
-            >
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              class="shrink-0"
-              :title="t('resultBoard.regex.copy')"
-              :aria-label="t('resultBoard.regex.copy')"
-              data-board-stash-regex-copy
-              @click="emit('copyRegex', part)"
-            >
-              <Copy />
-            </Button>
-          </div>
-          <p
-            v-for="warning in warningsOf(group.regex)"
-            :key="warning"
-            class="m-0 flex items-start gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] text-destructive"
-            data-board-stash-regex-warning
-          >
-            <TriangleAlert class="mt-[1px] size-3 shrink-0" />
-            <span>{{ warning }}</span>
-          </p>
-        </section>
-        <ul class="m-0 list-none p-0">
-          <ResultBoardItemRow
-            v-for="entry in group.entries"
-            :key="entry.id"
-            :entry="entry"
-            :mark="marks[entry.id]"
-            :rates="rates"
-            :currencies="currencies"
-            :expanded="isExpanded(entry.id)"
-            :card-snapshot="cardSnapshot"
-            pickable
-            :picked="isPicked(entry)"
-            :pinned="isPinned(entry.id)"
-            :travel-state="travelStates[entry.id]"
-            @pick="emit('pick', entry)"
-            @toggle="emit('toggle', entry.id)"
-            @locate="emit('locate', entry.id)"
-            @travel="emit('travel', entry.id)"
-            @pin="emit('pin', entry.id)"
-          />
-        </ul>
-      </div>
+        :group="group"
+        :rates="rates"
+        :currencies="currencies"
+        :marks="marks"
+        :is-picked="isPicked"
+        :is-pinned="isPinned"
+        :travel-states="travelStates"
+        :is-expanded="isExpanded"
+        :card-snapshot="cardSnapshot"
+        @pick="emit('pick', $event)"
+        @pick-group="emit('pickGroup', $event)"
+        @toggle="emit('toggle', $event)"
+        @locate="emit('locate', $event)"
+        @travel="emit('travel', $event)"
+        @pin="emit('pin', $event)"
+        @copy-regex="emit('copyRegex', $event)"
+      />
     </div>
   </li>
 </template>

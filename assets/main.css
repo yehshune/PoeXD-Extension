@@ -743,3 +743,11 @@
     transparent
   );
 }
+
+/*
+ * 看板賣家清單的勾選框（物品列與倉庫整頁勾選共用）：預設全部勾選，降低彩度避免一整排實心主色方塊壓過物品本身。
+ * reka 的 CheckboxRoot 不會帶上 scoped 屬性，所以用帶前綴的共用 class。
+ */
+.pxd-pick-checkbox [data-slot='checkbox-indicator'] {
+  background: color-mix(in srgb, var(--primary) 55%, transparent);
+}

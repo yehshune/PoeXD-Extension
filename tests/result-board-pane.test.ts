@@ -128,6 +128,25 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     await flush();
   }
 
+  /** 「至少可直購」門檻收在工具列按鈕的彈出面板（portal 到 body）裡：需要時先打開 */
+  async function minCountControl<T extends HTMLElement>(selector: string): Promise<T> {
+    if (!document.body.querySelector('[data-board-min-count-popover]')) {
+      container.querySelector<HTMLElement>('[data-board-min-count-toggle]')!.click();
+      await flush();
+    }
+    return document.body.querySelector<T>(selector)!;
+  }
+
+  /** 倉庫搜尋 regex 預設收合：展開 root 底下所有倉庫分頁的字串（單段用箭頭，多段用「字串分 N 段」） */
+  async function showRegex(root: ParentNode = container) {
+    for (const toggle of root.querySelectorAll<HTMLElement>(
+      '[data-board-stash-regex-toggle], [data-board-stash-regex-parts-toggle]',
+    )) {
+      if (toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
+    }
+    await flush();
+  }
+
   function ingest(entries: ReturnType<typeof rawResult>[], searchId = 'search-1') {
     runtime.session.setSummary({
       searchId,
@@ -247,10 +266,10 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
       container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
       await flush();
       for (let i = 0; i < 2; i += 1) {
-        container.querySelector<HTMLElement>('[data-board-min-count-inc]')!.click();
+        (await minCountControl('[data-board-min-count-inc]')).click();
         await flush();
       }
-      expect(container.querySelector<HTMLInputElement>('[data-board-min-count]')!.value).toBe('4');
+      expect((await minCountControl<HTMLInputElement>('[data-board-min-count]')).value).toBe('4');
       container.querySelector<HTMLElement>('[data-board-view="items"]')!.click();
       await flush();
 
@@ -260,7 +279,10 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
       expect(
         container.querySelector('[data-board-view="sellers"]')?.getAttribute('aria-selected'),
       ).toBe('true');
-      expect(container.querySelector<HTMLInputElement>('[data-board-min-count]')!.value).toBe('3');
+      expect((await minCountControl<HTMLInputElement>('[data-board-min-count]')).value).toBe('3');
+      expect(container.querySelector('[data-board-min-count-toggle]')?.textContent?.trim()).toBe(
+        '≥ 3 件',
+      );
       expect(toasts).toEqual(['已把「至少可直購」調為 3 件，才看得到這位賣家']);
       const seller = container.querySelector<HTMLElement>('[data-board-seller="Bulk#1"]');
       expect(seller).not.toBeNull();
@@ -279,6 +301,61 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     } finally {
       stopToasts();
     }
+  });
+
+  it('keeps the seller view compact: one seller open at a time, no duplicate totals or travel buttons', async () => {
+    ingest([
+      rawResult({ id: 'a1', account: 'SellerA#1', name: 'Alpha', amount: 10 }),
+      rawResult({ id: 'a2', account: 'SellerA#1', name: 'Beta', amount: 20 }),
+      rawResult({ id: 'b1', account: 'SellerB#2', name: 'Gamma', amount: 5 }),
+      rawResult({ id: 'b2', account: 'SellerB#2', name: 'Delta', amount: 5 }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+    await flush();
+    const seller = (account: string) =>
+      container.querySelector<HTMLElement>(`[data-board-seller="${account}"]`)!;
+    const isOpen = (account: string) =>
+      seller(account).querySelector('[data-board-seller-toggle]')?.getAttribute('aria-expanded');
+
+    seller('SellerA#1').querySelector<HTMLElement>('[data-board-seller-toggle]')!.click();
+    await flush();
+    expect(isOpen('SellerA#1')).toBe('true');
+
+    // 全部勾選時勾選總價等於標題列總價，不重複顯示；前往藏身處只有標題列一個
+    expect(seller('SellerA#1').querySelector('[data-board-seller-picked]')).toBeNull();
+    expect(seller('SellerA#1').querySelectorAll('[data-board-seller-travel]')).toHaveLength(1);
+    expect(seller('SellerA#1').querySelector('[data-board-seller-expanded-travel]')).toBeNull();
+
+    // 取消勾選一件：出現勾選摘要，該列淡化
+    const row = seller('SellerA#1').querySelector<HTMLElement>('[data-board-entry-id="a2"]')!;
+    row.querySelector<HTMLElement>('[data-board-pick]')!.click();
+    await flush();
+    expect(seller('SellerA#1').querySelector('[data-board-seller-picked]')?.textContent).toContain(
+      '已勾選 1 件',
+    );
+    const toggle = row.querySelector('[data-board-entry-toggle]');
+    expect(toggle?.hasAttribute('data-board-entry-unpicked')).toBe(true);
+    expect(toggle?.className).not.toContain('opacity-65');
+
+    // 展開另一位賣家時自動收合前一位
+    seller('SellerB#2').querySelector<HTMLElement>('[data-board-seller-toggle]')!.click();
+    await flush();
+    expect(isOpen('SellerB#2')).toBe('true');
+    expect(isOpen('SellerA#1')).toBe('false');
+
+    // 「全部展開」仍會同時展開所有賣家
+    container.querySelector<HTMLElement>('[data-board-expand-toggle]')!.click();
+    await flush();
+    container.querySelector<HTMLElement>('[data-board-expand-toggle]')!.click();
+    await flush();
+    expect(isOpen('SellerA#1')).toBe('true');
+    expect(isOpen('SellerB#2')).toBe('true');
   });
 
   it('shows instant-only checkbox only when results mix instant buyout and whisper-only listings', async () => {
@@ -434,7 +511,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
       // Switch to Sellers view with minSellerCount=1 and verify item keyword matches BowSeller#1
       container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
       await flush();
-      container.querySelector<HTMLElement>('[data-board-min-count-dec]')!.click();
+      (await minCountControl('[data-board-min-count-dec]')).click();
       await flush();
       expect(container.querySelectorAll('[data-board-seller]')).toHaveLength(1);
     } finally {
@@ -683,12 +760,25 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     container.querySelector<HTMLElement>('[data-board-seller-toggle]')!.click();
     await flush();
 
+    // 字串預設收合，只顯示一行「複製搜尋字串」；單段時可直接複製
+    expect(container.querySelector('[data-board-stash-regex]')).toBeNull();
+    container.querySelector<HTMLElement>('[data-board-stash-regex-quick-copy]')!.click();
+    await flush();
+    expect(writeText).toHaveBeenLastCalledWith(
+      '"Doom Ward|Grim Coat" "Vaal Regalia" "~b/o 2 chaos|~b/o 3 chaos"',
+    );
+    await showRegex();
+
     // 預設全選可直購：名稱與標價交叉後不會誤中其他物品
     const parts = () =>
       Array.from(container.querySelectorAll('[data-board-stash-regex-part] code'), (node) =>
         node.textContent?.trim(),
       );
     expect(parts()).toEqual(['"Doom Ward|Grim Coat" "Vaal Regalia" "~b/o 2 chaos|~b/o 3 chaos"']);
+    // 展開後字串有高度上限、可捲動，點一下即全選
+    const code = container.querySelector('[data-board-stash-regex-part] code')!;
+    expect(code.className).toContain('max-h-[4.8em]');
+    expect(code.className).toContain('select-all');
     expect(container.querySelector('[data-board-stash-regex-warning]')).toBeNull();
 
     // 取消勾選 r3：Doom Ward + 3 chaos 的組合會誤中，明確警告
@@ -886,6 +976,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(groups.map((g) => g.getAttribute('data-board-stash-name'))).toEqual(['24', 'Uniques']);
 
     // 各分區各自產生 regex，不把別的倉庫頁混進去
+    await showRegex();
     expect(groups[0].querySelector('[data-board-stash-regex-part] code')?.textContent?.trim()).toBe(
       '"Doom Ward|Grim Coat" "Vaal Regalia" "~b/o 2 chaos|~b/o 3 chaos"',
     );
@@ -893,11 +984,16 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
       '"Solar Edge" "Vaal Regalia" "~b/o 5 chaos"',
     );
 
-    // 物品列顯示 1-based 倉庫格位座標
-    const metas = Array.from(groups[0].querySelectorAll('[data-board-entry-meta]')).map((el) =>
-      el.textContent?.trim(),
+    // 格位不放在物品列外層，展開物品後在明細顯示 1-based 座標
+    const metas = Array.from(groups[0].querySelectorAll('[data-board-entry-meta]')).map(
+      (el) => el.textContent ?? '',
     );
-    expect(metas[0]).toContain('格位 (2, 10)');
+    expect(metas.some((meta) => meta.includes('格位'))).toBe(false);
+    groups[0].querySelector<HTMLElement>('[data-board-entry-toggle]')!.click();
+    await flush();
+    expect(groups[0].querySelector('[data-board-entry-coords]')?.textContent?.trim()).toBe(
+      '格位 (2, 10)',
+    );
   });
 
   it('does not show visited on seller header when items are only marked sold', async () => {
@@ -1001,7 +1097,13 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     const headerLines = Array.from(
       sellerWithAccountOnly.querySelectorAll('[data-board-seller-toggle] > span'),
     ).map((el) => el.textContent?.trim());
-    expect(headerLines).toEqual(['SellerB#2', '5']);
+    expect(headerLines[0]).toBe('SellerB#2');
+    expect(headerLines[1]).not.toContain('SellerB#2');
+    // 價格區間加上「單價」前綴，不會被誤認為件數；上架時間只在賣家層級顯示一次
+    expect(
+      sellerWithAccountOnly.querySelector('[data-board-seller-price-range]')?.textContent?.trim(),
+    ).toBe('單價5');
+    expect(headerLines[1]).toContain('上架');
     expect(
       sellerWithAccountOnly.querySelector('[data-board-currency-icon]')?.getAttribute('alt'),
     ).toBe('chaos');
@@ -1010,6 +1112,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     sellerA.querySelector<HTMLElement>('[data-board-seller-toggle]')!.click();
     await flush();
     const tab1 = sellerA.querySelector('[data-board-stash-name="Tab1"]')!;
+    await showRegex(tab1);
     expect(tab1.querySelector('[data-board-stash-regex-part] code')?.textContent?.trim()).toBe(
       '"Beta" "Vaal Regalia" "~b/o 20 chaos"',
     );
@@ -1023,6 +1126,10 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     await flush();
     expect(sellerA.querySelector('[data-board-seller-picked]')?.textContent).toContain('1');
     expect(sellerA.querySelector('[data-board-seller-picked]')?.textContent).toContain('30');
+    // Tab1 沒有勾選時產生不出字串：沒有快速複製，但仍有說明提示
+    expect(tab1.querySelector('[data-board-stash-regex-empty]')).not.toBeNull();
+    expect(tab1.querySelector('[data-board-stash-regex-quick-copy]')).toBeNull();
+    expect(tab1.querySelector('[data-board-stash-regex-hint]')).not.toBeNull();
 
     // 點擊賣家標頭的一鍵前往藏身處：挑已勾選且未售出的 a3
     sellerA.querySelector<HTMLElement>('[data-board-seller-travel]')!.click();
@@ -1042,6 +1149,21 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
         '[data-board-seller="SellerB#2"] [data-board-seller-travel]',
       )?.disabled,
     ).toBe(true);
+
+    // 展開 SellerB：整頁都已售出的倉庫分頁，標題列淡化
+    container
+      .querySelector<HTMLElement>('[data-board-seller="SellerB#2"] [data-board-seller-toggle]')!
+      .click();
+    await flush();
+    const soldHeaders = container.querySelectorAll(
+      '[data-board-seller="SellerB#2"] [data-board-stash-header]',
+    );
+    expect(soldHeaders.length).toBeGreaterThan(0);
+    for (const header of soldHeaders) expect(header.className).toContain('opacity-65');
+    expect(
+      sellerA.querySelector('[data-board-stash-name="Tab2"] [data-board-stash-header]')
+        ?.className ?? '',
+    ).not.toContain('opacity-65');
   });
 
   it('supports hide-sold filter, shows gold fee when expanded, and syncs pinned state', async () => {
@@ -1164,13 +1286,16 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     // 賣家檢視「至少可直購」主題加減按鈕
     container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
     await flush();
-    const minInput = container.querySelector<HTMLInputElement>('[data-board-min-count]')!;
+    expect(container.querySelector('[data-board-min-count-toggle]')?.textContent?.trim()).toBe(
+      '≥ 2 件',
+    );
+    const minInput = await minCountControl<HTMLInputElement>('[data-board-min-count]');
     expect(minInput.value).toBe('2');
-    container.querySelector<HTMLElement>('[data-board-min-count-inc]')!.click();
+    (await minCountControl('[data-board-min-count-inc]')).click();
     await flush();
     expect(minInput.value).toBe('3');
     expect(container.querySelector('[data-board-no-seller-match]')).not.toBeNull();
-    container.querySelector<HTMLElement>('[data-board-min-count-dec]')!.click();
+    (await minCountControl('[data-board-min-count-dec]')).click();
     await flush();
     expect(minInput.value).toBe('2');
     expect(container.querySelectorAll('[data-board-seller]')).toHaveLength(1);
