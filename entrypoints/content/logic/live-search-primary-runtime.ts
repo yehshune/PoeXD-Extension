@@ -368,8 +368,10 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
     }
     const maxResults = this.readMaxDisplayedResults();
     const itemId = LiveSearchPrimaryRuntime.readItemId(input.itemData);
+    // 同一 token 可能帶多件物品，以 token + itemId 區分展示區的每一格
+    const entryKey = itemId ? `${input.token}#${itemId}` : input.token;
     const displayTotal = itemId
-      ? this.resultFilter.projectDisplayTotal(input.token, input.ownerKey, maxResults)
+      ? this.resultFilter.projectDisplayTotal(entryKey, input.ownerKey, maxResults)
       : this.resultFilter.displayTotal();
     const outcome = await this.hostClient.renderResult({
       localId: this.displayLocalId,
@@ -389,7 +391,7 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
     }
     this.cumulativeRenderedTotal += 1;
     if (itemId) {
-      this.resultFilter.record(itemId, input.ownerKey, maxResults, input.token);
+      this.resultFilter.record(itemId, input.ownerKey, maxResults, entryKey);
       try {
         this.onResultRendered?.({ itemId, ownerKey: input.ownerKey });
       } catch (err) {
@@ -1188,24 +1190,53 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
     }
   }
 
-  /** `/fetch` 抓取：順便以回應的 Date 標頭校正官方時鐘，成功時通知 onResultFetched */
+  /** `/fetch` 抓取：順便以回應的 Date 標頭校正官方時鐘，成功時逐件通知 onResultFetched */
   private async fetchTradeItemPayload(
     input: LiveSearchItemFetchRequest & { league: string },
   ): Promise<LiveSearchItemFetchResult> {
     const fetched = await fetchLiveSearchItem(this.fetchRateGate, this.origin, input);
     this.recordServerDate(fetched.serverDateMs);
-    if (fetched.ok) {
+    if (!fetched.ok) return fetched;
+    for (const itemData of fetched.items) {
       try {
-        this.onResultFetched?.({
-          itemData: fetched.itemData,
-          searchId: input.searchId,
-          league: input.league,
-        });
+        this.onResultFetched?.({ itemData, searchId: input.searchId, league: input.league });
       } catch (error) {
         console.error('[PoeXD LiveSearch] Error in result fetched listener:', error);
       }
     }
     return fetched;
+  }
+
+  /**
+   * 一個推播 token 可能對應多件物品：逐件渲染，每件各自一個 batch。
+   * 回傳成功渲染的件數；途中清空結果或關閉連線就停止。
+   */
+  private async renderFetchedItems(
+    subCtx: SubscriptionContext,
+    token: string,
+    items: readonly object[],
+    epoch: number,
+  ): Promise<number> {
+    const ownerKey = getTradeSearchCanonicalKey({
+      gameVersion: this.gameVersion,
+      league: subCtx.subscription.league,
+      searchId: subCtx.subscription.searchId,
+    });
+    let rendered = 0;
+    for (const itemData of items) {
+      if (this.disposed || subCtx.subscription.status === 'closed') break;
+      const ok = await this.renderIntoHost({
+        batchId: `batch_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        sourceSearchId: subCtx.subscription.searchId,
+        token,
+        itemData,
+        ownerKey,
+        expectedEpoch: epoch,
+      });
+      if (ok) rendered += 1;
+      else if (epoch !== this.clearEpoch) break;
+    }
+    return rendered;
   }
 
   /**
@@ -1295,24 +1326,9 @@ export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
       return;
     }
 
-    // 2. 準備 Render Transaction 參數
-    const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-
     try {
-      const rendered = await this.renderIntoHost({
-        batchId,
-        sourceSearchId: subCtx.subscription.searchId,
-        token,
-        itemData: fetched.itemData,
-        ownerKey: getTradeSearchCanonicalKey({
-          gameVersion: this.gameVersion,
-          league: subCtx.subscription.league,
-          searchId: subCtx.subscription.searchId,
-        }),
-        expectedEpoch: taskEpoch,
-      });
-
-      if (rendered) {
+      const rendered = await this.renderFetchedItems(subCtx, token, fetched.items, taskEpoch);
+      if (rendered > 0) {
         // 唯有在 Host 回報成功後，才遞增 cumulative total、轉入 processedTokens 並通知已實際抓取渲染
         subCtx.pendingTokens.delete(token);
         subCtx.processedTokens.add(token);

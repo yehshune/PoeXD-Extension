@@ -1181,6 +1181,56 @@ describe('LiveSearchPrimaryRuntime + FetchRateGate Integration', () => {
     expect(hostClient.renderCalls.map((call) => call.token)).toEqual(['tk_ok']);
   });
 
+  it('renders every item a single push token carries, not just the first', async () => {
+    const clock = new ManualTimerClock();
+    const hostClient = new FakeHostClient();
+    const sockets: FakeWebSocket[] = [];
+    const delivered: string[] = [];
+    const fetchedIds: unknown[] = [];
+
+    const rateGate = new LiveSearchFetchRateGate({
+      timer: clock,
+      // 官方推播 { result, count: 3 }：一個 token 對應多件物品，其中一件已售出
+      fetchClient: async () =>
+        new Response(
+          JSON.stringify({ result: [{ id: 'item_a' }, null, { id: 'item_b' }, { id: 'item_c' }] }),
+          { status: 200 },
+        ),
+    });
+
+    const runtime = new LiveSearchPrimaryRuntime('poe1', {
+      hostClient,
+      webSocketFactory: (url) => {
+        const ws = new FakeWebSocket(url);
+        sockets.push(ws);
+        return ws as unknown as WebSocket;
+      },
+      fetchRateGate: rateGate,
+      getFetchOrder: () => 'oldest',
+      getTokenMaxAgeSec: () => 15,
+      now: () => clock.now(),
+      origin: 'https://www.pathofexile.com',
+      openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
+      onResultDelivered: (event) => delivered.push(event.ownerKey),
+      onResultFetched: (event) => fetchedIds.push((event.itemData as { id: string }).id),
+    });
+
+    await runtime.addSubscription(createSub('sub_A', 'search_A'));
+    await flushMicrotasks();
+    sockets[0]!.simulateMessage(JSON.stringify({ result: 'tk_multi', count: 3 }));
+    await flushMicrotasks(16);
+
+    const renderedIds = hostClient.renderCalls.map((call) => (call.itemData as { id: string }).id);
+    expect(renderedIds).toEqual(['item_a', 'item_b', 'item_c']);
+    // 每件物品各自一個 batch，官方展示區才不會判定重複
+    expect(new Set(hostClient.renderCalls.map((call) => call.batchId)).size).toBe(3);
+    expect(hostClient.renderCalls.map((call) => call.total)).toEqual([1, 2, 3]);
+    expect(fetchedIds).toEqual(['item_a', 'item_b', 'item_c']);
+    // 音效／通知以一次推播為單位
+    expect(delivered).toHaveLength(1);
+    expect(runtime.getSnapshot().displayedResultCount).toBe(3);
+  });
+
   it('counts dropped tokens per search and lets one search or all of them be cleared', async () => {
     const clock = new ManualTimerClock();
     const hostClient = new FakeHostClient();

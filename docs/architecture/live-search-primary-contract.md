@@ -109,6 +109,7 @@
 - **PoeXD HTTP /fetch Ownership**：
   - PoeXD 是官方 HTTP `/fetch` 的唯一擁有者與發起者。
   - 嚴格帶上對應的 `query=subscription.searchId`（PoE 2 加 `&realm=poe2`）與 `X-Requested-With: XMLHttpRequest`。
+  - 一個推播 token 可能對應多件物品（推播訊息的 `count`，`/fetch` 的 `result` 會有同樣件數）；Runtime 逐件渲染其中仍在架上的全部物品，每件各自一個 `batchId`，音效／通知以一次推播為單位。多個 token 不可合併為一次 `/fetch`（官方回 400 "Token is invalid"）。
 - **Cumulative Total、序列化排程與已略過區（LIFO / Token 效期）**：
   - 透過單一序列化佇列確保並發 WebSocket 訊息有序進入 Host Adapter，避免競態。
   - 進入速率限制冷卻時，先等 Rate Gate 解禁並清理已過期的項目，再依 `liveSearchFetchOrder`（預設最新優先 LIFO，可切換為依序 FIFO）取出下一筆；剩餘冷卻超過新鮮度上限時，新進與排隊中註定過期的項目會即時計入 `droppedGroups`（「已略過」區，依 canonical key 彙總、計數不設上限，最近略過者在前）。

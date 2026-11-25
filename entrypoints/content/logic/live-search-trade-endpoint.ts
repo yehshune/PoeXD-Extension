@@ -9,7 +9,7 @@ import type { ILiveSearchFetchRateGate } from './live-search-fetch-rate-gate';
 /**
  * 抓取失敗的分類：
  * - `token-rejected`：官方回 400「Token is invalid」，推播 token 已過期（約收到後數秒）
- * - `item-gone`：token 有效但物品已售出或下架（官方回 `result: [null]` 或空陣列）
+ * - `item-gone`：token 有效但所有物品都已售出或下架（官方回 `result: [null]` 或空陣列）
  * - `http`：其他 HTTP 錯誤（含 429）
  * - `cancelled`：等待 Rate Gate 期間被取消
  * - `network`：網路或解析例外
@@ -22,7 +22,7 @@ export type LiveSearchItemFetchFailure =
   | 'network';
 
 export type LiveSearchItemFetchResult =
-  | { ok: true; itemData: unknown; serverDateMs?: number }
+  | { ok: true; items: readonly object[]; serverDateMs?: number }
   | {
       ok: false;
       kind: LiveSearchItemFetchFailure;
@@ -114,7 +114,8 @@ async function readErrorMessage(response: Pick<Response, 'json'>): Promise<strin
 }
 
 /**
- * 經 Rate Gate 呼叫官方 /fetch（帶 query 與 X-Requested-With），取回推播 token 對應的單筆物品。
+ * 經 Rate Gate 呼叫官方 /fetch（帶 query 與 X-Requested-With），取回推播 token 對應的物品。
+ * 一個 token 可能對應多件物品（推播訊息的 `count`），回傳其中仍在架上的全部物品。
  * 所有失敗都轉成分類過的 `{ ok: false }`，不會拋出。
  */
 export async function fetchLiveSearchItem(
@@ -157,13 +158,16 @@ export async function fetchLiveSearchItem(
       };
     }
 
-    const json = await response.json();
-    const itemData: unknown =
-      json && typeof json === 'object' && Array.isArray(json.result) ? json.result[0] : undefined;
-    if (!itemData || typeof itemData !== 'object') {
+    const json: unknown = await response.json();
+    const result =
+      json && typeof json === 'object' ? (json as { result?: unknown }).result : undefined;
+    const items = Array.isArray(result)
+      ? result.filter((entry): entry is object => Boolean(entry) && typeof entry === 'object')
+      : [];
+    if (items.length === 0) {
       return { ok: false, kind: 'item-gone', error: 'Item no longer available', ...dated };
     }
-    return { ok: true, itemData, ...dated };
+    return { ok: true, items, ...dated };
   } catch (err) {
     return {
       ok: false,
