@@ -11,6 +11,8 @@ import { t } from '@/utils/i18n';
 import { GOLD_COIN_ICON_URL } from '@/utils/poe-cdn-url';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import { convertPrice, type CurrencyRateSnapshot } from '@/utils/price-comparison';
+import ResultMetaLine from '../result-row/ResultMetaLine.vue';
+import type { MetaPart } from '../result-row/result-meta';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
 import type { BoardMark, CurrencyDisplay } from '@/utils/result-board/board-session';
 import PinnedItemCardView from '../pinned-items/PinnedItemCardView.vue';
@@ -35,8 +37,12 @@ const props = defineProps<{
   snapshot?: PinnedItemSnapshot;
   /** 惰性擷取卡片快照：僅在展開且接近視窗時呼叫，避免 100 筆「全部展開」同步擷取全部官方 DOM */
   cardSnapshot?: (id: string) => PinnedItemSnapshot | undefined;
-  /** 賣家清單中顯示勾選框；物品清單中顯示賣家 */
+  /** 賣家清單中顯示勾選框與格位；物品清單中於展開明細顯示賣家 */
   pickable?: boolean;
+  /** 命中目前詞綴條件的詞綴行（已翻譯並填入數值）；顯示在灰色資訊下方 */
+  matchedMods?: readonly string[];
+  /** 同一位賣家在目前結果中的可直購件數；2 件以上時在物品清單顯示「同賣家 ×N」 */
+  sameSellerCount?: number;
   picked?: boolean;
   /** 是否已存在於釘選清單 */
   pinned?: boolean;
@@ -50,6 +56,7 @@ const emit = defineEmits<{
   travel: [];
   pin: [];
   pick: [];
+  focusSeller: [];
 }>();
 
 const currency = computed(() => currencyDisplayOf(props.entry.price?.currency, props.currencies));
@@ -65,24 +72,38 @@ const converted = computed(() => {
   return formatAmount(value);
 });
 
-const meta = computed(() => {
-  const { seller, stash } = props.entry;
-  const coords =
-    props.pickable && stash?.x !== undefined && stash?.y !== undefined
-      ? t('resultBoard.stash.coords', { x: stash.x + 1, y: stash.y + 1 })
-      : '';
-  const parts = [
-    props.pickable ? '' : (seller.character ?? seller.account),
-    coords,
-    formatAge(props.entry.indexedAt),
-    props.entry.instantBuyout ? '' : t('resultBoard.whisperOnly'),
-    !props.entry.instantBuyout && seller.presence === 'afk' ? t('resultBoard.presence.afk') : '',
-    !props.entry.instantBuyout && seller.presence === 'offline'
-      ? t('resultBoard.presence.offline')
-      : '',
-  ];
-  return parts.filter(Boolean).join(' · ');
+/**
+ * 灰色資訊：格位（賣家清單）· 刊登多久前 · 購買狀態。
+ * 賣家帳號不放外層（物品清單改在展開明細顯示），需私訊／AFK／離線以顏色區分。
+ */
+const metaParts = computed<MetaPart[]>(() => {
+  const { seller, stash, instantBuyout } = props.entry;
+  const parts: MetaPart[] = [];
+  if (props.pickable && stash?.x !== undefined && stash?.y !== undefined) {
+    parts.push({ text: t('resultBoard.stash.coords', { x: stash.x + 1, y: stash.y + 1 }) });
+  }
+  const age = formatAge(props.entry.indexedAt);
+  if (age) parts.push({ text: age });
+  if (!instantBuyout) {
+    parts.push({ text: t('resultBoard.whisperOnly'), tone: 'caution' });
+    if (seller.presence === 'afk') {
+      parts.push({ text: t('resultBoard.presence.afk'), tone: 'caution' });
+    } else if (seller.presence === 'offline') {
+      parts.push({ text: t('resultBoard.presence.offline'), tone: 'danger' });
+    }
+  }
+  return parts;
 });
+
+const sellerName = computed(() =>
+  props.pickable ? '' : (props.entry.seller.character ?? props.entry.seller.account),
+);
+
+const showSameSeller = computed(
+  () => !props.pickable && props.entry.instantBuyout && (props.sameSellerCount ?? 0) >= 2,
+);
+
+const matchedModText = computed(() => (props.matchedMods ?? []).join(' · '));
 
 const toggleLabel = computed(() =>
   props.expanded ? t('resultBoard.action.collapse') : t('resultBoard.action.expand'),
@@ -207,21 +228,49 @@ onBeforeUnmount(stopObserving);
         </span>
       </template>
       <template #meta>
+        <div
+          v-if="metaParts.length > 0 || showSameSeller"
+          class="flex min-w-0 items-center gap-[var(--pxd-space-xs)]"
+        >
+          <ResultMetaLine
+            v-if="metaParts.length > 0"
+            :parts="metaParts"
+            :expanded="expanded"
+            class="min-w-0"
+            data-board-entry-meta
+          />
+          <button
+            v-if="showSameSeller"
+            type="button"
+            class="shrink-0 cursor-pointer rounded-sm border border-border bg-transparent px-[var(--pxd-space-xs)] py-0 text-[length:var(--pxd-font-micro)] leading-tight text-muted-foreground tabular-nums transition-colors hover:border-primary/40 hover:text-primary"
+            :title="t('resultBoard.sameSellerTitle', { count: sameSellerCount ?? 0 })"
+            data-board-same-seller
+            @click.stop="emit('focusSeller')"
+            @keydown.stop
+          >
+            {{ t('resultBoard.sameSeller', { count: sameSellerCount ?? 0 }) }}
+          </button>
+        </div>
         <span
-          v-if="meta"
-          class="text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
-          :class="expanded ? 'line-clamp-2 break-words' : 'truncate'"
-          data-board-entry-meta
-          >{{ meta }}</span
+          v-if="matchedModText"
+          class="text-[length:var(--pxd-font-micro)] font-medium leading-tight text-primary"
+          :class="expanded ? 'line-clamp-3 break-words' : 'truncate'"
+          :title="matchedModText"
+          data-board-entry-matched-mods
+          >{{ matchedModText }}</span
         >
       </template>
       <template #expanded-details>
         <div
-          v-if="feeText"
-          data-board-entry-fee
+          v-if="feeText || sellerName"
           class="flex flex-col gap-[2px] text-[length:var(--pxd-font-micro)] leading-snug text-muted-foreground"
         >
+          <span v-if="sellerName" class="truncate" data-board-entry-seller>{{
+            t('common.sellerLabel', { name: sellerName })
+          }}</span>
           <span
+            v-if="feeText"
+            data-board-entry-fee
             :title="`${t('pinnedItem.meta.fee')}${feeText}`"
             class="inline-flex items-center gap-[3px] leading-none tabular-nums text-foreground/85"
           >

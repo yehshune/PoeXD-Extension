@@ -139,7 +139,7 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
     expect(rows[1].querySelector('[data-pinned-item-fee]')).toBeNull();
   });
 
-  it('shows seller then listing age like the result board, collapsed and expanded', async () => {
+  it('shows only listing age in the row meta and moves the seller into expanded details', async () => {
     const indexed = new Date(Date.now() - 3 * 3_600_000).toISOString();
     const snapshot = createPinnedItemSnapshot(
       {
@@ -163,13 +163,14 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
     await flush();
 
     const meta = () => container.querySelector('[data-pinned-item-meta]')?.textContent?.trim();
-    expect(meta()).toBe('Seller#1234 · 3 小時前');
+    expect(meta()).toBe('3 小時前');
+    expect(container.querySelector('[data-pinned-item-seller]')).toBeNull();
 
     container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
     await flush();
-    expect(meta()).toBe('Seller#1234 · 3 小時前');
-    expect(container.querySelector('[data-pinned-item-details]')?.textContent).not.toContain(
-      'Seller#1234',
+    expect(meta()).toBe('3 小時前');
+    expect(container.querySelector('[data-pinned-item-seller]')?.textContent?.trim()).toBe(
+      '賣家：Seller#1234',
     );
   });
 

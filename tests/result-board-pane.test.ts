@@ -115,6 +115,18 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     (globalThis as { chrome?: unknown }).chrome = previousChrome;
   });
 
+  /** 價格區間收在工具列按鈕的彈出面板（portal 到 body）裡：打開後輸入最低價 */
+  async function setPriceMin(value: string) {
+    if (!document.body.querySelector('[data-board-price-popover]')) {
+      container.querySelector<HTMLElement>('[data-board-price-toggle]')!.click();
+      await flush();
+    }
+    const minInput = document.body.querySelector<HTMLInputElement>('[data-board-price-min]')!;
+    minInput.value = value;
+    minInput.dispatchEvent(new Event('input'));
+    await flush();
+  }
+
   function ingest(entries: ReturnType<typeof rawResult>[], searchId = 'search-1') {
     runtime.session.setSummary({
       searchId,
@@ -158,6 +170,96 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     } finally {
       receiver.dispose();
     }
+  });
+
+  it('keeps sellers out of the item meta, colours purchase status, and shows the seller in expanded details', async () => {
+    ingest([
+      rawResult({ id: 'r1', account: 'Seller#1', character: 'CharOne' }),
+      rawResult({ id: 'r2', account: 'Seller#2', instantBuyout: false, online: 'offline' }),
+      rawResult({ id: 'r3', account: 'Seller#3', instantBuyout: false, online: 'afk' }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-board-entry-id]'));
+    const metaOf = (row: HTMLElement) =>
+      row.querySelector('[data-board-entry-meta]')?.textContent ?? '';
+    expect(metaOf(rows[0])).not.toContain('CharOne');
+    expect(metaOf(rows[1])).not.toContain('Seller#2');
+
+    const tonedParts = (row: HTMLElement) =>
+      Array.from(row.querySelectorAll<HTMLElement>('[data-meta-part]'))
+        .filter((part) => part.className.length > 0)
+        .map((part) => [part.textContent?.trim(), part.className.includes('destructive')]);
+    expect(tonedParts(rows[0])).toEqual([]);
+    expect(tonedParts(rows[1])).toEqual([
+      ['需私訊', false],
+      ['離線', true],
+    ]);
+    expect(tonedParts(rows[2])).toEqual([
+      ['需私訊', false],
+      ['AFK', false],
+    ]);
+
+    expect(container.querySelector('[data-board-entry-seller]')).toBeNull();
+    rows[0].querySelector<HTMLElement>('[data-board-entry-toggle]')!.click();
+    await flush();
+    expect(container.querySelector('[data-board-entry-seller]')?.textContent?.trim()).toBe(
+      '賣家：CharOne',
+    );
+  });
+
+  it('marks items from sellers with several instant listings and jumps to that seller', async () => {
+    ingest([
+      rawResult({ id: 'r1', account: 'Bulk#1', name: 'Doom Ward' }),
+      rawResult({ id: 'r2', account: 'Solo#2', name: 'Grim Coat' }),
+      rawResult({ id: 'r3', account: 'Bulk#1', name: 'Solar Edge' }),
+      rawResult({ id: 'r4', account: 'Bulk#1', name: 'Rune Band', instantBuyout: false }),
+      rawResult({ id: 'r5', account: 'Bulk#1', name: 'Gale Grip' }),
+    ]);
+
+    const app = createApp({ render: () => h(ResultBoardPane) });
+    app.mount(container);
+    unmount = () => app.unmount();
+    await flush();
+
+    const chipOf = (id: string) =>
+      container.querySelector<HTMLButtonElement>(
+        `[data-board-entry-id="${id}"] [data-board-same-seller]`,
+      );
+    expect(chipOf('r1')?.textContent?.trim()).toBe('同賣家 ×3');
+    expect(chipOf('r2')).toBeNull();
+    // 需私訊的物品不標示（賣家清單只計可直購）
+    expect(chipOf('r4')).toBeNull();
+
+    // 門檻高於該賣家件數時先降低門檻，切過去才看得到
+    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+    await flush();
+    for (let i = 0; i < 2; i += 1) {
+      container.querySelector<HTMLElement>('[data-board-min-count-inc]')!.click();
+      await flush();
+    }
+    expect(container.querySelector<HTMLInputElement>('[data-board-min-count]')!.value).toBe('4');
+    container.querySelector<HTMLElement>('[data-board-view="items"]')!.click();
+    await flush();
+
+    chipOf('r1')!.click();
+    await flush();
+
+    expect(
+      container.querySelector('[data-board-view="sellers"]')?.getAttribute('aria-selected'),
+    ).toBe('true');
+    expect(container.querySelector<HTMLInputElement>('[data-board-min-count]')!.value).toBe('3');
+    const seller = container.querySelector<HTMLElement>('[data-board-seller="Bulk#1"]');
+    expect(seller).not.toBeNull();
+    expect(seller!.querySelector('[data-board-seller-toggle]')?.getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+    // 物品列沒有被展開（只切換檢視）
+    expect(container.querySelector('[data-board-entry-card]')).toBeNull();
   });
 
   it('shows instant-only checkbox only when results mix instant buyout and whisper-only listings', async () => {
@@ -523,19 +625,23 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(expandToggleBtn.getAttribute('aria-pressed')).toBe('false');
     expect(container.querySelectorAll('[data-board-entry-card]')).toHaveLength(0);
 
-    // Enter min price -> clear button appears and resets filter
-    expect(container.querySelector('[data-board-price-clear]')).toBeNull();
-    const minInput = container.querySelector<HTMLInputElement>('[data-board-price-min]')!;
-    minInput.value = '20';
-    minInput.dispatchEvent(new Event('input'));
-    await flush();
+    // Enter min price -> toggle highlights, chip appears, and clearing (popover or chip) resets filter
+    expect(container.querySelector('[data-board-price-chip]')).toBeNull();
+    await setPriceMin('20');
     expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
+    expect(container.querySelector('[data-board-price-chip]')?.textContent).toContain('20–');
 
-    const clearBtn = container.querySelector<HTMLButtonElement>('[data-board-price-clear]')!;
-    clearBtn.click();
+    document.body.querySelector<HTMLButtonElement>('[data-board-price-clear]')!.click();
     await flush();
     expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
-    expect(container.querySelector('[data-board-price-clear]')).toBeNull();
+    expect(container.querySelector('[data-board-price-chip]')).toBeNull();
+
+    await setPriceMin('20');
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
+    container.querySelector<HTMLButtonElement>('[data-board-price-chip-clear]')!.click();
+    await flush();
+    expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
+    expect(container.querySelector('[data-board-price-chip]')).toBeNull();
   });
 
   it('shows and copies the stash search regex for the picked results of an expanded seller', async () => {
@@ -593,16 +699,12 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     await flush();
 
     expect(mockFetchCurrencyRates).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('[data-board-price-min]')).not.toBeNull();
-    expect(container.querySelector('[data-board-price-max]')).not.toBeNull();
+    expect(container.querySelector('[data-board-price-toggle]')).not.toBeNull();
     expect(container.querySelector('[data-board-price-summary]')).not.toBeNull();
     expect(container.querySelector('[data-board-no-conversion]')).toBeNull();
 
     // Filter with min price 100c -> only 1 divine (200c) remains
-    const minInput = container.querySelector<HTMLInputElement>('[data-board-price-min]')!;
-    minInput.value = '100';
-    minInput.dispatchEvent(new Event('input'));
-    await flush();
+    await setPriceMin('100');
     expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
 
     // Disable enablePriceComparison -> inputs, summary & filtering disable, no realm-unavailable notice
@@ -610,8 +712,8 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     prefListeners.forEach((fn) => fn({ enablePriceComparison: false }));
     await flush();
 
-    expect(container.querySelector('[data-board-price-min]')).toBeNull();
-    expect(container.querySelector('[data-board-price-max]')).toBeNull();
+    expect(container.querySelector('[data-board-price-toggle]')).toBeNull();
+    expect(container.querySelector('[data-board-price-chip]')).toBeNull();
     expect(container.querySelector('[data-board-price-summary]')).toBeNull();
     expect(container.querySelector('[data-board-no-conversion]')).toBeNull();
     expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(2);
@@ -627,8 +729,8 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     prefListeners.forEach((fn) => fn({ enablePriceComparison: true }));
     await flush();
 
-    expect(container.querySelector('[data-board-price-min]')).not.toBeNull();
-    expect(container.querySelector('[data-board-price-max]')).not.toBeNull();
+    expect(container.querySelector('[data-board-price-toggle]')).not.toBeNull();
+    expect(container.querySelector('[data-board-price-chip]')?.textContent).toContain('100–');
     expect(container.querySelector('[data-board-price-summary]')).not.toBeNull();
     expect(container.querySelectorAll('[data-board-entry-id]')).toHaveLength(1);
   });
@@ -643,7 +745,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     await flush();
 
     expect(mockFetchCurrencyRates).not.toHaveBeenCalled();
-    expect(container.querySelector('[data-board-price-min]')).toBeNull();
+    expect(container.querySelector('[data-board-price-toggle]')).toBeNull();
     expect(container.querySelector('[data-board-no-conversion]')).toBeNull();
   });
 
@@ -687,7 +789,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
 
     expect(mockFetchCurrencyRates).toHaveBeenCalledWith('poe1', 'Covens');
     expect(container.querySelector('[data-board-no-conversion]')).toBeNull();
-    expect(container.querySelector('[data-board-price-min]')).not.toBeNull();
+    expect(container.querySelector('[data-board-price-toggle]')).not.toBeNull();
     expect(container.querySelector('[data-board-price-summary]')).not.toBeNull();
 
     // 展開第一筆結果應正常顯示物品卡片而非「無法顯示這筆結果的卡片」
@@ -1079,12 +1181,10 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(empty?.textContent).toContain('已隱藏 1 位賣家');
 
     // 輸入非數字價格不應誤顯示價格條件摘要
-    const minPriceInput = container.querySelector<HTMLInputElement>('[data-board-price-min]');
-    if (minPriceInput) {
-      minPriceInput.value = 'abc';
-      minPriceInput.dispatchEvent(new Event('input'));
-      await flush();
+    if (container.querySelector('[data-board-price-toggle]')) {
+      await setPriceMin('abc');
       expect(empty?.textContent).not.toContain('價格 abc');
+      expect(container.querySelector('[data-board-price-chip]')).toBeNull();
     }
 
     // 點擊重設篩選應一併重設 hideSold 與 hiddenAccounts

@@ -10,6 +10,7 @@ import {
   BOARD_MOD_QUICK_FILTERS,
   BOARD_MOD_TIER_CAPS,
   aggregateBoardModOptions,
+  describeMatchedMods,
   filterModOptions,
   matchesModConditions,
   type BoardModAffixKind,
@@ -44,6 +45,7 @@ export {
   BOARD_MOD_QUICK_FILTERS,
   BOARD_MOD_TIER_CAPS,
   availableSortModes,
+  describeMatchedMods,
   sumPrices,
   type BoardModAffixKind,
   type BoardModCondition,
@@ -97,6 +99,11 @@ export interface BoardViewProjection {
   sortModes: readonly BoardSortMode[];
   filteredEntries: readonly BoardEntry[];
   sellers: readonly SellerSummary[];
+  /**
+   * 每位賣家在共同通道結果中的可直購件數（含已售出，與賣家清單門檻同一口徑）；
+   * 物品清單用來標示「同賣家 ×N」
+   */
+  sellerInstantCounts: ReadonlyMap<string, number>;
   modOptions: readonly BoardModOption[];
   filteredModOptions: readonly BoardModOption[];
   modOptionByKey: ReadonlyMap<string, BoardModOption>;
@@ -207,10 +214,14 @@ export function projectBoardView(input: BoardViewProjectionInput): BoardViewProj
   );
 
   // 賣家清單：直接吃共同通道結果（一律保留已售出結果），再做賣家聚合與門檻篩選
-  const sellers = filterSellers(sortSellers(aggregateSellers(sharedEntries, rates, soldIds)), {
+  const allSellers = aggregateSellers(sharedEntries, rates, soldIds);
+  const sellers = filterSellers(sortSellers(allSellers), {
     minInstantBuyout: minSellerCount,
     hiddenAccounts,
   });
+  const sellerInstantCounts = new Map(
+    allSellers.map((seller) => [seller.account, seller.totalInstantBuyoutCount] as const),
+  );
 
   const modOptions = aggregateBoardModOptions(visibleEntries, resolveStatLabel, modConditions);
   const selectedModKeys = new Set(modConditions.map((cond) => cond.key));
@@ -248,6 +259,7 @@ export function projectBoardView(input: BoardViewProjectionInput): BoardViewProj
     sortModes,
     filteredEntries,
     sellers,
+    sellerInstantCounts,
     modOptions,
     filteredModOptions,
     modOptionByKey,

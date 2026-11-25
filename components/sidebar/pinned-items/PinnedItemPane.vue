@@ -3,9 +3,9 @@ import { computed, nextTick, ref, watch } from 'vue';
 import {
   ArrowUpDown,
   Check,
+  ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
-  Loader2,
   Pin,
   Search,
   Trash2,
@@ -23,7 +23,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { getActiveUiLocale, t } from '@/utils/i18n';
-import { GOLD_COIN_ICON_URL } from '@/utils/poe-cdn-url';
 import { isSameLeague, type PinnedItemSnapshot } from '@/utils/pinned-items';
 import { getTradeRealm } from '@/utils/trade-realms';
 import SidebarPane from '../layout/SidebarPane.vue';
@@ -33,11 +32,7 @@ import DragTrashZone from '../layout/DragTrashZone.vue';
 import { useSortableTrashList } from '../composables/useSortableTrashList';
 import { useDebouncedRef } from '../composables/useDebouncedSearch';
 import { requestResultTranslation } from '@/utils/market-result-translation-request';
-import ResultPriceLabel from '../result-row/ResultPriceLabel.vue';
-import ResultSummaryRow from '../result-row/ResultSummaryRow.vue';
-import PinnedItemActions from './PinnedItemActions.vue';
-import PinnedItemCardView from './PinnedItemCardView.vue';
-import { RARITY_COLOURS, resolveRarityClass } from './pinned-item-card';
+import PinnedItemRow from './PinnedItemRow.vue';
 import { filterPinnedItems } from './pinned-item-filter';
 import {
   PINNED_SORT_MODES,
@@ -97,6 +92,10 @@ const filteredItems = computed(() => {
   const matched = filterPinnedItems(visibleItems.value, debouncedSearchQuery.value);
   return sortPinnedItems(matched, sortMode.value, currencyRates.value);
 });
+/** 已售出的釘選集中在清單底部的「已售出」區塊，不參與拖曳排序 */
+const activeItems = computed(() => filteredItems.value.filter((item) => !isSold(item)));
+const soldItems = computed(() => filteredItems.value.filter((item) => isSold(item)));
+const isSoldGroupOpen = ref(true);
 /** 搜尋中或非自訂排序時停用拖曳，避免錯位或與排序規則衝突。 */
 const canDrag = computed(() => searchQuery.value.trim() === '' && sortMode.value === 'custom');
 
@@ -137,7 +136,9 @@ const { setTrashZoneRef, isDragging, isOverTrash, trashStyle } = useSortableTras
   canDrag,
   hasItems: hasVisibleItems,
   getItemId: (el) => el.dataset.pinnedItemId,
-  getOrderedIds: () => visibleItems.value.map((entry) => entry.id),
+  // 只排序未售出的釘選；已售出與其他聯盟的釘選維持原位（見 applyPinnedOrder）
+  getOrderedIds: () =>
+    visibleItems.value.filter((entry) => !isSold(entry)).map((entry) => entry.id),
   onReorder: (nextIds) => reorder(nextIds),
   onTrashDrop: async (itemId) => {
     const target = visibleItems.value.find((entry) => entry.id === itemId);
@@ -146,8 +147,11 @@ const { setTrashZoneRef, isDragging, isOverTrash, trashStyle } = useSortableTras
 });
 
 // 名稱以 `.item-popup__header-line` 標記，市集漢化會像結果列一樣翻譯（清單本身沒有 `poexd*` class）
-watch(listRef, (list) => {
-  if (list) requestResultTranslation(list);
+const soldListRef = ref<HTMLElement | null>(null);
+watch([listRef, soldListRef], (lists) => {
+  for (const list of lists) {
+    if (list) requestResultTranslation(list);
+  }
 });
 
 /**
@@ -158,10 +162,6 @@ const expandedIds = ref<ReadonlySet<string>>(new Set());
 
 function isExpanded(item: PinnedItemSnapshot): boolean {
   return expandedIds.value.has(item.id);
-}
-
-function expandLabel(item: PinnedItemSnapshot): string {
-  return isExpanded(item) ? t('pinnedItem.action.collapse') : t('pinnedItem.action.expand');
 }
 
 function toggleExpanded(item: PinnedItemSnapshot): void {
@@ -185,52 +185,14 @@ function toggleExpandAll(): void {
   expandedIds.value = new Set(filteredItems.value.map((item) => item.id));
 }
 
-function rarityColour(item: PinnedItemSnapshot): string {
-  return RARITY_COLOURS[resolveRarityClass(item.item)] ?? RARITY_COLOURS.normal!;
+/** 聯盟與目前不同（或勾選顯示所有聯盟）時，在灰色資訊附上聯盟 */
+function showLeagueOf(item: PinnedItemSnapshot): boolean {
+  return showAllLeagues.value || !currentLeague || !isSameLeague(item.league, currentLeague);
 }
 
-const textOf = (value: unknown): string => (typeof value === 'string' ? value : '');
-
-/** 名稱與基底；PoE 2 的 `[標籤|文字]` 標記只顯示文字 */
-function nameLines(item: PinnedItemSnapshot): string[] {
-  const unwrap = (value: string) => value.replace(/\[(?:[^\]|]*\|)?([^\]]*)\]/g, '$1');
-  const name = unwrap(textOf(item.item.name));
-  const typeLine = unwrap(textOf(item.item.typeLine) || textOf(item.item.baseType));
-  return [name, typeLine].filter(Boolean);
-}
-
-/** 收合列第二行的灰色資訊（省略賣家帳號，僅保留上架時間與跨聯盟／分流提示） */
-/** 與看板相同：賣家 · 刊登多久前；聯盟、伺服器與目前不同時才附上 */
-function metaParts(item: PinnedItemSnapshot): string[] {
-  return [
-    item.listing.accountName ?? '',
-    formatAge(item.listing.indexed),
-    showAllLeagues.value || !currentLeague || !isSameLeague(item.league, currentLeague)
-      ? item.league
-      : '',
-    sameRealm(item) ? '' : realmLabel(item),
-  ].filter(Boolean);
-}
-
-const RELATIVE_UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
-  ['day', 86_400_000],
-  ['hour', 3_600_000],
-  ['minute', 60_000],
-];
-
-function formatAge(iso: string | undefined): string {
-  if (!iso) return '';
-  const elapsed = Date.now() - Date.parse(iso);
-  if (!Number.isFinite(elapsed)) return '';
-  const format = new Intl.RelativeTimeFormat(getActiveUiLocale(), { numeric: 'auto' });
-  for (const [unit, ms] of RELATIVE_UNITS) {
-    if (elapsed >= ms) return format.format(-Math.floor(elapsed / ms), unit);
-  }
-  return format.format(0, 'minute');
-}
-
-function realmLabel(item: PinnedItemSnapshot): string {
-  return t(getTradeRealm(item.realm).labelKey);
+/** 伺服器與目前不同時才顯示 */
+function realmLabelOf(item: PinnedItemSnapshot): string | undefined {
+  return sameRealm(item) ? undefined : t(getTradeRealm(item.realm).labelKey);
 }
 
 const SORT_LABEL_KEYS: Record<
@@ -246,21 +208,25 @@ const SORT_LABEL_KEYS: Record<
   'price-desc': 'pinnedItem.sort.priceDesc',
 };
 
-function formatPinnedAt(timestamp: number): string {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
-  const d = new Date(timestamp);
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 function priceComparisonOf(item: PinnedItemSnapshot): PinnedPriceComparison | undefined {
   if (!enablePriceComparison.value) return undefined;
   return resolvePinnedPriceComparison(item, version, currencyRates.value, getActiveUiLocale(), t);
 }
 
-function formatFee(fee: number | undefined): string {
-  if (typeof fee !== 'number' || !Number.isFinite(fee) || fee <= 0) return '';
-  return new Intl.NumberFormat(getActiveUiLocale()).format(fee);
+/** 作用中與已售出兩份清單共用的列屬性 */
+function rowBindings(item: PinnedItemSnapshot) {
+  return {
+    item,
+    expanded: isExpanded(item),
+    sold: isSold(item),
+    state: states.value[item.id],
+    sameRealm: sameRealm(item),
+    canCopyPob: canCopyPob(item),
+    hasSource: !!sourceUrl(item),
+    showLeague: showLeagueOf(item),
+    realmLabel: realmLabelOf(item),
+    priceComparison: priceComparisonOf(item),
+  };
 }
 </script>
 
@@ -442,166 +408,67 @@ function formatFee(fee: number | undefined): string {
         />
 
         <ul
-          v-show="filteredItems.length > 0"
+          v-show="activeItems.length > 0"
           ref="listRef"
           class="m-0 flex list-none flex-col overflow-hidden rounded-md border border-border bg-card p-0"
           data-pinned-items-list
         >
-          <li
-            v-for="item in filteredItems"
+          <PinnedItemRow
+            v-for="item in activeItems"
             :key="item.id"
-            class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
-            :class="[
-              isExpanded(item)
-                ? 'bg-muted/20'
-                : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40',
-            ]"
-            :data-pinned-item-id="item.id"
-            :data-expanded="isExpanded(item) ? '' : undefined"
-          >
-            <ResultSummaryRow
-              :icon="typeof item.item.icon === 'string' ? item.item.icon : undefined"
-              :dimmed="isSold(item)"
-              :draggable="canDrag"
-              :expanded="isExpanded(item)"
-              data-pinned-item-toggle
-              :title="expandLabel(item)"
-              @toggle="toggleExpanded(item)"
-            >
-              <template #expanded-icon>
-                <PinnedItemCardView :snapshot="item" :collapsed="false" part="icon" />
-              </template>
-              <template #title>
-                <span
-                  class="text-[length:var(--pxd-font-body)] font-semibold leading-tight"
-                  :class="isExpanded(item) ? 'line-clamp-2 break-words' : 'truncate'"
-                  :style="{ color: rarityColour(item) }"
-                  data-pinned-item-name
-                >
-                  <span
-                    v-for="(line, index) in nameLines(item)"
-                    :key="index"
-                    class="item-popup__header-line"
-                    :class="{ 'ml-[0.35em]': index > 0 }"
-                    >{{ line }}</span
-                  >
-                </span>
-              </template>
-              <template #meta>
-                <span
-                  v-if="metaParts(item).length > 0"
-                  class="text-[length:var(--pxd-font-micro)] text-muted-foreground leading-tight"
-                  :class="isExpanded(item) ? 'line-clamp-2 break-words' : 'truncate'"
-                  data-pinned-item-meta
-                  >{{ metaParts(item).join(' · ') }}</span
-                >
-              </template>
-              <template #expanded-details>
-                <div
-                  v-if="formatFee(item.listing.fee) || formatPinnedAt(item.pinnedAt)"
-                  data-pinned-item-details
-                  class="flex flex-col gap-[2px] text-[length:var(--pxd-font-micro)] leading-snug text-muted-foreground"
-                >
-                  <span
-                    v-if="formatFee(item.listing.fee)"
-                    data-pinned-item-fee
-                    :title="`${t('pinnedItem.meta.fee')}${formatFee(item.listing.fee)}`"
-                    class="inline-flex items-center gap-[3px] leading-none tabular-nums text-foreground/85"
-                  >
-                    <span class="leading-none">{{ t('pinnedItem.meta.fee') }}</span>
-                    <img
-                      :src="GOLD_COIN_ICON_URL"
-                      alt="Gold"
-                      class="block size-[var(--control-icon-sm)] shrink-0 object-contain"
-                      referrerpolicy="no-referrer"
-                      draggable="false"
-                      data-pinned-item-fee-icon
-                    />
-                    <span class="leading-none">{{ formatFee(item.listing.fee) }}</span>
-                  </span>
-                  <span
-                    v-if="formatPinnedAt(item.pinnedAt)"
-                    data-pinned-item-pinned-at
-                    class="truncate tabular-nums"
-                  >
-                    {{ t('pinnedItem.meta.pinnedAt', { time: formatPinnedAt(item.pinnedAt) }) }}
-                  </span>
-                </div>
-              </template>
-              <template #price>
-                <ResultPriceLabel
-                  :amount="
-                    item.listing.price ? `${item.listing.price.amount}` : t('common.noPrice')
-                  "
-                  :currency="item.listing.price?.currency"
-                  :icon="item.listing.price?.icon"
-                  :currency-name="item.listing.price?.currencyName"
-                  :struck="isSold(item)"
-                  data-pinned-item-price
-                />
-                <span
-                  v-if="priceComparisonOf(item)"
-                  data-pinned-item-price-conversion
-                  :title="priceComparisonOf(item)?.tooltip"
-                  class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-micro)] font-medium tabular-nums leading-none text-muted-foreground"
-                >
-                  <span class="leading-none">≈ {{ priceComparisonOf(item)?.amount }}</span>
-                  <img
-                    :src="priceComparisonOf(item)?.icon"
-                    :alt="priceComparisonOf(item)?.currencyName"
-                    :title="priceComparisonOf(item)?.currencyName"
-                    class="block size-[var(--control-icon-default)] shrink-0 object-contain"
-                    referrerpolicy="no-referrer"
-                    draggable="false"
-                    data-pinned-item-price-conversion-icon
-                  />
-                </span>
-                <span
-                  v-if="isSold(item)"
-                  class="rounded-sm border border-destructive/30 bg-destructive/15 px-[var(--pxd-space-xs)] py-px text-[length:var(--pxd-font-micro)] font-semibold leading-tight text-destructive"
-                  data-pinned-item-sold
-                  >{{ t('common.sold') }}</span
-                >
-                <span
-                  v-else-if="states[item.id] === 'refreshing' || states[item.id] === 'traveling'"
-                  class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
-                  :class="
-                    states[item.id] === 'refreshing' ? 'text-muted-foreground' : 'text-primary'
-                  "
-                  data-pinned-item-busy
-                >
-                  <Loader2
-                    class="size-[var(--control-icon-sm)] shrink-0 animate-spin"
-                    aria-hidden="true"
-                  />
-                  {{
-                    states[item.id] === 'refreshing'
-                      ? t('pinnedItem.action.refreshing')
-                      : t('pinnedItem.action.traveling')
-                  }}
-                </span>
-              </template>
-              <template #actions>
-                <PinnedItemActions
-                  :item="item"
-                  :state="isSold(item) ? 'sold' : states[item.id]"
-                  :same-realm="sameRealm(item)"
-                  :can-copy-pob="canCopyPob(item)"
-                  :has-source="!!sourceUrl(item)"
-                  :full="false"
-                  @travel="travel(item)"
-                  @whisper="copyWhisper(item)"
-                  @pob="copyPob(item)"
-                  @source="openSource(item)"
-                  @unpin="unpin(item)"
-                />
-              </template>
-            </ResultSummaryRow>
-            <div v-if="isExpanded(item)" class="px-[var(--pxd-space-md)] pb-[var(--pxd-space-md)]">
-              <PinnedItemCardView :snapshot="item" :collapsed="false" part="popup" />
-            </div>
-          </li>
+            v-bind="rowBindings(item)"
+            :draggable="canDrag"
+            @toggle="toggleExpanded(item)"
+            @travel="travel(item)"
+            @whisper="copyWhisper(item)"
+            @pob="copyPob(item)"
+            @source="openSource(item)"
+            @unpin="unpin(item)"
+          />
         </ul>
+
+        <section
+          v-if="soldItems.length > 0"
+          class="flex flex-col gap-[var(--pxd-space-sm)]"
+          :class="activeItems.length > 0 ? 'mt-[var(--pxd-space-md)]' : ''"
+          data-pinned-items-sold-group
+        >
+          <button
+            type="button"
+            class="flex w-full cursor-pointer items-center gap-[var(--pxd-space-xs)] border-0 bg-transparent p-0 text-left text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            :aria-expanded="isSoldGroupOpen"
+            data-pinned-items-sold-toggle
+            @click="isSoldGroupOpen = !isSoldGroupOpen"
+          >
+            <ChevronDown
+              class="size-[var(--control-icon-sm)] shrink-0 transition-transform"
+              :class="isSoldGroupOpen ? '' : '-rotate-90'"
+              aria-hidden="true"
+            />
+            <span class="tabular-nums">{{
+              t('pinnedItem.soldGroup', { count: soldItems.length })
+            }}</span>
+          </button>
+          <ul
+            v-if="isSoldGroupOpen"
+            ref="soldListRef"
+            class="m-0 flex list-none flex-col overflow-hidden rounded-md border border-border bg-card p-0"
+            data-pinned-items-sold-list
+          >
+            <PinnedItemRow
+              v-for="item in soldItems"
+              :key="item.id"
+              v-bind="rowBindings(item)"
+              :draggable="false"
+              @toggle="toggleExpanded(item)"
+              @travel="travel(item)"
+              @whisper="copyWhisper(item)"
+              @pob="copyPob(item)"
+              @source="openSource(item)"
+              @unpin="unpin(item)"
+            />
+          </ul>
+        </section>
       </template>
 
       <DragTrashZone

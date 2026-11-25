@@ -148,3 +148,15 @@ export function createResultPriceComparisons(
   });
   return comparisons;
 }
+
+/**
+ * 換算後金額的顯示格式（官方結果列、釘選、看板共用）：
+ * 1 以上最多兩位小數；小於 1 時保留兩位有效數字，避免 0.004 被捨成 0，也不會出現 0.1111 這種雜訊位數。
+ */
+export function formatConvertedAmount(amount: number, locale: string): string {
+  const options: Intl.NumberFormatOptions =
+    Math.abs(amount) >= 1 || amount === 0
+      ? { maximumFractionDigits: 2 }
+      : { maximumSignificantDigits: 2 };
+  return new Intl.NumberFormat(locale, options).format(amount);
+}

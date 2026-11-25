@@ -62,6 +62,60 @@ export function matchesModConditions(
   );
 }
 
+/** 數值樣式：連同原文緊貼在數字前的正負號一起取出 */
+const NUMBER_PATTERN = /[+-]?\d+(?:\.\d+)?/g;
+
+/**
+ * 把詞綴原文的數值依序填入翻譯模板的 `#`。
+ * 模板在 `#` 前已寫正負號（例如 `+#%`）時只填數字，否則沿用原文的正負號（`# 最大魔力` ← `+59`）。
+ * 模板沒有 `#` 時直接使用模板；數值個數對不上或沒有翻譯時退回原文，避免填錯數字。
+ */
+export function fillStatTemplate(template: string | undefined, sourceText: string): string {
+  if (!template) return sourceText;
+  const slots = template.split('#').length - 1;
+  if (slots === 0) return template;
+  const numbers = sourceText.match(NUMBER_PATTERN) ?? [];
+  if (numbers.length !== slots) return sourceText;
+  let index = 0;
+  return template.replace(/#/g, (_match, offset: number) => {
+    const value = numbers[index++] ?? '#';
+    const signed = template[offset - 1] === '+' || template[offset - 1] === '-';
+    return signed ? value.replace(/^[+-]/, '') : value;
+  });
+}
+
+/**
+ * 列出物品上命中「必含獨立詞綴」條件的詞綴行（依條件順序），並以 `resolveTemplate` 翻譯、填入實際數值。
+ * `resolveTemplate` 找不到翻譯時回傳 undefined，該行改用原文。
+ */
+export function describeMatchedMods(
+  entry: BoardEntry,
+  conditions: readonly BoardModCondition[],
+  resolveTemplate: (statId: string) => string | undefined,
+): string[] {
+  const rolls = entry.modRolls;
+  const stats = entry.modStats;
+  if (conditions.length === 0 || !rolls || !stats) return [];
+  const used = new Set<number>();
+  const lines: string[] = [];
+  for (const cond of conditions) {
+    const roll = rolls.find(
+      (item) =>
+        item.key === cond.key &&
+        (cond.maxTier === undefined ||
+          (item.tierNumber !== undefined && item.tierNumber <= cond.maxTier)),
+    );
+    if (!roll) continue;
+    for (const hash of roll.hashes) {
+      const index = stats.findIndex((stat, i) => !used.has(i) && stat.statId === hash);
+      if (index < 0) continue;
+      used.add(index);
+      lines.push(fillStatTemplate(resolveTemplate(hash), stats[index].text));
+    }
+  }
+  return lines;
+}
+
 const MAX_SAMPLE_NAMES = 4;
 
 const compareModOptions = (a: BoardModOption, b: BoardModOption): number =>

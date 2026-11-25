@@ -7,6 +7,7 @@ import { getActiveDisplayLocale, t } from '@/utils/i18n';
 import {
   PRICE_COMPARISON_CURRENCIES,
   createResultPriceComparisons,
+  formatConvertedAmount,
   type CurrencyRateSnapshot,
   type PriceComparison,
 } from '@/utils/price-comparison';
@@ -200,9 +201,7 @@ export class ResultPricePresenterAdapter {
 function renderPriceComparison(doc: Document, annotation: Element, comparison: PriceComparison) {
   const currencyMeta = PRICE_COMPARISON_CURRENCIES[comparison.currency];
   const currencyName = t(currencyMeta.labelKey);
-  const amount = new Intl.NumberFormat(getActiveDisplayLocale(), {
-    maximumSignificantDigits: 4,
-  }).format(comparison.amount);
+  const amount = formatConvertedAmount(comparison.amount, getActiveDisplayLocale());
   const icon = doc.createElement('img');
   icon.className = 'poexd-price-comparison-icon';
   icon.src = currencyMeta.icon;

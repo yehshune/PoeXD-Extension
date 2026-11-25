@@ -40,6 +40,7 @@ import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
 import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
 import ResultBoardModFilterPanel from './ResultBoardModFilterPanel.vue';
+import ResultBoardPriceFilter from './ResultBoardPriceFilter.vue';
 import ResultBoardSellerRow from './ResultBoardSellerRow.vue';
 import { currencyDisplayOf, stopMessage } from './result-board-format';
 import { parseBound, useResultBoard, type BoardView } from './useResultBoard';
@@ -75,6 +76,7 @@ const {
   conversionAvailable,
   filteredEntries,
   sellers,
+  sellerInstantCounts,
   priceSummary,
   travelStates,
   hasAnyExpanded,
@@ -286,6 +288,32 @@ const activeBoardFilterLabels = computed(() => {
   return labels;
 });
 
+/** 價格區間標籤文字（`0.3–1`、`0.3–`、`–1`）；沒有匯率或沒有設定時為空 */
+const priceRangeText = computed(() => {
+  if (!conversionAvailable.value) return '';
+  const min = parseBound(priceMinText.value);
+  const max = parseBound(priceMaxText.value);
+  if (min !== undefined && max !== undefined) return `${min}–${max}`;
+  if (min !== undefined) return `${min}–`;
+  return max !== undefined ? `–${max}` : '';
+});
+
+function clearPriceRange(): void {
+  priceMinText.value = '';
+  priceMaxText.value = '';
+}
+
+/** 「同賣家 ×N」：切到賣家清單、展開該賣家並捲到它 */
+async function focusSeller(account: string): Promise<void> {
+  selectView('sellers');
+  board.focusSeller(account);
+  await nextTick();
+  const target = Array.from(
+    sellersListRef.value?.querySelectorAll<HTMLElement>('[data-board-seller]') ?? [],
+  ).find((el) => el.dataset.boardSeller === account);
+  target?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
 function resetAllFilters(): void {
   keyword.value = '';
   board.clearModConditions();
@@ -445,56 +473,7 @@ function resetAllFilters(): void {
           </div>
 
           <div
-            v-if="view === 'items' && conversionAvailable"
-            class="order-3 flex basis-full items-center gap-[var(--pxd-space-xs)] @[460px]:order-2 @[460px]:basis-auto"
-          >
-            <Input
-              v-model="priceMinText"
-              size="sm"
-              inputmode="decimal"
-              class="w-[5.2em] tabular-nums"
-              :placeholder="t('resultBoard.filter.priceMin')"
-              data-board-price-min
-            />
-            <span class="text-muted-foreground">–</span>
-            <Input
-              v-model="priceMaxText"
-              size="sm"
-              inputmode="decimal"
-              class="w-[5.2em] tabular-nums"
-              :placeholder="t('resultBoard.filter.priceMax')"
-              data-board-price-max
-            />
-            <img
-              v-if="primaryCurrency?.icon"
-              :src="primaryCurrency.icon"
-              :alt="rates?.primary"
-              :title="primaryCurrency.name ?? rates?.primary"
-              class="size-[var(--control-icon-default)] shrink-0 object-contain"
-              referrerpolicy="no-referrer"
-              draggable="false"
-            />
-            <span v-else class="text-[length:var(--pxd-font-micro)] text-muted-foreground">{{
-              rates?.primary
-            }}</span>
-            <Button
-              v-if="priceMinText || priceMaxText"
-              variant="ghost"
-              size="icon-sm"
-              :aria-label="t('common.clearSearch')"
-              :title="t('common.clearSearch')"
-              data-board-price-clear
-              @click="
-                priceMinText = '';
-                priceMaxText = '';
-              "
-            >
-              <X />
-            </Button>
-          </div>
-
-          <div
-            v-else-if="view === 'sellers'"
+            v-if="view === 'sellers'"
             class="order-3 flex basis-full items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] @[460px]:order-2 @[460px]:basis-auto"
           >
             <span>{{ t('resultBoard.filter.minCount') }}</span>
@@ -541,6 +520,13 @@ function resetAllFilters(): void {
           <div
             class="order-2 ml-auto flex shrink-0 items-center gap-[var(--pxd-space-sm)] @[460px]:order-3"
           >
+            <ResultBoardPriceFilter
+              v-if="view === 'items' && conversionAvailable"
+              v-model:min="priceMinText"
+              v-model:max="priceMaxText"
+              :currency="primaryCurrency"
+              :currency-code="rates?.primary"
+            />
             <DropdownMenu v-if="view === 'items'" v-model:open="isSortMenuOpen">
               <DropdownMenuTrigger as-child>
                 <Button
@@ -691,9 +677,34 @@ function resetAllFilters(): void {
         />
 
         <div
-          v-if="view === 'items' && (hasMixedInstantBuyout || hasSoldEntries)"
+          v-if="view === 'items' && (hasMixedInstantBuyout || hasSoldEntries || priceRangeText)"
           class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]"
         >
+          <span
+            v-if="priceRangeText"
+            class="inline-flex h-[22px] items-center gap-[2px] rounded-full border border-primary/40 bg-primary/10 pl-[var(--pxd-space-sm)] pr-[2px] text-[length:var(--pxd-font-caption)] text-primary tabular-nums"
+            data-board-price-chip
+          >
+            {{ t('common.filterTag.price', { range: priceRangeText }) }}
+            <img
+              v-if="primaryCurrency?.icon"
+              :src="primaryCurrency.icon"
+              :alt="rates?.primary"
+              class="size-[var(--control-icon-sm)] shrink-0 object-contain"
+              referrerpolicy="no-referrer"
+              draggable="false"
+            />
+            <button
+              type="button"
+              class="flex size-[18px] cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-primary hover:bg-primary/15"
+              :aria-label="t('resultBoard.filter.clearPrice')"
+              :title="t('resultBoard.filter.clearPrice')"
+              data-board-price-chip-clear
+              @click="clearPriceRange"
+            >
+              <X class="size-[var(--control-icon-sm)]" />
+            </button>
+          </span>
           <label
             v-if="hasMixedInstantBuyout"
             class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] cursor-pointer select-none"
@@ -770,6 +781,9 @@ function resetAllFilters(): void {
             :card-snapshot="board.cardSnapshot"
             :pinned="board.isPinned(entry.id)"
             :travel-state="travelStates[entry.id]"
+            :matched-mods="board.matchedModTexts(entry)"
+            :same-seller-count="sellerInstantCounts.get(entry.seller.account)"
+            @focus-seller="focusSeller(entry.seller.account)"
             @toggle="board.toggleExpanded(entry.id)"
             @locate="board.locate(entry.id)"
             @travel="board.travel(entry.id)"

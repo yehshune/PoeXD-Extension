@@ -17,6 +17,7 @@ import { createPinnedItemClient } from '@/utils/pinned-item-client';
 import type { PinnedItemSnapshot } from '@/utils/pinned-items';
 import type { BoardEntry } from '@/utils/result-board/board-entry';
 import {
+  describeMatchedMods,
   projectBoardView,
   sumPrices,
   type BoardModCondition,
@@ -218,6 +219,19 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
   const sortModes = computed(() => projection.value.sortModes);
   const filteredEntries = computed(() => projection.value.filteredEntries);
   const sellers = computed(() => projection.value.sellers);
+  const sellerInstantCounts = computed(() => projection.value.sellerInstantCounts);
+
+  /** 字典裡的翻譯模板；查不到（回傳原 stat id）時交由呼叫端改用詞綴原文 */
+  function resolveStatTemplate(statId: string): string | undefined {
+    const lines = translateStatLines(statId, version);
+    return lines.length === 1 && lines[0] === statId ? undefined : lines.join(' / ');
+  }
+
+  /** 物品命中目前詞綴條件的詞綴行（翻譯並填入實際數值）；沒有條件時為空 */
+  function matchedModTexts(entry: BoardEntry): string[] {
+    void modDictTick.value;
+    return describeMatchedMods(entry, modConditions.value, resolveStatTemplate);
+  }
   const modOptions = computed(() => projection.value.modOptions);
   const filteredModOptions = computed(() => projection.value.filteredModOptions);
   const modOptionByKey = computed(() => projection.value.modOptionByKey);
@@ -355,6 +369,19 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     }
     if (sellers.value.length === 0) return;
     expandedSellers.value = new Set(sellers.value.map((seller) => seller.account));
+  }
+
+  /**
+   * 從物品清單跳到某位賣家：切到賣家清單並展開該賣家。
+   * 賣家件數低於目前門檻時先降低門檻，確保切過去看得到。
+   */
+  function focusSeller(account: string): void {
+    const count = sellerInstantCounts.value.get(account) ?? 0;
+    if (count > 0 && minSellerCount.value > count) minSellerCount.value = count;
+    if (!expandedSellers.value.has(account)) {
+      expandedSellers.value = new Set([...expandedSellers.value, account]);
+    }
+    view.value = 'sellers';
   }
 
   /** 展開時的卡片快取：同一次搜尋內每個 id 只擷取一次 DOM，避免大筆數展開時重複重建 shadow root */
@@ -502,6 +529,9 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
     conversionAvailable,
     filteredEntries,
     sellers,
+    sellerInstantCounts,
+    matchedModTexts,
+    focusSeller,
     priceSummary,
     isPicked,
     isPinned,

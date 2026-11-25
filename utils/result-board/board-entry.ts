@@ -23,6 +23,13 @@ export interface BoardSeller {
   presence: SellerPresence;
 }
 
+/** 一行詞綴原文與其 stat id；用來把詞綴條件對回實際數值 */
+export interface BoardModStat {
+  /** 不含 `stat.` 前綴的 stat id（例如 `explicit.stat_1509134228`） */
+  statId: string;
+  text: string;
+}
+
 export interface BoardPrice {
   amount: number;
   currency: string;
@@ -54,6 +61,8 @@ export interface BoardEntry {
   note?: string;
   /** 物品詞綴原文（explicit / implicit / fractured / crafted / enchant 等）；看板搜尋用 */
   mods?: readonly string[];
+  /** 有 stat id 的詞綴行；看板外層顯示命中條件的數值用 */
+  modStats?: readonly BoardModStat[];
   /** 官方 `extended.mods` 的階級與詞綴名（例如 `P1`、`S1`、`Merciless`）；看板搜尋用 */
   modTiers?: readonly string[];
   /** 官方 `extended.mods` 拆解出的獨立詞條（含 stat hash 組合、是否複合、階級） */
@@ -74,11 +83,19 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const text = (value: unknown): string =>
   typeof value === 'string' && value.length <= MAX_TEXT_LENGTH ? value : '';
 
-function readMods(item: Record<string, unknown>): readonly string[] | undefined {
-  const mods = readTradeItemModLines(item, { maxLineLength: MAX_MOD_LINE_LENGTH }).map(
-    (line) => line.text,
+function readMods(item: Record<string, unknown>): {
+  mods?: readonly string[];
+  modStats?: readonly BoardModStat[];
+} {
+  const lines = readTradeItemModLines(item, { maxLineLength: MAX_MOD_LINE_LENGTH });
+  const mods = lines.map((line) => line.text);
+  const modStats = lines.flatMap((line) =>
+    line.statId ? [{ statId: line.statId, text: line.text }] : [],
   );
-  return mods.length > 0 ? mods : undefined;
+  return {
+    ...(mods.length > 0 ? { mods } : {}),
+    ...(modStats.length > 0 ? { modStats } : {}),
+  };
 }
 
 function readPrice(value: unknown): BoardPrice | undefined {
@@ -162,7 +179,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
       : undefined;
   const stash = readStash(listing.stash);
   const note = readNote(item, listing.price);
-  const mods = readMods(item);
+  const { mods, modStats } = readMods(item);
   const { modTiers, modRolls } = readTradeItemModData(item);
   const indexedAt = readIndexedAt(listing.indexed);
   const frameType =
@@ -183,6 +200,7 @@ export function toBoardEntry(raw: TradeResultEntry, order: number): BoardEntry |
     ...(stash ? { stash } : {}),
     ...(note ? { note } : {}),
     ...(mods ? { mods } : {}),
+    ...(modStats ? { modStats } : {}),
     ...(modTiers ? { modTiers } : {}),
     ...(modRolls ? { modRolls } : {}),
     ...(indexedAt !== undefined ? { indexedAt } : {}),

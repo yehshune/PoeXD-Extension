@@ -156,8 +156,9 @@ describe('PinnedItemPane travel feedback', () => {
     container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
     await flush();
 
-    const btn = container.querySelector<HTMLButtonElement>('[data-pinned-item-travel]')!;
-    btn.click();
+    // 售出後該列會移到底部的「已售出」區塊重新渲染，因此每次都重新查詢按鈕
+    const btn = () => container.querySelector<HTMLButtonElement>('[data-pinned-item-travel]')!;
+    btn().click();
     await flush();
 
     resolveTravel?.({ status: 'sold' });
@@ -165,11 +166,14 @@ describe('PinnedItemPane travel feedback', () => {
 
     expect(mockMarkSold).toHaveBeenCalledWith('p1');
     expect(container.querySelector('[data-pinned-item-sold]')).not.toBeNull();
-    expect(btn.disabled).toBe(true);
-    expect(btn.getAttribute('aria-label')).toBe('已售出');
+    expect(
+      container.querySelector('[data-pinned-items-sold-list] [data-pinned-item-id="p1"]'),
+    ).not.toBeNull();
+    expect(btn().disabled).toBe(true);
+    expect(btn().getAttribute('aria-label')).toBe('已售出');
 
     // Subsequent clicks do not re-trigger travel once marked sold
-    btn.click();
+    btn().click();
     await flush();
     expect(mockMarkSold).toHaveBeenCalledTimes(1);
 
@@ -177,11 +181,12 @@ describe('PinnedItemPane travel feedback', () => {
     emitSubscribed?.([{ ...item, pinnedAt: 200 }]);
     await flush();
     expect(container.querySelector('[data-pinned-item-sold]')).toBeNull();
-    expect(btn.disabled).toBe(false);
-    expect(btn.getAttribute('aria-label')).toBe('前往藏身處');
+    expect(container.querySelector('[data-pinned-items-sold-group]')).toBeNull();
+    expect(btn().disabled).toBe(false);
+    expect(btn().getAttribute('aria-label')).toBe('前往藏身處');
   });
 
-  it('shows the seller and listing age in the row meta like the result board, omits the instant-buyout badge, moves PoB copy into row menu when collapsed, and falls back to window.confirm when poexdConfirm is absent', async () => {
+  it('keeps the seller out of the row meta, omits the instant-buyout badge, moves PoB copy into row menu when collapsed, and falls back to window.confirm when poexdConfirm is absent', async () => {
     const previousConfirm = window.confirm;
     const windowConfirmSpy = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
     (window as { confirm?: unknown }).confirm = windowConfirmSpy;
@@ -193,7 +198,7 @@ describe('PinnedItemPane travel feedback', () => {
 
       const meta = container.querySelector('[data-pinned-item-meta]')?.textContent ?? '';
       expect(meta).not.toContain('直購');
-      expect(meta.trim()).toBe('Seller#1234');
+      expect(meta).not.toContain('Seller#1234');
 
       // Collapsed outer hover bar hides PoB button and exposes it inside the ⋯ menu
       expect(container.querySelector('[data-pinned-item-pob]')).toBeNull();
@@ -217,9 +222,12 @@ describe('PinnedItemPane travel feedback', () => {
       expect(container.querySelector('[data-pinned-item-pinned-at]')?.textContent).toContain(
         '釘選於',
       );
-      // 展開後同一行賣家與時間仍在名稱下方，不再另列「上架…・賣家：…」
-      expect(container.querySelector('[data-pinned-item-meta]')?.textContent?.trim()).toBe(
+      // 展開後賣家改列在明細，不放在名稱下方的灰色資訊
+      expect(container.querySelector('[data-pinned-item-meta]')?.textContent ?? '').not.toContain(
         'Seller#1234',
+      );
+      expect(container.querySelector('[data-pinned-item-seller]')?.textContent?.trim()).toBe(
+        '賣家：Seller#1234',
       );
       expect(container.querySelector('[data-pinned-item-listing-meta]')).toBeNull();
       container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
@@ -261,16 +269,32 @@ describe('PinnedItemPane travel feedback', () => {
     unmount = () => app.unmount();
     await flush();
 
+    // 已售出的釘選沉到底部的「已售出」區塊，未售出的維持在可拖曳的清單
     const rows = container.querySelectorAll<HTMLElement>('.pinned-item-row');
     expect(rows).toHaveLength(2);
-    expect(rows[0].querySelector('[data-pinned-item-sold]')).not.toBeNull();
-    expect(rows[1].querySelector('[data-pinned-item-sold]')).toBeNull();
+    expect(rows[0].dataset.pinnedItemId).toBe('p-active');
+    expect(rows[0].matches('[data-pinned-item-sold]')).toBe(false);
+    expect(rows[1].dataset.pinnedItemId).toBe('p-sold');
+    expect(rows[1].matches('[data-pinned-item-sold]')).toBe(true);
+    expect(rows[1].closest('[data-pinned-items-sold-list]')).not.toBeNull();
+    expect(container.querySelector('[data-pinned-items-sold-toggle]')?.textContent?.trim()).toBe(
+      '已售出 (1)',
+    );
 
     // Expand the persisted sold item and verify expanded travel button is disabled
-    rows[0].querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
+    rows[1].querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();
     await flush();
-    const travelBtn = rows[0].querySelector<HTMLButtonElement>('[data-pinned-item-travel]')!;
+    const travelBtn = container.querySelector<HTMLButtonElement>(
+      '[data-pinned-item-id="p-sold"] [data-pinned-item-travel]',
+    )!;
     expect(travelBtn.disabled).toBe(true);
+
+    // 收合「已售出」區塊後只剩未售出的列
+    container.querySelector<HTMLElement>('[data-pinned-items-sold-toggle]')!.click();
+    await flush();
+    expect(container.querySelectorAll('.pinned-item-row')).toHaveLength(1);
+    container.querySelector<HTMLElement>('[data-pinned-items-sold-toggle]')!.click();
+    await flush();
 
     const confirmSpy = vi.fn(async () => false);
     (window as { poexdConfirm?: unknown }).poexdConfirm = confirmSpy;

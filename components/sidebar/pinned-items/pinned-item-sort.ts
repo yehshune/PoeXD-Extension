@@ -3,6 +3,7 @@ import {
   PRICE_COMPARISON_CURRENCIES,
   compareListingPrice,
   convertPrice,
+  formatConvertedAmount,
   type CurrencyRateSnapshot,
   type PriceComparison,
 } from '@/utils/price-comparison';
@@ -80,9 +81,7 @@ export function resolvePinnedPriceComparison(
   if (!comparison) return undefined;
   const currencyMeta = PRICE_COMPARISON_CURRENCIES[comparison.currency];
   const currencyName = translate(currencyMeta.labelKey);
-  const amount = new Intl.NumberFormat(locale, {
-    maximumSignificantDigits: 4,
-  }).format(comparison.amount);
+  const amount = formatConvertedAmount(comparison.amount, locale);
   return {
     amount,
     currency: comparison.currency,

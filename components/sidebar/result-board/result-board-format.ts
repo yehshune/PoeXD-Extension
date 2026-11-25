@@ -4,7 +4,7 @@
 import { getActiveUiLocale, t, type I18nKey } from '@/utils/i18n';
 import type { BoardEntry, BoardPrice } from '@/utils/result-board/board-entry';
 import type { LoadStopReason } from '@/utils/result-board/board-loader';
-import { PRICE_COMPARISON_CURRENCIES } from '@/utils/price-comparison';
+import { PRICE_COMPARISON_CURRENCIES, formatConvertedAmount } from '@/utils/price-comparison';
 import type { PriceTotal } from '@/utils/result-board/board-projection';
 import type { CurrencyDisplay } from '@/utils/result-board/board-session';
 import { RARITY_COLOURS, resolveRarityClass } from '../pinned-items/pinned-item-card';
@@ -42,9 +42,9 @@ export function formatAge(indexedAt: number | undefined, now: number = Date.now(
   return format.format(0, 'minute');
 }
 
-/** 數量最多兩位小數，去掉多餘的 0 */
+/** 與釘選、官方結果列相同的金額格式（見 `formatConvertedAmount`） */
 export function formatAmount(amount: number): string {
-  return new Intl.NumberFormat(getActiveUiLocale(), { maximumFractionDigits: 2 }).format(amount);
+  return formatConvertedAmount(amount, getActiveUiLocale());
 }
 
 export function formatPrice(price: BoardPrice | undefined): string {
