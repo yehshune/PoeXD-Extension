@@ -373,11 +373,18 @@ export function useResultBoard(runtime: ResultBoardRuntime = getResultBoardRunti
 
   /**
    * 從物品清單跳到某位賣家：切到賣家清單並展開該賣家。
-   * 賣家件數低於目前門檻時先降低門檻，確保切過去看得到。
+   * 賣家件數低於目前門檻時先降低門檻並以 toast 告知，確保切過去看得到。
    */
   function focusSeller(account: string): void {
     const count = sellerInstantCounts.value.get(account) ?? 0;
-    if (count > 0 && minSellerCount.value > count) minSellerCount.value = count;
+    if (count > 0 && minSellerCount.value > count) {
+      minSellerCount.value = count;
+      // 門檻是使用者自己設的值，改動時明確告知，避免切回來才發現被改掉
+      dispatchPoeEvent('poexd-toast', {
+        message: t('resultBoard.minCountLowered', { count }),
+        tone: 'default',
+      });
+    }
     if (!expandedSellers.value.has(account)) {
       expandedSellers.value = new Set([...expandedSellers.value, account]);
     }

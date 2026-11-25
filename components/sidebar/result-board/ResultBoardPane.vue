@@ -13,8 +13,6 @@ import {
   LayoutList,
   ListFilter,
   Loader2,
-  Minus,
-  Plus,
   Search,
   SlidersHorizontal,
   X,
@@ -39,7 +37,9 @@ import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
 import BoardCurrencyAmount from './BoardCurrencyAmount.vue';
 import ResultBoardItemRow from './ResultBoardItemRow.vue';
+import ResultBoardMinCountStepper from './ResultBoardMinCountStepper.vue';
 import ResultBoardModFilterPanel from './ResultBoardModFilterPanel.vue';
+import ResultBoardPriceChip from './ResultBoardPriceChip.vue';
 import ResultBoardPriceFilter from './ResultBoardPriceFilter.vue';
 import ResultBoardSellerRow from './ResultBoardSellerRow.vue';
 import { currencyDisplayOf, stopMessage } from './result-board-format';
@@ -237,11 +237,6 @@ function statusText(): string {
 const summaryTokens = computed(() =>
   t('resultBoard.summary.price', { min: '\0min\0', median: '\0median\0' }).split('\0'),
 );
-
-function setMinSellerCount(value: string | number): void {
-  const parsed = Math.floor(Number(value));
-  minSellerCount.value = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}
 
 const activeBoardFilterLabels = computed(() => {
   const labels: string[] = [];
@@ -472,50 +467,11 @@ function resetAllFilters(): void {
             </Button>
           </div>
 
-          <div
+          <ResultBoardMinCountStepper
             v-if="view === 'sellers'"
-            class="order-3 flex basis-full items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] @[460px]:order-2 @[460px]:basis-auto"
-          >
-            <span>{{ t('resultBoard.filter.minCount') }}</span>
-            <div
-              class="inline-flex h-[var(--control-height-sm)] items-center overflow-hidden rounded-md border border-input bg-background"
-            >
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                class="h-full w-[calc(var(--control-height-sm)-4px)] rounded-none border-r border-border/60 text-muted-foreground hover:text-foreground"
-                :disabled="minSellerCount <= 0"
-                :aria-label="t('resultBoard.filter.decreaseMinCount')"
-                data-board-min-count-dec
-                @click="setMinSellerCount(minSellerCount - 1)"
-              >
-                <Minus />
-              </Button>
-              <Input
-                :model-value="String(minSellerCount)"
-                size="sm"
-                type="text"
-                inputmode="numeric"
-                class="h-full w-[2.8em] rounded-none border-0 bg-transparent px-[var(--pxd-space-xs)] text-center tabular-nums shadow-none focus-visible:ring-0"
-                :aria-label="t('resultBoard.filter.minCount')"
-                data-board-min-count
-                @update:model-value="setMinSellerCount"
-                @keydown.up.prevent="setMinSellerCount(minSellerCount + 1)"
-                @keydown.down.prevent="setMinSellerCount(minSellerCount - 1)"
-              />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                class="h-full w-[calc(var(--control-height-sm)-4px)] rounded-none border-l border-border/60 text-muted-foreground hover:text-foreground"
-                :aria-label="t('resultBoard.filter.increaseMinCount')"
-                data-board-min-count-inc
-                @click="setMinSellerCount(minSellerCount + 1)"
-              >
-                <Plus />
-              </Button>
-            </div>
-            <span>{{ t('resultBoard.filter.minCountUnit') }}</span>
-          </div>
+            v-model="minSellerCount"
+            class="order-3 basis-full @[460px]:order-2 @[460px]:basis-auto"
+          />
 
           <div
             class="order-2 ml-auto flex shrink-0 items-center gap-[var(--pxd-space-sm)] @[460px]:order-3"
@@ -680,31 +636,13 @@ function resetAllFilters(): void {
           v-if="view === 'items' && (hasMixedInstantBuyout || hasSoldEntries || priceRangeText)"
           class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]"
         >
-          <span
+          <ResultBoardPriceChip
             v-if="priceRangeText"
-            class="inline-flex h-[22px] items-center gap-[2px] rounded-full border border-primary/40 bg-primary/10 pl-[var(--pxd-space-sm)] pr-[2px] text-[length:var(--pxd-font-caption)] text-primary tabular-nums"
-            data-board-price-chip
-          >
-            {{ t('common.filterTag.price', { range: priceRangeText }) }}
-            <img
-              v-if="primaryCurrency?.icon"
-              :src="primaryCurrency.icon"
-              :alt="rates?.primary"
-              class="size-[var(--control-icon-sm)] shrink-0 object-contain"
-              referrerpolicy="no-referrer"
-              draggable="false"
-            />
-            <button
-              type="button"
-              class="flex size-[18px] cursor-pointer items-center justify-center rounded-full border-0 bg-transparent p-0 text-primary hover:bg-primary/15"
-              :aria-label="t('resultBoard.filter.clearPrice')"
-              :title="t('resultBoard.filter.clearPrice')"
-              data-board-price-chip-clear
-              @click="clearPriceRange"
-            >
-              <X class="size-[var(--control-icon-sm)]" />
-            </button>
-          </span>
+            :range="priceRangeText"
+            :currency="primaryCurrency"
+            :currency-code="rates?.primary"
+            @clear="clearPriceRange"
+          />
           <label
             v-if="hasMixedInstantBuyout"
             class="flex items-center gap-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] cursor-pointer select-none"

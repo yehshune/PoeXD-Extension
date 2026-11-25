@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, h, nextTick } from 'vue';
 import ResultBoardPane from '@/components/sidebar/result-board/ResultBoardPane.vue';
 import { ResultBoardRuntime } from '@/entrypoints/content/logic/result-board-runtime';
+import { listenPoeEvent } from '@/utils/event-contracts';
 import { setActiveDisplayLocalePreference } from '@/utils/i18n';
 import { createResultTranslator } from '@/utils/market-result-translator';
 import { receiveResultTranslationRequests } from '@/utils/market-result-translation-request';
@@ -208,7 +209,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     rows[0].querySelector<HTMLElement>('[data-board-entry-toggle]')!.click();
     await flush();
     expect(container.querySelector('[data-board-entry-seller]')?.textContent?.trim()).toBe(
-      '賣家：CharOne',
+      '賣家：CharOne (Seller#1)',
     );
   });
 
@@ -220,46 +221,64 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
       rawResult({ id: 'r4', account: 'Bulk#1', name: 'Rune Band', instantBuyout: false }),
       rawResult({ id: 'r5', account: 'Bulk#1', name: 'Gale Grip' }),
     ]);
+    runtime.session.markSold('r5');
 
-    const app = createApp({ render: () => h(ResultBoardPane) });
-    app.mount(container);
-    unmount = () => app.unmount();
-    await flush();
+    const toasts: string[] = [];
+    const stopToasts = listenPoeEvent('poexd-toast', (detail) => toasts.push(detail.message));
 
-    const chipOf = (id: string) =>
-      container.querySelector<HTMLButtonElement>(
-        `[data-board-entry-id="${id}"] [data-board-same-seller]`,
-      );
-    expect(chipOf('r1')?.textContent?.trim()).toBe('同賣家 ×3');
-    expect(chipOf('r2')).toBeNull();
-    // 需私訊的物品不標示（賣家清單只計可直購）
-    expect(chipOf('r4')).toBeNull();
-
-    // 門檻高於該賣家件數時先降低門檻，切過去才看得到
-    container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
-    await flush();
-    for (let i = 0; i < 2; i += 1) {
-      container.querySelector<HTMLElement>('[data-board-min-count-inc]')!.click();
+    try {
+      const app = createApp({ render: () => h(ResultBoardPane) });
+      app.mount(container);
+      unmount = () => app.unmount();
       await flush();
+
+      const inRow = (id: string, selector: string) =>
+        container.querySelector<HTMLElement>(`[data-board-entry-id="${id}"] ${selector}`);
+      expect(inRow('r1', '[data-board-same-seller]')?.textContent?.trim()).toBe('同賣家 ×3');
+      // 標記只是資訊，不是巢狀在可點擊列裡的按鈕
+      expect(inRow('r1', '[data-board-same-seller]')?.tagName).toBe('SPAN');
+      expect(inRow('r2', '[data-board-same-seller]')).toBeNull();
+      // 需私訊與已售出的物品不標示
+      expect(inRow('r4', '[data-board-same-seller]')).toBeNull();
+      expect(inRow('r5', '[data-board-same-seller]')).toBeNull();
+      expect(inRow('r5', '[data-board-focus-seller]')).toBeNull();
+
+      // 門檻高於該賣家件數時先降低門檻（並提示），切過去才看得到
+      container.querySelector<HTMLElement>('[data-board-view="sellers"]')!.click();
+      await flush();
+      for (let i = 0; i < 2; i += 1) {
+        container.querySelector<HTMLElement>('[data-board-min-count-inc]')!.click();
+        await flush();
+      }
+      expect(container.querySelector<HTMLInputElement>('[data-board-min-count]')!.value).toBe('4');
+      container.querySelector<HTMLElement>('[data-board-view="items"]')!.click();
+      await flush();
+
+      inRow('r1', '[data-board-focus-seller]')!.click();
+      await flush();
+
+      expect(
+        container.querySelector('[data-board-view="sellers"]')?.getAttribute('aria-selected'),
+      ).toBe('true');
+      expect(container.querySelector<HTMLInputElement>('[data-board-min-count]')!.value).toBe('3');
+      expect(toasts).toEqual(['已把「至少可直購」調為 3 件，才看得到這位賣家']);
+      const seller = container.querySelector<HTMLElement>('[data-board-seller="Bulk#1"]');
+      expect(seller).not.toBeNull();
+      expect(
+        seller!.querySelector('[data-board-seller-toggle]')?.getAttribute('aria-expanded'),
+      ).toBe('true');
+      // 物品列沒有被展開（只切換檢視）
+      expect(container.querySelector('[data-board-entry-card]')).toBeNull();
+
+      // 門檻已足夠時不再調整也不提示
+      container.querySelector<HTMLElement>('[data-board-view="items"]')!.click();
+      await flush();
+      inRow('r1', '[data-board-focus-seller]')!.click();
+      await flush();
+      expect(toasts).toHaveLength(1);
+    } finally {
+      stopToasts();
     }
-    expect(container.querySelector<HTMLInputElement>('[data-board-min-count]')!.value).toBe('4');
-    container.querySelector<HTMLElement>('[data-board-view="items"]')!.click();
-    await flush();
-
-    chipOf('r1')!.click();
-    await flush();
-
-    expect(
-      container.querySelector('[data-board-view="sellers"]')?.getAttribute('aria-selected'),
-    ).toBe('true');
-    expect(container.querySelector<HTMLInputElement>('[data-board-min-count]')!.value).toBe('3');
-    const seller = container.querySelector<HTMLElement>('[data-board-seller="Bulk#1"]');
-    expect(seller).not.toBeNull();
-    expect(seller!.querySelector('[data-board-seller-toggle]')?.getAttribute('aria-expanded')).toBe(
-      'true',
-    );
-    // 物品列沒有被展開（只切換檢視）
-    expect(container.querySelector('[data-board-entry-card]')).toBeNull();
   });
 
   it('shows instant-only checkbox only when results mix instant buyout and whisper-only listings', async () => {

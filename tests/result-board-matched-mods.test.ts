@@ -47,6 +47,11 @@ describe('fillStatTemplate', () => {
     expect(fillStatTemplate('+#% 火焰抗性', '+40% to Fire Resistance')).toBe('+40% 火焰抗性');
   });
 
+  it('lets a negative source value override a + written in the template', () => {
+    expect(fillStatTemplate('+#% 火焰抗性', '-10% to Fire Resistance')).toBe('-10% 火焰抗性');
+    expect(fillStatTemplate('+# 最大生命', '50 to maximum Life')).toBe('+50 最大生命');
+  });
+
   it('uses the template as-is when it has no placeholder', () => {
     expect(fillStatTemplate('無法被冰凍', 'Cannot be Frozen')).toBe('無法被冰凍');
   });
@@ -189,8 +194,10 @@ describe('projectBoardView sellerInstantCounts', () => {
 });
 
 describe('formatConvertedAmount', () => {
-  it('keeps two decimals at or above 1 and two significant digits below 1', () => {
+  it('drops decimals from 100, keeps two decimals from 1, and two significant digits below 1', () => {
+    expect(formatConvertedAmount(12345.678, 'en')).toBe('12,346');
     expect(formatConvertedAmount(206, 'en')).toBe('206');
+    expect(formatConvertedAmount(99.456, 'en')).toBe('99.46');
     expect(formatConvertedAmount(1.256, 'en')).toBe('1.26');
     expect(formatConvertedAmount(0.1111, 'en')).toBe('0.11');
     expect(formatConvertedAmount(0.56, 'en')).toBe('0.56');

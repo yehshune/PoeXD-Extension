@@ -42,8 +42,13 @@ export function formatAge(indexedAt: number | undefined, now: number = Date.now(
   return format.format(0, 'minute');
 }
 
-/** 與釘選、官方結果列相同的金額格式（見 `formatConvertedAmount`） */
+/** 實際標價與總價：最多兩位小數，去掉多餘的 0（不像換算值那樣依大小捨去精度） */
 export function formatAmount(amount: number): string {
+  return new Intl.NumberFormat(getActiveUiLocale(), { maximumFractionDigits: 2 }).format(amount);
+}
+
+/** 「≈」換算值：與釘選、官方結果列相同的格式（見 `formatConvertedAmount`） */
+export function formatConverted(amount: number): string {
   return formatConvertedAmount(amount, getActiveUiLocale());
 }
 

@@ -150,13 +150,18 @@ export function createResultPriceComparisons(
 }
 
 /**
- * 換算後金額的顯示格式（官方結果列、釘選、看板共用）：
- * 1 以上最多兩位小數；小於 1 時保留兩位有效數字，避免 0.004 被捨成 0，也不會出現 0.1111 這種雜訊位數。
+ * 換算後金額的顯示格式（官方結果列、釘選、看板共用），依金額大小決定精度：
+ * - 100 以上不留小數（`12,346`），大金額的小數只是雜訊
+ * - 1 到 100 最多兩位小數（`1.26`）
+ * - 小於 1 保留兩位有效數字（`0.11`、`0.0043`），避免被捨成 0
  */
 export function formatConvertedAmount(amount: number, locale: string): string {
+  const magnitude = Math.abs(amount);
   const options: Intl.NumberFormatOptions =
-    Math.abs(amount) >= 1 || amount === 0
-      ? { maximumFractionDigits: 2 }
-      : { maximumSignificantDigits: 2 };
+    magnitude >= 100
+      ? { maximumFractionDigits: 0 }
+      : magnitude >= 1 || amount === 0
+        ? { maximumFractionDigits: 2 }
+        : { maximumSignificantDigits: 2 };
   return new Intl.NumberFormat(locale, options).format(amount);
 }

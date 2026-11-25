@@ -4,7 +4,7 @@
  * 定位、前往藏身處、釘選都交給官方結果列（ADR-0018）。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { Home, Loader2, Pin, ScanSearch } from '@lucide/vue';
+import { Home, Loader2, Pin, ScanSearch, Users } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/utils/i18n';
@@ -23,6 +23,7 @@ import {
   entryNameLines,
   formatAge,
   formatAmount,
+  formatConverted,
   rarityColour,
 } from './result-board-format';
 
@@ -69,7 +70,7 @@ const converted = computed(() => {
   if (value === undefined || !props.rates || props.entry.price?.currency === props.rates.primary) {
     return '';
   }
-  return formatAmount(value);
+  return formatConverted(value);
 });
 
 /**
@@ -85,7 +86,7 @@ const metaParts = computed<MetaPart[]>(() => {
   const age = formatAge(props.entry.indexedAt);
   if (age) parts.push({ text: age });
   if (!instantBuyout) {
-    parts.push({ text: t('resultBoard.whisperOnly'), tone: 'caution' });
+    parts.push({ text: t('common.whisperOnly'), tone: 'caution' });
     if (seller.presence === 'afk') {
       parts.push({ text: t('resultBoard.presence.afk'), tone: 'caution' });
     } else if (seller.presence === 'offline') {
@@ -95,12 +96,20 @@ const metaParts = computed<MetaPart[]>(() => {
   return parts;
 });
 
-const sellerName = computed(() =>
-  props.pickable ? '' : (props.entry.seller.character ?? props.entry.seller.account),
-);
+/** 與賣家清單標題一致：角色名稱優先，和帳號不同時附上帳號 */
+const sellerName = computed(() => {
+  if (props.pickable) return '';
+  const { character, account } = props.entry.seller;
+  return character && character !== account ? `${character} (${account})` : account;
+});
 
+/** 物品清單中、未售出的可直購物品，且賣家有 2 件以上可直購時才標示「同賣家 ×N」 */
 const showSameSeller = computed(
-  () => !props.pickable && props.entry.instantBuyout && (props.sameSellerCount ?? 0) >= 2,
+  () =>
+    !props.pickable &&
+    props.mark !== 'sold' &&
+    props.entry.instantBuyout &&
+    (props.sameSellerCount ?? 0) >= 2,
 );
 
 const matchedModText = computed(() => (props.matchedMods ?? []).join(' · '));
@@ -239,17 +248,14 @@ onBeforeUnmount(stopObserving);
             class="min-w-0"
             data-board-entry-meta
           />
-          <button
+          <span
             v-if="showSameSeller"
-            type="button"
-            class="shrink-0 cursor-pointer rounded-sm border border-border bg-transparent px-[var(--pxd-space-xs)] py-0 text-[length:var(--pxd-font-micro)] leading-tight text-muted-foreground tabular-nums transition-colors hover:border-primary/40 hover:text-primary"
+            class="shrink-0 rounded-sm border border-border px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] leading-tight text-muted-foreground tabular-nums"
             :title="t('resultBoard.sameSellerTitle', { count: sameSellerCount ?? 0 })"
             data-board-same-seller
-            @click.stop="emit('focusSeller')"
-            @keydown.stop
           >
             {{ t('resultBoard.sameSeller', { count: sameSellerCount ?? 0 }) }}
-          </button>
+          </span>
         </div>
         <span
           v-if="matchedModText"
@@ -338,6 +344,17 @@ onBeforeUnmount(stopObserving);
       </template>
       <template #actions>
         <div class="flex items-center gap-[var(--pxd-space-xs)]">
+          <Button
+            v-if="showSameSeller"
+            variant="ghost"
+            size="icon-sm"
+            :title="t('resultBoard.action.focusSeller')"
+            :aria-label="t('resultBoard.action.focusSeller')"
+            data-board-focus-seller
+            @click.stop="emit('focusSeller')"
+          >
+            <Users />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"

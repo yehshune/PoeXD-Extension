@@ -67,7 +67,8 @@ const NUMBER_PATTERN = /[+-]?\d+(?:\.\d+)?/g;
 
 /**
  * 把詞綴原文的數值依序填入翻譯模板的 `#`。
- * 模板在 `#` 前已寫正負號（例如 `+#%`）時只填數字，否則沿用原文的正負號（`# 最大魔力` ← `+59`）。
+ * 正負號：原文是負數時一律用 `-`（蓋過模板寫的 `+`）；否則模板有寫就用模板的，沒寫才沿用原文的 `+`
+ * （`# 最大魔力` ← `+59`、`+#%` ← `-10%` 得 `-10%`）。
  * 模板沒有 `#` 時直接使用模板；數值個數對不上或沒有翻譯時退回原文，避免填錯數字。
  */
 export function fillStatTemplate(template: string | undefined, sourceText: string): string {
@@ -77,10 +78,11 @@ export function fillStatTemplate(template: string | undefined, sourceText: strin
   const numbers = sourceText.match(NUMBER_PATTERN) ?? [];
   if (numbers.length !== slots) return sourceText;
   let index = 0;
-  return template.replace(/#/g, (_match, offset: number) => {
-    const value = numbers[index++] ?? '#';
-    const signed = template[offset - 1] === '+' || template[offset - 1] === '-';
-    return signed ? value.replace(/^[+-]/, '') : value;
+  return template.replace(/([+-]?)#/g, (_match, templateSign: string) => {
+    const value = numbers[index++] ?? '';
+    const sourceSign = value.startsWith('-') ? '-' : value.startsWith('+') ? '+' : '';
+    const sign = sourceSign === '-' ? '-' : templateSign || sourceSign;
+    return `${sign}${value.replace(/^[+-]/, '')}`;
   });
 }
 

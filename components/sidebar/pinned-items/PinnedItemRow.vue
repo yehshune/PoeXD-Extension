@@ -86,7 +86,7 @@ const metaParts = computed<MetaPart[]>(() => {
   if (props.showLeague && props.item.league) parts.push({ text: props.item.league });
   if (props.realmLabel) parts.push({ text: props.realmLabel });
   if (!props.sold && !props.item.listing.instantBuyout) {
-    parts.push({ text: t('resultBoard.whisperOnly'), tone: 'caution' });
+    parts.push({ text: t('common.whisperOnly'), tone: 'caution' });
   }
   return parts;
 });
