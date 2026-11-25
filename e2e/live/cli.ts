@@ -17,6 +17,7 @@ import {
   type ActionResult,
   type ResultLayout,
 } from './official-actions.ts';
+import { captureResponses } from './network-capture.ts';
 import { snapshotStore, summarizeTradePage } from './page-probes.ts';
 import {
   allPages,
@@ -44,6 +45,9 @@ const HELP = `用法：pnpm poe <command> [參數] [--tab N]
   shot [selector] [--full] [--out file.png]
                             截圖到 e2e/.shots/（selector 會穿透 open shadow DOM）
   close-trade               關閉所有官方搜尋分頁（改擴充程式碼前用，避免熱更新一直刷新）
+  net [--filter /api/] [--seconds 10] [--file x.js] [--max-body 600] [--full-url]
+                            監聽分頁的網路回應（含擴充發出的請求）；--file 在監聽期間於主世界執行，
+                            用來觸發要觀察的請求（本身不發請求，觸發的動作可能會）
 
 會發官方請求（注意速率限制）：
   open <url|poe1|poe2|searchId> [--new]
@@ -117,6 +121,19 @@ async function store(page: Page, args: CliArgs): Promise<void> {
   print(snapshot === undefined ? `store 裡沒有路徑「${args.positionals[0]}」` : snapshot);
 }
 
+async function net(page: Page, args: CliArgs): Promise<void> {
+  const file = flagString(args, 'file');
+  print(
+    await captureResponses(page, {
+      filter: flagString(args, 'filter') ?? '/api/',
+      seconds: flagInt(args, 'seconds') ?? 10,
+      maxBody: flagInt(args, 'max-body') ?? 600,
+      fullUrl: Boolean(args.flags['full-url']),
+      script: file ? await readFile(file, 'utf8') : undefined,
+    }),
+  );
+}
+
 async function evaluate(page: Page, args: CliArgs): Promise<void> {
   const file = flagString(args, 'file');
   const expr = args.positionals.join(' ');
@@ -181,12 +198,13 @@ async function act(page: Page, args: CliArgs): Promise<void> {
 }
 
 /** 依賴版面尺寸的指令：視窗太小時暫時模擬桌面尺寸 */
-const VIEWPORT_COMMANDS = new Set(['shot', 'act', 'eval']);
+const VIEWPORT_COMMANDS = new Set(['shot', 'act', 'eval', 'net']);
 
 const PAGE_COMMANDS: Record<string, (page: Page, args: CliArgs) => Promise<void>> = {
   reload,
   store,
   eval: evaluate,
+  net,
   shot,
   act,
 };

@@ -7,7 +7,7 @@ export interface CliArgs {
 }
 
 /** 不接值的旗標；其餘 `--key` 會吃掉下一個參數當值 */
-const BOOLEAN_FLAGS = new Set(['full', 'new', 'json', 'help']);
+const BOOLEAN_FLAGS = new Set(['full', 'new', 'json', 'help', 'full-url']);
 
 export function parseCliArgs(argv: readonly string[]): CliArgs {
   const positionals: string[] = [];
