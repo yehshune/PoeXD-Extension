@@ -30,7 +30,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits);
       v-bind="{ ...forwarded, ...$attrs }"
       :class="
         cn(
-          'z-(--pxd-z-floating) max-w-[min(var(--pxd-tooltip-max-width,280px),var(--reka-tooltip-content-available-width,calc(100vw-32px)))] overflow-hidden box-border rounded-md border border-border bg-popover px-[var(--pxd-space-lg)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] leading-normal whitespace-normal break-words text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+          'z-(--pxd-z-tooltip) max-w-[min(var(--pxd-tooltip-max-width,280px),var(--reka-tooltip-content-available-width,calc(100vw-32px)))] overflow-hidden box-border rounded-md border border-border bg-popover px-[var(--pxd-space-lg)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-secondary)] leading-normal whitespace-normal break-words text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
           props.class,
         )
       "

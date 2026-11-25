@@ -42,7 +42,8 @@ describe('z-index tokens', () => {
     const dialogs = [token('dialog'), token('dialog-nested'), token('dialog-system')];
     expect(dialogs).toEqual([...dialogs].sort((a, b) => a - b));
     expect(token('floating')).toBeGreaterThan(Math.max(...dialogs));
-    expect(token('guide-ring')).toBeGreaterThan(token('floating'));
+    expect(token('tooltip')).toBeGreaterThan(token('floating'));
+    expect(token('guide-ring')).toBeGreaterThan(token('tooltip'));
     expect(token('guide-blocker')).toBeGreaterThan(token('guide-ring'));
     expect(token('guide-overlay')).toBeGreaterThan(token('guide-blocker'));
     expect(token('guide-floating')).toBeGreaterThan(token('guide-overlay'));

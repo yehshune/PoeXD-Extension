@@ -59,6 +59,8 @@ interface ModLine {
 
 const props = defineProps({
   open: { type: Boolean, default: false },
+  /** 是否為已點擊固定顯示（false 表示僅為滑鼠 hover 暫時預覽） */
+  pinned: { type: Boolean, default: false },
   side: {
     type: String as PropType<'left' | 'right' | 'top' | 'bottom'>,
     default: 'right',
@@ -333,6 +335,7 @@ function clearBounds(): void {
 <template>
   <ItemPreviewPopover
     :open="open"
+    :pinned="pinned"
     :side="side"
     :reference="reference"
     :ready="Boolean(effectiveRow)"
@@ -343,8 +346,9 @@ function clearBounds(): void {
       <ItemPreviewHeader
         :title="effectiveRow.label"
         :title-class="nameClass"
+        :pinned="pinned"
         :modified="isDraftModified"
-        closable
+        :closable="pinned"
         @close="emit('update:open', false)"
       >
         <template v-if="effectiveRow.suffix || rowDetailText" #tags>

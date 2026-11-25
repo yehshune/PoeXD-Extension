@@ -23,6 +23,8 @@ import type { ShoppingRow, SocketContent } from './usePobBuild';
 const props = defineProps<{
   rows: readonly ShoppingRow[];
   activeKey?: string;
+  /** 按住 Alt 時顯示所有裝備的插槽、技能寶石與鑲嵌物 */
+  revealSockets?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -132,6 +134,7 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
 <template>
   <div
     data-pob-build-gear
+    :data-reveal-sockets="revealSockets ? 'true' : undefined"
     class="relative flex flex-col gap-[var(--pxd-space-sm)] bg-card p-[var(--pxd-space-md)]"
   >
     <div class="pxd-gear-body">
@@ -492,11 +495,12 @@ const tileIconStyle = (row: ShoppingRow, cell: GearCell) => {
   transition: opacity 0.15s;
 }
 
-/* 和遊戲一樣，平常只看圖片，滑過（或選取、鍵盤聚焦）時才顯示插槽 */
+/* 和遊戲一樣，平常只看圖片，滑過（或選取、鍵盤聚焦、按住 Alt）時才顯示插槽 */
 .pxd-gear-tile:hover .pxd-gear-tile__sockets,
 .pxd-gear-tile:focus-visible .pxd-gear-tile__sockets,
 .pxd-gear-tile:focus-within .pxd-gear-tile__sockets,
-.pxd-gear-tile.is-active .pxd-gear-tile__sockets {
+.pxd-gear-tile.is-active .pxd-gear-tile__sockets,
+[data-reveal-sockets='true'] .pxd-gear-tile__sockets {
   opacity: 1;
 }
 

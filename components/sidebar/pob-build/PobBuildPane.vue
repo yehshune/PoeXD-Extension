@@ -407,7 +407,12 @@
             <PobGearView
               v-if="isGearView(build)"
               :rows="equipmentRows(build)"
-              :active-key="activePreview?.buildId === build.id ? activePreview.row.key : undefined"
+              :active-key="
+                previewPinned && activePreview?.buildId === build.id
+                  ? activePreview.row.key
+                  : undefined
+              "
+              :reveal-sockets="isAltHeld"
               @select="(row, event) => handleGearSelect(build.id, row, event)"
               @hover="(row, event) => hoverPreview(build.id, row, event)"
               @leave="leavePreviewTrigger"
@@ -468,7 +473,7 @@
                     data-pob-build-row
                     :data-done="row.done ? 'true' : 'false'"
                     :class="[
-                      isPreviewActive(build.id, row.key)
+                      isPreviewPinned(build.id, row.key)
                         ? 'bg-primary/12 hover:bg-primary/15 has-[[data-state=open]]:bg-primary/15 shadow-[inset_2px_0_0_var(--primary)]'
                         : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40',
                     ]"
@@ -485,7 +490,8 @@
                       v-if="row.icon"
                       data-pob-build-icon-hover
                       class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center"
-                      :class="{ 'opacity-50': row.done }"
+                      :class="{ 'opacity-50': row.done, 'cursor-pointer': canPreview(row) }"
+                      @click.stop="canPreview(row) && togglePreview(build.id, row.key, $event)"
                       @mouseenter="hoverPreview(build.id, row, $event)"
                       @mouseleave="leavePreviewTrigger"
                     >
@@ -504,7 +510,8 @@
                       aria-hidden="true"
                       data-pob-build-icon-placeholder
                       class="flex size-[var(--control-height-sm)] shrink-0 items-center justify-center rounded-sm border border-border bg-muted text-[length:var(--pxd-font-micro)] font-bold text-muted-foreground"
-                      :class="{ 'opacity-50': row.done }"
+                      :class="{ 'opacity-50': row.done, 'cursor-pointer': canPreview(row) }"
+                      @click.stop="canPreview(row) && togglePreview(build.id, row.key, $event)"
                       @mouseenter="hoverPreview(build.id, row, $event)"
                       @mouseleave="leavePreviewTrigger"
                       >?</span
@@ -577,7 +584,7 @@
 
                     <div
                       :class="[
-                        isPreviewActive(build.id, row.key)
+                        isPreviewPinned(build.id, row.key)
                           ? '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--primary)_15%,var(--card))]'
                           : '[--pxd-hover-overlay-bg:color-mix(in_srgb,var(--muted)_40%,var(--card))]',
                         { '!opacity-100 !pointer-events-auto': isMenuOpen(build.id, row.key) },
@@ -600,12 +607,12 @@
                         variant="ghost"
                         size="icon-sm"
                         :class="
-                          isPreviewActive(build.id, row.key)
+                          isPreviewPinned(build.id, row.key)
                             ? 'text-primary bg-primary/15'
                             : undefined
                         "
                         data-pob-build-mods-toggle
-                        :aria-expanded="isPreviewActive(build.id, row.key)"
+                        :aria-expanded="isPreviewPinned(build.id, row.key)"
                         :title="t('pobBuild.toggleModsTitle')"
                         :aria-label="t('pobBuild.toggleModsTitle')"
                         @click.stop="togglePreview(build.id, row.key, $event)"
@@ -764,6 +771,7 @@
 
       <PobEntryPreviewPopover
         :open="isPreviewOpen"
+        :pinned="previewPinned"
         :side="sidebarPosition === 'left' ? 'right' : 'left'"
         :reference="previewAnchor"
         :build-id="activePreview?.buildId ?? ''"
@@ -772,8 +780,6 @@
         :row-detail-text="activePreview ? rowDetail(activePreview.row) : ''"
         :name-class="activePreview ? nameClass(activePreview.row) : ''"
         :search-defaults="activePreviewDefaults"
-        @mouseenter="enterPreviewCard"
-        @mouseleave="leavePreviewTrigger"
         @pointerdown="pinPreview"
         @focusin="pinPreview"
         @update:open="(open) => !open && closePreview()"
@@ -1082,6 +1088,9 @@ export default defineComponent({
       workspace.setViewMode(buildId, value);
     };
 
+    const isPreviewPinned = (buildId: string, key: string): boolean =>
+      workspace.previewPinned.value && workspace.isPreviewActive(buildId, key);
+
     /** 預覽的錨點：清單為該列、裝備欄為該物品格，讓詞綴調整框直接出現在物品旁邊 */
     const previewAnchorFromEvent = (event: Event): PreviewAnchor | null =>
       rowAnchorFromEvent(event, PREVIEW_ANCHOR);
@@ -1214,10 +1223,26 @@ export default defineComponent({
       pob.removeBuild(build.id);
     };
 
+    /** 按住 Alt 鍵時，裝備欄同步顯示所有裝備的插槽技能與鑲嵌物 */
+    const isAltHeld = ref(false);
+    const handleAltKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Alt') isAltHeld.value = true;
+    };
+    const handleAltKeyUp = (event: KeyboardEvent) => {
+      if (event.key === 'Alt') isAltHeld.value = false;
+    };
+    const clearAltHeld = () => {
+      isAltHeld.value = false;
+    };
+
     let stopPreferences: (() => void) | undefined;
     let disposed = false;
 
     onMounted(async () => {
+      window.addEventListener('keydown', handleAltKeyDown);
+      window.addEventListener('keyup', handleAltKeyUp);
+      window.addEventListener('blur', clearAltHeld);
+      document.addEventListener('visibilitychange', clearAltHeld);
       void getPreferences(version).then((outcome) => {
         if (disposed || !outcome.ok) return;
         stopPreferences = outcome.value.subscribe((snapshot) => {
@@ -1231,6 +1256,11 @@ export default defineComponent({
       }
     });
     onUnmounted(() => {
+      window.removeEventListener('keydown', handleAltKeyDown);
+      window.removeEventListener('keyup', handleAltKeyUp);
+      window.removeEventListener('blur', clearAltHeld);
+      document.removeEventListener('visibilitychange', clearAltHeld);
+      isAltHeld.value = false;
       workspace.dispose();
       disposed = true;
       stopPreferences?.();
@@ -1272,11 +1302,12 @@ export default defineComponent({
       isActiveDraftModified: workspace.isActiveDraftModified,
       previewAnchor: workspace.previewAnchor,
       isPreviewOpen: workspace.isPreviewOpen,
+      previewPinned: workspace.previewPinned,
+      isPreviewPinned,
       isPreviewActive: workspace.isPreviewActive,
       togglePreview,
       closePreview: workspace.closePreview,
       hoverPreview,
-      enterPreviewCard: workspace.enterPreviewCard,
       leavePreviewTrigger: workspace.leavePreviewTrigger,
       pinPreview: workspace.pinPreview,
       updateActiveDraft: workspace.updateActiveDraft,
@@ -1311,6 +1342,7 @@ export default defineComponent({
       viewMode: workspace.viewMode,
       setViewMode,
       isGearView: workspace.isGearView,
+      isAltHeld,
       hasEquipment: workspace.hasEquipment,
       equipmentRows: workspace.equipmentRows,
       handleGearSelect,

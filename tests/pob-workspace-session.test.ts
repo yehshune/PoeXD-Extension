@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { nextTick, ref } from 'vue';
 import type { BuildView, ShoppingRow } from '@/components/sidebar/pob-build/usePobBuild';
 import {
-  HOVER_CLOSE_DELAY_MS,
   HOVER_OPEN_DELAY_MS,
+  HOVER_WARM_WINDOW_MS,
   usePobWorkspaceSession,
   type PobWorkspaceTimer,
 } from '@/components/sidebar/pob-build/usePobWorkspaceSession';
@@ -385,7 +385,7 @@ describe('usePobWorkspaceSession', () => {
   });
 
   describe('preview hover, pin, socket, and auto-close state machine', () => {
-    it('opens after 260ms hover, pauses close on card enter, and closes after 200ms leave', () => {
+    it('opens after 150ms hover, closes immediately on leave, and opens next item immediately within 300ms warm window', () => {
       const timers = createFakeTimers();
       const builds = ref<BuildView[]>([makeBuild()]);
       const searchQuery = ref('');
@@ -397,6 +397,7 @@ describe('usePobWorkspaceSession', () => {
       });
 
       const gloves = builds.value[0].groups[0].rows[1];
+      const flask = builds.value[0].groups[0].rows[2];
       const shield = builds.value[0].groups[0].rows[0]; // no mods, no searchOverride -> not previewable
 
       // Non-previewable or null anchor does nothing
@@ -405,7 +406,16 @@ describe('usePobWorkspaceSession', () => {
       timers.advanceBy(500);
       expect(session.isPreviewOpen.value).toBe(false);
 
-      // Hover opens at exact delay
+      // Leaving before open delay cancels opening and does NOT start warm window
+      session.hoverPreview('b1', gloves, 'anchor-gloves');
+      timers.advanceBy(HOVER_OPEN_DELAY_MS - 1);
+      session.leavePreviewTrigger();
+      expect(session.isPreviewOpen.value).toBe(false);
+      session.hoverPreview('b1', flask, 'anchor-flask');
+      expect(session.isPreviewOpen.value).toBe(false);
+      session.leavePreviewTrigger();
+
+      // Cold hover opens at exact delay
       session.hoverPreview('b1', gloves, 'anchor-gloves');
       timers.advanceBy(HOVER_OPEN_DELAY_MS - 1);
       expect(session.isPreviewOpen.value).toBe(false);
@@ -416,21 +426,29 @@ describe('usePobWorkspaceSession', () => {
       expect(session.previewAnchor.value).toBe('anchor-gloves');
       expect(session.isPreviewActive('b1', 'k-gloves')).toBe(true);
 
-      // Leaving trigger schedules 200ms close; entering card cancels it
+      // Leaving trigger closes unpinned preview immediately (no grace delay)
       session.leavePreviewTrigger();
-      timers.advanceBy(HOVER_CLOSE_DELAY_MS - 1);
-      expect(session.isPreviewOpen.value).toBe(true);
-      session.enterPreviewCard();
-      timers.advanceBy(500);
-      expect(session.isPreviewOpen.value).toBe(true);
-
-      // Leaving card closes after 200ms
-      session.leavePreviewTrigger();
-      timers.advanceBy(HOVER_CLOSE_DELAY_MS - 1);
-      expect(session.isPreviewOpen.value).toBe(true);
-      timers.advanceBy(1);
       expect(session.isPreviewOpen.value).toBe(false);
       expect(session.previewAnchor.value).toBeNull();
+
+      // Hovering next item within warm window opens immediately (0ms)
+      timers.advanceBy(HOVER_WARM_WINDOW_MS - 1);
+      session.hoverPreview('b1', flask, 'anchor-flask');
+      expect(session.isPreviewOpen.value).toBe(true);
+      expect(session.previewPinned.value).toBe(false);
+      expect(session.isPreviewActive('b1', 'k-flask')).toBe(true);
+      expect(session.previewAnchor.value).toBe('anchor-flask');
+
+      // After warm window expires, next hover returns to cold 150ms delay
+      session.leavePreviewTrigger();
+      expect(session.isPreviewOpen.value).toBe(false);
+      timers.advanceBy(HOVER_WARM_WINDOW_MS);
+      session.hoverPreview('b1', gloves, 'anchor-gloves');
+      expect(session.isPreviewOpen.value).toBe(false);
+      timers.advanceBy(HOVER_OPEN_DELAY_MS - 1);
+      expect(session.isPreviewOpen.value).toBe(false);
+      timers.advanceBy(1);
+      expect(session.isPreviewOpen.value).toBe(true);
 
       session.dispose();
     });
@@ -472,12 +490,11 @@ describe('usePobWorkspaceSession', () => {
       expect(session.isPreviewOpen.value).toBe(false);
       expect(session.previewPinned.value).toBe(false);
 
-      // pinPreview() cancels pending leave close timer (e.g. pointerdown/focusin inside popover)
+      // pinPreview() keeps preview open across subsequent leavePreviewTrigger
       session.hoverPreview('b1', gloves, 'anchor-gloves');
       timers.advanceBy(HOVER_OPEN_DELAY_MS);
-      session.leavePreviewTrigger();
       session.pinPreview();
-      timers.advanceBy(HOVER_CLOSE_DELAY_MS * 2);
+      session.leavePreviewTrigger();
       expect(session.isPreviewOpen.value).toBe(true);
       expect(session.previewPinned.value).toBe(true);
 

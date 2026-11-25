@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X } from '@lucide/vue';
+import { Pin, X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { t } from '@/utils/i18n';
 
@@ -9,6 +9,8 @@ defineProps({
   /** 名稱的文字顏色（例如依稀有度）；省略時為前景色 */
   titleClass: { type: String, default: '' },
   closable: { type: Boolean, default: false },
+  /** 已點擊固定時在標題旁顯示圖釘指示 */
+  pinned: { type: Boolean, default: false },
   /** 有未儲存的暫存微調時在標題旁顯示圓點提示 */
   modified: { type: Boolean, default: false },
 });
@@ -21,6 +23,12 @@ const emit = defineEmits<{ close: [] }>();
     class="preview-header preview-title-row flex h-[var(--pxd-sidebar-affix-dialog-header-height)] min-w-0 shrink-0 items-center gap-[var(--pxd-space-sm)] border-b border-border/60 bg-muted/30 px-[var(--pxd-pane-padding)]"
   >
     <div class="flex min-w-0 flex-1 items-center gap-[var(--pxd-space-xs)]">
+      <Pin
+        v-if="pinned"
+        class="size-3.5 shrink-0 text-primary"
+        data-test="preview-pinned-indicator"
+        aria-hidden="true"
+      />
       <span
         class="preview-source-name min-w-0 truncate text-[length:var(--pxd-font-body)] font-bold tracking-[0.5px]"
         :class="titleClass || 'text-foreground'"

@@ -24,8 +24,8 @@ export const CATEGORY_ORDER: readonly ConcreteShoppingCategory[] = [
   'gem',
 ];
 
-export const HOVER_OPEN_DELAY_MS = 260;
-export const HOVER_CLOSE_DELAY_MS = 200;
+export const HOVER_OPEN_DELAY_MS = 150;
+export const HOVER_WARM_WINDOW_MS = 300;
 
 export interface ActivePreviewTarget {
   buildId: string;
@@ -86,7 +86,6 @@ export interface PobWorkspaceSession<TAnchor = unknown> {
   isPreviewOpen: ComputedRef<boolean>;
   isPreviewActive: (buildId: string, key: string) => boolean;
   hoverPreview: (buildId: string, row: ShoppingRow, anchor: TAnchor | null) => void;
-  enterPreviewCard: () => void;
   leavePreviewTrigger: () => void;
   pinPreview: () => void;
   togglePreview: (buildId: string, key: string, anchor: TAnchor | null) => void;
@@ -155,7 +154,8 @@ export function usePobWorkspaceSession<TAnchor = unknown>(
   const draftsByTarget = shallowRef<ReadonlyMap<string, EntrySearchSelection>>(new Map());
 
   let hoverOpenTimer: unknown;
-  let hoverCloseTimer: unknown;
+  let hoverWarmTimer: unknown;
+  let hoverWarm = false;
 
   const clearHoverOpenTimer = () => {
     if (hoverOpenTimer !== undefined) {
@@ -164,16 +164,21 @@ export function usePobWorkspaceSession<TAnchor = unknown>(
     }
   };
 
-  const clearHoverCloseTimer = () => {
-    if (hoverCloseTimer !== undefined) {
-      timers.clearTimeout(hoverCloseTimer);
-      hoverCloseTimer = undefined;
+  const clearHoverWarm = () => {
+    if (hoverWarmTimer !== undefined) {
+      timers.clearTimeout(hoverWarmTimer);
+      hoverWarmTimer = undefined;
     }
+    hoverWarm = false;
   };
 
-  const clearHoverTimers = () => {
-    clearHoverOpenTimer();
-    clearHoverCloseTimer();
+  const startHoverWarmWindow = () => {
+    clearHoverWarm();
+    hoverWarm = true;
+    hoverWarmTimer = timers.setTimeout(() => {
+      hoverWarmTimer = undefined;
+      hoverWarm = false;
+    }, HOVER_WARM_WINDOW_MS);
   };
 
   const isFiltering = computed(() => searchQuery.value.trim().length > 0);
@@ -291,7 +296,8 @@ export function usePobWorkspaceSession<TAnchor = unknown>(
     activePreview.value?.buildId === buildId && activePreview.value?.row.key === key;
 
   const closePreview = () => {
-    clearHoverTimers();
+    clearHoverOpenTimer();
+    clearHoverWarm();
     previewPinned.value = false;
     activePreviewTarget.value = null;
     previewAnchor.value = null;
@@ -303,15 +309,21 @@ export function usePobWorkspaceSession<TAnchor = unknown>(
   };
 
   /**
-   * 滑鼠移入格子（或清單的圖示、調整按鈕）稍停即開啟預覽；移進預覽框只暫停關閉，移出照常
-   * 收合。點擊格子或在預覽框內操作（pointerdown／focusin）才會固定開著，固定時不受其他項
-   * 目的 hover 干擾，直到點外面、按關閉或再點一次。
+   * 滑鼠移入格子（或清單的圖示、調整按鈕）稍停即開啟預覽，移開物品立即關閉；
+   * 移出後短時間內（HOVER_WARM_WINDOW_MS）再移入下一件物品則免延遲直接切換，方便連續掃視。
+   * 點擊該項目（或在預覽框內操作）才會固定開著，固定時不受其他項目的 hover 干擾，
+   * 直到點外面、按關閉或再點一次。
    */
   const hoverPreview = (buildId: string, row: ShoppingRow, anchor: TAnchor | null) => {
-    clearHoverCloseTimer();
     if (previewPinned.value || !canPreviewPobRow(row) || isPreviewActive(buildId, row.key)) return;
     if (anchor == null) return;
     clearHoverOpenTimer();
+    if (hoverWarm) {
+      clearHoverWarm();
+      previewAnchor.value = anchor;
+      activePreviewTarget.value = { buildId, key: row.key };
+      return;
+    }
     hoverOpenTimer = timers.setTimeout(() => {
       hoverOpenTimer = undefined;
       if (previewPinned.value) return;
@@ -320,22 +332,15 @@ export function usePobWorkspaceSession<TAnchor = unknown>(
     }, HOVER_OPEN_DELAY_MS);
   };
 
-  const enterPreviewCard = () => {
-    clearHoverCloseTimer();
-  };
-
   const leavePreviewTrigger = () => {
     clearHoverOpenTimer();
     if (previewPinned.value || !activePreviewTarget.value) return;
-    clearHoverCloseTimer();
-    hoverCloseTimer = timers.setTimeout(() => {
-      hoverCloseTimer = undefined;
-      if (!previewPinned.value) closePreview();
-    }, HOVER_CLOSE_DELAY_MS);
+    closePreview();
+    startHoverWarmWindow();
   };
 
   const pinPreview = () => {
-    clearHoverCloseTimer();
+    clearHoverWarm();
     previewPinned.value = true;
   };
 
@@ -357,7 +362,8 @@ export function usePobWorkspaceSession<TAnchor = unknown>(
       return;
     }
     if (anchor == null) return;
-    clearHoverTimers();
+    clearHoverOpenTimer();
+    clearHoverWarm();
     previewPinned.value = true;
     previewAnchor.value = anchor;
     activePreviewTarget.value = fromSocket ? { buildId, key, fromSocket: true } : { buildId, key };
@@ -501,7 +507,6 @@ export function usePobWorkspaceSession<TAnchor = unknown>(
     isPreviewOpen,
     isPreviewActive,
     hoverPreview,
-    enterPreviewCard,
     leavePreviewTrigger,
     pinPreview,
     togglePreview,

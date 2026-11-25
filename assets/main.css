@@ -177,6 +177,7 @@
   --pxd-z-dialog-nested: 110;
   --pxd-z-dialog-system: 120;
   --pxd-z-floating: 200; /* 浮動選單，永遠在對話框之上 */
+  --pxd-z-tooltip: 202; /* 提示框（如插槽寶石資訊），永遠在浮動選單與 Popover 之上 */
   --pxd-z-guide-ring: 205; /* 導覽高亮外框（高於浮動選單與對話框，使其保持明亮） */
   --pxd-z-guide-blocker: 210; /* 導覽互動阻擋層（擋住示範面板與浮動選單點擊） */
   --pxd-z-guide-overlay: 220; /* 導覽說明框、圖示標註與模擬游標 */

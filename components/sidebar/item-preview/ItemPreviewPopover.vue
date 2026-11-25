@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, type PropType } from 'vue';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { isNestedMenuInteraction } from '../stat-domain/nested-menu-guard';
 import { PREVIEW_POPOVER_CLASS, type PreviewAnchor } from './preview-classes';
 
@@ -20,6 +21,8 @@ const props = defineProps({
   reference: { type: Object as PropType<PreviewAnchor | null>, default: null },
   /** 內容還沒準備好時不渲染 PopoverContent */
   ready: { type: Boolean, default: true },
+  /** 是否為已點擊固定的狀態（用於區分 hover 暫時預覽與固定編輯） */
+  pinned: { type: Boolean, default: false },
 });
 
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
@@ -51,12 +54,19 @@ function handleInteractOutside(event: CustomEvent<{ originalEvent?: Event }>): v
       v-if="open && ready"
       v-bind="$attrs"
       data-item-preview
+      :data-pinned="pinned ? 'true' : undefined"
       :side="side"
       align="start"
       :side-offset="10"
       :collision-padding="10"
       :avoid-collisions="true"
-      :class="PREVIEW_POPOVER_CLASS"
+      :class="
+        cn(
+          PREVIEW_POPOVER_CLASS,
+          'transition-[border-color,box-shadow] duration-150',
+          pinned && 'border-primary/60 ring-1 ring-primary/25',
+        )
+      "
       @open-auto-focus.prevent
       @interact-outside="handleInteractOutside"
     >

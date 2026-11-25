@@ -1431,18 +1431,15 @@ describe('PobBuildPane', () => {
       gloves.dispatchEvent(new MouseEvent('mouseenter'));
       vi.advanceTimersByTime(300);
       await nextTick();
-      expect(gloves.getAttribute('aria-pressed')).toBe('true');
-      // 滑鼠擦過預覽框邊緣後移出仍會關閉（不自動釘死）
-      gloves.dispatchEvent(new MouseEvent('mouseleave'));
-      const popover = queryBody('[data-item-preview]')!;
-      popover.dispatchEvent(new MouseEvent('mouseenter'));
-      vi.advanceTimersByTime(300);
-      await nextTick();
-      expect(gloves.getAttribute('aria-pressed')).toBe('true');
-      popover.dispatchEvent(new MouseEvent('mouseleave'));
-      vi.advanceTimersByTime(250);
-      await nextTick();
+      // hover 預覽時開啟視窗但不釘住：不亮主色選取框、不顯示圖釘與關閉鈕
       expect(gloves.getAttribute('aria-pressed')).toBe('false');
+      expect(queryBody('[data-item-preview]')?.getAttribute('data-pinned')).toBeNull();
+      expect(queryBody('[data-test="preview-pinned-indicator"]')).toBeNull();
+      expect(queryBody('[data-test="preview-close"]')).toBeNull();
+      // 未點擊釘住時，滑鼠一移開物品格立即關閉預覽
+      gloves.dispatchEvent(new MouseEvent('mouseleave'));
+      await nextTick();
+      expect(queryBody('[data-item-preview]')).toBeNull();
       gloves.dispatchEvent(new MouseEvent('mouseenter'));
       vi.advanceTimersByTime(300);
     } finally {
@@ -1451,11 +1448,16 @@ describe('PobBuildPane', () => {
     await flushAsync();
     expect(queryBody('[data-pob-build-mods]')).not.toBeNull();
 
-    // hover 打開後點擊同一格改為釘住（移出不關），再點一次才關閉；Ctrl 點擊開新分頁搜尋
+    // hover 打開後點擊同一格改為釘住（移出不關，亮起主色框、圖釘與關閉鈕），再點一次才關閉；Ctrl 點擊開新分頁搜尋
     const glovesTile = query<HTMLButtonElement>('[data-pob-build-gear-tile="gloves"]')!;
     glovesTile.click();
     await nextTick();
+    glovesTile.dispatchEvent(new MouseEvent('mouseleave'));
+    await nextTick();
     expect(glovesTile.getAttribute('aria-pressed')).toBe('true');
+    expect(queryBody('[data-item-preview]')?.getAttribute('data-pinned')).toBe('true');
+    expect(queryBody('[data-test="preview-pinned-indicator"]')).not.toBeNull();
+    expect(queryBody('[data-test="preview-close"]')).not.toBeNull();
     glovesTile.click();
     await nextTick();
     expect(glovesTile.getAttribute('aria-pressed')).toBe('false');
@@ -1477,12 +1479,25 @@ describe('PobBuildPane', () => {
     gearDone.click();
     expect(fake.toggleDone).toHaveBeenCalledWith('b1', 'k-rare');
 
-    // 有插槽的裝備畫出插槽（滑過時顯示）
+    // 有插槽的裝備畫出插槽（滑過或按住 Alt 時顯示）
     expect(
       query('[data-pob-build-gear-tile="gloves"] [data-pob-build-sockets]')?.getAttribute(
         'data-socket-count',
       ),
     ).toBe('4');
+    expect(query('[data-pob-build-gear]')?.getAttribute('data-reveal-sockets')).toBeNull();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Alt' }));
+    await nextTick();
+    expect(query('[data-pob-build-gear]')?.getAttribute('data-reveal-sockets')).toBe('true');
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt' }));
+    await nextTick();
+    expect(query('[data-pob-build-gear]')?.getAttribute('data-reveal-sockets')).toBeNull();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Alt' }));
+    await nextTick();
+    expect(query('[data-pob-build-gear]')?.getAttribute('data-reveal-sockets')).toBe('true');
+    window.dispatchEvent(new Event('blur'));
+    await nextTick();
+    expect(query('[data-pob-build-gear]')?.getAttribute('data-reveal-sockets')).toBeNull();
 
     query<HTMLButtonElement>('[data-pob-build-gear-tile="weapon2"]')!.click();
     expect(fake.openSearch).toHaveBeenCalledWith(
