@@ -93,7 +93,8 @@ export async function loadPairedLineShard(
 ): Promise<PairedLineShard> {
   const shard = requireAlignedShard(
     await loadJson(ASSET_PATHS[file](version, locale)),
-    `${file}.json (${locale})`);
+    `${file}.json (${locale})`,
+  );
   const english = requireAlignedShard(
     await loadJson(ASSET_PATHS[file](version, ENGLISH_LOCALE)),
     `${file}.json (en)`,

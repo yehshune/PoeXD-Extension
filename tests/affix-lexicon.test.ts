@@ -461,7 +461,12 @@ describe('Seam 2B: Unified Affix Lexicon deduplication, prefix fallback & locali
         if (url.endsWith('poe2/mods-tiers.json')) return new Response(JSON.stringify(modsTiers));
         if (url.endsWith('poe2/locales/ru/stats.json')) {
           return new Response(
-            JSON.stringify({ schemaVersion: 2, patch: SAMPLE_MODS_TIERS.patch, locale: 'ru', templates: ['a'] }),
+            JSON.stringify({
+              schemaVersion: 2,
+              patch: SAMPLE_MODS_TIERS.patch,
+              locale: 'ru',
+              templates: ['a'],
+            }),
           );
         }
         return new Response(JSON.stringify({}));

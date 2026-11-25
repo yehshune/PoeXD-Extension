@@ -10,10 +10,7 @@
  * 由呼叫端依部位告知偏好；對不到或無法判斷的詞綴回傳 undefined，不會用猜的代碼去搜。
  */
 import type { ModLinePairs } from './market-mod-lines';
-import {
-  getLocaleTradeStatsAssetPath,
-  type PoeVersion,
-} from './trade-context';
+import { getLocaleTradeStatsAssetPath, type PoeVersion } from './trade-context';
 import { buildStatDomainIndex, statDomainsOf } from './stat-domain-order';
 import { loadEnglishLines } from './paired-line-shards';
 
@@ -154,7 +151,9 @@ const localFlags = (text: string): Pick<Template, 'local' | 'localDefence'> => {
 };
 
 /** 英文句型：en 分片的英文模板，或 [英文, 譯文] 句型對（只用英文） */
-export type EnglishModLines = Readonly<Record<string, ReadonlyArray<string | ModLinePairs[number]>>>;
+export type EnglishModLines = Readonly<
+  Record<string, ReadonlyArray<string | ModLinePairs[number]>>
+>;
 
 export function createStatMatcher(data: {
   modLines: EnglishModLines;

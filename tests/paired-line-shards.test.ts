@@ -63,14 +63,21 @@ describe('loadPairedLineShard', () => {
         'poe1',
         'zh-TW',
       );
-    await expect(load({ schemaVersion: 1, patch: '1.0', locale: 'zh-TW', lines: {} })).rejects.toThrow('格式不符');
+    await expect(
+      load({ schemaVersion: 1, patch: '1.0', locale: 'zh-TW', lines: {} }),
+    ).rejects.toThrow('格式不符');
     await expect(load(aligned('zh-CN', { '1': ['甲'] }))).rejects.toThrow('語系不符');
   });
 
   it('en 分片缺少、來自不同 patch 或格式不符時拒絕', async () => {
     const zh = aligned('zh-TW', { '1': ['甲'] });
     await expect(
-      loadPairedLineShard(loaderFor({ 'json/poe1/locales/zh-TW/mod-lines.json': zh }), 'mod-lines', 'poe1', 'zh-TW'),
+      loadPairedLineShard(
+        loaderFor({ 'json/poe1/locales/zh-TW/mod-lines.json': zh }),
+        'mod-lines',
+        'poe1',
+        'zh-TW',
+      ),
     ).rejects.toThrow();
     await expect(
       loadPairedLineShard(
@@ -91,6 +98,8 @@ describe('loadEnglishLines', () => {
     const loadJson = loaderFor({
       'json/poe1/locales/en/mod-lines.json': aligned('en', { '1': ['A', 'B'] }),
     });
-    await expect(loadEnglishLines(loadJson, 'mod-lines', 'poe1')).resolves.toEqual({ '1': ['A', 'B'] });
+    await expect(loadEnglishLines(loadJson, 'mod-lines', 'poe1')).resolves.toEqual({
+      '1': ['A', 'B'],
+    });
   });
 });

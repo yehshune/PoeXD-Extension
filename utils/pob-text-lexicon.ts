@@ -8,10 +8,7 @@
 import { translateModLine, type ModLinePairs } from './market-mod-lines';
 import type { PobTextLexicon } from './pob-item-text';
 import { loadPairedLineShard } from './paired-line-shards';
-import {
-  getLocaleItemsAssetPath,
-  type PoeVersion,
-} from './trade-context';
+import { getLocaleItemsAssetPath, type PoeVersion } from './trade-context';
 
 export interface PobTextLexiconData {
   /** stat hash → [英文模板, 譯文模板] */

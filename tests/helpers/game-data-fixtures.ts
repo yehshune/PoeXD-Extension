@@ -25,7 +25,10 @@ export function publishedStats<L extends string>(
   );
   const statIds = new Set(locales.flatMap((locale) => Object.keys(shards[locale].statTemplates)));
   const statTemplates = Object.fromEntries(
-    [...statIds].map((id) => [id, intern(locales.map((locale) => textAt(locale, shards[locale].statTemplates[id])))]),
+    [...statIds].map((id) => [
+      id,
+      intern(locales.map((locale) => textAt(locale, shards[locale].statTemplates[id]))),
+    ]),
   );
   const stats = Object.fromEntries(
     locales.map((locale, position) => [
@@ -39,7 +42,13 @@ export function publishedStats<L extends string>(
     ]),
   ) as Record<L, { schemaVersion: 2; patch?: string; locale: L; templates: string[] }>;
   return {
-    modsTiers: { schemaVersion: 2, ...modsTiers, templateCount: keys.length, tierTemplates, statTemplates },
+    modsTiers: {
+      schemaVersion: 2,
+      ...modsTiers,
+      templateCount: keys.length,
+      tierTemplates,
+      statTemplates,
+    },
     stats,
   };
 }
@@ -78,7 +87,10 @@ export function publishedLines(byLocale: Record<string, PairLines>, patch?: stri
         shard(
           locale,
           Object.fromEntries(
-            Object.entries(byHash).map(([hash, row]) => [hash, english[hash].map((_, i) => row.get(i) ?? null)]),
+            Object.entries(byHash).map(([hash, row]) => [
+              hash,
+              english[hash].map((_, i) => row.get(i) ?? null),
+            ]),
           ),
         ),
       ]),

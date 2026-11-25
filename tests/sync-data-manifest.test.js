@@ -77,7 +77,8 @@ function publishedFiles() {
 /** 模擬 poexd-data 的 catalog：fixture 裡每個發布檔案的批次（atlas 不在發布清單） */
 function publishedBatchOf(path) {
   if (path.startsWith('folder-icons/')) return 'folder-icons';
-  if (path.startsWith('locales/') || /\/trade-(?:stats|static|items)\.json$/.test(path)) return 'market';
+  if (path.startsWith('locales/') || /\/trade-(?:stats|static|items)\.json$/.test(path))
+    return 'market';
   if (path.endsWith('/trade-filters.json')) return `${path.split('/')[0]}/trade-filters`;
   if (path.includes('mercenary')) return 'poe1/mercenary';
   if (path.includes('atlas')) return null;
@@ -179,7 +180,11 @@ describe('parseManifest', () => {
     expect(() => parseManifest(traversal)).toThrow('package.json');
     const future = manifestOf(publishedFiles());
     future.files['poe3/new.json'] = { ...future.files['poe1/mods-tiers.json'], batch: 'poe3/game' };
-    expect(Object.values(parseManifest(future).batches).flat().some((file) => file.path === 'poe3/new.json')).toBe(false);
+    expect(
+      Object.values(parseManifest(future).batches)
+        .flat()
+        .some((file) => file.path === 'poe3/new.json'),
+    ).toBe(false);
   });
 
   it('rejects invalid hashes and sizes', () => {

@@ -195,7 +195,9 @@ export function validateGameDataBatch(batch) {
     const englishLines = isObject(shards.en.lines) ? shards.en.lines : {};
     for (const [locale, shard] of localized) {
       const misaligned = Object.entries(isObject(shard?.lines) ? shard.lines : {})
-        .filter(([hash, texts]) => !Array.isArray(texts) || englishLines[hash]?.length !== texts.length)
+        .filter(
+          ([hash, texts]) => !Array.isArray(texts) || englishLines[hash]?.length !== texts.length,
+        )
         .map(([hash]) => hash);
       if (misaligned.length > 0) {
         errors.push(

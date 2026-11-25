@@ -7,7 +7,12 @@ const stats = (locale, patch = '1.0', templates = ['A', 'B']) => ({
   locale,
   templates,
 });
-const lines = (locale, body = {}, patch = '1.0') => ({ schemaVersion: 2, patch, locale, lines: body });
+const lines = (locale, body = {}, patch = '1.0') => ({
+  schemaVersion: 2,
+  patch,
+  locale,
+  lines: body,
+});
 
 const batch = (overrides = {}) => ({
   modsTiers: {
@@ -86,7 +91,11 @@ describe('validateGameDataBatch', () => {
   });
 
   it('驗證 stat-text-items 分片與 stat-aliases 檔', () => {
-    const statText = { en: lines('en'), 'zh-TW': lines('zh-TW'), 'zh-CN': lines('zh-CN', {}, '0.9') };
+    const statText = {
+      en: lines('en'),
+      'zh-TW': lines('zh-TW'),
+      'zh-CN': lines('zh-CN', {}, '0.9'),
+    };
     expect(
       validateGameDataBatch(
         batch({ statText, statAliases: { schemaVersion: 1, patch: '0.9', aliases: [] } }),
