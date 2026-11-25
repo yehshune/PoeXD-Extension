@@ -6,7 +6,6 @@ import {
   type LiveSearchSubscription,
 } from '@/utils/live-search-contract';
 import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-search-primary-runtime';
-import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
 import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search-open-scheduler';
 import {
   createLiveSearchSourceController,
@@ -406,7 +405,7 @@ describe('LiveSearch Primary Pacing & Reconnect Comprehensive Tests', () => {
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
       reconnectPolicy: { maxFailedAttempts: 0 }, // 立即 terminal
     });
-    const controller = createLiveSearchPrimaryController(runtime);
+    const controller = runtime;
 
     await controller.addFromUrl(
       'https://www.pathofexile.com/trade/search/Standard/H4sImanual-retry-test',
@@ -679,7 +678,7 @@ describe('LiveSearch Primary Pacing & Reconnect Comprehensive Tests', () => {
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
       reconnectPolicy: { maxFailedAttempts: 0 },
     });
-    const controller = createLiveSearchPrimaryController(runtime);
+    const controller = runtime;
 
     const mockCollection = {
       bookmarks: [

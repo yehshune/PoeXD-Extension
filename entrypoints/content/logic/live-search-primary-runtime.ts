@@ -1,5 +1,6 @@
 import type { PoeVersion } from '@/utils/trade-context';
 import { t } from '@/utils/i18n';
+import { DEFAULT_TRADE_ORIGIN } from '@/utils/trade-realms';
 import {
   getTradeSearchCanonicalKey,
   isSameTradeSearchIdentity,
@@ -9,15 +10,20 @@ import {
   type LiveSearchResultFilter,
 } from './live-search-result-filter';
 import {
+  createLiveSearchSubscriptionFromUrl,
   validateSubscriptionIdentity,
+  type LiveSearchDevInjectOutcome,
+  type LiveSearchDevResultOwner,
   type LiveSearchDroppedItem,
   type LiveSearchDroppedReason,
   type LiveSearchFetchDroppedOutcome,
+  type LiveSearchPrimaryController,
   type LiveSearchSubscription,
   type AddSubscriptionOutcome,
   type LiveSearchRetryOutcome,
   type LiveSearchPrimaryViewSnapshot,
 } from '@/utils/live-search-contract';
+import { buildFakeTradeResults, buildFallbackDevOwners } from './live-search-dev-fixtures';
 import type { LiveSearchFetchOrder } from '@/utils/preferences-contract';
 import {
   LiveSearchHostClient,
@@ -52,6 +58,8 @@ export interface LiveSearchPrimaryRuntimeOptions {
   fetchClient?: (url: string, init?: RequestInit) => Promise<Response>;
   fetchRateGate?: ILiveSearchFetchRateGate;
   origin?: string;
+  /** 開發模式注入假結果時，取得目前頁面聯盟的環境 seam（取代直接讀取瀏覽器全域） */
+  getCurrentPageLeague?: () => string | undefined;
   displayLocalId?: string;
   openScheduler?: ILiveSearchOpenScheduler;
   reconnectPolicy?: Partial<LiveSearchReconnectPolicy>;
@@ -167,12 +175,17 @@ export type { AddSubscriptionOutcome, LiveSearchRetryOutcome };
  * 7. gameVersion 為 Runtime immutable authority
  * 8. 純記憶體生命週期，嚴格遵守 ADR-0004，無持久化儲存
  */
-export class LiveSearchPrimaryRuntime {
+export class LiveSearchPrimaryRuntime implements LiveSearchPrimaryController {
   private readonly hostClient: ILiveSearchHostClient;
   private readonly webSocketFactory: (url: string) => WebSocket;
   private readonly fetchRateGate: ILiveSearchFetchRateGate;
   private readonly origin: string;
+  private readonly getCurrentPageLeague?: () => string | undefined;
   private readonly displayLocalId: string;
+  public readonly injectDevResults?: (
+    count: number,
+    owners?: readonly LiveSearchDevResultOwner[],
+  ) => Promise<LiveSearchDevInjectOutcome>;
   private readonly gameVersion: PoeVersion;
   private readonly openScheduler: ILiveSearchOpenScheduler;
   private readonly reconnectPolicy?: Partial<LiveSearchReconnectPolicy>;
@@ -240,12 +253,28 @@ export class LiveSearchPrimaryRuntime {
           this.notifyListeners();
         }
       }) ?? null;
-    this.origin =
-      options?.origin ??
-      (typeof window !== 'undefined' && window.location?.origin
-        ? window.location.origin
-        : 'https://www.pathofexile.com');
+    this.origin = options?.origin ?? DEFAULT_TRADE_ORIGIN;
+    this.getCurrentPageLeague = options?.getCurrentPageLeague;
     this.displayLocalId = options?.displayLocalId?.trim() || 'poexd_live_display';
+    if (import.meta.env.DEV) {
+      this.injectDevResults = async (count, owners) => {
+        const league =
+          this.getSubscriptions()[0]?.league ??
+          this.getCurrentPageLeague?.() ??
+          this.getRuntimeLeague() ??
+          '';
+        if (!league) {
+          return { rendered: 0, failed: 0, error: t('liveSearch.error.unableToDetectLeague') };
+        }
+        const gameVersion = this.getRuntimeGameVersion();
+        const resolvedOwners =
+          owners && owners.length > 0 ? owners : buildFallbackDevOwners(gameVersion, league);
+        return this.renderSyntheticResults(
+          league,
+          buildFakeTradeResults(count, league, gameVersion, resolvedOwners),
+        );
+      };
+    }
     this.openScheduler = options?.openScheduler ?? new LiveSearchOpenScheduler();
     this.reconnectPolicy = options?.reconnectPolicy;
     this.sessionFactory =
@@ -446,6 +475,10 @@ export class LiveSearchPrimaryRuntime {
     return this.disposed;
   }
 
+  public read(): Readonly<LiveSearchPrimaryViewSnapshot> {
+    return this.getSnapshot();
+  }
+
   public getSnapshot(): Readonly<LiveSearchPrimaryViewSnapshot> {
     const resultFilterKey = this.resultFilter.getFilter();
     const displayedResultCount =
@@ -507,6 +540,55 @@ export class LiveSearchPrimaryRuntime {
         console.error('[PoeXD LiveSearch] Error in primary view listener notification:', err);
       }
     }
+  }
+
+  /**
+   * 透過官方 Trade 網址解析、驗證並建立訂閱（LiveSearchPrimaryController 入口）
+   * 無效 URL 零 Host 介入、零 WebSocket 副作用
+   */
+  public async addFromUrl(
+    url: string,
+    options?: { name?: string; sourceBookmarkId?: string },
+  ): Promise<AddSubscriptionOutcome> {
+    if (typeof url !== 'string' || !url.trim()) {
+      return { success: false, error: t('liveSearch.error.invalidUrlRequired') };
+    }
+
+    const subscription = createLiveSearchSubscriptionFromUrl(url.trim(), options);
+    if (!subscription) {
+      return {
+        success: false,
+        error: t('liveSearch.error.invalidUrlFormat'),
+      };
+    }
+
+    return this.addSubscription(subscription);
+  }
+
+  /**
+   * 手動重試訂閱（LiveSearchPrimaryController 入口）
+   */
+  public retry(subscriptionId: string): LiveSearchRetryOutcome {
+    if (typeof subscriptionId === 'string' && subscriptionId.trim()) {
+      return this.retrySubscription(subscriptionId.trim());
+    }
+    return { success: false, error: t('liveSearch.error.invalidSubscriptionId') };
+  }
+
+  /**
+   * 移除訂閱（LiveSearchPrimaryController 入口）
+   */
+  public remove(subscriptionId: string): void {
+    if (typeof subscriptionId === 'string' && subscriptionId.trim()) {
+      this.removeSubscription(subscriptionId.trim());
+    }
+  }
+
+  /**
+   * 清空所有訂閱並解除聯盟鎖定（LiveSearchPrimaryController 入口）
+   */
+  public async teardownAll(options?: { targetLeague?: string }): Promise<void> {
+    await this.teardownAllSubscriptions(options);
   }
 
   /**

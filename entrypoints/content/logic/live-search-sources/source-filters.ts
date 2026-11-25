@@ -43,11 +43,9 @@ export function buildCanonicalTradeSearchUrl(
   gameVersion: PoeVersion,
   league: string,
   searchId: string,
+  origin?: string,
 ): string {
-  const currentOrigin =
-    typeof window !== 'undefined' && window.location?.origin
-      ? (getSupportedTradeOrigin(window.location.origin) ?? DEFAULT_TRADE_ORIGIN)
-      : DEFAULT_TRADE_ORIGIN;
+  const currentOrigin = getSupportedTradeOrigin(origin) ?? DEFAULT_TRADE_ORIGIN;
   const cleanLeague = encodeURIComponent(league.trim());
   const cleanSearchId = encodeURIComponent(searchId.trim());
   if (gameVersion === 'poe2') {

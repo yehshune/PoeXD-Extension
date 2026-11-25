@@ -23,6 +23,7 @@ describe('createLiveSearchPrimarySession', () => {
   it('組裝所有子模組、設定 data-poexd-page-role，並正確接線音效／結果快取／退出守衛與 enqueue bridge', async () => {
     const events: string[] = [];
     let runtimeOpts: any;
+    let sourceOpts: any;
     let exitGuardOpts: any;
     let enqueueBridgeOpts: any;
     let soundOpts: any;
@@ -62,20 +63,19 @@ describe('createLiveSearchPrimarySession', () => {
       createRuntime: (_version, opts) => {
         runtimeOpts = opts;
         return {
+          read: () => ({ subscriptions: activeSubscriptions }),
           dispose: () => events.push('runtime:dispose'),
         } as any;
       },
-      createPrimaryController: () =>
-        ({
-          read: () => ({ subscriptions: activeSubscriptions }),
-        }) as any,
       createResumeStore: () => ({}) as any,
       createBookmarkClient: () => ({}) as any,
-      createSourceController: () =>
-        ({
+      createSourceController: (_bm, _live, opts) => {
+        sourceOpts = opts;
+        return {
           enqueueIncomingConnections,
           dispose: () => events.push('source:dispose'),
-        }) as any,
+        } as any;
+      },
       createResumeController: () =>
         ({
           dispose: () => events.push('resume:dispose'),
@@ -101,6 +101,11 @@ describe('createLiveSearchPrimarySession', () => {
       resultCache: { ingestResult },
       initialArrivalSignal: true,
       doc,
+      environment: {
+        origin: 'https://pathofexile.tw',
+        canFetchOfficialLeagues: true,
+        getCurrentPageLeague: () => 'Keepers',
+      },
       factories,
     });
 
@@ -109,6 +114,10 @@ describe('createLiveSearchPrimarySession', () => {
     expect(session.console.initialArrivalSignal).toBe(true);
     expect(soundOpts.isEnabled()).toBe(true);
     expect(runtimeOpts.getMaxDisplayedResults()).toBe(120);
+    expect(runtimeOpts.origin).toBe('https://pathofexile.tw');
+    expect(runtimeOpts.getCurrentPageLeague()).toBe('Keepers');
+    expect(sourceOpts.origin).toBe('https://pathofexile.tw');
+    expect(sourceOpts.canFetchOfficialLeagues).toBe(true);
 
     // 驗證 onResultDelivered -> Console Sound Notification（實際抓取渲染後才響）
     runtimeOpts.onResultDelivered({ ownerKey: 'poe1|standard|abcd1234ef' });
@@ -174,8 +183,11 @@ describe('createLiveSearchPrimarySession', () => {
       }),
       createSoundNotifier: () =>
         ({ notify: vi.fn(), dispose: () => events.push('sound:dispose') }) as any,
-      createRuntime: () => ({ dispose: () => events.push('runtime:dispose') }) as any,
-      createPrimaryController: () => ({ read: () => ({ subscriptions: [] }) }) as any,
+      createRuntime: () =>
+        ({
+          read: () => ({ subscriptions: [] }),
+          dispose: () => events.push('runtime:dispose'),
+        }) as any,
       createResumeStore: () => ({}) as any,
       createBookmarkClient: () => ({}) as any,
       createSourceController: () =>
@@ -272,6 +284,7 @@ describe('createLiveSearchPrimarySession', () => {
         createRuntime: (_v, opts) => {
           capturedRuntimeOpts = opts;
           return {
+            read: () => ({ subscriptions: [] }),
             subscribe: () => () => {},
             dispose: vi.fn(),
           } as any;
@@ -327,7 +340,12 @@ describe('createLiveSearchPrimarySession', () => {
           badgeOpts = opts;
           return { record: vi.fn(), syncAll: vi.fn(), clear: vi.fn(), dispose: vi.fn() };
         },
-        createRuntime: () => ({ subscribe: () => () => {}, dispose: vi.fn() }) as any,
+        createRuntime: () =>
+          ({
+            read: () => ({ subscriptions: [] }),
+            subscribe: () => () => {},
+            dispose: vi.fn(),
+          }) as any,
         createSourceController: () =>
           ({
             read,

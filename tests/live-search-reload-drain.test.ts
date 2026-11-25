@@ -5,7 +5,6 @@ import {
   createLiveSearchSourceController,
   type LiveSearchBookmarkSourcePort,
 } from '@/entrypoints/content/logic/live-search-sources';
-import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
 import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-search-primary-runtime';
 import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search-open-scheduler';
 import type { ILiveSearchHostClient } from '@/entrypoints/content/logic/live-search-host-client';
@@ -60,11 +59,7 @@ describe('live search source reload drain', () => {
       webSocketFactory: () => ({ close() {} }) as unknown as WebSocket,
     });
     const source = new CountingBookmarkSource();
-    const sourceController = createLiveSearchSourceController(
-      source,
-      createLiveSearchPrimaryController(runtime),
-      { resumeStore },
-    );
+    const sourceController = createLiveSearchSourceController(source, runtime, { resumeStore });
 
     // The first reload has read the collection and is now awaiting resolveInitialLeague().
     await tick();

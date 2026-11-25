@@ -14,7 +14,8 @@ import {
   type LiveSearchSourceSnapshot,
   type LiveSearchBookmarkSourcePort,
 } from '@/entrypoints/content/logic/live-search-sources';
-import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
+import type { LiveSearchPrimaryController } from '@/utils/live-search-contract';
+import * as tradeLeaguesModule from '@/utils/trade-leagues';
 import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-search-primary-runtime';
 import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search-open-scheduler';
 import { createTradeSearchCriteriaKeyResolver } from '@/utils/trade-search-criteria-key';
@@ -181,7 +182,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
   let hostClient: FakeHostClient;
   let createdSockets: FakeWebSocket[];
   let runtime: LiveSearchPrimaryRuntime;
-  let liveController: ReturnType<typeof createLiveSearchPrimaryController>;
+  let liveController: LiveSearchPrimaryController;
 
   beforeEach(() => {
     bookmarkSource = new FakeBookmarkSource();
@@ -202,7 +203,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       },
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
     });
-    liveController = createLiveSearchPrimaryController(runtime);
+    liveController = runtime;
   });
 
   describe('1. Deep Module & Architecture Boundary Inspection', () => {
@@ -219,11 +220,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
       }
     });
 
-    it('ensures live-search-primary-runtime and live-search-primary-controller NEVER import bookmark modules', () => {
-      const filesToCheck = [
-        'entrypoints/content/logic/live-search-primary-runtime.ts',
-        'entrypoints/content/logic/live-search-primary-controller.ts',
-      ];
+    it('ensures live-search-primary-runtime NEVER imports bookmark modules', () => {
+      const filesToCheck = ['entrypoints/content/logic/live-search-primary-runtime.ts'];
       for (const relPath of filesToCheck) {
         const content = readFileSync(resolve(process.cwd(), relPath), 'utf-8');
         expect(content).not.toContain('bookmark-coordinator');
@@ -1102,7 +1100,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
         reconnectPolicy: { maxFailedAttempts: 0 },
       });
-      const failLiveCtrl = createLiveSearchPrimaryController(failRuntime);
+      const failLiveCtrl = failRuntime;
       const sourceCtrl = createLiveSearchSourceController(bookmarkSource, failLiveCtrl);
       await new Promise((r) => setTimeout(r, 20));
 
@@ -1413,7 +1411,7 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         },
         openScheduler: mockScheduler,
       });
-      const batchLiveCtrl = createLiveSearchPrimaryController(batchRuntime);
+      const batchLiveCtrl = batchRuntime;
       const addFromUrlSpy = vi.spyOn(batchLiveCtrl, 'addFromUrl');
       const sourceCtrl = createLiveSearchSourceController(bookmarkSource, batchLiveCtrl);
       await new Promise((r) => setTimeout(r, 20));
@@ -3167,6 +3165,71 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         'https://web.poecdn.com/gen/image/helm.png',
       );
       expect(allFiltered[0].items[1].coverImageUrl).toBeUndefined();
+    });
+  });
+
+  describe('Environment Seam Injection (origin & canFetchOfficialLeagues)', () => {
+    it('propagates injected origin into bookmark URLs and resume previousConnections without touching window.location', async () => {
+      const resumeStore = createLiveSearchResumeStore('poe1', {
+        get: async () => ({
+          liveSearchResumePlan_poe1: {
+            version: 2,
+            identities: [
+              {
+                gameVersion: 'poe1',
+                league: 'Standard',
+                searchId: 'H4sIresumeNoUrl1',
+                name: 'Resume Without URL',
+              },
+            ],
+          },
+        }),
+        set: async () => {},
+        remove: async () => {},
+      });
+
+      const controller = createLiveSearchSourceController(bookmarkSource, liveController, {
+        resumeStore,
+        initialLeague: 'Standard',
+        origin: 'https://pathofexile.tw',
+      });
+      await new Promise((r) => setTimeout(r, 20));
+
+      const snap = controller.read();
+      const firstBookmark = snap.groups[0]?.items[0];
+      expect(firstBookmark?.url.startsWith('https://pathofexile.tw/')).toBe(true);
+
+      const prevItem = snap.previousConnections?.find(
+        (item) => item.canonicalIdentity?.searchId === 'H4sIresumeNoUrl1',
+      );
+      expect(prevItem?.url).toBe('https://pathofexile.tw/trade/search/Standard/H4sIresumeNoUrl1');
+
+      controller.dispose();
+    });
+
+    it('gates official league auto-fetching via injected canFetchOfficialLeagues flag', async () => {
+      const fetchSpy = vi
+        .spyOn(tradeLeaguesModule, 'fetchTradeLeagues')
+        .mockResolvedValue([{ id: 'Keepers', text: 'Keepers' }]);
+
+      try {
+        const disabledCtrl = createLiveSearchSourceController(null, liveController, {
+          canFetchOfficialLeagues: false,
+        });
+        await new Promise((r) => setTimeout(r, 20));
+        expect(fetchSpy).not.toHaveBeenCalled();
+        disabledCtrl.dispose();
+
+        const enabledCtrl = createLiveSearchSourceController(null, liveController, {
+          canFetchOfficialLeagues: true,
+        });
+        await new Promise((r) => setTimeout(r, 20));
+        expect(fetchSpy).toHaveBeenCalledWith('poe1');
+        expect(enabledCtrl.getAvailableLeagues()).toContain('Keepers');
+        enabledCtrl.dispose();
+      } finally {
+        fetchSpy.mockRestore();
+      }
     });
   });
 });

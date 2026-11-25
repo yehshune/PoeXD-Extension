@@ -313,7 +313,7 @@ export interface LiveSearchPrimaryController {
   /** 僅顯示指定連線（canonical key）的結果；null 顯示全部 */
   setResultFilter?(canonicalKey: string | null): void;
   /** 清空展示區結果但不中斷任何監聽連線 */
-  clearResults?(): Promise<void>;
+  clearResults?(): Promise<unknown>;
   /** 手動補抓一筆被速率限制略過的項目（高優先權、不受過期時間限制，仍經由 Rate Gate） */
   fetchDroppedItem?(droppedItemId: string): Promise<LiveSearchFetchDroppedOutcome>;
   /** 移除單筆已丟棄紀錄 */

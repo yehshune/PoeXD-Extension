@@ -1,4 +1,4 @@
-export { createLiveSearchSourceController } from './controller';
+export { createLiveSearchSourceController } from './source-engine';
 
 export {
   TEMPORARY_SOURCE_GROUP_ID,

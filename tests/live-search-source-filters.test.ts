@@ -63,13 +63,22 @@ describe('live-search-source-filters', () => {
       expect(formatLiveSearchDisplayLeague('  ')).toBe('');
     });
 
-    it('產生 PoE 1 / PoE 2 標準搜尋網址', () => {
-      expect(buildCanonicalTradeSearchUrl('poe1', 'Standard', 'abc12345')).toContain(
-        '/trade/search/Standard/abc12345',
+    it('產生 PoE 1 / PoE 2 標準搜尋網址並支援注入 origin 與預設回退', () => {
+      expect(buildCanonicalTradeSearchUrl('poe1', 'Standard', 'abc12345')).toBe(
+        'https://www.pathofexile.com/trade/search/Standard/abc12345',
       );
-      expect(buildCanonicalTradeSearchUrl('poe2', 'Dawn of the Hunt', 'xyz98765')).toContain(
-        '/trade2/search/poe2/Dawn%20of%20the%20Hunt/xyz98765',
+      expect(buildCanonicalTradeSearchUrl('poe2', 'Dawn of the Hunt', 'xyz98765')).toBe(
+        'https://www.pathofexile.com/trade2/search/poe2/Dawn%20of%20the%20Hunt/xyz98765',
       );
+      expect(
+        buildCanonicalTradeSearchUrl('poe1', 'Standard', 'abc12345', 'https://pathofexile.tw'),
+      ).toBe('https://pathofexile.tw/trade/search/Standard/abc12345');
+      expect(
+        buildCanonicalTradeSearchUrl('poe2', 'Standard', 'xyz98765', 'https://poe.game.qq.com'),
+      ).toBe('https://poe.game.qq.com/trade2/search/poe2/Standard/xyz98765');
+      expect(
+        buildCanonicalTradeSearchUrl('poe1', 'Standard', 'abc12345', 'https://evil.example.com'),
+      ).toBe('https://www.pathofexile.com/trade/search/Standard/abc12345');
     });
   });
 

@@ -48,6 +48,8 @@ export interface BuildLiveSearchSnapshotInput {
   pendingSearchKeys: ReadonlySet<string>;
   combinedResumeMap: ReadonlyMap<string, LiveSearchResumeIdentity>;
   peekCriteriaKey: (identity: ParsedTradeSearchIdentity) => string | undefined;
+  /** 官方市集 origin（未提供時回退預設國際服） */
+  origin?: string;
 }
 
 export interface BuildLiveSearchSnapshotResult {
@@ -75,6 +77,7 @@ export function buildLiveSearchSourceSnapshot(
     pendingSearchKeys,
     combinedResumeMap,
     peekCriteriaKey,
+    origin,
   } = input;
 
   const currentSelectedLeague = selectedLeague || 'Standard';
@@ -369,6 +372,7 @@ export function buildLiveSearchSourceSnapshot(
             meta.canonicalIdentity.gameVersion,
             currentSelectedLeague,
             meta.canonicalIdentity.searchId,
+            origin,
           ),
         canonicalIdentity: { ...meta.canonicalIdentity },
         canonicalKey,
@@ -423,7 +427,12 @@ export function buildLiveSearchSourceSnapshot(
     };
     const resolvedUrl =
       resumeId.url ||
-      buildCanonicalTradeSearchUrl(resumeId.gameVersion, currentSelectedLeague, resumeId.searchId);
+      buildCanonicalTradeSearchUrl(
+        resumeId.gameVersion,
+        currentSelectedLeague,
+        resumeId.searchId,
+        origin,
+      );
     const compat = evaluateLiveSearchSourceCompatibility(
       parsedIdentity,
       primaryContext,

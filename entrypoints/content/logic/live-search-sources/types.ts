@@ -6,7 +6,6 @@ import type {
   LiveSearchEnqueueItem,
   LiveSearchEnqueueResponse,
   LiveSearchRetryOutcome,
-  LiveSearchSubscription,
   LiveSearchSubscriptionStatus,
 } from '@/utils/live-search-contract';
 import type { LiveSearchResumeStore } from '@/utils/live-search-resume-store';
@@ -22,6 +21,10 @@ export interface LiveSearchSourceControllerOptions {
   initialLeague?: string;
   /** 搜尋條件鍵解析器（相同搜尋條件去重用），預設以解碼 search ID 取得 */
   criteriaKeyResolver?: TradeSearchCriteriaKeyResolver;
+  /** 官方市集 origin（由環境 seam 注入；未提供時組裝 URL 預設回退國際服） */
+  origin?: string;
+  /** 是否允許自動呼叫官方 API 取得聯盟清單（由環境 seam 注入，預設 false） */
+  canFetchOfficialLeagues?: boolean;
 }
 
 /**
@@ -229,41 +232,3 @@ export type CriteriaRedirect =
   | { kind: 'error'; error: string }
   | { kind: 'source'; sourceId: string }
   | { kind: 'adopt-meta'; entry: DedupEntry };
-
-/**
- * Controller 核心狀態與通知 Port，供 league-manager 共用
- */
-export interface LiveSearchControllerBasePort {
-  readonly hasSource: boolean;
-  isDisposed(): boolean;
-  isReloadPending(): boolean;
-  waitForReconciliationDrain(): Promise<void>;
-  getGameVersion(): PoeVersion;
-  getCurrentCollection(): BookmarkCollectionView | null;
-  notify(): void;
-}
-
-/**
- * 內部操作協作上下文（供 activator / batch-executor / source-intake 共用）
- * 僅提供生命週期守衛、聯盟世代與通知，不暴露任何裸露可變集合
- */
-export interface LiveSearchOperationContext {
-  isDisposed(): boolean;
-  isSwitchingLeague(): boolean;
-  ensureReady(): Promise<void> | undefined;
-  waitForReloadDrain(): Promise<void> | undefined;
-  getGameVersion(): PoeVersion;
-  getSelectedLeague(): string;
-  getTransitionGeneration(): number;
-  getPrimaryContext(): LiveSearchPrimaryContext;
-  getCurrentCollection(): BookmarkCollectionView | null;
-  getCurrentLiveSubscriptions(): readonly Readonly<LiveSearchSubscription>[];
-  findActiveSubByCanonicalKey(canonicalKey: string): Readonly<LiveSearchSubscription> | undefined;
-  resolveSubscriptionId(sourceOrSubscriptionId: string): string | undefined;
-  resolveCriteriaRedirect(
-    identity: ParsedTradeSearchIdentity,
-    canonicalKey: string,
-    incomingCover: string | undefined,
-  ): Promise<CriteriaRedirect | null>;
-  notify(): void;
-}

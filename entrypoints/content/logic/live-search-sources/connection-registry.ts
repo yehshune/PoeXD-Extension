@@ -13,7 +13,6 @@ import {
   type LiveSearchResumeIdentity,
 } from '@/utils/live-search-resume-store';
 import { hasValidCover, type DedupEntry } from './connection-dedup';
-import { reconcileRegistryOwnership } from './ownership-reconciler';
 import {
   buildCanonicalTradeSearchUrl,
   extractSectionSourceCanonicalKey,
@@ -129,11 +128,19 @@ function createTemporarySearchId(): string {
   return `custom_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+export interface LiveSearchConnectionRegistryOptions {
+  /** 官方市集 origin（供組裝 canonical URL，未提供時回退預設國際服） */
+  origin?: string;
+}
+
 /**
  * 集中管理 LiveSearch Primary Page 的連線來源狀態、Temporary Search ↔ Bookmark
  * 歸屬轉換與 LiveSearch Resume Plan 基準狀態。
  */
-export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegistry {
+export function createLiveSearchConnectionRegistry(
+  options?: LiveSearchConnectionRegistryOptions,
+): LiveSearchConnectionRegistry {
+  const origin = options?.origin;
   const temporarySearches: TemporarySearchRecord[] = [];
   const sessionEntriesByKey = new Map<string, SessionConnectionMeta>();
   const baselineResumeByKey = new Map<string, LiveSearchResumeIdentity>();
@@ -420,6 +427,7 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
             resumeEntry.gameVersion,
             opLeague || resumeEntry.league,
             resumeEntry.searchId,
+            origin,
           );
         const parsed = parseTradeSearchUrl(stripLiveSuffix(resolvedUrl)) ?? {
           gameVersion: resumeEntry.gameVersion,
@@ -489,13 +497,87 @@ export function createLiveSearchConnectionRegistry(): LiveSearchConnectionRegist
     },
 
     reconcileOwnership(collection, liveSubscriptions, findActiveSub) {
-      return reconcileRegistryOwnership(
-        collection,
-        liveSubscriptions,
-        temporarySearches,
-        sessionEntriesByKey,
-        findActiveSub,
-      );
+      const bookmarkCanonicalKeys = new Set<string>();
+      if (collection) {
+        const bookmarksByKey = new Map<string, typeof collection.bookmarks>();
+        for (const b of collection.bookmarks) {
+          const parsed = parseTradeSearchUrl(stripLiveSuffix(b.url));
+          if (parsed) {
+            const key = getTradeSearchCanonicalKey(parsed);
+            bookmarkCanonicalKeys.add(key);
+            const list = bookmarksByKey.get(key);
+            if (list) list.push(b);
+            else bookmarksByKey.set(key, [b]);
+          }
+        }
+
+        for (const [key, sessionMeta] of sessionEntriesByKey.entries()) {
+          const candidates = bookmarksByKey.get(key);
+          if (!candidates || candidates.length === 0) {
+            // 來源書籤已被刪除或覆蓋為其他搜尋時，清除過期 sourceBookmarkId，改以暫時搜尋／session 身分運作
+            sessionMeta.sourceBookmarkId = undefined;
+            continue;
+          }
+          const preferred =
+            (sessionMeta.sourceBookmarkId
+              ? candidates.find((c) => c.id === sessionMeta.sourceBookmarkId)
+              : undefined) ?? candidates[0];
+          if (preferred) {
+            sessionMeta.name = preferred.name;
+            sessionMeta.url = preferred.url;
+            sessionMeta.sourceBookmarkId = preferred.id;
+            if (hasValidCover(preferred.coverImageUrl)) {
+              sessionMeta.coverImageUrl = preferred.coverImageUrl;
+            }
+          }
+        }
+      }
+
+      const promotedResumeIdentities: LiveSearchResumeIdentity[] = [];
+
+      // 1. Temporary Search -> Bookmark Promotion
+      for (let i = temporarySearches.length - 1; i >= 0; i--) {
+        if (bookmarkCanonicalKeys.has(temporarySearches[i].canonicalKey)) {
+          const promoted = temporarySearches[i];
+          const activeSub = findActiveSub(promoted.canonicalKey);
+          if (activeSub && activeSub.status !== 'closed') {
+            promotedResumeIdentities.push({
+              gameVersion: promoted.canonicalIdentity.gameVersion,
+              league: promoted.canonicalIdentity.league,
+              searchId: promoted.canonicalIdentity.searchId,
+            });
+          }
+          temporarySearches.splice(i, 1);
+        }
+      }
+
+      // 2. Active Bookmark Deletion / Canonical Split Fallback -> Temporary Search
+      for (const sub of liveSubscriptions) {
+        if (sub.status === 'closed') continue;
+        const subKey = getTradeSearchCanonicalKey({
+          gameVersion: sub.gameVersion,
+          league: sub.league,
+          searchId: sub.searchId,
+        });
+        if (bookmarkCanonicalKeys.has(subKey)) continue;
+        if (!temporarySearches.some((c) => c.canonicalKey === subKey)) {
+          temporarySearches.push({
+            id: `custom_fallback_${sub.id}`,
+            name: sub.name || t('liveSearch.defaultSearchName'),
+            url: sub.url,
+            canonicalIdentity: {
+              gameVersion: sub.gameVersion,
+              league: sub.league,
+              searchId: sub.searchId,
+            },
+            canonicalKey: subKey,
+            createdAt: Date.now(),
+            provenance: 'origin-bookmark-removed',
+          });
+        }
+      }
+
+      return promotedResumeIdentities;
     },
 
     applyResumePlanSnapshot(identities) {

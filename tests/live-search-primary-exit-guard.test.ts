@@ -6,7 +6,6 @@ import {
   createLiveSearchPrimaryExitGuard,
   type LiveSearchPrimaryExitGuard,
 } from '@/entrypoints/content/logic/live-search-primary-exit-guard';
-import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
 import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-search-primary-runtime';
 import { createContentPageRuntime } from '@/entrypoints/content/logic/runtime';
 import { createFakeRuntimeHarness } from './helpers/content-page-runtime-harness';
@@ -139,7 +138,7 @@ describe('LiveSearch Primary Exit Guard Contract Tests', () => {
         hostClient,
         webSocketFactory: () => ({ close: () => {} }) as any,
       });
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
 
       // Warning predicate directly reads live controller snapshot
       const guard = createLiveSearchPrimaryExitGuard({
@@ -231,7 +230,7 @@ describe('LiveSearch Primary Exit Guard Contract Tests', () => {
             },
           }) as any,
       });
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
 
       await controller.addFromUrl('https://www.pathofexile.com/trade/search/Standard/cluster_safe');
       expect(controller.read().subscriptions).toHaveLength(1);

@@ -1,3 +1,4 @@
+import type { BookmarkCollectionView } from '@/utils/bookmark-coordinator';
 import type { PoeVersion } from '@/utils/trade-context';
 import { parseTradeSearchUrl, stripLiveSuffix } from '@/utils/trade-search-identity';
 import type { LiveSearchPrimaryController } from '@/utils/live-search-contract';
@@ -8,19 +9,27 @@ import type {
 import { fetchTradeLeagues, type TradeLeague } from '@/utils/trade-leagues';
 import type { PreferencesModule } from '@/utils/preferences';
 import { sameLeague } from './source-filters';
-import type { TemporarySearchRecord, LiveSearchControllerBasePort } from './types';
+import type { TemporarySearchRecord } from './types';
 
 export interface LiveSearchLeagueManagerDeps {
-  runtime: LiveSearchControllerBasePort;
-  initialLeague?: string;
-  preferences: PreferencesModule | null;
-  resumeStore: LiveSearchResumeStore | null;
-  liveController: LiveSearchPrimaryController;
-  fetchLeagues?: (version: PoeVersion) => Promise<TradeLeague[]>;
+  hasSource: boolean;
+  isDisposed: () => boolean;
   isLoading: () => boolean;
+  isReloadPending: () => boolean;
+  waitForReloadDrain: () => Promise<void>;
+  getGameVersion: () => PoeVersion;
+  getCurrentCollection: () => BookmarkCollectionView | null;
   getTemporarySearches: () => readonly TemporarySearchRecord[];
   getLatestResumeIdentities: () => readonly LiveSearchResumeIdentity[];
   onSelectedLeagueChanged: (league: string) => void;
+  notify: () => void;
+  liveController: Pick<LiveSearchPrimaryController, 'teardownAll'>;
+  preferences: PreferencesModule | null;
+  resumeStore: LiveSearchResumeStore | null;
+  initialLeague?: string;
+  fetchLeagues?: (version: PoeVersion) => Promise<TradeLeague[]>;
+  /** 是否允許自動呼叫官方 API 取得聯盟清單（由環境 seam 注入，預設 false） */
+  canFetchOfficialLeagues?: boolean;
 }
 
 export interface LiveSearchLeagueManager {
@@ -62,7 +71,7 @@ export function createLiveSearchLeagueManager(
   function getAvailableLeagues(): readonly string[] {
     const set = new Set<string>();
     const result: string[] = [];
-    const currentGameVersion = deps.runtime.getGameVersion();
+    const currentGameVersion = deps.getGameVersion();
 
     function addLeague(l: string | null | undefined) {
       if (!l) return;
@@ -79,7 +88,7 @@ export function createLiveSearchLeagueManager(
       addLeague(ol);
     }
 
-    const currentCollection = deps.runtime.getCurrentCollection();
+    const currentCollection = deps.getCurrentCollection();
     if (currentCollection) {
       for (const b of currentCollection.bookmarks) {
         const cleanUrl = stripLiveSuffix(b.url);
@@ -126,7 +135,7 @@ export function createLiveSearchLeagueManager(
     if (deps.resumeStore) {
       try {
         const res = await deps.resumeStore.read();
-        const currentGameVersion = deps.runtime.getGameVersion();
+        const currentGameVersion = deps.getGameVersion();
         if (res.ok && res.value.identities.length > 0) {
           const match = res.value.identities.find((id) => id.gameVersion === currentGameVersion);
           if (match && match.league.trim()) {
@@ -140,8 +149,8 @@ export function createLiveSearchLeagueManager(
     }
 
     // 3. authoritative Bookmark league (由 currentCollection 提供)
-    const currentCollection = deps.runtime.getCurrentCollection();
-    const currentGameVersion = deps.runtime.getGameVersion();
+    const currentCollection = deps.getCurrentCollection();
+    const currentGameVersion = deps.getGameVersion();
     if (currentCollection && currentCollection.bookmarks.length > 0) {
       for (const b of currentCollection.bookmarks) {
         const cleanUrl = stripLiveSuffix(b.url);
@@ -163,7 +172,7 @@ export function createLiveSearchLeagueManager(
       return;
     }
 
-    if (deps.runtime.hasSource && deps.isLoading()) {
+    if (deps.hasSource && deps.isLoading()) {
       return;
     }
 
@@ -179,38 +188,33 @@ export function createLiveSearchLeagueManager(
   function startStartupTasks(): void {
     if (!isLeagueResolved) {
       initialResolutionPromise = resolveInitialLeague().then(() => {
-        if (!deps.runtime.isDisposed() && isLeagueResolved) deps.runtime.notify();
+        if (!deps.isDisposed() && isLeagueResolved) deps.notify();
       });
     }
 
     isFetchingOfficialLeagues = true;
     officialLeaguesPromise = (async () => {
       try {
-        const currentGameVersion = deps.runtime.getGameVersion();
+        const currentGameVersion = deps.getGameVersion();
         if (deps.fetchLeagues) {
           const list = await deps.fetchLeagues(currentGameVersion);
-          if (!deps.runtime.isDisposed() && Array.isArray(list)) {
+          if (!deps.isDisposed() && Array.isArray(list)) {
             officialLeagues = list.map((l) => l.id).filter(Boolean);
           }
-        } else if (
-          typeof window !== 'undefined' &&
-          window.location &&
-          window.location.protocol.startsWith('http') &&
-          !window.location.host.includes('localhost')
-        ) {
+        } else if (deps.canFetchOfficialLeagues) {
           const list = await fetchTradeLeagues(currentGameVersion);
-          if (!deps.runtime.isDisposed() && Array.isArray(list)) {
+          if (!deps.isDisposed() && Array.isArray(list)) {
             officialLeagues = list.map((l) => l.id).filter(Boolean);
           }
         }
       } catch {
       } finally {
         isFetchingOfficialLeagues = false;
-        if (!isLeagueResolved && !deps.runtime.isDisposed()) {
+        if (!isLeagueResolved && !deps.isDisposed()) {
           await resolveInitialLeague();
         }
-        if (!deps.runtime.isDisposed()) {
-          deps.runtime.notify();
+        if (!deps.isDisposed()) {
+          deps.notify();
         }
       }
     })();
@@ -221,8 +225,8 @@ export function createLiveSearchLeagueManager(
     if (initialResolutionPromise) {
       await initialResolutionPromise;
     }
-    if (deps.runtime.hasSource && (deps.runtime.isReloadPending() || deps.isLoading())) {
-      await deps.runtime.waitForReconciliationDrain();
+    if (deps.hasSource && (deps.isReloadPending() || deps.isLoading())) {
+      await deps.waitForReloadDrain();
     }
     if (officialLeaguesPromise) {
       await officialLeaguesPromise;
@@ -237,7 +241,7 @@ export function createLiveSearchLeagueManager(
   }
 
   async function switchLeague(targetLeague: string): Promise<boolean> {
-    if (deps.runtime.isDisposed()) return false;
+    if (deps.isDisposed()) return false;
     const trimmed = targetLeague.trim();
     if (!trimmed) return false;
 
@@ -252,15 +256,15 @@ export function createLiveSearchLeagueManager(
     const switchId = ++currentSwitchId;
     transitionGeneration++;
     isSwitchingLeague = true;
-    deps.runtime.notify();
+    deps.notify();
 
     const runSwitch = async (): Promise<boolean> => {
       try {
-        if (switchId !== currentSwitchId || deps.runtime.isDisposed()) {
+        if (switchId !== currentSwitchId || deps.isDisposed()) {
           return false;
         }
         await deps.liveController.teardownAll();
-        if (switchId !== currentSwitchId || deps.runtime.isDisposed()) {
+        if (switchId !== currentSwitchId || deps.isDisposed()) {
           return false;
         }
         await deps.liveController.teardownAll({ targetLeague: trimmed });
@@ -272,7 +276,7 @@ export function createLiveSearchLeagueManager(
             await deps.preferences.update({ liveSearchSelectedLeague: trimmed });
           } catch {}
         }
-        if (switchId !== currentSwitchId || deps.runtime.isDisposed()) {
+        if (switchId !== currentSwitchId || deps.isDisposed()) {
           return false;
         }
         return true;
@@ -288,7 +292,7 @@ export function createLiveSearchLeagueManager(
           try {
             await deps.liveController.teardownAll();
           } catch {}
-          deps.runtime.notify();
+          deps.notify();
         }
       }
     };

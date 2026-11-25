@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PoeVersion } from '@/utils/trade-context';
-import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
+import type { LiveSearchPrimaryController } from '@/utils/live-search-contract';
 import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-search-primary-runtime';
 import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search-open-scheduler';
 import type {
@@ -118,7 +117,7 @@ describe('LiveSearchPrimaryController Tests', () => {
 
   describe('Reactive Publication & Snapshot Seam', () => {
     it('provides initial snapshot on subscribe and read()', () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller: LiveSearchPrimaryController = runtime;
 
       const initialSnapshot = controller.read();
       expect(initialSnapshot).toEqual({
@@ -144,7 +143,7 @@ describe('LiveSearchPrimaryController Tests', () => {
     });
 
     it('publishes updated snapshot on add, ws status change, and remove', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller: LiveSearchPrimaryController = runtime;
       const snapshots: any[] = [];
       const unsubscribe = controller.subscribe((s) => {
         snapshots.push(s);
@@ -200,7 +199,7 @@ describe('LiveSearchPrimaryController Tests', () => {
     });
 
     it('isolates listener exception and does not break runtime or other listeners', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller: LiveSearchPrimaryController = runtime;
       const goodReceived: any[] = [];
 
       const badListener = vi.fn(() => {
@@ -231,7 +230,7 @@ describe('LiveSearchPrimaryController Tests', () => {
 
   describe('Canonical addFromUrl Behavior & Edge Cases', () => {
     it('uses canonical domain factory to create subscription with unique ID', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller: LiveSearchPrimaryController = runtime;
 
       const outcome = await controller.addFromUrl(
         'https://www.pathofexile.com/trade/search/Standard/abc12345/live',
@@ -252,7 +251,7 @@ describe('LiveSearchPrimaryController Tests', () => {
     });
 
     it('rejects invalid Trade URL with zero Host side effect and zero WebSocket', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller: LiveSearchPrimaryController = runtime;
 
       const outcome1 = await controller.addFromUrl('');
       expect(outcome1.success).toBe(false);
@@ -273,7 +272,7 @@ describe('LiveSearchPrimaryController Tests', () => {
 
     it('rejects game version mismatch before creating WebSocket', async () => {
       // runtime is poe1
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller: LiveSearchPrimaryController = runtime;
 
       const outcome = await controller.addFromUrl(
         'https://www.pathofexile.com/trade2/search/poe2/Standard/poe2search1',
@@ -286,7 +285,7 @@ describe('LiveSearchPrimaryController Tests', () => {
     });
 
     it('rejects league mismatch when runtime league is already locked', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller: LiveSearchPrimaryController = runtime;
 
       // Lock league to Standard
       const outcome1 = await controller.addFromUrl(
@@ -317,7 +316,7 @@ describe('LiveSearchPrimaryController Tests', () => {
         openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
         reconnectPolicy: { maxFailedAttempts: 0 },
       });
-      const controller = createLiveSearchPrimaryController(fastFailRuntime);
+      const controller: LiveSearchPrimaryController = fastFailRuntime;
 
       await controller.addFromUrl('https://www.pathofexile.com/trade/search/Standard/retry-search');
       const subId = controller.read().subscriptions[0].id;
@@ -336,6 +335,49 @@ describe('LiveSearchPrimaryController Tests', () => {
       expect(validRetry.success).toBe(true);
       expect(controller.read().subscriptions[0].status).toBe('connecting');
       expect(controller.read().subscriptions[0].id).toBe(subId); // 保持同一 id
+    });
+
+    it('uses injected origin (defaulting to standard Trade origin) and injected getCurrentPageLeague for dev results', async () => {
+      const twRuntime = new LiveSearchPrimaryRuntime('poe1', {
+        hostClient,
+        webSocketFactory,
+        fetchClient: fetchClient as unknown as (
+          url: string,
+          init?: RequestInit,
+        ) => Promise<Response>,
+        openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
+        origin: 'https://pathofexile.tw',
+        getCurrentPageLeague: () => 'Settlers',
+      });
+
+      const controller: LiveSearchPrimaryController = twRuntime;
+      await controller.addFromUrl('https://pathofexile.tw/trade/search/Standard/twSearch12');
+      expect(createdSockets[createdSockets.length - 1]?.url).toBe(
+        'wss://pathofexile.tw/api/trade/live/standard/twSearch12',
+      );
+
+      // Default origin when omitted (no window.location dependency)
+      await runtime.addFromUrl('https://www.pathofexile.com/trade/search/Standard/defaultOrig1');
+      expect(createdSockets[createdSockets.length - 1]?.url).toBe(
+        'wss://www.pathofexile.com/api/trade/live/standard/defaultOrig1',
+      );
+
+      // Fresh runtime with no active subscriptions falls back to injected getCurrentPageLeague
+      const devRuntime = new LiveSearchPrimaryRuntime('poe1', {
+        hostClient,
+        webSocketFactory,
+        fetchClient: fetchClient as unknown as (
+          url: string,
+          init?: RequestInit,
+        ) => Promise<Response>,
+        openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
+        getCurrentPageLeague: () => 'Keepers',
+      });
+
+      expect(typeof devRuntime.injectDevResults).toBe('function');
+      const devOutcome = await devRuntime.injectDevResults!(2);
+      expect(devOutcome).toEqual({ rendered: 2, failed: 0 });
+      expect(hostClient.ensureCalls[hostClient.ensureCalls.length - 1]?.league).toBe('Keepers');
     });
   });
 });

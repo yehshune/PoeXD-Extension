@@ -3,27 +3,12 @@ import {
   createLiveSearchLeagueManager,
   type LiveSearchLeagueManagerDeps,
 } from '@/entrypoints/content/logic/live-search-sources/league-manager';
-import type { LiveSearchControllerBasePort } from '@/entrypoints/content/logic/live-search-sources/types';
 import type { PoeVersion } from '@/utils/trade-context';
 import type { BookmarkCollectionView } from '@/utils/bookmark-coordinator';
 import type { LiveSearchPrimaryController } from '@/utils/live-search-contract';
 import type { LiveSearchResumeStore } from '@/utils/live-search-resume-store';
 import type { PreferencesModule } from '@/utils/preferences';
-
-function createBaseRuntime(
-  overrides: Partial<LiveSearchControllerBasePort> = {},
-): LiveSearchControllerBasePort {
-  return {
-    hasSource: false,
-    isDisposed: () => false,
-    isReloadPending: () => false,
-    waitForReconciliationDrain: async () => {},
-    getGameVersion: () => 'poe1',
-    getCurrentCollection: () => null,
-    notify: vi.fn(),
-    ...overrides,
-  };
-}
+import * as tradeLeaguesModule from '@/utils/trade-leagues';
 
 function createFakeLiveController(
   teardownImpl?: (opts?: { targetLeague?: string }) => Promise<void>,
@@ -35,20 +20,26 @@ function createFakeLiveController(
 
 function createManager(overrides: Partial<LiveSearchLeagueManagerDeps> = {}) {
   const onSelectedLeagueChanged = vi.fn();
-  const runtime = overrides.runtime ?? createBaseRuntime();
+  const notify = vi.fn();
   const liveController = overrides.liveController ?? createFakeLiveController();
   const manager = createLiveSearchLeagueManager({
-    runtime,
-    preferences: null,
-    resumeStore: null,
-    liveController,
+    hasSource: false,
+    isDisposed: () => false,
     isLoading: () => false,
+    isReloadPending: () => false,
+    waitForReloadDrain: async () => {},
+    getGameVersion: () => 'poe1',
+    getCurrentCollection: () => null,
     getTemporarySearches: () => [],
     getLatestResumeIdentities: () => [],
     onSelectedLeagueChanged,
+    notify,
+    liveController,
+    preferences: null,
+    resumeStore: null,
     ...overrides,
   });
-  return { manager, runtime, liveController, onSelectedLeagueChanged };
+  return { manager, notify, liveController, onSelectedLeagueChanged };
 }
 
 describe('live-search-league-manager', () => {
@@ -101,7 +92,7 @@ describe('live-search-league-manager', () => {
         ],
       };
       const { manager: fromBookmark } = createManager({
-        runtime: createBaseRuntime({ getCurrentCollection: () => collection }),
+        getCurrentCollection: () => collection,
       });
       await fromBookmark.resolveInitialLeague();
       expect(fromBookmark.getSelectedLeague()).toBe('settlers');
@@ -136,7 +127,7 @@ describe('live-search-league-manager', () => {
       } as unknown as LiveSearchResumeStore;
 
       const { manager } = createManager({
-        runtime: createBaseRuntime({ getGameVersion: () => version }),
+        getGameVersion: () => version,
         resumeStore,
       });
 
@@ -180,7 +171,7 @@ describe('live-search-league-manager', () => {
           { id: 'Keepers', text: 'Keepers' },
           { id: 'keepers', text: 'keepers dup' },
         ],
-        runtime: createBaseRuntime({ getCurrentCollection: () => collection }),
+        getCurrentCollection: () => collection,
         getLatestResumeIdentities: () => [
           { gameVersion: 'poe1', league: 'SSF Standard', searchId: 'AbCd1234Ef' },
         ],
@@ -197,6 +188,28 @@ describe('live-search-league-manager', () => {
         'SSF Standard',
         'Standard',
       ]);
+    });
+
+    it('僅在 canFetchOfficialLeagues 為 true 且未提供自訂 fetchLeagues 時自動呼叫官方聯盟 API', async () => {
+      const fetchSpy = vi
+        .spyOn(tradeLeaguesModule, 'fetchTradeLeagues')
+        .mockResolvedValue([{ id: 'Keepers', text: 'Keepers' }]);
+
+      try {
+        const { manager: disabled } = createManager({ canFetchOfficialLeagues: false });
+        disabled.startStartupTasks();
+        await disabled.ensureStartupResolved();
+        expect(fetchSpy).not.toHaveBeenCalled();
+        expect(disabled.getAvailableLeagues()).not.toContain('Keepers');
+
+        const { manager: enabled } = createManager({ canFetchOfficialLeagues: true });
+        enabled.startStartupTasks();
+        await enabled.ensureStartupResolved();
+        expect(fetchSpy).toHaveBeenCalledWith('poe1');
+        expect(enabled.getAvailableLeagues()).toContain('Keepers');
+      } finally {
+        fetchSpy.mockRestore();
+      }
     });
   });
 

@@ -4,12 +4,12 @@ import { t } from '@/utils/i18n';
 import type { LiveSearchPrimaryController } from '@/utils/live-search-contract';
 import { createLiveSearchResumeStore } from '@/utils/live-search-resume-store';
 import type { PreferencesModule } from '@/utils/preferences';
-import type { PoeVersion } from '@/utils/trade-context';
+import { getTradeLeague, type PoeVersion } from '@/utils/trade-context';
+import { DEFAULT_TRADE_ORIGIN, getSupportedTradeOrigin } from '@/utils/trade-realms';
 import type { TradeResultCache } from '@/utils/trade-result-cache';
 import { createLiveSearchConsoleHostGuard } from './live-search-console-host-guard';
 import { createLiveSearchConsoleTitleGuard } from './live-search-console-title';
 import { registerLiveSearchPrimaryEnqueueBridge } from './live-search-enqueue-receiver';
-import { createLiveSearchPrimaryController } from './live-search-primary-controller';
 import { createLiveSearchPrimaryExitGuard } from './live-search-primary-exit-guard';
 import { LiveSearchPrimaryRuntime } from './live-search-primary-runtime';
 import {
@@ -50,6 +50,25 @@ export interface LiveSearchPrimarySession {
   dispose(): void;
 }
 
+export interface LiveSearchPrimaryEnvironment {
+  readonly origin: string;
+  readonly canFetchOfficialLeagues: boolean;
+  readonly getCurrentPageLeague?: () => string | undefined;
+}
+
+function createBrowserEnvironment(): LiveSearchPrimaryEnvironment {
+  const loc = typeof window !== 'undefined' ? window.location : undefined;
+  const origin = getSupportedTradeOrigin(loc?.origin) ?? DEFAULT_TRADE_ORIGIN;
+  const canFetchOfficialLeagues = Boolean(
+    loc && loc.protocol.startsWith('http') && !loc.host.includes('localhost'),
+  );
+  return {
+    origin,
+    canFetchOfficialLeagues,
+    ...(import.meta.env.DEV ? { getCurrentPageLeague: () => getTradeLeague() } : {}),
+  };
+}
+
 export interface LiveSearchPrimarySessionFactories {
   createTitleGuard: typeof createLiveSearchConsoleTitleGuard;
   createHostGuard: typeof createLiveSearchConsoleHostGuard;
@@ -60,7 +79,6 @@ export interface LiveSearchPrimarySessionFactories {
     version: PoeVersion,
     options: ConstructorParameters<typeof LiveSearchPrimaryRuntime>[1],
   ) => LiveSearchPrimaryRuntime;
-  createPrimaryController: typeof createLiveSearchPrimaryController;
   createResumeStore: typeof createLiveSearchResumeStore;
   createBookmarkClient: typeof createChromeBookmarkClient;
   createSourceController: typeof createLiveSearchSourceController;
@@ -77,6 +95,7 @@ export interface CreateLiveSearchPrimarySessionInput {
   initialArrivalSignal?: boolean;
   isHostDisposed?: () => boolean;
   doc?: Document;
+  environment?: Partial<LiveSearchPrimaryEnvironment>;
   factories?: Partial<LiveSearchPrimarySessionFactories>;
 }
 
@@ -87,7 +106,6 @@ const DEFAULT_FACTORIES: LiveSearchPrimarySessionFactories = {
   createDesktopNotifier: createLiveSearchDesktopNotifier,
   createResultSourceBadge: createLiveSearchResultSourceBadge,
   createRuntime: (version, options) => new LiveSearchPrimaryRuntime(version, options),
-  createPrimaryController: createLiveSearchPrimaryController,
   createResumeStore: createLiveSearchResumeStore,
   createBookmarkClient: createChromeBookmarkClient,
   createSourceController: createLiveSearchSourceController,
@@ -106,6 +124,10 @@ export function createLiveSearchPrimarySession(
 ): LiveSearchPrimarySession {
   const { version, preferences, resultCache, initialArrivalSignal = false, isHostDisposed } = input;
   const doc = input.doc ?? document;
+  const env: LiveSearchPrimaryEnvironment = {
+    ...createBrowserEnvironment(),
+    ...input.environment,
+  };
   const f: LiveSearchPrimarySessionFactories = { ...DEFAULT_FACTORIES, ...input.factories };
 
   doc.body?.setAttribute('data-poexd-page-role', 'live-search-primary');
@@ -213,6 +235,8 @@ export function createLiveSearchPrimarySession(
     resultSourceBadge = badge;
 
     primaryRuntime = f.createRuntime(version, {
+      origin: env.origin,
+      getCurrentPageLeague: env.getCurrentPageLeague,
       getMaxDisplayedResults: () => preferences.read().liveSearchMaxDisplayedResults,
       getFetchOrder: () => preferences.read().liveSearchFetchOrder,
       getTokenMaxAgeSec: () => preferences.read().liveSearchTokenMaxAgeSec,
@@ -236,13 +260,14 @@ export function createLiveSearchPrimarySession(
           })
         : null;
 
-    const controller = f.createPrimaryController(primaryRuntime);
-    primaryController = controller;
+    primaryController = primaryRuntime;
     const resumeStore = f.createResumeStore(version);
     const bookmarkClient = f.createBookmarkClient(version);
-    const sources = f.createSourceController(bookmarkClient, controller, {
+    const sources = f.createSourceController(bookmarkClient, primaryController, {
       resumeStore,
       preferences,
+      origin: env.origin,
+      canFetchOfficialLeagues: env.canFetchOfficialLeagues,
     });
     sourceController = sources;
     unsubSourceBadgeSync =
@@ -259,7 +284,7 @@ export function createLiveSearchPrimarySession(
       resumeStore,
     });
     exitGuard = f.createExitGuard({
-      shouldWarn: () => (controller.read().subscriptions.length ?? 0) > 0,
+      shouldWarn: () => (primaryController.read().subscriptions.length ?? 0) > 0,
     });
 
     cleanupEnqueueListener = f.registerEnqueueBridge({

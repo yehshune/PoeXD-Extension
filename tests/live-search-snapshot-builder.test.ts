@@ -177,5 +177,45 @@ describe('live-search-snapshot-builder', () => {
         `${PREVIOUS_SOURCE_ID_PREFIX}poe1:standard:PrEv1234Ef`,
       );
     });
+
+    it('為缺少 url 的上次連線與本次連線項目使用注入的 origin 組裝標準網址', () => {
+      const sessionEntriesByKey = new Map<string, SessionConnectionMeta>([
+        [
+          'poe1:standard:NoUrlSes12',
+          {
+            canonicalKey: 'poe1:standard:NoUrlSes12',
+            canonicalIdentity: { gameVersion: 'poe1', league: 'Standard', searchId: 'NoUrlSes12' },
+            name: 'No URL Session',
+            url: '',
+          },
+        ],
+      ]);
+      const combinedResumeMap = new Map<string, LiveSearchResumeIdentity>([
+        [
+          'poe1:standard:NoUrlPre12',
+          {
+            gameVersion: 'poe1',
+            league: 'Standard',
+            searchId: 'NoUrlPre12',
+            name: 'No URL Previous',
+          },
+        ],
+      ]);
+
+      const { snapshot } = buildLiveSearchSourceSnapshot(
+        createBaseSnapshotInput({
+          origin: 'https://pathofexile.tw',
+          sessionEntriesByKey,
+          combinedResumeMap,
+        }),
+      );
+
+      expect(snapshot.sessionConnections?.[0]?.url).toBe(
+        'https://pathofexile.tw/trade/search/Standard/NoUrlSes12',
+      );
+      expect(snapshot.previousConnections?.[0]?.url).toBe(
+        'https://pathofexile.tw/trade/search/Standard/NoUrlPre12',
+      );
+    });
   });
 });

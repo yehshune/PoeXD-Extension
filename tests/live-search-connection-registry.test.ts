@@ -227,4 +227,15 @@ describe('LiveSearchConnectionRegistry', () => {
     registry.applyResumePlanSnapshot([]);
     expect(registry.buildCombinedResumeMap().has(deletedKey)).toBe(false);
   });
+
+  it('具現化缺少 url 的 Resume 項目時使用注入的 origin 組裝標準搜尋網址', () => {
+    const registry = createLiveSearchConnectionRegistry({ origin: 'https://pathofexile.tw' });
+    const key = 'poe1:standard:TwReSuMe12';
+    registry.applyInitialResumeRead([
+      { gameVersion: 'poe1', league: 'Standard', searchId: 'TwReSuMe12', name: 'TW Resume' },
+    ]);
+
+    const materialized = registry.ensureTemporarySearchForSectionKey(key, 'Standard');
+    expect(materialized?.url).toBe('https://pathofexile.tw/trade/search/Standard/TwReSuMe12');
+  });
 });

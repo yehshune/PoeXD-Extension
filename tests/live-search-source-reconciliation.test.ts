@@ -8,7 +8,7 @@ import {
   type LiveSearchBookmarkSourcePort,
   type LiveSearchSourceController,
 } from '@/entrypoints/content/logic/live-search-sources';
-import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
+import type { LiveSearchPrimaryController } from '@/utils/live-search-contract';
 import { LiveSearchPrimaryRuntime } from '@/entrypoints/content/logic/live-search-primary-runtime';
 import { LiveSearchOpenScheduler } from '@/entrypoints/content/logic/live-search-open-scheduler';
 import type {
@@ -121,7 +121,7 @@ describe('LiveSearch Temporary Search + Bookmark Reconciliation Phase Tests', ()
   let hostClient: FakeHostClient;
   let scheduler: LiveSearchOpenScheduler;
   let runtime: LiveSearchPrimaryRuntime;
-  let liveController: ReturnType<typeof createLiveSearchPrimaryController>;
+  let liveController: LiveSearchPrimaryController;
   let bookmarkSource: FakeBookmarkSource;
   let sourceCtrl: LiveSearchSourceController;
 
@@ -145,7 +145,7 @@ describe('LiveSearch Temporary Search + Bookmark Reconciliation Phase Tests', ()
         maxFailedAttempts: 2,
       },
     });
-    liveController = createLiveSearchPrimaryController(runtime);
+    liveController = runtime;
     bookmarkSource = new FakeBookmarkSource();
     sourceCtrl = createLiveSearchSourceController(bookmarkSource, liveController);
     await new Promise((r) => setTimeout(r, 20));

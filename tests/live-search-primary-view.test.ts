@@ -10,7 +10,6 @@ import { createInMemoryPreferencesStorage, createPreferencesModule } from '@/uti
 import { setMockDictionaries } from '@/utils/trade-stat-dictionary';
 import { useTradeSearchPreview } from '@/components/sidebar/composables/useTradeSearchPreview';
 import TradeSearchPreviewTooltip from '@/components/sidebar/search-preview/TradeSearchPreviewTooltip.vue';
-import { createLiveSearchPrimaryController } from '@/entrypoints/content/logic/live-search-primary-controller';
 import {
   createLiveSearchSourceController,
   type LiveSearchBatchOutcome,
@@ -193,7 +192,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
   });
 
   it('allows user to open Custom URL form, input canonical URL, creates Custom Source under 搜尋連線, starts subscription, and updates row and compact header', async () => {
-    const controller = createLiveSearchPrimaryController(runtime);
+    const controller = runtime;
     const { container, unmount } = mountComponent({ controller });
 
     await flushAsync();
@@ -274,7 +273,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
   });
 
   it('supports Custom URL full lifecycle: stop keeps source as 未啟用, enable restarts, and remove stops runtime and deletes source', async () => {
-    const controller = createLiveSearchPrimaryController(runtime);
+    const controller = runtime;
     const sourceController = createLiveSearchSourceController(null, controller);
     const { container, unmount } = mountComponent({ controller, sourceController });
 
@@ -347,7 +346,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       toasts.push(detail);
     });
 
-    const controller = createLiveSearchPrimaryController(runtime);
+    const controller = runtime;
     const sourceController = createLiveSearchSourceController(null, controller);
     const { container, unmount } = mountComponent({ controller, sourceController });
 
@@ -385,7 +384,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
   });
 
   it('displays status reconnecting with countdown and error message when websocket encounters error', async () => {
-    const controller = createLiveSearchPrimaryController(runtime);
+    const controller = runtime;
     const sourceController = createLiveSearchSourceController(null, controller);
     const { container, unmount } = mountComponent({ controller, sourceController });
 
@@ -432,7 +431,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
       reconnectPolicy: { maxFailedAttempts: 0 },
     });
-    const controller = createLiveSearchPrimaryController(terminalRuntime);
+    const controller = terminalRuntime;
     const sourceController = createLiveSearchSourceController(null, controller);
     const { container, unmount } = mountComponent({ controller, sourceController });
 
@@ -501,7 +500,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
       reconnectPolicy: { maxFailedAttempts: 0 },
     });
-    const controller = createLiveSearchPrimaryController(filterRuntime);
+    const controller = filterRuntime;
 
     const port: LiveSearchBookmarkSourcePort = {
       readCollection: async () => ({
@@ -718,7 +717,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         getTokenMaxAgeSec: () => 0,
         now: () => nowMs,
       });
-      const controller = createLiveSearchPrimaryController(rateRuntime);
+      const controller = rateRuntime;
       const sourceController = createLiveSearchSourceController(null, controller);
 
       const { container, unmount } = mountComponent({ controller, sourceController });
@@ -846,7 +845,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
           openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
           fetchRateGate,
         });
-        const controller = createLiveSearchPrimaryController(rateRuntime);
+        const controller = rateRuntime;
         const sourceController = createLiveSearchSourceController(null, controller);
 
         const { container, unmount } = mountComponent({ controller, sourceController });
@@ -920,7 +919,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
   describe('Lifecycle & Teardown Regression Protection', () => {
     it('unmounting pane only unsubscribes feed; does NOT dispose runtime and does NOT close WebSockets', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
 
       // 加入 active subscription
       await controller.addFromUrl(
@@ -947,7 +946,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
   describe('Pane Header Contract', () => {
     it('LiveSearchPrimaryPane does not render console-version-label or duplicate 線上搜尋主控台 header while keeping Compact Status Header', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const { container, unmount } = mountComponent({ controller });
       await flushAsync();
 
@@ -969,7 +968,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
         reconnectPolicy: { maxFailedAttempts: 0 },
       });
-      const controller = createLiveSearchPrimaryController(groupRuntime);
+      const controller = groupRuntime;
 
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
@@ -1108,7 +1107,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
         fetchClient: fetchFn as unknown as typeof fetch,
       });
-      const controller = createLiveSearchPrimaryController(diagRuntime);
+      const controller = diagRuntime;
       const sourceController = createLiveSearchSourceController(null, controller);
 
       const container = document.createElement('div');
@@ -1218,7 +1217,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('status filter ToggleGroup maintains single-selection invariant and does not deselect to empty when re-clicked', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const { container, unmount } = mountComponent({ controller });
       await flushAsync();
 
@@ -1276,7 +1275,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
   describe('Source Compatibility Presentation & Reactive League Lock UI', () => {
     it('renders resumable sources for the active league and reactively updates Hardcore row after switching league', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -1351,7 +1350,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('directly renders compatibility badges and tooltips from sourceController snapshot without view-level re-evaluation', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const mockSnapshot = {
         groups: [
           {
@@ -1497,7 +1496,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
   describe('Group Batch & Filtered Result Batch UI', () => {
     it('Group Batch operates on the entire group even when search/filter is active, and supports group stop', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -1648,7 +1647,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('Filtered Result Batch submits only the currently filtered source IDs from filteredGroups and rejects mixed-league batch atomically', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -1823,7 +1822,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         toasts.push(detail);
       });
 
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -1929,7 +1928,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         toasts.push(detail);
       });
 
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -2019,7 +2018,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('上次連線分區直接顯示當前聯盟可恢復項目與來源資料夾標籤，隱藏閒置「未啟用」文字，且不渲染冗餘頂部橫幅', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -2125,7 +2124,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('上次連線選單「清空紀錄」與本次連線選單「移除已停止的連線」、新增連線入口及排隊啟動中狀態回饋', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -2233,7 +2232,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('Preview Tooltip contract: Trigger 僅包含 identity 且右側 controls 排除在 Trigger 之外，且 TradeSearchPreviewTooltip 傳入 boundaryAnchor', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -2298,7 +2297,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('Row Action Hierarchy 與 Group Quick Action UX 收斂回歸驗證', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -2377,7 +2376,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('Group Quick Action 僅在存在可進入既有 enableMany() 的來源時顯示，並排除 incompatible/error/pending/active-only', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const currentSnapshot: LiveSearchSourceSnapshot = {
         loading: false,
         leagueResolved: true,
@@ -2615,7 +2614,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('renders Compact Header League Selector, expands available leagues, triggers switchLeague, and reflects disabled switching state', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       let currentSnap: LiveSearchSourceSnapshot = {
         loading: false,
         leagueResolved: true,
@@ -2716,7 +2715,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('asks for confirmation before switching league when live searches are active, and aborts on cancel', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const currentSnap: LiveSearchSourceSnapshot = {
         loading: false,
         leagueResolved: true,
@@ -2791,7 +2790,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     let controller: LiveSearchPrimaryController;
 
     beforeEach(() => {
-      controller = createLiveSearchPrimaryController(runtime);
+      controller = runtime;
     });
 
     function createHierarchySnapshot(): LiveSearchSourceSnapshot {
@@ -3327,7 +3326,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('renders compact thumbnail for bookmark with coverImageUrl and placeholder slot for bookmark without', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snap: LiveSearchSourceSnapshot = {
         loading: false,
         selectedLeague: 'Standard',
@@ -3428,7 +3427,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('ensures Temporary Search row renders neither thumbnail nor placeholder slot', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snap: LiveSearchSourceSnapshot = {
         loading: false,
         selectedLeague: 'Standard',
@@ -3494,7 +3493,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('silently hides thumbnail on image load error without crashing or mutating storage', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snap: LiveSearchSourceSnapshot = {
         loading: false,
         selectedLeague: 'Standard',
@@ -3568,7 +3567,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('excludes right-side control buttons from the tooltip trigger surface', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snap: LiveSearchSourceSnapshot = {
         loading: false,
         selectedLeague: 'Standard',
@@ -3648,7 +3647,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         'poe1',
       );
 
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snap: LiveSearchSourceSnapshot = {
         loading: false,
         selectedLeague: 'Standard',
@@ -3765,7 +3764,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('disables preview tooltip for invalid-url items while supporting wrong-version items', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snap: LiveSearchSourceSnapshot = {
         loading: false,
         selectedLeague: 'Standard',
@@ -3913,7 +3912,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         'poe1',
       );
 
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snapRef = ref<LiveSearchSourceSnapshot>({
         loading: false,
         selectedLeague: 'Standard',
@@ -4086,7 +4085,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         'poe1',
       );
 
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snapRef = ref<LiveSearchSourceSnapshot>({
         loading: false,
         selectedLeague: 'Standard',
@@ -4233,7 +4232,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         'poe1',
       );
 
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snapRef = ref<LiveSearchSourceSnapshot>({
         loading: false,
         selectedLeague: 'Standard',
@@ -4430,7 +4429,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         'poe1',
       );
 
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const snapRef = ref<LiveSearchSourceSnapshot>({
         loading: false,
         selectedLeague: 'Standard',
@@ -4622,7 +4621,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
   describe('Two-Section Console (本次連線 & 上次連線) & Push-to-Console Integration', () => {
     it('supports 上次連線 single enable, 全部恢復, single remove, 清空上次連線紀錄, and 本次連線 pause vs remove', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const port: LiveSearchBookmarkSourcePort = {
         readCollection: async () => ({
           ok: true,
@@ -4798,7 +4797,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('enqueues incoming connections from Normal Page into 本次連線 and persists metadata to ResumeStore', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       let storedIdentities: any[] = [];
       const resumeStorage = {
         async get() {
@@ -4857,7 +4856,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
     });
 
     it('serializes concurrent enqueueIncomingConnections calls so duplicate pushes never race or double-subscribe', async () => {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const sourceController = createLiveSearchSourceController(null, controller);
       const item = {
         url: 'https://www.pathofexile.com/trade/search/Standard/H4sIconcurrent_1',
@@ -4931,7 +4930,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       };
 
       // Session 1：啟用一筆書籤後暫停、新增一筆自訂網址，並保留一筆待恢復的上次連線
-      const controller1 = createLiveSearchPrimaryController(runtime);
+      const controller1 = runtime;
       const resumeStore1 = createLiveSearchResumeStore('poe1', resumeStorage);
       const sourceController1 = createLiveSearchSourceController(port, controller1, {
         resumeStore: resumeStore1,
@@ -4961,7 +4960,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         webSocketFactory,
         openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
       });
-      const controller2 = createLiveSearchPrimaryController(runtime2);
+      const controller2 = runtime2;
       const resumeStore2 = createLiveSearchResumeStore('poe1', resumeStorage);
       const sourceController2 = createLiveSearchSourceController(port, controller2, {
         resumeStore: resumeStore2,
@@ -5025,7 +5024,7 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
   it('opens the trade search page in a new tab from the item menu and hides it for invalid URLs', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     try {
-      const controller = createLiveSearchPrimaryController(runtime);
+      const controller = runtime;
       const mockSnapshot: LiveSearchSourceSnapshot = {
         loading: false,
         selectedLeague: 'Standard',
