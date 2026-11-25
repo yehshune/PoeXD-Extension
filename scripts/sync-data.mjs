@@ -2,7 +2,7 @@
  * 從 poexd-data 的發布內容同步 public/json/（docs/architecture/data-unification-plan.md 第 5.1 節）。
  *
  * 來源：
- * - 遠端（預設）：GitHub 上 gh-pages 的某個 commit。以 commit SHA 組網址，內容固定不變，
+ * - 遠端（預設）：poexd-data-dist 的 gh-pages 的某個 commit。以 commit SHA 組網址，內容固定不變，
  *   不受 jsDelivr 分支快取影響；一律透過 HTTP 取得，避免本機 git 的換行轉換改變內容。
  * - 本機：`--source <dir>`，指向 poexd-data 的 output/（開發用）。
  *
@@ -29,7 +29,8 @@ import { replaceFilesWithRollback } from './file-update-rollback.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const TARGET_DIR = join(ROOT, 'public/json');
-const DATA_REPO = 'yehshune/poexd-data';
+/** poexd-data 的發布內容所在的 repo */
+const DATA_REPO = 'yehshune/poexd-data-dist';
 const PUBLISH_BRANCH = 'gh-pages';
 const SUPPORTED_MANIFEST_VERSION = 1;
 const DATA_SOURCE_FILE = 'data-source.json';

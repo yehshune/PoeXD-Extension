@@ -4,7 +4,7 @@
 
 ## 更新
 
-產生器在 [poexd-data](https://github.com/yehshune/poexd-data)（`src/trade/`）：每週一排程重抓、驗證後發布到 gh-pages。擴充端只同步發布結果，不直接連官方 API（ADR-0013）：
+產生器在 poexd-data（`src/trade/`）：每週一排程重抓、驗證後發布到 [poexd-data-dist](https://github.com/yehshune/poexd-data-dist) 的 gh-pages。擴充端只同步發布結果，不直接連官方 API（ADR-0013）：
 
 ```powershell
 pnpm data:sync                                   # 同步全部批次

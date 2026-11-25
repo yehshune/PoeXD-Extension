@@ -28,7 +28,7 @@ jobs:
       # 依 poexd-data 的 manifest 下載、驗證 sha256 與批次一致性後寫入 public/json/
       - name: Sync data
         env:
-          # 只用來查詢 poexd-data gh-pages 的 commit，避免未驗證請求的速率限制
+          # 只用來查詢 poexd-data-dist gh-pages 的 commit，避免未驗證請求的速率限制
           GITHUB_TOKEN: ${{ github.token }}
         run: pnpm data:sync | tee "$RUNNER_TEMP/sync.log"
 
@@ -40,7 +40,7 @@ jobs:
           ref=$(node -p "require('./public/json/data-source.json').ref")
           echo "short=${ref:0:7}" >> "$GITHUB_OUTPUT"
           {
-            echo "從 [poexd-data@${ref:0:7}](https://github.com/yehshune/poexd-data/tree/$ref) 同步 \`public/json/\`。"
+            echo "從 [poexd-data-dist@${ref:0:7}](https://github.com/yehshune/poexd-data-dist/tree/$ref) 同步 \`public/json/\`。"
             echo "Sync of \`public/json/\` from poexd-data."
             echo
             echo '```text'
