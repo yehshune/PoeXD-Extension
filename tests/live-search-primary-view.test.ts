@@ -715,6 +715,8 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         webSocketFactory,
         openScheduler: new LiveSearchOpenScheduler({ cooldownMs: 0 }),
         fetchRateGate,
+        getTokenMaxAgeSec: () => 0,
+        now: () => nowMs,
       });
       const controller = createLiveSearchPrimaryController(rateRuntime);
       const sourceController = createLiveSearchSourceController(null, controller);
