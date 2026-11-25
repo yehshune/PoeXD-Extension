@@ -38,6 +38,15 @@
       </Button>
     </div>
 
+    <!-- 展開時說明：推播物品只有數秒可抓，錯過無法補回 -->
+    <p
+      v-show="isExpanded"
+      data-test="dropped-items-hint"
+      class="border-t border-amber-500/20 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-muted-foreground leading-snug"
+    >
+      {{ t('liveSearch.dropped.hint') }}
+    </p>
+
     <!-- 展開清單（採用專案標準 ScrollArea Foundation） -->
     <ScrollAreaRoot
       v-show="isExpanded"

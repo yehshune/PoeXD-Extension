@@ -76,7 +76,7 @@
     - 所有持久化主控台顯示偏好統一整合進既有 `PreferencesModule` / `Preferences` / `DEFAULT_PREFERENCES` / `getPreferenceStorageKey()`（維持 PoE 1 / PoE 2 分版本規則，不另建獨立 storage）：
       - `liveSearchMaxDisplayedResults: 50 | 100 | 200 | 500`（預設 `100`）：結果展示區最多保留筆數，超過時淘汰最舊結果；官方上方顯示之筆數即為實際保留數（依連線篩選時為該連線筆數）。主控台不提供技術診斷顯示。
       - `liveSearchFetchOrder: 'newest' | 'oldest'`（預設 `'newest'`）：速率受限解禁後的排隊抓取順序，預設最新優先（LIFO），可切換為依序抓取（FIFO）。
-      - `liveSearchTokenMaxAgeSec: number`（整數 `0–300`，預設 `3`）：待抓取物品的新鮮度上限（秒）；超過上限或剩餘速率冷卻大於上限時直接計入「已略過」（`0` 表示不略過）。官方推播 token 本身只有數秒效期，「已略過」依搜尋彙總計數（總數、各原因筆數、最近略過時間），僅供知悉與清除（可清除單一搜尋或全部清空），不提供補抓。
+      - `liveSearchTokenMaxAgeSec: number`（整數 `1–7`，預設 `1`；設定頁標示為「排隊最多等待」）：待抓取物品排隊最多等待的秒數；超過或剩餘速率冷卻大於此值時直接計入「已略過」（介面標示為「來不及抓取」）。官方推播 token 約 7 秒失效，故上限為 7；舊版的 `0`（不限）或大於 7 的值載入時正規化為 `7`。官方推播 token 本身只有數秒效期，「已略過」依搜尋彙總計數（總數、各原因筆數、最近略過時間），僅供知悉與清除（可清除單一搜尋或全部清空），不提供補抓。
   - **搜尋連線清單操作階層與降噪規範 (Search Connections Action Hierarchy & Noise Reduction)**：
     - **單一主要狀態操作按鈕 (Single Status-Action Button)**：每筆連線右側只保留一個整合狀態與動作的 icon-only 按鈕（套用既有 `Button size="icon-sm"` 與標準 icon-button 幾何，具備明確 `title` 與 `aria-label`）：未啟用為「啟用」（Lucide `Play`），監聽中為綠色呼吸燈之「暫停監聽」（Lucide `Pause`），連線中/重連中為 disabled 的旋轉 `Loader2`（取消連線收納於 `⋯` 選單），異常為「重試」（Lucide `RotateCcw`）；從「本次連線」或「上次連線」移除（以及拖曳至 `DragTrashZone` 垃圾桶移除）僅移除主控台連線紀錄，絕不刪除持久化書籤。
     - **進行中狀態視覺語言**：connecting / reconnecting 採用 Lucide `Loader2` 旋轉動畫圖示呈現進行中狀態，不使用 Unicode 符號；active 項目維持微強調與呼吸動畫，使運行中連線比 inactive 項目更易於辨識。

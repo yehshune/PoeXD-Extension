@@ -40,7 +40,7 @@ describe('Preferences module interface', () => {
       liveSearchResumeMode: 'prompt',
       liveSearchSelectedLeague: '',
       liveSearchSoundEnabled: true,
-      liveSearchTokenMaxAgeSec: 3,
+      liveSearchTokenMaxAgeSec: 1,
       marketTranslation: false,
       marketTranslationBilingual: true,
       marketTranslationResultBilingual: false,

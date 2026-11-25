@@ -54,7 +54,7 @@ describe('Preferences Domain Contract', () => {
       liveSearchResumeMode: 'prompt',
       liveSearchSelectedLeague: '',
       liveSearchSoundEnabled: true,
-      liveSearchTokenMaxAgeSec: 3,
+      liveSearchTokenMaxAgeSec: 1,
       marketTranslation: false,
       marketTranslationBilingual: true,
       marketTranslationResultBilingual: false,
@@ -173,6 +173,17 @@ describe('Preferences Domain Contract', () => {
     }
   });
 
+  it('migrates legacy liveSearchTokenMaxAgeSec values into the 1–7 second range', () => {
+    // 舊版 0 代表不限、上限 300：都換成 7 秒（等到官方期限）
+    expect(normalizePreference('liveSearchTokenMaxAgeSec', 0)).toBe(7);
+    expect(normalizePreference('liveSearchTokenMaxAgeSec', 15)).toBe(7);
+    expect(normalizePreference('liveSearchTokenMaxAgeSec', 300)).toBe(7);
+    expect(normalizePreference('liveSearchTokenMaxAgeSec', 3)).toBe(3);
+    expect(normalizePreference('liveSearchTokenMaxAgeSec', 2.6)).toBe(3);
+    expect(normalizePreference('liveSearchTokenMaxAgeSec', -1)).toBe(1);
+    expect(normalizePreference('liveSearchTokenMaxAgeSec', 'x')).toBe(1);
+  });
+
   it('rejects unknown keys, prototype keys, and wrong-typed values without falling through to string acceptance', () => {
     expect(isValidPreference('unknownPreference' as keyof Preferences, 'non-empty-string')).toBe(
       false,
@@ -186,7 +197,9 @@ describe('Preferences Domain Contract', () => {
     expect(isValidPreference('collapsedTabTop', Number.POSITIVE_INFINITY)).toBe(false);
     expect(isValidPreference('liveSearchTokenMaxAgeSec', 3.5)).toBe(false);
     expect(isValidPreference('liveSearchTokenMaxAgeSec', -1)).toBe(false);
-    expect(isValidPreference('liveSearchTokenMaxAgeSec', 301)).toBe(false);
+    expect(isValidPreference('liveSearchTokenMaxAgeSec', 0)).toBe(false);
+    expect(isValidPreference('liveSearchTokenMaxAgeSec', 8)).toBe(false);
+    expect(isValidPreference('liveSearchTokenMaxAgeSec', 7)).toBe(true);
     expect(isValidPreference('displayLocale', 'klingon')).toBe(false);
     expect(isValidPreference('hotkeyFocus', 123)).toBe(false);
     expect(isValidPreference('hotkeyFocus', '')).toBe(true);

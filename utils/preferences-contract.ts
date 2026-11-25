@@ -72,10 +72,13 @@ export type LiveSearchMaxDisplayedResults =
 export const LIVE_SEARCH_FETCH_ORDER_VALUES = ['newest', 'oldest'] as const;
 export type LiveSearchFetchOrder = (typeof LIVE_SEARCH_FETCH_ORDER_VALUES)[number];
 
-/** 主控台待抓取物品的新鮮度上限（秒）有效範圍；0 代表不過期丟棄。 */
+/**
+ * 主控台待抓取物品排隊最多等待的秒數。官方推播 token 約 7 秒後失效，超過 7 秒沒有意義；
+ * 好物品常在數秒內被買走，預設 1 秒。
+ */
 export const LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS = Object.freeze({
-  min: 0,
-  max: 300,
+  min: 1,
+  max: 7,
 });
 export type LiveSearchTokenMaxAgeSec = number;
 
@@ -234,6 +237,16 @@ const isIntegerInRange =
     Number.isInteger(value) &&
     value >= bounds.min &&
     value <= bounds.max;
+
+/** 舊版允許 0（不限）與最多 300 秒：0 或超過上限都視為「等到官方期限」，換成上限 */
+const normalizeTokenMaxAgeSec = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 1;
+  if (value === 0) return LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.max;
+  return Math.min(
+    LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.max,
+    Math.max(LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.min, Math.round(value)),
+  );
+};
 
 const isDensityScale = isOneOf(DENSITY_SCALE_VALUES);
 const normalizeDensityScale = (value: unknown): number => {
@@ -445,8 +458,9 @@ export const PREFERENCE_SCHEMA = Object.freeze({
   },
   liveSearchTokenMaxAgeSec: {
     scope: 'versioned',
-    default: 3,
+    default: 1,
     validate: isIntegerInRange(LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS),
+    normalize: normalizeTokenMaxAgeSec,
   },
   sidebarModuleBookmarks: {
     scope: 'versioned',

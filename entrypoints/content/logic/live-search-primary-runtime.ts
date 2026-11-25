@@ -158,7 +158,7 @@ const MAX_PIPELINE_429_RETRIES = 1;
 const TOKEN_EXPIRY_GRACE_MS = 1000;
 
 const DEFAULT_FETCH_ORDER: LiveSearchFetchOrder = 'newest';
-const DEFAULT_TOKEN_MAX_AGE_SEC = 3;
+const DEFAULT_TOKEN_MAX_AGE_SEC = 1;
 
 export type { AddSubscriptionOutcome, LiveSearchRetryOutcome };
 

@@ -96,6 +96,9 @@ describe('LiveSearchDroppedPanel', () => {
     ).click();
     await nextTick();
     expect(list.style.display).not.toBe('none');
+    expect(
+      (container.querySelector('[data-test="dropped-items-hint"]') as HTMLElement).style.display,
+    ).not.toBe('none');
 
     const rows = Array.from(container.querySelectorAll('[data-test="dropped-group-row"]'));
     expect(rows).toHaveLength(2);
@@ -133,7 +136,7 @@ describe('LiveSearchConsoleSettingsPane rate limit policy preferences', () => {
     await nextTick();
 
     expect(prefs.read().liveSearchFetchOrder).toBe('newest');
-    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(3);
+    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(1);
     expect(container.querySelector('[data-test="pref-token-max-age"]')).toBeNull();
 
     (container.querySelector('[data-test="pref-fetch-order-oldest"]') as HTMLButtonElement).click();
@@ -150,38 +153,39 @@ describe('LiveSearchConsoleSettingsPane rate limit policy preferences', () => {
       '[data-test="pref-token-max-age-input"]',
     ) as HTMLInputElement;
 
-    // 加減號微調
+    // 預設 1 秒時減號 disabled；加減號微調
+    expect(decBtn.disabled).toBe(true);
     incBtn.click();
     await nextTick();
-    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(4);
-    expect(input.value).toBe('4');
+    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(2);
+    expect(input.value).toBe('2');
 
     decBtn.click();
     await nextTick();
-    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(3);
+    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(1);
 
-    // 自訂任意秒數（例如 45 秒）
-    input.value = '45';
+    // 自訂秒數
+    input.value = '5';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await nextTick();
-    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(45);
+    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(5);
 
-    // 超出上限自動 clamp 至 300 秒
+    // 官方推播約 7 秒失效：超出上限自動 clamp 至 7 秒
     input.value = '999';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await nextTick();
-    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(300);
-    expect(input.value).toBe('300');
+    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(7);
+    expect(input.value).toBe('7');
     expect(incBtn.disabled).toBe(true);
 
-    // 設為 0 時減號 disabled
+    // 低於下限 clamp 至 1 秒
     input.value = '0';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await nextTick();
-    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(0);
+    expect(prefs.read().liveSearchTokenMaxAgeSec).toBe(1);
     expect(decBtn.disabled).toBe(true);
   });
 });
