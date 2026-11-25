@@ -11,11 +11,20 @@ import type {
 } from './bookmark-coordinator';
 import type { PoeVersion } from './trade-context';
 import type { BookmarkImportMode, BookmarkTransferPayload } from './bookmark-transfer';
-import type { SearchRecordError, SearchRecordOutcome } from './search-records';
+import type { SearchRecordOutcome } from './search-records';
 import {
   subscribeSearchRecordChange,
   type SearchRecordChangeListener,
 } from './search-record-messaging';
+import {
+  broadcastToTradeTabs,
+  callBackgroundWithUnavailable,
+  createRefCountedChangeHub,
+  registerReadyGatedHandler,
+  type ChangeListener,
+  type RefCountedChangeHub,
+  type TradeTabBroadcastTransport,
+} from './background-messaging';
 import { extensionMessaging } from './extension-protocol';
 
 export interface BookmarkClientTransport {
@@ -24,48 +33,14 @@ export interface BookmarkClientTransport {
   subscribeBookmarkChange(listener: (change: BookmarkChange) => void): () => void;
 }
 
-export interface BookmarkBroadcastTransport {
-  listTradeTabIds(): Promise<number[]>;
-  sendChangeToTab(tabId: number, change: BookmarkChange): Promise<void>;
-}
+export type BookmarkBroadcastTransport = TradeTabBroadcastTransport<BookmarkChange>;
 
-export type BookmarkChangeListener = (change: BookmarkChange) => void;
+export type BookmarkChangeListener = ChangeListener<BookmarkChange>;
 
-export interface BookmarkChangeHub {
-  subscribe(listener: BookmarkChangeListener): () => void;
-  readonly subscriberCount: number;
-}
+export type BookmarkChangeHub = RefCountedChangeHub<BookmarkChange>;
 
 export function createBookmarkChangeHub(messenger = extensionMessaging): BookmarkChangeHub {
-  const subscribers = new Set<BookmarkChangeListener>();
-  let unhookMessenger: (() => void) | undefined;
-
-  return {
-    subscribe(listener: BookmarkChangeListener): () => void {
-      subscribers.add(listener);
-      if (subscribers.size === 1) {
-        unhookMessenger = messenger.onMessage('bookmark:change', (message) => {
-          for (const subscriber of subscribers) {
-            try {
-              subscriber(message.data);
-            } catch {
-              // Individual subscriber failure does not abort other subscribers or transport
-            }
-          }
-        });
-      }
-      return () => {
-        subscribers.delete(listener);
-        if (subscribers.size === 0 && unhookMessenger) {
-          unhookMessenger();
-          unhookMessenger = undefined;
-        }
-      };
-    },
-    get subscriberCount() {
-      return subscribers.size;
-    },
-  };
+  return createRefCountedChangeHub('bookmark:change', messenger);
 }
 
 export const sharedBookmarkChangeHub = createBookmarkChangeHub();
@@ -82,23 +57,17 @@ export function createBookmarkClient(
   gameVersion: PoeVersion,
   subscribeSearchRecord: (listener: SearchRecordChangeListener) => () => void = () => () => {},
 ) {
-  const execute = async (command: BookmarkCommand): Promise<SearchRecordOutcome> => {
-    try {
-      const response = await transport.execute(command);
-      return response ?? unavailable('Bookmark background did not respond');
-    } catch (error) {
-      return unavailable(error instanceof Error ? error.message : String(error));
-    }
-  };
+  const execute = (command: BookmarkCommand): Promise<SearchRecordOutcome> =>
+    callBackgroundWithUnavailable(
+      () => transport.execute(command),
+      'Bookmark background did not respond',
+    );
 
-  const read = async (request: BookmarkRead): Promise<BookmarkReadOutcome> => {
-    try {
-      const response = await transport.read(request);
-      return response ?? unavailable('Bookmark background did not respond');
-    } catch (error) {
-      return unavailable(error instanceof Error ? error.message : String(error));
-    }
-  };
+  const read = (request: BookmarkRead): Promise<BookmarkReadOutcome> =>
+    callBackgroundWithUnavailable(
+      () => transport.read(request),
+      'Bookmark background did not respond',
+    );
 
   return {
     readCollection: () =>
@@ -205,8 +174,7 @@ export async function broadcastBookmarkChange(
   change: BookmarkChange,
   transport: BookmarkBroadcastTransport,
 ) {
-  const tabIds = await transport.listTradeTabIds();
-  await Promise.allSettled(tabIds.map((tabId) => transport.sendChangeToTab(tabId, change)));
+  await broadcastToTradeTabs(change, transport);
 }
 
 export function registerBookmarkBackgroundHandlers(options: {
@@ -214,36 +182,20 @@ export function registerBookmarkBackgroundHandlers(options: {
   getCoordinator: () => BookmarkCoordinator;
   getReady: () => Promise<SearchRecordOutcome>;
 }): () => void {
-  const messenger = options.messenger ?? extensionMessaging;
-  const offExecute = messenger.onMessage('bookmark:execute', async (message) => {
-    try {
-      const outcome = await options.getReady();
-      if (!outcome.ok) return outcome;
-      return await options.getCoordinator().execute(message.data);
-    } catch (error) {
-      return unavailable(error instanceof Error ? error.message : String(error));
-    }
+  const offExecute = registerReadyGatedHandler('bookmark:execute', {
+    messenger: options.messenger,
+    getReady: options.getReady,
+    handle: (command) => options.getCoordinator().execute(command),
   });
 
-  const offRead = messenger.onMessage('bookmark:read', async (message) => {
-    try {
-      const outcome = await options.getReady();
-      if (!outcome.ok) return outcome;
-      return await options.getCoordinator().read(message.data);
-    } catch (error) {
-      return unavailable(error instanceof Error ? error.message : String(error));
-    }
+  const offRead = registerReadyGatedHandler('bookmark:read', {
+    messenger: options.messenger,
+    getReady: options.getReady,
+    handle: (read) => options.getCoordinator().read(read),
   });
 
   return () => {
     offExecute();
     offRead();
-  };
-}
-
-function unavailable(message: string): { ok: false; error: SearchRecordError } {
-  return {
-    ok: false,
-    error: { code: 'unavailable', message },
   };
 }

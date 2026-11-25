@@ -2,13 +2,19 @@ import { extensionMessaging, type ExtensionProtocolMap } from './extension-proto
 
 export type ExtensionMessenger = typeof extensionMessaging;
 
-type ProtocolData<K extends keyof ExtensionProtocolMap> =
-  ExtensionProtocolMap[K] extends (data: infer D) => any ? D : never;
+type ProtocolData<K extends keyof ExtensionProtocolMap> = ExtensionProtocolMap[K] extends (
+  data: infer D,
+) => any
+  ? D
+  : never;
 
-type ProtocolReturn<K extends keyof ExtensionProtocolMap> =
-  ExtensionProtocolMap[K] extends (...args: any[]) => infer R ? R : never;
+type ProtocolReturn<K extends keyof ExtensionProtocolMap> = ExtensionProtocolMap[K] extends (
+  ...args: any[]
+) => infer R
+  ? R
+  : never;
 
-export type BroadcastChannel = {
+export type ProtocolBroadcastChannel = {
   [K in keyof ExtensionProtocolMap]: ProtocolReturn<K> extends void ? K : never;
 }[keyof ExtensionProtocolMap];
 
@@ -19,7 +25,7 @@ export interface RefCountedChangeHub<T> {
   readonly subscriberCount: number;
 }
 
-export function createRefCountedChangeHub<K extends BroadcastChannel>(
+export function createRefCountedChangeHub<K extends ProtocolBroadcastChannel>(
   channel: K,
   messenger: ExtensionMessenger = extensionMessaging,
 ): RefCountedChangeHub<ProtocolData<K>> {
@@ -67,7 +73,7 @@ export async function broadcastToTradeTabs<T>(
   await Promise.allSettled(tabIds.map((tabId) => transport.sendChangeToTab(tabId, payload)));
 }
 
-export function createTradeTabBroadcastTransport<K extends BroadcastChannel>(
+export function createTradeTabBroadcastTransport<K extends ProtocolBroadcastChannel>(
   channel: K,
   listTradeTabIds: () => Promise<number[]>,
   messenger: ExtensionMessenger = extensionMessaging,

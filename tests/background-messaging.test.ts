@@ -105,7 +105,9 @@ describe('background messaging primitives', () => {
       const change1: SearchRecordChange = {
         command: { type: 'clear-history', gameVersion: 'poe1' },
       };
-      await expect(messenger.sendMessage('searchRecord:change', change1, 1)).resolves.toBeUndefined();
+      await expect(
+        messenger.sendMessage('searchRecord:change', change1, 1),
+      ).resolves.toBeUndefined();
       expect(receivedA).toEqual([change1]);
       expect(receivedB).toEqual([change1]);
 
@@ -168,12 +170,10 @@ describe('background messaging primitives', () => {
     it('builds a Trade-tab broadcast transport wired to a typed protocol channel', async () => {
       const messenger = createFakeMessenger();
       const delivered: Array<{ tabId: number; payload: unknown }> = [];
-      messenger.sendMessage.mockImplementation(
-        async (_type: string, data: any, tabId?: number) => {
-          if (tabId === 2) throw new Error('Tab closed');
-          delivered.push({ tabId: tabId!, payload: data });
-        },
-      );
+      messenger.sendMessage.mockImplementation(async (_type: string, data: any, tabId?: number) => {
+        if (tabId === 2) throw new Error('Tab closed');
+        delivered.push({ tabId: tabId!, payload: data });
+      });
 
       const transport = createTradeTabBroadcastTransport(
         'economy:change',

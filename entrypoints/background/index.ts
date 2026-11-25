@@ -7,8 +7,8 @@ import {
 import {
   broadcastSearchRecordChange,
   registerSearchRecordBackgroundHandlers,
-  type SearchRecordBroadcastTransport,
 } from '@/utils/search-record-messaging';
+import { createTradeTabBroadcastTransport } from '@/utils/background-messaging';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import {
   createBackgroundBookmarkCoordinator,
@@ -18,14 +18,12 @@ import {
 import {
   broadcastBookmarkChange,
   registerBookmarkBackgroundHandlers,
-  type BookmarkBroadcastTransport,
 } from '@/utils/bookmark-messaging';
-import { registerEconomyBackgroundHandlers, type EconomyBroadcastTransport } from '@/utils/economy';
+import { registerEconomyBackgroundHandlers } from '@/utils/economy';
 import { registerPobShareBackgroundHandlers } from '@/utils/pob-share-fetch';
 import { createPinnedItemStore } from '@/utils/pinned-items';
 import { LiveSearchCoordinator } from '@/utils/live-search-coordinator';
 import { TRADE_PAGE_MATCH_PATTERNS } from '@/utils/trade-realms';
-import { registerLiveSearchBackgroundHandlers } from '@/utils/live-search-messaging';
 import { registerMarketTranslationBackgroundHandlers } from '@/utils/market-translation-live';
 import { clearMarketTranslationLiveCache } from '@/utils/market-live-cache';
 import { registerActionSidebarToggle } from '@/utils/action-sidebar-toggle';
@@ -88,19 +86,16 @@ export default defineBackground(() => {
       console.error('[Search Records] Initialization failed:', outcome.error);
     }
   });
-  const tradeTabBroadcastTransport = {
-    async listTradeTabIds() {
-      const tabs: Array<{ id?: number }> = await chrome.tabs.query({
-        url: [...TRADE_PAGE_MATCH_PATTERNS],
-      });
-      return tabs.flatMap((tab) => (tab.id === undefined ? [] : [tab.id]));
-    },
+  const listTradeTabIds = async (): Promise<number[]> => {
+    const tabs: Array<{ id?: number }> = await chrome.tabs.query({
+      url: [...TRADE_PAGE_MATCH_PATTERNS],
+    });
+    return tabs.flatMap((tab) => (tab.id === undefined ? [] : [tab.id]));
   };
-  const searchRecordBroadcastTransport: SearchRecordBroadcastTransport = {
-    listTradeTabIds: () => tradeTabBroadcastTransport.listTradeTabIds(),
-    sendChangeToTab: (tabId, change) =>
-      extensionMessaging.sendMessage('searchRecord:change', change, tabId),
-  };
+  const searchRecordBroadcastTransport = createTradeTabBroadcastTransport(
+    'searchRecord:change',
+    listTradeTabIds,
+  );
   searchRecordModule.subscribe((change) => {
     void broadcastSearchRecordChange(change, searchRecordBroadcastTransport).catch(
       (error: unknown) => {
@@ -112,11 +107,10 @@ export default defineBackground(() => {
     getModule: () => searchRecordModule!,
     getReady: () => searchRecordReady!,
   });
-  const bookmarkBroadcastTransport: BookmarkBroadcastTransport = {
-    listTradeTabIds: () => tradeTabBroadcastTransport.listTradeTabIds(),
-    sendChangeToTab: (tabId, change) =>
-      extensionMessaging.sendMessage('bookmark:change', change, tabId),
-  };
+  const bookmarkBroadcastTransport = createTradeTabBroadcastTransport(
+    'bookmark:change',
+    listTradeTabIds,
+  );
   bookmarkCoordinator.subscribe((change) => {
     void broadcastBookmarkChange(change, bookmarkBroadcastTransport).catch((error: unknown) => {
       console.error('[Bookmarks] Change broadcast failed:', error);
@@ -126,17 +120,44 @@ export default defineBackground(() => {
     getCoordinator: () => bookmarkCoordinator!,
     getReady: () => bookmarkReady!,
   });
-  const economyBroadcastTransport: EconomyBroadcastTransport = {
-    listTradeTabIds: () => tradeTabBroadcastTransport.listTradeTabIds(),
-    sendChangeToTab: (tabId, change) =>
-      extensionMessaging.sendMessage('economy:change', change, tabId),
-  };
+  const economyBroadcastTransport = createTradeTabBroadcastTransport(
+    'economy:change',
+    listTradeTabIds,
+  );
   registerEconomyBackgroundHandlers({
     broadcastTransport: economyBroadcastTransport,
   });
 
   const liveSearchCoordinator = new LiveSearchCoordinator();
-  registerLiveSearchBackgroundHandlers({ coordinator: liveSearchCoordinator });
+  extensionMessaging.onMessage('liveSearch:openPrimary', ({ data, sender }) =>
+    liveSearchCoordinator.openPrimary(data, sender),
+  );
+  extensionMessaging.onMessage('liveSearch:focusPrimary', ({ data, sender }) =>
+    liveSearchCoordinator.focusPrimary(data, sender),
+  );
+  extensionMessaging.onMessage('liveSearch:getPageRole', ({ data, sender }) =>
+    liveSearchCoordinator.getPageRole(sender?.tab?.id, data?.gameVersion, sender),
+  );
+  extensionMessaging.onMessage('liveSearch:enqueueConnections', ({ data, sender }) =>
+    liveSearchCoordinator.enqueueConnections(data, sender),
+  );
+  extensionMessaging.onMessage('liveSearch:consumePendingEnqueue', ({ data, sender }) =>
+    liveSearchCoordinator.consumePendingEnqueue(sender?.tab?.id, data?.gameVersion, sender),
+  );
+  liveSearchCoordinator.setArrivalNotifier(async (tabId, signal) => {
+    try {
+      await extensionMessaging.sendMessage('liveSearch:notifyArrival', signal, tabId);
+    } catch {
+      // Presentation arrival feedback failure is non-fatal
+    }
+  });
+  liveSearchCoordinator.setEnqueueForwarder((tabId, items, batchId) =>
+    extensionMessaging.sendMessage(
+      'liveSearch:receiveEnqueuedConnections',
+      batchId ? { batchId, items } : { items },
+      tabId,
+    ),
+  );
   registerMarketTranslationBackgroundHandlers();
   registerPobShareBackgroundHandlers({ messenger: extensionMessaging });
   registerActionSidebarToggle();

@@ -1,5 +1,6 @@
 import { parseCurrencyRateSnapshot, type CurrencyRateSnapshot } from './price-comparison';
 import type { PoeVersion } from './trade-context';
+import { broadcastToTradeTabs, type TradeTabBroadcastTransport } from './background-messaging';
 import { extensionMessaging } from './extension-protocol';
 import { localized, type LocalizedMessage, type MessageValue } from './localized-message';
 
@@ -121,17 +122,13 @@ export interface EconomyChange {
 
 export type EconomyChangeListener = (change: EconomyChange) => void;
 
-export interface EconomyBroadcastTransport {
-  listTradeTabIds(): Promise<number[]>;
-  sendChangeToTab(tabId: number, change: EconomyChange): Promise<void>;
-}
+export type EconomyBroadcastTransport = TradeTabBroadcastTransport<EconomyChange>;
 
 export async function broadcastEconomyChange(
   change: EconomyChange,
   transport: EconomyBroadcastTransport,
 ): Promise<void> {
-  const tabIds = await transport.listTradeTabIds();
-  await Promise.allSettled(tabIds.map((tabId) => transport.sendChangeToTab(tabId, change)));
+  await broadcastToTradeTabs(change, transport);
 }
 
 export interface EconomyRateService {

@@ -1,3 +1,13 @@
+import {
+  broadcastToTradeTabs,
+  callBackgroundWithUnavailable,
+  createRefCountedChangeHub,
+  registerReadyGatedHandler,
+  unavailableOutcome,
+  type ChangeListener,
+  type RefCountedChangeHub,
+  type TradeTabBroadcastTransport,
+} from './background-messaging';
 import { extensionMessaging } from './extension-protocol';
 import type {
   SearchRecordChange,
@@ -16,10 +26,7 @@ export interface SearchRecordClientTransport {
   subscribe(listener: (change: SearchRecordChange) => void): () => void;
 }
 
-export interface SearchRecordBroadcastTransport {
-  listTradeTabIds(): Promise<number[]>;
-  sendChangeToTab(tabId: number, change: SearchRecordChange): Promise<void>;
-}
+export type SearchRecordBroadcastTransport = TradeTabBroadcastTransport<SearchRecordChange>;
 
 export type SearchRecordClient = Pick<SearchRecordModule, 'execute' | 'read' | 'subscribe'>;
 
@@ -27,67 +34,28 @@ export function createSearchRecordClient(
   transport: SearchRecordClientTransport,
 ): SearchRecordClient {
   return {
-    async execute(command) {
-      try {
-        const response = await transport.execute(command);
-        if (response) return response;
-        return unavailable('Search Record background did not respond');
-      } catch (error) {
-        return unavailable(error instanceof Error ? error.message : String(error));
-      }
-    },
-    async read(read: SearchRecordRead) {
-      try {
-        const response = await transport.read(read);
-        if (response) return response;
-        return unavailable('Search Record background did not respond');
-      } catch (error) {
-        return unavailable(error instanceof Error ? error.message : String(error));
-      }
-    },
+    execute: (command) =>
+      callBackgroundWithUnavailable(
+        () => transport.execute(command),
+        'Search Record background did not respond',
+      ),
+    read: (read: SearchRecordRead) =>
+      callBackgroundWithUnavailable(
+        () => transport.read(read),
+        'Search Record background did not respond',
+      ),
     subscribe(listener) {
       return transport.subscribe(listener);
     },
   } as SearchRecordClient;
 }
 
-export type SearchRecordChangeListener = (change: SearchRecordChange) => void;
+export type SearchRecordChangeListener = ChangeListener<SearchRecordChange>;
 
-export interface SearchRecordChangeHub {
-  subscribe(listener: SearchRecordChangeListener): () => void;
-  readonly subscriberCount: number;
-}
+export type SearchRecordChangeHub = RefCountedChangeHub<SearchRecordChange>;
 
 export function createSearchRecordChangeHub(messenger = extensionMessaging): SearchRecordChangeHub {
-  const subscribers = new Set<SearchRecordChangeListener>();
-  let unhookMessenger: (() => void) | undefined;
-
-  return {
-    subscribe(listener: SearchRecordChangeListener): () => void {
-      subscribers.add(listener);
-      if (subscribers.size === 1) {
-        unhookMessenger = messenger.onMessage('searchRecord:change', (message) => {
-          for (const subscriber of subscribers) {
-            try {
-              subscriber(message.data);
-            } catch {
-              // Individual subscriber failure does not abort other subscribers or transport
-            }
-          }
-        });
-      }
-      return () => {
-        subscribers.delete(listener);
-        if (subscribers.size === 0 && unhookMessenger) {
-          unhookMessenger();
-          unhookMessenger = undefined;
-        }
-      };
-    },
-    get subscriberCount() {
-      return subscribers.size;
-    },
-  };
+  return createRefCountedChangeHub('searchRecord:change', messenger);
 }
 
 export const sharedSearchRecordChangeHub = createSearchRecordChangeHub();
@@ -116,8 +84,7 @@ export async function broadcastSearchRecordChange(
   change: SearchRecordChange,
   transport: SearchRecordBroadcastTransport,
 ) {
-  const tabIds = await transport.listTradeTabIds();
-  await Promise.allSettled(tabIds.map((tabId) => transport.sendChangeToTab(tabId, change)));
+  await broadcastToTradeTabs(change, transport);
 }
 
 export function registerSearchRecordBackgroundHandlers(options: {
@@ -125,25 +92,16 @@ export function registerSearchRecordBackgroundHandlers(options: {
   getModule: () => SearchRecordRuntime;
   getReady: () => Promise<SearchRecordOutcome>;
 }): () => void {
-  const messenger = options.messenger ?? extensionMessaging;
-  const offExecute = messenger.onMessage('searchRecord:execute', async (message) => {
-    try {
-      const outcome = await options.getReady();
-      if (!outcome.ok) return outcome;
-      return await options.getModule().execute(message.data);
-    } catch (error) {
-      return unavailable(error instanceof Error ? error.message : String(error));
-    }
+  const offExecute = registerReadyGatedHandler('searchRecord:execute', {
+    messenger: options.messenger,
+    getReady: options.getReady,
+    handle: (command) => options.getModule().execute(command),
   });
 
-  const offRead = messenger.onMessage('searchRecord:read', async (message) => {
-    try {
-      const outcome = await options.getReady();
-      if (!outcome.ok) return outcome;
-      return await options.getModule().read(message.data);
-    } catch (error) {
-      return unavailable(error instanceof Error ? error.message : String(error));
-    }
+  const offRead = registerReadyGatedHandler('searchRecord:read', {
+    messenger: options.messenger,
+    getReady: options.getReady,
+    handle: (read) => options.getModule().read(read),
   });
 
   return () => {
@@ -153,8 +111,5 @@ export function registerSearchRecordBackgroundHandlers(options: {
 }
 
 export function unavailable(message: string): { ok: false; error: SearchRecordError } {
-  return {
-    ok: false,
-    error: { code: 'unavailable', message },
-  };
+  return unavailableOutcome(message);
 }

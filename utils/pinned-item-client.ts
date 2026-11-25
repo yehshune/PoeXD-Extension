@@ -2,6 +2,7 @@
  * 市集頁（content script / Sidebar）使用的釘選清單客戶端：
  * 讀取直接走 `chrome.storage.local`，寫入一律交給 background 依序執行。
  */
+import { callBackgroundWithUnavailable } from './background-messaging';
 import { extensionMessaging } from './extension-protocol';
 import {
   parseStoredPinnedList,
@@ -49,14 +50,11 @@ export function createPinnedItemClient(
   deps: PinnedItemClientDeps = chromeDeps,
 ): PinnedItemClient {
   const key = pinnedItemStorageKey(version);
-  const send = async (command: PinnedItemCommand): Promise<PinnedItemOutcome> => {
-    try {
-      const outcome = await deps.send(command);
-      return outcome ?? unavailable('Pinned item background did not respond');
-    } catch (error) {
-      return unavailable(error instanceof Error ? error.message : String(error));
-    }
-  };
+  const send = (command: PinnedItemCommand): Promise<PinnedItemOutcome> =>
+    callBackgroundWithUnavailable(
+      () => deps.send(command),
+      'Pinned item background did not respond',
+    );
 
   return {
     list: async () => parseStoredPinnedList(await deps.read(key), version).items,
@@ -75,8 +73,4 @@ export function createPinnedItemClient(
         ...(league !== undefined ? { league } : {}),
       }),
   };
-}
-
-function unavailable(message: string): PinnedItemOutcome {
-  return { ok: false, error: { code: 'unavailable', message } };
 }
