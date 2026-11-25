@@ -17,16 +17,24 @@ function publishedFiles() {
   const files = {};
   for (const version of ['poe1', 'poe2']) {
     files[`${version}/mods-tiers.json`] = json({
+      schemaVersion: 2,
       patch: '1.0',
       tiers: [{}, {}],
+      templateCount: 1,
+      tierTemplates: [0, 0],
+      statTemplates: {},
     });
     files[`${version}/locales/en/stats.json`] = json({
+      schemaVersion: 2,
       patch: '1.0',
-      tierTemplates: [0, 1],
+      locale: 'en',
+      templates: ['A'],
     });
     files[`${version}/locales/zh-TW/stats.json`] = json({
+      schemaVersion: 2,
       patch: '1.0',
-      tierTemplates: [0, 1],
+      locale: 'zh-TW',
+      templates: ['甲'],
     });
     files[`${version}/locales/en/items.json`] = json({
       patch: '1.0',
@@ -197,8 +205,10 @@ describe('planSync', () => {
     const files = {
       ...publishedFiles(),
       'poe2/locales/zh-TW/stats.json': json({
+        schemaVersion: 2,
         patch: '0.9',
-        tierTemplates: [0, 1],
+        locale: 'zh-TW',
+        templates: ['甲'],
       }),
     };
     const plan = await planSync(parseManifest(manifestOf(files)), ['poe2/game'], io(files));

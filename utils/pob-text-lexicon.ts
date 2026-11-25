@@ -7,9 +7,9 @@
  */
 import { translateModLine, type ModLinePairs } from './market-mod-lines';
 import type { PobTextLexicon } from './pob-item-text';
+import { loadPairedLineShard } from './paired-line-shards';
 import {
   getLocaleItemsAssetPath,
-  getLocaleModLinesAssetPath,
   type PoeVersion,
 } from './trade-context';
 
@@ -73,7 +73,7 @@ export async function loadPobTextLexicon(
 ): Promise<PobTextLexicon> {
   const { version, locale } = options;
   const [modLines, english, localized] = await Promise.all([
-    loadJson(getLocaleModLinesAssetPath(version, locale)),
+    loadPairedLineShard(loadJson, 'mod-lines', version, locale),
     loadJson(getLocaleItemsAssetPath(version, 'en')),
     loadJson(getLocaleItemsAssetPath(version, locale)),
   ]);

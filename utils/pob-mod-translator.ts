@@ -25,11 +25,10 @@
  */
 import { tradeTextToModTemplate, translateModLine, type ModLinePairs } from './market-mod-lines';
 import { modLineSkeleton, modTemplateSkeleton } from './pob-stat-matcher';
+import { loadPairedLineShard } from './paired-line-shards';
 import {
   getLocaleItemsAssetPath,
-  getLocaleModLinesAssetPath,
   getLocaleResultLabelsAssetPath,
-  getLocaleStatTextAssetPath,
   getLocaleTradeStatsAssetPath,
   getStatAliasesAssetPath,
   type PoeVersion,
@@ -387,13 +386,13 @@ export async function loadModLineTranslator(
     statText,
     aliases,
   ] = await Promise.all([
-    loadJson(getLocaleModLinesAssetPath(version, locale)),
+    loadPairedLineShard(loadJson, 'mod-lines', version, locale),
     optional(getLocaleItemsAssetPath(version, 'en')),
     optional(getLocaleItemsAssetPath(version, locale)),
     optional(getLocaleResultLabelsAssetPath(version, locale)),
     optional(getLocaleTradeStatsAssetPath(version, 'en')),
     optional(getLocaleTradeStatsAssetPath(version, locale)),
-    optional(getLocaleStatTextAssetPath(version, locale)),
+    loadPairedLineShard(loadJson, 'stat-text-items', version, locale).catch(() => undefined),
     optional(getStatAliasesAssetPath(version)),
   ]);
   const lines = isRecord(data) ? data.lines : undefined;

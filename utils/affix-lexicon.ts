@@ -37,11 +37,20 @@ export interface CompactModTier {
 export interface ModsTiersArtifact {
   /** 產生此檔的遊戲 patch（poexd-data） */
   patch?: string;
+  /** 2：模板索引共用，放在這裡（tierTemplates、statTemplates），語系 stats.json 只有模板陣列 */
+  schemaVersion?: number;
   typeTable: string[][];
   groups: string[];
   tiers: CompactModTier[];
+  /** 每個語系模板陣列的長度（schemaVersion 2） */
+  templateCount?: number;
+  /** tier → 模板索引，所有語系共用（schemaVersion 2） */
+  tierTemplates?: number[];
+  /** 市集代碼 → 模板索引，所有語系共用（schemaVersion 2） */
+  statTemplates?: Record<string, number>;
 }
 
+/** 載入後的語系分片；schemaVersion 2 的 tierTemplates、statTemplates 取自 mods-tiers.json */
 export interface LocaleStatsShard {
   /** 產生此檔的遊戲 patch；tierTemplates 與 mods-tiers.json 的 tiers 以索引對齊 */
   patch?: string;
@@ -196,6 +205,36 @@ function acceptStatsShard(
   return false;
 }
 
+/**
+ * 語系分片轉成 LocaleStatsShard。schemaVersion 2 的分片只有模板陣列，接上 mods-tiers.json 的共用索引；
+ * 已帶索引的舊格式原樣使用。模板數與 mods-tiers 的 templateCount 不同時代表不是同一次建置，拒絕。
+ */
+function toLocaleStatsShard(
+  json: unknown,
+  artifact: ModsTiersArtifact | null,
+  locale: SupportedAffixLocale,
+): LocaleStatsShard | null {
+  if (!json || typeof json !== 'object') return null;
+  const shard = json as Partial<LocaleStatsShard> & { schemaVersion?: number };
+  if (!Array.isArray(shard.templates)) return null;
+  if (Array.isArray(shard.tierTemplates) && shard.statTemplates && typeof shard.statTemplates === 'object') {
+    return shard as LocaleStatsShard;
+  }
+  if (shard.schemaVersion !== 2 || !artifact?.tierTemplates || !artifact.statTemplates) return null;
+  if (shard.templates.length !== artifact.templateCount) {
+    console.warn(
+      `stats.json (${locale}) 模板 ${shard.templates.length} 筆 ≠ mods-tiers.json templateCount ${artifact.templateCount} 筆`,
+    );
+    return null;
+  }
+  return {
+    patch: shard.patch,
+    templates: shard.templates,
+    tierTemplates: artifact.tierTemplates,
+    statTemplates: artifact.statTemplates,
+  };
+}
+
 function indexArtifact(state: VersionLexiconState, artifact: ModsTiersArtifact) {
   state.artifact = artifact;
   state.mockModsByGroup = null;
@@ -240,7 +279,8 @@ export function isModsTiersArtifact(data: unknown): data is ModsTiersArtifact {
 export function setAffixLexiconMockData(
   version: PoeVersion,
   modsDataOrArtifact: ModsTiersArtifact | Record<string, any> | null,
-  shards?: Partial<Record<SupportedAffixLocale, LocaleStatsShard>>,
+  /** 語系分片：已帶索引的 LocaleStatsShard，或 schemaVersion 2 的原始 stats.json（接上 artifact 的共用索引） */
+  shards?: Partial<Record<SupportedAffixLocale, LocaleStatsShard | unknown>>,
 ) {
   const state = getOrCreateState(version);
   state.artifactPromise = null;
@@ -265,10 +305,9 @@ export function setAffixLexiconMockData(
   }
 
   if (shards) {
-    for (const [locale, shard] of Object.entries(shards)) {
-      if (shard) {
-        state.shards.set(locale as SupportedAffixLocale, shard);
-      }
+    for (const [locale, raw] of Object.entries(shards)) {
+      const shard = toLocaleStatsShard(raw, state.artifact, locale as SupportedAffixLocale);
+      if (shard) state.shards.set(locale as SupportedAffixLocale, shard);
     }
   }
   bumpLexiconRevision();
@@ -299,21 +338,12 @@ export async function ensureLocaleShardLoaded(
 
   const promise = (async () => {
     try {
-      const json = (await loadExtensionJson(getLocaleStatsAssetPath(version, locale))) as any;
-      if (
-        json &&
-        typeof json === 'object' &&
-        Array.isArray(json.templates) &&
-        Array.isArray(json.tierTemplates) &&
-        json.statTemplates &&
-        typeof json.statTemplates === 'object'
-      ) {
-        if (!acceptStatsShard(state, locale, json as LocaleStatsShard)) return null;
-        state.shards.set(locale, json as LocaleStatsShard);
-        bumpLexiconRevision();
-        return json as LocaleStatsShard;
-      }
-      return null;
+      const json = await loadExtensionJson(getLocaleStatsAssetPath(version, locale));
+      const shard = toLocaleStatsShard(json, state.artifact, locale);
+      if (!shard || !acceptStatsShard(state, locale, shard)) return null;
+      state.shards.set(locale, shard);
+      bumpLexiconRevision();
+      return shard;
     } catch {
       return null;
     } finally {

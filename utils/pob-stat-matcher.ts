@@ -11,11 +11,11 @@
  */
 import type { ModLinePairs } from './market-mod-lines';
 import {
-  getLocaleModLinesAssetPath,
   getLocaleTradeStatsAssetPath,
   type PoeVersion,
 } from './trade-context';
 import { buildStatDomainIndex, statDomainsOf } from './stat-domain-order';
+import { loadEnglishLines } from './paired-line-shards';
 
 /** 市集 stat 代碼的網域：一般詞綴、固定詞綴、附魔、工藝詞綴 */
 export type StatDomain = 'explicit' | 'implicit' | 'enchant' | 'crafted';
@@ -81,9 +81,6 @@ const TEMPLATE_TOKEN = /\{\d+:\+?([dn])\}|[+-]?\d+(?:\.\d+)?/g;
 /** 市集寫法的佔位符 `#`（前面可能有正負號），或寫死的數字 */
 const TRADE_TOKEN = /[+-]?#|[+-]?\d+(?:\.\d+)?/g;
 const TRADE_STAT_ID = /^(explicit|implicit|enchant|crafted)\.([^|]+)(?:\|(\d+))?$/;
-/** 英文句型分片：任何有 mod-lines 的語系都含英文句型，固定讀這一份 */
-const MOD_LINES_SOURCE_LOCALE = 'zh-TW';
-
 const normalize = (text: string): string => text.replace(/\s+/g, ' ').trim().toLowerCase();
 
 /** 詞綴句子的骨架：數字換成 #，忽略大小寫與多餘空白 */
@@ -156,8 +153,11 @@ const localFlags = (text: string): Pick<Template, 'local' | 'localDefence'> => {
   return { local, localDefence: local && DEFENCE_TEXT.test(text) };
 };
 
+/** 英文句型：en 分片的英文模板，或 [英文, 譯文] 句型對（只用英文） */
+export type EnglishModLines = Readonly<Record<string, ReadonlyArray<string | ModLinePairs[number]>>>;
+
 export function createStatMatcher(data: {
-  modLines: Readonly<Record<string, ModLinePairs>>;
+  modLines: EnglishModLines;
   tradeStats: TradeStatTexts;
 }): StatMatcher {
   const fromModLines = new Map<StatDomain, TemplateIndex>(DOMAINS.map((d) => [d, new Map()]));
@@ -168,7 +168,8 @@ export function createStatMatcher(data: {
     for (const domain of DOMAINS) {
       const statId = `${domain}.stat_${hash}`;
       if (!Object.hasOwn(data.tradeStats, statId)) continue;
-      for (const [english] of pairs) {
+      for (const entry of pairs) {
+        const english = typeof entry === 'string' ? entry : entry[0];
         // 多行詞綴在 PoB 的物品文字裡是分開的兩行，無法以單行比對
         if (typeof english !== 'string' || english.includes('\\n')) continue;
         const { skeleton, slots } = compileTemplate(english);
@@ -243,21 +244,20 @@ export async function loadStatMatcher(
   loadJson: (path: string) => Promise<unknown>,
   version: PoeVersion,
 ): Promise<StatMatcher> {
-  const [modLines, tradeStats] = await Promise.all([
-    loadJson(getLocaleModLinesAssetPath(version, MOD_LINES_SOURCE_LOCALE)),
+  // 只需要英文模板：讀所有語系共用的 en 分片
+  const [lines, tradeStats] = await Promise.all([
+    loadEnglishLines(loadJson, 'mod-lines', version),
     loadJson(getLocaleTradeStatsAssetPath(version, 'en')),
   ]);
-  const lines =
-    typeof modLines === 'object' && modLines !== null ? (modLines as { lines?: unknown }).lines : 0;
   const stats =
     typeof tradeStats === 'object' && tradeStats !== null
       ? (tradeStats as { stats?: unknown }).stats
       : 0;
-  if (typeof lines !== 'object' || lines === null || typeof stats !== 'object' || stats === null) {
-    throw new Error('mod-lines.json 或 trade-stats.json 格式錯誤');
+  if (typeof stats !== 'object' || stats === null) {
+    throw new Error('trade-stats.json 格式錯誤');
   }
   return createStatMatcher({
-    modLines: lines as Record<string, ModLinePairs>,
+    modLines: lines,
     tradeStats: stats as TradeStatTexts,
   });
 }

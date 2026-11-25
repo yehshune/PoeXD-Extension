@@ -62,13 +62,13 @@ export function getLocaleTradeItemsAssetPath(version: PoeVersion, locale: string
   return `json/${profile.dataDirectory}/locales/${locale}/trade-items.json`;
 }
 
-/** 市集漢化結果列的遊戲寫法變體（poexd-data 產生），只有 zh-TW、zh-CN */
+/** 市集漢化結果列的遊戲寫法變體（poexd-data 產生）：zh-TW、zh-CN 的譯文，與 en 的共用英文（ADR-0019） */
 export function getLocaleModLinesAssetPath(version: PoeVersion, locale: string): string {
   const profile = tradeVersionProfiles[version];
   return `json/${profile.dataDirectory}/locales/${locale}/mod-lines.json`;
 }
 
-/** 物品詞綴描述檔裡 mod-lines 沒收錄的句子（poexd-data 的 stat-text-items.json），只有 zh-TW、zh-CN */
+/** 物品詞綴描述檔裡 mod-lines 沒收錄的句子（poexd-data 的 stat-text-items.json），格式同 mod-lines */
 export function getLocaleStatTextAssetPath(version: PoeVersion, locale: string): string {
   const profile = tradeVersionProfiles[version];
   return `json/${profile.dataDirectory}/locales/${locale}/stat-text-items.json`;

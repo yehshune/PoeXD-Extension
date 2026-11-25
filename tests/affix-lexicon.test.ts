@@ -7,6 +7,7 @@ import {
   getHydratedModsByGroup,
   resolveFallbackQueryForUnmatchedMod,
   resetAffixLexiconCacheForTests,
+  translateAffixStat,
   type LocaleStatsShard,
   type ModsTiersArtifact,
 } from '@/utils/affix-lexicon';
@@ -440,6 +441,83 @@ describe('Seam 2B: Unified Affix Lexicon deduplication, prefix fallback & locali
     setActiveDisplayLocalePreference('zh-CN');
     await ensureAffixLexiconLoaded('poe2');
     expect(translateStat('explicit.stat_3299347043', 'poe2')).toBe('# 最大生命(簡)');
+  });
+
+  it('loads schemaVersion 2 data (shared template index in mods-tiers.json, templates-only locale shards)', async () => {
+    const shards = { en: SHARD_EN, 'zh-TW': SHARD_ZH_TW, ru: SHARD_RU };
+    const locales = Object.keys(shards) as Array<keyof typeof shards>;
+    const keys: string[] = [];
+    const intern = (texts: string[]) => {
+      const key = JSON.stringify(texts);
+      if (!keys.includes(key)) keys.push(key);
+      return keys.indexOf(key);
+    };
+    const tierTemplates = SHARD_EN.tierTemplates.map((_, tier) =>
+      intern(locales.map((l) => shards[l].templates[shards[l].tierTemplates[tier]])),
+    );
+    const statTemplates = Object.fromEntries(
+      Object.keys(SHARD_EN.statTemplates).map((id) => [
+        id,
+        intern(locales.map((l) => shards[l].templates[shards[l].statTemplates[id]])),
+      ]),
+    );
+    const modsTiers = {
+      schemaVersion: 2,
+      ...SAMPLE_MODS_TIERS,
+      templateCount: keys.length,
+      tierTemplates,
+      statTemplates,
+    };
+    const shardV2 = (locale: (typeof locales)[number]) => ({
+      schemaVersion: 2,
+      patch: SAMPLE_MODS_TIERS.patch,
+      locale,
+      templates: keys.map((key) => JSON.parse(key)[locales.indexOf(locale)]),
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('poe2/mods-tiers.json')) return new Response(JSON.stringify(modsTiers));
+        for (const locale of locales) {
+          if (url.endsWith(`poe2/locales/${locale}/stats.json`)) {
+            return new Response(JSON.stringify(shardV2(locale)));
+          }
+        }
+        return new Response(JSON.stringify({}));
+      }),
+    );
+
+    const tierService = createTierDomainService('poe2');
+    setActiveDisplayLocalePreference('zh-TW');
+    await tierService.loadModsData(0, () => true);
+    expect(translateStat('explicit.stat_3299347043', 'poe2')).toBe('# 最大生命');
+    expect(translateStatLines('explicit.stat_speed', 'poe2')).toEqual(['增加 #% 攻擊速度', '# 命中值']);
+
+    setActiveDisplayLocalePreference('ru');
+    await ensureAffixLexiconLoaded('poe2');
+    const ruTiers = tierService.findModTiersByStatId('explicit.stat_3299347043')!;
+    expect(ruTiers[0].displayKey).toBe('+(10-19) к максимуму здоровья');
+  });
+
+  it('rejects a schemaVersion 2 shard whose template count does not match mods-tiers.json', async () => {
+    const modsTiers = { schemaVersion: 2, ...SAMPLE_MODS_TIERS, templateCount: 9, tierTemplates: [0, 0, 1, 2], statTemplates: {} };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('poe2/mods-tiers.json')) return new Response(JSON.stringify(modsTiers));
+        if (url.endsWith('poe2/locales/ru/stats.json')) {
+          return new Response(
+            JSON.stringify({ schemaVersion: 2, patch: SAMPLE_MODS_TIERS.patch, locale: 'ru', templates: ['a'] }),
+          );
+        }
+        return new Response(JSON.stringify({}));
+      }),
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await ensureAffixLexiconLoaded('poe2', { displayLocale: 'ru' });
+    expect(translateAffixStat('explicit.stat_3299347043', 'poe2', 'ru')).not.toBe('a');
   });
 
   it('exposes stat_descriptions value-handler converted tier ranges from shipped poe2 data (per_minute_to_per_second regression)', async () => {

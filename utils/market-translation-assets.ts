@@ -6,12 +6,12 @@
  */
 import type { MarketTradeDictionary } from './market-translation-data';
 import type { ModLinePairs } from './market-mod-lines';
+import { loadPairedLineShard } from './paired-line-shards';
 import type { NameParts } from './market-result-labels';
 import type { ResultTranslatorData } from './market-result-translator';
 import type { MarketTranslationLocale } from './market-translation';
 import {
   getLocaleItemsAssetPath,
-  getLocaleModLinesAssetPath,
   getLocaleResultLabelsAssetPath,
   getLocaleTradeFiltersAssetPath,
   getLocaleTradeItemsAssetPath,
@@ -192,7 +192,7 @@ export async function loadResultTranslatorData(
 ): Promise<ResultTranslatorData> {
   const { version, locale, dictionary, ui, liveEn } = options;
   const [modLines, englishStats, englishFilters, resultLabels] = await Promise.allSettled([
-    loadJson(getLocaleModLinesAssetPath(version, locale)).then((data) =>
+    loadPairedLineShard(loadJson, 'mod-lines', version, locale).then((data) =>
       parseModLines(data, locale),
     ),
     loadJson(getLocaleTradeStatsAssetPath(version, 'en')).then(parseEnglishStats),

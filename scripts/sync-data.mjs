@@ -88,24 +88,48 @@ export function batchOfDataPath(path) {
 
 // ── 批次一致性 ────────────────────────────────────────────
 
+/** mods-tiers／stats 與英文共用句型分片的格式版本（poexd-data 的 src/publish/batch-validation.ts） */
+const ALIGNED_SCHEMA_VERSION = 2;
+
 /**
  * 檢查一個版本的整批分片是否一致；回傳錯誤訊息陣列（空陣列表示一致）。
  * @param {{ modsTiers: any, stats: Record<string, any>, items: Record<string, any>, modLines?: Record<string, any>, statText?: Record<string, any>, passiveStatText?: Record<string, any>, passiveNames?: Record<string, any>, resultLabels?: Record<string, any>, statAliases?: any }} batch
  */
 export function validateGameDataBatch(batch) {
   const errors = [];
-  const patch = batch.modsTiers?.patch;
-  const tierCount = batch.modsTiers?.tiers?.length;
+  const isObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
+  const modsTiers = batch.modsTiers;
+  const patch = modsTiers?.patch;
+  const tierCount = modsTiers?.tiers?.length;
+  const templateCount = modsTiers?.templateCount;
   if (!patch) errors.push('mods-tiers.json 缺少 patch');
   if (!Number.isInteger(tierCount)) errors.push('mods-tiers.json 缺少 tiers');
+  // schemaVersion 2：模板索引共用，放在 mods-tiers.json；語系 stats.json 只有模板陣列
+  if (
+    modsTiers?.schemaVersion !== ALIGNED_SCHEMA_VERSION ||
+    !Number.isInteger(templateCount) ||
+    !isObject(modsTiers?.statTemplates)
+  ) {
+    errors.push('mods-tiers.json 缺少共用模板索引');
+  } else if (modsTiers.tierTemplates?.length !== tierCount) {
+    errors.push(
+      `mods-tiers.json tierTemplates ${modsTiers.tierTemplates?.length} 筆 ≠ tiers ${tierCount} 筆`,
+    );
+  }
 
   for (const [locale, shard] of Object.entries(batch.stats)) {
     if (shard?.patch !== patch) {
       errors.push(`stats.json (${locale}) patch ${shard?.patch ?? '缺少'} ≠ ${patch}`);
     }
-    if (shard?.tierTemplates?.length !== tierCount) {
+    if (
+      shard?.schemaVersion !== ALIGNED_SCHEMA_VERSION ||
+      shard?.locale !== locale ||
+      !Array.isArray(shard?.templates)
+    ) {
+      errors.push(`stats.json (${locale}) 語系或格式不符`);
+    } else if (shard.templates.length !== templateCount) {
       errors.push(
-        `stats.json (${locale}) tierTemplates ${shard?.tierTemplates?.length} 筆 ≠ tiers ${tierCount} 筆`,
+        `stats.json (${locale}) templates ${shard.templates.length} 筆 ≠ templateCount ${templateCount} 筆`,
       );
     }
   }
@@ -122,25 +146,64 @@ export function validateGameDataBatch(batch) {
       errors.push(`items.json (${locale}) ${shard?.items?.length} 筆 ≠ en ${enItems} 筆`);
     }
   }
-  const isObject = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
   const localeShards = [
-    ['mod-lines.json', batch.modLines, (shard) => isObject(shard.lines)],
-    ['stat-text-items.json', batch.statText, (shard) => isObject(shard.lines)],
-    ['stat-text-passives.json', batch.passiveStatText, (shard) => isObject(shard.lines)],
-    ['passive-names.json', batch.passiveNames, (shard) => isObject(shard.names)],
+    ['mod-lines.json', batch.modLines, ALIGNED_SCHEMA_VERSION, (shard) => isObject(shard.lines)],
+    [
+      'stat-text-items.json',
+      batch.statText,
+      ALIGNED_SCHEMA_VERSION,
+      (shard) => isObject(shard.lines),
+    ],
+    [
+      'stat-text-passives.json',
+      batch.passiveStatText,
+      ALIGNED_SCHEMA_VERSION,
+      (shard) => isObject(shard.lines),
+    ],
+    ['passive-names.json', batch.passiveNames, 1, (shard) => isObject(shard.names)],
     [
       'result-labels.json',
       batch.resultLabels,
+      1,
       (shard) => isObject(shard.labels) && Array.isArray(shard.templates),
     ],
   ];
-  for (const [file, shards, hasValidBody] of localeShards) {
+  for (const [file, shards, schemaVersion, hasValidBody] of localeShards) {
     for (const [locale, shard] of Object.entries(shards ?? {})) {
       if (shard?.patch !== patch) {
         errors.push(`${file} (${locale}) patch ${shard?.patch ?? '缺少'} ≠ ${patch}`);
       }
-      if (shard?.schemaVersion !== 1 || shard?.locale !== locale || !hasValidBody(shard)) {
+      if (
+        shard?.schemaVersion !== schemaVersion ||
+        shard?.locale !== locale ||
+        !hasValidBody(shard)
+      ) {
         errors.push(`${file} (${locale}) 語系或格式不符`);
+      }
+    }
+  }
+  // 英文共用的句型分片：譯文分片的每個 hash 都要在 en 分片裡、且陣列長度相同
+  const alignedShards = [
+    ['mod-lines.json', batch.modLines],
+    ['stat-text-items.json', batch.statText],
+    ['stat-text-passives.json', batch.passiveStatText],
+  ];
+  for (const [file, shards] of alignedShards) {
+    const localized = Object.entries(shards ?? {}).filter(([locale]) => locale !== 'en');
+    if (localized.length === 0) continue;
+    if (!shards?.en) {
+      errors.push(`缺少 en/${file}，無法還原英文`);
+      continue;
+    }
+    const englishLines = isObject(shards.en.lines) ? shards.en.lines : {};
+    for (const [locale, shard] of localized) {
+      const misaligned = Object.entries(isObject(shard?.lines) ? shard.lines : {})
+        .filter(([hash, texts]) => !Array.isArray(texts) || englishLines[hash]?.length !== texts.length)
+        .map(([hash]) => hash);
+      if (misaligned.length > 0) {
+        errors.push(
+          `${file} (${locale}) ${misaligned.length} 個 hash 與 en 對不齊（例如 ${misaligned[0]}）`,
+        );
       }
     }
   }

@@ -28,16 +28,14 @@ import {
   type ModLineTranslator,
   type TradeStatTexts,
 } from './pob-mod-translator';
+import { loadPairedLineShard } from './paired-line-shards';
 import { POB_SHARE_OPTIONAL_ORIGINS } from './pob-share-url';
 import { createTradeNameCatalog, type TradeNameCatalog } from './pob-shopping-list';
 import { resolveStoredDisplayLocale } from './preferences-contract';
 import {
   getLocaleItemsAssetPath,
-  getLocaleModLinesAssetPath,
   getLocalePassiveNamesAssetPath,
-  getLocalePassiveStatTextAssetPath,
   getLocaleResultLabelsAssetPath,
-  getLocaleStatTextAssetPath,
   getLocaleTradeFiltersAssetPath,
   getLocaleTradeStatsAssetPath,
   getStatAliasesAssetPath,
@@ -622,14 +620,14 @@ export async function loadPobbinTranslatorData(
     enFiltersRaw,
     zhFiltersRaw,
   ] = await Promise.all([
-    loadJson(getLocaleModLinesAssetPath(version, locale)),
+    loadPairedLineShard(loadJson, 'mod-lines', version, locale),
     loadJson(getLocaleItemsAssetPath(version, 'en')),
     loadJson(getLocaleItemsAssetPath(version, locale)),
     optional(getLocaleResultLabelsAssetPath(version, locale)),
     optional(getLocaleTradeStatsAssetPath(version, 'en')),
     optional(getLocaleTradeStatsAssetPath(version, locale)),
-    optional(getLocaleStatTextAssetPath(version, locale)),
-    optional(getLocalePassiveStatTextAssetPath(version, locale)),
+    loadPairedLineShard(loadJson, 'stat-text-items', version, locale).catch(() => undefined),
+    loadPairedLineShard(loadJson, 'stat-text-passives', version, locale).catch(() => undefined),
     // 天賦名稱表只有 zh-TW（官方 CDN 沒有簡中資料表），其他語系不要求
     locale === 'zh-TW' ? optional(getLocalePassiveNamesAssetPath(version, locale)) : undefined,
     optional(getStatAliasesAssetPath(version)),
