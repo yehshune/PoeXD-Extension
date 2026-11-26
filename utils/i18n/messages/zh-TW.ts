@@ -1803,6 +1803,12 @@ export const ZH_TW_MESSAGES = {
   'resultBoard.regex.ambiguous': '另有 {count} 件已載入的物品也會被標出，無法區分',
   'resultBoard.regex.unpriced': '{count} 件沒有標價，只用名稱比對',
   'resultBoard.regex.tooLong': '{count} 件名稱過長，放不進 regex',
+  'activeFiltersBar.toggle': '只看已填屬性',
+  'activeFiltersBar.toggleWithCount': '只看已填屬性 ({count})',
+  'activeFiltersBar.onlyActiveTooltip': '隱藏未填值的屬性過濾群組與空白欄位（不影響勾選狀態）',
+  'activeFiltersBar.showAllTooltip': '切換回顯示所有屬性過濾',
+  'activeFiltersBar.emptyHint': '目前沒有已填的屬性過濾',
+  'activeFiltersBar.showAll': '顯示全部',
 } as const;
 
 export type I18nKey = keyof typeof ZH_TW_MESSAGES;

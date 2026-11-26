@@ -123,6 +123,7 @@ PoeXD 介面由三個互不越權的維度正交驅動：
 3. **Result Left Hover Actions** (`.poexd-left-actions`, `.poexd-left-actions-btn`, `.poexd-pob-copy-btn`, `.poexd-result-links`, `.poexd-result-link-btn`)
 4. **Controls Bar Send to Console** (`.poexd-send-to-console-btn`)：位於官方 `.search-panel .controls`，對齊官方按鈕 `min-width: 96px` / `min-height: 34px`、方角與深海藍 `oklch()` 配色（僅透過 `Page Theme Bridge` 接收 `--ring` focus 外框）。
 5. **Two-Column Layout Host Controls** (`.poexd-two-col-header-backdrop`, `.poexd-two-col-header-tab`, `.poexd-two-col-top-btn`, `.poexd-two-col-splitter`, `.poexd-two-col-collapse-btn`)：直接疊加於官方交易頁 `#trade` 與 `.wrapper` 的版面操控元件（頂部標頭收合把手／遮罩、回頂端鈕、雙欄分隔線與收合鈕），不隨 PoeXD 側邊欄主題（含亮色主題）變色，統一使用固定方角與官方暗黑／暖金 `oklch()` 色階以維持市集原生視覺一致。
+6. **Active Property Filters Bar** (`.poexd-active-filters-bar`, `.poexd-active-filters-toggle`, `.poexd-active-filters-empty`, `.poexd-active-filters-show-all-btn`)：直接嵌入官方屬性過濾區（`.search-advanced-pane.blue`）頂端的精簡檢視切換列，不隨 PoeXD 側邊欄主題變色，統一採用固定方角與官方暗黑／暖金 `oklch()` 色階融入官方篩選面板。
 
 上述控件（除 `.poexd-send-to-console-btn` 透過 `Page Theme Bridge` 讀取 `--ring` 外）不隨 PoeXD 側邊欄主題變色，統一採用固定方角 (`0px`)、`FontinSmallcaps` / `Verdana` 與對齊官方暗黑／深海藍／暗紅／暖金／增強藍語意的 PoE 原生色階，使商品卡片與操作列維持官網原生視覺一致性。
 

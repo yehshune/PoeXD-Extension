@@ -1913,4 +1913,11 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     '{count} other loaded results will also be highlighted and cannot be told apart',
   'resultBoard.regex.unpriced': '{count} unpriced, matched by name only',
   'resultBoard.regex.tooLong': '{count} with names too long to fit',
+  'activeFiltersBar.toggle': 'Active Filters Only',
+  'activeFiltersBar.toggleWithCount': 'Active Filters Only ({count})',
+  'activeFiltersBar.onlyActiveTooltip':
+    'Hide empty filter groups and unfilled property rows without changing group checkboxes',
+  'activeFiltersBar.showAllTooltip': 'Show all property filters',
+  'activeFiltersBar.emptyHint': 'No active property filters yet',
+  'activeFiltersBar.showAll': 'Show All',
 };

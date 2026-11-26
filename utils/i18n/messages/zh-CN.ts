@@ -1806,4 +1806,10 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'resultBoard.regex.ambiguous': '另有 {count} 件已载入的物品也会被标出，无法区分',
   'resultBoard.regex.unpriced': '{count} 件没有标价，只用名称匹配',
   'resultBoard.regex.tooLong': '{count} 件名称过长，放不进 regex',
+  'activeFiltersBar.toggle': '只看已填属性',
+  'activeFiltersBar.toggleWithCount': '只看已填属性 ({count})',
+  'activeFiltersBar.onlyActiveTooltip': '隐藏未填值的属性过滤分组与空白栏位（不影响勾选状态）',
+  'activeFiltersBar.showAllTooltip': '切换回显示所有属性过滤',
+  'activeFiltersBar.emptyHint': '目前没有已填的属性过滤',
+  'activeFiltersBar.showAll': '显示全部',
 };
