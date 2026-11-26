@@ -3231,5 +3231,63 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         fetchSpy.mockRestore();
       }
     });
+
+    it('preserves mute toggled while enabling is in-flight and persists it once ResumeStore records the identity', async () => {
+      const storeBacking: Record<string, unknown> = {};
+      const resumeStorage: LiveSearchResumeStorage = {
+        async get(keys) {
+          const out: Record<string, unknown> = {};
+          for (const k of keys) {
+            if (k in storeBacking) out[k] = storeBacking[k];
+          }
+          return out;
+        },
+        async set(values) {
+          Object.assign(storeBacking, values);
+        },
+        async remove(keys) {
+          for (const k of keys) delete storeBacking[k];
+        },
+      };
+      const resumeStore = createLiveSearchResumeStore('poe1', resumeStorage);
+
+      let releaseEnsure!: () => void;
+      hostClient.ensureHandler = () =>
+        new Promise((resolve) => {
+          releaseEnsure = () => resolve({ success: true });
+        });
+
+      const controller = createLiveSearchSourceController(null, liveController, {
+        resumeStore,
+        initialLeague: 'Standard',
+      });
+
+      const addPromise = controller.addTemporarySearch(
+        'https://www.pathofexile.com/trade/search/Standard/H4sIinflightMute',
+        { name: '連線中就靜音' },
+      );
+
+      // 等 ensureContainer 卡住（尚未寫入 resumeStore）時先設為靜音
+      await vi.waitFor(() => expect(typeof releaseEnsure).toBe('function'));
+      await controller.setMuted?.('poe1:standard:H4sIinflightMute', true);
+      expect(controller.isMuted?.('poe1:standard:H4sIinflightMute')).toBe(true);
+
+      // 放行連線完成 -> 寫入 resumeStore 後靜音狀態不得被洗掉，且持久存在 storage
+      releaseEnsure();
+      const outcome = await addPromise;
+      expect(outcome.success).toBe(true);
+      expect(controller.isMuted?.('poe1:standard:H4sIinflightMute')).toBe(true);
+
+      const persisted = await resumeStore.read();
+      expect(persisted.ok).toBe(true);
+      if (persisted.ok) {
+        expect(persisted.value.identities[0]).toMatchObject({
+          searchId: 'H4sIinflightMute',
+          muted: true,
+        });
+      }
+
+      controller.dispose();
+    });
   });
 });

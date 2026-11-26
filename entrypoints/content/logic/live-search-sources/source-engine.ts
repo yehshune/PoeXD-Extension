@@ -448,6 +448,18 @@ export function createLiveSearchSourceController(
     }
   }
 
+  async function persistResumeIdentities(
+    identities: readonly LiveSearchResumeIdentity[],
+  ): Promise<void> {
+    if (!resumeStore || identities.length === 0) return;
+    await resumeStore.addIdentities(
+      identities.map((identity) => {
+        const key = getTradeSearchCanonicalKey(identity);
+        return registry.isMuted(key) ? { ...identity, muted: true } : identity;
+      }),
+    );
+  }
+
   function reconcileSourceOwnership(): void {
     if (disposed) return;
     registry.syncActiveSubscriptions(currentLiveSubscriptions, currentCollection);
@@ -460,7 +472,7 @@ export function createLiveSearchSourceController(
     );
     if (resumeStore && promotedResumeIdentities.length > 0) {
       for (const identity of promotedResumeIdentities) {
-        void resumeStore.addIdentities([identity]);
+        void persistResumeIdentities([identity]);
       }
     }
   }
@@ -580,7 +592,7 @@ export function createLiveSearchSourceController(
           return { success: false, error: t('liveSearch.error.leagueSwitchedCancelled') };
         }
         if (outcome.success && resumeStore) {
-          await resumeStore.addIdentities([
+          await persistResumeIdentities([
             {
               gameVersion: custom.canonicalIdentity.gameVersion,
               league: custom.canonicalIdentity.league,
@@ -693,7 +705,7 @@ export function createLiveSearchSourceController(
           sourceBookmarkId: bookmark.id,
         });
         if (resumeStore) {
-          await resumeStore.addIdentities([
+          await persistResumeIdentities([
             {
               gameVersion: parsed.gameVersion,
               league: parsed.league,
@@ -1365,7 +1377,7 @@ export function createLiveSearchSourceController(
       notify();
       const batchOutcome = await enableManySources(sourceIdsToEnable);
       if (resumeStore && batchOutcome.succeeded > 0 && resumeEntriesToPersist.length > 0) {
-        await resumeStore.addIdentities(resumeEntriesToPersist);
+        await persistResumeIdentities(resumeEntriesToPersist);
       }
 
       return {

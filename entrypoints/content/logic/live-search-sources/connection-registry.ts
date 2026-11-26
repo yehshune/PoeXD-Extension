@@ -131,6 +131,13 @@ function createTemporarySearchId(): string {
   return `custom_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function withMuted(identity: LiveSearchResumeIdentity, muted: boolean): LiveSearchResumeIdentity {
+  const next: LiveSearchResumeIdentity = { ...identity };
+  if (muted) next.muted = true;
+  else delete next.muted;
+  return next;
+}
+
 export interface LiveSearchConnectionRegistryOptions {
   /** 官方市集 origin（供組裝 canonical URL，未提供時回退預設國際服） */
   origin?: string;
@@ -203,18 +210,11 @@ export function createLiveSearchConnectionRegistry(
       else mutedKeys.delete(canonicalKey);
       const baseline = baselineResumeByKey.get(canonicalKey);
       if (baseline) {
-        const nextBaseline: LiveSearchResumeIdentity = { ...baseline };
-        if (muted) nextBaseline.muted = true;
-        else delete nextBaseline.muted;
-        baselineResumeByKey.set(canonicalKey, nextBaseline);
+        baselineResumeByKey.set(canonicalKey, withMuted(baseline, muted));
       }
-      latestResumeIdentities = latestResumeIdentities.map((id) => {
-        if (getResumeCanonicalKey(id) !== canonicalKey) return id;
-        const next: LiveSearchResumeIdentity = { ...id };
-        if (muted) next.muted = true;
-        else delete next.muted;
-        return next;
-      });
+      latestResumeIdentities = latestResumeIdentities.map((id) =>
+        getResumeCanonicalKey(id) === canonicalKey ? withMuted(id, muted) : id,
+      );
       return changed;
     },
     getLatestResumeIdentities: () => latestResumeIdentities,
@@ -629,15 +629,18 @@ export function createLiveSearchConnectionRegistry(
           baselineResumeByKey.set(key, { ...id });
         } else if (baselineResumeByKey.has(key)) {
           const prev = baselineResumeByKey.get(key)!;
-          const nextEntry: LiveSearchResumeIdentity = {
-            ...prev,
-            ...(id.name ? { name: id.name } : {}),
-            ...(id.url ? { url: id.url } : {}),
-            ...(id.coverImageUrl ? { coverImageUrl: id.coverImageUrl } : {}),
-          };
-          if (id.muted) nextEntry.muted = true;
-          else delete nextEntry.muted;
-          baselineResumeByKey.set(key, nextEntry);
+          baselineResumeByKey.set(
+            key,
+            withMuted(
+              {
+                ...prev,
+                ...(id.name ? { name: id.name } : {}),
+                ...(id.url ? { url: id.url } : {}),
+                ...(id.coverImageUrl ? { coverImageUrl: id.coverImageUrl } : {}),
+              },
+              Boolean(id.muted),
+            ),
+          );
         }
       }
     },
