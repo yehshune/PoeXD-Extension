@@ -74,14 +74,15 @@ const converted = computed(() => {
 });
 
 /**
- * 灰色資訊：刊登多久前 · 購買狀態。
- * 物品清單不放賣家帳號（改在展開明細）；賣家清單不放上架時間（賣家層級已顯示）與格位（改在展開明細）。
+ * 灰色資訊：購買狀態（展開時附上刊登多久前）。
+ * 物品清單不放賣家帳號（改在展開明細），收合列也不顯示刊登時間（名稱下方改放標價）；
+ * 賣家清單不放上架時間（賣家層級已顯示）與格位（改在展開明細）。
  * 需私訊／AFK／離線以顏色區分。
  */
 const metaParts = computed<MetaPart[]>(() => {
   const { seller, instantBuyout } = props.entry;
   const parts: MetaPart[] = [];
-  const age = props.pickable ? '' : formatAge(props.entry.indexedAt);
+  const age = props.expanded && !props.pickable ? formatAge(props.entry.indexedAt) : '';
   if (age) parts.push({ text: age });
   if (!instantBuyout) {
     parts.push({ text: t('common.whisperOnly'), tone: 'caution' });
@@ -327,7 +328,7 @@ onBeforeUnmount(stopObserving);
         />
         <span
           v-if="converted"
-          class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-micro)] font-medium tabular-nums leading-none text-muted-foreground"
+          class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-medium tabular-nums leading-none text-muted-foreground"
           data-board-entry-converted
         >
           ≈ {{ converted }}
@@ -335,7 +336,7 @@ onBeforeUnmount(stopObserving);
             v-if="primaryIcon"
             :src="primaryIcon"
             :alt="rates?.primary"
-            class="size-[var(--control-icon-default)] object-contain"
+            class="size-[var(--control-icon-lg)] object-contain"
             referrerpolicy="no-referrer"
             draggable="false"
           />

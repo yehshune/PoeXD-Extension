@@ -139,7 +139,7 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
     expect(rows[1].querySelector('[data-pinned-item-fee]')).toBeNull();
   });
 
-  it('shows only listing age in the row meta and moves the seller into expanded details', async () => {
+  it('hides listing age on collapsed rows and shows both age and seller when expanded', async () => {
     const indexed = new Date(Date.now() - 3 * 3_600_000).toISOString();
     const snapshot = createPinnedItemSnapshot(
       {
@@ -163,7 +163,7 @@ describe('PinnedItemPane gold fee, price comparison toggle & mod range display',
     await flush();
 
     const meta = () => container.querySelector('[data-pinned-item-meta]')?.textContent?.trim();
-    expect(meta()).toBe('3 小時前');
+    expect(meta()).toBeUndefined();
     expect(container.querySelector('[data-pinned-item-seller]')).toBeNull();
 
     container.querySelector<HTMLElement>('[data-pinned-item-toggle]')!.click();

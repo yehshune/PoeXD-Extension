@@ -76,12 +76,12 @@ function formatAge(iso: string | undefined): string {
 }
 
 /**
- * 灰色資訊：刊登多久前 · 聯盟／伺服器（與目前不同時）· 需私訊。
- * 賣家帳號不放外層，改在展開明細顯示。
+ * 灰色資訊：聯盟／伺服器（與目前不同時）· 需私訊（展開時附上刊登多久前）。
+ * 收合列不顯示刊登時間（名稱下方改放標價）；賣家帳號不放外層，改在展開明細顯示。
  */
 const metaParts = computed<MetaPart[]>(() => {
   const parts: MetaPart[] = [];
-  const age = formatAge(props.item.listing.indexed);
+  const age = props.expanded ? formatAge(props.item.listing.indexed) : '';
   if (age) parts.push({ text: age });
   if (props.showLeague && props.item.league) parts.push({ text: props.item.league });
   if (props.realmLabel) parts.push({ text: props.realmLabel });
@@ -204,14 +204,14 @@ const actionState = computed<PinnedItemTransientState | undefined>(() =>
           v-if="priceComparison && !sold"
           data-pinned-item-price-conversion
           :title="priceComparison.tooltip"
-          class="inline-flex items-center gap-[3px] text-[length:var(--pxd-font-micro)] font-medium tabular-nums leading-none text-muted-foreground"
+          class="inline-flex items-center gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-section-title)] font-medium tabular-nums leading-none text-muted-foreground"
         >
           <span class="leading-none">≈ {{ priceComparison.amount }}</span>
           <img
             :src="priceComparison.icon"
             :alt="priceComparison.currencyName"
             :title="priceComparison.currencyName"
-            class="block size-[var(--control-icon-default)] shrink-0 object-contain"
+            class="block size-[var(--control-icon-lg)] shrink-0 object-contain"
             referrerpolicy="no-referrer"
             draggable="false"
             data-pinned-item-price-conversion-icon

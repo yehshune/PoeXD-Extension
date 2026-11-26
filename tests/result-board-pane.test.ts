@@ -207,7 +207,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-board-entry-id]'));
     const metaOf = (row: HTMLElement) =>
       row.querySelector('[data-board-entry-meta]')?.textContent ?? '';
-    expect(metaOf(rows[0])).not.toContain('CharOne');
+    expect(metaOf(rows[0])).toBe('');
     expect(metaOf(rows[1])).not.toContain('Seller#2');
 
     const tonedParts = (row: HTMLElement) =>
@@ -227,6 +227,7 @@ describe('ResultBoardPane interactions, translation, instant-only filter & persi
     expect(container.querySelector('[data-board-entry-seller]')).toBeNull();
     rows[0].querySelector<HTMLElement>('[data-board-entry-toggle]')!.click();
     await flush();
+    expect(metaOf(rows[0])).not.toBe('');
     expect(container.querySelector('[data-board-entry-seller]')?.textContent?.trim()).toBe(
       '賣家：CharOne (Seller#1)',
     );

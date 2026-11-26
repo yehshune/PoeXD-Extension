@@ -105,17 +105,27 @@ describe('ResultSummaryRow', () => {
     expect(actions.style.getPropertyValue('--pxd-hover-overlay-bg')).toContain('20%');
   });
 
-  it('still overlays the actions on the price when collapsed', () => {
+  it('renders price below the title without hiding on hover and keeps actions in the hover overlay when collapsed', () => {
     const container = mount(() =>
       h('ul', [
         h('li', { class: 'group' }, [
-          h(ResultSummaryRow, { icon: ICON }, { actions: () => h('button', { 'data-act': '' }) }),
+          h(
+            ResultSummaryRow,
+            { icon: ICON },
+            {
+              title: () => h('span', { 'data-title': '' }, 'Name'),
+              price: () => h('span', { 'data-price': '' }, '5'),
+              actions: () => h('button', { 'data-act': '' }),
+            },
+          ),
         ]),
       ]),
     );
+    const price = container.querySelector<HTMLElement>('[data-result-row-price]')!;
+    expect(price.querySelector('[data-price]')).not.toBeNull();
+    expect(price.className).not.toContain('group-hover:opacity-0');
     expect(container.querySelector('.pxd-hover-actions-overlay [data-act]')).not.toBeNull();
     expect(container.querySelector('[data-result-row-expanded-actions]')).toBeNull();
-    expect(container.querySelector('[data-result-row-price]')).toBeNull();
   });
 
   it('omits the actions overlay when there are no actions', () => {

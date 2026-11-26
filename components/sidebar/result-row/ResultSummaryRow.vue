@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
  * 物品結果列（釘選與看板共用）：
- * - 收合時：固定寬度的小圖示、名稱與灰色資訊、右側價格與狀態、展開箭頭。
+ * - 收合時：固定寬度的小圖示、名稱、名稱下方的價格與狀態（與選用的灰色資訊）、右側展開箭頭；
+ *   hover 操作列浮在右側，不再淡出價格。
  * - 展開後：隱藏原始小圖示，左側顯示 `expanded-icon` 大圖示框（如有提供），
- *   右上維持價格與收合箭頭，其餘內容（名稱、資訊、明細）排在圖示與右上之間；
+ *   右側頂部為名稱與收合箭頭，其下依序排價格、資訊與明細；
  *   hover 操作浮在上方區域的右下角（與大圖示底部對齊，蓋住下方資訊的右側），不會蓋住價格，也不預留空間。
  *
  * 外層的 `<li>` 由呼叫端提供，需帶 `group`；傳入的屬性（例如 data-*）會放在可點擊的列上。
@@ -76,18 +77,19 @@ const emit = defineEmits<{ toggle: [] }>();
             >
               <slot name="title" />
             </div>
-            <div
-              class="flex min-h-[var(--control-height-sm)] shrink-0 flex-col items-end justify-center gap-[2px]"
-              data-result-row-price
-            >
-              <slot name="price" />
-            </div>
             <span class="flex h-[var(--control-height-sm)] shrink-0 items-center">
               <ChevronUp
                 class="size-[var(--control-icon-sm)] text-muted-foreground/70 transition-colors group-hover:text-foreground"
                 aria-hidden="true"
               />
             </span>
+          </div>
+          <div
+            v-if="$slots.price"
+            class="flex flex-wrap items-center gap-x-[var(--pxd-space-sm)] gap-y-[2px]"
+            data-result-row-price
+          >
+            <slot name="price" />
           </div>
           <slot name="meta" />
           <slot name="expanded-details" />
@@ -97,12 +99,14 @@ const emit = defineEmits<{ toggle: [] }>();
       <template v-else>
         <div class="flex min-w-0 flex-1 flex-col gap-[var(--pxd-space-xs)]">
           <slot name="title" />
+          <div
+            v-if="$slots.price"
+            class="flex flex-wrap items-center gap-x-[var(--pxd-space-sm)] gap-y-[2px]"
+            data-result-row-price
+          >
+            <slot name="price" />
+          </div>
           <slot name="meta" />
-        </div>
-        <div
-          class="flex shrink-0 flex-col items-end gap-[2px] group-hover:opacity-0 group-has-[[data-state=open]]:opacity-0"
-        >
-          <slot name="price" />
         </div>
         <ChevronDown
           class="size-[var(--control-icon-sm)] shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground"
