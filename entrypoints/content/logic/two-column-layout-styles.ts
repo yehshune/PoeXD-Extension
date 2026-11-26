@@ -18,6 +18,7 @@ import { CONSOLE_RESULT_ONLY_ATTR } from './live-search-console-host-guard';
 
 export const TWO_COLUMN_STYLE_ID = 'poexd-two-column-layout-style';
 export const TWO_COLUMN_ATTR = 'data-poexd-two-column';
+export const TWO_COLUMN_NARROW_ATTR = 'data-poexd-two-column-narrow';
 export const TWO_COLUMN_COLLAPSED_ATTR = 'data-poexd-two-column-collapsed';
 export const TWO_COLUMN_HIDE_HEADER_ATTR = 'data-poexd-two-column-hide-header';
 export const TWO_COLUMN_HEADER_OPEN_ATTR = 'data-poexd-two-column-header-open';
@@ -35,8 +36,8 @@ export const TWO_COLUMN_TOP_BTN_CLASS = 'poexd-two-col-top-btn';
 
 const ACTIVE_SCOPE = `html[${TWO_COLUMN_ATTR}="active"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
 const COLLAPSED_SCOPE = `html[${TWO_COLUMN_ATTR}="active"][${TWO_COLUMN_COLLAPSED_ATTR}="true"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
-const HIDE_HEADER_SCOPE = `html[${TWO_COLUMN_ATTR}="active"][${TWO_COLUMN_HIDE_HEADER_ATTR}="true"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
-const HEADER_OPEN_SCOPE = `html[${TWO_COLUMN_ATTR}="active"][${TWO_COLUMN_HIDE_HEADER_ATTR}="true"][${TWO_COLUMN_HEADER_OPEN_ATTR}="true"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
+const HIDE_HEADER_SCOPE = `html[${TWO_COLUMN_HIDE_HEADER_ATTR}="true"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
+const HEADER_OPEN_SCOPE = `html[${TWO_COLUMN_HIDE_HEADER_ATTR}="true"][${TWO_COLUMN_HEADER_OPEN_ATTR}="true"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
 
 const SINGLE_SEARCH_BAR_SCOPE = `${ACTIVE_SCOPE}[${TWO_COLUMN_SEARCH_BAR_ATTR}="single"]`;
 const SINGLE_CONTROLS_SCOPE = `${ACTIVE_SCOPE}[${TWO_COLUMN_CONTROLS_ATTR}="single"]`;
@@ -121,7 +122,15 @@ export function buildTwoColumnLayoutCss(): string {
       max-width: 72px !important;
     }
 
-    /* 自動收合頂部官方標頭（市集原生暗黑／暖金風格，不使用 PoeXD 側欄主題） */
+    /* 自動收合頂部官方標頭（單欄／雙欄共用；市集原生暗黑／暖金風格，不使用 PoeXD 側欄主題） */
+    ${HIDE_HEADER_SCOPE} .wrapper {
+      position: relative !important;
+    }
+
+    ${HIDE_HEADER_SCOPE} .wrapper > .logo a {
+      max-width: 72px !important;
+    }
+
     ${HIDE_HEADER_SCOPE} .wrapper > #statusBar,
     ${HIDE_HEADER_SCOPE} .wrapper > .linkBack,
     ${HIDE_HEADER_SCOPE} .wrapper > .logo,

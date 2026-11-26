@@ -184,6 +184,7 @@ export const ZH_TW_MESSAGES = {
   'settings.resultModHighlight.label': '結果詞綴高亮',
   'settings.resultModHighlight.infoAria': '結果詞綴高亮說明',
   'settings.resultModHighlight.tooltip': '在搜尋結果中醒目標示符合篩選條件的關鍵詞綴',
+  'settings.resultModHighlight.appearance.toggle': '自訂高亮樣式與顏色',
   'settings.resultModHighlight.previewNormal': '+42% 火焰抗性',
   'settings.resultModHighlight.previewMatched': '+108 最大生命',
   'settings.resultModHighlight.openPagePreview': '在頁面預覽',
@@ -222,9 +223,12 @@ export const ZH_TW_MESSAGES = {
   'settings.twoColumnLayout.tooltip':
     '將官方篩選面板固定於左側、搜尋結果顯示於右側，可拖曳分隔線調整寬度或收合篩選欄；視窗空間不足時自動退回原本的上下版面',
   'settings.twoColumnLayout.keywords': '雙欄 並排 寬螢幕 全寬 篩選固定 TradeUX',
-  'settings.twoColumnAutoHideHeader.label': '自動收合頂部官方標頭',
-  'settings.twoColumnAutoHideHeader.tooltip':
-    '雙欄模式下先收起頂部帳號、金幣與語系列以增加可視高度；滑鼠移到頂部中央把手即可下拉顯示',
+  'settings.twoColumnLayout.narrowHint':
+    '目前可用寬度不足，已暫時維持單欄；拉寬視窗或收合側邊欄後會自動啟用雙欄',
+  'settings.autoHideOfficialHeader.label': '自動收合頂部官方標頭',
+  'settings.autoHideOfficialHeader.tooltip':
+    '先收起頂部帳號、金幣、Logo 與語系列以增加可視高度（單欄與雙欄模式皆適用）；滑鼠移到頂部中央把手即可下拉顯示',
+  'settings.autoHideOfficialHeader.keywords': '標頭 頂部 隱藏 帳號 金幣 語系 Logo 高度',
   'settings.twoColumnMaxWidth.label': '版面最大寬度',
   'settings.twoColumnMaxWidth.tooltip':
     '限制雙欄版面的最大整體寬度並置中顯示，適合 2K／4K 或超寬螢幕避免視線跨距過大',
@@ -271,14 +275,20 @@ export const ZH_TW_MESSAGES = {
 
   // Settings Pane - Bookmarks
   'settings.bookmarkBtnPosition.label': '加入書籤按鈕位置',
+  'settings.bookmarkBtnPosition.tooltip':
+    '決定書籤分頁中各資料夾「＋ 加入書籤」按鈕顯示於資料夾標題右上角或清單最下方',
   'settings.bookmarkBtnPosition.option.top': '右上',
   'settings.bookmarkBtnPosition.option.bottom': '下方',
 
   'settings.searchEntryClickAction.label': '左鍵點選書籤／歷史',
+  'settings.searchEntryClickAction.tooltip':
+    '設定左鍵點擊書籤或搜尋歷史列時的預設動作：直接開啟該搜尋，或展開搜尋條件預覽（另一項仍可透過列右側按鈕操作）',
   'settings.searchEntryClickAction.option.open': '開啟搜尋',
   'settings.searchEntryClickAction.option.preview': '展開預覽',
 
   'settings.bookmarkTooltip.label': '顯示書籤物品資訊預覽',
+  'settings.bookmarkTooltip.tooltip':
+    '滑鼠懸浮於書籤列時顯示物品與備註資訊提示框；關閉後僅保留點擊列操作',
 
   // Settings Pane - Alerts
   'settings.alert.saveFailedMessage': '設定無法儲存：{message}',

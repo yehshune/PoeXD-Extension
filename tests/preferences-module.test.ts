@@ -18,6 +18,7 @@ describe('Preferences module interface', () => {
       densityScale: 1,
       displayLocale: 'auto',
       enableAffixSelector: true,
+      enableAutoHideOfficialHeader: false,
       enableAutoTitle: true,
       enableBookmarkTooltip: true,
       enableFilterTilde: true,
@@ -59,7 +60,6 @@ describe('Preferences module interface', () => {
       sidebarWidth: 380,
       theme: 'modern-dark',
       themeCustomOverrides: '{}',
-      twoColumnAutoHideHeader: true,
       twoColumnFilterWidth: 560,
       twoColumnMaxWidth: 'full',
     });

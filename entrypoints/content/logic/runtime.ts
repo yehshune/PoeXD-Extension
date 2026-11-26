@@ -415,7 +415,7 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
           ...(role !== undefined ? { pageRole: role } : {}),
           preferredFilterWidth: snapshot.twoColumnFilterWidth,
           maxWidth: snapshot.twoColumnMaxWidth,
-          autoHideHeader: snapshot.twoColumnAutoHideHeader,
+          autoHideHeader: twoColumnLayoutAllowed && snapshot.enableAutoHideOfficialHeader,
           enabled: twoColumnLayoutAllowed && snapshot.enableTwoColumnLayout,
         });
       };

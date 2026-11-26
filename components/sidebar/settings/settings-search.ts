@@ -77,6 +77,14 @@ export function useSettingsSection(getTitle: () => string) {
   return { visible, query };
 }
 
+/** 讀取目前的設定搜尋狀態（供可收合子設定群組在搜尋命中時自動展開）。 */
+export function useSettingsSearchQuery() {
+  const search = inject(SEARCH_KEY, null);
+  const query = computed(() => search?.query.value ?? '');
+  const isSearching = computed(() => normalizeSettingsQuery(query.value) !== '');
+  return { query, isSearching };
+}
+
 /** 設定列呼叫：回傳此列在目前查詢下是否顯示，並登記到所屬區塊。 */
 export function useSettingsRow(getTexts: () => readonly (string | null | undefined)[]) {
   const search = inject(SEARCH_KEY, null);

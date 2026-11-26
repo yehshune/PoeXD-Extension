@@ -147,48 +147,50 @@
             </template>
           </SettingsRow>
           <template v-if="marketTranslation">
-            <!-- 市集漢化子設定：中英並列與快取立即更新皆隸屬於此 -->
-            <div
-              data-settings-group="market-translation-bilingual"
-              class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
-            >
-              <p
-                class="m-0 text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground"
+            <!-- 市集漢化子設定：中英並列、漢化資料快取與 pobb.in 漢化彼此平級，皆隸屬於市集漢化 -->
+            <div class="flex flex-col gap-[var(--pxd-space-md)] pl-[var(--pxd-space-lg)]">
+              <div
+                data-settings-group="market-translation-bilingual"
+                class="flex flex-col gap-[var(--pxd-space-sm)]"
               >
-                {{ t('settings.marketTranslation.bilingualGroup') }}
-              </p>
-              <SettingsRow
-                :label="t('settings.marketTranslationBilingual.label')"
-                :details="t('settings.marketTranslationBilingual.tooltip')"
-                :keywords="[t('settings.marketTranslation.bilingualGroup')]"
-                control-id="enable-market-translation-bilingual"
-              >
-                <template #default="{ describedBy }">
-                  <Switch
-                    id="enable-market-translation-bilingual"
-                    v-model="marketTranslationBilingual"
-                    :aria-describedby="describedBy"
-                    @update:model-value="savePreference('marketTranslationBilingual')"
-                  />
-                </template>
-              </SettingsRow>
-              <SettingsRow
-                :label="t('settings.marketTranslationResultBilingual.label')"
-                :details="t('settings.marketTranslationResultBilingual.tooltip')"
-                :keywords="[t('settings.marketTranslation.bilingualGroup')]"
-                control-id="enable-market-translation-result-bilingual"
-                guide-target="result-mod-en"
-                :guide-disabled="!marketTranslationResultBilingual"
-              >
-                <template #default="{ describedBy }">
-                  <Switch
-                    id="enable-market-translation-result-bilingual"
-                    v-model="marketTranslationResultBilingual"
-                    :aria-describedby="describedBy"
-                    @update:model-value="savePreference('marketTranslationResultBilingual')"
-                  />
-                </template>
-              </SettingsRow>
+                <p
+                  class="m-0 text-[length:var(--pxd-font-caption)] font-medium text-muted-foreground"
+                >
+                  {{ t('settings.marketTranslation.bilingualGroup') }}
+                </p>
+                <SettingsRow
+                  :label="t('settings.marketTranslationBilingual.label')"
+                  :details="t('settings.marketTranslationBilingual.tooltip')"
+                  :keywords="[t('settings.marketTranslation.bilingualGroup')]"
+                  control-id="enable-market-translation-bilingual"
+                >
+                  <template #default="{ describedBy }">
+                    <Switch
+                      id="enable-market-translation-bilingual"
+                      v-model="marketTranslationBilingual"
+                      :aria-describedby="describedBy"
+                      @update:model-value="savePreference('marketTranslationBilingual')"
+                    />
+                  </template>
+                </SettingsRow>
+                <SettingsRow
+                  :label="t('settings.marketTranslationResultBilingual.label')"
+                  :details="t('settings.marketTranslationResultBilingual.tooltip')"
+                  :keywords="[t('settings.marketTranslation.bilingualGroup')]"
+                  control-id="enable-market-translation-result-bilingual"
+                  guide-target="result-mod-en"
+                  :guide-disabled="!marketTranslationResultBilingual"
+                >
+                  <template #default="{ describedBy }">
+                    <Switch
+                      id="enable-market-translation-result-bilingual"
+                      v-model="marketTranslationResultBilingual"
+                      :aria-describedby="describedBy"
+                      @update:model-value="savePreference('marketTranslationResultBilingual')"
+                    />
+                  </template>
+                </SettingsRow>
+              </div>
               <div
                 v-if="marketTranslationTargetLocale"
                 class="flex flex-col gap-[var(--pxd-space-sm)] border-t border-border/50 pt-[var(--pxd-space-md)]"
@@ -324,25 +326,18 @@
             </template>
           </SettingsRow>
           <template v-if="enableTwoColumnLayout">
+            <p
+              v-if="twoColumnNarrowFallback"
+              data-test="two-column-narrow-hint"
+              role="status"
+              class="m-0 rounded-md border border-border bg-muted/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+            >
+              {{ t('settings.twoColumnLayout.narrowHint') }}
+            </p>
             <div
               data-settings-group="two-column-layout-options"
               class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
             >
-              <SettingsRow
-                :label="t('settings.twoColumnAutoHideHeader.label')"
-                :details="t('settings.twoColumnAutoHideHeader.tooltip')"
-                :keywords="[t('settings.twoColumnLayout.keywords')]"
-                control-id="two-column-auto-hide-header"
-              >
-                <template #default="{ describedBy }">
-                  <Switch
-                    id="two-column-auto-hide-header"
-                    v-model="twoColumnAutoHideHeader"
-                    :aria-describedby="describedBy"
-                    @update:model-value="savePreference('twoColumnAutoHideHeader')"
-                  />
-                </template>
-              </SettingsRow>
               <SettingsRow
                 :label="t('settings.twoColumnMaxWidth.label')"
                 :details="t('settings.twoColumnMaxWidth.tooltip')"
@@ -369,6 +364,22 @@
               </SettingsRow>
             </div>
           </template>
+
+          <SettingsRow
+            :label="t('settings.autoHideOfficialHeader.label')"
+            :details="t('settings.autoHideOfficialHeader.tooltip')"
+            :keywords="[t('settings.autoHideOfficialHeader.keywords')]"
+            control-id="enable-auto-hide-official-header"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-auto-hide-official-header"
+                v-model="enableAutoHideOfficialHeader"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('enableAutoHideOfficialHeader')"
+              />
+            </template>
+          </SettingsRow>
 
           <SettingsRow
             :label="t('settings.pureBackground.label')"
@@ -781,7 +792,10 @@
           :collapsed="collapsedSections.has('bookmarks')"
           @toggle-collapse="toggleSectionCollapse('bookmarks')"
         >
-          <SettingsRow :label="t('settings.bookmarkBtnPosition.label')">
+          <SettingsRow
+            :label="t('settings.bookmarkBtnPosition.label')"
+            :details="t('settings.bookmarkBtnPosition.tooltip')"
+          >
             <ToggleGroup
               type="single"
               variant="outline"
@@ -802,7 +816,10 @@
             </ToggleGroup>
           </SettingsRow>
 
-          <SettingsRow :label="t('settings.searchEntryClickAction.label')">
+          <SettingsRow
+            :label="t('settings.searchEntryClickAction.label')"
+            :details="t('settings.searchEntryClickAction.tooltip')"
+          >
             <ToggleGroup
               type="single"
               variant="outline"
@@ -827,6 +844,7 @@
 
           <SettingsRow
             :label="t('settings.bookmarkTooltip.label')"
+            :details="t('settings.bookmarkTooltip.tooltip')"
             control-id="enable-bookmark-tooltip"
           >
             <Switch
@@ -1005,6 +1023,7 @@ import {
 import { getPreferences, type PreferencesModule } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
 import { getPageLoadPreferences } from '@/utils/page-load-preferences';
+import { TWO_COLUMN_NARROW_ATTR } from '@/entrypoints/content/logic/two-column-layout-styles';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 
@@ -1073,7 +1092,7 @@ export default defineComponent({
       enableResultExternalLinks,
       enablePureBackground,
       enableTwoColumnLayout,
-      twoColumnAutoHideHeader,
+      enableAutoHideOfficialHeader,
       twoColumnMaxWidth,
       marketTranslation,
       marketTranslationBilingual,
@@ -1220,9 +1239,25 @@ export default defineComponent({
       }
     };
 
+    const twoColumnNarrowFallback = ref(false);
+    const syncTwoColumnNarrowState = () => {
+      twoColumnNarrowFallback.value =
+        typeof document !== 'undefined' &&
+        document.documentElement.getAttribute(TWO_COLUMN_NARROW_ATTR) === 'true';
+    };
+    let twoColumnAttrObserver: MutationObserver | null = null;
+
     onMounted(async () => {
       void refreshPobbinPermission();
       window.addEventListener('focus', refreshPobbinPermission);
+      syncTwoColumnNarrowState();
+      if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+        twoColumnAttrObserver = new MutationObserver(() => syncTwoColumnNarrowState());
+        twoColumnAttrObserver.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: [TWO_COLUMN_NARROW_ATTR],
+        });
+      }
 
       const scrollEl = findSettingsScrollParent(sectionsRef.value);
       if (scrollEl) {
@@ -1251,6 +1286,8 @@ export default defineComponent({
 
     onUnmounted(() => {
       window.removeEventListener('focus', refreshPobbinPermission);
+      twoColumnAttrObserver?.disconnect();
+      twoColumnAttrObserver = null;
       stopPreferences?.();
       stopScrollSpy?.();
       clearTimeout(highlightTimer);
@@ -1821,7 +1858,8 @@ export default defineComponent({
       enableResultExternalLinks,
       enablePureBackground,
       enableTwoColumnLayout,
-      twoColumnAutoHideHeader,
+      enableAutoHideOfficialHeader,
+      twoColumnNarrowFallback,
       twoColumnMaxWidth,
       marketTranslation,
       marketTranslationBilingual,

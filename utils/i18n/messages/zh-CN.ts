@@ -186,6 +186,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.resultModHighlight.label': '结果词缀高亮',
   'settings.resultModHighlight.infoAria': '结果词缀高亮说明',
   'settings.resultModHighlight.tooltip': '在搜索结果中醒目标示符合筛选条件的关键词缀',
+  'settings.resultModHighlight.appearance.toggle': '自定义高亮样式与颜色',
   'settings.resultModHighlight.previewNormal': '+42% 火焰抗性',
   'settings.resultModHighlight.previewMatched': '+108 最大生命',
   'settings.resultModHighlight.openPagePreview': '在页面预览',
@@ -224,9 +225,12 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.twoColumnLayout.tooltip':
     '将官方筛选面板固定于左侧、搜索结果显示于右侧，可拖拽分隔线调整宽度或收起筛选栏；窗口空间不足时自动退回原本的上下布局',
   'settings.twoColumnLayout.keywords': '双栏 并排 宽屏 全宽 筛选固定 TradeUX',
-  'settings.twoColumnAutoHideHeader.label': '自动收起顶部官方标头',
-  'settings.twoColumnAutoHideHeader.tooltip':
-    '双栏模式下先收起顶部账号、金币与语系列以增加可视高度；鼠标移到顶部中央把手即可下拉显示',
+  'settings.twoColumnLayout.narrowHint':
+    '当前可用宽度不足，已暂时维持单栏；拉宽窗口或收起侧边栏后会自动启用双栏',
+  'settings.autoHideOfficialHeader.label': '自动收起顶部官方标头',
+  'settings.autoHideOfficialHeader.tooltip':
+    '先收起顶部账号、金币、Logo 与语系列以增加可视高度（单栏与双栏模式皆适用）；鼠标移到顶部中央把手即可下拉显示',
+  'settings.autoHideOfficialHeader.keywords': '标头 顶部 隐藏 账号 金币 语系 Logo 高度',
   'settings.twoColumnMaxWidth.label': '布局最大宽度',
   'settings.twoColumnMaxWidth.tooltip':
     '限制双栏布局的最大整体宽度并居中显示，适合 2K／4K 或超宽屏避免视线跨距过大',
@@ -273,14 +277,20 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
 
   // Settings Pane - Bookmarks
   'settings.bookmarkBtnPosition.label': '添加书签按钮位置',
+  'settings.bookmarkBtnPosition.tooltip':
+    '决定书签页中各文件夹「＋ 添加书签」按钮显示在文件夹标题右上角或列表最下方',
   'settings.bookmarkBtnPosition.option.top': '右上',
   'settings.bookmarkBtnPosition.option.bottom': '下方',
 
   'settings.searchEntryClickAction.label': '左键点击书签／历史',
+  'settings.searchEntryClickAction.tooltip':
+    '设置左键点击书签或搜索历史条目时的默认操作：直接打开该搜索，或展开搜索条件预览（另一项仍可通过条目右侧按钮操作）',
   'settings.searchEntryClickAction.option.open': '打开搜索',
   'settings.searchEntryClickAction.option.preview': '展开预览',
 
   'settings.bookmarkTooltip.label': '显示书签物品信息预览',
+  'settings.bookmarkTooltip.tooltip':
+    '鼠标悬停于书签条目时显示物品与备注信息提示框；关闭后仅保留点击条目操作',
 
   // Settings Pane - Alerts
   'settings.alert.saveFailedMessage': '设置无法保存：{message}',

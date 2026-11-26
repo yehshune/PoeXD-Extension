@@ -432,10 +432,10 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Verify no RadioGroups remain in SettingsPane
     expect(container.querySelectorAll('[data-slot="radio-group"]').length).toBe(0);
 
-    // On/off settings use Switch (15 settings + 7 Sidebar Modules), sized by the checkbox token
+    // On/off settings use Switch (16 settings + 7 Sidebar Modules), sized by the checkbox token
     expect(container.querySelectorAll('[data-slot="checkbox"]').length).toBe(0);
     const switches = container.querySelectorAll('[data-slot="switch"]');
-    expect(switches.length).toBe(22);
+    expect(switches.length).toBe(23);
     switches.forEach((sw) => {
       expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });
@@ -467,6 +467,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const bookmarksSection = container.querySelector('[data-settings-section="bookmarks"]');
     const modulesSection = container.querySelector('[data-settings-section="modules"]');
     expect(pageLayoutSection?.querySelector('#enable-two-column-layout')).not.toBeNull();
+    expect(pageLayoutSection?.querySelector('#enable-auto-hide-official-header')).not.toBeNull();
     expect(pageLayoutSection?.querySelector('#enable-pure-background')).not.toBeNull();
     expect(pageLayoutSection?.querySelector('#enable-auto-title')).not.toBeNull();
     expect(appearanceSection?.querySelector('#enable-two-column-layout')).toBeNull();
@@ -1020,7 +1021,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().enableFilterTilde).toBe(true);
   });
 
-  it('groups both market translation bilingual options under one heading', async () => {
+  it('groups both market translation bilingual options under one heading separately from cache and pobb.in', async () => {
     const { container } = await mountSettingsPane();
     await currentModule!.update({ marketTranslation: true, displayLocale: 'zh-TW' });
     await flushAsync();
@@ -1028,6 +1029,27 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(group?.textContent).toContain('中英並列');
     expect(group?.querySelector('#enable-market-translation-bilingual')).not.toBeNull();
     expect(group?.querySelector('#enable-market-translation-result-bilingual')).not.toBeNull();
+    expect(group?.querySelector('[data-test="market-translation-refresh-btn"]')).toBeNull();
+    expect(group?.querySelector('[data-test="market-translation-pobbin-permission"]')).toBeNull();
+  });
+
+  it('shows a narrow-window fallback hint when two-column layout is enabled but viewport is too narrow', async () => {
+    const { container } = await mountSettingsPane();
+    await currentModule!.update({ enableTwoColumnLayout: true });
+    await flushAsync();
+    expect(container.querySelector('[data-test="two-column-narrow-hint"]')).toBeNull();
+
+    try {
+      document.documentElement.setAttribute('data-poexd-two-column-narrow', 'true');
+      await flushAsync();
+      expect(container.querySelector('[data-test="two-column-narrow-hint"]')).not.toBeNull();
+
+      document.documentElement.removeAttribute('data-poexd-two-column-narrow');
+      await flushAsync();
+      expect(container.querySelector('[data-test="two-column-narrow-hint"]')).toBeNull();
+    } finally {
+      document.documentElement.removeAttribute('data-poexd-two-column-narrow');
+    }
   });
 
   it('exposes backup/import/reset in the top toolbar menu and restores defaults only after confirmation', async () => {
@@ -1324,11 +1346,28 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(highlightCheckbox).not.toBeNull();
     expect(currentModule?.read().enableResultModHighlight).toBe(true);
 
-    // Sub-settings for highlight style & color are visible when enabled
-    const appearanceGroup = container.querySelector(
+    // Sub-settings for highlight style & color start collapsed with a summary, and expand on toggle
+    const appearanceGroup = container.querySelector<HTMLElement>(
       '[data-settings-group="result-mod-highlight-appearance"]',
     );
     expect(appearanceGroup).not.toBeNull();
+    expect(appearanceGroup!.getAttribute('data-expanded')).toBe('false');
+    const highlightToggle = appearanceGroup!.querySelector<HTMLButtonElement>(
+      '[data-test="result-mod-highlight-toggle"]',
+    )!;
+    const highlightBody = appearanceGroup!.querySelector<HTMLElement>(
+      '[data-test="result-mod-highlight-body"]',
+    )!;
+    expect(highlightToggle.getAttribute('aria-expanded')).toBe('false');
+    expect(highlightBody.style.display).toBe('none');
+    expect(
+      appearanceGroup!.querySelector('[data-test="result-mod-highlight-summary"]')?.textContent,
+    ).toContain('發光框線 · 靛藍');
+
+    highlightToggle.click();
+    await flushAsync();
+    expect(highlightToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(highlightBody.style.display).not.toBe('none');
     expect(
       container.querySelector('[data-test="result-mod-highlight-preview-mod"]'),
     ).not.toBeNull();
@@ -1346,6 +1385,9 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     emeraldColorBtn!.click();
     await flushAsync();
     expect(currentModule?.read().resultModHighlightColor).toBe('emerald');
+    expect(
+      appearanceGroup!.querySelector('[data-test="result-mod-highlight-summary"]')?.textContent,
+    ).toContain('左側色條 · 翡翠綠');
 
     // Page preview button collaborates with PageGuide preview mode and auto-closes when disabled
     const pagePreviewBtn = container.querySelector<HTMLButtonElement>(

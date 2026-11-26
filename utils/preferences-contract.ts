@@ -173,6 +173,8 @@ export interface Preferences {
   densityScale: number;
   displayLocale: DisplayLocalePreference;
   enableAffixSelector: boolean;
+  /** 自動收合頂部官方標頭（帳號、金幣、Logo 與語系列；單欄與雙欄模式皆可用） */
+  enableAutoHideOfficialHeader: boolean;
   enableAutoTitle: boolean;
   enableBookmarkTooltip: boolean;
   enableFilterTilde: boolean;
@@ -226,8 +228,6 @@ export interface Preferences {
   theme: ThemeId;
   /** 各主題獨立保存的色彩與圓角覆寫（正規化 JSON 字串） */
   themeCustomOverrides: string;
-  /** 雙欄版面自動收合頂部官方標頭（滑鼠移至上緣把手時展開） */
-  twoColumnAutoHideHeader: boolean;
   /** 雙欄版面篩選欄偏好的寬度（px） */
   twoColumnFilterWidth: number;
   /** 雙欄版面最大整體寬度（'full' 為不限） */
@@ -373,9 +373,9 @@ export const PREFERENCE_SCHEMA = Object.freeze({
     default: false,
     validate: isBoolean,
   },
-  twoColumnAutoHideHeader: {
+  enableAutoHideOfficialHeader: {
     scope: 'global',
-    default: true,
+    default: false,
     validate: isBoolean,
   },
   twoColumnFilterWidth: {

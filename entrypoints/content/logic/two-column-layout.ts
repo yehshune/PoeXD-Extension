@@ -25,6 +25,7 @@ import {
 } from '@/utils/two-column-layout';
 import {
   TWO_COLUMN_ATTR,
+  TWO_COLUMN_NARROW_ATTR,
   TWO_COLUMN_COLLAPSED_ATTR,
   TWO_COLUMN_COLLAPSE_BTN_CLASS,
   TWO_COLUMN_CONTROLS_ATTR,
@@ -45,6 +46,7 @@ import {
 
 export {
   TWO_COLUMN_ATTR,
+  TWO_COLUMN_NARROW_ATTR,
   TWO_COLUMN_COLLAPSED_ATTR,
   TWO_COLUMN_COLLAPSE_BTN_CLASS,
   TWO_COLUMN_CONTROLS_ATTR,
@@ -123,7 +125,7 @@ export function createTwoColumnLayoutController(
   let pageRole: TradePageRole = 'normal';
   let preferredFilterWidth = TWO_COLUMN_DEFAULT_FILTER_WIDTH;
   let maxWidth: TwoColumnMaxWidth = TWO_COLUMN_DEFAULT_MAX_WIDTH;
-  let autoHideHeader = true;
+  let autoHideHeader = false;
   let filtersCollapsed = false;
   let draggingWidth: number | null = null;
   let disposed = false;
@@ -135,6 +137,12 @@ export function createTwoColumnLayoutController(
   let headerBackdropEl: HTMLDivElement | null = null;
   let topBtnEl: HTMLButtonElement | null = null;
   let topBtnVisible = false;
+
+  // 直接寫在 #trade / .wrapper 的非繼承屬性並做 dirty check，避免改動 <html> CSS 變數觸發 2 萬+ 節點樣式重算
+  let appliedTradeEl: HTMLElement | null = null;
+  let appliedWrapperEl: HTMLElement | null = null;
+  let appliedLeftWidth: number | null = null;
+  let appliedMaxWidthCss: string | null = null;
 
   let resizeObserver: ResizeObserver | null = null;
   let observedContentEl: Element | null = null;
@@ -586,6 +594,46 @@ export function createTwoColumnLayoutController(
     syncTopButtonVisibility();
   };
 
+  const applyLeftColumnWidth = (leftWidth: number) => {
+    const tradeEl = doc.querySelector<HTMLElement>('#trade');
+    if (appliedTradeEl && appliedTradeEl !== tradeEl) {
+      appliedTradeEl.style.removeProperty('grid-template-columns');
+      appliedLeftWidth = null;
+    }
+    appliedTradeEl = tradeEl;
+    if (!tradeEl || appliedLeftWidth === leftWidth) return;
+    tradeEl.style.setProperty(
+      'grid-template-columns',
+      `${leftWidth}px minmax(0, 1fr)`,
+      'important',
+    );
+    appliedLeftWidth = leftWidth;
+  };
+
+  const applyWrapperMaxWidth = (maxWidthCss: string) => {
+    const wrapperEl = doc.querySelector<HTMLElement>('.wrapper');
+    if (appliedWrapperEl && appliedWrapperEl !== wrapperEl) {
+      appliedWrapperEl.style.removeProperty('max-width');
+      appliedMaxWidthCss = null;
+    }
+    appliedWrapperEl = wrapperEl;
+    if (!wrapperEl || appliedMaxWidthCss === maxWidthCss) return;
+    wrapperEl.style.setProperty('max-width', maxWidthCss, 'important');
+    appliedMaxWidthCss = maxWidthCss;
+  };
+
+  const clearDirectGridGeometry = () => {
+    appliedTradeEl?.style.removeProperty('grid-template-columns');
+    doc.querySelector<HTMLElement>('#trade')?.style.removeProperty('grid-template-columns');
+    appliedTradeEl = null;
+    appliedLeftWidth = null;
+
+    appliedWrapperEl?.style.removeProperty('max-width');
+    doc.querySelector<HTMLElement>('.wrapper')?.style.removeProperty('max-width');
+    appliedWrapperEl = null;
+    appliedMaxWidthCss = null;
+  };
+
   const startResizeDrag = (event: PointerEvent) => {
     if (filtersCollapsed || event.button !== 0) return;
     const target = event.target as Element | null;
@@ -593,10 +641,13 @@ export function createTwoColumnLayoutController(
     event.preventDefault();
 
     const startX = event.clientX;
-    const contentWidth = readContentWidth();
+    const dragContentWidth = readContentWidth();
+    const maxWidthPx = resolveTwoColumnMaxWidthPx(maxWidth);
+    const effectiveContainerWidth =
+      maxWidthPx !== null ? Math.min(dragContentWidth, maxWidthPx) : dragContentWidth;
     const { clamped: startWidth } = clampTwoColumnFilterWidth(
       preferredFilterWidth,
-      contentWidth,
+      dragContentWidth,
       maxWidth,
     );
     draggingWidth = startWidth;
@@ -608,19 +659,15 @@ export function createTwoColumnLayoutController(
       doc.body.style.userSelect = 'none';
     }
 
-    const handleMove = (moveEvent: PointerEvent) => {
-      const delta = moveEvent.clientX - startX;
-      const currentContentWidth = readContentWidth();
-      const { clamped } = clampTwoColumnFilterWidth(
-        startWidth + delta,
-        currentContentWidth,
-        maxWidth,
-      );
+    let dragRafId: number | null = null;
+    let pendingClientX: number | null = null;
+
+    const applyDragAtClientX = (clientX: number) => {
+      const delta = clientX - startX;
+      const { clamped } = clampTwoColumnFilterWidth(startWidth + delta, dragContentWidth, maxWidth);
+      if (clamped === draggingWidth) return;
       draggingWidth = clamped;
-      doc.documentElement.style.setProperty(TWO_COLUMN_WIDTH_VAR, `${clamped}px`);
-      const maxWidthPx = resolveTwoColumnMaxWidthPx(maxWidth);
-      const effectiveContainerWidth =
-        maxWidthPx !== null ? Math.min(currentContentWidth, maxWidthPx) : currentContentWidth;
+      applyLeftColumnWidth(clamped);
       const nextResultsWidth = Math.max(
         0,
         Math.floor(effectiveContainerWidth - clamped - TWO_COLUMN_COLUMN_GAP),
@@ -628,7 +675,35 @@ export function createTwoColumnLayoutController(
       syncResponsiveBreakpointAttrs(clamped, nextResultsWidth);
     };
 
+    const handleMove = (moveEvent: PointerEvent) => {
+      pendingClientX = moveEvent.clientX;
+      if (dragRafId !== null) return;
+      if (typeof win.requestAnimationFrame === 'function') {
+        dragRafId = win.requestAnimationFrame(() => {
+          dragRafId = null;
+          if (pendingClientX !== null) {
+            const x = pendingClientX;
+            pendingClientX = null;
+            applyDragAtClientX(x);
+          }
+        });
+      } else {
+        const x = pendingClientX;
+        pendingClientX = null;
+        applyDragAtClientX(x);
+      }
+    };
+
     const finishDrag = (commit: boolean) => {
+      if (dragRafId !== null) {
+        win.cancelAnimationFrame?.(dragRafId);
+        dragRafId = null;
+      }
+      if (pendingClientX !== null) {
+        const x = pendingClientX;
+        pendingClientX = null;
+        applyDragAtClientX(x);
+      }
       const finalWidth = draggingWidth;
       stopActiveDrag();
       splitterEl?.removeAttribute('data-resizing');
@@ -650,6 +725,10 @@ export function createTwoColumnLayoutController(
     win.addEventListener('pointerup', handleUp);
     win.addEventListener('pointercancel', handleCancel);
     activeDragCleanup = () => {
+      if (dragRafId !== null) {
+        win.cancelAnimationFrame?.(dragRafId);
+        dragRafId = null;
+      }
       win.removeEventListener('pointermove', handleMove);
       win.removeEventListener('pointerup', handleUp);
       win.removeEventListener('pointercancel', handleCancel);
@@ -714,8 +793,15 @@ export function createTwoColumnLayoutController(
     const contentEl = doc.querySelector('.content');
     if (contentEl && contentEl !== observedContentEl && typeof ResizeObserver !== 'undefined') {
       resizeObserver?.disconnect();
-      resizeObserver = new ResizeObserver(() => {
-        if (!disposed) sync();
+      resizeObserver = new ResizeObserver((entries) => {
+        if (disposed) return;
+        const entry = entries[entries.length - 1];
+        const observedWidth =
+          entry?.borderBoxSize?.[0]?.inlineSize ??
+          (entry?.contentRect?.width && entry.contentRect.width > 0
+            ? entry.contentRect.width
+            : undefined);
+        sync(observedWidth);
       });
       resizeObserver.observe(contentEl);
       observedContentEl = contentEl;
@@ -748,7 +834,7 @@ export function createTwoColumnLayoutController(
       }
     } else if (!bootstrapObserver && doc.body) {
       bootstrapObserver = new MutationObserver(() => {
-        if (!disposed && doc.querySelector('#trade')) {
+        if (!disposed && (doc.querySelector('#trade') || doc.querySelector('.wrapper'))) {
           sync();
         }
       });
@@ -763,11 +849,22 @@ export function createTwoColumnLayoutController(
     const handleSync = () => {
       if (!disposed) sync();
     };
+    const handleSidebarGeometryEvent = () => {
+      // 有 ResizeObserver 監看 .content 時，改寬後由瀏覽器排版完畢回報尺寸，避免在事件當下強迫同步 reflow
+      if (disposed || (resizeObserver && observedContentEl?.isConnected)) return;
+      sync();
+    };
     win.addEventListener('resize', handleSync);
     win.addEventListener('popstate', handleSync);
     const stopHistory = listenPoeEvent('poexd-history-changed', handleSync);
-    const stopCollapsed = listenPoeEvent('poexd-sidebar-collapsed-changed', handleSync);
-    const stopWidthPreview = listenPoeEvent('poexd-sidebar-width-preview', handleSync);
+    const stopCollapsed = listenPoeEvent(
+      'poexd-sidebar-collapsed-changed',
+      handleSidebarGeometryEvent,
+    );
+    const stopWidthPreview = listenPoeEvent(
+      'poexd-sidebar-width-preview',
+      handleSidebarGeometryEvent,
+    );
 
     eventCleanups = [
       () => win.removeEventListener('resize', handleSync),
@@ -796,21 +893,33 @@ export function createTwoColumnLayoutController(
     bootstrapObserver = null;
   };
 
-  const clearHostState = () => {
+  const clearTwoColumnHostState = () => {
     setRootAttr(TWO_COLUMN_ATTR, null);
+    setRootAttr(TWO_COLUMN_NARROW_ATTR, null);
     setRootAttr(TWO_COLUMN_COLLAPSED_ATTR, null);
-    setRootAttr(TWO_COLUMN_HIDE_HEADER_ATTR, null);
-    setRootAttr(TWO_COLUMN_HEADER_OPEN_ATTR, null);
     clearResponsiveBreakpointAttrs();
+    clearDirectGridGeometry();
     doc.documentElement.style.removeProperty(TWO_COLUMN_WIDTH_VAR);
     doc.documentElement.style.removeProperty(TWO_COLUMN_MAX_WIDTH_VAR);
     detachSplitter();
-    detachHeaderControls();
     detachResultsBridge();
   };
 
-  const sync = (): TwoColumnGeometry => {
-    if (disposed || !enabled) {
+  const clearHeaderHostState = () => {
+    setRootAttr(TWO_COLUMN_HIDE_HEADER_ATTR, null);
+    setRootAttr(TWO_COLUMN_HEADER_OPEN_ATTR, null);
+    detachHeaderControls();
+  };
+
+  const clearHostState = () => {
+    clearTwoColumnHostState();
+    clearHeaderHostState();
+  };
+
+  const sync = (measuredContentWidth?: number): TwoColumnGeometry => {
+    const shouldHideHeader = !disposed && autoHideHeader && pageRole === 'normal';
+
+    if (disposed || (!enabled && !shouldHideHeader)) {
       clearHostState();
       removeStyle();
       detachListeners();
@@ -828,30 +937,50 @@ export function createTwoColumnLayoutController(
     attachListeners();
     observeHostContainers();
 
+    if (shouldHideHeader) {
+      ensureStyle();
+      ensureHeaderControlsMounted();
+    } else {
+      clearHeaderHostState();
+    }
+
+    const contentWidth =
+      typeof measuredContentWidth === 'number' &&
+      Number.isFinite(measuredContentWidth) &&
+      measuredContentWidth > 0
+        ? measuredContentWidth
+        : readContentWidth();
+
     const hasSearchPanel = Boolean(doc.querySelector('#trade > .top > .search-panel'));
     const geometry = resolveTwoColumnGeometry({
       enabled: enabled && hasSearchPanel,
       pageRole,
       pathname: readPathname(),
-      contentWidth: readContentWidth(),
+      contentWidth,
       preferredFilterWidth: draggingWidth ?? preferredFilterWidth,
       maxWidth,
       filtersCollapsed,
     });
 
     if (!geometry.active) {
-      clearHostState();
+      clearTwoColumnHostState();
+      if (enabled && geometry.reason === 'narrow') {
+        setRootAttr(TWO_COLUMN_NARROW_ATTR, 'true');
+      }
+      if (!shouldHideHeader) {
+        removeStyle();
+      }
       return geometry;
     }
 
     ensureStyle();
+    setRootAttr(TWO_COLUMN_NARROW_ATTR, null);
     setRootAttr(TWO_COLUMN_ATTR, 'active');
     setRootAttr(TWO_COLUMN_COLLAPSED_ATTR, geometry.filtersCollapsed ? 'true' : null);
-    doc.documentElement.style.setProperty(TWO_COLUMN_WIDTH_VAR, `${geometry.leftWidth}px`);
-    doc.documentElement.style.setProperty(TWO_COLUMN_MAX_WIDTH_VAR, geometry.maxWidthCss);
+    applyLeftColumnWidth(geometry.leftWidth);
+    applyWrapperMaxWidth(geometry.maxWidthCss);
     syncResponsiveBreakpointAttrs(geometry.leftWidth, geometry.resultsWidth);
     ensureSplitterMounted();
-    ensureHeaderControlsMounted();
     ensureResultsBridgeMounted();
     return geometry;
   };

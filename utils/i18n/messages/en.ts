@@ -190,6 +190,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.resultModHighlight.infoAria': 'Highlight Matched Affixes info',
   'settings.resultModHighlight.tooltip':
     'Highlight affixes on search results that match your active stat filters',
+  'settings.resultModHighlight.appearance.toggle': 'Customize highlight style & color',
   'settings.resultModHighlight.previewNormal': '+42% to Fire Resistance',
   'settings.resultModHighlight.previewMatched': '+108 to maximum Life',
   'settings.resultModHighlight.openPagePreview': 'Preview on Page',
@@ -229,9 +230,12 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.twoColumnLayout.tooltip':
     'Keep official filters sticky on the left and results on the right, with a resizable divider and collapse toggle; automatically falls back to single-column when space is narrow',
   'settings.twoColumnLayout.keywords': 'two column split full width sticky filters TradeUX',
-  'settings.twoColumnAutoHideHeader.label': 'Auto-Hide Top Official Header',
-  'settings.twoColumnAutoHideHeader.tooltip':
-    'Hide the top account, gold, logo and language bar in two-column mode for more vertical space; hover the top-center handle to reveal it',
+  'settings.twoColumnLayout.narrowHint':
+    'Window space is currently too narrow, staying in single-column; widen the window or collapse the sidebar to activate two-column layout',
+  'settings.autoHideOfficialHeader.label': 'Auto-Hide Top Official Header',
+  'settings.autoHideOfficialHeader.tooltip':
+    'Hide the top account, gold, logo and language bar in both single- and two-column layouts for more vertical space; hover the top-center handle to reveal it',
+  'settings.autoHideOfficialHeader.keywords': 'header top hide account gold logo language height',
   'settings.twoColumnMaxWidth.label': 'Max Layout Width',
   'settings.twoColumnMaxWidth.tooltip':
     'Cap and center the two-column workspace width on 2K/4K or ultrawide monitors',
@@ -284,14 +288,20 @@ export const EN_MESSAGES: I18nMessageCatalog = {
 
   // Settings Pane - Bookmarks
   'settings.bookmarkBtnPosition.label': 'Add Bookmark Button Position',
+  'settings.bookmarkBtnPosition.tooltip':
+    'Place each folder’s “Add Bookmark” button either in the top-right header or at the bottom of the folder list',
   'settings.bookmarkBtnPosition.option.top': 'Top',
   'settings.bookmarkBtnPosition.option.bottom': 'Bottom',
 
   'settings.searchEntryClickAction.label': 'Left-Click Bookmark / History',
+  'settings.searchEntryClickAction.tooltip':
+    'Choose whether left-clicking a bookmark or history entry opens the search directly or toggles its criteria preview (the other action stays on the row buttons)',
   'settings.searchEntryClickAction.option.open': 'Open Search',
   'settings.searchEntryClickAction.option.preview': 'Toggle Preview',
 
   'settings.bookmarkTooltip.label': 'Show bookmark item preview',
+  'settings.bookmarkTooltip.tooltip':
+    'Show an item and notes preview tooltip when hovering a bookmark row',
 
   // Settings Pane - Alerts
   'settings.alert.saveFailedMessage': 'Failed to save settings: {message}',

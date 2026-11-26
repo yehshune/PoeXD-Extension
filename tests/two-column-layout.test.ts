@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   TWO_COLUMN_ATTR,
+  TWO_COLUMN_NARROW_ATTR,
   TWO_COLUMN_COLLAPSED_ATTR,
   TWO_COLUMN_COLLAPSE_BTN_CLASS,
   TWO_COLUMN_CONTROLS_ATTR,
@@ -187,6 +188,7 @@ describe('createTwoColumnLayoutController', () => {
     document.head.innerHTML = '';
     document.body.innerHTML = '';
     document.documentElement.removeAttribute(TWO_COLUMN_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_NARROW_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_COLLAPSED_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_HIDE_HEADER_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_HEADER_OPEN_ATTR);
@@ -203,6 +205,7 @@ describe('createTwoColumnLayoutController', () => {
     document.head.innerHTML = '';
     document.body.innerHTML = '';
     document.documentElement.removeAttribute(TWO_COLUMN_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_NARROW_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_COLLAPSED_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_HIDE_HEADER_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_HEADER_OPEN_ATTR);
@@ -260,11 +263,14 @@ describe('createTwoColumnLayoutController', () => {
       autoHideHeader: true,
     });
 
+    const tradeEl = document.querySelector<HTMLElement>('#trade')!;
+    const wrapperEl = document.querySelector<HTMLElement>('.wrapper')!;
     expect(document.documentElement.getAttribute(TWO_COLUMN_ATTR)).toBe('active');
-    expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_WIDTH_VAR)).toBe('960px');
-    expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_MAX_WIDTH_VAR)).toBe(
-      '1920px',
-    );
+    expect(tradeEl.style.getPropertyValue('grid-template-columns')).toBe('960px minmax(0, 1fr)');
+    expect(wrapperEl.style.getPropertyValue('max-width')).toBe('1920px');
+    // 不在 <html> 寫入動態 CSS 變數，避免觸發整份文件 2 萬+ 節點樣式重算
+    expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_WIDTH_VAR)).toBe('');
+    expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_MAX_WIDTH_VAR)).toBe('');
     expect(document.documentElement.getAttribute(TWO_COLUMN_SEARCH_BAR_ATTR)).toBe('single');
     expect(document.documentElement.getAttribute(TWO_COLUMN_CONTROLS_ATTR)).toBe('single');
     expect(document.documentElement.getAttribute(TWO_COLUMN_FILTERS_ATTR)).toBe('wide');
@@ -299,13 +305,13 @@ describe('createTwoColumnLayoutController', () => {
     collapseBtn!.click();
     expect(document.documentElement.getAttribute(TWO_COLUMN_COLLAPSED_ATTR)).toBe('true');
     expect(document.documentElement.getAttribute(TWO_COLUMN_RESULTS_ATTR)).toBe('wide');
-    expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_WIDTH_VAR)).toBe(
-      `${TWO_COLUMN_COLLAPSED_WIDTH}px`,
+    expect(tradeEl.style.getPropertyValue('grid-template-columns')).toBe(
+      `${TWO_COLUMN_COLLAPSED_WIDTH}px minmax(0, 1fr)`,
     );
 
     collapseBtn!.click();
     expect(document.documentElement.hasAttribute(TWO_COLUMN_COLLAPSED_ATTR)).toBe(false);
-    expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_WIDTH_VAR)).toBe('960px');
+    expect(tradeEl.style.getPropertyValue('grid-template-columns')).toBe('960px minmax(0, 1fr)');
 
     splitter!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     expect(onCommit).toHaveBeenCalledWith(TWO_COLUMN_DEFAULT_FILTER_WIDTH);
@@ -313,6 +319,8 @@ describe('createTwoColumnLayoutController', () => {
     controller.applyConfig({ enabled: false });
     expect(document.documentElement.hasAttribute(TWO_COLUMN_ATTR)).toBe(false);
     expect(document.documentElement.hasAttribute(TWO_COLUMN_RESULTS_ATTR)).toBe(false);
+    expect(tradeEl.style.getPropertyValue('grid-template-columns')).toBe('');
+    expect(wrapperEl.style.getPropertyValue('max-width')).toBe('');
     expect(document.getElementById(TWO_COLUMN_STYLE_ID)).toBeNull();
     expect(document.querySelector(`.${TWO_COLUMN_SPLITTER_CLASS}`)).toBeNull();
     expect(document.querySelector(`.${TWO_COLUMN_TOP_BTN_CLASS}`)).toBeNull();
@@ -393,6 +401,36 @@ describe('createTwoColumnLayoutController', () => {
     window.history.replaceState({}, '', '/trade/history');
     controller.sync();
     expect(document.documentElement.hasAttribute(TWO_COLUMN_ATTR)).toBe(false);
+
+    controller.cleanup();
+  });
+
+  it('supports auto-hiding official header in single-column mode and marks narrow fallback state', () => {
+    mountMockTradeDom(TWO_COLUMN_MIN_CONTENT_WIDTH - 40);
+    const controller = createTwoColumnLayoutController();
+
+    // Single-column mode (enabled: false) still hides official header when autoHideHeader is true
+    controller.applyConfig({ enabled: false, autoHideHeader: true });
+    expect(document.documentElement.hasAttribute(TWO_COLUMN_ATTR)).toBe(false);
+    expect(document.documentElement.getAttribute(TWO_COLUMN_HIDE_HEADER_ATTR)).toBe('true');
+    expect(document.querySelector(`.${TWO_COLUMN_HEADER_TAB_CLASS}`)).not.toBeNull();
+    expect(document.getElementById(TWO_COLUMN_STYLE_ID)).not.toBeNull();
+
+    // Narrow fallback sets TWO_COLUMN_NARROW_ATTR while keeping single-column header hide intact
+    controller.applyConfig({ enabled: true, autoHideHeader: true });
+    expect(document.documentElement.hasAttribute(TWO_COLUMN_ATTR)).toBe(false);
+    expect(document.documentElement.getAttribute(TWO_COLUMN_NARROW_ATTR)).toBe('true');
+    expect(document.documentElement.getAttribute(TWO_COLUMN_HIDE_HEADER_ATTR)).toBe('true');
+
+    // Disabling autoHideHeader removes header controls while keeping narrow marker for two-column
+    controller.applyConfig({ autoHideHeader: false });
+    expect(document.documentElement.hasAttribute(TWO_COLUMN_HIDE_HEADER_ATTR)).toBe(false);
+    expect(document.querySelector(`.${TWO_COLUMN_HEADER_TAB_CLASS}`)).toBeNull();
+    expect(document.documentElement.getAttribute(TWO_COLUMN_NARROW_ATTR)).toBe('true');
+
+    // Disabling two-column clears narrow marker too
+    controller.applyConfig({ enabled: false });
+    expect(document.documentElement.hasAttribute(TWO_COLUMN_NARROW_ATTR)).toBe(false);
 
     controller.cleanup();
   });
