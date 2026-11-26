@@ -32,6 +32,9 @@ const props = defineProps<{
 const MOCK_WIDTH_COMPACT = 620;
 /** 官方預設（Default）三欄版面需要至少 ~820px 才能讓 400px 物品彈窗不擠到右側價格欄 */
 const MOCK_WIDTH_DEFAULT = 840;
+/** 可用寬度不足以容納三欄預設版面時，退回精簡版面避免欄位互相擠壓 */
+const DEFAULT_LAYOUT_MIN_WIDTH = 680;
+const EDGE_GAP = 16;
 const ITEM_ICON =
   'https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9Ud29IYW5kV2VhcG9ucy9Ud29IYW5kTWFjZXMvQmFzZXR5cGVzLzJITWFjZTA5IiwidyI6MiwiaCI6NCwic2NhbGUiOjEsInJlYWxtIjoicG9lMiJ9XQ/74817e8b14/2HMace09.png';
 const EXALTED_ICON =
@@ -74,26 +77,47 @@ const teleportTarget = ref<HTMLElement | null>(null);
 const position = ref({ left: 0, top: 0, width: MOCK_WIDTH_COMPACT });
 /** 官方結果區目前是否為精簡模式；沒有結果區時用精簡模式（官方預設） */
 const compact = ref(true);
+const effectiveCompact = computed(
+  () => compact.value || position.value.width < DEFAULT_LAYOUT_MIN_WIDTH,
+);
 
 function readCompactMode(): boolean {
   const realResults = document.querySelector(`.results:not([${PAGE_GUIDE_MOCK_ATTR}])`);
   return realResults ? realResults.classList.contains('compact') : true;
 }
 
+function readSidebarInsets(): { left: number; right: number } {
+  const style = getComputedStyle(document.documentElement);
+  const left = Number.parseFloat(style.getPropertyValue('--poexd-toast-inset-left')) || 0;
+  const right = Number.parseFloat(style.getPropertyValue('--poexd-toast-inset-right')) || 0;
+  return { left: Math.max(0, left), right: Math.max(0, right) };
+}
+
 function measure() {
   const trade = document.getElementById('trade');
   const rect = trade?.getBoundingClientRect();
   const hasTradeBox = Boolean(rect && rect.width > 0);
-  const areaLeft = hasTradeBox ? rect!.left : 0;
-  const areaWidth = hasTradeBox ? rect!.width : window.innerWidth;
   const viewportWidth = window.innerWidth;
+  const insets = readSidebarInsets();
+  const rawLeft = hasTradeBox ? rect!.left : 0;
+  const rawRight = hasTradeBox ? rect!.right : viewportWidth;
+  const safeLeft = Math.max(0, rawLeft, insets.left);
+  const safeRight = Math.min(viewportWidth, rawRight, viewportWidth - insets.right);
+  const areaLeft = safeRight > safeLeft ? safeLeft : Math.max(0, insets.left);
+  const areaRight =
+    safeRight > safeLeft ? safeRight : Math.min(viewportWidth, viewportWidth - insets.right);
+  const areaWidth = Math.max(0, areaRight - areaLeft);
   const targetWidth = compact.value ? MOCK_WIDTH_COMPACT : MOCK_WIDTH_DEFAULT;
-  const maxWidth = compact.value
-    ? Math.max(320, areaWidth - 32)
-    : Math.max(320, viewportWidth - 32);
-  const width = Math.min(targetWidth, maxWidth);
+  const maxWidth = areaWidth > EDGE_GAP * 2 ? areaWidth - EDGE_GAP * 2 : areaWidth;
+  const width =
+    maxWidth > 0
+      ? Math.min(targetWidth, maxWidth)
+      : Math.min(targetWidth, Math.max(320, viewportWidth - EDGE_GAP * 2));
+  const useEdgeGap = areaWidth >= width + EDGE_GAP * 2;
+  const minLeft = areaLeft + (useEdgeGap ? EDGE_GAP : 0);
+  const maxLeft = Math.max(minLeft, areaRight - width - (useEdgeGap ? EDGE_GAP : 0));
   const centeredLeft = Math.round(areaLeft + (areaWidth - width) / 2);
-  const left = Math.max(16, Math.min(centeredLeft, viewportWidth - width - 16));
+  const left = Math.max(minLeft, Math.min(centeredLeft, maxLeft));
   position.value = {
     left,
     top: Math.round(Math.min(160, window.innerHeight * 0.18)),
@@ -174,7 +198,12 @@ const highlightAttrs = computed(() => ({
       }"
     >
       <!-- 不加 .two，讓單一示意列無論官方是預設、精簡或雙欄精簡都維持 width: 100% 貼齊外框 -->
-      <div v-bind="mockAttrs" class="results" :class="{ compact }" style="width: 100%; margin: 0">
+      <div
+        v-bind="mockAttrs"
+        class="results"
+        :class="{ compact: effectiveCompact }"
+        style="width: 100%; margin: 0"
+      >
         <div :key="featureKey" class="resultset">
           <div class="row" v-bind="revealAttrs">
             <div class="left">
@@ -232,7 +261,9 @@ const highlightAttrs = computed(() => ({
             <div class="middle">
               <div
                 class="item-popup item-popup--rare item-popup--poe2"
-                :style="compact ? undefined : { minWidth: 'min(400px, 100%)', maxWidth: '100%' }"
+                :style="
+                  effectiveCompact ? undefined : { minWidth: 'min(400px, 100%)', maxWidth: '100%' }
+                "
               >
                 <div
                   class="item-popup__header item-popup__header--item item-popup__header--double item-popup__header--rare"

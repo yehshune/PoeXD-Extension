@@ -351,6 +351,50 @@ describe('PageGuideOfficialResult', () => {
     expect(mock.classList.contains('compact')).toBe(false);
     expect(frame.style.width).toBe('840px');
   });
+
+  it('stays clear of the left and right sidebar in default layout when #trade is narrower than 840px', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1250 });
+    const trade = document.createElement('div');
+    trade.id = 'trade';
+    trade.getBoundingClientRect = () =>
+      ({ left: 476, top: 75, width: 754, height: 500, right: 1230, bottom: 575 }) as DOMRect;
+    const realResults = document.createElement('div');
+    realResults.className = 'results nosort';
+    trade.appendChild(realResults);
+    document.body.appendChild(trade);
+
+    document.documentElement.style.setProperty('--poexd-toast-inset-left', '471px');
+    document.documentElement.style.setProperty('--poexd-toast-inset-right', '0px');
+
+    mountComponent(() => h(PageGuideOfficialResult, { features: allOn }));
+    await flush();
+
+    const frame = trade.querySelector<HTMLElement>('[data-page-guide-mock-frame]')!;
+    const mock = trade.querySelector<HTMLElement>('[data-poexd-guide-mock]')!;
+    const left = Number.parseFloat(frame.style.left);
+    const width = Number.parseFloat(frame.style.width);
+    expect(left).toBeGreaterThanOrEqual(476);
+    expect(left + width).toBeLessThanOrEqual(1230);
+    expect(width).toBe(722);
+    expect(mock.classList.contains('compact')).toBe(false);
+
+    // 側邊欄在右側且可用寬度低於三欄門檻時，仍不越過側邊欄並退回精簡版面
+    trade.getBoundingClientRect = () =>
+      ({ left: 20, top: 75, width: 640, height: 500, right: 660, bottom: 575 }) as DOMRect;
+    document.documentElement.style.setProperty('--poexd-toast-inset-left', '0px');
+    document.documentElement.style.setProperty('--poexd-toast-inset-right', '580px');
+    window.dispatchEvent(new Event('resize'));
+    await flush();
+
+    const rightModeLeft = Number.parseFloat(frame.style.left);
+    const rightModeWidth = Number.parseFloat(frame.style.width);
+    expect(rightModeLeft).toBeGreaterThanOrEqual(20);
+    expect(rightModeLeft + rightModeWidth).toBeLessThanOrEqual(660);
+    expect(mock.classList.contains('compact')).toBe(true);
+
+    document.documentElement.style.removeProperty('--poexd-toast-inset-left');
+    document.documentElement.style.removeProperty('--poexd-toast-inset-right');
+  });
 });
 
 describe('PageGuideSetupControls market translation preview', () => {

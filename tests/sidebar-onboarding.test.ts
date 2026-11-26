@@ -100,8 +100,8 @@ const storageListeners = new Set<(changes: Record<string, any>, area: string) =>
   },
 };
 
-/** 頁面示範後等畫面更新的時間（usePageGuide 的 DEMO_RENDER_WAIT_MS 再多一點） */
-const DEMO_STEP_WAIT_MS = 200;
+/** 頁面示範後等畫面更新的時間（需涵蓋側欄收合動畫 230ms + 示範渲染 160ms） */
+const DEMO_STEP_WAIT_MS = 450;
 
 const settle = async () => {
   await nextTick();
@@ -373,10 +373,18 @@ describe('Sidebar first-install onboarding', () => {
     }
     expect(queryDoc('[data-setup-kind="result-features"]')).not.toBeNull();
     expect(queryDoc('[data-poexd-guide-mock]')).not.toBeNull();
+    // 進到官方頁面步驟時自動收合側邊欄，讓示意結果列有完整視窗空間
+    expect(mockStorage.isCollapsed_poe2).toBe(true);
 
     queryDoc('[data-setup-feature="enableResultPobCopy"]')!.click();
     await settle();
     expect(updatePreferencesSpy).toHaveBeenCalledWith({ enableResultPobCopy: false });
+
+    // 中途略過導覽時，自動恢復回導覽前的展開狀態
+    queryDoc('[data-page-guide-action="skip"]')!.click();
+    await settle();
+    expect(queryDoc('[data-page-guide-bubble]')).toBeNull();
+    expect(mockStorage.isCollapsed_poe2).toBe(false);
   });
 
   it('shows per-icon callouts beside each sidebar nav button on the sidebar step', async () => {

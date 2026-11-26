@@ -1178,15 +1178,39 @@ export default defineComponent({
       replayStepDemo,
       reload: reloadPage,
     }));
+    let expandOnTourExit = false;
+    watch(
+      () => pageGuide.state.mode,
+      (nextMode, prevMode) => {
+        if (nextMode === 'tour' && prevMode !== 'tour') {
+          expandOnTourExit = !isCollapsed.value;
+          return;
+        }
+        if (prevMode === 'tour' && nextMode === 'idle') {
+          const shouldExpand = expandOnTourExit;
+          expandOnTourExit = false;
+          if (shouldExpand && isCollapsed.value) {
+            toggleCollapse();
+          }
+        }
+      },
+    );
+
     pageGuide.setTourContext({
       isConditionMet: (condition) =>
         condition === 'market-translation-offer' && showMarketTranslationOffer.value,
-      // 指向側欄裡的位置前先展開（例如上一步收合了側欄），等展開動畫結束再量位置
+      // 指向側欄裡的位置前先展開（例如上一步收合了側欄），指向官方頁面步驟前先收合讓出完整畫面；
+      // 等收合／展開動畫結束再量位置
       async prepareStep(step) {
-        if (!step.targetId || getPageGuideTarget(step.targetId).scope !== 'sidebar') return;
-        if (!isCollapsed.value) return;
-        toggleCollapse();
-        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 80);
+        if (!step.targetId) return;
+        const scope = getPageGuideTarget(step.targetId).scope;
+        if (scope === 'sidebar' && isCollapsed.value) {
+          toggleCollapse();
+          await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 80);
+        } else if (scope === 'page' && !isCollapsed.value) {
+          toggleCollapse();
+          await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 80);
+        }
       },
       runStepDemo,
       stopStepDemo,
@@ -1256,6 +1280,7 @@ export default defineComponent({
     onUnmounted(() => {
       cancelPobIdlePrewarm?.();
       cancelPobIdlePrewarm = undefined;
+      expandOnTourExit = false;
       pageGuide.setTourContext(null);
       stopStepDemo();
       finishCollapseAnimation();
