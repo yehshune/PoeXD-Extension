@@ -810,11 +810,15 @@ export function createTwoColumnLayoutController(
     if (typeof MutationObserver === 'undefined') return;
 
     const tradeEl = doc.querySelector('#trade');
+    const wrapperEl = doc.querySelector('.wrapper');
+    const waitingForBootstrapTarget = enabled ? !tradeEl : !wrapperEl;
+
+    if (!waitingForBootstrapTarget && bootstrapObserver) {
+      bootstrapObserver.disconnect();
+      bootstrapObserver = null;
+    }
+
     if (tradeEl) {
-      if (bootstrapObserver) {
-        bootstrapObserver.disconnect();
-        bootstrapObserver = null;
-      }
       if (tradeEl !== observedTradeEl) {
         tradeObserver?.disconnect();
         tradeObserver = new MutationObserver(() => {
@@ -832,9 +836,13 @@ export function createTwoColumnLayoutController(
         portalObserver.observe(portalEl, { childList: true });
         observedPortalEl = portalEl;
       }
-    } else if (!bootstrapObserver && doc.body) {
+    } else if (waitingForBootstrapTarget && !bootstrapObserver && doc.body) {
       bootstrapObserver = new MutationObserver(() => {
-        if (!disposed && (doc.querySelector('#trade') || doc.querySelector('.wrapper'))) {
+        if (disposed) return;
+        const targetReady = enabled
+          ? Boolean(doc.querySelector('#trade'))
+          : Boolean(doc.querySelector('.wrapper'));
+        if (targetReady) {
           sync();
         }
       });

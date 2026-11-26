@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, type HTMLAttributes } from 'vue';
 import { cn } from '@/lib/utils';
+import { calcPixelSnapMargin } from '@/utils/scroll-pixel-snap';
 import {
   ScrollAreaCorner,
   ScrollAreaRoot,
@@ -20,18 +21,6 @@ const props = withDefaults(
 
 const fixedSlotRef = ref<HTMLElement | null>(null);
 const scrollContentRef = ref<HTMLElement | null>(null);
-
-/**
- * 計算讓座標／高度對齊實體像素格線所需的正向補償量（px）。
- * 避免高內容捲動容器因非整數 Y 起點或非整數捲動總高在 Chromium GPU 分塊合成時產生 1px 垂直割裂。
- */
-function calcPixelSnapMargin(px: number, dpr: number): number {
-  if (!Number.isFinite(px) || px <= 0 || !Number.isFinite(dpr) || dpr <= 0) return 0;
-  const scaled = px * dpr;
-  const frac = scaled - Math.floor(scaled);
-  if (frac <= 0.01 || frac >= 0.99) return 0;
-  return (1 - frac) / dpr;
-}
 
 function applySnapMargin(el: HTMLElement | null, value: number) {
   if (!el) return;

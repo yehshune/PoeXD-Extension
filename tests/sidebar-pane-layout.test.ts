@@ -18,6 +18,7 @@ import {
   createInMemorySearchRecordStorage,
   createSearchRecordModule,
 } from '@/utils/search-records';
+import { calcPixelSnapMargin } from '@/utils/scroll-pixel-snap';
 
 let currentSearchModule = createSearchRecordModule(createInMemorySearchRecordStorage());
 
@@ -786,5 +787,105 @@ describe('Sidebar Scroll End Breathing Room contract (--pxd-pane-scroll-end-spac
   it('7. does not produce parent + child double bottom spacing when usesPaneScroll is true', () => {
     const freshSidebarSource = readFileSync('components/Sidebar.vue', 'utf-8');
     expect(freshSidebarSource).toMatch(/usesPaneScroll\s*\?\s*['"]has-pane-scroll[^'"]*p-0['"]/);
+  });
+
+  it('8. calcPixelSnapMargin snaps fractional coordinates onto integer device pixels across DPRs', () => {
+    expect(calcPixelSnapMargin(104.359375, 1)).toBeCloseTo(0.640625, 6);
+    expect(calcPixelSnapMargin(2710.15625, 1)).toBeCloseTo(0.84375, 6);
+    expect(calcPixelSnapMargin(105, 1)).toBe(0);
+    expect(calcPixelSnapMargin(104.995, 1)).toBe(0);
+    expect(calcPixelSnapMargin(104.005, 1)).toBe(0);
+    expect(calcPixelSnapMargin(104.359375, 1.25)).toBeCloseTo(0.440625, 6);
+    expect(calcPixelSnapMargin(100.5, 2)).toBe(0);
+    expect(calcPixelSnapMargin(100.25, 2)).toBeCloseTo(0.25, 6);
+    expect(calcPixelSnapMargin(0, 1)).toBe(0);
+    expect(calcPixelSnapMargin(-10, 1)).toBe(0);
+    expect(calcPixelSnapMargin(Number.NaN, 1)).toBe(0);
+    expect(calcPixelSnapMargin(104.5, 0)).toBe(0);
+  });
+
+  it('9. SidebarPane applies device-pixel snap margins to fractional fixed bottom and scroll content height', async () => {
+    const originalDpr = window.devicePixelRatio;
+    Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 1 });
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        const slot = this.getAttribute('data-slot');
+        if (slot === 'sidebar-pane-fixed') {
+          return {
+            x: 0,
+            y: 55,
+            width: 468,
+            height: 49.359375,
+            top: 55,
+            right: 468,
+            bottom: 104.359375,
+            left: 0,
+            toJSON: () => ({}),
+          };
+        }
+        if (slot === 'sidebar-pane-scroll-content') {
+          return {
+            x: 0,
+            y: 105,
+            width: 468,
+            height: 2710.15625,
+            top: 105,
+            right: 468,
+            bottom: 2815.15625,
+            left: 0,
+            toJSON: () => ({}),
+          };
+        }
+        return {
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          toJSON: () => ({}),
+        };
+      });
+
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const snapApp = createApp(
+      defineComponent({
+        setup() {
+          return () =>
+            h(
+              SidebarPane,
+              {},
+              {
+                fixed: () => h('div', 'Fixed Toolbar'),
+                scroll: () => h('div', 'Tall Scroll Content'),
+              },
+            );
+        },
+      }),
+    );
+
+    try {
+      snapApp.mount(host);
+      await nextTick();
+
+      const fixedEl = host.querySelector<HTMLElement>('[data-slot="sidebar-pane-fixed"]')!;
+      const contentEl = host.querySelector<HTMLElement>(
+        '[data-slot="sidebar-pane-scroll-content"]',
+      )!;
+      expect(fixedEl.style.marginBottom).toBe('0.640625px');
+      expect(contentEl.style.marginBottom).toBe('0.84375px');
+    } finally {
+      snapApp.unmount();
+      host.remove();
+      rectSpy.mockRestore();
+      Object.defineProperty(window, 'devicePixelRatio', {
+        configurable: true,
+        value: originalDpr,
+      });
+    }
   });
 });

@@ -142,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { ChevronDown, Eye, EyeOff } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import SettingsRow from './SettingsRow.vue';
@@ -173,7 +173,12 @@ const emit = defineEmits<{
 }>();
 
 const expanded = ref(false);
-const { query, isSearching } = useSettingsSearchQuery();
+const searchCollapsed = ref(false);
+const { query, isSearching, sectionTitleMatches } = useSettingsSearchQuery();
+
+watch(query, () => {
+  searchCollapsed.value = false;
+});
 
 const previewHighlightStyle = computed(() =>
   getResultModHighlightPreviewStyle(props.highlightStyle, props.highlightColor),
@@ -206,13 +211,12 @@ const searchKeywords = computed(() => [
 
 const matchesSearch = computed(() => {
   if (!isSearching.value) return false;
-  return matchesSettingsQuery(query.value, [
-    t('settings.section.resultDisplay'),
-    ...searchKeywords.value,
-  ]);
+  return sectionTitleMatches.value || matchesSettingsQuery(query.value, searchKeywords.value);
 });
 
-const isExpanded = computed(() => expanded.value || matchesSearch.value);
+const isExpanded = computed(() =>
+  isSearching.value ? matchesSearch.value && !searchCollapsed.value : expanded.value,
+);
 
 const guide = usePageGuide();
 const isPagePreviewOpen = computed(
@@ -220,8 +224,12 @@ const isPagePreviewOpen = computed(
 );
 
 const toggleExpanded = () => {
-  expanded.value = !expanded.value;
-  if (!expanded.value && isPagePreviewOpen.value) {
+  if (isSearching.value && matchesSearch.value) {
+    searchCollapsed.value = !searchCollapsed.value;
+  } else {
+    expanded.value = !expanded.value;
+  }
+  if (!isExpanded.value && isPagePreviewOpen.value) {
     guide.closeResultPreview();
   }
 };

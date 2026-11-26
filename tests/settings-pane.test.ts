@@ -1052,6 +1052,80 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     }
   });
 
+  it('hides market-translation-bilingual subheading and narrow hint when searching unrelated settings, and auto-expands highlight settings on keyword search without mutating collapsed state', async () => {
+    await storage.set({
+      ...DEFAULT_PREFERENCES,
+      displayLocale: 'zh-TW',
+      marketTranslation: true,
+      enableTwoColumnLayout: true,
+    });
+    document.documentElement.setAttribute('data-poexd-two-column-narrow', 'true');
+
+    try {
+      const { container } = await mountSettingsPane();
+
+      const searchToggle = container.querySelector<HTMLButtonElement>(
+        '[data-settings-search-toggle]',
+      )!;
+      searchToggle.click();
+      await flushAsync();
+      const searchInput = container.querySelector<HTMLInputElement>('[data-settings-search]')!;
+
+      // 1. Searching "快取" hides the "中英並列" subheading group
+      searchInput.value = '快取';
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 200));
+      await flushAsync();
+      const bilingualGroup = container.querySelector<HTMLElement>(
+        '[data-settings-group="market-translation-bilingual"]',
+      )!;
+      expect(bilingualGroup.style.display).toBe('none');
+
+      // 2. Searching "網頁標題" hides the two-column narrow hint
+      searchInput.value = '網頁標題';
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 200));
+      await flushAsync();
+      const narrowHint = container.querySelector<HTMLElement>(
+        '[data-test="two-column-narrow-hint"]',
+      )!;
+      expect(narrowHint.style.display).toBe('none');
+
+      // 3. Searching a highlight color ("流亡金") auto-expands ResultModHighlightSettings;
+      // clicking its toggle during search collapses visually without flipping post-search state
+      searchInput.value = '流亡金';
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 200));
+      await flushAsync();
+      const highlightGroup = container.querySelector<HTMLElement>(
+        '[data-settings-group="result-mod-highlight-appearance"]',
+      )!;
+      const highlightToggle = highlightGroup.querySelector<HTMLButtonElement>(
+        '[data-test="result-mod-highlight-toggle"]',
+      )!;
+      const highlightBody = highlightGroup.querySelector<HTMLElement>(
+        '[data-test="result-mod-highlight-body"]',
+      )!;
+      expect(highlightGroup.style.display).not.toBe('none');
+      expect(highlightGroup.getAttribute('data-expanded')).toBe('true');
+      expect(highlightBody.style.display).not.toBe('none');
+
+      highlightToggle.click();
+      await flushAsync();
+      expect(highlightGroup.getAttribute('data-expanded')).toBe('false');
+      expect(highlightBody.style.display).toBe('none');
+
+      // Clearing search restores the pre-search collapsed state
+      container.querySelector<HTMLButtonElement>('[data-settings-search-clear]')!.click();
+      await new Promise((r) => setTimeout(r, 200));
+      await flushAsync();
+      expect(highlightGroup.getAttribute('data-expanded')).toBe('false');
+      expect(highlightBody.style.display).toBe('none');
+    } finally {
+      document.documentElement.removeAttribute('data-poexd-two-column-narrow');
+    }
+  });
+
   it('exposes backup/import/reset in the top toolbar menu and restores defaults only after confirmation', async () => {
     const { container } = await mountSettingsPane();
     await currentModule!.update({ theme: 'caffeine', enableHotkeys: false });

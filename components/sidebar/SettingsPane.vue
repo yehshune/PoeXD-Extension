@@ -150,6 +150,7 @@
             <!-- 市集漢化子設定：中英並列、漢化資料快取與 pobb.in 漢化彼此平級，皆隸屬於市集漢化 -->
             <div class="flex flex-col gap-[var(--pxd-space-md)] pl-[var(--pxd-space-lg)]">
               <div
+                v-show="!isSearching || marketTranslationBilingualMatchesSearch"
                 data-settings-group="market-translation-bilingual"
                 class="flex flex-col gap-[var(--pxd-space-sm)]"
               >
@@ -326,18 +327,20 @@
             </template>
           </SettingsRow>
           <template v-if="enableTwoColumnLayout">
-            <p
-              v-if="twoColumnNarrowFallback"
-              data-test="two-column-narrow-hint"
-              role="status"
-              class="m-0 rounded-md border border-border bg-muted/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
-            >
-              {{ t('settings.twoColumnLayout.narrowHint') }}
-            </p>
             <div
+              v-show="!isSearching || twoColumnOptionsMatchSearch"
               data-settings-group="two-column-layout-options"
               class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
             >
+              <p
+                v-if="twoColumnNarrowFallback"
+                v-show="!isSearching || twoColumnHintMatchesSearch"
+                data-test="two-column-narrow-hint"
+                role="status"
+                class="m-0 rounded-md border border-border bg-muted/50 px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] text-muted-foreground"
+              >
+                {{ t('settings.twoColumnLayout.narrowHint') }}
+              </p>
               <SettingsRow
                 :label="t('settings.twoColumnMaxWidth.label')"
                 :details="t('settings.twoColumnMaxWidth.tooltip')"
@@ -1629,6 +1632,37 @@ export default defineComponent({
     const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
     const { isSearching, hasResults: hasSearchResults } =
       provideSettingsSearch(debouncedSearchQuery);
+    const marketTranslationBilingualMatchesSearch = computed(() => {
+      if (!isSearching.value) return false;
+      return matchesSettingsQuery(debouncedSearchQuery.value, [
+        t('settings.section.localization'),
+        t('settings.marketTranslation.bilingualGroup'),
+        t('settings.marketTranslationBilingual.label'),
+        t('settings.marketTranslationBilingual.tooltip'),
+        t('settings.marketTranslationResultBilingual.label'),
+        t('settings.marketTranslationResultBilingual.tooltip'),
+      ]);
+    });
+    const twoColumnHintMatchesSearch = computed(() => {
+      if (!isSearching.value) return false;
+      return matchesSettingsQuery(debouncedSearchQuery.value, [
+        t('settings.section.pageLayout'),
+        t('settings.twoColumnLayout.label'),
+        t('settings.twoColumnLayout.tooltip'),
+        t('settings.twoColumnLayout.keywords'),
+        t('settings.twoColumnLayout.narrowHint'),
+      ]);
+    });
+    const twoColumnOptionsMatchSearch = computed(() => {
+      if (!isSearching.value) return false;
+      return (
+        twoColumnHintMatchesSearch.value ||
+        matchesSettingsQuery(debouncedSearchQuery.value, [
+          t('settings.twoColumnMaxWidth.label'),
+          t('settings.twoColumnMaxWidth.tooltip'),
+        ])
+      );
+    });
     const themeCustomMatchesSearch = computed(() => {
       if (!isSearching.value) return false;
       return matchesSettingsQuery(debouncedSearchQuery.value, [
@@ -1810,6 +1844,9 @@ export default defineComponent({
       themeCustomColorRows,
       isThemeCustomExpanded,
       themeCustomMatchesSearch,
+      marketTranslationBilingualMatchesSearch,
+      twoColumnHintMatchesSearch,
+      twoColumnOptionsMatchSearch,
       toggleThemeCustom,
       previewColors,
       activeThemeValues,

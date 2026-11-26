@@ -434,4 +434,42 @@ describe('createTwoColumnLayoutController', () => {
 
     controller.cleanup();
   });
+
+  it('disconnects bootstrapObserver once .wrapper is mounted in single-column header-hide mode without #trade', async () => {
+    document.body.innerHTML = '';
+    const observeSpy = vi.spyOn(MutationObserver.prototype, 'observe');
+    const disconnectSpy = vi.spyOn(MutationObserver.prototype, 'disconnect');
+
+    try {
+      const controller = createTwoColumnLayoutController();
+      controller.applyConfig({ enabled: false, autoHideHeader: true });
+
+      // Body observer is attached while waiting for .wrapper
+      expect(observeSpy).toHaveBeenCalledWith(document.body, { childList: true, subtree: true });
+      const disconnectsBefore = disconnectSpy.mock.calls.length;
+
+      // Mounting .wrapper without #trade attaches header controls and disconnects bootstrapObserver
+      document.body.innerHTML = `
+        <div class="wrapper">
+          <div id="statusBar"></div>
+          <div class="logo"></div>
+        </div>
+      `;
+      await Promise.resolve();
+
+      expect(document.documentElement.getAttribute(TWO_COLUMN_HIDE_HEADER_ATTR)).toBe('true');
+      expect(document.querySelector(`.${TWO_COLUMN_HEADER_TAB_CLASS}`)).not.toBeNull();
+      expect(disconnectSpy.mock.calls.length).toBeGreaterThan(disconnectsBefore);
+
+      // Re-syncing while .wrapper exists (still no #trade) does not re-attach a body observer
+      const observeCallsAfterWrapper = observeSpy.mock.calls.length;
+      controller.sync();
+      expect(observeSpy.mock.calls.length).toBe(observeCallsAfterWrapper);
+
+      controller.cleanup();
+    } finally {
+      observeSpy.mockRestore();
+      disconnectSpy.mockRestore();
+    }
+  });
 });
