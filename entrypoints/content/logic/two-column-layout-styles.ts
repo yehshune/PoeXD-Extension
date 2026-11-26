@@ -253,6 +253,8 @@ export function buildTwoColumnLayoutCss(): string {
     ${ACTIVE_SCOPE} #trade > .navigation {
       grid-column: 1 / -1 !important;
       grid-row: 1 !important;
+      display: flow-root !important;
+      height: auto !important;
       margin-bottom: 6px !important;
     }
 
@@ -434,12 +436,31 @@ export function buildTwoColumnLayoutCss(): string {
     }
 
     /* 單欄堆疊時維持官網預設順序（屬性過濾在上、詞綴篩選在下），加細分隔線區隔兩區 */
-    ${ACTIVE_SCOPE} #trade > .top .search-advanced-pane.brown {
+    ${ACTIVE_SCOPE} #trade > .top .search-advanced-pane + .search-advanced-pane {
       padding-top: 8px !important;
       border-top: 1px solid oklch(0.24 0.008 250) !important;
     }
 
-    /* 左欄拉寬至 >= 920px 時，自動恢復「左屬性過濾（藍區）＋右詞綴篩選（棕區）」雙區並排 */
+    /* 以物易物（/exchange）單欄堆疊時，攤平兩側 pane 並將「賣家篩選（.filter-group.blue）」置底，排成：想要 → 持有 → 賣家篩選 */
+    ${ACTIVE_SCOPE} #trade > .top .search-advanced-items.exchange > .search-advanced-pane {
+      display: contents !important;
+    }
+    ${ACTIVE_SCOPE} #trade > .top .search-advanced-items.exchange .filter-group {
+      width: 100% !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+    }
+    ${ACTIVE_SCOPE} #trade > .top .search-advanced-items.exchange > .search-advanced-pane:nth-child(2) > .filter-group {
+      padding-top: 8px !important;
+      border-top: 1px solid oklch(0.24 0.008 250) !important;
+    }
+    ${ACTIVE_SCOPE} #trade > .top .search-advanced-items.exchange .filter-group.blue {
+      order: 2 !important;
+      padding-top: 8px !important;
+      border-top: 1px solid oklch(0.24 0.008 250) !important;
+    }
+
+    /* 左欄拉寬至 >= 920px 時，自動恢復「左屬性過濾（藍區）＋右詞綴篩選（棕區）」或以物易物「左想要＋賣家／右持有」雙區並排 */
     ${WIDE_FILTERS_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) .search-right > * {
       max-width: 156px !important;
     }
@@ -449,15 +470,28 @@ export function buildTwoColumnLayoutCss(): string {
       gap: 12px !important;
       align-items: start !important;
     }
-    ${WIDE_FILTERS_SCOPE} #trade > .top .search-advanced-pane.brown {
+    ${WIDE_FILTERS_SCOPE} #trade > .top .search-advanced-pane + .search-advanced-pane {
+      padding-top: 0 !important;
+      border-top: none !important;
+    }
+    ${WIDE_FILTERS_SCOPE} #trade > .top .search-advanced-items.exchange > .search-advanced-pane {
+      display: flex !important;
+      gap: 10px !important;
+    }
+    ${WIDE_FILTERS_SCOPE} #trade > .top .search-advanced-items.exchange > .search-advanced-pane:nth-child(2) > .filter-group,
+    ${WIDE_FILTERS_SCOPE} #trade > .top .search-advanced-items.exchange .filter-group.blue {
+      order: 0 !important;
       padding-top: 0 !important;
       border-top: none !important;
     }
 
-    /* 左欄較窄時（< 460px）將藍區雙欄屬性列改為單欄避免輸入框過擠 */
-    ${NARROW_FILTERS_SCOPE} #trade > .top .search-advanced-pane.blue .filter.filter-padded {
+    /* 左欄較窄時（< 460px）將藍區雙欄屬性列與以物易物賣家篩選改為單欄避免輸入框過擠 */
+    ${NARROW_FILTERS_SCOPE} #trade > .top .search-advanced-pane.blue .filter.filter-padded,
+    ${NARROW_FILTERS_SCOPE} #trade > .top .search-advanced-items.exchange .filter-group.blue .filter.filter-property {
       width: 100% !important;
       flex: 0 0 100% !important;
+      float: none !important;
+      margin-left: 0 !important;
     }
 
     /* 左欄底部固定操作列：極窄（< 480px）時精簡為 2 列（[搜尋][清除] + [啟動線上搜尋][送入主控台]），不佔 3 列 */
@@ -623,11 +657,22 @@ export function buildTwoColumnLayoutCss(): string {
       box-sizing: border-box !important;
     }
 
-    /* 沉浸模式（immersion）：保留官方 1520px 上限並置中 */
+    /* 沉浸模式（immersion）與以物易物（exchange）：保留官方 1520px 上限並置中 */
     ${ACTIVE_SCOPE} #trade .results:not(.compact) .resultset {
       width: 100% !important;
       max-width: 1520px !important;
       margin: 0 auto 12px !important;
+    }
+
+    /* 以物易物結果列：確保在窄右欄下三段欄位可彈性收縮不溢出 */
+    ${ACTIVE_SCOPE} #trade .results .resultset.exchange > .row.exchange {
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    ${ACTIVE_SCOPE} #trade .results .resultset.exchange > .row.exchange > .left,
+    ${ACTIVE_SCOPE} #trade .results .resultset.exchange > .row.exchange > .middle,
+    ${ACTIVE_SCOPE} #trade .results .resultset.exchange > .row.exchange > .right {
+      min-width: 0 !important;
     }
 
     /* 單欄 compact：強制維持 1 列 1 張卡片（防止寬螢幕超過 1840px 時 flex-wrap 誤折成 2 欄） */

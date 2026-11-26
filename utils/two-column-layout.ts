@@ -33,12 +33,12 @@ export const TWO_COLUMN_DEFAULT_FILTER_WIDTH = DEFAULT_PREFERENCES.twoColumnFilt
 export const TWO_COLUMN_DEFAULT_MAX_WIDTH: TwoColumnMaxWidth =
   DEFAULT_PREFERENCES.twoColumnMaxWidth;
 
-const ELIGIBLE_TRADE_PATH_PATTERN = /^\/trade2?(?:\/(?:search|live)(?:\/|$)|\/?$)/i;
+const ELIGIBLE_TRADE_PATH_PATTERN = /^\/trade2?(?:\/(?:search|live|exchange)(?:\/|$)|\/?$)/i;
 
 /**
  * 判斷目前路徑是否適合套用雙欄版面：
- * 僅限一般搜尋與單頁即時搜尋（`/trade`、`/trade2`、`/search/...`、`/live/...`），
- * 排除以物易物（`/exchange`）、官方歷史、設定與關於頁面。
+ * 支援一般搜尋、單頁即時搜尋與以物易物（`/trade`、`/trade2`、`/search/...`、`/live/...`、`/exchange/...`），
+ * 排除官方歷史、設定與關於頁面。
  */
 export function isTwoColumnEligiblePath(pathname: string): boolean {
   const normalized = pathname.trim();

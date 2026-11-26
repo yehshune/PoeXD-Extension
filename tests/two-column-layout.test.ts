@@ -78,7 +78,7 @@ function mountMockTradeDom(contentWidth = 1280, includeResults = true): HTMLElem
 }
 
 describe('two-column-layout pure geometry', () => {
-  it('accepts PoE 1 and PoE 2 search/live paths and excludes exchange/settings/about/history', () => {
+  it('accepts PoE 1 and PoE 2 search/live/exchange paths and excludes settings/about/history', () => {
     expect(isTwoColumnEligiblePath('/trade')).toBe(true);
     expect(isTwoColumnEligiblePath('/trade/')).toBe(true);
     expect(isTwoColumnEligiblePath('/trade2')).toBe(true);
@@ -87,9 +87,10 @@ describe('two-column-layout pure geometry', () => {
     expect(isTwoColumnEligiblePath('/trade2/search/poe2/Dawn/abc123')).toBe(true);
     expect(isTwoColumnEligiblePath('/trade/live/Covens/abc123')).toBe(true);
     expect(isTwoColumnEligiblePath('/trade2/live/poe2/Dawn/abc123')).toBe(true);
+    expect(isTwoColumnEligiblePath('/trade/exchange/Covens')).toBe(true);
+    expect(isTwoColumnEligiblePath('/trade/exchange/Covens/abc123')).toBe(true);
+    expect(isTwoColumnEligiblePath('/trade2/exchange/poe2/Dawn')).toBe(true);
 
-    expect(isTwoColumnEligiblePath('/trade/exchange/Covens')).toBe(false);
-    expect(isTwoColumnEligiblePath('/trade2/exchange/poe2/Dawn')).toBe(false);
     expect(isTwoColumnEligiblePath('/trade/about')).toBe(false);
     expect(isTwoColumnEligiblePath('/trade/settings')).toBe(false);
     expect(isTwoColumnEligiblePath('/trade/history')).toBe(false);
@@ -141,7 +142,7 @@ describe('two-column-layout pure geometry', () => {
       resolveTwoColumnGeometry({
         enabled: true,
         pageRole: 'normal',
-        pathname: '/trade/exchange/Covens',
+        pathname: '/trade/history',
         contentWidth: 1400,
         preferredFilterWidth: 560,
         filtersCollapsed: false,
@@ -227,10 +228,13 @@ describe('createTwoColumnLayoutController', () => {
     expect(css).toContain('will-change: scroll-position !important;');
     expect(css).toContain('overscroll-behavior: contain !important;');
     expect(css).toContain('contain: paint !important;');
+    expect(css).toContain('display: flow-root !important;');
     expect(css).toContain('height: 100vh !important;');
     expect(css).toContain('overflow-y: auto !important;');
     expect(css).toContain('.results > .row.row-total');
     expect(css).toContain('.results.compact:not(.two) .resultset');
+    expect(css).toContain('.search-advanced-items.exchange > .search-advanced-pane');
+    expect(css).toContain('.resultset.exchange > .row.exchange');
     expect(css).toContain('align-items: stretch !important;');
     expect(css).toContain('max-width: 760px !important;');
     expect(css).toContain('clamp(280px, 42vh, 460px)');
@@ -367,7 +371,7 @@ describe('createTwoColumnLayoutController', () => {
     controller.cleanup();
   });
 
-  it('deactivates automatically on live-search-primary role or exchange route', () => {
+  it('stays active on exchange route and deactivates automatically on live-search-primary role or history route', () => {
     mountMockTradeDom(1400);
     const controller = createTwoColumnLayoutController();
     controller.applyConfig({ enabled: true });
@@ -380,6 +384,10 @@ describe('createTwoColumnLayoutController', () => {
     expect(document.documentElement.getAttribute(TWO_COLUMN_ATTR)).toBe('active');
 
     window.history.replaceState({}, '', '/trade/exchange/Covens');
+    controller.sync();
+    expect(document.documentElement.getAttribute(TWO_COLUMN_ATTR)).toBe('active');
+
+    window.history.replaceState({}, '', '/trade/history');
     controller.sync();
     expect(document.documentElement.hasAttribute(TWO_COLUMN_ATTR)).toBe(false);
 
