@@ -73,8 +73,8 @@ const LEGACY_REWRITES: readonly (readonly [RegExp, string])[] = [
   // PoB 在技能名稱後多寫「Skill」，市集的「Grants Level # Enduring Cry」沒有
   [/^(Grants Level \d+ .+) Skill$/, '$1'],
 ];
-/** 佔位符 `{0:d}`、`{0:+d}`、`{0:n}`（n 表示描述檔取負，顯示值是絕對值），或寫死的數字 */
-const TEMPLATE_TOKEN = /\{\d+:\+?([dn])\}|[+-]?\d+(?:\.\d+)?/g;
+/** 佔位符 `{0:d}`、`{0:+d}`、`+{0:d}`、`{0:n}`（n 表示描述檔取負，顯示值是絕對值），或寫死的數字 */
+const TEMPLATE_TOKEN = /[+-]?\{\d+:\+?([dn])\}|[+-]?\d+(?:\.\d+)?/g;
 /** 市集寫法的佔位符 `#`（前面可能有正負號），或寫死的數字 */
 const TRADE_TOKEN = /[+-]?#|[+-]?\d+(?:\.\d+)?/g;
 const TRADE_STAT_ID = /^(explicit|implicit|enchant|crafted)\.([^|]+)(?:\|(\d+))?$/;

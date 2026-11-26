@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createLabelLookup } from '@/utils/market-result-labels';
 import { createModLineTranslator } from '@/utils/pob-mod-translator';
 import { createTradeNameCatalog } from '@/utils/pob-shopping-list';
+import { getPobbinGameLabels } from '@/utils/pobbin-pob-terms';
 import {
   createPobbinTranslator,
   extractPassiveNameMap,
@@ -58,6 +59,13 @@ function makeTestTranslatorData(bilingual = true): PobbinTranslatorData {
     '1005': [['Cannot be Stunned', '不會被暈眩']] as const,
     '1006': [['Gain {0:d} Rage on Hit with Axes', '以斧擊中時獲得 {0:d} 層盛怒']] as const,
     '1007': [['1 Added Passive Skill is Fuel the Fight', '1 個附加的天賦為刺激戰鬥']] as const,
+    // 佔位符前帶有字面正號的句型（stat-text-items.json 的專精詞綴常見寫法）
+    '1010': [
+      [
+        '+{0:d}% to Critical Strike Multiplier against Unique Enemies',
+        '對傳奇敵人 +{0:d}% 暴擊加成',
+      ],
+    ] as const,
     // 多行詞綴：譯文行數相同（但語序不同）、譯文行數不同
     '1008': [
       [
@@ -85,6 +93,7 @@ function makeTestTranslatorData(bilingual = true): PobbinTranslatorData {
   };
 
   const labels = {
+    ...getPobbinGameLabels('zh-TW'),
     Quality: '品質',
     'Quality:': '品質：',
     Armour: '護甲',
@@ -92,9 +101,17 @@ function makeTestTranslatorData(bilingual = true): PobbinTranslatorData {
     Life: '生命',
     Mana: '魔力',
     DPS: '每秒造成傷害',
+    Resistance: '抗性',
+    'Critical Strike Chance': '暴擊率',
+    'Pantheon:': '眾神殿：',
+    'Soul of Lunaris': '月影神之魂',
+    'Soul of Gruthkul': '葛魯斯寇之魂',
+    Nessa: '奈莎',
+    "The Siren's Cadence": '海妖之歌',
   };
 
   const templates: Array<[string, string]> = [
+    ['Act {0}', '第 {0} 章'],
     ['Inflicts Mana Burn every {0} Seconds', '每 {0} 秒造成魔力灼燒'],
     ['{0} Second Cooldown when Deactivated', '解除時有 {0} 秒冷卻時間'],
   ];
@@ -385,6 +402,64 @@ describe('createPobbinTranslator', () => {
     ]);
   });
 
+  it('相鄰兩行都帶可學出的前綴時（小型星團珠寶），多行合併不會互相吞併而破壞譯文', () => {
+    const modLines = {
+      '2001': [
+        [
+          'Added Small Passive Skills also grant: {0:+d} to All Attributes',
+          '附加的小天賦給予：{0:+d} 全能力',
+        ],
+      ] as const,
+      '2002': [
+        [
+          'Added Small Passive Skills also grant: {0:+d}% to all Elemental Resistances',
+          '附加的小天賦給予：{0:+d}% 全部元素抗性',
+        ],
+      ] as const,
+      '2003': [['{0:+d}% to all Elemental Resistances', '{0:+d}% 全部元素抗性']] as const,
+      '2004': [
+        [
+          'Socketed Gems are Supported by Level {0:d} Enlighten',
+          '插槽中的寶石被等級 {0:d} 的 啟蒙輔助 輔助',
+        ],
+      ] as const,
+    };
+    const items = {
+      'enlighten support': '啟蒙輔助',
+      'melee splash support': '近戰傷害擴散輔助',
+    };
+    const data: PobbinTranslatorData = {
+      modTranslator: createModLineTranslator(modLines, {
+        toLocalizedName: (en) => items[en.toLowerCase() as keyof typeof items],
+      }),
+      labelLookup: createLabelLookup({}, [], items),
+      catalog: createTradeNameCatalog({ englishItems: [], localizedItems: [] }),
+      items,
+      bilingual: true,
+    };
+    document.body.innerHTML = `
+      <div class="pob-item" data-rarity="Rare">
+        <div><div>Carrion Scar</div><div>Small Cluster Jewel</div></div>
+        <div>
+          <ul>
+            <li>Added Small Passive Skills also grant: +4 to All Attributes</li>
+            <li>Added Small Passive Skills also grant: +5% to all Elemental Resistances</li>
+            <li>Socketed Gems are supported by Level 16 Melee Splash</li>
+          </ul>
+        </div>
+      </div>
+    `;
+    createPobbinTranslator(data).translate(document);
+
+    expect(
+      Array.from(document.querySelectorAll('.pob-item li')).map((li) => li.textContent),
+    ).toEqual([
+      '附加的小天賦給予：+4 全能力',
+      '附加的小天賦給予：+5% 全部元素抗性',
+      '插槽中的寶石被等級 16 的 近戰傷害擴散輔助 輔助',
+    ]);
+  });
+
   it('關閉雙語時名稱只顯示中文', () => {
     document.body.innerHTML = `
       <div data-gem-id="Metadata/Items/Gems/SkillGemStaticStrike">Static Strike</div>
@@ -402,6 +477,109 @@ describe('createPobbinTranslator', () => {
         (d) => d.textContent,
       ),
     ).toEqual(['破曉', '巨型塔盾']);
+  });
+
+  it('翻譯 +{0:d} 專精詞綴、寶石懸浮框取得清單與眾神殿摘要', () => {
+    document.body.innerHTML = `
+      <main>
+        <div data-route="">
+          <div class="inline-block">
+            <span>Pantheon</span><span>: </span><span><span>Soul of Lunaris, Soul of Gruthkul</span></span>
+          </div>
+          <div class="absolute z-30">
+            <div>
+              <div class="min-w-48">
+                <div>Static Strike</div>
+                <div>Quality:</div>
+              </div>
+              <div class="grid">
+                <div>Act 1</div><div>Nessa</div><div>The Siren's Cadence</div>
+              </div>
+            </div>
+          </div>
+          <ul>
+            <li data-node-id="123">+25% to Critical Strike Multiplier against Unique Enemies</li>
+          </ul>
+        </div>
+      </main>
+    `;
+    createPobbinTranslator(makeTestTranslatorData(true)).translate(document);
+
+    expect(document.querySelector('.inline-block > span:first-child')?.textContent).toBe('眾神殿');
+    expect(document.querySelector('.inline-block > span:last-child')?.textContent).toBe(
+      '月影神之魂、葛魯斯寇之魂',
+    );
+    expect(Array.from(document.querySelectorAll('.grid > div')).map((d) => d.textContent)).toEqual([
+      '第 1 章',
+      '奈莎',
+      '海妖之歌',
+    ]);
+    expect(document.querySelector('li[data-node-id]')?.textContent).toBe(
+      '對傳奇敵人 +25% 暴擊加成',
+    );
+  });
+
+  it('翻譯 PoB 摘要統計、eHP 最大承傷、盜賊／Config 與永恆珠寶征服詞綴，且不碰網站介面', () => {
+    document.body.innerHTML = `
+      <main>
+        <div data-route="">
+          <div class="inline-block">
+            <span>eHP</span><span>: </span><span>139,859</span>
+            <div class="pointer-events-none">
+              <div class="whitespace-pre-line"><span>Phys Max Hit</span><span>: 23,165\n</span><span>Chaos Max Hit</span><span>: 26,061</span></div>
+            </div>
+          </div>
+          <div class="inline-block"><span>Resistances</span><span>: </span><span>78%/77%/77%/65%</span></div>
+          <div class="inline-block"><span>ES</span><span>: </span><span>9,575</span></div>
+          <div class="inline-block"><span>Evade</span><span>: </span><span>70%</span></div>
+          <div class="inline-block"><span>Crit Chance</span><span>: </span><span>99%</span></div>
+          <div class="inline-block"><span>Crit Multi</span><span>: </span><span>691%</span></div>
+          <div class="inline-block"><span>Hit Rate</span><span>: </span><span>4.31</span></div>
+          <div class="inline-block">
+            <span>Config</span><span>: </span>
+            <div class="contents"><span><span>10% Shock, Custom Mods</span></span></div>
+            <div class="pointer-events-none"><span>Graft</span></div>
+          </div>
+          <div class="inline-block"><span>Bandit</span><span>: </span><span><span>Kill All</span></span></div>
+          <h2>Loadout</h2>
+          <button>Copy</button>
+          <div class="pob-item" data-rarity="Unique">
+            <div><div>Lethal Pride 11057; 7; Duelist</div><div>Timeless Jewel</div></div>
+            <div><ul><li>Passives in radius are Conquered by the Karui</li></ul></div>
+          </div>
+        </div>
+      </main>
+    `;
+    createPobbinTranslator(makeTestTranslatorData(true)).translate(document);
+
+    const labels = Array.from(
+      document.querySelectorAll('main [data-route] .inline-block > span:first-child'),
+    ).map((el) => el.textContent);
+    expect(labels).toEqual([
+      '有效血量',
+      '抗性',
+      '能量護盾',
+      '閃避率',
+      '暴擊率',
+      '暴擊加成',
+      '擊中頻率',
+      '配置',
+      '盜賊',
+    ]);
+    expect(document.querySelector('.whitespace-pre-line')?.textContent).toBe(
+      '物理最大承傷: 23,165\n混沌最大承傷: 26,061',
+    );
+    expect(document.querySelector('.inline-block .contents')?.textContent).toBe(
+      '10% 感電、自訂詞綴',
+    );
+    expect(
+      Array.from(document.querySelectorAll('main [data-route] .inline-block')).at(-1)
+        ?.lastElementChild?.textContent,
+    ).toBe('全部擊殺');
+    expect(document.querySelector('.pob-item li')?.textContent).toBe('範圍內天賦被卡魯征服');
+    // pobb.in 網站本身介面維持原樣
+    expect(document.querySelector('h2')?.textContent).toBe('Loadout');
+    expect(document.querySelector('button')?.textContent).toBe('Copy');
   });
 });
 

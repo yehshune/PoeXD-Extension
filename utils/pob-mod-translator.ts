@@ -149,8 +149,8 @@ const NAMED_PATTERNS: ReadonlyArray<{
   nameSuffix: string;
 }> = [
   {
-    line: /^(Socketed Gems are Supported by Level )(\d+) (.+?)(?: Support)?$/,
-    template: /^(Socketed Gems are Supported by Level )\{0:d\} (.+)$/,
+    line: /^(Socketed Gems are [Ss]upported by Level )(\d+) (.+?)(?: Support)?$/,
+    template: /^(Socketed Gems are [Ss]upported by Level )\{0:d\} (.+)$/,
     nameSuffix: SUPPORT_SUFFIX,
   },
   {
@@ -267,7 +267,9 @@ export function createModLineTranslator(
       const at = line.indexOf(separator);
       if (at <= 0) continue;
       const prefix = line.slice(0, at + separator.length);
-      const tail = translateLine(line.slice(prefix.length));
+      // 前綴不會跨行（避免多行合併試探時把前一行當成後一行的前綴）
+      if (prefix.includes('\n')) continue;
+      const tail = translateLine(line.slice(prefix.length), { keepEnglishPrefix });
       if (!tail) continue;
       const label = extras.labels?.[prefix.trim()];
       const localizedPrefix = learnPrefix(prefix) ?? (label ? `${label} ` : undefined);

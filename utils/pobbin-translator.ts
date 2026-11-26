@@ -31,6 +31,11 @@ import {
 import { loadPairedLineShard } from './paired-line-shards';
 import { POB_SHARE_OPTIONAL_ORIGINS } from './pob-share-url';
 import { createTradeNameCatalog, type TradeNameCatalog } from './pob-shopping-list';
+import {
+  getPobbinGameLabels,
+  POBBIN_OFFICIAL_LABEL_ALIASES,
+  translatePobSummaryToken,
+} from './pobbin-pob-terms';
 import { resolveStoredDisplayLocale } from './preferences-contract';
 import {
   getLocaleItemsAssetPath,
@@ -55,6 +60,7 @@ export interface PobbinTranslatorData {
   items: Readonly<Record<string, string>>;
   /** 英文天賦／昇華名（小寫）→ 譯名：市集對得到的名稱優先，其餘取遊戲資料表的天賦名稱表 */
   passives?: Readonly<Record<string, string>>;
+  locale?: MarketTranslationLocale;
   bilingual: boolean;
 }
 
@@ -87,7 +93,7 @@ const GEM_TOOLTIP_NAME_SELECTOR = '.min-w-48 > div';
 const NODE_HEADER_SELECTOR = 'div[data-node-id] > span';
 const MASTERY_LINE_SELECTOR = 'li[data-node-id]';
 const INLINE_TOOLTIP_SELECTOR = '.pointer-events-none .whitespace-pre-line';
-const SUMMARY_LABEL_SELECTOR = 'main [data-route] .inline-block > span:first-child';
+const SUMMARY_BLOCK_SELECTOR = 'main [data-route] .inline-block';
 
 const TARGET_SELECTOR = [
   POB_ITEM_SELECTOR,
@@ -96,7 +102,7 @@ const TARGET_SELECTOR = [
   NODE_HEADER_SELECTOR,
   MASTERY_LINE_SELECTOR,
   INLINE_TOOLTIP_SELECTOR,
-  SUMMARY_LABEL_SELECTOR,
+  SUMMARY_BLOCK_SELECTOR,
 ].join(', ');
 
 /** 依市集漢化開關、顯示語言與雙語偏好決定 pobb.in 是否啟用翻譯與目標語系 */
@@ -204,6 +210,7 @@ function textNodesOf(element: Element): Text[] {
 export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTranslator {
   const written = new WeakMap<Text, string>();
   const passives = data.passives ?? {};
+  const locale: MarketTranslationLocale = data.locale ?? 'zh-TW';
 
   const isCurrent = (node: Text) => written.get(node) === node.data;
 
@@ -268,8 +275,19 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
   };
 
   const translatePropertyLabel = (raw: string): string | null => {
+    // pobb.in 縮寫優先轉查官方全稱（例如 Crit Chance → Critical Strike Chance），確保優先採用官方譯文
+    const alias = POBBIN_OFFICIAL_LABEL_ALIASES[raw];
+    if (alias) {
+      const official = data.labelLookup.translateText(alias);
+      if (official) return official;
+    }
     const direct = data.labelLookup.translateText(raw);
     if (direct) return direct;
+    // 官方資料有時只收帶冒號的版本（例如 `Pantheon:` → `眾神殿：`），而 pobb.in 把冒號拆在隔壁 span
+    if (!raw.endsWith(':')) {
+      const withColon = data.labelLookup.translateText(`${raw}:`);
+      if (withColon) return withColon.replace(/[：:]\s*$/, '');
+    }
     const qualityMatch = QUALITY_MODIFIER_LABEL.exec(raw);
     if (qualityMatch) {
       const qualityText = data.labelLookup.translateText('Quality') ?? 'Quality';
@@ -455,6 +473,16 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
         replaceNode(node, translatePropertyLabel);
       }
     }
+    // 同張寶石懸浮框底下的取得清單（Act N、商人 NPC、任務名）皆由官方 result-labels.json 翻譯
+    if (isNameLine) {
+      const tooltipCard = divEl.closest('.absolute');
+      if (tooltipCard) {
+        for (const node of textNodesOf(tooltipCard)) {
+          if (node.parentElement?.closest('.min-w-48')) continue;
+          replaceNode(node, translatePropertyLabel);
+        }
+      }
+    }
   };
 
   const translateNodeHeader = (spanEl: Element) => {
@@ -480,6 +508,37 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     }
   };
 
+  /** 摘要數值裡以逗號分隔的遊戲名詞（官方眾神殿優先，其次 PoB 盜賊與 Config 狀態） */
+  const translateSummaryValue = (raw: string): string | null => {
+    const parts = raw.split(/,\s*/);
+    let changed = false;
+    const translated = parts.map((part) => {
+      const next = data.labelLookup.translateText(part) ?? translatePobSummaryToken(part, locale);
+      if (!next) return part;
+      changed = true;
+      return next;
+    });
+    if (!changed) return null;
+    const allTranslated = translated.every((part, index) => part !== parts[index]);
+    return translated.join(allTranslated ? '、' : ', ');
+  };
+
+  const translateSummaryBlock = (blockEl: Element) => {
+    const labelEl = blockEl.firstElementChild;
+    if (labelEl?.tagName === 'SPAN') {
+      for (const node of textNodesOf(labelEl)) {
+        replaceNode(node, translatePropertyLabel);
+      }
+    }
+    // 數值可能是直接的 <span>，也可能帶懸浮框時包在 <div class="contents"> 裡；略過懸浮框本身
+    for (const child of Array.from(blockEl.children).slice(1)) {
+      if (child.classList.contains('pointer-events-none')) continue;
+      for (const node of textNodesOf(child)) {
+        replaceNode(node, translateSummaryValue);
+      }
+    }
+  };
+
   const translateElement = (element: Element) => {
     if (isSkippedElement(element)) return;
     if (element.matches(POB_ITEM_SELECTOR)) {
@@ -496,10 +555,8 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
       }
     } else if (element.matches(INLINE_TOOLTIP_SELECTOR)) {
       translateInlineTooltip(element);
-    } else if (element.matches(SUMMARY_LABEL_SELECTOR)) {
-      for (const node of textNodesOf(element)) {
-        replaceNode(node, translatePropertyLabel);
-      }
+    } else if (element.matches(SUMMARY_BLOCK_SELECTOR)) {
+      translateSummaryBlock(element);
     }
   };
 
@@ -665,6 +722,7 @@ export async function loadPobbinTranslatorData(
       ? (zhFiltersRaw.fields as Record<string, string>)
       : undefined;
   const mergedLabels: Record<string, string> = {
+    ...getPobbinGameLabels(locale),
     ...resultLabels.labels,
     ...fieldLabels(enFiltersRaw, zhFilterFields),
     ...uiStrings,
@@ -705,6 +763,7 @@ export async function loadPobbinTranslatorData(
     catalog,
     items,
     passives,
+    locale,
     bilingual,
   };
 }

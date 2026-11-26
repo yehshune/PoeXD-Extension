@@ -24,6 +24,7 @@ import {
   allPages,
   isCloudflareChallenge,
   pickTradePage,
+  requirePageByUrl,
   requireTradePage,
   tradePages,
   ensureUsableViewport,
@@ -64,7 +65,8 @@ const HELP = `用法：pnpm poe <command> [參數] [--tab N]
   act layout ${LAYOUTS.join('|')}
   act clear                 按官方「清除」
 
---tab N：有多個官方搜尋分頁時指定第 N 個（從 0 起，順序同 status）。`;
+--tab N：有多個官方搜尋分頁時指定第 N 個（從 0 起，順序同 status）。
+--url <子字串>：改選網址包含該子字串的分頁（例：--url pobb.in），支援 shot／eval／net／reload。`;
 
 function print(value: unknown): void {
   console.log(typeof value === 'string' ? value : JSON.stringify(value, null, 2));
@@ -108,8 +110,13 @@ async function closeTrade({ browser }: DevBrowserConnection): Promise<void> {
   print(`已關閉 ${trade.length} 個官方搜尋分頁`);
 }
 
-async function reload(page: Page): Promise<void> {
+async function reload(page: Page, args: CliArgs): Promise<void> {
   await page.reload();
+  if (flagString(args, 'url')) {
+    await page.waitForLoadState('networkidle').catch(() => undefined);
+    print({ reloaded: page.url() });
+    return;
+  }
   await waitForTradeReady(page);
   print({ reloaded: page.url(), page: await page.evaluate(summarizeTradePage) });
 }
@@ -222,7 +229,10 @@ async function main(): Promise<void> {
       return print(await readExtensionStorage(conn.browser, args.positionals));
     const command = PAGE_COMMANDS[args.command ?? ''];
     if (!command) throw new Error(`未知的指令「${args.command}」，執行 pnpm poe help 查看`);
-    const page = await requireTradePage(conn.browser, flagInt(args, 'tab'));
+    const urlFilter = flagString(args, 'url');
+    const page = urlFilter
+      ? await requirePageByUrl(conn.browser, urlFilter)
+      : await requireTradePage(conn.browser, flagInt(args, 'tab'));
     if (VIEWPORT_COMMANDS.has(args.command ?? '')) {
       const note = await ensureUsableViewport(page);
       if (note) console.error(note);

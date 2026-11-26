@@ -63,6 +63,15 @@ export async function requireTradePage(browser: Browser, index?: number): Promis
   return page;
 }
 
+/** 依 URL 子字串從所有分頁挑出符合的分頁（支援檢查 pobb.in 等非交易分頁） */
+export async function requirePageByUrl(browser: Browser, substring: string): Promise<Page> {
+  const matched = allPages(browser).find((page) => page.url().includes(substring));
+  if (!matched) {
+    throw new Error(`dev 瀏覽器裡找不到網址包含「${substring}」的分頁`);
+  }
+  return matched;
+}
+
 /** 測試用：找現有搜尋頁，沒有就以第一個分頁前往起始網址 */
 export async function findOrOpenTradePage(browser: Browser, startUrl?: string): Promise<Page> {
   const existing = pickTradePage(browser);
