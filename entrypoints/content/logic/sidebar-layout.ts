@@ -131,6 +131,7 @@ export async function mountSidebarLayout(
         right: var(--poexd-host-right, auto) !important;
         width: var(--poexd-host-width, 380px) !important;
         height: var(--poexd-host-height, 100%) !important;
+        pointer-events: var(--poexd-host-pointer-events, auto) !important;
       }
     `;
 
@@ -156,6 +157,7 @@ export async function mountSidebarLayout(
       portalRoot.id = 'poexd-portal-root';
       portalRoot.style.position = 'relative';
       portalRoot.style.zIndex = '1';
+      portalRoot.style.pointerEvents = 'auto';
 
       container.appendChild(appRoot);
       container.appendChild(portalRoot);
@@ -215,10 +217,12 @@ export async function mountSidebarLayout(
       wrapper.style.setProperty('--poexd-host-width', 'var(--pxd-sidebar-collapsed-width)');
       wrapper.style.setProperty('--poexd-host-height', 'var(--control-height-default)');
       wrapper.style.setProperty('--poexd-host-top', collapsedTabTopCss(collapsedTop));
+      wrapper.style.setProperty('--poexd-host-pointer-events', 'none');
     } else {
       wrapper.style.setProperty('--poexd-host-width', `${width}px`);
       wrapper.style.setProperty('--poexd-host-height', '100%');
       wrapper.style.setProperty('--poexd-host-top', '0px');
+      wrapper.style.setProperty('--poexd-host-pointer-events', 'auto');
     }
     wrapper.style.setProperty('--poexd-host-left', currentPosition === 'left' ? '0px' : 'auto');
     wrapper.style.setProperty('--poexd-host-right', currentPosition === 'right' ? '0px' : 'auto');
@@ -274,6 +278,7 @@ export async function mountSidebarLayout(
       wrapper.style.setProperty('--poexd-host-top', '0px');
       wrapper.style.setProperty('--poexd-host-left', '0px');
       wrapper.style.setProperty('--poexd-host-right', '0px');
+      wrapper.style.setProperty('--poexd-host-pointer-events', 'auto');
       return;
     }
 

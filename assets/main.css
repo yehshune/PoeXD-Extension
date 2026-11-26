@@ -751,3 +751,90 @@
 .pxd-pick-checkbox [data-slot='checkbox-indicator'] {
   background: color-mix(in srgb, var(--primary) 55%, transparent);
 }
+
+/* 收合側邊欄貼邊微縮拉耳：平時僅露出極細 14px 貼邊細條與置中直條指示，滑鼠移入／聚焦／拖曳時滑出完整 64px 圖示＋箭頭 */
+.pxd-collapsed-tab {
+  --pxd-collapsed-tab-peek: 14px;
+  pointer-events: auto;
+  opacity: 0.62;
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 180ms ease;
+  will-change: transform, opacity;
+}
+
+.pxd-collapsed-tab[data-edge='right'] {
+  transform: translateX(calc(100% - var(--pxd-collapsed-tab-peek)));
+}
+
+.pxd-collapsed-tab[data-edge='left'] {
+  transform: translateX(calc(-100% + var(--pxd-collapsed-tab-peek)));
+}
+
+.pxd-collapsed-tab .pxd-collapsed-tab-icon {
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.pxd-collapsed-tab .pxd-collapsed-tab-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--pxd-collapsed-tab-peek);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0.9;
+  transition: opacity 110ms ease;
+}
+
+.pxd-collapsed-tab[data-edge='right'] .pxd-collapsed-tab-grip {
+  left: 0;
+}
+
+.pxd-collapsed-tab[data-edge='left'] .pxd-collapsed-tab-grip {
+  right: 0;
+}
+
+.pxd-collapsed-tab .pxd-collapsed-tab-grip::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--primary) 72%, var(--muted-foreground) 28%);
+}
+
+.pxd-collapsed-tab:hover,
+.pxd-collapsed-tab:focus-visible,
+.pxd-collapsed-tab[data-dragging='true'],
+.pxd-collapsed-tab[data-peek-expanded='true'] {
+  transform: translateX(0);
+  opacity: 1;
+  box-shadow: 0 2px 10px oklch(0 0 0 / 0.32);
+}
+
+.pxd-collapsed-tab:hover .pxd-collapsed-tab-icon,
+.pxd-collapsed-tab:focus-visible .pxd-collapsed-tab-icon,
+.pxd-collapsed-tab[data-dragging='true'] .pxd-collapsed-tab-icon,
+.pxd-collapsed-tab[data-peek-expanded='true'] .pxd-collapsed-tab-icon {
+  opacity: 1;
+}
+
+.pxd-collapsed-tab:hover .pxd-collapsed-tab-grip,
+.pxd-collapsed-tab:focus-visible .pxd-collapsed-tab-grip,
+.pxd-collapsed-tab[data-dragging='true'] .pxd-collapsed-tab-grip,
+.pxd-collapsed-tab[data-peek-expanded='true'] .pxd-collapsed-tab-grip {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pxd-collapsed-tab,
+  .pxd-collapsed-tab .pxd-collapsed-tab-icon,
+  .pxd-collapsed-tab .pxd-collapsed-tab-grip {
+    transition: none;
+  }
+}

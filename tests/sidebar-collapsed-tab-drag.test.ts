@@ -136,6 +136,15 @@ describe('Sidebar collapsed tab drag', () => {
     expect(wrapper().style.getPropertyValue('--pxd-collapsed-tab-top')).toContain('260px');
   });
 
+  it('renders edge-peek micro-handle attributes and passes through wrapper pointer events when collapsed', async () => {
+    snapshot.sidebarPosition = 'right';
+    await mountSidebar();
+    expect(wrapper().classList.contains('pointer-events-none')).toBe(true);
+    expect(tab().classList.contains('pxd-collapsed-tab')).toBe(true);
+    expect(tab().getAttribute('data-edge')).toBe('right');
+    expect(tab().querySelector('.pxd-collapsed-tab-grip')).not.toBeNull();
+  });
+
   it('moves the tab vertically, previews live and saves on release without expanding', async () => {
     await mountSidebar();
     stubRect(100);

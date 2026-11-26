@@ -81,6 +81,9 @@ describe('Sidebar page layout', () => {
     expect(layoutSource).toContain('right: var(--poexd-host-right, auto) !important;');
     expect(layoutSource).toContain('width: var(--poexd-host-width, 380px) !important;');
     expect(layoutSource).toContain('height: var(--poexd-host-height, 100%) !important;');
+    expect(layoutSource).toContain(
+      'pointer-events: var(--poexd-host-pointer-events, auto) !important;',
+    );
 
     // 2. No ordinary inline geometry properties assigned on wrapper.style
     expect(layoutSource).not.toMatch(/wrapper\.style\.width\s*=/);
@@ -95,12 +98,14 @@ describe('Sidebar page layout', () => {
     expect(layoutSource).toContain("wrapper.style.setProperty('--poexd-host-top',");
     expect(layoutSource).toContain("wrapper.style.setProperty('--poexd-host-left',");
     expect(layoutSource).toContain("wrapper.style.setProperty('--poexd-host-right',");
+    expect(layoutSource).toContain("wrapper.style.setProperty('--poexd-host-pointer-events',");
 
     // 4. appRoot & portalRoot stacking contexts preserved
     expect(layoutSource).toContain("appRoot.style.position = 'relative';");
     expect(layoutSource).toContain("appRoot.style.zIndex = '0';");
     expect(layoutSource).toContain("portalRoot.style.position = 'relative';");
     expect(layoutSource).toContain("portalRoot.style.zIndex = '1';");
+    expect(layoutSource).toContain("portalRoot.style.pointerEvents = 'auto';");
   });
 });
 

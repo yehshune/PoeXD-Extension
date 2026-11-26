@@ -19,6 +19,7 @@
         :class="{
           collapsed: isCollapsed,
           'settings-pending invisible': !areSettingsReady,
+          'pointer-events-none': showCollapsedTab,
         }"
         :data-collapse-animation="collapseAnimation ?? undefined"
         :style="{
@@ -31,13 +32,13 @@
           ...runtimeTokens,
         }"
       >
-        <!-- 收合狀態下的書籤狀小長方形 -->
+        <!-- 收合狀態下的貼邊微縮拉耳（平時僅露 14px 細條，滑鼠移入／聚焦／拖曳時滑出完整圖示＋箭頭） -->
         <Button
           v-show="showCollapsedTab"
           type="button"
           variant="secondary"
           size="default"
-          class="relative w-[var(--pxd-sidebar-collapsed-width)] border-x-0 rounded-none px-[var(--pxd-sidebar-collapsed-padding-x)] flex items-center justify-between touch-none select-none"
+          class="pxd-collapsed-tab relative w-[var(--pxd-sidebar-collapsed-width)] border-x-0 rounded-none px-[var(--pxd-sidebar-collapsed-padding-x)] flex items-center justify-between touch-none select-none"
           :class="isCollapsedTabDragging ? 'cursor-grabbing' : 'cursor-grab'"
           :style="{
             borderRight: sidebarPosition === 'right' ? 'none' : '1px solid var(--border)',
@@ -46,7 +47,9 @@
           :title="t('sidebar.header.expandDraggable')"
           :aria-label="t('sidebar.header.expand')"
           data-sidebar-action="expand"
+          :data-edge="sidebarPosition"
           :data-dragging="isCollapsedTabDragging ? 'true' : undefined"
+          :data-peek-expanded="isCollapsedTabExpanded ? 'true' : undefined"
           @pointerdown="handleCollapsedTabPointerDown"
           @pointermove="handleCollapsedTabPointerMove"
           @pointerup="handleCollapsedTabPointerUp"
@@ -54,12 +57,16 @@
           @keydown="handleCollapsedTabKeydown"
           @click="handleCollapsedTabClick"
         >
+          <span class="pxd-collapsed-tab-grip" aria-hidden="true"></span>
           <ToolboxIcon
             data-sidebar-brand-placeholder
             :size="'var(--pxd-brand-icon-collapsed-size)'"
-            class="text-primary"
+            class="pxd-collapsed-tab-icon text-primary"
           />
-          <ChevronLeft :class="sidebarPosition === 'left' ? 'rotate-180' : ''" />
+          <ChevronLeft
+            class="pxd-collapsed-tab-icon"
+            :class="sidebarPosition === 'left' ? 'rotate-180' : ''"
+          />
           <!-- 初次安裝：尚未展開過側邊欄時的提示圓點（展開一次即消失） -->
           <span
             v-if="showExpandHint"
@@ -215,7 +222,6 @@
                   v-show="primaryActiveTab === 'connections'"
                   :controller="liveSearchConsole?.primaryController ?? null"
                   :source-controller="liveSearchConsole?.sourceController ?? null"
-                  :resume-controller="liveSearchConsole?.resumeController ?? null"
                   :sound-notifier="liveSearchConsole?.soundNotifier ?? null"
                   @open-add-connection="handleOpenCustomSearch"
                 />
@@ -226,7 +232,7 @@
                 />
                 <LiveSearchConsoleSettingsPane
                   v-show="primaryActiveTab === 'console-settings'"
-                  :resume-controller="liveSearchConsole?.resumeController ?? null"
+                  :source-controller="liveSearchConsole?.sourceController ?? null"
                   :sound-notifier="liveSearchConsole?.soundNotifier ?? null"
                   :desktop-notifier="liveSearchConsole?.desktopNotifier ?? null"
                 />
@@ -1141,6 +1147,11 @@ export default defineComponent({
         getDisplayLocale: () => displayLocale.value,
       });
 
+    // 初次安裝提示、導覽進行中或拖曳示範期間保持完整展開，平時收成貼邊 14px 微縮拉耳
+    const isCollapsedTabExpanded = computed(
+      () => showExpandHint.value || demoPlaying.value || pageGuide.state.mode === 'tour',
+    );
+
     const guideSetup = computed<PageGuideSetupBindings>(() => ({
       displayLocale: displayLocale.value,
       marketTranslation: marketTranslation.value,
@@ -1343,6 +1354,7 @@ export default defineComponent({
       collapseAnimation,
       sidebarWrapperEl,
       showCollapsedTab,
+      isCollapsedTabExpanded,
       collapsedTabTopStyle,
       isCollapsedTabDragging,
       handleCollapsedTabPointerDown,
