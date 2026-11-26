@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { HTMLAttributes } from 'vue';
+import { onMounted, onUnmounted, ref, type HTMLAttributes } from 'vue';
 import { cn } from '@/lib/utils';
 import {
   ScrollAreaCorner,
@@ -17,6 +17,62 @@ const props = withDefaults(
     scrollMode: 'internal',
   },
 );
+
+const fixedSlotRef = ref<HTMLElement | null>(null);
+const scrollContentRef = ref<HTMLElement | null>(null);
+
+/**
+ * 計算讓座標／高度對齊實體像素格線所需的正向補償量（px）。
+ * 避免高內容捲動容器因非整數 Y 起點或非整數捲動總高在 Chromium GPU 分塊合成時產生 1px 垂直割裂。
+ */
+function calcPixelSnapMargin(px: number, dpr: number): number {
+  if (!Number.isFinite(px) || px <= 0 || !Number.isFinite(dpr) || dpr <= 0) return 0;
+  const scaled = px * dpr;
+  const frac = scaled - Math.floor(scaled);
+  if (frac <= 0.01 || frac >= 0.99) return 0;
+  return (1 - frac) / dpr;
+}
+
+function applySnapMargin(el: HTMLElement | null, value: number) {
+  if (!el) return;
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const snap = calcPixelSnapMargin(value, dpr);
+  const next = snap > 0 ? `${snap}px` : '';
+  if (el.style.marginBottom !== next) {
+    el.style.marginBottom = next;
+  }
+}
+
+function syncScrollPixelSnap() {
+  if (fixedSlotRef.value) {
+    applySnapMargin(fixedSlotRef.value, fixedSlotRef.value.getBoundingClientRect().bottom);
+  }
+  if (scrollContentRef.value) {
+    applySnapMargin(scrollContentRef.value, scrollContentRef.value.getBoundingClientRect().height);
+  }
+}
+
+let resizeObserver: ResizeObserver | null = null;
+
+onMounted(() => {
+  syncScrollPixelSnap();
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => syncScrollPixelSnap());
+    if (fixedSlotRef.value) resizeObserver.observe(fixedSlotRef.value);
+    if (scrollContentRef.value) resizeObserver.observe(scrollContentRef.value);
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', syncScrollPixelSnap, { passive: true });
+  }
+});
+
+onUnmounted(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', syncScrollPixelSnap);
+  }
+});
 </script>
 
 <template>
@@ -27,6 +83,7 @@ const props = withDefaults(
   >
     <div
       v-if="$slots.fixed"
+      ref="fixedSlotRef"
       data-slot="sidebar-pane-fixed"
       class="shrink-0 p-[var(--pxd-pane-padding)] pt-[var(--pxd-space-md)] pb-0 min-w-0 w-full"
     >
@@ -42,13 +99,14 @@ const props = withDefaults(
       <ScrollAreaViewport
         data-slot="sidebar-pane-scroll"
         :as-child="true"
-        class="h-full w-full min-h-0"
+        class="h-full w-full min-h-0 bg-background backface-hidden"
       >
         <div
+          ref="scrollContentRef"
           data-slot="sidebar-pane-scroll-content"
           :class="
             cn(
-              'p-[var(--pxd-pane-padding)] pb-[var(--pxd-pane-scroll-end-space)]',
+              'bg-background p-[var(--pxd-pane-padding)] pb-[var(--pxd-pane-scroll-end-space)]',
               $slots.fixed && 'pt-0',
             )
           "

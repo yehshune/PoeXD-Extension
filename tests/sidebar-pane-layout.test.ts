@@ -143,6 +143,7 @@ describe('SidebarPane layout component contract', () => {
     expect(scrollSlot?.className).toContain('min-h-0');
     expect(scrollSlot?.className).toContain('h-full');
     expect(scrollSlot?.className).toContain('w-full');
+    expect(scrollSlot?.className).toContain('bg-background');
     expect(scrollSlot?.hasAttribute('data-reka-scroll-area-viewport')).toBe(true);
 
     const scrollContent = container.querySelector('[data-slot="sidebar-pane-scroll-content"]');
