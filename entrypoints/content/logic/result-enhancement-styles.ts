@@ -6,6 +6,7 @@
  */
 import { RESULT_MOD_ENGLISH_SUBTITLE_CLASS } from '@/utils/market-result-translator';
 import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
+import { buildResultModHighlightCss } from '@/utils/result-mod-highlight';
 import { removeTradeResultStyle } from '@/utils/trade-results-root';
 
 export const RESULT_LEFT_ACTIONS_CLASS = 'poexd-left-actions';
@@ -169,15 +170,7 @@ const STYLE_REGISTRY: Record<ResultEnhancementStyleKey, StyleEntry> = {
   },
   'mod-highlight': {
     id: 'poexd-filter-mod-highlight-style',
-    content: `
-      .poexd-filter-mod-highlight {
-        box-shadow: 0 0 20px oklch(0.70 0.12 265 / 0.25), 0 10px 30px oklch(0.10 0.02 265 / 0.6);
-        background-color: oklch(0.25 0.05 260 / 0.53);
-        border: 1px solid oklch(0.85 0.08 265 / 0.65);
-        padding: 5px;
-        margin: 5px 0;
-      }
-    `,
+    content: buildResultModHighlightCss(),
   },
   'mod-quick-filter': {
     id: 'poexd-result-mod-quick-filter-style',

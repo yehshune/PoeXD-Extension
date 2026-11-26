@@ -35,6 +35,20 @@ export type SidebarPosition = (typeof SIDEBAR_POSITIONS)[number];
 export const BOOKMARK_BUTTON_POSITIONS = ['top', 'bottom'] as const;
 export type BookmarkButtonPosition = (typeof BOOKMARK_BUTTON_POSITIONS)[number];
 
+/** 結果詞綴高亮的外觀樣式預設：glow（原版發光框線）、subtle（簡約框線）、bar（邊緣色條） */
+export const RESULT_MOD_HIGHLIGHT_STYLES = ['glow', 'subtle', 'bar'] as const;
+export type ResultModHighlightStyle = (typeof RESULT_MOD_HIGHLIGHT_STYLES)[number];
+
+/** 結果詞綴高亮的強調色票（深色交易頁驗證過的 oklch 配色） */
+export const RESULT_MOD_HIGHLIGHT_COLORS = [
+  'indigo',
+  'gold',
+  'emerald',
+  'amber',
+  'violet',
+] as const;
+export type ResultModHighlightColor = (typeof RESULT_MOD_HIGHLIGHT_COLORS)[number];
+
 /** 左鍵點選書籤或搜尋歷史時：開啟搜尋，或切換 Search Preview（見 GLOSSARY.md）。 */
 export const SEARCH_ENTRY_CLICK_ACTIONS = ['open', 'preview'] as const;
 export type SearchEntryClickAction = (typeof SEARCH_ENTRY_CLICK_ACTIONS)[number];
@@ -182,6 +196,10 @@ export interface Preferences {
   marketTranslationBilingual: boolean;
   /** 市集漢化的搜尋結果詞綴在譯文下方以淡色副標顯示英文原文 */
   marketTranslationResultBilingual: boolean;
+  /** 結果詞綴高亮的強調色票 */
+  resultModHighlightColor: ResultModHighlightColor;
+  /** 結果詞綴高亮的外觀樣式預設 */
+  resultModHighlightStyle: ResultModHighlightStyle;
   searchEntryClickAction: SearchEntryClickAction;
   /** Sidebar Module 開關（見 utils/sidebar-modules.ts）：關閉後導覽列不顯示，相關頁面注入 UI 也停用 */
   sidebarModuleBookmarks: boolean;
@@ -409,6 +427,16 @@ export const PREFERENCE_SCHEMA = Object.freeze({
     default: true,
     validate: isBoolean,
     legacyVersionedGlobal: true,
+  },
+  resultModHighlightStyle: {
+    scope: 'global',
+    default: 'glow',
+    validate: isOneOf(RESULT_MOD_HIGHLIGHT_STYLES),
+  },
+  resultModHighlightColor: {
+    scope: 'global',
+    default: 'indigo',
+    validate: isOneOf(RESULT_MOD_HIGHLIGHT_COLORS),
   },
   enableResultModQuickFilter: {
     scope: 'global',

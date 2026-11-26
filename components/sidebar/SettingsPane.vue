@@ -317,24 +317,31 @@
           :collapsed="collapsedSections.has('resultDisplay')"
           @toggle-collapse="toggleSectionCollapse('resultDisplay')"
         >
-          <SettingsRow
-            v-for="row in resultToggleRows"
-            :key="row.id"
-            :label="t(row.labelKey)"
-            :details="t(row.detailsKey)"
-            :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
-            :guide-target="row.guideTarget"
-            :control-id="row.id"
-          >
-            <template #default="{ describedBy }">
-              <Switch
-                :id="row.id"
-                :model-value="preferenceState[row.key]"
-                :aria-describedby="describedBy"
-                @update:model-value="setToggle(row.key, $event)"
-              />
-            </template>
-          </SettingsRow>
+          <template v-for="row in resultToggleRows" :key="row.id">
+            <SettingsRow
+              :label="t(row.labelKey)"
+              :details="t(row.detailsKey)"
+              :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
+              :guide-target="row.guideTarget"
+              :control-id="row.id"
+            >
+              <template #default="{ describedBy }">
+                <Switch
+                  :id="row.id"
+                  :model-value="preferenceState[row.key]"
+                  :aria-describedby="describedBy"
+                  @update:model-value="setToggle(row.key, $event)"
+                />
+              </template>
+            </SettingsRow>
+            <ResultModHighlightSettings
+              v-if="row.key === 'enableResultModHighlight' && enableResultModHighlight"
+              :highlight-style="resultModHighlightStyle"
+              :highlight-color="resultModHighlightColor"
+              @update:highlight-style="handleResultModHighlightStyleChange"
+              @update:highlight-color="handleResultModHighlightColorChange"
+            />
+          </template>
         </SettingsSection>
 
         <!-- 4. 書籤與歷史 -->
@@ -806,6 +813,7 @@ import SettingsRow from './settings/SettingsRow.vue';
 import SettingsSection from './settings/SettingsSection.vue';
 import SettingsBackupMenu from './settings/SettingsBackupMenu.vue';
 import SidebarModuleSettings from './settings/SidebarModuleSettings.vue';
+import ResultModHighlightSettings from './settings/ResultModHighlightSettings.vue';
 import { matchesSettingsQuery, provideSettingsSearch } from './settings/settings-search';
 import {
   RESULT_TOGGLE_ROWS,
@@ -828,6 +836,8 @@ import {
   isValidHexColor,
   isValidThemeCustomRadius,
   type Preferences,
+  type ResultModHighlightColor,
+  type ResultModHighlightStyle,
   type ThemeCustomRadius,
   type ThemeId,
 } from '@/utils/preferences-contract';
@@ -885,6 +895,7 @@ export default defineComponent({
     SettingsSection,
     SettingsBackupMenu,
     SidebarModuleSettings,
+    ResultModHighlightSettings,
     SidebarPane,
     ToggleGroup,
     ToggleGroupItem,
@@ -925,6 +936,8 @@ export default defineComponent({
       enableAutoTitle,
       enablePriceComparison,
       enableResultModHighlight,
+      resultModHighlightStyle,
+      resultModHighlightColor,
       enableResultModQuickFilter,
       enableResultPobCopy,
       enableResultExternalLinks,
@@ -1416,6 +1429,14 @@ export default defineComponent({
       (preferenceState[key] as boolean) = value === true;
       savePreference(key);
     };
+    const handleResultModHighlightStyleChange = (value: ResultModHighlightStyle) => {
+      resultModHighlightStyle.value = value;
+      savePreference('resultModHighlightStyle');
+    };
+    const handleResultModHighlightColorChange = (value: ResultModHighlightColor) => {
+      resultModHighlightColor.value = value;
+      savePreference('resultModHighlightColor');
+    };
     const resultToggleRows = filterRowsForVersion(RESULT_TOGGLE_ROWS, version);
 
     // Sidebar Module 開關
@@ -1642,6 +1663,8 @@ export default defineComponent({
       enableAutoTitle,
       enablePriceComparison,
       enableResultModHighlight,
+      resultModHighlightStyle,
+      resultModHighlightColor,
       enableResultModQuickFilter,
       enableResultPobCopy,
       enableResultExternalLinks,
@@ -1667,6 +1690,8 @@ export default defineComponent({
       handleAddBookmarkBtnPositionChange,
       handleFontSizeScaleChange,
       handleDensityChange,
+      handleResultModHighlightStyleChange,
+      handleResultModHighlightColorChange,
       isCompactDensity,
       fuzzySearchEnabled,
     };

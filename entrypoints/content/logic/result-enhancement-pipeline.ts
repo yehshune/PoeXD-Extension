@@ -193,8 +193,13 @@ export class ResultEnhancementHost {
       {
         scope: 'always',
         apply: (target) => this.modHighlighterAdapter.apply(target),
-        applyPreferences: (snapshot) =>
-          this.modHighlighterAdapter.setEnabled(snapshot.enableResultModHighlight),
+        applyPreferences: (snapshot) => {
+          this.modHighlighterAdapter.setAppearance(
+            snapshot.resultModHighlightStyle,
+            snapshot.resultModHighlightColor,
+          );
+          this.modHighlighterAdapter.setEnabled(snapshot.enableResultModHighlight);
+        },
         cleanup: () => this.modHighlighterAdapter.cleanup(),
       },
       {

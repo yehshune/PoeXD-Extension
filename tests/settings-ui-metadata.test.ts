@@ -5,6 +5,8 @@ import {
   AFFIX_DISPLAY_LOCALE_VALUES,
   BOOKMARK_BUTTON_POSITIONS,
   DISPLAY_LOCALE_VALUES,
+  RESULT_MOD_HIGHLIGHT_COLORS,
+  RESULT_MOD_HIGHLIGHT_STYLES,
   SIDEBAR_POSITIONS,
   THEME_IDS,
 } from '@/utils/preferences-contract';
@@ -16,6 +18,10 @@ import {
   BOOKMARK_BUTTON_POSITION_OPTIONS,
   DISPLAY_LOCALE_LABELS,
   DISPLAY_LOCALE_OPTIONS,
+  RESULT_MOD_HIGHLIGHT_COLOR_LABELS,
+  RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS,
+  RESULT_MOD_HIGHLIGHT_STYLE_LABELS,
+  RESULT_MOD_HIGHLIGHT_STYLE_OPTIONS,
   SEARCH_ENTRY_CLICK_ACTION_LABELS,
   SEARCH_ENTRY_CLICK_ACTION_OPTIONS,
   SIDEBAR_POSITION_LABELS,
@@ -38,6 +44,12 @@ describe('Settings UI Metadata', () => {
     expect(SIDEBAR_POSITION_OPTIONS.map((opt) => opt.value)).toEqual([...SIDEBAR_POSITIONS]);
     expect(BOOKMARK_BUTTON_POSITION_OPTIONS.map((opt) => opt.value)).toEqual([
       ...BOOKMARK_BUTTON_POSITIONS,
+    ]);
+    expect(RESULT_MOD_HIGHLIGHT_STYLE_OPTIONS.map((opt) => opt.value)).toEqual([
+      ...RESULT_MOD_HIGHLIGHT_STYLES,
+    ]);
+    expect(RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS.map((opt) => opt.value)).toEqual([
+      ...RESULT_MOD_HIGHLIGHT_COLORS,
     ]);
   });
 
@@ -119,6 +131,10 @@ describe('Settings UI Metadata', () => {
 
     expect(Object.isFrozen(BOOKMARK_BUTTON_POSITION_LABELS)).toBe(true);
     expect(Object.isFrozen(BOOKMARK_BUTTON_POSITION_OPTIONS)).toBe(true);
+    expect(Object.isFrozen(RESULT_MOD_HIGHLIGHT_STYLE_LABELS)).toBe(true);
+    expect(Object.isFrozen(RESULT_MOD_HIGHLIGHT_STYLE_OPTIONS)).toBe(true);
+    expect(Object.isFrozen(RESULT_MOD_HIGHLIGHT_COLOR_LABELS)).toBe(true);
+    expect(Object.isFrozen(RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS)).toBe(true);
   });
 
   it('static guard: SettingsPane imports metadata and does not declare local options', () => {

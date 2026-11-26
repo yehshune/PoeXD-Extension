@@ -1,12 +1,16 @@
 import {
   BOOKMARK_BUTTON_POSITIONS,
   DISPLAY_LOCALE_VALUES,
+  RESULT_MOD_HIGHLIGHT_COLORS,
+  RESULT_MOD_HIGHLIGHT_STYLES,
   SEARCH_ENTRY_CLICK_ACTIONS,
   SIDEBAR_POSITIONS,
   THEME_IDS,
   type AffixDisplayLocalePreference,
   type BookmarkButtonPosition,
   type DisplayLocalePreference,
+  type ResultModHighlightColor,
+  type ResultModHighlightStyle,
   type SearchEntryClickAction,
   type SidebarPosition,
   type ThemeId,
@@ -96,3 +100,21 @@ export const AFFIX_DISPLAY_LOCALE_LABELS: Readonly<Record<AffixDisplayLocalePref
 
 export const AFFIX_DISPLAY_LOCALE_OPTIONS: readonly SettingsOption<AffixDisplayLocalePreference>[] =
   DISPLAY_LOCALE_OPTIONS;
+
+export const RESULT_MOD_HIGHLIGHT_STYLE_LABELS: Readonly<Record<ResultModHighlightStyle, string>> =
+  createReactiveLabelMap(
+    RESULT_MOD_HIGHLIGHT_STYLES,
+    (value) => `settings.resultModHighlight.style.option.${value}`,
+  );
+
+export const RESULT_MOD_HIGHLIGHT_STYLE_OPTIONS: readonly SettingsOption<ResultModHighlightStyle>[] =
+  createReactiveOptions(RESULT_MOD_HIGHLIGHT_STYLES, RESULT_MOD_HIGHLIGHT_STYLE_LABELS);
+
+export const RESULT_MOD_HIGHLIGHT_COLOR_LABELS: Readonly<Record<ResultModHighlightColor, string>> =
+  createReactiveLabelMap(
+    RESULT_MOD_HIGHLIGHT_COLORS,
+    (value) => `settings.resultModHighlight.color.option.${value}`,
+  );
+
+export const RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS: readonly SettingsOption<ResultModHighlightColor>[] =
+  createReactiveOptions(RESULT_MOD_HIGHLIGHT_COLORS, RESULT_MOD_HIGHLIGHT_COLOR_LABELS);

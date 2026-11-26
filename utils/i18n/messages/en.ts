@@ -186,6 +186,18 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.resultModHighlight.infoAria': 'Highlight Matched Affixes info',
   'settings.resultModHighlight.tooltip':
     'Highlight affixes on search results that match your active stat filters',
+  'settings.resultModHighlight.previewNormal': '+42% to Fire Resistance',
+  'settings.resultModHighlight.previewMatched': '+108 to maximum Life',
+  'settings.resultModHighlight.style.label': 'Highlight Style',
+  'settings.resultModHighlight.style.option.glow': 'Glow Frame',
+  'settings.resultModHighlight.style.option.subtle': 'Subtle Box',
+  'settings.resultModHighlight.style.option.bar': 'Left Bar',
+  'settings.resultModHighlight.color.label': 'Accent Color',
+  'settings.resultModHighlight.color.option.indigo': 'Indigo',
+  'settings.resultModHighlight.color.option.gold': 'Exile Gold',
+  'settings.resultModHighlight.color.option.emerald': 'Emerald',
+  'settings.resultModHighlight.color.option.amber': 'Amber',
+  'settings.resultModHighlight.color.option.violet': 'Violet',
   'settings.resultModQuickFilter.label': 'Result Affix Quick Filter',
   'settings.resultModQuickFilter.infoAria': 'Result Affix Quick Filter info',
   'settings.resultModQuickFilter.tooltip':

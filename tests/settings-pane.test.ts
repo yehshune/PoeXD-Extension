@@ -471,6 +471,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(snapshot?.enableAutoTitle).toBe(true);
     expect(snapshot?.enablePriceComparison).toBe(true);
     expect(snapshot?.enableResultModHighlight).toBe(true);
+    expect(snapshot?.resultModHighlightStyle).toBe('glow');
+    expect(snapshot?.resultModHighlightColor).toBe('indigo');
     expect(snapshot?.enableResultModQuickFilter).toBe(true);
     expect(snapshot?.enablePureBackground).toBe(false);
     expect(snapshot?.marketTranslation).toBe(false);
@@ -1281,10 +1283,36 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(highlightCheckbox).not.toBeNull();
     expect(currentModule?.read().enableResultModHighlight).toBe(true);
 
+    // Sub-settings for highlight style & color are visible when enabled
+    const appearanceGroup = container.querySelector(
+      '[data-settings-group="result-mod-highlight-appearance"]',
+    );
+    expect(appearanceGroup).not.toBeNull();
+    expect(
+      container.querySelector('[data-test="result-mod-highlight-preview-mod"]'),
+    ).not.toBeNull();
+
+    const barStyleBtn = container.querySelector<HTMLButtonElement>('[data-highlight-style="bar"]');
+    expect(barStyleBtn).not.toBeNull();
+    barStyleBtn!.click();
+    await flushAsync();
+    expect(currentModule?.read().resultModHighlightStyle).toBe('bar');
+
+    const emeraldColorBtn = container.querySelector<HTMLButtonElement>(
+      '[data-highlight-color="emerald"]',
+    );
+    expect(emeraldColorBtn).not.toBeNull();
+    emeraldColorBtn!.click();
+    await flushAsync();
+    expect(currentModule?.read().resultModHighlightColor).toBe('emerald');
+
     highlightCheckbox.click();
     await flushAsync();
 
     expect(currentModule?.read().enableResultModHighlight).toBe(false);
+    expect(
+      container.querySelector('[data-settings-group="result-mod-highlight-appearance"]'),
+    ).toBeNull();
 
     // Result mod quick filter checkbox
     const quickFilterCheckbox = container.querySelector(

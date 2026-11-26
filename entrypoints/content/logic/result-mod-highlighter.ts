@@ -1,3 +1,11 @@
+import type {
+  ResultModHighlightColor,
+  ResultModHighlightStyle,
+} from '@/utils/preferences-contract';
+import {
+  RESULT_MOD_HIGHLIGHT_COLOR_ATTR,
+  RESULT_MOD_HIGHLIGHT_STYLE_ATTR,
+} from '@/utils/result-mod-highlight';
 import { TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 import {
   ensureResultEnhancementStyle,
@@ -16,6 +24,13 @@ export class ResultModHighlighterAdapter {
     this.activeStatIds = extractEnabledStatIds(criteria);
     const root = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
     if (root) this.apply(root);
+  }
+
+  setAppearance(style: ResultModHighlightStyle, color: ResultModHighlightColor): void {
+    const rootEl = this.doc.documentElement;
+    if (!rootEl) return;
+    rootEl.setAttribute(RESULT_MOD_HIGHLIGHT_STYLE_ATTR, style);
+    rootEl.setAttribute(RESULT_MOD_HIGHLIGHT_COLOR_ATTR, color);
   }
 
   setEnabled(enabled: boolean): void {
@@ -53,6 +68,8 @@ export class ResultModHighlighterAdapter {
     this.enabled = false;
     this.activeStatIds.clear();
     this.removeHighlights();
+    this.doc.documentElement?.removeAttribute(RESULT_MOD_HIGHLIGHT_STYLE_ATTR);
+    this.doc.documentElement?.removeAttribute(RESULT_MOD_HIGHLIGHT_COLOR_ATTR);
     removeResultEnhancementStyle('mod-highlight', this.doc);
   }
 

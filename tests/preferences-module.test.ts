@@ -44,6 +44,8 @@ describe('Preferences module interface', () => {
       marketTranslation: false,
       marketTranslationBilingual: true,
       marketTranslationResultBilingual: false,
+      resultModHighlightColor: 'indigo',
+      resultModHighlightStyle: 'glow',
       searchEntryClickAction: 'preview',
       sidebarModuleBookmarks: true,
       sidebarModuleHistory: true,
