@@ -116,16 +116,20 @@ export function getPageGuideTarget(id: PageGuideTargetId): PageGuideTarget {
   return PAGE_GUIDE_TARGETS[id];
 }
 
-function clipsOverflow(el: Element): boolean {
-  const style = getComputedStyle(el);
-  return [style.overflow, style.overflowX, style.overflowY].some(
-    (value) => value && value !== 'visible',
-  );
+function isScrollableOverflow(value: string): boolean {
+  return value === 'auto' || value === 'scroll';
+}
+
+function clipsAxis(value: string): boolean {
+  return Boolean(value && value !== 'visible');
 }
 
 /**
- * 寬高大於零、而且沒有被會裁切的父層整個切掉。
- * 官方收起篩選面板時，裡面的按鈕仍有尺寸，只是被高度 0 的容器裁掉。
+ * 寬高大於零、而且沒有被無法捲動的父層整個裁切掉。
+ * - 官方收起篩選面板（height: 0; overflow: hidden）或雙欄收合左欄（width: 0; overflow: hidden）會回傳 false。
+ * - 若祖先是可捲動容器（例如雙欄模式的 `.search-advanced` 為 `overflow-y: auto`），
+ *   即使目標目前位於捲動視窗外、且外層 `#trade`/`body` 為 `overflow: hidden`，
+ *   只要該可捲動容器本身有可視尺寸，目標仍可經由 `scrollIntoView()` 捲進畫面，因此視為可見。
  */
 function isVisible(el: Element): boolean {
   const rect = el.getBoundingClientRect();
@@ -135,13 +139,47 @@ function isVisible(el: Element): boolean {
   let left = rect.left;
   let right = rect.right;
   for (let node = el.parentElement; node; node = node.parentElement) {
-    if (!clipsOverflow(node)) continue;
+    const style = getComputedStyle(node);
+    const overflowX = style.overflowX || style.overflow;
+    const overflowY = style.overflowY || style.overflow;
+    const clipX = clipsAxis(overflowX);
+    const clipY = clipsAxis(overflowY);
+    if (!clipX && !clipY) continue;
     const clip = node.getBoundingClientRect();
-    top = Math.max(top, clip.top);
-    bottom = Math.min(bottom, clip.bottom);
-    left = Math.max(left, clip.left);
-    right = Math.min(right, clip.right);
-    if (bottom <= top || right <= left) return false;
+
+    if (clipY) {
+      if (clip.bottom <= clip.top) return false;
+      if (isScrollableOverflow(overflowY)) {
+        if (bottom <= clip.top || top >= clip.bottom) {
+          top = clip.top;
+          bottom = clip.bottom;
+        } else {
+          top = Math.max(top, clip.top);
+          bottom = Math.min(bottom, clip.bottom);
+        }
+      } else {
+        top = Math.max(top, clip.top);
+        bottom = Math.min(bottom, clip.bottom);
+        if (bottom <= top) return false;
+      }
+    }
+
+    if (clipX) {
+      if (clip.right <= clip.left) return false;
+      if (isScrollableOverflow(overflowX)) {
+        if (right <= clip.left || left >= clip.right) {
+          left = clip.left;
+          right = clip.right;
+        } else {
+          left = Math.max(left, clip.left);
+          right = Math.min(right, clip.right);
+        }
+      } else {
+        left = Math.max(left, clip.left);
+        right = Math.min(right, clip.right);
+        if (right <= left) return false;
+      }
+    }
   }
   return true;
 }

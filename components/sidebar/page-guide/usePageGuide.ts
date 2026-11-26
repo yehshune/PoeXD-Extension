@@ -360,7 +360,7 @@ export function createPageGuideSession(
     dispatchPoeEvent('poexd-toast', { message });
   };
 
-  const scrollIntoView = (el: Element): void => {
+  const scrollIntoView = (el: Element, { instant = false } = {}): void => {
     if (attachedHost.value?.scrollIntoView) {
       attachedHost.value.scrollIntoView(el);
       return;
@@ -368,7 +368,7 @@ export function createPageGuideSession(
     el.scrollIntoView?.({
       block: 'center',
       inline: 'nearest',
-      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      behavior: instant || prefersReducedMotion() ? 'auto' : 'smooth',
     });
   };
 
@@ -670,6 +670,8 @@ export function createPageGuideSession(
       const triggerBtn = queryPage('.poexd-filter-select-btn, .poexd-category-select-btn');
       if (!triggerBtn) return;
 
+      // 雙欄模式下按鈕可能位於左欄捲動區外；立即捲動到視線中央再量取游標座標（含重播）
+      scrollIntoView(triggerBtn, { instant: true });
       const btnCenter = centerOf(triggerBtn);
       if (
         !(await moveAndPressCursor(btnCenter, alive, {
@@ -765,6 +767,7 @@ export function createPageGuideSession(
       if (!alive()) return;
 
       const insertedRow = queryPage('[data-poexd-page-guide-demo="true"]');
+      if (insertedRow) scrollIntoView(insertedRow, { instant: true });
       setDemoElements({
         spotlight: null,
         ring: insertedRow ?? triggerBtn,
@@ -795,12 +798,21 @@ export function createPageGuideSession(
       }
     }
     if (!key) return;
+    const triggerSelector = `[data-poexd-page-guide-demo="true"] .poexd-tier-trigger[data-tier-slot-key="${key}"]`;
+    const initialTrigger = queryPage(triggerSelector);
+    const initialDemoRow =
+      initialTrigger?.closest<HTMLElement>('[data-poexd-page-guide-demo="true"]') ??
+      queryPage('[data-poexd-page-guide-demo="true"]');
+    // 先把示範詞綴列捲進可視區再展開 T 階下拉選單，避免雙欄左欄未捲動時選單錨點落在視窗外
+    if (initialDemoRow ?? initialTrigger) {
+      scrollIntoView((initialDemoRow ?? initialTrigger)!, { instant: true });
+    }
     demoStateWritable.tierTriggerSlotKey = key;
     demoStateWritable.tierMenuSlotKey = key;
     await nextTick();
-    const triggerSelector = `[data-poexd-page-guide-demo="true"] .poexd-tier-trigger[data-tier-slot-key="${key}"]`;
-    const trigger = queryPage(triggerSelector);
-    const demoRow = trigger?.closest<HTMLElement>('[data-poexd-page-guide-demo="true"]') ?? null;
+    const trigger = queryPage(triggerSelector) ?? initialTrigger;
+    const demoRow =
+      trigger?.closest<HTMLElement>('[data-poexd-page-guide-demo="true"]') ?? initialDemoRow;
     for (let i = 0; i < 15; i += 1) {
       const menu = querySidebar('[data-slot="dropdown-menu-content"][data-state="open"]');
       if (menu && menu.getBoundingClientRect().width > 0) {
@@ -962,7 +974,11 @@ export function createPageGuideSession(
     }
     const found = step.targetId ? await locate(step.targetId) : null;
     if (token !== runToken) return;
-    if (found) scrollIntoView(found);
+    if (found) {
+      scrollIntoView(found, {
+        instant: step.demo === 'affix-selector' || step.demo === 'tier-menu',
+      });
+    }
     stateWritable.mode = 'tour';
     stateWritable.stepIndex = index;
     stateWritable.stepId = step.id;

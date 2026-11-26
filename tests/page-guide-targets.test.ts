@@ -44,6 +44,51 @@ describe('findPageGuideElement', () => {
     expect(findPageGuideElement(target, { page: document, sidebar: null })).toBeNull();
   });
 
+  it('finds elements currently below the fold inside a scrollable container wrapped by overflow:hidden (two-column mode)', () => {
+    document.body.innerHTML = `
+      <div id="trade" style="overflow: hidden">
+        <div class="search-advanced" style="overflow-y: auto; overflow-x: hidden">
+          <button class="poexd-filter-select-btn" id="btn"></button>
+        </div>
+      </div>
+    `;
+    const trade = document.getElementById('trade')!;
+    const adv = document.querySelector('.search-advanced')!;
+    const btn = document.getElementById('btn')!;
+    trade.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 900, left: 0, right: 1600, width: 1600, height: 900 }) as DOMRect;
+    adv.getBoundingClientRect = () =>
+      ({ top: 100, bottom: 860, left: 0, right: 760, width: 760, height: 760 }) as DOMRect;
+    // 按鈕位於捲動容器的可視範圍外（下方），但可透過 scrollIntoView 捲進畫面
+    btn.getBoundingClientRect = () =>
+      ({ top: 2200, bottom: 2228, left: 700, right: 728, width: 28, height: 28 }) as DOMRect;
+
+    const target = getPageGuideTarget('affix-selector');
+    expect(findPageGuideElement(target, { page: document, sidebar: null })).toBe(btn);
+  });
+
+  it('still skips elements inside a collapsed hidden group even when an outer ancestor is scrollable', () => {
+    document.body.innerHTML = `
+      <div class="search-advanced" style="overflow-y: auto">
+        <div class="collapsed-group" style="overflow: hidden">
+          <button class="poexd-filter-select-btn" id="btn"></button>
+        </div>
+      </div>
+    `;
+    const adv = document.querySelector('.search-advanced')!;
+    const group = document.querySelector('.collapsed-group')!;
+    const btn = document.getElementById('btn')!;
+    adv.getBoundingClientRect = () =>
+      ({ top: 100, bottom: 860, left: 0, right: 760, width: 760, height: 760 }) as DOMRect;
+    group.getBoundingClientRect = () =>
+      ({ top: 200, bottom: 200, left: 0, right: 760, width: 760, height: 0 }) as DOMRect;
+    btn.getBoundingClientRect = () =>
+      ({ top: 210, bottom: 238, left: 700, right: 728, width: 28, height: 28 }) as DOMRect;
+
+    const target = getPageGuideTarget('affix-selector');
+    expect(findPageGuideElement(target, { page: document, sidebar: null })).toBeNull();
+  });
+
   it('looks inside the sidebar root for sidebar targets', () => {
     const host = document.createElement('div');
     const shadow = host.attachShadow({ mode: 'open' });

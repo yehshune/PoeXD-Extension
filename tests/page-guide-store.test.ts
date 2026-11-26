@@ -1093,4 +1093,92 @@ describe('deterministic interactive demo scripts', () => {
       document.documentElement.removeAttribute('data-poexd-two-column-collapsed');
     }
   });
+
+  it('scrolls both trigger button and inserted demo row into view during affix-selector demo and scrolls demo row before tier-menu', async () => {
+    const affixStep: PageGuideTourStep = {
+      id: 'affix-selector',
+      targetId: 'affix-selector',
+      titleKey: 'pageGuide.tour.affixSelector.title',
+      bodyKey: 'pageGuide.tour.affixSelector.body',
+      demo: 'affix-selector',
+    };
+    const tierStep: PageGuideTourStep = {
+      id: 'tier',
+      targetId: 'tier-trigger',
+      titleKey: 'pageGuide.tour.tier.title',
+      bodyKey: 'pageGuide.tour.tier.body',
+      demo: 'tier-menu',
+      demoTargetId: 'tier-menu',
+    };
+
+    const sidebarRoot = document.createElement('div');
+    document.body.appendChild(sidebarRoot);
+
+    const triggerBtn = addElement('<button class="poexd-filter-select-btn"></button>');
+    visible(triggerBtn, { top: 200, left: 20, width: 32, height: 32 });
+
+    const affixDialog = document.createElement('div');
+    affixDialog.setAttribute('data-sidebar-dialog', 'affix');
+    affixDialog.innerHTML = `
+      <button data-filter-action="open-type-dialog"></button>
+      <input data-filter-search />
+      <div data-mod-id="mod-life"><button data-mod-action="add-now"></button></div>
+    `;
+    const typeBtn = affixDialog.querySelector('[data-filter-action="open-type-dialog"]')!;
+    const searchInput = affixDialog.querySelector('[data-filter-search]')!;
+    const modRow = affixDialog.querySelector('[data-mod-id="mod-life"]')!;
+    const addNowBtn = affixDialog.querySelector('[data-mod-action="add-now"]')!;
+    [affixDialog, typeBtn, searchInput, modRow, addNowBtn].forEach((el) => visible(el));
+
+    const handle: FilterPaneDemoHandle = {
+      isLoading: () => false,
+      getSnapshot: () => ({ selectedType: 'helmet', searchQuery: '' }),
+      restoreSnapshot: vi.fn(),
+      selectTypeForDemo: vi.fn(),
+      setSearchQueryForDemo: vi.fn(),
+      findDemoLifeMod: () => ({ id: 'mod-life', label: '+# 最大生命' }),
+    };
+
+    let demoRow: Element | null = null;
+    const scrolledEls: Element[] = [];
+
+    const host = createFakeHost({
+      getSidebarRoot: () => sidebarRoot,
+      openAffixModal: () => {
+        if (!affixDialog.isConnected) sidebarRoot.appendChild(affixDialog);
+      },
+      closeAffixModal: () => {
+        affixDialog.remove();
+      },
+      getFilterPaneHandle: () => handle,
+      scrollIntoView: (el) => {
+        scrolledEls.push(el);
+      },
+      requestDemo: vi.fn(async (action) => {
+        if (action === 'add-stat-filter') {
+          demoRow = addElement(
+            '<div class="filter" data-poexd-page-guide-demo="true"><button class="poexd-tier-trigger" data-tier-slot-key="slot-scroll"></button></div>',
+          );
+          visible(demoRow);
+          visible(demoRow.querySelector('.poexd-tier-trigger')!);
+        }
+        return true;
+      }),
+    });
+
+    const guide = createPageGuideSession(host, { steps: [affixStep, tierStep] });
+    await guide.startTour();
+    // 等待非同步 playAffixSelectorDemo 播完（fake host wait 為立即 resolve）
+    await vi.waitFor(() => {
+      expect(guide.setup.demoPlaying).toBe(false);
+    });
+
+    expect(scrolledEls).toContain(triggerBtn);
+    expect(demoRow).not.toBeNull();
+    expect(scrolledEls).toContain(demoRow!);
+
+    scrolledEls.length = 0;
+    await guide.nextStep();
+    expect(scrolledEls).toContain(demoRow!);
+  });
 });
