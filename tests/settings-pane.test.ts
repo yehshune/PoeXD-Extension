@@ -472,7 +472,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(snapshot?.enablePriceComparison).toBe(true);
     expect(snapshot?.enableResultModHighlight).toBe(true);
     expect(snapshot?.enableResultModQuickFilter).toBe(true);
-    expect(snapshot?.enablePureBackground).toBe(true);
+    expect(snapshot?.enablePureBackground).toBe(false);
     expect(snapshot?.marketTranslation).toBe(false);
   });
 
@@ -1658,7 +1658,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     // Unrelated preference update triggers snapshot notification
     await currentModule!.update({
-      enablePureBackground: false,
+      enablePureBackground: true,
     });
     await flushAsync();
 

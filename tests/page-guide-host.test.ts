@@ -415,7 +415,7 @@ describe('PageGuideSetupControls market translation preview', () => {
     expect(preview()).toContain('附加 20 至 31 冰霜伤害');
   });
 
-  it('toggles compact density in the appearance setup step', async () => {
+  it('toggles compact density and pure background in the appearance setup step', async () => {
     const state = ref<PageGuideSetupBindings>({
       displayLocale: 'zh-TW',
       marketTranslation: false,
@@ -425,6 +425,7 @@ describe('PageGuideSetupControls market translation preview', () => {
       sidebarPosition: 'left',
       fontSizeScale: 1,
       compactDensity: false,
+      enablePureBackground: false,
       resultFeatures: Object.fromEntries(
         RESULT_FEATURE_KEYS.map((k) => [k, true]),
       ) as ResultFeatureFlags,
@@ -437,6 +438,9 @@ describe('PageGuideSetupControls market translation preview', () => {
       setFontSizeScale: vi.fn(),
       setCompactDensity: (v) => {
         state.value = { ...state.value, compactDensity: v };
+      },
+      setEnablePureBackground: (v) => {
+        state.value = { ...state.value, enablePureBackground: v };
       },
       setResultFeature: vi.fn(),
       replayCollapseDemo: vi.fn(),
@@ -456,5 +460,16 @@ describe('PageGuideSetupControls market translation preview', () => {
     await flush();
     expect(state.value.compactDensity).toBe(true);
     expect(compactToggle?.getAttribute('aria-checked')).toBe('true');
+
+    const pureBgToggle = container.querySelector<HTMLElement>(
+      '[data-setup-action="pure-background"]',
+    );
+    expect(pureBgToggle).not.toBeNull();
+    expect(pureBgToggle?.getAttribute('aria-checked')).toBe('false');
+
+    pureBgToggle?.click();
+    await flush();
+    expect(state.value.enablePureBackground).toBe(true);
+    expect(pureBgToggle?.getAttribute('aria-checked')).toBe('true');
   });
 });

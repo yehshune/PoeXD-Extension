@@ -328,7 +328,7 @@ export const PREFERENCE_SCHEMA = Object.freeze({
   },
   enablePureBackground: {
     scope: 'global',
-    default: true,
+    default: false,
     validate: isBoolean,
     legacyVersionedGlobal: true,
   },

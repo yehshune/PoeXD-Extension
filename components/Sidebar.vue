@@ -538,6 +538,7 @@ export default defineComponent({
     });
     const resultFeatures = shallowRef<ResultFeatureFlags>(readResultFeatures(DEFAULT_PREFERENCES));
     const densityScale = ref(1.0);
+    const enablePureBackground = ref(DEFAULT_PREFERENCES.enablePureBackground);
     const activeTab = ref('bookmark');
     const primaryActiveTab = ref<LiveSearchPrimaryTab>('connections');
     // 主控台的釘選 pane 第一次打開才掛載
@@ -785,6 +786,7 @@ export default defineComponent({
           resultFeatures.value = nextResultFeatures;
         }
         densityScale.value = snapshot.densityScale;
+        enablePureBackground.value = snapshot.enablePureBackground === true;
         marketTranslation.value = snapshot.marketTranslation === true;
         marketTranslationBilingual.value = snapshot.marketTranslationBilingual !== false;
         marketTranslationResultBilingual.value = snapshot.marketTranslationResultBilingual === true;
@@ -1144,6 +1146,7 @@ export default defineComponent({
       sidebarPosition: sidebarPosition.value,
       fontSizeScale: fontSizeScale.value,
       compactDensity: densityScale.value === 0.8,
+      enablePureBackground: enablePureBackground.value,
       resultFeatures: resultFeatures.value,
       demoPlaying: demoPlaying.value,
       demoCursor: demoCursor.value,
@@ -1158,6 +1161,8 @@ export default defineComponent({
         void updatePreference({ fontSizeScale: clampFontSizeScale(value) }, '字體大小'),
       setCompactDensity: (value) =>
         void updatePreference({ densityScale: value ? 0.8 : 1 }, '緊湊介面'),
+      setEnablePureBackground: (value) =>
+        void updatePreference({ enablePureBackground: value }, '隱藏官方網頁背景'),
       setResultFeature: (key, value) => void updatePreference({ [key]: value }, '結果列功能'),
       replayCollapseDemo: () => void playCollapseDemo(),
       replayStepDemo,

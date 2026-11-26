@@ -49,6 +49,7 @@ export interface PageGuideSetupBindings {
   sidebarPosition: SidebarPosition;
   fontSizeScale: number;
   compactDensity?: boolean;
+  enablePureBackground?: boolean;
   resultFeatures: ResultFeatureFlags;
   /** 步驟示範播放中（供「再看一次示範」禁用與游標顯示） */
   demoPlaying?: boolean;
@@ -62,6 +63,7 @@ export interface PageGuideSetupBindings {
   /** 設定縮放比例（例如 1.05） */
   setFontSizeScale: (value: number) => void;
   setCompactDensity?: (value: boolean) => void;
+  setEnablePureBackground?: (value: boolean) => void;
   setResultFeature: (key: ResultFeatureKey, value: boolean) => void;
   replayCollapseDemo: () => void;
   replayStepDemo?: (stepId: string) => void;

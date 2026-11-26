@@ -236,6 +236,21 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
           @update:model-value="(value: boolean) => bindings.setCompactDensity?.(value)"
         />
       </div>
+
+      <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
+        <label
+          for="page-guide-pure-background"
+          :class="[rowLabelClass, 'cursor-pointer select-none']"
+        >
+          {{ t('settings.pureBackground.label') }}
+        </label>
+        <Switch
+          id="page-guide-pure-background"
+          :model-value="Boolean(bindings.enablePureBackground)"
+          data-setup-action="pure-background"
+          @update:model-value="(value: boolean) => bindings.setEnablePureBackground?.(value)"
+        />
+      </div>
     </template>
 
     <Button
