@@ -32,9 +32,10 @@ import { loadPairedLineShard } from './paired-line-shards';
 import { POB_SHARE_OPTIONAL_ORIGINS } from './pob-share-url';
 import { createTradeNameCatalog, type TradeNameCatalog } from './pob-shopping-list';
 import {
-  getPobbinGameLabels,
+  lookupPobSummaryLabel,
   POBBIN_OFFICIAL_LABEL_ALIASES,
   translatePobSummaryToken,
+  translateTimelessConqueredLine,
 } from './pobbin-pob-terms';
 import { resolveStoredDisplayLocale } from './preferences-contract';
 import {
@@ -275,15 +276,16 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
   };
 
   const translatePropertyLabel = (raw: string): string | null => {
-    // pobb.in 縮寫優先轉查官方全稱（例如 Crit Chance → Critical Strike Chance），確保優先採用官方譯文
+    // 1. pobb.in 縮寫優先轉查官方全稱（例如 Crit Chance → Critical Strike Chance）
     const alias = POBBIN_OFFICIAL_LABEL_ALIASES[raw];
     if (alias) {
       const official = data.labelLookup.translateText(alias);
       if (official) return official;
     }
+    // 2. 直接查官方資料（result-labels / trade-filters / trade-ui）
     const direct = data.labelLookup.translateText(raw);
     if (direct) return direct;
-    // 官方資料有時只收帶冒號的版本（例如 `Pantheon:` → `眾神殿：`），而 pobb.in 把冒號拆在隔壁 span
+    // 3. 官方資料有時只收帶冒號的版本（例如 `Pantheon:` → `眾神殿：`），而 pobb.in 把冒號拆在隔壁 span
     if (!raw.endsWith(':')) {
       const withColon = data.labelLookup.translateText(`${raw}:`);
       if (withColon) return withColon.replace(/[：:]\s*$/, '');
@@ -295,7 +297,8 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
       const result = `${qualityText} (${innerText})${qualityMatch[2]}`;
       return result !== raw ? result : null;
     }
-    return null;
+    // 4. 最後備援：官方資料表沒有的 PoB 摘要／Max Hit 統計標籤
+    return lookupPobSummaryLabel(raw, locale);
   };
 
   const translateSingleLine = (line: string): string | null => {
@@ -308,7 +311,8 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     if (mod) return mod;
     return (
       translatePropertyLabel(trimmed) ??
-      (normalized !== trimmed ? translatePropertyLabel(normalized) : null)
+      (normalized !== trimmed ? translatePropertyLabel(normalized) : null) ??
+      translateTimelessConqueredLine(trimmed, locale)
     );
   };
 
@@ -722,7 +726,6 @@ export async function loadPobbinTranslatorData(
       ? (zhFiltersRaw.fields as Record<string, string>)
       : undefined;
   const mergedLabels: Record<string, string> = {
-    ...getPobbinGameLabels(locale),
     ...resultLabels.labels,
     ...fieldLabels(enFiltersRaw, zhFilterFields),
     ...uiStrings,

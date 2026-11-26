@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { createLabelLookup } from '@/utils/market-result-labels';
 import { createModLineTranslator } from '@/utils/pob-mod-translator';
 import { createTradeNameCatalog } from '@/utils/pob-shopping-list';
-import { getPobbinGameLabels } from '@/utils/pobbin-pob-terms';
 import {
   createPobbinTranslator,
   extractPassiveNameMap,
@@ -93,7 +92,6 @@ function makeTestTranslatorData(bilingual = true): PobbinTranslatorData {
   };
 
   const labels = {
-    ...getPobbinGameLabels('zh-TW'),
     Quality: '品質',
     'Quality:': '品質：',
     Armour: '護甲',
@@ -101,6 +99,7 @@ function makeTestTranslatorData(bilingual = true): PobbinTranslatorData {
     Life: '生命',
     Mana: '魔力',
     DPS: '每秒造成傷害',
+    'Energy Shield': '能量護盾',
     Resistance: '抗性',
     'Critical Strike Chance': '暴擊率',
     'Pantheon:': '眾神殿：',
@@ -537,7 +536,7 @@ describe('createPobbinTranslator', () => {
           <div class="inline-block"><span>Hit Rate</span><span>: </span><span>4.31</span></div>
           <div class="inline-block">
             <span>Config</span><span>: </span>
-            <div class="contents"><span><span>10% Shock, Custom Mods</span></span></div>
+            <div class="contents"><span><span>10% Shock, 20 Fortify, Custom Mods</span></span></div>
             <div class="pointer-events-none"><span>Graft</span></div>
           </div>
           <div class="inline-block"><span>Bandit</span><span>: </span><span><span>Kill All</span></span></div>
@@ -570,7 +569,7 @@ describe('createPobbinTranslator', () => {
       '物理最大承傷: 23,165\n混沌最大承傷: 26,061',
     );
     expect(document.querySelector('.inline-block .contents')?.textContent).toBe(
-      '10% 感電、自訂詞綴',
+      '10% 感電、20 層護體、自訂詞綴',
     );
     expect(
       Array.from(document.querySelectorAll('main [data-route] .inline-block')).at(-1)
