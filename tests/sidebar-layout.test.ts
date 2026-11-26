@@ -1,11 +1,14 @@
 // @vitest-environment happy-dom
 import { readFileSync } from 'node:fs';
+import { createApp, defineComponent, h, ref } from 'vue';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { createUiRuntimeTokenValues } from '@/lib/tokens';
+import { useSidebarGeometry } from '@/components/sidebar/composables/useSidebarGeometry';
 import {
   mountSidebarLayout,
   reserveSidebarPageLayout,
 } from '@/entrypoints/content/logic/sidebar-layout';
+import { initToastHost } from '@/entrypoints/content/logic/toast-host';
 import { injectCustomStyles } from '@/entrypoints/content/logic/injected-controls';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { readSidebarViewportInsets } from '@/utils/sidebar-viewport-insets';
@@ -445,6 +448,90 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
     expect(contentEl.style.getPropertyValue('transition')).toBe('none');
   });
 
+  it('syncs poexd-toast-container insets cleanly whether initToastHost mounts before reserveSidebarPageLayout or after mountSidebarLayout', async () => {
+    // 情境 A：initToastHost 早於 reserveSidebarPageLayout（實際啟動順序），不得把 inline 鎖死在 0px
+    const cleanupEarlyToast = initToastHost();
+    layoutCleanups.push(cleanupEarlyToast);
+
+    const earlyToastHost = document.querySelector<HTMLElement>('poexd-toast-container')!;
+    expect(earlyToastHost).not.toBeNull();
+    expect(earlyToastHost.style.getPropertyValue('--poexd-toast-inset-left')).toBe('');
+
+    const prefs = createMockPreferences({ sidebarPosition: 'left', sidebarWidth: 420 });
+    const removeReserve = await reserveSidebarPageLayout('poe1', prefs);
+    expect(earlyToastHost.style.getPropertyValue('--poexd-toast-inset-left')).toBe('420px');
+    expect(earlyToastHost.style.getPropertyValue('--poexd-toast-inset-right')).toBe('0px');
+
+    // 無 .content fallback 分支下 mountSidebarLayout 與 width preview 也會同步更新 toastHost
+    const stop = await mountSidebarLayout(createMockCtx(), 'poe1', prefs);
+    if (stop) layoutCleanups.push(stop);
+    dispatchPoeEvent('poexd-sidebar-width-preview', 510);
+    expect(earlyToastHost.style.getPropertyValue('--poexd-toast-inset-left')).toBe('510px');
+
+    cleanupEarlyToast();
+
+    // 情境 B：initToastHost 晚於 mountSidebarLayout 才掛載時，立刻繼承最新記錄的 inset
+    const cleanupLateToast = initToastHost();
+    layoutCleanups.push(cleanupLateToast);
+    const lateToastHost = document.querySelector<HTMLElement>('poexd-toast-container')!;
+    expect(lateToastHost.style.getPropertyValue('--poexd-toast-inset-left')).toBe('510px');
+    expect(lateToastHost.style.getPropertyValue('--poexd-toast-inset-right')).toBe('0px');
+
+    removeReserve();
+  });
+});
+
+describe('useSidebarGeometry drag token deferral', () => {
+  it('keeps runtimeTokens --pxd-sidebar-width stable during active drag and syncs it on mouseup', async () => {
+    const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(16);
+      return 1;
+    });
+    const updatePref = vi.fn(async () => ({ ok: true }));
+    const host = document.createElement('div');
+    let geometry!: ReturnType<typeof useSidebarGeometry>;
+    const app = createApp(
+      defineComponent({
+        setup() {
+          geometry = useSidebarGeometry({
+            isCollapsed: ref(false),
+            sidebarPosition: ref<'left' | 'right'>('left'),
+            sidebarWidth: ref(420),
+            fontSizeScale: ref(1),
+            previewFontSizeScale: ref<number | null>(null),
+            densityScale: ref(1),
+            getPreferencesModule: () => ({ update: updatePref }) as any,
+            onExpandFromTab: vi.fn(),
+          });
+          return () => h('div');
+        },
+      }),
+    );
+
+    try {
+      app.mount(host);
+      expect(geometry.runtimeTokens.value['--pxd-sidebar-width']).toBe('420px');
+
+      geometry.handleResizeStart(new MouseEvent('mousedown', { clientX: 420 }));
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 500 }));
+      await Promise.resolve();
+
+      // 拖曳期間外框寬度即時更新，但整包 Shadow DOM runtimeTokens 維持 420px 不重算
+      expect(geometry.actualWidth.value).toBe(500);
+      expect(geometry.runtimeTokens.value['--pxd-sidebar-width']).toBe('420px');
+
+      // 放開滑鼠後一次補齊 --pxd-sidebar-width 並寫入偏好
+      window.dispatchEvent(new MouseEvent('mouseup', { clientX: 500 }));
+      expect(geometry.runtimeTokens.value['--pxd-sidebar-width']).toBe('500px');
+      expect(updatePref).toHaveBeenCalledWith({ sidebarWidth: 500 });
+    } finally {
+      app.unmount();
+      rafSpy.mockRestore();
+    }
+  });
+});
+
+describe('injectCustomStyles offscreen result virtualization', () => {
   it('injects offscreen content-visibility virtualization for official result rows excluding page-guide mock', () => {
     document.getElementById('poexd-custom-style')?.remove();
     injectCustomStyles();

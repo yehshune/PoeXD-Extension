@@ -235,6 +235,9 @@ describe('createTwoColumnLayoutController', () => {
     expect(css).toContain('overscroll-behavior: contain !important;');
     expect(css).toContain('contain: paint !important;');
     expect(css).toContain('contain: strict !important;');
+    // 雙欄 .results 容器與離屏虛擬化必須排除導覽示意卡，避免 contain: strict 讓示意卡塌陷成 0px
+    expect(css).toContain('#trade .results:not([data-poexd-guide-mock]) {');
+    expect(css).toContain('#trade .results:not([data-poexd-guide-mock]) .resultset > .row');
     expect(css).toContain('display: flow-root !important;');
     expect(css).toContain('height: 100vh !important;');
     expect(css).toContain('overflow-y: auto !important;');

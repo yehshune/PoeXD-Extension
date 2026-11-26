@@ -14,6 +14,7 @@ import {
   TWO_COLUMN_COLUMN_GAP,
   TWO_COLUMN_DEFAULT_FILTER_WIDTH,
 } from '@/utils/two-column-layout';
+import { PAGE_GUIDE_MOCK_ATTR } from '@/utils/trade-results-root';
 import { CONSOLE_RESULT_ONLY_ATTR } from './live-search-console-host-guard';
 
 export const TWO_COLUMN_STYLE_ID = 'poexd-two-column-layout-style';
@@ -624,7 +625,7 @@ export function buildTwoColumnLayoutCss(): string {
       display: contents !important;
     }
 
-    ${ACTIVE_SCOPE} #trade .results {
+    ${ACTIVE_SCOPE} #trade .results:not([${PAGE_GUIDE_MOCK_ATTR}]) {
       grid-column: 2 !important;
       grid-row: 2 !important;
       min-width: 0 !important;
@@ -673,7 +674,7 @@ export function buildTwoColumnLayoutCss(): string {
     }
 
     /* 結果列離屏虛擬化：80～100 筆結果（上萬 DOM 節點）時跳過畫面外卡片的排版與繪製，避免拖慢側邊欄與結果區捲動 */
-    ${ACTIVE_SCOPE} #trade .results .resultset > .row {
+    ${ACTIVE_SCOPE} #trade .results:not([${PAGE_GUIDE_MOCK_ATTR}]) .resultset > .row {
       content-visibility: auto !important;
       contain-intrinsic-block-size: auto 280px !important;
     }

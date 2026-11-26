@@ -10,8 +10,12 @@ import { DEFAULT_THEME_ID, THEME_ATTRIBUTE } from '@/lib/theme/theme-contract';
 import { findThemeHost } from '@/lib/theme/page-theme-bridge';
 import { syncUiRuntimeTokens } from '@/lib/tokens';
 import {
+  SIDEBAR_INSET_LEFT_ATTR,
   SIDEBAR_INSET_LEFT_VAR,
+  SIDEBAR_INSET_RIGHT_ATTR,
   SIDEBAR_INSET_RIGHT_VAR,
+  SIDEBAR_LAYOUT_STYLE_ID,
+  TOAST_HOST_TAG,
   readSidebarViewportInsets,
 } from '@/utils/sidebar-viewport-insets';
 import { appendShadowHostStyle } from './shadow-host-style';
@@ -176,12 +180,20 @@ export function initToastHost(
         scale: currentScale,
         density: currentDensity,
       });
-      const insets = readSidebarViewportInsets();
-      if (!host.style.getPropertyValue(SIDEBAR_INSET_LEFT_VAR)) {
-        host.style.setProperty(SIDEBAR_INSET_LEFT_VAR, `${insets.left}px`);
-      }
-      if (!host.style.getPropertyValue(SIDEBAR_INSET_RIGHT_VAR)) {
-        host.style.setProperty(SIDEBAR_INSET_RIGHT_VAR, `${insets.right}px`);
+      const layoutStyle = document.getElementById(SIDEBAR_LAYOUT_STYLE_ID);
+      const hasRecordedInsets = Boolean(
+        layoutStyle &&
+        (layoutStyle.hasAttribute(SIDEBAR_INSET_LEFT_ATTR) ||
+          layoutStyle.hasAttribute(SIDEBAR_INSET_RIGHT_ATTR)),
+      );
+      if (hasRecordedInsets) {
+        const insets = readSidebarViewportInsets();
+        if (!host.style.getPropertyValue(SIDEBAR_INSET_LEFT_VAR)) {
+          host.style.setProperty(SIDEBAR_INSET_LEFT_VAR, `${insets.left}px`);
+        }
+        if (!host.style.getPropertyValue(SIDEBAR_INSET_RIGHT_VAR)) {
+          host.style.setProperty(SIDEBAR_INSET_RIGHT_VAR, `${insets.right}px`);
+        }
       }
 
       if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
@@ -205,7 +217,7 @@ export function initToastHost(
 
     if (typeof createShadowRootUi === 'function' && ctx) {
       const ui = await createShadowRootUi(ctx, {
-        name: 'poexd-toast-container',
+        name: TOAST_HOST_TAG,
         position: 'inline',
         anchor: 'body',
         onMount: (container: HTMLElement, shadow: ShadowRoot, host: HTMLElement) => {
@@ -229,7 +241,7 @@ export function initToastHost(
       ui.mount();
     } else {
       if (disposed) return;
-      const host = document.createElement('poexd-toast-container');
+      const host = document.createElement(TOAST_HOST_TAG);
       const shadow = host.attachShadow({ mode: 'open' });
       activeToastShadowRoot = shadow;
       appendShadowHostStyle(shadow, hostCss);

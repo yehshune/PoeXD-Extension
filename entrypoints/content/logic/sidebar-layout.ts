@@ -90,18 +90,19 @@ function syncLayoutInsetAttrs(
   }
 }
 
+function syncToastHostInsets(marginLeft: number, marginRight: number): void {
+  const toastHost = document.querySelector<HTMLElement>(TOAST_HOST_TAG);
+  if (!toastHost) return;
+  toastHost.style.setProperty(SIDEBAR_INSET_LEFT_VAR, `${marginLeft}px`);
+  toastHost.style.setProperty(SIDEBAR_INSET_RIGHT_VAR, `${marginRight}px`);
+}
+
 function applyDirectContentLayout(contentEl: HTMLElement, state: PageLayoutState): void {
   const { pageWidth, pageMarginLeft, pageMarginRight } = resolvePageLayoutMetrics(state);
   contentEl.style.setProperty('transition', 'none', 'important');
   contentEl.style.setProperty('width', pageWidth, 'important');
   contentEl.style.setProperty('margin-left', `${pageMarginLeft}px`, 'important');
   contentEl.style.setProperty('margin-right', `${pageMarginRight}px`, 'important');
-
-  const toastHost = document.querySelector<HTMLElement>(TOAST_HOST_TAG);
-  if (toastHost) {
-    toastHost.style.setProperty(SIDEBAR_INSET_LEFT_VAR, `${pageMarginLeft}px`);
-    toastHost.style.setProperty(SIDEBAR_INSET_RIGHT_VAR, `${pageMarginRight}px`);
-  }
 }
 
 function clearDirectContentLayout(contentEl: HTMLElement | null): void {
@@ -149,6 +150,7 @@ export async function reserveSidebarPageLayout(
   const layoutStyle = ensureLayoutStyle();
   const metrics = resolvePageLayoutMetrics(state);
   syncLayoutInsetAttrs(layoutStyle, metrics.pageMarginLeft, metrics.pageMarginRight);
+  syncToastHostInsets(metrics.pageMarginLeft, metrics.pageMarginRight);
   layoutStyle.textContent = buildPageLayoutCss(state);
   return remove;
 }
@@ -296,6 +298,7 @@ export async function mountSidebarLayout(
     };
     const metrics = resolvePageLayoutMetrics(state);
     syncLayoutInsetAttrs(layoutStyle, metrics.pageMarginLeft, metrics.pageMarginRight);
+    syncToastHostInsets(metrics.pageMarginLeft, metrics.pageMarginRight);
 
     const contentEl = document.querySelector<HTMLElement>('.content');
     if (contentEl) {
