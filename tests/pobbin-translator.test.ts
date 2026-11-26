@@ -10,6 +10,7 @@ import {
   extractPassiveNameMap,
   isPobbinAssetPath,
   loadPobbinTranslatorData,
+  POBBIN_ENGLISH_SUBTITLE_CLASS,
   POBBIN_ORIGIN,
   POBBIN_TRANSLATION_SCRIPT_FILE,
   POBBIN_TRANSLATION_SCRIPT_ID,
@@ -138,23 +139,23 @@ describe('resolvePobbinTranslationConfig', () => {
     ).toBeNull();
   });
 
-  it('啟用市集漢化且顯示語言為繁中／簡中時回傳對應設定與雙語旗標', () => {
+  it('啟用市集漢化且顯示語言為繁中／簡中時，雙語旗標與搜尋結果中英並列同步', () => {
     expect(
       resolvePobbinTranslationConfig({
         stored: { marketTranslation: true, displayLocale: 'zh-TW' },
       }),
-    ).toEqual({ locale: 'zh-TW', bilingual: true });
+    ).toEqual({ locale: 'zh-TW', bilingual: false });
 
     expect(
       resolvePobbinTranslationConfig({
         stored: {
           marketTranslation: true,
-          marketTranslationBilingual: false,
+          marketTranslationResultBilingual: true,
           displayLocale: 'auto',
         },
         browserLocale: 'zh-CN',
       }),
-    ).toEqual({ locale: 'zh-CN', bilingual: false });
+    ).toEqual({ locale: 'zh-CN', bilingual: true });
   });
 
   it('顯示語言不是中文時回傳 null', () => {
@@ -231,14 +232,26 @@ describe('createPobbinTranslator', () => {
     const stop = translator.observe(document);
 
     expect(
-      Array.from(document.querySelectorAll('[data-gem-id]')).map((el) => el.textContent),
-    ).toEqual(['灰燼之捷 (Herald of Ash)', '啟蒙輔助 (Enlighten)']);
-    expect(document.querySelector('.min-w-48 > div:first-child')?.textContent).toBe(
-      '啟蒙輔助 (Enlighten)',
+      Array.from(document.querySelectorAll('[data-gem-id]')).map((el) => [
+        el.firstChild?.textContent,
+        el.querySelector(`.${POBBIN_ENGLISH_SUBTITLE_CLASS}`)?.textContent,
+      ]),
+    ).toEqual([
+      ['灰燼之捷', 'Herald of Ash'],
+      ['啟蒙輔助', 'Enlighten'],
+    ]);
+    expect(document.querySelector('.min-w-48 > div:first-child')?.firstChild?.textContent).toBe(
+      '啟蒙輔助',
     );
-    expect(document.querySelector('div[data-node-id] > span')?.textContent).toBe(
-      '烈士意志 (Unwavering Stance)',
-    );
+    expect(
+      document.querySelector(`.min-w-48 > div:first-child .${POBBIN_ENGLISH_SUBTITLE_CLASS}`)
+        ?.textContent,
+    ).toBe('Enlighten');
+    // 天賦節點標題維持純中文，不附英文副標
+    expect(document.querySelector('div[data-node-id] > span')?.textContent).toBe('烈士意志');
+    expect(
+      document.querySelector(`div[data-node-id] .${POBBIN_ENGLISH_SUBTITLE_CLASS}`),
+    ).toBeNull();
     expect(document.querySelector('.whitespace-pre-line')?.textContent).toBe(
       'Cannot Evade enemy Attacks\n不會被暈眩',
     );
@@ -283,8 +296,10 @@ describe('createPobbinTranslator', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     const popups = Array.from(host.querySelectorAll('.pob-item'));
-    expect(popups[0].querySelectorAll(':scope > div:first-child > div')[1].textContent).toBe(
-      '殘暴之斧 (Reaver Axe)',
+    const axeBase = popups[0].querySelectorAll(':scope > div:first-child > div')[1];
+    expect(axeBase.firstChild?.textContent).toBe('殘暴之斧');
+    expect(axeBase.querySelector(`.${POBBIN_ENGLISH_SUBTITLE_CLASS}`)?.textContent).toBe(
+      'Reaver Axe',
     );
     expect(popups[0].querySelector('ul:first-child span')?.textContent).toBe(
       '品質 (Life and Mana Modifiers):',
@@ -293,8 +308,10 @@ describe('createPobbinTranslator', () => {
       Array.from(popups[0].querySelectorAll('ul:nth-child(2) > li')).map((li) => li.textContent),
     ).toEqual(['增加 (100-129)% 物理傷害', '+(20-24) 敏捷和智慧', '減少 (21-22)% 攻擊的魔力消耗']);
 
-    expect(popups[1].querySelector(':scope > div:first-child > div')?.textContent).toBe(
-      '神聖生命藥劑 (Seething Divine Life Flask of Alleviation)',
+    const magicHeader = popups[1].querySelector(':scope > div:first-child > div');
+    expect(magicHeader?.firstChild?.textContent).toBe('Seething 神聖生命藥劑 of Alleviation');
+    expect(magicHeader?.querySelector(`.${POBBIN_ENGLISH_SUBTITLE_CLASS}`)?.textContent).toBe(
+      'Seething Divine Life Flask of Alleviation',
     );
     expect(Array.from(popups[1].querySelectorAll('ul > li')).map((li) => li.textContent)).toEqual([
       '每 0,41 秒造成魔力灼燒',
@@ -302,10 +319,20 @@ describe('createPobbinTranslator', () => {
     ]);
 
     expect(
-      Array.from(popups[2].querySelectorAll(':scope > div:first-child > div')).map(
-        (d) => d.textContent,
-      ),
-    ).toEqual(['致命之驕 (Lethal Pride) 11057; 7; Duelist', '永恆珠寶 (Timeless Jewel)']);
+      Array.from(popups[2].querySelectorAll(':scope > div:first-child > div')).map((d) => [
+        d.firstChild?.textContent,
+        d.querySelector(`.${POBBIN_ENGLISH_SUBTITLE_CLASS}`)?.textContent,
+      ]),
+    ).toEqual([
+      ['致命之驕 11057; 7; Duelist', 'Lethal Pride'],
+      ['永恆珠寶', 'Timeless Jewel'],
+    ]);
+
+    // 即時切換雙語開關：關閉後移除所有下方英文副標，再開啟立即恢復
+    translator.setBilingual(false);
+    expect(document.querySelectorAll(`.${POBBIN_ENGLISH_SUBTITLE_CLASS}`).length).toBe(0);
+    translator.setBilingual(true);
+    expect(document.querySelectorAll(`.${POBBIN_ENGLISH_SUBTITLE_CLASS}`).length).toBe(7);
 
     expect(document.querySelector('textarea')?.value).toBe('eNrtRawBuildCodeKeepUntouched');
     expect(document.querySelector('pre')?.textContent).toBe(
@@ -516,6 +543,37 @@ describe('createPobbinTranslator', () => {
     expect(document.querySelector('li[data-node-id]')?.textContent).toBe(
       '對傳奇敵人 +25% 暴擊加成',
     );
+  });
+
+  it('翻譯天賦預覽區的符文之結與紋身卡片（標題與多行效果）', () => {
+    const data = makeTestTranslatorData(false);
+    const items = {
+      ...data.items,
+      'runegraft of treachery': '背信符文之結',
+      'tattoo of the hinekora warrior': '悉妮蔻拉戰士的紋身',
+    };
+    document.body.innerHTML = `
+      <div data-node-id="55491">
+        <div><span>Runegraft of Treachery</span><span></span></div>
+        <div class="whitespace-pre-line pointer-events-none">Cannot be Stunned\nGain 2 Rage on Hit with Axes</div>
+      </div>
+      <div data-node-id="55492">
+        <div><span>Tattoo of the Hinekora Warrior</span><span>(x23)</span></div>
+        <div class="whitespace-pre-line pointer-events-none">+10 to maximum Life</div>
+      </div>
+    `;
+    createPobbinTranslator({ ...data, items }).translate(document);
+
+    expect(
+      Array.from(
+        document.querySelectorAll('div[data-node-id] > div:first-child > span:first-child'),
+      ).map((el) => el.textContent),
+    ).toEqual(['背信符文之結', '悉妮蔻拉戰士的紋身']);
+    expect(
+      Array.from(document.querySelectorAll('div[data-node-id] > .whitespace-pre-line')).map(
+        (el) => el.textContent,
+      ),
+    ).toEqual(['不會被暈眩\n以斧擊中時獲得 2 層盛怒', '+10 最大生命']);
   });
 
   it('翻譯 PoB 摘要統計、eHP 最大承傷、盜賊／Config 與永恆珠寶征服詞綴，且不碰網站介面', () => {

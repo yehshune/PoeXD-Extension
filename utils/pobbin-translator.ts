@@ -68,7 +68,27 @@ export interface PobbinTranslatorData {
 export interface PobbinTranslator {
   translate(root: ParentNode): void;
   observe(root: Node): () => void;
+  setBilingual(enabled: boolean): void;
 }
+
+export const POBBIN_ENGLISH_SUBTITLE_CLASS = 'poexd-pobbin-en';
+const POBBIN_ENGLISH_STYLE_ID = 'poexd-pobbin-en-style';
+const POBBIN_ENGLISH_STYLE_CSS = `
+  .${POBBIN_ENGLISH_SUBTITLE_CLASS} {
+    display: block;
+    font-size: 0.78em;
+    line-height: 1.2;
+    color: rgb(148 163 184 / 0.8);
+    font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .gem-middle > .${POBBIN_ENGLISH_SUBTITLE_CLASS},
+  .gem-last > .${POBBIN_ENGLISH_SUBTITLE_CLASS} {
+    padding-left: 10px;
+  }
+`;
 
 const SUPPORT_SUFFIX = ' support';
 const TIMELESS_HEADER = /^(.+?)(\s+\d+;.*)$/;
@@ -87,11 +107,12 @@ interface LineResult {
   consumed: boolean;
 }
 
-const SKIP_SELECTOR = 'textarea, pre, script, style, select, code, [data-marker-content]';
+const SKIP_SELECTOR = `textarea, pre, script, style, select, code, [data-marker-content], .${POBBIN_ENGLISH_SUBTITLE_CLASS}`;
 const POB_ITEM_SELECTOR = '.pob-item';
 const GEM_ROW_SELECTOR = '[data-gem-id]';
 const GEM_TOOLTIP_NAME_SELECTOR = '.min-w-48 > div';
-const NODE_HEADER_SELECTOR = 'div[data-node-id] > span';
+const NODE_HEADER_SELECTOR = 'div[data-node-id] > span, div[data-node-id] > div:first-child > span';
+const NODE_BODY_SELECTOR = 'div[data-node-id] > .whitespace-pre-line';
 const MASTERY_LINE_SELECTOR = 'li[data-node-id]';
 const INLINE_TOOLTIP_SELECTOR = '.pointer-events-none .whitespace-pre-line';
 const SUMMARY_BLOCK_SELECTOR = 'main [data-route] .inline-block';
@@ -101,12 +122,13 @@ const TARGET_SELECTOR = [
   GEM_ROW_SELECTOR,
   GEM_TOOLTIP_NAME_SELECTOR,
   NODE_HEADER_SELECTOR,
+  NODE_BODY_SELECTOR,
   MASTERY_LINE_SELECTOR,
   INLINE_TOOLTIP_SELECTOR,
   SUMMARY_BLOCK_SELECTOR,
 ].join(', ');
 
-/** 依市集漢化開關、顯示語言與雙語偏好決定 pobb.in 是否啟用翻譯與目標語系 */
+/** 依市集漢化開關、顯示語言與搜尋結果中英並列偏好決定 pobb.in 是否啟用翻譯與目標語系 */
 export function resolvePobbinTranslationConfig(input: {
   stored: Readonly<Record<string, unknown>> | undefined | null;
   browserLocale?: string;
@@ -122,7 +144,7 @@ export function resolvePobbinTranslationConfig(input: {
   if (!isMarketTranslationLocale(resolved)) return null;
   return {
     locale: resolved,
-    bilingual: stored.marketTranslationBilingual !== false,
+    bilingual: stored.marketTranslationResultBilingual === true,
   };
 }
 
@@ -208,10 +230,20 @@ function textNodesOf(element: Element): Text[] {
   return nodes;
 }
 
+function ensureEnglishSubtitleStyle(doc: Document): void {
+  if (doc.getElementById(POBBIN_ENGLISH_STYLE_ID)) return;
+  const style = doc.createElement('style');
+  style.id = POBBIN_ENGLISH_STYLE_ID;
+  style.textContent = POBBIN_ENGLISH_STYLE_CSS;
+  (doc.head ?? doc.documentElement)?.appendChild(style);
+}
+
 export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTranslator {
   const written = new WeakMap<Text, string>();
+  const subtitles = new Map<Element, string>();
   const passives = data.passives ?? {};
   const locale: MarketTranslationLocale = data.locale ?? 'zh-TW';
+  let bilingual = data.bilingual;
 
   const isCurrent = (node: Text) => written.get(node) === node.data;
 
@@ -225,6 +257,44 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     const translated = keepPadding(node.data, compute);
     if (translated === null || translated === node.data) return;
     setText(node, translated);
+  };
+
+  /** 在寶石／裝備名稱下方管理淡色英文副標（保留原本 Text node，避免干擾 SolidJS） */
+  const renderSubtitle = (host: Element, english: string | null) => {
+    const existing = Array.from(host.children).find((child) =>
+      child.classList.contains(POBBIN_ENGLISH_SUBTITLE_CLASS),
+    );
+    if (!bilingual || !english) {
+      existing?.remove();
+      return;
+    }
+    ensureEnglishSubtitleStyle(host.ownerDocument);
+    if (existing) {
+      if (existing.textContent !== english) existing.textContent = english;
+      return;
+    }
+    const span = host.ownerDocument.createElement('span');
+    span.className = POBBIN_ENGLISH_SUBTITLE_CLASS;
+    span.textContent = english;
+    host.appendChild(span);
+  };
+
+  const syncSubtitle = (host: Element, english: string | null) => {
+    if (english) subtitles.set(host, english);
+    else subtitles.delete(host);
+    renderSubtitle(host, english);
+  };
+
+  const setBilingual = (enabled: boolean) => {
+    if (bilingual === enabled) return;
+    bilingual = enabled;
+    for (const [host, english] of subtitles) {
+      if (!host.isConnected) {
+        subtitles.delete(host);
+        continue;
+      }
+      renderSubtitle(host, english);
+    }
   };
 
   const lookupItemOrPassive = (name: string): string | undefined => {
@@ -247,28 +317,33 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     );
   };
 
-  const translateHeaderText = (raw: string, rarity: string | undefined): string | null => {
+  /** 回傳純中文譯名與（若需要）副標用的英文原文 */
+  const translateHeaderEntry = (
+    raw: string,
+    rarity: string | undefined,
+  ): { text: string; english: string } | null => {
     const direct = lookupItemOrPassive(raw);
-    if (direct) return formatName(direct, raw, data.bilingual);
+    if (direct && direct !== raw) return { text: direct, english: raw };
 
     const timeless = TIMELESS_HEADER.exec(raw);
     if (timeless) {
       const base = lookupItemOrPassive(timeless[1]);
-      const formatted = formatName(base, timeless[1], data.bilingual);
-      return formatted ? `${formatted}${timeless[2]}` : null;
+      if (base && base !== timeless[1]) {
+        return { text: `${base}${timeless[2]}`, english: timeless[1] };
+      }
     }
 
     const foulborn = FOULBORN_HEADER.exec(raw);
     if (foulborn) {
       const base = lookupItemOrPassive(foulborn[1]);
-      if (base) return formatName(base, raw, data.bilingual);
+      if (base && base !== raw) return { text: base, english: raw };
     }
 
     if (rarity === 'Magic') {
       const baseType = data.catalog.findBaseType(raw);
       const localizedBase = baseType ? data.catalog.toTradeName(baseType) : undefined;
       if (baseType && localizedBase && localizedBase !== baseType) {
-        return data.bilingual ? `${localizedBase} (${raw})` : raw.replace(baseType, localizedBase);
+        return { text: raw.replace(baseType, localizedBase), english: raw };
       }
     }
 
@@ -419,18 +494,37 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
   const translatePobItem = (itemEl: Element) => {
     const rarity = (itemEl as HTMLElement).dataset?.rarity;
     const headerContainer = itemEl.children[0];
+    const bodyContainer = itemEl.children[1];
+    const lists = bodyContainer ? Array.from(bodyContainer.querySelectorAll('ul')) : [];
+    // 只有裝備／藥劑／珠寶（body 含 <ul>）才在名稱下方附英文副標；天賦節點懸浮框維持純中文
+    const showHeaderSubtitle = lists.length > 0;
+
     if (headerContainer) {
       for (const div of Array.from(headerContainer.querySelectorAll('div'))) {
-        for (const node of textNodesOf(div)) {
-          replaceNode(node, (core) => translateHeaderText(core, rarity));
+        const nodes = textNodesOf(div);
+        if (nodes.length === 0) {
+          syncSubtitle(div, null);
+          continue;
+        }
+        for (const node of nodes) {
+          if (isCurrent(node)) {
+            if (!showHeaderSubtitle) syncSubtitle(div, null);
+            continue;
+          }
+          const raw = node.data.trim();
+          const entry = translateHeaderEntry(raw, rarity);
+          if (!entry) {
+            syncSubtitle(div, null);
+            continue;
+          }
+          replaceNode(node, () => entry.text);
+          syncSubtitle(div, showHeaderSubtitle ? entry.english : null);
         }
       }
     }
 
-    const bodyContainer = itemEl.children[1];
     if (!bodyContainer) return;
 
-    const lists = Array.from(bodyContainer.querySelectorAll('ul'));
     if (lists.length > 0) {
       for (const list of lists) {
         const listItems = Array.from(list.children).filter((child) => child.tagName === 'LI');
@@ -456,13 +550,14 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
       if (isCurrent(node)) continue;
       const raw = node.data.trim();
       const localized = lookupGemName(raw);
-      const formatted = formatName(localized, raw, data.bilingual);
-      if (!formatted) continue;
-      const fullTitle = formatName(localized, raw, true);
-      if (fullTitle && !gemEl.getAttribute('title')) {
-        gemEl.setAttribute('title', fullTitle);
+      if (!localized || localized === raw) {
+        syncSubtitle(gemEl, null);
+        continue;
       }
-      replaceNode(node, () => formatted);
+      const fullTitle = formatName(localized, raw, true);
+      if (fullTitle) gemEl.setAttribute('title', fullTitle);
+      replaceNode(node, () => localized);
+      syncSubtitle(gemEl, raw);
     }
   };
 
@@ -472,7 +567,15 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     const isNameLine = parent.firstElementChild === divEl;
     for (const node of textNodesOf(divEl)) {
       if (isNameLine) {
-        replaceNode(node, (core) => formatName(lookupGemName(core), core, data.bilingual));
+        if (isCurrent(node)) continue;
+        const raw = node.data.trim();
+        const localized = lookupGemName(raw);
+        if (!localized || localized === raw) {
+          syncSubtitle(divEl, null);
+          continue;
+        }
+        replaceNode(node, () => localized);
+        syncSubtitle(divEl, raw);
       } else {
         replaceNode(node, translatePropertyLabel);
       }
@@ -494,7 +597,7 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
       replaceNode(node, (core) => {
         const direct =
           lookupItemOrPassive(core) ?? data.labelLookup.translateText(core) ?? undefined;
-        return formatName(direct, core, data.bilingual);
+        return direct && direct !== core ? direct : null;
       });
     }
   };
@@ -553,7 +656,7 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
       translateGemTooltipDiv(element);
     } else if (element.matches(NODE_HEADER_SELECTOR)) {
       translateNodeHeader(element);
-    } else if (element.matches(MASTERY_LINE_SELECTOR)) {
+    } else if (element.matches(NODE_BODY_SELECTOR) || element.matches(MASTERY_LINE_SELECTOR)) {
       for (const node of textNodesOf(element)) {
         replaceNode(node, translateMultiline);
       }
@@ -613,7 +716,7 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     return () => observer.disconnect();
   };
 
-  return { translate, observe };
+  return { translate, observe, setBilingual };
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -794,6 +897,7 @@ export async function startPobbinTranslation(deps: {
   readStorage: (keys: readonly string[]) => Promise<Record<string, unknown>>;
   loadJson: (path: string) => Promise<unknown>;
   version?: PoeVersion;
+  subscribeBilingual?: (onChange: (enabled: boolean) => void) => () => void;
 }): Promise<(() => void) | null> {
   const stored = await deps.readStorage(MARKET_TRANSLATION_STORAGE_KEYS);
   const config = resolvePobbinTranslationConfig({
@@ -809,7 +913,13 @@ export async function startPobbinTranslation(deps: {
     bilingual: config.bilingual,
   });
 
-  return createPobbinTranslator(data).observe(deps.doc);
+  const translator = createPobbinTranslator(data);
+  const stopObserver = translator.observe(deps.doc);
+  const stopBilingual = deps.subscribeBilingual?.((enabled) => translator.setBilingual(enabled));
+  return () => {
+    stopBilingual?.();
+    stopObserver();
+  };
 }
 
 export const POBBIN_ORIGIN = POB_SHARE_OPTIONAL_ORIGINS[0];

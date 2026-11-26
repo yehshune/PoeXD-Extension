@@ -19,6 +19,14 @@ export default defineContentScript({
       browserLocale: detectBrowserLocale(),
       readStorage: (keys) => chrome.storage.local.get([...keys]),
       loadJson,
+      subscribeBilingual: (onChange) => {
+        const listener = (changes: Record<string, { newValue?: unknown }>, areaName: string) => {
+          if (areaName !== 'local' || !('marketTranslationResultBilingual' in changes)) return;
+          onChange(changes.marketTranslationResultBilingual?.newValue === true);
+        };
+        chrome.storage.onChanged?.addListener(listener);
+        return () => chrome.storage.onChanged?.removeListener(listener);
+      },
     }).catch((error) => console.warn('[PoeXD] pobb.in 漢化啟動失敗:', error));
   },
 });
