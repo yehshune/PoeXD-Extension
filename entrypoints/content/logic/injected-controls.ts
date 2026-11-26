@@ -7,6 +7,7 @@ import {
 import { type PoeVersion } from '@/utils/trade-context';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
+import { PAGE_GUIDE_MOCK_ATTR } from '@/utils/trade-results-root';
 
 /**
  * 「類別過濾」群組標題：國際服英文、台服，以及市集漢化（ADR-0012）改寫後的繁中／簡中
@@ -225,6 +226,15 @@ export function injectCustomStyles(): void {
       box-shadow: var(--shadow-md) !important;
       border: 1px solid var(--border) !important;
       border-radius: var(--radius) !important;
+    }
+
+    /* 官方結果列離屏虛擬化：80～100 筆結果時跳過畫面外卡片排版與繪製，避免調整側欄或視窗寬度時卡頓 */
+    #trade .results:not([${PAGE_GUIDE_MOCK_ATTR}]) .resultset > .row {
+      content-visibility: auto !important;
+      contain-intrinsic-block-size: auto 280px !important;
+    }
+    #trade .results:not([${PAGE_GUIDE_MOCK_ATTR}]) .resultset.exchange > .row.exchange {
+      contain-intrinsic-block-size: auto 81px !important;
     }
   `;
 }

@@ -640,7 +640,7 @@ export function buildTwoColumnLayoutCss(): string {
       overflow-y: auto !important;
       overflow-x: hidden !important;
       overscroll-behavior: contain !important;
-      contain: paint !important;
+      contain: strict !important;
       scrollbar-width: thin !important;
       scrollbar-color: oklch(0.36 0.01 250) transparent !important;
     }

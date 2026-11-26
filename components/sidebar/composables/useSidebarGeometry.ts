@@ -32,12 +32,21 @@ export function useSidebarGeometry({
   onExpandFromTab,
 }: UseSidebarGeometryOptions) {
   const actualWidth = computed(() => sidebarWidth.value);
+  const isResizing = ref(false);
+  /** 拖曳寬度期間暫緩重算 40+ 個 CSS 變數，避免每幀讓側欄 Shadow DOM 內上萬節點樣式失效 */
+  const tokenSidebarWidth = ref(sidebarWidth.value);
+
+  watch(sidebarWidth, (nextWidth) => {
+    if (!isResizing.value) {
+      tokenSidebarWidth.value = nextWidth;
+    }
+  });
 
   const runtimeTokens = computed(() => {
     return createUiRuntimeTokenValues({
       scale: previewFontSizeScale.value ?? fontSizeScale.value,
       density: densityScale.value,
-      sidebarWidth: sidebarWidth.value,
+      sidebarWidth: tokenSidebarWidth.value,
     });
   });
 
@@ -76,6 +85,7 @@ export function useSidebarGeometry({
   const handleResizeEnd = () => {
     if (!isDragging) return;
     isDragging = false;
+    isResizing.value = false;
     if (resizeRafId !== null) {
       window.cancelAnimationFrame(resizeRafId);
       resizeRafId = null;
@@ -84,6 +94,7 @@ export function useSidebarGeometry({
       applyResizeWidth(pendingVisualWidth);
       pendingVisualWidth = null;
     }
+    tokenSidebarWidth.value = sidebarWidth.value;
     dispatchPoeEvent('poexd-sidebar-resizing-changed', false);
     window.removeEventListener('mousemove', handleResizeMove);
     window.removeEventListener('mouseup', handleResizeEnd);
@@ -98,6 +109,7 @@ export function useSidebarGeometry({
   const handleResizeStart = (e: MouseEvent) => {
     if (!isResizable.value) return;
     isDragging = true;
+    isResizing.value = true;
     startX = e.clientX;
     startVisualWidth = actualWidth.value;
     pendingVisualWidth = startVisualWidth;

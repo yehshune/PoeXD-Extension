@@ -199,7 +199,7 @@ onBeforeUnmount(stopObserving);
 <template>
   <li
     ref="rowEl"
-    class="group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
+    class="pxd-board-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
     :class="expanded ? 'bg-muted/20' : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40'"
     :data-board-entry-id="entry.id"
     :data-board-mark="mark"
@@ -442,3 +442,10 @@ onBeforeUnmount(stopObserving);
     </div>
   </li>
 </template>
+
+<style scoped>
+.pxd-board-item-row {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 78px;
+}
+</style>

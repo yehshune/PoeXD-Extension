@@ -14,6 +14,8 @@ import type {
 import { ensureResultEnhancementStyles } from '@/entrypoints/content/logic/result-enhancement-styles';
 import { SIDEBAR_LAYOUT_TRANSITION_MS } from '@/utils/sidebar-motion';
 import {
+  SIDEBAR_INSET_LEFT_ATTR,
+  SIDEBAR_INSET_RIGHT_ATTR,
   SIDEBAR_LAYOUT_STYLE_ID,
   readSidebarViewportInsets,
 } from '@/utils/sidebar-viewport-insets';
@@ -161,6 +163,8 @@ onMounted(() => {
   if (layoutStyle && typeof MutationObserver !== 'undefined') {
     layoutStyleObserver = new MutationObserver(handleSidebarLayoutChange);
     layoutStyleObserver.observe(layoutStyle, {
+      attributes: true,
+      attributeFilter: [SIDEBAR_INSET_LEFT_ATTR, SIDEBAR_INSET_RIGHT_ATTR],
       childList: true,
       characterData: true,
       subtree: true,

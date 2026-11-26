@@ -6,7 +6,9 @@ import {
   mountSidebarLayout,
   reserveSidebarPageLayout,
 } from '@/entrypoints/content/logic/sidebar-layout';
+import { injectCustomStyles } from '@/entrypoints/content/logic/injected-controls';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
+import { readSidebarViewportInsets } from '@/utils/sidebar-viewport-insets';
 
 const layoutSource = readFileSync('entrypoints/content/logic/sidebar-layout.ts', 'utf8').replace(
   /\r\n/g,
@@ -20,11 +22,10 @@ const sidebarGeometrySource = readFileSync(
 ).replace(/\r\n/g, '\n');
 
 describe('Sidebar page layout', () => {
-  it('animates the page left when a left sidebar collapses', () => {
-    // 側邊欄本身的寬度動畫共用同一組時間（utils/sidebar-motion.ts）
-    expect(layoutSource).toContain(
-      'transition: width ${timing}, margin-left ${timing}, margin-right ${timing} !important;',
-    );
+  it('snaps the official page layout immediately without width transition while preserving sidebar GPU slide animation', () => {
+    // 官網 .content 不做逐幀 width 過場動畫，避免上萬 DOM 節點重繪掉幀；僅側邊欄本體保留 transform 滑動動畫
+    expect(layoutSource).toContain('transition: none !important;');
+    expect(layoutSource).not.toContain('transition: width');
     expect(sidebarSource).toContain('duration: SIDEBAR_LAYOUT_TRANSITION_MS,');
     expect(sidebarSource).toContain('easing: SIDEBAR_LAYOUT_TRANSITION_EASING,');
     expect(layoutSource).toContain(
@@ -304,18 +305,17 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
     if (stop) layoutCleanups.push(stop);
 
     const layoutStyle = document.getElementById('poexd-layout-style') as HTMLStyleElement;
-    expect(layoutStyle.textContent).toContain(
-      'transition: width 0.15s ease, margin-left 0.15s ease, margin-right 0.15s ease !important;',
-    );
+    expect(layoutStyle.textContent).toContain('width: calc(100% - 420px) !important;');
+    expect(layoutStyle.textContent).toContain('margin-left: 420px !important;');
+    expect(layoutStyle.textContent).toContain('transition: none !important;');
 
-    // 較晚完成的 reserveSidebarPageLayout 不應把已掛載的過場動畫洗回 transition: none
+    // 較晚完成的 reserveSidebarPageLayout 不應把已掛載的版面寬度洗回 collapsed 狀態
     resolveReserveStorage({ isCollapsed_poe1: true });
     await reservePromise;
 
-    expect(layoutStyle.textContent).toContain(
-      'transition: width 0.15s ease, margin-left 0.15s ease, margin-right 0.15s ease !important;',
-    );
     expect(layoutStyle.textContent).toContain('width: calc(100% - 420px) !important;');
+    expect(layoutStyle.textContent).toContain('margin-left: 420px !important;');
+    expect(layoutStyle.textContent).toContain('transition: none !important;');
   });
 
   it('updates PoE .content width and margin-left in real time upon poexd-sidebar-width-preview for left sidebar (420 -> 500)', async () => {
@@ -400,5 +400,66 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
     expect(mockCtx.shadowHost.style.getPropertyValue('--poexd-host-top')).toBe(
       'clamp(0px, 360px, calc(100vh - var(--control-height-default)))',
     );
+  });
+
+  it('updates .content inline without rewriting #poexd-layout-style or mutating :root during live drag, and defers --pxd-sidebar-width until resize end', async () => {
+    const contentEl = document.createElement('div');
+    contentEl.className = 'content';
+    const toastHost = document.createElement('poexd-toast-container');
+    document.body.appendChild(contentEl);
+    document.body.appendChild(toastHost);
+
+    const mockCtx = createMockCtx();
+    const prefs = createMockPreferences({ sidebarPosition: 'left', sidebarWidth: 420 });
+
+    const stop = await mountSidebarLayout(mockCtx, 'poe1', prefs);
+    if (stop) layoutCleanups.push(stop);
+
+    const layoutStyle = document.getElementById('poexd-layout-style') as HTMLStyleElement;
+    expect(layoutStyle).not.toBeNull();
+    expect(layoutStyle.textContent).not.toContain(':root');
+    expect(contentEl.style.getPropertyValue('width')).toBe('calc(100% - 420px)');
+    expect(contentEl.style.getPropertyValue('margin-left')).toBe('420px');
+    expect(toastHost.style.getPropertyValue('--poexd-toast-inset-left')).toBe('420px');
+    expect(readSidebarViewportInsets()).toEqual({ left: 420, right: 0 });
+    expect(mockCtx.shadowHost.style.getPropertyValue('--pxd-sidebar-width')).toBe('420px');
+
+    const baselineStyleText = layoutStyle.textContent;
+
+    // 拖曳期間：直接改 .content inline 與 --poexd-host-width，不重寫 <style>，也暫緩重算整包 Shadow DOM 變數
+    dispatchPoeEvent('poexd-sidebar-resizing-changed', true);
+    dispatchPoeEvent('poexd-sidebar-width-preview', 540);
+
+    expect(layoutStyle.textContent).toBe(baselineStyleText);
+    expect(contentEl.style.getPropertyValue('transition')).toBe('none');
+    expect(contentEl.style.getPropertyValue('width')).toBe('calc(100% - 540px)');
+    expect(contentEl.style.getPropertyValue('margin-left')).toBe('540px');
+    expect(toastHost.style.getPropertyValue('--poexd-toast-inset-left')).toBe('540px');
+    expect(readSidebarViewportInsets()).toEqual({ left: 540, right: 0 });
+    expect(mockCtx.shadowHost.style.getPropertyValue('--poexd-host-width')).toBe('540px');
+    expect(mockCtx.shadowHost.style.getPropertyValue('--pxd-sidebar-width')).toBe('420px');
+
+    // 拖曳結束後補齊 --pxd-sidebar-width，.content 維持 transition: none
+    dispatchPoeEvent('poexd-sidebar-resizing-changed', false);
+    expect(mockCtx.shadowHost.style.getPropertyValue('--pxd-sidebar-width')).toBe('540px');
+    expect(contentEl.style.getPropertyValue('transition')).toBe('none');
+  });
+
+  it('injects offscreen content-visibility virtualization for official result rows excluding page-guide mock', () => {
+    document.getElementById('poexd-custom-style')?.remove();
+    injectCustomStyles();
+    const customStyle = document.getElementById('poexd-custom-style') as HTMLStyleElement;
+    expect(customStyle).not.toBeNull();
+    expect(customStyle.textContent).toContain(
+      '#trade .results:not([data-poexd-guide-mock]) .resultset > .row',
+    );
+    expect(customStyle.textContent).toContain('content-visibility: auto !important;');
+    expect(customStyle.textContent).toContain(
+      'contain-intrinsic-block-size: auto 280px !important;',
+    );
+    expect(customStyle.textContent).toContain(
+      'contain-intrinsic-block-size: auto 81px !important;',
+    );
+    customStyle.remove();
   });
 });

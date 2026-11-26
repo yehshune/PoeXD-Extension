@@ -162,7 +162,7 @@ const allSold = computed(
 
 <template>
   <li
-    class="overflow-hidden rounded-md border bg-card"
+    class="pxd-board-seller-row overflow-hidden rounded-md border bg-card"
     :class="[
       open ? 'border-foreground/25 shadow-sm' : 'border-border hover:border-border/80',
       allSold ? 'opacity-60' : '',
@@ -354,3 +354,10 @@ const allSold = computed(
     </div>
   </li>
 </template>
+
+<style scoped>
+.pxd-board-seller-row {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 64px;
+}
+</style>

@@ -234,6 +234,7 @@ describe('createTwoColumnLayoutController', () => {
     expect(css).toContain('contain-intrinsic-block-size: auto 81px !important;');
     expect(css).toContain('overscroll-behavior: contain !important;');
     expect(css).toContain('contain: paint !important;');
+    expect(css).toContain('contain: strict !important;');
     expect(css).toContain('display: flow-root !important;');
     expect(css).toContain('height: 100vh !important;');
     expect(css).toContain('overflow-y: auto !important;');

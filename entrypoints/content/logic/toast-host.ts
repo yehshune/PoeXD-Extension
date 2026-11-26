@@ -9,6 +9,11 @@ import {
 import { DEFAULT_THEME_ID, THEME_ATTRIBUTE } from '@/lib/theme/theme-contract';
 import { findThemeHost } from '@/lib/theme/page-theme-bridge';
 import { syncUiRuntimeTokens } from '@/lib/tokens';
+import {
+  SIDEBAR_INSET_LEFT_VAR,
+  SIDEBAR_INSET_RIGHT_VAR,
+  readSidebarViewportInsets,
+} from '@/utils/sidebar-viewport-insets';
 import { appendShadowHostStyle } from './shadow-host-style';
 
 const DEFAULT_TOAST_DURATION = 3000;
@@ -171,6 +176,13 @@ export function initToastHost(
         scale: currentScale,
         density: currentDensity,
       });
+      const insets = readSidebarViewportInsets();
+      if (!host.style.getPropertyValue(SIDEBAR_INSET_LEFT_VAR)) {
+        host.style.setProperty(SIDEBAR_INSET_LEFT_VAR, `${insets.left}px`);
+      }
+      if (!host.style.getPropertyValue(SIDEBAR_INSET_RIGHT_VAR)) {
+        host.style.setProperty(SIDEBAR_INSET_RIGHT_VAR, `${insets.right}px`);
+      }
 
       if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
         themeObserver = new MutationObserver(() => {

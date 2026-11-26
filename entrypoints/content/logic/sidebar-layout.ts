@@ -15,13 +15,12 @@ import { applyThemeFromPreferences } from '@/lib/theme/theme-runtime';
 import { appendShadowHostStyle } from './shadow-host-style';
 import { collapsedTabTopCss } from '@/utils/collapsed-tab-position';
 import {
-  SIDEBAR_LAYOUT_TRANSITION_EASING,
-  SIDEBAR_LAYOUT_TRANSITION_MS,
-} from '@/utils/sidebar-motion';
-import {
+  SIDEBAR_INSET_LEFT_ATTR,
   SIDEBAR_INSET_LEFT_VAR,
+  SIDEBAR_INSET_RIGHT_ATTR,
   SIDEBAR_INSET_RIGHT_VAR,
   SIDEBAR_LAYOUT_STYLE_ID,
+  TOAST_HOST_TAG,
 } from '@/utils/sidebar-viewport-insets';
 
 const POEXD_HOST_Z_INDEX = '2147483646';
@@ -31,31 +30,86 @@ interface PageLayoutState {
   collapsed: boolean;
   position: 'left' | 'right';
   width: number;
-  /** 拖曳寬度時不加過場動畫；預留版面時也不加，避免頁面剛渲染就滑動 */
-  animate: boolean;
 }
 
-/** 官網 `.content` 讓出側邊欄位置的樣式 */
-function buildPageLayoutCss({ collapsed, position, width, animate }: PageLayoutState): string {
+interface ResolvedPageLayoutMetrics {
+  pageWidth: string;
+  pageMarginLeft: number;
+  pageMarginRight: number;
+}
+
+function resolvePageLayoutMetrics({
+  collapsed,
+  position,
+  width,
+}: PageLayoutState): ResolvedPageLayoutMetrics {
   const pageWidth = collapsed ? '100%' : `calc(100% - ${width}px)`;
   const pageMarginLeft = position === 'left' && !collapsed ? width : 0;
   const pageMarginRight = position === 'right' && !collapsed ? width : 0;
-  const timing = `${SIDEBAR_LAYOUT_TRANSITION_MS / 1000}s ${SIDEBAR_LAYOUT_TRANSITION_EASING}`;
-  const transitionProperty = animate
-    ? `transition: width ${timing}, margin-left ${timing}, margin-right ${timing} !important;`
-    : 'transition: none !important;';
+  return {
+    pageWidth,
+    pageMarginLeft,
+    pageMarginRight,
+  };
+}
+
+/**
+ * 官網 `.content` 讓出側邊欄位置的樣式。
+ * - 不對 `.content` 套用寬度過場動畫（`transition: none`）：官方市集有上萬 DOM 節點，
+ *   逐幀改動寬度會觸發整頁重排與重繪掉幀；僅保留側邊欄自身純 GPU `transform` 滑動動畫。
+ * - Toast 邊距變數限定在 `poexd-toast-container` 而非 `:root`，避免改動側欄寬度時觸發整份官方文件樣式重算。
+ */
+function buildPageLayoutCss(state: PageLayoutState): string {
+  const { pageWidth, pageMarginLeft, pageMarginRight } = resolvePageLayoutMetrics(state);
   return `
-      :root {
+      ${TOAST_HOST_TAG} {
         ${SIDEBAR_INSET_LEFT_VAR}: ${pageMarginLeft}px;
         ${SIDEBAR_INSET_RIGHT_VAR}: ${pageMarginRight}px;
       }
       .content {
-        ${transitionProperty}
+        transition: none !important;
         width: ${pageWidth} !important;
         margin-left: ${pageMarginLeft}px !important;
         margin-right: ${pageMarginRight}px !important;
       }
     `;
+}
+
+function syncLayoutInsetAttrs(
+  layoutStyle: HTMLStyleElement,
+  marginLeft: number,
+  marginRight: number,
+): void {
+  const leftStr = `${marginLeft}`;
+  const rightStr = `${marginRight}`;
+  if (layoutStyle.getAttribute(SIDEBAR_INSET_LEFT_ATTR) !== leftStr) {
+    layoutStyle.setAttribute(SIDEBAR_INSET_LEFT_ATTR, leftStr);
+  }
+  if (layoutStyle.getAttribute(SIDEBAR_INSET_RIGHT_ATTR) !== rightStr) {
+    layoutStyle.setAttribute(SIDEBAR_INSET_RIGHT_ATTR, rightStr);
+  }
+}
+
+function applyDirectContentLayout(contentEl: HTMLElement, state: PageLayoutState): void {
+  const { pageWidth, pageMarginLeft, pageMarginRight } = resolvePageLayoutMetrics(state);
+  contentEl.style.setProperty('transition', 'none', 'important');
+  contentEl.style.setProperty('width', pageWidth, 'important');
+  contentEl.style.setProperty('margin-left', `${pageMarginLeft}px`, 'important');
+  contentEl.style.setProperty('margin-right', `${pageMarginRight}px`, 'important');
+
+  const toastHost = document.querySelector<HTMLElement>(TOAST_HOST_TAG);
+  if (toastHost) {
+    toastHost.style.setProperty(SIDEBAR_INSET_LEFT_VAR, `${pageMarginLeft}px`);
+    toastHost.style.setProperty(SIDEBAR_INSET_RIGHT_VAR, `${pageMarginRight}px`);
+  }
+}
+
+function clearDirectContentLayout(contentEl: HTMLElement | null): void {
+  if (!contentEl) return;
+  contentEl.style.removeProperty('transition');
+  contentEl.style.removeProperty('width');
+  contentEl.style.removeProperty('margin-left');
+  contentEl.style.removeProperty('margin-right');
 }
 
 function ensureLayoutStyle(): HTMLStyleElement {
@@ -87,12 +141,15 @@ export async function reserveSidebarPageLayout(
   const collapsed = await readSidebarCollapsed(version);
   if (isDisposed() || document.getElementById(LAYOUT_STYLE_ID)) return remove;
   const prefs = preferences.read();
-  ensureLayoutStyle().textContent = buildPageLayoutCss({
+  const state: PageLayoutState = {
     collapsed,
     position: prefs.sidebarPosition,
     width: prefs.sidebarWidth,
-    animate: false,
-  });
+  };
+  const layoutStyle = ensureLayoutStyle();
+  const metrics = resolvePageLayoutMetrics(state);
+  syncLayoutInsetAttrs(layoutStyle, metrics.pageMarginLeft, metrics.pageMarginRight);
+  layoutStyle.textContent = buildPageLayoutCss(state);
   return remove;
 }
 
@@ -118,6 +175,7 @@ export async function mountSidebarLayout(
   if (isDisposed()) return;
 
   const layoutStyle = ensureLayoutStyle();
+  let styledContentEl: HTMLElement | null = null;
 
   // 宿主樣式另外注入，讓 WXT 主樣式與 toast 完全相同而共用解析結果（見 shadow-host-style.ts）
   const hostCss = `
@@ -174,6 +232,8 @@ export async function mountSidebarLayout(
       mounted?.app?.unmount();
       mounted?.appRoot?.remove();
       mounted?.portalRoot?.remove();
+      clearDirectContentLayout(styledContentEl);
+      styledContentEl = null;
       document.getElementById(LAYOUT_STYLE_ID)?.remove();
     },
   });
@@ -229,12 +289,22 @@ export async function mountSidebarLayout(
   };
   let isResizing = false;
   const updatePageLayout = () => {
-    layoutStyle.textContent = buildPageLayoutCss({
+    const state: PageLayoutState = {
       collapsed: currentCollapsed,
       position: currentPosition,
       width,
-      animate: !isResizing,
-    });
+    };
+    const metrics = resolvePageLayoutMetrics(state);
+    syncLayoutInsetAttrs(layoutStyle, metrics.pageMarginLeft, metrics.pageMarginRight);
+
+    const contentEl = document.querySelector<HTMLElement>('.content');
+    if (contentEl) {
+      styledContentEl = contentEl;
+      applyDirectContentLayout(contentEl, state);
+      return;
+    }
+
+    layoutStyle.textContent = buildPageLayoutCss(state);
   };
   const updateLayout = () => {
     updateWrapper();
@@ -263,11 +333,16 @@ export async function mountSidebarLayout(
   });
   listenPoeEvent('poexd-sidebar-resizing-changed', (resizing) => {
     isResizing = resizing;
+    if (!resizing) {
+      syncUiScalingVariables({ sidebarWidth: width });
+    }
     updatePageLayout();
   });
   listenPoeEvent('poexd-sidebar-width-preview', (previewWidth) => {
     width = previewWidth;
-    syncUiScalingVariables({ sidebarWidth: width });
+    if (!isResizing) {
+      syncUiScalingVariables({ sidebarWidth: width });
+    }
     updateLayout();
   });
   listenPoeEvent('poexd-modal-active-changed', (active) => {
