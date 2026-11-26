@@ -86,6 +86,7 @@ export const ZH_TW_MESSAGES = {
   'settings.theme.option.celadon-haze': '霧青淺綠',
   'settings.theme.option.morandi-ash': '淺灰紫調',
   'settings.theme.option.custom': '自訂',
+  'settings.theme.custom.toggle': '自訂配色與圓角',
   'settings.theme.custom.background': '背景色',
   'settings.theme.custom.card': '表面色',
   'settings.theme.custom.foreground': '文字色',
@@ -160,6 +161,7 @@ export const ZH_TW_MESSAGES = {
   'settings.hotkeys.titleBind': '點擊以錄製快捷鍵',
   'settings.hotkeys.clearTitle': '清除快捷鍵',
   'settings.hotkeys.clearNamedAria': '清除{label}',
+  'settings.hotkeys.conflictCleared': '快捷鍵 {key} 重複，已清除「{cleared}」',
 
   // Settings Pane - Trade Features
   'settings.tierHelper.label': 'T 階快捷按鈕',

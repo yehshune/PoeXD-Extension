@@ -264,16 +264,16 @@
           <template v-if="enableHotkeys">
             <SettingsRow nested :label="t('settings.hotkeys.focusLabel')">
               <SettingsHotkeyInput
-                v-model="hotkeyFocus"
+                :model-value="hotkeyFocus"
                 :aria-label="t('settings.hotkeys.focusLabel')"
-                @update:model-value="savePreference('hotkeyFocus')"
+                @update:model-value="handleHotkeyChange('hotkeyFocus', $event)"
               />
             </SettingsRow>
             <SettingsRow nested :label="t('settings.hotkeys.clearLabel')">
               <SettingsHotkeyInput
-                v-model="hotkeyClear"
+                :model-value="hotkeyClear"
                 :aria-label="t('settings.hotkeys.clearLabel')"
-                @update:model-value="savePreference('hotkeyClear')"
+                @update:model-value="handleHotkeyChange('hotkeyClear', $event)"
               />
             </SettingsRow>
           </template>
@@ -456,163 +456,187 @@
             </div>
           </SettingsRow>
           <div
+            v-show="!isSearching || themeCustomMatchesSearch"
             data-settings-group="theme-custom-colors"
-            class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-sm)]"
+            :data-expanded="isThemeCustomExpanded ? 'true' : 'false'"
+            class="flex flex-col gap-[var(--pxd-space-sm)]"
           >
-            <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
-              {{ t('settings.theme.custom.hint') }}
-            </p>
-            <SettingsRow
-              v-for="row in themeCustomColorRows"
-              :key="row.key"
-              :label="t(row.labelKey)"
-              :keywords="[t('settings.theme.label')]"
-              :control-id="`theme-custom-${row.key}`"
+            <button
+              type="button"
+              data-test="theme-custom-toggle"
+              :aria-expanded="isThemeCustomExpanded"
+              class="flex w-full cursor-pointer select-none items-center justify-between gap-[var(--pxd-space-sm)] rounded-md border-0 bg-transparent px-0 py-[var(--pxd-space-xs)] text-left text-[length:var(--pxd-font-secondary)] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              @click="toggleThemeCustom"
             >
-              <template #default="{ describedBy }">
-                <div class="flex items-center gap-[var(--pxd-space-sm)]">
-                  <Input
-                    type="text"
-                    size="sm"
-                    maxlength="7"
-                    spellcheck="false"
-                    autocomplete="off"
-                    :data-custom-hex="row.key"
-                    :aria-label="t('settings.theme.custom.hexAria', { label: t(row.labelKey) })"
-                    :model-value="getThemeHexDisplayValue(row.key)"
-                    class="w-[82px] text-center font-mono text-[length:var(--pxd-font-caption)] uppercase"
-                    @input="handleThemeHexTextInput(row.key, $event)"
-                    @blur="handleThemeHexTextBlur(row.key)"
-                    @keydown.enter.prevent="handleThemeHexTextBlur(row.key)"
-                  />
-                  <input
-                    :id="`theme-custom-${row.key}`"
-                    type="color"
-                    class="size-[var(--control-height-sm)] shrink-0 cursor-pointer rounded-[var(--radius-sm)] border border-border bg-transparent p-0"
-                    :value="previewColors[row.key] ?? activeThemeValues[row.key]"
-                    :aria-describedby="describedBy"
-                    @input="handleThemeCustomColorInput(row.key, $event)"
-                    @change="handleThemeCustomColorChange(row.key, $event)"
-                  />
-                </div>
-              </template>
-            </SettingsRow>
-            <SettingsRow
-              :label="t('settings.theme.custom.radius')"
-              :keywords="[t('settings.theme.label')]"
-              layout="stack"
+              <span>{{ t('settings.theme.custom.toggle') }}</span>
+              <ChevronDown
+                :class="[
+                  'size-[var(--control-icon-sm,14px)] shrink-0 transition-transform duration-200',
+                  isThemeCustomExpanded ? '' : '-rotate-90',
+                ]"
+                aria-hidden="true"
+              />
+            </button>
+            <div
+              v-show="isThemeCustomExpanded"
+              data-test="theme-custom-body"
+              class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-sm)]"
             >
-              <div
-                role="group"
-                data-test="theme-custom-radius"
-                class="flex flex-wrap gap-[var(--pxd-space-xs)]"
+              <p class="m-0 text-[length:var(--pxd-font-caption)] text-muted-foreground">
+                {{ t('settings.theme.custom.hint') }}
+              </p>
+              <SettingsRow
+                v-for="row in themeCustomColorRows"
+                :key="row.key"
+                :label="t(row.labelKey)"
+                :keywords="[t('settings.theme.label')]"
+                :control-id="`theme-custom-${row.key}`"
               >
-                <Button
-                  v-for="radius in THEME_CUSTOM_RADIUS_VALUES"
-                  :key="radius"
-                  type="button"
-                  :variant="activeThemeValues.radius === radius ? 'default' : 'outline'"
-                  size="sm"
-                  :aria-pressed="activeThemeValues.radius === radius"
-                  :data-custom-radius="radius"
-                  class="flex-1"
-                  @click="handleThemeCustomRadiusChange(radius)"
+                <template #default="{ describedBy }">
+                  <div class="flex items-center gap-[var(--pxd-space-sm)]">
+                    <Input
+                      type="text"
+                      size="sm"
+                      maxlength="7"
+                      spellcheck="false"
+                      autocomplete="off"
+                      :data-custom-hex="row.key"
+                      :aria-label="t('settings.theme.custom.hexAria', { label: t(row.labelKey) })"
+                      :model-value="getThemeHexDisplayValue(row.key)"
+                      class="w-[82px] text-center font-mono text-[length:var(--pxd-font-caption)] uppercase"
+                      @input="handleThemeHexTextInput(row.key, $event)"
+                      @blur="handleThemeHexTextBlur(row.key)"
+                      @keydown.enter.prevent="handleThemeHexTextBlur(row.key)"
+                    />
+                    <input
+                      :id="`theme-custom-${row.key}`"
+                      type="color"
+                      class="size-[var(--control-height-sm)] shrink-0 cursor-pointer rounded-[var(--radius-sm)] border border-border bg-transparent p-0"
+                      :value="previewColors[row.key] ?? activeThemeValues[row.key]"
+                      :aria-describedby="describedBy"
+                      @input="handleThemeCustomColorInput(row.key, $event)"
+                      @change="handleThemeCustomColorChange(row.key, $event)"
+                    />
+                  </div>
+                </template>
+              </SettingsRow>
+              <SettingsRow
+                :label="t('settings.theme.custom.radius')"
+                :keywords="[t('settings.theme.label')]"
+                layout="stack"
+              >
+                <div
+                  role="group"
+                  data-test="theme-custom-radius"
+                  class="flex flex-wrap gap-[var(--pxd-space-xs)]"
                 >
-                  {{ t(`settings.theme.custom.radius.${radius}`) }}
+                  <Button
+                    v-for="radius in THEME_CUSTOM_RADIUS_VALUES"
+                    :key="radius"
+                    type="button"
+                    :variant="activeThemeValues.radius === radius ? 'default' : 'outline'"
+                    size="sm"
+                    :aria-pressed="activeThemeValues.radius === radius"
+                    :data-custom-radius="radius"
+                    class="flex-1"
+                    @click="handleThemeCustomRadiusChange(radius)"
+                  >
+                    {{ t(`settings.theme.custom.radius.${radius}`) }}
+                  </Button>
+                </div>
+              </SettingsRow>
+
+              <!-- 即時元件與詞綴對比預覽 -->
+              <div
+                data-test="theme-live-preview"
+                class="flex flex-col gap-[var(--pxd-space-sm)] rounded-md border border-border bg-background p-[var(--pxd-space-md)]"
+              >
+                <div class="flex items-center justify-between gap-[var(--pxd-space-xs)]">
+                  <span class="text-[length:var(--pxd-font-micro)] text-muted-foreground">
+                    {{ t('settings.theme.custom.preview') }}
+                  </span>
+                  <div class="flex items-center gap-[var(--pxd-space-xs)]">
+                    <span
+                      class="inline-flex items-center rounded-sm bg-primary px-1.5 py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-primary-foreground"
+                    >
+                      {{ t('settings.theme.custom.previewPrimary') }}
+                    </span>
+                    <span
+                      class="inline-flex items-center rounded-sm border border-border bg-secondary px-1.5 py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-secondary-foreground"
+                    >
+                      {{ t('settings.theme.custom.previewSecondary') }}
+                    </span>
+                    <span
+                      class="inline-flex items-center rounded-sm bg-destructive px-1.5 py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-destructive-foreground"
+                    >
+                      {{ t('settings.theme.custom.previewDestructive') }}
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class="flex flex-wrap items-center gap-[var(--pxd-space-xs)] rounded-sm border border-border bg-card px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
+                >
+                  <span
+                    class="pxd-stat-domain-badge rounded-sm px-1.5 py-0.5 font-medium"
+                    data-stat-domain="implicit"
+                    style="--pxd-stat-color: var(--pxd-stat-implicit)"
+                  >
+                    {{ t('settings.theme.custom.previewImplicit') }}
+                  </span>
+                  <span
+                    class="pxd-stat-domain-badge rounded-sm px-1.5 py-0.5 font-medium"
+                    data-stat-domain="crafted"
+                    style="--pxd-stat-color: var(--pxd-stat-crafted)"
+                  >
+                    {{ t('settings.theme.custom.previewCrafted') }}
+                  </span>
+                  <span
+                    class="pxd-stat-domain-badge rounded-sm px-1.5 py-0.5 font-medium"
+                    data-stat-domain="fractured"
+                    style="--pxd-stat-color: var(--pxd-stat-fractured)"
+                  >
+                    {{ t('settings.theme.custom.previewFractured') }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-[var(--pxd-space-xs)]">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  class="px-[var(--input-padding-x-sm)]"
+                  data-test="theme-custom-copy"
+                  @click="copyActiveThemeJson"
+                >
+                  {{
+                    themeJsonCopied
+                      ? t('settings.theme.custom.copiedJson')
+                      : t('settings.theme.custom.copyJson')
+                  }}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  class="px-[var(--input-padding-x-sm)]"
+                  data-test="theme-custom-import"
+                  @click="importCustomThemeJson"
+                >
+                  {{ t('settings.theme.custom.importJson') }}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  class="ml-auto px-[var(--input-padding-x-sm)]"
+                  data-test="theme-custom-reset"
+                  :disabled="!hasActiveThemeOverride"
+                  @click="resetActiveThemeOverrides"
+                >
+                  {{ t('settings.theme.custom.reset') }}
                 </Button>
               </div>
-            </SettingsRow>
-
-            <!-- 即時元件與詞綴對比預覽 -->
-            <div
-              data-test="theme-live-preview"
-              class="flex flex-col gap-[var(--pxd-space-sm)] rounded-md border border-border bg-background p-[var(--pxd-space-md)]"
-            >
-              <div class="flex items-center justify-between gap-[var(--pxd-space-xs)]">
-                <span class="text-[length:var(--pxd-font-micro)] text-muted-foreground">
-                  {{ t('settings.theme.custom.preview') }}
-                </span>
-                <div class="flex items-center gap-[var(--pxd-space-xs)]">
-                  <span
-                    class="inline-flex items-center rounded-sm bg-primary px-1.5 py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-primary-foreground"
-                  >
-                    {{ t('settings.theme.custom.previewPrimary') }}
-                  </span>
-                  <span
-                    class="inline-flex items-center rounded-sm border border-border bg-secondary px-1.5 py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-secondary-foreground"
-                  >
-                    {{ t('settings.theme.custom.previewSecondary') }}
-                  </span>
-                  <span
-                    class="inline-flex items-center rounded-sm bg-destructive px-1.5 py-0.5 text-[length:var(--pxd-font-micro)] font-medium text-destructive-foreground"
-                  >
-                    {{ t('settings.theme.custom.previewDestructive') }}
-                  </span>
-                </div>
-              </div>
-              <div
-                class="flex flex-wrap items-center gap-[var(--pxd-space-xs)] rounded-sm border border-border bg-card px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)]"
-              >
-                <span
-                  class="pxd-stat-domain-badge rounded-sm px-1.5 py-0.5 font-medium"
-                  data-stat-domain="implicit"
-                  style="--pxd-stat-color: var(--pxd-stat-implicit)"
-                >
-                  {{ t('settings.theme.custom.previewImplicit') }}
-                </span>
-                <span
-                  class="pxd-stat-domain-badge rounded-sm px-1.5 py-0.5 font-medium"
-                  data-stat-domain="crafted"
-                  style="--pxd-stat-color: var(--pxd-stat-crafted)"
-                >
-                  {{ t('settings.theme.custom.previewCrafted') }}
-                </span>
-                <span
-                  class="pxd-stat-domain-badge rounded-sm px-1.5 py-0.5 font-medium"
-                  data-stat-domain="fractured"
-                  style="--pxd-stat-color: var(--pxd-stat-fractured)"
-                >
-                  {{ t('settings.theme.custom.previewFractured') }}
-                </span>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-[var(--pxd-space-xs)]">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                class="px-[var(--input-padding-x-sm)]"
-                data-test="theme-custom-copy"
-                @click="copyActiveThemeJson"
-              >
-                {{
-                  themeJsonCopied
-                    ? t('settings.theme.custom.copiedJson')
-                    : t('settings.theme.custom.copyJson')
-                }}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                class="px-[var(--input-padding-x-sm)]"
-                data-test="theme-custom-import"
-                @click="importCustomThemeJson"
-              >
-                {{ t('settings.theme.custom.importJson') }}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                class="ml-auto px-[var(--input-padding-x-sm)]"
-                data-test="theme-custom-reset"
-                :disabled="!hasActiveThemeOverride"
-                @click="resetActiveThemeOverrides"
-              >
-                {{ t('settings.theme.custom.reset') }}
-              </Button>
             </div>
           </div>
 
@@ -783,6 +807,7 @@ import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Bookmark,
+  ChevronDown,
   Keyboard,
   Languages,
   LayoutGrid,
@@ -798,7 +823,7 @@ import SettingsRow from './settings/SettingsRow.vue';
 import SettingsSection from './settings/SettingsSection.vue';
 import SettingsBackupMenu from './settings/SettingsBackupMenu.vue';
 import SidebarModuleSettings from './settings/SidebarModuleSettings.vue';
-import { provideSettingsSearch } from './settings/settings-search';
+import { matchesSettingsQuery, provideSettingsSearch } from './settings/settings-search';
 import {
   RESULT_TOGGLE_ROWS,
   SEARCH_TOGGLE_ROWS,
@@ -858,6 +883,7 @@ import { getPreferences, type PreferencesModule } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
 import { getPageLoadPreferences } from '@/utils/page-load-preferences';
 import { extensionMessaging } from '@/utils/extension-protocol';
+import { dispatchPoeEvent } from '@/utils/event-contracts';
 
 export default defineComponent({
   name: 'SettingsPane',
@@ -879,6 +905,7 @@ export default defineComponent({
     SidebarPane,
     ToggleGroup,
     ToggleGroupItem,
+    ChevronDown,
     Search,
     X,
   },
@@ -1243,10 +1270,16 @@ export default defineComponent({
       flushPendingColorSave();
     };
 
+    const themeCustomExpanded = ref(false);
+    const toggleThemeCustom = () => {
+      themeCustomExpanded.value = !themeCustomExpanded.value;
+    };
+
     const selectThemePreset = (themeId: ThemeId) => {
       flushPendingColorSave();
       clearHexTextDrafts();
       preferenceState.theme = themeId;
+      if (themeId === 'custom') themeCustomExpanded.value = true;
       void updatePreferences({ theme: themeId });
     };
 
@@ -1371,6 +1404,28 @@ export default defineComponent({
       } as Partial<Preferences>);
     };
 
+    const handleHotkeyChange = (key: 'hotkeyFocus' | 'hotkeyClear', value: string) => {
+      const otherKey: 'hotkeyFocus' | 'hotkeyClear' =
+        key === 'hotkeyFocus' ? 'hotkeyClear' : 'hotkeyFocus';
+      preferenceState[key] = value;
+      if (value && preferenceState[otherKey] === value) {
+        preferenceState[otherKey] = '';
+        void updatePreferences({ [key]: value, [otherKey]: '' });
+        dispatchPoeEvent('poexd-toast', {
+          message: t('settings.hotkeys.conflictCleared', {
+            key: value,
+            cleared: t(
+              otherKey === 'hotkeyFocus'
+                ? 'settings.hotkeys.focusLabel'
+                : 'settings.hotkeys.clearLabel',
+            ),
+          }),
+        });
+        return;
+      }
+      savePreference(key);
+    };
+
     /** 模糊搜尋：道具名稱與詞綴篩選兩處共用一個開關，偏好仍分兩個鍵儲存 */
     const fuzzySearchEnabled = computed({
       get: () => enableSearchTilde.value || enableFilterTilde.value,
@@ -1407,6 +1462,19 @@ export default defineComponent({
     const searchInputRef = ref<InstanceType<typeof Input> | null>(null);
     const { isSearching, hasResults: hasSearchResults } =
       provideSettingsSearch(debouncedSearchQuery);
+    const themeCustomMatchesSearch = computed(() => {
+      if (!isSearching.value) return false;
+      return matchesSettingsQuery(debouncedSearchQuery.value, [
+        t('settings.section.appearance'),
+        t('settings.theme.label'),
+        t('settings.theme.custom.toggle'),
+        t('settings.theme.custom.radius'),
+        ...themeCustomColorRows.map((row) => t(row.labelKey)),
+      ]);
+    });
+    const isThemeCustomExpanded = computed(
+      () => themeCustomExpanded.value || themeCustomMatchesSearch.value,
+    );
     const clearSearch = () => {
       searchQuery.value = '';
     };
@@ -1557,6 +1625,9 @@ export default defineComponent({
       THEME_LABELS,
       THEME_CUSTOM_RADIUS_VALUES,
       themeCustomColorRows,
+      isThemeCustomExpanded,
+      themeCustomMatchesSearch,
+      toggleThemeCustom,
       previewColors,
       activeThemeValues,
       hasActiveThemeOverride,
@@ -1615,6 +1686,7 @@ export default defineComponent({
       addBookmarkBtnPosition,
       enableBookmarkTooltip,
       savePreference,
+      handleHotkeyChange,
       handleSidebarPositionChange,
       isCollapsedTabTopDefault,
       resetCollapsedTabPosition,

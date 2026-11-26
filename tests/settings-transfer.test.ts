@@ -46,14 +46,14 @@ describe('createSettingsExport', () => {
       ...DEFAULT_PREFERENCES,
       theme: 'caffeine',
       collapsedTabTop: 220,
-      enableTierHelper: false,
+      sidebarModuleBookmarks: false,
       liveSearchMaxDisplayedResults: 200,
     } as Preferences;
     const poe2 = {
       ...DEFAULT_PREFERENCES,
       theme: 'caffeine',
       collapsedTabTop: 220,
-      enableTierHelper: true,
+      sidebarModuleBookmarks: true,
       enableItemNormalizer: false,
       liveSearchMaxDisplayedResults: 500,
     } as Preferences;
@@ -69,11 +69,11 @@ describe('createSettingsExport', () => {
     });
     expect(Object.keys(exported.global).sort()).toEqual([...GLOBAL_PREFERENCE_NAMES].sort());
     expect(exported.poe1).toMatchObject({
-      enableTierHelper: false,
+      sidebarModuleBookmarks: false,
       liveSearchMaxDisplayedResults: 200,
     });
     expect(exported.poe2).toMatchObject({
-      enableTierHelper: true,
+      sidebarModuleBookmarks: true,
       enableItemNormalizer: false,
       liveSearchMaxDisplayedResults: 500,
     });
@@ -119,8 +119,8 @@ describe('parseSettingsImport', () => {
   it('parses v2 exports, validates section scopes, and reports unknown or misplaced keys', () => {
     const outcome = parseSettingsImport(
       wrapV2({
-        global: { theme: 'caffeine', enableTierHelper: false, bogus: 1 },
-        poe1: { enableTierHelper: false, theme: 'catppuccin' },
+        global: { theme: 'caffeine', sidebarModuleBookmarks: false, bogus: 1 },
+        poe1: { sidebarModuleBookmarks: false, theme: 'catppuccin' },
         poe2: { enableItemNormalizer: false, unknownPoe2: true },
       }),
     );
@@ -130,10 +130,10 @@ describe('parseSettingsImport', () => {
       data: {
         version: 2,
         global: { theme: 'caffeine' },
-        poe1: { enableTierHelper: false },
+        poe1: { sidebarModuleBookmarks: false },
         poe2: { enableItemNormalizer: false },
       },
-      unknown: ['global.enableTierHelper', 'global.bogus', 'poe1.theme', 'poe2.unknownPoe2'],
+      unknown: ['global.sidebarModuleBookmarks', 'global.bogus', 'poe1.theme', 'poe2.unknownPoe2'],
     });
   });
 });
@@ -179,7 +179,7 @@ describe('applyParsedSettingsImport', () => {
       {
         version: 2,
         global: { theme: 'catppuccin', collapsedTabTop: 260 },
-        poe1: { enableTierHelper: false, liveSearchMaxDisplayedResults: 200 },
+        poe1: { sidebarModuleBookmarks: false, liveSearchMaxDisplayedResults: 200 },
         poe2: {
           enableItemNormalizer: false,
           liveSearchMaxDisplayedResults: 999 as any,
@@ -192,7 +192,7 @@ describe('applyParsedSettingsImport', () => {
       applied: [
         'theme',
         'collapsedTabTop',
-        'poe1.enableTierHelper',
+        'poe1.sidebarModuleBookmarks',
         'poe1.liveSearchMaxDisplayedResults',
         'poe2.enableItemNormalizer',
       ],
@@ -201,7 +201,7 @@ describe('applyParsedSettingsImport', () => {
     expect(modules.poe1.read()).toMatchObject({
       theme: 'catppuccin',
       collapsedTabTop: 260,
-      enableTierHelper: false,
+      sidebarModuleBookmarks: false,
       liveSearchMaxDisplayedResults: 200,
     });
     expect(modules.poe2.read()).toMatchObject({
@@ -223,17 +223,17 @@ describe('applyParsedSettingsImport', () => {
       modules,
       {
         version: 1,
-        preferences: { theme: 'caffeine', enableTierHelper: false },
+        preferences: { theme: 'caffeine', sidebarModuleBookmarks: false },
       },
       'poe1',
     );
 
     expect(result).toEqual({
-      applied: ['theme', 'enableTierHelper'],
+      applied: ['theme', 'sidebarModuleBookmarks'],
       rejected: [],
     });
-    expect(modules.poe1.read().enableTierHelper).toBe(false);
-    expect(modules.poe2.read().enableTierHelper).toBe(true);
+    expect(modules.poe1.read().sidebarModuleBookmarks).toBe(false);
+    expect(modules.poe2.read().sidebarModuleBookmarks).toBe(true);
     expect(modules.poe2.read().theme).toBe('caffeine');
   });
 });

@@ -66,8 +66,7 @@ describe('Preferences module interface', () => {
         sidebarPosition: 'right',
         enableAutoTitle: false,
         enablePureBackground: false,
-        enableTierHelper_poe1: false,
-        enableTierHelper_poe2: true,
+        enableTierHelper: false,
         sidebarModuleBookmarks_poe1: false,
         sidebarModuleBookmarks_poe2: true,
       }),
@@ -89,7 +88,7 @@ describe('Preferences module interface', () => {
       sidebarWidth: 1200,
       fontSizeScale: 'large',
       enableHotkeys: 'yes',
-      enableTierHelper_poe2: 'nope',
+      sidebarModuleBookmarks_poe2: 'nope',
     });
     const outcome = await createPreferencesModule('poe2', storage);
 
@@ -103,22 +102,22 @@ describe('Preferences module interface', () => {
         sidebarWidth: 380,
         fontSizeScale: 1,
         enableHotkeys: true,
-        enableTierHelper: true,
+        sidebarModuleBookmarks: true,
       },
       stored: {
         sidebarPosition: 'left',
         sidebarWidth: 380,
         fontSizeScale: 1,
         enableHotkeys: true,
-        enableTierHelper_poe2: true,
+        sidebarModuleBookmarks_poe2: true,
       },
     });
   });
 
   it('migrates legacy unversioned values for versioned preferences without deleting the recovery snapshot', async () => {
     const storage = createInMemoryPreferencesStorage({
-      enableTierHelper: false,
-      enablePriceComparison: false,
+      sidebarModuleBookmarks: false,
+      sidebarModuleHistory: false,
     });
     const outcome = await createPreferencesModule('poe2', storage);
 
@@ -128,15 +127,33 @@ describe('Preferences module interface', () => {
       stored: storage.inspect(),
     }).toMatchObject({
       snapshot: {
-        enableTierHelper: false,
-        enablePriceComparison: false,
+        sidebarModuleBookmarks: false,
+        sidebarModuleHistory: false,
       },
       stored: {
-        enableTierHelper: false,
-        enablePriceComparison: false,
-        enableTierHelper_poe2: false,
-        enablePriceComparison_poe2: false,
+        sidebarModuleBookmarks: false,
+        sidebarModuleHistory: false,
+        sidebarModuleBookmarks_poe2: false,
+        sidebarModuleHistory_poe2: false,
       },
+    });
+  });
+
+  it('migrates legacy versioned cross-game toggles into shared global keys', async () => {
+    const storage = createInMemoryPreferencesStorage({
+      enableTierHelper_poe1: false,
+      enablePriceComparison_poe2: false,
+    });
+    const outcome = await createPreferencesModule('poe1', storage);
+
+    if (!outcome.ok) throw new Error(outcome.error.message);
+    expect(outcome.value.read()).toMatchObject({
+      enableTierHelper: false,
+      enablePriceComparison: false,
+    });
+    expect(storage.inspect()).toMatchObject({
+      enableTierHelper: false,
+      enablePriceComparison: false,
     });
   });
 
@@ -165,7 +182,7 @@ describe('Preferences module interface', () => {
 
     const update = await outcome.value.update({
       sidebarWidth: 420,
-      enableTierHelper: false,
+      sidebarModuleBookmarks: false,
     });
 
     expect({
@@ -175,9 +192,9 @@ describe('Preferences module interface', () => {
       stored: storage.inspect(),
     }).toMatchObject({
       update: { ok: true, changed: true },
-      snapshot: { sidebarWidth: 420, enableTierHelper: false },
+      snapshot: { sidebarWidth: 420, sidebarModuleBookmarks: false },
       widths: [380, 420],
-      stored: { sidebarWidth: 420, enableTierHelper_poe2: false },
+      stored: { sidebarWidth: 420, sidebarModuleBookmarks_poe2: false },
     });
   });
 
@@ -256,13 +273,13 @@ describe('Preferences module interface', () => {
 
   it('keeps a versioned value when a different legacy value exists', async () => {
     const storage = createInMemoryPreferencesStorage({
-      enableTierHelper: true,
-      enableTierHelper_poe2: false,
+      sidebarModuleBookmarks: true,
+      sidebarModuleBookmarks_poe2: false,
     });
     const outcome = await createPreferencesModule('poe2', storage);
 
     if (!outcome.ok) throw new Error(outcome.error.message);
-    expect(outcome.value.read().enableTierHelper).toBe(false);
+    expect(outcome.value.read().sidebarModuleBookmarks).toBe(false);
   });
 
   it('isolates a failing subscriber from committed delivery', async () => {

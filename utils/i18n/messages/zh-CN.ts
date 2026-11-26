@@ -88,6 +88,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.theme.option.celadon-haze': '雾青浅绿',
   'settings.theme.option.morandi-ash': '浅灰紫调',
   'settings.theme.option.custom': '自定义',
+  'settings.theme.custom.toggle': '自定义配色与圆角',
   'settings.theme.custom.background': '背景色',
   'settings.theme.custom.card': '表面色',
   'settings.theme.custom.foreground': '文字色',
@@ -162,6 +163,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.hotkeys.titleBind': '点击以录制快捷键',
   'settings.hotkeys.clearTitle': '清除快捷键',
   'settings.hotkeys.clearNamedAria': '清除{label}',
+  'settings.hotkeys.conflictCleared': '快捷键 {key} 重复，已清除「{cleared}」',
 
   // Settings Pane - Trade Features
   'settings.tierHelper.label': 'T 阶快捷按钮',

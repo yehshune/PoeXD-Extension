@@ -89,7 +89,8 @@ describe('Theme Foundation — Formal Theme System (Modern-Dark, Caffeine & Catp
       expect(isGlobalPreference('sidebarWidth')).toBe(true);
       expect(isGlobalPreference('densityScale')).toBe(true);
       expect(isGlobalPreference('liveSearchMaxDisplayedResults')).toBe(false);
-      expect(isGlobalPreference('enableTierHelper')).toBe(false);
+      expect(isGlobalPreference('enableTierHelper')).toBe(true);
+      expect(isGlobalPreference('enableItemNormalizer')).toBe(false);
 
       // Global keys are unversioned
       expect(getPreferenceStorageKey('theme', 'poe1')).toBe('theme');

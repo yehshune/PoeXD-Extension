@@ -117,6 +117,13 @@ describe('Preferences Domain Contract', () => {
       'addBookmarkBtnPosition',
       'searchEntryClickAction',
       'enableBookmarkTooltip',
+      'enableAffixSelector',
+      'enablePriceComparison',
+      'enableResultExternalLinks',
+      'enableResultModHighlight',
+      'enableResultModQuickFilter',
+      'enableResultPobCopy',
+      'enableTierHelper',
     ]);
   });
 

@@ -1038,7 +1038,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
   it('backs up and imports global, poe1, and poe2 preferences together as schemaVersion 2', async () => {
     storage = createInMemoryPreferencesStorage({
       theme: 'caffeine',
-      enableTierHelper_poe1: false,
+      sidebarModuleBookmarks_poe1: false,
       enableItemNormalizer_poe2: false,
     });
     const { container } = await mountSettingsPane();
@@ -1076,7 +1076,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
         format: 'poexd-settings',
         schemaVersion: 2,
         global: { theme: 'caffeine' },
-        poe1: { enableTierHelper: false },
+        poe1: { sidebarModuleBookmarks: false },
         poe2: { enableItemNormalizer: false },
       });
 
@@ -1085,7 +1085,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
         format: 'poexd-settings',
         schemaVersion: 2,
         global: { theme: 'catppuccin', collapsedTabTop: 280 },
-        poe1: { enableTierHelper: true, liveSearchMaxDisplayedResults: 50 },
+        poe1: { sidebarModuleBookmarks: true, liveSearchMaxDisplayedResults: 50 },
         poe2: { enableItemNormalizer: true, liveSearchMaxDisplayedResults: 500 },
       });
       const mockFile = {
@@ -1101,7 +1101,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       expect(storage.inspect()).toMatchObject({
         theme: 'catppuccin',
         collapsedTabTop: 280,
-        enableTierHelper_poe1: true,
+        sidebarModuleBookmarks_poe1: true,
         liveSearchMaxDisplayedResults_poe1: 50,
         enableItemNormalizer_poe2: true,
         liveSearchMaxDisplayedResults_poe2: 500,
@@ -1859,5 +1859,102 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(resetBtn.disabled).toBe(true);
 
     host.remove();
+  });
+
+  it('collapses custom theme controls by default and expands on toggle, custom preset click, or matching search', async () => {
+    const { container } = await mountSettingsPane();
+
+    const group = container.querySelector<HTMLElement>(
+      '[data-settings-group="theme-custom-colors"]',
+    )!;
+    const toggle = group.querySelector<HTMLButtonElement>('[data-test="theme-custom-toggle"]')!;
+    const body = group.querySelector<HTMLElement>('[data-test="theme-custom-body"]')!;
+
+    // Collapsed by default
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(group.getAttribute('data-expanded')).toBe('false');
+    expect(body.style.display).toBe('none');
+
+    // Clicking toggle expands and collapses
+    toggle.click();
+    await flushAsync();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(body.style.display).not.toBe('none');
+
+    toggle.click();
+    await flushAsync();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(body.style.display).toBe('none');
+
+    // Searching for a custom theme keyword auto-expands the controls
+    container.querySelector<HTMLButtonElement>('[data-settings-search-toggle]')!.click();
+    await flushAsync();
+    const searchInput = container.querySelector<HTMLInputElement>('[data-settings-search]')!;
+    searchInput.value = '圓角';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    await flushAsync();
+    expect(group.style.display).not.toBe('none');
+    expect(body.style.display).not.toBe('none');
+
+    // Searching for an unrelated appearance setting hides the custom theme group
+    searchInput.value = '緊湊';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 200));
+    await flushAsync();
+    expect(group.style.display).toBe('none');
+
+    // Clearing search restores collapsed state
+    container.querySelector<HTMLButtonElement>('[data-settings-search-clear]')!.click();
+    await new Promise((r) => setTimeout(r, 200));
+    await flushAsync();
+    expect(group.style.display).not.toBe('none');
+    expect(body.style.display).toBe('none');
+
+    // Selecting the 'custom' preset auto-expands the controls
+    container.querySelector<HTMLButtonElement>('[data-custom-preset="custom"]')!.click();
+    await flushAsync();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(body.style.display).not.toBe('none');
+  });
+
+  it('clears the conflicting hotkey and dispatches a toast when focus and clear hotkeys collide', async () => {
+    const { container } = await mountSettingsPane();
+
+    const focusInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="聚焦搜尋欄快捷鍵"]',
+    )!;
+    const clearInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="清除並聚焦搜尋欄快捷鍵"]',
+    )!;
+
+    const { listenPoeEvent } = await import('@/utils/event-contracts');
+    const toasts: string[] = [];
+    const stopListening = listenPoeEvent('poexd-toast', (detail) => {
+      toasts.push(detail.message);
+    });
+
+    try {
+      // Defaults: focus = '/', clear = '\'. Bind focus to '\' -> clears hotkeyClear.
+      focusInput.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', bubbles: true }));
+      await flushAsync();
+
+      expect(currentModule!.read().hotkeyFocus).toBe('\\');
+      expect(currentModule!.read().hotkeyClear).toBe('');
+      expect(clearInput.value).toBe('');
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0]).toContain('\\');
+
+      // Bind clear to '\' -> clears hotkeyFocus.
+      clearInput.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', bubbles: true }));
+      await flushAsync();
+
+      expect(currentModule!.read().hotkeyClear).toBe('\\');
+      expect(currentModule!.read().hotkeyFocus).toBe('');
+      expect(focusInput.value).toBe('');
+      expect(toasts).toHaveLength(2);
+    } finally {
+      stopListening();
+    }
   });
 });

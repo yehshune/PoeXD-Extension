@@ -88,6 +88,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.theme.option.celadon-haze': 'Soft Sage',
   'settings.theme.option.morandi-ash': 'Soft Lilac',
   'settings.theme.option.custom': 'Custom',
+  'settings.theme.custom.toggle': 'Customize colors & corners',
   'settings.theme.custom.background': 'Background',
   'settings.theme.custom.card': 'Surface',
   'settings.theme.custom.foreground': 'Text',
@@ -162,6 +163,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.hotkeys.titleBind': 'Click to record hotkey',
   'settings.hotkeys.clearTitle': 'Clear hotkey',
   'settings.hotkeys.clearNamedAria': 'Clear {label}',
+  'settings.hotkeys.conflictCleared': 'Hotkey {key} conflicted and cleared "{cleared}"',
 
   // Settings Pane - Trade Features
   'settings.tierHelper.label': 'Tier Quick Button',
