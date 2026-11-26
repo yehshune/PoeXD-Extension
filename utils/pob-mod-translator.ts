@@ -130,6 +130,7 @@ export function tradeStatPairs(english: TradeStatTexts, localized: TradeStatText
 
 const TRANSLATED_LOCALES: readonly string[] = ['zh-TW', 'zh-CN'];
 const SUPPORT_SUFFIX = ' Support';
+const SKILL_SUFFIX = ' Skill';
 const NAME_SLOT = '\u0001';
 const LEVEL_PLACEHOLDER = '{0:d}';
 /** pobb.in 懸浮框保留的數值範圍（例如 `(100-129)`、`(-20--10)`）；以暫代數值比對句型後還原 */
@@ -210,13 +211,17 @@ export function createModLineTranslator(
   );
   const allPairs = primary.pairs;
 
-  const withoutSupport = (line: string, translate: (text: string) => string | undefined) =>
+  const withoutTrailingSuffix = (line: string, translate: (text: string) => string | undefined) =>
     translate(line) ??
-    (line.endsWith(SUPPORT_SUFFIX) ? translate(line.slice(0, -SUPPORT_SUFFIX.length)) : undefined);
+    (line.endsWith(SUPPORT_SUFFIX)
+      ? translate(line.slice(0, -SUPPORT_SUFFIX.length))
+      : undefined) ??
+    (line.endsWith(SKILL_SUFFIX) ? translate(line.slice(0, -SKILL_SUFFIX.length)) : undefined);
 
   const localizedName = (english: string, suffix: string): string | undefined =>
     (suffix ? extras.toLocalizedName?.(`${english}${suffix}`) : undefined) ??
-    extras.toLocalizedName?.(english);
+    extras.toLocalizedName?.(english) ??
+    extras.labels?.[english];
 
   /** 從已收錄的句子學出每種句型的框架：譯文裡把寶石譯名換成名稱欄位 */
   const namedFrames = NAMED_PATTERNS.map((pattern) => {
@@ -282,10 +287,10 @@ export function createModLineTranslator(
   const cache = new Map<string, string | undefined>();
   function translateCore(line: string, keepEnglishPrefix: boolean): string | undefined {
     return (
-      withoutSupport(line, primary.translateWhole) ??
+      withoutTrailingSuffix(line, primary.translateWhole) ??
       translateNamed(line) ??
       translatePrefixed(line, false) ??
-      withoutSupport(line, fallback.translateWhole) ??
+      withoutTrailingSuffix(line, fallback.translateWhole) ??
       (keepEnglishPrefix ? translatePrefixed(line, true) : undefined)
     );
   }

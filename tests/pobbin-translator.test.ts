@@ -576,6 +576,30 @@ describe('createPobbinTranslator', () => {
     ).toEqual(['不會被暈眩\n以斧擊中時獲得 2 層盛怒', '+10 最大生命']);
   });
 
+  it('翻譯非寶石的賦予技能詞綴（如 Grants Level 30 Aspect of the Spider Skill）', () => {
+    const tradeStats = {
+      english: { 'explicit.effect_149184016': 'Grants Level # Aspect of the Spider' },
+      localized: { 'explicit.effect_149184016': '賦予等級 # 的 毒蛛祝福' },
+    };
+    const labels = {
+      'Aspect of the Spider': '毒蛛祝福',
+      Grants: '賦予',
+    };
+    const translator = createPobbinTranslator({
+      ...makeTestTranslatorData(false),
+      modTranslator: createModLineTranslator({}, { labels, tradeStats }),
+      labelLookup: createLabelLookup(labels, [['Grants {0}', '賦予 {0}']], {}),
+    });
+    document.body.innerHTML = `
+      <div class="pob-item" data-rarity="Rare">
+        <div><div>Brimstone Cowl</div><div>Pig-Faced Bascinet</div></div>
+        <div><ul><li>Grants Level 30 Aspect of the Spider Skill</li></ul></div>
+      </div>
+    `;
+    translator.translate(document);
+    expect(document.querySelector('.pob-item li')?.textContent).toBe('賦予等級 30 的 毒蛛祝福');
+  });
+
   it('翻譯 PoB 摘要統計、eHP 最大承傷、盜賊／Config 與永恆珠寶征服詞綴，且不碰網站介面', () => {
     document.body.innerHTML = `
       <main>
