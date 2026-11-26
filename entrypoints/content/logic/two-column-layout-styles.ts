@@ -1,19 +1,17 @@
 /**
  * 寬螢幕雙欄版面的純 CSS 建構模組。
  *
- * - 官網結構排版色維持深色交易頁 `oklch()` 基礎值；
- * - 所有 PoeXD 自製宿主控件（分隔線、收合鈕、標頭把手／遮罩、回頂端鈕）皆透過
- *   `Page Theme Bridge`（`lib/theme/page-theme-bridge.ts`）消費 shadcn semantic CSS 變數，
- *   並附安全 fallback。
+ * - 雙欄宿主控件屬於 `visual-class-reset-contract.md` §2.2 的 Host-Native PoE Controls 例外：
+ *   不隨 PoeXD 側邊欄主題（含亮色主題）變色，統一採用方角與官方暗黑／暖金 `oklch()` 色階融入市集。
+ * - 為確保左右獨立捲動區由 Chromium GPU Compositor Thread 平滑捲動：
+ *   1. 禁止使用 `backdrop-filter: blur(...)`（避免每幀 GPU readback 重繪）。
+ *   2. 禁止在捲動容器上使用 `container-type: inline-size`（改由控制器僅於寬度變化時寫入 `data-*` 旗標）。
+ *   3. 雙捲動區皆設 100% 不透明底色、`contain: paint`、`will-change: scroll-position` 與 `overscroll-behavior: contain`。
  */
 import {
   TWO_COLUMN_COLLAPSED_WIDTH,
   TWO_COLUMN_COLUMN_GAP,
   TWO_COLUMN_DEFAULT_FILTER_WIDTH,
-  TWO_COLUMN_RESULTS_SINGLE_CARD_BREAKPOINT,
-  TWO_COLUMN_SINGLE_ROW_CONTROLS_BREAKPOINT,
-  TWO_COLUMN_SINGLE_ROW_SEARCH_BAR_BREAKPOINT,
-  TWO_COLUMN_WIDE_FILTER_BREAKPOINT,
 } from '@/utils/two-column-layout';
 import { CONSOLE_RESULT_ONLY_ATTR } from './live-search-console-host-guard';
 
@@ -22,6 +20,10 @@ export const TWO_COLUMN_ATTR = 'data-poexd-two-column';
 export const TWO_COLUMN_COLLAPSED_ATTR = 'data-poexd-two-column-collapsed';
 export const TWO_COLUMN_HIDE_HEADER_ATTR = 'data-poexd-two-column-hide-header';
 export const TWO_COLUMN_HEADER_OPEN_ATTR = 'data-poexd-two-column-header-open';
+export const TWO_COLUMN_SEARCH_BAR_ATTR = 'data-poexd-two-col-search-bar';
+export const TWO_COLUMN_CONTROLS_ATTR = 'data-poexd-two-col-controls';
+export const TWO_COLUMN_FILTERS_ATTR = 'data-poexd-two-col-filters';
+export const TWO_COLUMN_RESULTS_ATTR = 'data-poexd-two-col-results';
 export const TWO_COLUMN_WIDTH_VAR = '--poexd-two-col-left';
 export const TWO_COLUMN_MAX_WIDTH_VAR = '--poexd-two-col-max-width';
 export const TWO_COLUMN_SPLITTER_CLASS = 'poexd-two-col-splitter';
@@ -34,6 +36,13 @@ const ACTIVE_SCOPE = `html[${TWO_COLUMN_ATTR}="active"]:not([${CONSOLE_RESULT_ON
 const COLLAPSED_SCOPE = `html[${TWO_COLUMN_ATTR}="active"][${TWO_COLUMN_COLLAPSED_ATTR}="true"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
 const HIDE_HEADER_SCOPE = `html[${TWO_COLUMN_ATTR}="active"][${TWO_COLUMN_HIDE_HEADER_ATTR}="true"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
 const HEADER_OPEN_SCOPE = `html[${TWO_COLUMN_ATTR}="active"][${TWO_COLUMN_HIDE_HEADER_ATTR}="true"][${TWO_COLUMN_HEADER_OPEN_ATTR}="true"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
+
+const SINGLE_SEARCH_BAR_SCOPE = `${ACTIVE_SCOPE}[${TWO_COLUMN_SEARCH_BAR_ATTR}="single"]`;
+const SINGLE_CONTROLS_SCOPE = `${ACTIVE_SCOPE}[${TWO_COLUMN_CONTROLS_ATTR}="single"]`;
+const WIDE_FILTERS_SCOPE = `${ACTIVE_SCOPE}[${TWO_COLUMN_FILTERS_ATTR}="wide"]`;
+const NARROW_FILTERS_SCOPE = `${ACTIVE_SCOPE}[${TWO_COLUMN_FILTERS_ATTR}="narrow"]`;
+const WIDE_RESULTS_SCOPE = `${ACTIVE_SCOPE}[${TWO_COLUMN_RESULTS_ATTR}="wide"]`;
+const NARROW_RESULTS_SCOPE = `${ACTIVE_SCOPE}[${TWO_COLUMN_RESULTS_ATTR}="narrow"]`;
 
 function buildSingleColumnResultsetCss(selector: string): string {
   return `
@@ -111,7 +120,7 @@ export function buildTwoColumnLayoutCss(): string {
       max-width: 72px !important;
     }
 
-    /* 自動收合頂部官方標頭：平時騰出垂直高度，hover 中央把手時以覆蓋層往下滑出 */
+    /* 自動收合頂部官方標頭（市集原生暗黑／暖金風格，不使用 PoeXD 側欄主題） */
     ${HIDE_HEADER_SCOPE} .wrapper > #statusBar,
     ${HIDE_HEADER_SCOPE} .wrapper > .linkBack,
     ${HIDE_HEADER_SCOPE} .wrapper > .logo,
@@ -120,7 +129,7 @@ export function buildTwoColumnLayoutCss(): string {
       z-index: 42 !important;
       opacity: 0 !important;
       pointer-events: none !important;
-      transition: opacity 0.18s ease, transform 0.18s ease !important;
+      transition: opacity 0.16s ease, transform 0.16s ease !important;
     }
 
     ${HIDE_HEADER_SCOPE} .wrapper > #statusBar {
@@ -157,14 +166,13 @@ export function buildTwoColumnLayoutCss(): string {
       right: 0 !important;
       height: 76px !important;
       z-index: 40 !important;
-      background: color-mix(in oklch, var(--background, oklch(0.1 0.005 250)) 96%, transparent) !important;
-      backdrop-filter: blur(8px) !important;
-      border-bottom: 1px solid var(--border, oklch(0.32 0.015 250)) !important;
-      box-shadow: var(--shadow-lg, 0 6px 20px oklch(0 0 0 / 0.55)) !important;
+      background: oklch(0.095 0.004 250) !important;
+      border-bottom: 1px solid oklch(0.32 0.012 250) !important;
+      box-shadow: 0 6px 18px oklch(0 0 0 / 0.6) !important;
       opacity: 0 !important;
       pointer-events: none !important;
       transform: translateY(-100%) !important;
-      transition: opacity 0.18s ease, transform 0.18s ease !important;
+      transition: opacity 0.16s ease, transform 0.16s ease !important;
     }
 
     ${HIDE_HEADER_SCOPE} .wrapper > .${TWO_COLUMN_HEADER_TAB_CLASS} {
@@ -172,7 +180,7 @@ export function buildTwoColumnLayoutCss(): string {
       top: 0 !important;
       left: 50% !important;
       transform: translateX(-50%) !important;
-      width: 120px !important;
+      width: 112px !important;
       height: 14px !important;
       padding: 0 !important;
       margin: 0 !important;
@@ -180,18 +188,19 @@ export function buildTwoColumnLayoutCss(): string {
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      border: 1px solid var(--border, oklch(0.32 0.012 250)) !important;
+      border: 1px solid oklch(0.36 0.008 250) !important;
       border-top: 0 !important;
-      border-radius: 0 0 var(--radius-sm, 6px) var(--radius-sm, 6px) !important;
-      background: color-mix(in oklch, var(--card, oklch(0.15 0.006 250)) 92%, transparent) !important;
-      color: var(--muted-foreground, oklch(0.74 0.03 82)) !important;
+      border-radius: 0 !important;
+      background: oklch(0.18 0.005 250) !important;
+      color: oklch(0.858 0.068 82.8) !important;
       cursor: pointer !important;
-      transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease !important;
+      transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, opacity 0.15s ease !important;
     }
 
     ${HIDE_HEADER_SCOPE} .wrapper > .${TWO_COLUMN_HEADER_TAB_CLASS}:hover {
-      background: var(--accent, oklch(0.24 0.012 250)) !important;
-      color: var(--accent-foreground, oklch(0.92 0.04 82)) !important;
+      background: oklch(0.26 0.006 250) !important;
+      border-color: oklch(0.52 0.04 76) !important;
+      color: oklch(0.95 0.025 82) !important;
     }
 
     ${HIDE_HEADER_SCOPE} #trade > .navigation {
@@ -263,7 +272,7 @@ export function buildTwoColumnLayoutCss(): string {
       grid-column: 2 !important;
     }
 
-    /* 左欄：貼合剩餘視窗高度並獨立捲動內部篩選區 */
+    /* 左欄：不透明深色表面＋貼合剩餘視窗高度 */
     ${ACTIVE_SCOPE} #trade > .top {
       grid-column: 1 !important;
       grid-row: 2 !important;
@@ -277,10 +286,9 @@ export function buildTwoColumnLayoutCss(): string {
       display: flex !important;
       flex-direction: column !important;
       box-sizing: border-box !important;
-      background: oklch(0.115 0.005 250 / 0.97) !important;
+      background: oklch(0.115 0.005 250) !important;
       border: 1px solid oklch(0.27 0.008 250) !important;
       overflow: visible !important;
-      container-type: inline-size !important;
     }
 
     ${ACTIVE_SCOPE} #trade > .top > .search-panel {
@@ -302,6 +310,7 @@ export function buildTwoColumnLayoutCss(): string {
       width: 100% !important;
       padding: 8px !important;
       box-sizing: border-box !important;
+      background: oklch(0.115 0.005 250) !important;
       border-bottom: 1px solid oklch(0.24 0.008 250) !important;
       position: relative !important;
       z-index: 6 !important;
@@ -360,31 +369,28 @@ export function buildTwoColumnLayoutCss(): string {
     }
 
     /* 左欄寬度 >= 560px 時，將搜尋框與精簡的伺服器／聯盟／交易狀態選單併回同一列，僅在極窄時才換兩列 */
-    @container (min-width: ${TWO_COLUMN_SINGLE_ROW_SEARCH_BAR_BREAKPOINT}px) {
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) {
-        flex-direction: row !important;
-        align-items: center !important;
-        gap: 6px !important;
-      }
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) .search-left {
-        flex: 1 1 0 !important;
-        min-width: 170px !important;
-        width: auto !important;
-      }
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) .search-right {
-        flex: 0 1 auto !important;
-        width: auto !important;
-        max-width: 65% !important;
-      }
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) .search-right > * {
-        flex: 0 1 auto !important;
-        min-width: 96px !important;
-        max-width: 132px !important;
-      }
+    ${SINGLE_SEARCH_BAR_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) {
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 6px !important;
+    }
+    ${SINGLE_SEARCH_BAR_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) .search-left {
+      flex: 1 1 0 !important;
+      min-width: 170px !important;
+      width: auto !important;
+    }
+    ${SINGLE_SEARCH_BAR_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) .search-right {
+      flex: 0 1 auto !important;
+      width: auto !important;
+      max-width: 65% !important;
+    }
+    ${SINGLE_SEARCH_BAR_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) .search-right > * {
+      flex: 0 1 auto !important;
+      min-width: 96px !important;
+      max-width: 132px !important;
     }
 
-    /* 左欄主體：即使按下搜尋被官網加上 .search-advanced-hidden，仍保持展開並獨立捲動；
-       底部保留足夠留白，確保最下方的詞綴下拉選單展開時不必二次捲動 */
+    /* 左欄主體：不透明底色＋GPU 合成層獨立捲動；底部保留足夠留白方便最下方詞綴選單展開 */
     ${ACTIVE_SCOPE} #trade > .top .search-panel > .search-bar.search-advanced,
     ${ACTIVE_SCOPE} #trade > .top .search-panel > .search-bar.search-advanced.search-advanced-hidden {
       display: block !important;
@@ -393,8 +399,12 @@ export function buildTwoColumnLayoutCss(): string {
       height: auto !important;
       max-height: none !important;
       width: 100% !important;
+      background: oklch(0.115 0.005 250) !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
+      overscroll-behavior: contain !important;
+      contain: paint !important;
+      will-change: scroll-position !important;
       padding: 8px 8px clamp(280px, 42vh, 460px) !important;
       box-sizing: border-box !important;
       scrollbar-width: thin !important;
@@ -430,28 +440,24 @@ export function buildTwoColumnLayoutCss(): string {
     }
 
     /* 左欄拉寬至 >= 920px 時，自動恢復「左屬性過濾（藍區）＋右詞綴篩選（棕區）」雙區並排 */
-    @container (min-width: ${TWO_COLUMN_WIDE_FILTER_BREAKPOINT}px) {
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) .search-right > * {
-        max-width: 156px !important;
-      }
-      ${ACTIVE_SCOPE} #trade > .top .search-advanced-items {
-        display: grid !important;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-        gap: 12px !important;
-        align-items: start !important;
-      }
-      ${ACTIVE_SCOPE} #trade > .top .search-advanced-pane.brown {
-        padding-top: 0 !important;
-        border-top: none !important;
-      }
+    ${WIDE_FILTERS_SCOPE} #trade > .top .search-panel > .search-bar:not(.search-advanced) .search-right > * {
+      max-width: 156px !important;
+    }
+    ${WIDE_FILTERS_SCOPE} #trade > .top .search-advanced-items {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+      gap: 12px !important;
+      align-items: start !important;
+    }
+    ${WIDE_FILTERS_SCOPE} #trade > .top .search-advanced-pane.brown {
+      padding-top: 0 !important;
+      border-top: none !important;
     }
 
     /* 左欄較窄時（< 460px）將藍區雙欄屬性列改為單欄避免輸入框過擠 */
-    @container (max-width: 459px) {
-      ${ACTIVE_SCOPE} #trade > .top .search-advanced-pane.blue .filter.filter-padded {
-        width: 100% !important;
-        flex: 0 0 100% !important;
-      }
+    ${NARROW_FILTERS_SCOPE} #trade > .top .search-advanced-pane.blue .filter.filter-padded {
+      width: 100% !important;
+      flex: 0 0 100% !important;
     }
 
     /* 左欄底部固定操作列：極窄（< 480px）時精簡為 2 列（[搜尋][清除] + [啟動線上搜尋][送入主控台]），不佔 3 列 */
@@ -466,7 +472,7 @@ export function buildTwoColumnLayoutCss(): string {
       padding: 8px !important;
       margin: 0 !important;
       box-sizing: border-box !important;
-      background: oklch(0.11 0.005 250 / 0.99) !important;
+      background: oklch(0.11 0.005 250) !important;
       border-top: 1px solid oklch(0.25 0.008 250) !important;
       position: relative !important;
       z-index: 4 !important;
@@ -544,27 +550,25 @@ export function buildTwoColumnLayoutCss(): string {
     }
 
     /* 左欄寬度 >= 480px 時，全部底部操作按鈕直接併成精簡單排 */
-    @container (min-width: ${TWO_COLUMN_SINGLE_ROW_CONTROLS_BREAKPOINT}px) {
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .controls {
-        flex-wrap: nowrap !important;
-      }
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .controls .livesearch-btn {
-        order: 0 !important;
-        flex: 0 1 auto !important;
-      }
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .controls .poexd-send-to-console-btn {
-        order: 1 !important;
-        flex: 0 1 auto !important;
-      }
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .controls .search-btn {
-        order: 2 !important;
-        flex: 1 1 110px !important;
-        min-width: 84px !important;
-      }
-      ${ACTIVE_SCOPE} #trade > .top .search-panel > .controls .clear-btn {
-        order: 3 !important;
-        flex: 0 0 auto !important;
-      }
+    ${SINGLE_CONTROLS_SCOPE} #trade > .top .search-panel > .controls {
+      flex-wrap: nowrap !important;
+    }
+    ${SINGLE_CONTROLS_SCOPE} #trade > .top .search-panel > .controls .livesearch-btn {
+      order: 0 !important;
+      flex: 0 1 auto !important;
+    }
+    ${SINGLE_CONTROLS_SCOPE} #trade > .top .search-panel > .controls .poexd-send-to-console-btn {
+      order: 1 !important;
+      flex: 0 1 auto !important;
+    }
+    ${SINGLE_CONTROLS_SCOPE} #trade > .top .search-panel > .controls .search-btn {
+      order: 2 !important;
+      flex: 1 1 110px !important;
+      min-width: 84px !important;
+    }
+    ${SINGLE_CONTROLS_SCOPE} #trade > .top .search-panel > .controls .clear-btn {
+      order: 3 !important;
+      flex: 0 0 auto !important;
     }
 
     /* 雙欄模式下改由分隔線上的收合按鈕控制整個左側篩選欄，隱藏官網原本的上下展開／收合鈕 */
@@ -572,7 +576,7 @@ export function buildTwoColumnLayoutCss(): string {
       display: none !important;
     }
 
-    /* 右欄：獨立捲動的搜尋結果區 */
+    /* 右欄：不透明底色＋GPU 合成層獨立捲動的搜尋結果區 */
     ${ACTIVE_SCOPE} #trade > #vue3-portal {
       display: contents !important;
     }
@@ -589,14 +593,17 @@ export function buildTwoColumnLayoutCss(): string {
       margin: 0 !important;
       padding-right: 4px !important;
       box-sizing: border-box !important;
+      background: oklch(0.08 0.004 250) !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
+      overscroll-behavior: contain !important;
+      contain: paint !important;
+      will-change: scroll-position !important;
       scrollbar-width: thin !important;
       scrollbar-color: oklch(0.36 0.01 250) transparent !important;
-      container-type: inline-size !important;
     }
 
-    /* 結果頂部總數／排序／看板列：解除官網 1520px 上限並滿寬固定於右欄頂端 */
+    /* 結果頂部總數／排序／看板列：純不透明深色底（避免毛玻璃濾鏡重繪），滿寬固定於右欄頂端 */
     ${ACTIVE_SCOPE} #trade .results > .row.row-total {
       position: sticky !important;
       top: 0 !important;
@@ -605,8 +612,7 @@ export function buildTwoColumnLayoutCss(): string {
       max-width: none !important;
       margin: 0 !important;
       box-sizing: border-box !important;
-      background: oklch(0.115 0.005 250 / 0.96) !important;
-      backdrop-filter: blur(6px) !important;
+      background: oklch(0.115 0.005 250) !important;
       border-bottom: 1px solid oklch(0.24 0.008 250) !important;
     }
 
@@ -628,53 +634,65 @@ export function buildTwoColumnLayoutCss(): string {
     ${buildSingleColumnResultsetCss(`${ACTIVE_SCOPE} #trade .results.compact:not(.two) .resultset`)}
 
     /* 雙欄 compact-two：還原官方原生 flex-wrap 等高對齊與 1520px 上限（單卡 50%、最高 760px） */
-    @container (min-width: ${TWO_COLUMN_RESULTS_SINGLE_CARD_BREAKPOINT}px) {
-      ${ACTIVE_SCOPE} #trade .results.two .resultset {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: wrap !important;
-        align-items: stretch !important;
-        width: 100% !important;
-        max-width: 1520px !important;
-        margin: 0 auto 12px !important;
-      }
-      ${ACTIVE_SCOPE} #trade .results.two .resultset > .row {
-        flex: 0 0 50% !important;
-        width: 50% !important;
-        max-width: 760px !important;
-        box-sizing: border-box !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-      }
+    ${WIDE_RESULTS_SCOPE} #trade .results.two .resultset {
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+      align-items: stretch !important;
+      width: 100% !important;
+      max-width: 1520px !important;
+      margin: 0 auto 12px !important;
+    }
+    ${WIDE_RESULTS_SCOPE} #trade .results.two .resultset > .row {
+      flex: 0 0 50% !important;
+      width: 50% !important;
+      max-width: 760px !important;
+      box-sizing: border-box !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
     }
 
     /* 右欄窄於 1060px 時，compact-two 自動退回單欄避免卡片過擠 */
-    @container (max-width: ${TWO_COLUMN_RESULTS_SINGLE_CARD_BREAKPOINT - 1}px) {
-      ${buildSingleColumnResultsetCss(`${ACTIVE_SCOPE} #trade .results.two .resultset`)}
+    ${NARROW_RESULTS_SCOPE} #trade .results.two .resultset {
+      display: flex !important;
+      flex-direction: column !important;
+      flex-wrap: nowrap !important;
+      align-items: center !important;
+      width: 100% !important;
+      max-width: none !important;
+      margin: 0 0 12px !important;
+    }
+    ${NARROW_RESULTS_SCOPE} #trade .results.two .resultset > .row {
+      flex: 0 0 auto !important;
+      width: 100% !important;
+      max-width: 920px !important;
+      box-sizing: border-box !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
     }
 
-    /* 右下角「回到結果頂端」按鈕（透過 Page Theme Bridge 消費主題變數） */
+    /* 右下角「回到結果頂端」按鈕（市集原生暗黑方角＋暖金風格，不跟隨 PoeXD 主題） */
     ${ACTIVE_SCOPE} #trade > .${TWO_COLUMN_TOP_BTN_CLASS} {
       position: absolute !important;
       right: 18px !important;
       bottom: 18px !important;
       z-index: 26 !important;
-      width: 34px !important;
-      height: 34px !important;
+      width: 32px !important;
+      height: 32px !important;
       padding: 0 !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      border-radius: var(--radius-md, 6px) !important;
-      border: 1px solid var(--border, oklch(0.38 0.015 250)) !important;
-      background: color-mix(in oklch, var(--card, oklch(0.16 0.008 250)) 94%, transparent) !important;
-      color: var(--foreground, oklch(0.86 0.05 82)) !important;
-      box-shadow: var(--shadow-md, 0 4px 12px oklch(0 0 0 / 0.45)) !important;
+      border-radius: 0 !important;
+      border: 1px solid oklch(0.387 0 0) !important;
+      background: oklch(0.245 0.006 250 / 0.96) !important;
+      color: oklch(0.858 0.068 82.8) !important;
+      box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.05), 0 4px 12px oklch(0 0 0 / 0.5) !important;
       cursor: pointer !important;
       opacity: 0 !important;
       pointer-events: none !important;
       transform: translateY(8px) !important;
-      transition: opacity 0.16s ease, transform 0.16s ease, background-color 0.15s ease, border-color 0.15s ease !important;
+      transition: opacity 0.14s ease, transform 0.14s ease, background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease !important;
     }
 
     ${ACTIVE_SCOPE} #trade > .${TWO_COLUMN_TOP_BTN_CLASS}[data-visible="true"] {
@@ -684,12 +702,12 @@ export function buildTwoColumnLayoutCss(): string {
     }
 
     ${ACTIVE_SCOPE} #trade > .${TWO_COLUMN_TOP_BTN_CLASS}:hover {
-      background: var(--accent, oklch(0.24 0.012 250)) !important;
-      border-color: var(--primary, oklch(0.62 0.06 82)) !important;
-      color: var(--accent-foreground, oklch(0.96 0.03 82)) !important;
+      background: oklch(0.295 0.006 250) !important;
+      border-color: oklch(0.52 0.04 76) !important;
+      color: oklch(0.95 0.025 82) !important;
     }
 
-    /* 分隔線拖曳拉桿與收合按鈕（透過 Page Theme Bridge 消費主題變數） */
+    /* 分隔線拖曳拉桿與收合按鈕（市集原生暗黑方角＋暖金風格） */
     ${ACTIVE_SCOPE} #trade > .top > .${TWO_COLUMN_SPLITTER_CLASS} {
       position: absolute !important;
       top: 0 !important;
@@ -718,33 +736,32 @@ export function buildTwoColumnLayoutCss(): string {
 
     ${ACTIVE_SCOPE} #trade > .top > .${TWO_COLUMN_SPLITTER_CLASS}:hover::before,
     ${ACTIVE_SCOPE} #trade > .top > .${TWO_COLUMN_SPLITTER_CLASS}[data-resizing="true"]::before {
-      background: color-mix(in oklch, var(--primary, oklch(0.68 0.07 82)) 80%, transparent) !important;
+      background: oklch(0.654 0.055 78 / 0.85) !important;
     }
 
     ${ACTIVE_SCOPE} #trade > .top > .${TWO_COLUMN_SPLITTER_CLASS} > .${TWO_COLUMN_COLLAPSE_BTN_CLASS} {
-      position: sticky !important;
-      top: 10px !important;
+      position: relative !important;
       margin-top: 8px !important;
-      width: 22px !important;
+      width: 20px !important;
       height: 36px !important;
       padding: 0 !important;
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      border-radius: var(--radius-sm, 4px) !important;
-      border: 1px solid var(--border, oklch(0.36 0.015 250)) !important;
-      background: color-mix(in oklch, var(--card, oklch(0.18 0.008 250)) 96%, transparent) !important;
-      color: var(--foreground, oklch(0.84 0.04 82)) !important;
+      border-radius: 0 !important;
+      border: 1px solid oklch(0.387 0 0) !important;
+      background: oklch(0.245 0.006 250 / 0.96) !important;
+      color: oklch(0.858 0.068 82.8) !important;
       cursor: pointer !important;
-      box-shadow: var(--shadow-sm, 0 2px 6px oklch(0 0 0 / 0.45)) !important;
-      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+      box-shadow: 0 2px 6px oklch(0 0 0 / 0.45) !important;
+      transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease !important;
       z-index: 2 !important;
     }
 
     ${ACTIVE_SCOPE} #trade > .top > .${TWO_COLUMN_SPLITTER_CLASS} > .${TWO_COLUMN_COLLAPSE_BTN_CLASS}:hover {
-      background: var(--accent, oklch(0.25 0.012 250)) !important;
-      border-color: var(--primary, oklch(0.62 0.06 82)) !important;
-      color: var(--accent-foreground, oklch(0.95 0.03 82)) !important;
+      background: oklch(0.295 0.006 250) !important;
+      border-color: oklch(0.52 0.04 76) !important;
+      color: oklch(0.95 0.025 82) !important;
     }
 
     /* 左側篩選欄收合狀態：縮成滿高窄直條，結果區幾乎吃滿全寬 */
@@ -771,7 +788,7 @@ export function buildTwoColumnLayoutCss(): string {
 
     ${COLLAPSED_SCOPE} #trade > .top > .${TWO_COLUMN_SPLITTER_CLASS} > .${TWO_COLUMN_COLLAPSE_BTN_CLASS} {
       margin-top: 8px !important;
-      width: 24px !important;
+      width: 22px !important;
       height: 36px !important;
     }
   `;

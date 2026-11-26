@@ -74,6 +74,7 @@ export interface TwoColumnGeometry {
   readonly active: boolean;
   readonly reason: TwoColumnStatusReason;
   readonly leftWidth: number;
+  readonly resultsWidth: number;
   readonly maxFilterWidth: number;
   readonly maxWidthCss: string;
   readonly filtersCollapsed: boolean;
@@ -87,6 +88,7 @@ function inactiveGeometry(
     active: false,
     reason,
     leftWidth: TWO_COLUMN_DEFAULT_FILTER_WIDTH,
+    resultsWidth: 0,
     maxFilterWidth: TWO_COLUMN_FILTER_WIDTH_BOUNDS.max,
     maxWidthCss,
     filtersCollapsed: false,
@@ -135,11 +137,19 @@ export function resolveTwoColumnGeometry(input: TwoColumnGeometryInput): TwoColu
     input.contentWidth,
     maxWidth,
   );
+  const effectiveContainerWidth =
+    maxWidthPx !== null ? Math.min(input.contentWidth, maxWidthPx) : input.contentWidth;
+  const leftWidth = input.filtersCollapsed ? TWO_COLUMN_COLLAPSED_WIDTH : clamped;
+  const resultsWidth = Math.max(
+    0,
+    Math.floor(effectiveContainerWidth - leftWidth - TWO_COLUMN_COLUMN_GAP),
+  );
 
   return {
     active: true,
     reason: 'active',
-    leftWidth: input.filtersCollapsed ? TWO_COLUMN_COLLAPSED_WIDTH : clamped,
+    leftWidth,
+    resultsWidth,
     maxFilterWidth,
     maxWidthCss,
     filtersCollapsed: input.filtersCollapsed,

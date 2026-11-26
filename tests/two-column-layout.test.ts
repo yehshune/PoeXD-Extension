@@ -4,10 +4,14 @@ import {
   TWO_COLUMN_ATTR,
   TWO_COLUMN_COLLAPSED_ATTR,
   TWO_COLUMN_COLLAPSE_BTN_CLASS,
+  TWO_COLUMN_CONTROLS_ATTR,
+  TWO_COLUMN_FILTERS_ATTR,
   TWO_COLUMN_HEADER_OPEN_ATTR,
   TWO_COLUMN_HEADER_TAB_CLASS,
   TWO_COLUMN_HIDE_HEADER_ATTR,
   TWO_COLUMN_MAX_WIDTH_VAR,
+  TWO_COLUMN_RESULTS_ATTR,
+  TWO_COLUMN_SEARCH_BAR_ATTR,
   TWO_COLUMN_SPLITTER_CLASS,
   TWO_COLUMN_STYLE_ID,
   TWO_COLUMN_TOP_BTN_CLASS,
@@ -169,6 +173,7 @@ describe('two-column-layout pure geometry', () => {
       active: true,
       reason: 'active',
       leftWidth: TWO_COLUMN_COLLAPSED_WIDTH,
+      resultsWidth: 1920 - TWO_COLUMN_COLLAPSED_WIDTH - 12,
       maxWidthCss: '1920px',
       filtersCollapsed: true,
     });
@@ -184,6 +189,10 @@ describe('createTwoColumnLayoutController', () => {
     document.documentElement.removeAttribute(TWO_COLUMN_COLLAPSED_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_HIDE_HEADER_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_HEADER_OPEN_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_SEARCH_BAR_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_CONTROLS_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_FILTERS_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_RESULTS_ATTR);
     document.documentElement.style.removeProperty(TWO_COLUMN_WIDTH_VAR);
     document.documentElement.style.removeProperty(TWO_COLUMN_MAX_WIDTH_VAR);
   });
@@ -196,27 +205,34 @@ describe('createTwoColumnLayoutController', () => {
     document.documentElement.removeAttribute(TWO_COLUMN_COLLAPSED_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_HIDE_HEADER_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_HEADER_OPEN_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_SEARCH_BAR_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_CONTROLS_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_FILTERS_ATTR);
+    document.documentElement.removeAttribute(TWO_COLUMN_RESULTS_ATTR);
     document.documentElement.style.removeProperty(TWO_COLUMN_WIDTH_VAR);
     document.documentElement.style.removeProperty(TWO_COLUMN_MAX_WIDTH_VAR);
   });
 
-  it('uses Theme Bridge CSS vars & oklch fallbacks, locks viewport scroll, preserves native compact-two, and protects button overflow', () => {
+  it('uses PoE-native oklch styles, avoids scroll-jank CSS (no backdrop-filter or container-type), and promotes GPU scroll layers', () => {
     const css = buildTwoColumnLayoutCss();
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(css).not.toMatch(/\brgba?\s*\(/i);
     expect(css).toContain('oklch(');
-    expect(css).toContain('var(--card');
-    expect(css).toContain('var(--border');
-    expect(css).toContain('var(--primary');
+    // Host-native controls do NOT follow PoeXD light/dark sidebar themes
+    expect(css).not.toContain('var(--card');
+    expect(css).not.toContain('var(--primary');
+    // Scroll performance invariants: no backdrop-filter blur and no container-type on scroll containers
+    expect(css).not.toContain('backdrop-filter');
+    expect(css).not.toContain('container-type');
+    expect(css).toContain('will-change: scroll-position !important;');
+    expect(css).toContain('overscroll-behavior: contain !important;');
+    expect(css).toContain('contain: paint !important;');
     expect(css).toContain('height: 100vh !important;');
     expect(css).toContain('overflow-y: auto !important;');
     expect(css).toContain('.results > .row.row-total');
     expect(css).toContain('.results.compact:not(.two) .resultset');
     expect(css).toContain('align-items: stretch !important;');
     expect(css).toContain('max-width: 760px !important;');
-    expect(css).toContain('min-width: 480px');
-    expect(css).toContain('min-width: 560px');
-    expect(css).toContain('min-width: 920px');
     expect(css).toContain('clamp(280px, 42vh, 460px)');
     expect(css).toContain('text-overflow: ellipsis !important;');
     expect(css).not.toContain('repeat(3, minmax(0, 1fr))');
@@ -224,7 +240,7 @@ describe('createTwoColumnLayoutController', () => {
     expect(css).toContain(TWO_COLUMN_MAX_WIDTH_VAR);
   });
 
-  it('activates via batch applyConfig, manages header overlay, toggles collapse, and cleans up completely', () => {
+  it('activates via batch applyConfig, sets responsive breakpoint attributes, manages header overlay, and cleans up completely', () => {
     vi.useFakeTimers();
     mountMockTradeDom(2560);
     const onCommit = vi.fn();
@@ -242,6 +258,11 @@ describe('createTwoColumnLayoutController', () => {
     expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_MAX_WIDTH_VAR)).toBe(
       '1920px',
     );
+    expect(document.documentElement.getAttribute(TWO_COLUMN_SEARCH_BAR_ATTR)).toBe('single');
+    expect(document.documentElement.getAttribute(TWO_COLUMN_CONTROLS_ATTR)).toBe('single');
+    expect(document.documentElement.getAttribute(TWO_COLUMN_FILTERS_ATTR)).toBe('wide');
+    // At 1920px maxWidth with 960px left column, resultsWidth = 948px (< 1060px -> narrow)
+    expect(document.documentElement.getAttribute(TWO_COLUMN_RESULTS_ATTR)).toBe('narrow');
     expect(document.documentElement.getAttribute(TWO_COLUMN_HIDE_HEADER_ATTR)).toBe('true');
     expect(document.getElementById(TWO_COLUMN_STYLE_ID)).not.toBeNull();
 
@@ -267,8 +288,10 @@ describe('createTwoColumnLayoutController', () => {
     expect(splitter).not.toBeNull();
     expect(collapseBtn).not.toBeNull();
 
+    // Collapsing left pane widens results pane past 1060px -> results becomes 'wide'
     collapseBtn!.click();
     expect(document.documentElement.getAttribute(TWO_COLUMN_COLLAPSED_ATTR)).toBe('true');
+    expect(document.documentElement.getAttribute(TWO_COLUMN_RESULTS_ATTR)).toBe('wide');
     expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_WIDTH_VAR)).toBe(
       `${TWO_COLUMN_COLLAPSED_WIDTH}px`,
     );
@@ -282,6 +305,7 @@ describe('createTwoColumnLayoutController', () => {
 
     controller.applyConfig({ enabled: false });
     expect(document.documentElement.hasAttribute(TWO_COLUMN_ATTR)).toBe(false);
+    expect(document.documentElement.hasAttribute(TWO_COLUMN_RESULTS_ATTR)).toBe(false);
     expect(document.getElementById(TWO_COLUMN_STYLE_ID)).toBeNull();
     expect(document.querySelector(`.${TWO_COLUMN_SPLITTER_CLASS}`)).toBeNull();
     expect(document.querySelector(`.${TWO_COLUMN_TOP_BTN_CLASS}`)).toBeNull();
@@ -289,8 +313,8 @@ describe('createTwoColumnLayoutController', () => {
     controller.cleanup();
   });
 
-  it('bridges late-mounted .results inside #vue3-portal and triggers load-more even with tiny scroll distance', async () => {
-    // Start with a blank search page (no .results inside #vue3-portal yet)
+  it('bridges late-mounted .results inside #vue3-portal and triggers load-more via rAF without hot-path layout thrashing', async () => {
+    vi.useFakeTimers();
     mountMockTradeDom(2560, false);
     let currentTime = 5000;
     const controller = createTwoColumnLayoutController({ now: () => currentTime });
@@ -298,7 +322,6 @@ describe('createTwoColumnLayoutController', () => {
 
     expect(document.querySelector(`.${TWO_COLUMN_TOP_BTN_CLASS}`)).toBeNull();
 
-    // Vue mounts .results dynamically inside #vue3-portal after user clicks Search
     const portal = document.getElementById('vue3-portal')!;
     portal.innerHTML = `
       <div class="results compact two">
@@ -319,24 +342,26 @@ describe('createTwoColumnLayoutController', () => {
     const clickSpy = vi.fn();
     loadMoreBtn.addEventListener('click', clickSpy);
 
-    // Simulate a 2K screen where total scroll room is only 20px (<= 40px)
     Object.defineProperty(resultsEl, 'clientHeight', { value: 1200, configurable: true });
     Object.defineProperty(resultsEl, 'scrollHeight', { value: 1220, configurable: true });
 
     resultsEl.scrollTop = 10;
     resultsEl.dispatchEvent(new Event('scroll'));
+    vi.advanceTimersByTime(32);
     expect(clickSpy).toHaveBeenCalledTimes(1);
 
     // Cooldown prevents immediate double-fire
     currentTime += 300;
     resultsEl.scrollTop = 20;
     resultsEl.dispatchEvent(new Event('scroll'));
+    vi.advanceTimersByTime(32);
     expect(clickSpy).toHaveBeenCalledTimes(1);
 
     // After cooldown, scrolling again triggers load-more
     currentTime += 1500;
     resultsEl.scrollTop = 20;
     resultsEl.dispatchEvent(new Event('scroll'));
+    vi.advanceTimersByTime(32);
     expect(clickSpy).toHaveBeenCalledTimes(2);
 
     controller.cleanup();

@@ -3,7 +3,7 @@
  *
  * 樣式定義位於 `./two-column-layout-styles`，純幾何計算位於 `@/utils/two-column-layout`。
  * 本模組專責 DOM 生命週期、尺寸／路由／結果容器觀測、分隔線拖曳、頂部標頭自動收合與
- * 右欄滑底自動觸發官方「讀取更多」橋接。
+ * 右欄滑底自動觸發官方「讀取更多」橋接（全程避免在 scroll/wheel 熱路徑觸發同步排版）。
  */
 import { listenPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
@@ -11,21 +11,31 @@ import type { TradePageRole } from '@/utils/live-search-contract';
 import type { TwoColumnMaxWidth } from '@/utils/preferences-contract';
 import { createSvgIcon } from '@/utils/safe-dom';
 import {
+  TWO_COLUMN_COLUMN_GAP,
   TWO_COLUMN_DEFAULT_FILTER_WIDTH,
   TWO_COLUMN_DEFAULT_MAX_WIDTH,
+  TWO_COLUMN_RESULTS_SINGLE_CARD_BREAKPOINT,
+  TWO_COLUMN_SINGLE_ROW_CONTROLS_BREAKPOINT,
+  TWO_COLUMN_SINGLE_ROW_SEARCH_BAR_BREAKPOINT,
+  TWO_COLUMN_WIDE_FILTER_BREAKPOINT,
   clampTwoColumnFilterWidth,
   resolveTwoColumnGeometry,
+  resolveTwoColumnMaxWidthPx,
   type TwoColumnGeometry,
 } from '@/utils/two-column-layout';
 import {
   TWO_COLUMN_ATTR,
   TWO_COLUMN_COLLAPSED_ATTR,
   TWO_COLUMN_COLLAPSE_BTN_CLASS,
+  TWO_COLUMN_CONTROLS_ATTR,
+  TWO_COLUMN_FILTERS_ATTR,
   TWO_COLUMN_HEADER_BACKDROP_CLASS,
   TWO_COLUMN_HEADER_OPEN_ATTR,
   TWO_COLUMN_HEADER_TAB_CLASS,
   TWO_COLUMN_HIDE_HEADER_ATTR,
   TWO_COLUMN_MAX_WIDTH_VAR,
+  TWO_COLUMN_RESULTS_ATTR,
+  TWO_COLUMN_SEARCH_BAR_ATTR,
   TWO_COLUMN_SPLITTER_CLASS,
   TWO_COLUMN_STYLE_ID,
   TWO_COLUMN_TOP_BTN_CLASS,
@@ -37,11 +47,15 @@ export {
   TWO_COLUMN_ATTR,
   TWO_COLUMN_COLLAPSED_ATTR,
   TWO_COLUMN_COLLAPSE_BTN_CLASS,
+  TWO_COLUMN_CONTROLS_ATTR,
+  TWO_COLUMN_FILTERS_ATTR,
   TWO_COLUMN_HEADER_BACKDROP_CLASS,
   TWO_COLUMN_HEADER_OPEN_ATTR,
   TWO_COLUMN_HEADER_TAB_CLASS,
   TWO_COLUMN_HIDE_HEADER_ATTR,
   TWO_COLUMN_MAX_WIDTH_VAR,
+  TWO_COLUMN_RESULTS_ATTR,
+  TWO_COLUMN_SEARCH_BAR_ATTR,
   TWO_COLUMN_SPLITTER_CLASS,
   TWO_COLUMN_STYLE_ID,
   TWO_COLUMN_TOP_BTN_CLASS,
@@ -55,6 +69,7 @@ const LOAD_MORE_BTN_SELECTOR = '.results .controls .load-more-btn, .results .loa
 const LOAD_MORE_TRIGGER_MARGIN_PX = 240;
 const LOAD_MORE_COOLDOWN_MS = 1200;
 const SCROLL_TOP_SHOW_THRESHOLD_PX = 320;
+const NARROW_FILTER_PANE_BREAKPOINT = 460;
 const HEADER_OPEN_DELAY_MS = 120;
 const HEADER_CLOSE_DELAY_MS = 240;
 
@@ -119,6 +134,7 @@ export function createTwoColumnLayoutController(
   let headerTabEl: HTMLButtonElement | null = null;
   let headerBackdropEl: HTMLDivElement | null = null;
   let topBtnEl: HTMLButtonElement | null = null;
+  let topBtnVisible = false;
 
   let resizeObserver: ResizeObserver | null = null;
   let observedContentEl: Element | null = null;
@@ -136,6 +152,7 @@ export function createTwoColumnLayoutController(
   let observedLoadMoreBtn: HTMLButtonElement | null = null;
   let hasUserScrolledResults = false;
   let lastLoadMoreClickAt = 0;
+  let scrollCheckRafId: number | null = null;
 
   // 頂部官方標頭自動收合 hover 狀態
   let headerOpenTimer: ReturnType<typeof setTimeout> | null = null;
@@ -161,6 +178,48 @@ export function createTwoColumnLayoutController(
     } catch {
       return '';
     }
+  };
+
+  const setRootAttr = (name: string, value: string | null) => {
+    const root = doc.documentElement;
+    if (value === null) {
+      if (root.hasAttribute(name)) root.removeAttribute(name);
+      return;
+    }
+    if (root.getAttribute(name) !== value) {
+      root.setAttribute(name, value);
+    }
+  };
+
+  /** 僅於左右欄寬度變動時同步響應式斷點旗標，避免在捲動容器上使用 container-type 影響合成捲動 */
+  const syncResponsiveBreakpointAttrs = (leftWidth: number, resultsWidth: number) => {
+    setRootAttr(
+      TWO_COLUMN_SEARCH_BAR_ATTR,
+      leftWidth >= TWO_COLUMN_SINGLE_ROW_SEARCH_BAR_BREAKPOINT ? 'single' : 'stacked',
+    );
+    setRootAttr(
+      TWO_COLUMN_CONTROLS_ATTR,
+      leftWidth >= TWO_COLUMN_SINGLE_ROW_CONTROLS_BREAKPOINT ? 'single' : 'stacked',
+    );
+    setRootAttr(
+      TWO_COLUMN_FILTERS_ATTR,
+      leftWidth >= TWO_COLUMN_WIDE_FILTER_BREAKPOINT
+        ? 'wide'
+        : leftWidth < NARROW_FILTER_PANE_BREAKPOINT
+          ? 'narrow'
+          : 'normal',
+    );
+    setRootAttr(
+      TWO_COLUMN_RESULTS_ATTR,
+      resultsWidth >= TWO_COLUMN_RESULTS_SINGLE_CARD_BREAKPOINT ? 'wide' : 'narrow',
+    );
+  };
+
+  const clearResponsiveBreakpointAttrs = () => {
+    setRootAttr(TWO_COLUMN_SEARCH_BAR_ATTR, null);
+    setRootAttr(TWO_COLUMN_CONTROLS_ATTR, null);
+    setRootAttr(TWO_COLUMN_FILTERS_ATTR, null);
+    setRootAttr(TWO_COLUMN_RESULTS_ATTR, null);
   };
 
   const ensureStyle = () => {
@@ -245,11 +304,7 @@ export function createTwoColumnLayoutController(
   };
 
   const setHeaderRevealed = (open: boolean) => {
-    if (open) {
-      doc.documentElement.setAttribute(TWO_COLUMN_HEADER_OPEN_ATTR, 'true');
-    } else {
-      doc.documentElement.removeAttribute(TWO_COLUMN_HEADER_OPEN_ATTR);
-    }
+    setRootAttr(TWO_COLUMN_HEADER_OPEN_ATTR, open ? 'true' : null);
   };
 
   const scheduleHeaderOpen = (immediate = false) => {
@@ -285,7 +340,7 @@ export function createTwoColumnLayoutController(
 
   const ensureHeaderControlsMounted = () => {
     if (!autoHideHeader) {
-      doc.documentElement.removeAttribute(TWO_COLUMN_HIDE_HEADER_ATTR);
+      setRootAttr(TWO_COLUMN_HIDE_HEADER_ATTR, null);
       detachHeaderControls();
       return;
     }
@@ -296,7 +351,7 @@ export function createTwoColumnLayoutController(
       return;
     }
 
-    doc.documentElement.setAttribute(TWO_COLUMN_HIDE_HEADER_ATTR, 'true');
+    setRootAttr(TWO_COLUMN_HIDE_HEADER_ATTR, 'true');
     if (headerTabEl && headerTabEl.parentElement === wrapper && headerBackdropEl?.isConnected) {
       updateControlsLocale();
       return;
@@ -354,7 +409,15 @@ export function createTwoColumnLayoutController(
     updateControlsLocale();
   };
 
+  const cancelPendingScrollRaf = () => {
+    if (scrollCheckRafId !== null && typeof win?.cancelAnimationFrame === 'function') {
+      win.cancelAnimationFrame(scrollCheckRafId);
+    }
+    scrollCheckRafId = null;
+  };
+
   const detachResultsBridge = () => {
+    cancelPendingScrollRaf();
     resultsScrollCleanup?.();
     resultsScrollCleanup = null;
     resultsMutationObserver?.disconnect();
@@ -364,13 +427,17 @@ export function createTwoColumnLayoutController(
     observedLoadMoreBtn = null;
     observedResultsEl = null;
     hasUserScrolledResults = false;
+    topBtnVisible = false;
     topBtnEl?.remove();
     topBtnEl = null;
   };
 
   const syncTopButtonVisibility = () => {
     if (!topBtnEl || !observedResultsEl) return;
-    if (observedResultsEl.scrollTop > SCROLL_TOP_SHOW_THRESHOLD_PX) {
+    const shouldShow = observedResultsEl.scrollTop > SCROLL_TOP_SHOW_THRESHOLD_PX;
+    if (shouldShow === topBtnVisible) return;
+    topBtnVisible = shouldShow;
+    if (shouldShow) {
       topBtnEl.setAttribute('data-visible', 'true');
     } else {
       topBtnEl.removeAttribute('data-visible');
@@ -379,13 +446,13 @@ export function createTwoColumnLayoutController(
 
   const maybeTriggerLoadMore = (forceFromIntersection = false) => {
     if (disposed || !observedResultsEl || !hasUserScrolledResults) return;
-    if (/\/live(?:\/|$)/i.test(readPathname())) return;
-
-    const btn = observedResultsEl.querySelector<HTMLButtonElement>(LOAD_MORE_BTN_SELECTOR);
-    if (!btn || btn.disabled || btn.classList.contains('disabled')) return;
+    const btn = observedLoadMoreBtn;
+    if (!btn || !btn.isConnected || btn.disabled || btn.classList.contains('disabled')) return;
     if (btn.getAttribute('aria-disabled') === 'true') return;
-    const style = win?.getComputedStyle?.(btn);
-    if (style && (style.display === 'none' || style.visibility === 'hidden')) return;
+
+    const currentTime = now();
+    if (currentTime - lastLoadMoreClickAt < LOAD_MORE_COOLDOWN_MS) return;
+    if (/\/live(?:\/|$)/i.test(readPathname())) return;
 
     const nearBottom =
       forceFromIntersection ||
@@ -393,11 +460,28 @@ export function createTwoColumnLayoutController(
         observedResultsEl.scrollHeight - LOAD_MORE_TRIGGER_MARGIN_PX;
     if (!nearBottom) return;
 
-    const currentTime = now();
-    if (currentTime - lastLoadMoreClickAt < LOAD_MORE_COOLDOWN_MS) return;
+    // 僅在確定要點擊的那一瞬間檢查一次可見性（1.2 秒最多一次），不在每幀 scroll 熱路徑呼叫 getComputedStyle
+    const style = win?.getComputedStyle?.(btn);
+    if (style && (style.display === 'none' || style.visibility === 'hidden')) return;
 
     lastLoadMoreClickAt = currentTime;
     btn.click();
+  };
+
+  const runScrollFrameCheck = () => {
+    scrollCheckRafId = null;
+    if (disposed || !observedResultsEl) return;
+    syncTopButtonVisibility();
+    maybeTriggerLoadMore(false);
+  };
+
+  const scheduleScrollFrameCheck = () => {
+    if (scrollCheckRafId !== null) return;
+    if (typeof win?.requestAnimationFrame === 'function') {
+      scrollCheckRafId = win.requestAnimationFrame(runScrollFrameCheck);
+    } else {
+      runScrollFrameCheck();
+    }
   };
 
   const reobserveLoadMoreButton = () => {
@@ -425,6 +509,7 @@ export function createTwoColumnLayoutController(
     if (topBtnEl && topBtnEl.parentElement !== tradeEl) {
       topBtnEl.remove();
       topBtnEl = null;
+      topBtnVisible = false;
     }
     if (!topBtnEl) {
       const btn = doc.createElement('button');
@@ -437,6 +522,7 @@ export function createTwoColumnLayoutController(
       });
       tradeEl.appendChild(btn);
       topBtnEl = btn;
+      topBtnVisible = false;
       updateControlsLocale();
     }
 
@@ -446,6 +532,7 @@ export function createTwoColumnLayoutController(
       return;
     }
 
+    cancelPendingScrollRaf();
     resultsScrollCleanup?.();
     resultsMutationObserver?.disconnect();
     loadMoreIntersectionObserver?.disconnect();
@@ -453,22 +540,17 @@ export function createTwoColumnLayoutController(
     observedResultsEl = resultsEl;
     hasUserScrolledResults = resultsEl.scrollTop > 0;
 
+    // 熱路徑只更新布林並合併進單一 rAF，避免每幀 scroll/wheel 觸發同步排版導致卡頓
     const handleResultsScroll = () => {
       if (disposed || !observedResultsEl) return;
-      // 任何實際向下捲動（scrollTop > 0）皆啟用自動載入，避免 2K/4K 首批可捲距離 <= 40px 時失效
-      if (observedResultsEl.scrollTop > 0) {
-        hasUserScrolledResults = true;
-      } else {
-        hasUserScrolledResults = false;
-      }
-      syncTopButtonVisibility();
-      maybeTriggerLoadMore(false);
+      hasUserScrolledResults = observedResultsEl.scrollTop > 0;
+      scheduleScrollFrameCheck();
     };
 
     const handleResultsWheel = (event: WheelEvent) => {
       if (disposed || !observedResultsEl || event.deltaY <= 0) return;
       hasUserScrolledResults = true;
-      maybeTriggerLoadMore(false);
+      scheduleScrollFrameCheck();
     };
 
     resultsEl.addEventListener('scroll', handleResultsScroll, { passive: true });
@@ -528,13 +610,22 @@ export function createTwoColumnLayoutController(
 
     const handleMove = (moveEvent: PointerEvent) => {
       const delta = moveEvent.clientX - startX;
+      const currentContentWidth = readContentWidth();
       const { clamped } = clampTwoColumnFilterWidth(
         startWidth + delta,
-        readContentWidth(),
+        currentContentWidth,
         maxWidth,
       );
       draggingWidth = clamped;
       doc.documentElement.style.setProperty(TWO_COLUMN_WIDTH_VAR, `${clamped}px`);
+      const maxWidthPx = resolveTwoColumnMaxWidthPx(maxWidth);
+      const effectiveContainerWidth =
+        maxWidthPx !== null ? Math.min(currentContentWidth, maxWidthPx) : currentContentWidth;
+      const nextResultsWidth = Math.max(
+        0,
+        Math.floor(effectiveContainerWidth - clamped - TWO_COLUMN_COLUMN_GAP),
+      );
+      syncResponsiveBreakpointAttrs(clamped, nextResultsWidth);
     };
 
     const finishDrag = (commit: boolean) => {
@@ -646,7 +737,6 @@ export function createTwoColumnLayoutController(
         tradeObserver.observe(tradeEl, { childList: true });
         observedTradeEl = tradeEl;
       }
-      // 同步監看 `#vue3-portal`：空白頁執行搜尋後 Vue 會把 `.results` 動態掛入此節點
       const portalEl = tradeEl.querySelector('#vue3-portal');
       if (portalEl && portalEl !== observedPortalEl) {
         portalObserver?.disconnect();
@@ -657,7 +747,6 @@ export function createTwoColumnLayoutController(
         observedPortalEl = portalEl;
       }
     } else if (!bootstrapObserver && doc.body) {
-      // 首次 sync 時若 `#trade` 尚未掛載，短暫監看 body 直到 `#trade` 出現
       bootstrapObserver = new MutationObserver(() => {
         if (!disposed && doc.querySelector('#trade')) {
           sync();
@@ -708,10 +797,11 @@ export function createTwoColumnLayoutController(
   };
 
   const clearHostState = () => {
-    doc.documentElement.removeAttribute(TWO_COLUMN_ATTR);
-    doc.documentElement.removeAttribute(TWO_COLUMN_COLLAPSED_ATTR);
-    doc.documentElement.removeAttribute(TWO_COLUMN_HIDE_HEADER_ATTR);
-    doc.documentElement.removeAttribute(TWO_COLUMN_HEADER_OPEN_ATTR);
+    setRootAttr(TWO_COLUMN_ATTR, null);
+    setRootAttr(TWO_COLUMN_COLLAPSED_ATTR, null);
+    setRootAttr(TWO_COLUMN_HIDE_HEADER_ATTR, null);
+    setRootAttr(TWO_COLUMN_HEADER_OPEN_ATTR, null);
+    clearResponsiveBreakpointAttrs();
     doc.documentElement.style.removeProperty(TWO_COLUMN_WIDTH_VAR);
     doc.documentElement.style.removeProperty(TWO_COLUMN_MAX_WIDTH_VAR);
     detachSplitter();
@@ -755,14 +845,11 @@ export function createTwoColumnLayoutController(
     }
 
     ensureStyle();
-    doc.documentElement.setAttribute(TWO_COLUMN_ATTR, 'active');
-    if (geometry.filtersCollapsed) {
-      doc.documentElement.setAttribute(TWO_COLUMN_COLLAPSED_ATTR, 'true');
-    } else {
-      doc.documentElement.removeAttribute(TWO_COLUMN_COLLAPSED_ATTR);
-    }
+    setRootAttr(TWO_COLUMN_ATTR, 'active');
+    setRootAttr(TWO_COLUMN_COLLAPSED_ATTR, geometry.filtersCollapsed ? 'true' : null);
     doc.documentElement.style.setProperty(TWO_COLUMN_WIDTH_VAR, `${geometry.leftWidth}px`);
     doc.documentElement.style.setProperty(TWO_COLUMN_MAX_WIDTH_VAR, geometry.maxWidthCss);
+    syncResponsiveBreakpointAttrs(geometry.leftWidth, geometry.resultsWidth);
     ensureSplitterMounted();
     ensureHeaderControlsMounted();
     ensureResultsBridgeMounted();
