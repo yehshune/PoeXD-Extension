@@ -216,6 +216,27 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.pureBackground.infoAria': '隐藏官方网页背景说明',
   'settings.pureBackground.tooltip': '移除官方交易网站背景底图与特效，呈现简洁纯色背景以提高可读性',
 
+  'settings.twoColumnLayout.label': '宽屏双栏布局',
+  'settings.twoColumnLayout.infoAria': '宽屏双栏布局说明',
+  'settings.twoColumnLayout.tooltip':
+    '将官方筛选面板固定于左侧、搜索结果显示于右侧，可拖拽分隔线调整宽度或收起筛选栏；窗口空间不足时自动退回原本的上下布局',
+  'settings.twoColumnLayout.keywords': '双栏 并排 宽屏 全宽 筛选固定 TradeUX',
+  'settings.twoColumnAutoHideHeader.label': '自动收起顶部官方标头',
+  'settings.twoColumnAutoHideHeader.tooltip':
+    '双栏模式下先收起顶部账号、金币与语系列以增加可视高度；鼠标移到顶部中央把手即可下拉显示',
+  'settings.twoColumnMaxWidth.label': '布局最大宽度',
+  'settings.twoColumnMaxWidth.tooltip':
+    '限制双栏布局的最大整体宽度并居中显示，适合 2K／4K 或超宽屏避免视线跨距过大',
+  'settings.twoColumnMaxWidth.option.full': '不限（全宽）',
+  'settings.twoColumnMaxWidth.option.2200': '2200 px',
+  'settings.twoColumnMaxWidth.option.1920': '1920 px',
+  'settings.twoColumnMaxWidth.option.1600': '1600 px',
+  'twoColumnLayout.splitter.ariaLabel': '拖拽调整筛选栏宽度，双击重置',
+  'twoColumnLayout.collapse.tooltip': '收起筛选栏',
+  'twoColumnLayout.expand.tooltip': '展开筛选栏',
+  'twoColumnLayout.headerPullTab.tooltip': '显示官方顶部栏（账号／金币／语系）',
+  'twoColumnLayout.scrollTop.tooltip': '回到结果顶端',
+
   'settings.marketTranslation.label': '市集汉化',
   'settings.marketTranslation.infoAria': '市集汉化说明',
   'settings.marketTranslation.tooltip':

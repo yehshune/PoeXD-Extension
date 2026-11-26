@@ -221,6 +221,27 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.pureBackground.tooltip':
     'Remove the official Trade site background artwork for a clean solid background',
 
+  'settings.twoColumnLayout.label': 'Two-Column Layout',
+  'settings.twoColumnLayout.infoAria': 'Two-Column Layout info',
+  'settings.twoColumnLayout.tooltip':
+    'Keep official filters sticky on the left and results on the right, with a resizable divider and collapse toggle; automatically falls back to single-column when space is narrow',
+  'settings.twoColumnLayout.keywords': 'two column split full width sticky filters TradeUX',
+  'settings.twoColumnAutoHideHeader.label': 'Auto-Hide Top Official Header',
+  'settings.twoColumnAutoHideHeader.tooltip':
+    'Hide the top account, gold, logo and language bar in two-column mode for more vertical space; hover the top-center handle to reveal it',
+  'settings.twoColumnMaxWidth.label': 'Max Layout Width',
+  'settings.twoColumnMaxWidth.tooltip':
+    'Cap and center the two-column workspace width on 2K/4K or ultrawide monitors',
+  'settings.twoColumnMaxWidth.option.full': 'Full width',
+  'settings.twoColumnMaxWidth.option.2200': '2200 px',
+  'settings.twoColumnMaxWidth.option.1920': '1920 px',
+  'settings.twoColumnMaxWidth.option.1600': '1600 px',
+  'twoColumnLayout.splitter.ariaLabel': 'Drag to resize filter column, double-click to reset',
+  'twoColumnLayout.collapse.tooltip': 'Collapse filters column',
+  'twoColumnLayout.expand.tooltip': 'Expand filters column',
+  'twoColumnLayout.headerPullTab.tooltip': 'Show official top bar (account / gold / language)',
+  'twoColumnLayout.scrollTop.tooltip': 'Scroll back to top',
+
   'settings.marketTranslation.label': 'Chinese Trade Site',
   'settings.marketTranslation.infoAria': 'Chinese Trade Site info',
   'settings.marketTranslation.tooltip':

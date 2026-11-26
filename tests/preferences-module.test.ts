@@ -31,6 +31,7 @@ describe('Preferences module interface', () => {
       enableResultPobCopy: true,
       enableSearchTilde: true,
       enableTierHelper: true,
+      enableTwoColumnLayout: false,
       fontSizeScale: 1,
       hotkeyClear: '\\',
       hotkeyFocus: '/',
@@ -58,6 +59,9 @@ describe('Preferences module interface', () => {
       sidebarWidth: 380,
       theme: 'modern-dark',
       themeCustomOverrides: '{}',
+      twoColumnAutoHideHeader: true,
+      twoColumnFilterWidth: 460,
+      twoColumnMaxWidth: 'full',
     });
   });
 

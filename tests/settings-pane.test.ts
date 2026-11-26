@@ -432,10 +432,10 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Verify no RadioGroups remain in SettingsPane
     expect(container.querySelectorAll('[data-slot="radio-group"]').length).toBe(0);
 
-    // On/off settings use Switch (14 settings + 6 Sidebar Modules), sized by the checkbox token
+    // On/off settings use Switch (15 settings + 7 Sidebar Modules), sized by the checkbox token
     expect(container.querySelectorAll('[data-slot="checkbox"]').length).toBe(0);
     const switches = container.querySelectorAll('[data-slot="switch"]');
-    expect(switches.length).toBe(21);
+    expect(switches.length).toBe(22);
     switches.forEach((sw) => {
       expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });

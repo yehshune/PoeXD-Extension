@@ -61,6 +61,16 @@ export const SIDEBAR_WIDTH_BOUNDS = Object.freeze({
   max: 800,
 });
 
+/** 雙欄版面篩選欄寬度上下限（px） */
+export const TWO_COLUMN_FILTER_WIDTH_BOUNDS = Object.freeze({
+  min: 360,
+  max: 1200,
+});
+
+/** 雙欄版面最大整體寬度選項 */
+export const TWO_COLUMN_MAX_WIDTH_VALUES = ['full', '2200', '1920', '1600'] as const;
+export type TwoColumnMaxWidth = (typeof TWO_COLUMN_MAX_WIDTH_VALUES)[number];
+
 /** 收合標籤距離視窗頂端的位置（px）；實際顯示時再依視窗高度限制在畫面內 */
 export const COLLAPSED_TAB_TOP_BOUNDS = Object.freeze({
   min: 0,
@@ -176,6 +186,8 @@ export interface Preferences {
   enableResultPobCopy: boolean;
   enableSearchTilde: boolean;
   enableTierHelper: boolean;
+  /** 寬螢幕雙欄版面：固定篩選條件與結果並排顯示（窄視窗自動退回單欄） */
+  enableTwoColumnLayout: boolean;
   fontSizeScale: number;
   hotkeyClear: string;
   hotkeyFocus: string;
@@ -214,6 +226,12 @@ export interface Preferences {
   theme: ThemeId;
   /** 各主題獨立保存的色彩與圓角覆寫（正規化 JSON 字串） */
   themeCustomOverrides: string;
+  /** 雙欄版面自動收合頂部官方標頭（滑鼠移至上緣把手時展開） */
+  twoColumnAutoHideHeader: boolean;
+  /** 雙欄版面篩選欄偏好的寬度（px） */
+  twoColumnFilterWidth: number;
+  /** 雙欄版面最大整體寬度（'full' 為不限） */
+  twoColumnMaxWidth: TwoColumnMaxWidth;
 }
 
 export type PreferenceScope = 'global' | 'versioned';
@@ -349,6 +367,26 @@ export const PREFERENCE_SCHEMA = Object.freeze({
     default: false,
     validate: isBoolean,
     legacyVersionedGlobal: true,
+  },
+  enableTwoColumnLayout: {
+    scope: 'global',
+    default: false,
+    validate: isBoolean,
+  },
+  twoColumnAutoHideHeader: {
+    scope: 'global',
+    default: true,
+    validate: isBoolean,
+  },
+  twoColumnFilterWidth: {
+    scope: 'global',
+    default: 460,
+    validate: isFiniteNumberInRange(TWO_COLUMN_FILTER_WIDTH_BOUNDS),
+  },
+  twoColumnMaxWidth: {
+    scope: 'global',
+    default: 'full',
+    validate: isOneOf(TWO_COLUMN_MAX_WIDTH_VALUES),
   },
   enableAutoTitle: {
     scope: 'global',

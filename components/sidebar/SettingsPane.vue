@@ -710,6 +710,68 @@
           </SettingsRow>
 
           <SettingsRow
+            :label="t('settings.twoColumnLayout.label')"
+            :details="t('settings.twoColumnLayout.tooltip')"
+            :keywords="[t('settings.twoColumnLayout.keywords')]"
+            control-id="enable-two-column-layout"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-two-column-layout"
+                v-model="enableTwoColumnLayout"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('enableTwoColumnLayout')"
+              />
+            </template>
+          </SettingsRow>
+          <template v-if="enableTwoColumnLayout">
+            <div
+              data-settings-group="two-column-layout-options"
+              class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
+            >
+              <SettingsRow
+                :label="t('settings.twoColumnAutoHideHeader.label')"
+                :details="t('settings.twoColumnAutoHideHeader.tooltip')"
+                :keywords="[t('settings.twoColumnLayout.keywords')]"
+                control-id="two-column-auto-hide-header"
+              >
+                <template #default="{ describedBy }">
+                  <Switch
+                    id="two-column-auto-hide-header"
+                    v-model="twoColumnAutoHideHeader"
+                    :aria-describedby="describedBy"
+                    @update:model-value="savePreference('twoColumnAutoHideHeader')"
+                  />
+                </template>
+              </SettingsRow>
+              <SettingsRow
+                :label="t('settings.twoColumnMaxWidth.label')"
+                :details="t('settings.twoColumnMaxWidth.tooltip')"
+                :keywords="[t('settings.twoColumnLayout.keywords')]"
+              >
+                <Select
+                  v-model="twoColumnMaxWidth"
+                  data-test="two-column-max-width"
+                  @update:model-value="savePreference('twoColumnMaxWidth')"
+                >
+                  <SelectTrigger size="default" class="w-[140px] shrink-0">
+                    <SelectValue>{{ TWO_COLUMN_MAX_WIDTH_LABELS[twoColumnMaxWidth] }}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="opt in TWO_COLUMN_MAX_WIDTH_OPTIONS"
+                      :key="opt.value"
+                      :value="opt.value"
+                    >
+                      {{ opt.label }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+            </div>
+          </template>
+
+          <SettingsRow
             :label="t('settings.autoTitle.label')"
             :details="t('settings.autoTitle.tooltip')"
             :keywords="[t('popup.module.enableAutoTitle.description')]"
@@ -909,6 +971,8 @@ import {
   SEARCH_ENTRY_CLICK_ACTION_OPTIONS,
   SIDEBAR_POSITION_OPTIONS,
   THEME_LABELS,
+  TWO_COLUMN_MAX_WIDTH_LABELS,
+  TWO_COLUMN_MAX_WIDTH_OPTIONS,
 } from './settings/settings-ui-metadata';
 import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
 import { clampFontSizeScale } from '@/utils/appearance-preferences';
@@ -988,6 +1052,9 @@ export default defineComponent({
       enableResultPobCopy,
       enableResultExternalLinks,
       enablePureBackground,
+      enableTwoColumnLayout,
+      twoColumnAutoHideHeader,
+      twoColumnMaxWidth,
       marketTranslation,
       marketTranslationBilingual,
       marketTranslationResultBilingual,
@@ -1708,6 +1775,8 @@ export default defineComponent({
       DISPLAY_LOCALE_OPTIONS,
       sidebarPosition,
       SIDEBAR_POSITION_OPTIONS,
+      TWO_COLUMN_MAX_WIDTH_LABELS,
+      TWO_COLUMN_MAX_WIDTH_OPTIONS,
       fontSizeScale,
       densityScale,
       BOOKMARK_BUTTON_POSITION_OPTIONS,
@@ -1732,6 +1801,9 @@ export default defineComponent({
       enableResultPobCopy,
       enableResultExternalLinks,
       enablePureBackground,
+      enableTwoColumnLayout,
+      twoColumnAutoHideHeader,
+      twoColumnMaxWidth,
       marketTranslation,
       marketTranslationBilingual,
       marketTranslationResultBilingual,

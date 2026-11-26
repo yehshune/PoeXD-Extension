@@ -24,6 +24,11 @@ import { initHotkeysAndTildeListeners } from './hotkeys';
 import { installSearchEnterCommit } from './search-enter-commit';
 import { connectSearchObservationSession } from './search-observation-session';
 import { mountSidebarLayout, reserveSidebarPageLayout } from './sidebar-layout';
+import {
+  createTwoColumnLayoutController,
+  type TwoColumnLayoutController,
+  type TwoColumnLayoutOptions,
+} from './two-column-layout';
 import { parseSearchResultSummary } from '@/utils/result-board/board-events';
 import { getTradeResultCache, type TradeResultCache } from '@/utils/trade-result-cache';
 import { getResultBoardRuntime, type ResultBoardRuntime } from './result-board-runtime';
@@ -69,6 +74,7 @@ export interface ContentPageRuntimeDeps {
     resultCache: TradeResultCache,
   ) => ResultEnhancementPipeline;
   createFilterDomEnhancements: (version: PoeVersion) => FilterDomEnhancements;
+  createTwoColumnLayoutController: (options?: TwoColumnLayoutOptions) => TwoColumnLayoutController;
   injectApiInterceptor: () => Promise<void>;
   startPoeEventBuffer: typeof startPoeEventBuffer;
   dispatchPoeEvent: typeof dispatchPoeEvent;
@@ -159,6 +165,7 @@ const DEFAULT_DEPS: ContentPageRuntimeDeps = {
   getResultBoardRuntime,
   createResultEnhancementPipeline: createDefaultResultEnhancementPipeline,
   createFilterDomEnhancements,
+  createTwoColumnLayoutController,
   injectApiInterceptor,
   startPoeEventBuffer,
   dispatchPoeEvent,
@@ -347,6 +354,18 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
     disposables.add(() => resultPipeline.cleanup());
     const filterEnhancements = deps.createFilterDomEnhancements(version);
     disposables.add(() => filterEnhancements.cleanup());
+    let twoColumnLayoutAllowed = false;
+    let activePreferences: Awaited<ReturnType<typeof getPreferences>> extends infer O
+      ? O extends { ok: true; value: infer M }
+        ? M | null
+        : null
+      : null = null;
+    const twoColumnLayout = deps.createTwoColumnLayoutController({
+      onFilterWidthCommit: (width) => {
+        void activePreferences?.update({ twoColumnFilterWidth: width });
+      },
+    });
+    disposables.add(() => twoColumnLayout.cleanup());
 
     // 攔截器要在任何 await 之前注入：官方腳本有快取時，首批 search / fetch 會比讀偏好設定、
     // 連線 background 更早送出，晚注入就整批漏接（結果列沒有 PoB／釘選等按鈕、搜尋紀錄漏記）。
@@ -387,6 +406,7 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
       if (disposables.isDisposed) return;
       if (!preferencesOutcome.ok) throw new Error(preferencesOutcome.error.message);
       const preferences = preferencesOutcome.value;
+      activePreferences = preferences;
       deps.rememberPageLoadPreferences(preferences.read());
       deps.syncToastPreferences(preferences.read());
 
@@ -410,6 +430,11 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
         if (disposables.isDisposed) return;
         resultBoard.setEnabled(resultBoardAllowed && snapshot.sidebarModuleResultBoard);
         resultBoard.ensureShortcut();
+        twoColumnLayout.setPreferredFilterWidth(snapshot.twoColumnFilterWidth);
+        twoColumnLayout.setMaxWidth(snapshot.twoColumnMaxWidth);
+        twoColumnLayout.setAutoHideHeader(snapshot.twoColumnAutoHideHeader);
+        twoColumnLayout.setEnabled(twoColumnLayoutAllowed && snapshot.enableTwoColumnLayout);
+        twoColumnLayout.refreshLocale();
       };
 
       let appliedPreferences = preferences.read();
@@ -487,6 +512,14 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
 
       resultBoardAllowed = pageRole === 'normal';
       resultBoard.setEnabled(resultBoardAllowed && preferences.read().sidebarModuleResultBoard);
+      twoColumnLayoutAllowed = pageRole === 'normal';
+      twoColumnLayout.setPageRole(pageRole);
+      twoColumnLayout.setPreferredFilterWidth(preferences.read().twoColumnFilterWidth);
+      twoColumnLayout.setMaxWidth(preferences.read().twoColumnMaxWidth);
+      twoColumnLayout.setAutoHideHeader(preferences.read().twoColumnAutoHideHeader);
+      twoColumnLayout.setEnabled(
+        twoColumnLayoutAllowed && preferences.read().enableTwoColumnLayout,
+      );
       resultPipeline.setPageRole(pageRole);
       resultPipeline.init();
 

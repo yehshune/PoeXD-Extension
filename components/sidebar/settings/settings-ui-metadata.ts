@@ -6,6 +6,7 @@ import {
   SEARCH_ENTRY_CLICK_ACTIONS,
   SIDEBAR_POSITIONS,
   THEME_IDS,
+  TWO_COLUMN_MAX_WIDTH_VALUES,
   type AffixDisplayLocalePreference,
   type BookmarkButtonPosition,
   type DisplayLocalePreference,
@@ -14,6 +15,7 @@ import {
   type SearchEntryClickAction,
   type SidebarPosition,
   type ThemeId,
+  type TwoColumnMaxWidth,
 } from '@/utils/preferences-contract';
 import { t, type I18nKey } from '@/utils/i18n';
 
@@ -118,3 +120,12 @@ export const RESULT_MOD_HIGHLIGHT_COLOR_LABELS: Readonly<Record<ResultModHighlig
 
 export const RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS: readonly SettingsOption<ResultModHighlightColor>[] =
   createReactiveOptions(RESULT_MOD_HIGHLIGHT_COLORS, RESULT_MOD_HIGHLIGHT_COLOR_LABELS);
+
+export const TWO_COLUMN_MAX_WIDTH_LABELS: Readonly<Record<TwoColumnMaxWidth, string>> =
+  createReactiveLabelMap(
+    TWO_COLUMN_MAX_WIDTH_VALUES,
+    (value) => `settings.twoColumnMaxWidth.option.${value}`,
+  );
+
+export const TWO_COLUMN_MAX_WIDTH_OPTIONS: readonly SettingsOption<TwoColumnMaxWidth>[] =
+  createReactiveOptions(TWO_COLUMN_MAX_WIDTH_VALUES, TWO_COLUMN_MAX_WIDTH_LABELS);

@@ -3,6 +3,7 @@ import type { FilterDomEnhancements } from '@/entrypoints/content/logic/common';
 import type { LiveSearchPrimarySession } from '@/entrypoints/content/logic/live-search-primary-session';
 import type { ResultEnhancementPipeline } from '@/entrypoints/content/logic/result-enhancement-pipeline';
 import type { ContentPageRuntimeDeps } from '@/entrypoints/content/logic/runtime';
+import type { TwoColumnLayoutController } from '@/entrypoints/content/logic/two-column-layout';
 import { DEFAULT_PREFERENCES, type Preferences, type PreferencesModule } from '@/utils/preferences';
 import type { TradeResultCache } from '@/utils/trade-result-cache';
 
@@ -109,6 +110,25 @@ export function createFakeRuntimeHarness(overrides: Partial<ContentPageRuntimeDe
     refreshAffixDisplayLocale: vi.fn(),
   };
 
+  const twoColumnLayout: TwoColumnLayoutController = {
+    setEnabled: vi.fn(),
+    setPageRole: vi.fn(),
+    setPreferredFilterWidth: vi.fn(),
+    setMaxWidth: vi.fn(),
+    setAutoHideHeader: vi.fn(),
+    setFiltersCollapsed: vi.fn(),
+    refreshLocale: vi.fn(),
+    sync: vi.fn(() => ({
+      active: false,
+      reason: 'disabled' as const,
+      leftWidth: 460,
+      maxFilterWidth: 1200,
+      maxWidthCss: 'none',
+      filtersCollapsed: false,
+    })),
+    cleanup: vi.fn(() => order.push('cleanup:twoColumnLayout')),
+  };
+
   const liveSearchSession: LiveSearchPrimarySession = {
     console: { initialArrivalSignal: true },
     dispose: liveSearchDispose,
@@ -132,6 +152,7 @@ export function createFakeRuntimeHarness(overrides: Partial<ContentPageRuntimeDe
     getResultBoardRuntime: vi.fn(() => resultBoard),
     createResultEnhancementPipeline: vi.fn(() => resultPipeline),
     createFilterDomEnhancements: vi.fn(() => filterEnhancements),
+    createTwoColumnLayoutController: vi.fn(() => twoColumnLayout),
     injectApiInterceptor: vi.fn(async () => {
       order.push('inject:interceptor');
     }),
@@ -225,6 +246,7 @@ export function createFakeRuntimeHarness(overrides: Partial<ContentPageRuntimeDe
     resultBoard,
     resultPipeline,
     filterEnhancements,
+    twoColumnLayout,
     liveSearchSession,
     cleanups: {
       toastCleanup,

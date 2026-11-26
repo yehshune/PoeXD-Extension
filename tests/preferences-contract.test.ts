@@ -18,6 +18,8 @@ import {
   SUPPORTED_AFFIX_LOCALES,
   SUPPORTED_LOCALES,
   SUPPORTED_UI_LOCALES,
+  TWO_COLUMN_FILTER_WIDTH_BOUNDS,
+  TWO_COLUMN_MAX_WIDTH_VALUES,
   isValidPreference,
   normalizePreference,
   type Preferences,
@@ -45,6 +47,7 @@ describe('Preferences Domain Contract', () => {
       enableResultPobCopy: true,
       enableSearchTilde: true,
       enableTierHelper: true,
+      enableTwoColumnLayout: false,
       fontSizeScale: 1,
       hotkeyClear: '\\',
       hotkeyFocus: '/',
@@ -72,6 +75,9 @@ describe('Preferences Domain Contract', () => {
       sidebarWidth: 380,
       theme: 'modern-dark',
       themeCustomOverrides: '{}',
+      twoColumnAutoHideHeader: true,
+      twoColumnFilterWidth: 460,
+      twoColumnMaxWidth: 'full',
     });
     expect('affixDisplayLocale' in DEFAULT_PREFERENCES).toBe(false);
   });
@@ -110,6 +116,10 @@ describe('Preferences Domain Contract', () => {
       'fontSizeScale',
       'densityScale',
       'enablePureBackground',
+      'enableTwoColumnLayout',
+      'twoColumnAutoHideHeader',
+      'twoColumnFilterWidth',
+      'twoColumnMaxWidth',
       'enableAutoTitle',
       'enableHotkeys',
       'hotkeyFocus',
@@ -134,6 +144,10 @@ describe('Preferences Domain Contract', () => {
   it('defines frozen numeric bounds', () => {
     expect(Object.isFrozen(SIDEBAR_WIDTH_BOUNDS)).toBe(true);
     expect(SIDEBAR_WIDTH_BOUNDS).toEqual({ min: 300, max: 800 });
+
+    expect(Object.isFrozen(TWO_COLUMN_FILTER_WIDTH_BOUNDS)).toBe(true);
+    expect(TWO_COLUMN_FILTER_WIDTH_BOUNDS).toEqual({ min: 360, max: 1200 });
+    expect(TWO_COLUMN_MAX_WIDTH_VALUES).toEqual(['full', '2200', '1920', '1600']);
 
     expect(Object.isFrozen(FONT_SIZE_SCALE_BOUNDS)).toBe(true);
     expect(FONT_SIZE_SCALE_BOUNDS).toEqual({ min: 0.8, max: 2 });
