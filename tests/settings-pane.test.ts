@@ -440,21 +440,45 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });
 
-    // Verify 6 sections exist in priority order (Localization first; Backup/Reset in toolbar menu)
+    // Verify 7 sections exist in priority order grouped into Official Trade Site vs PoeXD Sidebar
     expect(container.querySelectorAll('[data-slot="collapsible"]').length).toBe(0);
+    const groupHeadings = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-settings-group-heading]'),
+    ).map((el) => el.getAttribute('data-settings-group-heading'));
+    expect(groupHeadings).toEqual(['officialPage', 'sidebar']);
     const triggers = container.querySelectorAll('[data-settings-section] > header h3');
-    expect(triggers.length).toBe(6);
+    expect(triggers.length).toBe(7);
     const sectionTitles = Array.from(triggers).map((t) => t.textContent?.trim());
     expect(sectionTitles).toEqual([
       '語言與市集漢化',
-      '搜尋欄與快捷鍵',
-      '搜尋結果顯示',
+      '官網版面與頁面',
+      '搜尋表單與快捷鍵',
+      '搜尋結果增強',
+      '側邊欄外觀',
       '書籤與歷史',
-      '外觀與版面',
       '側邊欄模組',
     ]);
     expect(sectionTitles).not.toContain('桌面連接器');
     expect(container.textContent).not.toContain('桌面連接器');
+
+    // Verify official-page layout settings live in pageLayout while sidebar appearance stays in appearance
+    const pageLayoutSection = container.querySelector('[data-settings-section="pageLayout"]');
+    const appearanceSection = container.querySelector('[data-settings-section="appearance"]');
+    const bookmarksSection = container.querySelector('[data-settings-section="bookmarks"]');
+    const modulesSection = container.querySelector('[data-settings-section="modules"]');
+    expect(pageLayoutSection?.querySelector('#enable-two-column-layout')).not.toBeNull();
+    expect(pageLayoutSection?.querySelector('#enable-pure-background')).not.toBeNull();
+    expect(pageLayoutSection?.querySelector('#enable-auto-title')).not.toBeNull();
+    expect(appearanceSection?.querySelector('#enable-two-column-layout')).toBeNull();
+    expect(appearanceSection?.querySelector('#enable-pure-background')).toBeNull();
+    expect(appearanceSection?.querySelector('#enable-auto-title')).toBeNull();
+    expect(appearanceSection?.querySelector('#density-compact')).not.toBeNull();
+    expect(bookmarksSection?.querySelector('[data-test="pob-share-permission"]')).toBeNull();
+    expect(
+      modulesSection?.querySelector(
+        '[data-sidebar-module="pob-build"] [data-test="pob-share-permission"]',
+      ),
+    ).not.toBeNull();
 
     // Verify bottom description is removed
     expect(container.textContent).not.toContain('說明：調整大小或位置會即時套用');
@@ -493,10 +517,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     const sectionTriggers = container.querySelectorAll('[data-settings-section] > header h3');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
       '語言與市集漢化',
-      '搜尋欄與快捷鍵',
-      '搜尋結果顯示',
+      '官網版面與頁面',
+      '搜尋表單與快捷鍵',
+      '搜尋結果增強',
+      '側邊欄外觀',
       '書籤與歷史',
-      '外觀與版面',
       '側邊欄模組',
     ]);
 
@@ -506,10 +531,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(storage.inspect()['displayLocale']).toBe('zh-CN');
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
       '语言与市集汉化',
-      '搜索栏与快捷键',
-      '搜索结果显示',
+      '官网布局与页面',
+      '搜索表单与快捷键',
+      '搜索结果增强',
+      '侧边栏外观',
       '书签与历史',
-      '外观与版面',
       '侧边栏模块',
     ]);
     expect(container.textContent).toContain('主题');
@@ -521,10 +547,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
       'Language & Translation',
-      'Search & Filters',
+      'Page Layout & Display',
+      'Search Form & Hotkeys',
       'Search Results',
+      'Sidebar Appearance',
       'Bookmarks & History',
-      'Appearance & Layout',
       'Sidebar modules',
     ]);
     expect(container.textContent).toContain('Theme');
@@ -541,10 +568,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     expect(Array.from(sectionTriggers).map((t) => t.textContent?.trim())).toEqual([
       'Language & Translation',
-      'Search & Filters',
+      'Page Layout & Display',
+      'Search Form & Hotkeys',
       'Search Results',
+      'Sidebar Appearance',
       'Bookmarks & History',
-      'Appearance & Layout',
       'Sidebar modules',
     ]);
     expect(triggersEn[0].textContent).toContain('日本語');
@@ -895,10 +923,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       .map((el) => el.getAttribute('data-settings-section'));
     expect(visibleSections).toEqual([
       'localization',
+      'pageLayout',
       'searchHotkeys',
       'resultDisplay',
-      'bookmarks',
       'appearance',
+      'bookmarks',
       'modules',
     ]);
     const navButtons = Array.from(
@@ -1189,6 +1218,18 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await new Promise((r) => setTimeout(r, 180));
     await flushAsync();
     expect(visibleSections()).toEqual(['localization']);
+    // Group headings hide while searching so no orphaned dividers remain
+    const visibleGroupHeadings = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-settings-group-heading]'),
+    ).filter((el) => el.style.display !== 'none');
+    expect(visibleGroupHeadings.length).toBe(0);
+
+    // PoB share permission button is searchable via pastebin keyword inside modules
+    input.value = 'pastebin';
+    input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 180));
+    await flushAsync();
+    expect(visibleSections()).toEqual(['modules']);
 
     input.value = 'zzz-no-such-setting';
     input.dispatchEvent(new Event('input'));
@@ -1202,7 +1243,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     // Clearing the query keeps the search input open and shows every section again
     expect(container.querySelector('[data-settings-search]')).not.toBeNull();
-    expect(visibleSections().length).toBe(6);
+    expect(visibleSections().length).toBe(7);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
     // Escape closes the search box, clears the query, and restores the nav buttons
@@ -1216,7 +1257,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(container.querySelector('[data-settings-search]')).toBeNull();
     expect(container.querySelector('[data-settings-nav]')).not.toBeNull();
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
-    expect(visibleSections().length).toBe(6);
+    expect(visibleSections().length).toBe(7);
   });
 
   it('toggles Sidebar Modules and keeps the enabled count in sync', async () => {
@@ -1803,10 +1844,21 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       displayLocale: 'zh-CN',
       marketTranslation: true,
     });
+    let refreshAttempt = 0;
     const sendSpy = vi
       .spyOn(extensionMessaging, 'sendMessage')
-      .mockResolvedValueOnce({ ok: true, updated: true, sources: ['stats', 'static'] })
-      .mockResolvedValueOnce({ ok: false, error: 'network error' });
+      .mockImplementation(async (type: string) => {
+        if (type === 'pobShare:hasPobbinPermission') return false as never;
+        if (type === 'marketTranslation:refresh') {
+          refreshAttempt += 1;
+          return (
+            refreshAttempt === 1
+              ? { ok: true, updated: true, sources: ['stats', 'static'] }
+              : { ok: false, error: 'network error' }
+          ) as never;
+        }
+        return undefined as never;
+      });
 
     try {
       const { container } = await mountSettingsPane();
@@ -1836,6 +1888,24 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       expect(
         container.querySelector('[data-test="market-translation-refresh-error"]'),
       ).not.toBeNull();
+    } finally {
+      sendSpy.mockRestore();
+    }
+  });
+
+  it('opens the PoB share permission page from the PoB Build module row', async () => {
+    const sendSpy = vi.spyOn(extensionMessaging, 'sendMessage').mockResolvedValue(false as never);
+
+    try {
+      const { container } = await mountSettingsPane();
+      const permissionBtn = container.querySelector<HTMLButtonElement>(
+        '[data-sidebar-module="pob-build"] [data-test="pob-share-permission"]',
+      );
+      expect(permissionBtn).not.toBeNull();
+
+      permissionBtn!.click();
+      await flushAsync();
+      expect(sendSpy).toHaveBeenCalledWith('pobShare:openPermissionPage');
     } finally {
       sendSpy.mockRestore();
     }

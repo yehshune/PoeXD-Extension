@@ -22,6 +22,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggle: [key: SidebarModulePreferenceKey, value: boolean];
   openSection: [section: SettingsSectionId];
+  openPobSharePermission: [];
 }>();
 
 const controlId = (id: string) => `sidebar-module-${id}`;
@@ -34,6 +35,9 @@ const controlId = (id: string) => `sidebar-module-${id}`;
         <SettingsRow
           :label="getSidebarModuleLabel(module.id)"
           :details="getSidebarModuleDescription(module.id)"
+          :keywords="
+            module.id === 'pob-build' ? [t('pobShare.settings.label'), 'pobb.in', 'pastebin'] : []
+          "
           :control-id="controlId(module.id)"
           class="rounded-md py-[var(--pxd-space-xs)] transition-opacity"
           :class="props.values[module.preferenceKey] ? '' : 'opacity-70'"
@@ -56,6 +60,18 @@ const controlId = (id: string) => `sidebar-module-${id}`;
           </template>
           <template #default="{ describedBy }">
             <div class="flex items-center gap-[var(--pxd-space-sm)]">
+              <Button
+                v-if="module.id === 'pob-build' && props.values[module.preferenceKey]"
+                type="button"
+                variant="outline"
+                size="sm"
+                class="shrink-0"
+                data-test="pob-share-permission"
+                :title="t('pobShare.settings.label')"
+                @click="emit('openPobSharePermission')"
+              >
+                {{ t('pobShare.settings.manageBtn') }}
+              </Button>
               <Button
                 v-if="module.settingsSection && props.values[module.preferenceKey]"
                 type="button"

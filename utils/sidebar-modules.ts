@@ -4,10 +4,11 @@ import type { Preferences } from './preferences-contract';
 /** 設定分頁中的區塊 id；模組可指向與它相關的設定區塊，讓使用者一鍵跳過去。 */
 export const SETTINGS_SECTION_IDS = [
   'localization',
+  'pageLayout',
   'searchHotkeys',
   'resultDisplay',
-  'bookmarks',
   'appearance',
+  'bookmarks',
   'modules',
 ] as const;
 export type SettingsSectionId = (typeof SETTINGS_SECTION_IDS)[number];
@@ -89,7 +90,7 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'pob-build',
     kind: 'module-tab',
     preferenceKey: 'sidebarModulePobBuild',
-    settingsSection: 'bookmarks',
+    settingsSection: null,
     scrollMode: 'pane',
     labelKey: 'sidebar.nav.pobBuild',
     descriptionKey: 'settings.modules.item.pob-build.description',

@@ -61,17 +61,21 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
+  'settings.group.officialPage': '官方交易页',
+  'settings.group.sidebar': 'PoeXD 侧边栏',
   'settings.section.localization': '语言与市集汉化',
-  'settings.section.appearance': '外观与版面',
-  'settings.section.searchHotkeys': '搜索栏与快捷键',
-  'settings.section.resultDisplay': '搜索结果显示',
+  'settings.section.pageLayout': '官网布局与页面',
+  'settings.section.searchHotkeys': '搜索表单与快捷键',
+  'settings.section.resultDisplay': '搜索结果增强',
+  'settings.section.appearance': '侧边栏外观',
   'settings.section.bookmarks': '书签与历史',
   'settings.nav.ariaLabel': '设置分类导航',
   'settings.nav.localization': '汉化',
+  'settings.nav.pageLayout': '布局',
   'settings.nav.searchHotkeys': '搜索',
   'settings.nav.resultDisplay': '结果',
-  'settings.nav.bookmarks': '书签',
   'settings.nav.appearance': '外观',
+  'settings.nav.bookmarks': '书签',
   'settings.nav.modules': '模块',
 
   // Settings Pane - Appearance & Panel

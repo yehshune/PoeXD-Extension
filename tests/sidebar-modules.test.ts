@@ -92,6 +92,7 @@ describe('Sidebar Modules domain', () => {
 
   it('points modules to related settings sections', () => {
     expect(getSidebarModule('bookmark').settingsSection).toBe('bookmarks');
+    expect(getSidebarModule('pob-build').settingsSection).toBeNull();
     expect(getSidebarModule('pinned-items').settingsSection).toBeNull();
     expect(() => getSidebarModule('nope' as never)).toThrow('Unknown Sidebar Module');
   });

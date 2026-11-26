@@ -61,17 +61,21 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
+  'settings.group.officialPage': 'Official Trade Site',
+  'settings.group.sidebar': 'PoeXD Sidebar',
   'settings.section.localization': 'Language & Translation',
-  'settings.section.appearance': 'Appearance & Layout',
-  'settings.section.searchHotkeys': 'Search & Filters',
+  'settings.section.pageLayout': 'Page Layout & Display',
+  'settings.section.searchHotkeys': 'Search Form & Hotkeys',
   'settings.section.resultDisplay': 'Search Results',
+  'settings.section.appearance': 'Sidebar Appearance',
   'settings.section.bookmarks': 'Bookmarks & History',
   'settings.nav.ariaLabel': 'Settings sections',
   'settings.nav.localization': 'Language',
+  'settings.nav.pageLayout': 'Layout',
   'settings.nav.searchHotkeys': 'Search',
   'settings.nav.resultDisplay': 'Results',
-  'settings.nav.bookmarks': 'Bookmarks',
   'settings.nav.appearance': 'Appearance',
+  'settings.nav.bookmarks': 'Bookmarks',
   'settings.nav.modules': 'Modules',
 
   // Settings Pane - Appearance & Panel

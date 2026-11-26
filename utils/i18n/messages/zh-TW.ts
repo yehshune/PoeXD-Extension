@@ -59,17 +59,21 @@ export const ZH_TW_MESSAGES = {
   'realm.tencent': 'QQ',
 
   // Settings Pane - Sections
+  'settings.group.officialPage': '官方交易頁',
+  'settings.group.sidebar': 'PoeXD 側邊欄',
   'settings.section.localization': '語言與市集漢化',
-  'settings.section.appearance': '外觀與版面',
-  'settings.section.searchHotkeys': '搜尋欄與快捷鍵',
-  'settings.section.resultDisplay': '搜尋結果顯示',
+  'settings.section.pageLayout': '官網版面與頁面',
+  'settings.section.searchHotkeys': '搜尋表單與快捷鍵',
+  'settings.section.resultDisplay': '搜尋結果增強',
+  'settings.section.appearance': '側邊欄外觀',
   'settings.section.bookmarks': '書籤與歷史',
   'settings.nav.ariaLabel': '設定分類導覽',
   'settings.nav.localization': '漢化',
+  'settings.nav.pageLayout': '版面',
   'settings.nav.searchHotkeys': '搜尋',
   'settings.nav.resultDisplay': '結果',
-  'settings.nav.bookmarks': '書籤',
   'settings.nav.appearance': '外觀',
+  'settings.nav.bookmarks': '書籤',
   'settings.nav.modules': '模組',
 
   // Settings Pane - Appearance & Panel

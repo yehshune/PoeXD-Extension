@@ -85,6 +85,16 @@
 
     <template #scroll>
       <div ref="sectionsRef" class="flex flex-col gap-[var(--pxd-section-gap)]">
+        <!-- 群組一：官方交易頁 -->
+        <div
+          v-show="!isSearching"
+          data-settings-group-heading="officialPage"
+          class="flex items-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-xs)] pt-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] font-semibold tracking-wider text-muted-foreground"
+        >
+          <span class="shrink-0">{{ t('settings.group.officialPage') }}</span>
+          <span class="h-px flex-1 bg-border/60" aria-hidden="true" />
+        </div>
+
         <!-- 1. 語言與市集漢化 -->
         <SettingsSection
           section-id="localization"
@@ -289,7 +299,111 @@
           </div>
         </SettingsSection>
 
-        <!-- 2. 搜尋欄與快捷鍵 -->
+        <!-- 2. 官網版面與頁面 -->
+        <SettingsSection
+          section-id="pageLayout"
+          :title="t('settings.section.pageLayout')"
+          :icon="PanelsTopLeft"
+          :highlighted="highlightedSection === 'pageLayout'"
+          :collapsed="collapsedSections.has('pageLayout')"
+          @toggle-collapse="toggleSectionCollapse('pageLayout')"
+        >
+          <SettingsRow
+            :label="t('settings.twoColumnLayout.label')"
+            :details="t('settings.twoColumnLayout.tooltip')"
+            :keywords="[t('settings.twoColumnLayout.keywords')]"
+            control-id="enable-two-column-layout"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-two-column-layout"
+                v-model="enableTwoColumnLayout"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('enableTwoColumnLayout')"
+              />
+            </template>
+          </SettingsRow>
+          <template v-if="enableTwoColumnLayout">
+            <div
+              data-settings-group="two-column-layout-options"
+              class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
+            >
+              <SettingsRow
+                :label="t('settings.twoColumnAutoHideHeader.label')"
+                :details="t('settings.twoColumnAutoHideHeader.tooltip')"
+                :keywords="[t('settings.twoColumnLayout.keywords')]"
+                control-id="two-column-auto-hide-header"
+              >
+                <template #default="{ describedBy }">
+                  <Switch
+                    id="two-column-auto-hide-header"
+                    v-model="twoColumnAutoHideHeader"
+                    :aria-describedby="describedBy"
+                    @update:model-value="savePreference('twoColumnAutoHideHeader')"
+                  />
+                </template>
+              </SettingsRow>
+              <SettingsRow
+                :label="t('settings.twoColumnMaxWidth.label')"
+                :details="t('settings.twoColumnMaxWidth.tooltip')"
+                :keywords="[t('settings.twoColumnLayout.keywords')]"
+              >
+                <Select
+                  v-model="twoColumnMaxWidth"
+                  data-test="two-column-max-width"
+                  @update:model-value="savePreference('twoColumnMaxWidth')"
+                >
+                  <SelectTrigger size="default" class="w-[140px] shrink-0">
+                    <SelectValue>{{ TWO_COLUMN_MAX_WIDTH_LABELS[twoColumnMaxWidth] }}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      v-for="opt in TWO_COLUMN_MAX_WIDTH_OPTIONS"
+                      :key="opt.value"
+                      :value="opt.value"
+                    >
+                      {{ opt.label }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+            </div>
+          </template>
+
+          <SettingsRow
+            :label="t('settings.pureBackground.label')"
+            :details="t('settings.pureBackground.tooltip')"
+            :keywords="[t('popup.module.enablePureBackground.description')]"
+            control-id="enable-pure-background"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-pure-background"
+                v-model="enablePureBackground"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('enablePureBackground')"
+              />
+            </template>
+          </SettingsRow>
+
+          <SettingsRow
+            :label="t('settings.autoTitle.label')"
+            :details="t('settings.autoTitle.tooltip')"
+            :keywords="[t('popup.module.enableAutoTitle.description')]"
+            control-id="enable-auto-title"
+          >
+            <template #default="{ describedBy }">
+              <Switch
+                id="enable-auto-title"
+                v-model="enableAutoTitle"
+                :aria-describedby="describedBy"
+                @update:model-value="savePreference('enableAutoTitle')"
+              />
+            </template>
+          </SettingsRow>
+        </SettingsSection>
+
+        <!-- 3. 搜尋表單與快捷鍵 -->
         <SettingsSection
           section-id="searchHotkeys"
           :title="t('settings.section.searchHotkeys')"
@@ -353,7 +467,7 @@
           </SettingsRow>
         </SettingsSection>
 
-        <!-- 3. 搜尋結果顯示 -->
+        <!-- 4. 搜尋結果增強 -->
         <SettingsSection
           section-id="resultDisplay"
           :title="t('settings.section.resultDisplay')"
@@ -390,85 +504,17 @@
           </template>
         </SettingsSection>
 
-        <!-- 4. 書籤與歷史 -->
-        <SettingsSection
-          section-id="bookmarks"
-          :title="t('settings.section.bookmarks')"
-          :icon="Bookmark"
-          :highlighted="highlightedSection === 'bookmarks'"
-          :collapsed="collapsedSections.has('bookmarks')"
-          @toggle-collapse="toggleSectionCollapse('bookmarks')"
+        <!-- 群組二：PoeXD 側邊欄 -->
+        <div
+          v-show="!isSearching"
+          data-settings-group-heading="sidebar"
+          class="mt-[var(--pxd-space-sm)] flex items-center gap-[var(--pxd-space-sm)] px-[var(--pxd-space-xs)] pt-[var(--pxd-space-xs)] text-[length:var(--pxd-font-micro)] font-semibold tracking-wider text-muted-foreground"
         >
-          <SettingsRow :label="t('settings.bookmarkBtnPosition.label')">
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              :model-value="addBookmarkBtnPosition"
-              class="w-[140px] shrink-0"
-              @update:model-value="handleAddBookmarkBtnPositionChange"
-            >
-              <ToggleGroupItem
-                v-for="opt in BOOKMARK_BUTTON_POSITION_OPTIONS"
-                :key="opt.value"
-                :value="opt.value"
-                :aria-label="opt.label"
-                size="sm"
-                class="flex-1"
-              >
-                {{ opt.label }}
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </SettingsRow>
+          <span class="shrink-0">{{ t('settings.group.sidebar') }}</span>
+          <span class="h-px flex-1 bg-border/60" aria-hidden="true" />
+        </div>
 
-          <SettingsRow :label="t('settings.searchEntryClickAction.label')">
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              data-test="search-entry-click-action"
-              :model-value="searchEntryClickAction"
-              class="w-[140px] shrink-0"
-              @update:model-value="handleSearchEntryClickActionChange"
-            >
-              <ToggleGroupItem
-                v-for="opt in SEARCH_ENTRY_CLICK_ACTION_OPTIONS"
-                :key="opt.value"
-                :value="opt.value"
-                :aria-label="opt.label"
-                size="sm"
-                class="flex-1 px-1 whitespace-nowrap overflow-hidden"
-                :title="opt.label"
-              >
-                <span class="truncate block w-full text-center">{{ opt.label }}</span>
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </SettingsRow>
-
-          <SettingsRow
-            :label="t('settings.bookmarkTooltip.label')"
-            control-id="enable-bookmark-tooltip"
-          >
-            <Switch
-              id="enable-bookmark-tooltip"
-              v-model="enableBookmarkTooltip"
-              @update:model-value="savePreference('enableBookmarkTooltip')"
-            />
-          </SettingsRow>
-
-          <!-- PoB 分享網址的選用權限（授權只能在擴充頁面進行） -->
-          <SettingsRow :label="t('pobShare.settings.label')">
-            <Button
-              variant="outline"
-              size="sm"
-              class="shrink-0"
-              data-test="pob-share-permission"
-              @click="openPobSharePermissionPage"
-            >
-              {{ t('pobShare.settings.manageBtn') }}
-            </Button>
-          </SettingsRow>
-        </SettingsSection>
-
-        <!-- 5. 外觀與版面 -->
+        <!-- 5. 側邊欄外觀 -->
         <SettingsSection
           section-id="appearance"
           :title="t('settings.section.appearance')"
@@ -693,100 +739,6 @@
             </div>
           </div>
 
-          <SettingsRow
-            :label="t('settings.pureBackground.label')"
-            :details="t('settings.pureBackground.tooltip')"
-            :keywords="[t('popup.module.enablePureBackground.description')]"
-            control-id="enable-pure-background"
-          >
-            <template #default="{ describedBy }">
-              <Switch
-                id="enable-pure-background"
-                v-model="enablePureBackground"
-                :aria-describedby="describedBy"
-                @update:model-value="savePreference('enablePureBackground')"
-              />
-            </template>
-          </SettingsRow>
-
-          <SettingsRow
-            :label="t('settings.twoColumnLayout.label')"
-            :details="t('settings.twoColumnLayout.tooltip')"
-            :keywords="[t('settings.twoColumnLayout.keywords')]"
-            control-id="enable-two-column-layout"
-          >
-            <template #default="{ describedBy }">
-              <Switch
-                id="enable-two-column-layout"
-                v-model="enableTwoColumnLayout"
-                :aria-describedby="describedBy"
-                @update:model-value="savePreference('enableTwoColumnLayout')"
-              />
-            </template>
-          </SettingsRow>
-          <template v-if="enableTwoColumnLayout">
-            <div
-              data-settings-group="two-column-layout-options"
-              class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
-            >
-              <SettingsRow
-                :label="t('settings.twoColumnAutoHideHeader.label')"
-                :details="t('settings.twoColumnAutoHideHeader.tooltip')"
-                :keywords="[t('settings.twoColumnLayout.keywords')]"
-                control-id="two-column-auto-hide-header"
-              >
-                <template #default="{ describedBy }">
-                  <Switch
-                    id="two-column-auto-hide-header"
-                    v-model="twoColumnAutoHideHeader"
-                    :aria-describedby="describedBy"
-                    @update:model-value="savePreference('twoColumnAutoHideHeader')"
-                  />
-                </template>
-              </SettingsRow>
-              <SettingsRow
-                :label="t('settings.twoColumnMaxWidth.label')"
-                :details="t('settings.twoColumnMaxWidth.tooltip')"
-                :keywords="[t('settings.twoColumnLayout.keywords')]"
-              >
-                <Select
-                  v-model="twoColumnMaxWidth"
-                  data-test="two-column-max-width"
-                  @update:model-value="savePreference('twoColumnMaxWidth')"
-                >
-                  <SelectTrigger size="default" class="w-[140px] shrink-0">
-                    <SelectValue>{{ TWO_COLUMN_MAX_WIDTH_LABELS[twoColumnMaxWidth] }}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem
-                      v-for="opt in TWO_COLUMN_MAX_WIDTH_OPTIONS"
-                      :key="opt.value"
-                      :value="opt.value"
-                    >
-                      {{ opt.label }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </SettingsRow>
-            </div>
-          </template>
-
-          <SettingsRow
-            :label="t('settings.autoTitle.label')"
-            :details="t('settings.autoTitle.tooltip')"
-            :keywords="[t('popup.module.enableAutoTitle.description')]"
-            control-id="enable-auto-title"
-          >
-            <template #default="{ describedBy }">
-              <Switch
-                id="enable-auto-title"
-                v-model="enableAutoTitle"
-                :aria-describedby="describedBy"
-                @update:model-value="savePreference('enableAutoTitle')"
-              />
-            </template>
-          </SettingsRow>
-
           <SettingsRow :label="t('settings.sidebarPosition.label')">
             <ToggleGroup
               type="single"
@@ -820,7 +772,72 @@
           </SettingsRow>
         </SettingsSection>
 
-        <!-- 6. 側邊欄模組 -->
+        <!-- 6. 書籤與歷史 -->
+        <SettingsSection
+          section-id="bookmarks"
+          :title="t('settings.section.bookmarks')"
+          :icon="Bookmark"
+          :highlighted="highlightedSection === 'bookmarks'"
+          :collapsed="collapsedSections.has('bookmarks')"
+          @toggle-collapse="toggleSectionCollapse('bookmarks')"
+        >
+          <SettingsRow :label="t('settings.bookmarkBtnPosition.label')">
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              :model-value="addBookmarkBtnPosition"
+              class="w-[140px] shrink-0"
+              @update:model-value="handleAddBookmarkBtnPositionChange"
+            >
+              <ToggleGroupItem
+                v-for="opt in BOOKMARK_BUTTON_POSITION_OPTIONS"
+                :key="opt.value"
+                :value="opt.value"
+                :aria-label="opt.label"
+                size="sm"
+                class="flex-1"
+              >
+                {{ opt.label }}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </SettingsRow>
+
+          <SettingsRow :label="t('settings.searchEntryClickAction.label')">
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              data-test="search-entry-click-action"
+              :model-value="searchEntryClickAction"
+              class="w-[140px] shrink-0"
+              @update:model-value="handleSearchEntryClickActionChange"
+            >
+              <ToggleGroupItem
+                v-for="opt in SEARCH_ENTRY_CLICK_ACTION_OPTIONS"
+                :key="opt.value"
+                :value="opt.value"
+                :aria-label="opt.label"
+                size="sm"
+                class="flex-1 px-1 whitespace-nowrap overflow-hidden"
+                :title="opt.label"
+              >
+                <span class="truncate block w-full text-center">{{ opt.label }}</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </SettingsRow>
+
+          <SettingsRow
+            :label="t('settings.bookmarkTooltip.label')"
+            control-id="enable-bookmark-tooltip"
+          >
+            <Switch
+              id="enable-bookmark-tooltip"
+              v-model="enableBookmarkTooltip"
+              @update:model-value="savePreference('enableBookmarkTooltip')"
+            />
+          </SettingsRow>
+        </SettingsSection>
+
+        <!-- 7. 側邊欄模組 -->
         <SettingsSection
           section-id="modules"
           :title="t('settings.section.modules')"
@@ -846,6 +863,7 @@
             :values="moduleValues"
             @toggle="toggleModule"
             @open-section="openSection"
+            @open-pob-share-permission="openPobSharePermissionPage"
           />
         </SettingsSection>
 
@@ -911,6 +929,7 @@ import {
   LayoutGrid,
   ListChecks,
   Palette,
+  PanelsTopLeft,
   Search,
   X,
 } from '@lucide/vue';
@@ -1608,19 +1627,21 @@ export default defineComponent({
       labelKey: `settings.nav.${SettingsSectionId}`;
     }[] = [
       { id: 'localization', labelKey: 'settings.nav.localization' },
+      { id: 'pageLayout', labelKey: 'settings.nav.pageLayout' },
       { id: 'searchHotkeys', labelKey: 'settings.nav.searchHotkeys' },
       { id: 'resultDisplay', labelKey: 'settings.nav.resultDisplay' },
-      { id: 'bookmarks', labelKey: 'settings.nav.bookmarks' },
       { id: 'appearance', labelKey: 'settings.nav.appearance' },
+      { id: 'bookmarks', labelKey: 'settings.nav.bookmarks' },
       { id: 'modules', labelKey: 'settings.nav.modules' },
     ];
 
     // 預設只展開「語言與市集漢化」，其餘分類預設收合成目錄，避免一次攤開所有開關造成視覺雜訊
     const DEFAULT_COLLAPSED_SECTIONS: readonly SettingsSectionId[] = [
+      'pageLayout',
       'searchHotkeys',
       'resultDisplay',
-      'bookmarks',
       'appearance',
+      'bookmarks',
       'modules',
     ];
 
@@ -1741,6 +1762,7 @@ export default defineComponent({
       Languages,
       LayoutGrid,
       Palette,
+      PanelsTopLeft,
       Keyboard,
       ListChecks,
       Bookmark,
