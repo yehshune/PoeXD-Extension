@@ -222,10 +222,13 @@ describe('createTwoColumnLayoutController', () => {
     // Host-native controls do NOT follow PoeXD light/dark sidebar themes
     expect(css).not.toContain('var(--card');
     expect(css).not.toContain('var(--primary');
-    // Scroll performance invariants: no backdrop-filter blur and no container-type on scroll containers
+    // Scroll performance invariants: no backdrop-filter blur, no container-type, no will-change layer spikes, and offscreen row virtualization
     expect(css).not.toContain('backdrop-filter');
     expect(css).not.toContain('container-type');
-    expect(css).toContain('will-change: scroll-position !important;');
+    expect(css).not.toContain('will-change: scroll-position');
+    expect(css).toContain('content-visibility: auto !important;');
+    expect(css).toContain('contain-intrinsic-block-size: auto 280px !important;');
+    expect(css).toContain('contain-intrinsic-block-size: auto 81px !important;');
     expect(css).toContain('overscroll-behavior: contain !important;');
     expect(css).toContain('contain: paint !important;');
     expect(css).toContain('display: flow-root !important;');

@@ -3,10 +3,11 @@
  *
  * - 雙欄宿主控件屬於 `visual-class-reset-contract.md` §2.2 的 Host-Native PoE Controls 例外：
  *   不隨 PoeXD 側邊欄主題（含亮色主題）變色，統一採用方角與官方暗黑／暖金 `oklch()` 色階融入市集。
- * - 為確保左右獨立捲動區由 Chromium GPU Compositor Thread 平滑捲動：
+ * - 為確保左右獨立捲動區與 PoeXD 側邊欄在 80～100 筆結果下皆維持流暢：
  *   1. 禁止使用 `backdrop-filter: blur(...)`（避免每幀 GPU readback 重繪）。
  *   2. 禁止在捲動容器上使用 `container-type: inline-size`（改由控制器僅於寬度變化時寫入 `data-*` 旗標）。
- *   3. 雙捲動區皆設 100% 不透明底色、`contain: paint`、`will-change: scroll-position` 與 `overscroll-behavior: contain`。
+ *   3. 雙捲動區設 100% 不透明底色、`contain: paint` 與 `overscroll-behavior: contain`（避免對超大內捲動區加 `will-change: scroll-position` 造成 GPU 層重配尖峰）。
+ *   4. 對 `.resultset > .row` 套用 `content-visibility: auto` 與 `contain-intrinsic-block-size: auto ...`，跳過畫面外結果卡的排版與繪製。
  */
 import {
   TWO_COLUMN_COLLAPSED_WIDTH,
@@ -406,7 +407,6 @@ export function buildTwoColumnLayoutCss(): string {
       overflow-x: hidden !important;
       overscroll-behavior: contain !important;
       contain: paint !important;
-      will-change: scroll-position !important;
       padding: 8px 8px clamp(280px, 42vh, 460px) !important;
       box-sizing: border-box !important;
       scrollbar-width: thin !important;
@@ -632,7 +632,6 @@ export function buildTwoColumnLayoutCss(): string {
       overflow-x: hidden !important;
       overscroll-behavior: contain !important;
       contain: paint !important;
-      will-change: scroll-position !important;
       scrollbar-width: thin !important;
       scrollbar-color: oklch(0.36 0.01 250) transparent !important;
     }
@@ -664,10 +663,17 @@ export function buildTwoColumnLayoutCss(): string {
       margin: 0 auto 12px !important;
     }
 
-    /* 以物易物結果列：確保在窄右欄下三段欄位可彈性收縮不溢出 */
+    /* 結果列離屏虛擬化：80～100 筆結果（上萬 DOM 節點）時跳過畫面外卡片的排版與繪製，避免拖慢側邊欄與結果區捲動 */
+    ${ACTIVE_SCOPE} #trade .results .resultset > .row {
+      content-visibility: auto !important;
+      contain-intrinsic-block-size: auto 280px !important;
+    }
+
+    /* 以物易物結果列：確保在窄右欄下三段欄位可彈性收縮不溢出，並設定貼近 81px 的預設高度 */
     ${ACTIVE_SCOPE} #trade .results .resultset.exchange > .row.exchange {
       width: 100% !important;
       box-sizing: border-box !important;
+      contain-intrinsic-block-size: auto 81px !important;
     }
     ${ACTIVE_SCOPE} #trade .results .resultset.exchange > .row.exchange > .left,
     ${ACTIVE_SCOPE} #trade .results .resultset.exchange > .row.exchange > .middle,
