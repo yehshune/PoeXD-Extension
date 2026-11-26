@@ -134,10 +134,6 @@ export const ZH_TW_MESSAGES = {
   'settings.sidebarPosition.label': '面板位置',
   'settings.sidebarPosition.option.left': '左側',
   'settings.sidebarPosition.option.right': '右側',
-  'settings.collapsedTabPosition.label': '收合按鈕位置',
-  'settings.collapsedTabPosition.tooltip':
-    '收合時可直接上下拖曳按鈕調整位置；按鈕取得焦點時也可用 Alt + ↑/↓ 微調。',
-  'settings.collapsedTabPosition.reset': '重設位置',
 
   'settings.fontSize.label': '介面縮放比例',
   'settings.fontSize.triggerAria': '開啟介面縮放比例調整面板',

@@ -693,23 +693,6 @@
             </ToggleGroup>
           </SettingsRow>
 
-          <SettingsRow
-            :label="t('settings.collapsedTabPosition.label')"
-            :details="t('settings.collapsedTabPosition.tooltip')"
-          >
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              class="shrink-0"
-              data-test="reset-collapsed-tab-position"
-              :disabled="isCollapsedTabTopDefault"
-              @click="resetCollapsedTabPosition"
-            >
-              {{ t('settings.collapsedTabPosition.reset') }}
-            </Button>
-          </SettingsRow>
-
           <SettingsRow :label="t('settings.fontSize.label')">
             <FontSizeScaleControl
               :scale="fontSizeScale"
@@ -1140,13 +1123,6 @@ export default defineComponent({
         sidebarPosition.value = pos;
         savePreference('sidebarPosition');
       }
-    };
-
-    const isCollapsedTabTopDefault = computed(
-      () => preferenceState.collapsedTabTop === DEFAULT_PREFERENCES.collapsedTabTop,
-    );
-    const resetCollapsedTabPosition = () => {
-      void updatePreferences({ collapsedTabTop: DEFAULT_PREFERENCES.collapsedTabTop });
     };
 
     const handleAddBookmarkBtnPositionChange = (val?: any) => {
@@ -1688,8 +1664,6 @@ export default defineComponent({
       savePreference,
       handleHotkeyChange,
       handleSidebarPositionChange,
-      isCollapsedTabTopDefault,
-      resetCollapsedTabPosition,
       handleAddBookmarkBtnPositionChange,
       handleFontSizeScaleChange,
       handleDensityChange,

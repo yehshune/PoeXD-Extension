@@ -136,10 +136,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.sidebarPosition.label': 'Panel Position',
   'settings.sidebarPosition.option.left': 'Left',
   'settings.sidebarPosition.option.right': 'Right',
-  'settings.collapsedTabPosition.label': 'Collapsed Button Position',
-  'settings.collapsedTabPosition.tooltip':
-    'Drag the collapsed button up or down to move it. When focused, Alt + ↑/↓ also moves it.',
-  'settings.collapsedTabPosition.reset': 'Reset',
 
   'settings.fontSize.label': 'UI Scale',
   'settings.fontSize.triggerAria': 'Open UI scale adjustment panel',

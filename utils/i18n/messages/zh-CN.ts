@@ -136,10 +136,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.sidebarPosition.label': '面板位置',
   'settings.sidebarPosition.option.left': '左侧',
   'settings.sidebarPosition.option.right': '右侧',
-  'settings.collapsedTabPosition.label': '收起按钮位置',
-  'settings.collapsedTabPosition.tooltip':
-    '收起时可直接上下拖动按钮调整位置；按钮获得焦点时也可用 Alt + ↑/↓ 微调。',
-  'settings.collapsedTabPosition.reset': '重置位置',
 
   'settings.fontSize.label': '界面缩放比例',
   'settings.fontSize.triggerAria': '打开界面缩放比例调整面板',
