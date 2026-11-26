@@ -472,4 +472,117 @@ describe('PageGuideSetupControls market translation preview', () => {
     expect(state.value.enablePureBackground).toBe(true);
     expect(pureBgToggle?.getAttribute('aria-checked')).toBe('true');
   });
+
+  it('lets the mods step customize highlight style and color and reflects them on the mock result frame', async () => {
+    const state = ref<PageGuideSetupBindings>({
+      displayLocale: 'auto',
+      marketTranslation: false,
+      marketTranslationBilingual: true,
+      marketTranslationResultBilingual: false,
+      reloadRequired: false,
+      sidebarPosition: 'left',
+      fontSizeScale: 1,
+      resultFeatures: Object.fromEntries(
+        RESULT_FEATURE_KEYS.map((k) => [k, true]),
+      ) as ResultFeatureFlags,
+      resultModHighlightStyle: 'glow',
+      resultModHighlightColor: 'indigo',
+      demoCursor: null,
+      setDisplayLocale: vi.fn(),
+      setMarketTranslation: vi.fn(),
+      setMarketTranslationBilingual: vi.fn(),
+      setMarketTranslationResultBilingual: vi.fn(),
+      setSidebarPosition: vi.fn(),
+      setFontSizeScale: vi.fn(),
+      setResultFeature: vi.fn(),
+      setResultModHighlightStyle: (v) => {
+        state.value = { ...state.value, resultModHighlightStyle: v };
+      },
+      setResultModHighlightColor: (v) => {
+        state.value = { ...state.value, resultModHighlightColor: v };
+      },
+      replayCollapseDemo: vi.fn(),
+      reload: vi.fn(),
+    });
+
+    mountComponent(() =>
+      h('div', [
+        h(PageGuideSetupControls, {
+          kind: 'result-features',
+          focus: 'mods',
+          bindings: state.value,
+        }),
+        h(PageGuideOfficialResult, {
+          features: state.value.resultFeatures,
+          highlightStyle: state.value.resultModHighlightStyle,
+          highlightColor: state.value.resultModHighlightColor,
+        }),
+      ]),
+    );
+    await flush();
+
+    const frame = document.querySelector<HTMLElement>('[data-page-guide-mock-frame]');
+    expect(frame?.getAttribute('data-poexd-mod-highlight-style')).toBe('glow');
+    expect(frame?.getAttribute('data-poexd-mod-highlight-color')).toBe('indigo');
+
+    container.querySelector<HTMLButtonElement>('[data-setup-highlight-style="bar"]')?.click();
+    container.querySelector<HTMLButtonElement>('[data-setup-highlight-color="gold"]')?.click();
+    await flush();
+
+    expect(state.value.resultModHighlightStyle).toBe('bar');
+    expect(state.value.resultModHighlightColor).toBe('gold');
+    expect(frame?.getAttribute('data-poexd-mod-highlight-style')).toBe('bar');
+    expect(frame?.getAttribute('data-poexd-mod-highlight-color')).toBe('gold');
+  });
+
+  it('opens and closes non-blocking official result preview via usePageGuide preview mode', async () => {
+    const guide = usePageGuide();
+    const portal = document.createElement('div');
+    document.body.appendChild(portal);
+
+    const setup: PageGuideSetupBindings = {
+      displayLocale: 'auto',
+      marketTranslation: false,
+      marketTranslationBilingual: true,
+      marketTranslationResultBilingual: false,
+      reloadRequired: false,
+      sidebarPosition: 'left',
+      fontSizeScale: 1,
+      resultFeatures: Object.fromEntries(
+        RESULT_FEATURE_KEYS.map((k) => [k, true]),
+      ) as ResultFeatureFlags,
+      resultModHighlightStyle: 'subtle',
+      resultModHighlightColor: 'emerald',
+      demoCursor: null,
+      setDisplayLocale: vi.fn(),
+      setMarketTranslation: vi.fn(),
+      setMarketTranslationBilingual: vi.fn(),
+      setMarketTranslationResultBilingual: vi.fn(),
+      setSidebarPosition: vi.fn(),
+      setFontSizeScale: vi.fn(),
+      setResultFeature: vi.fn(),
+      replayCollapseDemo: vi.fn(),
+      reload: vi.fn(),
+    };
+
+    mountComponent(() => h(PageGuideHost, { portalTarget: portal, setup }));
+    await flush();
+
+    guide.openResultPreview('mods');
+    await flush();
+
+    expect(guide.state.mode).toBe('preview');
+    expect(portal.querySelector('[data-page-guide-blocker]')).toBeNull();
+    const frame = document.querySelector<HTMLElement>('[data-page-guide-mock-frame]');
+    expect(frame).not.toBeNull();
+    expect(frame?.getAttribute('data-poexd-mod-highlight-style')).toBe('subtle');
+    expect(frame?.getAttribute('data-poexd-mod-highlight-color')).toBe('emerald');
+
+    guide.closeResultPreview();
+    await flush();
+
+    expect(guide.state.mode).toBe('idle');
+    expect(document.querySelector('[data-page-guide-mock-frame]')).toBeNull();
+    portal.remove();
+  });
 });

@@ -537,6 +537,8 @@ export default defineComponent({
       previewFontSizeScale.value = scale === null ? null : clampFontSizeScale(scale);
     });
     const resultFeatures = shallowRef<ResultFeatureFlags>(readResultFeatures(DEFAULT_PREFERENCES));
+    const resultModHighlightStyle = ref(DEFAULT_PREFERENCES.resultModHighlightStyle);
+    const resultModHighlightColor = ref(DEFAULT_PREFERENCES.resultModHighlightColor);
     const densityScale = ref(1.0);
     const enablePureBackground = ref(DEFAULT_PREFERENCES.enablePureBackground);
     const activeTab = ref('bookmark');
@@ -785,6 +787,8 @@ export default defineComponent({
         ) {
           resultFeatures.value = nextResultFeatures;
         }
+        resultModHighlightStyle.value = snapshot.resultModHighlightStyle;
+        resultModHighlightColor.value = snapshot.resultModHighlightColor;
         densityScale.value = snapshot.densityScale;
         enablePureBackground.value = snapshot.enablePureBackground === true;
         marketTranslation.value = snapshot.marketTranslation === true;
@@ -1148,6 +1152,8 @@ export default defineComponent({
       compactDensity: densityScale.value === 0.8,
       enablePureBackground: enablePureBackground.value,
       resultFeatures: resultFeatures.value,
+      resultModHighlightStyle: resultModHighlightStyle.value,
+      resultModHighlightColor: resultModHighlightColor.value,
       demoPlaying: demoPlaying.value,
       demoCursor: demoCursor.value,
       setDisplayLocale: (value) => void updatePreference({ displayLocale: value }, '顯示語言'),
@@ -1164,6 +1170,10 @@ export default defineComponent({
       setEnablePureBackground: (value) =>
         void updatePreference({ enablePureBackground: value }, '隱藏官方網頁背景'),
       setResultFeature: (key, value) => void updatePreference({ [key]: value }, '結果列功能'),
+      setResultModHighlightStyle: (value) =>
+        void updatePreference({ resultModHighlightStyle: value }, '結果詞綴高亮樣式'),
+      setResultModHighlightColor: (value) =>
+        void updatePreference({ resultModHighlightColor: value }, '結果詞綴高亮強調色'),
       replayCollapseDemo: () => void playCollapseDemo(),
       replayStepDemo,
       reload: reloadPage,
@@ -1180,6 +1190,12 @@ export default defineComponent({
       },
       runStepDemo,
       stopStepDemo,
+    });
+
+    watch([activeTab, isCollapsed], ([tab, collapsed]) => {
+      if (tab !== 'settings' || collapsed) {
+        pageGuide.closeResultPreview();
+      }
     });
 
     // 初次安裝：第一次展開側邊欄時自動開始導覽；開始即視為完成，略過或中途離開都不再自動出現

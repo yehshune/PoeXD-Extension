@@ -168,6 +168,7 @@
                 :keywords="[t('settings.marketTranslation.bilingualGroup')]"
                 control-id="enable-market-translation-result-bilingual"
                 guide-target="result-mod-en"
+                :guide-disabled="!marketTranslationResultBilingual"
               >
                 <template #default="{ describedBy }">
                   <Switch
@@ -295,6 +296,7 @@
             :details="t(row.detailsKey)"
             :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
             :guide-target="row.guideTarget"
+            :guide-disabled="!preferenceState[row.key]"
             :control-id="row.id"
           >
             <template #default="{ describedBy }">
@@ -323,6 +325,7 @@
               :details="t(row.detailsKey)"
               :keywords="row.keywordsKey ? [t(row.keywordsKey)] : []"
               :guide-target="row.guideTarget"
+              :guide-disabled="!preferenceState[row.key]"
               :control-id="row.id"
             >
               <template #default="{ describedBy }">

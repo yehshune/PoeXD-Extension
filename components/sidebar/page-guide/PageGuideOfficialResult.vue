@@ -3,6 +3,14 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { t } from '@/utils/i18n';
 import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
 import { PAGE_GUIDE_MOCK_ATTR, PAGE_GUIDE_MOCK_Z_INDEX } from '@/utils/trade-results-root';
+import {
+  RESULT_MOD_HIGHLIGHT_COLOR_ATTR,
+  RESULT_MOD_HIGHLIGHT_STYLE_ATTR,
+} from '@/utils/result-mod-highlight';
+import type {
+  ResultModHighlightColor,
+  ResultModHighlightStyle,
+} from '@/utils/preferences-contract';
 import { ensureResultEnhancementStyles } from '@/entrypoints/content/logic/result-enhancement-styles';
 import { RESULT_FEATURE_KEYS, type ResultFeatureFlags } from './page-guide-setup';
 
@@ -15,6 +23,9 @@ const props = defineProps<{
   features: ResultFeatureFlags;
   /** 是否在譯文下方附上英文原文副標（對應導覽步驟二的結果中英並列選項） */
   resultBilingual?: boolean;
+  /** 結果詞綴高亮樣式與顏色（與設定面板即時協作） */
+  highlightStyle?: ResultModHighlightStyle;
+  highlightColor?: ResultModHighlightColor;
 }>();
 
 /** 精簡與雙欄精簡版面的一筆示意結果寬度 */
@@ -136,6 +147,10 @@ watch(featureKey, () => {
 
 const mockAttrs = { [PAGE_GUIDE_MOCK_ATTR]: '' };
 const revealAttrs = { [PAGE_GUIDE_REVEAL_ATTR]: '' };
+const highlightAttrs = computed(() => ({
+  ...(props.highlightStyle ? { [RESULT_MOD_HIGHLIGHT_STYLE_ATTR]: props.highlightStyle } : {}),
+  ...(props.highlightColor ? { [RESULT_MOD_HIGHLIGHT_COLOR_ATTR]: props.highlightColor } : {}),
+}));
 </script>
 
 <template>
@@ -143,6 +158,7 @@ const revealAttrs = { [PAGE_GUIDE_REVEAL_ATTR]: '' };
     <!-- 外層只負責定位；官方樣式依 .results 排版，直接把 .results 設成 fixed 會跑版 -->
     <div
       data-page-guide-mock-frame
+      v-bind="highlightAttrs"
       aria-hidden="true"
       :style="{
         position: 'fixed',

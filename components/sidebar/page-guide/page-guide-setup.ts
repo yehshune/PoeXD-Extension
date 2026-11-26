@@ -1,5 +1,10 @@
 import type { I18nKey } from '@/utils/i18n';
-import type { DisplayLocalePreference, SidebarPosition } from '@/utils/preferences-contract';
+import type {
+  DisplayLocalePreference,
+  ResultModHighlightColor,
+  ResultModHighlightStyle,
+  SidebarPosition,
+} from '@/utils/preferences-contract';
 import type { PageGuideDemoFocus } from './page-guide-tour';
 
 /** 結果列示意裡可以直接開關的功能（偏好設定 key） */
@@ -51,6 +56,8 @@ export interface PageGuideSetupBindings {
   compactDensity?: boolean;
   enablePureBackground?: boolean;
   resultFeatures: ResultFeatureFlags;
+  resultModHighlightStyle?: ResultModHighlightStyle;
+  resultModHighlightColor?: ResultModHighlightColor;
   /** 步驟示範播放中（供「再看一次示範」禁用與游標顯示） */
   demoPlaying?: boolean;
   /** 收合／詞綴／階級示範播放中的游標；沒有播放時為 null */
@@ -65,6 +72,8 @@ export interface PageGuideSetupBindings {
   setCompactDensity?: (value: boolean) => void;
   setEnablePureBackground?: (value: boolean) => void;
   setResultFeature: (key: ResultFeatureKey, value: boolean) => void;
+  setResultModHighlightStyle?: (value: ResultModHighlightStyle) => void;
+  setResultModHighlightColor?: (value: ResultModHighlightColor) => void;
   replayCollapseDemo: () => void;
   replayStepDemo?: (stepId: string) => void;
   reload: () => void;

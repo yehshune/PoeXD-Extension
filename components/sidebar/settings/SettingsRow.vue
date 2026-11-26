@@ -24,6 +24,8 @@ const props = withDefaults(
     nested?: boolean;
     /** 有值時，展開的說明裡多一個「在頁面上指出」 */
     guideTarget?: PageGuideTargetId;
+    /** 對應功能目前關閉時停用「在頁面上指出」，避免誤導使用者先搜尋或框到空白處 */
+    guideDisabled?: boolean;
   }>(),
   {
     description: undefined,
@@ -33,6 +35,7 @@ const props = withDefaults(
     layout: 'inline',
     nested: false,
     guideTarget: undefined,
+    guideDisabled: false,
   },
 );
 
@@ -47,7 +50,8 @@ const { visible } = useSettingsRow(() => [
   ...props.keywords,
 ]);
 const pointOnPage = () => {
-  if (props.guideTarget) void usePageGuide().pointAt(props.guideTarget, props.label);
+  if (!props.guideTarget || props.guideDisabled) return;
+  void usePageGuide().pointAt(props.guideTarget, props.label);
 };
 const describedBy = computed(() => (props.description ? descriptionId : undefined));
 </script>
@@ -125,18 +129,30 @@ const describedBy = computed(() => (props.description ? descriptionId : undefine
     >
       {{ details }}
     </p>
-    <Button
+    <div
       v-if="details && guideTarget"
       v-show="detailsOpen"
-      type="button"
-      variant="outline"
-      size="sm"
-      data-settings-guide
-      class="self-start"
-      @click="pointOnPage"
+      class="flex flex-wrap items-center gap-[var(--pxd-space-sm)]"
     >
-      <Crosshair />
-      {{ t('pageGuide.point.action') }}
-    </Button>
+      <Button
+        v-show="detailsOpen"
+        type="button"
+        variant="outline"
+        size="sm"
+        data-settings-guide
+        :disabled="guideDisabled"
+        @click="pointOnPage"
+      >
+        <Crosshair />
+        {{ t('pageGuide.point.action') }}
+      </Button>
+      <span
+        v-if="guideDisabled"
+        data-settings-guide-hint
+        class="text-[length:var(--pxd-font-caption)] text-muted-foreground"
+      >
+        {{ t('pageGuide.point.enableFirst') }}
+      </span>
+    </div>
   </div>
 </template>

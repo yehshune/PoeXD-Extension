@@ -1306,6 +1306,16 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     expect(currentModule?.read().resultModHighlightColor).toBe('emerald');
 
+    // Page preview button collaborates with PageGuide preview mode and auto-closes when disabled
+    const pagePreviewBtn = container.querySelector<HTMLButtonElement>(
+      '[data-test="result-mod-highlight-page-preview"]',
+    );
+    expect(pagePreviewBtn).not.toBeNull();
+    expect(pagePreviewBtn!.getAttribute('aria-pressed')).toBe('false');
+    pagePreviewBtn!.click();
+    await flushAsync();
+    expect(pagePreviewBtn!.getAttribute('aria-pressed')).toBe('true');
+
     highlightCheckbox.click();
     await flushAsync();
 
@@ -1321,10 +1331,20 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(quickFilterCheckbox).not.toBeNull();
     expect(currentModule?.read().enableResultModQuickFilter).toBe(true);
 
+    const quickFilterRow = quickFilterCheckbox.closest('[data-settings-row]')!;
+    quickFilterRow.querySelector<HTMLButtonElement>('[data-settings-details-toggle]')?.click();
+    await flushAsync();
+    const quickFilterGuideBtn =
+      quickFilterRow.querySelector<HTMLButtonElement>('[data-settings-guide]')!;
+    expect(quickFilterGuideBtn.disabled).toBe(false);
+    expect(quickFilterRow.querySelector('[data-settings-guide-hint]')).toBeNull();
+
     quickFilterCheckbox.click();
     await flushAsync();
 
     expect(currentModule?.read().enableResultModQuickFilter).toBe(false);
+    expect(quickFilterGuideBtn.disabled).toBe(true);
+    expect(quickFilterRow.querySelector('[data-settings-guide-hint]')).not.toBeNull();
 
     // Bookmark tooltip checkbox
     const bookmarkTooltipCheckbox = container.querySelector(

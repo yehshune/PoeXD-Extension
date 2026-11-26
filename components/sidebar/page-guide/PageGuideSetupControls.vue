@@ -11,9 +11,14 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import FontSizeScaleControl from '@/components/sidebar/settings/FontSizeScaleControl.vue';
+import {
+  RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS,
+  RESULT_MOD_HIGHLIGHT_STYLE_OPTIONS,
+} from '@/components/sidebar/settings/settings-ui-metadata';
 import { t } from '@/utils/i18n';
 import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
 import { SIDEBAR_POSITIONS, type DisplayLocalePreference } from '@/utils/preferences-contract';
+import { RESULT_MOD_HIGHLIGHT_PALETTES } from '@/utils/result-mod-highlight';
 import type { PageGuideDemoFocus, PageGuideSetupKind } from './page-guide-tour';
 import {
   PAGE_GUIDE_LOCALE_CHOICES,
@@ -278,17 +283,79 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
       <li
         v-for="toggle in featureToggles"
         :key="toggle.key"
-        class="flex items-center justify-between gap-[var(--pxd-space-md)] text-[length:var(--pxd-font-secondary)]"
+        class="flex flex-col gap-[var(--pxd-space-xs)] text-[length:var(--pxd-font-secondary)]"
       >
-        <label :for="`page-guide-feature-${toggle.key}`" class="cursor-pointer select-none">
-          {{ t(toggle.labelKey) }}
-        </label>
-        <Switch
-          :id="`page-guide-feature-${toggle.key}`"
-          :model-value="bindings.resultFeatures[toggle.key]"
-          :data-setup-feature="toggle.key"
-          @update:model-value="(value: boolean) => bindings.setResultFeature(toggle.key, value)"
-        />
+        <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
+          <label :for="`page-guide-feature-${toggle.key}`" class="cursor-pointer select-none">
+            {{ t(toggle.labelKey) }}
+          </label>
+          <Switch
+            :id="`page-guide-feature-${toggle.key}`"
+            :model-value="bindings.resultFeatures[toggle.key]"
+            :data-setup-feature="toggle.key"
+            @update:model-value="(value: boolean) => bindings.setResultFeature(toggle.key, value)"
+          />
+        </div>
+        <div
+          v-if="
+            toggle.key === 'enableResultModHighlight' &&
+            bindings.resultFeatures.enableResultModHighlight &&
+            bindings.resultModHighlightStyle &&
+            bindings.resultModHighlightColor &&
+            bindings.setResultModHighlightStyle &&
+            bindings.setResultModHighlightColor
+          "
+          data-setup-group="result-mod-highlight-appearance"
+          class="ml-[var(--pxd-space-sm)] flex flex-col gap-[var(--pxd-space-xs)] border-l border-border/70 pl-[var(--pxd-space-md)]"
+        >
+          <div
+            role="group"
+            :aria-label="t('settings.resultModHighlight.style.label')"
+            class="flex flex-wrap gap-[var(--pxd-space-xs)]"
+          >
+            <Button
+              v-for="opt in RESULT_MOD_HIGHLIGHT_STYLE_OPTIONS"
+              :key="opt.value"
+              type="button"
+              size="sm"
+              :variant="bindings.resultModHighlightStyle === opt.value ? 'default' : 'outline'"
+              :aria-pressed="bindings.resultModHighlightStyle === opt.value"
+              :data-setup-highlight-style="opt.value"
+              class="h-6 flex-1 px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)]"
+              @click="bindings.setResultModHighlightStyle(opt.value)"
+            >
+              {{ opt.label }}
+            </Button>
+          </div>
+          <div
+            role="group"
+            :aria-label="t('settings.resultModHighlight.color.label')"
+            class="flex items-center gap-[var(--pxd-space-sm)]"
+          >
+            <button
+              v-for="opt in RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS"
+              :key="opt.value"
+              type="button"
+              :title="opt.label"
+              :aria-label="opt.label"
+              :aria-pressed="bindings.resultModHighlightColor === opt.value"
+              :data-setup-highlight-color="opt.value"
+              :class="[
+                'inline-flex size-5 cursor-pointer items-center justify-center rounded-full border transition-transform',
+                bindings.resultModHighlightColor === opt.value
+                  ? 'scale-110 border-primary ring-2 ring-primary/40'
+                  : 'border-border/80 hover:scale-105',
+              ]"
+              @click="bindings.setResultModHighlightColor(opt.value)"
+            >
+              <span
+                class="size-3 rounded-full"
+                :style="{ backgroundColor: RESULT_MOD_HIGHLIGHT_PALETTES[opt.value].swatch }"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
+        </div>
       </li>
     </ul>
 

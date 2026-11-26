@@ -3,21 +3,44 @@
     data-settings-group="result-mod-highlight-appearance"
     class="flex flex-col gap-[var(--pxd-space-sm)] pl-[var(--pxd-space-lg)]"
   >
-    <!-- 模擬 PoE 深色物品詞綴列的即時預覽 -->
+    <!-- 模擬 PoE 深色物品詞綴列的即時預覽，並可一鍵在官方頁面浮出完整示意結果列協作預覽 -->
     <div
       data-test="result-mod-highlight-preview"
-      class="flex flex-col gap-[2px] rounded-sm border border-border/70 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] text-center text-[length:var(--pxd-font-caption)] leading-snug"
+      class="flex flex-col gap-[var(--pxd-space-xs)] rounded-sm border border-border/70 p-[var(--pxd-space-xs)]"
       style="background-color: oklch(0.14 0.005 250)"
     >
-      <div class="px-1.5 py-0.5 opacity-80" style="color: oklch(0.68 0.12 268)">
-        {{ t('settings.resultModHighlight.previewNormal') }}
-      </div>
       <div
-        data-test="result-mod-highlight-preview-mod"
-        class="transition-all duration-150"
-        :style="[previewHighlightStyle, { color: 'oklch(0.73 0.12 268)' }]"
+        class="flex flex-col gap-[2px] text-center text-[length:var(--pxd-font-caption)] leading-snug"
       >
-        {{ t('settings.resultModHighlight.previewMatched') }}
+        <div class="px-1.5 py-0.5 opacity-80" style="color: oklch(0.68 0.12 268)">
+          {{ t('settings.resultModHighlight.previewNormal') }}
+        </div>
+        <div
+          data-test="result-mod-highlight-preview-mod"
+          class="transition-all duration-150"
+          :style="[previewHighlightStyle, { color: 'oklch(0.73 0.12 268)' }]"
+        >
+          {{ t('settings.resultModHighlight.previewMatched') }}
+        </div>
+      </div>
+      <div class="flex justify-end">
+        <Button
+          type="button"
+          :variant="isPagePreviewOpen ? 'secondary' : 'outline'"
+          size="sm"
+          data-test="result-mod-highlight-page-preview"
+          :aria-pressed="isPagePreviewOpen"
+          class="h-6 px-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)]"
+          @click="togglePagePreview"
+        >
+          <EyeOff v-if="isPagePreviewOpen" class="size-3.5" />
+          <Eye v-else class="size-3.5" />
+          {{
+            isPagePreviewOpen
+              ? t('settings.resultModHighlight.closePagePreview')
+              : t('settings.resultModHighlight.openPagePreview')
+          }}
+        </Button>
       </div>
     </div>
 
@@ -86,13 +109,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount } from 'vue';
+import { Eye, EyeOff } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import SettingsRow from './SettingsRow.vue';
 import {
   RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS,
   RESULT_MOD_HIGHLIGHT_STYLE_OPTIONS,
 } from './settings-ui-metadata';
+import { usePageGuide } from '../page-guide/usePageGuide';
 import { t } from '@/utils/i18n';
 import type {
   ResultModHighlightColor,
@@ -122,6 +147,20 @@ const searchKeywords = computed(() => [
   t('settings.resultModHighlight.style.label'),
   t('settings.resultModHighlight.color.label'),
 ]);
+
+const guide = usePageGuide();
+const isPagePreviewOpen = computed(
+  () => guide.state.mode === 'preview' && guide.state.demoFocus === 'mods',
+);
+
+const togglePagePreview = () => {
+  if (isPagePreviewOpen.value) guide.closeResultPreview();
+  else guide.openResultPreview('mods');
+};
+
+onBeforeUnmount(() => {
+  guide.closeResultPreview();
+});
 
 const handleStyleChange = (value: ResultModHighlightStyle) => {
   emit('update:highlightStyle', value);

@@ -137,6 +137,7 @@ let frame = 0;
 const mode = computed(() => guide.state.mode);
 const step = computed(() => guide.currentStep.value);
 const isTour = computed(() => mode.value === 'tour');
+const isPreview = computed(() => mode.value === 'preview');
 const isLastStep = computed(() => guide.stepNumber.value >= guide.stepCount.value);
 const progressPercent = computed(() => {
   const total = guide.stepCount.value;
@@ -691,6 +692,15 @@ const calloutLayoutStyle = computed(() => {
     minHeight: `${m.height}px`,
   };
 });
+const previewBarStyle = computed(() => {
+  const rect = spotlightRect.value;
+  if (!rect) return undefined;
+  return {
+    top: `${Math.max(8, rect.top - 34)}px`,
+    left: `${rect.left}px`,
+    width: `${rect.width}px`,
+  };
+});
 </script>
 
 <template>
@@ -957,8 +967,33 @@ const calloutLayoutStyle = computed(() => {
         </div>
       </section>
 
+      <!-- 設定頁借用官方示意結果列時的輕量頂部預覽列：不遮罩頁面、可隨時關閉 -->
       <div
-        v-else-if="!isTour && guide.state.label"
+        v-if="isPreview && previewBarStyle"
+        data-page-guide-preview-bar
+        class="pointer-events-none fixed z-(--pxd-z-guide-overlay) flex items-center justify-between gap-[var(--pxd-space-sm)]"
+        :style="previewBarStyle"
+      >
+        <span
+          class="pointer-events-auto inline-flex items-center rounded-sm border border-border/80 bg-popover/95 px-[var(--pxd-space-sm)] py-[3px] text-[length:var(--pxd-font-caption)] font-medium text-popover-foreground shadow-md"
+        >
+          {{ t('pageGuide.preview.badge') }}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          data-page-guide-preview-close
+          class="pointer-events-auto h-6 bg-popover/95 px-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] shadow-md"
+          @click="guide.closeResultPreview()"
+        >
+          <X class="size-3.5" />
+          {{ t('pageGuide.preview.close') }}
+        </Button>
+      </div>
+
+      <div
+        v-else-if="!isTour && !isPreview && guide.state.label"
         ref="bubble"
         data-page-guide-label
         class="pointer-events-none fixed z-(--pxd-z-guide-overlay) max-w-[min(260px,calc(100vw-16px))] rounded-sm bg-primary px-[var(--pxd-space-sm)] py-[2px] text-[length:var(--pxd-font-caption)] font-medium text-primary-foreground shadow-md"
@@ -997,5 +1032,7 @@ const calloutLayoutStyle = computed(() => {
     v-if="guide.state.demoFocus && props.setup"
     :features="props.setup.resultFeatures"
     :result-bilingual="resultBilingualPreview"
+    :highlight-style="props.setup.resultModHighlightStyle"
+    :highlight-color="props.setup.resultModHighlightColor"
   />
 </template>

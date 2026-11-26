@@ -85,7 +85,7 @@ export function buildResultModHighlightCss(): string {
     .filter(([color]) => color !== 'indigo')
     .map(
       ([color, p]) => `
-      :root[${RESULT_MOD_HIGHLIGHT_COLOR_ATTR}="${color}"] .poexd-filter-mod-highlight {
+      [${RESULT_MOD_HIGHLIGHT_COLOR_ATTR}="${color}"] .poexd-filter-mod-highlight {
         --poexd-mod-hl-bg: ${p.bg};
         --poexd-mod-hl-bg-subtle: ${p.bgSubtle};
         --poexd-mod-hl-border: ${p.border};
@@ -113,7 +113,7 @@ export function buildResultModHighlightCss(): string {
         margin: 5px 0;
       }
 ${colorRules}
-      :root[${RESULT_MOD_HIGHLIGHT_STYLE_ATTR}="subtle"] .poexd-filter-mod-highlight {
+      [${RESULT_MOD_HIGHLIGHT_STYLE_ATTR}="subtle"] .poexd-filter-mod-highlight {
         box-shadow: none;
         background-color: var(--poexd-mod-hl-bg-subtle);
         border: 1px solid var(--poexd-mod-hl-border-subtle);
@@ -121,7 +121,7 @@ ${colorRules}
         margin: 2px 0;
       }
 
-      :root[${RESULT_MOD_HIGHLIGHT_STYLE_ATTR}="bar"] .poexd-filter-mod-highlight {
+      [${RESULT_MOD_HIGHLIGHT_STYLE_ATTR}="bar"] .poexd-filter-mod-highlight {
         box-shadow: inset 3px 0 0 var(--poexd-mod-hl-bar);
         background-color: var(--poexd-mod-hl-bg-subtle);
         border: none;

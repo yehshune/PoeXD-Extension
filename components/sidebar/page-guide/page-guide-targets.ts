@@ -1,3 +1,4 @@
+import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
 import { PAGE_GUIDE_MOCK_ATTR, TRADE_RESULTS_SELECTOR } from '@/utils/trade-results-root';
 
 /**
@@ -77,7 +78,11 @@ export const PAGE_GUIDE_TARGETS = {
   },
   'result-mod': {
     scope: 'page',
-    selectors: [`${RESULT_ROW} [data-field^="stat."]`],
+    selectors: [
+      `${RESULT_ROW} .poexd-result-mod-host[${PAGE_GUIDE_REVEAL_ATTR}] > .poexd-result-mod-actions`,
+      `${RESULT_ROW} .poexd-result-mod-actions`,
+      `${RESULT_ROW} [data-field^="stat."]`,
+    ],
     needs: 'results',
   },
   'result-pob-copy': {

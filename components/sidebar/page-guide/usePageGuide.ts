@@ -22,7 +22,7 @@ const POINT_DURATION_MS = 3200;
 /** 示範條件加入後，等官方與 T 階按鈕重新渲染 */
 const DEMO_RENDER_WAIT_MS = 160;
 
-type GuideMode = 'idle' | 'point' | 'tour';
+type GuideMode = 'idle' | 'point' | 'tour' | 'preview';
 
 /** 需要先在官方頁面暫時補出元素的位置，對應要送出的示範動作 */
 const DEMO_ACTION_BY_NEED: Partial<Record<PageGuideNeed, PageGuideDemoAction>> = {
@@ -318,6 +318,26 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     if ('spotlight' in targets) demoSpotlightElement.value = targets.spotlight ?? null;
   };
 
+  /** 設定頁借用官方示意結果列當作即時預覽畫布：不蓋暗遮罩、不阻擋側邊欄操作 */
+  const openResultPreview = (focus: PageGuideDemoFocus = 'mods') => {
+    if (state.mode === 'tour') return;
+    clearTimeout(pointTimer);
+    runToken += 1;
+    element.value = null;
+    demoRingElements.value = [];
+    demoSpotlightElement.value = null;
+    state.label = '';
+    state.stepId = '';
+    state.demoFocus = focus;
+    state.mode = 'preview';
+  };
+
+  /** 關閉設定頁開啟的示意結果預覽；進行中的導覽或指出不受影響 */
+  const closeResultPreview = () => {
+    if (state.mode !== 'preview') return;
+    void stop();
+  };
+
   return {
     state,
     element,
@@ -334,6 +354,8 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     },
     setDemoElements,
     ensureDemoStatFilter,
+    openResultPreview,
+    closeResultPreview,
     pointAt,
     startTour,
     nextStep,

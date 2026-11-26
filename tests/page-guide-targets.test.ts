@@ -98,6 +98,35 @@ describe('findPageGuideElement', () => {
       })?.id,
     ).toBe('demo');
   });
+
+  it('points result-mod at the revealed quick-filter action buttons rather than the mod text', () => {
+    document.body.innerHTML = `
+      <div id="trade">
+        <div class="results">
+          <div class="row" data-id="r1">
+            <div class="item-mod poexd-result-mod-host">
+              <span data-field="stat.explicit.stat_1">mod 1</span>
+              <span class="poexd-result-mod-actions" id="unrevealed-actions"></span>
+            </div>
+            <div class="item-mod poexd-result-mod-host poexd-filter-mod-highlight" data-poexd-guide-reveal>
+              <span data-field="stat.explicit.stat_2">mod 2</span>
+              <span class="poexd-result-mod-actions" id="revealed-actions"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document
+      .querySelectorAll('[data-field], .poexd-result-mod-actions')
+      .forEach((el) => setVisible(el, true));
+
+    expect(
+      findPageGuideElement(getPageGuideTarget('result-mod'), {
+        page: document,
+        sidebar: null,
+      })?.id,
+    ).toBe('revealed-actions');
+  });
 });
 
 describe('page guide tour', () => {
