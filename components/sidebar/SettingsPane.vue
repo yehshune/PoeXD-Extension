@@ -976,8 +976,9 @@ import {
 } from './settings/settings-ui-metadata';
 import { setActiveDisplayLocalePreference, t } from '@/utils/i18n';
 import { clampFontSizeScale } from '@/utils/appearance-preferences';
-import { detectBrowserLocale, resolvePreferredChineseLocale } from '@/utils/locale-resolution';
+import { detectBrowserLocale } from '@/utils/locale-resolution';
 import {
+  buildMarketTranslationTogglePatch,
   isMarketTranslationDisplayLocale,
   isMarketTranslationReloadRequired,
   resolveMarketTranslationLocale,
@@ -1492,17 +1493,13 @@ export default defineComponent({
     };
 
     const savePreference = (key: keyof Preferences) => {
-      if (
-        key === 'marketTranslation' &&
-        preferenceState.marketTranslation &&
-        !isMarketTranslationDisplayLocale(preferenceState.displayLocale)
-      ) {
-        const fallbackLocale = resolvePreferredChineseLocale();
-        preferenceState.displayLocale = fallbackLocale;
-        void updatePreferences({
-          marketTranslation: true,
-          displayLocale: fallbackLocale,
-        });
+      if (key === 'marketTranslation') {
+        const patch = buildMarketTranslationTogglePatch(
+          preferenceState.marketTranslation,
+          preferenceState.displayLocale,
+        );
+        if (patch.displayLocale) preferenceState.displayLocale = patch.displayLocale;
+        void updatePreferences(patch);
         return;
       }
       void updatePreferences({

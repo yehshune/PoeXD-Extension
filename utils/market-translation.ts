@@ -3,7 +3,11 @@
  * 純函式、不持有狀態，isolated world 與測試共用；MAIN world 腳本不 import 這支（避免打包 i18n 相依）。
  */
 import type { DisplayLocalePreference, Preferences } from './preferences-contract';
-import { resolveDisplayLocale, type LocaleResolutionInput } from './locale-resolution';
+import {
+  resolveDisplayLocale,
+  resolvePreferredChineseLocale,
+  type LocaleResolutionInput,
+} from './locale-resolution';
 
 export const MARKET_TRANSLATION_LOCALES = ['zh-TW', 'zh-CN'] as const;
 export type MarketTranslationLocale = (typeof MARKET_TRANSLATION_LOCALES)[number];
@@ -29,6 +33,25 @@ export function isMarketTranslationDisplayLocale(
       hostname: 'www.pathofexile.com',
     }),
   );
+}
+
+/**
+ * 切換市集漢化開關時要寫入偏好的最小更新：
+ * 啟用且目前 Display Locale 在國際服上不會解析為中文時，一併切到使用者偏好的中文語系，
+ * 避免重整後漢化仍未生效。由 SettingsPane 與 PageGuideSession 共用。
+ */
+export function buildMarketTranslationTogglePatch(
+  enabled: boolean,
+  currentDisplayLocale: DisplayLocalePreference,
+  input: Omit<LocaleResolutionInput, 'hostname'> = {},
+): Pick<Preferences, 'marketTranslation'> & Partial<Pick<Preferences, 'displayLocale'>> {
+  if (!enabled || isMarketTranslationDisplayLocale(currentDisplayLocale, input)) {
+    return { marketTranslation: enabled };
+  }
+  return {
+    marketTranslation: true,
+    displayLocale: resolvePreferredChineseLocale(input),
+  };
 }
 
 export interface MarketTranslationLocaleInput {

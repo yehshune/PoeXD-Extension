@@ -20,38 +20,39 @@ import { resolvePreferredChineseLocale } from '@/utils/locale-resolution';
 import { SIDEBAR_POSITIONS, type DisplayLocalePreference } from '@/utils/preferences-contract';
 import { RESULT_MOD_HIGHLIGHT_PALETTES } from '@/utils/result-mod-highlight';
 import type { PageGuideDemoFocus, PageGuideSetupKind } from './page-guide-tour';
-import {
-  PAGE_GUIDE_LOCALE_CHOICES,
-  RESULT_FEATURE_TOGGLES,
-  type PageGuideSetupBindings,
-} from './page-guide-setup';
+import { PAGE_GUIDE_LOCALE_CHOICES, RESULT_FEATURE_TOGGLES } from './page-guide-setup';
+import { usePageGuide, type PageGuideSession } from './usePageGuide';
 
 const props = defineProps<{
   kind: PageGuideSetupKind;
-  bindings: PageGuideSetupBindings;
+  /** 測試可注入隔離的 PageGuideSession；正式環境預設使用共用單例 */
+  guide?: PageGuideSession;
   /** 目前步驟 ID（供 demo-replay 重播對應步驟示範） */
   stepId?: string;
   /** result-features 步驟要列出哪一組開關 */
   focus?: PageGuideDemoFocus;
 }>();
 
+const guide = props.guide ?? usePageGuide();
+const setup = computed(() => guide.setup);
+
 const POSITION_ICONS = { left: PanelLeft, right: PanelRight } as const;
 
 const featureToggles = computed(() => (props.focus ? RESULT_FEATURE_TOGGLES[props.focus] : []));
 const selectedLocaleLabel = computed(() => {
-  const found = PAGE_GUIDE_LOCALE_CHOICES.find((c) => c.value === props.bindings.displayLocale);
+  const found = PAGE_GUIDE_LOCALE_CHOICES.find((c) => c.value === setup.value.displayLocale);
   return found?.nativeLabel ?? t('settings.displayLocale.option.auto');
 });
 const previewLocale = computed<'zh-TW' | 'zh-CN'>(() => {
-  const loc = props.bindings.displayLocale;
+  const loc = setup.value.displayLocale;
   if (loc === 'zh-CN' || loc === 'zh-TW') return loc;
   return resolvePreferredChineseLocale();
 });
 const previewDropdownText = computed(() => {
   const en = t('pageGuide.setup.marketTranslation.previewStatEn');
-  if (!props.bindings.marketTranslation) return en;
+  if (!setup.value.marketTranslation) return en;
   const zh = t('pageGuide.setup.marketTranslation.previewStatZh', undefined, previewLocale.value);
-  return props.bindings.marketTranslationBilingual ? `${zh} (${en})` : zh;
+  return setup.value.marketTranslationBilingual ? `${zh} (${en})` : zh;
 });
 const previewResultZhText = computed(() =>
   t('pageGuide.setup.marketTranslation.previewModZh', undefined, previewLocale.value),
@@ -59,7 +60,7 @@ const previewResultZhText = computed(() =>
 const previewResultEnText = computed(() => t('pageGuide.setup.marketTranslation.previewModEn'));
 
 const isDemoPlaying = computed(() =>
-  Boolean(props.bindings.demoPlaying || props.bindings.demoCursor !== null),
+  Boolean(setup.value.demoPlaying || setup.value.demoCursor !== null),
 );
 
 const segmentClass = 'grid gap-[var(--pxd-space-xs)]';
@@ -80,8 +81,10 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
         {{ t('settings.displayLocale.label') }}
       </span>
       <Select
-        :model-value="bindings.displayLocale"
-        @update:model-value="(value) => bindings.setDisplayLocale(value as DisplayLocalePreference)"
+        :model-value="setup.displayLocale"
+        @update:model-value="
+          (value) => void guide.setDisplayLocale(value as DisplayLocalePreference)
+        "
       >
         <SelectTrigger
           size="default"
@@ -114,14 +117,14 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
         </label>
         <Switch
           id="page-guide-market-translation"
-          :model-value="bindings.marketTranslation"
+          :model-value="setup.marketTranslation"
           data-setup-action="market-translation"
-          @update:model-value="(value: boolean) => bindings.setMarketTranslation(value)"
+          @update:model-value="(value: boolean) => void guide.setMarketTranslation(value)"
         />
       </div>
 
       <div
-        v-if="bindings.marketTranslation"
+        v-if="setup.marketTranslation"
         data-setup-group="market-translation-bilingual"
         class="ml-[var(--pxd-space-sm)] flex flex-col gap-[var(--pxd-space-xs)] border-l border-border/70 pl-[var(--pxd-space-md)]"
       >
@@ -134,9 +137,11 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
           </label>
           <Switch
             id="page-guide-market-bilingual"
-            :model-value="bindings.marketTranslationBilingual"
+            :model-value="setup.marketTranslationBilingual"
             data-setup-action="market-translation-bilingual"
-            @update:model-value="(value: boolean) => bindings.setMarketTranslationBilingual(value)"
+            @update:model-value="
+              (value: boolean) => void guide.setMarketTranslationBilingual(value)
+            "
           />
         </div>
         <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
@@ -148,10 +153,10 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
           </label>
           <Switch
             id="page-guide-market-result-bilingual"
-            :model-value="bindings.marketTranslationResultBilingual"
+            :model-value="setup.marketTranslationResultBilingual"
             data-setup-action="market-translation-result-bilingual"
             @update:model-value="
-              (value: boolean) => bindings.setMarketTranslationResultBilingual(value)
+              (value: boolean) => void guide.setMarketTranslationResultBilingual(value)
             "
           />
         </div>
@@ -181,10 +186,10 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
           </span>
           <div class="flex min-w-0 flex-col">
             <span class="text-foreground">
-              {{ bindings.marketTranslation ? previewResultZhText : previewResultEnText }}
+              {{ setup.marketTranslation ? previewResultZhText : previewResultEnText }}
             </span>
             <span
-              v-if="bindings.marketTranslation && bindings.marketTranslationResultBilingual"
+              v-if="setup.marketTranslation && setup.marketTranslationResultBilingual"
               data-setup-preview-en
               class="text-[length:var(--pxd-font-caption)] leading-tight text-muted-foreground/75"
             >
@@ -208,10 +213,10 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
           type="button"
           size="sm"
           role="radio"
-          :variant="bindings.sidebarPosition === position ? 'default' : 'outline'"
-          :aria-checked="bindings.sidebarPosition === position"
+          :variant="setup.sidebarPosition === position ? 'default' : 'outline'"
+          :aria-checked="setup.sidebarPosition === position"
           :data-setup-position="position"
-          @click="bindings.setSidebarPosition(position)"
+          @click="void guide.setSidebarPosition(position)"
         >
           <component :is="POSITION_ICONS[position]" />
           {{ t(`settings.sidebarPosition.option.${position}`) }}
@@ -221,9 +226,9 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
       <div class="flex items-center justify-between gap-[var(--pxd-space-md)]">
         <span :class="rowLabelClass">{{ t('settings.fontSize.label') }}</span>
         <FontSizeScaleControl
-          :scale="bindings.fontSizeScale"
+          :scale="setup.fontSizeScale"
           in-guide
-          @update:scale="bindings.setFontSizeScale"
+          @update:scale="(scale) => void guide.setFontSizeScale(scale)"
         />
       </div>
 
@@ -236,9 +241,9 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
         </label>
         <Switch
           id="page-guide-compact-density"
-          :model-value="Boolean(bindings.compactDensity)"
+          :model-value="setup.compactDensity"
           data-setup-action="compact-density"
-          @update:model-value="(value: boolean) => bindings.setCompactDensity?.(value)"
+          @update:model-value="(value: boolean) => void guide.setCompactDensity(value)"
         />
       </div>
 
@@ -251,9 +256,9 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
         </label>
         <Switch
           id="page-guide-pure-background"
-          :model-value="Boolean(bindings.enablePureBackground)"
+          :model-value="setup.enablePureBackground"
           data-setup-action="pure-background"
-          @update:model-value="(value: boolean) => bindings.setEnablePureBackground?.(value)"
+          @update:model-value="(value: boolean) => void guide.setEnablePureBackground(value)"
         />
       </div>
     </template>
@@ -266,11 +271,7 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
       class="self-start"
       :data-setup-action="kind === 'collapse-drag' ? 'replay-collapse-demo' : 'replay-step-demo'"
       :disabled="isDemoPlaying"
-      @click="
-        kind === 'collapse-drag'
-          ? bindings.replayCollapseDemo()
-          : bindings.replayStepDemo?.(stepId ?? '')
-      "
+      @click="void guide.replayStepDemo(kind === 'collapse-drag' ? 'collapse' : (stepId ?? ''))"
     >
       <RotateCcw :class="isDemoPlaying ? 'motion-safe:animate-spin' : ''" />
       {{ isDemoPlaying ? t('pageGuide.setup.demo.playing') : t('pageGuide.setup.collapse.replay') }}
@@ -291,19 +292,15 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
           </label>
           <Switch
             :id="`page-guide-feature-${toggle.key}`"
-            :model-value="bindings.resultFeatures[toggle.key]"
+            :model-value="setup.resultFeatures[toggle.key]"
             :data-setup-feature="toggle.key"
-            @update:model-value="(value: boolean) => bindings.setResultFeature(toggle.key, value)"
+            @update:model-value="(value: boolean) => void guide.setResultFeature(toggle.key, value)"
           />
         </div>
         <div
           v-if="
             toggle.key === 'enableResultModHighlight' &&
-            bindings.resultFeatures.enableResultModHighlight &&
-            bindings.resultModHighlightStyle &&
-            bindings.resultModHighlightColor &&
-            bindings.setResultModHighlightStyle &&
-            bindings.setResultModHighlightColor
+            setup.resultFeatures.enableResultModHighlight
           "
           data-setup-group="result-mod-highlight-appearance"
           class="ml-[var(--pxd-space-sm)] flex flex-col gap-[var(--pxd-space-xs)] border-l border-border/70 pl-[var(--pxd-space-md)]"
@@ -318,11 +315,11 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
               :key="opt.value"
               type="button"
               size="sm"
-              :variant="bindings.resultModHighlightStyle === opt.value ? 'default' : 'outline'"
-              :aria-pressed="bindings.resultModHighlightStyle === opt.value"
+              :variant="setup.resultModHighlightStyle === opt.value ? 'default' : 'outline'"
+              :aria-pressed="setup.resultModHighlightStyle === opt.value"
               :data-setup-highlight-style="opt.value"
               class="flex-1"
-              @click="bindings.setResultModHighlightStyle(opt.value)"
+              @click="void guide.setResultModHighlightStyle(opt.value)"
             >
               {{ opt.label }}
             </Button>
@@ -338,15 +335,15 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
               type="button"
               :title="opt.label"
               :aria-label="opt.label"
-              :aria-pressed="bindings.resultModHighlightColor === opt.value"
+              :aria-pressed="setup.resultModHighlightColor === opt.value"
               :data-setup-highlight-color="opt.value"
               :class="[
                 'inline-flex size-5 cursor-pointer items-center justify-center rounded-full border transition-transform',
-                bindings.resultModHighlightColor === opt.value
+                setup.resultModHighlightColor === opt.value
                   ? 'scale-110 border-primary ring-2 ring-primary/40'
                   : 'border-border/80 hover:scale-105',
               ]"
-              @click="bindings.setResultModHighlightColor(opt.value)"
+              @click="void guide.setResultModHighlightColor(opt.value)"
             >
               <span
                 class="size-3 rounded-full"
@@ -360,7 +357,7 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
     </ul>
 
     <div
-      v-if="kind === 'market-translation' && bindings.reloadRequired"
+      v-if="kind === 'market-translation' && setup.reloadRequired"
       class="text-[length:var(--pxd-font-caption)] text-muted-foreground"
     >
       {{ t('pageGuide.setup.reloadAtEnd') }}

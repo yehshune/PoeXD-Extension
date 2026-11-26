@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { Button } from '@/components/ui/button';
-import { t, type I18nKey } from '@/utils/i18n';
-import { affixDemoMode } from '@/utils/page-guide-demo-state';
+import { t } from '@/utils/i18n';
 import { MousePointer2, MoveHorizontal, X } from '@lucide/vue';
 import PageGuideOfficialResult from './PageGuideOfficialResult.vue';
 import PageGuideSetupControls from './PageGuideSetupControls.vue';
-import type { PageGuideSetupBindings } from './page-guide-setup';
 import {
   clampGuideRectToViewport,
   padGuideRect,
@@ -15,110 +13,38 @@ import {
   type GuideBubblePosition,
   type GuideRect,
 } from './page-guide-geometry';
-import { usePageGuide } from './usePageGuide';
+import {
+  SIDEBAR_CALLOUT_SPECS,
+  buildPageBlockerClipPath,
+  buildResizeIndicator,
+  buildSidebarCallouts,
+  computeInteractiveCutout,
+  computeSidebarCalloutMetrics,
+  expandTargetRectForCallouts,
+  placeAffixDemoBubble,
+  resolveResizeHandleSide,
+  sameGuideRect,
+  sameResizeIndicator,
+  sameSidebarCallouts,
+  shouldKeepCollapseDemoBubblePosition,
+  type ResizeHandleGeometry,
+  type ResizeHandleIndicator,
+  type SidebarCallout,
+  type SidebarCalloutMetrics,
+} from './page-guide-layout';
+import { usePageGuide, type PageGuideSession } from './usePageGuide';
 
 const props = defineProps<{
   /** 側欄 shadow root 內的 portal；內容區有 container 查詢會困住 fixed 定位 */
   portalTarget: HTMLElement | null;
-  /** 導覽前段的基礎設定步驟需要側欄的目前值；沒有提供時設定步驟只顯示說明 */
-  setup?: PageGuideSetupBindings | null;
+  /** 測試可注入隔離的 PageGuideSession；正式環境預設使用共用單例 */
+  guide?: PageGuideSession;
 }>();
-
-interface SidebarCallout {
-  id: string;
-  top: number;
-  left?: number;
-  right?: number;
-  side: 'left' | 'right';
-  titleKey: I18nKey;
-  descKey: I18nKey;
-}
-
-interface SidebarCalloutMetrics {
-  key: string;
-  titleWidth: number;
-  cardWidth: number;
-  height: number;
-}
-
-interface ResizeHandleIndicator {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-  centerX: number;
-  anchorY: number;
-  side: 'left' | 'right';
-  calloutLeft?: number;
-  calloutRight?: number;
-}
-
-const SIDEBAR_CALLOUT_SPECS: readonly {
-  id: string;
-  selector: string;
-  titleKey: I18nKey;
-  descKey: I18nKey;
-}[] = [
-  {
-    id: 'bookmark',
-    selector: '[data-sidebar-tab="bookmark"]',
-    titleKey: 'sidebar.nav.bookmarks',
-    descKey: 'pageGuide.tour.sidebar.item.bookmark',
-  },
-  {
-    id: 'history',
-    selector: '[data-sidebar-tab="history"]',
-    titleKey: 'sidebar.nav.history',
-    descKey: 'pageGuide.tour.sidebar.item.history',
-  },
-  {
-    id: 'stat-group-template',
-    selector: '[data-sidebar-tab="stat-group-template"]',
-    titleKey: 'sidebar.nav.statGroupTemplates',
-    descKey: 'pageGuide.tour.sidebar.item.statGroupTemplate',
-  },
-  {
-    id: 'pob-build',
-    selector: '[data-sidebar-tab="pob-build"]',
-    titleKey: 'sidebar.nav.pobBuild',
-    descKey: 'pageGuide.tour.sidebar.item.pobBuild',
-  },
-  {
-    id: 'pinned-items',
-    selector: '[data-sidebar-tab="pinned-items"]',
-    titleKey: 'sidebar.nav.pinnedItems',
-    descKey: 'pageGuide.tour.sidebar.item.pinnedItems',
-  },
-  {
-    id: 'result-board',
-    selector: '[data-sidebar-tab="result-board"]',
-    titleKey: 'sidebar.nav.resultBoard',
-    descKey: 'pageGuide.tour.sidebar.item.resultBoard',
-  },
-  {
-    id: 'live-search',
-    selector: '[data-sidebar-action="open-live-search"]',
-    titleKey: 'sidebar.nav.openLiveSearch',
-    descKey: 'pageGuide.tour.sidebar.item.liveSearch',
-  },
-  {
-    id: 'tools',
-    selector: '[data-sidebar-tab="tools"]',
-    titleKey: 'sidebar.nav.tools',
-    descKey: 'pageGuide.tour.sidebar.item.tools',
-  },
-  {
-    id: 'settings',
-    selector: '[data-sidebar-tab="settings"]',
-    titleKey: 'sidebar.nav.settings',
-    descKey: 'pageGuide.tour.sidebar.item.settings',
-  },
-];
 
 const RING_PADDING = 6;
 const RING_TRANSITION_MS = 220;
 
-const guide = usePageGuide();
+const guide = props.guide ?? usePageGuide();
 const anchor = ref<HTMLElement | null>(null);
 const bubble = ref<HTMLElement | null>(null);
 const primaryButton = ref<InstanceType<typeof Button> | null>(null);
@@ -146,14 +72,14 @@ const progressPercent = computed(() => {
 });
 /** 需要使用者直接操作側欄的步驟不放擋點擊的遮罩，只用外框陰影把其他地方變暗 */
 const isInteractive = computed(() => isTour.value && step.value?.interactive === true);
-const showReload = computed(() => isTour.value && isLastStep.value && props.setup?.reloadRequired);
-const demoCursor = computed(() => (isTour.value ? (props.setup?.demoCursor ?? null) : null));
+const showReload = computed(() => isTour.value && isLastStep.value && guide.setup.reloadRequired);
+const demoCursor = computed(() => (isTour.value ? guide.setup.demoCursor : null));
 const activeRingElements = computed<readonly Element[]>(() => {
   if (guide.demoRingElements.value.length > 0) return guide.demoRingElements.value;
   return guide.element.value ? [guide.element.value] : [];
 });
 const resultBilingualPreview = computed(() =>
-  Boolean(props.setup?.marketTranslation && props.setup?.marketTranslationResultBilingual),
+  Boolean(guide.setup.marketTranslation && guide.setup.marketTranslationResultBilingual),
 );
 
 function getSidebarRoot(): ParentNode {
@@ -161,84 +87,22 @@ function getSidebarRoot(): ParentNode {
   return root instanceof ShadowRoot ? root : document;
 }
 
-function sameRect(a: GuideRect | null, b: GuideRect | null): boolean {
-  if (!a || !b) return a === b;
-  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
-}
-
-function sameResizeIndicator(
-  a: ResizeHandleIndicator | null,
-  b: ResizeHandleIndicator | null,
-): boolean {
-  if (!a || !b) return a === b;
-  return (
-    a.top === b.top &&
-    a.left === b.left &&
-    a.width === b.width &&
-    a.height === b.height &&
-    a.centerX === b.centerX &&
-    a.anchorY === b.anchorY &&
-    a.side === b.side &&
-    a.calloutLeft === b.calloutLeft &&
-    a.calloutRight === b.calloutRight
-  );
-}
-
-function sameCallouts(a: readonly SidebarCallout[], b: readonly SidebarCallout[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    const x = a[i]!;
-    const y = b[i]!;
-    if (
-      x.id !== y.id ||
-      x.top !== y.top ||
-      x.left !== y.left ||
-      x.right !== y.right ||
-      x.side !== y.side
-    ) {
-      return false;
-    }
-  }
-  return true;
+function readRect(el: Element | null): GuideRect | null {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { top: r.top, left: r.left, width: r.width, height: r.height };
 }
 
 function measureSidebarCallouts(): SidebarCallout[] {
   if (!isTour.value || step.value?.id !== 'sidebar') return [];
-  const sidebarRoot = getSidebarRoot();
-  const nav = sidebarRoot.querySelector('.sidebar-nav');
-  if (!nav) return [];
-  const navRect = nav.getBoundingClientRect();
-  if (navRect.width <= 0 || navRect.height <= 0) return [];
-  const side: 'left' | 'right' =
-    navRect.left + navRect.width / 2 < window.innerWidth / 2 ? 'right' : 'left';
-  const result: SidebarCallout[] = [];
-  for (const spec of SIDEBAR_CALLOUT_SPECS) {
-    const btn = nav.querySelector<HTMLElement>(spec.selector);
-    if (!btn) continue;
-    const rect = btn.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) continue;
-    const top = Math.round(rect.top + rect.height / 2);
-    if (side === 'right') {
-      result.push({
-        id: spec.id,
-        top,
-        left: Math.round(navRect.right + 12),
-        side,
-        titleKey: spec.titleKey,
-        descKey: spec.descKey,
-      });
-    } else {
-      result.push({
-        id: spec.id,
-        top,
-        right: Math.round(window.innerWidth - navRect.left + 12),
-        side,
-        titleKey: spec.titleKey,
-        descKey: spec.descKey,
-      });
-    }
-  }
-  return result;
+  const nav = getSidebarRoot().querySelector('.sidebar-nav');
+  const navRect = readRect(nav);
+  if (!nav || !navRect) return [];
+  const items = SIDEBAR_CALLOUT_SPECS.flatMap((spec) => {
+    const rect = readRect(nav.querySelector<HTMLElement>(spec.selector));
+    return rect ? [{ spec, rect }] : [];
+  });
+  return buildSidebarCallouts(navRect, items, window.innerWidth);
 }
 
 function expandTargetForCallouts(
@@ -247,67 +111,27 @@ function expandTargetForCallouts(
 ): GuideRect | null {
   if (!target || callouts.length === 0) return target;
   const container = props.portalTarget ?? document;
-  const els = Array.from(container.querySelectorAll<HTMLElement>('[data-page-guide-callout]'));
-  if (els.length === 0) return target;
-  let minLeft = target.left;
-  let maxRight = target.left + target.width;
-  for (const el of els) {
-    const rect = el.getBoundingClientRect();
-    if (rect.width <= 0) continue;
-    minLeft = Math.min(minLeft, rect.left - 8);
-    maxRight = Math.max(maxRight, rect.right + 8);
-  }
-  return {
-    top: target.top,
-    left: minLeft,
-    width: maxRight - minLeft,
-    height: target.height,
-  };
+  const rects = Array.from(
+    container.querySelectorAll<HTMLElement>('[data-page-guide-callout]'),
+  ).map((el) => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, left: r.left, width: r.width, height: r.height };
+  });
+  return expandTargetRectForCallouts(target, rects);
 }
 
 function measureInteractiveCutout(): GuideRect | null {
   if (!isTour.value || !isInteractive.value) return null;
   const sidebarRoot = getSidebarRoot();
-  const id = step.value?.id;
-  if (id === 'collapse') {
-    const expandBtn = sidebarRoot.querySelector<HTMLElement>('[data-sidebar-action="expand"]');
-    if (expandBtn) {
-      const rect = expandBtn.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        // 收合後允許沿著整條邊緣上下拖曳位置
-        return {
-          top: 0,
-          left: Math.max(0, rect.left - 4),
-          width: rect.width + 8,
-          height: window.innerHeight,
-        };
-      }
-    }
-    const collapseBtn = sidebarRoot.querySelector<HTMLElement>('[data-sidebar-action="collapse"]');
-    if (collapseBtn) {
-      const rect = collapseBtn.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        return padGuideRect(
-          { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
-          4,
-        );
-      }
-    }
-    return null;
-  }
-  if (id === 'appearance') {
-    const wrapper = sidebarRoot.querySelector<HTMLElement>('.pxd-sidebar-wrapper');
-    if (wrapper) {
-      const rect = wrapper.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        return padGuideRect(
-          { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
-          10,
-        );
-      }
-    }
-  }
-  return null;
+  return computeInteractiveCutout({
+    stepId: step.value?.id,
+    expandRect: readRect(sidebarRoot.querySelector<HTMLElement>('[data-sidebar-action="expand"]')),
+    collapseRect: readRect(
+      sidebarRoot.querySelector<HTMLElement>('[data-sidebar-action="collapse"]'),
+    ),
+    wrapperRect: readRect(sidebarRoot.querySelector<HTMLElement>('.pxd-sidebar-wrapper')),
+    viewportHeight: window.innerHeight,
+  });
 }
 
 function syncSidebarCalloutMetrics(callouts: readonly SidebarCallout[]) {
@@ -319,7 +143,7 @@ function syncSidebarCalloutMetrics(callouts: readonly SidebarCallout[]) {
   const layoutKey = [
     t(first.titleKey),
     callouts.map((c) => c.id).join(','),
-    props.setup?.fontSizeScale ?? 1,
+    guide.setup.fontSizeScale,
     window.innerWidth,
     first.side,
   ].join('|');
@@ -340,97 +164,30 @@ function syncSidebarCalloutMetrics(callouts: readonly SidebarCallout[]) {
     (card) =>
       card.querySelector<HTMLElement>('[data-callout-desc]')?.getBoundingClientRect().width ?? 0,
   );
-  const maxTitle = Math.ceil(Math.max(0, ...titleWidths));
-  const maxDesc = Math.ceil(Math.max(0, ...descWidths));
-  if (maxTitle <= 0 || maxDesc <= 0) return;
-
-  const firstCardWidth = cards[0]!.getBoundingClientRect().width;
-  const chrome = Math.max(0, Math.ceil(firstCardWidth - titleWidths[0]! - descWidths[0]!));
-  const edgeOffset = first.side === 'right' ? (first.left ?? 0) : (first.right ?? 0);
-  const available = Math.max(220, window.innerWidth - edgeOffset - 16);
-  const cardWidth = Math.min(maxTitle + maxDesc + chrome + 2, available);
-  const titleWidth = Math.min(maxTitle, Math.floor(cardWidth * 0.45));
-  const height = Math.ceil(
-    Math.max(34, ...cards.map((card) => card.getBoundingClientRect().height)),
-  );
-
-  calloutMetrics.value = { key: layoutKey, titleWidth, cardWidth, height };
+  const metrics = computeSidebarCalloutMetrics({
+    layoutKey,
+    titleWidths,
+    descWidths,
+    firstCardWidth: cards[0]!.getBoundingClientRect().width,
+    cardHeights: cards.map((card) => card.getBoundingClientRect().height),
+    edgeOffset: first.side === 'right' ? (first.left ?? 0) : (first.right ?? 0),
+    viewportWidth: window.innerWidth,
+  });
+  if (metrics) calloutMetrics.value = metrics;
 }
 
-function findResizeHandle(): {
-  rect: GuideRect;
-  centerX: number;
-  side: 'left' | 'right';
-} | null {
+function findResizeHandle(): ResizeHandleGeometry | null {
   if (!isTour.value || step.value?.id !== 'appearance') return null;
   const sidebarRoot = getSidebarRoot();
-  const handle = sidebarRoot.querySelector<HTMLElement>('.sidebar-resize-handle');
-  if (!handle) return null;
-  const rect = handle.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return null;
+  const rect = readRect(sidebarRoot.querySelector<HTMLElement>('.sidebar-resize-handle'));
+  if (!rect || rect.width <= 0 || rect.height <= 0) return null;
   const centerX = rect.left + rect.width / 2;
-  const panel = sidebarRoot.querySelector<HTMLElement>('.sidebar-container');
-  const panelRect = panel?.getBoundingClientRect();
-  const side: 'left' | 'right' =
-    panelRect && panelRect.width > 0
-      ? centerX < panelRect.left + panelRect.width / 2
-        ? 'left'
-        : 'right'
-      : centerX < window.innerWidth / 2
-        ? 'right'
-        : 'left';
+  const panelRect = readRect(sidebarRoot.querySelector<HTMLElement>('.sidebar-container'));
   return {
-    rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+    rect,
     centerX,
-    side,
+    side: resolveResizeHandleSide(centerX, panelRect, window.innerWidth),
   };
-}
-
-function computeResizeAnchorY(
-  handleRect: GuideRect,
-  bubbleRect: { top: number; height: number } | null,
-  viewportHeight: number,
-): number {
-  const minY = Math.max(28, Math.round(handleRect.top + 28));
-  const maxY = Math.min(viewportHeight - 28, Math.round(handleRect.top + handleRect.height - 28));
-  if (!bubbleRect) {
-    return Math.min(maxY, Math.max(minY, Math.round(handleRect.top + handleRect.height * 0.25)));
-  }
-  const clearance = 36;
-  const aboveY = bubbleRect.top - clearance;
-  if (aboveY >= minY) return aboveY;
-  const belowY = bubbleRect.top + bubbleRect.height + clearance;
-  if (belowY <= maxY) return belowY;
-  return Math.min(maxY, Math.max(minY, Math.round(handleRect.top + handleRect.height * 0.2)));
-}
-
-function buildResizeIndicator(
-  handle: { rect: GuideRect; centerX: number; side: 'left' | 'right' },
-  bubbleRect: { top: number; height: number } | null,
-): ResizeHandleIndicator {
-  const anchorY = computeResizeAnchorY(handle.rect, bubbleRect, window.innerHeight);
-  const centerX = Math.round(handle.centerX);
-  return {
-    top: handle.rect.top,
-    left: handle.rect.left,
-    width: handle.rect.width,
-    height: handle.rect.height,
-    centerX,
-    anchorY,
-    side: handle.side,
-    ...(handle.side === 'right'
-      ? { calloutLeft: centerX + 20 }
-      : { calloutRight: Math.round(window.innerWidth - centerX + 20) }),
-  };
-}
-
-function rectsOverlap(a: GuideRect, b: GuideRect): boolean {
-  return !(
-    a.left + a.width <= b.left ||
-    a.left >= b.left + b.width ||
-    a.top + a.height <= b.top ||
-    a.top >= b.top + b.height
-  );
 }
 
 function measure() {
@@ -446,7 +203,7 @@ function measure() {
   const resizeHandle = findResizeHandle();
   // 外觀步驟直接改以拖曳把手高亮取代整面側欄外框，避免雙重垂直線條
   const nextRing = resizeHandle ? null : paddedTarget;
-  if (!sameRect(nextRing, ringRect.value)) ringRect.value = nextRing;
+  if (!sameGuideRect(nextRing, ringRect.value)) ringRect.value = nextRing;
   const frameEl =
     guide.demoSpotlightElement.value ??
     (guide.state.demoFocus ? document.querySelector('[data-page-guide-mock-frame]') : null);
@@ -455,44 +212,28 @@ function measure() {
     : frameEl
       ? padGuideRect(frameEl.getBoundingClientRect(), RING_PADDING)
       : null;
-  if (!sameRect(spotlight, spotlightRect.value)) spotlightRect.value = spotlight;
+  if (!sameGuideRect(spotlight, spotlightRect.value)) spotlightRect.value = spotlight;
   const nextCallouts = measureSidebarCallouts();
-  if (!sameCallouts(nextCallouts, sidebarCallouts.value)) sidebarCallouts.value = nextCallouts;
+  if (!sameSidebarCallouts(nextCallouts, sidebarCallouts.value)) {
+    sidebarCallouts.value = nextCallouts;
+  }
   syncSidebarCalloutMetrics(nextCallouts);
   const nextCutout = measureInteractiveCutout();
-  if (!sameRect(nextCutout, interactiveCutout.value)) interactiveCutout.value = nextCutout;
+  if (!sameGuideRect(nextCutout, interactiveCutout.value)) interactiveCutout.value = nextCutout;
   const box = bubble.value;
   let nextBubblePosition: GuideBubblePosition | null = null;
   if (box) {
     const bubbleSize = { width: box.offsetWidth, height: box.offsetHeight };
-    if (affixDemoMode.value) {
-      // 置於右側「待套用清單」中段空白區，避免擋住底部的套用按鈕
-      const rightEdge = spotlight ? spotlight.left + spotlight.width : viewport.width;
-      const topAnchor = spotlight
-        ? spotlight.top + Math.round((spotlight.height - bubbleSize.height) * 0.45)
-        : Math.round((viewport.height - bubbleSize.height) * 0.45);
-      nextBubblePosition = {
-        top: Math.max(8, Math.min(topAnchor, viewport.height - bubbleSize.height - 8)),
-        left: Math.max(
-          8,
-          Math.min(rightEdge - bubbleSize.width - 20, viewport.width - bubbleSize.width - 8),
-        ),
-        placement: 'right',
-      };
+    if (guide.demoState.affixMode) {
+      nextBubblePosition = placeAffixDemoBubble(spotlight, bubbleSize, viewport);
     } else if (
-      step.value?.id === 'collapse' &&
-      bubblePosition.value &&
-      (props.setup?.demoPlaying || props.setup?.demoCursor !== null) &&
-      (!nextRing ||
-        !rectsOverlap(
-          {
-            top: bubblePosition.value.top,
-            left: bubblePosition.value.left,
-            width: bubbleSize.width,
-            height: bubbleSize.height,
-          },
-          nextRing,
-        ))
+      shouldKeepCollapseDemoBubblePosition({
+        stepId: step.value?.id,
+        currentBubblePosition: bubblePosition.value,
+        bubbleSize,
+        nextRing,
+        isDemoActive: guide.setup.demoPlaying || guide.setup.demoCursor !== null,
+      })
     ) {
       // 收合示範播放中保持說明框穩定不跳動（只要不擋到目前高亮目標）
       nextBubblePosition = bubblePosition.value;
@@ -502,9 +243,10 @@ function measure() {
     }
     const current = bubblePosition.value;
     if (
-      !current ||
-      current.top !== nextBubblePosition.top ||
-      current.left !== nextBubblePosition.left
+      nextBubblePosition &&
+      (!current ||
+        current.top !== nextBubblePosition.top ||
+        current.left !== nextBubblePosition.left)
     ) {
       bubblePosition.value = nextBubblePosition;
     }
@@ -515,6 +257,7 @@ function measure() {
         box && nextBubblePosition
           ? { top: nextBubblePosition.top, height: box.offsetHeight }
           : null,
+        viewport,
       )
     : null;
   if (!sameResizeIndicator(nextResizeIndicator, resizeIndicator.value)) {
@@ -621,8 +364,6 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  const root = anchor.value?.getRootNode();
-  guide.setSidebarRoot(root instanceof ShadowRoot ? root : document);
   window.addEventListener('keydown', handleKeydown, true);
 });
 
@@ -630,7 +371,6 @@ onBeforeUnmount(() => {
   stopTracking();
   clearTimeout(ringTransitionTimer);
   window.removeEventListener('keydown', handleKeydown, true);
-  guide.setSidebarRoot(null);
   void guide.stop();
 });
 
@@ -664,18 +404,11 @@ const bubbleStyle = computed(() => {
 });
 
 const pageBlockerStyle = computed(() => {
-  const cutout = interactiveCutout.value;
-  if (!cutout) return { pointerEvents: 'none' as const };
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const L = Math.max(0, cutout.left);
-  const T = Math.max(0, cutout.top);
-  const R = Math.min(vw, cutout.left + cutout.width);
-  const B = Math.min(vh, cutout.top + cutout.height);
-  if (R <= L || B <= T) return { pointerEvents: 'none' as const };
-  return {
-    clipPath: `polygon(evenodd, 0px 0px, ${vw}px 0px, ${vw}px ${vh}px, 0px ${vh}px, 0px 0px, ${L}px ${T}px, ${L}px ${B}px, ${R}px ${B}px, ${R}px ${T}px, ${L}px ${T}px)`,
-  };
+  const clipPath = buildPageBlockerClipPath(interactiveCutout.value, {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+  return clipPath ? { clipPath } : { pointerEvents: 'none' as const };
 });
 
 const calloutLayoutStyle = computed(() => {
@@ -692,6 +425,7 @@ const calloutLayoutStyle = computed(() => {
     minHeight: `${m.height}px`,
   };
 });
+
 const previewBarStyle = computed(() => {
   const rect = spotlightRect.value;
   if (!rect) return undefined;
@@ -910,9 +644,9 @@ const previewBarStyle = computed(() => {
           {{ t(step.bodyKey) }}
         </p>
         <PageGuideSetupControls
-          v-if="step.setup && props.setup"
+          v-if="step.setup"
+          :guide="guide"
           :kind="step.setup"
-          :bindings="props.setup"
           :step-id="step.id"
           :focus="step.demoFocus"
         />
@@ -927,7 +661,7 @@ const previewBarStyle = computed(() => {
             variant="outline"
             size="sm"
             data-page-guide-action="reload"
-            @click="props.setup?.reload()"
+            @click="guide.reload()"
           >
             {{ t('common.reload') }}
           </Button>
@@ -1026,10 +760,10 @@ const previewBarStyle = computed(() => {
 
   <!-- 結果步驟的示意結果列：放在官方頁面裡，讓官方樣式套用 -->
   <PageGuideOfficialResult
-    v-if="guide.state.demoFocus && props.setup"
-    :features="props.setup.resultFeatures"
+    v-if="guide.state.demoFocus"
+    :features="guide.setup.resultFeatures"
     :result-bilingual="resultBilingualPreview"
-    :highlight-style="props.setup.resultModHighlightStyle"
-    :highlight-color="props.setup.resultModHighlightColor"
+    :highlight-style="guide.setup.resultModHighlightStyle"
+    :highlight-color="guide.setup.resultModHighlightColor"
   />
 </template>

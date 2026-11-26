@@ -334,11 +334,7 @@
         <MercenaryPickerHost v-if="pageRole === 'normal' && version === 'poe1'" />
 
         <!-- 頁面導覽：設定裡的「在頁面上指出」與初始導覽 -->
-        <PageGuideHost
-          v-if="pageRole === 'normal'"
-          :portal-target="portalTarget"
-          :setup="guideSetup"
-        />
+        <PageGuideHost v-if="pageRole === 'normal'" :portal-target="portalTarget" />
       </div>
     </TooltipProvider>
   </ConfigProvider>
@@ -349,8 +345,8 @@ import {
   defineComponent,
   provide,
   ref,
-  shallowRef,
   onMounted,
+  onBeforeUnmount,
   onUnmounted,
   watch,
   watchEffect,
@@ -379,47 +375,27 @@ import { SIDEBAR_NAV_TABS } from './sidebar/sidebar-module-presentation';
 import SidebarGlobalDialog from './sidebar/layout/SidebarGlobalDialog.vue';
 import TierDropdownHost from './injected/TierDropdownHost.vue';
 import PageGuideHost from './sidebar/page-guide/PageGuideHost.vue';
-import { usePageGuide } from './sidebar/page-guide/usePageGuide';
-import { getPageGuideTarget } from './sidebar/page-guide/page-guide-targets';
-import {
-  usePageGuideDemos,
-  type FilterPaneDemoHandle,
-} from './sidebar/page-guide/usePageGuideDemos';
-import {
-  RESULT_FEATURE_KEYS,
-  readResultFeatures,
-  type PageGuideSetupBindings,
-  type ResultFeatureFlags,
-} from './sidebar/page-guide/page-guide-setup';
+import { usePageGuide, type FilterPaneDemoHandle } from './sidebar/page-guide/usePageGuide';
 import { clampFontSizeScale } from '@/utils/appearance-preferences';
 import { FONT_SIZE_SCALE_PREVIEW_KEY } from './sidebar/settings/font-size-preview';
-import { affixDemoMode } from '@/utils/page-guide-demo-state';
-import { isMarketTranslationReloadRequired } from '@/utils/market-translation';
 import { getPageLoadPreferences } from '@/utils/page-load-preferences';
 import StatGroupTemplateHost from './injected/StatGroupTemplateHost.vue';
 import MercenaryPickerHost from './injected/mercenary/MercenaryPickerHost.vue';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { getAffixSelectorPrewarmedRef } from '@/utils/affix-lexicon';
-import {
-  DEFAULT_PREFERENCES,
-  getPreferences,
-  type Preferences,
-  type PreferencesModule,
-} from '@/utils/preferences';
+import { DEFAULT_PREFERENCES, getPreferences, type PreferencesModule } from '@/utils/preferences';
 import { createVersionedStorageKeys, readStorageValue } from '@/utils/storage-contracts';
 import { getPoeVersion } from '@/utils/trade-context';
 import {
   SIDEBAR_LAYOUT_TRANSITION_EASING,
   SIDEBAR_LAYOUT_TRANSITION_MS,
 } from '@/utils/sidebar-motion';
-import { detectBrowserLocale } from '@/utils/locale-resolution';
 import {
   NO_ONBOARDING,
   createChromeOnboardingStore,
   dismissUpdate,
   markExpandHintSeen,
   markTourStarted,
-  shouldOfferMarketTranslation,
   type OnboardingState,
 } from '@/utils/onboarding';
 import {
@@ -542,11 +518,7 @@ export default defineComponent({
     provide(FONT_SIZE_SCALE_PREVIEW_KEY, (scale) => {
       previewFontSizeScale.value = scale === null ? null : clampFontSizeScale(scale);
     });
-    const resultFeatures = shallowRef<ResultFeatureFlags>(readResultFeatures(DEFAULT_PREFERENCES));
-    const resultModHighlightStyle = ref(DEFAULT_PREFERENCES.resultModHighlightStyle);
-    const resultModHighlightColor = ref(DEFAULT_PREFERENCES.resultModHighlightColor);
     const densityScale = ref(1.0);
-    const enablePureBackground = ref(DEFAULT_PREFERENCES.enablePureBackground);
     const activeTab = ref('bookmark');
     const primaryActiveTab = ref<LiveSearchPrimaryTab>('connections');
     // 主控台的釘選 pane 第一次打開才掛載
@@ -596,15 +568,6 @@ export default defineComponent({
     const onboardingStore = createChromeOnboardingStore();
     const onboarding = ref<OnboardingState>(NO_ONBOARDING);
     let stopOnboarding: (() => void) | undefined;
-    const marketTranslation = ref(false);
-    const marketTranslationBilingual = ref<boolean>(DEFAULT_PREFERENCES.marketTranslationBilingual);
-    const marketTranslationResultBilingual = ref<boolean>(
-      DEFAULT_PREFERENCES.marketTranslationResultBilingual,
-    );
-    const displayLocale = ref<Preferences['displayLocale']>('auto');
-    /** 本頁載入時的偏好基準；之後市集漢化有效狀態變動需重新整理才會套用到官網頁面 */
-    let pageLoadMarketBaseline: Readonly<Preferences> | null = null;
-    const marketTranslationReloadRequired = ref(false);
     const showExpandHint = computed(
       () => pageRole.value === 'normal' && isCollapsed.value && onboarding.value.expandHintPending,
     );
@@ -623,13 +586,6 @@ export default defineComponent({
         undefined,
         onboarding.value.highlightsSinceVersion,
       ),
-    );
-    const showMarketTranslationOffer = computed(() =>
-      shouldOfferMarketTranslation({
-        hostname: typeof window !== 'undefined' ? window.location.hostname : '',
-        displayLocale: displayLocale.value,
-        browserLocale: detectBrowserLocale(),
-      }),
     );
     // 依序寫入：store.update 是「讀取→修改→寫回」，同時送出的兩筆更新會互相蓋掉
     let onboardingWrite: Promise<unknown> = Promise.resolve();
@@ -659,18 +615,6 @@ export default defineComponent({
       activeTab.value = 'settings';
       settingsFocusRequest.value = { section, seq: (settingsFocusRequest.value?.seq ?? 0) + 1 };
     };
-    const updatePreference = async (patch: Partial<Preferences>, label: string) => {
-      if (!preferencesModule) return;
-      const outcome = await preferencesModule.update(patch);
-      if (!outcome.ok) console.error(`[PoeXD Sidebar] 無法更新${label}:`, outcome.error);
-    };
-    const setMarketTranslation = (value: boolean) =>
-      updatePreference({ marketTranslation: value }, '市集漢化設定');
-    const setMarketTranslationBilingual = (value: boolean) =>
-      updatePreference({ marketTranslationBilingual: value }, '市集下拉中英並列');
-    const setMarketTranslationResultBilingual = (value: boolean) =>
-      updatePreference({ marketTranslationResultBilingual: value }, '市集結果中英並列');
-    const reloadPage = () => window.location.reload();
 
     const isArrivalActive = ref(false);
     let arrivalTimer: ReturnType<typeof setTimeout> | null = null;
@@ -787,20 +731,7 @@ export default defineComponent({
         ) {
           previewFontSizeScale.value = null;
         }
-        const nextResultFeatures = readResultFeatures(snapshot);
-        if (
-          RESULT_FEATURE_KEYS.some((key) => nextResultFeatures[key] !== resultFeatures.value[key])
-        ) {
-          resultFeatures.value = nextResultFeatures;
-        }
-        resultModHighlightStyle.value = snapshot.resultModHighlightStyle;
-        resultModHighlightColor.value = snapshot.resultModHighlightColor;
         densityScale.value = snapshot.densityScale;
-        enablePureBackground.value = snapshot.enablePureBackground === true;
-        marketTranslation.value = snapshot.marketTranslation === true;
-        marketTranslationBilingual.value = snapshot.marketTranslationBilingual !== false;
-        marketTranslationResultBilingual.value = snapshot.marketTranslationResultBilingual === true;
-        displayLocale.value = snapshot.displayLocale ?? 'auto';
         const nextModulePrefs = Object.fromEntries(
           SIDEBAR_MODULE_PREFERENCE_KEYS.map((key) => [key, snapshot[key] !== false]),
         ) as Record<SidebarModulePreferenceKey, boolean>;
@@ -811,18 +742,8 @@ export default defineComponent({
         ) {
           modulePrefs.value = nextModulePrefs;
         }
-        if (pageLoadMarketBaseline === null) {
-          pageLoadMarketBaseline = getPageLoadPreferences() ?? snapshot;
-        }
-        marketTranslationReloadRequired.value = isMarketTranslationReloadRequired(
-          pageLoadMarketBaseline,
-          snapshot,
-          {
-            hostname: typeof window !== 'undefined' ? window.location.hostname : '',
-            browserLocale: detectBrowserLocale(),
-          },
-        );
       });
+      attachPageGuideHost();
 
       stopOnboarding = onboardingStore.subscribe((state) => {
         onboarding.value = state;
@@ -953,6 +874,9 @@ export default defineComponent({
       activeTab.value = 'stat-group-template';
       if (isCollapsed.value) toggleCollapse();
     };
+
+    const pageGuide = usePageGuide();
+    const affixDemoMode = computed(() => pageGuide.demoState.affixMode);
 
     const isModalOpen = ref(false);
     const targetGroupIndex = ref(0);
@@ -1122,108 +1046,37 @@ export default defineComponent({
       }
     });
 
-    // 初始導覽：前段直接調整語言、漢化、側欄位置與收合把手，設定步驟的值與修改方式由這裡提供
-    const pageGuide = usePageGuide();
-    const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-    const { demoCursor, demoPlaying, playCollapseDemo, replayStepDemo, runStepDemo, stopStepDemo } =
-      usePageGuideDemos({
-        portalTarget,
-        isCollapsed,
-        sidebarPosition,
-        collapsedTabTop,
+    // 頁面導覽工作階段：只注入薄殼層 host adapter，所有導覽狀態、示範與偏好同步均由 PageGuideSession 擁有
+    const attachPageGuideHost = () => {
+      pageGuide.attachHost({
+        preferences: preferencesModule ?? null,
+        getPageLoadPreferences,
+        reload: () => window.location.reload(),
+        isCollapsed: () => isCollapsed.value,
         toggleCollapse,
+        getSidebarPosition: () => sidebarPosition.value,
+        getCollapsedTabTop: () => collapsedTabTop.value,
         previewCollapsedTabTop,
-        readStoredCollapsedTabTop: () => preferencesModule?.read().collapsedTabTop,
-        openAffixModalForDemo: () => {
+        openAffixModal: () => {
           isAffixPaneMounted.value = true;
           targetGroupIndex.value = 0;
           isModalOpen.value = true;
         },
-        closeAffixModalForDemo: closeModal,
+        closeAffixModal: closeModal,
         getFilterPaneHandle: () => filterPaneRef.value,
-        setDemoElements: pageGuide.setDemoElements,
-        ensureDemoStatFilter: pageGuide.ensureDemoStatFilter,
+        getSidebarRoot: () =>
+          (sidebarWrapperEl.value?.getRootNode() as ParentNode | null) ??
+          (portalTarget.value?.getRootNode() as ParentNode | null) ??
+          document,
         getPoeVersion: () => version,
-        getDisplayLocale: () => displayLocale.value,
       });
+    };
+    attachPageGuideHost();
 
     // 初次安裝提示、導覽進行中或拖曳示範期間保持完整展開，平時收成貼邊 14px 微縮拉耳
     const isCollapsedTabExpanded = computed(
-      () => showExpandHint.value || demoPlaying.value || pageGuide.state.mode === 'tour',
+      () => showExpandHint.value || pageGuide.setup.demoPlaying || pageGuide.state.mode === 'tour',
     );
-
-    const guideSetup = computed<PageGuideSetupBindings>(() => ({
-      displayLocale: displayLocale.value,
-      marketTranslation: marketTranslation.value,
-      marketTranslationBilingual: marketTranslationBilingual.value,
-      marketTranslationResultBilingual: marketTranslationResultBilingual.value,
-      reloadRequired: marketTranslationReloadRequired.value,
-      sidebarPosition: sidebarPosition.value,
-      fontSizeScale: fontSizeScale.value,
-      compactDensity: densityScale.value === 0.8,
-      enablePureBackground: enablePureBackground.value,
-      resultFeatures: resultFeatures.value,
-      resultModHighlightStyle: resultModHighlightStyle.value,
-      resultModHighlightColor: resultModHighlightColor.value,
-      demoPlaying: demoPlaying.value,
-      demoCursor: demoCursor.value,
-      setDisplayLocale: (value) => void updatePreference({ displayLocale: value }, '顯示語言'),
-      setMarketTranslation: (value) => void setMarketTranslation(value),
-      setMarketTranslationBilingual: (value) => void setMarketTranslationBilingual(value),
-      setMarketTranslationResultBilingual: (value) =>
-        void setMarketTranslationResultBilingual(value),
-      setSidebarPosition: (value) =>
-        void updatePreference({ sidebarPosition: value }, '側邊欄位置'),
-      setFontSizeScale: (value) =>
-        void updatePreference({ fontSizeScale: clampFontSizeScale(value) }, '字體大小'),
-      setCompactDensity: (value) =>
-        void updatePreference({ densityScale: value ? 0.8 : 1 }, '緊湊介面'),
-      setEnablePureBackground: (value) =>
-        void updatePreference({ enablePureBackground: value }, '隱藏官方網頁背景'),
-      setResultFeature: (key, value) => void updatePreference({ [key]: value }, '結果列功能'),
-      setResultModHighlightStyle: (value) =>
-        void updatePreference({ resultModHighlightStyle: value }, '結果詞綴高亮樣式'),
-      setResultModHighlightColor: (value) =>
-        void updatePreference({ resultModHighlightColor: value }, '結果詞綴高亮強調色'),
-      replayCollapseDemo: () => void playCollapseDemo(),
-      replayStepDemo,
-      reload: reloadPage,
-    }));
-    let expandOnTourExit = false;
-    watch(
-      () => pageGuide.state.mode,
-      (nextMode, prevMode) => {
-        if (nextMode === 'tour' && prevMode !== 'tour') {
-          expandOnTourExit = !isCollapsed.value;
-          return;
-        }
-        if (prevMode === 'tour' && nextMode === 'idle') {
-          const shouldExpand = expandOnTourExit;
-          expandOnTourExit = false;
-          if (shouldExpand && isCollapsed.value) {
-            toggleCollapse();
-          }
-        }
-      },
-    );
-
-    pageGuide.setTourContext({
-      isConditionMet: (condition) =>
-        condition === 'market-translation-offer' && showMarketTranslationOffer.value,
-      // 指向側欄裡的位置前先展開（例如上一步收合了側欄），指向官方頁面步驟前先收合讓出完整畫面；
-      // 等收合／展開動畫結束再量位置
-      async prepareStep(step) {
-        if (!step.targetId) return;
-        const scope = getPageGuideTarget(step.targetId).scope;
-        const needsToggle =
-          (scope === 'sidebar' && isCollapsed.value) || (scope === 'page' && !isCollapsed.value);
-        if (!needsToggle) return;
-        toggleCollapse();
-        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 80);
-      },
-      runStepDemo,
-      stopStepDemo,
-    });
 
     watch([activeTab, isCollapsed], ([tab, collapsed]) => {
       if (tab !== 'settings' || collapsed) {
@@ -1286,12 +1139,14 @@ export default defineComponent({
       });
     });
 
+    // 先於子元件 PageGuideHost.onBeforeUnmount 的 guide.stop() 卸離，避免 unmount 時誤觸發 expandOnTourExit
+    onBeforeUnmount(() => {
+      pageGuide.detachHost();
+    });
+
     onUnmounted(() => {
       cancelPobIdlePrewarm?.();
       cancelPobIdlePrewarm = undefined;
-      expandOnTourExit = false;
-      pageGuide.setTourContext(null);
-      stopStepDemo();
       finishCollapseAnimation();
       clearScrollRestoreTimers();
       if (arrivalTimer) {
@@ -1322,7 +1177,6 @@ export default defineComponent({
       settingsFocusRequest,
       updateNoticeHighlights,
       openSettingsSection,
-      guideSetup,
       t,
       portalTarget,
       isCollapsed,

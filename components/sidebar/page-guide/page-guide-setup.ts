@@ -1,10 +1,5 @@
 import type { I18nKey } from '@/utils/i18n';
-import type {
-  DisplayLocalePreference,
-  ResultModHighlightColor,
-  ResultModHighlightStyle,
-  SidebarPosition,
-} from '@/utils/preferences-contract';
+import type { DisplayLocalePreference } from '@/utils/preferences-contract';
 import type { PageGuideDemoFocus } from './page-guide-tour';
 
 /** 結果列示意裡可以直接開關的功能（偏好設定 key） */
@@ -36,47 +31,11 @@ export function readResultFeatures(
   ) as ResultFeatureFlags;
 }
 
-/** 收合示範中的模擬滑鼠游標（視窗座標） */
+/** 收合／詞綴／階級示範中的模擬滑鼠游標（視窗座標） */
 export interface PageGuideDemoCursor {
-  x: number;
-  y: number;
-  pressed: boolean;
-}
-
-/** 側欄提供給導覽設定步驟的目前值與修改方式 */
-export interface PageGuideSetupBindings {
-  displayLocale: DisplayLocalePreference;
-  marketTranslation: boolean;
-  marketTranslationBilingual: boolean;
-  marketTranslationResultBilingual: boolean;
-  /** 本頁開啟後漢化設定有變動，需重新整理才生效 */
-  reloadRequired: boolean;
-  sidebarPosition: SidebarPosition;
-  fontSizeScale: number;
-  compactDensity?: boolean;
-  enablePureBackground?: boolean;
-  resultFeatures: ResultFeatureFlags;
-  resultModHighlightStyle?: ResultModHighlightStyle;
-  resultModHighlightColor?: ResultModHighlightColor;
-  /** 步驟示範播放中（供「再看一次示範」禁用與游標顯示） */
-  demoPlaying?: boolean;
-  /** 收合／詞綴／階級示範播放中的游標；沒有播放時為 null */
-  demoCursor: PageGuideDemoCursor | null;
-  setDisplayLocale: (value: DisplayLocalePreference) => void;
-  setMarketTranslation: (value: boolean) => void;
-  setMarketTranslationBilingual: (value: boolean) => void;
-  setMarketTranslationResultBilingual: (value: boolean) => void;
-  setSidebarPosition: (value: SidebarPosition) => void;
-  /** 設定縮放比例（例如 1.05） */
-  setFontSizeScale: (value: number) => void;
-  setCompactDensity?: (value: boolean) => void;
-  setEnablePureBackground?: (value: boolean) => void;
-  setResultFeature: (key: ResultFeatureKey, value: boolean) => void;
-  setResultModHighlightStyle?: (value: ResultModHighlightStyle) => void;
-  setResultModHighlightColor?: (value: ResultModHighlightColor) => void;
-  replayCollapseDemo: () => void;
-  replayStepDemo?: (stepId: string) => void;
-  reload: () => void;
+  readonly x: number;
+  readonly y: number;
+  readonly pressed: boolean;
 }
 
 /**

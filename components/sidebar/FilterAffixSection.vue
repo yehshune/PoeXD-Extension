@@ -94,7 +94,10 @@ import type { ModGroup, ModTier } from './types';
 import type { RenderedCategoryGroup } from './composables/useProgressiveAffixRender';
 import type { GenerationFilter } from './composables/useAffixFilter';
 import { t } from '@/utils/i18n';
-import { affixDemoHoveredModId } from '@/utils/page-guide-demo-state';
+import { usePageGuide } from './page-guide/usePageGuide';
+
+const pageGuide = usePageGuide();
+const affixDemoHoveredModId = computed(() => pageGuide.demoState.affixHoveredModId);
 
 const props = defineProps<{
   category: RenderedCategoryGroup;

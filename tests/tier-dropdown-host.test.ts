@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { createApp, defineComponent, h, nextTick } from 'vue';
+import { createApp, defineComponent, h, nextTick, reactive, readonly } from 'vue';
 import { ConfigProvider } from 'reka-ui';
 import TierDropdownHost from '@/components/injected/TierDropdownHost.vue';
 import {
@@ -19,7 +19,7 @@ import {
 } from '@/utils/tier-slot-registry';
 import { createFilterDomEnhancements } from '@/entrypoints/content/logic/common';
 import { setAffixLexiconMockData } from '@/utils/affix-lexicon';
-import { tierMenuDemoSlotKey, tierTriggerDemoSlotKey } from '@/utils/page-guide-demo-state';
+import type { PageGuideDemoState } from '@/utils/page-guide-demo-state';
 import {
   removeTierSlotArtifacts,
   cleanAllTierSlotArtifacts,
@@ -1714,6 +1714,25 @@ describe('Chromium Regressions (Native Reka + Vue Teleport Phase 3)', () => {
   });
 
   it('locks the T trigger and dropdown menu against interaction and outside dismissal during tour demo', async () => {
+    app.unmount();
+    const demoStateWritable = reactive({
+      tierMenuSlotKey: null as string | null,
+      tierTriggerSlotKey: null as string | null,
+      affixMode: false,
+      affixHoveredModId: null as string | null,
+    });
+    const demoState = readonly(demoStateWritable) as PageGuideDemoState;
+    const IsolatedRoot = defineComponent({
+      setup() {
+        return () =>
+          h(ConfigProvider, { teleportTo: portalRoot, scrollBody: false }, () => [
+            h(TierDropdownHost, { demoState }),
+          ]);
+      },
+    });
+    app = createApp(IsolatedRoot);
+    app.mount(appRoot);
+
     const items: TierDropdownItemSpec[] = [
       { id: 't1', type: 'tier', label: 'T1 (10 ~ 20)', valMin: '10', valMax: '20', isRange: true },
     ];
@@ -1722,7 +1741,7 @@ describe('Chromium Regressions (Native Reka + Vue Teleport Phase 3)', () => {
     syncTierSlots([{ key: 'slot-1', targetEl: slotEl1, items, onSelect }]);
     await nextTick();
 
-    tierTriggerDemoSlotKey.value = 'slot-1';
+    demoStateWritable.tierTriggerSlotKey = 'slot-1';
     await nextTick();
 
     const trigger = slotEl1.querySelector<HTMLButtonElement>('button.poexd-tier-trigger')!;
@@ -1730,7 +1749,7 @@ describe('Chromium Regressions (Native Reka + Vue Teleport Phase 3)', () => {
     expect(trigger.tabIndex).toBe(-1);
     expect(trigger.style.pointerEvents).toBe('none');
 
-    tierMenuDemoSlotKey.value = 'slot-1';
+    demoStateWritable.tierMenuSlotKey = 'slot-1';
     await nextTick();
     await new Promise((r) => setTimeout(r, 50));
 
@@ -1754,8 +1773,8 @@ describe('Chromium Regressions (Native Reka + Vue Teleport Phase 3)', () => {
 
     expect(portalRoot.querySelector('[data-slot="dropdown-menu-content"]')).not.toBeNull();
 
-    tierMenuDemoSlotKey.value = null;
-    tierTriggerDemoSlotKey.value = null;
+    demoStateWritable.tierMenuSlotKey = null;
+    demoStateWritable.tierTriggerSlotKey = null;
     await nextTick();
     await new Promise((r) => setTimeout(r, 50));
 

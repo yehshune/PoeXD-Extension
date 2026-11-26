@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue';
-import { tierMenuDemoSlotKey, tierTriggerDemoSlotKey } from '@/utils/page-guide-demo-state';
+import { computed, reactive, watch } from 'vue';
+import { usePageGuide } from '@/components/sidebar/page-guide/usePageGuide';
+import type { PageGuideDemoState } from '@/utils/page-guide-demo-state';
 import { t } from '@/utils/i18n';
 import {
   DropdownMenu,
@@ -17,6 +18,13 @@ import {
 import TierTuningBar from './TierTuningBar.vue';
 import TierScrollItems from './TierScrollItems.vue';
 
+const props = defineProps<{
+  /** 測試可注入唯讀的 PageGuideDemoState；正式環境（獨立 Vue App）預設讀取 usePageGuide().demoState */
+  demoState?: PageGuideDemoState;
+}>();
+
+const demoState = computed(() => props.demoState ?? usePageGuide().demoState);
+
 interface SlotTuningState {
   min: string;
   max: string;
@@ -29,17 +37,23 @@ const slotTuningMap = reactive<Record<string, SlotTuningState>>({});
 const openStateMap = reactive<Record<string, boolean>>({});
 
 // 初始導覽的階級示範：展開指定清單，示範結束時收起
-watch(tierMenuDemoSlotKey, (key, previousKey) => {
-  if (previousKey) openStateMap[previousKey] = false;
-  if (key) openStateMap[key] = true;
-});
+watch(
+  () => demoState.value.tierMenuSlotKey,
+  (key, previousKey) => {
+    if (previousKey) openStateMap[previousKey] = false;
+    if (key) openStateMap[key] = true;
+  },
+  { immediate: true },
+);
 
 function isDemoTrigger(slotKey: string): boolean {
-  return tierTriggerDemoSlotKey.value === slotKey || tierMenuDemoSlotKey.value === slotKey;
+  return (
+    demoState.value.tierTriggerSlotKey === slotKey || demoState.value.tierMenuSlotKey === slotKey
+  );
 }
 
 function isDemoMenu(slotKey: string): boolean {
-  return tierMenuDemoSlotKey.value === slotKey;
+  return demoState.value.tierMenuSlotKey === slotKey;
 }
 
 function findMatchingTierIds(slot: TierSlotDescriptor, minVal: string, maxVal: string): string[] {

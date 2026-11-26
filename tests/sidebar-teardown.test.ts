@@ -58,6 +58,15 @@ vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
 }));
 
 const unsubscribeSpy = vi.fn();
+const subscribeSpy = vi.fn((cb) => {
+  cb({
+    sidebarPosition: 'left',
+    sidebarWidth: 380,
+    fontSizeScale: 1,
+    densityScale: 1,
+  });
+  return unsubscribeSpy;
+});
 vi.mock('@/utils/preferences', () => ({
   DEFAULT_PREFERENCES: {
     sidebarPosition: 'left',
@@ -68,15 +77,7 @@ vi.mock('@/utils/preferences', () => ({
   getPreferences: vi.fn(async () => ({
     ok: true,
     value: {
-      subscribe: vi.fn((cb) => {
-        cb({
-          sidebarPosition: 'left',
-          sidebarWidth: 380,
-          fontSizeScale: 1,
-          densityScale: 1,
-        });
-        return unsubscribeSpy;
-      }),
+      subscribe: subscribeSpy,
       getSnapshot: vi.fn(() => ({
         sidebarPosition: 'left',
         sidebarWidth: 380,
@@ -177,12 +178,13 @@ describe('Sidebar Teardown Ownership', () => {
   });
 
   describe('Runtime teardown execution', () => {
-    it('unsubscribes from preferences exactly once on unmount', async () => {
+    it('unsubscribes every preferences subscription on unmount (Sidebar + PageGuideSession)', async () => {
       const { app } = await mountSidebar();
+      expect(subscribeSpy).toHaveBeenCalledTimes(2);
       expect(unsubscribeSpy).not.toHaveBeenCalled();
 
       app.unmount();
-      expect(unsubscribeSpy).toHaveBeenCalledTimes(1);
+      expect(unsubscribeSpy).toHaveBeenCalledTimes(subscribeSpy.mock.calls.length);
     });
 
     it('removes chrome storage listener exactly once on unmount', async () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildMarketTranslationTogglePatch,
   markMarketTranslationActive,
   readMarketDropdownLocale,
   getMarketUiAssetPath,
@@ -242,5 +243,58 @@ describe('resolveEffectiveMarketTranslationState／isMarketTranslationReloadRequ
         browserLocale: 'zh-TW',
       }),
     ).toBe(false);
+  });
+});
+
+describe('buildMarketTranslationTogglePatch', () => {
+  it('關閉時僅回傳 marketTranslation: false，不更動 displayLocale', () => {
+    expect(buildMarketTranslationTogglePatch(false, 'en', { browserLocale: 'zh-TW' })).toEqual({
+      marketTranslation: false,
+    });
+    expect(buildMarketTranslationTogglePatch(false, 'zh-TW', { browserLocale: 'zh-CN' })).toEqual({
+      marketTranslation: false,
+    });
+  });
+
+  it('已為中文 displayLocale（zh-TW / zh-CN）或 auto 解析為中文時，開啟只寫入 marketTranslation: true', () => {
+    expect(buildMarketTranslationTogglePatch(true, 'zh-TW', { browserLocale: 'en-US' })).toEqual({
+      marketTranslation: true,
+    });
+    expect(buildMarketTranslationTogglePatch(true, 'zh-CN', { browserLocale: 'en-US' })).toEqual({
+      marketTranslation: true,
+    });
+    expect(buildMarketTranslationTogglePatch(true, 'auto', { browserLocale: 'zh-TW' })).toEqual({
+      marketTranslation: true,
+    });
+    expect(buildMarketTranslationTogglePatch(true, 'auto', { browserLocale: 'zh-CN' })).toEqual({
+      marketTranslation: true,
+    });
+  });
+
+  it('在非中文 displayLocale（en / auto+en-US / ja）開啟時，自動將 displayLocale 切為偏好的中文語系', () => {
+    expect(buildMarketTranslationTogglePatch(true, 'en', { browserLocale: 'en-US' })).toEqual({
+      marketTranslation: true,
+      displayLocale: 'zh-TW',
+    });
+    expect(buildMarketTranslationTogglePatch(true, 'en', { browserLocale: 'zh-CN' })).toEqual({
+      marketTranslation: true,
+      displayLocale: 'zh-CN',
+    });
+    expect(buildMarketTranslationTogglePatch(true, 'auto', { browserLocale: 'en-US' })).toEqual({
+      marketTranslation: true,
+      displayLocale: 'zh-TW',
+    });
+    expect(
+      buildMarketTranslationTogglePatch(true, 'auto', {
+        browserLocale: 'en-US',
+        browserLanguages: ['en-US', 'zh-CN'],
+      }),
+    ).toEqual({
+      marketTranslation: true,
+    });
+    expect(buildMarketTranslationTogglePatch(true, 'ja', { browserLocale: 'zh-CN' })).toEqual({
+      marketTranslation: true,
+      displayLocale: 'zh-CN',
+    });
   });
 });

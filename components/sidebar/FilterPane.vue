@@ -476,7 +476,7 @@ import { getAffinityProfile, resolveScopedModGroupId } from '@/utils/affinity-re
 import { useFilterData } from './composables/useFilterData';
 import { useFilterNavigation } from './composables/useFilterNavigation';
 import { t } from '@/utils/i18n';
-import { affixDemoMode } from '@/utils/page-guide-demo-state';
+import { usePageGuide } from './page-guide/usePageGuide';
 
 export default defineComponent({
   name: 'FilterPane',
@@ -522,6 +522,7 @@ export default defineComponent({
   setup(props, { emit, expose }) {
     const version = getPoeVersion();
     const tradeMapping = getTradeMapping(version);
+    const affixDemoMode = computed(() => usePageGuide().demoState.affixMode);
 
     // 引入自定義的狀態管理 composable
     const {
