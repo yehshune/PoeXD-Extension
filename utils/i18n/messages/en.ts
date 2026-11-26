@@ -445,6 +445,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.addBuildBtn': 'Import build',
   'pobBuild.loading': 'Loading PoB builds…',
   'pobBuild.importDialogTitle': 'Import PoB build',
+  'pobBuild.nameLabel': 'Build name (optional)',
+  'pobBuild.namePlaceholder': 'Leave blank to auto-name from ascendancy & main skill',
   'pobBuild.deleteBuildTitle': 'Delete this build',
   'pobBuild.deleteBuildConfirm': 'Delete build "{name}"?',
   'pobBuild.searchTooltip': 'Filter list items',

@@ -791,6 +791,7 @@
         :error-key="errorKey"
         :mode="updateTarget ? 'update' : 'import'"
         :build-name="updateTarget?.name ?? ''"
+        :preview-name="previewDefaultName"
         @submit="handleImport"
         @clear-error="errorKey = null"
         @open-permission="openSharePermissionPage"
@@ -1183,9 +1184,14 @@ export default defineComponent({
       isImportOpen.value = true;
     };
 
-    const handleImport = async (code: string) => {
+    const handleImport = async (code: string, name?: string) => {
       const target = updateTarget.value;
-      const ok = target ? await pob.updateCode(target.id, code) : await pob.importCode(code);
+      const trimmedName = name?.trim();
+      const ok = target
+        ? await pob.updateCode(target.id, code)
+        : trimmedName
+          ? await pob.importCode(code, trimmedName)
+          : await pob.importCode(code);
       if (ok) isImportOpen.value = false;
     };
 
@@ -1376,6 +1382,7 @@ export default defineComponent({
       openImportDialog,
       openUpdateDialog,
       handleImport,
+      previewDefaultName: pob.previewDefaultName,
       collapseAll,
       toggleSearch,
       closeSearch,

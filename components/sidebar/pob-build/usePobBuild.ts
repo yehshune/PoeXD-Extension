@@ -102,10 +102,15 @@ export interface UsePobBuild {
   /** 讀回上次匯入的 build 與進度；解不開的 build 略過 */
   restore(): Promise<void>;
   /**
-   * 新增一份 build（PoB 代碼或分享網址）；成功回傳 true，失敗時 errorKey 說明原因，既有的
-   * build 不受影響
+   * 新增一份 build（PoB 代碼或分享網址）；可選填自訂名稱，留空則依昇華與主技能自動命名。
+   * 成功回傳 true，失敗時 errorKey 說明原因，既有的 build 不受影響
    */
-  importCode(code: string): Promise<boolean>;
+  importCode(code: string, name?: string): Promise<boolean>;
+  /**
+   * 預覽原始 PoB 代碼會產生的預設名稱（供匯入彈窗顯示 placeholder）；
+   * 分享網址或無法解碼的代碼回傳 undefined，不影響錯誤狀態。
+   */
+  previewDefaultName?(code: string): Promise<string | undefined>;
   /** 開啟分享網址的授權頁（pobb.in、pastebin 需要使用者同意） */
   openSharePermissionPage(): void;
   /**
@@ -207,11 +212,55 @@ function toErrorKey(error: unknown): I18nKey {
   return 'pobBuild.error.catalog';
 }
 
-const defaultName = (build: PobBuild, locale = getActiveDisplayLocale()): string => {
+const defaultName = (
+  build: PobBuild,
+  names?: TradeNameCatalog,
+  locale = getActiveDisplayLocale(),
+): string => {
   const classLabel =
     localizeAscendancyOrClassName(build.gameVersion, build.ascendancy, build.className, locale) ||
     'Build';
+  if (build.mainSkill) {
+    const skillLabel = names?.toTradeName(build.mainSkill) ?? build.mainSkill;
+    return `${classLabel} · ${skillLabel}`;
+  }
   return `${classLabel} Lv.${build.level}`;
+};
+
+const isDefaultBuildName = (
+  build: PobBuild,
+  storedName: string | undefined,
+  names?: TradeNameCatalog,
+): boolean => {
+  if (
+    isDefaultAscendancyBuildName(
+      build.gameVersion,
+      storedName,
+      build.ascendancy,
+      build.className,
+      build.level,
+    )
+  ) {
+    return true;
+  }
+  if (!storedName || !build.mainSkill) return false;
+  const skillCandidates = new Set<string>([build.mainSkill]);
+  const localizedSkill = names?.toTradeName(build.mainSkill);
+  if (localizedSkill) skillCandidates.add(localizedSkill);
+  const classCandidates = new Set<string>([
+    (build.ascendancy || build.className || 'Build').trim(),
+    ...(['en', 'zh-TW', 'zh-CN'] as const).map(
+      (loc) =>
+        localizeAscendancyOrClassName(build.gameVersion, build.ascendancy, build.className, loc) ||
+        'Build',
+    ),
+  ]);
+  for (const cls of classCandidates) {
+    for (const skill of skillCandidates) {
+      if (storedName === `${cls} · ${skill}`) return true;
+    }
+  }
+  return false;
 };
 
 /** 以 key 為鍵的物件只留下 keep 裡的 key */
@@ -403,14 +452,9 @@ export function usePobBuild(
       wanted: string | undefined,
       active: string,
     ) => (wanted && sets.some((set) => set.id === wanted) ? wanted : active);
-    const resolvedName = isDefaultAscendancyBuildName(
-      build.gameVersion,
-      stored.name,
-      build.ascendancy,
-      build.className,
-      build.level,
-    )
-      ? defaultName(build)
+    const names = displayNames.value ?? catalog.value ?? undefined;
+    const resolvedName = isDefaultBuildName(build, stored.name, names)
+      ? defaultName(build, names)
       : stored.name;
     return {
       id: stored.id,
@@ -616,7 +660,7 @@ export function usePobBuild(
       }
       sessions.value = restored.filter((session): session is Session => session !== undefined);
     },
-    async importCode(code) {
+    async importCode(code, customName) {
       isBusy.value = true;
       errorKey.value = null;
       try {
@@ -624,8 +668,11 @@ export function usePobBuild(
         const compactCode = await resolveInputCode(code);
         const build = await decodeBuild(compactCode);
         await ensureData();
+        const trimmedName = customName?.trim();
+        const resolvedName =
+          trimmedName || defaultName(build, displayNames.value ?? catalog.value ?? undefined);
         await withPendingWrite(async () => {
-          const stored = await deps.store.add({ name: defaultName(build), code: compactCode });
+          const stored = await deps.store.add({ name: resolvedName, code: compactCode });
           const session = await toSession(stored);
           sessions.value = [session, ...sessions.value.filter((entry) => entry.id !== session.id)];
         });
@@ -635,6 +682,17 @@ export function usePobBuild(
         return false;
       } finally {
         isBusy.value = false;
+      }
+    },
+    async previewDefaultName(code) {
+      const text = typeof code === 'string' ? code.trim() : '';
+      if (!text || looksLikePobShareUrl(text)) return undefined;
+      try {
+        const compactCode = text.replace(/\s+/g, '');
+        const build = await decodeBuild(compactCode);
+        return defaultName(build, displayNames.value ?? catalog.value ?? undefined);
+      } catch {
+        return undefined;
       }
     },
     async updateCode(buildId, code) {

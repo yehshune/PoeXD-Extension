@@ -348,6 +348,38 @@ describe('usePobBuild', () => {
       expect(pob.builds.value[0].progress.done).toBe(0);
     });
 
+    it('有主技能時預設以「昇華 · 主技能」命名；匯入時也可直接指定名稱', async () => {
+      const xmlWithMainSkill = `<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+	<Build ascendClassName="Chieftain" className="Marauder" level="97" mainSocketGroup="1"/>
+	<Items activeItemSet="1">
+		<ItemSet id="1" title="Endgame"/>
+	</Items>
+	<Skills activeSkillSet="1">
+		<SkillSet id="1" title="Endgame">
+			<Skill enabled="true">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemPunishment" level="20" nameSpec="Punishment" quality="0"/>
+			</Skill>
+		</SkillSet>
+	</Skills>
+</PathOfBuilding>`;
+      const pob = usePobBuild('poe1', deps);
+      const code = toCode(xmlWithMainSkill);
+
+      expect(await pob.previewDefaultName?.(code)).toBe('酋長 · Punishment');
+      expect(await pob.previewDefaultName?.('https://poe.ninja/poe1/pob/abc')).toBeUndefined();
+
+      expect(await pob.importCode(code)).toBe(true);
+      await flush();
+      expect(first(pob)).toMatchObject({
+        name: '酋長 · Punishment',
+      });
+
+      expect(await pob.importCode(code, '  開荒版  ')).toBe(true);
+      expect(first(pob).name).toBe('開荒版');
+      expect(stored()[0].name).toBe('開荒版');
+    });
+
     it('改名、收合、刪除都會記住', async () => {
       const pob = usePobBuild('poe1', deps);
       await pob.importCode(toCode(buildXml()));

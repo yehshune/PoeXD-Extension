@@ -411,6 +411,8 @@ export const ZH_TW_MESSAGES = {
   'pobBuild.addBuildBtn': '匯入 build',
   'pobBuild.loading': '正在載入 PoB 清單…',
   'pobBuild.importDialogTitle': '匯入 PoB build',
+  'pobBuild.nameLabel': '流派名稱（選填）',
+  'pobBuild.namePlaceholder': '留空將自動以昇華與主技能命名',
   'pobBuild.deleteBuildTitle': '刪除這份 build',
   'pobBuild.deleteBuildConfirm': '確定要刪除 build「{name}」嗎？',
   'pobBuild.searchTooltip': '篩選清單項目',

@@ -166,6 +166,57 @@ describe('decodePobBuildCode', () => {
 });
 
 describe('parsePobBuildXml', () => {
+  it('依 mainSocketGroup 與 mainActiveSkill 找出主技能，缺少時退回輔助數最多的啟用連線', () => {
+    const withMainGroup = `<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+	<Build ascendClassName="Slayer" className="Duelist" level="100" mainSocketGroup="2"/>
+	<Skills activeSkillSet="1">
+		<SkillSet id="1" title="Main">
+			<Skill enabled="true">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemDetermination" level="20" nameSpec="Determination" quality="0"/>
+			</Skill>
+			<Skill enabled="true" mainActiveSkill="2">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemSmite" level="20" nameSpec="Smite" quality="20"/>
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemSmiteAltX" level="20" nameSpec="Smite of Divine Judgement" quality="20"/>
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemMultistrike" level="20" nameSpec="Multistrike" quality="20"/>
+			</Skill>
+		</SkillSet>
+	</Skills>
+</PathOfBuilding>`;
+    expect(parsePobBuildXml(withMainGroup).mainSkill).toBe('Smite of Divine Judgement');
+
+    const withoutMainGroup = `<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+	<Build ascendClassName="Chieftain" className="Marauder" level="95"/>
+	<Skills activeSkillSet="1">
+		<SkillSet id="1" title="Main">
+			<Skill enabled="true">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemPunishment" level="20" nameSpec="Punishment" quality="0"/>
+			</Skill>
+			<Skill enabled="true">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemRighteousFire" level="20" nameSpec="Righteous Fire" quality="20"/>
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemElementalFocus" level="20" nameSpec="Elemental Focus" quality="20"/>
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SupportGemBurningDamage" level="20" nameSpec="Burning Damage" quality="20"/>
+			</Skill>
+		</SkillSet>
+	</Skills>
+</PathOfBuilding>`;
+    expect(parsePobBuildXml(withoutMainGroup).mainSkill).toBe('Righteous Fire');
+
+    const unlinkedOnly = `<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+	<Build ascendClassName="Chieftain" className="Marauder" level="95"/>
+	<Skills activeSkillSet="1">
+		<SkillSet id="1" title="Main">
+			<Skill enabled="true">
+				<Gem enabled="true" gemId="Metadata/Items/Gems/SkillGemPunishment" level="20" nameSpec="Punishment" quality="0"/>
+			</Skill>
+		</SkillSet>
+	</Skills>
+</PathOfBuilding>`;
+    expect(parsePobBuildXml(unlinkedOnly).mainSkill).toBeUndefined();
+  });
+
   it('讀出角色摘要與每一組裝備套裝的裝備', () => {
     const build = parsePobBuildXml(buildXml());
     expect(build).toMatchObject({

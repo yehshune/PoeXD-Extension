@@ -88,6 +88,8 @@ export interface PobBuild {
   className: string;
   ascendancy: string;
   level: number;
+  /** 主技能寶石英文名稱（依 `<Build mainSocketGroup>` 或輔助數最多的連線推斷）；無法判斷時省略 */
+  mainSkill?: string;
   itemSets: PobItemSet[];
   skillSets: PobSkillSet[];
   treeSpecs: PobTreeSpec[];
@@ -507,6 +509,75 @@ function parseSkillSets(skills: Element | null, version: PoeVersion): PobSkillSe
     }));
 }
 
+/** 取得一個 `<Skill>` 連線裡的主動技能寶石名稱；可指定 1-based 的 `mainActiveSkill` */
+function mainActiveGemName(
+  skill: Element,
+  preferredIndex: number,
+  includeDisabled: boolean,
+): string {
+  const actives = children(skill, 'Gem').filter((gem) => {
+    if (!includeDisabled && gem.getAttribute('enabled') === 'false') return false;
+    const gemId = gem.getAttribute('gemId') ?? '';
+    return (
+      /\/SkillGem/.test(gemId) &&
+      !/Ascendancy/.test(gemId) &&
+      Boolean(clip(gem.getAttribute('nameSpec')))
+    );
+  });
+  const picked =
+    preferredIndex >= 1 && preferredIndex <= actives.length
+      ? actives[preferredIndex - 1]
+      : actives[0];
+  return clip(picked?.getAttribute('nameSpec'));
+}
+
+/**
+ * 找出這份 build 的主技能名稱（英文）：
+ * 1. 優先依 `<Build mainSocketGroup="N">` 對應目前技能組的第 N 組 `<Skill>`（再依 `mainActiveSkill` 挑主動寶石）；
+ * 2. 若未指定或該組沒有主動寶石，退回目前技能組裡啟用中、連結最多顆輔助寶石（至少 1 顆）的主動技能。
+ */
+function parseMainSkill(
+  build: Element,
+  skillsElement: Element | null,
+  activeSkillSetId: string,
+): string | undefined {
+  if (!skillsElement) return undefined;
+  const skillSets = children(skillsElement, 'SkillSet');
+  const activeSet =
+    skillSets.find((set) => set.getAttribute('id') === activeSkillSetId) ??
+    skillSets[0] ??
+    skillsElement;
+  const skillGroups = children(activeSet, 'Skill');
+  if (skillGroups.length === 0) return undefined;
+
+  const mainGroupIndex = toCount(build.getAttribute('mainSocketGroup'), 0);
+  if (mainGroupIndex >= 1 && mainGroupIndex <= skillGroups.length) {
+    const group = skillGroups[mainGroupIndex - 1];
+    const preferred = toCount(group.getAttribute('mainActiveSkill'), 1);
+    const name =
+      mainActiveGemName(group, preferred, false) || mainActiveGemName(group, preferred, true);
+    if (name) return name;
+  }
+
+  let bestName = '';
+  let bestSupports = 0;
+  for (const group of skillGroups) {
+    if (group.getAttribute('enabled') === 'false') continue;
+    const name = mainActiveGemName(group, 1, false);
+    if (!name) continue;
+    const supports = children(group, 'Gem').filter(
+      (gem) =>
+        gem.getAttribute('enabled') !== 'false' &&
+        /SupportGem/.test(gem.getAttribute('gemId') ?? ''),
+    ).length;
+    if (supports > bestSupports) {
+      bestSupports = supports;
+      bestName = name;
+    }
+  }
+  return bestName || undefined;
+}
+
 /** 匯出當下選用的那一組；屬性對不到任何一組時退回第一組 */
 function resolveActiveId(sets: readonly PobSet[], activeId: string | null | undefined): string {
   return (sets.find((set) => set.id === activeId) ?? sets[0])?.id ?? '';
@@ -535,17 +606,23 @@ export function parsePobBuildXml(xml: string): PobBuild {
   );
   const skillSets = parseSkillSets(skillsElement, GAME_VERSION_BY_ROOT[root.tagName]);
   const treeSpecs = parseTreeSpecs(treeElement, itemById);
+  const activeSkillSetId = resolveActiveId(
+    skillSets,
+    skillsElement?.getAttribute('activeSkillSet'),
+  );
+  const mainSkill = parseMainSkill(build, skillsElement, activeSkillSetId);
 
   return {
     gameVersion: GAME_VERSION_BY_ROOT[root.tagName],
     className: clip(build.getAttribute('className')),
     ascendancy: clip(build.getAttribute('ascendClassName')),
     level: toCount(build.getAttribute('level'), 0),
+    ...(mainSkill ? { mainSkill } : {}),
     itemSets,
     skillSets,
     treeSpecs,
     activeItemSetId: resolveActiveId(itemSets, itemsElement?.getAttribute('activeItemSet')),
-    activeSkillSetId: resolveActiveId(skillSets, skillsElement?.getAttribute('activeSkillSet')),
+    activeSkillSetId,
     activeTreeSpecId: resolveActiveId(treeSpecs, treeElement?.getAttribute('activeSpec')),
   };
 }

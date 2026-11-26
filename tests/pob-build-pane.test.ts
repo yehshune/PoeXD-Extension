@@ -35,6 +35,7 @@ const fake = {
   isBusy: ref(false),
   restore: vi.fn<() => Promise<void>>(async () => undefined),
   importCode: vi.fn(async () => true),
+  previewDefaultName: vi.fn<(code: string) => Promise<string | undefined>>(async () => undefined),
   updateCode: vi.fn(async () => true),
   setHideDone: vi.fn(),
   openLiveSearch: vi.fn(async () => true),
@@ -348,6 +349,32 @@ describe('PobBuildPane', () => {
 
     expect(query('[data-pob-build-loading]')).toBeNull();
     expect(query('[data-pob-build-empty-state]')).not.toBeNull();
+  });
+
+  it('匯入對話框可選填流派名稱並預覽預設名稱；更新代碼模式不顯示名稱欄', async () => {
+    fake.previewDefaultName.mockImplementationOnce(async (code: string) =>
+      code === 'RAW_CODE' ? '處刑者 · 雷鳴重擊' : undefined,
+    );
+    await mount();
+    query<HTMLButtonElement>('[data-pob-build-add]')!.click();
+    await flushAsync();
+
+    const codeInput = queryBody<HTMLInputElement>('[data-pob-build-input]')!;
+    const nameInput = queryBody<HTMLInputElement>('[data-pob-build-name-input]')!;
+    expect(nameInput).not.toBeNull();
+
+    codeInput.value = 'RAW_CODE';
+    codeInput.dispatchEvent(new Event('input'));
+    await flushAsync();
+    expect(nameInput.placeholder).toBe('處刑者 · 雷鳴重擊');
+
+    nameInput.value = '  100D 畢業版  ';
+    nameInput.dispatchEvent(new Event('input'));
+    await nextTick();
+
+    queryBody<HTMLButtonElement>('[data-pob-build-import]')!.click();
+    await flushAsync();
+    expect(fake.importCode).toHaveBeenCalledWith('RAW_CODE', '100D 畢業版');
   });
 
   it('打開匯入對話框後貼上代碼可匯入，成功後關閉對話框並清空欄位', async () => {

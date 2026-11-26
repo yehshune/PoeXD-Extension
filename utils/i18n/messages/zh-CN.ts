@@ -413,6 +413,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pobBuild.addBuildBtn': '导入 build',
   'pobBuild.loading': '正在载入 PoB 清单…',
   'pobBuild.importDialogTitle': '导入 PoB build',
+  'pobBuild.nameLabel': '流派名称（选填）',
+  'pobBuild.namePlaceholder': '留空将自动以升华与主技能命名',
   'pobBuild.deleteBuildTitle': '删除这份 build',
   'pobBuild.deleteBuildConfirm': '确定要删除 build「{name}」吗？',
   'pobBuild.searchTooltip': '筛选列表项目',
