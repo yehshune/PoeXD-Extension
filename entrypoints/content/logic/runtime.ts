@@ -410,6 +410,16 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
       deps.rememberPageLoadPreferences(preferences.read());
       deps.syncToastPreferences(preferences.read());
 
+      const syncTwoColumnLayout = (snapshot: Readonly<Preferences>, role?: TradePageRole) => {
+        twoColumnLayout.applyConfig({
+          ...(role !== undefined ? { pageRole: role } : {}),
+          preferredFilterWidth: snapshot.twoColumnFilterWidth,
+          maxWidth: snapshot.twoColumnMaxWidth,
+          autoHideHeader: snapshot.twoColumnAutoHideHeader,
+          enabled: twoColumnLayoutAllowed && snapshot.enableTwoColumnLayout,
+        });
+      };
+
       const applyPreferences = async (
         snapshot: Readonly<Preferences>,
         { deferAffixLexicon = false }: { deferAffixLexicon?: boolean } = {},
@@ -430,10 +440,7 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
         if (disposables.isDisposed) return;
         resultBoard.setEnabled(resultBoardAllowed && snapshot.sidebarModuleResultBoard);
         resultBoard.ensureShortcut();
-        twoColumnLayout.setPreferredFilterWidth(snapshot.twoColumnFilterWidth);
-        twoColumnLayout.setMaxWidth(snapshot.twoColumnMaxWidth);
-        twoColumnLayout.setAutoHideHeader(snapshot.twoColumnAutoHideHeader);
-        twoColumnLayout.setEnabled(twoColumnLayoutAllowed && snapshot.enableTwoColumnLayout);
+        syncTwoColumnLayout(snapshot);
         twoColumnLayout.refreshLocale();
       };
 
@@ -513,13 +520,7 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
       resultBoardAllowed = pageRole === 'normal';
       resultBoard.setEnabled(resultBoardAllowed && preferences.read().sidebarModuleResultBoard);
       twoColumnLayoutAllowed = pageRole === 'normal';
-      twoColumnLayout.setPageRole(pageRole);
-      twoColumnLayout.setPreferredFilterWidth(preferences.read().twoColumnFilterWidth);
-      twoColumnLayout.setMaxWidth(preferences.read().twoColumnMaxWidth);
-      twoColumnLayout.setAutoHideHeader(preferences.read().twoColumnAutoHideHeader);
-      twoColumnLayout.setEnabled(
-        twoColumnLayoutAllowed && preferences.read().enableTwoColumnLayout,
-      );
+      syncTwoColumnLayout(preferences.read(), pageRole);
       resultPipeline.setPageRole(pageRole);
       resultPipeline.init();
 

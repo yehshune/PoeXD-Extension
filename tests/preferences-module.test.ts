@@ -60,7 +60,7 @@ describe('Preferences module interface', () => {
       theme: 'modern-dark',
       themeCustomOverrides: '{}',
       twoColumnAutoHideHeader: true,
-      twoColumnFilterWidth: 460,
+      twoColumnFilterWidth: 560,
       twoColumnMaxWidth: 'full',
     });
   });

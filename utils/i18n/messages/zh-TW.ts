@@ -215,7 +215,6 @@ export const ZH_TW_MESSAGES = {
   'settings.pureBackground.tooltip': '移除官方交易網站背景底圖與特效，呈現簡潔純色背景以提高可讀性',
 
   'settings.twoColumnLayout.label': '寬螢幕雙欄版面',
-  'settings.twoColumnLayout.infoAria': '寬螢幕雙欄版面說明',
   'settings.twoColumnLayout.tooltip':
     '將官方篩選面板固定於左側、搜尋結果顯示於右側，可拖曳分隔線調整寬度或收合篩選欄；視窗空間不足時自動退回原本的上下版面',
   'settings.twoColumnLayout.keywords': '雙欄 並排 寬螢幕 全寬 篩選固定 TradeUX',

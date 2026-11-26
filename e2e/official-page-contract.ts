@@ -82,7 +82,43 @@ export const SEARCH_PAGE_DOM: readonly DomCheck[] = [
   {
     id: 'result-load-more',
     selector: '.results .load-more-btn',
-    usedBy: 'result-board-runtime（批次載入更多）',
+    usedBy: 'result-board-runtime（批次載入更多）, two-column-layout（滑底自動載入）',
+    offline: false,
+  },
+  {
+    id: 'trade-wrapper',
+    selector: '.container-fluid .content .wrapper',
+    usedBy: 'two-column-layout（雙欄視窗鎖定與最大寬度置中）',
+    offline: false,
+  },
+  {
+    id: 'trade-navigation',
+    selector: '#trade > .navigation',
+    usedBy: 'two-column-layout, live-search-console-host-guard',
+    offline: false,
+  },
+  {
+    id: 'trade-top',
+    selector: '#trade > .top',
+    usedBy: 'two-column-layout（左側篩選欄容器）',
+    offline: false,
+  },
+  {
+    id: 'trade-vue3-portal',
+    selector: '#trade > #vue3-portal',
+    usedBy: 'two-column-layout（右欄結果掛載觀測）',
+    offline: false,
+  },
+  {
+    id: 'search-advanced-pane-blue',
+    selector: '.search-panel .search-advanced-pane.blue',
+    usedBy: 'two-column-layout（屬性過濾區）',
+    offline: false,
+  },
+  {
+    id: 'search-advanced-pane-brown',
+    selector: '.search-panel .search-advanced-pane.brown',
+    usedBy: 'two-column-layout（詞綴篩選區）',
     offline: false,
   },
 ];

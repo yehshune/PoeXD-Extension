@@ -111,17 +111,19 @@ export function createFakeRuntimeHarness(overrides: Partial<ContentPageRuntimeDe
   };
 
   const twoColumnLayout: TwoColumnLayoutController = {
-    setEnabled: vi.fn(),
-    setPageRole: vi.fn(),
-    setPreferredFilterWidth: vi.fn(),
-    setMaxWidth: vi.fn(),
-    setAutoHideHeader: vi.fn(),
-    setFiltersCollapsed: vi.fn(),
+    applyConfig: vi.fn(() => ({
+      active: false,
+      reason: 'disabled' as const,
+      leftWidth: 560,
+      maxFilterWidth: 1200,
+      maxWidthCss: 'none',
+      filtersCollapsed: false,
+    })),
     refreshLocale: vi.fn(),
     sync: vi.fn(() => ({
       active: false,
       reason: 'disabled' as const,
-      leftWidth: 460,
+      leftWidth: 560,
       maxFilterWidth: 1200,
       maxWidthCss: 'none',
       filtersCollapsed: false,

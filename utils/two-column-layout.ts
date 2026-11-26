@@ -79,6 +79,20 @@ export interface TwoColumnGeometry {
   readonly filtersCollapsed: boolean;
 }
 
+function inactiveGeometry(
+  reason: Exclude<TwoColumnStatusReason, 'active'>,
+  maxWidthCss: string,
+): TwoColumnGeometry {
+  return {
+    active: false,
+    reason,
+    leftWidth: TWO_COLUMN_DEFAULT_FILTER_WIDTH,
+    maxFilterWidth: TWO_COLUMN_FILTER_WIDTH_BOUNDS.max,
+    maxWidthCss,
+    filtersCollapsed: false,
+  };
+}
+
 export function clampTwoColumnFilterWidth(
   preferredWidth: number,
   contentWidth: number,
@@ -107,45 +121,13 @@ export function resolveTwoColumnGeometry(input: TwoColumnGeometryInput): TwoColu
   const maxWidthPx = resolveTwoColumnMaxWidthPx(maxWidth);
   const maxWidthCss = maxWidthPx !== null ? `${maxWidthPx}px` : 'none';
 
-  if (!input.enabled) {
-    return {
-      active: false,
-      reason: 'disabled',
-      leftWidth: TWO_COLUMN_DEFAULT_FILTER_WIDTH,
-      maxFilterWidth: TWO_COLUMN_FILTER_WIDTH_BOUNDS.max,
-      maxWidthCss,
-      filtersCollapsed: false,
-    };
-  }
-  if (input.pageRole !== 'normal') {
-    return {
-      active: false,
-      reason: 'non-normal-role',
-      leftWidth: TWO_COLUMN_DEFAULT_FILTER_WIDTH,
-      maxFilterWidth: TWO_COLUMN_FILTER_WIDTH_BOUNDS.max,
-      maxWidthCss,
-      filtersCollapsed: false,
-    };
-  }
+  if (!input.enabled) return inactiveGeometry('disabled', maxWidthCss);
+  if (input.pageRole !== 'normal') return inactiveGeometry('non-normal-role', maxWidthCss);
   if (!isTwoColumnEligiblePath(input.pathname)) {
-    return {
-      active: false,
-      reason: 'ineligible-route',
-      leftWidth: TWO_COLUMN_DEFAULT_FILTER_WIDTH,
-      maxFilterWidth: TWO_COLUMN_FILTER_WIDTH_BOUNDS.max,
-      maxWidthCss,
-      filtersCollapsed: false,
-    };
+    return inactiveGeometry('ineligible-route', maxWidthCss);
   }
   if (!Number.isFinite(input.contentWidth) || input.contentWidth < TWO_COLUMN_MIN_CONTENT_WIDTH) {
-    return {
-      active: false,
-      reason: 'narrow',
-      leftWidth: TWO_COLUMN_DEFAULT_FILTER_WIDTH,
-      maxFilterWidth: TWO_COLUMN_FILTER_WIDTH_BOUNDS.max,
-      maxWidthCss,
-      filtersCollapsed: false,
-    };
+    return inactiveGeometry('narrow', maxWidthCss);
   }
 
   const { clamped, maxFilterWidth } = clampTwoColumnFilterWidth(

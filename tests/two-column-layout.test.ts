@@ -25,7 +25,18 @@ import {
   resolveTwoColumnMaxWidthPx,
 } from '@/utils/two-column-layout';
 
-function mountMockTradeDom(contentWidth = 1280): HTMLElement {
+function mountMockTradeDom(contentWidth = 1280, includeResults = true): HTMLElement {
+  const resultsMarkup = includeResults
+    ? `
+      <div class="results compact two">
+        <div class="row row-total"></div>
+        <div class="resultset"></div>
+        <div class="row controls">
+          <button type="button" class="btn load-more-btn">Load More</button>
+        </div>
+      </div>
+    `
+    : '';
   document.body.innerHTML = `
     <div class="content">
       <div class="wrapper">
@@ -42,15 +53,7 @@ function mountMockTradeDom(contentWidth = 1280): HTMLElement {
               <div class="controls"></div>
             </div>
           </div>
-          <div id="vue3-portal">
-            <div class="results compact two">
-              <div class="row row-total"></div>
-              <div class="resultset"></div>
-              <div class="row controls">
-                <button type="button" class="btn load-more-btn">Load More</button>
-              </div>
-            </div>
-          </div>
+          <div id="vue3-portal">${resultsMarkup}</div>
         </div>
       </div>
     </div>
@@ -89,23 +92,21 @@ describe('two-column-layout pure geometry', () => {
     expect(isTwoColumnEligiblePath('')).toBe(false);
   });
 
-  it('resolves max width presets and clamps wider filter widths up to 1200px safely', () => {
+  it('resolves max width presets, defaults to 560px single-row width, and clamps up to 1200px safely', () => {
+    expect(TWO_COLUMN_DEFAULT_FILTER_WIDTH).toBe(560);
     expect(resolveTwoColumnMaxWidthPx('full')).toBeNull();
     expect(resolveTwoColumnMaxWidthPx('2200')).toBe(2200);
     expect(resolveTwoColumnMaxWidthPx('1920')).toBe(1920);
     expect(resolveTwoColumnMaxWidthPx('1600')).toBe(1600);
 
-    expect(clampTwoColumnFilterWidth(460, 1400).clamped).toBe(460);
+    expect(clampTwoColumnFilterWidth(560, 1400).clamped).toBe(560);
     expect(clampTwoColumnFilterWidth(200, 1400).clamped).toBe(360);
-    // On a 2560px screen, left filter can now expand up to 1200px
     expect(clampTwoColumnFilterWidth(1050, 2560).clamped).toBe(1050);
     expect(clampTwoColumnFilterWidth(1500, 2560).clamped).toBe(1200);
-    // Respects maxWidth cap when capping overall width to 1600px (1600 - 540 - 12 = 1048)
     expect(clampTwoColumnFilterWidth(1200, 2560, '1600')).toEqual({
       clamped: 1048,
       maxFilterWidth: 1048,
     });
-    // At 1020px content width: max filter width = 1020 - 540 - 12 = 468px
     expect(clampTwoColumnFilterWidth(600, 1020)).toEqual({ clamped: 468, maxFilterWidth: 468 });
   });
 
@@ -116,7 +117,7 @@ describe('two-column-layout pure geometry', () => {
         pageRole: 'normal',
         pathname: '/trade/search/Covens',
         contentWidth: 1400,
-        preferredFilterWidth: 460,
+        preferredFilterWidth: 560,
         filtersCollapsed: false,
       }),
     ).toMatchObject({ active: false, reason: 'disabled' });
@@ -127,7 +128,7 @@ describe('two-column-layout pure geometry', () => {
         pageRole: 'live-search-primary',
         pathname: '/trade/search/Covens',
         contentWidth: 1400,
-        preferredFilterWidth: 460,
+        preferredFilterWidth: 560,
         filtersCollapsed: false,
       }),
     ).toMatchObject({ active: false, reason: 'non-normal-role' });
@@ -138,7 +139,7 @@ describe('two-column-layout pure geometry', () => {
         pageRole: 'normal',
         pathname: '/trade/exchange/Covens',
         contentWidth: 1400,
-        preferredFilterWidth: 460,
+        preferredFilterWidth: 560,
         filtersCollapsed: false,
       }),
     ).toMatchObject({ active: false, reason: 'ineligible-route' });
@@ -149,7 +150,7 @@ describe('two-column-layout pure geometry', () => {
         pageRole: 'normal',
         pathname: '/trade/search/Covens',
         contentWidth: TWO_COLUMN_MIN_CONTENT_WIDTH - 1,
-        preferredFilterWidth: 460,
+        preferredFilterWidth: 560,
         filtersCollapsed: false,
       }),
     ).toMatchObject({ active: false, reason: 'narrow' });
@@ -199,11 +200,14 @@ describe('createTwoColumnLayoutController', () => {
     document.documentElement.style.removeProperty(TWO_COLUMN_MAX_WIDTH_VAR);
   });
 
-  it('uses oklch-only colors and enforces viewport scroll lock, native compact-two flex stretch, full-width row-total, and wide filter grid', () => {
+  it('uses Theme Bridge CSS vars & oklch fallbacks, locks viewport scroll, preserves native compact-two, and protects button overflow', () => {
     const css = buildTwoColumnLayoutCss();
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(css).not.toMatch(/\brgba?\s*\(/i);
     expect(css).toContain('oklch(');
+    expect(css).toContain('var(--card');
+    expect(css).toContain('var(--border');
+    expect(css).toContain('var(--primary');
     expect(css).toContain('height: 100vh !important;');
     expect(css).toContain('overflow-y: auto !important;');
     expect(css).toContain('.results > .row.row-total');
@@ -214,20 +218,24 @@ describe('createTwoColumnLayoutController', () => {
     expect(css).toContain('min-width: 560px');
     expect(css).toContain('min-width: 920px');
     expect(css).toContain('clamp(280px, 42vh, 460px)');
+    expect(css).toContain('text-overflow: ellipsis !important;');
+    expect(css).not.toContain('repeat(3, minmax(0, 1fr))');
     expect(css).not.toContain('.search-advanced-pane.brown {\n      order: -1');
     expect(css).toContain(TWO_COLUMN_MAX_WIDTH_VAR);
   });
 
-  it('activates on eligible search pages, applies maxWidth and autoHideHeader, toggles collapse, and cleans up completely', () => {
+  it('activates via batch applyConfig, manages header overlay, toggles collapse, and cleans up completely', () => {
     vi.useFakeTimers();
     mountMockTradeDom(2560);
     const onCommit = vi.fn();
     const controller = createTwoColumnLayoutController({ onFilterWidthCommit: onCommit });
 
-    controller.setPreferredFilterWidth(960);
-    controller.setMaxWidth('1920');
-    controller.setAutoHideHeader(true);
-    controller.setEnabled(true);
+    controller.applyConfig({
+      enabled: true,
+      preferredFilterWidth: 960,
+      maxWidth: '1920',
+      autoHideHeader: true,
+    });
 
     expect(document.documentElement.getAttribute(TWO_COLUMN_ATTR)).toBe('active');
     expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_WIDTH_VAR)).toBe('960px');
@@ -237,7 +245,6 @@ describe('createTwoColumnLayoutController', () => {
     expect(document.documentElement.getAttribute(TWO_COLUMN_HIDE_HEADER_ATTR)).toBe('true');
     expect(document.getElementById(TWO_COLUMN_STYLE_ID)).not.toBeNull();
 
-    // Hovering header pull-tab opens header overlay after intent delay and closes on leave
     const headerTab = document.querySelector<HTMLButtonElement>(`.${TWO_COLUMN_HEADER_TAB_CLASS}`);
     expect(headerTab).not.toBeNull();
     headerTab!.dispatchEvent(new Event('pointerenter'));
@@ -249,8 +256,7 @@ describe('createTwoColumnLayoutController', () => {
     vi.advanceTimersByTime(300);
     expect(document.documentElement.hasAttribute(TWO_COLUMN_HEADER_OPEN_ATTR)).toBe(false);
 
-    // Turning off autoHideHeader removes header pull-tab and attribute
-    controller.setAutoHideHeader(false);
+    controller.applyConfig({ autoHideHeader: false });
     expect(document.documentElement.hasAttribute(TWO_COLUMN_HIDE_HEADER_ATTR)).toBe(false);
     expect(document.querySelector(`.${TWO_COLUMN_HEADER_TAB_CLASS}`)).toBeNull();
 
@@ -261,7 +267,6 @@ describe('createTwoColumnLayoutController', () => {
     expect(splitter).not.toBeNull();
     expect(collapseBtn).not.toBeNull();
 
-    // Collapse & expand filters column
     collapseBtn!.click();
     expect(document.documentElement.getAttribute(TWO_COLUMN_COLLAPSED_ATTR)).toBe('true');
     expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_WIDTH_VAR)).toBe(
@@ -272,12 +277,10 @@ describe('createTwoColumnLayoutController', () => {
     expect(document.documentElement.hasAttribute(TWO_COLUMN_COLLAPSED_ATTR)).toBe(false);
     expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_WIDTH_VAR)).toBe('960px');
 
-    // Double-click splitter resets to default width
     splitter!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     expect(onCommit).toHaveBeenCalledWith(TWO_COLUMN_DEFAULT_FILTER_WIDTH);
 
-    // Disable cleans up style, attributes, splitter, and top button
-    controller.setEnabled(false);
+    controller.applyConfig({ enabled: false });
     expect(document.documentElement.hasAttribute(TWO_COLUMN_ATTR)).toBe(false);
     expect(document.getElementById(TWO_COLUMN_STYLE_ID)).toBeNull();
     expect(document.querySelector(`.${TWO_COLUMN_SPLITTER_CLASS}`)).toBeNull();
@@ -286,41 +289,53 @@ describe('createTwoColumnLayoutController', () => {
     controller.cleanup();
   });
 
-  it('auto-triggers official load-more button with cooldown when scrolling near bottom of results pane and toggles back-to-top button', () => {
-    mountMockTradeDom(1600);
+  it('bridges late-mounted .results inside #vue3-portal and triggers load-more even with tiny scroll distance', async () => {
+    // Start with a blank search page (no .results inside #vue3-portal yet)
+    mountMockTradeDom(2560, false);
     let currentTime = 5000;
     const controller = createTwoColumnLayoutController({ now: () => currentTime });
-    controller.setEnabled(true);
+    controller.applyConfig({ enabled: true });
+
+    expect(document.querySelector(`.${TWO_COLUMN_TOP_BTN_CLASS}`)).toBeNull();
+
+    // Vue mounts .results dynamically inside #vue3-portal after user clicks Search
+    const portal = document.getElementById('vue3-portal')!;
+    portal.innerHTML = `
+      <div class="results compact two">
+        <div class="row row-total"></div>
+        <div class="resultset"></div>
+        <div class="row controls">
+          <button type="button" class="btn load-more-btn">Load More</button>
+        </div>
+      </div>
+    `;
+    await Promise.resolve();
 
     const resultsEl = document.querySelector<HTMLElement>('#trade .results')!;
     const loadMoreBtn = document.querySelector<HTMLButtonElement>('.load-more-btn')!;
     const topBtn = document.querySelector<HTMLButtonElement>(`.${TWO_COLUMN_TOP_BTN_CLASS}`)!;
+    expect(topBtn).not.toBeNull();
+
     const clickSpy = vi.fn();
     loadMoreBtn.addEventListener('click', clickSpy);
 
-    Object.defineProperty(resultsEl, 'clientHeight', { value: 800, configurable: true });
-    Object.defineProperty(resultsEl, 'scrollHeight', { value: 2000, configurable: true });
+    // Simulate a 2K screen where total scroll room is only 20px (<= 40px)
+    Object.defineProperty(resultsEl, 'clientHeight', { value: 1200, configurable: true });
+    Object.defineProperty(resultsEl, 'scrollHeight', { value: 1220, configurable: true });
 
-    // Scrolling partway shows back-to-top button without triggering load-more
-    resultsEl.scrollTop = 400;
-    resultsEl.dispatchEvent(new Event('scroll'));
-    expect(topBtn.getAttribute('data-visible')).toBe('true');
-    expect(clickSpy).not.toHaveBeenCalled();
-
-    // Scrolling near bottom triggers load-more once
-    resultsEl.scrollTop = 1050;
+    resultsEl.scrollTop = 10;
     resultsEl.dispatchEvent(new Event('scroll'));
     expect(clickSpy).toHaveBeenCalledTimes(1);
 
-    // Rapid second scroll within cooldown does not double-fire
+    // Cooldown prevents immediate double-fire
     currentTime += 300;
-    resultsEl.scrollTop = 1150;
+    resultsEl.scrollTop = 20;
     resultsEl.dispatchEvent(new Event('scroll'));
     expect(clickSpy).toHaveBeenCalledTimes(1);
 
-    // After cooldown expires, scrolling again triggers load-more
+    // After cooldown, scrolling again triggers load-more
     currentTime += 1500;
-    resultsEl.scrollTop = 1180;
+    resultsEl.scrollTop = 20;
     resultsEl.dispatchEvent(new Event('scroll'));
     expect(clickSpy).toHaveBeenCalledTimes(2);
 
@@ -330,13 +345,13 @@ describe('createTwoColumnLayoutController', () => {
   it('deactivates automatically on live-search-primary role or exchange route', () => {
     mountMockTradeDom(1400);
     const controller = createTwoColumnLayoutController();
-    controller.setEnabled(true);
+    controller.applyConfig({ enabled: true });
     expect(document.documentElement.getAttribute(TWO_COLUMN_ATTR)).toBe('active');
 
-    controller.setPageRole('live-search-primary');
+    controller.applyConfig({ pageRole: 'live-search-primary' });
     expect(document.documentElement.hasAttribute(TWO_COLUMN_ATTR)).toBe(false);
 
-    controller.setPageRole('normal');
+    controller.applyConfig({ pageRole: 'normal' });
     expect(document.documentElement.getAttribute(TWO_COLUMN_ATTR)).toBe('active');
 
     window.history.replaceState({}, '', '/trade/exchange/Covens');

@@ -217,7 +217,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.pureBackground.tooltip': '移除官方交易网站背景底图与特效，呈现简洁纯色背景以提高可读性',
 
   'settings.twoColumnLayout.label': '宽屏双栏布局',
-  'settings.twoColumnLayout.infoAria': '宽屏双栏布局说明',
   'settings.twoColumnLayout.tooltip':
     '将官方筛选面板固定于左侧、搜索结果显示于右侧，可拖拽分隔线调整宽度或收起筛选栏；窗口空间不足时自动退回原本的上下布局',
   'settings.twoColumnLayout.keywords': '双栏 并排 宽屏 全宽 筛选固定 TradeUX',

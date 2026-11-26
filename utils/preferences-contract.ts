@@ -380,7 +380,7 @@ export const PREFERENCE_SCHEMA = Object.freeze({
   },
   twoColumnFilterWidth: {
     scope: 'global',
-    default: 460,
+    default: 560,
     validate: isFiniteNumberInRange(TWO_COLUMN_FILTER_WIDTH_BOUNDS),
   },
   twoColumnMaxWidth: {

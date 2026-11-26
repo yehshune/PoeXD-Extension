@@ -42,6 +42,11 @@ export const PAGE_INJECTED_SELECTORS = [
   '.poexd-sortable-ghost',
   '.poexd-sortable-drag',
   '.poexd-filter-mod-highlight',
+  '.poexd-two-col-splitter',
+  '.poexd-two-col-collapse-btn',
+  '.poexd-two-col-header-tab',
+  '.poexd-two-col-header-backdrop',
+  '.poexd-two-col-top-btn',
 ] as const;
 
 let activeThemeHost: HTMLElement | null = null;

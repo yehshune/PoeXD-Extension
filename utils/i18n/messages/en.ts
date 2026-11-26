@@ -222,7 +222,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'Remove the official Trade site background artwork for a clean solid background',
 
   'settings.twoColumnLayout.label': 'Two-Column Layout',
-  'settings.twoColumnLayout.infoAria': 'Two-Column Layout info',
   'settings.twoColumnLayout.tooltip':
     'Keep official filters sticky on the left and results on the right, with a resizable divider and collapse toggle; automatically falls back to single-column when space is narrow',
   'settings.twoColumnLayout.keywords': 'two column split full width sticky filters TradeUX',
