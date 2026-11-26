@@ -12,6 +12,11 @@ import type {
   ResultModHighlightStyle,
 } from '@/utils/preferences-contract';
 import { ensureResultEnhancementStyles } from '@/entrypoints/content/logic/result-enhancement-styles';
+import { SIDEBAR_LAYOUT_TRANSITION_MS } from '@/utils/sidebar-motion';
+import {
+  SIDEBAR_LAYOUT_STYLE_ID,
+  readSidebarViewportInsets,
+} from '@/utils/sidebar-viewport-insets';
 import { RESULT_FEATURE_KEYS, type ResultFeatureFlags } from './page-guide-setup';
 
 /**
@@ -86,19 +91,12 @@ function readCompactMode(): boolean {
   return realResults ? realResults.classList.contains('compact') : true;
 }
 
-function readSidebarInsets(): { left: number; right: number } {
-  const style = getComputedStyle(document.documentElement);
-  const left = Number.parseFloat(style.getPropertyValue('--poexd-toast-inset-left')) || 0;
-  const right = Number.parseFloat(style.getPropertyValue('--poexd-toast-inset-right')) || 0;
-  return { left: Math.max(0, left), right: Math.max(0, right) };
-}
-
 function measure() {
   const trade = document.getElementById('trade');
   const rect = trade?.getBoundingClientRect();
   const hasTradeBox = Boolean(rect && rect.width > 0);
   const viewportWidth = window.innerWidth;
-  const insets = readSidebarInsets();
+  const insets = readSidebarViewportInsets();
   const rawLeft = hasTradeBox ? rect!.left : 0;
   const rawRight = hasTradeBox ? rect!.right : viewportWidth;
   const safeLeft = Math.max(0, rawLeft, insets.left);
@@ -134,6 +132,14 @@ function syncCompactMode() {
 
 let tradeObserver: ResizeObserver | null = null;
 let resultsClassObserver: MutationObserver | null = null;
+let layoutStyleObserver: MutationObserver | null = null;
+let layoutTransitionTimer: ReturnType<typeof setTimeout> | undefined;
+
+function handleSidebarLayoutChange() {
+  measure();
+  clearTimeout(layoutTransitionTimer);
+  layoutTransitionTimer = setTimeout(measure, SIDEBAR_LAYOUT_TRANSITION_MS + 40);
+}
 
 onMounted(() => {
   ensureResultEnhancementStyles();
@@ -151,14 +157,26 @@ onMounted(() => {
     resultsClassObserver = new MutationObserver(syncCompactMode);
     resultsClassObserver.observe(realResults, { attributes: true, attributeFilter: ['class'] });
   }
+  const layoutStyle = document.getElementById(SIDEBAR_LAYOUT_STYLE_ID);
+  if (layoutStyle && typeof MutationObserver !== 'undefined') {
+    layoutStyleObserver = new MutationObserver(handleSidebarLayoutChange);
+    layoutStyleObserver.observe(layoutStyle, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+  }
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', measure);
+  clearTimeout(layoutTransitionTimer);
   tradeObserver?.disconnect();
   tradeObserver = null;
   resultsClassObserver?.disconnect();
   resultsClassObserver = null;
+  layoutStyleObserver?.disconnect();
+  layoutStyleObserver = null;
 });
 
 /** 功能開關變動時確保樣式存在並重建示意列，避免外部狀態殘留影響預覽 */

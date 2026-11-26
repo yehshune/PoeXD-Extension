@@ -366,6 +366,11 @@ describe('PageGuideOfficialResult', () => {
     document.documentElement.style.setProperty('--poexd-toast-inset-left', '471px');
     document.documentElement.style.setProperty('--poexd-toast-inset-right', '0px');
 
+    // 側邊欄透過 #poexd-layout-style 換邊且未觸發 window resize 時，也會即時重算位置
+    const layoutStyle = document.createElement('style');
+    layoutStyle.id = 'poexd-layout-style';
+    document.head.appendChild(layoutStyle);
+
     mountComponent(() => h(PageGuideOfficialResult, { features: allOn }));
     await flush();
 
@@ -378,12 +383,13 @@ describe('PageGuideOfficialResult', () => {
     expect(width).toBe(722);
     expect(mock.classList.contains('compact')).toBe(false);
 
-    // 側邊欄在右側且可用寬度低於三欄門檻時，仍不越過側邊欄並退回精簡版面
+    // 側邊欄切換到右側且可用寬度低於三欄門檻時，僅更新 #poexd-layout-style 即應重算並退回精簡版面
     trade.getBoundingClientRect = () =>
       ({ left: 20, top: 75, width: 640, height: 500, right: 660, bottom: 575 }) as DOMRect;
     document.documentElement.style.setProperty('--poexd-toast-inset-left', '0px');
     document.documentElement.style.setProperty('--poexd-toast-inset-right', '580px');
-    window.dispatchEvent(new Event('resize'));
+    layoutStyle.textContent =
+      ':root { --poexd-toast-inset-left: 0px; --poexd-toast-inset-right: 580px; }';
     await flush();
 
     const rightModeLeft = Number.parseFloat(frame.style.left);
@@ -392,6 +398,7 @@ describe('PageGuideOfficialResult', () => {
     expect(rightModeLeft + rightModeWidth).toBeLessThanOrEqual(660);
     expect(mock.classList.contains('compact')).toBe(true);
 
+    layoutStyle.remove();
     document.documentElement.style.removeProperty('--poexd-toast-inset-left');
     document.documentElement.style.removeProperty('--poexd-toast-inset-right');
   });

@@ -1204,13 +1204,11 @@ export default defineComponent({
       async prepareStep(step) {
         if (!step.targetId) return;
         const scope = getPageGuideTarget(step.targetId).scope;
-        if (scope === 'sidebar' && isCollapsed.value) {
-          toggleCollapse();
-          await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 80);
-        } else if (scope === 'page' && !isCollapsed.value) {
-          toggleCollapse();
-          await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 80);
-        }
+        const needsToggle =
+          (scope === 'sidebar' && isCollapsed.value) || (scope === 'page' && !isCollapsed.value);
+        if (!needsToggle) return;
+        toggleCollapse();
+        await sleep(SIDEBAR_LAYOUT_TRANSITION_MS + 80);
       },
       runStepDemo,
       stopStepDemo,

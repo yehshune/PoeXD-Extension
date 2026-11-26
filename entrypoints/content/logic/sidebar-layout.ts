@@ -18,9 +18,14 @@ import {
   SIDEBAR_LAYOUT_TRANSITION_EASING,
   SIDEBAR_LAYOUT_TRANSITION_MS,
 } from '@/utils/sidebar-motion';
+import {
+  SIDEBAR_INSET_LEFT_VAR,
+  SIDEBAR_INSET_RIGHT_VAR,
+  SIDEBAR_LAYOUT_STYLE_ID,
+} from '@/utils/sidebar-viewport-insets';
 
 const POEXD_HOST_Z_INDEX = '2147483646';
-const LAYOUT_STYLE_ID = 'poexd-layout-style';
+const LAYOUT_STYLE_ID = SIDEBAR_LAYOUT_STYLE_ID;
 
 interface PageLayoutState {
   collapsed: boolean;
@@ -41,8 +46,8 @@ function buildPageLayoutCss({ collapsed, position, width, animate }: PageLayoutS
     : 'transition: none !important;';
   return `
       :root {
-        --poexd-toast-inset-left: ${pageMarginLeft}px;
-        --poexd-toast-inset-right: ${pageMarginRight}px;
+        ${SIDEBAR_INSET_LEFT_VAR}: ${pageMarginLeft}px;
+        ${SIDEBAR_INSET_RIGHT_VAR}: ${pageMarginRight}px;
       }
       .content {
         ${transitionProperty}
