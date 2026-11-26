@@ -132,6 +132,10 @@ export interface LiveSearchSourceSnapshot {
   availableLeagues: readonly string[];
   isSwitchingLeague: boolean;
   leagueResolved: boolean;
+  /** 該遊戲版本（跨所有聯盟）是否仍有持久化之 LiveSearch Resume Plan 紀錄 */
+  hasPersistedPlan?: boolean;
+  /** 啟動自動恢復執行結果（未觸發或無可恢復項目時為 null） */
+  autoRestoreOutcome?: LiveSearchBatchOutcome | null;
 }
 
 export interface LiveSearchSourceController {
@@ -187,9 +191,13 @@ export interface LiveSearchSourceController {
    */
   restoreAllPreviousConnections?(): Promise<LiveSearchBatchOutcome>;
   /**
-   * 清空「上次連線」紀錄
+   * 清空「上次連線」紀錄（僅限目前聯盟）
    */
   clearPreviousConnections?(): Promise<boolean>;
+  /**
+   * 清除該遊戲版本全部聯盟的持久化 LiveSearch Resume Plan（不中斷目前運行中之訂閱）
+   */
+  clearResumePlan?(): Promise<boolean>;
   /**
    * 切換單一搜尋連線的通知靜音（同時抑制通知音效與桌面通知），並持久寫入 LiveSearch Resume Plan
    */
@@ -204,7 +212,6 @@ export interface LiveSearchSourceController {
   switchLeague(targetLeague: string): Promise<boolean>;
   getSelectedLeague(): string;
   getAvailableLeagues(): readonly string[];
-  readonly resumeStore?: LiveSearchResumeStore | null;
   dispose(): void;
 }
 

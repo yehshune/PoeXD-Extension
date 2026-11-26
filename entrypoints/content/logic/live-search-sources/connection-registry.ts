@@ -123,6 +123,7 @@ export interface LiveSearchConnectionRegistry {
   pruneBaselineForLeague(validBookmarkKeys: ReadonlySet<string>, selectedLeague: string): void;
   forgetPrevious(canonicalKey: string): boolean;
   clearPreviousForLeague(selectedLeague: string): string[];
+  clearAllPrevious(): void;
 
   clear(): void;
 }
@@ -709,6 +710,16 @@ export function createLiveSearchConnectionRegistry(
         (id) => !removeKeySet.has(getResumeCanonicalKey(id)),
       );
       return keysToRemove;
+    },
+
+    clearAllPrevious() {
+      baselineResumeByKey.clear();
+      latestResumeIdentities = [];
+      for (const key of Array.from(mutedKeys)) {
+        if (!sessionEntriesByKey.has(key)) {
+          mutedKeys.delete(key);
+        }
+      }
     },
 
     clear() {

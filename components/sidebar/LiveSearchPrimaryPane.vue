@@ -409,10 +409,6 @@ import {
   type LiveSearchSourceSnapshot,
   type LiveSearchSourceStatusFilter,
 } from '@/entrypoints/content/logic/live-search-sources';
-import type {
-  LiveSearchResumeController,
-  LiveSearchResumeSnapshot,
-} from '@/entrypoints/content/logic/live-search-resume-controller';
 import type { LiveSearchSoundNotifier } from '@/entrypoints/content/logic/live-search-sound-notifier';
 
 const props = defineProps({
@@ -422,10 +418,6 @@ const props = defineProps({
   },
   sourceController: {
     type: Object as PropType<LiveSearchSourceController | null>,
-    default: null,
-  },
-  resumeController: {
-    type: Object as PropType<LiveSearchResumeController | null>,
     default: null,
   },
   preferences: {
@@ -624,26 +616,10 @@ let unsubscribe: (() => void) | null = null;
 let unsubSource: (() => void) | null = null;
 let stopPreferences: (() => void) | null = null;
 let fallbackSourceController: LiveSearchSourceController | null = null;
-let stopResumeSub: (() => void) | null = null;
-const resumeSnapshot = ref<LiveSearchResumeSnapshot | null>(null);
 let lastHandledAutoOutcome: LiveSearchBatchOutcome | null = null;
 
-function bindResumeController(ctrl: LiveSearchResumeController | null | undefined) {
-  stopResumeSub?.();
-  stopResumeSub = null;
-  lastHandledAutoOutcome = null;
-  if (ctrl) {
-    resumeSnapshot.value = ctrl.read();
-    stopResumeSub = ctrl.subscribe((snap) => {
-      resumeSnapshot.value = snap;
-    });
-  } else {
-    resumeSnapshot.value = null;
-  }
-}
-
 watch(
-  () => resumeSnapshot.value?.autoRestoreOutcome,
+  () => sourceSnapshot.value?.autoRestoreOutcome,
   (newOutcome) => {
     if (newOutcome && newOutcome !== lastHandledAutoOutcome) {
       lastHandledAutoOutcome = newOutcome;
@@ -790,6 +766,7 @@ function getActiveSourceController(): LiveSearchSourceController | null {
 watch(
   [() => props.controller, () => props.sourceController],
   ([newController, newSourceCtrl]) => {
+    lastHandledAutoOutcome = null;
     if (unsubscribe) {
       unsubscribe();
       unsubscribe = null;
@@ -882,14 +859,6 @@ function handleConnectionDragEnd() {
   endDrag();
 }
 
-watch(
-  () => props.resumeController,
-  (ctrl) => {
-    bindResumeController(ctrl);
-  },
-  { immediate: true },
-);
-
 const isSoundBlocked = ref(false);
 let stopSoundSub: (() => void) | null = null;
 
@@ -913,8 +882,6 @@ function handleEnableSound() {
 
 onUnmounted(() => {
   clearScopedActivePreview();
-  stopResumeSub?.();
-  stopResumeSub = null;
   stopSoundSub?.();
   stopSoundSub = null;
   if (stopPreferences) {

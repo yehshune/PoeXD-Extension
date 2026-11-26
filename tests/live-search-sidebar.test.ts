@@ -135,28 +135,6 @@ vi.mock('@/components/sidebar/LiveSearchConsoleSettingsPane.vue', () => ({
   }),
 }));
 
-vi.mock('@/components/sidebar/LiveSearchResumeInspectPopover.vue', () => ({
-  default: defineComponent({
-    name: 'LiveSearchResumeInspectPopover',
-    props: ['open', 'items', 'leagueDisplay', 'isBatchRunning'],
-    emits: ['update:open', 'restore'],
-    setup(props, { slots, emit }) {
-      return () =>
-        h('div', { 'data-test': 'live-search-resume-inspect-popover-mock' }, [
-          slots.default ? slots.default() : null,
-          props.open
-            ? h('div', {
-                'data-test': 'resume-inspect-content-mock',
-                'data-items-count': String(props.items?.length ?? 0),
-                'data-league': props.leagueDisplay,
-                onClick: () => emit('restore'),
-              })
-            : null,
-        ]);
-    },
-  }),
-}));
-
 let activeMockPreferences: any = {
   sidebarPosition: 'left',
   sidebarWidth: 380,
@@ -542,28 +520,6 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
     });
 
     it('13. 恢復操作已收斂至「上次連線」分區，側邊導覽列不再渲染冗餘的 btn-sidebar-resume-action 按鈕', async () => {
-      let resumeListener: ((snap: any) => void) | undefined;
-      const currentSnap = {
-        state: 'prompted',
-        mode: 'prompt',
-        hasPersistedPlan: true,
-        resumableCount: 3,
-        resumableSourceIds: ['bm_1', 'bm_2', 'bm_3'],
-        bannerVisible: true,
-        autoRestoreOutcome: null,
-      };
-
-      const mockResumeController = {
-        read: () => ({ ...currentSnap }),
-        subscribe: (cb: any) => {
-          resumeListener = cb;
-          return () => {};
-        },
-        restore: vi.fn(),
-        skip: vi.fn(),
-        dispose: vi.fn(),
-      };
-
       const mockSourceController = {
         read: () => ({
           groups: [
@@ -582,6 +538,7 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
           selectedLeague: 'Standard',
           availableLeagues: ['Standard'],
           isSwitchingLeague: false,
+          hasPersistedPlan: true,
         }),
         subscribe: () => () => {},
       };
@@ -589,21 +546,13 @@ describe('Sidebar Page Role & UI Mode Integration Tests', () => {
       app = createApp(Sidebar, {
         pageRole: 'live-search-primary',
         liveSearchConsole: {
-          resumeController: mockResumeController,
           sourceController: mockSourceController,
         },
       });
       app.mount(container);
       await nextTick();
 
-      // 無論 bannerVisible 為 true 或 false，側邊欄皆不再重複渲染恢復連線按鈕
-      expect(container.querySelector('[data-sidebar-action="resume-connections"]')).toBeNull();
-
-      currentSnap.bannerVisible = false;
-      currentSnap.state = 'skipped';
-      resumeListener?.({ ...currentSnap });
-      await nextTick();
-
+      // 側邊欄不再重複渲染舊版恢復連線按鈕（統一由「上次連線」分區承載）
       expect(container.querySelector('[data-sidebar-action="resume-connections"]')).toBeNull();
     });
 

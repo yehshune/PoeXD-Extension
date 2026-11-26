@@ -1,97 +1,14 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import {
-  projectResumableInspectItems,
   formatBatchEnableSummary,
   resolveBatchEnableToast,
   formatBatchStopSummary,
   resolveBatchStopToast,
 } from '@/components/sidebar/live-search-presentation';
-import type {
-  LiveSearchBatchOutcome,
-  LiveSearchSourceGroup,
-} from '@/entrypoints/content/logic/live-search-sources';
+import type { LiveSearchBatchOutcome } from '@/entrypoints/content/logic/live-search-sources';
 
 describe('LiveSearch Shared Presentation Helpers', () => {
-  describe('projectResumableInspectItems', () => {
-    it('防禦空輸入：無 ids 或無 groups 時安全回傳空陣列', () => {
-      expect(projectResumableInspectItems(undefined, undefined)).toEqual([]);
-      expect(projectResumableInspectItems([], [])).toEqual([]);
-      expect(projectResumableInspectItems(['bm_1'], undefined)).toEqual([]);
-      expect(projectResumableInspectItems(undefined, [{ id: 'grp_1' } as any])).toEqual([]);
-    });
-
-    it('依 resumableSourceIds 精確投影，忽略 custom 類型與非清單項目，並使用 formatFolderPath 產生完整路徑', () => {
-      const groups: LiveSearchSourceGroup[] = [
-        {
-          id: 'folder_parent',
-          name: '裝備',
-          depth: 0,
-          order: 0,
-          kind: 'bookmark',
-          items: [],
-        } as any,
-        {
-          id: 'folder_child',
-          name: '武器',
-          parentId: 'folder_parent',
-          depth: 1,
-          order: 0,
-          kind: 'bookmark',
-          items: [
-            {
-              id: 'bm_bow',
-              name: '強力弓',
-              kind: 'bookmark',
-              status: 'idle',
-            },
-            {
-              id: 'bm_sword',
-              name: '單手劍',
-              kind: 'bookmark',
-              status: 'connecting',
-            },
-          ] as any,
-        } as any,
-        {
-          id: 'custom_sources',
-          name: '暫時搜尋',
-          depth: 0,
-          order: 1,
-          kind: 'custom',
-          items: [
-            {
-              id: 'custom_1',
-              name: '自訂搜尋',
-              kind: 'custom',
-              status: 'idle',
-            },
-          ] as any,
-        } as any,
-      ];
-
-      const result = projectResumableInspectItems(
-        ['bm_bow', 'custom_1', 'bm_sword', 'bm_nonexistent'],
-        groups,
-      );
-
-      expect(result).toEqual([
-        {
-          id: 'bm_bow',
-          name: '強力弓',
-          groupPath: '裝備 / 武器',
-          status: 'idle',
-        },
-        {
-          id: 'bm_sword',
-          name: '單手劍',
-          groupPath: '裝備 / 武器',
-          status: 'connecting',
-        },
-      ]);
-    });
-  });
-
   describe('formatBatchEnableSummary & resolveBatchEnableToast', () => {
     it('格式化成功啟用、略過與失敗數量', () => {
       const outcome: LiveSearchBatchOutcome = {

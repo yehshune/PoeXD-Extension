@@ -76,10 +76,6 @@ describe('createLiveSearchPrimarySession', () => {
           dispose: () => events.push('source:dispose'),
         } as any;
       },
-      createResumeController: () =>
-        ({
-          dispose: () => events.push('resume:dispose'),
-        }) as any,
       createExitGuard: (opts) => {
         exitGuardOpts = opts;
         return {
@@ -112,6 +108,7 @@ describe('createLiveSearchPrimarySession', () => {
     expect(doc.body.getAttribute('data-poexd-page-role')).toBe('live-search-primary');
     expect(events).toEqual(['title:start', 'host:start']);
     expect(session.console.initialArrivalSignal).toBe(true);
+    expect('resumeController' in session.console).toBe(false);
     expect(soundOpts.isEnabled()).toBe(true);
     expect(runtimeOpts.getMaxDisplayedResults()).toBe(120);
     expect(runtimeOpts.origin).toBe('https://pathofexile.tw');
@@ -154,7 +151,6 @@ describe('createLiveSearchPrimarySession', () => {
       'host:dispose',
       'exit:dispose',
       'source:dispose',
-      'resume:dispose',
       'runtime:dispose',
       'sound:dispose',
     ]);
@@ -195,7 +191,6 @@ describe('createLiveSearchPrimarySession', () => {
           enqueueIncomingConnections,
           dispose: () => events.push('source:dispose'),
         }) as any,
-      createResumeController: () => ({ dispose: () => events.push('resume:dispose') }) as any,
       createExitGuard: () => ({ dispose: () => events.push('exit:dispose') }),
       registerEnqueueBridge: (opts) => {
         captured.enqueueBridgeOpts = opts;

@@ -25,6 +25,7 @@ import {
   SESSION_CONNECTIONS_GROUP_NAME,
   SESSION_SOURCE_ID_PREFIX,
   type TemporarySearchRecord,
+  type LiveSearchBatchOutcome,
   type LiveSearchPrimaryContext,
   type LiveSearchSourceGroup,
   type LiveSearchSourceItem,
@@ -51,6 +52,8 @@ export interface BuildLiveSearchSnapshotInput {
   peekCriteriaKey: (identity: ParsedTradeSearchIdentity) => string | undefined;
   /** 官方市集 origin（未提供時回退預設國際服） */
   origin?: string;
+  hasPersistedPlan?: boolean;
+  autoRestoreOutcome?: LiveSearchBatchOutcome | null;
 }
 
 export interface BuildLiveSearchSnapshotResult {
@@ -80,6 +83,8 @@ export function buildLiveSearchSourceSnapshot(
     combinedResumeMap,
     peekCriteriaKey,
     origin,
+    hasPersistedPlan = false,
+    autoRestoreOutcome = null,
   } = input;
 
   const currentSelectedLeague = selectedLeague || 'Standard';
@@ -98,6 +103,8 @@ export function buildLiveSearchSourceSnapshot(
         availableLeagues,
         isSwitchingLeague,
         leagueResolved: isLeagueResolved,
+        hasPersistedPlan,
+        autoRestoreOutcome,
       },
       unresolvedCriteriaIdentities: [],
     };
@@ -120,6 +127,8 @@ export function buildLiveSearchSourceSnapshot(
         availableLeagues,
         isSwitchingLeague,
         leagueResolved: isLeagueResolved,
+        hasPersistedPlan,
+        autoRestoreOutcome,
       },
       unresolvedCriteriaIdentities: [],
     };
@@ -484,6 +493,8 @@ export function buildLiveSearchSourceSnapshot(
       availableLeagues,
       isSwitchingLeague,
       leagueResolved: isLeagueResolved,
+      hasPersistedPlan,
+      autoRestoreOutcome,
     },
     previousConnectionsSignature: dedupedPrevious.items.map((item) => item.id).join('|'),
     unresolvedCriteriaIdentities: dedupedPrevious.unresolved,

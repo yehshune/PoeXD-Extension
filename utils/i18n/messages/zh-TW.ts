@@ -1230,9 +1230,6 @@ export const ZH_TW_MESSAGES = {
   'liveSearch.presentation.enqueuedBackground': '已於背景開啟主控台並送入「{name}」',
   'liveSearch.presentation.enqueued': '已送入主控台：{name}',
   'liveSearch.presentation.alreadyEnqueued': '「{name}」已在主控台中',
-  'liveSearch.inspect.title': '可恢復連線 ({count})',
-  'liveSearch.inspect.empty': '目前無可恢復的連線',
-  'liveSearch.inspect.restoreBtn': '恢復 {count} 項',
   'liveSearch.settings.maxResultsLabel': '結果展示筆數上限',
   'liveSearch.settings.maxResultsDesc':
     '主控台結果區最多保留的筆數，超過時自動移除最舊的結果，避免大量卡片造成頁面卡頓。',

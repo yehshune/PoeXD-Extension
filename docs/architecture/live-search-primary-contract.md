@@ -156,6 +156,7 @@ Bookmark Domain (Read-Only Port: LiveSearchBookmarkSourcePort)
                   ▼
    LiveSearchSourceController (live-search-sources/index.ts seam → source-engine.ts 深模組)
    ├─ connection-registry.ts (獨占可變連線狀態與 Temporary Search ↔ Bookmark 歸屬調和)
+   ├─ startup-resume.ts (啟動恢復策略狀態機與失敗／延遲讀取競態防護)
    ├─ types.ts / source-filters.ts (型別、純函式 URL 組裝、相容性與群組/連線篩選)
    ├─ league-manager.ts (啟動聯盟解析與系統性聯盟切換)
    ├─ snapshot-builder.ts (Snapshot 投影)
@@ -173,7 +174,7 @@ LiveSearch Domain (Narrow Controller: LiveSearchPrimaryController)
 - **Deep Module 與介面窄化**：
   - **Bookmark Domain**：不暴露肥大的 `BookmarkModel`（不含 mutations, rename, drag-drop, import/export 等），僅以最小 `LiveSearchBookmarkSourcePort` 暴露 `readCollection()` 與 `subscribe()`。由 `createChromeBookmarkClient` 結構性滿足。
   - **LiveSearch Domain**：`LiveSearchPrimaryRuntime` 與 `LiveSearchPrimaryController` 完全不依賴 Bookmark 任何模組。
-  - **Unified Source Controller (`live-search-sources/` 目錄模組，以 `index.ts` 為唯一對外 seam)**：唯一的合成層與對外入口（導出 `createLiveSearchSourceController`），內部收斂為 `source-engine.ts`（深模組：集中負責書籤重載與 reload drain、單筆／批次啟用停止、暫時搜尋建立、一般頁背景派送接收與過期聯盟切換守衛）、`connection-registry.ts`（獨占可變連線狀態與 Temporary Search ↔ Bookmark 歸屬調和）、`league-manager.ts`（聯盟解析與切換）、`types.ts`、`source-filters.ts`、`snapshot-builder.ts` 與 `connection-dedup.ts`，統一協調 Bookmark 唯讀訂閱、主控台 page-session 記憶體內的暫時搜尋來源、`sessionConnections` 與 `previousConnections` 分區投影、Canonical Identity Reconciliation、Source Compatibility 投影、Pending 防重、批次啟用/停止 Orchestration 與篩選純函式（`filterLiveSearchSourceGroups`），對外暴露 `read()`、`subscribe()`、`enable(sourceId)`、`enableMany(sourceIds)`、`stopMany(sourceIds)`、`addTemporarySearch(url, options)`、`enqueueIncomingConnections(items)`、`removeSessionConnection(sourceId)`、`removePreviousConnection(sourceId)`、`restoreAllPreviousConnections()`、`clearPreviousConnections()`、`stop(sourceOrSubscriptionId)`、`retry(sourceOrSubscriptionId)`、`removeTemporarySearch(sourceId)` 與 `dispose()`。
+  - **Unified Source Controller (`live-search-sources/` 目錄模組，以 `index.ts` 為唯一對外 seam)**：唯一的合成層與對外入口（導出 `createLiveSearchSourceController`），內部收斂為 `source-engine.ts`（深模組：集中負責書籤重載與 reload drain、單筆／批次啟用停止、暫時搜尋建立、一般頁背景派送接收、過期聯盟切換守衛、單一 `pruneToAuthoritative` 修剪與全版本 `clearResumePlan`）、`startup-resume.ts`（內部啟動恢復策略狀態機）、`connection-registry.ts`（獨占可變連線狀態與 Temporary Search ↔ Bookmark 歸屬調和）、`league-manager.ts`（聯盟解析與切換）、`types.ts`、`source-filters.ts`、`snapshot-builder.ts` 與 `connection-dedup.ts`，統一協調 Bookmark 唯讀訂閱、主控台 page-session 記憶體內的暫時搜尋來源、`sessionConnections` 與 `previousConnections` 分區投影、Canonical Identity Reconciliation、Source Compatibility 投影、Pending 防重、批次啟用/停止 Orchestration 與篩選純函式（`filterLiveSearchSourceGroups`），對外暴露 `read()`、`subscribe()`、`enable(sourceId)`、`enableMany(sourceIds)`、`stopMany(sourceIds)`、`addTemporarySearch(url, options)`、`enqueueIncomingConnections(items)`、`removeSessionConnection(sourceId)`、`removePreviousConnection(sourceId)`、`restoreAllPreviousConnections()`、`clearPreviousConnections()`、`clearResumePlan()`、`stop(sourceOrSubscriptionId)`、`retry(sourceOrSubscriptionId)`、`removeTemporarySearch(sourceId)` 與 `dispose()`。
 - **Temporary Search + Bookmark Reconciliation 契約 (Source Ownership Invariant)**：
   - **Temporary Search 定義**：
     `Temporary Search`（使用者可見名稱：`暫時搜尋`）= 存在於目前線上搜尋主控台 page-session memory 的非書籤搜尋來源；不寫入持久化 `Bookmark` 或 `Preferences`，但在主控台啟用後會將其 canonical identity 與選用顯示資訊（`name`, `url`, `coverImageUrl`）寫入 `LiveSearchResumeStore`，使下次開啟主控台時可呈現於「上次連線」(`previousConnections`)。
@@ -273,7 +274,7 @@ LiveSearch Domain (Narrow Controller: LiveSearchPrimaryController)
     - Snapshot 具備 `leagueResolved: boolean` 語意。
     - 啟動時依確定性優先級解析 initial league：`1. persisted recent selected league > 2. Resume Store league > 3. authoritative Bookmark league > 4. official league > 5. Standard`。
     - Authoritative Bookmark collection 讀取完成後必須能參與 initial resolution，即使 official league fetch 失敗亦能自 Bookmark 敲定聯盟（例如 Hardcore），絕不提早 fallback 為 provisional Standard。
-    - 在 `leagueResolved` 確立前，Snapshot 維持 `loading: true` 與 `leagueResolved: false`，ResumeController 保持 `state = 'waiting'`，絕不以未經決策之 provisional Standard 提早執行 startup restore。
+    - 在 `leagueResolved` 確立前，Snapshot 維持 `loading: true` 與 `leagueResolved: false`，Source Engine 延後啟動恢復決策，絕不以未經決策之 provisional Standard 提早執行 startup restore。
 - **Compact Console Status Header 與單一垂直捲動區契約**：
   - 頂部固定區以單列 Compact Status Header 呈現完整主控台狀態區：
     `[ 聯盟: SelectedLeague ▾ ] · [ X 監聽 ] (· [ Y 異常 ]) · (選配 [ 累計渲染 X ]) · [ API ● 正常 ▾ ]`。
@@ -631,30 +632,28 @@ LiveSearch Resume Plan
 
 ### 14.4 啟動協調與決策 (Startup Orchestration & Seam)
 
-- **單一 Document 決策至多執行一次**：主控台建立時初始化 document-transient state machine (`idle -> waiting -> prompted | restoring | off -> restored | skipped`)，避免 source snapshot 變更引發重覆恢復迴圈。
+- **單一 Document 決策至多執行一次**：啟動恢復策略內建於 Source Engine（`live-search-sources/startup-resume.ts`），主控台建立時至多執行一次 `liveSearchResumeMode` 啟動決策，避免 source snapshot 變更引發重覆恢復迴圈。
 - **等待 Authoritative Bookmark 就緒與 Delayed-Read Race 防護**：
-  - 啟動決策必須等到 Resume Plan 成功讀取且 Bookmark Source 成功載入非 loading、非 error 的 authoritative snapshot 後才執行。
-  - 若在 await resumeStore.read() 期間 Bookmark 產生更新的 snapshot，決策必須以最新 authoritative snapshot 為準，不可沿用過期 snapshot。
+  - 啟動決策必須等到 Resume Plan 成功讀取且 Bookmark Source 成功載入非 loading、非 error 的 authoritative snapshot、且 `leagueResolved === true` 後才執行。
+  - 若在 `await resumeStore.read()` 期間 Bookmark 或聯盟產生更新的 snapshot，決策必須以最新 authoritative snapshot 為準，不可沿用過期 snapshot。
 - **Canonical Identity 永遠為權威 (No Stale Bookmark ID Dependency)**：
   - Resume Plan 僅持有 canonical identity；Bookmark ID 僅為執行當下由最新 authoritative source snapshot join 出的 transient locator。
-  - 使用者點擊「恢復」時，必須在執行當下動態重新比對 `最新 Plan ∩ 最新 Authoritative Bookmarks`，嚴禁使用啟動時保存之 stale Bookmark IDs。
+  - 啟動 `auto` 恢復與手動「全部恢復」共用 Source Engine 投影出的可啟用 `previousConnections` 清單，嚴禁使用啟動前保存之 stale Bookmark IDs，並自動排除已在「本次連線」或條件去重的項目。
 - **先 Resolve Selected League 再執行 Resume 決策**：
-  - 啟動決策依據已解析完成之 `selectedLeague`，**僅針對該聯盟**計算 `resumableCount` 與執行恢復。
-  - 例如 Plan 同時包含 Standard (3 項) 與 Hardcore (2 項)，當前工作區為 Standard 時，僅恢復或提示 Standard 3 項，絕不同時跨聯盟恢復。
+  - 啟動決策依據已解析完成之 `selectedLeague`，**僅針對該聯盟**執行 `off` 清理、單一 `pruneToAuthoritative` 修剪與 `auto` 恢復。
+  - 例如 Plan 同時包含 Standard (3 項) 與 Hardcore (2 項)，當前工作區為 Standard 時，僅處理 Standard 3 項，絕不同時跨聯盟恢復或清除。
 - **手動切換聯盟不自動執行 Auto-Restore**：
-  - 手動切換 League Context 是工作區切換，**硬契約禁止**因 `auto` 設定而在切換時自動發起連線。
-  - 切換後，新聯盟若存在 persisted intents，資料完整保留供 UI 提示或手動恢復。
+  - 手動切換 League Context 是工作區切換，**硬契約禁止**因 `auto` 或 `off` 設定而在切換時重新觸發啟動恢復或清理。
+  - 切換後，新聯盟若存在 persisted intents，資料完整保留供 UI 投影於「上次連線」或手動恢復。
 - **模式語意（`liveSearchResumeMode`）**：
   - **`off`（UI 顯示：「清理」）**：啟動主控台時不自動恢復連線，並自動清除當前 `selectedLeague` 下尚未加入「本次連線」的上次連線紀錄（保留其他聯盟之持久化紀錄）。
-  - **`prompt`（UI 顯示：「保留」）**：啟動主控台時將上次連線紀錄保留並投影於「上次連線」(`previousConnections`) 區塊，供使用者於區塊內單筆啟用、單筆移除、一鍵「全部恢復」或清空（不在頂部或側邊導覽列重複渲染獨立恢復橫幅/按鈕）。
-  - **`auto`（UI 顯示：「自動恢復」）**：啟動時若當前聯盟有可恢復項目，直接呼叫 `LiveSearchSourceController.enableMany()`，完全重用既有相容性 preflight、canonical dedup、mixed-league atomic rejection 與 1500ms pacing。若 Plan 含損壞之跨聯盟項目，由 `enableMany()` 原子上報失敗，禁止部分恢復。
+  - **`prompt`（UI 顯示：「保留」）**：啟動主控台時執行單次 `pruneToAuthoritative` 並將上次連線紀錄保留投影於「上次連線」(`previousConnections`) 區塊，供使用者於區塊內單筆啟用、單筆移除、一鍵「全部恢復」或清空（不在頂部或側邊導覽列重複渲染獨立恢復橫幅/按鈕）。
+  - **`auto`（UI 顯示：「自動恢復」）**：啟動時執行單次 `pruneToAuthoritative`，若當前聯盟的 `previousConnections` 有可啟用項目，直接呼叫 Source Engine 的 `enableMany()`，完全重用既有相容性 preflight、canonical dedup、mixed-league atomic rejection 與 1500ms pacing；0 筆可啟用項目時不執行、維持 `autoRestoreOutcome: null`。
 - **手動切換聯盟 (Manual League Switch) 投影與保護**：
   - 手動切換聯盟絕對不得觸發 auto restore。
   - 切換至有持久化紀錄的聯盟時，「上次連線」(`previousConnections`) 自動投影該聯盟尚未加入本次連線的項目；切回原聯盟時，原聯盟的紀錄依然完整保留並更新呈現。
-- **View 不成為 Resume Domain Owner 與 Restore 執行權威保證**：
-  - 使用者觸發恢復時，Controller 在執行當下重新以最新 Resume Plan 與最新 Authoritative Sources 進行動態 canonical 比對，嚴格拒絕信任或沿用過期 IDs。
 - **Restore Outcome 視覺呈現**：
-  - Prompt 恢復與 Auto 恢復之 `LiveSearchBatchOutcome` 均必須呈現給使用者（重用既有 `presentBatchEnableOutcome()`），例如 mixed-league 拒絕時呈現單次明確錯誤，絕不得 silent 或無事發生。
-  - Controller 僅輸出 domain/orchestration outcome（Auto 恢復透過 snapshot 投影 `autoRestoreOutcome`），由 View 負責 toast/DOM 呈現，杜絕重複提示。
-- **清除上次啟用記錄**：於主控台設定提供低權重清除按鈕，僅清除當前版本的 Resume Plan，不停止現存連線、不刪除暫時搜尋、不刪除書籤。
-- **Narrow UI Seam**：`LiveSearchResumeController` 提供 narrow reactive snapshot (`state`, `resumableCount`, `resumableSourceIds`, `bannerVisible`, `hasPersistedPlan`, `autoRestoreOutcome`) 與操作命令（`restore()`, `skip()`, `clear()`），View 絕不直接操作 storage 或自行 join 書籤。
+  - Prompt 恢復與 Auto 恢復之 `LiveSearchBatchOutcome` 均必須呈現給使用者（重用既有 `presentBatchEnableOutcome()`），例如 mixed-league 拒絕或執行錯誤時呈現單次明確錯誤，絕不得 silent 或無事發生。
+  - Source Engine 僅輸出 domain/orchestration outcome（Auto 恢復透過 snapshot 投影 `autoRestoreOutcome`），由 View 負責 toast/DOM 呈現，杜絕重複提示。
+- **清除上次啟用記錄**：於主控台設定提供低權重清除按鈕，透過 `sourceController.clearResumePlan()` 清除當前遊戲版本全部聯盟的 Resume Plan，不停止現存連線、不刪除暫時搜尋、不刪除書籤。
+- **Single Narrow UI Seam**：不再存在獨立的 `LiveSearchResumeController`；兩個主控台 Pane 統一透過 `LiveSearchSourceController` seam 讀取 `hasPersistedPlan`、`autoRestoreOutcome`、`previousConnections` 並呼叫 `clearResumePlan()` / `restoreAllPreviousConnections()` / `clearPreviousConnections()`，View 絕不直接操作 storage 或自行 join 書籤。

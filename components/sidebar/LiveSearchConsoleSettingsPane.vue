@@ -476,7 +476,7 @@ import {
 } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
 import { t, type I18nKey } from '@/utils/i18n';
-import type { LiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
+import type { LiveSearchSourceController } from '@/entrypoints/content/logic/live-search-sources';
 import type {
   LiveSearchDesktopNotifier,
   LiveSearchDesktopNotifyOutcome,
@@ -505,8 +505,8 @@ const props = defineProps({
     type: Object as PropType<PreferencesModule | null>,
     default: null,
   },
-  resumeController: {
-    type: Object as PropType<LiveSearchResumeController | null>,
+  sourceController: {
+    type: Object as PropType<LiveSearchSourceController | null>,
     default: null,
   },
   soundNotifier: {
@@ -653,10 +653,10 @@ function bindResumeSource() {
   stopResumeSub?.();
   stopResumeSub = undefined;
 
-  if (props.resumeController) {
-    hasPersistedPlan.value = props.resumeController.read().hasPersistedPlan;
-    stopResumeSub = props.resumeController.subscribe((snap) => {
-      hasPersistedPlan.value = snap.hasPersistedPlan;
+  if (props.sourceController) {
+    hasPersistedPlan.value = Boolean(props.sourceController.read().hasPersistedPlan);
+    stopResumeSub = props.sourceController.subscribe((snap) => {
+      hasPersistedPlan.value = Boolean(snap.hasPersistedPlan);
     });
   } else {
     if (!standaloneResumeStore) {
@@ -684,7 +684,7 @@ watch(
 );
 
 watch(
-  () => props.resumeController,
+  () => props.sourceController,
   () => {
     bindResumeSource();
   },
@@ -971,8 +971,10 @@ async function handleClearResumePlan() {
   isClearingPlan.value = true;
   try {
     let success = false;
-    if (props.resumeController) {
-      success = await props.resumeController.clear();
+    if (props.sourceController) {
+      success = props.sourceController.clearResumePlan
+        ? await props.sourceController.clearResumePlan()
+        : false;
     } else {
       success = await clearLiveSearchResumePlan(version);
     }

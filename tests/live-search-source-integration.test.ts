@@ -26,7 +26,6 @@ import type {
   RenderResultOptions,
   ResetUnreadOptions,
 } from '@/entrypoints/content/logic/live-search-host-client';
-import { createLiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
 import {
   createLiveSearchResumeStore,
   type LiveSearchResumeStorage,
@@ -2445,15 +2444,8 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
         fetchLeagues: failingFetchLeagues,
       });
 
-      const resumeCtrl = createLiveSearchResumeController({
-        version: 'poe1',
-        preferences: prefModule,
-        sourceController: sourceCtrl,
-        resumeStore,
-      });
-
-      const resumeSnapshots: any[] = [];
-      resumeCtrl.subscribe((s) => resumeSnapshots.push(s));
+      const sourceSnapshots: LiveSearchSourceSnapshot[] = [];
+      sourceCtrl.subscribe((s) => sourceSnapshots.push(s));
 
       await vi.waitFor(() => {
         expect(sourceCtrl.read().loading).toBe(false);
@@ -2462,14 +2454,13 @@ describe('Bookmark -> LiveSearch Integration Tests', () => {
 
       expect(sourceCtrl.read().selectedLeague.toLowerCase()).toBe('hardcore');
 
-      for (const snap of resumeSnapshots) {
-        if (snap.state === 'prompted' || snap.state === 'restored') {
-          expect(snap.resumableSourceIds).not.toContain('Standard');
+      for (const snap of sourceSnapshots) {
+        if (snap.leagueResolved) {
+          expect(snap.selectedLeague.toLowerCase()).toBe('hardcore');
         }
       }
 
       sourceCtrl.dispose();
-      resumeCtrl.dispose?.();
     });
 
     it('[Regression 5] League switch immediately clears and rebinds Host container context without enabling new source', async () => {

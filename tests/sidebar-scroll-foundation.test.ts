@@ -163,7 +163,7 @@ vi.mock('@/components/sidebar/SettingsPane.vue', () => ({
 vi.mock('@/components/sidebar/LiveSearchPrimaryPane.vue', () => ({
   default: defineComponent({
     name: 'LiveSearchPrimaryPane',
-    props: ['controller', 'sourceController', 'resumeController'],
+    props: ['controller', 'sourceController'],
     setup() {
       paneMountCounts.liveSearchPrimary++;
       onUnmounted(() => {
@@ -207,7 +207,7 @@ vi.mock('@/components/sidebar/LiveSearchPrimaryPane.vue', () => ({
 vi.mock('@/components/sidebar/LiveSearchConsoleSettingsPane.vue', () => ({
   default: defineComponent({
     name: 'LiveSearchConsoleSettingsPane',
-    props: ['resumeController'],
+    props: ['sourceController'],
     setup() {
       paneMountCounts.liveSearchConsoleSettings++;
       onUnmounted(() => {

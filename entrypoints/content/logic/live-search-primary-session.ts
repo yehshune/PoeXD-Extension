@@ -13,10 +13,6 @@ import { registerLiveSearchPrimaryEnqueueBridge } from './live-search-enqueue-re
 import { createLiveSearchPrimaryExitGuard } from './live-search-primary-exit-guard';
 import { LiveSearchPrimaryRuntime } from './live-search-primary-runtime';
 import {
-  createLiveSearchResumeController,
-  type LiveSearchResumeController,
-} from './live-search-resume-controller';
-import {
   createLiveSearchDesktopNotifier,
   type LiveSearchDesktopNotifier,
 } from './live-search-desktop-notifier';
@@ -39,7 +35,6 @@ import {
 export interface LiveSearchConsoleHandles {
   primaryController?: LiveSearchPrimaryController | null;
   sourceController?: LiveSearchSourceController | null;
-  resumeController?: LiveSearchResumeController | null;
   soundNotifier?: LiveSearchSoundNotifier | null;
   desktopNotifier?: LiveSearchDesktopNotifier | null;
   initialArrivalSignal?: boolean;
@@ -82,7 +77,6 @@ export interface LiveSearchPrimarySessionFactories {
   createResumeStore: typeof createLiveSearchResumeStore;
   createBookmarkClient: typeof createChromeBookmarkClient;
   createSourceController: typeof createLiveSearchSourceController;
-  createResumeController: typeof createLiveSearchResumeController;
   createExitGuard: typeof createLiveSearchPrimaryExitGuard;
   registerEnqueueBridge: typeof registerLiveSearchPrimaryEnqueueBridge;
   messenger: typeof extensionMessaging;
@@ -109,7 +103,6 @@ const DEFAULT_FACTORIES: LiveSearchPrimarySessionFactories = {
   createResumeStore: createLiveSearchResumeStore,
   createBookmarkClient: createChromeBookmarkClient,
   createSourceController: createLiveSearchSourceController,
-  createResumeController: createLiveSearchResumeController,
   createExitGuard: createLiveSearchPrimaryExitGuard,
   registerEnqueueBridge: registerLiveSearchPrimaryEnqueueBridge,
   messenger: extensionMessaging,
@@ -142,7 +135,6 @@ export function createLiveSearchPrimarySession(
   let unsubSourceBadgeSync: (() => void) | null = null;
   let primaryRuntime: ReturnType<LiveSearchPrimarySessionFactories['createRuntime']> | null = null;
   let sourceController: LiveSearchSourceController | null = null;
-  let resumeController: LiveSearchResumeController | null = null;
   let exitGuard: ReturnType<LiveSearchPrimarySessionFactories['createExitGuard']> | null = null;
   let cleanupEnqueueListener: (() => void) | null = null;
 
@@ -156,7 +148,6 @@ export function createLiveSearchPrimarySession(
     hostGuard?.dispose();
     exitGuard?.dispose();
     sourceController?.dispose();
-    resumeController?.dispose();
     primaryRuntime?.dispose();
     desktopNotifier?.dispose();
     soundNotifier?.dispose();
@@ -280,12 +271,6 @@ export function createLiveSearchPrimarySession(
             badge.syncAll();
           })
         : null;
-    resumeController = f.createResumeController({
-      version,
-      preferences,
-      sourceController: sources,
-      resumeStore,
-    });
     exitGuard = f.createExitGuard({
       shouldWarn: () => (primaryController.read().subscriptions.length ?? 0) > 0,
     });
@@ -322,7 +307,6 @@ export function createLiveSearchPrimarySession(
     console: {
       primaryController,
       sourceController,
-      resumeController,
       soundNotifier,
       desktopNotifier,
       initialArrivalSignal,

@@ -9,7 +9,6 @@ import {
   resolveSingleEnqueueToast,
 } from '@/components/sidebar/live-search-presentation';
 import { createLiveSearchConsoleTitleGuard } from '@/entrypoints/content/logic/live-search-console-title';
-import LiveSearchResumeInspectPopover from '@/components/sidebar/LiveSearchResumeInspectPopover.vue';
 import LiveSearchConsoleSettingsPane from '@/components/sidebar/LiveSearchConsoleSettingsPane.vue';
 import TemporarySearchDialog from '@/components/sidebar/TemporarySearchDialog.vue';
 import { setActiveDisplayLocale, resetI18nStateForTests, t } from '@/utils/i18n';
@@ -72,46 +71,6 @@ describe('LiveSearch Console & Presentation i18n (Seam 7)', () => {
       expect(mockDoc.title).toBe('LiveSearch Console');
 
       guard.dispose();
-    });
-  });
-
-  describe('LiveSearchResumeInspectPopover', () => {
-    it('reactively renders inspect popover content across locales', async () => {
-      const host = document.createElement('div');
-      document.body.appendChild(host);
-
-      const items = [{ id: '1', name: 'Item 1', groupPath: 'Group A', status: 'idle' as const }];
-
-      const app = createApp({
-        render() {
-          return h(LiveSearchResumeInspectPopover, {
-            open: true,
-            items,
-            leagueDisplay: 'Standard',
-          });
-        },
-      });
-      app.mount(host);
-      await nextTick();
-
-      // zh-TW default
-      expect(document.body.textContent).toContain('可恢復連線');
-      expect(document.body.textContent).toContain('恢復 1 項');
-
-      // zh-CN
-      setActiveDisplayLocale('zh-CN');
-      await nextTick();
-      expect(document.body.textContent).toContain('可恢复连接');
-      expect(document.body.textContent).toContain('恢复 1 项');
-
-      // en
-      setActiveDisplayLocale('en');
-      await nextTick();
-      expect(document.body.textContent).toContain('Resumable Connections');
-      expect(document.body.textContent).toContain('Restore 1');
-
-      app.unmount();
-      host.remove();
     });
   });
 

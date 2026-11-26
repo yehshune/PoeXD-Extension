@@ -23,6 +23,7 @@ import { createConnectionDedup, hasValidCover, shouldAdoptExisting } from './con
 import { createLiveSearchConnectionRegistry } from './connection-registry';
 import { createLiveSearchLeagueManager } from './league-manager';
 import { buildLiveSearchSourceSnapshot } from './snapshot-builder';
+import { createLiveSearchStartupResume, type LiveSearchStartupResume } from './startup-resume';
 import {
   evaluateLiveSearchSourceCompatibility,
   extractSectionSourceCanonicalKey,
@@ -130,6 +131,32 @@ export function createLiveSearchSourceController(
   let criteriaResolutionPending = false;
   let lastPreviousConnectionsSignature = '';
   let enqueueIncomingChain: Promise<unknown> = Promise.resolve();
+  let hasPersistedPlan = false;
+  let autoRestoreOutcome: LiveSearchBatchOutcome | null = null;
+  let startupStateVersion = 0;
+  let startupResume: LiveSearchStartupResume | null = null;
+
+  function bumpStartupStateVersion(): void {
+    startupStateVersion += 1;
+  }
+
+  function applyInitialResumeIdentities(identities: readonly LiveSearchResumeIdentity[]): void {
+    hasPersistedPlan = identities.length > 0;
+    registry.applyInitialResumeRead(identities);
+  }
+
+  async function pruneCurrentLeagueResumePlan(): Promise<void> {
+    if (!resumeStore || !currentCollection) return;
+    const currentSelectedLeague = leagueManager.getRawSelectedLeague();
+    if (!currentSelectedLeague) return;
+    const validKeys = new Set<string>();
+    for (const b of currentCollection.bookmarks) {
+      const key = getBookmarkCanonicalKey(b);
+      if (key) validKeys.add(key);
+    }
+    registry.pruneBaselineForLeague(validKeys, currentSelectedLeague);
+    await resumeStore.pruneToAuthoritative(validKeys, { league: currentSelectedLeague });
+  }
 
   function isReloadPending(): boolean {
     return isReloading || hasPendingReload;
@@ -178,29 +205,32 @@ export function createLiveSearchSourceController(
 
         if (!outcome.ok) {
           errorMessage = outcome.error.message;
+          bumpStartupStateVersion();
         } else {
           errorMessage = undefined;
           rawCollection = outcome.value;
           syncResolvedCollection();
+          bumpStartupStateVersion();
           if (currentCollection) {
             reconcileSourceOwnership();
-            const currentSelectedLeague = leagueManager.getRawSelectedLeague();
-            if (resumeStore && currentSelectedLeague) {
-              const validKeys = new Set<string>();
-              for (const b of currentCollection.bookmarks) {
-                const key = getBookmarkCanonicalKey(b);
-                if (key) validKeys.add(key);
-              }
-              registry.pruneBaselineForLeague(validKeys, currentSelectedLeague);
-              void resumeStore.pruneToAuthoritative(validKeys, { league: currentSelectedLeague });
-            }
           }
         }
+
+        // 在讓出微任務（resolveInitialLeague）前先記住啟動決策是否已完成，
+        // 避免 startStartupTasks 在 await 期間觸發 startupResume prune 後這裡又重覆 prune
+        const shouldPruneAfterReload = !startupResume || startupResume.hasExecuted();
 
         loading = false;
 
         if (!leagueManager.isResolved()) {
           await leagueManager.resolveInitialLeague();
+        }
+
+        if (disposed || generation !== activeReloadGeneration) return;
+        if (hasPendingReload) continue;
+
+        if (outcome.ok && currentCollection && shouldPruneAfterReload) {
+          void pruneCurrentLeagueResumePlan();
         }
 
         notify();
@@ -210,11 +240,13 @@ export function createLiveSearchSourceController(
     } finally {
       isReloading = false;
       reloadDrainPromise = null;
+      startupResume?.evaluate();
     }
   }
 
   function scheduleReload(): void {
     if (disposed || !source) return;
+    bumpStartupStateVersion();
     if (isReloading) {
       hasPendingReload = true;
       return;
@@ -250,6 +282,7 @@ export function createLiveSearchSourceController(
     getLatestResumeIdentities: () => registry.getLatestResumeIdentities(),
     onSelectedLeagueChanged: () => {
       syncResolvedCollection();
+      bumpStartupStateVersion();
     },
     notify,
     liveController,
@@ -275,12 +308,13 @@ export function createLiveSearchSourceController(
 
   if (resumeStore) {
     unsubResumeStore = resumeStore.subscribe((plan) => {
+      hasPersistedPlan = plan.identities.length > 0;
       registry.applyResumePlanSnapshot(plan.identities);
       if (!disposed) notify();
     });
     void resumeStore.read().then((res) => {
       if (res.ok && !disposed) {
-        registry.applyInitialResumeRead(res.value.identities);
+        applyInitialResumeIdentities(res.value.identities);
         notify();
       }
     });
@@ -407,8 +441,8 @@ export function createLiveSearchSourceController(
     return null;
   }
 
-  function buildSnapshot(): Readonly<LiveSearchSourceSnapshot> {
-    const result = buildLiveSearchSourceSnapshot({
+  function computeSnapshotResult() {
+    return buildLiveSearchSourceSnapshot({
       loading,
       errorMessage,
       isLeagueResolved: leagueManager.isResolved(),
@@ -426,7 +460,13 @@ export function createLiveSearchSourceController(
       combinedResumeMap: registry.buildCombinedResumeMap(),
       peekCriteriaKey: (identity) => connectionDedup.peekCriteriaKey(identity),
       origin,
+      hasPersistedPlan,
+      autoRestoreOutcome,
     });
+  }
+
+  function buildSnapshot(): Readonly<LiveSearchSourceSnapshot> {
+    const result = computeSnapshotResult();
     if (result.previousConnectionsSignature !== undefined) {
       lastPreviousConnectionsSignature = result.previousConnectionsSignature;
     }
@@ -446,6 +486,7 @@ export function createLiveSearchSourceController(
         console.error('[PoeXD LiveSearch] Error in source integration listener:', err);
       }
     }
+    startupResume?.evaluate();
   }
 
   async function persistResumeIdentities(
@@ -1407,8 +1448,72 @@ export function createLiveSearchSourceController(
     notify();
   });
 
+  async function clearPreviousConnectionsForCurrentLeague(): Promise<boolean> {
+    if (disposed) return false;
+    const keysToRemove = registry.clearPreviousForLeague(leagueManager.getRawSelectedLeague());
+    let cleared = true;
+    if (resumeStore && keysToRemove.length > 0) {
+      cleared = await resumeStore.removeIdentities(keysToRemove);
+    }
+    notify();
+    return cleared;
+  }
+
+  if (resumeStore && preferences) {
+    startupResume = createLiveSearchStartupResume({
+      resumeStore,
+      preferences,
+      isDisposed: () => disposed,
+      isReady: () =>
+        !loading &&
+        !errorMessage &&
+        leagueManager.isResolved() &&
+        !isReloadPending() &&
+        !leagueManager.isSwitching(),
+      getStateVersion: () => startupStateVersion,
+      syncResumePlan: applyInitialResumeIdentities,
+      clearPreviousForCurrentLeague: clearPreviousConnectionsForCurrentLeague,
+      pruneCurrentLeague: pruneCurrentLeagueResumePlan,
+      getActionablePreviousIds: async () => {
+        const initial = computeSnapshotResult();
+        if (initial.unresolvedCriteriaIdentities.length > 0) {
+          await connectionDedup.resolveMany(initial.unresolvedCriteriaIdentities);
+          if (disposed) return [];
+        }
+        const snap = buildSnapshot();
+        return (snap.previousConnections ?? [])
+          .filter(
+            (item) =>
+              (!item.status || item.status === 'idle' || item.status === 'closed') &&
+              !item.pending &&
+              item.compatibility === 'compatible',
+          )
+          .map((item) => item.id);
+      },
+      runAutoRestore: async (sourceIds) => {
+        try {
+          return await enableManySources(sourceIds);
+        } catch (err) {
+          return createBatchOutcome({
+            success: false,
+            requested: sourceIds.length,
+            failed: sourceIds.length,
+            runtimeFailureCount: sourceIds.length,
+            error: err instanceof Error ? err.message : t('liveSearch.error.autoRestoreFailed'),
+          });
+        }
+      },
+      onAutoRestoreOutcome: (outcome) => {
+        autoRestoreOutcome = outcome;
+        notify();
+      },
+    });
+  }
+
   if (source) {
     scheduleReload();
+  } else {
+    startupResume?.evaluate();
   }
 
   return {
@@ -1513,15 +1618,18 @@ export function createLiveSearchSourceController(
       return enableManySources(ids);
     },
 
-    async clearPreviousConnections() {
+    clearPreviousConnections: clearPreviousConnectionsForCurrentLeague,
+
+    async clearResumePlan() {
       if (disposed) return false;
-      const keysToRemove = registry.clearPreviousForLeague(leagueManager.getRawSelectedLeague());
-      let cleared = true;
-      if (resumeStore && keysToRemove.length > 0) {
-        cleared = await resumeStore.removeIdentities(keysToRemove);
+      if (resumeStore) {
+        const cleared = await resumeStore.clear();
+        if (!cleared || disposed) return false;
       }
+      registry.clearAllPrevious();
+      hasPersistedPlan = false;
       notify();
-      return cleared;
+      return true;
     },
 
     switchLeague: (targetLeague) => leagueManager.switchLeague(targetLeague),
@@ -1541,11 +1649,12 @@ export function createLiveSearchSourceController(
       }
       return true;
     },
-    resumeStore,
 
     dispose() {
       if (disposed) return;
       disposed = true;
+      startupResume?.dispose();
+      startupResume = null;
       activeReloadGeneration++;
       reloadDrainPromise = null;
       leagueManager.dispose();

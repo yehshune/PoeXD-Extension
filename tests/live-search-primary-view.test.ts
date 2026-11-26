@@ -25,7 +25,6 @@ import {
   LIVE_SEARCH_CONSOLE_TITLE,
 } from '@/entrypoints/content/logic/live-search-console-title';
 import { createLiveSearchResumeStore } from '@/utils/live-search-resume-store';
-import { createLiveSearchResumeController } from '@/entrypoints/content/logic/live-search-resume-controller';
 import { listenPoeEvent } from '@/utils/event-contracts';
 import type {
   EnsureContainerOptions,
@@ -1216,6 +1215,136 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       container.remove();
     });
 
+    it('LiveSearchConsoleSettingsPane reads hasPersistedPlan from sourceController and invokes clearResumePlan', async () => {
+      const storage = createInMemoryPreferencesStorage({
+        liveSearchResumeMode_poe1: 'prompt',
+      });
+      const prefOutcome = await createPreferencesModule('poe1', storage);
+      if (!prefOutcome.ok) throw new Error(prefOutcome.error.message);
+
+      let hasPersistedPlan = true;
+      const listeners = new Set<(snap: any) => void>();
+      const buildSnap = () => ({
+        loading: false,
+        groups: [],
+        sessionConnections: [],
+        previousConnections: [],
+        selectedLeague: 'Standard',
+        availableLeagues: ['Standard'],
+        isSwitchingLeague: false,
+        leagueResolved: true,
+        hasPersistedPlan,
+        autoRestoreOutcome: null,
+      });
+      const clearResumePlan = vi.fn(async () => {
+        hasPersistedPlan = false;
+        const snap = buildSnap();
+        for (const cb of listeners) cb(snap);
+        return true;
+      });
+      const sourceController = {
+        read: buildSnap,
+        subscribe: (cb: (snap: any) => void) => {
+          listeners.add(cb);
+          cb(buildSnap());
+          return () => listeners.delete(cb);
+        },
+        clearResumePlan,
+      } as any;
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const app = createApp(LiveSearchConsoleSettingsPane, {
+        preferences: prefOutcome.value,
+        sourceController,
+      });
+      app.mount(container);
+      await flushAsync();
+
+      const clearBtn = container.querySelector(
+        '[data-test="btn-clear-resume-plan"]',
+      ) as HTMLButtonElement;
+      expect(clearBtn).not.toBeNull();
+      expect(clearBtn.disabled).toBe(false);
+
+      clearBtn.click();
+      await flushAsync();
+
+      expect(clearResumePlan).toHaveBeenCalledTimes(1);
+      expect(clearBtn.disabled).toBe(true);
+
+      app.unmount();
+      container.remove();
+    });
+
+    it('LiveSearchConsoleSettingsPane falls back to standalone resume store when mounted without sourceController', async () => {
+      const storage = createInMemoryPreferencesStorage({
+        liveSearchResumeMode_poe1: 'prompt',
+      });
+      const prefOutcome = await createPreferencesModule('poe1', storage);
+      if (!prefOutcome.ok) throw new Error(prefOutcome.error.message);
+
+      const backing: Record<string, unknown> = {
+        liveSearchResumePlan_poe1: {
+          version: 2,
+          identities: [{ gameVersion: 'poe1', league: 'standard', searchId: 'H4sIstandalone1' }],
+        },
+      };
+      const prevChrome = (globalThis as any).chrome;
+      const removeSpy = vi.fn(async (keys: string | string[]) => {
+        for (const k of Array.isArray(keys) ? keys : [keys]) delete backing[k];
+      });
+      (globalThis as any).chrome = {
+        ...prevChrome,
+        storage: {
+          ...prevChrome?.storage,
+          local: {
+            get: vi.fn(async (keys: string | string[]) => {
+              const out: Record<string, unknown> = {};
+              for (const k of Array.isArray(keys) ? keys : [keys]) {
+                if (k in backing) out[k] = structuredClone(backing[k]);
+              }
+              return out;
+            }),
+            set: vi.fn(async (items: Record<string, unknown>) => {
+              Object.assign(backing, items);
+            }),
+            remove: removeSpy,
+          },
+          onChanged: {
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+          },
+        },
+      };
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const app = createApp(LiveSearchConsoleSettingsPane, {
+        preferences: prefOutcome.value,
+      });
+      try {
+        app.mount(container);
+        await flushAsync(40);
+
+        const clearBtn = container.querySelector(
+          '[data-test="btn-clear-resume-plan"]',
+        ) as HTMLButtonElement;
+        expect(clearBtn).not.toBeNull();
+        expect(clearBtn.disabled).toBe(false);
+
+        clearBtn.click();
+        await flushAsync(40);
+
+        expect(removeSpy).toHaveBeenCalledWith(['liveSearchResumePlan_poe1']);
+        expect(clearBtn.disabled).toBe(true);
+      } finally {
+        app.unmount();
+        container.remove();
+        (globalThis as any).chrome = prevChrome;
+      }
+    });
+
     it('status filter ToggleGroup maintains single-selection invariant and does not deselect to empty when re-clicked', async () => {
       const controller = runtime;
       const { container, unmount } = mountComponent({ controller });
@@ -1871,25 +2000,20 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         async remove() {},
       };
       const resumeStore = createLiveSearchResumeStore('poe1', resumeStorage);
-      const sourceController = createLiveSearchSourceController(port, controller, { resumeStore });
-
       const prefStorage = createInMemoryPreferencesStorage({
         liveSearchResumeMode_poe1: 'prompt',
       });
       const prefOutcome = await createPreferencesModule('poe1', prefStorage);
       if (!prefOutcome.ok) throw new Error(prefOutcome.error.message);
 
-      const resumeController = createLiveSearchResumeController({
-        version: 'poe1',
-        preferences: prefOutcome.value,
-        sourceController,
+      const sourceController = createLiveSearchSourceController(port, controller, {
         resumeStore,
+        preferences: prefOutcome.value,
       });
 
       const { container, unmount } = mountComponent({
         controller,
         sourceController,
-        resumeController,
       });
       await flushAsync(80);
 
@@ -1919,7 +2043,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       removeToastListener();
       unmount();
       sourceController.dispose();
-      resumeController.dispose();
     });
 
     it('auto restore 遭遇 mixed-league reject 時亦將錯誤呈現在 Toast，不 silent', async () => {
@@ -1929,80 +2052,42 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       });
 
       const controller = runtime;
-      const port: LiveSearchBookmarkSourcePort = {
-        readCollection: async () => ({
-          ok: true,
-          value: {
-            groups: [],
-            bookmarks: [
-              {
-                id: 'b_std',
-                name: 'Standard 項目',
-                url: 'https://www.pathofexile.com/trade/search/Standard/H4sIs1',
-                leaguePinned: true,
-                groupId: 'g1',
-                searchRecordId: 'r1',
-                gameVersion: 'poe1',
-                order: 0,
-              },
-              {
-                id: 'b_hc',
-                name: 'Hardcore 項目',
-                url: 'https://www.pathofexile.com/trade/search/Hardcore/H4sIh1',
-                leaguePinned: true,
-                groupId: 'g1',
-                searchRecordId: 'r2',
-                gameVersion: 'poe1',
-                order: 1,
-              },
-            ],
-          },
-        }),
-        subscribe: () => () => {},
+      const listeners = new Set<(snap: any) => void>();
+      let currentSnap: any = {
+        loading: false,
+        groups: [],
+        sessionConnections: [],
+        previousConnections: [],
+        selectedLeague: 'Standard',
+        availableLeagues: ['Standard'],
+        isSwitchingLeague: false,
+        leagueResolved: true,
+        hasPersistedPlan: true,
+        autoRestoreOutcome: null,
       };
-
-      const resumeStorage = {
-        async get() {
-          return {
-            liveSearchResumePlan_poe1: {
-              version: 1,
-              identities: [
-                { gameVersion: 'poe1', league: 'standard', searchId: 'H4sIs1' },
-                { gameVersion: 'poe1', league: 'hardcore', searchId: 'H4sIh1' },
-              ],
-            },
-          };
+      const sourceController = {
+        read: () => currentSnap,
+        subscribe: (cb: (snap: any) => void) => {
+          listeners.add(cb);
+          cb(currentSnap);
+          return () => listeners.delete(cb);
         },
-        async set() {},
-        async remove() {},
-      };
-      const resumeStore = createLiveSearchResumeStore('poe1', resumeStorage);
-      const sourceController = createLiveSearchSourceController(port, controller, { resumeStore });
-
-      const prefStorage = createInMemoryPreferencesStorage({
-        liveSearchResumeMode_poe1: 'auto',
-      });
-      const prefOutcome = await createPreferencesModule('poe1', prefStorage);
-      if (!prefOutcome.ok) throw new Error(prefOutcome.error.message);
-
-      const resumeController = createLiveSearchResumeController({
-        version: 'poe1',
-        preferences: prefOutcome.value,
-        sourceController,
-        resumeStore,
-      });
-
-      // 模擬自動恢復時遭遇 mixed-league reject
-      vi.spyOn(sourceController, 'enableMany').mockResolvedValueOnce(
-        createMockMixedLeagueOutcome(),
-      );
+        dispose: vi.fn(),
+      } as any;
 
       const { container, unmount } = mountComponent({
         controller,
         sourceController,
-        resumeController,
       });
-      await flushAsync(100);
+      await flushAsync(40);
+
+      // 模擬 Source Engine 啟動 auto restore 投影 mixed-league reject outcome
+      currentSnap = {
+        ...currentSnap,
+        autoRestoreOutcome: createMockMixedLeagueOutcome(),
+      };
+      for (const cb of listeners) cb(currentSnap);
+      await flushAsync(40);
 
       // 零部分連線
       expect(runtime.getSubscriptions()).toHaveLength(0);
@@ -2013,8 +2098,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
       removeToastListener();
       unmount();
-      sourceController.dispose();
-      resumeController.dispose();
     });
 
     it('上次連線分區直接顯示當前聯盟可恢復項目與來源資料夾標籤，隱藏閒置「未啟用」文字，且不渲染冗餘頂部橫幅', async () => {
@@ -2071,30 +2154,25 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
         async remove() {},
       };
       const resumeStore = createLiveSearchResumeStore('poe1', resumeStorage);
-      const sourceController = createLiveSearchSourceController(port, controller, { resumeStore });
-
-      // 加入 Temporary Search
-      await sourceController.addTemporarySearch(
-        'https://www.pathofexile.com/trade/search/Standard/H4sItemp_should_not_show',
-      );
-
       const prefStorage = createInMemoryPreferencesStorage({
         liveSearchResumeMode_poe1: 'prompt',
       });
       const prefOutcome = await createPreferencesModule('poe1', prefStorage);
       if (!prefOutcome.ok) throw new Error(prefOutcome.error.message);
 
-      const resumeController = createLiveSearchResumeController({
-        version: 'poe1',
-        preferences: prefOutcome.value,
-        sourceController,
+      const sourceController = createLiveSearchSourceController(port, controller, {
         resumeStore,
+        preferences: prefOutcome.value,
       });
+
+      // 加入 Temporary Search
+      await sourceController.addTemporarySearch(
+        'https://www.pathofexile.com/trade/search/Standard/H4sItemp_should_not_show',
+      );
 
       const { container, unmount } = mountComponent({
         controller,
         sourceController,
-        resumeController,
       });
       await flushAsync(100);
 
@@ -2120,7 +2198,6 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
 
       unmount();
       sourceController.dispose();
-      resumeController.dispose();
     });
 
     it('上次連線選單「清空紀錄」與本次連線選單「移除已停止的連線」、新增連線入口及排隊啟動中狀態回饋', async () => {

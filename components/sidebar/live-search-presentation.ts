@@ -1,11 +1,5 @@
-import type {
-  LiveSearchBatchOutcome,
-  LiveSearchSourceGroup,
-  LiveSearchSourceItem,
-} from '@/entrypoints/content/logic/live-search-sources';
+import type { LiveSearchBatchOutcome } from '@/entrypoints/content/logic/live-search-sources';
 import type { LiveSearchEnqueueResponse } from '@/utils/live-search-contract';
-import type { ResumableInspectItem } from './LiveSearchResumeInspectPopover.vue';
-import { formatFolderPath } from '@/utils/bookmark-folder-tree';
 import { formatMessage, t } from '@/utils/i18n';
 
 /**
@@ -14,65 +8,6 @@ import { formatMessage, t } from '@/utils/i18n';
 export interface BatchPresentationToast {
   message: string;
   tone: 'default' | 'error';
-}
-
-/**
- * 將 Resume 可恢復 IDs 投影為 Inspect 呈現物件清單
- * 純 presentation projection：不讀取 storage、不修改 controller、不決定哪些 IDs 可恢復
- */
-export function projectResumableInspectItems(
-  resumableSourceIds: readonly string[] | undefined,
-  groups: readonly LiveSearchSourceGroup[] | undefined,
-  previousConnections?: readonly LiveSearchSourceItem[] | undefined,
-): ResumableInspectItem[] {
-  if (!resumableSourceIds || resumableSourceIds.length === 0) {
-    return [];
-  }
-  if (
-    (!groups || groups.length === 0) &&
-    (!previousConnections || previousConnections.length === 0)
-  ) {
-    return [];
-  }
-
-  const itemsMap = new Map<string, { item: LiveSearchSourceItem; group?: LiveSearchSourceGroup }>();
-  if (groups) {
-    for (const g of groups) {
-      if (g.kind !== 'bookmark') continue;
-      for (const item of g.items) {
-        if (item.kind === 'bookmark') {
-          itemsMap.set(item.id, { item, group: g });
-        }
-      }
-    }
-  }
-  if (previousConnections) {
-    for (const item of previousConnections) {
-      if (!itemsMap.has(item.id)) {
-        itemsMap.set(item.id, { item });
-      }
-    }
-  }
-
-  const result: ResumableInspectItem[] = [];
-  const seenCanonicalKeys = new Set<string>();
-  for (const id of resumableSourceIds) {
-    const entry = itemsMap.get(id);
-    if (!entry) continue;
-    const { item, group } = entry;
-    const dedupKey = item.canonicalKey || item.url || item.id;
-    if (seenCanonicalKeys.has(dedupKey)) continue;
-    seenCanonicalKeys.add(dedupKey);
-    const groupPath =
-      group && groups ? formatFolderPath(groups, group.id) || group.name : item.groupName;
-    result.push({
-      id: item.id,
-      name: item.name,
-      groupPath: groupPath || t('liveSearch.primary.previousGroupName'),
-      status: item.status ?? 'idle',
-    });
-  }
-  return result;
 }
 
 /**

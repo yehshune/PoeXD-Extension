@@ -1232,9 +1232,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.presentation.enqueuedBackground': '已在后台打开主控台并送入「{name}」',
   'liveSearch.presentation.enqueued': '已送入主控台：{name}',
   'liveSearch.presentation.alreadyEnqueued': '「{name}」已在主控台中',
-  'liveSearch.inspect.title': '可恢复连接 ({count})',
-  'liveSearch.inspect.empty': '目前无可恢复的连接',
-  'liveSearch.inspect.restoreBtn': '恢复 {count} 项',
   'liveSearch.settings.maxResultsLabel': '结果展示条数上限',
   'liveSearch.settings.maxResultsDesc':
     '控制台结果区最多保留的条数，超过时自动移除最旧的结果，避免大量卡片造成页面卡顿。',

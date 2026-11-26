@@ -1309,9 +1309,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.presentation.enqueuedBackground': 'Opened console in background and added "{name}"',
   'liveSearch.presentation.enqueued': 'Added to console: {name}',
   'liveSearch.presentation.alreadyEnqueued': '"{name}" is already in console',
-  'liveSearch.inspect.title': 'Resumable Connections ({count})',
-  'liveSearch.inspect.empty': 'No resumable connections',
-  'liveSearch.inspect.restoreBtn': 'Restore {count}',
   'liveSearch.settings.maxResultsLabel': 'Max displayed results',
   'liveSearch.settings.maxResultsDesc':
     'Maximum results kept in the console result area. Oldest results are removed automatically to keep the page responsive.',
