@@ -1255,6 +1255,9 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'liveSearch.sound.preview.missing': '找不到官方的音效组件，请刷新主控台',
   'liveSearch.sound.preview.blocked': '浏览器拦截了音效，请再按一次试听',
   'liveSearch.sound.preview.error': '播放音效失败',
+  'liveSearch.mute.muteAction': '静音通知',
+  'liveSearch.mute.unmuteAction': '取消静音',
+  'liveSearch.mute.unmuteTooltip': '已静音（点击取消静音）',
   'liveSearch.desktopNotify.label': '桌面通知',
   'liveSearch.desktopNotify.enableLabel': '后台收到新结果时发送桌面通知',
   'liveSearch.desktopNotify.desc':

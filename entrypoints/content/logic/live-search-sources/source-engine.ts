@@ -422,6 +422,7 @@ export function createLiveSearchSourceController(
       temporarySearches: registry.getTemporarySearches(),
       sessionEntriesByKey: registry.getSessionEntries(),
       pendingSearchKeys: registry.getPendingSearchKeys(),
+      mutedKeys: registry.getMutedKeys(),
       combinedResumeMap: registry.buildCombinedResumeMap(),
       peekCriteriaKey: (identity) => connectionDedup.peekCriteriaKey(identity),
       origin,
@@ -1514,6 +1515,20 @@ export function createLiveSearchSourceController(
     switchLeague: (targetLeague) => leagueManager.switchLeague(targetLeague),
     getSelectedLeague: () => leagueManager.getSelectedLeague(),
     getAvailableLeagues: () => leagueManager.getAvailableLeagues(),
+    isMuted: (canonicalKey) => registry.isMuted(canonicalKey),
+    async setMuted(sourceIdOrCanonicalKey, muted) {
+      if (disposed || typeof sourceIdOrCanonicalKey !== 'string') return false;
+      const trimmed = sourceIdOrCanonicalKey.trim();
+      if (!trimmed) return false;
+      const canonicalKey =
+        registry.resolveCanonicalKeyBySourceId(trimmed, currentCollection) ?? trimmed;
+      registry.setMuted(canonicalKey, muted);
+      notify();
+      if (resumeStore) {
+        await resumeStore.setMuted(canonicalKey, muted);
+      }
+      return true;
+    },
     resumeStore,
 
     dispose() {

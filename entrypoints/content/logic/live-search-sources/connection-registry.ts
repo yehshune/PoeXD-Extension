@@ -49,6 +49,9 @@ export interface LiveSearchConnectionRegistry {
   getTemporarySearches(): readonly TemporarySearchRecord[];
   getSessionEntries(): ReadonlyMap<string, SessionConnectionMeta>;
   getPendingSearchKeys(): ReadonlySet<string>;
+  getMutedKeys(): ReadonlySet<string>;
+  isMuted(canonicalKey: string): boolean;
+  setMuted(canonicalKey: string, muted: boolean): boolean;
   getLatestResumeIdentities(): readonly LiveSearchResumeIdentity[];
   hasAnyState(): boolean;
   findTemporarySearchById(sourceId: string): TemporarySearchRecord | undefined;
@@ -145,6 +148,7 @@ export function createLiveSearchConnectionRegistry(
   const sessionEntriesByKey = new Map<string, SessionConnectionMeta>();
   const baselineResumeByKey = new Map<string, LiveSearchResumeIdentity>();
   const pendingSearchKeys = new Set<string>();
+  const mutedKeys = new Set<string>();
   let latestResumeIdentities: LiveSearchResumeIdentity[] = [];
 
   function findResumeEntryByCanonicalKey(
@@ -191,6 +195,28 @@ export function createLiveSearchConnectionRegistry(
     getTemporarySearches: () => temporarySearches,
     getSessionEntries: () => sessionEntriesByKey,
     getPendingSearchKeys: () => pendingSearchKeys,
+    getMutedKeys: () => mutedKeys,
+    isMuted: (canonicalKey) => mutedKeys.has(canonicalKey),
+    setMuted(canonicalKey, muted) {
+      const changed = muted ? !mutedKeys.has(canonicalKey) : mutedKeys.has(canonicalKey);
+      if (muted) mutedKeys.add(canonicalKey);
+      else mutedKeys.delete(canonicalKey);
+      const baseline = baselineResumeByKey.get(canonicalKey);
+      if (baseline) {
+        const nextBaseline: LiveSearchResumeIdentity = { ...baseline };
+        if (muted) nextBaseline.muted = true;
+        else delete nextBaseline.muted;
+        baselineResumeByKey.set(canonicalKey, nextBaseline);
+      }
+      latestResumeIdentities = latestResumeIdentities.map((id) => {
+        if (getResumeCanonicalKey(id) !== canonicalKey) return id;
+        const next: LiveSearchResumeIdentity = { ...id };
+        if (muted) next.muted = true;
+        else delete next.muted;
+        return next;
+      });
+      return changed;
+    },
     getLatestResumeIdentities: () => latestResumeIdentities,
     hasAnyState: () =>
       temporarySearches.length > 0 || sessionEntriesByKey.size > 0 || baselineResumeByKey.size > 0,
@@ -464,6 +490,7 @@ export function createLiveSearchConnectionRegistry(
       if (idx === -1) return null;
       const [removed] = temporarySearches.splice(idx, 1);
       sessionEntriesByKey.delete(removed.canonicalKey);
+      mutedKeys.delete(removed.canonicalKey);
       const wasPersistedInResume = latestResumeIdentities.some(
         (id) => getResumeCanonicalKey(id) === removed.canonicalKey,
       );
@@ -481,6 +508,7 @@ export function createLiveSearchConnectionRegistry(
       let wasPersistedInResume = false;
       if (canonicalKey) {
         sessionEntriesByKey.delete(canonicalKey);
+        mutedKeys.delete(canonicalKey);
         wasPersistedInResume = latestResumeIdentities.some(
           (id) => getResumeCanonicalKey(id) === canonicalKey,
         );
@@ -588,18 +616,28 @@ export function createLiveSearchConnectionRegistry(
           baselineResumeByKey.delete(existingKey);
         }
       }
+      for (const existingKey of Array.from(mutedKeys)) {
+        if (!currentPlanKeys.has(existingKey) && !sessionEntriesByKey.has(existingKey)) {
+          mutedKeys.delete(existingKey);
+        }
+      }
       for (const id of identities) {
         const key = getResumeCanonicalKey(id);
+        if (id.muted) mutedKeys.add(key);
+        else mutedKeys.delete(key);
         if (!sessionEntriesByKey.has(key) && !baselineResumeByKey.has(key)) {
           baselineResumeByKey.set(key, { ...id });
         } else if (baselineResumeByKey.has(key)) {
           const prev = baselineResumeByKey.get(key)!;
-          baselineResumeByKey.set(key, {
+          const nextEntry: LiveSearchResumeIdentity = {
             ...prev,
             ...(id.name ? { name: id.name } : {}),
             ...(id.url ? { url: id.url } : {}),
             ...(id.coverImageUrl ? { coverImageUrl: id.coverImageUrl } : {}),
-          });
+          };
+          if (id.muted) nextEntry.muted = true;
+          else delete nextEntry.muted;
+          baselineResumeByKey.set(key, nextEntry);
         }
       }
     },
@@ -608,6 +646,7 @@ export function createLiveSearchConnectionRegistry(
       latestResumeIdentities = [...identities];
       for (const id of identities) {
         const key = getResumeCanonicalKey(id);
+        if (id.muted) mutedKeys.add(key);
         if (!baselineResumeByKey.has(key)) {
           baselineResumeByKey.set(key, { ...id });
         }
@@ -629,6 +668,7 @@ export function createLiveSearchConnectionRegistry(
 
     forgetPrevious(canonicalKey) {
       baselineResumeByKey.delete(canonicalKey);
+      mutedKeys.delete(canonicalKey);
       const wasPersisted = latestResumeIdentities.some(
         (id) => getResumeCanonicalKey(id) === canonicalKey,
       );
@@ -646,6 +686,7 @@ export function createLiveSearchConnectionRegistry(
       for (const [key, entry] of Array.from(baselineResumeByKey.entries())) {
         if (!sessionEntriesByKey.has(key) && isMatchingSelectedLeague(entry.league)) {
           baselineResumeByKey.delete(key);
+          mutedKeys.delete(key);
           keysToRemove.push(key);
         }
       }
@@ -656,6 +697,7 @@ export function createLiveSearchConnectionRegistry(
           isMatchingSelectedLeague(id.league) &&
           !keysToRemove.includes(key)
         ) {
+          mutedKeys.delete(key);
           keysToRemove.push(key);
         }
       }
@@ -668,6 +710,7 @@ export function createLiveSearchConnectionRegistry(
 
     clear() {
       pendingSearchKeys.clear();
+      mutedKeys.clear();
       temporarySearches.length = 0;
       sessionEntriesByKey.clear();
       baselineResumeByKey.clear();

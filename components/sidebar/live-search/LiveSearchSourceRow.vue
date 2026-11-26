@@ -72,6 +72,21 @@
       </TradeSearchPreviewTooltip>
 
       <div class="flex items-center gap-[var(--pxd-space-xs)] shrink-0">
+        <!-- 單組靜音標記：僅在已靜音時顯示，點擊直接解除靜音 -->
+        <Button
+          v-if="item.muted && canToggleItemMute(item)"
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          :data-test="`btn-unmute-${item.id}`"
+          :title="t('liveSearch.mute.unmuteTooltip')"
+          :aria-label="t('liveSearch.mute.unmuteTooltip')"
+          class="shrink-0 text-muted-foreground hover:text-foreground"
+          @click.stop="emit('toggle-mute', item)"
+        >
+          <BellOff aria-hidden="true" />
+        </Button>
+
         <!-- 不相容且未處於 active/error：顯示單一精簡不相容原因標籤/Tooltip，禁止啟用 -->
         <template v-if="!isItemCompatible(item) && !isItemActiveOrError(item.status)">
           <Tooltip>
@@ -196,6 +211,15 @@
 
           <DropdownMenuContent align="end">
             <DropdownMenuItem
+              v-if="canToggleItemMute(item)"
+              :data-test="`btn-toggle-mute-${item.id}`"
+              @click="emit('toggle-mute', item)"
+            >
+              <Bell v-if="item.muted" class="text-muted-foreground" />
+              <BellOff v-else class="text-muted-foreground" />
+              {{ item.muted ? t('liveSearch.mute.unmuteAction') : t('liveSearch.mute.muteAction') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem
               v-if="canOpenItemUrl(item)"
               :data-test="`btn-open-new-tab-${item.id}`"
               @click="emit('open-new-tab', item)"
@@ -242,7 +266,16 @@
 
 <script setup lang="ts">
 import { computed, type PropType } from 'vue';
-import { ExternalLink, Loader2, MoreHorizontal, Pause, Play, RotateCcw } from '@lucide/vue';
+import {
+  Bell,
+  BellOff,
+  ExternalLink,
+  Loader2,
+  MoreHorizontal,
+  Pause,
+  Play,
+  RotateCcw,
+} from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -321,6 +354,7 @@ const emit = defineEmits<{
   (e: 'stop', item: LiveSearchSourceItem): void;
   (e: 'retry', item: LiveSearchSourceItem): void;
   (e: 'open-new-tab', item: LiveSearchSourceItem): void;
+  (e: 'toggle-mute', item: LiveSearchSourceItem): void;
   (e: 'remove', item: LiveSearchSourceItem, groupId: string): void;
   (e: 'menu-open-change', itemId: string, open: boolean): void;
   (e: 'menu-trigger-pointerdown', itemId: string, event: PointerEvent | MouseEvent): void;
@@ -362,8 +396,17 @@ function canOpenItemUrl(item: LiveSearchSourceItem): boolean {
   return Boolean(parseTradeSearchUrl(item.url));
 }
 
+function canToggleItemMute(item: LiveSearchSourceItem): boolean {
+  if (!item.canonicalKey) return false;
+  return (
+    props.group.id === SESSION_CONNECTIONS_GROUP_ID ||
+    props.group.id === PREVIOUS_CONNECTIONS_GROUP_ID
+  );
+}
+
 function hasItemSecondaryActions(item: LiveSearchSourceItem): boolean {
   return Boolean(
+    canToggleItemMute(item) ||
     canOpenItemUrl(item) ||
     item.removable ||
     item.status === 'connecting' ||

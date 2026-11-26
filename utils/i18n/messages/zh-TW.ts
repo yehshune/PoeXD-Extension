@@ -1253,6 +1253,9 @@ export const ZH_TW_MESSAGES = {
   'liveSearch.sound.preview.missing': '找不到官方的音效元件，請重新整理主控台',
   'liveSearch.sound.preview.blocked': '瀏覽器擋下了音效，請再按一次試聽',
   'liveSearch.sound.preview.error': '播放音效失敗',
+  'liveSearch.mute.muteAction': '靜音通知',
+  'liveSearch.mute.unmuteAction': '取消靜音',
+  'liveSearch.mute.unmuteTooltip': '已靜音（點擊取消靜音）',
   'liveSearch.desktopNotify.label': '桌面通知',
   'liveSearch.desktopNotify.enableLabel': '背景收到新結果時發送桌面通知',
   'liveSearch.desktopNotify.desc':

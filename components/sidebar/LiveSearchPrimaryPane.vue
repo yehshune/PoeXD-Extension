@@ -312,6 +312,7 @@
                 @stop-source="handleStopSource"
                 @retry-source="handleRetrySource"
                 @open-source-new-tab="handleOpenSourceNewTab"
+                @toggle-mute-source="handleToggleMuteSource"
                 @remove-source="handleRemoveSource"
                 @item-menu-open-change="setItemMenuOpen"
                 @item-menu-trigger-pointerdown="handleItemTriggerPointerDown"
@@ -1082,6 +1083,14 @@ function handleOpenSourceNewTab(item: LiveSearchSourceItem) {
   if (item.compatibility === 'invalid-url' || !parseTradeSearchUrl(item.url)) return;
   const targetUrl = stripLiveSuffix(item.url);
   window.open(targetUrl, '_blank', 'noopener,noreferrer');
+}
+
+function handleToggleMuteSource(item: LiveSearchSourceItem) {
+  closeAllMenus();
+  const sourceCtrl = getActiveSourceController();
+  if (!sourceCtrl || typeof sourceCtrl.setMuted !== 'function') return;
+  const targetKey = item.canonicalKey ?? item.id;
+  void sourceCtrl.setMuted(targetKey, !item.muted);
 }
 
 function handleRemoveSource(item: LiveSearchSourceItem, groupId: string) {

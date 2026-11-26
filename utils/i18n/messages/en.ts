@@ -1336,6 +1336,9 @@ export const EN_MESSAGES: I18nMessageCatalog = {
     'The official sound element was not found. Reload the console',
   'liveSearch.sound.preview.blocked': 'The browser blocked the sound. Press Preview again',
   'liveSearch.sound.preview.error': 'Could not play the sound',
+  'liveSearch.mute.muteAction': 'Mute notifications',
+  'liveSearch.mute.unmuteAction': 'Unmute notifications',
+  'liveSearch.mute.unmuteTooltip': 'Muted (click to unmute)',
   'liveSearch.desktopNotify.label': 'Desktop Notifications',
   'liveSearch.desktopNotify.enableLabel': 'Notify when results arrive in the background',
   'liveSearch.desktopNotify.desc':

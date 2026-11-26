@@ -8,6 +8,7 @@ export interface LiveSearchResumeIdentity {
   name?: string;
   url?: string;
   coverImageUrl?: string;
+  muted?: boolean;
 }
 
 export interface LiveSearchResumePlanData {
@@ -61,6 +62,9 @@ export function normalizeResumeIdentity(
     isValidPoeCdnImageUrl(item.coverImageUrl.trim())
   ) {
     normalized.coverImageUrl = item.coverImageUrl.trim();
+  }
+  if (item.muted === true) {
+    normalized.muted = true;
   }
 
   return normalized;
@@ -128,6 +132,7 @@ export interface LiveSearchResumeStore {
   removeIdentities(
     identitiesOrKeys: readonly (LiveSearchResumeIdentity | string)[],
   ): Promise<boolean>;
+  setMuted(canonicalKey: string, muted: boolean): Promise<boolean>;
   pruneToAuthoritative(
     validCanonicalKeys: ReadonlySet<string>,
     options?: { league?: string },
@@ -245,16 +250,19 @@ export function createLiveSearchResumeStore(
             const nextName = item.name ?? existing.name;
             const nextUrl = item.url ?? existing.url;
             const nextCover = item.coverImageUrl ?? existing.coverImageUrl;
+            const nextMuted = item.muted === true || existing.muted === true ? true : undefined;
             if (
               nextName !== existing.name ||
               nextUrl !== existing.url ||
-              nextCover !== existing.coverImageUrl
+              nextCover !== existing.coverImageUrl ||
+              nextMuted !== existing.muted
             ) {
               nextIdentities[existingIdx] = {
                 ...existing,
                 ...(nextName ? { name: nextName } : {}),
                 ...(nextUrl ? { url: nextUrl } : {}),
                 ...(nextCover ? { coverImageUrl: nextCover } : {}),
+                ...(nextMuted ? { muted: true } : {}),
               };
               mutated = true;
             }
@@ -327,6 +335,52 @@ export function createLiveSearchResumeStore(
           return true;
         } catch (err) {
           console.warn(`[PoeXD ResumeStore] Failed to save removals to ${storageKey}:`, err);
+          return false;
+        }
+      });
+    },
+
+    async setMuted(canonicalKey: string, muted: boolean): Promise<boolean> {
+      const targetKey = canonicalKey.trim();
+      if (!targetKey) return false;
+
+      return enqueueWrite(async () => {
+        if (loadState !== 'loaded') {
+          const readOutcome = await loadInternal();
+          if (!readOutcome.ok) return false;
+        }
+        const current = cachedPlan!;
+        const idx = current.identities.findIndex((id) => getResumeCanonicalKey(id) === targetKey);
+        if (idx === -1) return false;
+
+        const existing = current.identities[idx];
+        const nextMuted = muted ? true : undefined;
+        if (existing.muted === nextMuted) return false;
+
+        const nextIdentities = [...current.identities];
+        const updated: LiveSearchResumeIdentity = {
+          gameVersion: existing.gameVersion,
+          league: existing.league,
+          searchId: existing.searchId,
+          ...(existing.name ? { name: existing.name } : {}),
+          ...(existing.url ? { url: existing.url } : {}),
+          ...(existing.coverImageUrl ? { coverImageUrl: existing.coverImageUrl } : {}),
+          ...(nextMuted ? { muted: true } : {}),
+        };
+        nextIdentities[idx] = updated;
+
+        const nextPlan: LiveSearchResumePlanData = {
+          version: 2,
+          identities: nextIdentities,
+        };
+
+        try {
+          await storage.set({ [storageKey]: nextPlan });
+          cachedPlan = nextPlan;
+          notify(nextPlan);
+          return true;
+        } catch (err) {
+          console.warn(`[PoeXD ResumeStore] Failed to save mute state to ${storageKey}:`, err);
           return false;
         }
       });

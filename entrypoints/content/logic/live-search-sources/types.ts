@@ -108,6 +108,8 @@ export interface LiveSearchSourceItem {
   provenance?: LiveSearchSourceProvenance;
   provenanceMessage?: string;
   coverImageUrl?: string;
+  /** 單組靜音：抑制該連線的通知音效與桌面通知，結果仍照常抓取顯示 */
+  muted?: boolean;
 }
 
 export interface LiveSearchSourceGroup {
@@ -188,6 +190,14 @@ export interface LiveSearchSourceController {
    * 清空「上次連線」紀錄
    */
   clearPreviousConnections?(): Promise<boolean>;
+  /**
+   * 切換單一搜尋連線的通知靜音（同時抑制通知音效與桌面通知），並持久寫入 LiveSearch Resume Plan
+   */
+  setMuted?(sourceIdOrCanonicalKey: string, muted: boolean): Promise<boolean>;
+  /**
+   * 查詢指定 canonicalKey 目前是否已設為單組靜音
+   */
+  isMuted?(canonicalKey: string): boolean;
   /**
    * 系統性切換工作區聯盟（teardown 目前連線、解鎖 runtimeLeague、保留 Resume Intent 並切換 context）
    */

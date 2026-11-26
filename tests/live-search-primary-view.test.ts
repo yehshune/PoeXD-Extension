@@ -5116,4 +5116,101 @@ describe('LiveSearchPrimaryPane UI & Lifecycle Tests', () => {
       openSpy.mockRestore();
     }
   });
+
+  it('supports per-connection mute in both session and previous connections via menu and quick unmute icon', async () => {
+    const controller = runtime;
+    const resumeStorage: Record<string, unknown> = {
+      liveSearchResumePlan_poe1: {
+        version: 2,
+        identities: [
+          {
+            gameVersion: 'poe1',
+            league: 'standard',
+            searchId: 'H4sIprevMuted',
+            name: '上次高頻裝',
+            url: 'https://www.pathofexile.com/trade/search/Standard/H4sIprevMuted',
+            muted: true,
+          },
+        ],
+      },
+    };
+    const resumeStore = createLiveSearchResumeStore('poe1', {
+      async get(keys) {
+        const out: Record<string, unknown> = {};
+        for (const k of keys) {
+          if (k in resumeStorage) out[k] = resumeStorage[k];
+        }
+        return out;
+      },
+      async set(values) {
+        Object.assign(resumeStorage, values);
+      },
+      async remove(keys) {
+        for (const k of keys) delete resumeStorage[k];
+      },
+    });
+    const sourceController = createLiveSearchSourceController(null, controller, {
+      resumeStore,
+      initialLeague: 'Standard',
+    });
+
+    await sourceController.addTemporarySearch(
+      'https://www.pathofexile.com/trade/search/Standard/H4sIsessionItem',
+      { name: '本次高頻裝' },
+    );
+    await flushAsync();
+
+    const { container, unmount } = mountComponent({ controller, sourceController });
+    await flushAsync();
+
+    const snap = sourceController.read();
+    const sessionItem = snap.sessionConnections![0];
+    const prevItem = snap.previousConnections![0];
+
+    // 1. 「上次連線」已持久靜音 -> 直接顯示快捷取消靜音圖示
+    expect(prevItem.muted).toBe(true);
+    const prevUnmuteBtn = container.querySelector<HTMLButtonElement>(
+      `[data-test="btn-unmute-${prevItem.id}"]`,
+    );
+    expect(prevUnmuteBtn).not.toBeNull();
+
+    // 2. 「本次連線」預設未靜音 -> 不顯示靜音圖示
+    expect(sessionItem.muted).toBeFalsy();
+    expect(container.querySelector(`[data-test="btn-unmute-${sessionItem.id}"]`)).toBeNull();
+
+    // 3. 透過「⋯」選單靜音本次連線 -> 顯示靜音圖示並同步至 sourceController / resumeStore
+    const menuBtn = container.querySelector<HTMLButtonElement>(
+      `[data-test="btn-item-menu-${sessionItem.id}"]`,
+    )!;
+    menuBtn.click();
+    await flushAsync();
+
+    const muteMenuItem = document.body.querySelector<HTMLElement>(
+      `[data-test="btn-toggle-mute-${sessionItem.id}"]`,
+    )!;
+    expect(muteMenuItem).not.toBeNull();
+    muteMenuItem.click();
+    await flushAsync();
+
+    expect(sourceController.isMuted?.(sessionItem.canonicalKey!)).toBe(true);
+    const sessionUnmuteBtn = container.querySelector<HTMLButtonElement>(
+      `[data-test="btn-unmute-${sessionItem.id}"]`,
+    )!;
+    expect(sessionUnmuteBtn).not.toBeNull();
+
+    // 4. 點擊快捷靜音圖示直接解除靜音
+    sessionUnmuteBtn.click();
+    await flushAsync();
+    expect(sourceController.isMuted?.(sessionItem.canonicalKey!)).toBe(false);
+    expect(container.querySelector(`[data-test="btn-unmute-${sessionItem.id}"]`)).toBeNull();
+
+    // 5. 「上次連線」點擊快捷靜音圖示解除靜音
+    prevUnmuteBtn!.click();
+    await flushAsync();
+    expect(sourceController.isMuted?.(prevItem.canonicalKey!)).toBe(false);
+    expect(container.querySelector(`[data-test="btn-unmute-${prevItem.id}"]`)).toBeNull();
+
+    sourceController.dispose();
+    unmount();
+  });
 });

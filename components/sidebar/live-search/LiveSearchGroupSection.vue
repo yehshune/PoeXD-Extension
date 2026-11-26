@@ -220,6 +220,7 @@
         @stop="(it) => emit('stop-source', it)"
         @retry="(it) => emit('retry-source', it)"
         @open-new-tab="(it) => emit('open-source-new-tab', it)"
+        @toggle-mute="(it) => emit('toggle-mute-source', it)"
         @remove="(it, gId) => emit('remove-source', it, gId)"
         @menu-open-change="(itemId, open) => emit('item-menu-open-change', itemId, open)"
         @menu-trigger-pointerdown="
@@ -337,6 +338,7 @@ const emit = defineEmits<{
   (e: 'stop-source', item: LiveSearchSourceItem): void;
   (e: 'retry-source', item: LiveSearchSourceItem): void;
   (e: 'open-source-new-tab', item: LiveSearchSourceItem): void;
+  (e: 'toggle-mute-source', item: LiveSearchSourceItem): void;
   (e: 'remove-source', item: LiveSearchSourceItem, groupId: string): void;
   (e: 'item-menu-open-change', itemId: string, open: boolean): void;
   (e: 'item-menu-trigger-pointerdown', itemId: string, event: PointerEvent | MouseEvent): void;

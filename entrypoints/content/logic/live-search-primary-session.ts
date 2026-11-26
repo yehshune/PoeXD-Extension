@@ -241,6 +241,9 @@ export function createLiveSearchPrimarySession(
       getFetchOrder: () => preferences.read().liveSearchFetchOrder,
       getTokenMaxAgeSec: () => preferences.read().liveSearchTokenMaxAgeSec,
       onResultDelivered: (event) => {
+        if (event?.ownerKey && sourceController?.isMuted?.(event.ownerKey)) {
+          return;
+        }
         notifier.notify();
         desktop.notify({
           ownerKey: event?.ownerKey,

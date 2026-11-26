@@ -408,4 +408,43 @@ describe('LiveSearch Resume Store', () => {
       ]);
     }
   });
+
+  it('12. setMuted 持久保存與清除單組靜音，且 addIdentities 不覆寫既有的 muted 狀態', async () => {
+    const mockStorage = createMockStorage();
+    const store = createLiveSearchResumeStore('poe1', mockStorage);
+
+    await store.addIdentities([
+      { gameVersion: 'poe1', league: 'Standard', searchId: 'mute_target', name: '高頻裝' },
+    ]);
+
+    const mutedChanged = await store.setMuted('poe1:standard:mute_target', true);
+    expect(mutedChanged).toBe(true);
+    // 重複設定相同狀態回傳 false（無多餘寫入）
+    expect(await store.setMuted('poe1:standard:mute_target', true)).toBe(false);
+
+    // 再次 addIdentities 更新名稱不應洗掉 muted
+    await store.addIdentities([
+      { gameVersion: 'poe1', league: 'Standard', searchId: 'mute_target', name: '高頻裝改名' },
+    ]);
+
+    // 重新建立 store 驗證持久化
+    const reloadedStore = createLiveSearchResumeStore('poe1', mockStorage);
+    const read1 = await reloadedStore.read();
+    expect(read1.ok).toBe(true);
+    if (read1.ok) {
+      expect(read1.value.identities[0]).toMatchObject({
+        searchId: 'mute_target',
+        name: '高頻裝改名',
+        muted: true,
+      });
+    }
+
+    // 取消靜音應清除 muted 欄位
+    expect(await reloadedStore.setMuted('poe1:standard:mute_target', false)).toBe(true);
+    const read2 = await reloadedStore.read();
+    expect(read2.ok).toBe(true);
+    if (read2.ok) {
+      expect(read2.value.identities[0].muted).toBeUndefined();
+    }
+  });
 });

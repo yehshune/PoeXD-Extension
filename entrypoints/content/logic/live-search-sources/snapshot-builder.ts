@@ -46,6 +46,7 @@ export interface BuildLiveSearchSnapshotInput {
   temporarySearches: readonly TemporarySearchRecord[];
   sessionEntriesByKey: ReadonlyMap<string, SessionConnectionMeta>;
   pendingSearchKeys: ReadonlySet<string>;
+  mutedKeys?: ReadonlySet<string>;
   combinedResumeMap: ReadonlyMap<string, LiveSearchResumeIdentity>;
   peekCriteriaKey: (identity: ParsedTradeSearchIdentity) => string | undefined;
   /** 官方市集 origin（未提供時回退預設國際服） */
@@ -75,6 +76,7 @@ export function buildLiveSearchSourceSnapshot(
     temporarySearches,
     sessionEntriesByKey,
     pendingSearchKeys,
+    mutedKeys,
     combinedResumeMap,
     peekCriteriaKey,
     origin,
@@ -345,6 +347,7 @@ export function buildLiveSearchSourceSnapshot(
         errorMessage: activeSub?.errorMessage,
         reconnectInSeconds: activeSub?.reconnectInSeconds,
         removable: true,
+        muted: mutedKeys?.has(canonicalKey) || undefined,
       });
     } else if (customItem) {
       sessionConnections.push({
@@ -356,6 +359,7 @@ export function buildLiveSearchSourceSnapshot(
         reconnectInSeconds: activeSub?.reconnectInSeconds,
         removable: true,
         coverImageUrl: hasValidCover(meta.coverImageUrl) ? meta.coverImageUrl : undefined,
+        muted: mutedKeys?.has(canonicalKey) || undefined,
       });
     } else {
       sessionConnections.push({
@@ -387,6 +391,7 @@ export function buildLiveSearchSourceSnapshot(
         reconnectInSeconds: activeSub?.reconnectInSeconds,
         removable: true,
         coverImageUrl: hasValidCover(meta.coverImageUrl) ? meta.coverImageUrl : undefined,
+        muted: mutedKeys?.has(canonicalKey) || undefined,
       });
     }
   }
@@ -403,6 +408,7 @@ export function buildLiveSearchSourceSnapshot(
       continue;
     }
 
+    const isPreviousMuted = Boolean(mutedKeys?.has(canonicalKey) || resumeId.muted);
     const bmkItem = bookmarkItemByCanonicalKey.get(canonicalKey);
     if (bmkItem) {
       previousConnections.push({
@@ -411,6 +417,7 @@ export function buildLiveSearchSourceSnapshot(
         groupName: bmkItem.groupName,
         status: 'idle',
         removable: true,
+        muted: isPreviousMuted || undefined,
       });
       continue;
     }
@@ -455,6 +462,7 @@ export function buildLiveSearchSourceSnapshot(
       pending: pendingSearchKeys.has(canonicalKey),
       removable: true,
       coverImageUrl: validCover,
+      muted: isPreviousMuted || undefined,
     });
   }
 

@@ -416,4 +416,67 @@ describe('createLiveSearchPrimarySession', () => {
 
     session.dispose();
   });
+
+  it('單組靜音的連線交付結果時，同時抑制通知音效與桌面通知，未靜音連線照常通知', () => {
+    const events: string[] = [];
+    const { factories } = createRecordingFactories(events);
+    let capturedRuntimeOpts: any;
+    const soundNotify = vi.fn();
+    const desktopNotify = vi.fn();
+    const mutedKeys = new Set<string>(['poe1:standard:muted_search']);
+
+    const session = createLiveSearchPrimarySession({
+      version: 'poe1',
+      preferences: createStubPreferences(),
+      resultCache: { ingestResult: vi.fn() },
+      doc: stubDoc,
+      factories: {
+        ...factories,
+        createSoundNotifier: () =>
+          ({
+            notify: soundNotify,
+            dispose: vi.fn(),
+          }) as any,
+        createDesktopNotifier: () =>
+          ({
+            notify: desktopNotify,
+            test: vi.fn(() => ({ ok: true as const })),
+            getPermission: vi.fn(() => 'granted' as const),
+            requestPermission: vi.fn(async () => 'granted' as const),
+            dispose: vi.fn(),
+          }) as any,
+        createRuntime: (_v, opts) => {
+          capturedRuntimeOpts = opts;
+          return {
+            read: () => ({ subscriptions: [] }),
+            subscribe: () => () => {},
+            dispose: vi.fn(),
+          } as any;
+        },
+        createSourceController: () =>
+          ({
+            read: () => ({ sessionConnections: [], groups: [] }),
+            subscribe: () => () => {},
+            isMuted: (key: string) => mutedKeys.has(key),
+            enqueueIncomingConnections: vi.fn(),
+            dispose: vi.fn(),
+          }) as any,
+      },
+    });
+
+    // 已靜音連線：音效與桌面通知皆不觸發
+    capturedRuntimeOpts.onResultDelivered({ ownerKey: 'poe1:standard:muted_search' });
+    expect(soundNotify).not.toHaveBeenCalled();
+    expect(desktopNotify).not.toHaveBeenCalled();
+
+    // 未靜音連線：音效與桌面通知皆正常觸發
+    capturedRuntimeOpts.onResultDelivered({ ownerKey: 'poe1:standard:loud_search' });
+    expect(soundNotify).toHaveBeenCalledTimes(1);
+    expect(desktopNotify).toHaveBeenCalledTimes(1);
+    expect(desktopNotify).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerKey: 'poe1:standard:loud_search' }),
+    );
+
+    session.dispose();
+  });
 });
