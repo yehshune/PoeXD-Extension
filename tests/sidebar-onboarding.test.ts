@@ -121,6 +121,7 @@ describe('Sidebar first-install onboarding', () => {
       sidebarWidth: 380,
       fontSizeScale: 1,
       densityScale: 1,
+      enablePureBackground: false,
       displayLocale: 'zh-TW',
       marketTranslation: false,
       collapsedTabTop: 100,
@@ -247,6 +248,10 @@ describe('Sidebar first-install onboarding', () => {
     queryDoc('[data-setup-position="right"]')!.click();
     await settle();
     expect(updatePreferencesSpy).toHaveBeenCalledWith({ sidebarPosition: 'right' });
+
+    queryDoc('[data-setup-action="pure-background"]')!.click();
+    await settle();
+    expect(updatePreferencesSpy).toHaveBeenCalledWith({ enablePureBackground: true });
   });
 
   it('toggles market translation bilingual options when marketTranslation is enabled', async () => {
