@@ -195,15 +195,6 @@ export function extractPassiveNameMap(sources: {
   return map;
 }
 
-function formatName(
-  localized: string | undefined,
-  english: string,
-  bilingual: boolean,
-): string | null {
-  if (!localized || localized === english) return null;
-  return bilingual ? `${localized} (${english})` : localized;
-}
-
 function keepPadding(text: string, translate: (core: string) => string | null): string | null {
   const match = text.match(/^(\s*)([\s\S]*?)(\s*)$/);
   if (!match || !match[2]) return null;
@@ -545,19 +536,22 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     }
   };
 
+  const translateGemNameNode = (host: Element, node: Text, withTitle = false) => {
+    if (isCurrent(node)) return;
+    const raw = node.data.trim();
+    const localized = lookupGemName(raw);
+    if (!localized || localized === raw) {
+      syncSubtitle(host, null);
+      return;
+    }
+    if (withTitle) host.setAttribute('title', `${localized} (${raw})`);
+    replaceNode(node, () => localized);
+    syncSubtitle(host, raw);
+  };
+
   const translateGemRow = (gemEl: Element) => {
     for (const node of textNodesOf(gemEl)) {
-      if (isCurrent(node)) continue;
-      const raw = node.data.trim();
-      const localized = lookupGemName(raw);
-      if (!localized || localized === raw) {
-        syncSubtitle(gemEl, null);
-        continue;
-      }
-      const fullTitle = formatName(localized, raw, true);
-      if (fullTitle) gemEl.setAttribute('title', fullTitle);
-      replaceNode(node, () => localized);
-      syncSubtitle(gemEl, raw);
+      translateGemNameNode(gemEl, node, true);
     }
   };
 
@@ -566,19 +560,8 @@ export function createPobbinTranslator(data: PobbinTranslatorData): PobbinTransl
     if (!parent) return;
     const isNameLine = parent.firstElementChild === divEl;
     for (const node of textNodesOf(divEl)) {
-      if (isNameLine) {
-        if (isCurrent(node)) continue;
-        const raw = node.data.trim();
-        const localized = lookupGemName(raw);
-        if (!localized || localized === raw) {
-          syncSubtitle(divEl, null);
-          continue;
-        }
-        replaceNode(node, () => localized);
-        syncSubtitle(divEl, raw);
-      } else {
-        replaceNode(node, translatePropertyLabel);
-      }
+      if (isNameLine) translateGemNameNode(divEl, node);
+      else replaceNode(node, translatePropertyLabel);
     }
     // 同張寶石懸浮框底下的取得清單（Act N、商人 NPC、任務名）皆由官方 result-labels.json 翻譯
     if (isNameLine) {
@@ -891,6 +874,12 @@ export async function detectPobbinGameVersion(doc: Document): Promise<PoeVersion
   return undefined;
 }
 
+/** pobb.in 啟動時需讀取的 storage key：除市集漢化設定外，另含搜尋結果中英並列旗標 */
+const POBBIN_STORAGE_KEYS = [
+  ...MARKET_TRANSLATION_STORAGE_KEYS,
+  'marketTranslationResultBilingual',
+] as const;
+
 export async function startPobbinTranslation(deps: {
   doc: Document;
   browserLocale?: string;
@@ -899,7 +888,7 @@ export async function startPobbinTranslation(deps: {
   version?: PoeVersion;
   subscribeBilingual?: (onChange: (enabled: boolean) => void) => () => void;
 }): Promise<(() => void) | null> {
-  const stored = await deps.readStorage(MARKET_TRANSLATION_STORAGE_KEYS);
+  const stored = await deps.readStorage(POBBIN_STORAGE_KEYS);
   const config = resolvePobbinTranslationConfig({
     stored,
     browserLocale: deps.browserLocale ?? detectBrowserLocale(),

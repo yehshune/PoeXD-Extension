@@ -769,12 +769,16 @@ describe('loadPobbinTranslatorData', () => {
 });
 
 describe('startPobbinTranslation', () => {
-  it('市集漢化停用時不載入分片也不建立監聽器', async () => {
+  it('市集漢化停用時不載入分片也不建立監聽器，且啟動時包含讀取結果中英並列鍵', async () => {
     let loaded = false;
+    let requestedKeys: readonly string[] = [];
     const stop = await startPobbinTranslation({
       doc: document,
       browserLocale: 'zh-TW',
-      readStorage: async () => ({ marketTranslation: false }),
+      readStorage: async (keys) => {
+        requestedKeys = keys;
+        return { marketTranslation: false };
+      },
       loadJson: async () => {
         loaded = true;
         return {};
@@ -782,6 +786,7 @@ describe('startPobbinTranslation', () => {
     });
     expect(stop).toBeNull();
     expect(loaded).toBe(false);
+    expect(requestedKeys).toContain('marketTranslationResultBilingual');
   });
 
   it('依選用權限狀態動態註冊與取消註冊 pobb.in 翻譯腳本', async () => {
