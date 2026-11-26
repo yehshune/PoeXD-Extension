@@ -235,6 +235,11 @@ export const ZH_TW_MESSAGES = {
     '平常每 6 小時會自動向官方市集更新最新詞綴與通貨譯文；新賽季或遊戲改版時可手動立即抓取，完成後重新整理頁面生效',
   'settings.marketTranslation.refresh.updated': '已取得最新漢化資料，重新整理頁面後生效',
   'settings.marketTranslation.refresh.failed': '無法取得官方漢化資料，仍保留既有快取',
+  'settings.marketTranslation.pobbin.label': 'pobb.in 分享頁漢化',
+  'settings.marketTranslation.pobbin.tooltip':
+    '允許存取 pobb.in 後，開啟市集漢化時會一併翻譯 pobb.in 頁面上的裝備、寶石、天賦與摘要（沿用上方語言與中英並列設定）',
+  'settings.marketTranslation.pobbin.granted': '已啟用',
+  'settings.marketTranslation.pobbin.notGranted': '需授權',
 
   'settings.itemNormalizer.label': '符文覆寫試算',
   'settings.itemNormalizer.infoAria': '符文覆寫試算說明',
@@ -546,16 +551,16 @@ export const ZH_TW_MESSAGES = {
   'pobShare.settings.label': '從 pobb.in、pastebin 分享網址匯入 PoB',
   'pobShare.settings.manageBtn': '設定權限',
   'pobShare.page.documentTitle': 'PoeXD · PoB 分享網址權限',
-  'pobShare.page.title': '允許從分享網址匯入 PoB',
+  'pobShare.page.title': '允許存取 pobb.in 與 pastebin',
   'pobShare.page.description':
-    '在 PoB 購物清單貼上 pobb.in 或 pastebin 的分享網址時，PoeXD 需要連線到該網站取回 PoB 代碼。只會讀取你貼上的那個分享，不會傳送其他資料；poe.ninja 不需要另外授權。',
+    '允許後可啟用兩項功能：① 在 PoB 購物清單貼上 pobb.in 或 pastebin 分享網址時取回 PoB 代碼（poe.ninja 不需另外授權）；② 開啟市集漢化時，於 pobb.in 分享頁以中文顯示裝備、寶石、天賦與摘要。不會傳送任何個人資料。',
   'pobShare.page.sites': '會連線的網站：pobb.in、pastebin.com',
   'pobShare.page.granted': '已允許',
   'pobShare.page.notGranted': '尚未允許',
   'pobShare.page.grantBtn': '允許',
   'pobShare.page.revokeBtn': '取消允許',
   'pobShare.page.denied': '沒有取得權限，可以再按一次「允許」',
-  'pobShare.page.done': '完成後可以關閉這個分頁，回到市集重新匯入',
+  'pobShare.page.done': '完成後可以關閉這個分頁，回到市集重新匯入或重新整理 pobb.in 頁面',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '載入詞綴資料中...',

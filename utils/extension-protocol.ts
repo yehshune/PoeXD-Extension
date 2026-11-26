@@ -78,6 +78,8 @@ export interface ExtensionProtocolMap {
   'pobShare:fetchCode': (request: { url: string }) => PobShareFetchOutcome;
   /** 開啟選用權限的授權頁 */
   'pobShare:openPermissionPage': () => boolean;
+  /** 檢查是否已授權 pobb.in 選用權限（供設定頁顯示 pobb.in 漢化狀態） */
+  'pobShare:hasPobbinPermission': () => boolean;
   /** pobb.in 翻譯腳本讀取擴充內建的資料檔（路徑與來源分頁在 background 驗證） */
   'pobbin:loadAsset': (request: { path: string }) => PobbinAssetJson;
   /** 釘選物品的寫入（background 依序執行；內容在 background 重新驗證） */

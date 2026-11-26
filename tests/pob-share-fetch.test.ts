@@ -194,6 +194,9 @@ describe('registerPobShareBackgroundHandlers', () => {
     expect(openPage).toHaveBeenCalledWith(POB_SHARE_PERMISSION_PAGE);
     expect(await open({ data: undefined })).toBe(false);
 
+    const hasPobbin = handlers.get('pobShare:hasPobbinPermission')!;
+    expect(await hasPobbin({ data: undefined })).toBe(true);
+
     unregister();
     expect(handlers.size).toBe(0);
   });

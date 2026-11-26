@@ -212,6 +212,49 @@
                   {{ t('settings.marketTranslation.refresh.failed') }}
                 </p>
               </div>
+              <div
+                class="flex flex-col gap-[var(--pxd-space-sm)] border-t border-border/50 pt-[var(--pxd-space-md)]"
+              >
+                <SettingsRow
+                  :label="t('settings.marketTranslation.pobbin.label')"
+                  :details="t('settings.marketTranslation.pobbin.tooltip')"
+                  :keywords="[
+                    'pobb.in',
+                    'pob',
+                    t('settings.marketTranslation.label'),
+                    t('settings.marketTranslation.keywords'),
+                  ]"
+                >
+                  <div class="flex shrink-0 items-center gap-[var(--pxd-space-sm)]">
+                    <span
+                      v-if="pobbinPermissionGranted !== null"
+                      data-test="market-translation-pobbin-status"
+                      class="text-[length:var(--pxd-font-caption)]"
+                      :class="
+                        pobbinPermissionGranted
+                          ? 'text-primary font-medium'
+                          : 'text-muted-foreground'
+                      "
+                    >
+                      {{
+                        pobbinPermissionGranted
+                          ? t('settings.marketTranslation.pobbin.granted')
+                          : t('settings.marketTranslation.pobbin.notGranted')
+                      }}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      class="shrink-0"
+                      data-test="market-translation-pobbin-permission"
+                      @click="openPobSharePermissionPage"
+                    >
+                      {{ t('pobShare.settings.manageBtn') }}
+                    </Button>
+                  </div>
+                </SettingsRow>
+              </div>
             </div>
           </template>
           <p
@@ -1091,6 +1134,9 @@ export default defineComponent({
     };
 
     onMounted(async () => {
+      void refreshPobbinPermission();
+      window.addEventListener('focus', refreshPobbinPermission);
+
       const scrollEl = findSettingsScrollParent(sectionsRef.value);
       if (scrollEl) {
         const onScroll = () => syncActiveSectionFromScroll();
@@ -1117,6 +1163,7 @@ export default defineComponent({
     });
 
     onUnmounted(() => {
+      window.removeEventListener('focus', refreshPobbinPermission);
       stopPreferences?.();
       stopScrollSpy?.();
       clearTimeout(highlightTimer);
@@ -1580,6 +1627,18 @@ export default defineComponent({
       { immediate: true, flush: 'post' },
     );
 
+    const pobbinPermissionGranted = ref<boolean | null>(null);
+    const refreshPobbinPermission = () => {
+      void extensionMessaging
+        .sendMessage('pobShare:hasPobbinPermission')
+        .then((granted) => {
+          pobbinPermissionGranted.value = Boolean(granted);
+        })
+        .catch(() => {
+          pobbinPermissionGranted.value = null;
+        });
+    };
+
     const openPobSharePermissionPage = () => {
       void extensionMessaging.sendMessage('pobShare:openPermissionPage').catch((error: unknown) => {
         console.error('[Settings] 無法開啟 PoB 分享網址授權頁:', error);
@@ -1590,6 +1649,7 @@ export default defineComponent({
       t,
       version,
       preferences,
+      pobbinPermissionGranted,
       openPobSharePermissionPage,
       preferenceState,
       SEARCH_TOGGLE_ROWS,

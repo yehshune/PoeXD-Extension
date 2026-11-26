@@ -247,6 +247,11 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.marketTranslation.refresh.updated': 'Latest translation data fetched — reload to apply',
   'settings.marketTranslation.refresh.failed':
     'Could not fetch official translation data; keeping existing cache',
+  'settings.marketTranslation.pobbin.label': 'Translate pobb.in share pages',
+  'settings.marketTranslation.pobbin.tooltip':
+    'After granting pobb.in access, enabling Chinese Trade Site also translates gear, gems, passives, and summaries on pobb.in using the same language and bilingual settings',
+  'settings.marketTranslation.pobbin.granted': 'Active',
+  'settings.marketTranslation.pobbin.notGranted': 'Needs access',
 
   'settings.itemNormalizer.label': 'Rune Override Calculator',
   'settings.itemNormalizer.infoAria': 'Rune Override Calculator info',
@@ -586,16 +591,16 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'pobShare.settings.label': 'Import PoB from pobb.in and pastebin links',
   'pobShare.settings.manageBtn': 'Permissions',
   'pobShare.page.documentTitle': 'PoeXD · PoB share link access',
-  'pobShare.page.title': 'Allow importing PoB from share links',
+  'pobShare.page.title': 'Allow access to pobb.in and pastebin',
   'pobShare.page.description':
-    'When you paste a pobb.in or pastebin link into the PoB shopping list, PoeXD connects to that site to fetch the PoB code. It only reads the share you pasted and sends nothing else. poe.ninja needs no extra permission.',
+    'Granting access enables two features: (1) fetching PoB codes when you paste a pobb.in or pastebin link into the PoB shopping list (poe.ninja needs no extra permission); (2) translating gear, gems, passives, and summaries on pobb.in pages when Chinese Trade Site is enabled. No personal data is sent.',
   'pobShare.page.sites': 'Sites contacted: pobb.in, pastebin.com',
   'pobShare.page.granted': 'Allowed',
   'pobShare.page.notGranted': 'Not allowed yet',
   'pobShare.page.grantBtn': 'Allow',
   'pobShare.page.revokeBtn': 'Revoke',
   'pobShare.page.denied': 'Permission was not granted. You can press Allow again',
-  'pobShare.page.done': 'You can close this tab and import again on the trade site',
+  'pobShare.page.done': 'You can close this tab, then import again or reload your pobb.in page',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': 'Loading affix data...',

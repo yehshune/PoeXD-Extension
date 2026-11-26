@@ -7,6 +7,7 @@ import { parsePobShareUrl } from './pob-share-url';
 import {
   isPobbinAssetPath,
   isPobbinSenderUrl,
+  POBBIN_ORIGIN,
   registerPobbinBackgroundHandlers,
   type PobbinScriptingPort,
 } from './pobbin-translator';
@@ -171,6 +172,9 @@ export function registerPobShareBackgroundHandlers(options: {
       return false;
     }
   });
+  const unregHasPobbin = options.messenger.onMessage('pobShare:hasPobbinPermission', async () =>
+    deps.hasPermission(POBBIN_ORIGIN).catch(() => false),
+  );
   const unregAsset = options.messenger.onMessage('pobbin:loadAsset', (message) => {
     const path = message.data?.path;
     if (!isPobbinSenderUrl(message.sender?.url) || !isPobbinAssetPath(path)) {
@@ -181,6 +185,7 @@ export function registerPobShareBackgroundHandlers(options: {
   return () => {
     unregFetch();
     unregOpen();
+    unregHasPobbin();
     unregAsset();
     unregPobbin();
   };

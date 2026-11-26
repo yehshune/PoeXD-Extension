@@ -237,6 +237,11 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
     '平时每 6 小时会自动向官方市集更新最新词缀与通货译文；新赛季或游戏更新时可手动立即拉取，完成后刷新页面生效',
   'settings.marketTranslation.refresh.updated': '已获取最新汉化数据，刷新页面后生效',
   'settings.marketTranslation.refresh.failed': '无法获取官方汉化数据，仍保留现有缓存',
+  'settings.marketTranslation.pobbin.label': 'pobb.in 分享页汉化',
+  'settings.marketTranslation.pobbin.tooltip':
+    '允许访问 pobb.in 后，开启市集汉化时会一并翻译 pobb.in 页面上的装备、宝石、天赋与摘要（沿用上方语言与中英并列设置）',
+  'settings.marketTranslation.pobbin.granted': '已启用',
+  'settings.marketTranslation.pobbin.notGranted': '需授权',
 
   'settings.itemNormalizer.label': '符文覆写试算',
   'settings.itemNormalizer.infoAria': '符文覆写试算说明',
@@ -548,16 +553,16 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'pobShare.settings.label': '从 pobb.in、pastebin 分享链接导入 PoB',
   'pobShare.settings.manageBtn': '设置权限',
   'pobShare.page.documentTitle': 'PoeXD · PoB 分享链接权限',
-  'pobShare.page.title': '允许从分享链接导入 PoB',
+  'pobShare.page.title': '允许访问 pobb.in 与 pastebin',
   'pobShare.page.description':
-    '在 PoB 购物清单粘贴 pobb.in 或 pastebin 的分享链接时，PoeXD 需要连接到该网站取回 PoB 代码。只会读取你粘贴的那个分享，不会发送其他数据；poe.ninja 不需要另外授权。',
+    '允许后可启用两项功能：① 在 PoB 购物清单粘贴 pobb.in 或 pastebin 分享链接时取回 PoB 代码（poe.ninja 不需另外授权）；② 开启市集汉化时，在 pobb.in 分享页以中文显示装备、宝石、天赋与摘要。不会发送任何个人数据。',
   'pobShare.page.sites': '会连接的网站：pobb.in、pastebin.com',
   'pobShare.page.granted': '已允许',
   'pobShare.page.notGranted': '尚未允许',
   'pobShare.page.grantBtn': '允许',
   'pobShare.page.revokeBtn': '取消允许',
   'pobShare.page.denied': '没有获得权限，可以再点一次「允许」',
-  'pobShare.page.done': '完成后可以关闭这个标签页，回到市集重新导入',
+  'pobShare.page.done': '完成后可以关闭这个标签页，回到市集重新导入或刷新 pobb.in 页面',
 
   // Affix Selector (FilterPane & ModItem)
   'filterPane.loading': '加载词缀数据中...',
