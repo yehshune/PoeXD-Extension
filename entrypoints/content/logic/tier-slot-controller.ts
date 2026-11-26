@@ -189,8 +189,10 @@ export function createTierSlotDomainData(
           activeGroup = modGroups.find((g) => g.templateZh === rawTemplate);
         }
         if (!activeGroup) {
+          // 僅在記憶體中退回預設分組，不可寫回 data-poexd-mod-group：
+          // 該屬性由 Main World dom-tagger 依 Vuex poexdModGroup 同步，
+          // 未同步 Vuex 即寫入會與 dom-tagger 的 removeAttribute + filter-observer 形成無限微任務迴圈。
           activeGroup = modGroups.find((g) => g.isPure) || modGroups[0];
-          filterEl.setAttribute('data-poexd-mod-group', activeGroup.id);
         }
 
         modGroups.forEach((g, modGroupIndex) => {

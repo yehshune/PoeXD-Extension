@@ -384,4 +384,45 @@ describe('Tier Slot Controller', () => {
     expect(document.querySelectorAll('.poexd-tier-trigger-slot')).toHaveLength(0);
     expect(document.querySelectorAll('[data-poexd-tier-sep]')).toHaveLength(0);
   });
+
+  it('does not stamp data-poexd-mod-group onto filterEl during default fallback sync (prevents dom-tagger/filter-observer loop)', async () => {
+    const { filterEl } = buildStatFilterDom();
+    expect(filterEl.hasAttribute('data-poexd-mod-group')).toBe(false);
+
+    const tierDomainService = createTierDomainService('poe1');
+    const rawMods = {
+      'explicit.stat_life': [
+        {
+          affinities: ['normal'],
+          types: ['body-armour'],
+          level: 86,
+          values: [[100, 120]],
+          key: '# 最大生命',
+        },
+        {
+          affinities: ['normal'],
+          types: ['body-armour'],
+          level: 80,
+          values: [[30, 45]],
+          key: '# 最大生命\n#% 護甲',
+        },
+      ],
+    };
+    vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue(rawMods);
+
+    const controller = createTierSlotController({
+      version: 'poe1',
+      tierDomainService,
+      isCurrentGeneration: () => true,
+    });
+
+    await controller.sync(1);
+
+    const slot = activeTierSlots.value[0];
+    const groupOptions = slot.items.filter((i) => i.type === 'mod_group_option');
+    expect(groupOptions).toHaveLength(2);
+    expect(groupOptions[0].isActive).toBe(true);
+    // 預設退回純粹分組時不得改寫 DOM 屬性，避免與 Main World dom-tagger 的 removeAttribute 形成微任務死鎖
+    expect(filterEl.hasAttribute('data-poexd-mod-group')).toBe(false);
+  });
 });

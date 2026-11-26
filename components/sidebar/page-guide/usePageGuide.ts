@@ -1,4 +1,9 @@
 import { computed, nextTick, reactive, readonly, shallowRef } from 'vue';
+import {
+  TWO_COLUMN_ATTR,
+  TWO_COLUMN_COLLAPSE_BTN_CLASS,
+  TWO_COLUMN_COLLAPSED_ATTR,
+} from '@/entrypoints/content/logic/two-column-layout-styles';
 import { clampFontSizeScale } from '@/utils/appearance-preferences';
 import { clampCollapsedTabTop } from '@/utils/collapsed-tab-position';
 import { requestMainWorld, type PageGuideDemoAction } from '@/utils/cross-world-rpc';
@@ -108,6 +113,8 @@ export interface PageGuideHost {
   notify?: (message: string) => void;
   scrollIntoView?: (el: Element) => void;
   revealResults?: (enabled: boolean) => void;
+  /** 雙欄模式下暫時展開／還原被收合的左側篩選欄；傳入 true 時回傳是否真的執行了暫時展開 */
+  revealTwoColumnFilters?: (enabled: boolean) => boolean | void;
 
   // Deterministic timing & DOM queries
   wait?: (ms: number) => Promise<void>;
@@ -253,6 +260,7 @@ export function createPageGuideSession(
   let stopPreferences: (() => void) | undefined;
   let pageLoadMarketBaseline: Readonly<Preferences> | null = null;
   let activeDemoAction: PageGuideDemoAction | null = null;
+  let revealedTwoColumnFilters = false;
   let pendingDemoStatFilter: Promise<boolean> | null = null;
   let pointTimer: ReturnType<typeof setTimeout> | undefined;
   let runToken = 0;
@@ -371,6 +379,44 @@ export function createPageGuideSession(
     }
     if (enabled) revealFirstResult();
     else clearResultReveal();
+  };
+
+  const ensureTwoColumnFiltersVisible = (): void => {
+    if (revealedTwoColumnFilters) return;
+    if (attachedHost.value?.revealTwoColumnFilters) {
+      if (attachedHost.value.revealTwoColumnFilters(true) === true) {
+        revealedTwoColumnFilters = true;
+      }
+      return;
+    }
+    if (
+      typeof document === 'undefined' ||
+      document.documentElement.getAttribute(TWO_COLUMN_ATTR) !== 'active' ||
+      document.documentElement.getAttribute(TWO_COLUMN_COLLAPSED_ATTR) !== 'true'
+    ) {
+      return;
+    }
+    const btn = queryPage<HTMLButtonElement>(`.${TWO_COLUMN_COLLAPSE_BTN_CLASS}`);
+    if (!btn) return;
+    btn.click();
+    revealedTwoColumnFilters = true;
+  };
+
+  const restoreTwoColumnFilters = (): void => {
+    if (!revealedTwoColumnFilters) return;
+    revealedTwoColumnFilters = false;
+    if (attachedHost.value?.revealTwoColumnFilters) {
+      attachedHost.value.revealTwoColumnFilters(false);
+      return;
+    }
+    if (
+      typeof document === 'undefined' ||
+      document.documentElement.getAttribute(TWO_COLUMN_ATTR) !== 'active' ||
+      document.documentElement.getAttribute(TWO_COLUMN_COLLAPSED_ATTR) === 'true'
+    ) {
+      return;
+    }
+    queryPage<HTMLButtonElement>(`.${TWO_COLUMN_COLLAPSE_BTN_CLASS}`)?.click();
   };
 
   const reload = (): void => {
@@ -809,6 +855,7 @@ export function createPageGuideSession(
 
   const restoreDemo = async () => {
     pendingDemoStatFilter = null;
+    restoreTwoColumnFilters();
     if (!activeDemoAction) return;
     activeDemoAction = null;
     await requestDemo('restore');
@@ -817,6 +864,9 @@ export function createPageGuideSession(
   const locate = async (targetId: PageGuideTargetId): Promise<Element | null> => {
     const target = getPageGuideTarget(targetId);
     revealResults(target.needs === 'results');
+    if (target.needs === 'filters' || target.needs === 'stat-filter') {
+      ensureTwoColumnFiltersVisible();
+    }
     const found = findPageGuideElement(target, roots());
     const demoAction = target.needs ? DEMO_ACTION_BY_NEED[target.needs] : undefined;
     if (found || !demoAction) return found;
@@ -991,6 +1041,7 @@ export function createPageGuideSession(
 
   /** 供第 6 步／第 7 步確保專用示範詞綴已插入，避免頁面上原有其他詞綴干擾第 7 步目標 */
   const ensureDemoStatFilter = async (): Promise<boolean> => {
+    ensureTwoColumnFiltersVisible();
     if (activeDemoAction === 'add-stat-filter') return true;
     if (pendingDemoStatFilter) return pendingDemoStatFilter;
     const run = (async () => {

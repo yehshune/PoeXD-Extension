@@ -1020,4 +1020,77 @@ describe('deterministic interactive demo scripts', () => {
     expect(guide.demoState.tierMenuSlotKey).toBeNull();
     expect(guide.demoRingElements.value).toEqual([]);
   });
+
+  it('temporarily expands collapsed two-column filter pane for filter/stat steps and restores it when leaving or stopping', async () => {
+    const affixStep: PageGuideTourStep = {
+      id: 'affix',
+      targetId: 'affix-selector',
+      titleKey: 'pageGuide.tour.affixSelector.title',
+      bodyKey: 'pageGuide.tour.affixSelector.body',
+    };
+    const tierStep: PageGuideTourStep = {
+      id: 'tier',
+      targetId: 'tier-trigger',
+      titleKey: 'pageGuide.tour.tier.title',
+      bodyKey: 'pageGuide.tour.tier.body',
+    };
+    const resultsStep: PageGuideTourStep = {
+      id: 'results',
+      titleKey: 'pageGuide.tour.locale.title',
+      bodyKey: 'pageGuide.tour.locale.body',
+    };
+
+    let twoColCollapsed = true;
+    document.documentElement.setAttribute('data-poexd-two-column', 'active');
+    document.documentElement.setAttribute('data-poexd-two-column-collapsed', 'true');
+
+    const collapseBtn = addElement('<button class="poexd-two-col-collapse-btn"></button>');
+    const affixBtn = addElement('<button class="poexd-filter-select-btn"></button>');
+    const syncVisibility = () => {
+      if (twoColCollapsed) {
+        document.documentElement.setAttribute('data-poexd-two-column-collapsed', 'true');
+        visible(affixBtn, { top: 0, left: 0, width: 0, height: 0 });
+      } else {
+        document.documentElement.removeAttribute('data-poexd-two-column-collapsed');
+        visible(affixBtn, { top: 200, left: 20, width: 32, height: 32 });
+      }
+    };
+    collapseBtn.addEventListener('click', () => {
+      twoColCollapsed = !twoColCollapsed;
+      syncVisibility();
+    });
+    syncVisibility();
+
+    const host = createFakeHost({
+      requestDemo: vi.fn(async (action) => {
+        if (action === 'add-stat-filter') {
+          const row = addElement(
+            '<div class="filter" data-poexd-page-guide-demo="true"><button class="poexd-tier-trigger" data-tier-slot-key="slot-2col"></button></div>',
+          );
+          visible(row.querySelector('.poexd-tier-trigger')!);
+        }
+        return true;
+      }),
+    });
+
+    try {
+      const guide = createPageGuideSession(host, { steps: [affixStep, tierStep, resultsStep] });
+      await guide.startTour();
+
+      // 進入需要 filters 的步驟時自動展開雙欄左側篩選欄
+      expect(twoColCollapsed).toBe(false);
+      expect(guide.element.value).toBe(affixBtn);
+
+      // 前進到 tier 步驟（同為 stat-filter）時維持展開
+      await guide.nextStep();
+      expect(twoColCollapsed).toBe(false);
+
+      // 離開篩選步驟到結果步驟時自動還原回原本的收合狀態
+      await guide.nextStep();
+      expect(twoColCollapsed).toBe(true);
+    } finally {
+      document.documentElement.removeAttribute('data-poexd-two-column');
+      document.documentElement.removeAttribute('data-poexd-two-column-collapsed');
+    }
+  });
 });
