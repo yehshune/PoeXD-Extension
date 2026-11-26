@@ -110,7 +110,7 @@ export interface UsePobBuild {
    * 預覽原始 PoB 代碼會產生的預設名稱（供匯入彈窗顯示 placeholder）；
    * 分享網址或無法解碼的代碼回傳 undefined，不影響錯誤狀態。
    */
-  previewDefaultName?(code: string): Promise<string | undefined>;
+  previewDefaultName(code: string): Promise<string | undefined>;
   /** 開啟分享網址的授權頁（pobb.in、pastebin 需要使用者同意） */
   openSharePermissionPage(): void;
   /**
@@ -232,35 +232,20 @@ const isDefaultBuildName = (
   storedName: string | undefined,
   names?: TradeNameCatalog,
 ): boolean => {
-  if (
-    isDefaultAscendancyBuildName(
-      build.gameVersion,
-      storedName,
-      build.ascendancy,
-      build.className,
-      build.level,
-    )
-  ) {
-    return true;
-  }
-  if (!storedName || !build.mainSkill) return false;
-  const skillCandidates = new Set<string>([build.mainSkill]);
-  const localizedSkill = names?.toTradeName(build.mainSkill);
-  if (localizedSkill) skillCandidates.add(localizedSkill);
-  const classCandidates = new Set<string>([
-    (build.ascendancy || build.className || 'Build').trim(),
-    ...(['en', 'zh-TW', 'zh-CN'] as const).map(
-      (loc) =>
-        localizeAscendancyOrClassName(build.gameVersion, build.ascendancy, build.className, loc) ||
-        'Build',
-    ),
-  ]);
-  for (const cls of classCandidates) {
-    for (const skill of skillCandidates) {
-      if (storedName === `${cls} · ${skill}`) return true;
-    }
-  }
-  return false;
+  const skillCandidates = build.mainSkill
+    ? [
+        build.mainSkill,
+        ...(names?.toTradeName(build.mainSkill) ? [names.toTradeName(build.mainSkill)!] : []),
+      ]
+    : undefined;
+  return isDefaultAscendancyBuildName(
+    build.gameVersion,
+    storedName,
+    build.ascendancy,
+    build.className,
+    build.level,
+    skillCandidates,
+  );
 };
 
 /** 以 key 為鍵的物件只留下 keep 裡的 key */
@@ -446,13 +431,16 @@ export function usePobBuild(
     return sessionFrom(build, migrateStored(source, build));
   };
 
+  const activeDisplayNames = (): TradeNameCatalog | undefined =>
+    displayNames.value ?? catalog.value ?? undefined;
+
   const sessionFrom = (build: PobBuild, stored: StoredPobBuild): Session => {
     const pick = (
       sets: ReadonlyArray<{ id: string }>,
       wanted: string | undefined,
       active: string,
     ) => (wanted && sets.some((set) => set.id === wanted) ? wanted : active);
-    const names = displayNames.value ?? catalog.value ?? undefined;
+    const names = activeDisplayNames();
     const resolvedName = isDefaultBuildName(build, stored.name, names)
       ? defaultName(build, names)
       : stored.name;
@@ -669,8 +657,7 @@ export function usePobBuild(
         const build = await decodeBuild(compactCode);
         await ensureData();
         const trimmedName = customName?.trim();
-        const resolvedName =
-          trimmedName || defaultName(build, displayNames.value ?? catalog.value ?? undefined);
+        const resolvedName = trimmedName || defaultName(build, activeDisplayNames());
         await withPendingWrite(async () => {
           const stored = await deps.store.add({ name: resolvedName, code: compactCode });
           const session = await toSession(stored);
@@ -690,7 +677,8 @@ export function usePobBuild(
       try {
         const compactCode = text.replace(/\s+/g, '');
         const build = await decodeBuild(compactCode);
-        return defaultName(build, displayNames.value ?? catalog.value ?? undefined);
+        await ensureData().catch(() => undefined);
+        return defaultName(build, activeDisplayNames());
       } catch {
         return undefined;
       }

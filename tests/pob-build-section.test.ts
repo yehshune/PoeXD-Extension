@@ -366,8 +366,24 @@ describe('usePobBuild', () => {
       const pob = usePobBuild('poe1', deps);
       const code = toCode(xmlWithMainSkill);
 
-      expect(await pob.previewDefaultName?.(code)).toBe('酋長 · Punishment');
-      expect(await pob.previewDefaultName?.('https://poe.ninja/poe1/pob/abc')).toBeUndefined();
+      expect(await pob.previewDefaultName(code)).toBe('酋長 · Punishment');
+      expect(await pob.previewDefaultName('https://poe.ninja/poe1/pob/abc')).toBeUndefined();
+
+      const localizedCatalog = createTradeNameCatalog({
+        englishItems: ['Punishment'],
+        localizedItems: ['懲戒'],
+      });
+      const localizedPob = usePobBuild('poe1', {
+        ...deps,
+        dataLoader: makeDataLoader({
+          loadCatalog: vi.fn(async (_v, locale) =>
+            locale === 'zh-TW'
+              ? localizedCatalog
+              : createTradeNameCatalog({ englishItems: ['Punishment'] }),
+          ),
+        }),
+      });
+      expect(await localizedPob.previewDefaultName(code)).toBe('酋長 · 懲戒');
 
       expect(await pob.importCode(code)).toBe(true);
       await flush();

@@ -442,16 +442,33 @@ function withVisceraBundle(sets: PobItemSet[], bundle: PobBuildItem | undefined)
 
 /** PoE 2 武器給的預設技能（`SkillGemPlayerDefault…`）與昇華技能（`SkillGemAscendancy…`） */
 const NOT_AN_ITEM_GEM = /\/SkillGem(?:PlayerDefault|Ascendancy)/;
+const SUPPORT_GEM_ID = /SupportGem/;
 
-/** 連線裡第一顆主動技能的名稱（含武器預設技能這類不列入清單的技能） */
-function activeSkillName(skill: Element, includeDisabled: boolean): string {
-  const active = children(skill, 'Gem').find((gem) => {
+/** 取得一個 `<Skill>` 連線裡的主動技能寶石名稱（含武器預設技能）；可指定 1-based 的 `mainActiveSkill` */
+function mainActiveGemName(
+  skill: Element,
+  preferredIndex: number,
+  includeDisabled: boolean,
+): string {
+  const actives = children(skill, 'Gem').filter((gem) => {
     if (!includeDisabled && gem.getAttribute('enabled') === 'false') return false;
     const gemId = gem.getAttribute('gemId') ?? '';
-    return /\/SkillGem/.test(gemId) && !/Ascendancy/.test(gemId);
+    return (
+      /\/SkillGem/.test(gemId) &&
+      !/Ascendancy/.test(gemId) &&
+      Boolean(clip(gem.getAttribute('nameSpec')))
+    );
   });
-  return clip(active?.getAttribute('nameSpec'));
+  const picked =
+    preferredIndex >= 1 && preferredIndex <= actives.length
+      ? actives[preferredIndex - 1]
+      : actives[0];
+  return clip(picked?.getAttribute('nameSpec'));
 }
+
+/** 連線裡第一顆主動技能的名稱（含武器預設技能這類不列入清單的技能） */
+const activeSkillName = (skill: Element, includeDisabled: boolean): string =>
+  mainActiveGemName(skill, 1, includeDisabled);
 
 /**
  * 每一顆啟用的寶石都列出（不同連結各用一顆相同的寶石時要買兩顆），由購物清單合併計數。
@@ -478,7 +495,7 @@ function parseGems(skillSet: Element, version: PoeVersion): PobBuildGem[] {
           name,
           level: toCount(gem.getAttribute('level'), 1),
           quality: toCount(gem.getAttribute('quality'), 0),
-          support: /SupportGem/.test(gemId),
+          support: SUPPORT_GEM_ID.test(gemId),
         },
       ];
     });
@@ -507,28 +524,6 @@ function parseSkillSets(skills: Element | null, version: PoeVersion): PobSkillSe
       title: clip(set.getAttribute('title')),
       gems: parseGems(set, version),
     }));
-}
-
-/** 取得一個 `<Skill>` 連線裡的主動技能寶石名稱；可指定 1-based 的 `mainActiveSkill` */
-function mainActiveGemName(
-  skill: Element,
-  preferredIndex: number,
-  includeDisabled: boolean,
-): string {
-  const actives = children(skill, 'Gem').filter((gem) => {
-    if (!includeDisabled && gem.getAttribute('enabled') === 'false') return false;
-    const gemId = gem.getAttribute('gemId') ?? '';
-    return (
-      /\/SkillGem/.test(gemId) &&
-      !/Ascendancy/.test(gemId) &&
-      Boolean(clip(gem.getAttribute('nameSpec')))
-    );
-  });
-  const picked =
-    preferredIndex >= 1 && preferredIndex <= actives.length
-      ? actives[preferredIndex - 1]
-      : actives[0];
-  return clip(picked?.getAttribute('nameSpec'));
 }
 
 /**
@@ -568,7 +563,7 @@ function parseMainSkill(
     const supports = children(group, 'Gem').filter(
       (gem) =>
         gem.getAttribute('enabled') !== 'false' &&
-        /SupportGem/.test(gem.getAttribute('gemId') ?? ''),
+        SUPPORT_GEM_ID.test(gem.getAttribute('gemId') ?? ''),
     ).length;
     if (supports > bestSupports) {
       bestSupports = supports;

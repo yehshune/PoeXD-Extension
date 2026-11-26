@@ -351,7 +351,7 @@ describe('PobBuildPane', () => {
     expect(query('[data-pob-build-empty-state]')).not.toBeNull();
   });
 
-  it('匯入對話框可選填流派名稱並預覽預設名稱；更新代碼模式不顯示名稱欄', async () => {
+  it('匯入對話框可選填流派名稱並預覽預設名稱', async () => {
     fake.previewDefaultName.mockImplementationOnce(async (code: string) =>
       code === 'RAW_CODE' ? '處刑者 · 雷鳴重擊' : undefined,
     );
@@ -650,6 +650,7 @@ describe('PobBuildPane', () => {
     await flushAsync();
 
     expect(document.body.textContent).toContain('更新「RF 酋長」的 PoB 代碼');
+    expect(queryBody('[data-pob-build-name-input]')).toBeNull();
     const input = queryBody<HTMLInputElement>('[data-pob-build-input]')!;
     input.value = 'NEW';
     input.dispatchEvent(new Event('input'));

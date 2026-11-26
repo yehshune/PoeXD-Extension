@@ -305,7 +305,8 @@ export function localizeAscendancyOrClassName(
 }
 
 /**
- * 判斷已儲存的 PoB 流派名稱是否為任一語系自動產生的預設名稱（未經使用者手動改名）。
+ * 判斷已儲存的 PoB 流派名稱是否為任一語系自動產生的預設名稱（未經使用者手動改名），
+ * 包含 `{昇華} Lv.{等級}` 與 `{昇華} · {主技能}` 兩種格式。
  */
 export function isDefaultAscendancyBuildName(
   gameVersion: PoeVersion,
@@ -313,14 +314,23 @@ export function isDefaultAscendancyBuildName(
   ascendancyName: string | undefined,
   className: string | undefined,
   level: number,
+  mainSkillCandidates?: readonly string[],
 ): boolean {
   if (!storedName) return true;
-  const rawEn = `${(ascendancyName || className || 'Build').trim()} Lv.${level}`;
-  if (storedName === rawEn) return true;
-  for (const loc of ['en', 'zh-TW', 'zh-CN'] as const) {
-    const label =
-      localizeAscendancyOrClassName(gameVersion, ascendancyName, className, loc) || 'Build';
+  const classLabels = new Set<string>([
+    (ascendancyName || className || 'Build').trim(),
+    ...(['en', 'zh-TW', 'zh-CN'] as const).map(
+      (loc) =>
+        localizeAscendancyOrClassName(gameVersion, ascendancyName, className, loc) || 'Build',
+    ),
+  ]);
+  for (const label of classLabels) {
     if (storedName === `${label} Lv.${level}`) return true;
+    if (mainSkillCandidates) {
+      for (const skill of mainSkillCandidates) {
+        if (skill && storedName === `${label} · ${skill}`) return true;
+      }
+    }
   }
   return false;
 }
