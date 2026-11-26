@@ -73,7 +73,63 @@ export const RESULT_MOD_HIGHLIGHT_PALETTES: Readonly<
   }),
 });
 
-/** 產生注入至官方交易頁的結果詞綴高亮樣式表（透過 `:root` 的 data 屬性切換預設組合） */
+interface StyleLayoutSpec {
+  readonly boxShadow: (p: ResultModHighlightPalette) => string;
+  readonly backgroundColor: (p: ResultModHighlightPalette) => string;
+  readonly border: (p: ResultModHighlightPalette) => string;
+  readonly padding: string;
+  readonly margin: string;
+}
+
+const CSS_VAR_PALETTE: ResultModHighlightPalette = {
+  bg: 'var(--poexd-mod-hl-bg)',
+  bgSubtle: 'var(--poexd-mod-hl-bg-subtle)',
+  border: 'var(--poexd-mod-hl-border)',
+  borderSubtle: 'var(--poexd-mod-hl-border-subtle)',
+  glow: 'var(--poexd-mod-hl-glow)',
+  shadow: 'var(--poexd-mod-hl-shadow)',
+  bar: 'var(--poexd-mod-hl-bar)',
+  swatch: 'var(--poexd-mod-hl-bar)',
+};
+
+const HIGHLIGHT_STYLE_SPECS: Readonly<Record<ResultModHighlightStyle, StyleLayoutSpec>> =
+  Object.freeze({
+    glow: {
+      boxShadow: (p) => `0 0 20px ${p.glow}, 0 10px 30px ${p.shadow}`,
+      backgroundColor: (p) => p.bg,
+      border: (p) => `1px solid ${p.border}`,
+      padding: '5px',
+      margin: '5px 0',
+    },
+    subtle: {
+      boxShadow: () => 'none',
+      backgroundColor: (p) => p.bgSubtle,
+      border: (p) => `1px solid ${p.borderSubtle}`,
+      padding: '2px 5px',
+      margin: '2px 0',
+    },
+    bar: {
+      boxShadow: (p) => `inset 3px 0 0 ${p.bar}`,
+      backgroundColor: (p) => p.bgSubtle,
+      border: () => 'none',
+      padding: '1px 4px 1px 8px',
+      margin: '1px 0',
+    },
+  });
+
+function formatStyleDeclarations(
+  spec: StyleLayoutSpec,
+  palette: ResultModHighlightPalette,
+): string {
+  return `
+        box-shadow: ${spec.boxShadow(palette)};
+        background-color: ${spec.backgroundColor(palette)};
+        border: ${spec.border(palette)};
+        padding: ${spec.padding};
+        margin: ${spec.margin};`;
+}
+
+/** 產生注入至官方交易頁的結果詞綴高亮樣式表（透過 data 屬性切換預設組合，包含預設值以確保巢狀預覽框可獨立覆寫） */
 export function buildResultModHighlightCss(): string {
   const defaultPalette = RESULT_MOD_HIGHLIGHT_PALETTES.indigo;
   const colorRules = (
@@ -82,7 +138,6 @@ export function buildResultModHighlightCss(): string {
       ResultModHighlightPalette,
     ][]
   )
-    .filter(([color]) => color !== 'indigo')
     .map(
       ([color, p]) => `
       [${RESULT_MOD_HIGHLIGHT_COLOR_ATTR}="${color}"] .poexd-filter-mod-highlight {
@@ -97,6 +152,16 @@ export function buildResultModHighlightCss(): string {
     )
     .join('\n');
 
+  const styleRules = (
+    Object.entries(HIGHLIGHT_STYLE_SPECS) as [ResultModHighlightStyle, StyleLayoutSpec][]
+  )
+    .map(
+      ([style, spec]) => `
+      [${RESULT_MOD_HIGHLIGHT_STYLE_ATTR}="${style}"] .poexd-filter-mod-highlight {${formatStyleDeclarations(spec, CSS_VAR_PALETTE)}
+      }`,
+    )
+    .join('\n');
+
   return `
       .poexd-filter-mod-highlight {
         --poexd-mod-hl-bg: ${defaultPalette.bg};
@@ -105,58 +170,24 @@ export function buildResultModHighlightCss(): string {
         --poexd-mod-hl-border-subtle: ${defaultPalette.borderSubtle};
         --poexd-mod-hl-glow: ${defaultPalette.glow};
         --poexd-mod-hl-shadow: ${defaultPalette.shadow};
-        --poexd-mod-hl-bar: ${defaultPalette.bar};
-        box-shadow: 0 0 20px var(--poexd-mod-hl-glow), 0 10px 30px var(--poexd-mod-hl-shadow);
-        background-color: var(--poexd-mod-hl-bg);
-        border: 1px solid var(--poexd-mod-hl-border);
-        padding: 5px;
-        margin: 5px 0;
+        --poexd-mod-hl-bar: ${defaultPalette.bar};${formatStyleDeclarations(HIGHLIGHT_STYLE_SPECS.glow, CSS_VAR_PALETTE)}
       }
 ${colorRules}
-      [${RESULT_MOD_HIGHLIGHT_STYLE_ATTR}="subtle"] .poexd-filter-mod-highlight {
-        box-shadow: none;
-        background-color: var(--poexd-mod-hl-bg-subtle);
-        border: 1px solid var(--poexd-mod-hl-border-subtle);
-        padding: 2px 5px;
-        margin: 2px 0;
-      }
-
-      [${RESULT_MOD_HIGHLIGHT_STYLE_ATTR}="bar"] .poexd-filter-mod-highlight {
-        box-shadow: inset 3px 0 0 var(--poexd-mod-hl-bar);
-        background-color: var(--poexd-mod-hl-bg-subtle);
-        border: none;
-        padding: 1px 4px 1px 8px;
-        margin: 1px 0;
-      }
+${styleRules}
     `;
 }
 
-/** 供設定頁即時預覽條使用（Shadow DOM 內不吃頁面 `<style>`），與官方頁樣式保持同一來源 */
+/** 供設定頁即時預覽條使用（Shadow DOM 內不吃頁面 `<style>`），與官方頁樣式共用同一份規格定義 */
 export function getResultModHighlightPreviewStyle(
   style: ResultModHighlightStyle,
   color: ResultModHighlightColor,
 ): Record<string, string> {
-  const p = RESULT_MOD_HIGHLIGHT_PALETTES[color];
-  if (style === 'subtle') {
-    return {
-      boxShadow: 'none',
-      backgroundColor: p.bgSubtle,
-      border: `1px solid ${p.borderSubtle}`,
-      padding: '2px 6px',
-    };
-  }
-  if (style === 'bar') {
-    return {
-      boxShadow: `inset 3px 0 0 ${p.bar}`,
-      backgroundColor: p.bgSubtle,
-      border: '1px solid transparent',
-      padding: '2px 6px 2px 9px',
-    };
-  }
+  const palette = RESULT_MOD_HIGHLIGHT_PALETTES[color];
+  const spec = HIGHLIGHT_STYLE_SPECS[style];
   return {
-    boxShadow: `0 0 16px ${p.glow}, 0 6px 18px ${p.shadow}`,
-    backgroundColor: p.bg,
-    border: `1px solid ${p.border}`,
-    padding: '4px 6px',
+    boxShadow: spec.boxShadow(palette),
+    backgroundColor: spec.backgroundColor(palette),
+    border: spec.border(palette),
+    padding: spec.padding,
   };
 }

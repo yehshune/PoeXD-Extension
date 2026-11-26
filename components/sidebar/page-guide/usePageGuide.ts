@@ -323,6 +323,8 @@ export function createPageGuide(deps: PageGuideDeps = defaultDeps) {
     if (state.mode === 'tour') return;
     clearTimeout(pointTimer);
     runToken += 1;
+    deps.revealResults(false);
+    void restoreDemo();
     element.value = null;
     demoRingElements.value = [];
     demoSpotlightElement.value = null;

@@ -21,16 +21,14 @@ describe('result-mod-highlight customization', () => {
     document.documentElement.removeAttribute(RESULT_MOD_HIGHLIGHT_COLOR_ATTR);
   });
 
-  it('builds oklch-only CSS rules covering every highlight style and color preset', () => {
+  it('builds oklch-only CSS rules covering every highlight style and color preset including defaults', () => {
     const css = buildResultModHighlightCss();
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(css).toContain('.poexd-filter-mod-highlight');
     for (const style of RESULT_MOD_HIGHLIGHT_STYLES) {
-      if (style === 'glow') continue;
       expect(css).toContain(`[${RESULT_MOD_HIGHLIGHT_STYLE_ATTR}="${style}"]`);
     }
     for (const color of RESULT_MOD_HIGHLIGHT_COLORS) {
-      if (color === 'indigo') continue;
       expect(css).toContain(`[${RESULT_MOD_HIGHLIGHT_COLOR_ATTR}="${color}"]`);
     }
   });

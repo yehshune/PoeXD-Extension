@@ -321,7 +321,7 @@ const rowLabelClass = 'text-[length:var(--pxd-font-secondary)] font-medium text-
               :variant="bindings.resultModHighlightStyle === opt.value ? 'default' : 'outline'"
               :aria-pressed="bindings.resultModHighlightStyle === opt.value"
               :data-setup-highlight-style="opt.value"
-              class="h-6 flex-1 px-[var(--pxd-space-xs)] text-[length:var(--pxd-font-caption)]"
+              class="flex-1"
               @click="bindings.setResultModHighlightStyle(opt.value)"
             >
               {{ opt.label }}

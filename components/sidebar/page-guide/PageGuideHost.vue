@@ -696,7 +696,7 @@ const previewBarStyle = computed(() => {
   const rect = spotlightRect.value;
   if (!rect) return undefined;
   return {
-    top: `${Math.max(8, rect.top - 34)}px`,
+    top: `${Math.max(8, rect.top - 42)}px`,
     left: `${rect.left}px`,
     width: `${rect.width}px`,
   };
@@ -971,12 +971,10 @@ const previewBarStyle = computed(() => {
       <div
         v-if="isPreview && previewBarStyle"
         data-page-guide-preview-bar
-        class="pointer-events-none fixed z-(--pxd-z-guide-overlay) flex items-center justify-between gap-[var(--pxd-space-sm)]"
+        class="fixed z-(--pxd-z-guide-overlay) flex items-center justify-between gap-[var(--pxd-space-sm)] rounded-sm border border-border/80 bg-popover/95 px-[var(--pxd-space-sm)] py-[var(--pxd-space-xs)] shadow-md"
         :style="previewBarStyle"
       >
-        <span
-          class="pointer-events-auto inline-flex items-center rounded-sm border border-border/80 bg-popover/95 px-[var(--pxd-space-sm)] py-[3px] text-[length:var(--pxd-font-caption)] font-medium text-popover-foreground shadow-md"
-        >
+        <span class="text-[length:var(--pxd-font-caption)] font-medium text-popover-foreground">
           {{ t('pageGuide.preview.badge') }}
         </span>
         <Button
@@ -984,10 +982,9 @@ const previewBarStyle = computed(() => {
           variant="outline"
           size="sm"
           data-page-guide-preview-close
-          class="pointer-events-auto h-6 bg-popover/95 px-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)] shadow-md"
           @click="guide.closeResultPreview()"
         >
-          <X class="size-3.5" />
+          <X />
           {{ t('pageGuide.preview.close') }}
         </Button>
       </div>

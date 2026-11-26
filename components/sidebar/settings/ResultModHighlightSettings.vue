@@ -30,11 +30,10 @@
           size="sm"
           data-test="result-mod-highlight-page-preview"
           :aria-pressed="isPagePreviewOpen"
-          class="h-6 px-[var(--pxd-space-sm)] text-[length:var(--pxd-font-caption)]"
           @click="togglePagePreview"
         >
-          <EyeOff v-if="isPagePreviewOpen" class="size-3.5" />
-          <Eye v-else class="size-3.5" />
+          <EyeOff v-if="isPagePreviewOpen" />
+          <Eye v-else />
           {{
             isPagePreviewOpen
               ? t('settings.resultModHighlight.closePagePreview')
@@ -82,18 +81,14 @@
         data-test="result-mod-highlight-color"
         class="flex flex-wrap gap-[var(--pxd-space-xs)]"
       >
-        <button
+        <Button
           v-for="opt in RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS"
           :key="opt.value"
           type="button"
+          size="sm"
+          :variant="highlightColor === opt.value ? 'default' : 'outline'"
           :aria-pressed="highlightColor === opt.value"
           :data-highlight-color="opt.value"
-          :class="[
-            'inline-flex cursor-pointer items-center gap-1.5 rounded-sm border px-[var(--pxd-space-sm)] py-[3px] text-[length:var(--pxd-font-caption)] leading-snug transition-colors',
-            highlightColor === opt.value
-              ? 'border-primary/70 bg-primary/15 font-medium text-foreground'
-              : 'border-border/70 bg-card text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-          ]"
           @click="handleColorChange(opt.value)"
         >
           <span
@@ -102,7 +97,7 @@
             aria-hidden="true"
           />
           <span>{{ opt.label }}</span>
-        </button>
+        </Button>
       </div>
     </SettingsRow>
   </div>
