@@ -9,6 +9,7 @@ import { initCriteriaOverlayAdapter } from './main-world/criteria-overlay-adapte
 import { initPageGuideDemoAdapter } from './main-world/page-guide-demo-adapter';
 import { initNetworkObserver } from './main-world/network-observer';
 import { initOfficialLiveSearchAdapter } from './main-world/official-livesearch-adapter';
+import { initOfficialSimilarSearchAdapter } from './main-world/official-similar-search-adapter';
 import { initPoeRuntimeMutation } from './main-world/poe-runtime-mutation';
 import { initPoeRuntimeReader } from './main-world/poe-runtime-reader';
 import { initTradeRequestIdle } from './main-world/trade-request-idle';
@@ -47,6 +48,7 @@ export function runInterceptorBootstrap(options?: {
   initCriteriaOverlayAdapter(bridge);
   initPageGuideDemoAdapter(bridge);
   initOfficialLiveSearchAdapter(bridge);
+  initOfficialSimilarSearchAdapter(bridge);
   initDomTagger(bridge);
 
   return bridge;

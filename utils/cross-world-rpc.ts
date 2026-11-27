@@ -1,5 +1,6 @@
 import { parseCriteriaOverlayOps, type CriteriaOverlayOp } from './criteria-overlay';
 import { dispatchPoeEvent, listenPoeEvent } from './event-contracts';
+import { SIMILAR_SEARCH_RPC_CODECS, type SimilarSearchRpcMethodMap } from './similar-search-rpc';
 
 // -------------------------------------------------------------
 // Cross-World RPC Public Types
@@ -69,7 +70,7 @@ export interface PageGuideDemoRequest {
   action: PageGuideDemoAction;
 }
 
-export interface RpcMethodMap {
+export interface RpcMethodMap extends SimilarSearchRpcMethodMap {
   'livesearch.ensure-container': {
     request: LiveSearchEnsureContainerRequest;
     response: { localId: string };
@@ -348,6 +349,8 @@ const RPC_METHOD_CODECS: { [M in RpcMethod]: MethodCodec<M> } = {
     },
     validateResponse: validateNullResponse,
   },
+
+  ...SIMILAR_SEARCH_RPC_CODECS,
 };
 
 function isKnownRpcMethod(method: string): method is RpcMethod {
