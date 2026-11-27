@@ -112,6 +112,21 @@ describe('validateGameDataBatch', () => {
     ).toEqual([]);
   });
 
+  it('驗證 stat-text-skills 分片與 en 對齊', () => {
+    const skillStatText = {
+      en: lines('en', { 1: ['Base radius is {0:d} metres'] }),
+      'zh-TW': lines('zh-TW', { 1: ['基礎範圍為 {0:d} 米', '多一行'] }),
+      'zh-CN': lines('zh-CN', { 1: ['基础范围为 {0:d} 米'] }, '0.9'),
+    };
+    expect(validateGameDataBatch(batch({ skillStatText }))).toEqual([
+      'stat-text-skills.json (zh-CN) patch 0.9 ≠ 1.0',
+      'stat-text-skills.json (zh-TW) 1 個 hash 與 en 對不齊（例如 1）',
+    ]);
+    expect(validateGameDataBatch(batch({ skillStatText: { 'zh-TW': lines('zh-TW') } }))).toEqual([
+      '缺少 en/stat-text-skills.json，無法還原英文',
+    ]);
+  });
+
   it('validates optional result-labels shards (labels object, templates array)', () => {
     const resultLabels = {
       'zh-TW': {

@@ -77,6 +77,13 @@ const LABEL_SELECTOR = [
 ].join(', ');
 /** 星團珠寶底部天賦說明（官方 notableProperties 渲染的無 class／style div，含天賦名 span 與 <br> 分隔的效果行） */
 const NOTABLE_SELECTOR = '.item-popup__content > div:not([class]):not([style])';
+/** 內部子元素重繪時須回溯整塊重比的目標選擇器 */
+const RECHECK_PARENT_SELECTOR = [
+  PROPERTY_SELECTOR,
+  MOD_SELECTOR,
+  DESC_SELECTOR,
+  NOTABLE_SELECTOR,
+].join(', ');
 const TARGET_SELECTOR = [
   STAT_SELECTOR,
   HEADER_SELECTOR,
@@ -547,6 +554,7 @@ export function createResultTranslator(
       syncSubtitle(element);
       return;
     }
+    const hasPriorTranslated = allNodes.some(isCurrent);
     const english = groups
       .map((group) =>
         group
@@ -558,7 +566,7 @@ export function createResultTranslator(
       .join('\n');
 
     // 先試整段多行句型（例如有 <br> 分行的寶石效果）
-    if (groups.length > 1) {
+    if (groups.length > 1 && !hasPriorTranslated) {
       const wholeTranslated = translateModLine(english, pairsForSentence(english));
       if (wholeTranslated !== null && wholeTranslated.trim() !== english) {
         const lines = wholeTranslated.split('\n');
@@ -577,7 +585,7 @@ export function createResultTranslator(
       }
     }
 
-    let anyTranslated = false;
+    const planned: Array<{ group: Text[]; translated: string | null }> = [];
     let anyMissed = false;
     for (const group of groups) {
       if (group.every(isCurrent)) continue;
@@ -585,14 +593,32 @@ export function createResultTranslator(
       const translated = keepPadding(raw, (core) => translateModLine(core, pairsForSentence(core)));
       if (translated === null || translated === raw) {
         anyMissed = true;
-        continue;
+        planned.push({ group, translated: null });
+      } else {
+        planned.push({ group, translated });
       }
+    }
+
+    // 多行詞綴尚有未命中且技能詞綴表未載入時，先保留完整英文待載入後重試（避免拆壞多行模板或汙染英文副標）
+    if (
+      anyMissed &&
+      groups.length > 1 &&
+      data.loadSkillModLines &&
+      skillModLinesState !== 'loaded'
+    ) {
+      requestSkillModLines(element);
+      return;
+    }
+
+    let anyTranslated = false;
+    for (const { group, translated } of planned) {
+      if (translated === null) continue;
       group.forEach((node, i) => setText(node, i === 0 ? translated : ''));
       anyTranslated = true;
     }
     if (anyMissed) requestSkillModLines(element);
-    if (anyTranslated && english) {
-      originalEnglish.set(element, english);
+    if (anyTranslated) {
+      if (!hasPriorTranslated && english) originalEnglish.set(element, english);
       syncSubtitle(element);
     } else if (!allNodes.some(isCurrent)) {
       originalEnglish.delete(element);
@@ -774,12 +800,20 @@ export function createResultTranslator(
   const translateDesc = (element: Element) => {
     const nodes = textNodesOf(element, true).filter((node) => !isSkipped(node, element));
     const nonBlank = nodes.filter((node) => node.data.trim());
-    if (!nonBlank.length || nonBlank.every(isCurrent)) return;
+    if (!nonBlank.length || nonBlank.every(isCurrent)) {
+      translateTitles(element);
+      return;
+    }
     if (nonBlank.length > 1) {
-      const joined = nodes.map((node) => node.data).join('');
+      const spanNodes = nodes.slice(
+        nodes.indexOf(nonBlank[0]),
+        nodes.indexOf(nonBlank[nonBlank.length - 1]) + 1,
+      );
+      const joined = spanNodes.map((node) => node.data).join('');
       const translated = keepPadding(joined, lookup.translateText);
       if (translated && translated !== joined) {
-        nodes.forEach((node, i) => setText(node, i === 0 ? translated : ''));
+        spanNodes.forEach((node, index) => setText(node, index === 0 ? translated : ''));
+        translateTitles(element);
         return;
       }
     }
@@ -855,9 +889,11 @@ export function createResultTranslator(
               pending.add(node.parentElement.closest(TARGET_SELECTOR) ?? node.parentElement);
             }
           });
-          // 屬性行內部重繪時要整行重比
-          const line = (record.target as Element).closest?.(PROPERTY_SELECTOR);
-          if (line) pending.add(line);
+          // 屬性行與多節點詞綴／說明／星團區塊內部重繪時要整塊重比
+          if (!(record.target instanceof Element && record.target.closest(OWN_NODE_SELECTOR))) {
+            const container = (record.target as Element).closest?.(RECHECK_PARENT_SELECTOR);
+            if (container) pending.add(container);
+          }
         }
       }
       if (pending.size && !scheduled) {

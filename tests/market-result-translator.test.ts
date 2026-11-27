@@ -914,4 +914,87 @@ describe('createResultTranslator：技能寶石按需懶載入與 PoE 2 SkillGem
       '可以在技能面板管理技能。',
     );
   });
+
+  it('多行無 data-field 詞綴在懶載入補翻後保留完整英文副標且能命中多行技能模板', async () => {
+    document.body.innerHTML = `
+      <div class="item-popup__content">
+        <div class="item-mod item-mod--explicit" id="mixed-multi">
+          <span class="lc"><span>4% of Spell Damage Leeched as Energy Shield</span><br><span>Base radius is 1.7 metres</span></span>
+        </div>
+        <div class="item-mod item-mod--explicit" id="skill-multi">
+          <span class="lc"><span>Spreads when affected Enemy dies</span><br><span>25% chance to Spread when affected Enemy is Hit</span></span>
+        </div>
+      </div>`;
+    const stop = createResultTranslator(
+      {
+        modLines: {
+          '1': [['{0:d}% of Spell Damage Leeched as Energy Shield', '{0:d}% 法術傷害偷取能量護盾']],
+          '2': [['Spreads when affected Enemy dies', '單行舊譯']],
+        },
+        loadSkillModLines: async () =>
+          ({
+            '10': [['Base radius is {0:d} metres', '基礎範圍為 {0:d} 米']],
+            '11': [
+              [
+                'Spreads when affected Enemy dies\\n{0:d}% chance to Spread when affected Enemy is Hit',
+                '當被影響的敵人死亡時擴散\\n被影響的敵人被擊中時有 {0:d}% 機率擴散',
+              ],
+            ],
+          }) as const,
+        items: {},
+        labels: {},
+      },
+      { resultBilingual: true },
+    ).observe(document.body);
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const mixed = byId('mixed-multi');
+    expect(mixed.querySelector('span.lc')?.textContent).toBe(
+      '4% 法術傷害偷取能量護盾基礎範圍為 1.7 米',
+    );
+    expect(mixed.querySelector(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)?.textContent).toBe(
+      '4% of Spell Damage Leeched as Energy Shield\nBase radius is 1.7 metres',
+    );
+
+    const multi = byId('skill-multi');
+    expect(multi.querySelector('span.lc')?.textContent).toBe(
+      '當被影響的敵人死亡時擴散被影響的敵人被擊中時有 25% 機率擴散',
+    );
+    expect(multi.querySelector(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)?.textContent).toBe(
+      'Spreads when affected Enemy dies\n25% chance to Spread when affected Enemy is Hit',
+    );
+    stop();
+  });
+
+  it('translateDesc 有外層空白節點時將譯文寫入 span.lc 內並翻譯 title；observe 也會捕捉內部子元素重繪', async () => {
+    document.body.innerHTML = `
+      <div class="gem-popup__content">
+        <div class="gem-popup__sec-desc-text" id="desc-ws">
+          <span class="lc" title="at max Quality">Ready your <span class="keyword">Buckler</span> to parry the next <span class="keyword">Hit</span>.</span>
+        </div>
+      </div>`;
+    const stop = createResultTranslator({
+      modLines: {},
+      items: {},
+      labels: {
+        'at max Quality': '最高品質',
+        'Ready your Buckler to parry the next Hit.': '備妥你的輕盾來招架下一次擊中。',
+        'Throws a fiery Orb.': '投擲一顆火焰法球。',
+      },
+    }).observe(document.body);
+
+    const desc = byId('desc-ws');
+    const lc = desc.querySelector('span.lc')!;
+    // 譯文留在 span.lc 裡，沒寫到外層空白文字節點
+    expect(lc.textContent).toBe('備妥你的輕盾來招架下一次擊中。');
+    expect(desc.firstChild?.nodeValue?.trim()).toBe('');
+    expect(lc.getAttribute('title')).toBe('最高品質');
+
+    // 官網切換頁籤重繪內部子元素（新增多個 text/span 節點於既有 span.lc 內）時自動重翻
+    lc.innerHTML = 'Throws a fiery <span class="keyword">Orb</span>.';
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(lc.textContent).toBe('投擲一顆火焰法球。');
+    stop();
+  });
 });
