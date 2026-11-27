@@ -121,9 +121,7 @@ function statGroups(
           {
             type: 'weight',
             filters: kept.map((stat) => ({ id: stat.id, value: { weight: weightOf(stat) } })),
-            ...(!strict && options.weightMin !== undefined
-              ? { value: { min: options.weightMin } }
-              : {}),
+            ...(options.weightMin !== undefined ? { value: { min: options.weightMin } } : {}),
           },
         ]
       : [];

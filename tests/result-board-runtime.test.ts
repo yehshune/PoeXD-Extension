@@ -92,6 +92,19 @@ describe('ResultBoardRuntime', () => {
     expect(runtime.isComplete()).toBe(false);
   });
 
+  it('ignores Similar Item Search results written to the cache (ADR-0020 Decision 8)', () => {
+    dispatchPoeEvent('poexd-search-result-summary', summary(20));
+    deliverFetch(cache, ['a', 'b']);
+    // 找相似的請求由 content world 發出，沒有 poexd-fetch-response；物品直接寫進快取並帶自己的搜尋 id
+    cache.ingestBatch(
+      [{ id: 'similar-1', item: { typeLine: 'Ring', frameType: 2 }, listing: {} }],
+      { sourceSearchId: 'similar-search' },
+    );
+    const state = runtime.session.getState();
+    expect(state.searchId).toBe(SEARCH);
+    expect(state.ledger.entries.map((entry) => entry.id)).toEqual(['a', 'b']);
+  });
+
   it('adopts the search from fetches when no search response was seen', () => {
     deliverFetch(cache, ['a'], 'late');
     expect(runtime.session.getState().searchId).toBe('late');

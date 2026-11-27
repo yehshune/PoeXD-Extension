@@ -14,3 +14,24 @@ export {
   setWeaponMode,
 } from './edit';
 export { buildSimilarSearchQuery } from './query';
+export {
+  orderBySimilarity,
+  scoreSimilarity,
+  type ScoredResult,
+  type SimilarityMark,
+  type SimilarityOptions,
+  type SimilarityScore,
+} from './similarity';
+export { runSimilarSearch, SIMILAR_RUN_LIMITS } from './run';
+export type {
+  FetchedResult,
+  SimilarBatch,
+  SimilarBatchKind,
+  SimilarRunDeps,
+  SimilarRunEvent,
+  SimilarRunResult,
+  SimilarSearchResponse,
+  SimilarStopReason,
+  SimilarTradeTransport,
+  TransportOutcome,
+} from './run-types';

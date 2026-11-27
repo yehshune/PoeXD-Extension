@@ -88,7 +88,7 @@ export type SimilarSearchPhase = 'strict' | 'relaxed';
 
 export interface SimilarSearchQueryOptions {
   phase: SimilarSearchPhase;
-  /** 加權群組的總和下限（放寬搜尋時由執行流程調整） */
+  /** 加權群組的總和下限（執行流程依結果數調整；嚴格搜尋被截斷時也會用到） */
   weightMin?: number;
 }
 
