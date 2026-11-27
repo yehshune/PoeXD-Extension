@@ -787,6 +787,41 @@ describe('ResultEnhancementHost', () => {
     expect(document.querySelectorAll(`.${RESULT_MOD_QUICK_FILTER_ACTIONS_CLASS}`)).toHaveLength(0);
   });
 
+  it('無結果列或缺少 .row.row-total 時不掛載排序工具列，有結果與 .row.row-total 後才掛載且清空後移除', async () => {
+    const harness = createFakeHostHarness({
+      rates: { primary: 'chaos', rates: { chaos: 1, divine: 150 } },
+    });
+    activeHost = harness.host;
+
+    // 1. 尚未搜尋（空的 .results，無 .row.row-total 與結果列）：不應插到 .results 外層
+    mountTradeDom('', { withRowTotal: false });
+    harness.host.init();
+    await harness.host.applyPreferences(makePrefs({ enablePriceComparison: true }));
+    expect(document.querySelector('.poexd-total-controls')).toBeNull();
+
+    // 2. 搜尋結果為 0 筆（有 .row.row-total 但無任何結果列）：同樣不顯示排序按鈕
+    mountTradeDom('', { withRowTotal: true });
+    await harness.host.applyPreferences(makePrefs({ enablePriceComparison: true }));
+    expect(document.querySelector('.poexd-total-controls')).toBeNull();
+
+    // 3. 僅有結果列但尚未出現 .row.row-total：不應 fallback 插在 .results 前面
+    const { results, resultSet } = mountTradeDom(makeRowHtml('r1'), { withRowTotal: false });
+    await harness.host.applyPreferences(makePrefs({ enablePriceComparison: true }));
+    expect(document.querySelector('.poexd-total-controls')).toBeNull();
+
+    // 4. .row.row-total 與結果列皆存在時才掛載到 .row.row-total 內
+    const rowTotal = document.createElement('div');
+    rowTotal.className = 'row row-total';
+    results.prepend(rowTotal);
+    await harness.host.applyPreferences(makePrefs({ enablePriceComparison: true }));
+    expect(rowTotal.querySelector(':scope > .poexd-total-controls')).not.toBeNull();
+
+    // 5. 結果清空（即使 .row.row-total 仍在）後重新套用應移除排序工具列
+    resultSet.innerHTML = '';
+    await harness.host.applyPreferences(makePrefs({ enablePriceComparison: true }));
+    expect(document.querySelector('.poexd-total-controls')).toBeNull();
+  });
+
   it('cleanup() 完整移除所有注入 DOM 與全部 9 個結果增強樣式', async () => {
     const harness = createFakeHostHarness({
       version: 'poe2',

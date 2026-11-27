@@ -89,10 +89,11 @@ export function mountOrUpdateSortToolbar(
   includeStats: boolean,
   specs: readonly ToolbarDropdownSpec[],
 ): HTMLElement | null {
-  const rowTotal = doc.querySelector('.row.row-total');
-  const resultsContainer = doc.querySelector(TRADE_RESULTS_SELECTOR);
-  const targetParent = rowTotal || resultsContainer;
-  if (!targetParent) return null;
+  const rowTotal = doc.querySelector(`${TRADE_RESULTS_SELECTOR} .row.row-total`);
+  if (!rowTotal) {
+    removeSortToolbar(doc);
+    return null;
+  }
 
   const expectedStatsFlag = includeStats ? '1' : '0';
   let controls = doc.querySelector('.poexd-total-controls') as HTMLElement | null;
@@ -115,16 +116,12 @@ export function mountOrUpdateSortToolbar(
     for (const spec of specs) {
       controls.appendChild(createDropdownElement(doc, spec));
     }
-    if (rowTotal) {
-      rowTotal.prepend(controls);
-    } else if (resultsContainer) {
-      resultsContainer.insertAdjacentElement('beforebegin', controls);
-    }
-  } else if (rowTotal && controls.parentElement !== rowTotal) {
+    rowTotal.prepend(controls);
+  } else if (controls.parentElement !== rowTotal) {
     rowTotal.prepend(controls);
   }
 
-  if (rowTotal) syncWithNativeLayoutButtons(controls, rowTotal);
+  syncWithNativeLayoutButtons(controls, rowTotal);
   return controls;
 }
 

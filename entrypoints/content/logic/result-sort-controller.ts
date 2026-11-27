@@ -278,13 +278,14 @@ export class ResultSortControllerAdapter {
       return;
     }
 
-    this.ensureToolbar();
-
     const resultsRoot = this.doc.querySelector(TRADE_RESULTS_SELECTOR);
-    if (resultsRoot) {
-      this.reorderDomRows(resultsRoot);
+    if (!resultsRoot || collectResultRows(resultsRoot).length === 0) {
+      removeSortToolbar(this.doc);
+      return;
     }
 
+    this.ensureToolbar();
+    this.reorderDomRows(resultsRoot);
     ensureResultEnhancementStyle('sort-controls', this.doc);
   }
 
