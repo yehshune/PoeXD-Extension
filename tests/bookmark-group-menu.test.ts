@@ -6,6 +6,7 @@ import { createApp, defineComponent, h, nextTick } from 'vue';
 import { ConfigProvider } from 'reka-ui';
 import BookmarkPane from '@/components/sidebar/BookmarkPane.vue';
 import type { TradeLeague } from '@/utils/trade-leagues';
+import { getPreferences } from '@/utils/preferences';
 
 const source = readBookmarkNodeSource();
 const paneSource = readFileSync('components/sidebar/BookmarkPane.vue', 'utf8');
@@ -642,5 +643,30 @@ describe('Group Menu (Runtime & Shadow Root Portal Isolation)', () => {
       '刪除資料夾',
     );
     expect(deleteGroupSpy).toHaveBeenCalledWith('group-3');
+  });
+
+  it('K. hides folder send-to-console menu item when sidebarModuleLiveSearch is disabled', async () => {
+    const prefsOutcome = await getPreferences('poe1');
+    expect(prefsOutcome.ok).toBe(true);
+    if (!prefsOutcome.ok) return;
+
+    const containers = getGroupContainers();
+    const group1 = containers[0];
+
+    await openGroupMenu(group1);
+    expect(
+      portalRoot.querySelector('[data-test="folder-send-to-live-search-console"]'),
+    ).not.toBeNull();
+
+    try {
+      await prefsOutcome.value.update({ sidebarModuleLiveSearch: false });
+      await nextTick();
+      expect(
+        portalRoot.querySelector('[data-test="folder-send-to-live-search-console"]'),
+      ).toBeNull();
+    } finally {
+      await prefsOutcome.value.update({ sidebarModuleLiveSearch: true });
+      await nextTick();
+    }
   });
 });

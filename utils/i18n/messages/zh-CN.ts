@@ -312,7 +312,7 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.modules.item.pinned-items.description':
     '在搜索结果上钉选物品以便比较；关闭后也会隐藏结果上的钉选按钮。',
   'settings.modules.item.live-search.description':
-    '导航栏上打开在线搜索控制台的按钮；已打开的控制台不受影响。',
+    '导航栏上打开在线搜索控制台的按钮；关闭后也会隐藏页面与菜单上的“送入主控台”，已打开的控制台不受影响。',
   'settings.marketTranslation.keywords': '翻译 中文化',
   'settings.fuzzySearch.label': '模糊搜索',
   'settings.fuzzySearch.tooltip':

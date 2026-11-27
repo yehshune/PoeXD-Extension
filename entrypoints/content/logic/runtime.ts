@@ -435,6 +435,7 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
         filterEnhancements.updatePureBackgroundClass(snapshot.enablePureBackground);
         filterEnhancements.setTierHelperEnabled(snapshot.enableTierHelper);
         filterEnhancements.setAffixSelectorEnabled(snapshot.enableAffixSelector);
+        filterEnhancements.setSendToConsoleEnabled(snapshot.sidebarModuleLiveSearch);
         filterEnhancements.refreshAffixDisplayLocale();
         await resultPipeline.applyPreferences(snapshot);
         if (disposables.isDisposed) return;

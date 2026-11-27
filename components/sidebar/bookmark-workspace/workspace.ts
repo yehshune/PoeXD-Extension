@@ -56,6 +56,7 @@ export interface BookmarkWorkspacePreferences {
   enableBookmarkTooltip?: boolean;
   searchEntryClickAction?: SearchEntryClickAction;
   sidebarPosition?: 'left' | 'right';
+  sidebarModuleLiveSearch?: boolean;
 }
 
 export interface VisibleFolderNode {
@@ -85,6 +86,7 @@ export function createBookmarkWorkspace(
     DEFAULT_PREFERENCES.searchEntryClickAction,
   );
   const sidebarPosition = ref<'left' | 'right'>('left');
+  const liveSearchEnabled = ref<boolean>(DEFAULT_PREFERENCES.sidebarModuleLiveSearch);
   const setPreferences = (next: BookmarkWorkspacePreferences) => {
     if (next.addBookmarkBtnPosition !== undefined)
       addBookmarkBtnPosition.value = next.addBookmarkBtnPosition;
@@ -93,6 +95,8 @@ export function createBookmarkWorkspace(
     if (next.searchEntryClickAction !== undefined)
       searchEntryClickAction.value = next.searchEntryClickAction;
     if (next.sidebarPosition !== undefined) sidebarPosition.value = next.sidebarPosition;
+    if (next.sidebarModuleLiveSearch !== undefined)
+      liveSearchEnabled.value = next.sidebarModuleLiveSearch;
   };
 
   // ── 寫入（Bookmark model）──────────────────────────────────────
@@ -671,6 +675,7 @@ export function createBookmarkWorkspace(
       sortableKey,
       addBookmarkBtnPosition: readonly(addBookmarkBtnPosition),
       sidebarPosition: readonly(sidebarPosition),
+      liveSearchEnabled: readonly(liveSearchEnabled),
       gameVersion: version,
       currentPageUrl: readonly(currentPageUrl),
       search: {

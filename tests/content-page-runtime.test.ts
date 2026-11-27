@@ -59,6 +59,14 @@ describe('ContentPageRuntime', () => {
     expect(normal.resultBoard.setEnabled).toHaveBeenLastCalledWith(
       DEFAULT_PREFERENCES.sidebarModuleResultBoard,
     );
+    expect(normal.filterEnhancements.setSendToConsoleEnabled).toHaveBeenLastCalledWith(
+      DEFAULT_PREFERENCES.sidebarModuleLiveSearch,
+    );
+
+    normal.preferences.emit({ sidebarModuleLiveSearch: false });
+    await vi.waitFor(() => {
+      expect(normal.filterEnhancements.setSendToConsoleEnabled).toHaveBeenLastCalledWith(false);
+    });
 
     normal.pageLoadGateDeferred.resolve();
     await normalStart;

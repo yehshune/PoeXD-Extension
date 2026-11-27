@@ -224,6 +224,7 @@
               <DropdownMenuSeparator />
 
               <DropdownMenuItem
+                v-if="tree.liveSearchEnabled.value"
                 data-test="folder-send-to-live-search-console"
                 @click="actions.sendFolderToLiveSearchConsole(node.folder)"
               >

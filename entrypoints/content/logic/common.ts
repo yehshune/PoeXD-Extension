@@ -23,6 +23,7 @@ export interface FilterDomEnhancements {
   setEditorEnabled(enabled: boolean): void;
   setTierHelperEnabled(enabled: boolean): void;
   setAffixSelectorEnabled(enabled: boolean): void;
+  setSendToConsoleEnabled(enabled: boolean): void;
   updatePureBackgroundClass(enable: boolean): void;
   refreshAffixDisplayLocale(): void;
 }
@@ -33,6 +34,7 @@ export function createFilterDomEnhancements(version: PoeVersion): FilterDomEnhan
   let editorEnabled = true;
   let tierHelperEnabled = true;
   let affixSelectorEnabled = true;
+  let sendToConsoleEnabled = true;
   let unregisterRefresher: (() => void) | undefined;
 
   const isCurrentGeneration = (gen: number): boolean => gen === generation;
@@ -54,7 +56,9 @@ export function createFilterDomEnhancements(version: PoeVersion): FilterDomEnhan
       if (affixSelectorEnabled) {
         injectedControls.injectFilterGroupButtons();
       }
-      injectSendToConsoleButton(version);
+      if (sendToConsoleEnabled) {
+        injectSendToConsoleButton(version);
+      }
       if (tierHelperEnabled) {
         void tierSlotController.sync(gen);
       }
@@ -136,6 +140,16 @@ export function createFilterDomEnhancements(version: PoeVersion): FilterDomEnhan
         injectedControls.cleanFilterGroupButtons();
       } else if (initialized && editorEnabled) {
         injectedControls.injectFilterGroupButtons();
+      }
+    },
+
+    setSendToConsoleEnabled(enabled: boolean): void {
+      if (enabled === sendToConsoleEnabled) return;
+      sendToConsoleEnabled = enabled;
+      if (!enabled) {
+        cleanSendToConsoleButtons();
+      } else if (initialized && editorEnabled) {
+        injectSendToConsoleButton(version);
       }
     },
 

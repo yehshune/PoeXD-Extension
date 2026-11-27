@@ -325,7 +325,7 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.modules.item.pinned-items.description':
     'Pin items from search results to compare them. Turning it off also hides the pin buttons on results.',
   'settings.modules.item.live-search.description':
-    'The navigation button that opens the live search console. Consoles that are already open keep running.',
+    'The navigation button that opens the live search console. Turning it off also hides “Send to Console” buttons and menu items; consoles that are already open keep running.',
   'settings.marketTranslation.keywords': 'translate translation Chinese',
   'settings.fuzzySearch.label': 'Fuzzy search',
   'settings.fuzzySearch.tooltip':

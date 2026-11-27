@@ -7,6 +7,7 @@ import { ConfigProvider } from 'reka-ui';
 import BookmarkPane from '@/components/sidebar/BookmarkPane.vue';
 import type { TradeLeague } from '@/utils/trade-leagues';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
+import { getPreferences } from '@/utils/preferences';
 
 const source = readFileSync('components/sidebar/BookmarkPane.vue', 'utf8');
 const nodeSource = readBookmarkNodeSource();
@@ -952,5 +953,34 @@ describe('Bookmark Menu (Runtime Contracts & Shadow Root Portal Isolation)', () 
     expect(bm1.classList.contains('is-current-bookmark')).toBe(false);
     expect(bm2.getAttribute('data-current')).toBe('true');
     expect(bm2.classList.contains('is-current-bookmark')).toBe(true);
+  });
+
+  it('M. hides send-to-console menu item when sidebarModuleLiveSearch is disabled while keeping official live search', async () => {
+    const prefsOutcome = await getPreferences('poe1');
+    expect(prefsOutcome.ok).toBe(true);
+    if (!prefsOutcome.ok) return;
+
+    const rows = getBookmarkRows();
+    const bm1 = rows[0];
+
+    await openBookmarkMenu(bm1);
+    expect(
+      portalRoot.querySelector('[data-test="bookmark-send-to-live-search-console"]'),
+    ).not.toBeNull();
+
+    try {
+      await prefsOutcome.value.update({ sidebarModuleLiveSearch: false });
+      await nextTick();
+      expect(
+        portalRoot.querySelector('[data-test="bookmark-send-to-live-search-console"]'),
+      ).toBeNull();
+      const items = Array.from(
+        portalRoot.querySelectorAll<HTMLElement>('[data-slot="dropdown-menu-item"]'),
+      ).map((i) => i.textContent?.trim());
+      expect(items.some((text) => text?.includes('使用線上搜尋開啟'))).toBe(true);
+    } finally {
+      await prefsOutcome.value.update({ sidebarModuleLiveSearch: true });
+      await nextTick();
+    }
   });
 });

@@ -6,6 +6,7 @@ import {
   sendCurrentSearchToConsole,
   type SendToConsolePorts,
 } from '@/entrypoints/content/logic/send-to-console';
+import { createFilterDomEnhancements } from '@/entrypoints/content/logic/common';
 import { resetI18nStateForTests, t } from '@/utils/i18n';
 
 function createMockPorts(overrides: Partial<SendToConsolePorts> = {}): SendToConsolePorts {
@@ -229,5 +230,32 @@ describe('Send-to-Console workflow & button adapter', () => {
     document.body.setAttribute('data-poexd-page-role', 'live-search-primary');
     injectSendToConsoleButton('poe1', createMockPorts());
     expect(document.querySelector('.poexd-send-to-console-btn')).toBeNull();
+  });
+
+  it('hides and restores the webpage button when FilterDomEnhancements toggles send-to-console', () => {
+    const searchPanel = document.createElement('div');
+    searchPanel.className = 'search-panel';
+    const controls = document.createElement('div');
+    controls.className = 'controls';
+    const left = document.createElement('div');
+    left.className = 'controls-left';
+    controls.appendChild(left);
+    searchPanel.appendChild(controls);
+    document.body.appendChild(searchPanel);
+
+    const enhancements = createFilterDomEnhancements('poe1');
+    try {
+      enhancements.setSendToConsoleEnabled(false);
+      enhancements.initialize();
+      expect(document.querySelector('.poexd-send-to-console-btn')).toBeNull();
+
+      enhancements.setSendToConsoleEnabled(true);
+      expect(document.querySelector('.poexd-send-to-console-btn')).toBeTruthy();
+
+      enhancements.setSendToConsoleEnabled(false);
+      expect(document.querySelector('.poexd-send-to-console-btn')).toBeNull();
+    } finally {
+      enhancements.cleanup();
+    }
   });
 });

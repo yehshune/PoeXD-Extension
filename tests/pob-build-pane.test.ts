@@ -9,18 +9,31 @@ import { resetI18nStateForTests } from '@/utils/i18n';
 vi.mock('@/utils/trade-context', () => ({ getPoeVersion: () => 'poe1' }));
 
 const { prefState, prefListeners } = vi.hoisted(() => ({
-  prefState: { searchEntryClickAction: 'open' as 'open' | 'preview' },
-  prefListeners: new Set<(snapshot: { searchEntryClickAction: 'open' | 'preview' }) => void>(),
+  prefState: {
+    searchEntryClickAction: 'open' as 'open' | 'preview',
+    sidebarModuleLiveSearch: true,
+  },
+  prefListeners: new Set<
+    (snapshot: {
+      searchEntryClickAction: 'open' | 'preview';
+      sidebarModuleLiveSearch: boolean;
+    }) => void
+  >(),
 }));
 
 vi.mock('@/utils/preferences', () => ({
   getPreferences: vi.fn(async () => ({
     ok: true,
     value: {
-      read: () => ({ searchEntryClickAction: prefState.searchEntryClickAction }),
-      subscribe: (listener: (snapshot: { searchEntryClickAction: 'open' | 'preview' }) => void) => {
+      read: () => ({ ...prefState }),
+      subscribe: (
+        listener: (snapshot: {
+          searchEntryClickAction: 'open' | 'preview';
+          sidebarModuleLiveSearch: boolean;
+        }) => void,
+      ) => {
         prefListeners.add(listener);
-        listener({ searchEntryClickAction: prefState.searchEntryClickAction });
+        listener({ ...prefState });
         return () => prefListeners.delete(listener);
       },
     },
@@ -274,6 +287,7 @@ describe('PobBuildPane', () => {
   beforeEach(() => {
     resetI18nStateForTests('zh-TW');
     prefState.searchEntryClickAction = 'open';
+    prefState.sidebarModuleLiveSearch = true;
     prefListeners.clear();
     buildsRef.value = [];
     errorKey.value = null;
@@ -610,6 +624,21 @@ describe('PobBuildPane', () => {
       queryBody('[data-pob-build-send-console]')?.getAttribute('data-disabled'),
     ).not.toBeNull();
     expect(queryBody('[data-pob-build-menu-reset]')).toBeNull();
+  });
+
+  it('關閉線上搜尋主控台入口時隱藏送入主控台選單項目，但保留官方線上搜尋開啟', async () => {
+    prefState.sidebarModuleLiveSearch = false;
+    buildsRef.value = [sampleBuild()];
+    await mount();
+    await openMenu(1);
+
+    expect(queryBody('[data-pob-build-send-console]')).toBeNull();
+    expect(queryBody('[data-pob-build-open-live]')).not.toBeNull();
+
+    prefState.sidebarModuleLiveSearch = true;
+    prefListeners.forEach((listener) => listener({ ...prefState }));
+    await flushAsync(20);
+    expect(queryBody('[data-pob-build-send-console]')).not.toBeNull();
   });
 
   it('開啟選單時讀取書籤資料夾', async () => {

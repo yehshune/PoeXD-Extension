@@ -647,6 +647,7 @@
                           class="max-h-[min(calc(var(--pxd-menu-max-height,240px)_*_1.5),var(--reka-dropdown-menu-content-available-height,calc(100vh-32px)))]"
                         >
                           <DropdownMenuItem
+                            v-if="liveSearchEnabled"
                             :disabled="!canSearch(row)"
                             data-pob-build-send-console
                             @click="sendToLiveSearch(build.id, row)"
@@ -1028,6 +1029,7 @@ export default defineComponent({
     const searchEntryClickAction = ref<SearchEntryClickAction>(
       DEFAULT_PREFERENCES.searchEntryClickAction,
     );
+    const liveSearchEnabled = ref<boolean>(DEFAULT_PREFERENCES.sidebarModuleLiveSearch);
 
     const showSkillSets = (build: BuildView) => build.skillSetOptions.length > 1;
 
@@ -1274,6 +1276,7 @@ export default defineComponent({
         if (disposed || !outcome.ok) return;
         stopPreferences = outcome.value.subscribe((snapshot) => {
           searchEntryClickAction.value = snapshot.searchEntryClickAction;
+          liveSearchEnabled.value = snapshot.sidebarModuleLiveSearch !== false;
         });
       });
       try {
@@ -1339,6 +1342,7 @@ export default defineComponent({
       saveActiveDraft,
       discardActiveDraft: workspace.discardActiveDraft,
       searchEntryClickAction,
+      liveSearchEnabled,
       canSearch: workspace.canSearch,
       canPreview: workspace.canPreview,
       rowTooltip,

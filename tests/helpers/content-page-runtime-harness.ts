@@ -106,6 +106,7 @@ export function createFakeRuntimeHarness(overrides: Partial<ContentPageRuntimeDe
     setEditorEnabled: vi.fn(),
     setTierHelperEnabled: vi.fn(),
     setAffixSelectorEnabled: vi.fn(),
+    setSendToConsoleEnabled: vi.fn(),
     updatePureBackgroundClass: vi.fn(),
     refreshAffixDisplayLocale: vi.fn(),
   };

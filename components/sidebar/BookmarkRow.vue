@@ -145,6 +145,7 @@
             </DropdownMenuItem>
 
             <DropdownMenuItem
+              v-if="tree.liveSearchEnabled.value"
               data-test="bookmark-send-to-live-search-console"
               @click="actions.sendBookmarkToLiveSearchConsole(bm)"
             >

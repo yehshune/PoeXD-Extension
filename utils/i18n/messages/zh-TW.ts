@@ -310,7 +310,7 @@ export const ZH_TW_MESSAGES = {
   'settings.modules.item.pinned-items.description':
     '在搜尋結果上釘選物品以便比較；關閉後也會隱藏結果上的釘選按鈕。',
   'settings.modules.item.live-search.description':
-    '導覽列上開啟線上搜尋主控台的按鈕；已開啟的主控台不受影響。',
+    '導覽列上開啟線上搜尋主控台的按鈕；關閉後也會隱藏頁面與選單上的「送入主控台」，已開啟的主控台不受影響。',
   'settings.marketTranslation.keywords': '翻譯 中文化',
   'settings.fuzzySearch.label': '模糊搜尋',
   'settings.fuzzySearch.tooltip':
