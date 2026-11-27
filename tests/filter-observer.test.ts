@@ -170,4 +170,41 @@ describe('FilterObserver readiness and debounce contracts', () => {
     vi.advanceTimersByTime(100);
     expect(onRefresh).not.toHaveBeenCalled();
   });
+
+  it('ignores mutations inside active-filters-bar so they never trigger or starve stat group refresh', async () => {
+    const bar = document.createElement('div');
+    bar.className = 'poexd-active-filters-bar';
+    const label = document.createElement('span');
+    bar.appendChild(label);
+    searchAdvanced.appendChild(bar);
+
+    observerInstance = createFilterObserver({
+      onRefresh,
+      isCurrentGeneration,
+    });
+
+    observerInstance.start(1);
+    onRefresh.mockClear();
+
+    // 插入新詞綴群組，進入 50ms debounce
+    const newGroup = document.createElement('div');
+    newGroup.className = 'filter-group';
+    searchAdvanced.appendChild(newGroup);
+    await Promise.resolve();
+
+    // 若於 30ms 時 active-filters-bar 內部發生 DOM 變動，不應重設 50ms debounce
+    vi.advanceTimersByTime(30);
+    label.textContent = '只看已填屬性 (1)';
+    await Promise.resolve();
+
+    vi.advanceTimersByTime(20);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    // 單純 active-filters-bar 內部變動亦不應觸發 onRefresh
+    onRefresh.mockClear();
+    label.textContent = '只看已填屬性 (2)';
+    await Promise.resolve();
+    vi.advanceTimersByTime(100);
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
 });

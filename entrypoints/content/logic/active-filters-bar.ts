@@ -239,6 +239,18 @@ export function createActiveFiltersBar(
     doc.getElementById(ACTIVE_FILTERS_STYLE_ID)?.remove();
   };
 
+  const setTextIfChanged = (el: Element | null, next: string) => {
+    if (el && el.textContent !== next) {
+      el.textContent = next;
+    }
+  };
+
+  const setAttrIfChanged = (el: Element, name: string, next: string) => {
+    if (el.getAttribute(name) !== next) {
+      el.setAttribute(name, next);
+    }
+  };
+
   const updateBarUi = () => {
     const activeCount = countActiveBlueFilters(observedBluePane);
     if (toggleBtnEl && toggleLabelEl) {
@@ -246,20 +258,19 @@ export function createActiveFiltersBar(
         activeCount > 0
           ? t('activeFiltersBar.toggleWithCount', { count: String(activeCount) })
           : t('activeFiltersBar.toggle');
-      toggleLabelEl.textContent = label;
-      toggleBtnEl.setAttribute('aria-pressed', String(activeOnly));
-      toggleBtnEl.setAttribute('data-active', activeOnly ? 'true' : 'false');
-      toggleBtnEl.title = activeOnly
+      setTextIfChanged(toggleLabelEl, label);
+      setAttrIfChanged(toggleBtnEl, 'aria-pressed', String(activeOnly));
+      setAttrIfChanged(toggleBtnEl, 'data-active', activeOnly ? 'true' : 'false');
+      const nextTitle = activeOnly
         ? t('activeFiltersBar.showAllTooltip')
         : t('activeFiltersBar.onlyActiveTooltip');
+      if (toggleBtnEl.title !== nextTitle) {
+        toggleBtnEl.title = nextTitle;
+      }
     }
 
-    if (emptyTextEl) {
-      emptyTextEl.textContent = t('activeFiltersBar.emptyHint');
-    }
-    if (showAllBtnEl) {
-      showAllBtnEl.textContent = t('activeFiltersBar.showAll');
-    }
+    setTextIfChanged(emptyTextEl, t('activeFiltersBar.emptyHint'));
+    setTextIfChanged(showAllBtnEl, t('activeFiltersBar.showAll'));
   };
 
   const setActiveOnly = (next: boolean) => {
@@ -361,7 +372,15 @@ export function createActiveFiltersBar(
     showAllBtnEl = showAllBtn;
 
     if (typeof MutationObserver !== 'undefined') {
-      paneObserver = new MutationObserver(() => scheduleUiRefresh());
+      paneObserver = new MutationObserver((mutations) => {
+        const hasExternalMutation = mutations.some((record) => {
+          const target = record.target;
+          return !barEl?.contains(target) && !emptyEl?.contains(target);
+        });
+        if (hasExternalMutation) {
+          scheduleUiRefresh();
+        }
+      });
       paneObserver.observe(bluePane, {
         childList: true,
         subtree: true,

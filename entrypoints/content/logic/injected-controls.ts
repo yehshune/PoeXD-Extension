@@ -293,9 +293,17 @@ function filterGroupButtonTitle(mode: FilterGroupButtonMode): string {
   return t('injectedControls.selectAffixGroupTitle');
 }
 
+function resolveFilterGroupIndex(button: HTMLButtonElement, fallbackIndex: number): number {
+  const groupEl = button.closest('.filter-group');
+  if (!groupEl) return fallbackIndex;
+  const groups = Array.from(document.querySelectorAll('.search-advanced-pane.brown .filter-group'));
+  const currentIndex = groups.indexOf(groupEl);
+  return currentIndex >= 0 ? currentIndex : fallbackIndex;
+}
+
 function createFilterGroupButton(
   mode: FilterGroupButtonMode,
-  groupIndex: number,
+  fallbackGroupIndex: number,
 ): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
@@ -313,6 +321,7 @@ function createFilterGroupButton(
   );
   button.addEventListener('click', (e) => {
     e.stopPropagation();
+    const groupIndex = resolveFilterGroupIndex(button, fallbackGroupIndex);
     if (mode === 'mercenary') {
       dispatchPoeEvent('poexd-open-mercenary-picker', { groupIndex });
     } else if (mode === 'mercenary-condition') {

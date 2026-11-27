@@ -175,4 +175,42 @@ describe('active-filters-bar', () => {
     expect(document.querySelector(`.${ACTIVE_FILTERS_BAR_CLASS}`)).toBeNull();
     controller.cleanup();
   });
+
+  it('does not trigger a self-referential MutationObserver loop on bluePane or search-advanced-items', async () => {
+    vi.useFakeTimers();
+    mountMockBluePane();
+    const controller = createActiveFiltersBar();
+    controller.sync();
+
+    const searchAdvanced = document.querySelector('.search-advanced-items')!;
+    const mutations: MutationRecord[] = [];
+    const spyObserver = new MutationObserver((records) => {
+      mutations.push(...records);
+    });
+    spyObserver.observe(searchAdvanced, { childList: true, subtree: true, attributes: true });
+
+    // 推進多輪 40ms paneObserver debounce，不應有任何自激 DOM 變動
+    await Promise.resolve();
+    vi.advanceTimersByTime(300);
+    await Promise.resolve();
+    expect(mutations).toHaveLength(0);
+
+    // 模擬外部輸入變動（第二列屬性）：僅應更新一次計數，不得進入循環
+    const secondRowInput = document.querySelectorAll('.search-advanced-pane.blue input')[2]!;
+    secondRowInput.classList.add('modified');
+    await Promise.resolve();
+    vi.advanceTimersByTime(40);
+    await Promise.resolve();
+
+    const toggleBtn = document.querySelector<HTMLButtonElement>(`.${ACTIVE_FILTERS_TOGGLE_CLASS}`)!;
+    expect(toggleBtn.textContent).toContain('(2)');
+
+    mutations.length = 0;
+    vi.advanceTimersByTime(300);
+    await Promise.resolve();
+    expect(mutations).toHaveLength(0);
+
+    spyObserver.disconnect();
+    controller.cleanup();
+  });
 });

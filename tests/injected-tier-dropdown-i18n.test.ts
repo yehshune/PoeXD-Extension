@@ -305,4 +305,43 @@ describe('Seam 2: In-Page Tier Dropdown (`TierDropdownHost.vue`) & Search Form I
       vi.useRealTimers();
     }
   });
+
+  it('resolves live stat group index on click even after an earlier group is removed', async () => {
+    const { listenPoeEvent } = await import('@/utils/event-contracts');
+
+    const brownPane = document.createElement('div');
+    brownPane.className = 'search-advanced-pane brown';
+
+    const makeGroup = () => {
+      const group = document.createElement('div');
+      group.className = 'filter-group';
+      group.innerHTML =
+        '<div class="filter-group-header"><div class="filter"><span class="input-group-btn"><button class="btn remove-btn"></button></span></div></div>';
+      return group;
+    };
+
+    const g0 = makeGroup();
+    const g1 = makeGroup();
+    brownPane.append(g0, g1);
+    document.body.appendChild(brownPane);
+
+    const injected = createInjectedControls({ version: 'poe1' });
+    injected.injectFilterGroupButtons();
+
+    // Remove the first group; g1 is now index 0
+    g0.remove();
+    injected.injectFilterGroupButtons();
+
+    const received: number[] = [];
+    const stopListen = listenPoeEvent('poexd-open-affix-modal', (detail) => {
+      received.push(detail.groupIndex);
+    });
+
+    try {
+      g1.querySelector<HTMLButtonElement>('.poexd-filter-select-btn')!.click();
+      expect(received).toEqual([0]);
+    } finally {
+      stopListen();
+    }
+  });
 });

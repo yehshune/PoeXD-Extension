@@ -8,6 +8,15 @@ export interface FilterObserver {
   stop(): void;
 }
 
+function isActiveFiltersBarMutation(record: MutationRecord): boolean {
+  const target = record.target as Node | null;
+  const el =
+    target && typeof (target as Element).closest === 'function'
+      ? (target as Element)
+      : (target?.parentElement ?? null);
+  return Boolean(el?.closest('.poexd-active-filters-bar, .poexd-active-filters-empty'));
+}
+
 function isAuthoritativeAttributeMutation(record: MutationRecord): boolean {
   if (record.type !== 'attributes') return false;
   if (record.attributeName === 'data-poexd-stat-id') {
@@ -59,6 +68,10 @@ export function createFilterObserver(options: FilterObserverOptions): FilterObse
     options.onRefresh(generation);
 
     observer = new MutationObserver((mutations) => {
+      if (mutations.every(isActiveFiltersBarMutation)) {
+        return;
+      }
+
       const hasAuthoritativeChange = mutations.some(isAuthoritativeAttributeMutation);
 
       if (hasAuthoritativeChange) {
