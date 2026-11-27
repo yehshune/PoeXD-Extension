@@ -74,6 +74,9 @@ describe('Preferences Domain Contract', () => {
       sidebarModuleStatGroupTemplates: true,
       sidebarPosition: 'left',
       sidebarWidth: 380,
+      similarSearchScope: 'category',
+      similarSearchTolerance: 80,
+      similarSearchWeaponMode: 'auto',
       theme: 'modern-dark',
       themeCustomOverrides: '{}',
       twoColumnFilterWidth: 560,
@@ -138,7 +141,24 @@ describe('Preferences Domain Contract', () => {
       'enableResultModQuickFilter',
       'enableResultPobCopy',
       'enableTierHelper',
+      'similarSearchTolerance',
+      'similarSearchScope',
+      'similarSearchWeaponMode',
     ]);
+  });
+
+  it('validates Similar Item Search preferences', () => {
+    expect(DEFAULT_PREFERENCES.similarSearchTolerance).toBe(80);
+    expect(DEFAULT_PREFERENCES.similarSearchScope).toBe('category');
+    expect(DEFAULT_PREFERENCES.similarSearchWeaponMode).toBe('auto');
+    expect(isValidPreference('similarSearchTolerance', 50)).toBe(true);
+    expect(isValidPreference('similarSearchTolerance', 100)).toBe(true);
+    expect(isValidPreference('similarSearchTolerance', 49)).toBe(false);
+    expect(isValidPreference('similarSearchTolerance', 75.5)).toBe(false);
+    expect(isValidPreference('similarSearchScope', 'base')).toBe(true);
+    expect(isValidPreference('similarSearchScope', 'item')).toBe(false);
+    expect(isValidPreference('similarSearchWeaponMode', 'damage')).toBe(true);
+    expect(isValidPreference('similarSearchWeaponMode', 'crit')).toBe(false);
   });
 
   it('defines frozen numeric bounds', () => {

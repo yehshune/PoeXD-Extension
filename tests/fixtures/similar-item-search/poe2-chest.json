@@ -1,0 +1,144 @@
+{
+  "realm": "poe2",
+  "id": "63b069b49c3d2ad15a899f757b5d2355cb185bf95b7cca4ec5f2db479bedf9da",
+  "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9CYXNldHlwZXMvQm9keVN0ckRleDA1IiwidyI6MiwiaCI6Mywic2NhbGUiOjEsInJlYWxtIjoicG9lMiJ9XQ/dfce2be64c/BodyStrDex05.png",
+  "name": "Pain Guardian",
+  "typeLine": "Explorer Armour",
+  "baseType": "Explorer Armour",
+  "rarity": "Rare",
+  "frameType": 2,
+  "identified": true,
+  "ilvl": 61,
+  "properties": [
+    {
+      "name": "Body Armour",
+      "values": [],
+      "displayMode": 0,
+      "type": 109
+    },
+    {
+      "name": "[Armour]",
+      "values": [
+        [
+          "211",
+          1
+        ]
+      ],
+      "displayMode": 0,
+      "type": 16
+    },
+    {
+      "name": "[Evasion|Evasion Rating]",
+      "values": [
+        [
+          "195",
+          1
+        ]
+      ],
+      "displayMode": 0,
+      "type": 17
+    }
+  ],
+  "explicitMods": [
+    {
+      "description": "+62 to [Armour|Armour]",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_3484657501",
+      "mods": [
+        {
+          "name": "Flexible",
+          "tier": "P6",
+          "level": 33,
+          "magnitudes": [
+            {
+              "min": "47",
+              "max": "71"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "+63 to [Evasion] Rating",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_53045048",
+      "mods": [
+        {
+          "name": "Flexible",
+          "tier": "P6",
+          "level": 33,
+          "magnitudes": [
+            {
+              "min": "42",
+              "max": "64"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "+61 to maximum Life",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_3299347043",
+      "mods": [
+        {
+          "name": "Stout",
+          "tier": "P9",
+          "level": 33,
+          "magnitudes": [
+            {
+              "min": "60",
+              "max": "69"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "+11 to [Strength|Strength]",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_4080418644",
+      "mods": [
+        {
+          "name": "of the Wrestler",
+          "tier": "S7",
+          "level": 11,
+          "magnitudes": [
+            {
+              "min": "9",
+              "max": "12"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "51 to 72 [Physical|Physical] [Thorns|Thorns] damage",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_2881298780",
+      "mods": [
+        {
+          "name": "Spiked",
+          "tier": "P3",
+          "level": 48,
+          "magnitudes": [
+            {
+              "min": "40",
+              "max": "60"
+            },
+            {
+              "min": "61",
+              "max": "92"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "extended": {
+    "ev": 234,
+    "ev_aug": true,
+    "ar": 253,
+    "ar_aug": true
+  }
+}

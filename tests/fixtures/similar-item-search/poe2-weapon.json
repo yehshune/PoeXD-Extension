@@ -1,0 +1,160 @@
+{
+  "realm": "poe2",
+  "id": "d70bcf53b1efc8ff36e8d47d60023b8362ec2ea10cfc096c984734169f310b21",
+  "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9PbmVIYW5kV2VhcG9ucy9PbmVIYW5kTWFjZXMvQmFzZXR5cGVzLzFITWFjZTA3IiwidyI6MiwiaCI6Mywic2NhbGUiOjEsInJlYWxtIjoicG9lMiJ9XQ/67ee177858/1HMace07.png",
+  "name": "Rune Brand",
+  "typeLine": "Marauding Mace",
+  "baseType": "Marauding Mace",
+  "rarity": "Rare",
+  "frameType": 2,
+  "identified": true,
+  "ilvl": 78,
+  "properties": [
+    {
+      "name": "[Mace|One Hand Mace]",
+      "values": [],
+      "displayMode": 0,
+      "type": 109
+    },
+    {
+      "name": "[Quality]",
+      "values": [
+        [
+          "+6%",
+          1
+        ]
+      ],
+      "displayMode": 0,
+      "type": 6
+    },
+    {
+      "name": "[Physical] Damage",
+      "values": [
+        [
+          "54-89",
+          1
+        ]
+      ],
+      "displayMode": 0,
+      "type": 9
+    },
+    {
+      "name": "Lightning Damage",
+      "values": [
+        [
+          "1-28",
+          6
+        ]
+      ],
+      "displayMode": 0,
+      "type": 10
+    },
+    {
+      "name": "[Critical|Critical Hit] Chance",
+      "values": [
+        [
+          "9.66%",
+          1
+        ]
+      ],
+      "displayMode": 0,
+      "type": 12
+    },
+    {
+      "name": "Attacks per Second",
+      "values": [
+        [
+          "1.45",
+          0
+        ]
+      ],
+      "displayMode": 0,
+      "type": 13
+    }
+  ],
+  "explicitMods": [
+    {
+      "description": "Adds 1 to 28 [Lightning|Lightning] Damage",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_3336890334",
+      "mods": [
+        {
+          "name": "Snapping",
+          "tier": "P8",
+          "level": 16,
+          "magnitudes": [
+            {
+              "min": "1",
+              "max": "2"
+            },
+            {
+              "min": "20",
+              "max": "30"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "+4.66% to [Critical|Critical Hit] Chance",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_518292764",
+      "mods": [
+        {
+          "name": "of Unmaking",
+          "tier": "S1",
+          "level": 73,
+          "magnitudes": [
+            {
+              "min": "4.41",
+              "max": "5"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "+30 to [Strength|Strength]",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_4080418644",
+      "mods": [
+        {
+          "name": "of the Leviathan",
+          "tier": "S2",
+          "level": 66,
+          "magnitudes": [
+            {
+              "min": "28",
+              "max": "30"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "20% increased [Stun|Stun] Duration",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_748522257",
+      "mods": [
+        {
+          "name": "of Slamming",
+          "tier": "S3",
+          "level": 44,
+          "magnitudes": [
+            {
+              "min": "20",
+              "max": "22"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "extended": {
+    "dps": 138.48,
+    "pdps": 117.45,
+    "edps": 21.03,
+    "dps_aug": true,
+    "pdps_aug": true
+  }
+}

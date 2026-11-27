@@ -1,0 +1,182 @@
+{
+  "id": "7126817449ea60b223fbdf8380470d47df66ea12bbcb1380ca2920f7f0b74ec9",
+  "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9PbmVIYW5kV2VhcG9ucy9SYXBpZXJzL1JhcGllcjUiLCJ3IjoxLCJoIjo0LCJzY2FsZSI6MX1d/ccce0178cc/Rapier5.png",
+  "name": "Brood Sever",
+  "typeLine": "Spiraled Foil",
+  "baseType": "Spiraled Foil",
+  "rarity": "Rare",
+  "frameType": 2,
+  "identified": true,
+  "ilvl": 66,
+  "properties": [
+    {
+      "name": "One Handed Sword",
+      "values": [],
+      "displayMode": 0
+    },
+    {
+      "name": "Physical Damage",
+      "values": [
+        [
+          "70-160",
+          1
+        ]
+      ],
+      "displayMode": 0,
+      "type": 9
+    },
+    {
+      "name": "Critical Strike Chance",
+      "values": [
+        [
+          "5.50%",
+          0
+        ]
+      ],
+      "displayMode": 0,
+      "type": 12
+    },
+    {
+      "name": "Attacks per Second",
+      "values": [
+        [
+          "1.60",
+          0
+        ]
+      ],
+      "displayMode": 0,
+      "type": 13
+    },
+    {
+      "name": "Weapon Range: {0} metres",
+      "values": [
+        [
+          "1.4",
+          0
+        ]
+      ],
+      "displayMode": 3,
+      "type": 14
+    }
+  ],
+  "implicitMods": [
+    {
+      "description": "+25% to Global Critical Strike Multiplier",
+      "domain": "implicit",
+      "hash": "stat.implicit.stat_3556824919",
+      "mods": [
+        {
+          "magnitudes": [
+            {
+              "min": "25",
+              "max": "25"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "explicitMods": [
+    {
+      "description": "+2 to Level of Socketed Melee Gems",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_829382474",
+      "mods": [
+        {
+          "name": "Weaponmaster's",
+          "tier": "P1",
+          "level": 63,
+          "magnitudes": [
+            {
+              "min": "2",
+              "max": "2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "105% increased Physical Damage",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_1509134228",
+      "mods": [
+        {
+          "name": "Vicious",
+          "tier": "P5",
+          "level": 35,
+          "magnitudes": [
+            {
+              "min": "85",
+              "max": "109"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "Adds 7 to 14 Physical Damage",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_1940865751",
+      "mods": [
+        {
+          "name": "Polished",
+          "tier": "P7",
+          "level": 21,
+          "magnitudes": [
+            {
+              "min": "6",
+              "max": "9"
+            },
+            {
+              "min": "13",
+              "max": "15"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "Grants 8 Life per Enemy Hit",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_821021828",
+      "mods": [
+        {
+          "name": "of Regrowth",
+          "tier": "S6",
+          "level": 30,
+          "magnitudes": [
+            {
+              "min": "7",
+              "max": "10"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "28% increased Stun Duration on Enemies",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_2517001139",
+      "mods": [
+        {
+          "name": "of Slamming",
+          "tier": "S2",
+          "level": 44,
+          "magnitudes": [
+            {
+              "min": "26",
+              "max": "30"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "extended": {
+    "dps": 220.8,
+    "pdps": 220.8,
+    "edps": 0,
+    "dps_aug": true,
+    "pdps_aug": true
+  }
+}

@@ -12,6 +12,14 @@ import {
   normalizeThemeId,
   normalizeThemeOverridesJson,
 } from '@/lib/theme/theme-contract';
+import {
+  DEFAULT_SIMILAR_TOLERANCE,
+  SIMILAR_SEARCH_SCOPES,
+  SIMILAR_TOLERANCE_BOUNDS,
+  WEAPON_MODES,
+  type SimilarSearchScope,
+  type WeaponModePreference,
+} from './similar-item-search/types';
 import type { PoeVersion } from './trade-context';
 
 export {
@@ -246,6 +254,12 @@ export interface Preferences {
   sidebarModuleStatGroupTemplates: boolean;
   sidebarPosition: SidebarPosition;
   sidebarWidth: number;
+  /** 找相似（ADR-0020）預設以同類別或同基底搜尋 */
+  similarSearchScope: SimilarSearchScope;
+  /** 找相似的容忍度（%）：每個門檻取 Source Item 數值的這個比例 */
+  similarSearchTolerance: number;
+  /** 找相似的武器比較方式；auto 依 DPS 組成判斷 */
+  similarSearchWeaponMode: WeaponModePreference;
   theme: ThemeId;
   /** 各主題獨立保存的色彩與圓角覆寫（正規化 JSON 字串） */
   themeCustomOverrides: string;
@@ -304,6 +318,8 @@ const normalizeTokenMaxAgeSec = (value: unknown): number => {
     Math.max(LIVE_SEARCH_TOKEN_MAX_AGE_BOUNDS.min, Math.round(value)),
   );
 };
+
+const SIMILAR_WEAPON_MODE_VALUES: readonly WeaponModePreference[] = ['auto', ...WEAPON_MODES];
 
 const isDensityScale = isOneOf(DENSITY_SCALE_VALUES);
 const normalizeDensityScale = (value: unknown): number => {
@@ -516,6 +532,21 @@ export const PREFERENCE_SCHEMA = Object.freeze({
     default: true,
     validate: isBoolean,
     legacyVersionedGlobal: true,
+  },
+  similarSearchTolerance: {
+    scope: 'global',
+    default: DEFAULT_SIMILAR_TOLERANCE,
+    validate: isIntegerInRange(SIMILAR_TOLERANCE_BOUNDS),
+  },
+  similarSearchScope: {
+    scope: 'global',
+    default: 'category',
+    validate: isOneOf(SIMILAR_SEARCH_SCOPES),
+  },
+  similarSearchWeaponMode: {
+    scope: 'global',
+    default: 'auto',
+    validate: isOneOf(SIMILAR_WEAPON_MODE_VALUES),
   },
   enableItemNormalizer: {
     scope: 'versioned',

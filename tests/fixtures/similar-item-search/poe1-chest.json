@@ -1,0 +1,103 @@
+{
+  "id": "90f46b75aa5578d001da8d1c87492157871ade435f78c2fffeedb9bfcb1d5c30",
+  "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5RGV4MUIiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/57409a1844/BodyDex1B.png",
+  "name": "Fate Shelter",
+  "typeLine": "Eelskin Tunic",
+  "baseType": "Eelskin Tunic",
+  "rarity": "Rare",
+  "frameType": 2,
+  "identified": true,
+  "ilvl": 48,
+  "properties": [
+    {
+      "name": "Evasion Rating",
+      "values": [
+        [
+          "591",
+          1
+        ]
+      ],
+      "displayMode": 0,
+      "type": 17
+    }
+  ],
+  "explicitMods": [
+    {
+      "description": "+18 to Evasion Rating",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_53045048",
+      "mods": [
+        {
+          "name": "Dancer's",
+          "tier": "P10",
+          "level": 11,
+          "magnitudes": [
+            {
+              "min": "13",
+              "max": "35"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "47% increased Evasion Rating",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_124859000",
+      "mods": [
+        {
+          "name": "Spectre's",
+          "tier": "P6",
+          "level": 30,
+          "magnitudes": [
+            {
+              "min": "43",
+              "max": "55"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "+90 to maximum Life",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_3299347043",
+      "mods": [
+        {
+          "name": "Rotund",
+          "tier": "P7",
+          "level": 36,
+          "magnitudes": [
+            {
+              "min": "85",
+              "max": "99"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "+17% to Chaos Resistance",
+      "domain": "explicit",
+      "hash": "stat.explicit.stat_2923486259",
+      "mods": [
+        {
+          "name": "of Eviction",
+          "tier": "S4",
+          "level": 44,
+          "magnitudes": [
+            {
+              "min": "16",
+              "max": "20"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "extended": {
+    "base_defence_percentile": 20,
+    "ev": 709,
+    "ev_aug": true
+  }
+}
