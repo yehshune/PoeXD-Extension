@@ -33,7 +33,10 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
 
     it('sets min-w-0 and overflow-hidden on header-left and marks app-title and app-version with responsive classes', () => {
       expect(sidebarSource).toMatch(
-        /class="header-left flex items-baseline gap-\[var\(--pxd-space-sm\)\] min-w-0 shrink overflow-hidden"/,
+        /class="header-left flex items-center gap-\[var\(--pxd-space-sm\)\] min-w-0 shrink overflow-hidden"/,
+      );
+      expect(sidebarSource).toContain(
+        'class="flex items-baseline gap-[var(--pxd-space-sm)] min-w-0 shrink"',
       );
       expect(sidebarSource).toContain('pxd-header-title');
       expect(sidebarSource).toContain('pxd-header-version');

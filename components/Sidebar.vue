@@ -115,21 +115,23 @@
               class="content-header h-[var(--pxd-sidebar-header-height)] px-[var(--pxd-pane-padding)] border-b border-border flex items-center justify-between gap-[var(--pxd-space-sm)] bg-background min-w-0"
             >
               <div
-                class="header-left flex items-baseline gap-[var(--pxd-space-sm)] min-w-0 shrink overflow-hidden"
+                class="header-left flex items-center gap-[var(--pxd-space-sm)] min-w-0 shrink overflow-hidden"
               >
                 <ToolboxIcon
                   :size="'var(--pxd-brand-icon-expanded-size)'"
-                  class="text-primary self-center shrink-0"
+                  class="text-primary shrink-0"
                 />
-                <span
-                  class="app-title pxd-header-title text-[length:var(--pxd-font-heading)] font-bold text-primary tracking-[1px] shrink-0"
-                  >PoeXD</span
-                >
-                <span
-                  v-if="appVersion"
-                  class="app-version pxd-header-version text-[length:var(--pxd-font-caption)] text-muted-foreground shrink-0"
-                  >{{ appVersion }}</span
-                >
+                <div class="flex items-baseline gap-[var(--pxd-space-sm)] min-w-0 shrink">
+                  <span
+                    class="app-title pxd-header-title text-[length:var(--pxd-font-heading)] font-bold text-primary tracking-[1px] shrink-0"
+                    >PoeXD</span
+                  >
+                  <span
+                    v-if="appVersion"
+                    class="app-version pxd-header-version text-[length:var(--pxd-font-caption)] text-muted-foreground shrink-0"
+                    >{{ appVersion }}</span
+                  >
+                </div>
               </div>
               <div class="flex min-w-0 shrink items-center gap-[var(--pxd-space-xs)]">
                 <span

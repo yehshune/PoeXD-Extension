@@ -122,7 +122,7 @@ describe('Sidebar Shared Dialog Migration (Static Contracts)', () => {
     );
 
     // Header left uses semantic token spacing class
-    expect(sidebarSource).toContain('header-left flex items-baseline gap-[var(--pxd-space-sm)]');
+    expect(sidebarSource).toContain('header-left flex items-center gap-[var(--pxd-space-sm)]');
   });
 
   it('enforces Shared Dialog layout contract with scrollable body container and fixed boundaries', () => {

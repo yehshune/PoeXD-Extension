@@ -327,6 +327,10 @@ describe('Sidebar Navigation Controls Migration', () => {
 
       // Static source confirms padding with existing space token in template class
       expect(navRailSource).toContain('py-[var(--pxd-space-md)]');
+      // Collapse button slot matches sidebar header height and aligns its bottom border with content-header
+      expect(navRailSource).toMatch(
+        /h-\[var\(--pxd-sidebar-header-height\)\][^"]*border-b border-border[\s\S]*?data-sidebar-action="collapse"/,
+      );
     });
 
     it('B4. visually separates Live Search action from pane tabs with divider and outline variant without aria-pressed', async () => {
