@@ -28,7 +28,6 @@ interface SidebarDescriptorBase {
 interface SidebarModuleTabDescriptorShape extends SidebarDescriptorBase {
   readonly kind: 'module-tab';
   readonly preferenceKey: BooleanPreferenceKey;
-  readonly settingsSection: SettingsSectionId | null;
   readonly scrollMode: SidebarTabScrollMode;
   readonly descriptionKey: I18nKey;
 }
@@ -36,7 +35,6 @@ interface SidebarModuleTabDescriptorShape extends SidebarDescriptorBase {
 interface SidebarModuleActionDescriptorShape extends SidebarDescriptorBase {
   readonly kind: 'action';
   readonly preferenceKey: BooleanPreferenceKey;
-  readonly settingsSection: SettingsSectionId | null;
   readonly descriptionKey: I18nKey;
 }
 
@@ -62,7 +60,6 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'bookmark',
     kind: 'module-tab',
     preferenceKey: 'sidebarModuleBookmarks',
-    settingsSection: null,
     scrollMode: 'pane',
     labelKey: 'sidebar.nav.bookmarks',
     descriptionKey: 'settings.modules.item.bookmark.description',
@@ -71,7 +68,6 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'history',
     kind: 'module-tab',
     preferenceKey: 'sidebarModuleHistory',
-    settingsSection: null,
     scrollMode: 'pane',
     labelKey: 'sidebar.nav.history',
     descriptionKey: 'settings.modules.item.history.description',
@@ -80,7 +76,6 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'stat-group-template',
     kind: 'module-tab',
     preferenceKey: 'sidebarModuleStatGroupTemplates',
-    settingsSection: null,
     scrollMode: 'pane',
     labelKey: 'sidebar.nav.statGroupTemplates',
     descriptionKey: 'settings.modules.item.stat-group-template.description',
@@ -89,7 +84,6 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'pob-build',
     kind: 'module-tab',
     preferenceKey: 'sidebarModulePobBuild',
-    settingsSection: null,
     scrollMode: 'pane',
     labelKey: 'sidebar.nav.pobBuild',
     descriptionKey: 'settings.modules.item.pob-build.description',
@@ -98,7 +92,6 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'pinned-items',
     kind: 'module-tab',
     preferenceKey: 'sidebarModulePinnedItems',
-    settingsSection: null,
     scrollMode: 'pane',
     labelKey: 'sidebar.nav.pinnedItems',
     descriptionKey: 'settings.modules.item.pinned-items.description',
@@ -107,7 +100,6 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'result-board',
     kind: 'module-tab',
     preferenceKey: 'sidebarModuleResultBoard',
-    settingsSection: null,
     scrollMode: 'pane',
     labelKey: 'sidebar.nav.resultBoard',
     descriptionKey: 'settings.modules.item.result-board.description',
@@ -116,7 +108,6 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'live-search',
     kind: 'action',
     preferenceKey: 'sidebarModuleLiveSearch',
-    settingsSection: null,
     labelKey: 'settings.modules.item.live-search.label',
     descriptionKey: 'settings.modules.item.live-search.description',
   },

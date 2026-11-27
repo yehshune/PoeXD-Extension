@@ -35,9 +35,9 @@
         <SearchEntrySettingsPopover
           scope="history"
           :open="isSettingsOpen"
-          :search-entry-click-action="searchEntryClickAction"
+          :click-action="historyClickAction"
           @update:open="isSettingsOpen = $event"
-          @update:search-entry-click-action="updateSearchEntryClickAction"
+          @update:click-action="updateHistoryClickAction"
         />
         <!-- 低頻設定與破壞性操作收進選單，釋放頁首空間並避免誤按 -->
         <DropdownMenu>
@@ -263,7 +263,7 @@
                 class="history-row-actions pxd-hover-actions-overlay absolute inset-y-0 right-0 rounded-r-md z-(--pxd-z-raised) pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] flex items-center gap-[var(--pxd-space-xs)] opacity-0 pointer-events-none transition-opacity duration-150 ease-out group-hover:opacity-100 group-hover:pointer-events-auto has-[[data-state=open]]:opacity-100 has-[[data-state=open]]:pointer-events-auto"
               >
                 <Button
-                  v-if="searchEntryClickAction === 'preview'"
+                  v-if="historyClickAction === 'preview'"
                   variant="ghost"
                   size="icon-sm"
                   :title="t('common.openSearch')"
@@ -530,9 +530,7 @@ export default defineComponent({
     const bookmarkGroups = ref<BookmarkCollectionGroup[]>([]);
     const bookmarksLoaded = ref(false);
     const sidebarPosition = ref<'left' | 'right'>('left');
-    const searchEntryClickAction = ref<SearchEntryClickAction>(
-      DEFAULT_PREFERENCES.searchEntryClickAction,
-    );
+    const historyClickAction = ref<SearchEntryClickAction>(DEFAULT_PREFERENCES.historyClickAction);
     const isSettingsOpen = ref(false);
     watch(
       () => props.active,
@@ -754,7 +752,7 @@ export default defineComponent({
 
     /** 左鍵點紀錄名稱：依 Preference 開啟搜尋或切換預覽。 */
     const handleHistoryPrimaryClick = (h: HistoryEntry, event: Event) => {
-      if (searchEntryClickAction.value === 'preview') {
+      if (historyClickAction.value === 'preview') {
         toggleHistoryPreview(h, event);
         return;
       }
@@ -801,7 +799,7 @@ export default defineComponent({
         preferencesModule = prefResult.value;
         stopPreferences = prefResult.value.subscribe((snapshot) => {
           sidebarPosition.value = snapshot.sidebarPosition;
-          searchEntryClickAction.value = snapshot.searchEntryClickAction;
+          historyClickAction.value = snapshot.historyClickAction;
         });
       }
       const initialDomainRead = domainFeed.start();
@@ -839,12 +837,12 @@ export default defineComponent({
       }
     };
 
-    const updateSearchEntryClickAction = async (action: SearchEntryClickAction) => {
-      searchEntryClickAction.value = action;
+    const updateHistoryClickAction = async (action: SearchEntryClickAction) => {
+      historyClickAction.value = action;
       if (!preferencesModule || typeof preferencesModule.update !== 'function') return;
-      const outcome = await preferencesModule.update({ searchEntryClickAction: action });
+      const outcome = await preferencesModule.update({ historyClickAction: action });
       if (outcome.ok) return;
-      searchEntryClickAction.value = preferencesModule.read().searchEntryClickAction;
+      historyClickAction.value = preferencesModule.read().historyClickAction;
       const alert = (window as { poexdAlert?: (msg: string, title?: string) => Promise<void> })
         .poexdAlert;
       if (typeof alert === 'function') {
@@ -1077,9 +1075,9 @@ export default defineComponent({
       activePreviewData,
       activeRawQuery,
       previewHistory,
-      searchEntryClickAction,
+      historyClickAction,
       isSettingsOpen,
-      updateSearchEntryClickAction,
+      updateHistoryClickAction,
       previewAnchorEl,
       previewSourceName,
       canOpenPreviewSearch,

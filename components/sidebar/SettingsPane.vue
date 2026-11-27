@@ -811,7 +811,6 @@
           <SidebarModuleSettings
             :values="moduleValues"
             @toggle="toggleModule"
-            @open-section="openSection"
             @open-pob-share-permission="openPobSharePermissionPage"
           />
         </SettingsSection>

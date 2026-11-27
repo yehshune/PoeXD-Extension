@@ -53,7 +53,7 @@ export interface BookmarkWorkspaceOptions {
 
 export interface BookmarkWorkspacePreferences {
   addBookmarkBtnPosition?: BookmarkButtonPosition;
-  searchEntryClickAction?: SearchEntryClickAction;
+  bookmarkClickAction?: SearchEntryClickAction;
   sidebarPosition?: 'left' | 'right';
   sidebarModuleLiveSearch?: boolean;
 }
@@ -80,16 +80,14 @@ export function createBookmarkWorkspace(
   const addBookmarkBtnPosition = ref<BookmarkButtonPosition>(
     DEFAULT_PREFERENCES.addBookmarkBtnPosition,
   );
-  const searchEntryClickAction = ref<SearchEntryClickAction>(
-    DEFAULT_PREFERENCES.searchEntryClickAction,
-  );
+  const bookmarkClickAction = ref<SearchEntryClickAction>(DEFAULT_PREFERENCES.bookmarkClickAction);
   const sidebarPosition = ref<'left' | 'right'>('left');
   const liveSearchEnabled = ref<boolean>(DEFAULT_PREFERENCES.sidebarModuleLiveSearch);
   const setPreferences = (next: BookmarkWorkspacePreferences) => {
     if (next.addBookmarkBtnPosition !== undefined)
       addBookmarkBtnPosition.value = next.addBookmarkBtnPosition;
-    if (next.searchEntryClickAction !== undefined)
-      searchEntryClickAction.value = next.searchEntryClickAction;
+    if (next.bookmarkClickAction !== undefined)
+      bookmarkClickAction.value = next.bookmarkClickAction;
     if (next.sidebarPosition !== undefined) sidebarPosition.value = next.sidebarPosition;
     if (next.sidebarModuleLiveSearch !== undefined)
       liveSearchEnabled.value = next.sidebarModuleLiveSearch;
@@ -270,7 +268,7 @@ export function createBookmarkWorkspace(
 
   /** 左鍵點書籤名稱：依 Preference 開啟搜尋或切換預覽。 */
   const handleBookmarkPrimaryClick = (bm: Bookmark, event: Event) => {
-    if (searchEntryClickAction.value === 'preview') {
+    if (bookmarkClickAction.value === 'preview') {
       toggleBookmarkPreviewFromEvent(bm, event);
       return;
     }
@@ -742,7 +740,7 @@ export function createBookmarkWorkspace(
     },
 
     preview: {
-      searchEntryClickAction: readonly(searchEntryClickAction),
+      bookmarkClickAction: readonly(bookmarkClickAction),
       activeBookmarkId,
       activePreviewData,
       activeRawQuery,

@@ -53,6 +53,27 @@ export type ResultModHighlightColor = (typeof RESULT_MOD_HIGHLIGHT_COLORS)[numbe
 export const SEARCH_ENTRY_CLICK_ACTIONS = ['open', 'preview'] as const;
 export type SearchEntryClickAction = (typeof SEARCH_ENTRY_CLICK_ACTIONS)[number];
 
+/** 舊版書籤與歷史共用的左鍵動作鍵（依優先順序遷移至各自獨立的偏好） */
+export const LEGACY_SEARCH_ENTRY_CLICK_ACTION_KEYS = [
+  'searchEntryClickAction',
+  'searchEntryClickAction_poe1',
+  'searchEntryClickAction_poe2',
+] as const;
+
+const isSearchEntryClickAction = (value: unknown): value is SearchEntryClickAction =>
+  (SEARCH_ENTRY_CLICK_ACTIONS as readonly unknown[]).includes(value);
+
+/** 從舊版共用鍵推導書籤或歷史的左鍵點擊行為；無有效舊值時回傳 undefined。 */
+export function migrateLegacySearchEntryClickAction(
+  stored: Readonly<Record<string, unknown>>,
+): SearchEntryClickAction | undefined {
+  for (const key of LEGACY_SEARCH_ENTRY_CLICK_ACTION_KEYS) {
+    const value = stored[key];
+    if (isSearchEntryClickAction(value)) return value;
+  }
+  return undefined;
+}
+
 export const DENSITY_SCALE_VALUES = [1, 0.8] as const;
 export type DensityScale = (typeof DENSITY_SCALE_VALUES)[number];
 
@@ -168,6 +189,7 @@ export type AffixDisplayLocalePreference = DisplayLocalePreference;
 
 export interface Preferences {
   addBookmarkBtnPosition: BookmarkButtonPosition;
+  bookmarkClickAction: SearchEntryClickAction;
   /** 收合標籤可沿面板所在側邊上下拖曳，記住距離視窗頂端的位置（px） */
   collapsedTabTop: number;
   densityScale: number;
@@ -190,6 +212,7 @@ export interface Preferences {
   /** 寬螢幕雙欄版面：固定篩選條件與結果並排顯示（窄視窗自動退回單欄） */
   enableTwoColumnLayout: boolean;
   fontSizeScale: number;
+  historyClickAction: SearchEntryClickAction;
   hotkeyClear: string;
   hotkeyFocus: string;
   /** 主控台桌面通知：背景或未聚焦時透過瀏覽器原生 Notification API 提示新結果 */
@@ -213,7 +236,6 @@ export interface Preferences {
   resultModHighlightColor: ResultModHighlightColor;
   /** 結果詞綴高亮的外觀樣式預設 */
   resultModHighlightStyle: ResultModHighlightStyle;
-  searchEntryClickAction: SearchEntryClickAction;
   /** Sidebar Module 開關（見 utils/sidebar-modules.ts）：關閉後導覽列不顯示，相關頁面注入 UI 也停用 */
   sidebarModuleBookmarks: boolean;
   sidebarModuleHistory: boolean;
@@ -429,11 +451,19 @@ export const PREFERENCE_SCHEMA = Object.freeze({
     validate: isOneOf(BOOKMARK_BUTTON_POSITIONS),
     legacyVersionedGlobal: true,
   },
-  searchEntryClickAction: {
+  bookmarkClickAction: {
     scope: 'global',
     default: 'preview',
-    validate: isOneOf(SEARCH_ENTRY_CLICK_ACTIONS),
-    legacyVersionedGlobal: true,
+    validate: isSearchEntryClickAction,
+    legacyKeys: LEGACY_SEARCH_ENTRY_CLICK_ACTION_KEYS,
+    legacyMigrate: migrateLegacySearchEntryClickAction,
+  },
+  historyClickAction: {
+    scope: 'global',
+    default: 'preview',
+    validate: isSearchEntryClickAction,
+    legacyKeys: LEGACY_SEARCH_ENTRY_CLICK_ACTION_KEYS,
+    legacyMigrate: migrateLegacySearchEntryClickAction,
   },
   enableAffixSelector: {
     scope: 'global',

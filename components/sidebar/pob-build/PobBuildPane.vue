@@ -585,7 +585,7 @@
                       class="pxd-hover-actions-overlay absolute inset-y-0 right-0 z-(--pxd-z-raised) flex items-center gap-[var(--pxd-space-xs)] pr-[var(--pxd-space-md)] pl-[var(--pxd-space-2xl)] opacity-0 pointer-events-none transition-opacity duration-150 group-hover/row:opacity-100 group-hover/row:pointer-events-auto"
                     >
                       <Button
-                        v-if="searchEntryClickAction === 'preview' && canSearch(row)"
+                        v-if="canSearch(row)"
                         variant="ghost"
                         size="icon-sm"
                         data-pob-build-open
@@ -594,25 +594,6 @@
                         @click.stop="openSearch(build.id, row, 'current')"
                       >
                         <ArrowRight />
-                      </Button>
-                      <Button
-                        v-else-if="canPreview(row)"
-                        variant="ghost"
-                        size="icon-sm"
-                        :class="
-                          isPreviewPinned(build.id, row.key)
-                            ? 'text-primary bg-primary/15'
-                            : undefined
-                        "
-                        data-pob-build-mods-toggle
-                        :aria-expanded="isPreviewPinned(build.id, row.key)"
-                        :title="t('pobBuild.toggleModsTitle')"
-                        :aria-label="t('pobBuild.toggleModsTitle')"
-                        @click.stop="togglePreview(build.id, row.key, $event)"
-                        @mouseenter="hoverPreview(build.id, row, $event)"
-                        @mouseleave="leavePreviewTrigger"
-                      >
-                        <SlidersHorizontal />
                       </Button>
                       <Button
                         v-if="canSearch(row)"
@@ -833,7 +814,6 @@ import {
   Search,
   Send,
   ShoppingCart,
-  SlidersHorizontal,
   Trash2,
   X,
 } from '@lucide/vue';
@@ -868,7 +848,7 @@ import { t, type I18nKey } from '@/utils/i18n';
 import { POB_BUILD_NAME_MAX_LENGTH } from '@/utils/pob-build-store';
 import type { ShoppingEntry } from '@/utils/pob-shopping-list';
 import { getPreferences } from '@/utils/preferences';
-import { DEFAULT_PREFERENCES, type SearchEntryClickAction } from '@/utils/preferences-contract';
+import { DEFAULT_PREFERENCES } from '@/utils/preferences-contract';
 import { getPoeVersion } from '@/utils/trade-context';
 import FolderIcon from '../FolderIcon.vue';
 import { getFolderItemIndentLevel } from '../bookmark-tree';
@@ -966,7 +946,6 @@ export default defineComponent({
     SidebarEmptyState,
     SidebarFilterEmptyState,
     SidebarPane,
-    SlidersHorizontal,
     Trash2,
     X,
   },
@@ -1026,9 +1005,6 @@ export default defineComponent({
       });
     };
 
-    const searchEntryClickAction = ref<SearchEntryClickAction>(
-      DEFAULT_PREFERENCES.searchEntryClickAction,
-    );
     const liveSearchEnabled = ref<boolean>(DEFAULT_PREFERENCES.sidebarModuleLiveSearch);
 
     const showSkillSets = (build: BuildView) => build.skillSetOptions.length > 1;
@@ -1126,20 +1102,18 @@ export default defineComponent({
 
     const rowTooltip = (row: ShoppingRow) => {
       if (!workspace.canSearch(row)) return t('pobBuild.noSearchTitle');
-      if (searchEntryClickAction.value === 'preview' && workspace.canPreview(row)) {
-        return t('pobBuild.toggleModsTitle');
-      }
+      if (workspace.canPreview(row)) return t('pobBuild.toggleModsTitle');
       return t('pobBuild.searchTitle');
     };
 
-    /** 左鍵／Enter 點擊項目：與書籤、歷史一致，依搜尋點擊設定切換預覽或直接前往搜尋 */
+    /** 左鍵／Enter 點擊項目：與裝備欄一致，有詞綴可調時開關預覽，否則直接前往搜尋 */
     const handleEntryPrimaryClick = (buildId: string, row: ShoppingRow, event: Event) => {
       if (!workspace.canSearch(row)) return;
       if (event instanceof MouseEvent && (event.ctrlKey || event.metaKey)) {
         pob.openSearch(buildId, row, 'new-tab');
         return;
       }
-      if (searchEntryClickAction.value === 'preview' && workspace.canPreview(row)) {
+      if (workspace.canPreview(row)) {
         togglePreview(buildId, row.key, event);
         return;
       }
@@ -1275,7 +1249,6 @@ export default defineComponent({
       void getPreferences(version).then((outcome) => {
         if (disposed || !outcome.ok) return;
         stopPreferences = outcome.value.subscribe((snapshot) => {
-          searchEntryClickAction.value = snapshot.searchEntryClickAction;
           liveSearchEnabled.value = snapshot.sidebarModuleLiveSearch !== false;
         });
       });
@@ -1341,7 +1314,6 @@ export default defineComponent({
       updateActiveDraft: workspace.updateActiveDraft,
       saveActiveDraft,
       discardActiveDraft: workspace.discardActiveDraft,
-      searchEntryClickAction,
       liveSearchEnabled,
       canSearch: workspace.canSearch,
       canPreview: workspace.canPreview,

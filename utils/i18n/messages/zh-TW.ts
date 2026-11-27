@@ -271,22 +271,18 @@ export const ZH_TW_MESSAGES = {
   'settings.itemNormalizer.infoAria': '符文覆寫試算說明',
   'settings.itemNormalizer.tooltip': '在搜尋結果頂端提供自訂符文石覆寫試算、打孔潛力標籤與即時排序',
 
-  // Settings Pane - Bookmarks
+  // Settings Pane - Bookmarks & History local popovers
   'settings.bookmarkBtnPosition.label': '加入書籤按鈕位置',
-  'settings.bookmarkBtnPosition.tooltip':
-    '決定書籤分頁中各資料夾「＋ 加入書籤」按鈕顯示於資料夾標題右上角或清單最下方',
   'settings.bookmarkBtnPosition.option.top': '右上',
   'settings.bookmarkBtnPosition.option.bottom': '下方',
 
-  'settings.searchEntryClickAction.label': '左鍵點選書籤／歷史',
-  'settings.searchEntryClickAction.tooltip':
-    '設定左鍵點擊書籤或搜尋歷史列時的預設動作：直接開啟該搜尋，或展開搜尋條件預覽（另一項仍可透過列右側按鈕操作）',
   'settings.searchEntryClickAction.option.open': '開啟搜尋',
   'settings.searchEntryClickAction.option.preview': '展開預覽',
 
   'bookmark.settings.title': '書籤設定',
+  'bookmark.settings.clickActionLabel': '左鍵點選書籤',
   'history.settings.title': '歷史設定',
-  'searchEntry.settings.sharedClickHint': '左鍵點選行為會同步套用到書籤、搜尋歷史與 PoB 購物清單。',
+  'history.settings.clickActionLabel': '左鍵點選紀錄',
 
   // Settings Pane - Alerts
   'settings.alert.saveFailedMessage': '設定無法儲存：{message}',
@@ -296,8 +292,6 @@ export const ZH_TW_MESSAGES = {
   // Settings Pane - Sidebar Modules & navigation
   'settings.section.modules': '側邊欄模組',
   'settings.modules.enabledCount': '已開啟 {count} / {total}',
-  'settings.modules.relatedSettings': '相關設定',
-  'settings.modules.relatedSettingsAria': '前往{name}的相關設定',
   'settings.modules.item.live-search.label': '線上搜尋主控台入口',
   'settings.modules.item.bookmark.description': '把常用搜尋存成書籤，依資料夾與賽季整理。',
   'settings.modules.item.history.description':

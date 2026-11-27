@@ -273,22 +273,18 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.itemNormalizer.infoAria': '符文覆写试算说明',
   'settings.itemNormalizer.tooltip': '在搜索结果顶部提供自定义符文覆写试算、打孔潜力标签与实时排序',
 
-  // Settings Pane - Bookmarks
+  // Settings Pane - Bookmarks & History local popovers
   'settings.bookmarkBtnPosition.label': '添加书签按钮位置',
-  'settings.bookmarkBtnPosition.tooltip':
-    '决定书签页中各文件夹「＋ 添加书签」按钮显示在文件夹标题右上角或列表最下方',
   'settings.bookmarkBtnPosition.option.top': '右上',
   'settings.bookmarkBtnPosition.option.bottom': '下方',
 
-  'settings.searchEntryClickAction.label': '左键点击书签／历史',
-  'settings.searchEntryClickAction.tooltip':
-    '设置左键点击书签或搜索历史条目时的默认操作：直接打开该搜索，或展开搜索条件预览（另一项仍可通过条目右侧按钮操作）',
   'settings.searchEntryClickAction.option.open': '打开搜索',
   'settings.searchEntryClickAction.option.preview': '展开预览',
 
   'bookmark.settings.title': '书签设置',
+  'bookmark.settings.clickActionLabel': '左键点击书签',
   'history.settings.title': '历史设置',
-  'searchEntry.settings.sharedClickHint': '左键点击行为会同步应用到书签、搜索历史与 PoB 购物清单。',
+  'history.settings.clickActionLabel': '左键点击记录',
 
   // Settings Pane - Alerts
   'settings.alert.saveFailedMessage': '设置无法保存：{message}',
@@ -298,8 +294,6 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   // Settings Pane - Sidebar Modules & navigation
   'settings.section.modules': '侧边栏模块',
   'settings.modules.enabledCount': '已开启 {count} / {total}',
-  'settings.modules.relatedSettings': '相关设置',
-  'settings.modules.relatedSettingsAria': '前往{name}的相关设置',
   'settings.modules.item.live-search.label': '在线搜索控制台入口',
   'settings.modules.item.bookmark.description': '把常用搜索存成书签，按文件夹与赛季整理。',
   'settings.modules.item.history.description':

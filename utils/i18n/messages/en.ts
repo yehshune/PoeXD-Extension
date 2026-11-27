@@ -284,23 +284,18 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.itemNormalizer.tooltip':
     'Provide custom rune socket override calculation, socket potential badges, and live sorting above search results',
 
-  // Settings Pane - Bookmarks
+  // Settings Pane - Bookmarks & History local popovers
   'settings.bookmarkBtnPosition.label': 'Add Bookmark Button Position',
-  'settings.bookmarkBtnPosition.tooltip':
-    'Place each folder’s “Add Bookmark” button either in the top-right header or at the bottom of the folder list',
   'settings.bookmarkBtnPosition.option.top': 'Top',
   'settings.bookmarkBtnPosition.option.bottom': 'Bottom',
 
-  'settings.searchEntryClickAction.label': 'Left-Click Bookmark / History',
-  'settings.searchEntryClickAction.tooltip':
-    'Choose whether left-clicking a bookmark or history entry opens the search directly or toggles its criteria preview (the other action stays on the row buttons)',
   'settings.searchEntryClickAction.option.open': 'Open Search',
   'settings.searchEntryClickAction.option.preview': 'Toggle Preview',
 
   'bookmark.settings.title': 'Bookmark settings',
+  'bookmark.settings.clickActionLabel': 'Left-click bookmark',
   'history.settings.title': 'History settings',
-  'searchEntry.settings.sharedClickHint':
-    'Left-click behavior applies across Bookmarks, History, and PoB Shopping List.',
+  'history.settings.clickActionLabel': 'Left-click history entry',
 
   // Settings Pane - Alerts
   'settings.alert.saveFailedMessage': 'Failed to save settings: {message}',
@@ -310,8 +305,6 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   // Settings Pane - Sidebar Modules & navigation
   'settings.section.modules': 'Sidebar modules',
   'settings.modules.enabledCount': '{count} of {total} on',
-  'settings.modules.relatedSettings': 'Related settings',
-  'settings.modules.relatedSettingsAria': 'Go to settings for {name}',
   'settings.modules.item.live-search.label': 'Live search console button',
   'settings.modules.item.bookmark.description':
     'Save searches as bookmarks, organized by folder and league.',

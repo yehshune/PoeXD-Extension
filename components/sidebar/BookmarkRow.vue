@@ -79,7 +79,7 @@
       "
     >
       <Button
-        v-if="preview.searchEntryClickAction.value === 'preview'"
+        v-if="preview.bookmarkClickAction.value === 'preview'"
         variant="ghost"
         size="icon-sm"
         :title="t('bookmark.row.openSearch')"

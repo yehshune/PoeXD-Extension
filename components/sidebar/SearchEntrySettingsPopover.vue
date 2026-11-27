@@ -15,7 +15,7 @@ import {
   SEARCH_ENTRY_CLICK_ACTION_OPTIONS,
 } from './settings/settings-ui-metadata';
 
-/** 書籤與歷史面板頂部的就近設定 Popover：避免為了單一面板行為切回系統設定。 */
+/** 書籤與歷史面板頂部的就近設定 Popover：各自獨立管理該面板的操作偏好。 */
 const props = defineProps({
   scope: {
     type: String as PropType<'bookmark' | 'history'>,
@@ -29,20 +29,25 @@ const props = defineProps({
     type: String as PropType<BookmarkButtonPosition>,
     default: DEFAULT_PREFERENCES.addBookmarkBtnPosition,
   },
-  searchEntryClickAction: {
+  clickAction: {
     type: String as PropType<SearchEntryClickAction>,
-    default: DEFAULT_PREFERENCES.searchEntryClickAction,
+    default: DEFAULT_PREFERENCES.bookmarkClickAction,
   },
 });
 
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
   (e: 'update:addBookmarkBtnPosition', value: BookmarkButtonPosition): void;
-  (e: 'update:searchEntryClickAction', value: SearchEntryClickAction): void;
+  (e: 'update:clickAction', value: SearchEntryClickAction): void;
 }>();
 
 const title = computed(() =>
   props.scope === 'bookmark' ? t('bookmark.settings.title') : t('history.settings.title'),
+);
+const clickActionLabel = computed(() =>
+  props.scope === 'bookmark'
+    ? t('bookmark.settings.clickActionLabel')
+    : t('history.settings.clickActionLabel'),
 );
 
 function handleAddBookmarkBtnPositionChange(val?: unknown): void {
@@ -52,10 +57,10 @@ function handleAddBookmarkBtnPositionChange(val?: unknown): void {
   }
 }
 
-function handleSearchEntryClickActionChange(val?: unknown): void {
+function handleClickActionChange(val?: unknown): void {
   const action = Array.isArray(val) ? val[0] : val;
   if (action === 'open' || action === 'preview') {
-    emit('update:searchEntryClickAction', action);
+    emit('update:clickAction', action);
   }
 }
 </script>
@@ -115,15 +120,15 @@ function handleSearchEntryClickActionChange(val?: unknown): void {
       </div>
 
       <div class="flex flex-col gap-[var(--pxd-space-xs)]">
-        <span class="text-muted-foreground">{{ t('settings.searchEntryClickAction.label') }}</span>
+        <span class="text-muted-foreground">{{ clickActionLabel }}</span>
         <ToggleGroup
           type="single"
           variant="outline"
           size="sm"
           class="w-full"
           data-test="search-entry-click-action"
-          :model-value="searchEntryClickAction"
-          @update:model-value="handleSearchEntryClickActionChange"
+          :model-value="clickAction"
+          @update:model-value="handleClickActionChange"
         >
           <ToggleGroupItem
             v-for="opt in SEARCH_ENTRY_CLICK_ACTION_OPTIONS"
@@ -138,10 +143,6 @@ function handleSearchEntryClickActionChange(val?: unknown): void {
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
-
-      <p class="m-0 text-[length:var(--pxd-font-caption)] leading-[1.45] text-muted-foreground">
-        {{ t('searchEntry.settings.sharedClickHint') }}
-      </p>
     </PopoverContent>
   </Popover>
 </template>

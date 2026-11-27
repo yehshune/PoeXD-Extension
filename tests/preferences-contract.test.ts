@@ -30,6 +30,7 @@ describe('Preferences Domain Contract', () => {
     expect(Object.isFrozen(DEFAULT_PREFERENCES)).toBe(true);
     expect(DEFAULT_PREFERENCES).toEqual({
       addBookmarkBtnPosition: 'top',
+      bookmarkClickAction: 'preview',
       collapsedTabTop: 100,
       densityScale: 1,
       displayLocale: 'auto',
@@ -49,6 +50,7 @@ describe('Preferences Domain Contract', () => {
       enableTierHelper: true,
       enableTwoColumnLayout: false,
       fontSizeScale: 1,
+      historyClickAction: 'preview',
       hotkeyClear: '\\',
       hotkeyFocus: '/',
       liveSearchDesktopNotificationEnabled: false,
@@ -63,7 +65,6 @@ describe('Preferences Domain Contract', () => {
       marketTranslationResultBilingual: false,
       resultModHighlightColor: 'indigo',
       resultModHighlightStyle: 'glow',
-      searchEntryClickAction: 'preview',
       sidebarModuleBookmarks: true,
       sidebarModuleHistory: true,
       sidebarModuleLiveSearch: true,
@@ -126,7 +127,8 @@ describe('Preferences Domain Contract', () => {
       'enableSearchTilde',
       'enableFilterTilde',
       'addBookmarkBtnPosition',
-      'searchEntryClickAction',
+      'bookmarkClickAction',
+      'historyClickAction',
       'enableAffixSelector',
       'enablePriceComparison',
       'enableResultExternalLinks',

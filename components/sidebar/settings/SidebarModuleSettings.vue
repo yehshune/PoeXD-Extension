@@ -1,13 +1,8 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Settings2 } from '@lucide/vue';
 import { t } from '@/utils/i18n';
-import {
-  SIDEBAR_MODULES,
-  type SettingsSectionId,
-  type SidebarModulePreferenceKey,
-} from '@/utils/sidebar-modules';
+import { SIDEBAR_MODULES, type SidebarModulePreferenceKey } from '@/utils/sidebar-modules';
 import {
   SIDEBAR_MODULE_PRESENTATION,
   getSidebarModuleDescription,
@@ -21,7 +16,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   toggle: [key: SidebarModulePreferenceKey, value: boolean];
-  openSection: [section: SettingsSectionId];
   openPobSharePermission: [];
 }>();
 
@@ -71,22 +65,6 @@ const controlId = (id: string) => `sidebar-module-${id}`;
                 @click="emit('openPobSharePermission')"
               >
                 {{ t('pobShare.settings.manageBtn') }}
-              </Button>
-              <Button
-                v-if="module.settingsSection && props.values[module.preferenceKey]"
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                :title="t('settings.modules.relatedSettings')"
-                :aria-label="
-                  t('settings.modules.relatedSettingsAria', {
-                    name: getSidebarModuleLabel(module.id),
-                  })
-                "
-                data-sidebar-module-action="related-settings"
-                @click="emit('openSection', module.settingsSection)"
-              >
-                <Settings2 />
               </Button>
               <Switch
                 :id="controlId(module.id)"

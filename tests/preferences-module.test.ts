@@ -14,6 +14,7 @@ describe('Preferences module interface', () => {
     if (!outcome.ok) throw new Error(outcome.error.message);
     expect(outcome.value.read()).toEqual({
       addBookmarkBtnPosition: 'top',
+      bookmarkClickAction: 'preview',
       collapsedTabTop: 100,
       densityScale: 1,
       displayLocale: 'auto',
@@ -33,6 +34,7 @@ describe('Preferences module interface', () => {
       enableTierHelper: true,
       enableTwoColumnLayout: false,
       fontSizeScale: 1,
+      historyClickAction: 'preview',
       hotkeyClear: '\\',
       hotkeyFocus: '/',
       liveSearchDesktopNotificationEnabled: false,
@@ -47,7 +49,6 @@ describe('Preferences module interface', () => {
       marketTranslationResultBilingual: false,
       resultModHighlightColor: 'indigo',
       resultModHighlightStyle: 'glow',
-      searchEntryClickAction: 'preview',
       sidebarModuleBookmarks: true,
       sidebarModuleHistory: true,
       sidebarModuleLiveSearch: true,
@@ -534,7 +535,8 @@ describe('Preferences module interface', () => {
       enableSearchTilde: false,
       enableFilterTilde: false,
       addBookmarkBtnPosition: 'bottom',
-      searchEntryClickAction: 'open',
+      bookmarkClickAction: 'open',
+      historyClickAction: 'preview',
     });
 
     expect(updateRes).toEqual({ ok: true, changed: true });
@@ -553,13 +555,14 @@ describe('Preferences module interface', () => {
       enableSearchTilde: false,
       enableFilterTilde: false,
       addBookmarkBtnPosition: 'bottom',
-      searchEntryClickAction: 'open',
+      bookmarkClickAction: 'open',
+      historyClickAction: 'preview',
     });
     expect(storage.inspect().collapsedTabTop_poe1).toBeUndefined();
     expect(storage.inspect().collapsedTabTop_poe2).toBeUndefined();
   });
 
-  it('migrates legacy versioned global preferences without deleting recovery snapshots', async () => {
+  it('migrates legacy versioned global preferences and legacy searchEntryClickAction without deleting recovery snapshots', async () => {
     const storage = createInMemoryPreferencesStorage({
       collapsedTabTop_poe2: 240,
       hotkeyFocus_poe1: 'f',
@@ -578,7 +581,8 @@ describe('Preferences module interface', () => {
       collapsedTabTop: 240,
       hotkeyFocus: 'f',
       addBookmarkBtnPosition: 'bottom',
-      searchEntryClickAction: 'open',
+      bookmarkClickAction: 'open',
+      historyClickAction: 'open',
       fontSizeScale: 1.35,
       sidebarWidth: 340,
     });
@@ -589,10 +593,24 @@ describe('Preferences module interface', () => {
       hotkeyFocus_poe1: 'f',
       addBookmarkBtnPosition: 'bottom',
       addBookmarkBtnPosition_poe2: 'bottom',
-      searchEntryClickAction: 'open',
+      bookmarkClickAction: 'open',
+      historyClickAction: 'open',
       searchEntryClickAction_poe1: 'open',
       fontSizeScale: 1.35,
       sidebarWidth: 340,
     });
+  });
+
+  it('migrates legacy global searchEntryClickAction into missing per-pane keys without overwriting explicit ones', async () => {
+    const storage = createInMemoryPreferencesStorage({
+      searchEntryClickAction: 'open',
+      bookmarkClickAction: 'preview',
+    });
+
+    const outcome = await createPreferencesModule('poe1', storage);
+    if (!outcome.ok) throw new Error(outcome.error.message);
+
+    expect(outcome.value.read().bookmarkClickAction).toBe('preview');
+    expect(outcome.value.read().historyClickAction).toBe('open');
   });
 });

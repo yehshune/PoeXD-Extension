@@ -136,6 +136,58 @@ describe('parseSettingsImport', () => {
       unknown: ['global.sidebarModuleBookmarks', 'global.bogus', 'poe1.theme', 'poe2.unknownPoe2'],
     });
   });
+
+  it('gracefully skips removed legacy keys (enableBookmarkTooltip, searchEntryClickAction) in v1 and v2 backups', async () => {
+    const v1 = parseSettingsImport(
+      wrapV1({
+        theme: 'caffeine',
+        enableBookmarkTooltip: false,
+        searchEntryClickAction: 'open',
+      }),
+    );
+    expect(v1).toEqual({
+      ok: true,
+      data: { version: 1, preferences: { theme: 'caffeine' } },
+      unknown: ['enableBookmarkTooltip', 'searchEntryClickAction'],
+    });
+
+    const v2 = parseSettingsImport(
+      wrapV2({
+        global: {
+          theme: 'catppuccin',
+          enableBookmarkTooltip: false,
+          searchEntryClickAction: 'open',
+        },
+        poe1: { sidebarModuleHistory: false },
+      }),
+    );
+    expect(v2).toEqual({
+      ok: true,
+      data: {
+        version: 2,
+        global: { theme: 'catppuccin' },
+        poe1: { sidebarModuleHistory: false },
+        poe2: {},
+      },
+      unknown: ['global.enableBookmarkTooltip', 'global.searchEntryClickAction'],
+    });
+
+    const storage = createInMemoryPreferencesStorage();
+    const poe1Res = await createPreferencesModule('poe1', storage);
+    const poe2Res = await createPreferencesModule('poe2', storage);
+    if (!poe1Res.ok || !poe2Res.ok || !v2.ok) throw new Error('setup failed');
+    const applied = await applyParsedSettingsImport(
+      { poe1: poe1Res.value, poe2: poe2Res.value },
+      v2.data,
+      'poe1',
+    );
+    expect(applied).toEqual({
+      applied: ['theme', 'poe1.sidebarModuleHistory'],
+      rejected: [],
+    });
+    expect(poe1Res.value.read().theme).toBe('catppuccin');
+    expect(poe1Res.value.read().sidebarModuleHistory).toBe(false);
+  });
 });
 
 describe('applySettingsImport', () => {

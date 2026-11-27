@@ -10,15 +10,9 @@ vi.mock('@/utils/trade-context', () => ({ getPoeVersion: () => 'poe1' }));
 
 const { prefState, prefListeners } = vi.hoisted(() => ({
   prefState: {
-    searchEntryClickAction: 'open' as 'open' | 'preview',
     sidebarModuleLiveSearch: true,
   },
-  prefListeners: new Set<
-    (snapshot: {
-      searchEntryClickAction: 'open' | 'preview';
-      sidebarModuleLiveSearch: boolean;
-    }) => void
-  >(),
+  prefListeners: new Set<(snapshot: { sidebarModuleLiveSearch: boolean }) => void>(),
 }));
 
 vi.mock('@/utils/preferences', () => ({
@@ -26,12 +20,7 @@ vi.mock('@/utils/preferences', () => ({
     ok: true,
     value: {
       read: () => ({ ...prefState }),
-      subscribe: (
-        listener: (snapshot: {
-          searchEntryClickAction: 'open' | 'preview';
-          sidebarModuleLiveSearch: boolean;
-        }) => void,
-      ) => {
+      subscribe: (listener: (snapshot: { sidebarModuleLiveSearch: boolean }) => void) => {
         prefListeners.add(listener);
         listener({ ...prefState });
         return () => prefListeners.delete(listener);
@@ -286,7 +275,6 @@ describe('PobBuildPane', () => {
 
   beforeEach(() => {
     resetI18nStateForTests('zh-TW');
-    prefState.searchEntryClickAction = 'open';
     prefState.sidebarModuleLiveSearch = true;
     prefListeners.clear();
     buildsRef.value = [];
@@ -545,7 +533,7 @@ describe('PobBuildPane', () => {
     const gemRow = queryAll('[data-pob-build-row]').find((el) =>
       el.textContent?.includes('Punishment'),
     )!;
-    gemRow.querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    gemRow.querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
     const level = queryBody<HTMLInputElement>('[data-pob-build-gem-level]')!;
     expect(level.value).toBe('20');
@@ -666,7 +654,7 @@ describe('PobBuildPane', () => {
       },
     ];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
     expect(queryBody('[data-pob-build-override-notice]')).not.toBeNull();
   });
@@ -707,11 +695,11 @@ describe('PobBuildPane', () => {
     expect(row(3).textContent).toContain('Lv.20 / 20%');
   });
 
-  it('點名稱在目前頁面搜尋，另有開新分頁按鈕；無法搜尋的項目停用', async () => {
+  it('點前往搜尋按鈕在目前頁面搜尋，另有開新分頁按鈕；無法搜尋的項目停用', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
 
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-search]')!.click();
+    row(1).querySelector<HTMLButtonElement>('[data-pob-build-open]')!.click();
     expect(fake.openSearch).toHaveBeenLastCalledWith(
       'b1',
       expect.objectContaining({ key: 'k-rare' }),
@@ -759,7 +747,7 @@ describe('PobBuildPane', () => {
   it('開啟預覽 Popover 後暫存微調不立即存檔，有變更時顯示存回條件與還原，搜尋套用微調後條件', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
 
     expect(queryBody('[data-pob-build-mods-popover]')).not.toBeNull();
@@ -854,7 +842,7 @@ describe('PobBuildPane', () => {
       },
     ];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
 
     expect(queryBody('[data-pob-build-item-filters]')).not.toBeNull();
@@ -878,7 +866,7 @@ describe('PobBuildPane', () => {
   it('沒有五連以上的裝備不顯示物品條件', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
     expect(queryBody('[data-pob-build-mods-popover]')).not.toBeNull();
     expect(queryBody('[data-pob-build-item-filters]')).toBeNull();
@@ -903,7 +891,7 @@ describe('PobBuildPane', () => {
       },
     ];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
 
     expect(queryBody('[data-pob-build-item-filters]')).not.toBeNull();
@@ -978,7 +966,7 @@ describe('PobBuildPane', () => {
   it('詞綴可同時改下限與上限；符合方式以下拉選單在且／計數之間切換', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
 
     const bounds = () =>
@@ -1024,7 +1012,7 @@ describe('PobBuildPane', () => {
     );
     buildsRef.value = [build];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
 
     const domainButton = () =>
@@ -1136,7 +1124,7 @@ describe('PobBuildPane', () => {
         .forEach((option) => option.click());
       await flushAsync();
       const rows = Array.from(shadow.querySelectorAll<HTMLElement>('[data-pob-build-row]'));
-      rows[1].querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+      rows[1].querySelector<HTMLElement>('[data-pob-build-search]')!.click();
       await flushAsync(40);
       expect(inShadow('[data-pob-build-mods-popover]')).not.toBeNull();
 
@@ -1172,7 +1160,7 @@ describe('PobBuildPane', () => {
     build.groups[0].rows[1].searchOverride = true;
     buildsRef.value = [build];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
 
     expect(queryBody('[data-pob-build-override-notice]')).not.toBeNull();
@@ -1192,7 +1180,7 @@ describe('PobBuildPane', () => {
     // 沒有詞綴的項目沒有預覽按鈕
     expect(row(0).querySelector('[data-pob-build-mods-toggle]')).toBeNull();
 
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
     const mods = queryAllBody('[data-pob-build-mods] .preview-stat-row');
     expect(mods.map((mod) => mod.getAttribute('data-mod-kind'))).toEqual([
@@ -1223,7 +1211,7 @@ describe('PobBuildPane', () => {
     );
     expect(mods[3].querySelector('[data-stat-domain="crafted"]')?.textContent?.trim()).toBe('工藝');
 
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
     expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
   });
@@ -1325,8 +1313,7 @@ describe('PobBuildPane', () => {
     app.mount(container);
   });
 
-  it('對齊書籤與歷史點擊格式：preview 模式左鍵展開預覽、右鍵頭前往搜尋；沒有詞綴的項目直接前往搜尋', async () => {
-    prefState.searchEntryClickAction = 'preview';
+  it('清單檢視固定左鍵展開預覽、右鍵頭前往搜尋；沒有詞綴的項目直接前往搜尋', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
 
@@ -1697,7 +1684,7 @@ describe('PobBuildPane', () => {
   it('詞綴 Popover 支援一鍵放寬 -10%、清除數值，且關閉再開啟時保留未儲存草稿', async () => {
     buildsRef.value = [sampleBuild()];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
 
     const bounds = () =>
@@ -1717,7 +1704,7 @@ describe('PobBuildPane', () => {
     await flushAsync();
     expect(queryBody('[data-pob-build-mods-popover]')).toBeNull();
 
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
     expect(bounds()[0].value).toBe('72');
     expect(bounds()[3].value).toBe('-8');
@@ -1752,7 +1739,7 @@ describe('PobBuildPane', () => {
     ];
     buildsRef.value = [lockedBuild];
     await mount();
-    row(1).querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    row(1).querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
 
     expect(queryBody('[data-pob-build-relax-bounds]')).toBeNull();
@@ -1783,7 +1770,7 @@ describe('PobBuildPane', () => {
     const gemRow = queryAll('[data-pob-build-row]').find((el) =>
       el.textContent?.includes('Punishment'),
     )!;
-    gemRow.querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    gemRow.querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
     expect(queryBody('[data-pob-build-popover-search]')).not.toBeNull();
     expect(queryBody('[data-pob-build-popover-new-tab]')).not.toBeNull();
@@ -1797,7 +1784,7 @@ describe('PobBuildPane', () => {
     const gemRow = queryAll('[data-pob-build-row]').find((el) =>
       el.textContent?.includes('Punishment'),
     )!;
-    gemRow.querySelector<HTMLButtonElement>('[data-pob-build-mods-toggle]')!.click();
+    gemRow.querySelector<HTMLElement>('[data-pob-build-search]')!.click();
     await flushAsync();
 
     const levelInput = queryBody<HTMLInputElement>('[data-pob-build-gem-level]')!;

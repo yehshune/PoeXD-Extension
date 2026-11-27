@@ -42,10 +42,10 @@
             scope="bookmark"
             :open="isSettingsOpen"
             :add-bookmark-btn-position="addBookmarkBtnPosition"
-            :search-entry-click-action="searchEntryClickAction"
+            :click-action="bookmarkClickAction"
             @update:open="handleSettingsPopoverOpenChange"
             @update:add-bookmark-btn-position="updateAddBookmarkBtnPosition"
-            @update:search-entry-click-action="updateSearchEntryClickAction"
+            @update:click-action="updateBookmarkClickAction"
           />
           <div class="dropdown-menu-container" data-bookmark-transfer-menu>
             <DropdownMenu v-model:open="isTransferMenuOpen">
@@ -484,8 +484,8 @@ export default defineComponent({
     const updateAddBookmarkBtnPosition = (value: BookmarkButtonPosition) => {
       void updatePreferences({ addBookmarkBtnPosition: value });
     };
-    const updateSearchEntryClickAction = (value: SearchEntryClickAction) => {
-      void updatePreferences({ searchEntryClickAction: value });
+    const updateBookmarkClickAction = (value: SearchEntryClickAction) => {
+      void updatePreferences({ bookmarkClickAction: value });
     };
 
     const sortableController = useBookmarkSortables({
@@ -592,11 +592,11 @@ export default defineComponent({
       isCollectionEmpty: tree.isCollectionEmpty,
       sidebarPosition: tree.sidebarPosition,
       addBookmarkBtnPosition: tree.addBookmarkBtnPosition,
-      searchEntryClickAction: preview.searchEntryClickAction,
+      bookmarkClickAction: preview.bookmarkClickAction,
       isSettingsOpen,
       handleSettingsPopoverOpenChange,
       updateAddBookmarkBtnPosition,
-      updateSearchEntryClickAction,
+      updateBookmarkClickAction,
       toggleExpandAll: tree.toggleExpandAll,
       searchQuery: tree.search.query,
       isSearchVisible: tree.search.isVisible,
