@@ -1,5 +1,6 @@
 import type { SupportedUiLocale } from '@/utils/preferences-contract';
 import { createActiveUiLocaleProxy } from '@/utils/i18n';
+import { matchKeywordSubcategory } from '@/utils/item-category-hierarchy';
 import type { CategoryGroup, TypeInfo, TypeRowConfig } from './typeMaps';
 
 /**
@@ -594,3 +595,13 @@ export const officialCategoryMapPoe1: Record<string, string> = {
   'viscera.body': 'viscera_body',
   'viscera.leg': 'viscera_leg',
 };
+
+const POE1_CLUSTER_SUBCATEGORIES: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ['large_cluster_jewel', ['巨型星團', '大型星团', 'large cluster']],
+  ['medium_cluster_jewel', ['中型星團', '中型星团', 'medium cluster']],
+  ['small_cluster_jewel', ['小型星團', '小型星团', 'small cluster']],
+];
+
+export function resolveClusterSubcategoryPoe1(rawText: string): string | null {
+  return matchKeywordSubcategory(rawText, POE1_CLUSTER_SUBCATEGORIES);
+}

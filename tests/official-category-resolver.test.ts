@@ -337,4 +337,47 @@ describe('official category structured query resolver', () => {
     });
     expect(resolveOfficialCategoryOption('poe1', 'nonexistent_type')).toBeNull();
   });
+
+  it('refines PoE1 cluster_jewel size from structured query.type or query.name', () => {
+    const cases: ReadonlyArray<readonly [string, string]> = [
+      ['Large Cluster Jewel', 'large_cluster_jewel'],
+      ['Medium Cluster Jewel', 'medium_cluster_jewel'],
+      ['Small Cluster Jewel', 'small_cluster_jewel'],
+      ['巨型星團珠寶', 'large_cluster_jewel'],
+      ['中型星團珠寶', 'medium_cluster_jewel'],
+      ['小型星團珠寶', 'small_cluster_jewel'],
+      ['大型星团珠宝', 'large_cluster_jewel'],
+      ['中型星团珠宝', 'medium_cluster_jewel'],
+      ['小型星团珠宝', 'small_cluster_jewel'],
+    ];
+    for (const [baseType, expected] of cases) {
+      expect(
+        resolveOfficialTierCategory('poe1', {
+          type: baseType,
+          filters: { type_filters: { filters: { category: { option: 'jewel.cluster' } } } },
+        }),
+      ).toEqual({ status: 'known_category', category: expected });
+    }
+
+    // 未指定分類或泛用 jewel 分類搭配明確星團珠寶底材時也能細分
+    expect(
+      resolveOfficialTierCategory('poe1', {
+        type: 'Small Cluster Jewel',
+        filters: { type_filters: { filters: {} } },
+      }),
+    ).toEqual({ status: 'known_category', category: 'small_cluster_jewel' });
+    expect(
+      resolveOfficialTierCategory('poe1', {
+        type: 'Large Cluster Jewel',
+        filters: { type_filters: { filters: { category: { option: 'jewel' } } } },
+      }),
+    ).toEqual({ status: 'known_category', category: 'large_cluster_jewel' });
+
+    // 未填底材時安全退回泛用 cluster_jewel
+    expect(
+      resolveOfficialTierCategory('poe1', {
+        filters: { type_filters: { filters: { category: { option: 'jewel.cluster' } } } },
+      }),
+    ).toEqual({ status: 'known_category', category: 'cluster_jewel' });
+  });
 });

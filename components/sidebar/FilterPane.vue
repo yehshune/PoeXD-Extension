@@ -56,6 +56,38 @@
         <!-- 左側主要區域 (包含 controls-row 與 mods-scroll-container) -->
         <div class="split-left-main flex-[7.2] flex flex-col min-h-0">
           <!-- 篩選控制項整合為單行（窄螢幕自動換行） -->
+          <!-- 容器型類別子類快切列（如星團珠寶：巨型／中型／小型） -->
+          <div
+            v-if="activeContainerSubtypes"
+            data-slot="subtype-quick-switch"
+            class="flex flex-wrap items-center gap-[var(--pxd-space-xs)] mb-[var(--pxd-space-xs)]"
+          >
+            <span
+              class="text-[length:var(--pxd-font-caption)] text-muted-foreground whitespace-nowrap select-none"
+            >
+              {{ activeContainerSubtypes.parentLabel }}
+            </span>
+            <ToggleGroup
+              :model-value="selectedType"
+              type="single"
+              variant="outline"
+              size="sm"
+              class="shrink-0"
+              @update:model-value="handleContainerSubtypeChange"
+            >
+              <ToggleGroupItem
+                v-for="opt in activeContainerSubtypes.options"
+                :key="opt.key"
+                :value="opt.key"
+                :title="opt.fullLabel"
+                :data-subtype-key="opt.key"
+                class="select-none data-[state=on]:font-bold"
+              >
+                {{ opt.label }}
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+
           <div
             class="controls-row flex flex-wrap gap-[var(--pxd-space-sm)] mb-[var(--pxd-row-gap)] items-center"
           >
@@ -458,6 +490,11 @@ import { ArrowUpRight, ChevronsDownUp, ChevronsUpDown } from '@lucide/vue';
 import { useModSelection } from './composables/useModSelection';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { resolveOfficialCategoryOption } from '@/utils/official-category-resolver';
+import {
+  isContainerOnlyParentType,
+  resolveActiveContainerSubtypes,
+  resolveAvailableContainerSubKeys,
+} from '@/utils/item-category-hierarchy';
 import {
   clearTierCategorySelectionTarget,
   getTierCategorySelectionTarget,
@@ -864,6 +901,22 @@ export default defineComponent({
       singleOptions: TypeOption[];
     }
 
+    const activeContainerSubtypes = computed(() =>
+      resolveActiveContainerSubtypes({
+        typeRowConfigs: tradeMapping.typeRowConfigs,
+        selectedType: selectedType.value,
+        availableTypes: availableTypes.value,
+        typeNames,
+        getTypeName,
+      }),
+    );
+
+    const handleContainerSubtypeChange = (value: unknown) => {
+      if (typeof value === 'string' && value && value !== selectedType.value) {
+        void selectTypeOption(value);
+      }
+    };
+
     // 物品類別分組與過濾計算屬性
     const groupedAvailableTypes = computed((): TypeGroup[] => {
       let rawTypes = availableTypes.value;
@@ -904,18 +957,32 @@ export default defineComponent({
             const mainKey = rowConfig.mainKey;
             const subKeysObj = rowConfig.subKeys as Record<string, string>;
 
-            const isMainKeyInGroup = g.keys.includes(mainKey) && rawTypes.includes(mainKey);
             const availableSubKeys = Object.keys(subKeysObj).filter(
               (sk) => g.keys.includes(sk) && rawTypes.includes(sk),
             );
+            const hideParentOption =
+              isContainerOnlyParentType(mainKey) && availableSubKeys.length > 0;
+            if (hideParentOption) usedKeys.add(mainKey);
+            const isMainKeyInGroup =
+              !hideParentOption && g.keys.includes(mainKey) && rawTypes.includes(mainKey);
 
             if (isMainKeyInGroup || availableSubKeys.length > 0) {
+              const rowLabel = getShortNameWithoutEnglish(
+                typeNames[mainKey] || mainKey.toUpperCase(),
+              );
+              const parentSearchTerms = hideParentOption
+                ? ` ${mainKey} ${typeNames[mainKey] || ''} ${rowLabel}`.toLowerCase()
+                : '';
+
               let mainOption = isMainKeyInGroup ? getOptionObj(mainKey) : undefined;
               if (isMainKeyInGroup) usedKeys.add(mainKey);
 
               let subOptions = availableSubKeys.map((sk) => {
                 usedKeys.add(sk);
-                return getOptionObj(sk, subKeysObj[sk]);
+                const opt = getOptionObj(sk, subKeysObj[sk]);
+                return parentSearchTerms
+                  ? { ...opt, searchText: `${opt.searchText}${parentSearchTerms}` }
+                  : opt;
               });
 
               if (query) {
@@ -924,10 +991,6 @@ export default defineComponent({
                 }
                 subOptions = subOptions.filter((so) => so.searchText.includes(query));
               }
-
-              const rowLabel = getShortNameWithoutEnglish(
-                typeNames[mainKey] || mainKey.toUpperCase(),
-              );
 
               if (mainOption || subOptions.length > 0) {
                 rows.push({
@@ -1016,7 +1079,7 @@ export default defineComponent({
     const recentTypeOptions = computed(() => {
       const availableSet = new Set(availableTypes.value);
       return recentTypes.value
-        .filter((key) => availableSet.has(key))
+        .filter((key) => availableSet.has(key) && !isContainerOnlyParentType(key))
         .map((key) => ({
           key,
           label: getTypeName(key),
@@ -1260,7 +1323,11 @@ export default defineComponent({
     const syncableOfficialCategory = computed(() => {
       const resolved = resolveOfficialCategoryOption(version, selectedType.value);
       if (!resolved) return null;
-      if (officialCategory.value === resolved.mainCategory) return null;
+      const currentOfficialMain = officialCategory.value
+        ? (resolveOfficialCategoryOption(version, officialCategory.value)?.mainCategory ??
+          officialCategory.value)
+        : null;
+      if (currentOfficialMain === resolved.mainCategory) return null;
       return {
         option: resolved.option,
         mainCategory: resolved.mainCategory,
@@ -1283,13 +1350,30 @@ export default defineComponent({
         return;
       }
       pendingDetectedType = undefined;
-      if (detectedType && availableTypes.value.includes(detectedType)) {
-        if (detectedType !== lastDetectedType) {
-          selectedType.value = detectedType;
-          lastDetectedType = detectedType;
-          searchQuery.value = ''; // 僅當裝備大類變更時清空搜尋
+      if (detectedType) {
+        const containerSubKeys = resolveAvailableContainerSubKeys(
+          tradeMapping.typeRowConfigs,
+          detectedType,
+          availableTypes.value,
+        );
+        if (containerSubKeys.length > 0) {
+          if (detectedType !== lastDetectedType) {
+            if (!containerSubKeys.includes(selectedType.value)) {
+              selectedType.value = containerSubKeys[0];
+              searchQuery.value = '';
+            }
+            lastDetectedType = detectedType;
+          }
+          return;
         }
-      } else if (!detectedType) {
+        if (availableTypes.value.includes(detectedType)) {
+          if (detectedType !== lastDetectedType) {
+            selectedType.value = detectedType;
+            lastDetectedType = detectedType;
+            searchQuery.value = ''; // 僅當裝備大類變更時清空搜尋
+          }
+        }
+      } else {
         if (lastDetectedType !== null) {
           selectedType.value = 'body-armour';
           lastDetectedType = null;
@@ -1521,6 +1605,8 @@ export default defineComponent({
       shouldShowNavDivider,
       closeSelectDropdown,
       groupedAvailableTypes,
+      activeContainerSubtypes,
+      handleContainerSubtypeChange,
       dialogActiveCategory,
       toggleSelectDropdown,
       selectTypeOption,

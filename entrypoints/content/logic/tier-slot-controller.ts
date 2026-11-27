@@ -1,5 +1,6 @@
 import { getTradeMapping } from '@/components/sidebar/mapping-registry';
 import { parseAffinityModGroupId } from '@/utils/affinity-registry';
+import { stripSubtypeModGroupSuffix } from '@/utils/item-category-hierarchy';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import {
@@ -177,7 +178,7 @@ export function createTierSlotDomainData(
         label: t('tierDropdown.noCategoryTiers'),
       });
     } else {
-      const modGroups = options.tierDomainService.groupTiersByMod(filtered);
+      const modGroups = options.tierDomainService.groupTiersByMod(filtered, activeType);
       let tierSource = filtered;
       let activeGroupId: string | null = null;
 
@@ -185,7 +186,9 @@ export function createTierSlotDomainData(
         const detectedGroupId = filterEl.getAttribute('data-poexd-mod-group');
         let activeGroup = modGroups.find((g) => g.id === detectedGroupId);
         if (!activeGroup && detectedGroupId) {
-          const { template: rawTemplate } = parseAffinityModGroupId(detectedGroupId);
+          const { template: rawTemplate } = parseAffinityModGroupId(
+            stripSubtypeModGroupSuffix(detectedGroupId),
+          );
           activeGroup = modGroups.find((g) => g.templateZh === rawTemplate);
         }
         if (!activeGroup) {

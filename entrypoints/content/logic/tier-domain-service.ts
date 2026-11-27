@@ -1,4 +1,6 @@
+import { getTradeMapping } from '@/components/sidebar/mapping-registry';
 import { type PoeVersion } from '@/utils/trade-context';
+import { formatSubtypeModGroupId, resolveSubTypeLabelsMap } from '@/utils/item-category-hierarchy';
 import {
   getAffinityProfile,
   commonAffinityProfile,
@@ -41,7 +43,7 @@ export interface TierDomainService {
     statId?: string | null,
   ): TierModEligibility;
   filterTiersByCategory(normalTiers: any[], category: string | null | undefined): any[];
-  groupTiersByMod(filteredTiers: any[]): TierModGroup[];
+  groupTiersByMod(filteredTiers: any[], category?: string | null): TierModGroup[];
   getRawModsData(): any | null;
   reset(): void;
 }
@@ -82,10 +84,30 @@ export interface TierModGroup {
   tiers: any[];
 }
 
+function shouldSplitSubtypeBuckets(
+  buckets: ReadonlyArray<{ matchedKeys: readonly string[]; tiers: readonly any[] }>,
+): boolean {
+  const nonEmpty = buckets.filter((b) => b.matchedKeys.length > 0);
+  if (nonEmpty.length < 2) return false;
+  // 僅在子類別集合彼此互斥，或同組內存在重複等級（不同子類各有獨立階級池）時才拆組
+  const hasDisjointPair = nonEmpty.some((a, i) =>
+    nonEmpty.slice(i + 1).some((b) => a.matchedKeys.every((k) => !b.matchedKeys.includes(k))),
+  );
+  if (hasDisjointPair) return true;
+  const allLevels = buckets.flatMap((b) =>
+    b.tiers.map((t) => (t?.level != null ? String(t.level) : null)).filter(Boolean),
+  );
+  return new Set(allLevels).size < allLevels.length;
+}
+
 /**
- * 依詞綴（displayTemplate 或 key）與來源類別 (affinity) 將該類別的 tiers 進行分組，純粹詞綴優先排在首位
+ * 依詞綴（displayTemplate 或 key）、來源類別 (affinity) 與互斥子類別池將 tiers 進行分組，純粹詞綴優先排在首位
  */
-export function groupTiersByMod(filteredTiers: any[], version?: PoeVersion): TierModGroup[] {
+export function groupTiersByMod(
+  filteredTiers: any[],
+  version?: PoeVersion,
+  category?: string | null,
+): TierModGroup[] {
   if (!Array.isArray(filteredTiers) || filteredTiers.length === 0) return [];
 
   const distinctAffinities = new Set<string>();
@@ -93,6 +115,10 @@ export function groupTiersByMod(filteredTiers: any[], version?: PoeVersion): Tie
     distinctAffinities.add(resolveTierPrimaryAffinity(tier?.affinities));
   }
   const splitByAffinity = distinctAffinities.size > 1;
+  const mapping = getTradeMapping(version ?? 'poe1');
+  const subTypeInfo = resolveSubTypeLabelsMap(mapping.typeRowConfigs, mapping.typeNames, category);
+  const subLabelsMap = subTypeInfo?.subLabels ?? null;
+  const subKeyOrder = subLabelsMap ? Object.keys(subLabelsMap) : [];
 
   const groupsMap = new Map<string, { templateKey: string; affinity?: string; tiers: any[] }>();
   for (const tier of filteredTiers) {
@@ -105,31 +131,88 @@ export function groupTiersByMod(filteredTiers: any[], version?: PoeVersion): Tie
     groupsMap.get(mapKey)!.tiers.push(tier);
   }
 
-  const groups: TierModGroup[] = [];
+  const sortableGroups: Array<{ group: TierModGroup; subOrder: number }> = [];
   for (const [mapKey, entry] of groupsMap.entries()) {
     const { templateKey, affinity, tiers } = entry;
     const isPure = !templateKey.includes('|||||');
-    const label = templateKey.replace(/\|\|\|\|\|/g, '\n');
-    groups.push({
-      id: mapKey,
-      label,
-      templateZh: templateKey,
-      isPure,
-      ...(affinity ? { affinity, affinityLabel: getAffinityDisplayName(affinity, version) } : {}),
-      tiers,
+    const label = templateKey.replace(/\|\|\|\|\||\\r\\n|\\r|\\n/g, '\n');
+    const affName = affinity ? getAffinityDisplayName(affinity, version) : undefined;
+
+    if (subKeyOrder.length > 0 && tiers.length > 1) {
+      const subBuckets = new Map<
+        string,
+        { matchedKeys: string[]; subOrder: number; tiers: any[] }
+      >();
+
+      for (const tier of tiers) {
+        const matchedKeys = subKeyOrder.filter(
+          (sk) => Array.isArray(tier?.types) && tier.types.includes(sk),
+        );
+        const sig = matchedKeys.join('|');
+        if (!subBuckets.has(sig)) {
+          subBuckets.set(sig, {
+            matchedKeys,
+            subOrder: matchedKeys.length > 0 ? subKeyOrder.indexOf(matchedKeys[0]) : 999,
+            tiers: [],
+          });
+        }
+        subBuckets.get(sig)!.tiers.push(tier);
+      }
+
+      if (shouldSplitSubtypeBuckets(Array.from(subBuckets.values()))) {
+        for (const [sig, bucket] of subBuckets.entries()) {
+          const subtypeLabel =
+            bucket.matchedKeys.length > 0
+              ? bucket.matchedKeys.map((sk) => subLabelsMap![sk]).join(' / ')
+              : subTypeInfo?.parentLabel;
+          const badge =
+            affName && subtypeLabel ? `${affName} · ${subtypeLabel}` : subtypeLabel || affName;
+          sortableGroups.push({
+            group: {
+              id: formatSubtypeModGroupId(mapKey, sig),
+              label,
+              templateZh: templateKey,
+              isPure,
+              ...(affinity ? { affinity } : {}),
+              ...(badge ? { affinityLabel: badge } : {}),
+              tiers: bucket.tiers,
+            },
+            subOrder: bucket.subOrder,
+          });
+        }
+        continue;
+      }
+    }
+
+    sortableGroups.push({
+      group: {
+        id: mapKey,
+        label,
+        templateZh: templateKey,
+        isPure,
+        ...(affinity ? { affinity, affinityLabel: affName } : {}),
+        tiers,
+      },
+      subOrder: 0,
     });
   }
 
-  groups.sort((a, b) => {
-    if (a.isPure && !b.isPure) return -1;
-    if (!a.isPure && b.isPure) return 1;
-    if (a.affinity && b.affinity && a.affinity !== b.affinity) {
-      return getAffinityPriority(a.affinity, version) - getAffinityPriority(b.affinity, version);
+  sortableGroups.sort((a, b) => {
+    if (a.group.isPure && !b.group.isPure) return -1;
+    if (!a.group.isPure && b.group.isPure) return 1;
+    if (a.group.affinity && b.group.affinity && a.group.affinity !== b.group.affinity) {
+      return (
+        getAffinityPriority(a.group.affinity, version) -
+        getAffinityPriority(b.group.affinity, version)
+      );
+    }
+    if (a.subOrder !== b.subOrder) {
+      return a.subOrder - b.subOrder;
     }
     return 0;
   });
 
-  return groups;
+  return sortableGroups.map((entry) => entry.group);
 }
 
 /**
@@ -437,8 +520,8 @@ export function createTierDomainService(version: PoeVersion): TierDomainService 
 
     filterTiersByCategory,
 
-    groupTiersByMod(filteredTiers) {
-      return groupTiersByMod(filteredTiers, version);
+    groupTiersByMod(filteredTiers, category) {
+      return groupTiersByMod(filteredTiers, version, category);
     },
 
     getRawModsData() {

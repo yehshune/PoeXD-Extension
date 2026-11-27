@@ -704,4 +704,127 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
       portalRoot.querySelector('[data-slot="popover-content"][data-sidebar-dialog="affix-type"]'),
     ).toBeNull();
   });
+
+  it('將 cluster_jewel 父類別列為純標籤，僅開放點選巨型／中型／小型子類別', async () => {
+    setTierCategorySelectionTarget({
+      slotKey: 'tier-slot-cluster',
+      groupIndex: 0,
+      filterIndex: 0,
+      bindingId: 'b-cluster',
+      availableTypes: [
+        'cluster_jewel',
+        'large_cluster_jewel',
+        'medium_cluster_jewel',
+        'small_cluster_jewel',
+      ],
+      currentCategory: 'cluster_jewel',
+    });
+
+    await mountFilterPane();
+    dispatchPoeEvent('poexd-trigger-select-type-modal');
+    await nextTick();
+    await nextTick();
+
+    const dialog = portalRoot.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog).toBeTruthy();
+
+    const fallbackLabels = Array.from(dialog.querySelectorAll('.type-row-fallback-label')).map(
+      (el) => el.textContent?.trim(),
+    );
+    expect(fallbackLabels).toContain('星團珠寶');
+
+    const buttons = Array.from(dialog.querySelectorAll('button')).map((el) =>
+      el.textContent?.trim(),
+    );
+    expect(buttons).not.toContain('星團珠寶');
+    expect(buttons).toContain('巨型');
+    expect(buttons).toContain('中型');
+    expect(buttons).toContain('小型');
+  });
+
+  it('官方類別帶入 cluster_jewel 時自動落到巨型星團並顯示子類快切列，手動切換小型後不被父類覆蓋', async () => {
+    mockModsData({
+      int_cluster: [
+        {
+          id: 'explicit.stat_724930776',
+          level: '1',
+          types: ['cluster_jewel', 'large_cluster_jewel', 'medium_cluster_jewel'],
+          affinities: ['cluster'],
+          values: [['2', '3']],
+        },
+        {
+          id: 'explicit.stat_724930776',
+          level: '84',
+          types: ['cluster_jewel', 'small_cluster_jewel'],
+          affinities: ['cluster'],
+          values: [['12', '14']],
+        },
+      ],
+    });
+
+    await mountFilterPane();
+    dispatchPoeEvent('poexd-equipment-type-changed', { type: 'cluster_jewel' });
+    await nextTick();
+    await nextTick();
+
+    const triggerBtn = appRoot.querySelector(
+      '[data-filter-action="open-type-dialog"]',
+    ) as HTMLButtonElement;
+    expect(triggerBtn.textContent?.trim()).toBe('巨型星團珠寶');
+
+    const quickSwitch = appRoot.querySelector('[data-slot="subtype-quick-switch"]') as HTMLElement;
+    expect(quickSwitch).toBeTruthy();
+
+    const smallBtn = quickSwitch.querySelector(
+      '[data-subtype-key="small_cluster_jewel"]',
+    ) as HTMLButtonElement;
+    expect(smallBtn).toBeTruthy();
+    smallBtn.click();
+    await nextTick();
+    expect(triggerBtn.textContent?.trim()).toBe('小型星團珠寶');
+
+    // 官方類別再次上報泛用 cluster_jewel 時，不覆蓋已選好的小型星團珠寶
+    dispatchPoeEvent('poexd-equipment-type-changed', { type: 'cluster_jewel' });
+    await nextTick();
+    expect(triggerBtn.textContent?.trim()).toBe('小型星團珠寶');
+
+    // 已屬於同一官方主分類（jewel.cluster），不顯示多餘的「同步成星團珠寶」按鈕
+    expect(appRoot.querySelector('[data-filter-action="sync-official-category"]')).toBeNull();
+  });
+
+  it('隱藏容器父類後，搜尋父類名稱（如劫盜裝備）仍可命中其子類別按鈕', async () => {
+    setTierCategorySelectionTarget({
+      slotKey: 'tier-slot-heist',
+      groupIndex: 0,
+      filterIndex: 0,
+      bindingId: 'b-heist',
+      availableTypes: [
+        'heist_equipment',
+        'heist_gear',
+        'heist_tool',
+        'heist_cloak',
+        'heist_brooch',
+      ],
+      currentCategory: 'heist_gear',
+    });
+
+    await mountFilterPane();
+    dispatchPoeEvent('poexd-trigger-select-type-modal');
+    await nextTick();
+    await nextTick();
+
+    const dialog = portalRoot.querySelector('[role="dialog"]') as HTMLElement;
+    const searchInput = dialog.querySelector('input[type="text"]') as HTMLInputElement;
+    searchInput.value = '劫盜裝備';
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitForSearchDebounce();
+
+    const buttons = Array.from(dialog.querySelectorAll('button')).map((el) =>
+      el.textContent?.trim(),
+    );
+    expect(buttons).toContain('武器');
+    expect(buttons).toContain('工具');
+    expect(buttons).toContain('披風');
+    expect(buttons).toContain('胸針');
+  });
 });

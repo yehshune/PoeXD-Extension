@@ -1,5 +1,6 @@
 import type { SupportedUiLocale } from '@/utils/preferences-contract';
 import { createActiveUiLocaleProxy } from '@/utils/i18n';
+import { matchKeywordSubcategory } from '@/utils/item-category-hierarchy';
 
 export interface TypeInfo {
   cat: string[];
@@ -24,6 +25,7 @@ export {
   poe1Groups,
   typeRowConfigsPoe1,
   officialCategoryMapPoe1,
+  resolveClusterSubcategoryPoe1,
 } from './typeMapsPoe1';
 
 export const typeMapPoe2: Record<string, TypeInfo> = {
@@ -785,14 +787,5 @@ const POE2_TABLET_SUBCATEGORIES: ReadonlyArray<readonly [string, readonly string
 ];
 
 export function resolveTabletSubcategoryPoe2(rawText: string): string | null {
-  if (!rawText || typeof rawText !== 'string') return null;
-  const normalized = rawText.trim().toLowerCase();
-  if (!normalized) return null;
-
-  for (const [categoryKey, keywords] of POE2_TABLET_SUBCATEGORIES) {
-    if (keywords.some((kw) => normalized.includes(kw.toLowerCase()))) {
-      return categoryKey;
-    }
-  }
-  return null;
+  return matchKeywordSubcategory(rawText, POE2_TABLET_SUBCATEGORIES);
 }

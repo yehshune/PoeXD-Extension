@@ -1334,4 +1334,201 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       expect(groups.map((g) => g.affinityLabel)).toEqual(['救贖者', '掘獄']);
     });
   });
+
+  describe('12. 父類別多子類詞綴池拆組隔離（如星團珠寶大／中 vs 小型）', () => {
+    const intClusterTiers = [
+      {
+        displayTemplate: '附加的小天賦給予：+# 智慧',
+        level: 1,
+        types: ['cluster_jewel', 'large_cluster_jewel', 'medium_cluster_jewel'],
+        affinities: ['cluster'],
+        ids: ['explicit.stat_724930776'],
+        values: [['2', '3']],
+      },
+      {
+        displayTemplate: '附加的小天賦給予：+# 智慧',
+        level: 1,
+        types: ['cluster_jewel', 'small_cluster_jewel'],
+        affinities: ['cluster'],
+        ids: ['explicit.stat_724930776'],
+        values: [['2', '3']],
+      },
+      {
+        displayTemplate: '附加的小天賦給予：+# 智慧',
+        level: 68,
+        types: ['cluster_jewel', 'large_cluster_jewel', 'medium_cluster_jewel'],
+        affinities: ['cluster'],
+        ids: ['explicit.stat_724930776'],
+        values: [['4', '5']],
+      },
+      {
+        displayTemplate: '附加的小天賦給予：+# 智慧',
+        level: 68,
+        types: ['cluster_jewel', 'small_cluster_jewel'],
+        affinities: ['cluster'],
+        ids: ['explicit.stat_724930776'],
+        values: [['4', '5']],
+      },
+      {
+        displayTemplate: '附加的小天賦給予：+# 智慧',
+        level: 73,
+        types: ['cluster_jewel', 'small_cluster_jewel'],
+        affinities: ['cluster'],
+        ids: ['explicit.stat_724930776'],
+        values: [['6', '8']],
+      },
+      {
+        displayTemplate: '附加的小天賦給予：+# 智慧',
+        level: 78,
+        types: ['cluster_jewel', 'small_cluster_jewel'],
+        affinities: ['cluster'],
+        ids: ['explicit.stat_724930776'],
+        values: [['9', '11']],
+      },
+      {
+        displayTemplate: '附加的小天賦給予：+# 智慧',
+        level: 84,
+        types: ['cluster_jewel', 'large_cluster_jewel', 'medium_cluster_jewel'],
+        affinities: ['cluster'],
+        ids: ['explicit.stat_724930776'],
+        values: [['6', '8']],
+      },
+      {
+        displayTemplate: '附加的小天賦給予：+# 智慧',
+        level: 84,
+        types: ['cluster_jewel', 'small_cluster_jewel'],
+        affinities: ['cluster'],
+        ids: ['explicit.stat_724930776'],
+        values: [['12', '14']],
+      },
+    ];
+
+    it('groupTiersByMod 在父類別 cluster_jewel 下將大/中型與小型拆成獨立分組，不混成 T1~T8', () => {
+      const groups = groupTiersByMod(intClusterTiers, 'poe1', 'cluster_jewel');
+      expect(groups).toHaveLength(2);
+      expect(groups[0].affinityLabel).toBe('巨型 / 中型');
+      expect(groups[0].tiers).toHaveLength(3);
+      expect(groups[1].affinityLabel).toBe('小型');
+      expect(groups[1].tiers).toHaveLength(5);
+
+      // 切到具體子類別時不再拆分
+      const smallGroups = groupTiersByMod(
+        filterTiersByCategory(intClusterTiers, 'small_cluster_jewel'),
+        'poe1',
+        'small_cluster_jewel',
+      );
+      expect(smallGroups).toHaveLength(1);
+      expect(smallGroups[0].affinityLabel).toBeUndefined();
+      expect(smallGroups[0].tiers).toHaveLength(5);
+    });
+
+    it('createTierSlotDomainData 在星團珠寶下拆出分組選項與各自 T1~T3 / T1~T5，且可與複合詞綴共存', async () => {
+      filterEl.setAttribute('data-poexd-stat-id', 'explicit.stat_724930776');
+      filterEl.setAttribute('data-poexd-category', 'cluster_jewel');
+
+      const withComposite = [
+        ...intClusterTiers,
+        {
+          displayTemplate: '附加的小天賦給予：+# 智慧|||||+# 最大魔力',
+          level: 84,
+          types: ['cluster_jewel', 'small_cluster_jewel'],
+          affinities: ['cluster'],
+          ids: ['explicit.stat_724930776', 'explicit.stat_1050105434'],
+          values: [
+            ['10', '12'],
+            ['15', '20'],
+          ],
+        },
+      ];
+      const rawMods = { 'explicit.stat_724930776': withComposite };
+      const tierDomainService = createTierDomainService('poe1');
+      vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue(rawMods);
+      vi.spyOn(tierDomainService, 'getRawModsData').mockReturnValue(rawMods);
+
+      const tierSlotController = createTierSlotController({
+        version: 'poe1',
+        tierDomainService,
+        isCurrentGeneration: () => true,
+      });
+
+      await tierSlotController.sync(1);
+      const slot = activeTierSlots.value[0];
+      const groupOptions = slot.items.filter((i) => i.type === 'mod_group_option');
+      expect(groupOptions).toHaveLength(3);
+      expect(groupOptions.map((g) => g.affinityLabel)).toEqual(['巨型 / 中型', '小型', undefined]);
+      expect(groupOptions[0].isActive).toBe(true);
+
+      // 預設大/中型只呈現 3 階 (T1..T3)
+      const largeMediumTiers = slot.items.filter((i) => i.type === 'tier');
+      expect(largeMediumTiers).toHaveLength(3);
+      expect(largeMediumTiers.map((t) => t.tierName)).toEqual(['T1', 'T2', 'T3']);
+
+      // 切換至小型分組呈現 5 階 (T1..T5)
+      slot.onSelect(groupOptions[1]);
+      const smallTiers = activeTierSlots.value[0].items.filter((i) => i.type === 'tier');
+      expect(smallTiers).toHaveLength(5);
+      expect(smallTiers[0].label).toContain('T1 (Lv.84) (12 ~ 14)');
+      expect(smallTiers[4].label).toContain('T5 (Lv.1) (2 ~ 3)');
+    });
+
+    it('body-armour 不會因為精髓跨基底而誤拆一般進階階級', () => {
+      const armourTiers = [
+        {
+          displayTemplate: '+# 最大能量護盾',
+          level: 1,
+          types: ['body-armour', 'body_armours_int'],
+          affinities: ['normal'],
+          values: [['10', '15']],
+        },
+        {
+          displayTemplate: '+# 最大能量護盾',
+          level: 50,
+          types: ['body-armour', 'body_armours_str', 'body_armours_int'],
+          affinities: ['essence', 'normal'],
+          values: [['40', '50']],
+        },
+      ];
+      const groups = groupTiersByMod(armourTiers, 'poe1', 'body-armour');
+      expect(groups).toHaveLength(1);
+    });
+
+    it('從父類別複合子分組切換至具體子類別時，可正確剝離 @@ 後綴並保留複合分組選取', async () => {
+      filterEl.setAttribute('data-poexd-stat-id', 'explicit.stat_724930776');
+      filterEl.setAttribute('data-poexd-category', 'small_cluster_jewel');
+      filterEl.setAttribute(
+        'data-poexd-mod-group',
+        '附加的小天賦給予：+# 智慧|||||+# 最大魔力@@small_cluster_jewel',
+      );
+
+      const withComposite = [
+        ...intClusterTiers,
+        {
+          displayTemplate: '附加的小天賦給予：+# 智慧|||||+# 最大魔力',
+          level: 84,
+          types: ['cluster_jewel', 'small_cluster_jewel'],
+          affinities: ['cluster'],
+          ids: ['explicit.stat_724930776', 'explicit.stat_1050105434'],
+          values: [
+            ['10', '12'],
+            ['15', '20'],
+          ],
+        },
+      ];
+      const rawMods = { 'explicit.stat_724930776': withComposite };
+      const tierDomainService = createTierDomainService('poe1');
+      vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue(rawMods);
+      vi.spyOn(tierDomainService, 'getRawModsData').mockReturnValue(rawMods);
+
+      const tierSlotController = createTierSlotController({
+        version: 'poe1',
+        tierDomainService,
+        isCurrentGeneration: () => true,
+      });
+
+      await tierSlotController.sync(1);
+      const slot = activeTierSlots.value[0];
+      const activeGroupOpt = slot.items.find((i) => i.type === 'mod_group_option' && i.isActive);
+      expect(activeGroupOpt?.label).toBe('附加的小天賦給予：+# 智慧\n+# 最大魔力');
+    });
+  });
 });

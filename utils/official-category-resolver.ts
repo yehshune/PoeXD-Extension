@@ -1,6 +1,9 @@
 import type { PoeVersion } from './trade-context';
 import { getTradeMapping } from '@/components/sidebar/mapping-registry';
-import { resolveTabletSubcategoryPoe2 } from '@/components/sidebar/typeMaps';
+import {
+  resolveClusterSubcategoryPoe1,
+  resolveTabletSubcategoryPoe2,
+} from '@/components/sidebar/typeMaps';
 
 export type OfficialTierCategoryResolution =
   | { status: 'known_category'; category: string }
@@ -44,18 +47,23 @@ export function resolveOfficialTierCategory(
 
   const categoryFilter = query.filters?.type_filters?.filters?.category;
 
-  // 1. 若 category 欄位不存在，或 option 為 null/undefined/空字串
-  if (
-    !categoryFilter ||
-    categoryFilter.option === undefined ||
-    categoryFilter.option === null ||
-    categoryFilter.option === ''
-  ) {
-    return { status: 'known_cleared' };
-  }
+  const combinedRefinementText =
+    `${extractRefinementText(query.type)} ${extractRefinementText(query.name)}`.trim();
+  const resolveClusterRefinement = (): string | null =>
+    version === 'poe1' && combinedRefinementText
+      ? resolveClusterSubcategoryPoe1(combinedRefinementText)
+      : null;
 
-  const machineOption = String(categoryFilter.option).trim().toLowerCase();
+  const rawOption = categoryFilter?.option;
+  const machineOption =
+    rawOption === undefined || rawOption === null ? '' : String(rawOption).trim().toLowerCase();
+
+  // 1. 若 category 欄位不存在，或 option 為 null/undefined/空字串
   if (!machineOption) {
+    const refinedCluster = resolveClusterRefinement();
+    if (refinedCluster) {
+      return { status: 'known_category', category: refinedCluster };
+    }
     return { status: 'known_cleared' };
   }
 
@@ -64,19 +72,26 @@ export function resolveOfficialTierCategory(
   const internalCategory = mapping?.machineOptionLookup?.[machineOption];
 
   // 嚴格落實 Mapping fail semantics：
-  // 若為未知的非空 machine option，判定為 unavailable，絕不得誤判為 known_cleared！
+  // 泛用 'jewel' 搭配明確星團底材時允許細分；其餘未知的非空 machine option 判定為 unavailable
   if (!internalCategory) {
+    if (machineOption === 'jewel') {
+      const refinedCluster = resolveClusterRefinement();
+      if (refinedCluster) {
+        return { status: 'known_category', category: refinedCluster };
+      }
+    }
     return { status: 'unavailable' };
   }
 
-  // 3. Structured Refinement（如 PoE2 碑牌 Tablet 細分）
-  if (internalCategory === 'tablet' && version === 'poe2') {
-    const typeText = extractRefinementText(query.type);
-    const nameText = extractRefinementText(query.name);
-    const combined = `${typeText} ${nameText}`.trim();
+  // 3. Structured Refinement（如 PoE1 星團珠寶尺寸、PoE2 碑牌 Tablet 細分）
+  if (internalCategory === 'cluster_jewel' && version === 'poe1') {
+    const refined = resolveClusterRefinement();
+    return { status: 'known_category', category: refined ?? 'cluster_jewel' };
+  }
 
-    if (combined) {
-      const refined = resolveTabletSubcategoryPoe2(combined);
+  if (internalCategory === 'tablet' && version === 'poe2') {
+    if (combinedRefinementText) {
+      const refined = resolveTabletSubcategoryPoe2(combinedRefinementText);
       if (refined) {
         return { status: 'known_category', category: refined };
       }
