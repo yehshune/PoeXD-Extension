@@ -5,12 +5,15 @@
  * 各類分片獨立載入：任一類失敗或格式不符時只略過那一類，該類下拉選單維持英文。
  */
 import type { MarketTradeDictionary } from './market-translation-data';
+import type { ModLinePairs } from './market-mod-lines';
 import { loadPairedLineShard } from './paired-line-shards';
+import { extractPassiveNameMap, readPassiveNames } from './passive-names';
 import type { NameParts } from './market-result-labels';
 import type { ResultTranslatorData } from './market-result-translator';
 import type { MarketTranslationLocale } from './market-translation';
 import {
   getLocaleItemsAssetPath,
+  getLocalePassiveNamesAssetPath,
   getLocaleResultLabelsAssetPath,
   getLocaleTradeFiltersAssetPath,
   getLocaleTradeItemsAssetPath,
@@ -169,8 +172,25 @@ export interface MarketLiveEnglishData {
   fields?: Record<string, string>;
 }
 
+function mergeModLineRecords(
+  ...sources: Array<Readonly<Record<string, ModLinePairs>> | undefined>
+): Record<string, ModLinePairs> | undefined {
+  const present = sources.filter(
+    (source): source is Readonly<Record<string, ModLinePairs>> => source !== undefined,
+  );
+  if (present.length === 0) return undefined;
+  if (present.length === 1) return { ...present[0] };
+  const merged: Record<string, ModLinePairs> = {};
+  for (const source of present) {
+    for (const [hash, pairs] of Object.entries(source)) {
+      merged[hash] = merged[hash] ? [...merged[hash], ...pairs] : pairs;
+    }
+  }
+  return merged;
+}
+
 /**
- * 結果列翻譯的資料：遊戲寫法變體、市集寫法備援（中英 trade-stats）、物品名、標籤與句型模板。
+ * 結果列翻譯的資料：遊戲寫法變體、市集寫法備援（中英 trade-stats）、物品名、標籤、句型模板與天賦資料。
  * 已載入的 data 字典直接沿用；各部分獨立，失敗的部分為空。
  */
 export async function loadResultTranslatorData(
@@ -184,8 +204,23 @@ export async function loadResultTranslatorData(
   },
 ): Promise<ResultTranslatorData> {
   const { version, locale, dictionary, ui, liveEn } = options;
-  const [modLines, englishStats, englishFilters, resultLabels] = await Promise.allSettled([
+  const [
+    modLines,
+    itemStatText,
+    passiveStatText,
+    passiveNames,
+    englishStats,
+    englishFilters,
+    resultLabels,
+  ] = await Promise.allSettled([
     loadPairedLineShard(loadJson, 'mod-lines', version, locale).then((shard) => shard.lines),
+    loadPairedLineShard(loadJson, 'stat-text-items', version, locale).then((shard) => shard.lines),
+    loadPairedLineShard(loadJson, 'stat-text-passives', version, locale).then(
+      (shard) => shard.lines,
+    ),
+    locale === 'zh-TW'
+      ? loadJson(getLocalePassiveNamesAssetPath(version, locale))
+      : Promise.resolve(undefined),
     loadJson(getLocaleTradeStatsAssetPath(version, 'en')).then(parseEnglishStats),
     loadJson(getLocaleTradeFiltersAssetPath(version, 'en')),
     loadJson(getLocaleResultLabelsAssetPath(version, locale)).then((data) =>
@@ -207,10 +242,38 @@ export async function loadResultTranslatorData(
     : bundledFiltersRaw;
   const gameLabels = settledValue(resultLabels);
   const localized = dictionary.stats?.stats;
+  const resolvedModLines = settledValue(modLines) ?? {};
+  const resolvedItemStatText = settledValue(itemStatText);
+  const resolvedPassiveStatText = settledValue(passiveStatText);
+  const extraModLines = mergeModLineRecords(resolvedItemStatText, resolvedPassiveStatText);
+  const passives = {
+    ...readPassiveNames(settledValue(passiveNames)),
+    ...extractPassiveNameMap({
+      tradeStats: en && localized ? { english: en, localized } : undefined,
+      modLines: [
+        resolvedModLines,
+        ...(resolvedItemStatText ? [resolvedItemStatText] : []),
+        ...(resolvedPassiveStatText ? [resolvedPassiveStatText] : []),
+      ],
+    }),
+  };
+  let skillModLinesPromise: Promise<Readonly<Record<string, ModLinePairs>> | undefined> | null =
+    null;
+  const loadSkillModLines = () => {
+    if (!skillModLinesPromise) {
+      skillModLinesPromise = loadPairedLineShard(loadJson, 'stat-text-skills', version, locale)
+        .then((shard) => shard.lines)
+        .catch(() => undefined);
+    }
+    return skillModLinesPromise;
+  };
   return {
-    modLines: settledValue(modLines) ?? {},
+    modLines: resolvedModLines,
+    ...(extraModLines ? { extraModLines } : {}),
+    loadSkillModLines,
     tradeStats: en && localized ? { en, localized } : undefined,
     items: dictionary.items ?? {},
+    ...(Object.keys(passives).length > 0 ? { passives } : {}),
     // 官方介面字典是官網實際顯示的寫法，優先於篩選器欄位名稱，遊戲資料表的標籤最後
     labels: {
       ...gameLabels?.labels,

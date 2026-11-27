@@ -213,4 +213,111 @@ describe('loadResultTranslatorData', () => {
     expect(data.items).toEqual({});
     expect(data.templates).toEqual([]);
   });
+
+  it('載入 stat-text-items、stat-text-passives 與天賦名稱（市集抽出名優先於 passive-names.json）', async () => {
+    const itemLines = publishedLines(
+      {
+        'zh-TW': { '10': [['Deals {0:d} to {1:d} Chaos Damage', '造成 {0:d} 至 {1:d} 混沌傷害']] },
+      },
+      '0.5.5.8',
+    );
+    const passiveLines = publishedLines(
+      { 'zh-TW': { '20': [['Ignore Attribute Requirements', '無視能力值需求']] } },
+      '0.5.5.8',
+    );
+    const modLines = publishedLines(
+      { 'zh-TW': { '30': [['1 Added Passive Skill is Non-Flammable', '1 個附加的天賦為非易燃']] } },
+      '0.5.5.8',
+    );
+    const data = await loadResultTranslatorData(
+      loader({
+        ...RESULT_ASSETS,
+        'json/poe2/locales/en/mod-lines.json': modLines.en,
+        'json/poe2/locales/zh-TW/mod-lines.json': modLines['zh-TW'],
+        'json/poe2/locales/en/stat-text-items.json': itemLines.en,
+        'json/poe2/locales/zh-TW/stat-text-items.json': itemLines['zh-TW'],
+        'json/poe2/locales/en/stat-text-passives.json': passiveLines.en,
+        'json/poe2/locales/zh-TW/stat-text-passives.json': passiveLines['zh-TW'],
+        'json/poe2/locales/zh-TW/passive-names.json': {
+          schemaVersion: 1,
+          patch: '0.5.5.8',
+          locale: 'zh-TW',
+          names: {
+            'Non-Flammable': '舊版非易燃',
+            'Secrets of Suffering': '苦難之秘',
+          },
+        },
+      }),
+      { version: 'poe2', locale: 'zh-TW', dictionary, ui: {} },
+    );
+    expect(data.extraModLines?.['10']).toEqual([
+      ['Deals {0:d} to {1:d} Chaos Damage', '造成 {0:d} 至 {1:d} 混沌傷害'],
+    ]);
+    expect(data.extraModLines?.['20']).toEqual([
+      ['Ignore Attribute Requirements', '無視能力值需求'],
+    ]);
+    expect(data.passives).toEqual({
+      'non-flammable': '非易燃',
+      'secrets of suffering': '苦難之秘',
+    });
+  });
+
+  it('簡中不請求 passive-names.json，但仍從 mod-lines 與 trade-stats 抽出星團天賦名', async () => {
+    const modLines = publishedLines(
+      { 'zh-CN': { '30': [['1 Added Passive Skill is Non-Flammable', '1 个附加天赋为不易燃']] } },
+      '0.5.5.8',
+    );
+    const loadJson = loader({
+      'json/poe2/locales/en/mod-lines.json': modLines.en,
+      'json/poe2/locales/zh-CN/mod-lines.json': modLines['zh-CN'],
+      'json/poe2/locales/en/trade-stats.json': {
+        schemaVersion: 1,
+        locale: 'en',
+        labels: {},
+        stats: { 'enchant.stat_1': 'Allocates Beef' },
+        options: {},
+      },
+    });
+    const data = await loadResultTranslatorData(loadJson, {
+      version: 'poe2',
+      locale: 'zh-CN',
+      dictionary: {
+        stats: { labels: {}, stats: { 'enchant.stat_1': '配置 强健' }, options: {} },
+      },
+      ui: {},
+    });
+    expect(loadJson.mock.calls.some(([path]) => path.endsWith('passive-names.json'))).toBe(false);
+    expect(data.passives).toEqual({
+      'non-flammable': '不易燃',
+      beef: '强健',
+    });
+  });
+
+  it('stat-text-skills.json 初始不載入，呼叫 loadSkillModLines 時才按需載入並快取', async () => {
+    const skillLines = publishedLines(
+      { 'zh-TW': { '99': [['Base radius is {0:d} metres', '基礎範圍為 {0:d} 公尺']] } },
+      '0.5.5.8',
+    );
+    const loadJson = loader({
+      ...RESULT_ASSETS,
+      'json/poe2/locales/en/stat-text-skills.json': skillLines.en,
+      'json/poe2/locales/zh-TW/stat-text-skills.json': skillLines['zh-TW'],
+    });
+    const data = await loadResultTranslatorData(loadJson, {
+      version: 'poe2',
+      locale: 'zh-TW',
+      dictionary,
+      ui: {},
+    });
+    expect(loadJson.mock.calls.some(([path]) => path.endsWith('stat-text-skills.json'))).toBe(
+      false,
+    );
+    const loaded1 = await data.loadSkillModLines?.();
+    const loaded2 = await data.loadSkillModLines?.();
+    expect(loaded1).toEqual({ '99': [['Base radius is {0:d} metres', '基礎範圍為 {0:d} 公尺']] });
+    expect(loaded2).toBe(loaded1);
+    expect(
+      loadJson.mock.calls.filter(([path]) => path.endsWith('stat-text-skills.json')),
+    ).toHaveLength(2);
+  });
 });

@@ -10,11 +10,16 @@ import type { ModLinePairs } from './market-mod-lines';
 import {
   getLocaleModLinesAssetPath,
   getLocalePassiveStatTextAssetPath,
+  getLocaleSkillStatTextAssetPath,
   getLocaleStatTextAssetPath,
   type PoeVersion,
 } from './trade-context';
 
-export type PairedLineFile = 'mod-lines' | 'stat-text-items' | 'stat-text-passives';
+export type PairedLineFile =
+  | 'mod-lines'
+  | 'stat-text-items'
+  | 'stat-text-passives'
+  | 'stat-text-skills';
 
 type LoadJson = (path: string) => Promise<unknown>;
 type Json = Record<string, unknown>;
@@ -27,6 +32,7 @@ const ASSET_PATHS: Record<PairedLineFile, (version: PoeVersion, locale: string) 
   'mod-lines': (version, locale) => getLocaleModLinesAssetPath(version, locale),
   'stat-text-items': (version, locale) => getLocaleStatTextAssetPath(version, locale),
   'stat-text-passives': (version, locale) => getLocalePassiveStatTextAssetPath(version, locale),
+  'stat-text-skills': (version, locale) => getLocaleSkillStatTextAssetPath(version, locale),
 };
 
 /** 還原後的分片：`[英文, 譯文]` 句型對 */

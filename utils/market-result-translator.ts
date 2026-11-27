@@ -12,6 +12,7 @@
  * MutationObserver 會再翻一次。
  */
 import { tradeTextToModTemplate, translateModLine, type ModLinePairs } from './market-mod-lines';
+import { modLineSkeleton, modTemplateSkeleton } from './pob-stat-matcher';
 import { PAGE_GUIDE_MOCK_ATTR } from './trade-results-root';
 import {
   createLabelLookup,
@@ -28,10 +29,16 @@ type TradeStatTexts = Readonly<Record<string, string | readonly string[]>>;
 export interface ResultTranslatorData {
   /** stat hash → [英文模板, 譯文模板]（mod-lines.json） */
   modLines: Readonly<Record<string, ModLinePairs>>;
+  /** 無 stat 代碼詞綴與星團天賦說明的額外遊戲寫法（stat-text-items.json + stat-text-passives.json） */
+  extraModLines?: Readonly<Record<string, ModLinePairs>>;
+  /** 按需懶載入的技能寶石詞綴（stat-text-skills.json）；首次遇到無 data-field 且未命中的詞綴時才呼叫 */
+  loadSkillModLines?: () => Promise<Readonly<Record<string, ModLinePairs>> | undefined>;
   /** 市集寫法備援：國際服英文與目標語系的 trade-stats（stat id → 文字） */
   tradeStats?: { en: TradeStatTexts; localized: TradeStatTexts };
   /** 英文物品名（小寫）→ 譯名 */
   items: TextMap;
+  /** 英文天賦名（小寫）→ 譯名（星團珠寶底部天賦說明） */
+  passives?: TextMap;
   /** 標籤（英文 → 譯文） */
   labels: TextMap;
   /** 帶 `{n}` 佔位符的句型（英文, 譯文） */
@@ -43,29 +50,42 @@ export interface ResultTranslatorData {
 }
 
 const STAT_SELECTOR = '[data-field^="stat."]';
-const HEADER_SELECTOR = '.item-popup__header-line';
+const HEADER_SELECTOR = '.item-popup__header-line, .gem-popup__header-line';
 /** 整行先比對句型、再逐節點查標籤的行：屬性行與傭兵技能、輔助的每一段 */
 const PROPERTY_SELECTOR = '.item-property, .item-mod--mercenary > div > span';
 const MOD_SELECTOR = '.item-mod > span.lc:not([data-field]):not(.l):not(.r)';
 const TIME_SELECTOR = '[data-field="indexed"] small';
-const LABEL_SELECTOR = [
+/** 物品與技能寶石說明（PoE 2 內嵌 `<span class="keyword">` 時需先合併整句比對） */
+const DESC_SELECTOR = [
   '.item-popup__desc-text',
   '.item-popup__sec-desc-text',
+  '.gem-popup__desc-text',
+  '.gem-popup__sec-desc-text',
+].join(', ');
+const LABEL_SELECTOR = [
   '.item-popup__mod--logbook',
   '.item-popup__content > div:not([class]) > .lc',
+  '.gem-popup__content > div:not([class]) > .lc',
+  '.gem-popup__primary-tag',
+  '.gem-popup__tags',
+  '.gem-popup__tab',
   '.itemPopupAdditional [data-field]',
   '.price-label',
   '.verifiedStatus',
   '.btns .status',
   '.btns button',
 ].join(', ');
+/** 星團珠寶底部天賦說明（官方 notableProperties 渲染的無 class／style div，含天賦名 span 與 <br> 分隔的效果行） */
+const NOTABLE_SELECTOR = '.item-popup__content > div:not([class]):not([style])';
 const TARGET_SELECTOR = [
   STAT_SELECTOR,
   HEADER_SELECTOR,
   PROPERTY_SELECTOR,
   MOD_SELECTOR,
   TIME_SELECTOR,
+  DESC_SELECTOR,
   LABEL_SELECTOR,
+  NOTABLE_SELECTOR,
 ].join(', ');
 const OWN_NODE_SELECTOR = `[class*="poexd"], [${PAGE_GUIDE_MOCK_ATTR}]`;
 /** 我們自己插入的節點（價格比較等）不翻譯 */
@@ -91,8 +111,7 @@ const STAT_FIELD = /^stat\.([a-z_]+\.(\S+))$/;
 const STAT_HASH = /^stat_(\d+)$/;
 /** 只有標點與空白的節點（如「: 」），多節點詞綴以它切段 */
 const SEPARATOR_NODE = /^[^\p{L}\p{N}]+$/u;
-const MOD_PLACEHOLDER = /\{\d+:\+?[dn]\}/g;
-const MOD_NUMBER = /[+-]?\d+(?:\.\d+)?/g;
+const LINE_BREAK = /\\n|\n/;
 const TRAILING_PAREN = /\s*\([^()]*\)\s*$/;
 
 /** 節點在 root 內部是否屬於要略過的區塊（root 外層的祖先不算） */
@@ -224,7 +243,11 @@ export function createResultTranslator(
   let resultBilingual = options.resultBilingual === true;
   const fallbackPairs = new Map<string, ModLinePairs>();
   const lookup = createLabelLookup(data.labels, data.templates, data.items, data.names);
-  let skeletonIndex: Map<string, ModLinePairs> | null = null;
+  let skeletonIndex: Map<string, Array<readonly [string, string]>> | null = null;
+  let maxMultilineSpan = 1;
+  let skillModLinesState: 'idle' | 'loading' | 'loaded' = 'idle';
+  let loadedSkillModLines: Readonly<Record<string, ModLinePairs>> | undefined;
+  const pendingSkillElements = new Set<WeakRef<Element>>();
 
   const pairsFor = (statId: string, hash: string | undefined): ModLinePairs[] => {
     const result: ModLinePairs[] = [];
@@ -254,20 +277,46 @@ export function createResultTranslator(
     return result;
   };
 
-  /** 英文句型骨架（數值換成 #）→ 所有遊戲寫法變體；第一次用到時才建立 */
-  const pairsForSentence = (english: string): ModLinePairs | undefined => {
-    if (!skeletonIndex) {
-      skeletonIndex = new Map();
-      for (const pairs of Object.values(data.modLines)) {
+  /** 英文句型骨架（數值換成 #）→ 所有遊戲寫法變體（modLines 優先於 extraModLines）；第一次用到時才建立 */
+  const ensureSentenceIndex = (): Map<string, Array<readonly [string, string]>> => {
+    if (skeletonIndex) return skeletonIndex;
+    skeletonIndex = new Map();
+    const expanded: Array<readonly [string, string]> = [];
+    const add = (pair: readonly [string, string]) => {
+      const key = modTemplateSkeleton(pair[0]);
+      if (!key) return;
+      const bucket = skeletonIndex!.get(key);
+      if (bucket) bucket.push(pair);
+      else skeletonIndex!.set(key, [pair]);
+    };
+    const sources = [
+      data.modLines,
+      ...(data.extraModLines ? [data.extraModLines] : []),
+      ...(loadedSkillModLines ? [loadedSkillModLines] : []),
+    ];
+    for (const source of sources) {
+      for (const pairs of Object.values(source)) {
         for (const pair of pairs) {
-          if (pair[0].includes('\\n')) continue;
-          const key = pair[0].replace(MOD_PLACEHOLDER, '#');
-          skeletonIndex.set(key, [...(skeletonIndex.get(key) ?? []), pair]);
+          add(pair);
+          const englishLines = pair[0].split(LINE_BREAK);
+          if (englishLines.length > maxMultilineSpan) maxMultilineSpan = englishLines.length;
+          if (englishLines.length >= 2) {
+            const localizedLines = pair[1].split(LINE_BREAK);
+            if (englishLines.length === localizedLines.length) {
+              englishLines.forEach((line, index) => {
+                expanded.push([line, localizedLines[index]] as const);
+              });
+            }
+          }
         }
       }
     }
-    return skeletonIndex.get(english.replace(MOD_NUMBER, '#'));
+    for (const pair of expanded) add(pair);
+    return skeletonIndex;
   };
+
+  const pairsForSentence = (english: string): ModLinePairs | undefined =>
+    ensureSentenceIndex().get(modLineSkeleton(english));
 
   /**
    * 物品名套句型（如異變傳奇 `Foulborn {0}` → `穢生 {0}`）。每個佔位值都要是查得到的物品名，
@@ -423,31 +472,129 @@ export function createResultTranslator(
     removeSubtitle(element);
   };
 
+  /** 把元素內被 `<br>` 分隔的文字節點分組（處理 PoE 2 內嵌 `<span class="keyword">` 的多節點詞綴） */
+  const splitModLinesByBr = (element: Element): Text[][] => {
+    const groups: Text[][] = [[]];
+    const walk = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node as Text;
+        if (!isSkipped(text, element)) groups[groups.length - 1].push(text);
+        return;
+      }
+      if (!(node instanceof Element)) return;
+      if (isInsideOwnNode(node, element)) return;
+      if (node.tagName === 'BR') {
+        groups.push([]);
+        return;
+      }
+      for (const child of Array.from(node.childNodes)) walk(child);
+    };
+    for (const child of Array.from(element.childNodes)) walk(child);
+    return groups.filter((group) => group.some((node) => node.data.trim()));
+  };
+
+  const requestSkillModLines = (element: Element) => {
+    if (!data.loadSkillModLines || skillModLinesState === 'loaded') return;
+    pendingSkillElements.add(new WeakRef(element));
+    if (skillModLinesState === 'loading') return;
+    skillModLinesState = 'loading';
+    void data
+      .loadSkillModLines()
+      .then((lines) => {
+        skillModLinesState = 'loaded';
+        if (!lines || Object.keys(lines).length === 0) {
+          pendingSkillElements.clear();
+          return;
+        }
+        loadedSkillModLines = lines;
+        skeletonIndex = null;
+        const targets = new Set<Element>();
+        for (const ref of pendingSkillElements) {
+          const el = ref.deref();
+          if (el?.isConnected) targets.add(el);
+        }
+        pendingSkillElements.clear();
+        for (const ref of Array.from(observedRoots)) {
+          const root = ref.deref();
+          if (!root) {
+            observedRoots.delete(ref);
+            continue;
+          }
+          if (
+            root instanceof Element ||
+            root instanceof Document ||
+            (typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot)
+          ) {
+            if (root instanceof Element && root.matches(MOD_SELECTOR)) targets.add(root);
+            root.querySelectorAll(MOD_SELECTOR).forEach((el) => targets.add(el));
+          }
+        }
+        for (const el of targets) {
+          if (el.isConnected && !el.closest(`[${PAGE_GUIDE_MOCK_ATTR}]`)) translateMod(el);
+        }
+      })
+      .catch(() => {
+        skillModLinesState = 'loaded';
+        pendingSkillElements.clear();
+      });
+  };
+
   const translateMod = (element: Element) => {
-    const nodes = textNodesOf(element);
-    if (!nodes.length || nodes.every(isCurrent)) {
+    const groups = splitModLinesByBr(element);
+    const allNodes = groups.flat();
+    const nonBlank = allNodes.filter((node) => node.data.trim());
+    if (!nonBlank.length || nonBlank.every(isCurrent)) {
       syncSubtitle(element);
       return;
     }
-    const byLine = element.querySelector('br') !== null;
-    const english = nodes
-      .map((node) => node.data)
-      .join(byLine ? '\n' : '')
-      .trim();
+    const english = groups
+      .map((group) =>
+        group
+          .map((node) => node.data)
+          .join('')
+          .trim(),
+      )
+      .filter(Boolean)
+      .join('\n');
+
+    // 先試整段多行句型（例如有 <br> 分行的寶石效果）
+    if (groups.length > 1) {
+      const wholeTranslated = translateModLine(english, pairsForSentence(english));
+      if (wholeTranslated !== null && wholeTranslated.trim() !== english) {
+        const lines = wholeTranslated.split('\n');
+        if (lines.length === groups.length) {
+          groups.forEach((group, i) =>
+            group.forEach((node, j) => setText(node, j === 0 ? lines[i] : '')),
+          );
+        } else {
+          groups.forEach((group, i) =>
+            group.forEach((node, j) => setText(node, i === 0 && j === 0 ? wholeTranslated : '')),
+          );
+        }
+        originalEnglish.set(element, english);
+        syncSubtitle(element);
+        return;
+      }
+    }
+
     let anyTranslated = false;
-    for (const node of nodes) {
-      if (isCurrent(node)) continue;
-      const translated = keepPadding(node.data, (core) =>
-        translateModLine(core, pairsForSentence(core)),
-      );
-      if (translated === null || translated === node.data) continue;
-      setText(node, translated);
+    let anyMissed = false;
+    for (const group of groups) {
+      if (group.every(isCurrent)) continue;
+      const raw = group.map((node) => node.data).join('');
+      const translated = keepPadding(raw, (core) => translateModLine(core, pairsForSentence(core)));
+      if (translated === null || translated === raw) {
+        anyMissed = true;
+        continue;
+      }
+      group.forEach((node, i) => setText(node, i === 0 ? translated : ''));
       anyTranslated = true;
     }
+    if (anyMissed) requestSkillModLines(element);
     if (anyTranslated && english) {
       originalEnglish.set(element, english);
       syncSubtitle(element);
-    } else if (!nodes.some(isCurrent)) {
+    } else if (!allNodes.some(isCurrent)) {
       originalEnglish.delete(element);
       removeSubtitle(element);
     }
@@ -510,6 +657,136 @@ export function createResultTranslator(
     }
   };
 
+  /**
+   * 辨識官方 ItemPopup 的 `notableProperties` 區塊：
+   * `.item-popup__content` 下無 class/style 的 `<div>`，首個子元素是不帶 `.lc` 的 `<span>`（天賦名），
+   * 其後以 `<br>` 分隔純文字或 `<em>` 效果行。旗標（內含 `span.lc`）與備註（帶 `style`）皆不匹配。
+   */
+  const findNotableTitleSpan = (element: Element): Element | null => {
+    const first = element.firstElementChild;
+    if (
+      !first ||
+      first.tagName !== 'SPAN' ||
+      first.classList.contains('lc') ||
+      !element.querySelector('br')
+    ) {
+      return null;
+    }
+    return first;
+  };
+
+  const collectNotableLines = (
+    element: Element,
+    titleSpan: Element,
+  ): Array<{ node: Text; isEm: boolean }> => {
+    const lines: Array<{ node: Text; isEm: boolean }> = [];
+    let pastTitle = false;
+    for (const child of Array.from(element.childNodes)) {
+      if (child === titleSpan) {
+        pastTitle = true;
+        continue;
+      }
+      if (!pastTitle) continue;
+      if (child.nodeType === Node.TEXT_NODE) {
+        const text = child as Text;
+        if (text.data.trim() || written.has(text)) lines.push({ node: text, isEm: false });
+      } else if (
+        child instanceof Element &&
+        child.tagName === 'EM' &&
+        !isInsideOwnNode(child, element)
+      ) {
+        for (const text of textNodesOf(child, true)) {
+          if (text.data.trim() || written.has(text)) lines.push({ node: text, isEm: true });
+        }
+      }
+    }
+    return lines;
+  };
+
+  const translateNotable = (element: Element) => {
+    const titleSpan = findNotableTitleSpan(element);
+    if (!titleSpan) return;
+
+    const passives = data.passives;
+    if (passives) {
+      for (const node of textNodesOf(titleSpan)) {
+        replace(node, (text) => keepPadding(text, (core) => passives[core.toLowerCase()] ?? null));
+      }
+    }
+
+    const lines = collectNotableLines(element, titleSpan);
+    if (!lines.length || lines.every((line) => isCurrent(line.node))) return;
+
+    ensureSentenceIndex();
+
+    for (let i = 0; i < lines.length;) {
+      if (isCurrent(lines[i].node)) {
+        i += 1;
+        continue;
+      }
+      let maxSpan = 1;
+      const limit = Math.min(maxMultilineSpan, lines.length - i);
+      while (
+        maxSpan < limit &&
+        lines[i + maxSpan].isEm === lines[i].isEm &&
+        !isCurrent(lines[i + maxSpan].node)
+      ) {
+        maxSpan += 1;
+      }
+
+      let matchedSpan = 0;
+      for (let span = maxSpan; span >= 2; span -= 1) {
+        const joined = lines
+          .slice(i, i + span)
+          .map((line) => line.node.data.trim())
+          .join('\n');
+        const translated = translateModLine(joined, pairsForSentence(joined));
+        if (translated === null) continue;
+        const translatedLines = translated.split('\n');
+        if (translatedLines.length === span) {
+          for (let k = 0; k < span; k += 1) setText(lines[i + k].node, translatedLines[k]);
+        } else if (translatedLines.length < span) {
+          for (let k = 0; k < span; k += 1) setText(lines[i + k].node, translatedLines[k] ?? '');
+        } else {
+          for (let k = 0; k < span - 1; k += 1) setText(lines[i + k].node, translatedLines[k]);
+          setText(lines[i + span - 1].node, translatedLines.slice(span - 1).join('\n'));
+        }
+        matchedSpan = span;
+        break;
+      }
+      if (matchedSpan > 0) {
+        i += matchedSpan;
+        continue;
+      }
+
+      const { node } = lines[i];
+      replace(node, (text) =>
+        keepPadding(
+          text,
+          (core) => translateModLine(core, pairsForSentence(core)) ?? lookup.translateText(core),
+        ),
+      );
+      i += 1;
+    }
+  };
+
+  /** 物品與寶石說明：多節點（PoE 2 `<span class="keyword">`）先合併整句查表，查不到再逐節點翻 */
+  const translateDesc = (element: Element) => {
+    const nodes = textNodesOf(element, true).filter((node) => !isSkipped(node, element));
+    const nonBlank = nodes.filter((node) => node.data.trim());
+    if (!nonBlank.length || nonBlank.every(isCurrent)) return;
+    if (nonBlank.length > 1) {
+      const joined = nodes.map((node) => node.data).join('');
+      const translated = keepPadding(joined, lookup.translateText);
+      if (translated && translated !== joined) {
+        nodes.forEach((node, i) => setText(node, i === 0 ? translated : ''));
+        return;
+      }
+    }
+    translateNodes(element);
+    translateTitles(element);
+  };
+
   const translateElement = (element: Element) => {
     if (element.closest(`[${PAGE_GUIDE_MOCK_ATTR}]`)) return;
     if (element.matches(STAT_SELECTOR)) {
@@ -531,9 +808,13 @@ export function createResultTranslator(
       translateMod(element);
     } else if (element.matches(TIME_SELECTOR)) {
       translateTime(element);
+    } else if (element.matches(DESC_SELECTOR)) {
+      translateDesc(element);
     } else if (element.matches(LABEL_SELECTOR)) {
       translateNodes(element);
       translateTitles(element);
+    } else if (element.matches(NOTABLE_SELECTOR)) {
+      translateNotable(element);
     }
   };
 

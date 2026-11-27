@@ -158,6 +158,12 @@ export function validateGameDataBatch(batch) {
       ALIGNED_SCHEMA_VERSION,
       (shard) => isObject(shard.lines),
     ],
+    [
+      'stat-text-skills.json',
+      batch.skillStatText,
+      ALIGNED_SCHEMA_VERSION,
+      (shard) => isObject(shard.lines),
+    ],
     ['passive-names.json', batch.passiveNames, 1, (shard) => isObject(shard.names)],
     [
       'result-labels.json',
@@ -185,6 +191,7 @@ export function validateGameDataBatch(batch) {
     ['mod-lines.json', batch.modLines],
     ['stat-text-items.json', batch.statText],
     ['stat-text-passives.json', batch.passiveStatText],
+    ['stat-text-skills.json', batch.skillStatText],
   ];
   for (const [file, shards] of alignedShards) {
     const localized = Object.entries(shards ?? {}).filter(([locale]) => locale !== 'en');
@@ -262,6 +269,7 @@ export function validateBatchContent(batchId, filesByPath) {
       modLines: {},
       statText: {},
       passiveStatText: {},
+      skillStatText: {},
       passiveNames: {},
       resultLabels: {},
       statAliases: filesByPath[`${version}/stat-aliases.json`],
@@ -272,6 +280,7 @@ export function validateBatchContent(batchId, filesByPath) {
       'mod-lines.json': 'modLines',
       'stat-text-items.json': 'statText',
       'stat-text-passives.json': 'passiveStatText',
+      'stat-text-skills.json': 'skillStatText',
       'passive-names.json': 'passiveNames',
       'result-labels.json': 'resultLabels',
     };

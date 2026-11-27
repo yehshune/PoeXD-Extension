@@ -688,3 +688,230 @@ describe('createResultTranslator：阿茲瓦特史記與探險日誌', () => {
     );
   });
 });
+
+// 取自 2026-11-27 國際服 PoE1 星團珠寶結果列（notableProperties）的實際結構
+const CLUSTER_NOTABLE_ROW = `
+<div class="item-popup item-popup--magic">
+  <div class="item-popup__header"><div class="item-popup__header-line">Notable Small Cluster Jewel of the Starfish</div></div>
+  <div class="item-popup__content">
+    <div class="item-mod item-mod--explicit"><span data-field="stat.explicit.stat_731840035" class="s lc"><span>1 Added Passive Skill is Non-Flammable</span></span></div>
+    <hr name="explicit" class="item-popup__separator">
+    <div id="notable-1"><span style="color: var(--colour-augmented);">Non-Flammable</span><br>+1% to maximum Fire Resistance<br>+20% to Fire Resistance<br>30% chance to Avoid being Ignited</div>
+    <div id="notable-multi"><span style="color: var(--colour-augmented);">Secrets of Suffering</span><br>Cannot Ignite, Chill, Freeze or Shock<br>Critical Strikes inflict Scorch, Brittle and Sapped<br><em>(Scorched Enemies have their Elemental Resistances lowered)</em></div>
+    <div id="notable-collapse"><span style="color: var(--colour-augmented);">Foul Grasp</span><br>You and nearby Allies deal 5 to 10 added Physical Damage for<br>each Impale on Enemy</div>
+    <hr class="item-popup__separator">
+    <div id="flag-div"><span class="lc">Corrupted</span></div>
+    <div id="note-div" style="color: var(--colour-currency);">~b/o 1 chaos</div>
+  </div>
+</div>`;
+
+describe('createResultTranslator：星團珠寶底部天賦說明與額外詞綴表', () => {
+  it('翻譯星團底部天賦名稱、單行與多行天賦效果、<em> 提示行，且不干擾旗標與備註', () => {
+    document.body.innerHTML = CLUSTER_NOTABLE_ROW;
+    createResultTranslator({
+      modLines: {
+        '731840035': [['1 Added Passive Skill is Non-Flammable', '1 個附加的天賦為非易燃']],
+        '4095671657': [['{0:+d}% to maximum Fire Resistance', '{0:+d}% 最大火焰抗性']],
+        '1783006896': [['{0:d}% chance to Avoid being Ignited', '{0:d}% 機率避免被點燃']],
+      },
+      extraModLines: {
+        '100': [['+{0:d}% to Fire Resistance', '{0:+d}% 火焰抗性']],
+        '200': [
+          [
+            'Cannot Ignite, Chill, Freeze or Shock\\nCritical Strikes inflict Scorch, Brittle and Sapped',
+            '無法點燃、冰緩、冰凍或感電\\n暴擊造成燒灼、易碎和殘喘',
+          ],
+        ],
+        '300': [
+          [
+            'You and nearby Allies deal {0:d} to {1:d} added Physical Damage for\\neach Impale on Enemy',
+            '敵人身上每個穿刺使你和附近友方附加 {0:d} 至 {1:d} 物理傷害',
+          ],
+        ],
+      },
+      items: { 'small cluster jewel': '小型星團珠寶' },
+      passives: {
+        'non-flammable': '非易燃',
+        'secrets of suffering': '苦難之秘',
+        'foul grasp': '汙穢之握',
+      },
+      labels: {
+        Corrupted: '已汙染',
+        '(Scorched Enemies have their Elemental Resistances lowered)': '（燒灼的敵人元素抗性降低）',
+      },
+    }).translate(document.body);
+
+    const n1 = byId('notable-1');
+    expect(n1.querySelector('span')?.textContent).toBe('非易燃');
+    expect(n1.textContent).toBe('非易燃+1% 最大火焰抗性+20% 火焰抗性30% 機率避免被點燃');
+    // 不增刪任何 <br> 節點
+    expect(n1.querySelectorAll('br')).toHaveLength(3);
+
+    const nMulti = byId('notable-multi');
+    expect(nMulti.querySelector('span')?.textContent).toBe('苦難之秘');
+    expect(nMulti.textContent).toBe(
+      '苦難之秘無法點燃、冰緩、冰凍或感電暴擊造成燒灼、易碎和殘喘（燒灼的敵人元素抗性降低）',
+    );
+    expect(nMulti.querySelector('em')?.textContent).toBe('（燒灼的敵人元素抗性降低）');
+
+    const nCollapse = byId('notable-collapse');
+    expect(nCollapse.querySelector('span')?.textContent).toBe('汙穢之握');
+    expect(nCollapse.textContent).toBe(
+      '汙穢之握敵人身上每個穿刺使你和附近友方附加 5 至 10 物理傷害',
+    );
+
+    // 旗標照舊翻、備註不動
+    expect(byId('flag-div').textContent).toBe('已汙染');
+    expect(byId('note-div').textContent).toBe('~b/o 1 chaos');
+  });
+
+  it('無 data-field 的詞綴行也查 extraModLines，且不影響有 data-field 的詞綴行優先序', () => {
+    document.body.innerHTML = `
+      <div class="item-popup__content">
+        <div class="item-mod item-mod--explicit"><span class="lc"><span>Deals 26 to 43 Chaos Damage</span></span></div>
+        <div class="item-mod item-mod--explicit"><span data-field="stat.explicit.stat_999" class="s lc"><span>Deals 26 to 43 Chaos Damage</span></span></div>
+      </div>`;
+    createResultTranslator({
+      modLines: {},
+      extraModLines: {
+        '999': [['Deals {0:d} to {1:d} Chaos Damage', '造成 {0:d} 至 {1:d} 混沌傷害']],
+      },
+      items: {},
+      labels: {},
+    }).translate(document.body);
+
+    const mods = document.querySelectorAll('.item-mod');
+    expect(mods[0].textContent).toBe('造成 26 至 43 混沌傷害');
+    // 有 data-field 的詞綴不取 extraModLines（維持 ADR-0015）
+    expect(mods[1].textContent).toBe('Deals 26 to 43 Chaos Damage');
+  });
+
+  it('observe：官網重繪星團底部天賦說明換回英文時自動再翻一次', async () => {
+    document.body.innerHTML = CLUSTER_NOTABLE_ROW;
+    const stop = createResultTranslator({
+      modLines: {
+        '4095671657': [['{0:+d}% to maximum Fire Resistance', '{0:+d}% 最大火焰抗性']],
+      },
+      items: {},
+      passives: { 'non-flammable': '非易燃' },
+      labels: {},
+    }).observe(document.body);
+
+    const n1 = byId('notable-1');
+    expect(n1.querySelector('span')?.textContent).toBe('非易燃');
+    const firstStatNode = n1.querySelector('br')!.nextSibling as Text;
+    expect(firstStatNode.data).toBe('+1% 最大火焰抗性');
+
+    firstStatNode.data = '+2% to maximum Fire Resistance';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(firstStatNode.data).toBe('+2% 最大火焰抗性');
+    stop();
+  });
+});
+
+// 取自 2026-11-27 國際服 PoE1 技能寶石與 PoE2 SkillGem (.gem-popup) 的實際結構
+const POE2_GEM_ROW = `
+<div class="gem-popup">
+  <div class="gem-popup__header">
+    <div class="gem-popup__header-top">
+      <div class="gem-popup__header-line">Parry</div>
+      <div class="gem-popup__primary-tag"><span class="keyword">Attack</span></div>
+    </div>
+    <div class="gem-popup__tags"><span class="keyword">Melee</span>, <span class="keyword">Physical</span></div>
+    <div class="item-property gem-popup__property"><span class="lc"><span>Attack Time</span>: <span>0.75s</span></span></div>
+  </div>
+  <div class="gem-popup__content">
+    <div class="gem-popup__sec-desc-text"><span class="lc">Ready your <span class="keyword">Buckler</span> to parry the next <span class="keyword">Hit</span>.</span></div>
+    <div class="gem-popup__tabs"><span class="gem-popup__tab active">Parry</span></div>
+    <div class="item-mod item-mod--explicit gem-popup__mod"><span class="lc"><span>Can't be <span class="keyword">Evaded</span></span></span></div>
+    <div class="item-mod item-mod--explicit gem-popup__mod"><span class="lc"><span>400% more <span class="keyword">Stun</span> buildup</span></span></div>
+    <div id="gem-corrupted"><span class="lc">Corrupted</span></div>
+    <div class="gem-popup__desc-text"><span class="lc">Skills can be managed in the Skills Panel.</span></div>
+  </div>
+</div>`;
+
+describe('createResultTranslator：技能寶石按需懶載入與 PoE 2 SkillGem', () => {
+  it('一般裝備不會觸發技能詞綴懶載入；遇到未命中的寶石效果行才載入一次並補翻', async () => {
+    let calls = 0;
+    const loadSkillModLines = async () => {
+      calls += 1;
+      return {
+        '10': [['Base radius is {0:d} metres', '基礎範圍為 {0:d} 公尺']],
+        '11': [['Spreads when affected Enemy dies', '當受影響的敵人死亡時擴散']],
+      } as const;
+    };
+
+    // 先翻一般裝備（只有 data-field）→ 不應觸發懶載入
+    document.body.innerHTML = ROW;
+    const translator = createResultTranslator(
+      { ...DATA, loadSkillModLines },
+      { resultBilingual: true },
+    );
+    const stop = translator.observe(document.body);
+    expect(calls).toBe(0);
+
+    // 再加入 PoE 1 技能寶石（無 data-field 的效果行）→ 觸發懶載入一次並自動補翻＋補上英文副標
+    const gem = document.createElement('div');
+    gem.innerHTML = `
+      <div class="item-popup__content">
+        <div class="item-mod item-mod--explicit"><span class="lc"><span>Base radius is 1.7 metres</span></span></div>
+        <div class="item-mod item-mod--explicit"><span class="lc"><span>Spreads when affected Enemy dies</span></span></div>
+      </div>`;
+    document.body.appendChild(gem);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(calls).toBe(1);
+    const modSpans = Array.from(gem.querySelectorAll('.item-mod > span.lc')).map(
+      (el) => el.textContent,
+    );
+    expect(modSpans).toEqual(['基礎範圍為 1.7 公尺', '當受影響的敵人死亡時擴散']);
+    expect(
+      Array.from(gem.querySelectorAll(`.${RESULT_MOD_ENGLISH_SUBTITLE_CLASS}`)).map(
+        (el) => el.textContent,
+      ),
+    ).toEqual(['Base radius is 1.7 metres', 'Spreads when affected Enemy dies']);
+    stop();
+  });
+
+  it('翻譯 PoE 2 .gem-popup 標題、標籤、跨 keyword 節點的技能敘述與效果行、頁籤與旗標', async () => {
+    document.body.innerHTML = POE2_GEM_ROW;
+    createResultTranslator({
+      modLines: {},
+      loadSkillModLines: async () => ({
+        '1': [["Can't be Evaded", '無法被閃避']],
+        '2': [['{0:d}% more Stun buildup', '暈眩累積增加 {0:d}%']],
+      }),
+      items: { parry: '招架' },
+      labels: {
+        Attack: '攻擊',
+        Melee: '近戰',
+        Physical: '物理',
+        'Attack Time': '攻擊時間',
+        Corrupted: '已汙染',
+        'Ready your Buckler to parry the next Hit.': '備妥你的輕盾來招架下一次擊中。',
+        'Skills can be managed in the Skills Panel.': '可以在技能面板管理技能。',
+      },
+      templates: [['{0}s', '{0} 秒']],
+    }).translate(document.body);
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(document.querySelector('.gem-popup__header-line')?.textContent).toBe('招架');
+    expect(document.querySelector('.gem-popup__primary-tag')?.textContent).toBe('攻擊');
+    expect(document.querySelector('.gem-popup__tags')?.textContent).toBe('近戰, 物理');
+    expect(document.querySelector('.gem-popup__property')?.textContent).toBe('攻擊時間: 0.75 秒');
+    expect(document.querySelector('.gem-popup__sec-desc-text')?.textContent).toBe(
+      '備妥你的輕盾來招架下一次擊中。',
+    );
+    expect(document.querySelector('.gem-popup__tab')?.textContent).toBe('招架');
+    expect(
+      Array.from(document.querySelectorAll('.gem-popup__mod > span.lc')).map(
+        (el) => el.textContent,
+      ),
+    ).toEqual(['無法被閃避', '暈眩累積增加 400%']);
+    expect(document.getElementById('gem-corrupted')?.textContent).toBe('已汙染');
+    expect(document.querySelector('.gem-popup__desc-text')?.textContent).toBe(
+      '可以在技能面板管理技能。',
+    );
+  });
+});

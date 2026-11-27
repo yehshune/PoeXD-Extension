@@ -74,10 +74,16 @@ export function getLocaleStatTextAssetPath(version: PoeVersion, locale: string):
   return `json/${profile.dataDirectory}/locales/${locale}/stat-text-items.json`;
 }
 
-/** 天賦描述檔裡 mod-lines 與 stat-text-items 都沒收錄的句子（pobb.in 天賦樹用） */
+/** 天賦描述檔裡 mod-lines 與 stat-text-items 都沒收錄的句子（pobb.in 天賦樹與星團結果列用） */
 export function getLocalePassiveStatTextAssetPath(version: PoeVersion, locale: string): string {
   const profile = tradeVersionProfiles[version];
   return `json/${profile.dataDirectory}/locales/${locale}/stat-text-passives.json`;
+}
+
+/** 技能寶石描述檔裡其餘分片未收錄的句子（結果列寶石效果行按需懶載入） */
+export function getLocaleSkillStatTextAssetPath(version: PoeVersion, locale: string): string {
+  const profile = tradeVersionProfiles[version];
+  return `json/${profile.dataDirectory}/locales/${locale}/stat-text-skills.json`;
 }
 
 /** 遊戲資料表的天賦名稱表（英文 → 譯名；只有 zh-TW） */
