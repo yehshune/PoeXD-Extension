@@ -39,6 +39,7 @@ import { initialPageLoadSignal } from '@/utils/initial-page-load-signal';
 import { expectsInitialSearchResults } from '@/utils/trade-search-identity';
 import { createFilterDomEnhancements, type FilterDomEnhancements } from './common';
 import { initToastHost, syncToastPreferences } from './toast-host';
+import { installSimilarSearch } from './similar-search-feature';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import type { TradePageRole } from '@/utils/live-search-contract';
 import {
@@ -107,6 +108,7 @@ export interface ContentPageRuntimeDeps {
   readLocalStorage: (keys: readonly string[]) => Promise<Record<string, unknown>>;
   subscribeLocalStorage: (handler: (changedKeys: string[]) => void) => () => void;
   scheduleIdle: (callback: () => void, timeoutMs?: number) => () => void;
+  installSimilarSearch: typeof installSimilarSearch;
 }
 
 export interface ContentPageRuntimeInput {
@@ -203,6 +205,7 @@ const DEFAULT_DEPS: ContentPageRuntimeDeps = {
     return () => chrome.storage.onChanged.removeListener(listener);
   },
   scheduleIdle: defaultScheduleIdle,
+  installSimilarSearch,
 };
 
 interface DisposableStack {
@@ -524,6 +527,19 @@ export function createContentPageRuntime(input: ContentPageRuntimeInput): Conten
       syncTwoColumnLayout(preferences.read(), pageRole);
       resultPipeline.setPageRole(pageRole);
       resultPipeline.init();
+      if (pageRole === 'normal') {
+        // 找相似（ADR-0020）只在一般頁：主控台頁不顯示「相似」按鈕
+        disposables.add(
+          deps.installSimilarSearch({
+            ctx,
+            version,
+            pipeline: resultPipeline,
+            cache: resultCache,
+            preferences,
+            getLeague: () => deps.getTradeLeague(),
+          }),
+        );
+      }
 
       let liveSearchSession: LiveSearchPrimarySession | null = null;
       if (pageRole === 'live-search-primary') {

@@ -184,13 +184,14 @@ export function activateSimilarSearch(localId: string, store: HostVuexStore | nu
   return { success: true, data: null };
 }
 
-/** 移除合成 search（只動前綴相符的），再讓使用者的搜尋顯示 */
+/** 移除合成 search（只動前綴相符的），再讓使用者的搜尋（沒指定時為原本顯示中的 search）顯示 */
 export function restoreUserSearch(
   params: SimilarRestoreRequest,
   store: HostVuexStore | null,
 ): Outcome<{ restored: boolean }> {
   const unusable = usableStore(store, RESTORE_MUTATIONS);
   if (unusable || !store) return { success: false, error: unusable ?? 'Vuex store unavailable' };
+  const previous = activeLocalIdOf(store);
   let failure: string | undefined;
   for (const localId of params.localIds.filter(isSimilarLocalId)) {
     if (!findSearch(store, localId)) continue;
@@ -202,7 +203,9 @@ export function restoreUserSearch(
       break;
     }
   }
-  const home = params.homeLocalId;
+  // 沒指定使用者的搜尋時（例如官方搜尋已取代合成 search），切回原本顯示中的那個
+  const home =
+    params.homeLocalId ?? (isSimilarLocalId(previous) ? undefined : (previous ?? undefined));
   const restored =
     home !== undefined && findSearch(store, home) !== undefined && tryActivate(store, home);
   return failure ? { success: false, error: failure } : { success: true, data: { restored } };

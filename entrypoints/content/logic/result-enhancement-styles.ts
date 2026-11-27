@@ -8,6 +8,7 @@ import { RESULT_MOD_ENGLISH_SUBTITLE_CLASS } from '@/utils/market-result-transla
 import { PAGE_GUIDE_REVEAL_ATTR } from '@/utils/page-guide-reveal';
 import { buildResultModHighlightCss } from '@/utils/result-mod-highlight';
 import { removeTradeResultStyle } from '@/utils/trade-results-root';
+import { SIMILAR_SEARCH_RESULT_CSS } from './similar-search-styles';
 
 export const RESULT_LEFT_ACTIONS_CLASS = 'poexd-left-actions';
 export const RESULT_LEFT_ACTION_BUTTON_CLASS = 'poexd-left-actions-btn';
@@ -37,6 +38,7 @@ export type ResultEnhancementStyleKey =
   | 'left-actions'
   | 'pin'
   | 'pob-copy'
+  | 'similar-search'
   | 'external-links'
   | 'mod-highlight'
   | 'mod-quick-filter'
@@ -134,6 +136,10 @@ const STYLE_REGISTRY: Record<ResultEnhancementStyleKey, StyleEntry> = {
         pointer-events: none;
       }
     `,
+  },
+  'similar-search': {
+    id: 'poexd-result-similar-search-style',
+    content: SIMILAR_SEARCH_RESULT_CSS,
   },
   'pob-copy': {
     id: 'poexd-result-pob-copy-style',

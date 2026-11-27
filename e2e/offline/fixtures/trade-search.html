@@ -154,10 +154,31 @@
           const fetched = await fetch(route.fetchApi(result.result.join(','), result.id)).then(
             (response) => response.json(),
           );
-          const resultset = document.querySelector('.resultset');
-          resultset.replaceChildren(...fetched.result.map(renderRow));
+          showOfficialResult(result, fetched.result);
           document.querySelector('.row-total h3').textContent =
             `Showing ${fetched.result.length} results (${result.total} matched)`;
+        }
+
+        /**
+         * 照官方 resetSearch：移除顯示中的 search，再建立新的 `search_N` 並放入這次的結果
+         * （擴充功能的找相似會在同一個 store 裡加合成 search）。
+         */
+        let searchSequence = 0;
+        function showOfficialResult(result, entries) {
+          const store = document.querySelector('#trade').__vue_app__.config.globalProperties.$store;
+          if (store.state.transient.search.active) store.commit('removeCurrentSearch');
+          const localId = `search_${++searchSequence}`;
+          store.commit('addSearchQuery', { localId, type: 'search', id: result.id });
+          store.commit('addSearchResult', {
+            localId,
+            resultId: `${localId}_result`,
+            id: result.id,
+            result: entries.map((entry) => entry.id),
+            items: Object.fromEntries(entries.map((entry) => [entry.id, entry])),
+            total: result.total,
+            inexact: false,
+          });
+          store.commit('setSearchActive', { localId });
         }
 
         /** 測試用：模擬使用者在頁面上按下搜尋 */
@@ -180,10 +201,22 @@
             state.transient.searches.find((s) => s.localId === localId);
           const mutations = {
             addSearchQuery(search) {
-              state.transient.searches.push(search);
+              // 官方把帶預設值的新 search unshift 到最前面
+              state.transient.searches.unshift({ results: [], total: 0, unreadHits: 0, ...search });
             },
-            setSearchActive(search) {
-              state.transient.search.active = search;
+            setSearchActive({ localId }) {
+              state.transient.search.active = findSearch(localId) ?? null;
+            },
+            clearSearchResults({ localId }) {
+              const search = findSearch(localId);
+              if (search) search.results = [];
+            },
+            removeCurrentSearch() {
+              const active = state.transient.search.active;
+              const searches = state.transient.searches;
+              const index = searches.indexOf(active);
+              if (index >= 0) searches.splice(index, 1);
+              state.transient.search.active = null;
             },
             showAdvancedSearch() {},
             addSearchResult({ localId, resultId, id, result, items, total, inexact }) {
@@ -203,14 +236,17 @@
             },
             setSearchDirty() {},
           };
+          // 主控台每批一筆即時結果；搜尋頁照官方只顯示作用中 search 最新那批（找相似的合成 search 也是）
           const render = () => {
-            if (!renderLiveResults) return;
             const active = state.transient.search.active;
-            const rows = (active?.results ?? [])
-              .map((batch) => batch.items[batch.result[0]])
-              .filter(Boolean)
-              .map(renderRow);
-            document.querySelector('.resultset').replaceChildren(...rows);
+            if (!renderLiveResults && !active) return;
+            const batches = active?.results ?? [];
+            const entries = renderLiveResults
+              ? batches.map((batch) => batch.items[batch.result[0]])
+              : (batches[0]?.result ?? []).map((id) => batches[0].items[id]);
+            document
+              .querySelector('.resultset')
+              .replaceChildren(...entries.filter(Boolean).map(renderRow));
           };
           const store = {
             state,

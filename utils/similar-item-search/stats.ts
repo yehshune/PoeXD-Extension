@@ -113,3 +113,18 @@ export function deriveDraftStats(
   }
   return [...groups].map(([key, parts]) => toDraftStat(key, parts, options.tolerance));
 }
+
+/**
+ * 結果列上一行詞綴（`data-field` 去掉 `stat.` 的代碼）對應到草稿的哪些 stat 鍵：
+ * 單一抗性、屬性與生命對到 pseudo 總和，其他對到 `explicit.`（破裂、工藝、褻瀆也一樣）或原本的代碼。
+ */
+export function draftKeysOfStatId(
+  statId: string,
+  englishStatText: (statId: string) => string | undefined,
+): string[] {
+  const dot = statId.indexOf('.');
+  if (dot <= 0) return [];
+  const category = statId.slice(0, dot);
+  const line: SourceLine = { category, text: '', statId, value: 0 };
+  return contributionsOf(line, 'poe1', englishStatText).map((part) => part.key);
+}

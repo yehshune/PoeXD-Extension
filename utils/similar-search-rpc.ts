@@ -8,6 +8,8 @@ export const SIMILAR_SEARCH_LOCAL_ID_PREFIX = 'poexd_similar_';
 export const SIMILAR_BATCH_MAX_ITEMS = 100;
 const MAX_LOCAL_IDS = 20;
 const MAX_ID_LENGTH = 200;
+/** 官方 search id 可能是壓縮後的查詢字串（`H4sI…`），長度可達數千字 */
+const MAX_SEARCH_ID_LENGTH = 8192;
 
 export interface SimilarShowBatchRequest {
   localId: string;
@@ -67,10 +69,10 @@ const INVALID: Validation<never> = { ok: false };
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-function readId(value: unknown): string | undefined {
+function readId(value: unknown, maxLength = MAX_ID_LENGTH): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
-  return trimmed.length > 0 && trimmed.length <= MAX_ID_LENGTH ? trimmed : undefined;
+  return trimmed.length > 0 && trimmed.length <= maxLength ? trimmed : undefined;
 }
 
 export const isSimilarLocalId = (value: unknown): value is string => {
@@ -80,7 +82,7 @@ export const isSimilarLocalId = (value: unknown): value is string => {
 
 function readIdList(value: unknown): string[] | undefined {
   if (!Array.isArray(value) || value.length > MAX_LOCAL_IDS) return undefined;
-  const ids = value.map(readId);
+  const ids = value.map((id) => readId(id));
   return ids.every((id): id is string => id !== undefined) ? ids : undefined;
 }
 
@@ -97,7 +99,7 @@ function readItems(value: unknown): Record<string, unknown>[] | undefined {
 function validateShowBatch(raw: unknown): Validation<SimilarShowBatchRequest> {
   if (!isRecord(raw) || !isSimilarLocalId(raw.localId)) return INVALID;
   const league = readId(raw.league);
-  const searchId = readId(raw.searchId);
+  const searchId = readId(raw.searchId, MAX_SEARCH_ID_LENGTH);
   const items = readItems(raw.items);
   if (!league || !searchId || !items || !isCount(raw.total)) return INVALID;
   if (raw.realm !== 'pc' && raw.realm !== 'poe2') return INVALID;

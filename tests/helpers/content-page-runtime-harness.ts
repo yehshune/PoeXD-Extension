@@ -149,6 +149,7 @@ export function createFakeRuntimeHarness(overrides: Partial<ContentPageRuntimeDe
     getCurrentHref: vi.fn(() => 'https://www.pathofexile.com/trade/search/Keepers'),
     getHostname: vi.fn(() => 'www.pathofexile.com'),
     getTradeLeague: vi.fn(() => 'Keepers'),
+    installSimilarSearch: vi.fn(() => () => order.push('cleanup:similarSearch')),
     detectBrowserLocale: vi.fn(() => 'zh-TW'),
     resolvePageLocale: vi.fn(() => 'en' as const),
     initToastHost: vi.fn(() => toastCleanup),

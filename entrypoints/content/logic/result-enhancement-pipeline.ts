@@ -26,6 +26,13 @@ import { ResultModHighlighterAdapter } from './result-mod-highlighter';
 import { ResultModQuickFilterAdapter } from './result-mod-quick-filter';
 import { ResultPinButtonAdapter } from './result-pin-button';
 import { ResultPobCopyAdapter } from './result-pob-copy';
+import {
+  ResultSimilarButtonAdapter,
+  ResultSimilarMarksAdapter,
+  type SimilarMarksView,
+  type SimilarSearchOpener,
+} from './result-similar-search';
+import { RESULT_SIMILAR_BADGE_CLASS } from './similar-search-styles';
 import { ResultPricePresenterAdapter } from './result-price-presenter';
 import { ResultSortControllerAdapter } from './result-sort-controller';
 
@@ -36,6 +43,7 @@ const IGNORED_EXTENSION_SELECTORS = [
   '.poexd-left-badges',
   '.poexd-inline-override',
   '.poexd-left-actions',
+  `.${RESULT_SIMILAR_BADGE_CLASS}`,
   `[${PAGE_GUIDE_MOCK_ATTR}]`,
 ] as const;
 
@@ -79,6 +87,8 @@ export class ResultEnhancementHost {
   private readonly externalLinksAdapter: ResultExternalLinksAdapter;
   private readonly modHighlighterAdapter: ResultModHighlighterAdapter;
   private readonly pinAdapter: ResultPinButtonAdapter;
+  private readonly similarButtonAdapter: ResultSimilarButtonAdapter;
+  private readonly similarMarksAdapter: ResultSimilarMarksAdapter;
   private readonly enhancers: readonly ResultEnhancer[];
 
   constructor(
@@ -121,6 +131,8 @@ export class ResultEnhancementHost {
     );
     this.modHighlighterAdapter = new ResultModHighlighterAdapter(port.doc);
     this.pinAdapter = new ResultPinButtonAdapter(version, port, resultCache);
+    this.similarButtonAdapter = new ResultSimilarButtonAdapter(version, port.doc, resultCache);
+    this.similarMarksAdapter = new ResultSimilarMarksAdapter(port.doc);
 
     this.enhancers = [
       {
@@ -212,6 +224,22 @@ export class ResultEnhancementHost {
         },
         cleanup: () => this.pinAdapter.cleanup(),
       },
+      {
+        // 找相似（ADR-0020）在一般搜尋、即時搜尋與主控台皆提供
+        scope: 'always',
+        apply: (target) => {
+          this.similarButtonAdapter.apply(target);
+          this.similarMarksAdapter.apply(target);
+        },
+        applyPreferences: () => {
+          this.similarButtonAdapter.refreshLocale();
+          this.similarMarksAdapter.refreshLocale();
+        },
+        cleanup: () => {
+          this.similarButtonAdapter.cleanup();
+          this.similarMarksAdapter.cleanup();
+        },
+      },
     ];
 
     if (!this.isSearchNormal()) {
@@ -283,6 +311,17 @@ export class ResultEnhancementHost {
     this.pobCopyAdapter.refresh();
     this.externalLinksAdapter.refresh();
     this.pinAdapter.refresh();
+    this.similarButtonAdapter.refresh();
+  }
+
+  /** 結果列「相似」按鈕的動作；未設定時不顯示按鈕 */
+  setSimilarSearchOpener(opener: SimilarSearchOpener | undefined): void {
+    this.similarButtonAdapter.setOpener(opener);
+  }
+
+  /** 顯示中的找相似批次（列標記與 Similarity 標章）；undefined 表示看使用者自己的搜尋 */
+  setSimilarMarksView(view: SimilarMarksView | undefined): void {
+    this.similarMarksAdapter.setView(view);
   }
 
   handleSearchQuery(searchId: string, criteria: unknown): void {

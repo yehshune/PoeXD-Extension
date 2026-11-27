@@ -191,6 +191,26 @@ describe('官方 store adapter：找相似的合成搜尋批次', () => {
     expect(official.find('poexd_similar_strict')).toBeUndefined();
   });
 
+  it('沒指定使用者的搜尋時，移除其餘合成搜尋後保留原本顯示中的官方搜尋', async () => {
+    await showBatch('poexd_similar_strict', ['a']);
+    await showBatch('poexd_similar_relaxed_1', ['b']);
+    official.store.commit('removeCurrentSearch', undefined);
+    official.store.commit('addSearchQuery', {
+      localId: 'search_2',
+      type: 'search',
+      realm: 'pc',
+      league: 'Covens',
+    });
+    official.store.commit('setSearchActive', { localId: 'search_2' });
+
+    const outcome = await requestMainWorld('similar.restore', {
+      localIds: ['poexd_similar_strict', 'poexd_similar_relaxed_1'],
+    });
+    expect(outcome).toEqual({ ok: true, data: { restored: true } });
+    expect(official.search.active?.localId).toBe('search_2');
+    expect(official.searches.map((entry) => entry.localId)).toEqual(['search_2', 'search_1']);
+  });
+
   it('官方搜尋取代顯示中的合成搜尋時回報 replaced', async () => {
     await showBatch('poexd_similar_strict', ['a']);
     await showBatch('poexd_similar_relaxed_1', ['b']);
@@ -242,6 +262,20 @@ describe('官方 store adapter：找相似的合成搜尋批次', () => {
       ['a'],
     ]);
     expect(official.search.active?.localId).toBe('search_1');
+  });
+
+  it('接受官方的長 search id（壓縮後的查詢字串，常超過數百字）', async () => {
+    const longId = `H4sIAAAAAAAAA${'x'.repeat(400)}`;
+    const outcome = await requestMainWorld('similar.show-batch', {
+      localId: 'poexd_similar_strict',
+      realm: 'pc',
+      league: 'Covens',
+      searchId: longId,
+      items: ['a'].map(item),
+      total: 1,
+    });
+    expect(outcome).toMatchObject({ ok: true });
+    expect(official.find('poexd_similar_strict')?.id).toBe(longId);
   });
 
   it('只接受 PoeXD 前綴的合成搜尋代碼，缺少官方 mutation 時拒絕', async () => {

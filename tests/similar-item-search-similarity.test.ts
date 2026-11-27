@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  draftKeysOfStatId,
   orderBySimilarity,
   scoreSimilarity,
   setPropertyEnabled,
@@ -86,5 +87,21 @@ describe('orderBySimilarity', () => {
     expect(ordered.map((entry) => entry.id)).toEqual(['cheap', 'pricey']);
     const unpriced = orderBySimilarity(draft, [pricey, cheap], { englishStatText });
     expect(unpriced.map((entry) => entry.id)).toEqual(['pricey', 'cheap']);
+  });
+});
+
+describe('draftKeysOfStatId', () => {
+  it('結果列的詞綴行對到草稿 stat：抗性與生命對 pseudo，破裂詞對 explicit', () => {
+    expect(draftKeysOfStatId('explicit.stat_3372524247', englishStatText)).toEqual([
+      'pseudo.pseudo_total_elemental_resistance',
+    ]);
+    expect(draftKeysOfStatId('implicit.stat_3299347043', englishStatText)).toEqual([
+      'pseudo.pseudo_total_life',
+    ]);
+    expect(draftKeysOfStatId('fractured.stat_124859000', englishStatText)).toEqual([
+      'explicit.stat_124859000',
+    ]);
+    expect(draftKeysOfStatId('enchant.stat_1', englishStatText)).toEqual(['enchant.stat_1']);
+    expect(draftKeysOfStatId('nonsense', englishStatText)).toEqual([]);
   });
 });
