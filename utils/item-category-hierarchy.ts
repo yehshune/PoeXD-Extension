@@ -33,6 +33,16 @@ export function stripSubtypeModGroupSuffix(groupId: string): string {
   return idx === -1 ? groupId : groupId.slice(0, idx);
 }
 
+/** 取出分組 id 中 `@@` 後的子類鍵（`other` 與空白不算）；無後綴時回傳空陣列 */
+export function getSubtypeModGroupKeys(groupId: string): string[] {
+  const idx = groupId.indexOf(SUBTYPE_MOD_GROUP_SEPARATOR);
+  if (idx === -1) return [];
+  return groupId
+    .slice(idx + SUBTYPE_MOD_GROUP_SEPARATOR.length)
+    .split('|')
+    .filter((key) => key && key !== 'other');
+}
+
 export function isContainerOnlyParentType(type: string): boolean {
   return CONTAINER_ONLY_PARENT_TYPES.has(type);
 }

@@ -593,9 +593,24 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
 
     it('PoE 1 只有灼燒/吞噬天地階級的固定詞綴（如胸甲的戰吼增益效果）仍有 T 階按鈕', () => {
       const eldritchTiers = [
-        { level: 1, types: ['body-armour'], affinities: ['searing'], values: [['19', '20']] },
-        { level: 1, types: ['body-armour'], affinities: ['searing'], values: [['21', '22']] },
-        { level: 1, types: ['helmet'], affinities: ['eater'], values: [['5', '6']] },
+        {
+          level: 1,
+          types: ['body-armour'],
+          affinities: ['searing'],
+          values: [['19', '20']],
+        },
+        {
+          level: 1,
+          types: ['body-armour'],
+          affinities: ['searing'],
+          values: [['21', '22']],
+        },
+        {
+          level: 1,
+          types: ['helmet'],
+          affinities: ['eater'],
+          values: [['5', '6']],
+        },
       ];
 
       const result = resolveTierModEligibility(eldritchTiers, 'implicit.stat_3037553757', 'poe1');
@@ -1530,5 +1545,34 @@ describe('Tier slot eligibility & dropdown empty-state contracts', () => {
       const activeGroupOpt = slot.items.find((i) => i.type === 'mod_group_option' && i.isActive);
       expect(activeGroupOpt?.label).toBe('附加的小天賦給予：+# 智慧\n+# 最大魔力');
     });
+
+    it.each([
+      ['來源類別前綴不同', 'cluster::附加的小天賦給予：+# 智慧@@small_cluster_jewel', '小型'],
+      ['子類組合改變但仍有交集', '附加的小天賦給予：+# 智慧@@small_cluster_jewel|other', '小型'],
+      ['無子類後綴', 'cluster::附加的小天賦給予：+# 智慧', '巨型 / 中型'],
+    ])(
+      '分組 id 對不上時（%s）依 @@ 子類後綴挑回對應子類分組',
+      async (_case, storedId, expected) => {
+        filterEl.setAttribute('data-poexd-stat-id', 'explicit.stat_724930776');
+        filterEl.setAttribute('data-poexd-category', 'cluster_jewel');
+        filterEl.setAttribute('data-poexd-mod-group', storedId);
+
+        const rawMods = { 'explicit.stat_724930776': intClusterTiers };
+        const tierDomainService = createTierDomainService('poe1');
+        vi.spyOn(tierDomainService, 'loadModsData').mockResolvedValue(rawMods);
+        vi.spyOn(tierDomainService, 'getRawModsData').mockReturnValue(rawMods);
+
+        const tierSlotController = createTierSlotController({
+          version: 'poe1',
+          tierDomainService,
+          isCurrentGeneration: () => true,
+        });
+
+        await tierSlotController.sync(1);
+        const slot = activeTierSlots.value[0];
+        const activeGroupOpt = slot.items.find((i) => i.type === 'mod_group_option' && i.isActive);
+        expect(activeGroupOpt?.affinityLabel).toBe(expected);
+      },
+    );
   });
 });

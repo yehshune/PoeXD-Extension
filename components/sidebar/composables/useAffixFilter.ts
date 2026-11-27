@@ -16,17 +16,24 @@ export interface UseAffixFilterOptions {
   getCategoryPriority: (affinity: string) => number;
 }
 
-const normalizeForSearch = (text: string) => unescapeAffixNewlines(text).toLowerCase();
+/**
+ * 比對文字中是否含有關鍵字：換行視為空白（英文字詞邊界），
+ * 也接受換行直接拿掉後的連續文字（中文關鍵字跨越描述檔折行時仍能命中）。
+ */
+const includesSearchTerm = (text: string | undefined, query: string): boolean => {
+  if (!text) return false;
+  const lines = unescapeAffixNewlines(text).toLowerCase().split('\n');
+  return lines.join(' ').includes(query) || lines.join('').includes(query);
+};
 
 /** 依關鍵字（空白分隔、全部命中）比對詞綴顯示文字；中文與英文介面也比對英文 key */
 const matchesSearch = (mod: ModGroup, queries: string[], includeEnglishKey: boolean) =>
   queries.every((q) => {
     const matchesDisplay =
-      Boolean(mod.displayKey && normalizeForSearch(mod.displayKey).includes(q)) ||
-      Boolean(mod.displayTemplate && normalizeForSearch(mod.displayTemplate).includes(q));
+      includesSearchTerm(mod.displayKey, q) || includesSearchTerm(mod.displayTemplate, q);
     if (matchesDisplay) return true;
     if (includeEnglishKey || (!mod.displayKey && !mod.displayTemplate)) {
-      return normalizeForSearch(mod.key).includes(q);
+      return includesSearchTerm(mod.key, q);
     }
     return false;
   });

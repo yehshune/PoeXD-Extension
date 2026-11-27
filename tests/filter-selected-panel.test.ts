@@ -903,7 +903,9 @@ describe('FilterPane Selected Mods Panel (Runtime Contracts)', () => {
         affinities: ['normal'],
         tiers: [],
       };
-      const rawModsData = ref<Record<string, unknown>>({ [modWithEscapedNewline.key]: [] });
+      const rawModsData = ref<Record<string, unknown>>({
+        [modWithEscapedNewline.key]: [],
+      });
       const currentTypeGroups = ref([modWithEscapedNewline]);
 
       const filter = useAffixFilter({
@@ -930,6 +932,56 @@ describe('FilterPane Selected Mods Panel (Runtime Contracts)', () => {
       vi.advanceTimersByTime(300);
       await nextTick();
       expect(filter.filteredModTotalCount.value).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('U. useAffixFilter matches CJK queries that span a literal or real newline', async () => {
+    vi.useFakeTimers();
+    try {
+      const escapedMod = {
+        id: 'mod_cjk_escaped',
+        key: 'immune to ignite\\nremoves burning',
+        displayKey: '效果持續時間免疫點燃\\n使用時移除燃燒狀態',
+        displayTemplate: '效果持續時間免疫點燃\\n使用時移除燃燒狀態',
+        details: 'Lv.1',
+        generation_type: '2',
+        affinities: ['normal'],
+        tiers: [],
+      };
+      const realNewlineMod = {
+        ...escapedMod,
+        id: 'mod_cjk_real',
+        key: 'grants onslaught\nwhile active',
+        displayKey: '獲得猛攻\n持續期間',
+        displayTemplate: '獲得猛攻\n持續期間',
+      };
+      const rawModsData = ref<Record<string, unknown>>({
+        [escapedMod.key]: [],
+        [realNewlineMod.key]: [],
+      });
+      const currentTypeGroups = ref([escapedMod, realNewlineMod]);
+
+      const filter = useAffixFilter({
+        rawModsData,
+        currentTypeGroups,
+        getCategoryLabel: (a) => a,
+        getCategoryPriority: () => 0,
+      });
+
+      const search = async (query: string) => {
+        filter.searchQuery.value = query;
+        await nextTick();
+        vi.advanceTimersByTime(300);
+        await nextTick();
+        return filter.filteredModTotalCount.value;
+      };
+
+      expect(await search('點燃使用')).toBe(1);
+      expect(await search('猛攻持續')).toBe(1);
+      expect(await search('ignite removes')).toBe(1);
+      expect(await search('點燃n')).toBe(0);
     } finally {
       vi.useRealTimers();
     }

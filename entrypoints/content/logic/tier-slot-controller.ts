@@ -1,6 +1,9 @@
 import { getTradeMapping } from '@/components/sidebar/mapping-registry';
 import { parseAffinityModGroupId } from '@/utils/affinity-registry';
-import { stripSubtypeModGroupSuffix } from '@/utils/item-category-hierarchy';
+import {
+  getSubtypeModGroupKeys,
+  stripSubtypeModGroupSuffix,
+} from '@/utils/item-category-hierarchy';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import {
@@ -12,7 +15,7 @@ import {
   type TierSlotDescriptor,
 } from '@/utils/tier-slot-registry';
 import { type PoeVersion } from '@/utils/trade-context';
-import { type TierDomainService } from './tier-domain-service';
+import { type TierDomainService, type TierModGroup } from './tier-domain-service';
 
 export interface TierSlotControllerOptions {
   version: PoeVersion;
@@ -101,6 +104,24 @@ export function cleanAllTierSlotArtifacts(): void {
 
 let nextTierSlotSeq = 0;
 
+/**
+ * 記錄的分組 id 與目前分組對不上時（來源類別前綴或子類組合改變），
+ * 先以詞綴文字找候選，再優先挑 `@@` 子類鍵有交集的分組，最後退回第一個同詞綴分組。
+ */
+function findFallbackModGroup(
+  modGroups: readonly TierModGroup[],
+  storedGroupId: string,
+): TierModGroup | undefined {
+  const { template } = parseAffinityModGroupId(stripSubtypeModGroupSuffix(storedGroupId));
+  const candidates = modGroups.filter((g) => g.templateZh === template);
+  const storedKeys = getSubtypeModGroupKeys(storedGroupId);
+  if (storedKeys.length === 0) return candidates[0];
+  return (
+    candidates.find((g) => getSubtypeModGroupKeys(g.id).some((k) => storedKeys.includes(k))) ??
+    candidates[0]
+  );
+}
+
 export function createTierSlotDomainData(
   tiers: any[] | null | undefined,
   filterEl: Element,
@@ -115,7 +136,11 @@ export function createTierSlotDomainData(
   const effectiveStatId = statId ?? filterEl.getAttribute('data-poexd-stat-id');
   const eligibility = options.tierDomainService.resolveTierModEligibility(tiers, effectiveStatId);
   if (!eligibility.isEligible) {
-    return { items: [], onSelect: () => {}, getCurrentValues: () => ({ min: '', max: '' }) };
+    return {
+      items: [],
+      onSelect: () => {},
+      getCurrentValues: () => ({ min: '', max: '' }),
+    };
   }
 
   const { normalTiers, availableTypes: typeList } = eligibility;
@@ -186,10 +211,7 @@ export function createTierSlotDomainData(
         const detectedGroupId = filterEl.getAttribute('data-poexd-mod-group');
         let activeGroup = modGroups.find((g) => g.id === detectedGroupId);
         if (!activeGroup && detectedGroupId) {
-          const { template: rawTemplate } = parseAffinityModGroupId(
-            stripSubtypeModGroupSuffix(detectedGroupId),
-          );
-          activeGroup = modGroups.find((g) => g.templateZh === rawTemplate);
+          activeGroup = findFallbackModGroup(modGroups, detectedGroupId);
         }
         if (!activeGroup) {
           // 僅在記憶體中退回預設分組，不可寫回 data-poexd-mod-group：
