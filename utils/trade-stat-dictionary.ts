@@ -267,10 +267,12 @@ export function formatFilterValue(
 /** 字典中混合詞綴（一條詞綴含多行效果）各行之間的分隔字串。 */
 export const HYBRID_STAT_SEPARATOR = '|||||';
 
-/** 翻譯詞綴並把混合詞綴拆成多行，供顯示使用。 */
+const STAT_LINE_SPLIT = /\|\|\|\|\||\\r\\n|\\r|\\n|\r?\n/;
+
+/** 翻譯詞綴並把混合詞綴或多行詞綴拆成多行，供顯示使用。 */
 export function translateStatLines(statId: string, version: PoeVersion = 'poe1'): string[] {
   const lines = translateStat(statId, version)
-    .split(HYBRID_STAT_SEPARATOR)
+    .split(STAT_LINE_SPLIT)
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
   return lines.length > 0 ? lines : [statId];

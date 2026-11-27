@@ -504,6 +504,22 @@ describe('ModItem Controls (Unit Runtime Contracts)', () => {
     expect(modName!.textContent).toBe('第一行\n第二行\n第三行');
   });
 
+  it('converts literal escaped \\n alongside ||||| into real newlines without highlighting n', async () => {
+    const { host } = await mountModItem({
+      mod: {
+        id: 'test-escaped-newline-mod',
+        displayTemplate: '#% 更少持續時間|||||效果持續時間免疫點燃\\n使用時移除燃燒狀態',
+        key: '#% less duration|||||immunity to ignite during effect\\nremoves burning on use',
+      },
+      searchQuery: 'n',
+    });
+
+    const modName = host.querySelector('.mod-name');
+    expect(modName).not.toBeNull();
+    expect(modName!.textContent).toBe('#% 更少持續時間\n效果持續時間免疫點燃\n使用時移除燃燒狀態');
+    expect(modName!.querySelectorAll('mark.mod-search-highlight')).toHaveLength(0);
+  });
+
   it('renders "無官方ID" badge and switches action button to "填入搜尋" with Search icon when mod has no officialId', async () => {
     const modWithoutId: ModGroup = {
       id: 'mod_no_id_test',

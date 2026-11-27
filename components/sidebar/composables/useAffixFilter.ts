@@ -15,15 +15,17 @@ export interface UseAffixFilterOptions {
   getCategoryPriority: (affinity: string) => number;
 }
 
+const normalizeForSearch = (text: string) => text.replace(/\\r\\n|\\r|\\n/g, '\n').toLowerCase();
+
 /** 依關鍵字（空白分隔、全部命中）比對詞綴顯示文字；中文與英文介面也比對英文 key */
 const matchesSearch = (mod: ModGroup, queries: string[], includeEnglishKey: boolean) =>
   queries.every((q) => {
     const matchesDisplay =
-      Boolean(mod.displayKey && mod.displayKey.toLowerCase().includes(q)) ||
-      Boolean(mod.displayTemplate && mod.displayTemplate.toLowerCase().includes(q));
+      Boolean(mod.displayKey && normalizeForSearch(mod.displayKey).includes(q)) ||
+      Boolean(mod.displayTemplate && normalizeForSearch(mod.displayTemplate).includes(q));
     if (matchesDisplay) return true;
     if (includeEnglishKey || (!mod.displayKey && !mod.displayTemplate)) {
-      return mod.key.toLowerCase().includes(q);
+      return normalizeForSearch(mod.key).includes(q);
     }
     return false;
   });

@@ -68,6 +68,18 @@ export const STAT_PREFIX_FALLBACKS = [
   'veiled.',
 ] as const;
 
+const STAT_NEWLINE_PATTERN = /\\r\\n|\\r|\\n|\r\n|\r/g;
+
+/** 將描述檔的字面 `\n`（或 CRLF）還原為真正換行符，並清理每行多餘空白 */
+function normalizeStatNewlines(text: string, collapseSpaces: boolean): string {
+  return text
+    .replace(STAT_NEWLINE_PATTERN, '\n')
+    .split('\n')
+    .map((part) => (collapseSpaces ? part.replace(/[ \t]+/g, ' ').trim() : part.trim()))
+    .join('\n')
+    .trim();
+}
+
 export function renderGenericTemplate(
   rawTemplate: string,
   locale: SupportedAffixLocale | string = 'zh-TW',
@@ -77,7 +89,10 @@ export function renderGenericTemplate(
     .split('|||||')
     .map((line) => {
       const s = line.replace(/\{\d+:\+[dn]\}/g, '+#').replace(/\{\d+:[dn]\}/g, '#');
-      return (locale === 'en' ? s.toLowerCase() : s).replace(/^\+/, '').replace(/\s+/g, ' ').trim();
+      return normalizeStatNewlines(
+        (locale === 'en' ? s.toLowerCase() : s).replace(/^\+/, ''),
+        true,
+      );
     })
     .join('|||||');
 }
@@ -111,7 +126,8 @@ export function renderTierKey(
         }
         return min === max ? `${min}` : `(${min}-${max})`;
       });
-      return locale === 'en' ? s.toLowerCase().trim() : s.trim();
+      const normalized = normalizeStatNewlines(s, false);
+      return locale === 'en' ? normalized.toLowerCase() : normalized;
     })
     .join('|||||');
 }
@@ -736,6 +752,7 @@ export function getTierKeyInLocale(
 export function formatFallbackQuery(querySource: string): string {
   return querySource
     .split('|||||')[0]
+    .replace(STAT_NEWLINE_PATTERN, ' ')
     .replace(/#/g, '')
     .replace(/%/g, '')
     .replace(/^\+/, '')

@@ -43,9 +43,9 @@
               >
                 T{{ getDisplayTier(info.id, info.selectedTierIndex) }}+
               </span>
-              <span class="selected-mod-name">
-                {{ formatModText(getPendingModLabel(info)) }}
-              </span>
+              <span class="selected-mod-name whitespace-pre-line">{{
+                formatModText(getPendingModLabel(info))
+              }}</span>
               <span
                 v-if="!info.officialId && (!info.ids || info.ids.length === 0)"
                 class="no-official-id-badge ml-[var(--pxd-space-xs)] inline-flex items-center px-1.5 py-0.5 rounded-[var(--radius-sm)] text-[length:var(--pxd-font-micro)] text-amber-500 bg-amber-500/10 border border-amber-500/25 shrink-0 select-none align-middle"
@@ -212,6 +212,6 @@ const getPendingModLabel = (info: SelectedModInfo) => {
 
 const formatModText = (text: string) => {
   if (!text) return '';
-  return text.replace(/\|\|\|\|\|/g, '\n');
+  return text.replace(/\|\|\|\|\||\\r\\n|\\r|\\n/g, '\n');
 };
 </script>

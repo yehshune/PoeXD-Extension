@@ -330,12 +330,19 @@ describe('trade-stat-dictionary (extension)', () => {
       setMockDictionaries('poe2', {
         'explicit.stat_hybrid': [{ displayTemplate: '增加 #% 物理傷害|||||+# 命中值' }],
         'explicit.stat_single': [{ displayTemplate: '智慧提高 #%' }],
+        'explicit.stat_multiline': [
+          { displayTemplate: '效果持續時間免疫點燃\\n使用時移除燃燒狀態' },
+        ],
       });
       expect(translateStatLines('explicit.stat_hybrid', 'poe2')).toEqual([
         '增加 #% 物理傷害',
         '+# 命中值',
       ]);
       expect(translateStatLines('explicit.stat_single', 'poe2')).toEqual(['智慧提高 #%']);
+      expect(translateStatLines('explicit.stat_multiline', 'poe2')).toEqual([
+        '效果持續時間免疫點燃',
+        '使用時移除燃燒狀態',
+      ]);
       expect(translateStatLines('explicit.stat_missing', 'poe2')).toEqual(['stat_missing']);
     });
   });

@@ -4,7 +4,10 @@ import { resolve as resolvePath } from 'node:path';
 import { nextTick, ref, watch } from 'vue';
 import {
   ensureAffixLexiconLoaded,
+  formatFallbackQuery,
   getHydratedModsByGroup,
+  renderGenericTemplate,
+  renderTierKey,
   resolveFallbackQueryForUnmatchedMod,
   resetAffixLexiconCacheForTests,
   translateAffixStat,
@@ -753,5 +756,31 @@ describe('Seam 2C: useFilterData multilingual search, lazy pageLocale fallbackQu
     void filterData.loadData();
     expect(filterData.loading.value).toBe(false);
     expect(filterData.currentTypeGroups.value).toHaveLength(1);
+  });
+
+  it('unescapes literal \\n in renderGenericTemplate, renderTierKey, and formatFallbackQuery', () => {
+    const rawZh = '{0:n}% 更少持續時間|||||效果持續時間免疫點燃\\n使用時移除燃燒狀態';
+    expect(renderGenericTemplate(rawZh, 'zh-TW')).toBe(
+      '#% 更少持續時間|||||效果持續時間免疫點燃\n使用時移除燃燒狀態',
+    );
+    expect(renderTierKey(rawZh, [[-39, -35]], 'zh-TW')).toBe(
+      '(35-39)% 更少持續時間|||||效果持續時間免疫點燃\n使用時移除燃燒狀態',
+    );
+
+    // 英文模板含 \\n 後接空白時應正規化為單一換行且去掉多餘前導空白
+    const rawEn =
+      'Energy Shield Recharge starts after spending a total of\\n 2000 Mana, no more than once every 2 seconds';
+    expect(renderGenericTemplate(rawEn, 'en')).toBe(
+      'energy shield recharge starts after spending a total of\n2000 mana, no more than once every 2 seconds',
+    );
+
+    // 無官方 ID 的備援查詢應將字面 \\n 轉成空白而非原樣送出
+    expect(
+      formatFallbackQuery(
+        'grants immunity to ignite for # seconds if used while ignited\\nremoves all burning when used',
+      ),
+    ).toBe(
+      'grants immunity to ignite for seconds if used while ignited removes all burning when used',
+    );
   });
 });
