@@ -20,3 +20,5 @@ Observed on 2026-11-19 against the international PoE 1 site over CDP: a search l
 - **Regex in the Display Locale**: rejected. It would be wrong for everyone who reads the site in Chinese but plays on the international client.
 - **A Game Client Language Preference with Game Wording from poexd-data**: deferred. It costs a data dependency and a setting; the result's own text is enough unless in-game testing shows otherwise.
 - **Bulk whisper text for one Seller**: rejected. Instant buyout made it rarely useful.
+
+_Note (ADR-0020): Similar Item Search fetches results itself and shows them as synthetic searches in the official list. The board ignores those requests, so this decision is unchanged._

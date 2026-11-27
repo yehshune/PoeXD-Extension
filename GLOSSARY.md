@@ -100,6 +100,22 @@ _Avoid_: Character, merchant, shop, tradable
 Text to paste into the in-game stash search while visiting one Seller's hideout, so that all the results the user chose to buy from that Seller light up at once, and as little else as possible. It is written from each result's own item data, in the language the realm's Trade site returned it in, never in the Display Locale or the Market Translation language. It includes the listed price, written the way the Trade site writes it, because a Seller's stash holds many items the board never saw and the price narrows the match against them. It is only guaranteed to tell the chosen results apart from that Seller's other retrieved results, since the rest of their stash is unknown, and the user is told so. When it would exceed the game's search length limit for that game version it is split into several parts used one after another.
 _Avoid_: Filter string, search string, item regex
 
+**Similar Item Search (User-facing: 找相似)**:
+Finding listings like one rare item: the stats the user cares about, at or near the item's values, whatever modifier type carries them. The user starts it from a Source Item, tunes a Similar Search Draft, and starts a short series of searches whose batches (strict, relaxed, and all results by Similarity) are shown one at a time in the official result list until the user returns to their own search. It never changes the user's own search and keeps nothing after the panel closes. See ADR-0020.
+_Avoid_: Price check, upgrade search, find upgrade
+
+**Source Item (來源物品)**:
+The rare item a Similar Item Search starts from: a result row, a Pinned Item or a Result Board entry.
+_Avoid_: Reference item, base item
+
+**Similar Search Draft (搜尋草稿)**:
+The adjustable criteria derived from a Source Item for one Similar Item Search: each stat marked **Required** (must be met), **Reference** (counts toward Similarity) or **Ignored**, weapon or armour property minimums, and one tolerance that sets the minimums. It is not stored.
+_Avoid_: Preset, saved filter, Stat Group Template
+
+**Similarity (相似度)**:
+How close one result comes to the Source Item over the Reference stats and properties: each counts as its value divided by the target, at most fully met, and Similarity is their average, so exceeding a target earns nothing and a miss costs.
+_Avoid_: Match score, weight, sum
+
 **Trade Wording vs Game Wording (市集寫法／遊戲寫法)**:
 Two ways the same stat is worded. **Trade Wording** is how the official Trade site words a stat id: exactly one wording per id, with the increased/reduced direction fixed per id by GGG (not derivable from stat descriptions and independent of the mod's actual sign), and identical in direction across realms when looked up by id. **Game Wording** is how a concrete mod reads in game, following its actual values. Affix selector stat labels, Trade filter rows and Market Translation dropdowns use Trade Wording (official realm `trade-stats.json`, then poexd-data `statTemplates`, which poexd-data derives by matching the English Trade text to a stat-description variant); tier rows, hybrid mod groups and result rows use Game Wording (poexd-data `tierTemplates`). Example: attribute requirement mods are all negative, so in game they read "15% reduced Attribute Requirements" while Trade words the stat "#% increased Attribute Requirements" and is searched with a negative value.
 _Avoid_: Canonical text, positive form

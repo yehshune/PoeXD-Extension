@@ -28,7 +28,7 @@ Verified on 2026-11-18 against the international PoE 1 site over CDP:
 
 - **Clone the official `.row` DOM as live nodes**: rejected. Official Vue handlers (whisper, travel) stop working, PoeXD's injected buttons get cloned along, and live nodes cannot be persisted across reloads. A sanitized node-tree snapshot of the item part only (Decision 5) avoids all three.
 - **Draw the card from JSON only**: replaced by Decision 5. It lost sockets, influence symbols, mod ranges and the PoE 1 / PoE 2 header differences, and every official change had to be followed by hand.
-- **Render with the official Vue component**: not possible on normal pages. The official app renders only the active search, and the console can do it only because it takes over the whole page.
+- **Render with the official Vue component**: not possible on normal pages. The official app renders only the active search, and the console can do it only because it takes over the whole page. _Amended by ADR-0020: a normal page can render results PoeXD fetched by making a synthetic search active in the official store; pinned cards still use the snapshot because a pin outlives the page._
 - **Store the token with the snapshot**: rejected. It expires in about 5 minutes and is bound to the search, so a stored copy is useless and only widens what we keep.
 - **Write storage from each tab**: rejected. Two tabs pinning at once would overwrite each other with read-modify-write.
 - **Drop the oldest pin at the limit**: rejected. Pins are deliberate, so silently removing one is surprising.
