@@ -7,6 +7,7 @@
  *
  * 只在一般頁的搜尋模式啟用；側邊欄透過 `getResultBoardRuntime()` 取用。
  */
+import { isSimilarSearchId } from '@/utils/similar-search-entry';
 import { listenPoeEvent, parsePoeFetchResponse } from '@/utils/event-contracts';
 import { resolvePageLocale } from '@/utils/locale-resolution';
 import { capturePinnedCardDom } from '@/utils/pinned-card-dom';
@@ -300,6 +301,8 @@ export class ResultBoardRuntime {
     const payload = parsePoeFetchResponse(detail);
     const searchId = payload ? fetchSearchId(payload.url) : undefined;
     if (!payload || !searchId || this.session.isStale(searchId)) return;
+    // 找相似批次上的官方 fetch（例如換藏身處 token）不屬於看板的搜尋（ADR-0020）
+    if (isSimilarSearchId(searchId)) return;
     this.lastFetchSearchId = searchId;
     this.session.observeFetch(searchId);
     const missingIds = readMissingFetchIds(payload.url, payload.data);

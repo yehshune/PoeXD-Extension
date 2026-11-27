@@ -42,6 +42,7 @@ import {
   type PinnedSortMode,
 } from './pinned-item-sort';
 import { usePinnedItems } from './usePinnedItems';
+import { canFindSimilar, findSimilar } from '@/utils/similar-search-entry';
 
 const props = defineProps<{
   /** 側邊欄所在側；拖曳刪除的垃圾桶開在另一側 */
@@ -226,6 +227,7 @@ function rowBindings(item: PinnedItemSnapshot) {
     showLeague: showLeagueOf(item),
     realmLabel: realmLabelOf(item),
     priceComparison: priceComparisonOf(item),
+    canFindSimilar: sameRealm(item) && canFindSimilar(item.item, item.gameVersion),
   };
 }
 </script>
@@ -424,6 +426,7 @@ function rowBindings(item: PinnedItemSnapshot) {
             @pob="copyPob(item)"
             @source="openSource(item)"
             @unpin="unpin(item)"
+            @similar="(anchor: Element) => findSimilar(item.item, anchor, item.gameVersion)"
           />
         </ul>
 
@@ -466,6 +469,7 @@ function rowBindings(item: PinnedItemSnapshot) {
               @pob="copyPob(item)"
               @source="openSource(item)"
               @unpin="unpin(item)"
+              @similar="(anchor: Element) => findSimilar(item.item, anchor, item.gameVersion)"
             />
           </ul>
         </section>

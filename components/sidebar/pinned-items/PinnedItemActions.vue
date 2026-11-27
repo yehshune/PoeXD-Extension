@@ -12,6 +12,7 @@ import {
   Home,
   Loader2,
   MoreVertical,
+  Sparkles,
   Trash2,
 } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,9 @@ const props = defineProps<{
   hasSource: boolean;
   /** true：展開後的完整按鈕列；false：收合列 hover 浮出的圖示列 */
   full: boolean;
+  /** 可以找相似（ADR-0020）：選單一律有，`similarButton` 時操作列也顯示按鈕 */
+  canFindSimilar?: boolean;
+  similarButton?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -42,6 +46,7 @@ const emit = defineEmits<{
   pob: [];
   source: [];
   unpin: [];
+  similar: [];
 }>();
 
 const menuOpen = ref(false);
@@ -113,6 +118,17 @@ const travelDisabled = () => !props.sameRealm || isBusy() || props.state === 'so
     >
       <ExternalLink />
     </Button>
+    <Button
+      v-if="canFindSimilar && (full || similarButton)"
+      :variant="full ? 'outline' : 'ghost'"
+      size="icon-sm"
+      data-pinned-item-similar
+      :title="t('similarSearch.buttonTitle')"
+      :aria-label="t('similarSearch.buttonTitle')"
+      @click.stop="emit('similar')"
+    >
+      <Sparkles />
+    </Button>
     <DropdownMenu v-model:open="menuOpen">
       <DropdownMenuTrigger as-child>
         <Button
@@ -136,6 +152,13 @@ const travelDisabled = () => !props.sameRealm || isBusy() || props.state === 'so
           >
             <Copy class="text-muted-foreground" />
             {{ t('settings.resultPobCopy.label') }}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </template>
+        <template v-if="canFindSimilar">
+          <DropdownMenuItem data-pinned-item-similar-menu @click="emit('similar')">
+            <Sparkles class="text-muted-foreground" />
+            {{ t('similarSearch.buttonTitle') }}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
         </template>

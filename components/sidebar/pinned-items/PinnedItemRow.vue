@@ -4,7 +4,7 @@
  * 展開後在下方顯示明細（賣家、手續費、釘選時間）與官方卡片快照。
  * 外層的 `<li>` 帶 `data-pinned-item-id`，供拖曳排序與拖到垃圾桶取消釘選辨識。
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Loader2 } from '@lucide/vue';
 import { getActiveUiLocale, t } from '@/utils/i18n';
 import { GOLD_COIN_ICON_URL } from '@/utils/poe-cdn-url';
@@ -33,6 +33,8 @@ const props = defineProps<{
   /** 伺服器與目前不同時附在灰色資訊 */
   realmLabel?: string;
   priceComparison?: PinnedPriceComparison;
+  /** 可以從這件物品找相似（ADR-0020） */
+  canFindSimilar?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -42,7 +44,15 @@ const emit = defineEmits<{
   pob: [];
   source: [];
   unpin: [];
+  /** 面板放在這一列旁邊 */
+  similar: [anchor: Element];
 }>();
+
+const rowEl = ref<HTMLElement | null>(null);
+
+function openSimilar(): void {
+  if (rowEl.value) emit('similar', rowEl.value);
+}
 
 const textOf = (value: unknown): string => (typeof value === 'string' ? value : '');
 
@@ -118,6 +128,7 @@ const actionState = computed<PinnedItemTransientState | undefined>(() =>
 
 <template>
   <li
+    ref="rowEl"
     class="pinned-item-row group relative border-0 border-b border-dashed border-border last:border-b-0 transition-colors"
     :class="[expanded ? 'bg-muted/20' : 'hover:bg-muted/40 has-[[data-state=open]]:bg-muted/40']"
     :data-pinned-item-id="item.id"
@@ -239,11 +250,14 @@ const actionState = computed<PinnedItemTransientState | undefined>(() =>
           :can-copy-pob="canCopyPob"
           :has-source="hasSource"
           :full="false"
+          :can-find-similar="canFindSimilar"
+          :similar-button="expanded"
           @travel="emit('travel')"
           @whisper="emit('whisper')"
           @pob="emit('pob')"
           @source="emit('source')"
           @unpin="emit('unpin')"
+          @similar="openSimilar"
         />
       </template>
     </ResultSummaryRow>

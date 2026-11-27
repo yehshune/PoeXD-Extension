@@ -5,6 +5,7 @@ import {
   type SimilarSessionDeps,
 } from '@/entrypoints/content/logic/similar-search-session';
 import type { DisposableSimilarTransport } from '@/entrypoints/content/logic/similar-search-transport';
+import { isSimilarSearchId } from '@/utils/similar-search-entry';
 import type { SimilarShowBatchRequest } from '@/utils/similar-search-rpc';
 import { TradeResultCache } from '@/utils/trade-result-cache';
 import { chestResult, englishStatText } from './helpers/similar-search-fixtures';
@@ -160,5 +161,16 @@ describe('SimilarSearchSession', () => {
     await session.close();
     expect(rpc.restore).toHaveBeenCalled();
     expect(session.getState()).toMatchObject({ open: false, batches: [] });
+  });
+});
+
+describe('SimilarSearchSession 與結果看板', () => {
+  it('每一批的官方 search id 都登記給結果看板略過', async () => {
+    const { session } = setup();
+    await session.open('source', ANCHOR);
+    await session.start();
+    expect(isSimilarSearchId('q1')).toBe(true);
+    expect(isSimilarSearchId('q2')).toBe(true);
+    expect(isSimilarSearchId('user-search')).toBe(false);
   });
 });

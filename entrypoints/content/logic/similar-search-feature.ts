@@ -7,6 +7,7 @@ import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { loadExtensionJson } from '@/utils/extension-json-cache';
 import { t } from '@/utils/i18n';
 import type { Preferences } from '@/utils/preferences';
+import { provideSimilarSearchEntry } from '@/utils/similar-search-entry';
 import type { PoeVersion } from '@/utils/trade-context';
 import type { TradeResultCache } from '@/utils/trade-result-cache';
 import { createPoeEventCriteriaOverlayChannel } from './criteria-overlay-manager';
@@ -15,7 +16,11 @@ import {
   mountSimilarSearchPanelHost,
   type SimilarPanelAppearance,
 } from './similar-search-panel-host';
-import { SimilarSearchSession, type SimilarSessionRpc } from './similar-search-session';
+import {
+  SimilarSearchSession,
+  type SimilarPanelAnchor,
+  type SimilarSessionRpc,
+} from './similar-search-session';
 import { createSimilarTradeTransport } from './similar-search-transport';
 
 export interface InstallSimilarSearchInput {
@@ -72,6 +77,11 @@ const appearanceOf = (snapshot: Readonly<Preferences>): SimilarPanelAppearance =
   densityScale: snapshot.densityScale,
 });
 
+function anchorOf(element: Element): SimilarPanelAnchor {
+  const { top, left, bottom, right } = element.getBoundingClientRect();
+  return { top, left, bottom, right };
+}
+
 export function installSimilarSearch(input: InstallSimilarSearchInput): () => void {
   const { version, pipeline, cache, preferences } = input;
   const session = new SimilarSearchSession({
@@ -105,16 +115,16 @@ export function installSimilarSearch(input: InstallSimilarSearchInput): () => vo
     void session.handleOfficialSearch();
   });
   pipeline.setSimilarSearchOpener((resultId, row) => {
-    const rect = row.getBoundingClientRect();
-    void session.open(resultId, {
-      top: rect.top,
-      left: rect.left,
-      bottom: rect.bottom,
-      right: rect.right,
-    });
+    void session.open(resultId, anchorOf(row));
+  });
+  // 釘選物品與結果看板的入口：面板放在側邊欄裡被點的那一列旁邊
+  const stopEntry = provideSimilarSearchEntry({
+    version,
+    open: (item, anchor) => void session.openItem(item, anchorOf(anchor)),
   });
 
   return () => {
+    stopEntry();
     pipeline.setSimilarSearchOpener(undefined);
     pipeline.setSimilarMarksView(undefined);
     stopOfficialSearch();

@@ -22,6 +22,7 @@ import {
   type SimilarShowBatchRequest,
   type SimilarShowBatchResponse,
 } from '@/utils/similar-search-rpc';
+import { markSimilarSearchId } from '@/utils/similar-search-entry';
 import type { PoeVersion } from '@/utils/trade-context';
 import type { TradeResultCache } from '@/utils/trade-result-cache';
 import type { DisposableSimilarTransport } from './similar-search-transport';
@@ -137,7 +138,11 @@ export class SimilarSearchSession {
 
   /** 從結果列開啟；物品不適用時提示並回傳 false */
   async open(resultId: string, anchor: SimilarPanelAnchor): Promise<boolean> {
-    const item = this.deps.cache.get(resultId)?.item;
+    return this.openItem(this.deps.cache.get(resultId)?.item, anchor);
+  }
+
+  /** 從釘選物品或結果看板開啟：直接用物品 JSON 當 Source Item */
+  async openItem(item: unknown, anchor: SimilarPanelAnchor): Promise<boolean> {
     if (!isRecord(item)) return false;
     await this.reset();
     this.englishStatText ??= await this.deps.loadEnglishStats();
@@ -191,6 +196,8 @@ export class SimilarSearchSession {
           this.setState({ progress: { search: event.search, phase: event.phase } });
         } else if (event.type === 'batch') {
           this.runSearchId ??= event.batch.searchId;
+          // 每一批的官方 search id 都要讓結果看板略過（官方會用它換藏身處 token）
+          if (event.batch.searchId) markSimilarSearchId(event.batch.searchId);
           queue = queue.then(() => this.showBatch(event.batch, league, token));
         }
       },

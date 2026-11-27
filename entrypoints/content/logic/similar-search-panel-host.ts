@@ -45,7 +45,7 @@ const HOST_CSS = `
     width: 0 !important;
     height: 0 !important;
     overflow: visible !important;
-    z-index: 2147483000 !important;
+    z-index: 2147483647 !important;
   }
 `;
 

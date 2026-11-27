@@ -16,6 +16,7 @@ import {
   serializeWhisperOutcome,
 } from '@/utils/result-board/board-events';
 import { TradeResultCache } from '@/utils/trade-result-cache';
+import { markSimilarSearchId } from '@/utils/similar-search-entry';
 
 const SEARCH = 's1';
 
@@ -100,6 +101,16 @@ describe('ResultBoardRuntime', () => {
       [{ id: 'similar-1', item: { typeLine: 'Ring', frameType: 2 }, listing: {} }],
       { sourceSearchId: 'similar-search' },
     );
+    const state = runtime.session.getState();
+    expect(state.searchId).toBe(SEARCH);
+    expect(state.ledger.entries.map((entry) => entry.id)).toEqual(['a', 'b']);
+  });
+
+  it('keeps its own search when the official page fetches for a Similar Item Search batch', () => {
+    // 沒有摘要時看板會跟著 fetch 換搜尋；找相似批次上換藏身處 token 的官方 fetch 不能把看板帶走
+    deliverFetch(cache, ['a', 'b']);
+    markSimilarSearchId('similar-search');
+    deliverFetch(cache, ['similar-1'], 'similar-search');
     const state = runtime.session.getState();
     expect(state.searchId).toBe(SEARCH);
     expect(state.ledger.entries.map((entry) => entry.id)).toEqual(['a', 'b']);

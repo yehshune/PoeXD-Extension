@@ -31,7 +31,9 @@ import { t, type I18nKey } from '@/utils/i18n';
 import { requestResultTranslation } from '@/utils/market-result-translation-request';
 import type { BoardSortMode } from '@/utils/result-board/board-projection';
 import { createVersionedStorageKeys } from '@/utils/storage-contracts';
+import { canFindSimilar, findSimilar } from '@/utils/similar-search-entry';
 import { getPoeVersion } from '@/utils/trade-context';
+import { getTradeResultCache } from '@/utils/trade-result-cache';
 import SidebarPane from '../layout/SidebarPane.vue';
 import SidebarEmptyState from '../layout/SidebarEmptyState.vue';
 import SidebarFilterEmptyState from '../layout/SidebarFilterEmptyState.vue';
@@ -46,6 +48,8 @@ import { currencyDisplayOf, stopMessage } from './result-board-format';
 import { parseBound, useResultBoard, type BoardView } from './useResultBoard';
 
 const board = useResultBoard();
+/** 看板的物品都在頁面的結果快取裡；找相似用它當 Source Item */
+const boardItemOf = (id: string): unknown => getTradeResultCache().get(id)?.item;
 const {
   state,
   loaderState,
@@ -721,6 +725,8 @@ function resetAllFilters(): void {
             @locate="board.locate(entry.id)"
             @travel="board.travel(entry.id)"
             @pin="board.pin(entry.id)"
+            :can-find-similar="canFindSimilar(boardItemOf(entry.id))"
+            @similar="(anchor: Element) => findSimilar(boardItemOf(entry.id), anchor)"
           />
         </ul>
       </template>

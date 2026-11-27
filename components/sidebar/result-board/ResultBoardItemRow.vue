@@ -4,7 +4,7 @@
  * 定位、前往藏身處、釘選都交給官方結果列（ADR-0018）。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { Home, Loader2, Pin, ScanSearch, Users } from '@lucide/vue';
+import { Home, Loader2, Pin, ScanSearch, Sparkles, Users } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { t } from '@/utils/i18n';
@@ -49,6 +49,8 @@ const props = defineProps<{
   pinned?: boolean;
   /** 正在重新整理或前往藏身處中 */
   travelState?: 'refreshing' | 'traveling';
+  /** 可以從這件物品找相似（ADR-0020） */
+  canFindSimilar?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -58,6 +60,8 @@ const emit = defineEmits<{
   pin: [];
   pick: [];
   focusSeller: [];
+  /** 面板放在這一列旁邊 */
+  similar: [anchor: Element];
 }>();
 
 const currency = computed(() => currencyDisplayOf(props.entry.price?.currency, props.currencies));
@@ -389,6 +393,17 @@ onBeforeUnmount(stopObserving);
             @click.stop="emit('locate')"
           >
             <ScanSearch />
+          </Button>
+          <Button
+            v-if="canFindSimilar"
+            variant="ghost"
+            size="icon-sm"
+            :title="t('similarSearch.buttonTitle')"
+            :aria-label="t('similarSearch.buttonTitle')"
+            data-board-similar
+            @click.stop="rowEl && emit('similar', rowEl)"
+          >
+            <Sparkles />
           </Button>
           <Button
             v-if="entry.instantBuyout"
