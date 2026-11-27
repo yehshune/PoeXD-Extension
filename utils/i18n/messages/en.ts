@@ -1700,6 +1700,8 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'onboarding.update.highlightsLabel': 'New',
   'onboarding.update.highlight.theme': 'Themes',
   'onboarding.update.highlight.modules': 'Module toggles',
+  'onboarding.update.highlight.twoColumnLayout': 'Two-column layout',
+  'onboarding.update.highlight.highlightStyle': 'Highlight styles',
   'common.promptTitle': 'Input',
   'common.alertTitle': 'Notice',
   'affixSelector.dialog.title': 'Affix Selector',

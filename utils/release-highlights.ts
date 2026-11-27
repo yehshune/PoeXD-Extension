@@ -28,6 +28,18 @@ export const RELEASE_HIGHLIGHTS: readonly ReleaseHighlight[] = Object.freeze([
     section: 'modules',
     labelKey: 'onboarding.update.highlight.modules',
   },
+  {
+    id: 'two-column-layout',
+    release: '1.15',
+    section: 'pageLayout',
+    labelKey: 'onboarding.update.highlight.twoColumnLayout',
+  },
+  {
+    id: 'highlight-style',
+    release: '1.15',
+    section: 'resultDisplay',
+    labelKey: 'onboarding.update.highlight.highlightStyle',
+  },
 ]);
 
 /** 取出 `major.minor`；接受 `1.12.0`、`v1.12.3` 等格式，無法解析時回傳 null */

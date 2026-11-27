@@ -1606,6 +1606,8 @@ export const ZH_TW_MESSAGES = {
   'onboarding.update.highlightsLabel': '新功能',
   'onboarding.update.highlight.theme': '外觀主題',
   'onboarding.update.highlight.modules': '模組開關',
+  'onboarding.update.highlight.twoColumnLayout': '雙欄版面',
+  'onboarding.update.highlight.highlightStyle': '詞綴高亮樣式',
   'common.promptTitle': '輸入',
   'common.alertTitle': '提示',
   'affixSelector.dialog.title': '詞綴選擇器',

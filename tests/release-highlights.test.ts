@@ -69,4 +69,16 @@ describe('release highlights', () => {
       expect(highlight.release).toMatch(/^\d+\.\d+$/);
     }
   });
+
+  it('surfaces the 1.15 layout and highlight style entries when upgrading from 1.14', () => {
+    expect(
+      getReleaseHighlights('1.15.0', RELEASE_HIGHLIGHTS, '1.14.0').map((h) => ({
+        id: h.id,
+        section: h.section,
+      })),
+    ).toEqual([
+      { id: 'two-column-layout', section: 'pageLayout' },
+      { id: 'highlight-style', section: 'resultDisplay' },
+    ]);
+  });
 });

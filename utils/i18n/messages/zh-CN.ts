@@ -1609,6 +1609,8 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'onboarding.update.highlightsLabel': '新功能',
   'onboarding.update.highlight.theme': '外观主题',
   'onboarding.update.highlight.modules': '模块开关',
+  'onboarding.update.highlight.twoColumnLayout': '双栏布局',
+  'onboarding.update.highlight.highlightStyle': '词缀高亮样式',
   'common.promptTitle': '输入',
   'common.alertTitle': '提示',
   'affixSelector.dialog.title': '词缀选择器',
