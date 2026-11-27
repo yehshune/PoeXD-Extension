@@ -49,6 +49,11 @@ describe('Affinity Registry & Version Profiles', () => {
     it('contains poe1 specific special affinities and categories', () => {
       expect(poe1AffinityProfile.specialExplicitAffinities.has('bestiary')).toBe(true);
       expect(poe1AffinityProfile.specialExplicitAffinities.has('infamous')).toBe(true);
+      expect(poe1AffinityProfile.specialExplicitAffinities.has('allflame')).toBe(true);
+      expect(poe1AffinityProfile.categoryNames.allflame).toBe('不滅之火');
+      expect(poe1AffinityProfile.categoryPriorities.allflame).toBeGreaterThan(
+        poe1AffinityProfile.categoryPriorities.normal,
+      );
       expect(poe1AffinityProfile.specialExplicitAffinities.has('bonded')).toBe(false);
 
       expect(poe1AffinityProfile.categoryNames.master).toBe('工藝');
