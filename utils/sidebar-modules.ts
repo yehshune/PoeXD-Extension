@@ -8,7 +8,6 @@ export const SETTINGS_SECTION_IDS = [
   'searchHotkeys',
   'resultDisplay',
   'appearance',
-  'bookmarks',
   'modules',
 ] as const;
 export type SettingsSectionId = (typeof SETTINGS_SECTION_IDS)[number];
@@ -63,7 +62,7 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'bookmark',
     kind: 'module-tab',
     preferenceKey: 'sidebarModuleBookmarks',
-    settingsSection: 'bookmarks',
+    settingsSection: null,
     scrollMode: 'pane',
     labelKey: 'sidebar.nav.bookmarks',
     descriptionKey: 'settings.modules.item.bookmark.description',
@@ -72,7 +71,7 @@ export const SIDEBAR_DESCRIPTORS = Object.freeze([
     id: 'history',
     kind: 'module-tab',
     preferenceKey: 'sidebarModuleHistory',
-    settingsSection: 'bookmarks',
+    settingsSection: null,
     scrollMode: 'pane',
     labelKey: 'sidebar.nav.history',
     descriptionKey: 'settings.modules.item.history.description',

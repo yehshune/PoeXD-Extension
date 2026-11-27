@@ -53,7 +53,6 @@ export interface BookmarkWorkspaceOptions {
 
 export interface BookmarkWorkspacePreferences {
   addBookmarkBtnPosition?: BookmarkButtonPosition;
-  enableBookmarkTooltip?: boolean;
   searchEntryClickAction?: SearchEntryClickAction;
   sidebarPosition?: 'left' | 'right';
   sidebarModuleLiveSearch?: boolean;
@@ -81,7 +80,6 @@ export function createBookmarkWorkspace(
   const addBookmarkBtnPosition = ref<BookmarkButtonPosition>(
     DEFAULT_PREFERENCES.addBookmarkBtnPosition,
   );
-  const enableBookmarkTooltip = ref<boolean>(DEFAULT_PREFERENCES.enableBookmarkTooltip);
   const searchEntryClickAction = ref<SearchEntryClickAction>(
     DEFAULT_PREFERENCES.searchEntryClickAction,
   );
@@ -90,8 +88,6 @@ export function createBookmarkWorkspace(
   const setPreferences = (next: BookmarkWorkspacePreferences) => {
     if (next.addBookmarkBtnPosition !== undefined)
       addBookmarkBtnPosition.value = next.addBookmarkBtnPosition;
-    if (next.enableBookmarkTooltip !== undefined)
-      enableBookmarkTooltip.value = next.enableBookmarkTooltip;
     if (next.searchEntryClickAction !== undefined)
       searchEntryClickAction.value = next.searchEntryClickAction;
     if (next.sidebarPosition !== undefined) sidebarPosition.value = next.sidebarPosition;
@@ -197,10 +193,7 @@ export function createBookmarkWorkspace(
 
   // ── Search Preview ─────────────────────────────────────────────
   const previewDisabled = computed(
-    () =>
-      Boolean(isDragging.value) ||
-      Boolean(editing.editingBookmarkId.value) ||
-      !enableBookmarkTooltip.value,
+    () => Boolean(isDragging.value) || Boolean(editing.editingBookmarkId.value),
   );
   const {
     activeEntityKey: activeBookmarkId,
@@ -219,7 +212,6 @@ export function createBookmarkWorkspace(
 
   /** 以事件來源所在的書籤列作為預覽錨點。 */
   const toggleBookmarkPreviewFromEvent = (bm: Bookmark, event: Event) => {
-    if (!enableBookmarkTooltip.value) return;
     toggleBookmarkPreview(bm, rowAnchorFromEvent(event, '.bookmark-row-item'));
   };
 
@@ -229,7 +221,6 @@ export function createBookmarkWorkspace(
   );
 
   const handlePreviewOpenChange = (bm: Bookmark, open: boolean) => {
-    if (!enableBookmarkTooltip.value) return;
     if (open) {
       if (isDragging.value || editing.editingBookmarkId.value === bm.id) return;
       void loadBookmarkPreview(bm);
@@ -279,7 +270,7 @@ export function createBookmarkWorkspace(
 
   /** 左鍵點書籤名稱：依 Preference 開啟搜尋或切換預覽。 */
   const handleBookmarkPrimaryClick = (bm: Bookmark, event: Event) => {
-    if (searchEntryClickAction.value === 'preview' && enableBookmarkTooltip.value) {
+    if (searchEntryClickAction.value === 'preview') {
       toggleBookmarkPreviewFromEvent(bm, event);
       return;
     }
@@ -751,7 +742,6 @@ export function createBookmarkWorkspace(
     },
 
     preview: {
-      enableBookmarkTooltip: readonly(enableBookmarkTooltip),
       searchEntryClickAction: readonly(searchEntryClickAction),
       activeBookmarkId,
       activePreviewData,

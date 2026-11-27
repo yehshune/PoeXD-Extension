@@ -31,6 +31,14 @@
             <X />
           </Button>
         </div>
+        <!-- 歷史操作設定 Popover -->
+        <SearchEntrySettingsPopover
+          scope="history"
+          :open="isSettingsOpen"
+          :search-entry-click-action="searchEntryClickAction"
+          @update:open="isSettingsOpen = $event"
+          @update:search-entry-click-action="updateSearchEntryClickAction"
+        />
         <!-- 低頻設定與破壞性操作收進選單，釋放頁首空間並避免誤按 -->
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -462,7 +470,8 @@ import {
 } from '@/utils/trade-search-identity';
 import { createTradeSearchCriteriaKeyResolver } from '@/utils/trade-search-criteria-key';
 import { resolveTunedTradeSearchUrl } from '@/utils/trade-query-tuning';
-import { getPreferences } from '@/utils/preferences';
+import { getPreferences, type PreferencesModule } from '@/utils/preferences';
+import SearchEntrySettingsPopover from './SearchEntrySettingsPopover.vue';
 import TradeSearchPreviewPopover from './search-preview/TradeSearchPreviewPopover.vue';
 import { DEFAULT_PREFERENCES, type SearchEntryClickAction } from '@/utils/preferences-contract';
 import { rowAnchorFromEvent, useTradeSearchPreview } from './composables/useTradeSearchPreview';
@@ -500,9 +509,16 @@ export default defineComponent({
     Search,
     Trash2,
     X,
+    SearchEntrySettingsPopover,
     TradeSearchPreviewPopover,
   },
-  setup() {
+  props: {
+    active: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  setup(props) {
     const version = getPoeVersion();
     const client = createChromeSearchRecordClient();
     const bookmarkClient = createChromeBookmarkClient(version);
@@ -517,11 +533,19 @@ export default defineComponent({
     const searchEntryClickAction = ref<SearchEntryClickAction>(
       DEFAULT_PREFERENCES.searchEntryClickAction,
     );
+    const isSettingsOpen = ref(false);
+    watch(
+      () => props.active,
+      (active) => {
+        if (!active) isSettingsOpen.value = false;
+      },
+    );
     const currentPageUrl = ref(typeof window !== 'undefined' ? window.location.href : '');
     const pendingUndoEntry = ref<HistoryEntry | null>(null);
     const criteriaHintByUrl = reactive<Record<string, string>>({});
     const inFlightHintUrls = new Set<string>();
     let undoTimer: ReturnType<typeof setTimeout> | null = null;
+    let preferencesModule: PreferencesModule | null = null;
     let stopPreferences: (() => void) | undefined;
     let stopRouteListener: (() => void) | undefined;
     let isUnmounted = false;
@@ -774,6 +798,7 @@ export default defineComponent({
       }
       const prefResult = await getPreferences(version);
       if (prefResult.ok) {
+        preferencesModule = prefResult.value;
         stopPreferences = prefResult.value.subscribe((snapshot) => {
           sidebarPosition.value = snapshot.sidebarPosition;
           searchEntryClickAction.value = snapshot.searchEntryClickAction;
@@ -811,6 +836,22 @@ export default defineComponent({
       await domainFeed.refresh();
       if (!outcome.ok) {
         console.error('[PoeXD] 儲存歷史設定失敗:', outcome.error);
+      }
+    };
+
+    const updateSearchEntryClickAction = async (action: SearchEntryClickAction) => {
+      searchEntryClickAction.value = action;
+      if (!preferencesModule || typeof preferencesModule.update !== 'function') return;
+      const outcome = await preferencesModule.update({ searchEntryClickAction: action });
+      if (outcome.ok) return;
+      searchEntryClickAction.value = preferencesModule.read().searchEntryClickAction;
+      const alert = (window as { poexdAlert?: (msg: string, title?: string) => Promise<void> })
+        .poexdAlert;
+      if (typeof alert === 'function') {
+        await alert(
+          t('settings.alert.saveFailedMessage', { message: outcome.error.message }),
+          t('common.saveFailed'),
+        );
       }
     };
 
@@ -1037,6 +1078,8 @@ export default defineComponent({
       activeRawQuery,
       previewHistory,
       searchEntryClickAction,
+      isSettingsOpen,
+      updateSearchEntryClickAction,
       previewAnchorEl,
       previewSourceName,
       canOpenPreviewSearch,

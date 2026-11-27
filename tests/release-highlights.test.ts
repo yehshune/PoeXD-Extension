@@ -41,7 +41,7 @@ describe('release highlights', () => {
       {
         id: 'c',
         release: '1.11',
-        section: 'bookmarks',
+        section: 'localization',
         labelKey: 'onboarding.update.highlight.theme',
       },
       {

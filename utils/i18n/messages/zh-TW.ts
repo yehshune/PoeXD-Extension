@@ -66,14 +66,12 @@ export const ZH_TW_MESSAGES = {
   'settings.section.searchHotkeys': '搜尋表單與快捷鍵',
   'settings.section.resultDisplay': '搜尋結果增強',
   'settings.section.appearance': '側邊欄外觀',
-  'settings.section.bookmarks': '書籤與歷史',
   'settings.nav.ariaLabel': '設定分類導覽',
   'settings.nav.localization': '漢化',
   'settings.nav.pageLayout': '版面',
   'settings.nav.searchHotkeys': '搜尋',
   'settings.nav.resultDisplay': '結果',
   'settings.nav.appearance': '外觀',
-  'settings.nav.bookmarks': '書籤',
   'settings.nav.modules': '模組',
 
   // Settings Pane - Appearance & Panel
@@ -286,9 +284,9 @@ export const ZH_TW_MESSAGES = {
   'settings.searchEntryClickAction.option.open': '開啟搜尋',
   'settings.searchEntryClickAction.option.preview': '展開預覽',
 
-  'settings.bookmarkTooltip.label': '顯示書籤物品資訊預覽',
-  'settings.bookmarkTooltip.tooltip':
-    '滑鼠懸浮於書籤列時顯示物品與備註資訊提示框；關閉後僅保留點擊列操作',
+  'bookmark.settings.title': '書籤設定',
+  'history.settings.title': '歷史設定',
+  'searchEntry.settings.sharedClickHint': '左鍵點選行為會同步套用到書籤、搜尋歷史與 PoB 購物清單。',
 
   // Settings Pane - Alerts
   'settings.alert.saveFailedMessage': '設定無法儲存：{message}',

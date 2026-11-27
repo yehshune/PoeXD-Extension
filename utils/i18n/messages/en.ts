@@ -68,14 +68,12 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.section.searchHotkeys': 'Search Form & Hotkeys',
   'settings.section.resultDisplay': 'Search Results',
   'settings.section.appearance': 'Sidebar Appearance',
-  'settings.section.bookmarks': 'Bookmarks & History',
   'settings.nav.ariaLabel': 'Settings sections',
   'settings.nav.localization': 'Language',
   'settings.nav.pageLayout': 'Layout',
   'settings.nav.searchHotkeys': 'Search',
   'settings.nav.resultDisplay': 'Results',
   'settings.nav.appearance': 'Appearance',
-  'settings.nav.bookmarks': 'Bookmarks',
   'settings.nav.modules': 'Modules',
 
   // Settings Pane - Appearance & Panel
@@ -299,9 +297,10 @@ export const EN_MESSAGES: I18nMessageCatalog = {
   'settings.searchEntryClickAction.option.open': 'Open Search',
   'settings.searchEntryClickAction.option.preview': 'Toggle Preview',
 
-  'settings.bookmarkTooltip.label': 'Show bookmark item preview',
-  'settings.bookmarkTooltip.tooltip':
-    'Show an item and notes preview tooltip when hovering a bookmark row',
+  'bookmark.settings.title': 'Bookmark settings',
+  'history.settings.title': 'History settings',
+  'searchEntry.settings.sharedClickHint':
+    'Left-click behavior applies across Bookmarks, History, and PoB Shopping List.',
 
   // Settings Pane - Alerts
   'settings.alert.saveFailedMessage': 'Failed to save settings: {message}',

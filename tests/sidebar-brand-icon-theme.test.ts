@@ -91,14 +91,10 @@ describe('Sidebar UI Final Polish Contract & Verification', () => {
   });
 
   describe('4. ToggleGroup control alignment in Settings', () => {
-    it('both sidebarPosition and addBookmarkBtnPosition ToggleGroups match SelectTrigger width (w-[140px] shrink-0) with flex-1 items', () => {
+    it('sidebarPosition ToggleGroup matches SelectTrigger width (w-[140px] shrink-0) with flex-1 items', () => {
       // Panel position
       expect(settingsPaneSource).toMatch(
         /:model-value="sidebarPosition"[\s\S]*?class="w-\[140px\] shrink-0"/,
-      );
-      // Bookmark button position
-      expect(settingsPaneSource).toMatch(
-        /:model-value="addBookmarkBtnPosition"[\s\S]*?class="w-\[140px\] shrink-0"/,
       );
       // Items are flex-1
       expect(settingsPaneSource).toContain('class="flex-1"');
@@ -108,13 +104,6 @@ describe('Sidebar UI Final Polish Contract & Verification', () => {
       expect(settingsPaneSource).toContain('const handleSidebarPositionChange = (val?: any) => {');
       expect(settingsPaneSource).toMatch(
         /if\s*\(pos === ['"]left['"] \|\| pos === ['"]right['"]\)/,
-      );
-
-      expect(settingsPaneSource).toContain(
-        'const handleAddBookmarkBtnPositionChange = (val?: any) => {',
-      );
-      expect(settingsPaneSource).toMatch(
-        /if\s*\(pos === ['"]top['"] \|\| pos === ['"]bottom['"]\)/,
       );
     });
   });

@@ -13,6 +13,10 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
   );
   const pobBuildPaneSource = readFileSync('components/sidebar/pob-build/PobBuildPane.vue', 'utf8');
   const settingsPaneSource = readFileSync('components/sidebar/SettingsPane.vue', 'utf8');
+  const searchEntrySettingsPopoverSource = readFileSync(
+    'components/sidebar/SearchEntrySettingsPopover.vue',
+    'utf8',
+  );
   const toggleIndexSource = readFileSync('components/ui/toggle/index.ts', 'utf8');
   const mainCssSource = readFileSync('assets/main.css', 'utf8');
 
@@ -150,8 +154,8 @@ describe('Unified Responsive Design Contract: Header & Toolbars', () => {
       expect(toggleIndexSource).toContain('whitespace-nowrap');
     });
 
-    it('SettingsPane searchEntryClickAction ToggleGroupItem has whitespace-nowrap, overflow-hidden, and truncate', () => {
-      expect(settingsPaneSource).toMatch(
+    it('SearchEntrySettingsPopover searchEntryClickAction ToggleGroupItem has whitespace-nowrap, overflow-hidden, and truncate', () => {
+      expect(searchEntrySettingsPopoverSource).toMatch(
         /<ToggleGroupItem[\s\S]*?class="flex-1 px-1 whitespace-nowrap overflow-hidden"[\s\S]*?<span class="truncate block w-full text-center">/,
       );
     });

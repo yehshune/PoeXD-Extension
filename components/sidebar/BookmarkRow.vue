@@ -90,7 +90,7 @@
         <ArrowRight />
       </Button>
       <Button
-        v-else-if="preview.enableBookmarkTooltip.value !== false"
+        v-else
         variant="ghost"
         size="icon-sm"
         :class="isPreviewActive ? 'text-primary bg-primary/15' : undefined"

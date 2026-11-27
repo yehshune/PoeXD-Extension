@@ -176,7 +176,6 @@ export interface Preferences {
   /** 自動收合頂部官方標頭（帳號、金幣、Logo 與語系列；單欄與雙欄模式皆可用） */
   enableAutoHideOfficialHeader: boolean;
   enableAutoTitle: boolean;
-  enableBookmarkTooltip: boolean;
   enableFilterTilde: boolean;
   enableHotkeys: boolean;
   enableItemNormalizer: boolean;
@@ -434,12 +433,6 @@ export const PREFERENCE_SCHEMA = Object.freeze({
     scope: 'global',
     default: 'preview',
     validate: isOneOf(SEARCH_ENTRY_CLICK_ACTIONS),
-    legacyVersionedGlobal: true,
-  },
-  enableBookmarkTooltip: {
-    scope: 'global',
-    default: true,
-    validate: isBoolean,
     legacyVersionedGlobal: true,
   },
   enableAffixSelector: {

@@ -68,14 +68,12 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.section.searchHotkeys': '搜索表单与快捷键',
   'settings.section.resultDisplay': '搜索结果增强',
   'settings.section.appearance': '侧边栏外观',
-  'settings.section.bookmarks': '书签与历史',
   'settings.nav.ariaLabel': '设置分类导航',
   'settings.nav.localization': '汉化',
   'settings.nav.pageLayout': '布局',
   'settings.nav.searchHotkeys': '搜索',
   'settings.nav.resultDisplay': '结果',
   'settings.nav.appearance': '外观',
-  'settings.nav.bookmarks': '书签',
   'settings.nav.modules': '模块',
 
   // Settings Pane - Appearance & Panel
@@ -288,9 +286,9 @@ export const ZH_CN_MESSAGES: I18nMessageCatalog = {
   'settings.searchEntryClickAction.option.open': '打开搜索',
   'settings.searchEntryClickAction.option.preview': '展开预览',
 
-  'settings.bookmarkTooltip.label': '显示书签物品信息预览',
-  'settings.bookmarkTooltip.tooltip':
-    '鼠标悬停于书签条目时显示物品与备注信息提示框；关闭后仅保留点击条目操作',
+  'bookmark.settings.title': '书签设置',
+  'history.settings.title': '历史设置',
+  'searchEntry.settings.sharedClickHint': '左键点击行为会同步应用到书签、搜索历史与 PoB 购物清单。',
 
   // Settings Pane - Alerts
   'settings.alert.saveFailedMessage': '设置无法保存：{message}',

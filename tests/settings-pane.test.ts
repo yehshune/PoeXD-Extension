@@ -298,12 +298,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
   };
 
-  type SelectControl = 'theme' | 'displayLocale' | 'addBookmarkBtnPosition';
+  type SelectControl = 'theme' | 'displayLocale';
 
   const SELECT_CONTROL_LABELS: Record<SelectControl, string> = {
     theme: '主題',
     displayLocale: '語言',
-    addBookmarkBtnPosition: '加入書籤按鈕位置',
   };
 
   const findSelectTrigger = (
@@ -408,15 +407,15 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       expect(trigger.className).toContain('shrink-0');
     });
 
-    // Verify 3 ToggleGroups (panel position, add bookmark button position, left-click action)
+    // Verify 1 ToggleGroup (panel position; bookmark/history toggles live in their own pane popovers)
     const toggleGroups = container.querySelectorAll('[data-slot="toggle-group"]');
-    expect(toggleGroups.length).toBe(3);
+    expect(toggleGroups.length).toBe(1);
     toggleGroups.forEach((tg) => {
       expect(tg.className).toContain('w-[140px]');
       expect(tg.className).toContain('shrink-0');
     });
     const toggleItems = container.querySelectorAll('[data-slot="toggle-group-item"]');
-    expect(toggleItems.length).toBe(6);
+    expect(toggleItems.length).toBe(2);
     toggleItems.forEach((item) => {
       expect(item.className).toContain('flex-1');
     });
@@ -432,22 +431,22 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Verify no RadioGroups remain in SettingsPane
     expect(container.querySelectorAll('[data-slot="radio-group"]').length).toBe(0);
 
-    // On/off settings use Switch (16 settings + 7 Sidebar Modules), sized by the checkbox token
+    // On/off settings use Switch (15 settings + 7 Sidebar Modules), sized by the checkbox token
     expect(container.querySelectorAll('[data-slot="checkbox"]').length).toBe(0);
     const switches = container.querySelectorAll('[data-slot="switch"]');
-    expect(switches.length).toBe(23);
+    expect(switches.length).toBe(22);
     switches.forEach((sw) => {
       expect(sw.className).toContain('h-[var(--checkbox-size,18px)]');
     });
 
-    // Verify 7 sections exist in priority order grouped into Official Trade Site vs PoeXD Sidebar
+    // Verify 6 sections exist in priority order grouped into Official Trade Site vs PoeXD Sidebar
     expect(container.querySelectorAll('[data-slot="collapsible"]').length).toBe(0);
     const groupHeadings = Array.from(
       container.querySelectorAll<HTMLElement>('[data-settings-group-heading]'),
     ).map((el) => el.getAttribute('data-settings-group-heading'));
     expect(groupHeadings).toEqual(['officialPage', 'sidebar']);
     const triggers = container.querySelectorAll('[data-settings-section] > header h3');
-    expect(triggers.length).toBe(7);
+    expect(triggers.length).toBe(6);
     const sectionTitles = Array.from(triggers).map((t) => t.textContent?.trim());
     expect(sectionTitles).toEqual([
       '語言與市集漢化',
@@ -455,7 +454,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       '搜尋表單與快捷鍵',
       '搜尋結果增強',
       '側邊欄外觀',
-      '書籤與歷史',
       '側邊欄模組',
     ]);
     expect(sectionTitles).not.toContain('桌面連接器');
@@ -464,8 +462,8 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     // Verify official-page layout settings live in pageLayout while sidebar appearance stays in appearance
     const pageLayoutSection = container.querySelector('[data-settings-section="pageLayout"]');
     const appearanceSection = container.querySelector('[data-settings-section="appearance"]');
-    const bookmarksSection = container.querySelector('[data-settings-section="bookmarks"]');
     const modulesSection = container.querySelector('[data-settings-section="modules"]');
+    expect(container.querySelector('[data-settings-section="bookmarks"]')).toBeNull();
     expect(pageLayoutSection?.querySelector('#enable-two-column-layout')).not.toBeNull();
     expect(pageLayoutSection?.querySelector('#enable-auto-hide-official-header')).not.toBeNull();
     expect(pageLayoutSection?.querySelector('#enable-pure-background')).not.toBeNull();
@@ -474,7 +472,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(appearanceSection?.querySelector('#enable-pure-background')).toBeNull();
     expect(appearanceSection?.querySelector('#enable-auto-title')).toBeNull();
     expect(appearanceSection?.querySelector('#density-compact')).not.toBeNull();
-    expect(bookmarksSection?.querySelector('[data-test="pob-share-permission"]')).toBeNull();
     expect(
       modulesSection?.querySelector(
         '[data-sidebar-module="pob-build"] [data-test="pob-share-permission"]',
@@ -522,7 +519,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       '搜尋表單與快捷鍵',
       '搜尋結果增強',
       '側邊欄外觀',
-      '書籤與歷史',
       '側邊欄模組',
     ]);
 
@@ -536,7 +532,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       '搜索表单与快捷键',
       '搜索结果增强',
       '侧边栏外观',
-      '书签与历史',
       '侧边栏模块',
     ]);
     expect(container.textContent).toContain('主题');
@@ -552,7 +547,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'Search Form & Hotkeys',
       'Search Results',
       'Sidebar Appearance',
-      'Bookmarks & History',
       'Sidebar modules',
     ]);
     expect(container.textContent).toContain('Theme');
@@ -573,7 +567,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'Search Form & Hotkeys',
       'Search Results',
       'Sidebar Appearance',
-      'Bookmarks & History',
       'Sidebar modules',
     ]);
     expect(triggersEn[0].textContent).toContain('日本語');
@@ -928,7 +921,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
       'searchHotkeys',
       'resultDisplay',
       'appearance',
-      'bookmarks',
       'modules',
     ]);
     const navButtons = Array.from(
@@ -1302,11 +1294,11 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
     // A section title match keeps every row in that section visible
-    input.value = '書籤與歷史';
+    input.value = '側邊欄外觀';
     input.dispatchEvent(new Event('input'));
     await new Promise((r) => setTimeout(r, 180));
     await flushAsync();
-    expect(visibleSections()).toEqual(['bookmarks']);
+    expect(visibleSections()).toEqual(['appearance']);
 
     // Hidden keywords keep removed descriptions searchable
     input.value = '翻譯';
@@ -1339,7 +1331,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     await flushAsync();
     // Clearing the query keeps the search input open and shows every section again
     expect(container.querySelector('[data-settings-search]')).not.toBeNull();
-    expect(visibleSections().length).toBe(7);
+    expect(visibleSections().length).toBe(6);
     expect(container.querySelector('[data-settings-search-empty]')).toBeNull();
 
     // Escape closes the search box, clears the query, and restores the nav buttons
@@ -1353,7 +1345,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(container.querySelector('[data-settings-search]')).toBeNull();
     expect(container.querySelector('[data-settings-nav]')).not.toBeNull();
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
-    expect(visibleSections().length).toBe(7);
+    expect(visibleSections().length).toBe(6);
   });
 
   it('toggles Sidebar Modules and keeps the enabled count in sync', async () => {
@@ -1371,32 +1363,15 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(historySwitch.getAttribute('data-state')).toBe('unchecked');
     expect(count()).toBe('已開啟 6 / 7');
 
-    // Related-settings shortcut is offered only for enabled modules with a settings section
+    // Module-local settings live in their own panes, so no module row shows a related-settings jump button
     const bookmarkRow = container.querySelector('[data-sidebar-module="bookmark"]');
     expect(
       bookmarkRow?.querySelector('[data-sidebar-module-action="related-settings"]'),
-    ).not.toBeNull();
+    ).toBeNull();
     const historyRow = container.querySelector('[data-sidebar-module="history"]');
     expect(historyRow?.querySelector('[data-sidebar-module-action="related-settings"]')).toBeNull();
     const pinnedRow = container.querySelector('[data-sidebar-module="pinned-items"]');
     expect(pinnedRow?.querySelector('[data-sidebar-module-action="related-settings"]')).toBeNull();
-  });
-
-  it('updates bookmark button position via ToggleGroup and guards against empty value', async () => {
-    const { container } = await mountSettingsPane();
-    expect(currentModule?.read().addBookmarkBtnPosition).toBe('top');
-
-    // Toggle 'bottom' (下方)
-    await changeToggleGroupValue(container, 'bottom');
-    expect(currentModule?.read().addBookmarkBtnPosition).toBe('bottom');
-
-    // Toggle 'top' (右上)
-    await changeToggleGroupValue(container, 'top');
-    expect(currentModule?.read().addBookmarkBtnPosition).toBe('top');
-
-    // Clicking active 'top' again should not clear the value
-    await changeToggleGroupValue(container, 'top');
-    expect(currentModule?.read().addBookmarkBtnPosition).toBe('top');
   });
 
   it('toggles checkboxes and persists changes to preferences', async () => {
@@ -1502,18 +1477,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(currentModule?.read().enableResultModQuickFilter).toBe(false);
     expect(quickFilterGuideBtn.disabled).toBe(true);
     expect(quickFilterRow.querySelector('[data-settings-guide-hint]')).not.toBeNull();
-
-    // Bookmark tooltip checkbox
-    const bookmarkTooltipCheckbox = container.querySelector(
-      '#enable-bookmark-tooltip',
-    ) as HTMLElement;
-    expect(bookmarkTooltipCheckbox).not.toBeNull();
-    expect(currentModule?.read().enableBookmarkTooltip).toBe(true);
-
-    bookmarkTooltipCheckbox.click();
-    await flushAsync();
-
-    expect(currentModule?.read().enableBookmarkTooltip).toBe(false);
 
     // 市集漢化：預設關閉，勾選後寫入全域偏好
     const marketCheckbox = container.querySelector('#enable-market-translation') as HTMLElement;
@@ -1781,12 +1744,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     );
     await flushAsync();
     expect(currentModule?.read().hotkeyClear).toBe('Ctrl+c');
-
-    // 4. Another enum preference: addBookmarkBtnPosition
-    await changeToggleGroupValue(container, 'bottom');
-    expect(currentModule?.read().addBookmarkBtnPosition).toBe('bottom');
-    await changeToggleGroupValue(container, 'top');
-    expect(currentModule?.read().addBookmarkBtnPosition).toBe('top');
   });
 
   it('static guard: uses single reactive preferenceState with toRefs and Object.assign', async () => {
@@ -1837,7 +1794,7 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(content).toContain('const fuzzySearchEnabled = computed');
   });
 
-  it('renders ToggleGroups for sidebarPosition and addBookmarkBtnPosition with outline variant', async () => {
+  it('renders ToggleGroup for sidebarPosition with outline variant', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const settingsPanePath = path.resolve(__dirname, '../components/sidebar/SettingsPane.vue');
@@ -1845,9 +1802,6 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
 
     expect(settingsContent).toMatch(
       /<ToggleGroup[\s\S]*?variant="outline"[\s\S]*?:model-value="sidebarPosition"/,
-    );
-    expect(settingsContent).toMatch(
-      /<ToggleGroup[\s\S]*?variant="outline"[\s\S]*?:model-value="addBookmarkBtnPosition"/,
     );
   });
 
@@ -1933,22 +1887,22 @@ describe('SettingsPane shadcn-vue Component Integration & Data Flow', () => {
     expect(bookmarkLead?.className).toContain('items-center');
     expect(bookmarkLead?.className).not.toContain('items-start');
 
-    // 3. Clicking related-settings highlights the target section temporarily
+    // 3. Clicking a nav quick-jump pill highlights the target section temporarily
     vi.useFakeTimers();
     try {
       const jumpBtn = container.querySelector<HTMLButtonElement>(
-        '[data-sidebar-module="bookmark"] [data-sidebar-module-action="related-settings"]',
+        '[data-settings-nav-target="appearance"]',
       )!;
       expect(jumpBtn).not.toBeNull();
       jumpBtn.click();
       await nextTick();
 
-      const bookmarksSection = container.querySelector('[data-settings-section="bookmarks"]');
-      expect(bookmarksSection?.getAttribute('data-settings-section-highlighted')).toBe('true');
+      const appearanceSection = container.querySelector('[data-settings-section="appearance"]');
+      expect(appearanceSection?.getAttribute('data-settings-section-highlighted')).toBe('true');
 
       vi.advanceTimersByTime(1700);
       await nextTick();
-      expect(bookmarksSection?.getAttribute('data-settings-section-highlighted')).toBeNull();
+      expect(appearanceSection?.getAttribute('data-settings-section-highlighted')).toBeNull();
     } finally {
       vi.useRealTimers();
     }

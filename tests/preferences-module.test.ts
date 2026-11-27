@@ -20,7 +20,6 @@ describe('Preferences module interface', () => {
       enableAffixSelector: true,
       enableAutoHideOfficialHeader: false,
       enableAutoTitle: true,
-      enableBookmarkTooltip: true,
       enableFilterTilde: true,
       enableHotkeys: true,
       enableItemNormalizer: true,
@@ -536,7 +535,6 @@ describe('Preferences module interface', () => {
       enableFilterTilde: false,
       addBookmarkBtnPosition: 'bottom',
       searchEntryClickAction: 'open',
-      enableBookmarkTooltip: false,
     });
 
     expect(updateRes).toEqual({ ok: true, changed: true });
@@ -556,7 +554,6 @@ describe('Preferences module interface', () => {
       enableFilterTilde: false,
       addBookmarkBtnPosition: 'bottom',
       searchEntryClickAction: 'open',
-      enableBookmarkTooltip: false,
     });
     expect(storage.inspect().collapsedTabTop_poe1).toBeUndefined();
     expect(storage.inspect().collapsedTabTop_poe2).toBeUndefined();

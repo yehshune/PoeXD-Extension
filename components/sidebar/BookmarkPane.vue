@@ -38,6 +38,15 @@
           >
             <Search />
           </Button>
+          <SearchEntrySettingsPopover
+            scope="bookmark"
+            :open="isSettingsOpen"
+            :add-bookmark-btn-position="addBookmarkBtnPosition"
+            :search-entry-click-action="searchEntryClickAction"
+            @update:open="handleSettingsPopoverOpenChange"
+            @update:add-bookmark-btn-position="updateAddBookmarkBtnPosition"
+            @update:search-entry-click-action="updateSearchEntryClickAction"
+          />
           <div class="dropdown-menu-container" data-bookmark-transfer-menu>
             <DropdownMenu v-model:open="isTransferMenuOpen">
               <DropdownMenuTrigger as-child>
@@ -297,7 +306,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onUnmounted, computed, provide } from 'vue';
+import { defineComponent, ref, onUnmounted, computed, provide, watch } from 'vue';
 import { t } from '@/utils/i18n';
 import SidebarPane from './layout/SidebarPane.vue';
 import SidebarEmptyState from './layout/SidebarEmptyState.vue';
@@ -345,7 +354,8 @@ import { getFolderDeleteImpact } from '@/utils/bookmark-folder-tree';
 import { createChromeBookmarkClient } from '@/utils/bookmark-messaging';
 import { describeBookmarkImportFailure } from '@/utils/bookmark-transfer-messages';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
-import { getPreferences } from '@/utils/preferences';
+import { getPreferences, type Preferences, type PreferencesModule } from '@/utils/preferences';
+import type { BookmarkButtonPosition, SearchEntryClickAction } from '@/utils/preferences-contract';
 import { getPoeVersion } from '@/utils/trade-context';
 import { createBookmarkModel } from './bookmark-model';
 import {
@@ -354,6 +364,7 @@ import {
 } from './bookmark-transfer-workflow';
 import { useBookmarkWorkspace } from './bookmark-workspace';
 import BookmarkImportDialog from './BookmarkImportDialog.vue';
+import SearchEntrySettingsPopover from './SearchEntrySettingsPopover.vue';
 import TradeSearchPreviewPopover from './search-preview/TradeSearchPreviewPopover.vue';
 import type { BookmarkTransferPayload, BookmarkImportMode } from '@/utils/bookmark-transfer';
 
@@ -367,6 +378,7 @@ export default defineComponent({
     BookmarkFolderNode,
     BookmarkIcon,
     BookmarkImportDialog,
+    SearchEntrySettingsPopover,
     TradeSearchPreviewPopover,
     TooltipProvider,
     ScrollAreaRoot,
@@ -395,11 +407,18 @@ export default defineComponent({
     Download,
     RefreshCw,
   },
-  setup() {
+  props: {
+    active: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  setup(props) {
     const sidebarPaneRef = ref<any>(null);
     const paneRoot = computed(() => (sidebarPaneRef.value?.$el as HTMLElement | null) ?? null);
     const version = getPoeVersion();
     const listRenderKey = ref(0);
+    let preferencesModule: PreferencesModule | null = null;
     let stopPreferences: (() => void) | undefined;
 
     // 導入拖曳垃圾桶 Composable（trashZone 由 setTrashZoneRef 綁定並自動管理監聽與清理）
@@ -425,6 +444,7 @@ export default defineComponent({
       alongside: async () => {
         const preferencesOutcome = await getPreferences(version);
         if (!preferencesOutcome.ok) throw new Error(preferencesOutcome.error.message);
+        preferencesModule = preferencesOutcome.value;
         stopPreferences?.();
         stopPreferences = preferencesOutcome.value.subscribe((snapshot) => {
           workspace.setPreferences(snapshot);
@@ -433,6 +453,40 @@ export default defineComponent({
     });
 
     const { tree, editing, menus, actions, preview } = workspace;
+
+    const updatePreferences = async (changes: Partial<Preferences>) => {
+      if (!preferencesModule) return;
+      const outcome = await preferencesModule.update(changes);
+      if (outcome.ok) return;
+      workspace.setPreferences(preferencesModule.read());
+      const alert = (window as { poexdAlert?: (msg: string, title?: string) => Promise<void> })
+        .poexdAlert;
+      if (typeof alert === 'function') {
+        await alert(
+          t('settings.alert.saveFailedMessage', { message: outcome.error.message }),
+          t('common.saveFailed'),
+        );
+      }
+    };
+
+    const isSettingsOpen = ref(false);
+    watch(
+      () => props.active,
+      (active) => {
+        if (!active) isSettingsOpen.value = false;
+      },
+    );
+
+    const handleSettingsPopoverOpenChange = (open: boolean) => {
+      isSettingsOpen.value = open;
+      if (open) menus.closeAll();
+    };
+    const updateAddBookmarkBtnPosition = (value: BookmarkButtonPosition) => {
+      void updatePreferences({ addBookmarkBtnPosition: value });
+    };
+    const updateSearchEntryClickAction = (value: SearchEntryClickAction) => {
+      void updatePreferences({ searchEntryClickAction: value });
+    };
 
     const sortableController = useBookmarkSortables({
       bookmarks: tree.bookmarks,
@@ -537,6 +591,12 @@ export default defineComponent({
       isAllCollapsed: tree.isAllCollapsed,
       isCollectionEmpty: tree.isCollectionEmpty,
       sidebarPosition: tree.sidebarPosition,
+      addBookmarkBtnPosition: tree.addBookmarkBtnPosition,
+      searchEntryClickAction: preview.searchEntryClickAction,
+      isSettingsOpen,
+      handleSettingsPopoverOpenChange,
+      updateAddBookmarkBtnPosition,
+      updateSearchEntryClickAction,
       toggleExpandAll: tree.toggleExpandAll,
       searchQuery: tree.search.query,
       isSearchVisible: tree.search.isVisible,

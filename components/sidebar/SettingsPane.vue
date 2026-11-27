@@ -786,79 +786,7 @@
           </SettingsRow>
         </SettingsSection>
 
-        <!-- 6. 書籤與歷史 -->
-        <SettingsSection
-          section-id="bookmarks"
-          :title="t('settings.section.bookmarks')"
-          :icon="Bookmark"
-          :highlighted="highlightedSection === 'bookmarks'"
-          :collapsed="collapsedSections.has('bookmarks')"
-          @toggle-collapse="toggleSectionCollapse('bookmarks')"
-        >
-          <SettingsRow
-            :label="t('settings.bookmarkBtnPosition.label')"
-            :details="t('settings.bookmarkBtnPosition.tooltip')"
-          >
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              :model-value="addBookmarkBtnPosition"
-              class="w-[140px] shrink-0"
-              @update:model-value="handleAddBookmarkBtnPositionChange"
-            >
-              <ToggleGroupItem
-                v-for="opt in BOOKMARK_BUTTON_POSITION_OPTIONS"
-                :key="opt.value"
-                :value="opt.value"
-                :aria-label="opt.label"
-                size="sm"
-                class="flex-1"
-              >
-                {{ opt.label }}
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </SettingsRow>
-
-          <SettingsRow
-            :label="t('settings.searchEntryClickAction.label')"
-            :details="t('settings.searchEntryClickAction.tooltip')"
-          >
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              data-test="search-entry-click-action"
-              :model-value="searchEntryClickAction"
-              class="w-[140px] shrink-0"
-              @update:model-value="handleSearchEntryClickActionChange"
-            >
-              <ToggleGroupItem
-                v-for="opt in SEARCH_ENTRY_CLICK_ACTION_OPTIONS"
-                :key="opt.value"
-                :value="opt.value"
-                :aria-label="opt.label"
-                size="sm"
-                class="flex-1 px-1 whitespace-nowrap overflow-hidden"
-                :title="opt.label"
-              >
-                <span class="truncate block w-full text-center">{{ opt.label }}</span>
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </SettingsRow>
-
-          <SettingsRow
-            :label="t('settings.bookmarkTooltip.label')"
-            :details="t('settings.bookmarkTooltip.tooltip')"
-            control-id="enable-bookmark-tooltip"
-          >
-            <Switch
-              id="enable-bookmark-tooltip"
-              v-model="enableBookmarkTooltip"
-              @update:model-value="savePreference('enableBookmarkTooltip')"
-            />
-          </SettingsRow>
-        </SettingsSection>
-
-        <!-- 7. 側邊欄模組 -->
+        <!-- 6. 側邊欄模組 -->
         <SettingsSection
           section-id="modules"
           :title="t('settings.section.modules')"
@@ -943,7 +871,6 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
-  Bookmark,
   ChevronDown,
   Keyboard,
   Languages,
@@ -1004,11 +931,8 @@ import {
 import { previewThemeOverrideOnHost } from '@/lib/theme/theme-runtime';
 import { findThemeHost } from '@/lib/theme/page-theme-bridge';
 import {
-  BOOKMARK_BUTTON_POSITION_OPTIONS,
   DISPLAY_LOCALE_LABELS,
   DISPLAY_LOCALE_OPTIONS,
-  SEARCH_ENTRY_CLICK_ACTION_LABELS,
-  SEARCH_ENTRY_CLICK_ACTION_OPTIONS,
   SIDEBAR_POSITION_OPTIONS,
   THEME_LABELS,
   TWO_COLUMN_MAX_WIDTH_LABELS,
@@ -1100,9 +1024,6 @@ export default defineComponent({
       marketTranslation,
       marketTranslationBilingual,
       marketTranslationResultBilingual,
-      addBookmarkBtnPosition,
-      enableBookmarkTooltip,
-      searchEntryClickAction,
     } = toRefs(preferenceState);
 
     const marketTranslationLocaleMismatch = computed(
@@ -1312,22 +1233,6 @@ export default defineComponent({
       if (pos === 'left' || pos === 'right') {
         sidebarPosition.value = pos;
         savePreference('sidebarPosition');
-      }
-    };
-
-    const handleAddBookmarkBtnPositionChange = (val?: any) => {
-      const pos = Array.isArray(val) ? val[0] : val;
-      if (pos === 'top' || pos === 'bottom') {
-        addBookmarkBtnPosition.value = pos;
-        savePreference('addBookmarkBtnPosition');
-      }
-    };
-
-    const handleSearchEntryClickActionChange = (val?: any) => {
-      const action = Array.isArray(val) ? val[0] : val;
-      if (action === 'open' || action === 'preview') {
-        searchEntryClickAction.value = action;
-        savePreference('searchEntryClickAction');
       }
     };
 
@@ -1702,7 +1607,6 @@ export default defineComponent({
       { id: 'searchHotkeys', labelKey: 'settings.nav.searchHotkeys' },
       { id: 'resultDisplay', labelKey: 'settings.nav.resultDisplay' },
       { id: 'appearance', labelKey: 'settings.nav.appearance' },
-      { id: 'bookmarks', labelKey: 'settings.nav.bookmarks' },
       { id: 'modules', labelKey: 'settings.nav.modules' },
     ];
 
@@ -1712,7 +1616,6 @@ export default defineComponent({
       'searchHotkeys',
       'resultDisplay',
       'appearance',
-      'bookmarks',
       'modules',
     ];
 
@@ -1836,7 +1739,6 @@ export default defineComponent({
       PanelsTopLeft,
       Keyboard,
       ListChecks,
-      Bookmark,
       theme,
       THEME_IDS,
       THEME_LABELS,
@@ -1872,11 +1774,6 @@ export default defineComponent({
       TWO_COLUMN_MAX_WIDTH_OPTIONS,
       fontSizeScale,
       densityScale,
-      BOOKMARK_BUTTON_POSITION_OPTIONS,
-      SEARCH_ENTRY_CLICK_ACTION_LABELS,
-      SEARCH_ENTRY_CLICK_ACTION_OPTIONS,
-      searchEntryClickAction,
-      handleSearchEntryClickActionChange,
       hotkeyFocus,
       hotkeyClear,
       enableHotkeys,
@@ -1911,12 +1808,9 @@ export default defineComponent({
       refreshMarketTranslationCache,
       reloadPage,
       isPoe2: version === 'poe2',
-      addBookmarkBtnPosition,
-      enableBookmarkTooltip,
       savePreference,
       handleHotkeyChange,
       handleSidebarPositionChange,
-      handleAddBookmarkBtnPositionChange,
       handleFontSizeScaleChange,
       handleDensityChange,
       handleResultModHighlightStyleChange,

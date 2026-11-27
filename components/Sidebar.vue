@@ -169,10 +169,12 @@
                 <BookmarkPane
                   v-if="isTabMounted('bookmark') && isTabVisible('bookmark')"
                   v-show="activeTab === 'bookmark'"
+                  :active="!isCollapsed && activeTab === 'bookmark'"
                 />
                 <HistoryPane
                   v-if="isTabMounted('history') && isTabVisible('history')"
                   v-show="activeTab === 'history'"
+                  :active="!isCollapsed && activeTab === 'history'"
                 />
                 <StatGroupTemplatePane
                   v-if="isTabMounted('stat-group-template') && isTabVisible('stat-group-template')"

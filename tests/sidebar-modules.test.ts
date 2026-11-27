@@ -90,8 +90,9 @@ describe('Sidebar Modules domain', () => {
     expect(countEnabledSidebarModules(allOff)).toBe(0);
   });
 
-  it('points modules to related settings sections', () => {
-    expect(getSidebarModule('bookmark').settingsSection).toBe('bookmarks');
+  it('keeps module-local settings in their own panes rather than SettingsPane sections', () => {
+    expect(getSidebarModule('bookmark').settingsSection).toBeNull();
+    expect(getSidebarModule('history').settingsSection).toBeNull();
     expect(getSidebarModule('pob-build').settingsSection).toBeNull();
     expect(getSidebarModule('pinned-items').settingsSection).toBeNull();
     expect(() => getSidebarModule('nope' as never)).toThrow('Unknown Sidebar Module');

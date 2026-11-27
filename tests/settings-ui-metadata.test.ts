@@ -137,9 +137,14 @@ describe('Settings UI Metadata', () => {
     expect(Object.isFrozen(RESULT_MOD_HIGHLIGHT_COLOR_OPTIONS)).toBe(true);
   });
 
-  it('static guard: SettingsPane imports metadata and does not declare local options', () => {
+  it('static guard: SettingsPane and SearchEntrySettingsPopover import metadata and do not declare local options', () => {
     const settingsPanePath = path.resolve(__dirname, '../components/sidebar/SettingsPane.vue');
     const content = fs.readFileSync(settingsPanePath, 'utf-8');
+    const popoverPath = path.resolve(
+      __dirname,
+      '../components/sidebar/SearchEntrySettingsPopover.vue',
+    );
+    const popoverContent = fs.readFileSync(popoverPath, 'utf-8');
 
     // Should consume canonical constants in template
     expect(content).toMatch(/v-for="opt in SIDEBAR_POSITION_OPTIONS"/);
@@ -147,7 +152,8 @@ describe('Settings UI Metadata', () => {
     expect(content).not.toContain('SIDEBAR_SIZE_OPTIONS');
     expect(content).not.toContain('FONT_SIZE_MODE_OPTIONS');
     expect(content).not.toContain('DENSITY_OPTIONS');
-    expect(content).toContain('BOOKMARK_BUTTON_POSITION_OPTIONS');
+    expect(popoverContent).toContain('BOOKMARK_BUTTON_POSITION_OPTIONS');
+    expect(popoverContent).toContain('SEARCH_ENTRY_CLICK_ACTION_OPTIONS');
 
     // Should not define local options
     expect(content).not.toMatch(/const\s+sidebarPositionOptions\s*=/);
