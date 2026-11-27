@@ -22,11 +22,14 @@ describe('item-category-visuals', () => {
     expect(getCategoryColorDots('sapphire')).toEqual(['int']);
     expect(getCategoryColorDots('diamond')).toEqual(['prismatic']);
     expect(getCategoryColorDots('hybrid-flask')).toEqual(['str', 'int']);
-    expect(getCategoryColorDots('utility-flask')).toEqual(['ward']);
-    expect(getCategoryColorDots('iron-flask')).toEqual(['amber']);
+    expect(getCategoryColorDots('utility-flask')).toEqual(['utility']);
+    expect(getCategoryColorDots('iron-flask')).toEqual(['ward']);
     expect(getCategoryColorDots('one-hand-sword')).toEqual([]);
 
-    for (const tone of ['str', 'dex', 'int', 'ward', 'minion', 'prismatic', 'amber'] as const) {
+    expect(getCategoryDotToneClass('ward')).toContain('bg-amber-400');
+    expect(getCategoryDotToneClass('utility')).toContain('bg-cyan-400');
+
+    for (const tone of ['str', 'dex', 'int', 'ward', 'minion', 'prismatic', 'utility'] as const) {
       expect(getCategoryDotToneClass(tone)).toBeTruthy();
     }
   });

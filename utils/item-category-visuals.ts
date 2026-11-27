@@ -1,19 +1,19 @@
 /**
  * 物品類別選擇器的視覺與雙欄排版輔助：
- * - 為防具屬性、珠寶顏色、藥劑類型等子選項提供語意色點（PoE 紅力／綠敏／藍智／青保護／紫召喚）。
+ * - 為防具屬性、珠寶顏色、藥劑類型等子選項提供語意色點（PoE 紅力／綠敏／藍智／琥珀保護／紫召喚）。
  * - 將分組依估算視覺高度平衡分配到左右雙欄，縮短長清單捲動距離。
  */
 
-export type CategoryDotTone = 'str' | 'dex' | 'int' | 'ward' | 'minion' | 'prismatic' | 'amber';
+export type CategoryDotTone = 'str' | 'dex' | 'int' | 'ward' | 'minion' | 'prismatic' | 'utility';
 
 const DOT_TONE_CLASSES: Readonly<Record<CategoryDotTone, string>> = {
   str: 'bg-red-500 ring-1 ring-red-950/30',
   dex: 'bg-emerald-500 ring-1 ring-emerald-950/30',
   int: 'bg-blue-500 ring-1 ring-blue-950/30',
-  ward: 'bg-cyan-400 ring-1 ring-cyan-950/30',
+  ward: 'bg-amber-400 ring-1 ring-amber-950/30',
   minion: 'bg-purple-400 ring-1 ring-purple-950/30',
   prismatic: 'bg-gradient-to-tr from-red-400 via-amber-200 to-sky-400 ring-1 ring-black/25',
-  amber: 'bg-amber-400 ring-1 ring-amber-950/30',
+  utility: 'bg-cyan-400 ring-1 ring-cyan-950/30',
 };
 
 export function getCategoryDotToneClass(tone: CategoryDotTone): string {
@@ -39,12 +39,12 @@ const EXACT_SUB_DOTS: Readonly<Record<string, readonly CategoryDotTone[]>> = {
   'life-flask': ['str'],
   'mana-flask': ['int'],
   'hybrid-flask': ['str', 'int'],
-  'utility-flask': ['ward'],
-  'iron-flask': ['amber'],
+  'utility-flask': ['utility'],
+  'iron-flask': ['ward'],
 };
 
 /**
- * 依子類別鍵回傳語意色點（PoE 紅力／綠敏／藍智／青保護／紫召喚）。
+ * 依子類別鍵回傳語意色點（PoE 紅力／綠敏／藍智／琥珀保護／紫召喚）。
  */
 export function getCategoryColorDots(key: string): readonly CategoryDotTone[] {
   const exact = EXACT_SUB_DOTS[key];
