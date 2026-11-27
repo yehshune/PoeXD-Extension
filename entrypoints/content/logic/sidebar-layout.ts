@@ -290,6 +290,14 @@ export async function mountSidebarLayout(
     wrapper.style.setProperty('--poexd-host-right', currentPosition === 'right' ? '0px' : 'auto');
   };
   let isResizing = false;
+  let appliedLayoutCss = layoutStyle.textContent ?? '';
+  /** 同值不重寫：改 <style> 文字會讓整份官方文件重新解析與重算樣式 */
+  const writeLayoutCss = (state: PageLayoutState) => {
+    const css = buildPageLayoutCss(state);
+    if (css === appliedLayoutCss) return;
+    layoutStyle.textContent = css;
+    appliedLayoutCss = css;
+  };
   const updatePageLayout = () => {
     const state: PageLayoutState = {
       collapsed: currentCollapsed,
@@ -301,13 +309,16 @@ export async function mountSidebarLayout(
     syncToastHostInsets(metrics.pageMarginLeft, metrics.pageMarginRight);
 
     const contentEl = document.querySelector<HTMLElement>('.content');
-    if (contentEl) {
-      styledContentEl = contentEl;
-      applyDirectContentLayout(contentEl, state);
+    if (!contentEl) {
+      writeLayoutCss(state);
       return;
     }
 
-    layoutStyle.textContent = buildPageLayoutCss(state);
+    styledContentEl = contentEl;
+    applyDirectContentLayout(contentEl, state);
+    // 拖曳寬度期間只寫 inline（熱路徑）；拖曳結束、收合、換邊等低頻事件時同步 <style> 當備援，
+    // 避免官方重建 .content 讓 inline 消失後套到預留版面時的過期寬度
+    if (!isResizing) writeLayoutCss(state);
   };
   const updateLayout = () => {
     updateWrapper();

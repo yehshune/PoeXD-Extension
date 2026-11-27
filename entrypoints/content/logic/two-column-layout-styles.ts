@@ -17,21 +17,41 @@ import {
 import { PAGE_GUIDE_MOCK_ATTR } from '@/utils/trade-results-root';
 import { CONSOLE_RESULT_ONLY_ATTR } from './live-search-console-host-guard';
 
-export const TWO_COLUMN_STYLE_ID = 'poexd-two-column-layout-style';
-export const TWO_COLUMN_ATTR = 'data-poexd-two-column';
-export const TWO_COLUMN_NARROW_ATTR = 'data-poexd-two-column-narrow';
-export const TWO_COLUMN_COLLAPSED_ATTR = 'data-poexd-two-column-collapsed';
-export const TWO_COLUMN_HIDE_HEADER_ATTR = 'data-poexd-two-column-hide-header';
-export const TWO_COLUMN_HEADER_OPEN_ATTR = 'data-poexd-two-column-header-open';
-export const TWO_COLUMN_SEARCH_BAR_ATTR = 'data-poexd-two-col-search-bar';
-export const TWO_COLUMN_CONTROLS_ATTR = 'data-poexd-two-col-controls';
-export const TWO_COLUMN_FILTERS_ATTR = 'data-poexd-two-col-filters';
-export const TWO_COLUMN_RESULTS_ATTR = 'data-poexd-two-col-results';
-export const TWO_COLUMN_SPLITTER_CLASS = 'poexd-two-col-splitter';
-export const TWO_COLUMN_COLLAPSE_BTN_CLASS = 'poexd-two-col-collapse-btn';
-export const TWO_COLUMN_HEADER_TAB_CLASS = 'poexd-two-col-header-tab';
-export const TWO_COLUMN_HEADER_BACKDROP_CLASS = 'poexd-two-col-header-backdrop';
-export const TWO_COLUMN_TOP_BTN_CLASS = 'poexd-two-col-top-btn';
+import {
+  TWO_COLUMN_STYLE_ID,
+  TWO_COLUMN_ATTR,
+  TWO_COLUMN_NARROW_ATTR,
+  TWO_COLUMN_COLLAPSED_ATTR,
+  TWO_COLUMN_HIDE_HEADER_ATTR,
+  TWO_COLUMN_HEADER_OPEN_ATTR,
+  TWO_COLUMN_SEARCH_BAR_ATTR,
+  TWO_COLUMN_CONTROLS_ATTR,
+  TWO_COLUMN_FILTERS_ATTR,
+  TWO_COLUMN_RESULTS_ATTR,
+  TWO_COLUMN_SPLITTER_CLASS,
+  TWO_COLUMN_COLLAPSE_BTN_CLASS,
+  TWO_COLUMN_HEADER_TAB_CLASS,
+  TWO_COLUMN_HEADER_BACKDROP_CLASS,
+  TWO_COLUMN_TOP_BTN_CLASS,
+} from '@/utils/two-column-dom-contract';
+
+export {
+  TWO_COLUMN_STYLE_ID,
+  TWO_COLUMN_ATTR,
+  TWO_COLUMN_NARROW_ATTR,
+  TWO_COLUMN_COLLAPSED_ATTR,
+  TWO_COLUMN_HIDE_HEADER_ATTR,
+  TWO_COLUMN_HEADER_OPEN_ATTR,
+  TWO_COLUMN_SEARCH_BAR_ATTR,
+  TWO_COLUMN_CONTROLS_ATTR,
+  TWO_COLUMN_FILTERS_ATTR,
+  TWO_COLUMN_RESULTS_ATTR,
+  TWO_COLUMN_SPLITTER_CLASS,
+  TWO_COLUMN_COLLAPSE_BTN_CLASS,
+  TWO_COLUMN_HEADER_TAB_CLASS,
+  TWO_COLUMN_HEADER_BACKDROP_CLASS,
+  TWO_COLUMN_TOP_BTN_CLASS,
+};
 
 const ACTIVE_SCOPE = `html[${TWO_COLUMN_ATTR}="active"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;
 const COLLAPSED_SCOPE = `html[${TWO_COLUMN_ATTR}="active"][${TWO_COLUMN_COLLAPSED_ATTR}="true"]:not([${CONSOLE_RESULT_ONLY_ATTR}="true"])`;

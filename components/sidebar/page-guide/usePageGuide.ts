@@ -3,7 +3,7 @@ import {
   TWO_COLUMN_ATTR,
   TWO_COLUMN_COLLAPSE_BTN_CLASS,
   TWO_COLUMN_COLLAPSED_ATTR,
-} from '@/entrypoints/content/logic/two-column-layout-styles';
+} from '@/utils/two-column-dom-contract';
 import { clampFontSizeScale } from '@/utils/appearance-preferences';
 import { clampCollapsedTabTop } from '@/utils/collapsed-tab-position';
 import { requestMainWorld, type PageGuideDemoAction } from '@/utils/cross-world-rpc';

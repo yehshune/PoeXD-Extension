@@ -446,6 +446,14 @@ describe('mountSidebarLayout transient width preview & live layout synchronizati
     dispatchPoeEvent('poexd-sidebar-resizing-changed', false);
     expect(mockCtx.shadowHost.style.getPropertyValue('--pxd-sidebar-width')).toBe('540px');
     expect(contentEl.style.getPropertyValue('transition')).toBe('none');
+    // 拖曳結束才同步 <style> 當備援：官方重建 .content 讓 inline 消失時不會套到預留版面的過期寬度
+    expect(layoutStyle.textContent).toContain('width: calc(100% - 540px) !important;');
+    expect(layoutStyle.textContent).toContain('margin-left: 540px !important;');
+
+    // 同值事件不重寫 <style>（改 <style> 文字會觸發整份官方文件樣式重算）
+    const styleTextNode = layoutStyle.firstChild;
+    dispatchPoeEvent('poexd-sidebar-collapsed-changed', false);
+    expect(layoutStyle.firstChild).toBe(styleTextNode);
   });
 
   it('syncs poexd-toast-container insets cleanly whether initToastHost mounts before reserveSidebarPageLayout or after mountSidebarLayout', async () => {

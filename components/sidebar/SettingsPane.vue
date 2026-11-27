@@ -1026,7 +1026,7 @@ import {
 import { getPreferences, type PreferencesModule } from '@/utils/preferences';
 import { getPoeVersion } from '@/utils/trade-context';
 import { getPageLoadPreferences } from '@/utils/page-load-preferences';
-import { TWO_COLUMN_NARROW_ATTR } from '@/entrypoints/content/logic/two-column-layout-styles';
+import { TWO_COLUMN_NARROW_ATTR } from '@/utils/two-column-dom-contract';
 import { extensionMessaging } from '@/utils/extension-protocol';
 import { dispatchPoeEvent } from '@/utils/event-contracts';
 
