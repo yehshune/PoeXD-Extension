@@ -58,3 +58,20 @@ export function setLabeledValue(
   parent.replaceChildren();
   appendLabeledValue(parent, label, value, valueClass, doc);
 }
+
+/**
+ * 值有變才寫入屬性：同值重寫仍會產生 MutationRecord，
+ * 會喚醒頁面上的 subtree 觀察者，甚至與其形成迴圈。
+ */
+export function setAttrIfChanged(el: Element, name: string, next: string): void {
+  if (el.getAttribute(name) !== next) {
+    el.setAttribute(name, next);
+  }
+}
+
+/** 值有變才寫入 textContent（理由同 `setAttrIfChanged`） */
+export function setTextIfChanged(el: Element | null, next: string): void {
+  if (el && el.textContent !== next) {
+    el.textContent = next;
+  }
+}

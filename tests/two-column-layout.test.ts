@@ -10,13 +10,11 @@ import {
   TWO_COLUMN_HEADER_OPEN_ATTR,
   TWO_COLUMN_HEADER_TAB_CLASS,
   TWO_COLUMN_HIDE_HEADER_ATTR,
-  TWO_COLUMN_MAX_WIDTH_VAR,
   TWO_COLUMN_RESULTS_ATTR,
   TWO_COLUMN_SEARCH_BAR_ATTR,
   TWO_COLUMN_SPLITTER_CLASS,
   TWO_COLUMN_STYLE_ID,
   TWO_COLUMN_TOP_BTN_CLASS,
-  TWO_COLUMN_WIDTH_VAR,
   buildTwoColumnLayoutCss,
   createTwoColumnLayoutController,
 } from '@/entrypoints/content/logic/two-column-layout';
@@ -196,8 +194,7 @@ describe('createTwoColumnLayoutController', () => {
     document.documentElement.removeAttribute(TWO_COLUMN_CONTROLS_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_FILTERS_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_RESULTS_ATTR);
-    document.documentElement.style.removeProperty(TWO_COLUMN_WIDTH_VAR);
-    document.documentElement.style.removeProperty(TWO_COLUMN_MAX_WIDTH_VAR);
+    document.documentElement.removeAttribute('style');
   });
 
   afterEach(() => {
@@ -213,8 +210,7 @@ describe('createTwoColumnLayoutController', () => {
     document.documentElement.removeAttribute(TWO_COLUMN_CONTROLS_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_FILTERS_ATTR);
     document.documentElement.removeAttribute(TWO_COLUMN_RESULTS_ATTR);
-    document.documentElement.style.removeProperty(TWO_COLUMN_WIDTH_VAR);
-    document.documentElement.style.removeProperty(TWO_COLUMN_MAX_WIDTH_VAR);
+    document.documentElement.removeAttribute('style');
   });
 
   it('uses PoE-native oklch styles, avoids scroll-jank CSS (no backdrop-filter or container-type), and promotes GPU scroll layers', () => {
@@ -251,7 +247,8 @@ describe('createTwoColumnLayoutController', () => {
     expect(css).toContain('text-overflow: ellipsis !important;');
     expect(css).not.toContain('repeat(3, minmax(0, 1fr))');
     expect(css).not.toContain('.search-advanced-pane.brown {\n      order: -1');
-    expect(css).toContain(TWO_COLUMN_MAX_WIDTH_VAR);
+    // 寬度與上限改由 inline 樣式寫在 #trade／.wrapper，CSS 不再引用 <html> 變數
+    expect(css).not.toContain('var(--poexd-two-col');
   });
 
   it('activates via batch applyConfig, sets responsive breakpoint attributes, manages header overlay, and cleans up completely', () => {
@@ -273,8 +270,7 @@ describe('createTwoColumnLayoutController', () => {
     expect(tradeEl.style.getPropertyValue('grid-template-columns')).toBe('960px minmax(0, 1fr)');
     expect(wrapperEl.style.getPropertyValue('max-width')).toBe('1920px');
     // 不在 <html> 寫入動態 CSS 變數，避免觸發整份文件 2 萬+ 節點樣式重算
-    expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_WIDTH_VAR)).toBe('');
-    expect(document.documentElement.style.getPropertyValue(TWO_COLUMN_MAX_WIDTH_VAR)).toBe('');
+    expect(document.documentElement.getAttribute('style')).toBeNull();
     expect(document.documentElement.getAttribute(TWO_COLUMN_SEARCH_BAR_ATTR)).toBe('single');
     expect(document.documentElement.getAttribute(TWO_COLUMN_CONTROLS_ATTR)).toBe('single');
     expect(document.documentElement.getAttribute(TWO_COLUMN_FILTERS_ATTR)).toBe('wide');
@@ -474,6 +470,77 @@ describe('createTwoColumnLayoutController', () => {
     } finally {
       observeSpy.mockRestore();
       disconnectSpy.mockRestore();
+    }
+  });
+
+  it('does not rewrite control labels or the collapse icon on repeated sync, but still reflects collapse toggles', () => {
+    mountMockTradeDom(2560);
+    const controller = createTwoColumnLayoutController();
+    controller.applyConfig({ enabled: true, autoHideHeader: true });
+
+    const collapseBtn = document.querySelector<HTMLButtonElement>(
+      `.${TWO_COLUMN_COLLAPSE_BTN_CLASS}`,
+    )!;
+    const iconBefore = collapseBtn.firstElementChild;
+    const recorder = new MutationObserver(() => {});
+    recorder.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      characterData: true,
+    });
+
+    for (let i = 0; i < 5; i += 1) controller.sync();
+    // 拖曳／縮放時 sync() 每幀執行：同值重寫會喚醒頁面上的 subtree 觀察者
+    expect(recorder.takeRecords()).toEqual([]);
+    expect(collapseBtn.firstElementChild).toBe(iconBefore);
+
+    collapseBtn.click();
+    expect(collapseBtn.getAttribute('aria-expanded')).toBe('false');
+    expect(collapseBtn.firstElementChild).not.toBe(iconBefore);
+    recorder.takeRecords();
+
+    controller.sync();
+    expect(recorder.takeRecords()).toEqual([]);
+
+    recorder.disconnect();
+    controller.cleanup();
+  });
+
+  it('leaves window resize to the .content ResizeObserver instead of forcing a synchronous reflow', () => {
+    const callbacks: ResizeObserverCallback[] = [];
+    class FakeResizeObserver {
+      constructor(cb: ResizeObserverCallback) {
+        callbacks.push(cb);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    try {
+      const content = mountMockTradeDom(2560);
+      const rectSpy = vi.mocked(content.getBoundingClientRect);
+      const controller = createTwoColumnLayoutController();
+      controller.applyConfig({ enabled: true });
+      expect(callbacks).toHaveLength(1);
+
+      rectSpy.mockClear();
+      window.dispatchEvent(new Event('resize'));
+      expect(rectSpy).not.toHaveBeenCalled();
+
+      // ResizeObserver 回報的 borderBoxSize 直接驅動 sync，不需量測
+      callbacks[0](
+        [{ borderBoxSize: [{ inlineSize: 900, blockSize: 900 }] } as unknown as ResizeObserverEntry],
+        {} as ResizeObserver,
+      );
+      expect(rectSpy).not.toHaveBeenCalled();
+      expect(document.documentElement.getAttribute(TWO_COLUMN_ATTR)).toBeNull();
+      expect(document.documentElement.getAttribute(TWO_COLUMN_NARROW_ATTR)).toBe('true');
+
+      controller.cleanup();
+    } finally {
+      vi.unstubAllGlobals();
     }
   });
 });

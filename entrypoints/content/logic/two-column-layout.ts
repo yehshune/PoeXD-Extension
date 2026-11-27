@@ -9,7 +9,7 @@ import { listenPoeEvent } from '@/utils/event-contracts';
 import { t } from '@/utils/i18n';
 import type { TradePageRole } from '@/utils/live-search-contract';
 import type { TwoColumnMaxWidth } from '@/utils/preferences-contract';
-import { createSvgIcon } from '@/utils/safe-dom';
+import { createSvgIcon, setAttrIfChanged } from '@/utils/safe-dom';
 import {
   TWO_COLUMN_COLUMN_GAP,
   TWO_COLUMN_DEFAULT_FILTER_WIDTH,
@@ -34,13 +34,11 @@ import {
   TWO_COLUMN_HEADER_OPEN_ATTR,
   TWO_COLUMN_HEADER_TAB_CLASS,
   TWO_COLUMN_HIDE_HEADER_ATTR,
-  TWO_COLUMN_MAX_WIDTH_VAR,
   TWO_COLUMN_RESULTS_ATTR,
   TWO_COLUMN_SEARCH_BAR_ATTR,
   TWO_COLUMN_SPLITTER_CLASS,
   TWO_COLUMN_STYLE_ID,
   TWO_COLUMN_TOP_BTN_CLASS,
-  TWO_COLUMN_WIDTH_VAR,
   buildTwoColumnLayoutCss,
 } from './two-column-layout-styles';
 
@@ -55,13 +53,11 @@ export {
   TWO_COLUMN_HEADER_OPEN_ATTR,
   TWO_COLUMN_HEADER_TAB_CLASS,
   TWO_COLUMN_HIDE_HEADER_ATTR,
-  TWO_COLUMN_MAX_WIDTH_VAR,
   TWO_COLUMN_RESULTS_ATTR,
   TWO_COLUMN_SEARCH_BAR_ATTR,
   TWO_COLUMN_SPLITTER_CLASS,
   TWO_COLUMN_STYLE_ID,
   TWO_COLUMN_TOP_BTN_CLASS,
-  TWO_COLUMN_WIDTH_VAR,
   buildTwoColumnLayoutCss,
 };
 
@@ -137,6 +133,8 @@ export function createTwoColumnLayoutController(
   let headerBackdropEl: HTMLDivElement | null = null;
   let topBtnEl: HTMLButtonElement | null = null;
   let topBtnVisible = false;
+  /** 收合鈕目前畫的是哪個方向的箭頭；null 表示尚未繪製（新建按鈕時重設） */
+  let renderedCollapseState: boolean | null = null;
 
   // 直接寫在 #trade / .wrapper 的非繼承屬性並做 dirty check，避免改動 <html> CSS 變數觸發 2 萬+ 節點樣式重算
   let appliedTradeEl: HTMLElement | null = null;
@@ -249,14 +247,21 @@ export function createTwoColumnLayoutController(
     doc.getElementById(TWO_COLUMN_STYLE_ID)?.remove();
   };
 
+  /** 同值不重寫：sync() 在拖曳／縮放時每幀執行，重寫會喚醒頁面上的 subtree 觀察者 */
+  const setLabelIfChanged = (el: Element, label: string) => {
+    setAttrIfChanged(el, 'title', label);
+    setAttrIfChanged(el, 'aria-label', label);
+  };
+
   const updateCollapseButtonUi = () => {
     if (!collapseBtnEl) return;
     const label = filtersCollapsed
       ? t('twoColumnLayout.expand.tooltip')
       : t('twoColumnLayout.collapse.tooltip');
-    collapseBtnEl.title = label;
-    collapseBtnEl.setAttribute('aria-label', label);
-    collapseBtnEl.setAttribute('aria-expanded', String(!filtersCollapsed));
+    setLabelIfChanged(collapseBtnEl, label);
+    setAttrIfChanged(collapseBtnEl, 'aria-expanded', String(!filtersCollapsed));
+    if (renderedCollapseState === filtersCollapsed) return;
+    renderedCollapseState = filtersCollapsed;
     collapseBtnEl.replaceChildren(
       createSvgIcon(
         {
@@ -269,21 +274,9 @@ export function createTwoColumnLayoutController(
   };
 
   const updateControlsLocale = () => {
-    if (splitterEl) {
-      const aria = t('twoColumnLayout.splitter.ariaLabel');
-      splitterEl.setAttribute('aria-label', aria);
-      splitterEl.title = aria;
-    }
-    if (headerTabEl) {
-      const label = t('twoColumnLayout.headerPullTab.tooltip');
-      headerTabEl.title = label;
-      headerTabEl.setAttribute('aria-label', label);
-    }
-    if (topBtnEl) {
-      const label = t('twoColumnLayout.scrollTop.tooltip');
-      topBtnEl.title = label;
-      topBtnEl.setAttribute('aria-label', label);
-    }
+    if (splitterEl) setLabelIfChanged(splitterEl, t('twoColumnLayout.splitter.ariaLabel'));
+    if (headerTabEl) setLabelIfChanged(headerTabEl, t('twoColumnLayout.headerPullTab.tooltip'));
+    if (topBtnEl) setLabelIfChanged(topBtnEl, t('twoColumnLayout.scrollTop.tooltip'));
     updateCollapseButtonUi();
   };
 
@@ -298,6 +291,7 @@ export function createTwoColumnLayoutController(
     splitterEl?.remove();
     splitterEl = null;
     collapseBtnEl = null;
+    renderedCollapseState = null;
   };
 
   const clearHeaderTimers = () => {
@@ -361,7 +355,6 @@ export function createTwoColumnLayoutController(
 
     setRootAttr(TWO_COLUMN_HIDE_HEADER_ATTR, 'true');
     if (headerTabEl && headerTabEl.parentElement === wrapper && headerBackdropEl?.isConnected) {
-      updateControlsLocale();
       return;
     }
 
@@ -742,7 +735,8 @@ export function createTwoColumnLayoutController(
       return;
     }
     if (splitterEl && splitterEl.parentElement === topEl) {
-      updateControlsLocale();
+      // 已掛載時只同步收合狀態（點擊／雙擊／Page Guide 改 filtersCollapsed 後經 sync() 到這裡）
+      updateCollapseButtonUi();
       return;
     }
     detachSplitter();
@@ -857,25 +851,26 @@ export function createTwoColumnLayoutController(
     const handleSync = () => {
       if (!disposed) sync();
     };
-    const handleSidebarGeometryEvent = () => {
-      // 有 ResizeObserver 監看 .content 時，改寬後由瀏覽器排版完畢回報尺寸，避免在事件當下強迫同步 reflow
+    const handleContentGeometryEvent = () => {
+      // 有 ResizeObserver 監看 .content 時，改寬後由瀏覽器排版完畢回報尺寸（borderBoxSize），
+      // 避免在 resize／側欄事件當下以 getBoundingClientRect 強迫同步 reflow，也避免同一次改寬 sync 兩遍
       if (disposed || (resizeObserver && observedContentEl?.isConnected)) return;
       sync();
     };
-    win.addEventListener('resize', handleSync);
+    win.addEventListener('resize', handleContentGeometryEvent);
     win.addEventListener('popstate', handleSync);
     const stopHistory = listenPoeEvent('poexd-history-changed', handleSync);
     const stopCollapsed = listenPoeEvent(
       'poexd-sidebar-collapsed-changed',
-      handleSidebarGeometryEvent,
+      handleContentGeometryEvent,
     );
     const stopWidthPreview = listenPoeEvent(
       'poexd-sidebar-width-preview',
-      handleSidebarGeometryEvent,
+      handleContentGeometryEvent,
     );
 
     eventCleanups = [
-      () => win.removeEventListener('resize', handleSync),
+      () => win.removeEventListener('resize', handleContentGeometryEvent),
       () => win.removeEventListener('popstate', handleSync),
       stopHistory,
       stopCollapsed,
@@ -907,8 +902,6 @@ export function createTwoColumnLayoutController(
     setRootAttr(TWO_COLUMN_COLLAPSED_ATTR, null);
     clearResponsiveBreakpointAttrs();
     clearDirectGridGeometry();
-    doc.documentElement.style.removeProperty(TWO_COLUMN_WIDTH_VAR);
-    doc.documentElement.style.removeProperty(TWO_COLUMN_MAX_WIDTH_VAR);
     detachSplitter();
     detachResultsBridge();
   };

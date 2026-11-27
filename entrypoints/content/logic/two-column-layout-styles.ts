@@ -27,8 +27,6 @@ export const TWO_COLUMN_SEARCH_BAR_ATTR = 'data-poexd-two-col-search-bar';
 export const TWO_COLUMN_CONTROLS_ATTR = 'data-poexd-two-col-controls';
 export const TWO_COLUMN_FILTERS_ATTR = 'data-poexd-two-col-filters';
 export const TWO_COLUMN_RESULTS_ATTR = 'data-poexd-two-col-results';
-export const TWO_COLUMN_WIDTH_VAR = '--poexd-two-col-left';
-export const TWO_COLUMN_MAX_WIDTH_VAR = '--poexd-two-col-max-width';
 export const TWO_COLUMN_SPLITTER_CLASS = 'poexd-two-col-splitter';
 export const TWO_COLUMN_COLLAPSE_BTN_CLASS = 'poexd-two-col-collapse-btn';
 export const TWO_COLUMN_HEADER_TAB_CLASS = 'poexd-two-col-header-tab';
@@ -106,7 +104,8 @@ export function buildTwoColumnLayoutCss(): string {
       min-height: 0 !important;
       height: 100% !important;
       width: 100% !important;
-      max-width: var(${TWO_COLUMN_MAX_WIDTH_VAR}, none) !important;
+      /* 實際上限由控制器以 inline !important 寫在 .wrapper（不寫 <html> CSS 變數，避免整份文件樣式重算） */
+      max-width: none !important;
       margin-inline: auto !important;
       display: flex !important;
       flex-direction: column !important;
@@ -250,7 +249,8 @@ export function buildTwoColumnLayoutCss(): string {
       margin-bottom: 0 !important;
       padding-bottom: 6px !important;
       display: grid !important;
-      grid-template-columns: var(${TWO_COLUMN_WIDTH_VAR}, ${TWO_COLUMN_DEFAULT_FILTER_WIDTH}px) minmax(0, 1fr) !important;
+      /* 實際左欄寬由控制器以 inline !important 寫在 #trade；此處僅為首次 sync 前的預設值 */
+      grid-template-columns: ${TWO_COLUMN_DEFAULT_FILTER_WIDTH}px minmax(0, 1fr) !important;
       grid-template-rows: auto minmax(0, 1fr) !important;
       column-gap: ${TWO_COLUMN_COLUMN_GAP}px !important;
       align-items: stretch !important;

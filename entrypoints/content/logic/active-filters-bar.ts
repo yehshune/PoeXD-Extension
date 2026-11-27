@@ -12,7 +12,7 @@
  * 採方角與官方暗黑／暖金 `oklch()` 色階，不隨 PoeXD 側邊欄主題變色。
  */
 import { t } from '@/utils/i18n';
-import { createSvgIcon } from '@/utils/safe-dom';
+import { createSvgIcon, setAttrIfChanged, setTextIfChanged } from '@/utils/safe-dom';
 import { CONSOLE_RESULT_ONLY_ATTR } from './live-search-console-host-guard';
 
 export const ACTIVE_FILTERS_STYLE_ID = 'poexd-active-filters-bar-style';
@@ -239,18 +239,6 @@ export function createActiveFiltersBar(
     doc.getElementById(ACTIVE_FILTERS_STYLE_ID)?.remove();
   };
 
-  const setTextIfChanged = (el: Element | null, next: string) => {
-    if (el && el.textContent !== next) {
-      el.textContent = next;
-    }
-  };
-
-  const setAttrIfChanged = (el: Element, name: string, next: string) => {
-    if (el.getAttribute(name) !== next) {
-      el.setAttribute(name, next);
-    }
-  };
-
   const updateBarUi = () => {
     const activeCount = countActiveBlueFilters(observedBluePane);
     if (toggleBtnEl && toggleLabelEl) {
@@ -264,9 +252,7 @@ export function createActiveFiltersBar(
       const nextTitle = activeOnly
         ? t('activeFiltersBar.showAllTooltip')
         : t('activeFiltersBar.onlyActiveTooltip');
-      if (toggleBtnEl.title !== nextTitle) {
-        toggleBtnEl.title = nextTitle;
-      }
+      setAttrIfChanged(toggleBtnEl, 'title', nextTitle);
     }
 
     setTextIfChanged(emptyTextEl, t('activeFiltersBar.emptyHint'));
