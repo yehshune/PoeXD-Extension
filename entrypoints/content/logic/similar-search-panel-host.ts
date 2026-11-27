@@ -34,7 +34,10 @@ export interface SimilarPanelHost {
 const GAP = 6;
 const MARGIN = 8;
 const PANEL_WIDTH = 440;
-const MIN_VISIBLE_HEIGHT = 360;
+/** 一側至少要有這麼高才往那一側開，否則佔滿視窗高度 */
+const MIN_COMFORT_HEIGHT = 360;
+/** 空間再多，面板也不超過這個高度 */
+const PANEL_MAX_HEIGHT = 720;
 
 const HOST_CSS = `
   :host {
@@ -49,14 +52,32 @@ const HOST_CSS = `
   }
 `;
 
-/** 面板放在列的下方；下方空間不夠時往上移，左右不超出視窗 */
+export type SimilarPanelPlacement = { left: number; maxHeight: number } & (
+  | { top: number }
+  | { bottom: number }
+);
+
+/**
+ * 面板放在列的下方；下方放不下時往上開、貼齊列的上緣；兩邊都放不下時佔滿視窗高度。
+ * 最大高度就是那一側的可用空間，內容在面板裡捲動，不會超出視窗。
+ */
 export function panelPosition(
   anchor: SimilarPanelAnchor,
   viewport: { width: number; height: number },
-): { top: number; left: number } {
-  const top = Math.max(MARGIN, Math.min(anchor.bottom + GAP, viewport.height - MIN_VISIBLE_HEIGHT));
+): SimilarPanelPlacement {
   const left = Math.max(MARGIN, Math.min(anchor.left, viewport.width - PANEL_WIDTH - MARGIN));
-  return { top, left };
+  const below = viewport.height - anchor.bottom - GAP - MARGIN;
+  if (below >= MIN_COMFORT_HEIGHT) return { top: anchor.bottom + GAP, left, maxHeight: below };
+  const above = anchor.top - GAP - MARGIN;
+  if (above >= MIN_COMFORT_HEIGHT) {
+    return { bottom: viewport.height - anchor.top + GAP, left, maxHeight: above };
+  }
+  return { top: MARGIN, left, maxHeight: viewport.height - MARGIN * 2 };
+}
+
+function placementStyle(placement: SimilarPanelPlacement): Record<string, string> {
+  const [edge, offset] = 'top' in placement ? ['top', placement.top] : ['bottom', placement.bottom];
+  return { position: 'fixed', left: `${placement.left}px`, [edge]: `${offset}px` };
 }
 
 interface MountedPanel {
@@ -73,6 +94,11 @@ export function mountSimilarSearchPanelHost(input: {
   const { session, version } = input;
   const state = shallowRef<SimilarSessionState>(session.getState());
   const portal = shallowRef<HTMLElement | null>(null);
+  const viewport = shallowRef({ width: window.innerWidth, height: window.innerHeight });
+  const onResize = () => {
+    viewport.value = { width: window.innerWidth, height: window.innerHeight };
+  };
+  window.addEventListener('resize', onResize);
   let appearance: SimilarPanelAppearance = {};
   let mounted: MountedPanel | null = null;
   let disposed = false;
@@ -93,14 +119,12 @@ export function mountSimilarSearchPanelHost(input: {
   const render = () => {
     const current = state.value;
     if (!current.open || !current.anchor) return null;
-    const { top, left } = panelPosition(current.anchor, {
-      width: window.innerWidth,
-      height: window.innerHeight,
-    });
+    const placement = panelPosition(current.anchor, viewport.value);
     return h(ConfigProvider, { teleportTo: portal.value ?? undefined, scrollBody: false }, () =>
-      h('div', { style: { position: 'fixed', top: `${top}px`, left: `${left}px` } }, [
+      h('div', { style: placementStyle(placement) }, [
         h(SimilarSearchPanel, {
           state: current,
+          maxHeight: Math.min(placement.maxHeight, PANEL_MAX_HEIGHT),
           version,
           homeKey: HOME_BATCH_KEY,
           onUpdateDraft: (update: Parameters<SimilarSearchSession['updateDraft']>[0]) =>
@@ -146,6 +170,7 @@ export function mountSimilarSearchPanelHost(input: {
     },
     dispose() {
       disposed = true;
+      window.removeEventListener('resize', onResize);
       stopState();
       mounted?.remove();
       mounted = null;

@@ -2,6 +2,12 @@
 import { computed, ref, watch, type PropType } from 'vue';
 import { X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
+import {
+  ScrollAreaCorner,
+  ScrollAreaRoot,
+  ScrollAreaViewport,
+  ScrollBar,
+} from '@/components/ui/scroll-area';
 import { t, type I18nKey } from '@/utils/i18n';
 import type { SimilarSearchDraft } from '@/utils/similar-item-search';
 import type { PoeVersion } from '@/utils/trade-context';
@@ -17,6 +23,8 @@ const props = defineProps({
   state: { type: Object as PropType<SimilarSessionState>, required: true },
   version: { type: String as PropType<PoeVersion>, default: 'poe1' },
   homeKey: { type: String, required: true },
+  /** 依擺放位置算出的可用高度；內容超過時在面板內捲動 */
+  maxHeight: { type: Number, default: 640 },
 });
 
 const emit = defineEmits<{
@@ -68,9 +76,10 @@ const statusTone = computed(() =>
 
 <template>
   <div
-    class="flex max-h-[min(70vh,640px)] w-[440px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-md border border-border bg-background text-foreground shadow-lg"
+    class="flex w-[440px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-md border border-border bg-background text-foreground shadow-lg"
     data-similar-panel
     :data-phase="state.phase"
+    :style="{ maxHeight: `${maxHeight}px` }"
   >
     <header
       class="flex items-center gap-[var(--pxd-space-sm)] border-b border-border px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]"
@@ -92,22 +101,32 @@ const statusTone = computed(() =>
       /></Button>
     </header>
 
-    <div class="min-h-0 flex-1 overflow-y-auto px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]">
-      <SimilarDraftEditor
-        v-if="state.draft && editorOpen"
-        :draft="state.draft"
-        :version="version"
-        :disabled="running"
-        @update="(update) => emit('update-draft', update)"
-      />
-      <p
-        v-if="state.dropped.length > 0"
-        class="m-0 mt-[var(--pxd-space-sm)] text-xs text-muted-foreground"
-        data-similar-dropped
-      >
-        {{ t('similarSearch.dropped', { count: String(state.dropped.length) }) }}
-      </p>
-    </div>
+    <!-- 與側邊欄相同的捲軸；Root 本身是 flex 欄，Viewport 才拿得到被壓縮後的高度 -->
+    <ScrollAreaRoot
+      class="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+      data-similar-scroll
+    >
+      <ScrollAreaViewport class="min-h-0 w-full flex-1">
+        <div class="px-[var(--pxd-space-md)] py-[var(--pxd-space-sm)]">
+          <SimilarDraftEditor
+            v-if="state.draft && editorOpen"
+            :draft="state.draft"
+            :version="version"
+            :disabled="running"
+            @update="(update) => emit('update-draft', update)"
+          />
+          <p
+            v-if="state.dropped.length > 0"
+            class="m-0 mt-[var(--pxd-space-sm)] text-xs text-muted-foreground"
+            data-similar-dropped
+          >
+            {{ t('similarSearch.dropped', { count: String(state.dropped.length) }) }}
+          </p>
+        </div>
+      </ScrollAreaViewport>
+      <ScrollBar />
+      <ScrollAreaCorner />
+    </ScrollAreaRoot>
 
     <nav
       v-if="tabs.length > 0"
