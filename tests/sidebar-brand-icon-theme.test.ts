@@ -41,7 +41,7 @@ describe('Sidebar UI Final Polish Contract & Verification', () => {
 
     it('SidebarPane internal scroll content applies pb-[var(--pxd-pane-scroll-end-space)] without double padding', () => {
       expect(sidebarPaneSource).toMatch(
-        /cn\(\s*'p-\[var\(--pxd-pane-padding\)\]\s+pb-\[var\(--pxd-pane-scroll-end-space\)\]',\s*\$slots\.fixed\s*&&\s*'pt-0',?\s*\)/,
+        /cn\(\s*'[^']*\bp-\[var\(--pxd-pane-padding\)\]\s+pb-\[var\(--pxd-pane-scroll-end-space\)\][^']*',\s*\$slots\.fixed\s*&&\s*'pt-0',?\s*\)/,
       );
     });
   });
