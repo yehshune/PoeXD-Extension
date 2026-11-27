@@ -123,9 +123,9 @@ describe('FilterPane Item Type Selector & Dialog (Static Contracts)', () => {
     expect(source).toContain('<PopoverContent');
     expect(source).toContain('align="start"');
     expect(source).toContain('side="bottom"');
-    // Bounded medium geometry for external Dialog
+    // Bounded wide geometry for external Dialog
     expect(source).toContain('max-h-[82vh]');
-    expect(source).toContain('max-w-[740px]');
+    expect(source).toContain('max-w-[920px]');
     expect(source).toContain('w-[calc(100vw-32px)]');
     // Options root holds vertical scroll ownership in panel
     expect(panelSource).toContain('ref="optionsRootRef"');

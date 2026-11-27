@@ -130,7 +130,7 @@
                     data-sidebar-dialog="affix-type"
                     :inert="affixDemoMode || undefined"
                     :class="[
-                      'flex max-h-[min(78vh,680px)] w-[min(740px,calc(100vw-48px))] flex-col gap-0 overflow-hidden p-0 shadow-xl',
+                      'flex max-h-[min(80vh,700px)] w-[min(920px,calc(100vw-48px))] flex-col gap-0 overflow-hidden p-0 shadow-xl',
                       affixDemoMode ? 'pointer-events-none select-none' : '',
                     ]"
                     @close-auto-focus="(e) => e.preventDefault()"
@@ -411,7 +411,7 @@
           :overlay-class="affixDemoMode ? 'pointer-events-none' : undefined"
           close-class="top-[calc((var(--pxd-sidebar-affix-dialog-header-height)-var(--control-height-sm,28px))/2)] right-[var(--pxd-pane-padding)]"
           :class="[
-            'flex h-auto max-h-[82vh] w-[calc(100vw-32px)] max-w-[740px] flex-col gap-0 overflow-hidden p-0',
+            'flex h-auto max-h-[82vh] w-[calc(100vw-32px)] max-w-[920px] flex-col gap-0 overflow-hidden p-0',
             affixDemoMode ? 'pointer-events-none select-none' : '',
           ]"
           @close-auto-focus="(e) => e.preventDefault()"
