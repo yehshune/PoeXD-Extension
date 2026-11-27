@@ -1,6 +1,11 @@
 import type { SupportedLocale } from './preferences-contract';
 import { getLocaleItemsAssetPath, type PoeVersion } from './trade-context';
-import { ensureAffixLexiconLoaded, setAffixLexiconMockData } from './affix-lexicon';
+import {
+  ensureAffixLexiconLoaded,
+  flattenAffixNewlines,
+  HYBRID_STAT_SEPARATOR,
+  setAffixLexiconMockData,
+} from './affix-lexicon';
 import { getActiveDisplayLocale, getActiveUiLocale } from './i18n';
 import {
   describeShardMismatch,
@@ -264,16 +269,13 @@ export function formatFilterValue(
   return parts.length > 0 ? parts.join(' ') : '';
 }
 
-/** 字典中混合詞綴（一條詞綴含多行效果）各行之間的分隔字串。 */
-export const HYBRID_STAT_SEPARATOR = '|||||';
+export { HYBRID_STAT_SEPARATOR };
 
-const STAT_LINE_SPLIT = /\|\|\|\|\||\\r\\n|\\r|\\n|\r?\n/;
-
-/** 翻譯詞綴並把混合詞綴或多行詞綴拆成多行，供顯示使用。 */
+/** 翻譯詞綴並把混合詞綴（`|||||`）拆成多行；單一詞綴內的折行壓成空白以維持單句完整。 */
 export function translateStatLines(statId: string, version: PoeVersion = 'poe1'): string[] {
   const lines = translateStat(statId, version)
-    .split(STAT_LINE_SPLIT)
-    .map((line) => line.trim())
+    .split(HYBRID_STAT_SEPARATOR)
+    .map((line) => flattenAffixNewlines(line))
     .filter((line) => line.length > 0);
   return lines.length > 0 ? lines : [statId];
 }

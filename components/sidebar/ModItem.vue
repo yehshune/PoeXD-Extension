@@ -220,6 +220,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight } from '@lucide/vue';
 import { Lock, Search } from '@lucide/vue';
 import { t } from '@/utils/i18n';
+import { formatAffixDisplayText } from '@/utils/affix-lexicon';
 import { isTierLockedByItemLevelMax, parseTierLevel } from './utils';
 
 export default defineComponent({
@@ -272,11 +273,6 @@ export default defineComponent({
   },
   emits: ['toggle-select', 'toggle-expand', 'toggle-tier-select', 'add-filter', 'add-tier-filter'],
   setup(props, { emit }) {
-    const formatModText = (text: string) => {
-      if (!text) return '';
-      return text.replace(/\|\|\|\|\||\\r\\n|\\r|\\n/g, '\n');
-    };
-
     interface HighlightSegment {
       text: string;
       highlighted: boolean;
@@ -287,7 +283,7 @@ export default defineComponent({
     };
 
     const getHighlightSegments = (rawText: string): HighlightSegment[] => {
-      const text = formatModText(rawText);
+      const text = formatAffixDisplayText(rawText);
       if (!text) return [];
 
       const query = props.searchQuery?.trim();

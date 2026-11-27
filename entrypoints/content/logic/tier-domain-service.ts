@@ -12,6 +12,7 @@ import {
 import {
   ensureAffixLexiconLoaded,
   findModTiersByStatId as findModTiersFromLexicon,
+  formatAffixDisplayText,
   getCandidateStatIds,
   isModsTiersArtifact,
   setAffixLexiconMockData,
@@ -135,7 +136,7 @@ export function groupTiersByMod(
   for (const [mapKey, entry] of groupsMap.entries()) {
     const { templateKey, affinity, tiers } = entry;
     const isPure = !templateKey.includes('|||||');
-    const label = templateKey.replace(/\|\|\|\|\||\\r\\n|\\r|\\n/g, '\n');
+    const label = formatAffixDisplayText(templateKey);
     const affName = affinity ? getAffinityDisplayName(affinity, version) : undefined;
 
     if (subKeyOrder.length > 0 && tiers.length > 1) {

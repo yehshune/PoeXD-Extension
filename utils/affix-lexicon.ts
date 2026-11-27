@@ -68,12 +68,32 @@ export const STAT_PREFIX_FALLBACKS = [
   'veiled.',
 ] as const;
 
+/** 字典中混合詞綴（一條詞綴含多個獨立 stat）各段之間的分隔字串。 */
+export const HYBRID_STAT_SEPARATOR = '|||||';
+
 const STAT_NEWLINE_PATTERN = /\\r\\n|\\r|\\n|\r\n|\r/g;
+
+/** 將描述檔的字面 `\n`（或 CRLF）還原為真正換行符 */
+export function unescapeAffixNewlines(text: string): string {
+  if (!text) return '';
+  return text.replace(STAT_NEWLINE_PATTERN, '\n');
+}
+
+/** 將單一詞綴文字內的字面或實體換行折成單一空白（供單行標籤、摘要與備援查詢使用） */
+export function flattenAffixNewlines(text: string): string {
+  if (!text) return '';
+  return unescapeAffixNewlines(text).replace(/\s+/g, ' ').trim();
+}
+
+/** 供詞綴選擇器／階級選單多行呈現：將複合分隔符 `|||||` 與字面換行統一轉成換行符 */
+export function formatAffixDisplayText(text: string): string {
+  if (!text) return '';
+  return unescapeAffixNewlines(text).split(HYBRID_STAT_SEPARATOR).join('\n');
+}
 
 /** 將描述檔的字面 `\n`（或 CRLF）還原為真正換行符，並清理每行多餘空白 */
 function normalizeStatNewlines(text: string, collapseSpaces: boolean): string {
-  return text
-    .replace(STAT_NEWLINE_PATTERN, '\n')
+  return unescapeAffixNewlines(text)
     .split('\n')
     .map((part) => (collapseSpaces ? part.replace(/[ \t]+/g, ' ').trim() : part.trim()))
     .join('\n')
@@ -750,9 +770,7 @@ export function getTierKeyInLocale(
 }
 
 export function formatFallbackQuery(querySource: string): string {
-  return querySource
-    .split('|||||')[0]
-    .replace(STAT_NEWLINE_PATTERN, ' ')
+  return flattenAffixNewlines(querySource.split(HYBRID_STAT_SEPARATOR)[0])
     .replace(/#/g, '')
     .replace(/%/g, '')
     .replace(/^\+/, '')

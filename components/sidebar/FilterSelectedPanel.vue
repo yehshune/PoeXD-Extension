@@ -44,7 +44,7 @@
                 T{{ getDisplayTier(info.id, info.selectedTierIndex) }}+
               </span>
               <span class="selected-mod-name whitespace-pre-line">{{
-                formatModText(getPendingModLabel(info))
+                formatAffixDisplayText(getPendingModLabel(info))
               }}</span>
               <span
                 v-if="!info.officialId && (!info.ids || info.ids.length === 0)"
@@ -140,6 +140,7 @@ import { computed } from 'vue';
 import { X } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 import type { ModGroup, SelectedModInfo } from './types';
+import { formatAffixDisplayText } from '@/utils/affix-lexicon';
 import { t, getActiveUiLocale } from '@/utils/i18n';
 
 export interface SelectedModGroup {
@@ -208,10 +209,5 @@ const getPendingModLabel = (info: SelectedModInfo) => {
     info.key ||
     ''
   );
-};
-
-const formatModText = (text: string) => {
-  if (!text) return '';
-  return text.replace(/\|\|\|\|\||\\r\\n|\\r|\\n/g, '\n');
 };
 </script>

@@ -24,7 +24,12 @@ import {
   type PoeVersion,
 } from './trade-context';
 import { getActiveDisplayLocale, getActiveUiLocale } from './i18n';
-import { getCandidateStatIds, renderGenericTemplate, translateAffixStat } from './affix-lexicon';
+import {
+  flattenAffixNewlines,
+  getCandidateStatIds,
+  renderGenericTemplate,
+  translateAffixStat,
+} from './affix-lexicon';
 import { translateMercenaryStat } from './mercenary-data';
 import { isMarketTranslationHost } from './market-translation';
 import { buildStatDomainIndex, statDomainsOf, type StatDomainIndex } from './stat-domain-order';
@@ -397,6 +402,10 @@ function lookupLiveStatText(
  * 優先用即時市集資料（顯示語系等於頁面語系時，任何語系都可用），再用打包的官方分片（en、zh-TW、zh-CN）。
  * 打包分片尚未載入時在背景載入並回傳 null；中文市集回傳的仍是英文原文時也視為沒有翻譯。
  */
+/** 官方市集文字含大量句中折行 `\n`，統一折為空白維持單句完整 */
+const formatOfficialStatLabel = (text: string, locale: SupportedAffixLocale | string): string =>
+  flattenAffixNewlines(renderGenericTemplate(text, locale));
+
 export function getOfficialStatLabel(
   statId: string,
   version: PoeVersion,
@@ -404,12 +413,12 @@ export function getOfficialStatLabel(
 ): string | null {
   if (!statId) return null;
   const live = lookupLiveStatText(statId, version, locale);
-  if (live !== undefined) return live === null ? null : renderGenericTemplate(live, locale);
+  if (live !== undefined) return live === null ? null : formatOfficialStatLabel(live, locale);
   if (!isOfficialLocale(locale)) return null;
   const text = lookupRawStatText(readStatShard(version, locale)?.stats, statId);
   if (!text) return null;
   const translated = rejectUntranslated(text, statId, version, locale);
-  return translated === null ? null : renderGenericTemplate(translated, locale);
+  return translated === null ? null : formatOfficialStatLabel(translated, locale);
 }
 
 /** 官方市集 stat 網域（`pseudo` / `implicit` / `crafted` 等）對應的顯示標籤 */

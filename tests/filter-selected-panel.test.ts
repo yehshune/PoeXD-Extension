@@ -2,9 +2,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { mockModsData } from './helpers/mock-mods-data';
-import { createApp, defineComponent, h, nextTick } from 'vue';
+import { createApp, defineComponent, h, nextTick, ref } from 'vue';
 import { ConfigProvider } from 'reka-ui';
 import FilterPane from '@/components/sidebar/FilterPane.vue';
+import { useAffixFilter } from '@/components/sidebar/composables/useAffixFilter';
 import { listenPoeEvent } from '@/utils/event-contracts';
 import { setKnownStats } from '@/utils/known-stats-store';
 
@@ -855,5 +856,82 @@ describe('FilterPane Selected Mods Panel (Runtime Contracts)', () => {
     expect(addedFilters[0].modGroup).toBe('normal::+# 智慧');
 
     addCleanup();
+  });
+
+  it('S. renders escaped \\n as real newlines with whitespace-pre-line in FilterSelectedPanel', async () => {
+    mockModsData({
+      '#% less duration|||||immunity to ignite during effect\\nremoves burning on use': [
+        {
+          key: '#% less duration|||||immunity to ignite during effect\\nremoves burning on use',
+          displayKey: '(35-39)% 更少持續時間|||||效果持續時間免疫點燃\\n使用時移除燃燒狀態',
+          displayTemplate: '#% 更少持續時間|||||效果持續時間免疫點燃\\n使用時移除燃燒狀態',
+          values: [['35', '39']],
+          level: '12',
+          generation_type: '2',
+          affinities: ['normal'],
+          types: ['body-armour'],
+          ids: ['explicit.stat_1506355899', 'explicit.stat_658443507'],
+        },
+      ],
+    });
+
+    await mountFilterPane();
+
+    const selectZone = appRoot.querySelector('.mod-row .mod-select-zone') as HTMLElement;
+    expect(selectZone).toBeTruthy();
+    selectZone.click();
+    await nextTick();
+
+    const selectedName = appRoot.querySelector('.selected-mod-name') as HTMLElement;
+    expect(selectedName).toBeTruthy();
+    expect(selectedName.classList.contains('whitespace-pre-line')).toBe(true);
+    expect(selectedName.textContent).toBe(
+      '#% 更少持續時間\n效果持續時間免疫點燃\n使用時移除燃燒狀態',
+    );
+  });
+
+  it('T. useAffixFilter does not falsely match escaped \\n when searching for "\\" or "n"', async () => {
+    vi.useFakeTimers();
+    try {
+      const modWithEscapedNewline = {
+        id: 'mod_escaped_newline',
+        key: 'foo\\nbar',
+        displayKey: '效果持續時間免疫點燃\\n使用時移除燃燒狀態',
+        displayTemplate: '效果持續時間免疫點燃\\n使用時移除燃燒狀態',
+        details: 'Lv.1',
+        generation_type: '2',
+        affinities: ['normal'],
+        tiers: [],
+      };
+      const rawModsData = ref<Record<string, unknown>>({ [modWithEscapedNewline.key]: [] });
+      const currentTypeGroups = ref([modWithEscapedNewline]);
+
+      const filter = useAffixFilter({
+        rawModsData,
+        currentTypeGroups,
+        getCategoryLabel: (a) => a,
+        getCategoryPriority: () => 0,
+      });
+
+      filter.searchQuery.value = '\\';
+      await nextTick();
+      vi.advanceTimersByTime(300);
+      await nextTick();
+      expect(filter.filteredModTotalCount.value).toBe(0);
+
+      filter.searchQuery.value = 'n';
+      await nextTick();
+      vi.advanceTimersByTime(300);
+      await nextTick();
+      expect(filter.filteredModTotalCount.value).toBe(0);
+
+      filter.searchQuery.value = '免疫點燃 移除燃燒';
+      await nextTick();
+      vi.advanceTimersByTime(300);
+      await nextTick();
+      expect(filter.filteredModTotalCount.value).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

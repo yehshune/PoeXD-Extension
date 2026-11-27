@@ -51,6 +51,31 @@ describe('official stat text (官方市集詞綴文字)', () => {
     );
   });
 
+  it('將官方市集文字中的句中折行 \\n 折為單一空白，避免截斷長句', () => {
+    setTradeLabelTestData({
+      version: 'poe1',
+      officialStats: {
+        'zh-TW': {
+          stats: {
+            'explicit.stat_wrap_zh':
+              '每個此珠寶插槽和你職業起始位置間\n已配置的天賦點，增加此珠寶插槽 #% 效果。',
+          },
+        },
+        en: {
+          stats: {
+            'explicit.stat_wrap_en': 'Your Maps have +#% chance\nto contain a Shrine',
+          },
+        },
+      },
+    });
+    expect(getOfficialStatLabel('explicit.stat_wrap_zh', 'poe1', 'zh-TW')).toBe(
+      '每個此珠寶插槽和你職業起始位置間 已配置的天賦點，增加此珠寶插槽 #% 效果。',
+    );
+    expect(getOfficialStatLabel('explicit.stat_wrap_en', 'poe1', 'en')).toBe(
+      'your maps have +#% chance to contain a shrine',
+    );
+  });
+
   it('英文跟詞綴字典一致：轉小寫並去掉開頭的 +', () => {
     setTradeLabelTestData({
       version: 'poe1',

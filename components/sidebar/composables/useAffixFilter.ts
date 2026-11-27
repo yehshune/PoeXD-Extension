@@ -1,6 +1,7 @@
 import { computed, ref, watch, type Ref } from 'vue';
 import { filterModGroupsByItemLevel, parseItemLevelFilter } from '../utils';
 import type { CategoryGroup, ModGroup } from '../types';
+import { unescapeAffixNewlines } from '@/utils/affix-lexicon';
 import { getActiveDisplayLocale } from '@/utils/i18n';
 import { useDebouncedRef } from './useDebouncedSearch';
 
@@ -15,7 +16,7 @@ export interface UseAffixFilterOptions {
   getCategoryPriority: (affinity: string) => number;
 }
 
-const normalizeForSearch = (text: string) => text.replace(/\\r\\n|\\r|\\n/g, '\n').toLowerCase();
+const normalizeForSearch = (text: string) => unescapeAffixNewlines(text).toLowerCase();
 
 /** 依關鍵字（空白分隔、全部命中）比對詞綴顯示文字；中文與英文介面也比對英文 key */
 const matchesSearch = (mod: ModGroup, queries: string[], includeEnglishKey: boolean) =>
