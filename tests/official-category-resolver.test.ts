@@ -284,16 +284,7 @@ describe('official category structured query resolver', () => {
     }
 
     // PoE1 specific broad options
-    for (const poe1Broad of [
-      'weapon.one',
-      'weapon.onemelee',
-      'weapon.twomelee',
-      'weapon.dagger',
-      'weapon.onesword',
-      'weapon.onemace',
-      'weapon.staff',
-      'jewel',
-    ]) {
+    for (const poe1Broad of ['weapon.one', 'weapon.onemelee', 'weapon.twomelee', 'jewel']) {
       expect(resolveOfficialTierCategory('poe1', makeQuery(poe1Broad))).toEqual({
         status: 'unavailable',
       });
@@ -306,12 +297,32 @@ describe('official category structured query resolver', () => {
       'weapon.ranged',
       'weapon.caster',
       'map',
-      'flask',
     ]) {
       expect(resolveOfficialTierCategory('poe2', makeQuery(poe2Broad))).toEqual({
         status: 'unavailable',
       });
     }
+  });
+
+  it('maps narrow generic options (任何單手劍／任一匕首／任何單手錘／任一長杖／任何藥劑) to virtual container parents', () => {
+    const makeQuery = (option: string) => ({
+      filters: { type_filters: { filters: { category: { option } } } },
+    });
+    for (const [option, category] of [
+      ['weapon.onesword', 'any-one-hand-sword'],
+      ['weapon.dagger', 'any-dagger'],
+      ['weapon.onemace', 'any-one-hand-mace'],
+      ['weapon.staff', 'any-staff'],
+    ]) {
+      expect(resolveOfficialTierCategory('poe1', makeQuery(option))).toEqual({
+        status: 'known_category',
+        category,
+      });
+    }
+    expect(resolveOfficialTierCategory('poe2', makeQuery('flask'))).toEqual({
+      status: 'known_category',
+      category: 'any-flask',
+    });
   });
 
   it('reverse-maps internal categories and attribute subtypes to official trade category options', () => {

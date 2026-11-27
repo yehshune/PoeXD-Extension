@@ -127,6 +127,8 @@ export const typeMapPoe2: Record<string, TypeInfo> = {
   'life-flask': { cat: ['生命藥劑', '生命药剂', 'Life Flask'] },
   'mana-flask': { cat: ['魔力藥劑', '魔力药剂', 'Mana Flask'] },
   charm: { cat: ['護符', '护符', 'Charm'] },
+  // 官方「任何藥劑」泛用類別的虛擬容器父類（資料沒有此鍵，不列入類別選擇器分組）
+  'any-flask': { cat: ['任何藥劑', '任何药剂', 'Any Flask'] },
 
   // === 聖物 (Relics) ===
   relic: { cat: ['聖物', '圣物', 'Relic'] },
@@ -264,6 +266,7 @@ const TYPE_NAMES_POE2_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     'life-flask': '生命藥劑',
     'mana-flask': '魔力藥劑',
     charm: '護符',
+    'any-flask': '任何藥劑',
     relic: '聖物',
     'urn-relic': '骨灰甕聖物',
     'amphora-relic': '雙耳瓶聖物',
@@ -358,6 +361,7 @@ const TYPE_NAMES_POE2_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     'life-flask': '生命药剂',
     'mana-flask': '魔力药剂',
     charm: '护符',
+    'any-flask': '任何药剂',
     relic: '圣物',
     'urn-relic': '骨灰瓮圣物',
     'amphora-relic': '双耳瓶圣物',
@@ -452,6 +456,7 @@ const TYPE_NAMES_POE2_BY_LOCALE: Readonly<Record<SupportedUiLocale, Record<strin
     'life-flask': 'Life Flask',
     'mana-flask': 'Mana Flask',
     charm: 'Charm',
+    'any-flask': 'Any Flask',
     relic: 'Relic',
     'urn-relic': 'Urn Relic',
     'amphora-relic': 'Amphora Relic',
@@ -674,6 +679,14 @@ function buildPoe2RowConfigs(locale: SupportedUiLocale): TypeRowConfig[] {
       },
     },
     {
+      mainKey: 'any-flask',
+      subKeys: isEn
+        ? { 'life-flask': 'Life', 'mana-flask': 'Mana', charm: 'Charm' }
+        : isCn
+          ? { 'life-flask': '生命', 'mana-flask': '魔力', charm: '护符' }
+          : { 'life-flask': '生命', 'mana-flask': '魔力', charm: '護符' },
+    },
+    {
       mainKey: 'jewel',
       subKeys: isEn
         ? {
@@ -762,6 +775,7 @@ export const officialCategoryMapPoe2: Record<string, string> = {
   jewel: 'jewel',
 
   // === 藥劑 ===
+  flask: 'any-flask',
   'flask.life': 'life-flask',
   'flask.mana': 'mana-flask',
   'flask.charm': 'charm',

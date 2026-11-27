@@ -1,6 +1,18 @@
 import type { TypeRowConfig } from '@/components/sidebar/typeMaps';
 
 /**
+ * 對應官方市集泛用類別（如「任何單手劍」）的虛擬父類別：資料裡沒有這個鍵，
+ * 詞綴池與 T 階一律由子類別展開而來。
+ */
+export const VIRTUAL_CONTAINER_PARENT_TYPES: ReadonlySet<string> = new Set([
+  'any-one-hand-sword',
+  'any-dagger',
+  'any-one-hand-mace',
+  'any-staff',
+  'any-flask',
+]);
+
+/**
  * 僅作為子類別容器的父類別（本身沒有獨立詞綴池）：
  * 類別選擇器隱藏父按鈕改為純標題、詞綴選擇器自動落至子類別並顯示子類快切列。
  */
@@ -8,6 +20,7 @@ export const CONTAINER_ONLY_PARENT_TYPES: ReadonlySet<string> = new Set([
   'cluster_jewel',
   'heist_equipment',
   'viscera',
+  ...VIRTUAL_CONTAINER_PARENT_TYPES,
 ]);
 
 /**
@@ -20,6 +33,7 @@ export const SUBTYPE_SPLIT_PARENTS: ReadonlySet<string> = new Set([
   'abyss_jewel',
   'heist_equipment',
   'viscera',
+  ...VIRTUAL_CONTAINER_PARENT_TYPES,
 ]);
 
 export const SUBTYPE_MOD_GROUP_SEPARATOR = '@@';
@@ -56,6 +70,27 @@ export function resolveAvailableContainerSubKeys(
   const row = typeRowConfigs.find((r) => r.mainKey === parentKey);
   if (!row) return [];
   return Object.keys(row.subKeys).filter((sk) => availableTypes.includes(sk));
+}
+
+/** 虛擬父類別展開成子類別鍵；非虛擬父類別回傳空陣列 */
+export function resolveVirtualContainerSubKeys(
+  typeRowConfigs: readonly TypeRowConfig[],
+  type: string,
+): string[] {
+  if (!VIRTUAL_CONTAINER_PARENT_TYPES.has(type)) return [];
+  const row = typeRowConfigs.find((r) => r.mainKey === type);
+  return row ? Object.keys(row.subKeys) : [];
+}
+
+/** subType 是否為容器父類 parentType 底下的子類別 */
+export function isContainerSubtypeOf(
+  typeRowConfigs: readonly TypeRowConfig[],
+  parentType: string,
+  subType: string,
+): boolean {
+  if (!CONTAINER_ONLY_PARENT_TYPES.has(parentType)) return false;
+  const row = typeRowConfigs.find((r) => r.mainKey === parentType);
+  return Boolean(row && Object.prototype.hasOwnProperty.call(row.subKeys, subType));
 }
 
 export interface ContainerSubtypeQuickSwitch {

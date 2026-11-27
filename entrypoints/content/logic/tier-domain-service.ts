@@ -1,6 +1,10 @@
 import { getTradeMapping } from '@/components/sidebar/mapping-registry';
 import { type PoeVersion } from '@/utils/trade-context';
-import { formatSubtypeModGroupId, resolveSubTypeLabelsMap } from '@/utils/item-category-hierarchy';
+import {
+  formatSubtypeModGroupId,
+  resolveSubTypeLabelsMap,
+  resolveVirtualContainerSubKeys,
+} from '@/utils/item-category-hierarchy';
 import {
   getAffinityProfile,
   commonAffinityProfile,
@@ -474,14 +478,22 @@ export function resolveTierModEligibility(
 }
 
 /**
- * 依 category 過濾符合該物品類別的 normal tiers
+ * 依 category 過濾符合該物品類別的 normal tiers。
+ * 虛擬容器父類（如「任何單手劍」）在資料裡沒有對應鍵，給定版本時改以其子類別展開比對。
  */
 export function filterTiersByCategory(
   normalTiers: any[],
   category: string | null | undefined,
+  version?: PoeVersion,
 ): any[] {
   if (!category || !Array.isArray(normalTiers)) return [];
-  return normalTiers.filter((t) => t && Array.isArray(t.types) && t.types.includes(category));
+  const virtualSubKeys = version
+    ? resolveVirtualContainerSubKeys(getTradeMapping(version).typeRowConfigs, category)
+    : [];
+  const matchKeys = virtualSubKeys.length > 0 ? virtualSubKeys : [category];
+  return normalTiers.filter(
+    (t) => t && Array.isArray(t.types) && matchKeys.some((key) => t.types.includes(key)),
+  );
 }
 
 export function createTierDomainService(version: PoeVersion): TierDomainService {
@@ -519,7 +531,9 @@ export function createTierDomainService(version: PoeVersion): TierDomainService 
       return resolveTierModEligibility(tiers, statId, version);
     },
 
-    filterTiersByCategory,
+    filterTiersByCategory(normalTiers, category) {
+      return filterTiersByCategory(normalTiers, category, version);
+    },
 
     groupTiersByMod(filteredTiers, category) {
       return groupTiersByMod(filteredTiers, version, category);

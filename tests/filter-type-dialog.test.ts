@@ -792,6 +792,48 @@ describe('FilterPane Item Type Selector & Dialog (Runtime Contracts)', () => {
     expect(appRoot.querySelector('[data-filter-action="sync-official-category"]')).toBeNull();
   });
 
+  it('官方泛用「任何單手劍」落到單手劍，子類快切列移到標題列且不顯示同步按鈕', async () => {
+    mockModsData({
+      phys: [
+        {
+          id: 'explicit.stat_1509134228',
+          level: '1',
+          types: ['one-hand-sword', 'thrusting-one-hand-sword'],
+          affinities: ['normal'],
+          values: [['40', '49']],
+        },
+      ],
+    });
+
+    const header = document.createElement('div');
+    header.setAttribute('data-test', 'header-portal');
+    await mountFilterPane({ headerPortalTarget: header });
+    dispatchPoeEvent('poexd-equipment-type-changed', { type: 'any-one-hand-sword' });
+    await nextTick();
+    await nextTick();
+
+    const triggerBtn = header.querySelector(
+      '[data-filter-action="open-type-dialog"]',
+    ) as HTMLButtonElement;
+    expect(triggerBtn.textContent?.trim()).toBe('單手劍');
+
+    const quickSwitch = header.querySelector('[data-slot="subtype-quick-switch"]') as HTMLElement;
+    expect(quickSwitch).toBeTruthy();
+    expect(quickSwitch.textContent).toContain('任何單手劍');
+    expect(appRoot.querySelector('[data-slot="subtype-quick-switch"]')).toBeNull();
+
+    (
+      quickSwitch.querySelector(
+        '[data-subtype-key="thrusting-one-hand-sword"]',
+      ) as HTMLButtonElement
+    ).click();
+    await nextTick();
+    expect(triggerBtn.textContent?.trim()).toBe('細劍');
+
+    // 選到的子類仍在官方「任何單手劍」範圍內，不提示同步成具體類別
+    expect(header.querySelector('[data-filter-action="sync-official-category"]')).toBeNull();
+  });
+
   it('隱藏容器父類後，搜尋父類名稱（如劫盜裝備）仍可命中其子類別按鈕', async () => {
     setTierCategorySelectionTarget({
       slotKey: 'tier-slot-heist',

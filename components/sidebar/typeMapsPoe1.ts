@@ -379,7 +379,28 @@ function buildArmourDefs(): Record<string, CategoryDef> {
   return defs;
 }
 
-const ALL_DEFS: Readonly<Record<string, CategoryDef>> = { ...buildArmourDefs(), ...SIMPLE_DEFS };
+/**
+ * 官方市集泛用類別（「任何單手劍」等）的虛擬容器父類：資料沒有這些鍵，
+ * 只用於名稱顯示與子類快切，不列入類別選擇器分組。
+ */
+const VIRTUAL_CONTAINER_DEFS: Readonly<Record<string, CategoryDef>> = {
+  'any-one-hand-sword': D(
+    ['任何單手劍', '任何单手剑', 'Any One-Handed Sword'],
+    L('任何單手劍', '任何单手剑', 'Any One-Handed Sword'),
+  ),
+  'any-dagger': D(['任一匕首', '任何匕首', 'Any Dagger'], L('任一匕首', '任何匕首', 'Any Dagger')),
+  'any-one-hand-mace': D(
+    ['任何單手錘', '任何单手锤', 'Any One-Handed Mace'],
+    L('任何單手錘', '任何单手锤', 'Any One-Handed Mace'),
+  ),
+  'any-staff': D(['任一長杖', '任何长杖', 'Any Staff'], L('任一長杖', '任何长杖', 'Any Staff')),
+};
+
+const ALL_DEFS: Readonly<Record<string, CategoryDef>> = {
+  ...buildArmourDefs(),
+  ...SIMPLE_DEFS,
+  ...VIRTUAL_CONTAINER_DEFS,
+};
 
 export const typeMapPoe1: Record<string, TypeInfo> = Object.fromEntries(
   Object.entries(ALL_DEFS).map(([key, def]) => [key, def.info]),
@@ -518,6 +539,34 @@ const ROW_DEFS: ReadonlyArray<{
     mainKey: 'viscera',
     subKeys: Object.fromEntries(VISCERA_PARTS.map((part) => [part.key, part.short])),
   },
+  {
+    mainKey: 'any-one-hand-sword',
+    subKeys: {
+      'one-hand-sword': L('單手劍', '单手剑', 'Sword'),
+      'thrusting-one-hand-sword': L('細劍', '细剑', 'Thrusting'),
+    },
+  },
+  {
+    mainKey: 'any-dagger',
+    subKeys: {
+      dagger: L('匕首', '匕首', 'Dagger'),
+      'rune-dagger': L('符紋匕首', '符文匕首', 'Rune Dagger'),
+    },
+  },
+  {
+    mainKey: 'any-one-hand-mace',
+    subKeys: {
+      'one-hand-mace': L('單手錘', '单手锤', 'Mace'),
+      sceptre: L('權杖', '短杖', 'Sceptre'),
+    },
+  },
+  {
+    mainKey: 'any-staff',
+    subKeys: {
+      staff: L('長杖', '长杖', 'Staff'),
+      warstaff: L('征戰長杖', '战争长杖', 'Warstaff'),
+    },
+  },
 ];
 
 function rowsFor(locale: SupportedUiLocale): TypeRowConfig[] {
@@ -543,15 +592,19 @@ export const typeRowConfigsPoe1: TypeRowConfig[] = createActiveUiLocaleProxy(
 
 export const officialCategoryMapPoe1: Record<string, string> = {
   'weapon.claw': 'claw',
+  'weapon.dagger': 'any-dagger',
   'weapon.basedagger': 'dagger',
   'weapon.runedagger': 'rune-dagger',
   'weapon.wand': 'wand',
+  'weapon.onesword': 'any-one-hand-sword',
   'weapon.basesword': 'one-hand-sword',
   'weapon.rapier': 'thrusting-one-hand-sword',
   'weapon.oneaxe': 'one-hand-axe',
+  'weapon.onemace': 'any-one-hand-mace',
   'weapon.basemace': 'one-hand-mace',
   'weapon.sceptre': 'sceptre',
   'weapon.bow': 'bow',
+  'weapon.staff': 'any-staff',
   'weapon.basestaff': 'staff',
   'weapon.warstaff': 'warstaff',
   'weapon.twosword': 'two-hand-sword',
@@ -583,7 +636,7 @@ export const officialCategoryMapPoe1: Record<string, string> = {
   'sanctum.relic': 'relic',
   'heistmission.contract': 'contract',
   'heistmission.blueprint': 'contract',
-  heist_equipment: 'heist_equipment',
+  heistequipment: 'heist_equipment',
   'heistequipment.heistweapon': 'heist_gear',
   'heistequipment.heisttool': 'heist_tool',
   'heistequipment.heistutility': 'heist_cloak',

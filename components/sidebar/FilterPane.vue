@@ -58,7 +58,7 @@
           <!-- 篩選控制項整合為單行（窄螢幕自動換行） -->
           <!-- 容器型類別子類快切列（如星團珠寶：巨型／中型／小型） -->
           <div
-            v-if="activeContainerSubtypes"
+            v-if="activeContainerSubtypes && !headerPortalTarget"
             data-slot="subtype-quick-switch"
             class="flex flex-wrap items-center gap-[var(--pxd-space-xs)] mb-[var(--pxd-space-xs)]"
           >
@@ -149,6 +149,38 @@
                     />
                   </PopoverContent>
                 </Popover>
+
+                <!-- 容器型類別子類快切列：掛載於 Sidebar 時緊貼類別選擇器放在標題列 -->
+                <div
+                  v-if="headerPortalTarget && activeContainerSubtypes"
+                  data-slot="subtype-quick-switch"
+                  class="flex min-w-0 shrink items-center gap-[var(--pxd-space-xs)]"
+                >
+                  <span
+                    class="text-[length:var(--pxd-font-caption)] text-muted-foreground whitespace-nowrap select-none"
+                  >
+                    {{ activeContainerSubtypes.parentLabel }}
+                  </span>
+                  <ToggleGroup
+                    :model-value="selectedType"
+                    type="single"
+                    variant="outline"
+                    size="sm"
+                    class="shrink-0"
+                    @update:model-value="handleContainerSubtypeChange"
+                  >
+                    <ToggleGroupItem
+                      v-for="opt in activeContainerSubtypes.options"
+                      :key="opt.key"
+                      :value="opt.key"
+                      :title="opt.fullLabel"
+                      :data-subtype-key="opt.key"
+                      class="select-none data-[state=on]:font-bold"
+                    >
+                      {{ opt.label }}
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
 
                 <Button
                   v-if="headerPortalTarget && syncableOfficialCategory"
@@ -491,7 +523,9 @@ import { useModSelection } from './composables/useModSelection';
 import { dispatchPoeEvent, listenPoeEvent } from '@/utils/event-contracts';
 import { resolveOfficialCategoryOption } from '@/utils/official-category-resolver';
 import {
+  VIRTUAL_CONTAINER_PARENT_TYPES,
   isContainerOnlyParentType,
+  isContainerSubtypeOf,
   resolveActiveContainerSubtypes,
   resolveAvailableContainerSubKeys,
 } from '@/utils/item-category-hierarchy';
@@ -955,6 +989,8 @@ export default defineComponent({
 
           typeRowConfigs.forEach((rowConfig) => {
             const mainKey = rowConfig.mainKey;
+            // 虛擬容器父類只供官方泛用類別的子類快切，類別選擇器維持原本的單一按鈕
+            if (VIRTUAL_CONTAINER_PARENT_TYPES.has(mainKey)) return;
             const subKeysObj = rowConfig.subKeys as Record<string, string>;
 
             const availableSubKeys = Object.keys(subKeysObj).filter(
@@ -1321,6 +1357,17 @@ export default defineComponent({
     const officialCategory = ref<string | null>(null);
 
     const syncableOfficialCategory = computed(() => {
+      // 官方為容器類別（如任何單手劍）且已選其子類時，不提示同步成具體類別
+      if (
+        officialCategory.value &&
+        isContainerSubtypeOf(
+          tradeMapping.typeRowConfigs,
+          officialCategory.value,
+          selectedType.value,
+        )
+      ) {
+        return null;
+      }
       const resolved = resolveOfficialCategoryOption(version, selectedType.value);
       if (!resolved) return null;
       const currentOfficialMain = officialCategory.value
